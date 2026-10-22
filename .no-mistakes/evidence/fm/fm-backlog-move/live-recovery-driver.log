@@ -1,0 +1,170 @@
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a x
+stored: state/handoff/home-a513a90894c91ecfc2fd76f6dbffbbbe018a9807444c21b5a731b2e4a6330065.outbox.md bytes=77
+received: home-a513a90894c91ecfc2fd76f6dbffbbbe018a9807444c21b5a731b2e4a6330065 moved=1 already=0
+handed off 1 item(s) to remote secondmate 127.0.0.1: x
+  already staged (recovered): x
+
+exit=0
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a
+## In flight
+
+## Queued
+- [ ] parent - Parent title (repo: alpha)
+  full first paragraph
+
+  ## Intent
+  full second paragraph
+  prep: data/parent/prep.md
+- [ ] child - Child title (repo: alpha) blocked-by: parent - needs evidence (since 2026-10-21)
+  child body
+
+- [ ] x - bound to A
+  prep: data/x/prep.md
+## Done
+
+PASS retained A batch cannot drain to B on same host, and A retry converges
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a stale
+ssh: connect to host 127.0.0.1 port 45949: Connection refused
+error: handoff transfer to 127.0.0.1 was unavailable or completion is unknown; outbox preserved at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source/data/handoff/home-dd9b639564736ffa7f9cbcbae58d4266ccf011be8561a3ad7cd5140468e20af3.outbox.md
+
+exit=1
+$ tasks-axi update stale --body replacement body --file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source/data/backlog.md --backend markdown
+ok: updated stale (body)
+task:
+  id: stale
+  title: Original title
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: "-"
+  deps: none
+  links: none
+  body: replacement body
+help[1]:
+  - Run `tasks-axi show stale --full --backend=markdown --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source/data/backlog.md` to see the result
+
+exit=0
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a stale
+stored: state/handoff/home-a513a90894c91ecfc2fd76f6dbffbbbe018a9807444c21b5a731b2e4a6330065.outbox.md bytes=105
+error: delivered stale does not match the source; source left queued
+error: remote backlog is durable at 127.0.0.1, but the source was not closed; outbox preserved at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source/data/handoff/home-dd9b639564736ffa7f9cbcbae58d4266ccf011be8561a3ad7cd5140468e20af3.outbox.md
+
+exit=1
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source
+## In flight
+
+## Queued
+- [ ] stale - Original title
+  replacement body
+## Done
+
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a
+## In flight
+
+## Queued
+- [ ] parent - Parent title (repo: alpha)
+  full first paragraph
+
+  ## Intent
+  full second paragraph
+  prep: data/parent/prep.md
+- [ ] child - Child title (repo: alpha) blocked-by: parent - needs evidence (since 2026-10-21)
+  child body
+
+- [ ] x - bound to A
+  prep: data/x/prep.md
+- [ ] stale - Original title
+  original body
+  prep: data/stale/prep.md
+## Done
+
+PASS changed source remains queued after stale retained payload is acknowledged
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a origin2
+stored: state/handoff/home-16934196bba87ee334293bf44b915e394cb15ceec1b01f163d11867ae905b002.outbox.md bytes=68
+received: home-16934196bba87ee334293bf44b915e394cb15ceec1b01f163d11867ae905b002 moved=1 already=0
+handed off 1 item(s) to remote secondmate 127.0.0.1: origin2
+
+exit=0
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a
+## In flight
+
+## Queued
+- [ ] parent - Parent title (repo: alpha)
+  full first paragraph
+
+  ## Intent
+  full second paragraph
+  prep: data/parent/prep.md
+- [ ] child - Child title (repo: alpha) blocked-by: parent - needs evidence (since 2026-10-21)
+  child body
+
+- [ ] x - bound to A
+  prep: data/x/prep.md
+- [ ] stale - Original title
+  original body
+  prep: data/stale/prep.md
+- [ ] origin2 - Independent source
+## Done
+
+PASS second source home delivers its generation one to existing target
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a blocker
+ssh: connect to host 127.0.0.1 port 45949: Connection refused
+error: handoff transfer to 127.0.0.1 was unavailable or completion is unknown; outbox preserved at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3/data/handoff/home-dd9b639564736ffa7f9cbcbae58d4266ccf011be8561a3ad7cd5140468e20af3.outbox.md
+
+exit=1
+$ tasks-axi add outside outside dependent --file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3/data/backlog.md --backend markdown
+ok: added outside -> Queued
+task:
+  id: outside
+  title: outside dependent
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-22
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start outside --backend=markdown --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block outside --by <other> --backend=markdown --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3/data/backlog.md` to record a dependency
+
+exit=0
+$ tasks-axi block outside --by blocker --file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3/data/backlog.md --backend markdown
+ok: block outside -> blocked-by blocker
+help[2]:
+  - Run `tasks-axi unblock outside --by <other> --backend=markdown --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3/data/backlog.md` to clear it
+  - Run `tasks-axi ready --backend=markdown --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3/data/backlog.md` to see what is still dispatchable
+
+exit=0
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a blocker
+stored: state/handoff/home-e8a9e9843a13c796fabeb901ab29ba154e8a8ca395bfa14b5e8ba7121a17e834.outbox.md bytes=65
+error: delivered items still block active source tasks outside the batch; source left queued
+error: remote backlog is durable at 127.0.0.1, but the source was not closed; outbox preserved at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3/data/handoff/home-dd9b639564736ffa7f9cbcbae58d4266ccf011be8561a3ad7cd5140468e20af3.outbox.md
+
+exit=1
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source3
+## In flight
+
+## Queued
+- [ ] blocker - unresolved work
+
+- [ ] outside - outside dependent blocked-by: blocker (since 2026-10-22)
+## Done
+
+PASS recovery refuses closure when a new active source dependent remains

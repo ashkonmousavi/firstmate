@@ -1,0 +1,28 @@
+ok - confined put rejects incomplete and superseded payload generations
+ok - confined put rejects directory replacement without external writes
+ok - ambiguous receipt leaves the source queued and one durable outbox
+ok - re-delivery after unknown completion converges without duplication
+ok - retained outboxes cannot close a newer title, body, prep link, or dependency
+ok - dropped transfer recovery overwrites scratch and delivers exactly once
+ok - concurrent handoffs serialize staging through confirmed cleanup
+ok - receiver removes one proven dead stale lock and retries once
+ok - bootstrap detects pending outbox handoffs without a journal
+ok - remote handoff releases durable work and separately retries its receiver wake
+ok - an escalated undelivered receiver wake stays retryable instead of jamming the outbox
+ok - a permanently unconfirmable wake never jams later durable handoffs
+ok - fresh remote work gets a new wake after confirmed cleanup recovery
+ok - confirmed marker cleanup cannot fail a completed remote handoff
+ok - delivered pending state cannot suppress a new handoff wake
+ok - unrecordable best-effort wake state drops without blocking later handoffs
+ok - undeletable invalid wake state cannot block remote handoffs
+ok - route classification serializes with retirement before staging
+ok - unconfigured bootstrap has no remote handoff behavior
+ok - a cwd .tasks.toml for another backend does not redirect a markdown receipt
+ok - a pre-upgrade outbox migrates and resumes without losing its sole payload
+ok - a pre-upgrade outbox still blocks non-forced retirement
+ok - named handoffs recover pre-upgrade batches through their registry destination
+ok - an explicit remote host moves a peer home without a secondmate wake
+ok - two homes on one host keep separate retained batches and completion notes
+ok - remote recovery does not release a newly added source dependent
+ok - independent source homes deliver their first generations to the same target
+ALL TESTS PASSED

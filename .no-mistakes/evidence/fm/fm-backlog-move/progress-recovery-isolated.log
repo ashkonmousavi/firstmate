@@ -1,0 +1,9 @@
+ok - recognized trailing lifecycle tags do not become dependency reasons
+ok - receipt recovers after target start while rejecting changed payloads
+ok - receipt recovers after target done while rejecting changed payloads
+ok - registered recovers after target start while rejecting changed payloads
+ok - registered recovers after target done while rejecting changed payloads
+ok - peer recovers after target start while rejecting changed payloads
+ok - peer recovers after target done while rejecting changed payloads
+ok - same-named local homes have distinct completion identities
+ALL TESTS PASSED

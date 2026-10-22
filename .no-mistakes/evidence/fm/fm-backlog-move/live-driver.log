@@ -1,0 +1,156 @@
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --to ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/local-peer parent child
+handed off 2 item(s) to local-peer (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/local-peer): parent child
+  already present (skipped): parent child
+
+exit=0
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/local-peer
+## In flight
+
+## Queued
+- [ ] parent - Parent title (repo: alpha)
+  full first paragraph
+
+  ## Intent
+  full second paragraph
+  prep: data/parent/prep.md
+- [ ] child - Child title (repo: alpha) blocked-by: parent - needs evidence (since 2026-10-21)
+  child body
+
+## Done
+
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source
+## In flight
+
+## Queued
+## Done
+- [x] child - Child title (repo: alpha) (done 2026-10-22) blocked-by: parent - needs evidence (since 2026-10-21)
+  child body
+  moved to local-peer (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/local-peer)
+- [x] parent - Parent title (repo: alpha) (done 2026-10-22)
+  full first paragraph
+
+  ## Intent
+  full second paragraph
+  prep: data/parent/prep.md
+  moved to local-peer (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/local-peer)
+
+PASS local connected payload preserved and source closed after confirmation
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a parent child
+stored: state/handoff/home-a513a90894c91ecfc2fd76f6dbffbbbe018a9807444c21b5a731b2e4a6330065.outbox.md bytes=271
+received: home-a513a90894c91ecfc2fd76f6dbffbbbe018a9807444c21b5a731b2e4a6330065 moved=0 already=2
+handed off 2 item(s) to remote secondmate 127.0.0.1: parent child
+
+exit=0
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a
+## In flight
+
+## Queued
+- [ ] parent - Parent title (repo: alpha)
+  full first paragraph
+
+  ## Intent
+  full second paragraph
+  prep: data/parent/prep.md
+- [ ] child - Child title (repo: alpha) blocked-by: parent - needs evidence (since 2026-10-21)
+  child body
+
+## Done
+
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source
+## In flight
+
+## Queued
+## Done
+- [x] child - Child title (repo: alpha) (done 2026-10-22) blocked-by: parent - needs evidence (since 2026-10-21)
+  child body
+  moved to 127.0.0.1:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a
+- [x] parent - Parent title (repo: alpha) (done 2026-10-22)
+  full first paragraph
+
+  ## Intent
+  full second paragraph
+  prep: data/parent/prep.md
+  moved to 127.0.0.1:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a parent child
+handed off 2 item(s) to remote secondmate 127.0.0.1: parent child
+  already staged (recovered): parent child
+
+exit=0
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a
+## In flight
+
+## Queued
+- [ ] parent - Parent title (repo: alpha)
+  full first paragraph
+
+  ## Intent
+  full second paragraph
+  prep: data/parent/prep.md
+- [ ] child - Child title (repo: alpha) blocked-by: parent - needs evidence (since 2026-10-21)
+  child body
+
+## Done
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-b parent child
+error: refusing to hand off Done backlog items: parent child
+       nothing new was staged.
+
+exit=1
+PASS real SSH payload preservation, same-home idempotence, and wrong-home refusal
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a x
+ssh: connect to host 127.0.0.1 port 45949: Connection refused
+error: handoff transfer to 127.0.0.1 was unavailable or completion is unknown; outbox preserved at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source/data/handoff/home-dd9b639564736ffa7f9cbcbae58d4266ccf011be8561a3ad7cd5140468e20af3.outbox.md
+
+exit=1
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source
+## In flight
+
+## Queued
+- [ ] x - bound to A
+  prep: data/x/prep.md
+- [ ] y - bound to B
+
+## Done
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-b y
+stored: state/handoff/home-7c53623aecb0ad5616c9727d358dc577565d4e20383d4c4e7a8657d4aba2d185.outbox.md bytes=54
+received: home-7c53623aecb0ad5616c9727d358dc577565d4e20383d4c4e7a8657d4aba2d185 moved=1 already=0
+handed off 1 item(s) to remote secondmate 127.0.0.1: y
+
+exit=0
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-b
+## In flight
+
+## Queued
+- [ ] y - bound to B
+
+## Done
+
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source
+## In flight
+
+## Queued
+- [ ] x - bound to A
+  prep: data/x/prep.md
+## Done
+- [x] y - bound to B (done 2026-10-22)
+  moved to 127.0.0.1:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-b
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --host 127.0.0.1 --remote-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product --remote-home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/remote-a x
+stored: state/handoff/home-a513a90894c91ecfc2fd76f6dbffbbbe018a9807444c21b5a731b2e4a6330065.outbox.md bytes=77
+remote job worker stopped before this job completed
+error: handoff receipt by 127.0.0.1 was unavailable or completion is unknown; outbox preserved at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/live-source/data/handoff/home-dd9b639564736ffa7f9cbcbae58d4266ccf011be8561a3ad7cd5140468e20af3.outbox.md
+
+exit=1
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/drive.py", line 53, in <module>
+    move(source,a,['x']);assert '- [ ] x -' in content(a)
+    ^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/drive.py", line 30, in move
+    return cmd([root/'bin/fm-backlog-handoff.sh','--host','127.0.0.1','--remote-root',root,'--remote-home',dest,*keys],src,ok)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/drive.py", line 15, in cmd
+    if ok: assert r.returncode==0
+                  ^^^^^^^^^^^^^^^
+AssertionError

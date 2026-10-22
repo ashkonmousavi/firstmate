@@ -1,0 +1,24 @@
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --resume-pending
+stored: state/handoff/home-f606e566f5e4ef08dd96fbd60a3c5a82067bf96afc087e3af64f26c010d5c750.outbox.md bytes=104
+error: handed off work to secondmate mate, but no live receiver endpoint is recorded; the destination backlog is durable and the receiver was not woken
+warning: remote backlog is durable at mate and its outbox was released; the best-effort receiver wake remains pending for a later resume or handoff
+received: home-f606e566f5e4ef08dd96fbd60a3c5a82067bf96afc087e3af64f26c010d5c750 moved=1 already=0
+
+exit=0
+TARGET
+## In flight
+
+## Queued
+- [ ] legacy-only - only remaining copy
+  full body
+  prep: data/legacy-only/prep.md
+
+## Done
+
+SOURCE
+## Queued
+- [ ] unrelated - stays here
+
+## Done
+
+PASS legacy sole-copy outbox migrates via registry and arrives through real SSH

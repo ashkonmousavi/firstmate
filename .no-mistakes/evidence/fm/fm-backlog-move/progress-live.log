@@ -1,0 +1,62 @@
+$ tasks-axi done p1 --file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target/data/backlog.md --backend markdown
+ok: done p1 -> Done
+help[1]:
+  - Run `tasks-axi ready --backend=markdown --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target/data/backlog.md` to dispatch work unblocked by this
+
+exit=0
+$ tasks-axi done p2 --file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target/data/backlog.md --backend markdown
+ok: done p2 -> Done
+help[1]:
+  - Run `tasks-axi ready --backend=markdown --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target/data/backlog.md` to dispatch work unblocked by this
+
+exit=0
+$ tasks-axi done c1 --file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target/data/backlog.md --backend markdown
+ok: done c1 -> Done
+help[1]:
+  - Run `tasks-axi ready --backend=markdown --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target/data/backlog.md` to dispatch work unblocked by this
+
+exit=0
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --to ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target p1 p2 c1
+error: delivered c1 does not match the source; source left queued
+
+exit=1
+SOURCE AFTER REASON MISMATCH
+## In flight
+
+## Queued
+- [ ] p1 - first parent
+- [ ] p2 - second parent
+- [ ] c1 - child blocked-by: p1 - first reason (since 2026-10-21) blocked-by: p2 - second reason (done 2026-10-21)
+  prep: data/c1/prep.md
+
+## Done
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/product/bin/fm-backlog-handoff.sh --to ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target p1 p2 c1
+handed off 3 item(s) to progress-live-target (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target): p1 p2 c1
+  already present (skipped): p1 p2 c1
+
+exit=0
+CONFIRMED TARGET WITH PROGRESS
+## In flight
+
+## Queued
+## Done
+- [x] c1 - child (done 2026-10-22) blocked-by: p1 - first reason (reported 2026-10-22) blocked-by: p2 - second reason (merged 2026-10-22)
+  prep: data/c1/prep.md
+- [x] p2 - second parent (done 2026-10-22)
+- [x] p1 - first parent (done 2026-10-22)
+
+SOURCE AFTER MATCHING RECEIPT
+## In flight
+
+## Queued
+## Done
+- [x] c1 - child (done 2026-10-22) blocked-by: p1 - first reason (since 2026-10-21) blocked-by: p2 - second reason (done 2026-10-21)
+  prep: data/c1/prep.md
+  moved to progress-live-target (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target)
+- [x] p2 - second parent (done 2026-10-22)
+  moved to progress-live-target (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target)
+- [x] p1 - first parent (done 2026-10-22)
+  moved to progress-live-target (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/progress-live-target)
+
+PASS all edge reasons are checked and lifecycle progress alone does not reject matching payloads

@@ -1,0 +1,12 @@
+$ FM_HOME=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/retire-lab ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/bin/fm-teardown.sh mate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HC5M6NQ7YQRQ363RXP9QHE/.test-live-backlog/retire-lab
+REFUSED: remote secondmate mate still has a pending backlog outbox; deliver it or explicitly discard with --force
+
+exit=1
+Retained payload after refusal:
+## Queued
+- [ ] legacy-retire - only copy
+
+## Done
+
+PASS retirement refuses the pre-upgrade sole-copy batch and migrates it without loss
