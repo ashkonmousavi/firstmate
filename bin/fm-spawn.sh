@@ -1447,6 +1447,17 @@ SPAWN_ENDPOINT_CLOSED=0
 SPAWN_STAGED_LAUNCH_FILE=
 
 spawn_fresh_commit_rollback() {
+  # The record is the seat. Remove it only after a positive absence read.
+  # Any other result, including a kill that returned 0, leaves the record and
+  # the pending flag in place so a later call repeats the same read. A refusal
+  # does not retire the busy generation and does not replace the backlog
+  # start error the caller still has to report. An absent record is not a
+  # seat, so the cleanup transition still runs and retires the busy generation.
+  if [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; then
+    if ! fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
+      return 1
+    fi
+  fi
   if fm_backlog_atomic_transition rollback "$STATE/$ID.meta" \
     "$FM_ROOT/bin/fm-busy-event.sh" "$STATE" "$ID" "${BUSY_GEN:-}"; then
     SPAWN_FRESH_COMMIT_PENDING=0
@@ -1542,10 +1553,9 @@ spawn_abort_cleanup() {
           if ! spawn_fresh_commit_rollback; then
             status=1
           fi
-          SPAWN_FRESH_COMMIT_PENDING=0
         fi
         mkdir -p "$STATE" 2>/dev/null || true
-        if [ -d "$STATE" ]; then
+        if [ -d "$STATE" ] && [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ]; then
           SPAWN_META_TMP="$STATE/.$ID.meta.orca-recovery.${BASHPID:-$$}"
           {
             echo "window=$W"
@@ -3567,6 +3577,12 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] &&
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
 fi
 if [ -n "$SPAWN_PROJECT_CAPACITY" ]; then
+  # Drop this id's own record only when its endpoint is already proven gone,
+  # then count what remains, including this id. The commit flag is still unset
+  # here, so a removal cannot clear the flag this spawn sets later.
+  if [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; then
+    spawn_fresh_commit_rollback || true
+  fi
   if ! fm_project_capacity_occupants "$SPAWN_TREEHOUSE_PROJECT_LOCK" "$PROJ_ABS" "$STATE" "$ID"; then
     echo "error: spawn refused: project $(basename "$PROJ_ABS") declares a capacity of $SPAWN_PROJECT_CAPACITY, but this machine's task records cannot all be read to count it ($FM_PROJECT_CAPACITY_ERROR)" >&2
     exit 1
@@ -4249,6 +4265,14 @@ EOF
     WT_TARGET=$T
   fi
 else
+  # A surviving record whose endpoint is not proven gone is still a worker.
+  # Refuse before this fresh path opens a second endpoint. Pending is still
+  # unset, so this exit does not roll the retained record back.
+  if { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; } &&
+    ! fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
+    echo "error: task $ID already has a record at $STATE/$ID.meta and its endpoint is not confirmed gone; refusing to open another endpoint while that worker may still be running" >&2
+    exit 1
+  fi
   case "$BACKEND" in
   tmux)
     SES=$(fm_backend_tmux_container_ensure)
@@ -5909,6 +5933,11 @@ preserve_relaunch_meta() {
   exit 1
 }
 if [ "$RELAUNCH" -eq 0 ]; then
+  if { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; } &&
+    ! fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
+    echo "error: task $ID already has a record at $STATE/$ID.meta and its endpoint is not confirmed gone; refusing to replace it while that worker may still be running" >&2
+    exit 1
+  fi
   if ! fm_backlog_atomic_transition publish "$SPAWN_META_TMP" "$STATE/$ID.meta" "task record" "$STATE"; then
     echo "error: task record for $ID could not be published ($FM_BACKLOG_TRANSITION_ERROR)" >&2
     exit 1

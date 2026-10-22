@@ -920,6 +920,44 @@ fm_backend_kill() {  # <backend> <target>
   esac
 }
 
+# fm_backend_endpoint_confirmed_gone: positive proof that <target> is gone.
+# A kill status of 0 is not this proof. Herdr delegates to the same structured
+# pane_not_found read teardown already uses. Tmux re-reads its window
+# inventory. Zellij, cmux, and paseo collapse an unreadable list into
+# not-found, and Orca cannot yet re-read presence, so those four stay
+# unproven. An empty target, a missing adapter, or an unreadable inventory is
+# unproven. Returns 0 only when the endpoint is proven gone.
+fm_backend_endpoint_confirmed_gone() {  # <backend> <target>
+  local backend=$1 target=${2:-} status
+  [ -n "$target" ] || return 1
+  case "$backend" in
+    tmux)
+      fm_backend_source tmux || return 1
+      status=0
+      fm_backend_tmux_endpoint_confirmed_gone "$target" || status=$?
+      [ "$status" -eq 0 ]
+      ;;
+    herdr)
+      fm_backend_source herdr || return 1
+      fm_backend_herdr_endpoint_confirmed_gone "$target"
+      ;;
+    zellij|cmux|paseo|orca) return 1 ;;
+    *) return 1 ;;
+  esac
+}
+
+# fm_task_record_endpoint_confirmed_gone: the recorded endpoint of one task
+# record is proven gone. A missing file, a symlink, or an empty target is
+# unproven, so the record stays.
+fm_task_record_endpoint_confirmed_gone() {  # <meta-file>
+  local meta=$1 backend target
+  [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
+  backend=$(fm_backend_of_meta "$meta")
+  target=$(fm_backend_target_of_meta "$meta")
+  [ -n "$target" ] || return 1
+  fm_backend_endpoint_confirmed_gone "$backend" "$target"
+}
+
 fm_backend_remove_worktree() {  # <backend> <worktree-id>
   local backend=$1
   shift

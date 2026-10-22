@@ -101,7 +101,19 @@ window_file="$(dirname "$0")/.spawn-window"
 case "$*" in *"#{pane_current_path}"*) printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;; esac
 case "${1:-}" in
   display-message) printf 'firstmate\n'; exit 0 ;;
-  list-windows) [ ! -s "$window_file" ] || cat "$window_file"; exit 0 ;;
+  list-windows)
+    # .inventory-absent is touched by the failing backlog start, after launch
+    # delivery. Only the exact-session absence read is empty from then on.
+    # A plain session target still lists the window, so launch can reach the
+    # backlog commit this case fails.
+    if [ -f "$(dirname "$0")/.inventory-absent" ]; then
+      case " $* " in
+        *" -t ="*) exit 0 ;;
+      esac
+    fi
+    [ ! -s "$window_file" ] || cat "$window_file"
+    exit 0
+    ;;
   new-window)
     name=
     previous=
@@ -543,6 +555,24 @@ SH
   chmod +x "$case_dir/fakebin/tmux"
 }
 
+# The default fake records the spawn's window, so a later inventory read still
+# lists it. Call this after break_verb start. The failing start then touches
+# .inventory-absent, and only the absence read after that launch delivery is
+# empty. The Enter membership check still sees the window.
+prove_window_inventory_absent() {  # <case-dir>
+  local case_dir=$1 wrapped
+  wrapped="$case_dir/fakebin/tasks-axi.before-absence"
+  mv "$case_dir/fakebin/tasks-axi" "$wrapped"
+  cat > "$case_dir/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = start ]; then
+  : > "$case_dir/fakebin/.inventory-absent"
+fi
+exec "$wrapped" "\$@"
+SH
+  chmod +x "$case_dir/fakebin/tasks-axi"
+}
+
 break_meta_removal() {  # <case-dir> <meta-path>
   local case_dir=$1 meta=$2 real
   real=$(command -v rm)
@@ -550,22 +580,6 @@ break_meta_removal() {  # <case-dir> <meta-path>
 #!/usr/bin/env bash
 for arg in "\$@"; do
   [ "\$arg" != "$meta" ] || exit 1
-done
-exec "$real" "\$@"
-SH
-  chmod +x "$case_dir/fakebin/rm"
-}
-
-break_busy_removal() {  # <case-dir> <id>
-  local case_dir=$1 id=$2 real state
-  real=$(command -v rm)
-  state="$(home_of "$case_dir")/state"
-  cat > "$case_dir/fakebin/rm" <<SH
-#!/usr/bin/env bash
-for arg in "\$@"; do
-  case "\$arg" in
-    "$state/$id.busy-state"|"$state/$id.busy-gen") exit 1 ;;
-  esac
 done
 exec "$real" "\$@"
 SH
@@ -1364,24 +1378,29 @@ test_dispatch_refuses_to_commit_without_a_published_record() {
   pass "dispatch cannot commit without a verified task-record publication"
 }
 
-test_dispatch_leaves_no_record_when_the_transition_fails() {
-  local case_dir id out rc=0
+test_dispatch_keeps_the_record_when_the_window_remains() {
+  local case_dir id out rc=0 state
   id=atomic-dispatch-b4
   case_dir=$(make_home dispatch-transition-fails "$id")
   add_item "$case_dir" "$id"
   break_verb "$case_dir" start
 
   out=$(run_ship_spawn "$case_dir" "$id") || rc=$?
+  state="$(home_of "$case_dir")/state"
   [ "$rc" -ne 0 ] || fail "spawn reported success though the backlog transition failed"
   assert_contains "$out" "could not be moved to In flight" \
     "spawn failed without explaining the backlog transition failure"
-  assert_absent "$(home_of "$case_dir")/state/$id.meta" \
-    "a failed backlog transition left an orphaned record behind"
-  assert_absent "$(home_of "$case_dir")/state/$id.busy-state" \
-    "a failed backlog transition left the task's armed busy generation behind"
+  assert_contains "$out" "failed-dispatch cleanup is incomplete" \
+    "a listed window was reported as a removed record"
+  assert_present "$state/$id.meta" \
+    "a listed window dropped the task record after the backlog transition failed"
+  assert_present "$state/$id.busy-state" \
+    "a listed window retired the busy state before the endpoint was proven gone"
+  assert_present "$state/$id.busy-gen" \
+    "a listed window retired the busy generation before the endpoint was proven gone"
   [ "$(row_state "$case_dir" "$id")" = queued ] \
     || fail "a failed dispatch left the backlog item in $(row_state "$case_dir" "$id")"
-  pass "a failed backlog transition fails the dispatch loudly and leaves no record"
+  pass "a failed backlog transition keeps the record while the window is still listed"
 }
 
 test_dispatch_reports_an_incomplete_record_rollback() {
@@ -1391,6 +1410,10 @@ test_dispatch_reports_an_incomplete_record_rollback() {
   add_item "$case_dir" "$id"
   meta="$(home_of "$case_dir")/state/$id.meta"
   break_verb "$case_dir" start
+  # The window is still created. The failing start is what makes the later
+  # exact-session absence read omit it, so launch finishes, rollback is
+  # entered, and the broken record removal is what this case proves.
+  prove_window_inventory_absent "$case_dir"
   break_meta_removal "$case_dir" "$meta"
 
   out=$(run_ship_spawn "$case_dir" "$id") || rc=$?
@@ -1405,25 +1428,29 @@ test_dispatch_reports_an_incomplete_record_rollback() {
   pass "dispatch reports when failed-transition rollback cannot remove its record"
 }
 
-test_dispatch_reports_an_incomplete_busy_rollback() {
-  local case_dir id out rc=0
+test_dispatch_keeps_busy_state_when_the_window_remains() {
+  local case_dir id out rc=0 state
   id=atomic-dispatch-busy-remove-failure-b5
   case_dir=$(make_home dispatch-busy-remove-failure "$id")
   add_item "$case_dir" "$id"
   break_verb "$case_dir" start
-  break_busy_removal "$case_dir" "$id"
 
   out=$(run_ship_spawn "$case_dir" "$id") || rc=$?
-  [ "$rc" -ne 0 ] || fail "spawn succeeded though busy rollback failed"
-  assert_contains "$out" "did not remove both task and busy records" \
-    "spawn did not report incomplete busy rollback"
-  assert_absent "$(home_of "$case_dir")/state/$id.meta" \
-    "busy rollback failure retained the provisional task record"
-  assert_present "$(home_of "$case_dir")/state/$id.busy-state" \
-    "busy removal failure was reported as successful"
+  state="$(home_of "$case_dir")/state"
+  [ "$rc" -ne 0 ] || fail "spawn succeeded though the window was still listed"
+  assert_contains "$out" "failed-dispatch cleanup is incomplete" \
+    "a listed window was reported as a completed rollback"
+  assert_not_contains "$out" "did not remove both task and busy records" \
+    "rollback retired busy state before the window was proven gone"
+  assert_present "$state/$id.meta" \
+    "a listed window removed the provisional task record"
+  assert_present "$state/$id.busy-state" \
+    "a listed window removed the busy state"
+  assert_present "$state/$id.busy-gen" \
+    "a listed window removed the busy generation"
   [ "$(row_state "$case_dir" "$id")" = queued ] \
-    || fail "failed busy rollback changed the backlog row"
-  pass "dispatch verifies both task and busy records during rollback"
+    || fail "a retained record changed the backlog row"
+  pass "a listed window keeps both the task record and its busy generation"
 }
 
 test_dispatch_rolls_back_before_a_failed_launch_delivery() {
@@ -1431,6 +1458,9 @@ test_dispatch_rolls_back_before_a_failed_launch_delivery() {
   id=atomic-dispatch-delivery-fails-b5
   case_dir=$(make_home dispatch-delivery-fails "$id")
   add_item "$case_dir" "$id"
+  # This replacement tmux implements no list-windows and exits 0 with empty
+  # stdout, so the inventory read completes and does not list the window.
+  # That is the proven-gone case, and the record is removed.
   break_launch_delivery "$case_dir"
 
   out=$(run_ship_spawn "$case_dir" "$id") || rc=$?
@@ -1568,11 +1598,13 @@ test_dispatch_does_not_resurrect_a_row_closed_after_preflight() {
   out=$(run_ship_spawn "$case_dir" "$id") || rc=$?
   [ "$rc" -ne 0 ] || fail "spawn succeeded after its backlog row was closed"
   assert_contains "$out" "state done" "spawn did not report the row's ineligible state"
+  assert_contains "$out" "failed-dispatch cleanup is incomplete" \
+    "a listed window was removed after its row was closed"
   [ "$(row_state "$case_dir" "$id")" = "done" ] \
     || fail "spawn resurrected a row closed after preflight"
-  assert_absent "$(home_of "$case_dir")/state/$id.meta" \
-    "spawn retained a record after its row was closed"
-  pass "dispatch does not resurrect a row closed after preflight"
+  assert_present "$(home_of "$case_dir")/state/$id.meta" \
+    "a listed window dropped the task record after its row was closed"
+  pass "dispatch does not resurrect a row closed after preflight, and the listed window keeps the record"
 }
 
 test_dispatch_fails_when_its_row_vanishes_after_preflight() {
@@ -1586,10 +1618,12 @@ test_dispatch_fails_when_its_row_vanishes_after_preflight() {
   [ "$rc" -ne 0 ] || fail "spawn succeeded after its backlog row vanished"
   assert_contains "$out" "vanished before dispatch commit" \
     "spawn did not report that its backlog row vanished"
-  assert_absent "$(home_of "$case_dir")/state/$id.meta" \
-    "spawn retained a record after its backlog row vanished"
+  assert_contains "$out" "failed-dispatch cleanup is incomplete" \
+    "a listed window was removed after its row vanished"
+  assert_present "$(home_of "$case_dir")/state/$id.meta" \
+    "a listed window dropped the task record after its row vanished"
   [ -z "$(row_state "$case_dir" "$id")" ] || fail "spawn recreated a removed backlog row"
-  pass "dispatch fails when its backlog row vanishes after preflight"
+  pass "dispatch fails when its backlog row vanishes after preflight, and the listed window keeps the record"
 }
 
 # --- completion -------------------------------------------------------------
@@ -3104,9 +3138,9 @@ test_dispatch_refuses_an_id_this_home_has_no_item_for
 test_dispatch_reports_a_backlog_read_failure
 test_dispatch_refuses_a_closed_item
 test_dispatch_refuses_to_commit_without_a_published_record
-test_dispatch_leaves_no_record_when_the_transition_fails
+test_dispatch_keeps_the_record_when_the_window_remains
 test_dispatch_reports_an_incomplete_record_rollback
-test_dispatch_reports_an_incomplete_busy_rollback
+test_dispatch_keeps_busy_state_when_the_window_remains
 test_dispatch_rolls_back_before_a_failed_launch_delivery
 test_dispatch_defers_interruption_across_backlog_commit
 test_deferred_signal_reads_back_preserved_state

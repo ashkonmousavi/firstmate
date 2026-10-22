@@ -46,9 +46,10 @@
 #     worker's PR is ready, after which the worker waits on review or merge and
 #     no longer uses local resources.
 # A place therefore frees when a PR-based ship records its ready PR, or when any
-# task is cleaned up and its record removed. A local-only ship and a scout have
-# no recorded handoff and hold their place until cleanup. A worker that is
-# steered back into work after its PR handoff is not counted again.
+# task is cleaned up and its record removed. A failed fresh spawn keeps its
+# record, and the place, until the endpoint is proven gone. A local-only ship
+# and a scout have no recorded handoff and hold their place until cleanup.
+# A worker that is steered back into work after its PR handoff is not counted again.
 # The declaration is matched by the spawning clone's directory name, so clones
 # of one origin share the cap only when they use that same directory name. A
 # clone of that origin under a different directory name finds no declaration
@@ -69,7 +70,8 @@
 #
 # Requires bin/fm-wake-lib.sh (root home, local homes, project lock path),
 # bin/fm-secondmate-registry-lib.sh (which the local-homes walk reads), and
-# bin/fm-backend.sh (fm_meta_get) to be sourced first. No side effects on source.
+# bin/fm-backend.sh (fm_meta_get, fm_task_record_endpoint_confirmed_gone) to be
+# sourced first. No side effects on source.
 
 # Exit status of a spawn deferred because the project is at capacity: the
 # sysexits "temporary failure" code, so a caller can tell a deferral that leaves
@@ -166,8 +168,9 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
 # admitted, and <project-dir> is that project's own directory, which matches
 # without recomputing its identity. The local homes come from
 # fm_local_firstmate_state_dirs <first-state>. <own-id> is the task being
-# admitted; its own record in <first-state> is the one this spawn replaces, so
-# it is not counted.
+# admitted. Its own record in <first-state> is counted while its endpoint is
+# not proven gone, and skipped once that endpoint is proven gone so this spawn
+# can replace it.
 # Sets FM_PROJECT_CAPACITY_OCCUPANTS to the count and
 # FM_PROJECT_CAPACITY_OCCUPANT_IDS to a comma-separated list of the holders,
 # each outside <first-state> qualified with its home. Returns 1 with
@@ -193,7 +196,9 @@ fm_project_capacity_occupants() {  # <project-lock> <project-dir> <first-state> 
     fi
     for meta in "$state"/*.meta; do
       [ -f "$meta" ] && [ ! -L "$meta" ] || continue
-      [ "$meta" != "$first/$self.meta" ] || continue
+      if [ "$meta" = "$first/$self.meta" ] && fm_task_record_endpoint_confirmed_gone "$meta"; then
+        continue
+      fi
       [ -r "$meta" ] || {
         FM_PROJECT_CAPACITY_ERROR="task record $meta cannot be read"
         return 1
