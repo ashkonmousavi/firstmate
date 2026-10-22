@@ -1693,21 +1693,20 @@ fm_pr_conflict_steer() {  # <state> <id> <url>
 
 # FM_PR_CONFLICT_RELAUNCH, when set, is the command used instead of
 # fm-control.sh. Tests point it at a recorder. Ordinary supervision leaves it unset.
-fm_pr_conflict_relaunch() {  # <id>
-  local id=$1 cmd dir
+fm_pr_conflict_relaunch() {  # <id> <url>
+  local id=$1 url=$2 cmd dir note
   if [ -n "${FM_PR_CONFLICT_RELAUNCH:-}" ]; then
     cmd=$FM_PR_CONFLICT_RELAUNCH
   else
     dir=$(fm_pr_conflict_bin_dir) || return 1
     cmd=$dir/fm-control.sh
   fi
-  "$cmd" "$id" relaunch
+  note=$(fm_pr_conflict_instruction "$url" "")
+  "$cmd" "$id" relaunch --note "$note"
 }
 
 # Print quiet when this observation needs no wake, or wake when supervision
-# must dispatch the worker itself. Opens the episode only after a successful
-# steer or relaunch, and also when the wake is the action, so the same label
-# does not steer or wake again until a conflict-clear observation removes it.
+# must dispatch the worker itself.
 fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url> <result>
   local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 url=$7 result=$8
   local posture=''
@@ -1723,11 +1722,12 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
       return 0
       ;;
   esac
-  if fm_pr_conflict_episode_matches "$state" "$id" "$provider" "$host" "$path" "$number"; then
+  posture=$(fm_pr_conflict_posture "$state" "$id")
+  if [ "$posture" != exited ] \
+    && fm_pr_conflict_episode_matches "$state" "$id" "$provider" "$host" "$path" "$number"; then
     printf 'quiet\n'
     return 0
   fi
-  posture=$(fm_pr_conflict_posture "$state" "$id")
   case "$posture" in
     live)
       if fm_pr_conflict_steer "$state" "$id" "$url"; then
@@ -1739,7 +1739,7 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
       ;;
     exited)
       if fm_pr_conflict_steer "$state" "$id" "$url" \
-        && fm_pr_conflict_relaunch "$id"; then
+        && fm_pr_conflict_relaunch "$id" "$url"; then
         if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number"; then
           printf 'quiet\n'
           return 0
@@ -1747,6 +1747,5 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
       fi
       ;;
   esac
-  fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number" || true
   printf 'wake\n'
 }

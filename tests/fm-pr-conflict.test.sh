@@ -107,7 +107,7 @@ test_old_label_wakes_once_and_clear_removes_it() {
   json="$TMP_ROOT/old.json"
   rm -rf "$state"
   setup_task "$state"
-  old=$(date -u -d '20 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+  old=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
   write_label_json "$json" yes "$old"
   FM_CONFLICT_JSON=$json
   out=$(run_poll)
@@ -115,7 +115,12 @@ test_old_label_wakes_once_and_clear_removes_it() {
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 conflict)
   [ "$decision" = wake ] || fail "with no live worker the old label must wake once, got: $decision"
-  [ -f "$state/lane.pr-conflict-episode" ] || fail "the wake must open one conflict episode"
+  [ ! -e "$state/lane.pr-conflict-episode" ] || fail "an unpublished wake must remain retryable"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 conflict)
+  [ "$decision" = wake ] || fail "interruption before publication must retry the wake"
+  fm_pr_conflict_episode_open "$state" lane github github.com o/r 7 \
+    || fail "could not commit the published wake episode"
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 conflict)
   [ "$decision" = quiet ] || fail "a second look at the same conflict must stay quiet, got: $decision"
@@ -136,7 +141,7 @@ test_young_label_is_quiet() {
   json="$TMP_ROOT/young.json"
   rm -rf "$state"
   setup_task "$state"
-  young=$(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+  young=$(jq -nr 'now - 300 | strftime("%Y-%m-%dT%H:%M:%SZ")')
   write_label_json "$json" yes "$young"
   FM_CONFLICT_JSON=$json
   out=$(run_poll)
@@ -156,7 +161,7 @@ test_live_worker_is_steered_once() {
   log="$TMP_ROOT/steer.log"
   rm -rf "$state" "$log"
   setup_task "$state"
-  old=$(date -u -d '20 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+  old=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
   write_label_json "$json" yes "$old"
   cat > "$TMP_ROOT/send.sh" <<SH
 #!/usr/bin/env bash
@@ -195,7 +200,7 @@ test_exited_worker_is_relaunched() {
   relaunch_log="$TMP_ROOT/relaunch.log"
   rm -rf "$state" "$send_log" "$relaunch_log"
   setup_task "$state"
-  old=$(date -u -d '20 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+  old=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
   write_label_json "$TMP_ROOT/relaunch.json" yes "$old"
   cat > "$TMP_ROOT/send-relaunch.sh" <<SH
 #!/usr/bin/env bash
@@ -203,7 +208,8 @@ printf 'CALLED\\n' >> "$send_log"
 SH
   cat > "$TMP_ROOT/relaunch.sh" <<SH
 #!/usr/bin/env bash
-printf '%s\\n' "\$*" >> "$relaunch_log"
+[ "\$1" = lane ] && [ "\$2" = relaunch ] && [ "\$3" = --note ] && [ -n "\${4:-}" ] || exit 92
+printf '%s\\n' "\$4" >> "$relaunch_log"
 SH
   chmod +x "$TMP_ROOT/send-relaunch.sh" "$TMP_ROOT/relaunch.sh"
   # shellcheck disable=SC2034 # read by fm_pr_conflict_steer and fm_pr_conflict_relaunch
@@ -216,8 +222,107 @@ SH
     https://github.com/o/r/pull/7 conflict)
   [ "$decision" = quiet ] || fail "an exited worker must be relaunched instead of woken, got: $decision"
   grep -qx CALLED "$send_log" || fail "the relaunch did not leave the merge instruction"
-  grep -qx 'lane relaunch' "$relaunch_log" || fail "the exited worker was not relaunched"
-  pass "an exited worker is steered and relaunched once"
+  [ -s "$relaunch_log" ] || fail "the exited worker was not relaunched with a progress note"
+  : > "$relaunch_log"
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 conflict)
+  [ "$decision" = quiet ] && [ ! -s "$relaunch_log" ] \
+    || fail "the relaunched live worker must remain quiet"
+  fm_pr_conflict_posture() { printf 'exited\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 conflict)
+  [ "$decision" = quiet ] && [ -s "$relaunch_log" ] \
+    || fail "an unresolved episode must recover again after the worker exits"
+  pass "an exited worker relaunches with a note despite a prior episode"
+}
+
+test_steered_worker_exit_recovers() {
+  local state decision
+  reset_lib
+  state="$TMP_ROOT/steer-exit-state"
+  setup_task "$state"
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/send-relaunch.sh
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/relaunch.sh
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 conflict)
+  [ "$decision" = quiet ] || fail "initial steering failed"
+  : > "$TMP_ROOT/relaunch.log"
+  fm_pr_conflict_posture() { printf 'exited\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 conflict)
+  [ "$decision" = quiet ] && [ -s "$TMP_ROOT/relaunch.log" ] \
+    || fail "a worker exiting before handling its steer must relaunch"
+  pass "a steered worker exiting before handling the inbox recovers"
+}
+
+test_watcher_conflict_recovery() {
+  local home state mode pid i
+  reset_lib
+  cat > "$FAKEBIN/tmux" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" = list-windows ] && exit 0
+exit 1
+SH
+  cat > "$TMP_ROOT/watch-send.sh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  cat > "$TMP_ROOT/watch-relaunch.sh" <<'SH'
+#!/usr/bin/env bash
+[ "$1" = lane ] && [ "$2" = relaunch ] && [ "$3" = --note ] && [ -n "${4:-}" ] || exit 92
+mkdir "$FM_HOME/state/.control-lane.lock" || exit 93
+rmdir "$FM_HOME/state/.control-lane.lock" || exit 94
+printf '%s\n' "$4" > "$FM_HOME/relaunched"
+SH
+  chmod +x "$FAKEBIN/tmux" "$TMP_ROOT/watch-send.sh" "$TMP_ROOT/watch-relaunch.sh"
+  write_label_json "$TMP_ROOT/watch.json" yes \
+    "$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')"
+  for mode in wake relaunch; do
+    home="$TMP_ROOT/watch-$mode"
+    state="$home/state"
+    mkdir -p "$home/config" "$home/data"
+    setup_task "$state"
+    if [ "$mode" = relaunch ]; then
+      fm_write_meta "$state/lane.meta" 'base_branch=curated' 'window=firstmate:fm-lane'
+    fi
+    printf 'pr=https://github.com/o/r/pull/7\n' >> "$state/lane.meta"
+    fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
+      github.com o/r 7 "$POLL" && fm_pr_poll_publish_prepared \
+      || fail "could not arm the watcher fixture"
+    fm_test_track_watcher_state "$state"
+    PATH="$FAKEBIN:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
+      FM_PR_CONFLICT_SEND="$TMP_ROOT/watch-send.sh" \
+      FM_PR_CONFLICT_RELAUNCH="$TMP_ROOT/watch-relaunch.sh" \
+      FM_CONFLICT_JSON="$TMP_ROOT/watch.json" FM_CHECK_INTERVAL=0 \
+      FM_POLL=0.05 FM_HEARTBEAT=999999 FM_SIGNAL_GRACE=0 \
+      bash "$ROOT/bin/fm-watch.sh" > "$home/out" 2> "$home/err" &
+    pid=$!
+    i=0
+    while [ "$i" -lt 200 ]; do
+      if [ "$mode" = relaunch ]; then
+        [ ! -s "$home/relaunched" ] || break
+      else
+        [ ! -f "$state/lane.pr-conflict-episode" ] || break
+      fi
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.05
+      i=$((i + 1))
+    done
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    if [ "$mode" = relaunch ]; then
+      [ -s "$home/relaunched" ] \
+        || fail "watcher could not relaunch with its control lock and note requirements: $(cat "$home/err")"
+    else
+      [ -f "$state/lane.pr-conflict-episode" ] \
+        || fail "watcher did not commit the fallback episode: $(cat "$home/err")"
+      awk -F '\t' '$3 == "check" && $5 ~ /lane.check.sh: conflict$/ { found=1 } END { exit !found }' \
+        "$state/.wake-queue" || fail "watcher suppressed a conflict without durable notification"
+    fi
+  done
+  pass "watcher publishes fallback wakes and releases the relaunch lock"
 }
 
 test_overlap_names_both_pull_requests() {
@@ -289,4 +394,6 @@ test_old_label_wakes_once_and_clear_removes_it
 test_young_label_is_quiet
 test_live_worker_is_steered_once
 test_exited_worker_is_relaunched
+test_steered_worker_exit_recovers
+test_watcher_conflict_recovery
 test_overlap_names_both_pull_requests

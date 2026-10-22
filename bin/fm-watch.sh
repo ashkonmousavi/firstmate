@@ -3216,8 +3216,15 @@ while :; do
           # conflict-clear removes the episode and stays quiet.
           case "$out" in
             conflict|conflict-clear)
+              pr_poll_control_release || exit 1
               conflict_decision=$(fm_pr_conflict_handle "$STATE" "$id" \
                 "$provider" "$host" "$path" "$number" "$url" "$out" || true)
+              PR_POLL_CONTROL_LOCK="$STATE/.control-$id.lock"
+              fm_lock_acquire_wait "$PR_POLL_CONTROL_LOCK" || exit 1
+              if ! fm_pr_poll_snapshot_matches "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh"; then
+                pr_poll_control_release || exit 1
+                continue
+              fi
               case "$conflict_decision" in
                 quiet) out='' ;;
                 *) out=conflict ;;
@@ -3299,8 +3306,12 @@ EOF
           fi
           wake "$reason"
         fi
-        pr_poll_control_release || exit 1
         fm_wake_append check "$c" "$reason" || exit 1
+        if [ "$is_pr_poll" -eq 1 ] && [ "$out" = conflict ]; then
+          fm_pr_conflict_episode_open "$STATE" "$id" \
+            "$provider" "$host" "$path" "$number" || exit 1
+        fi
+        pr_poll_control_release || exit 1
         touch "$STATE/.last-check"
         wake "$reason"
       fi
