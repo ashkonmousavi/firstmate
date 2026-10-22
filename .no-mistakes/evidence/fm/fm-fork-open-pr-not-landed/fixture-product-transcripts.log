@@ -1,0 +1,308 @@
+Executable teardown regression evidence. Forge and backend boundaries are mocked; this is NOT live validation.
+
+--- cached-pr-merged/stdout ---
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/cached-pr-merged/project: already current
+teardown task-x1 complete (window firstmate:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/cached-pr-merged/wt)
+Backlog: task-x1 is closed in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/cached-pr-merged/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+
+--- cached-pr-merged/stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+--- cached-pr-merged/data/backlog.md ---
+# Backlog
+
+## In flight
+## Queued
+## Done
+- [x] task-x1 - teardown fixture task https://github.com/example/repo/pull/7 (kind: ship) (merged 2026-10-22)
+
+--- cached-pr-merged/pr-lookups ---
+lookup
+
+--- cached-pr-open/stdout ---
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/cached-pr-open/project: already current
+teardown task-x1 complete (window firstmate:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/cached-pr-open/wt)
+Backlog: task-x1 stays open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/cached-pr-open/data/backlog.md, held awaiting merge https://github.com/example/repo/pull/7.
+
+--- cached-pr-open/stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: watcher still down (same stale episode; last beat: 10s ago, grace 300s) - full banner already printed this episode.
+
+--- cached-pr-open/state/task-x1.meta ---
+window=firstmate:fm-task-x1
+endpoint_task_id=task-x1
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/cached-pr-open/state/task-x1.released-copy
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/cached-pr-open/project
+kind=ship
+mode=no-mistakes
+spawn_gen=teardown-test-task-x1
+pr=https://github.com/example/repo/pull/7
+
+--- cached-pr-open/data/backlog.md ---
+# Backlog
+
+## In flight
+- [ ] task-x1 - teardown fixture task (kind: ship) (since 2026-10-22) (hold: awaiting merge https://github.com/example/repo/pull/7) (hold-kind: external)
+## Queued
+## Done
+
+--- cached-pr-open/pr-lookups ---
+lookup
+
+--- direct-pr-open/stdout ---
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/direct-pr-open/project: already current
+teardown task-x1 complete (window firstmate:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/direct-pr-open/wt)
+Backlog: task-x1 stays open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/direct-pr-open/data/backlog.md, held awaiting merge https://github.com/example/repo/pull/7.
+
+--- direct-pr-open/stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 4s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: watcher still down (same stale episode; last beat: 11s ago, grace 300s) - full banner already printed this episode.
+
+--- direct-pr-open/state/task-x1.meta ---
+window=firstmate:fm-task-x1
+endpoint_task_id=task-x1
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/direct-pr-open/state/task-x1.released-copy
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/direct-pr-open/project
+kind=ship
+mode=direct-PR
+spawn_gen=teardown-test-task-x1
+pr=https://github.com/example/repo/pull/7
+
+--- direct-pr-open/data/backlog.md ---
+# Backlog
+
+## In flight
+- [ ] task-x1 - teardown fixture task (kind: ship) (since 2026-10-22) (hold: awaiting merge https://github.com/example/repo/pull/7) (hold-kind: external)
+## Queued
+## Done
+
+--- open-pr-force/stdout ---
+
+--- open-pr-force/stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://github.com/example/repo/pull/7 is still open; clean up after it merges.
+
+--- open-pr-force/state/task-x1.meta ---
+window=firstmate:fm-task-x1
+endpoint_task_id=task-x1
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/open-pr-force/wt
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/open-pr-force/project
+kind=ship
+mode=no-mistakes
+spawn_gen=teardown-test-task-x1
+pr=https://github.com/example/repo/pull/7
+
+--- open-pr-force/data/backlog.md ---
+# Backlog
+
+## In flight
+- [ ] task-x1 - teardown fixture task (kind: ship) (since 2026-10-22)
+
+## Queued
+## Done
+
+--- open-pr-refuses/stdout ---
+
+--- open-pr-refuses/stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/open-pr-refuses/wt has work not on any remote and not landed.
+unpushed commits:
+7849d09 unpushed open work
+Push the branch, land its PR, or get the captain's explicit OK to discard, then --force.
+
+--- open-pr-refuses/state/task-x1.meta ---
+window=firstmate:fm-task-x1
+endpoint_task_id=task-x1
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/open-pr-refuses/wt
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/open-pr-refuses/project
+kind=ship
+mode=no-mistakes
+spawn_gen=teardown-test-task-x1
+pr=https://github.com/example/repo/pull/7
+
+--- open-pr-refuses/data/backlog.md ---
+# Backlog
+
+## In flight
+- [ ] task-x1 - teardown fixture task (kind: ship) (since 2026-10-22)
+
+## Queued
+## Done
+
+--- pushed-open-local-only/stdout ---
+teardown task-x1 complete (window firstmate:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-local-only/wt)
+Backlog: task-x1 stays open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-local-only/data/backlog.md, held awaiting merge https://github.com/example/repo/pull/7.
+
+--- pushed-open-local-only/stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+--- pushed-open-local-only/state/task-x1.meta ---
+window=firstmate:fm-task-x1
+endpoint_task_id=task-x1
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-local-only/state/task-x1.released-copy
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-local-only/project
+kind=ship
+mode=local-only
+spawn_gen=teardown-test-task-x1
+pr=https://github.com/example/repo/pull/7
+
+--- pushed-open-local-only/data/backlog.md ---
+# Backlog
+
+## In flight
+- [ ] task-x1 - teardown fixture task (kind: ship) (since 2026-10-22) (hold: awaiting merge https://github.com/example/repo/pull/7) (hold-kind: external)
+## Queued
+## Done
+
+--- pushed-open-no-mistakes/stdout ---
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-no-mistakes/project: already current
+teardown task-x1 complete (window firstmate:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-no-mistakes/wt)
+Backlog: task-x1 stays open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-no-mistakes/data/backlog.md, held awaiting merge https://github.com/example/repo/pull/7.
+
+--- pushed-open-no-mistakes/stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 6s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: watcher still down (same stale episode; last beat: 12s ago, grace 300s) - full banner already printed this episode.
+
+--- pushed-open-no-mistakes/state/task-x1.meta ---
+window=firstmate:fm-task-x1
+endpoint_task_id=task-x1
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-no-mistakes/state/task-x1.released-copy
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/pushed-open-no-mistakes/project
+kind=ship
+mode=no-mistakes
+spawn_gen=teardown-test-task-x1
+pr=https://github.com/example/repo/pull/7
+
+--- pushed-open-no-mistakes/data/backlog.md ---
+# Backlog
+
+## In flight
+- [ ] task-x1 - teardown fixture task (kind: ship) (since 2026-10-22) (hold: awaiting merge https://github.com/example/repo/pull/7) (hold-kind: external)
+## Queued
+## Done
+
+--- released-copy-orca-0/stdout ---
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-orca-0/project: already current
+
+--- released-copy-orca-0/stderr ---
+WARNING: watcher still down (same stale episode; last beat: 17s ago, grace 300s) - full banner already printed this episode.
+WARNING: watcher still down (same stale episode; last beat: 21s ago, grace 300s) - full banner already printed this episode.
+
+--- released-copy-orca-0/state/task-x1.meta ---
+window=fm-task-x1
+endpoint_task_id=task-x1
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-orca-0/state/task-x1.released-copy
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-orca-0/project
+kind=ship
+mode=no-mistakes
+spawn_gen=teardown-test-task-x1
+pr=https://github.com/example/repo/pull/7
+backend=orca
+terminal=term-7
+orca_worktree_id=wt-7::~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-orca-0/wt
+
+--- released-copy-orca-0/data/backlog.md ---
+# Backlog
+
+## In flight
+- [ ] task-x1 - teardown fixture task (kind: ship) (since 2026-10-22) (hold: awaiting merge https://github.com/example/repo/pull/7) (hold-kind: external)
+## Queued
+## Done
+
+--- released-copy-tmux-0/stdout ---
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-tmux-0/project: already current
+teardown task-x1 complete (local copy already released)
+Backlog: task-x1 is closed in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-tmux-0/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+
+--- released-copy-tmux-0/stderr ---
+WARNING: watcher still down (same stale episode; last beat: 35s ago, grace 300s) - full banner already printed this episode.
+
+--- released-copy-tmux-0/data/backlog.md ---
+# Backlog
+
+## In flight
+## Queued
+## Done
+- [x] task-x1 - teardown fixture task https://github.com/example/repo/pull/7 (kind: ship) (merged 2026-10-22) (hold: awaiting merge https://github.com/example/repo/pull/7) (hold-kind: external)
+
+--- released-copy-orca-1/stdout ---
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-orca-1/project: already current
+teardown task-x1 complete (local copy already released)
+Backlog: task-x1 is closed in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-orca-1/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+
+--- released-copy-orca-1/stderr ---
+WARNING: watcher still down (same stale episode; last beat: 40s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+--- released-copy-orca-1/data/backlog.md ---
+# Backlog
+
+## In flight
+## Queued
+## Done
+- [x] task-x1 - teardown fixture task https://github.com/example/repo/pull/7 (kind: ship) (merged 2026-10-22) (hold: awaiting merge https://github.com/example/repo/pull/7) (hold-kind: external)
+
+--- released-copy-orca-1/orca.log ---
+worktree show --worktree id:wt-7::~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-orca-1/wt --json
+terminal close --terminal term-7 --json
+worktree rm --worktree id:wt-7::~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-orca-1/wt --force --json
+terminal read --terminal term-7 --limit 1 --json
+
+--- released-copy-tmux-1/stdout ---
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-tmux-1/project: already current
+teardown task-x1 complete (local copy already released)
+Backlog: task-x1 is closed in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/released-copy-tmux-1/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+
+--- released-copy-tmux-1/stderr ---
+WARNING: watcher still down (same stale episode; last beat: 44s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+--- released-copy-tmux-1/data/backlog.md ---
+# Backlog
+
+## In flight
+## Queued
+## Done
+- [x] task-x1 - teardown fixture task https://github.com/example/repo/pull/7 (kind: ship) (merged 2026-10-22) (hold: awaiting merge https://github.com/example/repo/pull/7) (hold-kind: external)

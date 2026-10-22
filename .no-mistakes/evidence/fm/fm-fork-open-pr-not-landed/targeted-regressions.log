@@ -1,0 +1,19 @@
+ok - an open pull request with unpushed commits refuses teardown and keeps the backlog item
+ok - --force does not close a ship whose pull request is still open
+ok - a pushed open pull request keeps the item and the merge watch, and the watch fires when it later merges
+ok - a direct-PR ship with a pushed open pull request frees the copy and keeps the item
+ok - teardown reuses its first PR classification when the forge becomes unavailable
+ok - released copies stay open until merge and complete without a second removal (interrupted=0)
+ok - released copies stay open until merge and complete without a second removal (interrupted=1)
+ok - a merged pull request on a pushed branch still closes and retires the watch
+ok - an unreadable pull request refuses teardown, including --force and --keep-open
+ok - merge hold retains lifecycle serialization through cleanup
+ok - merge waits preserve captain questions and hold lifecycles with and without dependents
+not ok - original: forced cleanup bypassed child endpoint confirmation: ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 9s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: unsafe secondmate home removal target ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.dSj8mU/open-herdr-child-original/secondmate-home is inside the active firstmate home

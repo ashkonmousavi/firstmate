@@ -1,0 +1,89 @@
+Executable teardown checks with simulated Herdr and forge boundaries. NOT live Herdr evidence.
+
+--- open-herdr-child-original/child.stdout ---
+
+--- open-herdr-child-original/child.stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warning: herdr presentation journal for child-herdr was not retired by its close; no workspace cleanup was attempted
+error: herdr pane childsession:wC:p1 for child-herdr is not confirmed gone after its close was refused, skipped, or failed; retaining every durable task record - rerun teardown once the close can run under the session lock
+
+--- open-herdr-child-original/stdout ---
+
+--- open-herdr-child-original/stderr ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 14s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: herdr pane childsession:wC:p1 for child child-herdr is not confirmed gone; retaining that child's durable identity records and stopping forced cleanup
+
+--- open-herdr-child-original/secondmate-home/state/child-herdr.meta ---
+window=childsession:wC:p1
+endpoint_task_id=child-herdr
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.ebU7dr/open-herdr-child-original/wt
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.ebU7dr/open-herdr-child-original/project
+kind=ship
+mode=local-only
+backend=herdr
+herdr_session=childsession
+herdr_workspace_id=wC
+herdr_tab_id=wC:t1
+herdr_pane_id=wC:p1
+spawn_gen=open-herdr-child
+pr=https://github.com/example/repo/pull/7
+
+--- open-herdr-child-original/secondmate-home/state/child-herdr.herdr-presentation ---
+version=1
+task_id=child-herdr
+projection_id=AbCdEfGhIjKlMnOpQrStUv
+
+--- open-herdr-child-original/herdr.log ---
+pane get wC:p1 --session childsession
+session list --json --session childsession
+session list --json --session childsession
+workspace list --session childsession
+workspace list --session childsession
+pane close wC:p1 --session childsession
+pane get wC:p1 --session childsession
+pane get wC:p1 --session childsession
+pane get wC:p1 --session childsession
+session list --json --session childsession
+session list --json --session childsession
+workspace list --session childsession
+pane close wC:p1 --session childsession
+pane get wC:p1 --session childsession
+pane get wC:p1 --session childsession
+
+--- open-herdr-child-released/child.stdout ---
+
+--- open-herdr-child-released/child.stderr ---
+
+--- open-herdr-child-released/secondmate-home/state/child-herdr.meta ---
+window=childsession:wC:p1
+endpoint_task_id=child-herdr
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.ebU7dr/open-herdr-child-released/wt
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5HS5JCYXKQZW1BCEJSJMX9X/.gate-test-tmp/fm-teardown-tests.ebU7dr/open-herdr-child-released/project
+kind=ship
+mode=local-only
+backend=herdr
+herdr_session=childsession
+herdr_workspace_id=wC
+herdr_tab_id=wC:t1
+herdr_pane_id=wC:p1
+spawn_gen=open-herdr-child
+pr=https://github.com/example/repo/pull/7
+
+--- open-herdr-child-released/secondmate-home/state/child-herdr.herdr-presentation ---
+version=1
+task_id=child-herdr
+projection_id=AbCdEfGhIjKlMnOpQrStUv
+
+--- open-herdr-child-released/herdr.log ---
