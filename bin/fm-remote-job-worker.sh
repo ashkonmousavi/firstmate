@@ -33,8 +33,10 @@
 # serving process is alive and its recorded lock ownership still verifies.
 # The heartbeat recreates a missing ready file with the serving process's PID
 # and mode 0600 after verifying ownership, without waiting for the serving loop.
-# Losing lock ownership stops heartbeat refresh; losing the heartbeat process
-# while still owning the lock stops the serving loop on its next pass.
+# Losing lock ownership stops heartbeat refresh.
+# A dead heartbeat, while this process still owns the lock, is replaced so the lanes already under way keep running.
+# Each observed heartbeat death counts toward a limit of five replacements; the sixth death stops the serving loop so the supervisor can restart it.
+# The count resets only when a serving-loop pass observes a live heartbeat at least five seconds old, so time spent in a slow pass alone cannot reset it.
 # The stale sweep, whose state preparation also re-applies the queue directories' 0700
 # modes, runs at startup and then at most every 60 seconds, never more rarely
 # than the shortest record reap age.
@@ -83,6 +85,10 @@ WORKER_LOCK_BOUND=
 WORKER_RELEASE_OWNERSHIP=1
 WORKER_SUPERVISED_PID=
 WORKER_HEARTBEAT_PID=
+WORKER_HEARTBEAT_BORN=0
+WORKER_HEARTBEAT_DEATHS=0
+WORKER_HEARTBEAT_DEATH_LIMIT=5
+WORKER_HEARTBEAT_STABLE_SECONDS=5
 WORKER_PREEMPTIBLE=0
 WORKER_PREEMPTED=0
 WORKER_LANE_HOME=
@@ -134,6 +140,7 @@ worker_start_heartbeat() { # <account-home>
   local account_home=$1 owner=${BASHPID:-$$}
   worker_heartbeat_loop "$account_home" "$owner" &
   WORKER_HEARTBEAT_PID=$!
+  WORKER_HEARTBEAT_BORN=$SECONDS
 }
 
 worker_stop_heartbeat() {
@@ -1240,11 +1247,21 @@ main() {
   while :; do
     # The independent heartbeat keeps readiness fresh through slow serving
     # passes while ownership remains verifiable.
-    if ! kill -0 "$WORKER_HEARTBEAT_PID" 2>/dev/null &&
-      fm_remote_job_lock_owner_matches_process "$account_home" &&
+    if kill -0 "$WORKER_HEARTBEAT_PID" 2>/dev/null; then
+      if [ $((SECONDS - WORKER_HEARTBEAT_BORN)) -ge "$WORKER_HEARTBEAT_STABLE_SECONDS" ]; then
+        WORKER_HEARTBEAT_DEATHS=0
+      fi
+    elif fm_remote_job_lock_owner_matches_process "$account_home" &&
       [ "$FM_REMOTE_JOB_OWNER_PID" = "${BASHPID:-$$}" ]; then
-      worker_error "readiness heartbeat process stopped"
-      exit 1
+      # The header owns this bound. Reap the dead child, then replace it
+      # while the lanes this process already supervises stay in place.
+      wait "$WORKER_HEARTBEAT_PID" 2>/dev/null || true
+      WORKER_HEARTBEAT_DEATHS=$((WORKER_HEARTBEAT_DEATHS + 1))
+      if [ "$WORKER_HEARTBEAT_DEATHS" -gt "$WORKER_HEARTBEAT_DEATH_LIMIT" ]; then
+        worker_error "readiness heartbeat process stopped"
+        exit 1
+      fi
+      worker_start_heartbeat "$account_home"
     fi
     if worker_code_root_abandoned; then
       worker_error "configured FM_ROOT $FM_ROOT no longer exists; stopping the abandoned worker"

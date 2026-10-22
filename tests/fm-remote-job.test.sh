@@ -27,6 +27,7 @@ STALL_REPLACEMENT_PID=
 STALL_JOB_GROUP=
 QUIET_WORKER_PID=
 SCAN_LANE_PID=
+HB_BOUND_PID=
 mkdir -p "$REMOTE_ROOT/bin" "$REMOTE_HOME" "$ACCOUNT_HOME" "$RUNTIME_BIN"
 # worker.pid records the serving child, not its restart supervisor, so stopping
 # that pid alone leaves the supervisor to respawn - the leak
@@ -40,6 +41,7 @@ cleanup_remote_job_fixture() {
   [ -z "$REPLACEMENT_OWNER_PID" ] || kill -KILL "$REPLACEMENT_OWNER_PID" 2>/dev/null || true
   [ -z "$QUIET_WORKER_PID" ] || kill -KILL "$QUIET_WORKER_PID" 2>/dev/null || true
   [ -z "$SCAN_LANE_PID" ] || kill -KILL "$SCAN_LANE_PID" 2>/dev/null || true
+  [ -z "$HB_BOUND_PID" ] || { kill -TERM "$HB_BOUND_PID" 2>/dev/null || true; wait "$HB_BOUND_PID" 2>/dev/null || true; }
   local stall_pid
   for stall_pid in "$STALL_WORKER_PID" "$STALL_REPLACEMENT_PID"; do
     [ -n "$stall_pid" ] || continue
@@ -639,6 +641,85 @@ assert_absent "$CRASH_SIDE_EFFECT" "an orphaned command mutated after worker cra
 fm_remote_job_reap "$ACCOUNT_HOME" "$JOB_ID" || fail "the crash-recovered job could not be reaped"
 fm_remote_job_probe "$ACCOUNT_HOME" || fail "the restarted worker did not remain ready"
 pass "Linux supervision recovers crashes and stops orphaned commands"
+
+# A dead readiness heartbeat is not a crashed server. The process that still
+# owns the lock replaces that heartbeat, and the lane already running keeps
+# going. Treating the death as a crash publishes unknown completion for a job
+# that was still running.
+HB_SIDE_EFFECT="$TMP_ROOT/heartbeat-side-effect"
+FM_REMOTE_JOB_QUEUE_TIMEOUT=15
+FM_REMOTE_JOB_TIMEOUT=15
+fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" \
+  fm-delay-job.sh 3 "$HB_SIDE_EFFECT" < /dev/null > /dev/null
+JOB_ID=$FM_REMOTE_JOB_ID
+HB_JOB_DIR="$STATE_ROOT/jobs/$JOB_ID"
+for _ in $(seq 1 100); do
+  [ "$(fm_remote_job_read_state "$HB_JOB_DIR" 2>/dev/null || true)" = running ] && break
+  sleep 0.05
+done
+[ "$(fm_remote_job_read_state "$HB_JOB_DIR" 2>/dev/null || true)" = running ] \
+  || fail "the heartbeat-loss job did not begin running"
+HB_SERVE_PID=$(cat "$STATE_ROOT/worker.pid")
+HB_PID=
+for _ in $(seq 1 50); do
+  HB_PID=$(ps -ax -o pid= -o ppid= -o args= | awk -v owner="$HB_SERVE_PID" \
+    '$2 == owner && /fm-remote-job-worker[.]sh/ && !/--lane/ { print $1; exit }')
+  [ -n "$HB_PID" ] && break
+  sleep 0.05
+done
+[ -n "$HB_PID" ] || fail "the running worker did not keep a readiness heartbeat"
+[ "$HB_PID" != "$HB_SERVE_PID" ] || fail "the readiness heartbeat was the serving process itself"
+kill -KILL "$HB_PID"
+fm_remote_job_wait "$ACCOUNT_HOME" "$JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
+[ "$FM_REMOTE_JOB_EXIT" -eq 0 ] \
+  || fail "losing the readiness heartbeat published exit $FM_REMOTE_JOB_EXIT for a live job"
+if grep -F 'remote job worker stopped before this job completed' "$HB_JOB_DIR/stderr" >/dev/null 2>&1; then
+  fail "losing the readiness heartbeat published unknown completion for a live job"
+fi
+[ "$(cat "$STATE_ROOT/worker.pid" 2>/dev/null || true)" = "$HB_SERVE_PID" ] \
+  || fail "losing the readiness heartbeat replaced the serving worker"
+fm_remote_job_probe "$ACCOUNT_HOME" || fail "the worker was not ready after its heartbeat was replaced"
+fm_remote_job_reap "$ACCOUNT_HOME" "$JOB_ID" || fail "the heartbeat-loss job could not be reaped"
+FM_REMOTE_JOB_QUEUE_TIMEOUT=5
+FM_REMOTE_JOB_TIMEOUT=5
+pass "a dead readiness heartbeat does not fail the live job"
+
+HB_BOUND_HOME="$TMP_ROOT/heartbeat-bound-account"
+HB_BOUND_STATE="$TMP_ROOT/heartbeat-bound-state"
+HB_BOUND_BIN="$TMP_ROOT/heartbeat-bound-bin"
+HB_BOUND_LOG="$TMP_ROOT/heartbeat-bound-deaths"
+mkdir -p "$HB_BOUND_HOME" "$HB_BOUND_BIN"
+cat > "$HB_BOUND_BIN/sleep" <<'SH'
+#!/bin/bash
+heartbeat=$(ps -ax -o pid= -o ppid= -o args= | awk -v owner="$PPID" \
+  '$2 == owner && /fm-remote-job-worker[.]sh/ && !/--lane/ { print $1; exit }')
+if [ -z "$heartbeat" ] || ! kill -KILL "$heartbeat"; then
+  kill -TERM "$PPID"
+  exit 1
+fi
+printf '%s\n' "$heartbeat" >> "$FM_TEST_HEARTBEAT_DEATHS"
+if [ "$(wc -l < "$FM_TEST_HEARTBEAT_DEATHS")" -ge 7 ]; then
+  kill -TERM "$PPID"
+fi
+exec /bin/sleep 6
+SH
+chmod +x "$HB_BOUND_BIN/sleep"
+# shellcheck disable=SC2031 # Cadence fixture PATH changes stayed in their subshells.
+HOME="$HB_BOUND_HOME" PATH="$HB_BOUND_BIN:$PATH" FM_ROOT_OVERRIDE="$REMOTE_ROOT" \
+  FM_REMOTE_JOB_STATE_ROOT="$HB_BOUND_STATE" FM_TEST_HEARTBEAT_DEATHS="$HB_BOUND_LOG" \
+  "$REMOTE_ROOT/bin/fm-remote-job-worker.sh" --serve \
+  > "$TMP_ROOT/heartbeat-bound.out" 2> "$TMP_ROOT/heartbeat-bound.err" &
+HB_BOUND_PID=$!
+HB_BOUND_STATUS=0
+wait "$HB_BOUND_PID" || HB_BOUND_STATUS=$?
+HB_BOUND_PID=
+[ "$HB_BOUND_STATUS" -eq 1 ] \
+  || fail "repeated heartbeat deaths across slow passes did not stop the worker"
+[ "$(wc -l < "$HB_BOUND_LOG")" -eq 6 ] \
+  || fail "the worker did not bound repeated heartbeat replacements"
+grep -F 'readiness heartbeat process stopped' "$TMP_ROOT/heartbeat-bound.err" >/dev/null \
+  || fail "the worker did not report its heartbeat failure bound"
+pass "slow passes do not reset the repeated heartbeat death bound"
 
 mkdir -p "$ACCOUNT_HOME/.local/bin"
 PREEXEC_STARTED="$TMP_ROOT/preexecution-started"
