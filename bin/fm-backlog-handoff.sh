@@ -867,13 +867,15 @@ outbox_item_count() { # <path>
 remote_deliver_outbox() { # <secondmate-id> <outbox-path>
   local id=$1 outbox=$2 remote_rel receive_out snapshot bytes hash generation counter counter_tmp current marker wake_rc=0 wake_state=pending key
   local -a delivered_keys=()
-  local key
+  local origin transport_key
   key=$(basename "$outbox" .outbox.md)
   read_remote_route "$key" || {
     echo "error: pending handoff destination record is invalid or its receiver route changed: $key" >&2
     return 1
   }
   id=${HANDOFF_WAKE_ID:-$PEER_HOST}
+  origin=$(hostname) || return 1
+  transport_key=$(fm_tasks_axi_handoff_key "$origin:$FM_HOME" "$HANDOFF_KEY") || return 1
   [ -f "$outbox" ] && [ ! -L "$outbox" ] || {
     echo "error: pending outbox is unavailable or unsafe: $outbox" >&2
     return 1
@@ -891,7 +893,7 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
     rm -f -- "$snapshot"
     return 1
   }
-  counter="$STATE/.remote-handoff-$HANDOFF_KEY.generation"
+  counter="$STATE/.remote-handoff-$transport_key.generation"
   current=0
   if [ -e "$counter" ] || [ -L "$counter" ]; then
     [ -f "$counter" ] && [ ! -L "$counter" ] || {
@@ -936,7 +938,7 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
       rm -f -- "$snapshot" "$counter_tmp"
       return 1
     }
-  remote_rel="state/handoff/$HANDOFF_KEY.outbox.md"
+  remote_rel="state/handoff/$transport_key.outbox.md"
   if ! fm_on_target --stdin fm-remote-file.sh put "$remote_rel" 1048576 \
     "$bytes" "$hash" "$generation" <"$snapshot"; then
     rm -f -- "$snapshot"
@@ -1133,7 +1135,7 @@ resume_remote_outbox() { # <secondmate-id> <outbox-path>
 }
 
 resume_pending_outboxes() {
-  local outbox id failed=0
+  local outbox id lock_key legacy=0 failed=0
   [ -d "$DATA/handoff" ] || return 0
   for outbox in "$DATA/handoff"/*.outbox.md; do
     [ -e "$outbox" ] || [ -L "$outbox" ] || continue
@@ -1146,8 +1148,27 @@ resume_pending_outboxes() {
     esac
     ACTIVE_REGISTRY_LOCK=$(secondmate_registry_lock_path "$STATE")
     fm_lock_acquire_wait "$ACTIVE_REGISTRY_LOCK" || return 1
-    ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$id.lock"
+    legacy=0
+    lock_key=$id
+    if [ ! -e "$DATA/handoff/$id.route" ] && [ ! -L "$DATA/handoff/$id.route" ] &&
+      [ "$(secondmate_registry_field "$REG" "$id" remote 2>/dev/null || true)" = 1 ]; then
+      PEER_HOST=$(secondmate_registry_field "$REG" "$id" host) || return 1
+      PEER_ROOT=$(secondmate_registry_field "$REG" "$id" root) || return 1
+      PEER_HOME=$(secondmate_registry_field "$REG" "$id" home) || return 1
+      set_remote_destination || return 1
+      lock_key=$HANDOFF_KEY
+      legacy=1
+    fi
+    ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$lock_key.lock"
     fm_lock_acquire_wait "$ACTIVE_HANDOFF_LOCK" || return 1
+    if [ "$legacy" = 1 ]; then
+      if ! fm_tasks_axi_migrate_legacy_handoff "$DATA" "$id" "$PEER_HOST" "$PEER_ROOT" "$PEER_HOME"; then
+        failed=1
+        release_remote_locks
+        continue
+      fi
+      outbox="$DATA/handoff/$HANDOFF_KEY.outbox.md"
+    fi
     resume_remote_outbox "$id" "$outbox" || failed=1
     release_remote_locks
   done
@@ -1160,7 +1181,8 @@ resume_remote_wake() { # <secondmate-id>
   PEER_ROOT=$(secondmate_registry_field "$REG" "$id" root) || return 1
   PEER_HOME=$(secondmate_registry_field "$REG" "$id" home) || return 1
   set_remote_destination || return 1
-  [ -e "$DATA/handoff/$HANDOFF_KEY.outbox.md" ] || [ -L "$DATA/handoff/$HANDOFF_KEY.outbox.md" ] || {
+  [ -e "$DATA/handoff/$HANDOFF_KEY.outbox.md" ] || [ -L "$DATA/handoff/$HANDOFF_KEY.outbox.md" ] ||
+    [ -e "$DATA/handoff/$id.outbox.md" ] || [ -L "$DATA/handoff/$id.outbox.md" ] || {
     receiver_wake_clear_confirmed "$id"
     receiver_wake_pending_valid "$id" || return 0
     wake_pending_secondmate_receiver "$id"
@@ -1288,6 +1310,7 @@ if [ "$REMOTE" = 1 ]; then
   set_remote_destination || exit 1
   ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$HANDOFF_KEY.lock"
   fm_lock_acquire_wait "$ACTIVE_HANDOFF_LOCK"
+  fm_tasks_axi_migrate_legacy_handoff "$DATA" "$ID" "$PEER_HOST" "$PEER_ROOT" "$PEER_HOME" || exit 1
   if remote_handoff "$ID" "$@"; then rc=0; else rc=$?; fi
   release_remote_locks
   exit "$rc"

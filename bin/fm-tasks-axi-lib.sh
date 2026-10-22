@@ -235,3 +235,42 @@ fm_tasks_axi_handoff_key() {
     if command -v shasum >/dev/null 2>&1; then shasum -a 256; else sha256sum; fi) || return 1
   printf 'home-%s\n' "${digest%% *}"
 }
+
+fm_tasks_axi_migrate_legacy_handoff() {
+  local data=$1 id=$2 host=$3 root=$4 home=$5 legacy key target record tmp
+  [ -e "$data/handoff" ] || [ -L "$data/handoff" ] || return 0
+  [ -d "$data/handoff" ] && [ ! -L "$data/handoff" ] || {
+    echo "error: unsafe legacy handoff directory: $data/handoff" >&2
+    return 1
+  }
+  legacy="$data/handoff/$id.outbox.md"
+  [ -e "$legacy" ] || [ -L "$legacy" ] || return 0
+  [ -f "$legacy" ] && [ ! -L "$legacy" ] || {
+    echo "error: unsafe legacy handoff outbox: $legacy" >&2
+    return 1
+  }
+  key=$(fm_tasks_axi_handoff_key "$host" "$home") || return 1
+  target="$data/handoff/$key.outbox.md"
+  if [ "$legacy" != "$target" ] && { [ -e "$target" ] || [ -L "$target" ]; }; then
+    echo "error: legacy and destination handoff batches both exist; preserve both and resume the destination batch first" >&2
+    return 1
+  fi
+  record="$data/handoff/$key.route"
+  tmp=$(umask 077; mktemp "$data/handoff/.route.XXXXXX") || return 1
+  if ! printf '%s\n' "$host" "$root" "$home" "$id" >"$tmp"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  if [ -e "$record" ] || [ -L "$record" ]; then
+    if [ ! -f "$record" ] || [ -L "$record" ] || ! cmp -s -- "$tmp" "$record"; then
+      rm -f -- "$tmp"
+      echo "error: legacy handoff destination record conflicts with its registry route" >&2
+      return 1
+    fi
+    rm -f -- "$tmp"
+  elif ! mv -f -- "$tmp" "$record"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  [ "$legacy" = "$target" ] || mv -- "$legacy" "$target"
+}

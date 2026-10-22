@@ -234,7 +234,7 @@ assert_grep 'ios-b' "$REMOTE/data/backlog.md" "remote atomic receipt did not del
 pass "ambiguous receipt leaves the source queued and one durable outbox"
 
 out=$(handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending)
-assert_contains "$out" "received: $IOS_KEY moved=0 already=2" "retry did not classify already-delivered keys idempotently"
+assert_contains "$out" 'moved=0 already=2' "retry did not classify already-delivered keys idempotently"
 [ "$(grep -cF fm-remote-secondmate-control.sh "$WAKE_LOG")" -eq 1 ] \
   || fail "confirmed remote receipt did not wake its supported receiver endpoint exactly once"
 assert_absent "$PARENT/data/handoff/$IOS_KEY.outbox.md" "confirmed retry did not clean the local outbox"
@@ -300,7 +300,9 @@ set -e
 assert_grep '- [ ] transfer-cut' "$PARENT/data/backlog.md" "dropped transfer closed the source before receipt"
 assert_no_grep "moved to remote-mac:$REMOTE" "$PARENT/data/backlog.md" "dropped transfer wrote the move note"
 assert_present "$PARENT/data/handoff/$IOS_KEY.outbox.md" "dropped transfer lost the local outbox"
-assert_present "$REMOTE/state/handoff/$IOS_KEY.outbox.md" "dropped transfer did not atomically publish its remote scratch copy"
+remote_outboxes=("$REMOTE/state/handoff/"*.outbox.md)
+[ "${#remote_outboxes[@]}" -eq 1 ] || fail "dropped transfer has no unique remote scratch copy"
+assert_present "${remote_outboxes[0]}" "dropped transfer did not atomically publish its remote scratch copy"
 assert_absent "$REMOTE/data/backlog.md" "dropped transfer applied a destination mutation"
 handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending >/dev/null \
   || fail "recovery after dropped transfer failed"
@@ -759,23 +761,52 @@ cat > "$PARENT/data/secondmates.md" <<EOF
 - ios - iOS delivery (host: remote-mac; root: $REMOTE_ROOT; home: $REMOTE; scope: iOS work; projects: alpha; added 2026-08-02)
 EOF
 rm -f "$REMOTE/data/backlog.md"
-write_backlog '- [ ] legacy-row - old shape already left the source (repo: alpha)'
-set +e
-FM_FAKE_SSH_MODE=after-put handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios legacy-row \
-  > "$TMP_ROOT/legacy-stage.out" 2>&1
-rc=$?
-set -e
-[ "$rc" -ne 0 ] || fail "legacy staging claimed success before receipt"
-assert_present "$PARENT/data/handoff/$IOS_KEY.outbox.md" "legacy staging lost the outbox"
 write_backlog '- [ ] unrelated-left - stays queued (repo: alpha)'
+printf '## Queued\n- [ ] legacy-row - old shape already left the source (repo: alpha)\n  prep: data/legacy/prep.md\n\n## Done\n' \
+  > "$PARENT/data/handoff/ios.outbox.md"
+cp "$PARENT/data/handoff/ios.outbox.md" "$TMP_ROOT/legacy.expected"
+assert_absent "$PARENT/data/handoff/$IOS_KEY.route" "legacy fixture unexpectedly has a route record"
+if FM_FAKE_SSH_MODE=unreachable handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending \
+  > "$TMP_ROOT/legacy-offline.out" 2>&1; then
+  fail "offline legacy resume succeeded"
+fi
+assert_absent "$PARENT/data/handoff/ios.outbox.md" "legacy resume did not migrate the old filename"
+assert_present "$PARENT/data/handoff/$IOS_KEY.route" "legacy resume did not bind the registry destination"
+cmp -s "$TMP_ROOT/legacy.expected" "$PARENT/data/handoff/$IOS_KEY.outbox.md" \
+  || fail "failed legacy receipt lost or modified the sole payload"
 handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending \
   > "$TMP_ROOT/legacy-resume.out" 2>&1 \
   || fail "legacy outbox resume failed: $(cat "$TMP_ROOT/legacy-resume.out")"
 assert_grep 'legacy-row' "$REMOTE/data/backlog.md" "legacy resume did not deliver the outbox item"
+assert_grep 'prep: data/legacy/prep.md' "$REMOTE/data/backlog.md" "legacy resume lost the prep link"
 assert_grep '- [ ] unrelated-left' "$PARENT/data/backlog.md" "legacy resume changed the remaining queued row"
 assert_no_grep "moved to remote-mac:$REMOTE" "$PARENT/data/backlog.md" "legacy resume invented a move note for a missing source row"
 assert_absent "$PARENT/data/handoff/$IOS_KEY.outbox.md" "legacy resume left the outbox"
-pass "a legacy outbox with no source row still resumes"
+pass "a pre-upgrade outbox migrates and resumes without losing its sole payload"
+
+printf '## Queued\n- [ ] legacy-retirement - undelivered before upgrade (repo: alpha)\n\n## Done\n' \
+  > "$PARENT/data/handoff/ios.outbox.md"
+cp "$PARENT/data/handoff/ios.outbox.md" "$TMP_ROOT/legacy-retirement.expected"
+printf 'home=%s\n' "$REMOTE" >> "$PARENT/state/ios.meta"
+if handoff_env "$ROOT/bin/fm-teardown.sh" ios > "$TMP_ROOT/legacy-retirement.out" 2>&1; then
+  fail "retirement ignored the pre-upgrade outbox"
+fi
+assert_contains "$(cat "$TMP_ROOT/legacy-retirement.out")" 'pending backlog outbox' "retirement did not enforce the pending legacy batch guard"
+assert_present "$REMOTE" "legacy retirement removed the destination home"
+cmp -s "$TMP_ROOT/legacy-retirement.expected" "$PARENT/data/handoff/$IOS_KEY.outbox.md" \
+  || fail "retirement lost the legacy payload"
+handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending >/dev/null \
+  || fail "legacy batch could not resume after refused retirement"
+assert_grep 'legacy-retirement' "$REMOTE/data/backlog.md" "retirement stranded the old batch"
+pass "a pre-upgrade outbox still blocks non-forced retirement"
+
+printf '## Queued\n- [ ] legacy-named - retry by registered name (repo: alpha)\n\n## Done\n' \
+  > "$PARENT/data/handoff/ios.outbox.md"
+handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios legacy-named >/dev/null \
+  || fail "named handoff did not discover and migrate the pre-upgrade batch"
+assert_grep 'legacy-named' "$REMOTE/data/backlog.md" "named migration lost the payload"
+assert_absent "$PARENT/data/handoff/ios.outbox.md" "named migration left the old filename"
+pass "named handoffs recover pre-upgrade batches through their registry destination"
 
 PEER_HOME="$TMP_ROOT/peer-remote"
 mkdir -p "$PEER_HOME/bin" "$PEER_HOME/data"
@@ -843,5 +874,28 @@ tasks-axi unblock new-edge-child --by new-edge-parent --file "$PARENT/data/backl
 handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending >/dev/null || fail "unblocked recovery failed"
 assert_no_grep '- [ ] new-edge-parent' "$PARENT/data/backlog.md" "unblocked parent stayed queued"
 pass "remote recovery does not release a newly added source dependent"
+
+SHARED_TARGET="$TMP_ROOT/multiple-sources-target"
+mkdir -p "$SHARED_TARGET/bin" "$SHARED_TARGET/data"
+printf 'fixture\n' > "$SHARED_TARGET/AGENTS.md"
+ORIGINAL_PARENT=$PARENT
+for source_name in first-source second-source; do
+  PARENT="$TMP_ROOT/$source_name"
+  mkdir -p "$PARENT/data" "$PARENT/state"
+  write_backlog "- [ ] $source_name-item - independent source payload (repo: alpha)"
+  handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --host remote-mac \
+    --remote-root "$REMOTE_ROOT" --remote-home "$SHARED_TARGET" "$source_name-item" \
+    > "$TMP_ROOT/$source_name.out" 2>&1 || fail "$source_name could not deliver: $(cat "$TMP_ROOT/$source_name.out")"
+  counters=("$PARENT/state/".remote-handoff-*.generation)
+  [ "${#counters[@]}" -eq 1 ] && [ "$(cat "${counters[0]}")" = 1 ] \
+    || fail "$source_name fixture did not use its own first generation"
+  assert_grep "moved to remote-mac:$SHARED_TARGET" "$PARENT/data/backlog.md" "source-specific transport changed the destination label"
+done
+PARENT=$ORIGINAL_PARENT
+for source_name in first-source second-source; do
+  [ "$(grep -cF "$source_name-item" "$SHARED_TARGET/data/backlog.md")" -eq 1 ] \
+    || fail "$source_name payload was lost or duplicated at the shared target"
+done
+pass "independent source homes deliver their first generations to the same target"
 
 echo "ALL TESTS PASSED"
