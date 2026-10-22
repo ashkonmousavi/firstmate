@@ -47,7 +47,10 @@
 #     no longer uses local resources.
 # A place therefore frees when a PR-based ship records its ready PR, or when any
 # task is cleaned up and its record removed. A failed fresh spawn keeps its
-# record, and the place, until the endpoint is proven gone. A local-only ship
+# record, and the place, until the endpoint is proven gone (rollback contract:
+# bin/fm-spawn.sh). That retained record counts against a retry of its own id
+# too; only a proven-gone endpoint lets admission skip that id's record.
+# A local-only ship
 # and a scout have no recorded handoff and hold their place until cleanup.
 # A worker that is steered back into work after its PR handoff is not counted again.
 # The declaration is matched by the spawning clone's directory name, so clones

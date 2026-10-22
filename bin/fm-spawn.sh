@@ -590,9 +590,13 @@
 # script performs the transition under the task's own meta lock before it reports
 # success. A ship or scout dispatch therefore REFUSES up front, before any
 # endpoint, worktree, or record exists, unless the home's backlog has an
-# unheld, unblocked Queued or In flight item for the id; a transition that fails
-# after publication removes the record it just wrote rather than leaving a
-# worker the backlog does not own. A relaunch re-reads the row instead of
+# unheld, unblocked Queued or In flight item for the id. A failed transition
+# after publication, or a cancelled fresh launch, removes the record and retires
+# its busy generation only after spawn_fresh_commit_rollback proves the recorded
+# endpoint gone. Otherwise both remain, even after kill success or a closed flag;
+# bin/fm-backend.sh's fm_backend_endpoint_confirmed_gone owns the proof contract.
+# A fresh same-id retry refuses to replace an unproven record, even without a
+# project capacity declaration. A relaunch re-reads the row instead of
 # re-running the transition, so an eligible In-flight item is left untouched.
 # The transition is
 # skipped entirely for --secondmate spawns (persistent agents are not work
