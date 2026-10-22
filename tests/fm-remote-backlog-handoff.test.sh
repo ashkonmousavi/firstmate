@@ -203,9 +203,9 @@ $1
 EOF
 }
 
-# Completion can become unknown after the remote atomic move. The local outbox
-# remains the whole recovery record, the primary dispatch queue is already
-# empty, and a blind retry is not performed inside the transport call.
+# Completion can become unknown after the remote write. The local outbox remains
+# the recovery record, the source stays queued until a later receipt is confirmed,
+# and a blind retry is not performed inside the transport call.
 write_backlog $'- [ ] ios-a - first iOS task (repo: alpha)\n- [ ] ios-b - dependent iOS task (repo: alpha) blocked-by: ios-a - waits'
 : > "$SSH_COUNT"
 set +e
@@ -214,8 +214,9 @@ FM_FAKE_SSH_MODE=after-receive handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios
 rc=$?
 set -e
 [ "$rc" -ne 0 ] || fail "handoff claimed success after ambiguous remote receipt"
-assert_no_grep 'ios-a' "$PARENT/data/backlog.md" "ambiguous handoff left ios-a dispatchable in the primary backlog"
-assert_no_grep 'ios-b' "$PARENT/data/backlog.md" "ambiguous handoff left ios-b dispatchable in the primary backlog"
+assert_grep '- [ ] ios-a' "$PARENT/data/backlog.md" "ambiguous receipt closed ios-a before confirmation"
+assert_grep '- [ ] ios-b' "$PARENT/data/backlog.md" "ambiguous receipt closed ios-b before confirmation"
+assert_no_grep 'moved to ios' "$PARENT/data/backlog.md" "ambiguous receipt wrote the move note before confirmation"
 assert_present "$PARENT/data/handoff/ios.outbox.md" "ambiguous handoff lost its durable outbox"
 if [ ! -f "$REMOTE/data/backlog.md" ]; then
   printf 'handoff output:\n%s\n' "$(cat "$TMP_ROOT/ambiguous.out")" >&2
@@ -227,13 +228,15 @@ if ! grep -F ios-a "$REMOTE/data/backlog.md" >/dev/null; then
 fi
 assert_grep 'ios-b' "$REMOTE/data/backlog.md" "remote atomic receipt did not deliver ios-b before the dropped acknowledgement"
 [ "$(cat "$SSH_COUNT")" -eq 2 ] || fail "transport retried an ambiguously completed command"
-pass "ambiguous receipt leaves one durable outbox and no duplicate dispatchable source"
+pass "ambiguous receipt leaves the source queued and one durable outbox"
 
 out=$(handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending)
 assert_contains "$out" 'received: ios moved=0 already=2' "retry did not classify already-delivered keys idempotently"
 [ "$(grep -cF fm-remote-secondmate-control.sh "$WAKE_LOG")" -eq 1 ] \
   || fail "confirmed remote receipt did not wake its supported receiver endpoint exactly once"
 assert_absent "$PARENT/data/handoff/ios.outbox.md" "confirmed retry did not clean the local outbox"
+assert_grep 'moved to ios' "$PARENT/data/backlog.md" "confirmed retry did not close the source"
+assert_no_grep '- [ ] ios-a' "$PARENT/data/backlog.md" "confirmed retry left ios-a queued"
 [ "$(grep -cF -- '- [ ] ios-a - first iOS task' "$REMOTE/data/backlog.md")" -eq 1 ] \
   || fail "receipt retry duplicated ios-a"
 [ "$(grep -cF -- '- [ ] ios-b - dependent iOS task' "$REMOTE/data/backlog.md")" -eq 1 ] \
@@ -252,13 +255,16 @@ FM_FAKE_SSH_MODE=after-put handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios tra
 rc=$?
 set -e
 [ "$rc" -ne 0 ] || fail "handoff claimed success after a dropped transfer acknowledgement"
-assert_no_grep 'transfer-cut' "$PARENT/data/backlog.md" "dropped transfer left the item dispatchable"
+assert_grep '- [ ] transfer-cut' "$PARENT/data/backlog.md" "dropped transfer closed the source before receipt"
+assert_no_grep 'moved to ios' "$PARENT/data/backlog.md" "dropped transfer wrote the move note"
 assert_present "$PARENT/data/handoff/ios.outbox.md" "dropped transfer lost the local outbox"
 assert_present "$REMOTE/state/handoff/ios.outbox.md" "dropped transfer did not atomically publish its remote scratch copy"
 assert_absent "$REMOTE/data/backlog.md" "dropped transfer applied a destination mutation"
 handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending >/dev/null \
   || fail "recovery after dropped transfer failed"
 assert_grep 'transfer-cut' "$REMOTE/data/backlog.md" "recovery after dropped transfer lost the item"
+assert_grep 'moved to ios' "$PARENT/data/backlog.md" "recovery after dropped transfer did not close the source"
+assert_no_grep '- [ ] transfer-cut' "$PARENT/data/backlog.md" "recovery after dropped transfer left the source queued"
 assert_absent "$PARENT/data/handoff/ios.outbox.md" "recovery after dropped transfer left the local outbox"
 pass "dropped transfer recovery overwrites scratch and delivers exactly once"
 
@@ -285,8 +291,9 @@ assert_no_grep 'serialized-b' "$PARENT/data/handoff/ios.outbox.md" "concurrent h
 touch "$TMP_ROOT/serialize.release"
 wait "$handoff_a" || fail "first serialized handoff failed"
 wait "$handoff_b" || fail "second serialized handoff failed"
-assert_no_grep 'serialized-a' "$PARENT/data/backlog.md" "first serialized handoff remained dispatchable"
-assert_no_grep 'serialized-b' "$PARENT/data/backlog.md" "second serialized handoff remained dispatchable"
+assert_no_grep 'serialized-a' "$PARENT/data/backlog.md" "first serialized handoff reappeared after its source row was replaced"
+assert_no_grep '- [ ] serialized-b' "$PARENT/data/backlog.md" "second serialized handoff stayed queued"
+assert_grep 'moved to ios' "$PARENT/data/backlog.md" "serialized handoff did not close the source"
 [ "$(grep -cF serialized-a "$REMOTE/data/backlog.md")" -eq 1 ] \
   || fail "first serialized handoff was lost or duplicated"
 [ "$(grep -cF serialized-b "$REMOTE/data/backlog.md")" -eq 1 ] \
@@ -702,5 +709,49 @@ assert_contains "$recv_out" 'received: ios moved=1 already=0' "decoy-cwd receipt
 assert_grep 'decoy-recv' "$RECV_HOME/data/backlog.md" "decoy-cwd receipt did not reach the destination backlog"
 assert_absent "$RECV_HOME/state/handoff/ios.outbox.md" "decoy-cwd receipt kept the delivered outbox"
 pass "a cwd .tasks.toml for another backend does not redirect a markdown receipt"
+
+# An older outbox can be the only copy. Resume still delivers it and treats the
+# missing source row as that already-removed shape. The route-race case removes
+# the registry line, so this case puts that route back first.
+cat > "$PARENT/data/secondmates.md" <<EOF
+- ios - iOS delivery (host: remote-mac; root: $REMOTE_ROOT; home: $REMOTE; scope: iOS work; projects: alpha; added 2026-08-02)
+EOF
+rm -f "$REMOTE/data/backlog.md"
+write_backlog '- [ ] legacy-row - old shape already left the source (repo: alpha)'
+set +e
+FM_FAKE_SSH_MODE=after-put handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios legacy-row \
+  > "$TMP_ROOT/legacy-stage.out" 2>&1
+rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "legacy staging claimed success before receipt"
+assert_present "$PARENT/data/handoff/ios.outbox.md" "legacy staging lost the outbox"
+write_backlog '- [ ] unrelated-left - stays queued (repo: alpha)'
+handoff_env "$ROOT/bin/fm-backlog-handoff.sh" --resume-pending \
+  > "$TMP_ROOT/legacy-resume.out" 2>&1 \
+  || fail "legacy outbox resume failed: $(cat "$TMP_ROOT/legacy-resume.out")"
+assert_grep 'legacy-row' "$REMOTE/data/backlog.md" "legacy resume did not deliver the outbox item"
+assert_grep '- [ ] unrelated-left' "$PARENT/data/backlog.md" "legacy resume changed the remaining queued row"
+assert_no_grep 'moved to ios' "$PARENT/data/backlog.md" "legacy resume invented a move note for a missing source row"
+assert_absent "$PARENT/data/handoff/ios.outbox.md" "legacy resume left the outbox"
+pass "a legacy outbox with no source row still resumes"
+
+PEER_HOME="$TMP_ROOT/peer-remote"
+mkdir -p "$PEER_HOME/bin" "$PEER_HOME/data"
+printf 'fixture\n' > "$PEER_HOME/AGENTS.md"
+write_backlog $'- [ ] peer-remote - peer body (repo: alpha)\n  report: data/peer-remote/report.md\n- [ ] peer-remote-wait - waits (repo: alpha) blocked-by: peer-remote - needs the report'
+wake_before=$(grep -cF fm-remote-secondmate-control.sh "$WAKE_LOG" || true)
+handoff_env "$ROOT/bin/fm-backlog-handoff.sh" \
+  --host remote-mac --remote-root "$REMOTE_ROOT" --remote-home "$PEER_HOME" \
+  peer-remote peer-remote-wait \
+  > "$TMP_ROOT/peer-remote.out" 2>&1 \
+  || fail "explicit remote peer move failed: $(cat "$TMP_ROOT/peer-remote.out")"
+assert_grep 'report: data/peer-remote/report.md' "$PEER_HOME/data/backlog.md" "remote peer dropped the report path"
+assert_grep 'blocked-by: peer-remote - needs the report' "$PEER_HOME/data/backlog.md" "remote peer dropped the blocked-by reason"
+assert_grep 'moved to remote-mac' "$PARENT/data/backlog.md" "remote peer did not close the source"
+assert_no_grep '- [ ] peer-remote' "$PARENT/data/backlog.md" "remote peer left the source queued"
+[ ! -e "$PEER_HOME/.fm-secondmate-home" ] || fail "remote peer registered the home as a secondmate"
+[ "$(grep -cF fm-remote-secondmate-control.sh "$WAKE_LOG" || true)" -eq "$wake_before" ] \
+  || fail "remote peer woke a receiver"
+pass "an explicit remote host moves a peer home without a secondmate wake"
 
 echo "ALL TESTS PASSED"

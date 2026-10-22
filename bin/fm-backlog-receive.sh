@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Receive one delivered remote-secondmate outbox into this home's backlog.
+# Receive one delivered outbox into this home's backlog.
 #
 # Usage:
-#   fm-backlog-receive.sh state/handoff/<secondmate-id>.outbox.md <bytes> <sha256> <generation>
+#   fm-backlog-receive.sh state/handoff/<id>.outbox.md <bytes> <sha256> <generation>
 #
 # The delivered file must be a non-symlink backlog-format scratch file confined
-# to FM_HOME/state/handoff. Every item must be Queued. Keys already present in
-# data/backlog.md are skipped; every remaining key moves in one dependency-closed
-# `tasks-axi mv` transaction under tasks-axi's own locks. On an ambiguous caller
-# retry, destination-present classification makes this operation idempotent.
+# to FM_HOME/state/handoff. This home must contain AGENTS.md and bin/. Every
+# item must be Queued. Keys already present in data/backlog.md stay in place;
+# every remaining key moves in one dependency-closed `tasks-axi mv` transaction
+# under tasks-axi's own locks. Success requires tasks-axi show --full and the
+# item header to match the delivered file, including keys already present. A
+# mismatch keeps the delivered file and does not overwrite the backlog.
 #
 # If tasks-axi reports a lock failure, this host may remove and retry once only
 # for its own backlog or delivered lock whose pid is dead and whose mtime is at
@@ -28,7 +30,7 @@ LOCK_STALE_SECS=30
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
-usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 sha256_file() {
   if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi
 }
@@ -52,6 +54,37 @@ list_keys() { # <file>
       if (id != "" && !seen[id]++) print id
     }
   ' "$1"
+}
+
+show_task() { # <id> <file>
+  local out
+  # The help trailer names the backlog path, so it is not part of the item.
+  out=$(tasks-axi show "$1" --full --file "$2" --backend markdown) || return 1
+  printf '%s\n' "$out" | awk '/^help\[/ { exit } { print }'
+}
+
+item_header_line() { # <file> <id>
+  awk -v key="$2" '
+    /^- \[[ x]\] / {
+      rest = $0
+      sub(/^- \[[ x]\] +/, "", rest)
+      id = rest
+      sub(/[ \t].*/, "", id)
+      if (id == key) { print; found = 1; exit }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$1"
+}
+
+confirm_received() { # <id> <source-file>
+  local id=$1 src=$2 src_show dst_show src_header dst_header
+  src_show=$(show_task "$id" "$src") || return 1
+  dst_show=$(show_task "$id" "$DEST") || return 1
+  [ "$src_show" = "$dst_show" ] || return 1
+  printf '%s\n' "$dst_show" | grep -F '  state: queued' >/dev/null || return 1
+  src_header=$(item_header_line "$src" "$id") || return 1
+  dst_header=$(item_header_line "$DEST" "$id") || return 1
+  [ "$src_header" = "$dst_header" ]
 }
 
 lock_age() {
@@ -99,9 +132,8 @@ case "$GENERATION" in ''|*[!0-9]*) die "generation must be a positive integer" ;
 case "$REL" in state/handoff/*.outbox.md) ;; *) die "delivered outbox path is outside state/handoff: $REL" ;; esac
 case "/$REL/" in */../*|*/./*) die "delivered outbox path contains traversal" ;; esac
 case "$REL" in *'//'*) die "delivered outbox path is malformed" ;; esac
-[ -f "$FM_HOME/.fm-secondmate-home" ] && [ ! -L "$FM_HOME/.fm-secondmate-home" ] \
-  || die "FM_HOME is not a seeded secondmate home"
-[ -f "$FM_HOME/AGENTS.md" ] && [ -d "$FM_HOME/bin" ] || die "FM_HOME is not a Firstmate home"
+[ -f "$FM_HOME/AGENTS.md" ] && [ ! -L "$FM_HOME/AGENTS.md" ] && [ -d "$FM_HOME/bin" ] \
+  || die "FM_HOME is not a Firstmate home"
 HOME_REAL=$(CDPATH='' cd -- "$FM_HOME" 2>/dev/null && pwd -P) || die "FM_HOME cannot be resolved"
 PARENT=$(dirname "$FM_HOME/$REL")
 PARENT_REAL=$(CDPATH='' cd -- "$PARENT" 2>/dev/null && pwd -P) || die "delivered outbox parent is unavailable"
@@ -163,8 +195,22 @@ for key in "${KEYS[@]}"; do
   fi
 done
 
+# mv removes the items from the delivered file, so the read-back uses a copy
+# taken before that write.
+RECEIPT_SNAPSHOT=$(
+  umask 077
+  mktemp "${TMPDIR:-/tmp}/fm-receive-readback.XXXXXX"
+) || die "cannot record the delivered read-back"
+cp -p -- "$DELIVERED" "$RECEIPT_SNAPSHOT" || {
+  rm -f -- "$RECEIPT_SNAPSHOT"
+  die "cannot copy the delivered outbox for read-back"
+}
+
 if [ "${#TO_MOVE[@]}" -gt 0 ]; then
-  fm_tasks_axi_compatible || die "a compatible tasks-axi is required for atomic backlog receipt; run bin/fm-bootstrap.sh for the required version"
+  fm_tasks_axi_compatible || {
+    rm -f -- "$RECEIPT_SNAPSHOT"
+    die "a compatible tasks-axi is required for atomic backlog receipt; run bin/fm-bootstrap.sh for the required version"
+  }
   if ! MOVE_OUT=$(run_move "${TO_MOVE[@]}" 2>&1); then
     recovered=0
     for lock in "$DELIVERED.lock" "$DEST.lock"; do
@@ -173,6 +219,7 @@ if [ "${#TO_MOVE[@]}" -gt 0 ]; then
     if [ "$recovered" -ne 1 ] || ! MOVE_OUT=$(run_move "${TO_MOVE[@]}" 2>&1); then
       [ "$DEST_CREATED" -eq 0 ] || rm -f -- "$DEST"
       [ -z "$MOVE_OUT" ] || printf '%s\n' "$MOVE_OUT" >&2
+      rm -f -- "$RECEIPT_SNAPSHOT"
       die "atomic backlog receipt failed; delivered outbox is preserved for retry"
     fi
   fi
@@ -180,8 +227,17 @@ fi
 
 for key in "${KEYS[@]}"; do
   backlog_key_section "$DEST" "$key" >/dev/null 2>&1 \
-    || die "receipt verification failed for $key; delivered outbox is preserved"
+    || {
+      rm -f -- "$RECEIPT_SNAPSHOT"
+      die "receipt verification failed for $key; delivered outbox is preserved"
+    }
+  confirm_received "$key" "$RECEIPT_SNAPSHOT" \
+    || {
+      rm -f -- "$RECEIPT_SNAPSHOT"
+      die "receipt read-back for $key did not match the delivered outbox; delivered outbox is preserved"
+    }
 done
+rm -f -- "$RECEIPT_SNAPSHOT" || die "receipt succeeded but read-back cleanup failed"
 rm -f -- "$DELIVERED" || die "receipt succeeded but delivered scratch cleanup failed"
 fm_lock_release "$TRANSFER_LOCK" || die "receipt succeeded but transfer lock cleanup failed"
 trap - EXIT
