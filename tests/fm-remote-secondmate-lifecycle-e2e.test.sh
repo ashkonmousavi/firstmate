@@ -1564,7 +1564,7 @@ assert_grep '- ios ' "$PARENT/data/secondmates.md" "a liveness-busy retirement r
   || fail "a liveness-busy retirement removed or took the episode's lock"
 kill "$liveness_holder_pid" 2>/dev/null || true
 wait "$liveness_holder_pid" 2>/dev/null || true
-handoff_lock="$PARENT/state/.backlog-handoff-ios.lock"
+handoff_lock="$PARENT/state/.backlog-handoff-$REMOTE_KEY.lock"
 FM_HOME="$PARENT" /bin/bash -c '
   . "$1"
   fm_lock_acquire_wait "$2"
