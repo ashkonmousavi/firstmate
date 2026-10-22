@@ -79,7 +79,8 @@ harness_version() {  # <binary>
 # Launch <name> idle with its unattended-autonomy flags (the same posture
 # bin/fm-spawn.sh uses), so the doorbell-triggered shell actions need no
 # interactive approval.
-launch_cmd() {  # <name>
+launch_cmd() {  # <name> <home>
+  local home=${2:-} config
   case "$1" in
     claude) printf '%s' 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '\''{"feedbackDrafts":"off"}'\''' ;;
     codex) printf '%s' 'codex --dangerously-bypass-approvals-and-sandbox --disable hooks' ;;
@@ -89,6 +90,30 @@ launch_cmd() {  # <name>
     kimi) printf '%s' 'kimi --auto' ;;
     cursor) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u GEMINI_CLI -u CURSOR_INVOKED_AS cursor-agent --trust --yolo' ;;
     muse) printf '%s' 'MUSE_EXPERIMENTAL_FOREIGN_PERSONAL_CONTEXT_KILL=on muse --yolo' ;;
+    omp)
+      printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u GEMINI_CLI -u CURSOR_AGENT -u CURSOR_INVOKED_AS FM_OMP_HARNESS=omp OMP_SKIP_SETUP=1 omp --config %q --auto-approve --cwd %q' \
+        "$ROOT/.omp/fm-worker-overlay.yml" "$home/workspace"
+      ;;
+    gemini) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS GEMINI_CLI_TRUST_WORKSPACE=true gemini -y' ;;
+    rovo)
+      config=$(jq -cn --arg lab "${home%/*}" '{toolPermissions:{allowedExternalPaths:[$lab]}}') || return 1
+      printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS rovo run --yolo --config-override %q' "$config"
+      ;;
+    agy) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS agy --dangerously-skip-permissions' ;;
+    devin)
+      bash "$ROOT/bin/fm-devin-config.sh" "$home/state" live-devin 0 || return 1
+      printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u NO_COLOR devin --permission-mode dangerous --respect-workspace-trust false --config %q' \
+        "$home/state/live-devin.devin-config.json"
+      ;;
+    commandcode) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u NO_COLOR COLORTERM=truecolor commandcode --yolo --trust --skip-onboarding --no-auto-update' ;;
+    polytoken)
+      . "$ROOT/bin/fm-polytoken-lib.sh"
+      fm_polytoken_write_config "$home/polytoken-config" || return 1
+      fm_polytoken_write_facet "$home/workspace" "$home/state/live-polytoken.inbox" || return 1
+      printf '%s' 'for _fmv in $(env | cut -d= -f1 | grep -E '\''^(ORCA_|FM_)'\''); do case $_fmv in FM_TASK_ID|FM_TASK_INBOX|FM_ZELLIJ_SESSION) ;; *) unset $_fmv ;; esac; done; '
+      printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u GEMINI_CLI -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u AGENT polytoken --config-dir %q new --sessions-dir %q --facet firstmate-worker --facets-dir %q' \
+        "$home/polytoken-config" "$home/polytoken-sessions" "$home/workspace/.polytoken/facets"
+      ;;
     *) return 1 ;;
   esac
 }
@@ -139,9 +164,9 @@ check_harness_doorbell() {  # <name> <mode>
   binary=$name
   [ "$name" != cursor ] || binary=cursor-agent
   version=$(harness_version "$binary")
-  cmd=$(launch_cmd "$name") || { FAILED=1; printf 'not ok - %s (%s): no launch recipe\n' "$name" "$version" >&2; return 0; }
   home="$LAB/$name-$mode-home"
   mkdir -p "$home/state" "$home/workspace"
+  cmd=$(launch_cmd "$name" "$home") || { FAILED=1; printf 'not ok - %s (%s): launch recipe preparation failed\n' "$name" "$version" >&2; return 0; }
   task="live-$name"
   acted="$LAB/acted-$name-$mode"
   tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$home/workspace" \
