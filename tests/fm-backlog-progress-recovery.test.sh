@@ -30,6 +30,16 @@ retry() {
   esac
 }
 
+for lifecycle in since merged reported done closed; do
+  printf '## Queued\n- [ ] parser-child - child blocked-by: parser-parent - waits (%s 2026-10-21) (since 2026-10-22)\n' \
+    "$lifecycle" > "$TMP_ROOT/lifecycle.md"
+  edges=$(bash -c '. "$1"; fm_tasks_axi_item_edges "$2" parser-child' _ \
+    "$ROOT/bin/fm-tasks-axi-lib.sh" "$TMP_ROOT/lifecycle.md")
+  [ "$edges" = $'blocked-by\tparser-parent\twaits' ] \
+    || fail "$lifecycle leaked into the dependency reason: $edges"
+done
+pass 'recognized trailing lifecycle tags do not become dependency reasons'
+
 for route in receipt registered peer; do
   for progress in start done; do
     source="$TMP_ROOT/$route-$progress-source"
@@ -45,7 +55,7 @@ for route in receipt registered peer; do
 ## Queued
 - [ ] progress-parent - keep parent (repo: alpha)
 - [ ] progress-second - keep second (repo: alpha)
-- [ ] progress-child - keep child (repo: alpha) blocked-by: progress-parent - needs report blocked-by: progress-second - needs second
+- [ ] progress-child - keep child (repo: alpha) blocked-by: progress-parent - needs report (since 2026-10-21) blocked-by: progress-second - needs second (done 2026-10-22)
   first body paragraph
 
   state: this is payload, not lifecycle metadata
@@ -64,6 +74,9 @@ EOF
     for key in progress-parent progress-second progress-child progress-bare; do
       tasks-axi "$progress" "$key" --file "$target/data/backlog.md" --backend markdown >/dev/null
     done
+    sed 's/needs report (since 2026-10-21)/needs report/; s/needs second (done 2026-10-22)/needs second/' \
+      "$target/data/backlog.md" > "$target/repositioned.md"
+    mv "$target/repositioned.md" "$target/data/backlog.md"
     cp "$target/data/backlog.md" "$target/progress.expected"
     for changed_field in body reason; do
       if [ "$changed_field" = body ]; then

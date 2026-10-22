@@ -211,10 +211,10 @@ fm_tasks_axi_dependency_edges() {
     my @edges;
     my $marker = qr/(?:blocked-by|parent|discovered-from)/;
     while (1) {
-      if ($tail =~ s/\s*($marker):\s*([A-Za-z0-9][A-Za-z0-9._-]*)(?:\s+-\s+((?:(?!\s+$marker:\s).)+?))?\s*$//) {
+      if ($tail =~ s/\s*\((?:since|merged|reported|done|closed)\s+\d{4}-\d{2}-\d{2}\)\s*$//) {
+      } elsif ($tail =~ s/\s*($marker):\s*([A-Za-z0-9][A-Za-z0-9._-]*)(?:\s+-\s+((?:(?!\s+$marker:\s).)+?))?\s*$//) {
         unshift @edges, [$1, $2, $3 // ""];
       } elsif ($tail =~ s/\s*\((?:(?:[^()]*\+\s*)?repo:|kind:|priority:|hold:|hold-kind:|hold-until:)\s*[^)]*\)\s*$//) {
-      } elsif ($tail =~ s/\s*\((?:since|merged|reported|done|closed)\s+\d{4}-\d{2}-\d{2}\)\s*$//) {
       } else { last }
     }
     for my $edge (@edges) { print join("\t", $id, $closed, @$edge), "\n" }
