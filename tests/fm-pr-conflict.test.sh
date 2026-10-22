@@ -413,9 +413,10 @@ test_legacy_poll_authentication() {
   state="$TMP_ROOT/legacy-state"
   setup_task "$state"
   printf 'pr=https://github.com/o/r/pull/7\n' >> "$state/lane.meta"
-  fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
-    github.com o/r 7 "$LEGACY_POLL" && fm_pr_poll_publish_prepared \
-    || fail "could not arm the historical poll protocol fixture"
+  if ! fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
+    github.com o/r 7 "$LEGACY_POLL" || ! fm_pr_poll_publish_prepared; then
+    fail "could not arm the historical poll protocol fixture"
+  fi
   fm_pr_poll_snapshot_capture "$state" lane "$POLL" \
     || fail "a legacy registration lost authentication"
   check="$state/lane.check.sh"
@@ -483,9 +484,10 @@ SH
     case "$mode" in *-failure) graphql_fail=1 ;; closed) gh_state=CLOSED ;; esac
     case "$mode" in legacy-*|secondmate-*) template=$LEGACY_POLL ;; esac
     [ "$mode" != legacy-merged ] || gh_state=MERGED
-    fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
-      github.com o/r 7 "$template" && fm_pr_poll_publish_prepared \
-      || fail "could not arm the watcher fixture"
+    if ! fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
+      github.com o/r 7 "$template" || ! fm_pr_poll_publish_prepared; then
+      fail "could not arm the watcher fixture"
+    fi
     fm_test_track_watcher_state "$state"
     PATH="$FAKEBIN:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
       FM_PR_CONFLICT_SEND="$TMP_ROOT/watch-send.sh" \
@@ -613,7 +615,7 @@ EOF
     || fail "a second overlap pass duplicated the SHARED note"
   grep -F 'https://github.com/o/r/pull/5 (unchecked:' "$brief" >/dev/null \
     || fail "a failed PR lookup was not reported as unchecked"
-  for variant in 'FILES: `shared.txt`' 'BLAST RADIUS: shared.txt' $'## FILES\n- `shared.txt`' $'## BLAST RADIUS\n- shared.txt'; do
+  for variant in "FILES: \`shared.txt\`" 'BLAST RADIUS: shared.txt' $'## FILES\n- `shared.txt`' $'## BLAST RADIUS\n- shared.txt'; do
     printf '# Task\n## Firstmate spec\n%s\n' "$variant" > "$brief"
     FM_OVERLAP_PRS=$prs FM_OVERLAP_DIFF_DIR=$TMP_ROOT/overlap-diffs \
       PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
