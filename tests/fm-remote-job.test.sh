@@ -640,6 +640,54 @@ fm_remote_job_reap "$ACCOUNT_HOME" "$JOB_ID" || fail "the crash-recovered job co
 fm_remote_job_probe "$ACCOUNT_HOME" || fail "the restarted worker did not remain ready"
 pass "Linux supervision recovers crashes and stops orphaned commands"
 
+# A dead readiness heartbeat is not a crashed server. The process that still
+# owns the lock replaces that heartbeat, and the lane already running keeps
+# going. Treating the death as a crash publishes unknown completion for a job
+# that was still running.
+HB_SIDE_EFFECT="$TMP_ROOT/heartbeat-side-effect"
+FM_REMOTE_JOB_QUEUE_TIMEOUT=15
+FM_REMOTE_JOB_TIMEOUT=15
+fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" \
+  fm-delay-job.sh 3 "$HB_SIDE_EFFECT" < /dev/null > /dev/null
+JOB_ID=$FM_REMOTE_JOB_ID
+HB_JOB_DIR="$STATE_ROOT/jobs/$JOB_ID"
+for _ in $(seq 1 100); do
+  [ "$(fm_remote_job_read_state "$HB_JOB_DIR" 2>/dev/null || true)" = running ] && break
+  sleep 0.05
+done
+[ "$(fm_remote_job_read_state "$HB_JOB_DIR" 2>/dev/null || true)" = running ] \
+  || fail "the heartbeat-loss job did not begin running"
+HB_SERVE_PID=$(cat "$STATE_ROOT/worker.pid")
+HB_PID=
+for _ in $(seq 1 50); do
+  HB_CHILDREN=$(cat "/proc/$HB_SERVE_PID/task/$HB_SERVE_PID/children" 2>/dev/null || true)
+  for HB_CHILD in $HB_CHILDREN; do
+    HB_CMD=$(tr '\0' ' ' < "/proc/$HB_CHILD/cmdline" 2>/dev/null || true)
+    case "$HB_CMD" in
+      *'--lane'*) ;;
+      *fm-remote-job-worker.sh*) HB_PID=$HB_CHILD; break ;;
+    esac
+  done
+  [ -n "$HB_PID" ] && break
+  sleep 0.05
+done
+[ -n "$HB_PID" ] || fail "the running worker did not keep a readiness heartbeat"
+[ "$HB_PID" != "$HB_SERVE_PID" ] || fail "the readiness heartbeat was the serving process itself"
+kill -KILL "$HB_PID"
+fm_remote_job_wait "$ACCOUNT_HOME" "$JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
+[ "$FM_REMOTE_JOB_EXIT" -eq 0 ] \
+  || fail "losing the readiness heartbeat published exit $FM_REMOTE_JOB_EXIT for a live job"
+if grep -F 'remote job worker stopped before this job completed' "$HB_JOB_DIR/stderr" >/dev/null 2>&1; then
+  fail "losing the readiness heartbeat published unknown completion for a live job"
+fi
+[ "$(cat "$STATE_ROOT/worker.pid" 2>/dev/null || true)" = "$HB_SERVE_PID" ] \
+  || fail "losing the readiness heartbeat replaced the serving worker"
+fm_remote_job_probe "$ACCOUNT_HOME" || fail "the worker was not ready after its heartbeat was replaced"
+fm_remote_job_reap "$ACCOUNT_HOME" "$JOB_ID" || fail "the heartbeat-loss job could not be reaped"
+FM_REMOTE_JOB_QUEUE_TIMEOUT=5
+FM_REMOTE_JOB_TIMEOUT=5
+pass "a dead readiness heartbeat does not fail the live job"
+
 mkdir -p "$ACCOUNT_HOME/.local/bin"
 PREEXEC_STARTED="$TMP_ROOT/preexecution-started"
 PREEXEC_FINISHED="$TMP_ROOT/preexecution-finished"
