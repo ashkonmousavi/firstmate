@@ -84,7 +84,7 @@ launch_cmd() {  # <name> <home> <binary>
   local home=${2:-} binary=${3:-} config
   case "$1" in
     claude) printf '%s' 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '\''{"feedbackDrafts":"off"}'\''' ;;
-    codex) printf '%s' 'codex --dangerously-bypass-approvals-and-sandbox --disable hooks' ;;
+    codex) printf '%s' 'codex -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox --disable hooks' ;;
     opencode) printf '%s' "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"}}' opencode" ;;
     pi|pi-signed) printf '%s' "$1" ;;
     grok) printf '%s' 'grok --always-approve' ;;
@@ -186,6 +186,7 @@ check_harness_doorbell() {  # <name> <mode> <binary>
       "Firstmate live check: run exactly this shell command now: touch $acted - then follow the mv instruction you were given for this message. Reply with one short line.") || {
       FAILED=1
       printf 'not ok - %s (%s): could not write the draft recovery record\n' "$name" "$version" >&2
+      tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
       return 0
     }
   elif ! FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" \
@@ -205,8 +206,18 @@ check_harness_doorbell() {  # <name> <mode> <binary>
     return 0
   }
   if [ "$mode" = pending ]; then
-    line=$(fm_task_inbox_doorbell_line "$rec") || fail "$name ($version): could not construct the doorbell"
-    tmux -L "$SOCKET" send-keys -t "$SESSION:$win" -l -- "$line" || fail "$name ($version): could not seed the draft"
+    line=$(fm_task_inbox_doorbell_line "$rec") || {
+      FAILED=1
+      printf 'not ok - %s (%s): could not construct the doorbell\n' "$name" "$version" >&2
+      tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
+      return 0
+    }
+    tmux -L "$SOCKET" send-keys -t "$SESSION:$win" -l -- "$line" || {
+      FAILED=1
+      printf 'not ok - %s (%s): could not seed the draft\n' "$name" "$version" >&2
+      tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
+      return 0
+    }
     for i in 1 2 3 4 5; do
       sleep 1
       if [ "$(fm_tmux_composer_state "$SESSION:$win")" = pending ] \
@@ -262,7 +273,9 @@ for h in $HARNESSES; do
     *) binary=$(command -v "$h" 2>/dev/null) || binary= ;;
   esac
   if [ -n "$binary" ]; then
-    check_harness_doorbell "$h" fresh "$binary"
+    if [ "${FM_SEND_INBOX_LIVE_PENDING_ONLY:-0}" != 1 ]; then
+      check_harness_doorbell "$h" fresh "$binary"
+    fi
     check_harness_doorbell "$h" pending "$binary"
   else
     note "harness absent, not verified here: $h"

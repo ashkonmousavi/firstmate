@@ -1059,7 +1059,7 @@ This inventory identifies current production boundaries and regression oracles; 
 The portable regressions use controlled transport fixtures and cannot substitute for the per-harness action-and-acknowledgement guard.
 No generic pipeline-prompt handoff is used as evidence that an agent submitted or handled a doorbell.
 
-Current harness refresh command:
+Earlier 60-second harness refresh command:
 
 ```sh
 ANTHROPIC_MODEL=sonnet FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_TIMEOUT=60 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
@@ -1068,7 +1068,7 @@ ANTHROPIC_MODEL=sonnet FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_TIMEOUT=60 ba
 On 2026-10-22, the command above ran from the current repository worktree on Linux with tmux 3.4.
 The 60-second action-and-acknowledgement limit was shorter than the guard's default 240 seconds; a timeout at this limit does not prove failure at the default limit.
 The guard exited 1 during Codex's pending case, before reaching Pi, Grok, Kimi or the absent-harness reporting loop.
-Current observed results are:
+Observed results from that earlier run were:
 
 | Harness | Version observed by this run | Fresh case | Pending own-doorbell case |
 | --- | --- | --- | --- |
@@ -1103,13 +1103,42 @@ A subsequent read-only `codex --version` returned:
 The fresh Codex pane displayed `Updating Codex via npm install -g @openai/codex` before the executable disappeared.
 No package repair, installation, account change, trust change or global configuration change was performed by the review commands.
 The startup updater was an unwanted effect of launching the harness; this refresh cannot claim that launch left system state unchanged.
-Further live verification requires an available Codex executable and a launch that suppresses its updater within the permitted workspace boundary.
+The guard now passes `-c check_for_update_on_startup=false` to Codex for both fresh and pending launches.
+The [official configuration reference](https://developers.openai.com/codex/config-reference/) documents this boolean setting, and [config basics](https://developers.openai.com/codex/config-basic/) documents command-line overrides.
+This launch-scoped override does not write user or system configuration.
+The owner reports Codex is now 0.163.0; no repair or reinstall was performed in this review, and no live Codex case was run.
 
 Before the run, `command -v` found Pi, Grok and Kimi on PATH in addition to Cursor, Claude and Codex.
 It found no OpenCode, Pi-signed, Muse, OMP, Gemini, Rovo, agy, Devin, Command Code or Polytoken executable.
 Those discovery results are availability observations, not live behavior proof.
 The earlier results from other directories do not verify the current launch directory.
-The live verification requirement remains open for Cursor pending recovery, both Codex cases, and both cases on Pi, Grok and Kimi.
+Codex, Pi, Grok and Kimi live verification remains open by the owner's explicit scope decision.
+Neither fresh nor pending cases for those four harnesses may be run in this review: Grok credits and Codex quota are nearly exhausted, and verification must not consume that quota.
+The PR testing summary must retain those four open results rather than implying all installed harnesses passed.
+
+The Cursor-only pending recovery refresh uses the default 240-second action-and-acknowledgement limit:
+
+```sh
+env -u FM_SEND_INBOX_LIVE_TIMEOUT FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=cursor FM_SEND_INBOX_LIVE_PENDING_ONLY=1 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+`FM_SEND_INBOX_LIVE_PENDING_ONLY=1` omits the fresh-send case; without it, the guard retains both cases for each selected installed harness.
+A pending record, doorbell-construction or seed failure marks the guard failed, names the harness and version, cleans up its window, and returns to the loop so later harnesses are still reported.
+
+On 2026-10-22, this pending-only command passed on Cursor 2026.10.19-6bbf2c4 with tmux 3.4 from the repository worktree, using the default 240-second limit after clearing the timeout override.
+The guard exited 0 after proving the seeded draft had not yet acted or acknowledged, recovering it through the production ring, and observing both the action file and `handled/001.msg`.
+No fresh-send case or other live harness case ran in this refresh.
+Exact output:
+
+```text
+ok - cursor (2026.10.19-6bbf2c4): pending doorbell reached a real worker, which acted and acked with the mv
+ok - live steering-inbox doorbell guard: 1 cases honored the doorbell contract
+```
+
+The same focused verification also executed `check_harness_doorbell` with controlled record-creation, doorbell-construction and terminal-seeding failures at its external boundaries.
+All three returned control to the caller with `FAILED=1`, `CHECKED=0`, a harness-and-version failure message and exactly one window-cleanup attempt.
+Those are failure-path checks, not live-harness proof; their oracle is that a failing case cannot terminate enumeration or count as a successful case.
+Shell syntax validation of the changed guard passed.
 Scratch pane captures, generated fixtures and logs belong in PR evidence, outside the tracked source change.
 
 ## Waiting-worker command ceilings
