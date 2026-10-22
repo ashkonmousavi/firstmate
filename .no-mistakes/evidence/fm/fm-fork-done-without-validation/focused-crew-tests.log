@@ -1,0 +1,4 @@
+ok - no-mistakes pre-validation done with a positive no-run is stopped-before-validation
+ok - CI is green plus a PR reference with no run stays on the named-head gate
+ok - a missing no-mistakes binary does not classify the handoff as stopped-before-validation
+ok - terminal passed run with open PR does not claim merged

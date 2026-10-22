@@ -1,0 +1,25 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2SM3HDX42BARZ024HGTK2/.live-validation/home
+
+Unreadable/uninitialized validation inventory, real crew-state CLI:
+state: done · source: status-log · implementation complete
+
+Missing validation binary (PATH=/usr/bin:/bin), real crew-state CLI:
+state: done · source: status-log · implementation complete
+
+Named-head gate accepts handoff even for private head:
+handoff accepted (exit 0)
+
+Child handoff report, real reconciliation CLI:
+No parent status append; no handoff published
+
+CI-ready private head, real crew-state CLI:
+state: blocked · source: status-log · named head b3736315ed2d7ef9f401a379b50ceaa307f87e99 is unreachable outside the worker copy
+
+Preserve named head on remote-tracking ref, then re-read ready report:
+state: done · source: status-log · CI is green https://github.com/o/r/pull/9
+
+Publish the now-preserved child ready report:
+done [key=child-outcome-child-done-4d06cffe] [at=1792648781]: child child done: CI is green https://github.com/o/r/pull/9 mode=no-mistakes
+
+Repeat report to verify exactly-once publication:
+1 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2SM3HDX42BARZ024HGTK2/.live-validation/home/main/state/mate.status
