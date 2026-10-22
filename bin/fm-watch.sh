@@ -17,7 +17,9 @@
 # while an away record (state/.afk-contract, never quiet mode's) exists an
 # item held for the captain is never rechecked at all, in either posture.
 # While state/.afk exists, the daemon owns triage and this watcher queues and exits
-# on every wake. Printed reason lines:
+# on every wake, except a stopped-before-validation handoff: bin/fm-dod-lib.sh's
+# id list decides that one, the first current-head handoff is absorbed, and the
+# one escalation still queues. Printed reason lines:
 #   signal: <file>...      status/turn-end signals, surfaced when a listed status
 #                          span has a captain-relevant event OR a no-verb signal lacks
 #                          positive execution evidence, unless afk is active
@@ -237,6 +239,10 @@ WATCH_HOME_EXISTED=0
 # (inbox_steer_check below).
 # shellcheck source=bin/fm-task-inbox-lib.sh
 . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
+# Handoff identity is fm_dod_nm_handoff_ids. This watcher only counts those
+# epochs and sends the one steer or the one escalation.
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/fm-dod-lib.sh"
 # The away-posture record (state/.afk-contract) is the posture in both the
 # attended and the afk session; bin/fm-afk-contract.sh owns its schema and its
 # away-or-quiet reading, which is all this watcher reads (away_record_present
@@ -2798,6 +2804,339 @@ event_wait_or_sleep() {
   esac
 }
 
+# Task id of a status log or turn-end marker, or nothing.
+nm_handoff_task_of() {  # <path>
+  local base=${1##*/}
+  case "$base" in
+    *.status) printf '%s\n' "${base%.status}" ;;
+    *.turn-ended) printf '%s\n' "${base%.turn-ended}" ;;
+    *) return 1 ;;
+  esac
+}
+
+# Worktree HEAD for <task>, or nothing when meta or HEAD cannot be read.
+nm_handoff_head() {  # <task>
+  local meta wt sha
+  meta="$STATE/$1.meta"
+  [ -f "$meta" ] && [ -r "$meta" ] || return 0
+  wt=$(fm_dod_meta_value "$meta" worktree)
+  [ -n "$wt" ] || return 0
+  sha=$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null) || return 0
+  fm_dod_is_sha40 "$sha" || return 0
+  printf '%s\n' "$sha"
+}
+
+# State token from the same crew-state read the rest of this watcher uses.
+nm_handoff_state_token() {  # <task>
+  local line state
+  line=$("$FM_CREW_STATE_BIN" "$1" 2>/dev/null) || true
+  case "$line" in
+    state:*) ;;
+    *) return 0 ;;
+  esac
+  state=${line#state: }
+  state=${state%% *}
+  printf '%s\n' "$state"
+}
+
+# Epochs fm_dod_nm_handoff_ids prints for the bytes of <file> after the
+# presentation cursor. The cursor answers only which lines are new.
+nm_handoff_new_ids() {  # <status-file> <task> <head>
+  local f=$1 task=$2 head=$3 start size length tmp rc
+  start=$(hb_surfaced_offset "$task")
+  size=$(_fm_status_file_size "$f") || return 1
+  size=${size//[[:space:]]/}
+  case "$start" in ''|*[!0-9]*) start=0 ;; esac
+  case "$size" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$start" -le "$size" ] || start=0
+  [ "$start" -lt "$size" ] || return 0
+  length=$((size - start))
+  tmp=$(mktemp "${TMPDIR:-/tmp}/nm-handoff-span.XXXXXX") || return 1
+  if ! _fm_status_read_span "$f" "$start" "$length" > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  fm_dod_nm_handoff_ids "$tmp" "$head"
+  rc=$?
+  rm -f "$tmp"
+  return "$rc"
+}
+
+# clean when every captain-relevant line in the not-yet-surfaced span is an
+# eligible handoff for <head> (an empty span is clean).
+# needs-decision when that span carries a needs-decision line.
+# dirty for any other captain-relevant line that is not an eligible handoff.
+nm_handoff_span_shape() {  # <status-file> <task> <head>
+  local f=$1 task=$2 head=$3 start size length tmp line verb shape=clean epoch
+  start=$(hb_surfaced_offset "$task")
+  size=$(_fm_status_file_size "$f") || { printf 'dirty\n'; return 0; }
+  size=${size//[[:space:]]/}
+  case "$start" in ''|*[!0-9]*) start=0 ;; esac
+  case "$size" in ''|*[!0-9]*) printf 'dirty\n'; return 0 ;; esac
+  [ "$start" -le "$size" ] || start=0
+  if [ "$start" -ge "$size" ]; then
+    printf 'clean\n'
+    return 0
+  fi
+  length=$((size - start))
+  tmp=$(mktemp "${TMPDIR:-/tmp}/nm-handoff-span.XXXXXX") || { printf 'dirty\n'; return 0; }
+  if ! _fm_status_read_span "$f" "$start" "$length" > "$tmp"; then
+    rm -f "$tmp"
+    printf 'dirty\n'
+    return 0
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in *[![:space:]]*) ;; *) continue ;; esac
+    status_is_captain_relevant "$line" || continue
+    epoch=$(fm_dod_nm_handoff_line_epoch "$line" "$head") || epoch=
+    if [ -n "$epoch" ]; then
+      continue
+    fi
+    verb=$(status_line_verb "$line")
+    if [ "$verb" = needs-decision ]; then
+      shape=needs-decision
+      break
+    fi
+    shape=dirty
+  done < "$tmp"
+  rm -f "$tmp"
+  printf '%s\n' "$shape"
+}
+
+# Fill the NM_HANDOFF_* decision for one task. Ordinary means this pass does
+# not absorb or escalate that task. A total of 1 still sets STEER.
+nm_handoff_decide() {  # <task>
+  local task=$1 status head state ids epoch total=0 new_ids new=0 shape
+  NM_HANDOFF_ACTION=ordinary
+  NM_HANDOFF_STEER=0
+  NM_HANDOFF_HEAD=
+  NM_HANDOFF_IDS=
+  NM_HANDOFF_EPOCH=
+  NM_HANDOFF_PAYLOAD=
+  status="$STATE/$task.status"
+  [ -f "$status" ] && [ -r "$status" ] || return 0
+  head=$(nm_handoff_head "$task") || return 0
+  [ -n "$head" ] || return 0
+  ids=$(fm_dod_nm_handoff_ids "$status" "$head") || return 0
+  while IFS= read -r epoch || [ -n "$epoch" ]; do
+    [ -n "$epoch" ] || continue
+    total=$((total + 1))
+    NM_HANDOFF_IDS="${NM_HANDOFF_IDS}${epoch}"$'\n'
+  done <<EOF
+$ids
+EOF
+  [ "$total" -ge 1 ] || return 0
+  state=$(nm_handoff_state_token "$task")
+  [ "$state" = stopped-before-validation ] || return 0
+  new_ids=$(nm_handoff_new_ids "$status" "$task" "$head") || return 0
+  while IFS= read -r epoch || [ -n "$epoch" ]; do
+    [ -n "$epoch" ] || continue
+    new=$((new + 1))
+  done <<EOF
+$new_ids
+EOF
+  [ "$new" -le "$total" ] || return 0
+  NM_HANDOFF_HEAD=$head
+  shape=$(nm_handoff_span_shape "$status" "$task" "$head")
+  if [ "$total" -eq 1 ]; then
+    NM_HANDOFF_STEER=1
+    NM_HANDOFF_EPOCH=${NM_HANDOFF_IDS%$'\n'}
+    [ "$shape" = clean ] && NM_HANDOFF_ACTION=absorb
+    return 0
+  fi
+  # total >= 2. old = total - new. old >= 2 means this head already escalated.
+  if [ $((total - new)) -ge 2 ]; then
+    [ "$shape" = clean ] && NM_HANDOFF_ACTION=absorb
+    return 0
+  fi
+  [ "$shape" = needs-decision ] && return 0
+  NM_HANDOFF_ACTION=escalate
+  NM_HANDOFF_PAYLOAD=$(nm_handoff_payload "$task")
+}
+
+# signal: <status-basename> stopped-before-validation head=<sha> lines=<epochs>
+nm_handoff_payload() {  # <task>
+  local epoch lines=
+  while IFS= read -r epoch || [ -n "$epoch" ]; do
+    [ -n "$epoch" ] || continue
+    if [ -z "$lines" ]; then lines=$epoch; else lines="$lines,$epoch"; fi
+  done <<EOF
+$NM_HANDOFF_IDS
+EOF
+  printf 'signal: %s.status stopped-before-validation head=%s lines=%s\n' \
+    "$1" "$NM_HANDOFF_HEAD" "$lines"
+}
+
+# 0 when <task>'s inbox or its handled directory already holds this exact body.
+nm_handoff_steer_present() {  # <task> <text>
+  local dir f body
+  dir=$(fm_task_inbox_dir "$STATE" "$1")
+  for f in "$dir"/*.msg "$dir/handled"/*.msg; do
+    [ -f "$f" ] || continue
+    body=$(fm_task_inbox_body "$f" 2>/dev/null) || continue
+    [ "$body" = "$2" ] && return 0
+  done
+  return 1
+}
+
+# Send the one fixed steer unless that exact body is already recorded.
+# A repeat call would ring the doorbell again, so a present body skips fm-send.
+nm_handoff_send_steer() {  # <task>
+  local text err
+  text="The done line at=${NM_HANDOFF_EPOCH} for head ${NM_HANDOFF_HEAD} is the handoff, not completion. Start validation now with /no-mistakes."
+  nm_handoff_steer_present "$1" "$text" && return 0
+  err=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_SEND_IDEMPOTENT=1 \
+    "$SCRIPT_DIR/fm-send.sh" "$1" "$text" 2>&1) || {
+    triage_log "nm handoff steer failed for $1: $err"
+    return 1
+  }
+  return 0
+}
+
+# Commit the signal seen cursor and the presentation cursor for one status log,
+# the same pair the wake branch commits, plus the turn-end signature.
+nm_handoff_commit_task() {  # <task>
+  local task=$1 sf sig f row_task end ident surface
+  while IFS=$(printf '\t') read -r sf sig f; do
+    [ -n "$f" ] || continue
+    row_task=$(nm_handoff_task_of "$f") || continue
+    [ "$row_task" = "$task" ] || continue
+    case "$f" in
+      *.status)
+        fm_wake_status_reported_commit "$STATE" "$f" "$sig" || return 1
+        mark_surface_reported "$f" "$sig" || return 1
+        surface=$(nm_handoff_surface_of "$f") || surface=
+        if [ -n "$surface" ]; then
+          end=${surface%%$'\t'*}
+          ident=${surface#*$'\t'}
+        else
+          end=$(_fm_status_file_size "$f") || return 1
+          end=${end//[[:space:]]/}
+          ident=$(_fm_open_decisions_file_ident "$f") || return 1
+        fi
+        fm_wake_status_seen_commit "$STATE" "$f" "$end" "$ident" || return 1
+        mark_surfaced "$f" "$end" "$ident" || return 1
+        ;;
+      *) printf '%s' "$sig" > "$sf" || return 1 ;;
+    esac
+  done <<EOF
+$pending
+EOF
+  return 0
+}
+
+nm_handoff_surface_of() {  # <status-file>
+  local file end ident
+  while IFS=$(printf '\t') read -r file end ident; do
+    [ "$file" = "$1" ] || continue
+    printf '%s\t%s\n' "$end" "$ident"
+    return 0
+  done <<EOF
+$FM_SIGNAL_SURFACE_ENDPOINTS
+EOF
+  return 1
+}
+
+# Drop absorbed and escalated tasks out of this signal batch.
+# A total of 1 sends the steer. Reaching two eligible lines enqueues one
+# signal row keyed nm-handoff-<sha> and does not also enqueue an ordinary row.
+# NM_HANDOFF_EXIT_REASON is set when that escalation is the only remaining wake.
+nm_handoff_apply_batch() {
+  local sf sig f task tasks="" action steer drop="" next_pending="" next_files="" row_task
+  NM_HANDOFF_EXIT_REASON=
+  [ -n "${pending:-}" ] || return 0
+  while IFS=$(printf '\t') read -r sf sig f; do
+    [ -n "$f" ] || continue
+    task=$(nm_handoff_task_of "$f") || continue
+    case " $tasks " in
+      *" $task "*) ;;
+      *) tasks="$tasks $task" ;;
+    esac
+  done <<EOF
+$pending
+EOF
+  # shellcheck disable=SC2086
+  for task in $tasks; do
+    nm_handoff_decide "$task"
+    action=$NM_HANDOFF_ACTION
+    steer=$NM_HANDOFF_STEER
+    if [ "$steer" = 1 ]; then
+      if ! nm_handoff_send_steer "$task"; then
+        [ "$action" = absorb ] && action=ordinary
+      fi
+    fi
+    if [ "$action" = absorb ] || [ "$action" = escalate ]; then
+      if ! nm_handoff_commit_task "$task"; then
+        action=ordinary
+      fi
+    fi
+    if [ "$action" = escalate ]; then
+      fm_wake_append signal "nm-handoff-$NM_HANDOFF_HEAD" "$NM_HANDOFF_PAYLOAD" || exit 1
+      [ -n "$NM_HANDOFF_EXIT_REASON" ] || NM_HANDOFF_EXIT_REASON=$NM_HANDOFF_PAYLOAD
+    fi
+    if [ "$action" = absorb ] || [ "$action" = escalate ]; then
+      drop="$drop $task"
+    fi
+  done
+  while IFS=$(printf '\t') read -r sf sig f; do
+    [ -n "$f" ] || continue
+    row_task=$(nm_handoff_task_of "$f") || row_task=
+    if [ -n "$row_task" ]; then
+      case " $drop " in
+        *" $row_task "*) continue ;;
+      esac
+    fi
+    next_pending="${next_pending}${sf}"$'\t'"${sig}"$'\t'"${f}"$'\n'
+    case " $next_files " in
+      *" $f "*) ;;
+      *) next_files="$next_files $f" ;;
+    esac
+  done <<EOF
+$pending
+EOF
+  pending=$next_pending
+  files=$next_files
+  reason="signal:$files"
+  if [ -n "${files// /}" ]; then
+    NM_HANDOFF_EXIT_REASON=
+  fi
+}
+
+# 0 when a stale pane for this head should be absorbed instead of waking.
+# total 1 sends the steer when it is not already recorded.
+# total >= 2 does not enqueue another escalation.
+nm_handoff_absorb_stale_pane() {  # <task>
+  local task=$1 status head state ids epoch total=0 end ident sig
+  status="$STATE/$task.status"
+  [ -f "$status" ] && [ -r "$status" ] || return 1
+  head=$(nm_handoff_head "$task") || return 1
+  [ -n "$head" ] || return 1
+  ids=$(fm_dod_nm_handoff_ids "$status" "$head") || return 1
+  while IFS= read -r epoch || [ -n "$epoch" ]; do
+    [ -n "$epoch" ] || continue
+    total=$((total + 1))
+    [ "$total" -eq 1 ] && NM_HANDOFF_EPOCH=$epoch
+  done <<EOF
+$ids
+EOF
+  [ "$total" -ge 1 ] || return 1
+  state=$(nm_handoff_state_token "$task")
+  [ "$state" = stopped-before-validation ] || return 1
+  if [ "$total" -eq 1 ]; then
+    NM_HANDOFF_HEAD=$head
+    nm_handoff_send_steer "$task" || true
+  fi
+  sig=$(fm_wake_signal_sig "$status") || return 1
+  fm_wake_status_reported_commit "$STATE" "$status" "$sig" || return 1
+  mark_surface_reported "$status" "$sig" || return 1
+  end=$(_fm_status_file_size "$status") || return 1
+  end=${end//[[:space:]]/}
+  ident=$(_fm_open_decisions_file_ident "$status") || return 1
+  fm_wake_status_seen_commit "$STATE" "$status" "$end" "$ident" || return 1
+  mark_surfaced "$status" "$end" "$ident" || return 1
+  return 0
+}
+
 # --- Main entry: the runtime below runs only when this file is executed as a
 # script. When sourced (unit tests loading the functions above), return here
 # before acquiring the singleton lock or entering the blocking loop.
@@ -3409,6 +3748,18 @@ EOF
     # shellcheck disable=SC2086  # $files is a space-separated status-path list (ids carry no spaces)
     signal_files_actionable $files
     signal_actionable=$?
+    # Handoff counts are per task and come from the status log, not from a
+    # stored offset. Absorbed and escalated tasks leave this batch first, so
+    # the away-mode short circuit below cannot wake the first handoff.
+    nm_handoff_apply_batch
+    if [ -n "${NM_HANDOFF_EXIT_REASON:-}" ] && [ -z "${files// /}" ]; then
+      wake "$NM_HANDOFF_EXIT_REASON"
+    fi
+    if [ -n "${files// /}" ]; then
+      # shellcheck disable=SC2086  # $files is a space-separated status-path list (ids carry no spaces)
+      signal_files_actionable $files
+      signal_actionable=$?
+    fi
     # A decision-owned file's queued row payload is marked "needs-decision:"
     # instead of the ordinary "signal:" below (other files in the same batch
     # keep the ordinary payload). The wake reason line itself, and every
@@ -3420,7 +3771,9 @@ EOF
     # passes it to handle_wake (see the comment above handle_wake in
     # bin/fm-supervise-daemon.sh).
     # shellcheck disable=SC2086  # same space-separated status-path list
-    if afk_present || [ "$signal_actionable" -eq 0 ] \
+    if [ -z "${files// /}" ]; then
+      :
+    elif afk_present || [ "$signal_actionable" -eq 0 ] \
       || { ! signal_crew_provably_working $files && ! signal_turnend_panes_churned $files; }; then
       while IFS=$(printf '\t') read -r sf sig f; do
         [ -n "$sf" ] || continue
@@ -3574,6 +3927,13 @@ EOF
               date +%s > "$ssf"
               clear_write_tracking "$key"
               triage_log "absorbed stale (provably working, overriding a stale captain-relevant status): $w"
+            elif nm_handoff_absorb_stale_pane "$task"; then
+              # A current-head handoff already steered or escalated from the
+              # log. Absorb the pane and do not enqueue that escalation again.
+              printf '%s' "$h" > "$sf"
+              rm -f "$ssf"
+              clear_write_tracking "$key"
+              triage_log "absorbed stale (stopped-before-validation handoff): $w"
             elif captain_call_stale_bound "$key" "$task"; then
               # The line is captain-relevant and stays so, but the backlog says
               # the captain already holds this work: further NEW pane hashes with
