@@ -1546,6 +1546,7 @@ teardown_recorded_copy_released() {
 }
 
 teardown_release_recorded_copy() {
+  [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ] || return 0
   local tmp line
   tmp=$(umask 077; mktemp "$STATE/.fm-teardown-release.XXXXXX") || return 1
   while IFS= read -r line || [ -n "$line" ]; do
@@ -3999,8 +4000,9 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree;
       || { endpoint_close_refusal "$ID" "$BACKEND" "$T" 0; exit 1; }
   fi
   fm_backend_remove_worktree "$BACKEND" "$ORCA_WORKTREE_ID"
+  teardown_release_recorded_copy || exit 1
 elif [ "$KIND" != secondmate ] && ! teardown_owns_worktree; then
-  :
+  teardown_release_recorded_copy || exit 1
 elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
   branch=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
   if [ "$branch" != "HEAD" ]; then
@@ -4029,12 +4031,15 @@ elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
     echo "error: treehouse return failed for worktree $WT; teardown aborted" >&2
     exit 1
   }
+  teardown_release_recorded_copy || exit 1
   [ "$wt_pool_slot" = 0 ] || teardown_note_dirty_return "$WT"
   # The slot is back in the pool, so this task's claim on it is spent. Dropping
   # it here - and only after a return that succeeded - keeps a returned slot
   # unclaimed until its next holder claims it, and leaves the claim in place
   # whenever the return did not actually happen.
   fm_treehouse_slot_owner_release "$WT" "$ID"
+else
+  teardown_release_recorded_copy || exit 1
 fi
 
 HERDR_PRESENTATION_JOURNAL="$STATE/$ID.herdr-presentation"
@@ -4237,7 +4242,7 @@ fi
 # row takes the retain transition here instead of the close: same record, same
 # ordering, the row returns to Queued with its deliverable recorded.
 if [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ]; then
-  teardown_release_recorded_copy || exit 1
+  :
 elif [ "$BACKLOG_CLOSED" = 1 ]; then
   BACKLOG_CLOSE_MARKER=$(fm_backlog_close_marker_path "$STATE" "$ID") || exit 1
   if ! fm_backlog_atomic_transition "$BACKLOG_TRANSITION" "$STATE/$ID.meta" "$BACKLOG_CLOSE_MARKER" \

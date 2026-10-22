@@ -5477,9 +5477,9 @@ test_pushed_open_pr_keeps_the_item_and_the_merge_watch() {
 }
 
 test_released_copy_completes_after_merge() {
-  local case_dir backend calls
+  local case_dir backend calls interrupted=${1:-0}
   for backend in tmux orca; do
-    case_dir=$(prepare_recorded_github_pr "released-copy-$backend")
+    case_dir=$(prepare_recorded_github_pr "released-copy-$backend-$interrupted")
     install_github_pr_class "$case_dir" open
     push_task_branch "$case_dir"
     arm_registered_merge_watch "$case_dir"
@@ -5508,20 +5508,35 @@ esac
 SH
       chmod +x "$case_dir/fakebin/orca"
     fi
-    teardown_capture "$case_dir"
-    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: initial release failed"$'\n'"$(cat "$case_dir/stderr")"
+    if [ "$interrupted" = 1 ]; then
+      printf '%s\n' mate > "$case_dir/.fm-secondmate-home"
+      printf '%s\n' 'schema=fm-secondmate-parent.v1' 'route=remote' > "$case_dir/.fm-secondmate-parent"
+      printf '%s\n' 'failed: fixture terminal outcome' > "$case_dir/state/task-x1.status"
+      mkdir "$case_dir/state/parent-replies.status"
+    fi
+    FM_HOME="$case_dir" teardown_capture "$case_dir"
+    if [ "$interrupted" = 1 ]; then
+      expect_code 1 "$TEARDOWN_CAPTURE_RC" "$backend: parent reporting should interrupt cleanup"
+      assert_grep 'final outcome has not reached the parent channel' "$case_dir/stderr" \
+        "$backend: cleanup did not reach parent reporting"
+      assert_grep "worktree=$case_dir/state/task-x1.released-copy" "$case_dir/state/task-x1.meta" \
+        "$backend: successful release was not durable before reporting failed"
+      rmdir "$case_dir/state/parent-replies.status"
+    else
+      expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: initial release failed"$'\n'"$(cat "$case_dir/stderr")"
+    fi
     assert_present "$case_dir/state/task-x1.meta" "$backend: open PR lost its record"
     assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: open PR lost its watch"
     if [ "$backend" = orca ]; then
       assert_absent "$case_dir/wt" "Orca did not release its copy"
       calls=$(grep -E '^(worktree (show|rm)|terminal close) ' "$case_dir/orca.log")
     fi
-    teardown_capture "$case_dir"
+    FM_HOME="$case_dir" teardown_capture "$case_dir"
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: repeated open cleanup failed"$'\n'"$(cat "$case_dir/stderr")"
     [ "$(backlog_row_state "$case_dir")" != done ] || fail "$backend: repeated cleanup closed an open PR"
     assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: repeated cleanup lost its watch"
     install_github_pr_class "$case_dir" merged
-    teardown_capture "$case_dir"
+    FM_HOME="$case_dir" teardown_capture "$case_dir"
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: released copy prevented merge completion"$'\n'"$(cat "$case_dir/stderr")"
     [ "$(backlog_row_state "$case_dir")" = done ] || fail "$backend: merged item did not close"
     assert_absent "$case_dir/state/task-x1.meta" "$backend: completed record remained"
@@ -5531,7 +5546,11 @@ SH
         || fail "Orca touched the already released copy or endpoint: $(cat "$case_dir/orca.log")"
     fi
   done
-  pass "released copies stay open until merge and complete without a second removal"
+  pass "released copies stay open until merge and complete without a second removal (interrupted=$interrupted)"
+}
+
+test_interrupted_release_completes_after_merge() {
+  test_released_copy_completes_after_merge 1
 }
 
 test_pushed_merged_pr_still_closes() {
@@ -5757,7 +5776,7 @@ SH
     || fail "merge hold reason was not retained"
   tasks-axi show task-x1 --file "$case_dir/data/backlog.md" | grep -F 'hold_kind: external' >/dev/null \
     || fail "awaiting merge must be an external hold"
-  assert_absent "$case_dir/state/task-x1.meta" "merge hold did not complete cleanup"
+  assert_present "$case_dir/state/task-x1.meta" "merge hold removed the open PR record"
   pass "merge hold retains lifecycle serialization through cleanup"
 }
 
@@ -5777,7 +5796,7 @@ test_merge_wait_preserves_existing_captain_hold() {
     fi
     teardown_capture "$case_dir" --keep-open
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "captain merge wait must allow cleanup"$'\n'"$(cat "$case_dir/stderr")"
-    assert_absent "$case_dir/state/task-x1.meta" "captain merge wait left the task record"
+    assert_present "$case_dir/state/task-x1.meta" "captain merge wait removed the open PR record"
     [ "$(shown_hold_reason "$case_dir")" = "$reason" ] \
       || fail "merge wait replaced the captain question"
     after_identity=$(FM_HOME="$case_dir" bash "$ROOT/bin/fm-captain-hold.sh" open task-x1 --identity) \
@@ -6001,6 +6020,7 @@ test_direct_pr_open_refuses_the_same_way
 test_merged_pr_on_a_reachable_branch_closes
 test_pushed_open_pr_keeps_the_item_and_the_merge_watch
 test_released_copy_completes_after_merge
+test_interrupted_release_completes_after_merge
 test_pushed_merged_pr_still_closes
 test_closed_unmerged_pr_refuses_unless_force
 test_unreadable_pr_refuses_even_with_force
