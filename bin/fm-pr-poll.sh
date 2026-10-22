@@ -47,7 +47,7 @@ print(int(datetime.datetime.fromisoformat(s).timestamp()))' "$ts" 2>/dev/null) |
 # Print conflict or conflict-clear. Silence (no output, success) means the
 # conflict label is present but its age cannot be proved.
 fm_pr_poll_github_conflict() {  # <owner> <repo> <number>
-  local owner=$1 repo=$2 number=$3 raw line present='' labeled_at=''
+  local owner=$1 repo=$2 number=$3 raw line present='' labeled_at='' unlabeled_at=''
   local now='' applied='' age='' query jqprog
   query=$(cat <<'EOF'
 query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
@@ -68,38 +68,36 @@ query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
 EOF
 )
   jqprog=$(cat <<'EOF'
-.[-1].data.repository.pullRequest as $pr
+.data.repository.pullRequest as $pr
 | if $pr == null then error("no pull request") else
-  ($pr.labels.nodes // [] | map(.name) | index("conflict") != null) as $present
-  | [ .[].data.repository.pullRequest.timelineItems.nodes[]?
-      | select(.__typename == "LabeledEvent" or .__typename == "UnlabeledEvent")
-      | select(.label.name == "conflict") ] as $events
-  | ($events | map(select(.__typename == "LabeledEvent")) | last // {} | .createdAt // "") as $labeled
-  | ($events | map(select(.__typename == "UnlabeledEvent")) | last // {} | .createdAt // "") as $unlabeled
-  | if $present | not then "present=no"
-    elif $unlabeled != "" and ($labeled == "" or $unlabeled > $labeled) then "present=unseen"
-    elif $labeled != "" then "present=yes\nlabeled_at=\($labeled)"
-    else "present=unseen"
-    end
+  "present=\($pr.labels.nodes // [] | map(.name) | index("conflict") != null)",
+  ($pr.timelineItems.nodes[]?
+    | select(.label.name == "conflict")
+    | if .__typename == "LabeledEvent" then "labeled_at=\(.createdAt)"
+      elif .__typename == "UnlabeledEvent" then "unlabeled_at=\(.createdAt)"
+      else empty end)
   end
 EOF
 )
-  raw=$(gh api graphql --paginate --slurp -f owner="$owner" -f repo="$repo" -F number="$number" \
-    -f query="$query") || return $?
-  raw=$(printf '%s\n' "$raw" | jq -r "$jqprog") || return $?
+  raw=$(gh api graphql --paginate -f owner="$owner" -f repo="$repo" -F number="$number" \
+    -f query="$query" --jq "$jqprog") || return $?
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
       present=*) present=${line#present=} ;;
       labeled_at=*) labeled_at=${line#labeled_at=} ;;
+      unlabeled_at=*) unlabeled_at=${line#unlabeled_at=} ;;
     esac
   done <<EOF
 $raw
 EOF
   case "$present" in
-    no) printf '%s\n' conflict-clear; return 0 ;;
-    yes) ;;
+    false) printf '%s\n' conflict-clear; return 0 ;;
+    true) ;;
     *) return 0 ;;
   esac
+  if [ -z "$labeled_at" ] || { [ -n "$unlabeled_at" ] && [[ "$unlabeled_at" > "$labeled_at" ]]; }; then
+    return 0
+  fi
   now=$(date -u +%s 2>/dev/null) || return 0
   case "$now" in
     ''|*[!0-9]*) return 0 ;;
@@ -165,10 +163,10 @@ case "$provider" in
       .|..|*[!A-Za-z0-9._-]*) exit 0 ;;
     esac
     [ "$url" = "https://github.com/$owner/$repo/pull/$number" ] || exit 0
-    state=$(gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
+    state=$(gh pr view "$url" --json state -q .state) || exit $?
     if [ "$state" = MERGED ]; then
       printf '%s\n' merged
-    else
+    elif [ "$state" = OPEN ]; then
       fm_pr_poll_github_conflict "$owner" "$repo" "$number" || exit $?
     fi
     ;;

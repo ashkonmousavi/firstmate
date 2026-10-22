@@ -723,7 +723,7 @@ fm_pr_poll_artifacts_content_valid() {
   [ "$(fm_pr_file_link_count "$meta")" = 1 ] || return 1
   if ! cmp -s "$template" "$check"; then
     case "$(fm_pr_sha256 "$check")" in
-      1ecb514c04dca8c7ff1d253998499335c162d73b76b143a2506d7b3627466dfe|05e9e742af771c84d2ed2b41045de7f555cd30bbbb8d19f09f257bd527c0fd57|94228329982651f15be03d57855c48efd5c7ec811a6c803435358205360d87fe) ;;
+      1ecb514c04dca8c7ff1d253998499335c162d73b76b143a2506d7b3627466dfe|05e9e742af771c84d2ed2b41045de7f555cd30bbbb8d19f09f257bd527c0fd57|94228329982651f15be03d57855c48efd5c7ec811a6c803435358205360d87fe|27772d546ce1ad230190c72277aa5d4e571cc8515539777c598e3410bda03fa0) ;;
       *) return 1 ;;
     esac
   fi

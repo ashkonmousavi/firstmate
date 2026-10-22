@@ -2532,6 +2532,7 @@ run_check_capture() {
   local pgid
   fm_check_output_cleanup
   FM_CHECK_RESULT=
+  FM_CHECK_EXIT_STATUS=0
   FM_CHECK_OUTPUT=$(mktemp "$STATE/.fm-check-output.XXXXXX") || return 1
   chmod 0600 "$FM_CHECK_OUTPUT" || { fm_check_output_cleanup; return 1; }
   FM_CHECK_SIGNAL_PENDING=
@@ -2552,7 +2553,7 @@ run_check_capture() {
     fm_check_output_cleanup
     return 1
   fi
-  wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || true
+  wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || FM_CHECK_EXIT_STATUS=$?
   FM_ACTIVE_CHECK_PID=
   fm_active_check_stop || return 1
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
@@ -3220,6 +3221,10 @@ while :; do
           fi
           run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
             "$provider" "$url" "$host" "$path" "$number" || exit 1
+          if [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
+            echo "watcher: PR poll for $id failed (exit status $FM_CHECK_EXIT_STATUS)" >&2
+            exit "$FM_CHECK_EXIT_STATUS"
+          fi
           out=$FM_CHECK_RESULT
           # conflict is one episode: steer a live worker, relaunch an exited
           # one, or leave out=conflict so the check wake below fires once.

@@ -16,21 +16,26 @@ FAKEBIN=$(fm_fakebin "$TMP_ROOT")
 fm_git_identity fmtest fmtest@example.invalid
 unset FM_PR_CONFLICT_SEND FM_PR_CONFLICT_RELAUNCH
 
-command -v jq >/dev/null 2>&1 || fail "jq is required to build the label fixtures"
+FM_TEST_JQ_BIN=$(command -v jq) || fail "jq is required to build the label fixtures"
+export FM_TEST_JQ_BIN
 
 cat > "$FAKEBIN/gh" <<'SH'
 #!/usr/bin/env bash
 set -o pipefail
 case "${1:-} ${2:-}" in
   "pr view")
-    printf '%s\n' "${FM_TEST_GH_STATE:-OPEN}"
+    printf '%s\n' "${FM_TEST_GH_STATE-OPEN}"
     ;;
   "api graphql")
     slurp=0
     filter=0
+    prog=
+    prev=
     for arg in "$@"; do
       [ "$arg" != --slurp ] || slurp=1
       [ "$arg" != --jq ] || filter=1
+      [ "$prev" != --jq ] || prog=$arg
+      prev=$arg
     done
     if [ "$slurp" -eq 1 ] && [ "$filter" -eq 1 ]; then
       printf 'cannot use --slurp with --jq\n' >&2
@@ -40,7 +45,8 @@ case "${1:-} ${2:-}" in
       printf 'fixture lookup failed\n' >&2
       exit 47
     fi
-    jq -s . "$FM_CONFLICT_JSON"
+    [ -n "$prog" ] || exit 91
+    "$FM_TEST_JQ_BIN" -r "$prog" "$FM_CONFLICT_JSON"
     ;;
   "pr list")
     cat "$FM_OVERLAP_PRS"
@@ -50,7 +56,7 @@ case "${1:-} ${2:-}" in
     number=${endpoint##*/}
     list="$FM_OVERLAP_DIFF_DIR/$number"
     [ -f "$list" ] || exit 91
-    jq -r "$5" "$list"
+    "$FM_TEST_JQ_BIN" -r "$5" "$list"
     ;;
   *)
     printf 'unexpected gh: %s\n' "$*" >&2
@@ -59,6 +65,17 @@ case "${1:-} ${2:-}" in
 esac
 SH
 chmod +x "$FAKEBIN/gh"
+cat > "$FAKEBIN/jq" <<'SH'
+#!/usr/bin/env bash
+if [ "${FM_TEST_NO_STANDALONE_JQ:-0}" = 1 ] \
+  && { [ "${FM_CHECK_OWNED_GROUP:-0}" = 1 ] || [ "${FM_TEST_DIRECT_POLL:-0}" = 1 ]; }; then
+  printf 'standalone jq called\n' >> "$FM_TEST_JQ_CALLS"
+  exit 97
+fi
+exec "$FM_TEST_JQ_BIN" "$@"
+SH
+chmod +x "$FAKEBIN/jq"
+
 
 reset_lib() {
   # shellcheck source=/dev/null
@@ -100,7 +117,7 @@ write_label_json() {  # <file> <present: yes|no> <labeled-at> [unlabeled-at]
 }
 
 run_poll() {
-  PATH="$FAKEBIN:$PATH" FM_CONFLICT_JSON="${FM_CONFLICT_JSON:-}" "$POLL" --validated github \
+  FM_TEST_DIRECT_POLL=1 PATH="$FAKEBIN:$PATH" FM_CONFLICT_JSON="${FM_CONFLICT_JSON:-}" "$POLL" --validated github \
     https://github.com/o/r/pull/7 github.com o/r 7
 }
 
@@ -115,7 +132,7 @@ test_graphql_failure_and_flag_contract() {
   json="$TMP_ROOT/graphql-failure.json"
   write_label_json "$json" yes "$CONFLICT_ADDED_AT"
   rc=0
-  PATH="$FAKEBIN:$PATH" FM_CONFLICT_JSON="$json" gh api graphql --slurp --jq . \
+  FM_TEST_DIRECT_POLL=1 PATH="$FAKEBIN:$PATH" FM_CONFLICT_JSON="$json" gh api graphql --slurp --jq . \
     > "$TMP_ROOT/invalid-flags.out" 2> "$TMP_ROOT/invalid-flags.err" || rc=$?
   [ "$rc" -eq 91 ] || fail "the GitHub recorder accepted mutually exclusive flags"
   rc=0
@@ -127,6 +144,27 @@ test_graphql_failure_and_flag_contract() {
   out=$(FM_CONFLICT_JSON="$json" run_poll 2> "$TMP_ROOT/parse.err") || rc=$?
   [ "$rc" -ne 0 ] && [ -z "$out" ] || fail "invalid API JSON became a successful observation"
   pass "GraphQL rejects conflicting flags and preserves lookup and JSON failures"
+}
+
+test_gh_only_poll_and_terminal_states() {
+  local json old out pr_state
+  json="$TMP_ROOT/gh-only.json"
+  old=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+  write_label_json "$json" yes "$old"
+  out=$(FM_CONFLICT_JSON="$json" FM_TEST_NO_STANDALONE_JQ=1 \
+    FM_TEST_JQ_CALLS="$TMP_ROOT/jq.calls" run_poll) \
+    || fail "GitHub conflict polling required standalone jq"
+  [ "$out" = "conflict:$old" ] || fail "gh-only polling lost the label application"
+  [ ! -e "$TMP_ROOT/jq.calls" ] || fail "the poll invoked standalone jq"
+  for pr_state in CLOSED UNKNOWN ''; do
+    out=$(FM_TEST_GH_STATE="$pr_state" FM_TEST_GRAPHQL_FAIL=1 run_poll) \
+      || fail "a non-open PR reached the label API ($pr_state)"
+    [ -z "$out" ] || fail "a non-open PR produced recovery output ($pr_state)"
+  done
+  out=$(FM_TEST_GH_STATE=MERGED FM_TEST_GRAPHQL_FAIL=1 run_poll) \
+    || fail "merge polling reached the label API"
+  [ "$out" = merged ] || fail "merged PR lost its observation"
+  pass "gh-only polling works and terminal PRs never emit conflict observations"
 }
 
 test_old_label_wakes_once_and_clear_removes_it() {
@@ -391,7 +429,7 @@ test_legacy_poll_authentication() {
 }
 
 test_watcher_conflict_recovery() {
-  local home state mode pid i template gh_state endpoint
+  local home state mode pid i template gh_state endpoint graphql_fail watch_rc
   reset_lib
   cat > "$FAKEBIN/tmux" <<'SH'
 #!/usr/bin/env bash
@@ -422,7 +460,7 @@ SH
   chmod +x "$FAKEBIN/tmux" "$TMP_ROOT/watch-send.sh" "$TMP_ROOT/watch-relaunch.sh"
   write_label_json "$TMP_ROOT/watch.json" yes \
     "$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')"
-  for mode in wake relaunch legacy-conflict legacy-merged secondmate-live secondmate-exited secondmate-none; do
+  for mode in wake relaunch legacy-conflict legacy-merged secondmate-live secondmate-exited secondmate-none current-failure legacy-failure closed; do
     home="$TMP_ROOT/watch-$mode"
     state="$home/state"
     mkdir -p "$home/config" "$home/data"
@@ -441,6 +479,8 @@ SH
     printf 'pr=https://github.com/o/r/pull/7\n' >> "$state/lane.meta"
     template=$POLL
     gh_state=OPEN
+    graphql_fail=0
+    case "$mode" in *-failure) graphql_fail=1 ;; closed) gh_state=CLOSED ;; esac
     case "$mode" in legacy-*|secondmate-*) template=$LEGACY_POLL ;; esac
     [ "$mode" != legacy-merged ] || gh_state=MERGED
     fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
@@ -450,6 +490,7 @@ SH
     PATH="$FAKEBIN:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
       FM_PR_CONFLICT_SEND="$TMP_ROOT/watch-send.sh" \
       FM_PR_CONFLICT_RELAUNCH="$TMP_ROOT/watch-relaunch.sh" \
+      FM_TEST_NO_STANDALONE_JQ=1 FM_TEST_JQ_CALLS="$home/jq.calls" FM_TEST_GRAPHQL_FAIL="$graphql_fail" \
       FM_TEST_ENDPOINT="$endpoint" FM_TEST_GH_STATE="$gh_state" FM_CONFLICT_JSON="$TMP_ROOT/watch.json" FM_CHECK_INTERVAL=0 \
       FM_POLL=0.05 FM_HEARTBEAT=999999 FM_SIGNAL_GRACE=0 \
       bash "$ROOT/bin/fm-watch.sh" > "$home/out" 2> "$home/err" &
@@ -460,7 +501,7 @@ SH
         [ ! -s "$home/relaunched" ] || break
       elif [ "$mode" = legacy-merged ]; then
         [ ! -s "$home/out" ] || break
-      elif [ -n "$endpoint" ]; then
+      elif [ -n "$endpoint" ] || [ "$mode" = closed ]; then
         [ ! -f "$state/.last-check" ] || break
       else
         [ ! -f "$state/lane.pr-conflict-episode" ] || break
@@ -470,10 +511,21 @@ SH
       i=$((i + 1))
     done
     kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+    watch_rc=0
+    wait "$pid" 2>/dev/null || watch_rc=$?
+    [ ! -e "$home/jq.calls" ] || fail "watcher polling required standalone jq ($mode)"
     if [ "$mode" = relaunch ]; then
       [ -s "$home/relaunched" ] \
         || fail "watcher could not relaunch with its control lock and note requirements: $(cat "$home/err")"
+    elif [ "$graphql_fail" -eq 1 ]; then
+      [ "$watch_rc" -eq 47 ] || fail "$mode watcher swallowed the failed gh invocation ($watch_rc)"
+      [ ! -s "$state/.wake-queue" ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
+        || fail "failed polling published successful conflict recovery"
+    elif [ "$mode" = closed ]; then
+      [ -f "$state/.last-check" ] || fail "closed fixture never completed its poll"
+      [ ! -e "$home/steered" ] && [ ! -e "$home/relaunched" ] \
+        && [ ! -s "$state/.wake-queue" ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
+        || fail "a closed pull request triggered conflict recovery"
     elif [ -n "$endpoint" ]; then
       [ -f "$state/.last-check" ] || fail "secondmate fixture never completed its poll"
       [ ! -e "$home/steered" ] && [ ! -e "$home/relaunched" ] \
@@ -627,6 +679,7 @@ test_rename_overlap_endpoints() {
 }
 
 test_graphql_failure_and_flag_contract
+test_gh_only_poll_and_terminal_states
 test_old_label_wakes_once_and_clear_removes_it
 test_young_label_is_quiet
 test_live_worker_is_steered_once
