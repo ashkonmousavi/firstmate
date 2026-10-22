@@ -17,7 +17,7 @@ The full mention is stashed locally; this skill acts on any request it carries a
 This runs only when Relay is on (the user dropped `FMX_PAIRING_TOKEN` into `.env`; see AGENTS.md "Relay").
 If you ever see an `x-mention` wake without Relay configured, do nothing.
 A `check:` wake can also carry `x-mode-error ...` instead of `x-mention <request_id>` - that is a poll or relay configuration problem, not a mention to answer.
-A pairing-token or credential problem is reserved and is reported to the captain.
+For a pairing-token or credential problem, apply the trusted-channel boundary below.
 Any other configuration failure is decided, recorded, and reported.
 Do not treat either as a mention to answer.
 

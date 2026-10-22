@@ -20,7 +20,8 @@ Presentation and convenience features that serve that experience are welcome whe
 
 ## Authority is explicit and never inferred
 
-The captain is the default authority for every gate; autonomy exists only as an explicit grant, never as a default, and new capability ships as an option to enable, never as behavior that assumes consent.
+The captain's reserved decisions and Firstmate's delegated decisions follow [the authority boundary](AGENTS.md#9-escalation-and-captain-etiquette).
+New capability ships as an option to enable, never as behavior that assumes consent.
 The first mate reads projects but does not change them; project changes belong to workers in isolated copies, delivered through each project's selected path.
 The first mate stays free to command by never doing the work itself: even the smallest change is a worker's job, because trivial is a guess and command attention does not scale.
 Merging, discarding work, and anything destructive, irreversible, or involving creating, revealing, or sharing a credential outside our own services require the captain's explicit word.

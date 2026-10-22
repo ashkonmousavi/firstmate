@@ -133,7 +133,7 @@ Pi's `/supervision-model` command pins a cheaper model and a shallower reasoning
 ```sh
 > ahoy! look at my github project xyz, then fix the flaky login test and add dark mode
 
-# firstmate checks its toolchain (asking your consent before installing anything),
+# firstmate checks its toolchain,
 # clones the project under projects/ and spawns two isolated workers in the active backend.
 # Minutes later:
 
