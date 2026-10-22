@@ -30,7 +30,7 @@ retry() {
   esac
 }
 
-for lifecycle in since merged reported done closed; do
+for lifecycle in since merged reported 'done' closed; do
   printf '## Queued\n- [ ] parser-child - child blocked-by: parser-parent - waits (%s 2026-10-21) (since 2026-10-22)\n' \
     "$lifecycle" > "$TMP_ROOT/lifecycle.md"
   edges=$(bash -c '. "$1"; fm_tasks_axi_item_edges "$2" parser-child' _ \
@@ -41,7 +41,7 @@ done
 pass 'recognized trailing lifecycle tags do not become dependency reasons'
 
 for route in receipt registered peer; do
-  for progress in start done; do
+  for progress in start 'done'; do
     source="$TMP_ROOT/$route-$progress-source"
     target="$TMP_ROOT/$route-$progress-target"
     mkdir -p "$source/data" "$source/state" "$target/data" "$target/state" "$target/bin"
