@@ -156,6 +156,42 @@ fm_backend_tmux_window_inventory() {  # <session-target>
   return 1
 }
 
+# fm_backend_tmux_endpoint_confirmed_gone: read-only proof that <target>'s
+# window is absent. This is the absence read, not a kill status.
+#   0 - proven gone: the inventory was read and the window is not listed, or
+#       the session or server is definitively absent.
+#   1 - not proven: the window is still listed, or the target is malformed.
+#   2 - not proven: the inventory could not be read.
+# Only 0 may release a task record. Callers that still need the two distinct
+# close-failure sentences keep those sentences themselves.
+fm_backend_tmux_endpoint_confirmed_gone() {  # <target>
+  local target=${1:-} session window windows inventory_status
+  case "$target" in
+    *:*)
+      session=${target%%:*}
+      window=${target#*:}
+      ;;
+    *) return 1 ;;
+  esac
+  case "$session:$window" in
+    :*|*:|*:*:*) return 1 ;;
+  esac
+  # A non-zero inventory read must stay a classified result. A bare assignment
+  # under set -e would exit before the session-absent case can return proven.
+  inventory_status=0
+  windows=$(fm_backend_tmux_window_inventory "=$session") || inventory_status=$?
+  if [ "$inventory_status" -eq 2 ]; then
+    return 0
+  fi
+  if [ "$inventory_status" -ne 0 ]; then
+    return 2
+  fi
+  if printf '%s\n' "$windows" | grep -qxF -- "$window"; then
+    return 1
+  fi
+  return 0
+}
+
 # Resolve one exact window selector in one exact session to its stable id.
 # The shared dispatcher header owns the accepted target grammar.
 fm_backend_tmux_window_id() {  # <session-name> <window-name|index|@id>
@@ -254,7 +290,7 @@ fm_backend_tmux_target_exists() {  # <target>
 # killing into a dead session all return 0 here
 # (docs/verification/runtime-backends.md "Endpoint close").
 fm_backend_tmux_kill() {  # <target>
-  local target=${1:-} session window windows inventory_status
+  local target=${1:-} session window inventory_status
   case "$target" in
     *:*)
       session=${target%%:*}
@@ -266,16 +302,17 @@ fm_backend_tmux_kill() {  # <target>
     :*|*:|*:*:*) return 1 ;;
   esac
   tmux kill-window -t "=$session:=$window" 2>/dev/null && return 0
-  windows=$(fm_backend_tmux_window_inventory "=$session")
-  inventory_status=$?
-  if [ "$inventory_status" -eq 2 ]; then
+  # Capture the absence read without letting a non-zero result exit under set -e
+  # before the two close-failure sentences below can be reported.
+  inventory_status=0
+  fm_backend_tmux_endpoint_confirmed_gone "$target" || inventory_status=$?
+  if [ "$inventory_status" -eq 0 ]; then
     return 0
   fi
-  if [ "$inventory_status" -ne 0 ]; then
+  if [ "$inventory_status" -eq 2 ]; then
     echo "error: tmux window $session:$window could not be read after its close, so whether it survived is unknown" >&2
     return 1
   fi
-  printf '%s\n' "$windows" | grep -qxF -- "$window" || return 0
   echo "error: tmux window $session:$window is still present after its close" >&2
   return 1
 }

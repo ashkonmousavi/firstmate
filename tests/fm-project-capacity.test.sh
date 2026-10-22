@@ -99,7 +99,17 @@ case "$*" in
 esac
 case "${1:-}" in
   display-message) printf 'firstmate\n' ;;
-  list-windows) [ ! -s "$window_file" ] || cat "$window_file" ;;
+  list-windows)
+    # .inventory-absent is touched by the failing backlog start, after launch
+    # delivery. Only the exact-session absence read is empty from then on.
+    # A plain session target still lists the window.
+    if [ -f "$(dirname "$0")/.inventory-absent" ]; then
+      case " $* " in
+        *" -t ="*) exit 0 ;;
+      esac
+    fi
+    [ ! -s "$window_file" ] || cat "$window_file"
+    ;;
   new-window)
     name=
     previous=
@@ -200,6 +210,103 @@ spawn_ship() {  # <case-dir> <id> [pane-path]
   run_spawn "$case_dir" "$case_dir/home" "$pane" "$id" "$case_dir/project" --mode no-mistakes --yolo off
 }
 
+break_start() {  # <case-dir>
+  local case_dir=$1 real
+  real=$(command -v tasks-axi)
+  cat > "$case_dir/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = start ]; then
+  echo 'error: "backlog is unwritable"' >&2
+  exit 1
+fi
+exec "$real" "\$@"
+SH
+  chmod +x "$case_dir/fakebin/tasks-axi"
+}
+
+# The failing start is also the moment the exact-session inventory becomes
+# the proven-gone read. Launch delivery, including the Enter membership
+# check, still sees the window.
+break_start_then_prove_absent() {  # <case-dir>
+  local case_dir=$1 real
+  real=$(command -v tasks-axi)
+  cat > "$case_dir/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = start ]; then
+  : > "$case_dir/fakebin/.inventory-absent"
+  echo 'error: "backlog is unwritable"' >&2
+  exit 1
+fi
+exec "$real" "\$@"
+SH
+  chmod +x "$case_dir/fakebin/tasks-axi"
+}
+
+install_herdr_fake() {  # <case-dir>
+  cat > "$1/fakebin/herdr" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${FM_HERDR_CLI_LOG:?}"
+joined="$*"
+case "$joined" in
+  *"pane close"*|*"tab close"*|*"workspace close"*)
+    printf 'close %s\n' "$*" >> "${FM_HERDR_CLI_LOG}.close"
+    exit 1
+    ;;
+  *"session list"*)
+    printf '%s\n' '{"sessions":[]}'
+    exit 0
+    ;;
+  *"pane read"*"--source visible"*)
+    exit 1
+    ;;
+  *"pane read"*)
+    printf '%s\n' 'still starting'
+    exit 0
+    ;;
+  *"pane get"*)
+    jq -nc --arg id pane1 --arg cwd "${FM_FAKE_PANE_PATH:-}" \
+      '{result:{pane:{pane_id:$id,foreground_cwd:$cwd}}}'
+    exit 0
+    ;;
+  *"status --json"*)
+    printf '%s\n' '{"client":{"protocol":14,"version":"0.8.0"},"server":{"running":true}}'
+    exit 0
+    ;;
+  *"workspace list"*)
+    printf '%s\n' '{"result":{"workspaces":[]}}'
+    exit 0
+    ;;
+  *"workspace create"*)
+    printf '%s\n' '{"result":{"workspace":{"workspace_id":"ws1"}}}'
+    exit 0
+    ;;
+  *"tab list"*)
+    printf '%s\n' '{"result":{"tabs":[]}}'
+    exit 0
+    ;;
+  *"tab create"*)
+    printf '%s\n' '{"result":{"tab":{"tab_id":"tab1"},"root_pane":{"pane_id":"pane1"}}}'
+    exit 0
+    ;;
+esac
+exit 0
+SH
+  cat > "$1/fakebin/rovo" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  chmod +x "$1/fakebin/herdr" "$1/fakebin/rovo"
+}
+
+run_herdr_spawn() {  # <case-dir> <id> <pane>
+  local case_dir=$1 id=$2 pane=$3
+  unset HERDR_PANE_ID HERDR_SESSION HERDR_SOCKET_PATH HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_ENV
+  FM_ROVO_READY_POLLS=1 FM_ROVO_POLL_INTERVAL=0 \
+    FM_HERDR_CLI_LOG="$case_dir/herdr.log" \
+    run_spawn "$case_dir" "$case_dir/home" "$pane" \
+      "$id" "$case_dir/project" --backend herdr --harness rovo --mode no-mistakes --yolo off
+}
+
 # Everything a deferred spawn must not have created for <id>; <worktrees-before>
 # is worktree_list taken before the spawn.
 assert_nothing_created() {  # <case-dir> <home> <id> <calls-before> <worktrees-before>
@@ -216,8 +323,11 @@ assert_nothing_created() {  # <case-dir> <home> <id> <calls-before> <worktrees-b
   fi
 }
 
-# Admission may read endpoint inventory; only mutations violate deferral.
-call_count() { awk '$1 != "list-windows" { n++ } END { print n+0 }' "$1/calls.log"; }
+# Admission may read endpoint inventory and a listed window's liveness.
+# Only mutations violate deferral.
+call_count() {
+  awk '$1 != "list-windows" && $1 != "display-message" && $1 != "capture-pane" { n++ } END { print n+0 }' "$1/calls.log"
+}
 
 worktree_list() { git -C "$1/project" worktree list --porcelain; }
 
@@ -338,9 +448,11 @@ test_symlinked_home_counts_each_worker_once() {
   pass "a home reached through a symlink counts each of its workers once"
 }
 
-# A fresh spawn that restarts an existing task id replaces that task's own
-# record, so the record does not hold a place against it. Any other task on the
-# project still sees that record as a holder.
+# A fresh spawn of an existing task id does not count that record when the
+# recorded window is already absent from the session inventory: the absence
+# read removes it, and the spawn replaces it. Any other task on the project
+# counts the replacement record. A window that is still listed keeps the
+# original record and holds the place; that case is covered below.
 test_restart_does_not_count_its_own_record() {
   local case_dir home out rc=0
   case_dir=$(make_case restart task-c task-d)
@@ -783,6 +895,177 @@ test_machine_registry_parent_refuses_spawn() {
   pass 'inaccessible root registry parent defers a worker from a writable secondmate'
 }
 
+# Both backlog start attempts fail after the window exists. While that window
+# is still listed, the record stays and holds the only place.
+test_failed_backlog_commit_keeps_the_seat_while_the_window_is_listed() {
+  local case_dir home out rc=0 before worktrees
+  [ "$HAVE_TASKS_AXI" = 1 ] || {
+    printf 'ok - skipped (tasks-axi is not installed)\n'
+    return 0
+  }
+  case_dir=$(make_case listed-seat seat-keep seat-next)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 1"
+  break_start "$case_dir"
+  out=$(spawn_ship "$case_dir" seat-keep) || rc=$?
+  [ "$rc" -ne 0 ] || fail "a failed backlog commit was reported as a launch: $out"
+  assert_contains "$out" "failed-dispatch cleanup is incomplete" \
+    "a listed window was reported as a removed record"
+  assert_present "$home/state/seat-keep.meta" "a listed window dropped the task record"
+  before=$(call_count "$case_dir")
+  worktrees=$(worktree_list "$case_dir")
+  rc=0
+  out=$(spawn_ship "$case_dir" seat-next "$case_dir/unused") || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "a second id was admitted while the listed window's record remained: $out"
+  assert_contains "$out" "1 already hold a place (seat-keep)" \
+    "the retained record was not counted against the second id"
+  assert_nothing_created "$case_dir" "$home" seat-next "$before" "$worktrees"
+  before=$(call_count "$case_dir")
+  rc=0
+  out=$(spawn_ship "$case_dir" seat-keep "$case_dir/unused") || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "the same id was launched again while its window was still listed: $out"
+  assert_contains "$out" "1 already hold a place (seat-keep)" \
+    "the retained record was not counted against its own id"
+  assert_present "$home/state/seat-keep.meta" "the same-id retry removed the retained record"
+  [ "$(call_count "$case_dir")" -eq "$before" ] ||
+    fail "the same-id retry opened another endpoint: $(cat "$case_dir/calls.log")"
+  pass "a listed window keeps its record, and that record holds the place against its own id and the next one"
+}
+
+# The same backlog failure removes the record once the inventory read shows
+# the window gone, and the next id is admitted.
+test_failed_backlog_commit_frees_the_seat_when_the_window_is_gone() {
+  local case_dir home out rc=0
+  [ "$HAVE_TASKS_AXI" = 1 ] || {
+    printf 'ok - skipped (tasks-axi is not installed)\n'
+    return 0
+  }
+  case_dir=$(make_case absent-seat seat-gone seat-next)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 1"
+  break_start_then_prove_absent "$case_dir"
+  out=$(spawn_ship "$case_dir" seat-gone) || rc=$?
+  [ "$rc" -ne 0 ] || fail "a failed backlog commit was reported as a launch: $out"
+  assert_contains "$out" "its record was removed" \
+    "a gone window kept the task record"
+  assert_absent "$home/state/seat-gone.meta" "a gone window left the task record in place"
+  rm -f "$case_dir/fakebin/tasks-axi" "$case_dir/fakebin/.inventory-absent"
+  rc=0
+  out=$(spawn_ship "$case_dir" seat-next) || rc=$?
+  expect_code 0 "$rc" "the next id was refused after the gone window released its place: $out"
+  assert_present "$home/state/seat-next.meta" "the next id was admitted without a record"
+  pass "an inventory read that omits the window removes the record and admits the next id"
+}
+
+# A Herdr kill that returns 0 because the presentation lock cannot be taken
+# does not close the pane. The pane is still present, so the record stays and
+# holds the only place.
+test_herdr_lock_refused_kill_keeps_the_seat() {
+  local case_dir home pane out rc=0 before worktrees meta_before meta_after
+  [ "$HAVE_TASKS_AXI" = 1 ] || {
+    printf 'ok - skipped (tasks-axi is not installed)\n'
+    return 0
+  }
+  command -v jq >/dev/null 2>&1 || {
+    printf 'ok - skipped (jq is not installed)\n'
+    return 0
+  }
+  case_dir=$(make_case herdr-lock-seat seat-keep seat-next)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 1"
+  printf '%s\n' off > "$home/config/herdr-presentation-spaces"
+  install_herdr_fake "$case_dir"
+  : > "$case_dir/herdr.log"
+  pane=$(new_worktree "$case_dir" seat-keep)
+  out=$(run_herdr_spawn "$case_dir" seat-keep "$pane") || rc=$?
+  [ "$rc" -ne 0 ] && [ "$rc" -ne "$DEFER_EXIT" ] ||
+    fail "the lock-refused Herdr spawn did not fail (exit $rc): $out"
+  # The ready-gate cleanup discards the kill's stderr, including the unlocked
+  # close refusal. The session-list lookup is that kill's lock read, and the
+  # close log stays empty because the refusal never issues a pane close.
+  assert_contains "$out" "rovo did not show a verified ready signal" \
+    "the spawn did not reach the gate that closes the pane"
+  grep -F 'session list' "$case_dir/herdr.log" >/dev/null ||
+    fail "the lock-refused kill did not read its presentation lock: $(cat "$case_dir/herdr.log")"
+  assert_present "$home/state/seat-keep.meta" "the lock-refused kill removed the task record"
+  [ ! -s "$case_dir/herdr.log.close" ] ||
+    fail "the lock-refused kill closed a pane: $(cat "$case_dir/herdr.log.close")"
+  if grep -F 'pane close' "$case_dir/herdr.log" >/dev/null; then
+    fail "the lock-refused kill logged a pane close: $(cat "$case_dir/herdr.log")"
+  fi
+  before=$(call_count "$case_dir")
+  worktrees=$(worktree_list "$case_dir")
+  rc=0
+  out=$(spawn_ship "$case_dir" seat-next "$case_dir/unused") || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "a second id was admitted while the Herdr pane was still present: $out"
+  assert_contains "$out" "1 already hold a place (seat-keep)" \
+    "the retained Herdr record was not counted"
+  assert_nothing_created "$case_dir" "$home" seat-next "$before" "$worktrees"
+  meta_before=$(cat "$home/state/seat-keep.meta")
+  rc=0
+  out=$(run_herdr_spawn "$case_dir" seat-keep "$case_dir/unused") || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "the same Herdr id was launched again while its pane was still present: $out"
+  assert_contains "$out" "1 already hold a place (seat-keep)" \
+    "the retained Herdr record was not counted against its own id"
+  meta_after=$(cat "$home/state/seat-keep.meta")
+  [ "$meta_before" = "$meta_after" ] ||
+    fail "the same-id retry replaced the retained Herdr record"
+  pass "a Herdr kill that returns without closing the pane keeps the record and the place"
+}
+
+test_stale_same_id_retry_removes_record_before_replacement() {
+  local case_dir home out cap rc
+  for cap in capped uncapped; do
+    case_dir=$(make_case "stale-retry-$cap" task-stale)
+    home="$case_dir/home"
+    [ "$cap" != capped ] || declare_capacity "$home" "project 1"
+    write_live "$home" task-stale "$case_dir/project"
+    rc=0
+    out=$(spawn_ship "$case_dir" task-stale) || rc=$?
+    expect_code 0 "$rc" "a $cap stale same-id retry failed: $out"
+    assert_contains "$out" "spawned task-stale" "the stale retry did not launch"
+    assert_present "$home/state/task-stale.meta" "the retry published no replacement record"
+    assert_contains "$(cat "$case_dir/calls.log.window")" "fm-task-stale" "the replacement endpoint is missing"
+    if [ "$HAVE_TASKS_AXI" = 1 ]; then
+      assert_equals in_flight "$(row_state "$home" task-stale)" "the retry did not start the backlog item"
+    fi
+  done
+  pass "capped and uncapped stale same-id retries publish their replacement"
+}
+
+test_stale_record_removal_failure_prevents_replacement() {
+  local case_dir home out cap rc real_rm
+  real_rm=$(command -v rm)
+  for cap in capped uncapped; do
+    case_dir=$(make_case "stale-removal-$cap" task-stale)
+    home="$case_dir/home"
+    [ "$cap" != capped ] || declare_capacity "$home" "project 1"
+    write_live "$home" task-stale "$case_dir/project"
+    cat > "$case_dir/fakebin/rm" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  case "\$arg" in */state/task-stale.meta) exit 1 ;; esac
+done
+exec "$real_rm" "\$@"
+SH
+    chmod +x "$case_dir/fakebin/rm"
+    rc=0
+    out=$(spawn_ship "$case_dir" task-stale) || rc=$?
+    expect_code 1 "$rc" "a $cap spawn ignored failed record removal: $out"
+    assert_present "$home/state/task-stale.meta" "failed removal lost the predecessor record"
+    assert_absent "$case_dir/calls.log.window" "failed removal opened a replacement endpoint"
+    if [ "$HAVE_TASKS_AXI" = 1 ]; then
+      assert_equals in_flight "$(row_state "$home" task-stale)" "failed removal changed the predecessor backlog item"
+    fi
+  done
+  pass "failed stale-record removal prevents capped and uncapped replacement"
+}
+
+test_stale_same_id_retry_removes_record_before_replacement
+test_stale_record_removal_failure_prevents_replacement
+test_failed_backlog_commit_keeps_the_seat_while_the_window_is_listed
+test_failed_backlog_commit_frees_the_seat_when_the_window_is_gone
+test_herdr_lock_refused_kill_keeps_the_seat
 test_undeclared_capacity_keeps_dispatch_uncapped
 test_available_capacity_admits_the_worker
 test_exhausted_capacity_defers_without_leaving_anything_behind

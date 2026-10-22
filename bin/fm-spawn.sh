@@ -141,8 +141,9 @@
 #   then creates a disposable
 #   workspace containing only the ordinary task pane. A successful clean create
 #   upgrades its attempt journal with exact home, session, workspace, tab, pane,
-#   parent, and label bindings. On a same-identity restart, that complete binding
-#   plus authoritative metadata may replace one exact agent-free husk in place.
+#   parent, and label bindings. A fresh same-id restart must first pass the
+#   rollback contract below; an agent-free restored pane is still an endpoint
+#   and cannot authorize replacing its retained task record.
 #   The journal, visible token, and labels alone are never endpoint or ownership
 #   authority, and every ambiguous recovery stays on the flat fallback after
 #   duplicate-agent risk is independently absent. Treehouse allocation and task
@@ -155,7 +156,7 @@
 #   default on the same contention (it does not degrade flat; a concurrent
 #   resume is a hard failure). Pass --herdr-resume-lock-wait to opt that
 #   resume into waiting for the lock instead, so two concurrent recoveries
-#   can serialize and each still replace its own exact husk. The flag acts
+#   can serialize after passing the task-record gate. The flag acts
 #   only on that fresh ship or scout spawn path: --relaunch reuses the
 #   recorded endpoint without taking this lock, so the flag has no effect
 #   there, and a secondmate spawn never projects. Unbounded
@@ -590,9 +591,13 @@
 # script performs the transition under the task's own meta lock before it reports
 # success. A ship or scout dispatch therefore REFUSES up front, before any
 # endpoint, worktree, or record exists, unless the home's backlog has an
-# unheld, unblocked Queued or In flight item for the id; a transition that fails
-# after publication removes the record it just wrote rather than leaving a
-# worker the backlog does not own. A relaunch re-reads the row instead of
+# unheld, unblocked Queued or In flight item for the id. A failed transition
+# after publication, or a cancelled fresh launch, removes the record and retires
+# its busy generation only after spawn_fresh_commit_rollback proves the recorded
+# endpoint gone. Otherwise both remain, even after kill success or a closed flag;
+# bin/fm-backend.sh's fm_backend_endpoint_confirmed_gone owns the proof contract.
+# A fresh same-id retry refuses to replace an unproven record, even without a
+# project capacity declaration. A relaunch re-reads the row instead of
 # re-running the transition, so an eligible In-flight item is left untouched.
 # The transition is
 # skipped entirely for --secondmate spawns (persistent agents are not work
@@ -1447,6 +1452,17 @@ SPAWN_ENDPOINT_CLOSED=0
 SPAWN_STAGED_LAUNCH_FILE=
 
 spawn_fresh_commit_rollback() {
+  # The record is the seat. Remove it only after a positive absence read.
+  # Any other result, including a kill that returned 0, leaves the record and
+  # the pending flag in place so a later call repeats the same read. A refusal
+  # does not retire the busy generation and does not replace the backlog
+  # start error the caller still has to report. An absent record is not a
+  # seat, so the cleanup transition still runs and retires the busy generation.
+  if [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; then
+    if ! fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
+      return 1
+    fi
+  fi
   if fm_backlog_atomic_transition rollback "$STATE/$ID.meta" \
     "$FM_ROOT/bin/fm-busy-event.sh" "$STATE" "$ID" "${BUSY_GEN:-}"; then
     SPAWN_FRESH_COMMIT_PENDING=0
@@ -1540,12 +1556,11 @@ spawn_abort_cleanup() {
       if ! fm_backend_remove_worktree orca "$ORCA_WORKTREE_ID" 2>/dev/null; then
         if [ "$SPAWN_FRESH_COMMIT_PENDING" = 1 ]; then
           if ! spawn_fresh_commit_rollback; then
-            status=1
+            [ "$status" -ne 0 ] || status=1
           fi
-          SPAWN_FRESH_COMMIT_PENDING=0
         fi
         mkdir -p "$STATE" 2>/dev/null || true
-        if [ -d "$STATE" ]; then
+        if [ -d "$STATE" ] && [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ]; then
           SPAWN_META_TMP="$STATE/.$ID.meta.orca-recovery.${BASHPID:-$$}"
           {
             echo "window=$W"
@@ -1577,7 +1592,7 @@ spawn_abort_cleanup() {
   fi
   if [ "$SPAWN_FRESH_COMMIT_PENDING" = 1 ]; then
     if ! spawn_fresh_commit_rollback; then
-      status=1
+      [ "$status" -ne 0 ] || status=1
     fi
   fi
   if [ "$SPAWN_META_LOCK_HELD" = 1 ]; then
@@ -3567,6 +3582,19 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] &&
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
 fi
 if [ -n "$SPAWN_PROJECT_CAPACITY" ]; then
+  # Drop this id's own record only when its endpoint is already proven gone,
+  # then count what remains, including this id. The commit flag is still unset
+  # here, so a removal cannot clear the flag this spawn sets later.
+  if [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; then
+    if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
+      SPAWN_META_LOCK=$(fm_meta_lock_path "$STATE/$ID.meta") || exit 1
+      fm_lock_acquire_wait "$SPAWN_META_LOCK"
+      SPAWN_META_LOCK_HELD=1
+    fi
+    if fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
+      spawn_fresh_commit_rollback || exit 1
+    fi
+  fi
   if ! fm_project_capacity_occupants "$SPAWN_TREEHOUSE_PROJECT_LOCK" "$PROJ_ABS" "$STATE" "$ID"; then
     echo "error: spawn refused: project $(basename "$PROJ_ABS") declares a capacity of $SPAWN_PROJECT_CAPACITY, but this machine's task records cannot all be read to count it ($FM_PROJECT_CAPACITY_ERROR)" >&2
     exit 1
@@ -4249,6 +4277,14 @@ EOF
     WT_TARGET=$T
   fi
 else
+  # A surviving record whose endpoint is not proven gone is still a worker.
+  # Refuse before this fresh path opens a second endpoint. Pending is still
+  # unset, so this exit does not roll the retained record back.
+  if { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; } &&
+    ! spawn_fresh_commit_rollback; then
+    echo "error: task $ID already has a record at $STATE/$ID.meta that could not be safely removed; refusing to open another endpoint while that record remains" >&2
+    exit 1
+  fi
   case "$BACKEND" in
   tmux)
     SES=$(fm_backend_tmux_container_ensure)
@@ -5909,6 +5945,11 @@ preserve_relaunch_meta() {
   exit 1
 }
 if [ "$RELAUNCH" -eq 0 ]; then
+  if { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; } &&
+    ! fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
+    echo "error: task $ID already has a record at $STATE/$ID.meta and its endpoint is not confirmed gone; refusing to replace it while that worker may still be running" >&2
+    exit 1
+  fi
   if ! fm_backlog_atomic_transition publish "$SPAWN_META_TMP" "$STATE/$ID.meta" "task record" "$STATE"; then
     echo "error: task record for $ID could not be published ($FM_BACKLOG_TRANSITION_ERROR)" >&2
     exit 1

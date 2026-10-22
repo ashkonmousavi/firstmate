@@ -743,10 +743,22 @@ test_spawn_releases_orca_resources_when_metadata_write_fails() {
   state="$TMP_ROOT/meta-fail-state"
   config="$TMP_ROOT/meta-fail-config"
   fm_git_worktree "$proj" "$wt" "fm/$id"
-  mkdir -p "$data/$id" "$state/$id.meta" "$config"
+  mkdir -p "$data/$id" "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
   write_spawn_brief "$data" "$id"
   orca_case meta-fail
+  # Fail the public record publication after resource allocation, rather than
+  # pre-seeding an existing record that must refuse before allocation.
+  local real_mv
+  real_mv=$(command -v mv)
+  cat > "$FB/mv" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  case "\$arg" in */.$id.meta.spawn.*) exit 1 ;; esac
+done
+exec "$real_mv" "\$@"
+SH
+  chmod +x "$FB/mv"
   printf '1\n' > "$RESP/1.exit"
   printf '{"ok":true,"result":{"repo":{"id":"repo-meta-fail"}}}\n' > "$RESP/2.out"
   printf '{"ok":true,"result":{"worktree":{"id":"wt-meta-fail::/orca/wt-meta-fail","path":"%s"}}}\n' "$wt" > "$RESP/3.out"

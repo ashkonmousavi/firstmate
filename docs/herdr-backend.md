@@ -367,35 +367,13 @@ Before any recovery mutation, Firstmate holds both the task spawn lock and the n
 That presentation lock lives in a namespace private to the OS account, so another account on the same host running its own Firstmate on Herdr cannot block this account's spawn, recovery, or teardown.
 A namespace at this account's name that another account owns, or that is not mode 700, is still refused and is never adopted, chowned, or removed.
 
-A same-identity version 2 binding may replace one exact agent-free restart husk in place.
-A husk is a restored same-labeled tab with a missing pane or no registered agent, as [Restart and liveness behavior](#restart-and-liveness-behavior) describes.
-The replacement is allowed only when all of these agree:
+A fresh same-id spawn is subject to the [spawn rollback contract](../bin/fm-spawn.sh), including after a Herdr server restart.
+A restored pane with no registered agent still has an endpoint, so it cannot be replaced through a fresh spawn while its task record remains.
+Use the [agent control plane](agent-control.md) to relaunch an existing task in its recorded worktree and agent-free endpoint.
 
-- The physical home.
-- The session.
-- The metadata endpoint.
-- The unique token match.
-- The workspace shape and labels.
-- The parent identity and placement.
-- The non-target focus snapshot.
-
-The replacement tab and pane are created and verified before the old pane is rechecked and closed.
-Then the journal advances atomically to the replacement endpoint before metadata publication.
-The reclaim path never moves, closes, deletes, or renames a workspace and never touches a parent, sibling, captain, or foreign pane.
-A failed replacement rolls back only the exact response-derived new pane when focus-safe verification permits it.
-
-These cases fall back flat without mutating the old projection when duplicate-agent risk is positively absent:
-
-- Version 1 journals.
-- Dead or missing panes.
-- Duplicate or absent tokens.
-- Renamed or detached spaces.
-- Cross-home mismatches.
-- Inconsistent endpoint bindings.
-- Active target tabs.
-- Ambiguous identity or focus.
-
-A live or unknown recorded or token-matched endpoint refuses duplicate launch.
+Once a fresh spawn passes that record gate, a remaining presentation journal suppresses another projected create and is checked for duplicate-agent risk before flat fallback.
+The journal, visible token, and labels alone never grant endpoint or ownership authority.
+The adapter's exact binding and focus checks remain in [`bin/backends/herdr.sh`](../bin/backends/herdr.sh).
 
 ### Startup cleanup of restored projections
 
@@ -456,13 +434,13 @@ Any of these preserves the candidate and lets session startup continue with at m
 
 ### Operational compromises
 
-- Grouping is best-effort; only an exact same-identity version 2 binding survives a Herdr restart in place.
+- Grouping is best-effort; existing-task recovery follows [Restart recovery](#restart-recovery).
 - A failed journal publication or projected workspace create stops that spawn instead of falling back flat.
   So a Herdr create failure surfaces as a spawn failure in every Herdr home, rather than only in homes that opted in.
   Every earlier degradation on the fresh projected-create path (no session server, contended presentation lock, absent or ambiguous parent) still warns and continues flat.
 - Recovery of an existing presentation journal refuses by default when the shared presentation lock is contended, rather than falling back flat.
   Pass `fm-spawn.sh --herdr-resume-lock-wait` to opt that recovery into waiting for the lock instead, so concurrent recoveries can serialize.
-  The flag applies to a fresh ship or scout spawn that recovers a journal.
+  The flag applies only after a fresh ship or scout spawn passes the [task-record gate](../bin/fm-spawn.sh); it cannot authorize replacing a retained pane.
   The multi-task path forwards the flag to each per-pair spawn.
   `fm-spawn.sh --relaunch` and `--secondmate` take no exact-resume presentation-order lock, so the flag has no effect there.
   Dead-owner reclaim still stops the wait when a holder crashed.
@@ -480,7 +458,7 @@ Any of these preserves the candidate and lets session startup continue with at m
 
 | Test | What it covers |
 | --- | --- |
-| `tests/fm-backend-herdr-presentation-e2e.test.sh` | Multi-home ordering, concurrency, lock contention, legacy coexistence, focus preservation, exact same-identity restart replacement, ambiguous bindings and tokens, and exact-pane cleanup through the guarded lab path. |
+| `tests/fm-backend-herdr-presentation-e2e.test.sh` | Multi-home ordering, concurrency, lock contention, legacy coexistence, focus preservation, refusal of fresh same-id retries against restored panes with or without resume-lock-wait, ambiguous bindings and tokens, and exact-pane cleanup through the guarded lab path. |
 | `tests/fm-herdr-session-cleanup.test.sh` | Every discovery, ownership, topology, process, locking, revalidation, focus, retirement, and continue-on-error boundary. |
 | `tests/fm-herdr-session-cleanup-e2e.test.sh` | The restored-shell cleanup in a guarded non-default named lab. |
 | `tests/fm-backend-herdr-focus-flash-e2e.test.sh` | Reproduces the raw explicit-close focus steal on the installed release, and proves the focus-safe emptying-close plan removes a doomed workspace with no wrong-focus interval. |
