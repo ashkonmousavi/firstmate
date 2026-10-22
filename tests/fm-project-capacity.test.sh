@@ -1013,6 +1013,56 @@ test_herdr_lock_refused_kill_keeps_the_seat() {
   pass "a Herdr kill that returns without closing the pane keeps the record and the place"
 }
 
+test_stale_same_id_retry_removes_record_before_replacement() {
+  local case_dir home out cap rc
+  for cap in capped uncapped; do
+    case_dir=$(make_case "stale-retry-$cap" task-stale)
+    home="$case_dir/home"
+    [ "$cap" != capped ] || declare_capacity "$home" "project 1"
+    write_live "$home" task-stale "$case_dir/project"
+    rc=0
+    out=$(spawn_ship "$case_dir" task-stale) || rc=$?
+    expect_code 0 "$rc" "a $cap stale same-id retry failed: $out"
+    assert_contains "$out" "spawned task-stale" "the stale retry did not launch"
+    assert_present "$home/state/task-stale.meta" "the retry published no replacement record"
+    assert_contains "$(cat "$case_dir/calls.log.window")" "fm-task-stale" "the replacement endpoint is missing"
+    if [ "$HAVE_TASKS_AXI" = 1 ]; then
+      assert_equals in_flight "$(row_state "$home" task-stale)" "the retry did not start the backlog item"
+    fi
+  done
+  pass "capped and uncapped stale same-id retries publish their replacement"
+}
+
+test_stale_record_removal_failure_prevents_replacement() {
+  local case_dir home out cap rc real_rm
+  real_rm=$(command -v rm)
+  for cap in capped uncapped; do
+    case_dir=$(make_case "stale-removal-$cap" task-stale)
+    home="$case_dir/home"
+    [ "$cap" != capped ] || declare_capacity "$home" "project 1"
+    write_live "$home" task-stale "$case_dir/project"
+    cat > "$case_dir/fakebin/rm" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  case "\$arg" in */state/task-stale.meta) exit 1 ;; esac
+done
+exec "$real_rm" "\$@"
+SH
+    chmod +x "$case_dir/fakebin/rm"
+    rc=0
+    out=$(spawn_ship "$case_dir" task-stale) || rc=$?
+    expect_code 1 "$rc" "a $cap spawn ignored failed record removal: $out"
+    assert_present "$home/state/task-stale.meta" "failed removal lost the predecessor record"
+    assert_absent "$case_dir/calls.log.window" "failed removal opened a replacement endpoint"
+    if [ "$HAVE_TASKS_AXI" = 1 ]; then
+      assert_equals in_flight "$(row_state "$home" task-stale)" "failed removal changed the predecessor backlog item"
+    fi
+  done
+  pass "failed stale-record removal prevents capped and uncapped replacement"
+}
+
+test_stale_same_id_retry_removes_record_before_replacement
+test_stale_record_removal_failure_prevents_replacement
 test_failed_backlog_commit_keeps_the_seat_while_the_window_is_listed
 test_failed_backlog_commit_frees_the_seat_when_the_window_is_gone
 test_herdr_lock_refused_kill_keeps_the_seat

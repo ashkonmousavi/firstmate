@@ -3581,7 +3581,14 @@ if [ -n "$SPAWN_PROJECT_CAPACITY" ]; then
   # then count what remains, including this id. The commit flag is still unset
   # here, so a removal cannot clear the flag this spawn sets later.
   if [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; then
-    spawn_fresh_commit_rollback || true
+    if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
+      SPAWN_META_LOCK=$(fm_meta_lock_path "$STATE/$ID.meta") || exit 1
+      fm_lock_acquire_wait "$SPAWN_META_LOCK"
+      SPAWN_META_LOCK_HELD=1
+    fi
+    if fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
+      spawn_fresh_commit_rollback || exit 1
+    fi
   fi
   if ! fm_project_capacity_occupants "$SPAWN_TREEHOUSE_PROJECT_LOCK" "$PROJ_ABS" "$STATE" "$ID"; then
     echo "error: spawn refused: project $(basename "$PROJ_ABS") declares a capacity of $SPAWN_PROJECT_CAPACITY, but this machine's task records cannot all be read to count it ($FM_PROJECT_CAPACITY_ERROR)" >&2
@@ -4269,8 +4276,8 @@ else
   # Refuse before this fresh path opens a second endpoint. Pending is still
   # unset, so this exit does not roll the retained record back.
   if { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; } &&
-    ! fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
-    echo "error: task $ID already has a record at $STATE/$ID.meta and its endpoint is not confirmed gone; refusing to open another endpoint while that worker may still be running" >&2
+    ! spawn_fresh_commit_rollback; then
+    echo "error: task $ID already has a record at $STATE/$ID.meta that could not be safely removed; refusing to open another endpoint while that record remains" >&2
     exit 1
   fi
   case "$BACKEND" in
