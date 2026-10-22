@@ -968,7 +968,7 @@ pending_replies_recovery_validate() {
 remote_recovery_paths_validate() {
   local mode=${1:-initial} handoff_dir outbox real
   handoff_dir="$DATA/handoff"
-  outbox="$handoff_dir/$ID.outbox.md"
+  outbox="$handoff_dir/$REMOTE_HANDOFF_KEY.outbox.md"
   if [ -e "$handoff_dir" ] || [ -L "$handoff_dir" ]; then
     [ -d "$handoff_dir" ] && [ ! -L "$handoff_dir" ] \
       || { echo "REFUSED: remote handoff recovery directory is unsafe" >&2; return 1; }
@@ -1053,8 +1053,8 @@ remote_outbox_cleanup() {
   (
     CDPATH='' cd -- "$DATA/handoff" 2>/dev/null || exit 1
     [ "$(pwd -P)" = "$REMOTE_HANDOFF_DIR_REAL" ] || exit 1
-    [ -f "$ID.outbox.md" ] && [ ! -L "$ID.outbox.md" ] || exit 1
-    rm -f -- "$ID.outbox.md"
+    [ -f "$REMOTE_HANDOFF_KEY.outbox.md" ] && [ ! -L "$REMOTE_HANDOFF_KEY.outbox.md" ] || exit 1
+    rm -f -- "$REMOTE_HANDOFF_KEY.outbox.md" "$REMOTE_HANDOFF_KEY.route"
   )
 }
 
@@ -1138,7 +1138,8 @@ remote_secondmate_teardown_locked() {
   [ -n "$(fm_meta_get "$META" remote_host)" ] || return 3
   REMOTE_REGISTRY_LOCK=$(secondmate_registry_lock_path "$STATE")
   fm_lock_acquire_wait "$REMOTE_REGISTRY_LOCK" || return 1
-  REMOTE_HANDOFF_LOCK="$STATE/.backlog-handoff-$ID.lock"
+  REMOTE_HANDOFF_KEY=$(fm_tasks_axi_handoff_key "$(fm_meta_get "$META" remote_host)" "$(fm_meta_get "$META" home)") || return 1
+  REMOTE_HANDOFF_LOCK="$STATE/.backlog-handoff-$REMOTE_HANDOFF_KEY.lock"
   fm_lock_acquire_wait "$REMOTE_HANDOFF_LOCK" || {
     remote_teardown_locks_release
     return 1

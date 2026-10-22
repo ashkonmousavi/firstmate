@@ -63,33 +63,19 @@ show_task() { # <id> <file>
   out=$(tasks-axi show "$1" --full --file "$2" --backend markdown) || return 1
   printf '%s\n' "$out" | awk '
     /^help\[/ { exit }
-    /^  (state|blocked|blocked_by|held|hold_reason|hold_kind|hold_until|created|closed):/ { next }
+    /^  (state|blocked|blocked_by|held|hold_reason|hold_kind|hold_until|created|closed|deps):/ { next }
     { print }
   '
 }
 
-item_header_line() { # <file> <id>
-  awk -v key="$2" '
-    /^- \[[ x]\] / {
-      rest = $0
-      sub(/^- \[[ x]\] +/, "", rest)
-      id = rest
-      sub(/[ \t].*/, "", id)
-      if (id == key) { print; found = 1; exit }
-    }
-    END { exit found ? 0 : 1 }
-  ' "$1"
-}
 
 confirm_received() { # <id> <source-file>
-  local id=$1 src=$2 src_show dst_show src_header dst_header src_edges dst_edges
+  local id=$1 src=$2 src_show dst_show src_edges dst_edges
   src_show=$(show_task "$id" "$src") || return 1
   dst_show=$(show_task "$id" "$DEST") || return 1
   [ "$src_show" = "$dst_show" ] || return 1
-  src_header=$(item_header_line "$src" "$id") || return 1
-  dst_header=$(item_header_line "$DEST" "$id") || return 1
-  src_edges=$(printf '%s\n' "$src_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
-  dst_edges=$(printf '%s\n' "$dst_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
+  src_edges=$(fm_tasks_axi_item_edges "$src" "$id") || return 1
+  dst_edges=$(fm_tasks_axi_item_edges "$DEST" "$id") || return 1
   [ "$src_edges" = "$dst_edges" ]
 }
 

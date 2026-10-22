@@ -198,3 +198,40 @@ fm_tasks_axi_backend_available() {
   fm_backlog_backend_manual "$config_dir" && return 1
   fm_tasks_axi_compatible
 }
+
+fm_tasks_axi_dependency_edges() {
+  perl -ne '
+    if (/^##\s+(.+?)\s*$/) { $done = lc($1) eq "done"; next }
+    my ($closed, $id, $tail);
+    if (/^- \[([ x])\]\s+(\S+)\s+-\s+(.*)$/) {
+      ($closed, $id, $tail) = ($1 eq "x" || $done ? 1 : 0, $2, $3);
+    } elsif (/^- \*\*([A-Za-z0-9][A-Za-z0-9._-]*)\*\*\s+-\s+(.*)$/) {
+      ($closed, $id, $tail) = (0, $1, $2);
+    } else { next }
+    my @edges;
+    my $marker = qr/(?:blocked-by|parent|discovered-from)/;
+    while (1) {
+      if ($tail =~ s/\s*($marker):\s*([A-Za-z0-9][A-Za-z0-9._-]*)(?:\s+-\s+((?:(?!\s+$marker:\s).)+?))?\s*$//) {
+        unshift @edges, [$1, $2, $3 // ""];
+      } elsif ($tail =~ s/\s*\((?:(?:[^()]*\+\s*)?repo:|kind:|priority:|hold:|hold-kind:|hold-until:)\s*[^)]*\)\s*$//) {
+      } elsif ($tail =~ s/\s*\((?:since|merged|reported|done|closed)\s+\d{4}-\d{2}-\d{2}\)\s*$//) {
+      } else { last }
+    }
+    for my $edge (@edges) { print join("\t", $id, $closed, @$edge), "\n" }
+  ' "$1"
+}
+
+fm_tasks_axi_item_edges() {
+  local edges
+  edges=$(fm_tasks_axi_dependency_edges "$1") || return 1
+  printf '%s\n' "$edges" |
+    awk -F '\t' -v key="$2" '$1 == key { sub(/^[^\t]*\t[^\t]*\t/, ""); print }' |
+    LC_ALL=C sort
+}
+
+fm_tasks_axi_handoff_key() {
+  local digest
+  digest=$(printf '%s\n%s\n' "$1" "$2" |
+    if command -v shasum >/dev/null 2>&1; then shasum -a 256; else sha256sum; fi) || return 1
+  printf 'home-%s\n' "${digest%% *}"
+}

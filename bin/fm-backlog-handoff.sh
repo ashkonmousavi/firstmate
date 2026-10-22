@@ -52,7 +52,8 @@
 # See AGENTS.md project management and task lifecycle.
 # The live source backlog stays queued until the target read-back matches.
 # Staging copies that backlog and runs tasks-axi mv from the copy into the
-# destination, or into data/handoff/<id>.outbox.md for a remote route.
+# destination, or into data/handoff/<destination-key>.outbox.md for a remote route.
+# The adjacent .route record pins host, code root, home and receiver wake id.
 # A remote route then transfers that outbox and fm-backlog-receive.sh ingests it.
 # Receipt compares tasks-axi show --full and the item header before success.
 # Only then does the source close with tasks-axi done --note "moved to <home>"
@@ -137,7 +138,6 @@ PEER_HOST=
 PEER_ROOT=
 PEER_HOME=
 SKIP_RECEIVER_WAKE=0
-REMOTE_ROUTE_MODE=registry
 usage_line() {
   echo "usage: fm-backlog-handoff.sh <secondmate-id|--to <home>|--host <alias> --remote-root <abs> --remote-home <abs>> <item-key>..." >&2
   echo "       fm-backlog-handoff.sh --resume-pending" >&2
@@ -177,7 +177,6 @@ elif [ "${1:-}" = --host ]; then
   PEER_HOME=$6
   PEER_MODE=remote
   SKIP_RECEIVER_WAKE=1
-  REMOTE_ROUTE_MODE=explicit
   shift 6
 else
   [ "$#" -ge 2 ] || {
@@ -405,35 +404,21 @@ show_task() { # <id> <file>
   out=$(tasks-axi show "$1" --full --file "$2" --backend markdown) || return 1
   printf '%s\n' "$out" | awk '
     /^help\[/ { exit }
-    /^  (state|blocked|blocked_by|held|hold_reason|hold_kind|hold_until|created|closed):/ { next }
+    /^  (state|blocked|blocked_by|held|hold_reason|hold_kind|hold_until|created|closed|deps):/ { next }
     { print }
   '
 }
 
-item_header_line() { # <file> <id>
-  awk -v key="$2" '
-    /^- \[[ x]\] / {
-      rest = $0
-      sub(/^- \[[ x]\] +/, "", rest)
-      id = rest
-      sub(/[ \t].*/, "", id)
-      if (id == key) { print; found = 1; exit }
-    }
-    END { exit found ? 0 : 1 }
-  ' "$1"
-}
 
 # show --full is the read-back. The header compare keeps a blocked-by reason
 # that the summary deps line does not print.
 confirm_item_match() { # <id> <source-file> <dest-file>
-  local id=$1 src=$2 dst=$3 src_show dst_show src_header dst_header src_edges dst_edges
+  local id=$1 src=$2 dst=$3 src_show dst_show src_edges dst_edges
   src_show=$(show_task "$id" "$src") || return 1
   dst_show=$(show_task "$id" "$dst") || return 1
   [ "$src_show" = "$dst_show" ] || return 1
-  src_header=$(item_header_line "$src" "$id") || return 1
-  dst_header=$(item_header_line "$dst" "$id") || return 1
-  src_edges=$(printf '%s\n' "$src_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
-  dst_edges=$(printf '%s\n' "$dst_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
+  src_edges=$(fm_tasks_axi_item_edges "$src" "$id") || return 1
+  dst_edges=$(fm_tasks_axi_item_edges "$dst" "$id") || return 1
   [ "$src_edges" = "$dst_edges" ]
 }
 
@@ -463,7 +448,13 @@ close_source_moved() (
       }
       queued+=("$id")
       ;;
-    '## Done' | '') ;;
+    '## Done')
+      source_has_move_note "$id" "$label" || {
+        echo "error: $id was closed for a different destination; source was not changed" >&2
+        return 1
+      }
+      ;;
+    '') ;;
     *)
       echo "error: $id is $section after delivery; source was not closed" >&2
       return 1
@@ -471,6 +462,15 @@ close_source_moved() (
     esac
   done
   [ "${#queued[@]}" -gt 0 ] || return 0
+  local edges
+  edges=$(fm_tasks_axi_dependency_edges "$tmp") || return 1
+  if ! printf '%s\n' "$edges" | awk -F '\t' -v delivered=" $* " -v closing=" ${queued[*]} " '
+    $2 == 0 && $3 == "blocked-by" && index(closing, " " $4 " ") && !index(delivered, " " $1 " ") { bad = 1 }
+    END { exit bad ? 1 : 0 }
+  '; then
+    echo "error: delivered items still block active source tasks outside the batch; source left queued" >&2
+    return 1
+  fi
   for id in "${queued[@]}"; do
     tasks-axi 'done' "$id" --note "$note" --no-prune --file "$tmp" --backend markdown >/dev/null || return 1
   done
@@ -492,27 +492,75 @@ source_has_move_note() { # <id> <label>
       next
     }
     capturing && /^##[[:space:]]+/ { exit }
-    capturing && index($0, note) { found = 1; exit }
-    END { exit found ? 0 : 1 }
+    capturing { line = $0; sub(/^  /, "", line); if (line ~ /[^[:space:]]/) last = line }
+    END { exit last == note ? 0 : 1 }
   ' "$MAIN_BACKLOG"
 }
 
-fm_on_target() { # [--stdin] <command> [args...]
-  local route=${ROUTE_ID:-$ID}
-  if [ "$REMOTE_ROUTE_MODE" = explicit ]; then
-    if [ "${1:-}" = --stdin ]; then
-      shift
-      "$SCRIPT_DIR/fm-on.sh" --stdin --host "$PEER_HOST" --root "$PEER_ROOT" --home "$PEER_HOME" "$@"
-    else
-      "$SCRIPT_DIR/fm-on.sh" --host "$PEER_HOST" --root "$PEER_ROOT" --home "$PEER_HOME" "$@"
-    fi
+set_remote_destination() {
+  case "$PEER_HOST" in '' | -* | *[!A-Za-z0-9._-]*)
+    echo "error: unsafe remote host alias: $PEER_HOST" >&2
+    return 1
+    ;;
+  esac
+  case "$PEER_ROOT" in /*) ;; *)
+    echo "error: remote root is not absolute: $PEER_ROOT" >&2
+    return 1
+    ;;
+  esac
+  case "$PEER_HOME" in /*) ;; *)
+    echo "error: remote home is not absolute: $PEER_HOME" >&2
+    return 1
+    ;;
+  esac
+  case "$PEER_ROOT$PEER_HOME" in *$'\n'* | *$'\r'* | *$'\t'*) return 1 ;; esac
+  HANDOFF_KEY=$(fm_tasks_axi_handoff_key "$PEER_HOST" "$PEER_HOME") || return 1
+  HANDOFF_LABEL="$PEER_HOST:$PEER_HOME"
+}
+
+read_remote_route() {
+  local key=$1 record="$DATA/handoff/$1.route"
+  [ -f "$record" ] && [ ! -L "$record" ] || {
+    echo "error: pending handoff has no safe destination record: $key" >&2
+    return 1
+  }
+  {
+    IFS= read -r PEER_HOST && IFS= read -r PEER_ROOT && IFS= read -r PEER_HOME &&
+      IFS= read -r HANDOFF_WAKE_ID && ! IFS= read -r
+  } <"$record" || return 1
+  set_remote_destination || return 1
+  [ "$HANDOFF_KEY" = "$key" ] || return 1
+  case "$HANDOFF_WAKE_ID" in *[!A-Za-z0-9._-]*) return 1 ;; esac
+  SKIP_RECEIVER_WAKE=1
+  if [ -n "$HANDOFF_WAKE_ID" ]; then
+    [ "$(secondmate_registry_field "$REG" "$HANDOFF_WAKE_ID" host)" = "$PEER_HOST" ] &&
+      [ "$(secondmate_registry_field "$REG" "$HANDOFF_WAKE_ID" home)" = "$PEER_HOME" ] || return 1
+    SKIP_RECEIVER_WAKE=0
+  fi
+}
+
+record_remote_route() {
+  local record="$DATA/handoff/$HANDOFF_KEY.route" tmp host=$PEER_HOST root=$PEER_ROOT home=$PEER_HOME
+  mkdir -p "$DATA/handoff"
+  if [ -e "$record" ] || [ -L "$record" ]; then
+    read_remote_route "$HANDOFF_KEY" || return 1
+    [ "$PEER_HOST" = "$host" ] && [ "$PEER_ROOT" = "$root" ] && [ "$PEER_HOME" = "$home" ]
+    return
+  fi
+  tmp=$(umask 077; mktemp "$DATA/handoff/.route.XXXXXX") || return 1
+  if ! printf '%s\n' "$PEER_HOST" "$PEER_ROOT" "$PEER_HOME" "$HANDOFF_WAKE_ID" >"$tmp" ||
+    ! mv -f -- "$tmp" "$record"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+}
+
+fm_on_target() {
+  if [ "${1:-}" = --stdin ]; then
+    shift
+    "$SCRIPT_DIR/fm-on.sh" --stdin --host "$PEER_HOST" --root "$PEER_ROOT" --home "$PEER_HOME" "$@"
   else
-    if [ "${1:-}" = --stdin ]; then
-      shift
-      "$SCRIPT_DIR/fm-on.sh" --stdin "$route" "$@"
-    else
-      "$SCRIPT_DIR/fm-on.sh" "$route" "$@"
-    fi
+    "$SCRIPT_DIR/fm-on.sh" --host "$PEER_HOST" --root "$PEER_ROOT" --home "$PEER_HOME" "$@"
   fi
 }
 
@@ -819,7 +867,13 @@ outbox_item_count() { # <path>
 remote_deliver_outbox() { # <secondmate-id> <outbox-path>
   local id=$1 outbox=$2 remote_rel receive_out snapshot bytes hash generation counter counter_tmp current marker wake_rc=0 wake_state=pending key
   local -a delivered_keys=()
-  ROUTE_ID=$id
+  local key
+  key=$(basename "$outbox" .outbox.md)
+  read_remote_route "$key" || {
+    echo "error: pending handoff destination record is invalid or its receiver route changed: $key" >&2
+    return 1
+  }
+  id=${HANDOFF_WAKE_ID:-$PEER_HOST}
   [ -f "$outbox" ] && [ ! -L "$outbox" ] || {
     echo "error: pending outbox is unavailable or unsafe: $outbox" >&2
     return 1
@@ -837,7 +891,7 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
     rm -f -- "$snapshot"
     return 1
   }
-  counter="$STATE/.remote-handoff-$id.generation"
+  counter="$STATE/.remote-handoff-$HANDOFF_KEY.generation"
   current=0
   if [ -e "$counter" ] || [ -L "$counter" ]; then
     [ -f "$counter" ] && [ ! -L "$counter" ] || {
@@ -882,7 +936,7 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
       rm -f -- "$snapshot" "$counter_tmp"
       return 1
     }
-  remote_rel="state/handoff/$id.outbox.md"
+  remote_rel="state/handoff/$HANDOFF_KEY.outbox.md"
   if ! fm_on_target --stdin fm-remote-file.sh put "$remote_rel" 1048576 \
     "$bytes" "$hash" "$generation" <"$snapshot"; then
     rm -f -- "$snapshot"
@@ -908,7 +962,7 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
     }
   ' "$snapshot")
   if [ "${#delivered_keys[@]}" -gt 0 ]; then
-    close_source_moved "$id" "$snapshot" "${delivered_keys[@]}" || {
+    close_source_moved "$HANDOFF_LABEL" "$snapshot" "${delivered_keys[@]}" || {
       rm -f -- "$snapshot"
       echo "error: remote backlog is durable at $id, but the source was not closed; outbox preserved at $outbox" >&2
       return 1
@@ -934,6 +988,7 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
     echo "error: remote backlog is durable at $id, but local outbox cleanup failed: $outbox" >&2
     return 1
   }
+  rm -f -- "$DATA/handoff/$HANDOFF_KEY.route" || return 1
   if [ "$SKIP_RECEIVER_WAKE" = 1 ]; then
     printf '%s\n' "$receive_out"
     return 0
@@ -957,10 +1012,10 @@ remote_handoff() { # <secondmate-id> <keys...>
   local -a requested to_move already missing in_flight done_items not_queued
   shift
   requested=("$@")
-  outbox="$DATA/handoff/$id.outbox.md"
+  outbox="$DATA/handoff/$HANDOFF_KEY.outbox.md"
   validate_backlog_file "main backlog" "$MAIN_BACKLOG" || return 1
   validate_backlog_file "remote handoff outbox" "$outbox" || return 1
-  if [ ! -e "$outbox" ] && [ ! -L "$outbox" ]; then
+  if [ "$SKIP_RECEIVER_WAKE" != 1 ] && [ ! -e "$outbox" ] && [ ! -L "$outbox" ]; then
     receiver_wake_clear_confirmed "$id" || {
       echo "error: stale receiver wake state for secondmate $id could not be cleared" >&2
       return 1
@@ -988,7 +1043,7 @@ remote_handoff() { # <secondmate-id> <keys...>
     '## Queued') to_move+=("$key") ;;
     '## In flight') in_flight+=("$key") ;;
     '## Done')
-      if source_has_move_note "$key" "$id"; then
+      if source_has_move_note "$key" "$HANDOFF_LABEL"; then
         already+=("$key")
       else
         done_items+=("$key")
@@ -1031,6 +1086,7 @@ remote_handoff() { # <secondmate-id> <keys...>
     warn_stale_public_commitments "$id" "${requested[@]}"
     return 0
   fi
+  record_remote_route || return 1
   seed_backlog_scaffold "$outbox"
   if [ "${#to_move[@]}" -gt 0 ]; then
     if ! stage_move_from_copy "$MAIN_BACKLOG" "$outbox" "${to_move[@]}"; then
@@ -1088,14 +1144,23 @@ resume_pending_outboxes() {
       continue
       ;;
     esac
-    with_remote_route_locks "$id" resume_remote_outbox "$id" "$outbox" || failed=1
+    ACTIVE_REGISTRY_LOCK=$(secondmate_registry_lock_path "$STATE")
+    fm_lock_acquire_wait "$ACTIVE_REGISTRY_LOCK" || return 1
+    ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$id.lock"
+    fm_lock_acquire_wait "$ACTIVE_HANDOFF_LOCK" || return 1
+    resume_remote_outbox "$id" "$outbox" || failed=1
+    release_remote_locks
   done
   return "$failed"
 }
 
 resume_remote_wake() { # <secondmate-id>
   local id=$1
-  [ -e "$DATA/handoff/$id.outbox.md" ] || [ -L "$DATA/handoff/$id.outbox.md" ] || {
+  PEER_HOST=$(secondmate_registry_field "$REG" "$id" host) || return 1
+  PEER_ROOT=$(secondmate_registry_field "$REG" "$id" root) || return 1
+  PEER_HOME=$(secondmate_registry_field "$REG" "$id" home) || return 1
+  set_remote_destination || return 1
+  [ -e "$DATA/handoff/$HANDOFF_KEY.outbox.md" ] || [ -L "$DATA/handoff/$HANDOFF_KEY.outbox.md" ] || {
     receiver_wake_clear_confirmed "$id"
     receiver_wake_pending_valid "$id" || return 0
     wake_pending_secondmate_receiver "$id"
@@ -1132,6 +1197,7 @@ peer_local_handoff() { # <item-key>...
     ;;
   esac
   home=$(validate_secondmate_home "$label" "$PEER_TO" peer) || return 1
+  label="$label ($home)"
   dest="$home/data/backlog.md"
   validate_backlog_file "main backlog" "$MAIN_BACKLOG" || return 1
   validate_backlog_file "target backlog" "$dest" || return 1
@@ -1183,27 +1249,14 @@ peer_local_handoff() { # <item-key>...
 
 peer_remote_handoff() { # <item-key>...
   local rc
-  case "$PEER_HOST" in '' | -* | *[!A-Za-z0-9._-]*)
-    echo "error: unsafe remote host alias: $PEER_HOST" >&2
-    return 1
-    ;;
-  esac
-  case "$PEER_ROOT" in /*) ;; *)
-    echo "error: remote root is not absolute: $PEER_ROOT" >&2
-    return 1
-    ;;
-  esac
-  case "$PEER_HOME" in /*) ;; *)
-    echo "error: remote home is not absolute: $PEER_HOME" >&2
-    return 1
-    ;;
-  esac
-  ID=$PEER_HOST
-  REMOTE_ROUTE_MODE=explicit
+  HANDOFF_WAKE_ID=
+  set_remote_destination || return 1
   SKIP_RECEIVER_WAKE=1
-  ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$ID.lock"
+  ACTIVE_REGISTRY_LOCK=$(secondmate_registry_lock_path "$STATE")
+  fm_lock_acquire_wait "$ACTIVE_REGISTRY_LOCK" || return 1
+  ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$HANDOFF_KEY.lock"
   fm_lock_acquire_wait "$ACTIVE_HANDOFF_LOCK"
-  if remote_handoff "$ID" "$@"; then rc=0; else rc=$?; fi
+  if remote_handoff "$PEER_HOST" "$@"; then rc=0; else rc=$?; fi
   release_remote_locks
   return "$rc"
 }
@@ -1228,7 +1281,12 @@ ACTIVE_REGISTRY_LOCK=$(secondmate_registry_lock_path "$STATE")
 fm_lock_acquire_wait "$ACTIVE_REGISTRY_LOCK"
 REMOTE=$(secondmate_registry_field "$REG" "$ID" remote 2>/dev/null || true)
 if [ "$REMOTE" = 1 ]; then
-  ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$ID.lock"
+  PEER_HOST=$(secondmate_registry_field "$REG" "$ID" host) || exit 1
+  PEER_ROOT=$(secondmate_registry_field "$REG" "$ID" root) || exit 1
+  PEER_HOME=$(secondmate_registry_field "$REG" "$ID" home) || exit 1
+  HANDOFF_WAKE_ID=$ID
+  set_remote_destination || exit 1
+  ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$HANDOFF_KEY.lock"
   fm_lock_acquire_wait "$ACTIVE_HANDOFF_LOCK"
   if remote_handoff "$ID" "$@"; then rc=0; else rc=$?; fi
   release_remote_locks
@@ -1246,6 +1304,7 @@ RAW_HOME=$(secondmate_home "$ID") || exit 1
 }
 SUB_HOME=$(validate_secondmate_home "$ID" "$RAW_HOME") || exit 1
 SUB_BACKLOG="$SUB_HOME/data/backlog.md"
+LOCAL_MOVE_LABEL="$ID ($SUB_HOME)"
 validate_backlog_file "main backlog" "$MAIN_BACKLOG" || exit 1
 validate_backlog_file "secondmate backlog" "$SUB_BACKLOG" || exit 1
 
@@ -1265,7 +1324,7 @@ for key in "$@"; do
     "## Queued") TO_MOVE+=("$key") ;;
     "## In flight") IN_FLIGHT+=("$key") ;;
     "## Done")
-      if source_has_move_note "$key" "$ID"; then
+      if source_has_move_note "$key" "$LOCAL_MOVE_LABEL"; then
         ALREADY+=("$key")
       else
         DONE+=("$key")
@@ -1314,7 +1373,7 @@ if [ "${#TO_MOVE[@]}" -eq 0 ]; then
     exit 1
     ;;
   esac
-  close_source_moved "$ID" "$SUB_BACKLOG" ${ALREADY[@]+"${ALREADY[@]}"} || exit 1
+  close_source_moved "$LOCAL_MOVE_LABEL" "$SUB_BACKLOG" ${ALREADY[@]+"${ALREADY[@]}"} || exit 1
   echo "nothing to move: ${ALREADY[*]:-no keys} already present in $SUB_BACKLOG"
   wake_pending_secondmate_receiver "$ID" || exit 1
   exit 0
@@ -1382,7 +1441,7 @@ if ! stage_move_from_copy "$MAIN_BACKLOG" "$SUB_BACKLOG" "${TO_MOVE[@]}"; then
   echo "error: tasks-axi mv failed; nothing was moved." >&2
   exit 1
 fi
-close_source_moved "$ID" "$SUB_BACKLOG" "${TO_MOVE[@]}" ${ALREADY[@]+"${ALREADY[@]}"} || {
+close_source_moved "$LOCAL_MOVE_LABEL" "$SUB_BACKLOG" "${TO_MOVE[@]}" ${ALREADY[@]+"${ALREADY[@]}"} || {
   echo "error: delivered to $SUB_BACKLOG, but the source was not closed" >&2
   exit 1
 }
