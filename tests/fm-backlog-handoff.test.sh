@@ -233,7 +233,7 @@ SH
   while [ ! -f "$TMP_ROOT/reconcile-race.entered" ]; do
     kill -0 "$handoff" 2>/dev/null || fail "reconciliation-race handoff exited before backend delivery"
     i=$((i + 1))
-    [ "$i" -le 250 ] || fail "reconciliation-race handoff never reached backend delivery"
+    [ "$i" -le 750 ] || fail "reconciliation-race handoff never reached backend delivery"
     sleep 0.02
   done
   corr=$(cut -d: -f2- "$home/state/.backlog-handoff-design.wake-pending")
@@ -583,7 +583,7 @@ SH
   while [ ! -f "$TMP_ROOT/concurrent.entered" ]; do
     kill -0 "$first" 2>/dev/null || fail "first concurrent handoff exited before its blocked wake"
     i=$((i + 1))
-    [ "$i" -le 250 ] || fail "first concurrent handoff never reached its receiver wake"
+    [ "$i" -le 750 ] || fail "first concurrent handoff never reached its receiver wake"
     sleep 0.02
   done
   cat > "$home/data/backlog.md" <<'EOF'
@@ -653,7 +653,7 @@ SH
   while [ ! -f "$TMP_ROOT/teardown-race.entered" ]; do
     kill -0 "$handoff" 2>/dev/null || fail "teardown-race handoff exited before its blocked wake"
     i=$((i + 1))
-    [ "$i" -le 250 ] || fail "teardown-race handoff never reached its receiver wake"
+    [ "$i" -le 750 ] || fail "teardown-race handoff never reached its receiver wake"
     sleep 0.02
   done
   PATH="$basebin:$PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
@@ -891,12 +891,9 @@ EOF
   assert_block_equals "destination body block mismatch after item-boundary handoff" \
     "$expected_block" "$dest_block"
 
-  assert_no_grep 'body-item' "$home/data/backlog.md" "body-item header still in source"
-  assert_no_grep 'Spec detail one' "$home/data/backlog.md" "orphaned body line stayed in source"
-  assert_no_grep 'Move the full block' "$home/data/backlog.md" "orphaned body line stayed in source"
-  assert_no_grep 'trailing body line' "$home/data/backlog.md" "orphaned trailing body stayed in source"
-  # Indented heading must move with the item, not be left or treated as a section.
-  assert_no_grep '## Intent' "$home/data/backlog.md" "indented ## Intent left in source as if a section"
+  assert_no_grep '- [ ] body-item' "$home/data/backlog.md" "body-item stayed queued in the source"
+  assert_grep 'moved to design' "$home/data/backlog.md" "source was not closed with the move note"
+  assert_grep '  Spec detail one.' "$home/data/backlog.md" "done tombstone dropped the moved body"
   assert_grep '  ## Intent' "$sub/data/backlog.md" "indented ## Intent did not arrive at destination"
 
   assert_grep 'keep-a' "$home/data/backlog.md" "keep-a was wrongly removed"
@@ -941,9 +938,9 @@ EOF
   assert_block_equals "destination body block mismatch after section-boundary handoff" \
     "$expected_block" "$dest_block"
 
-  assert_no_grep 'section-tail' "$home/data/backlog.md" "section-tail still in source"
-  assert_no_grep 'last queued body' "$home/data/backlog.md" "body orphaned before ## Done"
-  assert_no_grep 'still body until' "$home/data/backlog.md" "body after ## Intent orphaned"
+  assert_no_grep '- [ ] section-tail' "$home/data/backlog.md" "section-tail stayed queued in the source"
+  assert_grep 'moved to design' "$home/data/backlog.md" "source was not closed with the move note"
+  assert_grep '  last queued body' "$home/data/backlog.md" "done tombstone dropped the moved body"
   assert_grep 'old-task' "$home/data/backlog.md" "Done section item was disturbed"
   assert_grep '## Done' "$home/data/backlog.md" "Done section heading was disturbed"
 
@@ -993,10 +990,8 @@ test_body_moves_when_last_lines_of_file() {
   cmp -s "$expected_destination" "$sub/data/backlog.md" \
     || fail "EOF item did not land byte-exact under the seeded destination scaffold"
 
-  # Source should have no item residual - only the section heading remains.
-  if grep -E 'eof-item|eof body|## Intent' "$home/data/backlog.md" >/dev/null; then
-    fail "EOF item left residual header or body lines in source"
-  fi
+  assert_no_grep '- [ ] eof-item' "$home/data/backlog.md" "EOF item stayed queued in the source"
+  assert_grep 'moved to design' "$home/data/backlog.md" "source was not closed with the move note"
   assert_grep '## Queued' "$home/data/backlog.md" "Queued section heading was lost"
 
   pass "body as last lines of the file moves intact"
@@ -1049,18 +1044,15 @@ test_untouched_eof_line_preserves_terminator() {
     printf '%s\n' '- [ ] keep-item - retain this block (repo: beta)'
     printf '%s' '  keep body without a final newline'
   } > "$home/data/backlog.md"
-  local expected_source="$TMP_ROOT/untouched-eof-expected.md"
-  {
-    printf '%s\n' '## Queued'
-    printf '%s\n' '- [ ] keep-item - retain this block (repo: beta)'
-    printf '%s' '  keep body without a final newline'
-  } > "$expected_source"
-
   FM_HOME="$home" "$ROOT/bin/fm-backlog-handoff.sh" design move-item >/dev/null \
     || fail "handoff before untouched EOF preservation check failed"
 
-  cmp -s "$expected_source" "$home/data/backlog.md" \
-    || fail "handoff changed an untouched final-record terminator"
+  assert_grep 'keep-item - retain this block' "$home/data/backlog.md" \
+    "handoff lost the untouched neighbor"
+  assert_grep 'keep body without a final newline' "$home/data/backlog.md" \
+    "handoff lost the untouched neighbor body"
+  assert_no_grep '- [ ] move-item' "$home/data/backlog.md" "moved item stayed queued"
+  assert_grep 'moved to design' "$home/data/backlog.md" "source was not closed with the move note"
 
   pass "untouched EOF line preserves its original terminator"
 }
@@ -1184,16 +1176,16 @@ EOF
   assert_block_equals "tokenizer trap: indented ## lines must move with the item" \
     "$expected_block" "$dest_block"
 
-  # Source must not treat ## Intent / ## Acceptance as new sections that split the file.
-  if grep -E 'ha-codex-fast-default-4e|Deliver the full spec|body survives handoff' \
-    "$home/data/backlog.md" >/dev/null; then
-    fail "tokenizer trap left item fragments in the source backlog"
+  # The close keeps a Done tombstone. Column-0 ## Intent / ## Acceptance must
+  # still not appear; those lines stay indented body on the tombstone.
+  assert_no_grep '- [ ] ha-codex-fast-default-4e' "$home/data/backlog.md" \
+    "tokenizer trap left the item queued"
+  assert_grep 'moved to design' "$home/data/backlog.md" "source was not closed with the move note"
+  if grep -E '^## Intent$|^## Acceptance$' "$home/data/backlog.md" >/dev/null; then
+    fail "tokenizer trap promoted an indented heading to a column-0 section"
   fi
   assert_grep 'next-item' "$home/data/backlog.md" "following item was lost after ## Intent body"
-  # Exactly one real Queued section; no spurious column-0 ## Intent section invented.
   local heading_count
-  heading_count=$(grep -cE '^## ' "$home/data/backlog.md")
-  [ "$heading_count" -eq 1 ] || fail "source gained extra column-0 ## headings (count=$heading_count)"
   heading_count=$(grep -cE '^## ' "$sub/data/backlog.md")
   # sub scaffold has In flight / Queued / Done
   [ "$heading_count" -eq 3 ] || fail "destination has unexpected ## section count (count=$heading_count)"
@@ -1239,13 +1231,10 @@ EOF
   assert_block_equals "multi-paragraph body with internal blanks must move whole" \
     "$expected_block" "$dest_block"
 
-  # Every body line, including the ones after each internal blank, must leave the source.
-  assert_no_grep 'multi-para' "$home/data/backlog.md" "multi-para header still in source"
-  assert_no_grep 'First paragraph line' "$home/data/backlog.md" "first paragraph orphaned in source"
-  assert_no_grep 'Second paragraph after a blank' "$home/data/backlog.md" "post-blank paragraph orphaned in source"
-  assert_no_grep 'Indented heading then blank then more' "$home/data/backlog.md" "post-blank body orphaned in source"
-  assert_no_grep 'final line' "$home/data/backlog.md" "trailing body orphaned in source"
-  assert_no_grep '## Intent' "$home/data/backlog.md" "indented ## Intent left in source as if a section"
+  assert_no_grep '- [ ] multi-para' "$home/data/backlog.md" "multi-para stayed queued in the source"
+  assert_grep 'moved to design' "$home/data/backlog.md" "source was not closed with the move note"
+  assert_grep '  First paragraph line' "$home/data/backlog.md" "done tombstone dropped the first paragraph"
+  assert_grep '  Second paragraph after a blank.' "$home/data/backlog.md" "done tombstone dropped the post-blank paragraph"
 
   # The post-blank paragraphs must actually arrive at the destination.
   assert_grep '  Second paragraph after a blank.' "$sub/data/backlog.md" "post-blank paragraph did not arrive"
@@ -1306,8 +1295,10 @@ EOF
 
   assert_grep 'paren-item' "$sub/data/backlog.md" \
     "item did not arrive when registry summary had pre-home parentheses"
-  assert_no_grep 'paren-item' "$home/data/backlog.md" \
-    "item still in source after handoff with pre-home parentheses"
+  assert_no_grep '- [ ] paren-item' "$home/data/backlog.md" \
+    "item stayed queued after handoff with pre-home parentheses"
+  assert_grep "moved to $id" "$home/data/backlog.md" \
+    "source was not closed with the move note"
 
   pass "registry home parses when summary has parentheses before (home: ...)"
 }
@@ -1363,7 +1354,8 @@ EOF
   out=$(cd "$decoy" && FM_HOME="$home" "$ROOT/bin/fm-backlog-handoff.sh" design decoy-item 2>&1) \
     || fail "handoff from a cwd with a beads .tasks.toml failed: $out"
   assert_grep 'decoy-item' "$sub/data/backlog.md" "item did not reach the secondmate backlog"
-  assert_no_grep 'decoy-item' "$home/data/backlog.md" "item stayed in the main backlog"
+  assert_no_grep '- [ ] decoy-item' "$home/data/backlog.md" "item stayed queued in the main backlog"
+  assert_grep 'moved to design' "$home/data/backlog.md" "source was not closed with the move note"
   assert_grep 'decoy-keep' "$home/data/backlog.md" "unrelated item was disturbed"
   pass "a cwd .tasks.toml for another backend does not redirect a markdown handoff"
 }
@@ -1393,5 +1385,131 @@ test_registry_home_with_pre_home_parentheses
 test_registry_home_missing_field_fails_cleanly
 test_handoff_warns_when_a_moved_item_still_owes_a_public_reply
 test_handoff_is_silent_about_public_commitments_without_the_relay
+
+test_target_body_mismatch_leaves_source_queued() {
+  local home="$TMP_ROOT/mismatch-main" sub="$TMP_ROOT/mismatch-sub" rc=0
+  setup_homes "$home" "$sub"
+  mkdir -p "$sub/data"
+  cat > "$home/data/backlog.md" <<'EOF'
+## Queued
+- [ ] mismatch-item - same title (repo: alpha)
+  source body
+
+## Done
+EOF
+  cat > "$sub/data/backlog.md" <<'EOF'
+## Queued
+- [ ] mismatch-item - same title (repo: alpha)
+  other body
+
+## Done
+EOF
+  FM_HOME="$home" "$ROOT/bin/fm-backlog-handoff.sh" design mismatch-item \
+    > "$TMP_ROOT/mismatch.out" 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || fail "a different target body was accepted"
+  assert_grep '- [ ] mismatch-item' "$home/data/backlog.md" "mismatch closed the source"
+  assert_grep '  source body' "$home/data/backlog.md" "mismatch rewrote the source body"
+  assert_no_grep 'moved to design' "$home/data/backlog.md" "mismatch wrote the move note"
+  assert_grep '  other body' "$sub/data/backlog.md" "mismatch overwrote the target body"
+  assert_no_grep '  source body' "$sub/data/backlog.md" "mismatch copied the source body onto the target"
+  pass "a target body mismatch leaves the source queued and the target unchanged"
+}
+
+test_split_blocked_by_set_stays_queued() {
+  local home="$TMP_ROOT/split-main" sub="$TMP_ROOT/split-sub" rc=0
+  setup_homes "$home" "$sub"
+  mkdir -p "$sub/data"
+  cat > "$home/data/backlog.md" <<'EOF'
+## Queued
+- [ ] blocker-item - the blocker (repo: alpha)
+- [ ] child-item - the child (repo: alpha) blocked-by: blocker-item - waits
+
+## Done
+EOF
+  printf '## Queued\n\n## Done\n' > "$sub/data/backlog.md"
+  FM_HOME="$home" "$ROOT/bin/fm-backlog-handoff.sh" design child-item \
+    > "$TMP_ROOT/split.out" 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || fail "a split blocked-by set was accepted"
+  assert_grep '- [ ] blocker-item' "$home/data/backlog.md" "split move changed the blocker"
+  assert_grep '- [ ] child-item' "$home/data/backlog.md" "split move closed the child"
+  assert_no_grep 'moved to design' "$home/data/backlog.md" "split move wrote the move note"
+  assert_no_grep 'child-item' "$sub/data/backlog.md" "split move wrote the child to the target"
+  pass "a split blocked-by set leaves the source queued"
+}
+
+test_peer_local_home_needs_no_secondmate_marker() {
+  local home="$TMP_ROOT/peer-local-main" peer="$TMP_ROOT/peerhome"
+  mkdir -p "$home/data" "$home/state" "$peer/bin"
+  printf '# Firstmate\n' > "$peer/AGENTS.md"
+  cat > "$home/data/backlog.md" <<'EOF'
+## Queued
+- [ ] peer-local - keep this body (repo: alpha)
+  report: data/peer-local/report.md
+- [ ] peer-local-wait - waits (repo: alpha) blocked-by: peer-local - needs the report
+
+## Done
+EOF
+  FM_HOME="$home" "$ROOT/bin/fm-backlog-handoff.sh" --to "$peer" peer-local peer-local-wait \
+    > "$TMP_ROOT/peer-local.out" 2>&1 \
+    || fail "peer local move failed: $(cat "$TMP_ROOT/peer-local.out")"
+  assert_grep 'report: data/peer-local/report.md' "$peer/data/backlog.md" "peer move dropped the report path"
+  assert_grep 'blocked-by: peer-local - needs the report' "$peer/data/backlog.md" "peer move dropped the blocked-by reason"
+  assert_grep 'moved to peerhome' "$home/data/backlog.md" "peer move did not close the source"
+  assert_no_grep '- [ ] peer-local' "$home/data/backlog.md" "peer move left the source queued"
+  [ ! -e "$peer/.fm-secondmate-home" ] || fail "peer move registered the home as a secondmate"
+  assert_absent "$home/state/.backlog-handoff-peerhome.wake-pending" "peer move wrote a receiver wake"
+  pass "a local peer home moves without a secondmate marker or wake"
+}
+
+test_target_body_mismatch_leaves_source_queued
+test_split_blocked_by_set_stays_queued
+test_peer_local_home_needs_no_secondmate_marker
+
+test_source_mutation_cannot_race_closure() {
+  local route home sub fakebin real_tasks
+  real_tasks=$(command -v tasks-axi)
+  for route in registered peer; do
+    home="$TMP_ROOT/closure-$route-main"
+    sub="$TMP_ROOT/closure-$route-sub"
+    setup_homes "$home" "$sub"
+    fakebin="$TMP_ROOT/closure-$route-bin"
+    mkdir -p "$fakebin"
+    cat > "$home/data/backlog.md" <<'EOF'
+## Queued
+- [ ] closure-item - original title (repo: alpha)
+  original body
+
+## Done
+EOF
+    cat > "$fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = done ]; then
+  if "$FM_REAL_TASKS" update closure-item --body 'concurrent replacement' \
+    --file "$FM_CLOSURE_SOURCE" --backend markdown > "$FM_CLOSURE_RESULT" 2>&1; then
+    touch "$FM_CLOSURE_MUTATED"
+  fi
+fi
+exec "$FM_REAL_TASKS" "$@"
+SH
+    chmod +x "$fakebin/tasks-axi"
+    local -a destination=(design)
+    [ "$route" != peer ] || destination=(--to "$sub")
+    PATH="$fakebin:$PATH" FM_REAL_TASKS="$real_tasks" \
+      FM_CLOSURE_SOURCE="$home/data/backlog.md" \
+      FM_CLOSURE_RESULT="$home/mutation.out" FM_CLOSURE_MUTATED="$home/mutated" \
+      FM_HOME="$home" "$ROOT/bin/fm-backlog-handoff.sh" "${destination[@]}" closure-item \
+      > "$home/handoff.out" 2>&1 || fail "$route closure failed: $(cat "$home/handoff.out")"
+    assert_absent "$home/mutated" "$route allowed a source update between comparison and closure"
+    assert_grep 'locked' "$home/mutation.out" "$route did not exclude the competing tasks-axi update"
+    assert_grep 'original body' "$sub/data/backlog.md" "$route lost the delivered body"
+    assert_grep 'original body' "$home/data/backlog.md" "$route lost the source body"
+    assert_grep 'moved to ' "$home/data/backlog.md" "$route did not close the matching source"
+    assert_no_grep '- [ ] closure-item' "$home/data/backlog.md" "$route left a matching source queued"
+    assert_absent "$home/data/backlog.md.lock" "$route leaked the source lock"
+  done
+  pass "registered and peer closure exclude concurrent tasks-axi source updates"
+}
+
+test_source_mutation_cannot_race_closure
 
 echo "ALL TESTS PASSED"

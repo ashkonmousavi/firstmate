@@ -1502,12 +1502,14 @@ assert_present "$PARENT/state/procevent/remote-reply-ios.source" \
 resolve_ios_pending
 rm -f "$REMOTE_HOME/state/child.meta"
 mkdir -p "$PARENT/data/handoff"
-ln -s "$TMP_ROOT/missing-outbox-target" "$PARENT/data/handoff/ios.outbox.md"
+REMOTE_KEY=$(bash -c '. "$1"; fm_tasks_axi_handoff_key "$2" "$3"' _ \
+  "$ROOT/bin/fm-tasks-axi-lib.sh" remote-mac "$REMOTE_HOME")
+ln -s "$TMP_ROOT/missing-outbox-target" "$PARENT/data/handoff/$REMOTE_KEY.outbox.md"
 if remote_env "$ROOT/bin/fm-teardown.sh" ios >/dev/null 2>&1; then
   fail "remote retirement accepted an unsafe backlog outbox"
 fi
 assert_present "$REMOTE_HOME" "unsafe backlog outbox retirement removed the remote home"
-rm -f "$PARENT/data/handoff/ios.outbox.md"
+rm -f "$PARENT/data/handoff/$REMOTE_KEY.outbox.md"
 mkdir -p "$TMP_ROOT/external-pending"
 printf 'task_id=ios\nphase=resolved\n' > "$TMP_ROOT/external-pending/escape"
 mv "$PARENT/state/pending-replies" "$PARENT/state/pending-replies.safe"
@@ -1562,7 +1564,7 @@ assert_grep '- ios ' "$PARENT/data/secondmates.md" "a liveness-busy retirement r
   || fail "a liveness-busy retirement removed or took the episode's lock"
 kill "$liveness_holder_pid" 2>/dev/null || true
 wait "$liveness_holder_pid" 2>/dev/null || true
-handoff_lock="$PARENT/state/.backlog-handoff-ios.lock"
+handoff_lock="$PARENT/state/.backlog-handoff-$REMOTE_KEY.lock"
 FM_HOME="$PARENT" /bin/bash -c '
   . "$1"
   fm_lock_acquire_wait "$2"

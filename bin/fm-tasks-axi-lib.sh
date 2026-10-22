@@ -198,3 +198,79 @@ fm_tasks_axi_backend_available() {
   fm_backlog_backend_manual "$config_dir" && return 1
   fm_tasks_axi_compatible
 }
+
+fm_tasks_axi_dependency_edges() {
+  perl -ne '
+    if (/^##\s+(.+?)\s*$/) { $done = lc($1) eq "done"; next }
+    my ($closed, $id, $tail);
+    if (/^- \[([ x])\]\s+(\S+)\s+-\s+(.*)$/) {
+      ($closed, $id, $tail) = ($1 eq "x" || $done ? 1 : 0, $2, $3);
+    } elsif (/^- \*\*([A-Za-z0-9][A-Za-z0-9._-]*)\*\*\s+-\s+(.*)$/) {
+      ($closed, $id, $tail) = (0, $1, $2);
+    } else { next }
+    my @edges;
+    my $marker = qr/(?:blocked-by|parent|discovered-from)/;
+    while (1) {
+      if ($tail =~ s/\s*\((?:since|merged|reported|done|closed)\s+\d{4}-\d{2}-\d{2}\)\s*$//) {
+      } elsif ($tail =~ s/\s*($marker):\s*([A-Za-z0-9][A-Za-z0-9._-]*)(?:\s+-\s+((?:(?!\s+$marker:\s).)+?))?\s*$//) {
+        unshift @edges, [$1, $2, $3 // ""];
+      } elsif ($tail =~ s/\s*\((?:(?:[^()]*\+\s*)?repo:|kind:|priority:|hold:|hold-kind:|hold-until:)\s*[^)]*\)\s*$//) {
+      } else { last }
+    }
+    for my $edge (@edges) { print join("\t", $id, $closed, @$edge), "\n" }
+  ' "$1"
+}
+
+fm_tasks_axi_item_edges() {
+  local edges
+  edges=$(fm_tasks_axi_dependency_edges "$1") || return 1
+  printf '%s\n' "$edges" |
+    awk -F '\t' -v key="$2" '$1 == key { sub(/^[^\t]*\t[^\t]*\t/, ""); print }' |
+    LC_ALL=C sort
+}
+
+fm_tasks_axi_handoff_key() {
+  local digest
+  digest=$(printf '%s\n%s\n' "$1" "$2" |
+    if command -v shasum >/dev/null 2>&1; then shasum -a 256; else sha256sum; fi) || return 1
+  printf 'home-%s\n' "${digest%% *}"
+}
+
+fm_tasks_axi_migrate_legacy_handoff() {
+  local data=$1 id=$2 host=$3 root=$4 home=$5 legacy key target record tmp
+  [ -e "$data/handoff" ] || [ -L "$data/handoff" ] || return 0
+  [ -d "$data/handoff" ] && [ ! -L "$data/handoff" ] || {
+    echo "error: unsafe legacy handoff directory: $data/handoff" >&2
+    return 1
+  }
+  legacy="$data/handoff/$id.outbox.md"
+  [ -e "$legacy" ] || [ -L "$legacy" ] || return 0
+  [ -f "$legacy" ] && [ ! -L "$legacy" ] || {
+    echo "error: unsafe legacy handoff outbox: $legacy" >&2
+    return 1
+  }
+  key=$(fm_tasks_axi_handoff_key "$host" "$home") || return 1
+  target="$data/handoff/$key.outbox.md"
+  if [ "$legacy" != "$target" ] && { [ -e "$target" ] || [ -L "$target" ]; }; then
+    echo "error: legacy and destination handoff batches both exist; preserve both and resume the destination batch first" >&2
+    return 1
+  fi
+  record="$data/handoff/$key.route"
+  tmp=$(umask 077; mktemp "$data/handoff/.route.XXXXXX") || return 1
+  if ! printf '%s\n' "$host" "$root" "$home" "$id" >"$tmp"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  if [ -e "$record" ] || [ -L "$record" ]; then
+    if [ ! -f "$record" ] || [ -L "$record" ] || ! cmp -s -- "$tmp" "$record"; then
+      rm -f -- "$tmp"
+      echo "error: legacy handoff destination record conflicts with its registry route" >&2
+      return 1
+    fi
+    rm -f -- "$tmp"
+  elif ! mv -f -- "$tmp" "$record"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  [ "$legacy" = "$target" ] || mv -- "$legacy" "$target"
+}

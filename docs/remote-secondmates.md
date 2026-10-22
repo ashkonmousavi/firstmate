@@ -617,13 +617,7 @@ Move already-judged queued work with the normal command:
 bin/fm-backlog-handoff.sh <id> <item-key>...
 ```
 
-For a remote route, the handoff takes these steps:
-
-1. `tasks-axi mv` first moves the dependency-closed set atomically from the primary backlog into `data/handoff/<id>.outbox.md`.
-2. The outbox is then copied to the remote handoff scratch directory.
-3. `fm-backlog-receive.sh` atomically ingests every destination-absent key (a key the remote backlog does not already hold) under the remote backlog's own lock.
-
-The [`bin/fm-backlog-handoff.sh`](../bin/fm-backlog-handoff.sh) header owns remote outbox release after receipt and stable wake-correlation retry behavior.
+The [`bin/fm-backlog-handoff.sh`](../bin/fm-backlog-handoff.sh) header owns how a queued set moves, including remote outbox release after receipt and stable wake-correlation retry behavior.
 Bootstrap retries pending outboxes and wakes, and emits `SECONDMATE_HANDOFF:` only when an outbox remains.
 There is no two-phase journal and no additional tasks-axi release requirement.
 

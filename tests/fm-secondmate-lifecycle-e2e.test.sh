@@ -19,7 +19,7 @@
 #   - spawn meta records kind=secondmate, home=, and the project list; launch runs
 #     in the subhome with the persistent charter and cleared operational overrides
 #   - a bare `fm-<id>` send targets the window recorded in THIS home's meta
-#   - backlog items move verbatim into the subhome and leave the main backlog
+#   - backlog items move verbatim into the subhome and close on the main backlog with the move note
 #   - recovery respawns from the durable registry + persistent home
 #   - teardown removes meta and the registry route only after removing the home
 set -u
@@ -184,8 +184,9 @@ EOF
     || fail "handoff failed for in-scope items"
   assert_contains "$out" "handed off 2 item(s) to design" "handoff did not report the moved items"
 
-  assert_no_grep 'feat-x' "$HOME_DIR/data/backlog.md" "feat-x was not removed from the main backlog"
-  assert_no_grep 'feat-y' "$HOME_DIR/data/backlog.md" "feat-y was not removed from the main backlog"
+  assert_no_grep '- [ ] feat-x' "$HOME_DIR/data/backlog.md" "feat-x stayed queued in the main backlog"
+  assert_no_grep '- [ ] feat-y' "$HOME_DIR/data/backlog.md" "feat-y stayed queued in the main backlog"
+  assert_grep 'moved to design' "$HOME_DIR/data/backlog.md" "main backlog was not closed with the move note"
   assert_grep 'bug-z' "$HOME_DIR/data/backlog.md" "out-of-scope bug-z was wrongly removed"
   assert_grep 'live-task' "$HOME_DIR/data/backlog.md" "in-flight item was wrongly removed"
 
