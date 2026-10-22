@@ -28,7 +28,8 @@
 #   (e3) an older live sibling with an unfetched head cannot hide a newer failure
 #   (f) no run + semantic busy                                    -> pane
 #   (g) no run + semantic idle falls to the status-log verb       -> status-log
-#   (h) dead pane: no run -> unknown/none; with a run -> run-step (not the shell)
+#   (h) dead pane: no run -> unknown/none; a shell with a stale running
+#       run-step -> endpoint gone; a missing window with a run -> run-step
 #   (i) kind=scout skips the run lookup                           -> pane/status-log
 #   (j) torn-down worktree / missing meta                         -> unknown/none
 #   (k) crew_is_provably_working end-to-end over the REAL helper (not a canned
@@ -240,6 +241,22 @@ case "${1:-}" in
     fi ;;
   display-message)
     [ "${FM_FAKE_TMUX_MISSING:-0}" = 1 ] && exit 1
+    for a in "$@"; do
+      case "$a" in
+        *pane_current_command*)
+          if [ -n "${FM_FAKE_TMUX_AGENT:-}" ]; then
+            printf '%s\n' "$FM_FAKE_TMUX_AGENT"
+            exit 0
+          fi
+          ;;
+        *pane_tty*)
+          if [ -n "${FM_FAKE_TMUX_AGENT:-}" ]; then
+            printf '\n'
+            exit 0
+          fi
+          ;;
+      esac
+    done
     printf '%%1\n' ;;
   capture-pane)
     [ "${FM_FAKE_TMUX_MISSING:-0}" = 1 ] && exit 1
@@ -353,6 +370,7 @@ reset_fakes() {
   FM_FAKE_TMUX_MISSING=0
   FM_FAKE_TMUX_WINDOW_GONE=0
   FM_FAKE_TMUX_UNREADABLE=0
+  FM_FAKE_TMUX_AGENT=
   FM_FAKE_HERDR_BUSY=0
   FM_FAKE_HERDR_MISSING=0
   FM_FAKE_HERDR_READ_FAIL=0
@@ -383,7 +401,7 @@ reset_fakes() {
   FM_FAKE_GERRIT_READ_FAIL=0
   FM_FAKE_GERRIT_READ_LOG=
   unset FM_FAKE_PR_47_STATE FM_FAKE_PR_47_MERGED FM_FAKE_PR_48_STATE FM_FAKE_PR_48_MERGED
-  export FM_FAKE_AXI_STATUS FM_FAKE_AXI_STATUS_RUN FM_FAKE_RUNS_LIST FM_FAKE_BUSY FM_FAKE_BUSY_TEXT FM_FAKE_TMUX_MISSING FM_FAKE_TMUX_WINDOW_GONE FM_FAKE_TMUX_UNREADABLE
+  export FM_FAKE_AXI_STATUS FM_FAKE_AXI_STATUS_RUN FM_FAKE_RUNS_LIST FM_FAKE_BUSY FM_FAKE_BUSY_TEXT FM_FAKE_TMUX_MISSING FM_FAKE_TMUX_WINDOW_GONE FM_FAKE_TMUX_UNREADABLE FM_FAKE_TMUX_AGENT
   export FM_FAKE_HERDR_BUSY FM_FAKE_HERDR_MISSING FM_FAKE_HERDR_READ_FAIL FM_FAKE_HERDR_HUSK FM_FAKE_HERDR_AGENT_STATUS FM_FAKE_HERDR_PROCESS FM_FAKE_HERDR_SHELL_PID FM_FAKE_CI_LOGS
   export FM_FAKE_DAEMON_DOWN FM_FAKE_DAEMON_TIMEOUT FM_FAKE_DAEMON_PROBE_LOG FM_FAKE_AXI_HOME
   export FM_FAKE_DAEMON_OUTPUT
@@ -3265,6 +3283,43 @@ test_dead_window_still_reports_active_run_step() {
   pass "closed pane still reports an active run-step"
 }
 
+# A run record can stay "running" after the agent has exited to a shell.
+# That stale step must not read as working: the endpoint is gone.
+test_dead_shell_overrides_stale_running_run_step() {
+  reset_fakes
+  local d; d=$(new_case dead-shell-running)
+  make_repo_on_branch "$d/wt" fm/feat-dead-shell
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-dead-shell.meta" "window=fm:fm-feat-dead-shell" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_AXI_STATUS="$(run_running fm/feat-dead-shell)"
+  FM_FAKE_TMUX_AGENT=zsh
+  local out; out=$(run_crew_state "$d" feat-dead-shell)
+  assert_contains "$out" "state: unknown" "a shell with a stale running step is not working"
+  assert_contains "$out" "source: none" "a dead shell is not a run-step reading"
+  assert_contains "$out" "agent gone, pane shell remains" "the reason names the remaining shell"
+  assert_not_contains "$out" "validating" "a stale running step must not read as validation"
+  pass "a dead shell outranks a stale running run-step"
+}
+
+# The same shell after a finished run still reports that finish. The override
+# is only for a non-terminal working reading.
+test_dead_shell_keeps_terminal_run_step() {
+  reset_fakes
+  local d; d=$(new_case dead-shell-done)
+  make_repo_on_branch "$d/wt" fm/feat-dead-shell-done
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-dead-shell-done.meta" "window=fm:fm-feat-dead-shell-done" \
+    "worktree=$d/wt" "kind=ship"
+  printf 'done: PR https://github.com/o/r/pull/9 checks green\n' > "$d/state/feat-dead-shell-done.status"
+  FM_FAKE_AXI_STATUS="$(run_passed fm/feat-dead-shell-done)"
+  FM_FAKE_TMUX_AGENT=zsh
+  local out; out=$(run_crew_state "$d" feat-dead-shell-done)
+  assert_contains "$out" "state: done" "a finished run still reports done when the agent has exited"
+  assert_contains "$out" "source: run-step" "a terminal run stays a run-step reading"
+  assert_not_contains "$out" "agent gone" "a finished run is not rewritten as a dead endpoint"
+  pass "a dead shell does not hide a finished run"
+}
+
 test_no_timeout_uses_perl_bound() {
   reset_fakes
   local d toolbin out start elapsed calls_file calls
@@ -5864,6 +5919,8 @@ test_gone_window_in_live_session_ignores_stale_status_log
 test_no_run_tmux_unreadable_reads_unreachable_not_gone
 test_dead_window_still_reports_terminal_run_step
 test_dead_window_still_reports_active_run_step
+test_dead_shell_overrides_stale_running_run_step
+test_dead_shell_keeps_terminal_run_step
 test_no_timeout_uses_perl_bound
 test_scout_skips_run_lookup
 test_torn_down_worktree

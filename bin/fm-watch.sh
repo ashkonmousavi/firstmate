@@ -913,11 +913,13 @@ secondmate_busy_class() {  # <window>
 }
 
 # 0 iff a child ring is authorized: exact idle, a live agent, and a composer
-# that is not proven pending. Busy, unknown, dead, missing, and pending
-# composer all refuse, so a Kimi or Claude pane without an exact idle
-# verdict is never typed into.
+# that is not proven pending with someone else's draft. A pending composer
+# whose text is exactly our own doorbell is a previous ring whose Enter never
+# landed, so the ring is authorized and submits that line. Busy, unknown,
+# dead, missing, and any other pending composer all refuse, so a Kimi or
+# Claude pane without an exact idle verdict is never typed into.
 secondmate_idle_ring_safe() {  # <window>
-  local w=$1 backend agent_state cstate
+  local w=$1 backend agent_state cstate task line
   [ -n "$w" ] || return 1
   secondmate_busy_class "$w"
   [ "$SECONDMATE_BUSY_CLASS" = idle ] || return 1
@@ -925,7 +927,13 @@ secondmate_idle_ring_safe() {  # <window>
   agent_state=$(fm_backend_agent_state "$backend" "$w" 2>/dev/null || true)
   [ "$agent_state" = alive ] || return 1
   cstate=$(fm_backend_composer_state "$backend" "$w" "$(window_label "$w")" 2>/dev/null) || cstate=unknown
-  [ "$cstate" != pending ] || return 1
+  if [ "$cstate" = pending ]; then
+    task=$(window_to_task "$w" "$STATE")
+    [ -n "$task" ] || return 1
+    line=$(fm_task_inbox_doorbell_line "$STATE/$task.inbox/001.msg") || return 1
+    fm_task_inbox_composer_holds "$backend" "$w" "$line" "$(window_label "$w")"
+    return $?
+  fi
   return 0
 }
 

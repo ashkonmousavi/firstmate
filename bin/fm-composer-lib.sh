@@ -1991,6 +1991,20 @@ EOF
   printf '%s\n' "$joined" | LC_ALL=C awk '{$1=$1; printf "%s", $0}'
 }
 
+# fm_composer_text_is_own_doorbell: 0 when <text> is exactly <line>.
+# Whitespace is ignored, so a wrapped composer row still matches. Cursor draws
+# `ctrl+c to stop` on the same composer row as the draft; that hint is not
+# part of the draft, and removing it is what lets an unsubmitted doorbell
+# match. Any other remaining text is a foreign draft and does not match.
+fm_composer_text_is_own_doorbell() {  # <text> <line>
+  local text=$1 line=$2 hint
+  hint=$(printf '%s' 'ctrl+c to stop' | tr -d '[:space:]')
+  text=$(printf '%s' "$text" | tr -d '[:space:]')
+  line=$(printf '%s' "$line" | tr -d '[:space:]')
+  text=${text//"$hint"/}
+  [ -n "$line" ] && [ "$text" = "$line" ]
+}
+
 # fm_composer_blocking_dialog: name a screen whose next Enter would answer it.
 # Prints the name and returns 0 only for the recorded structure of one dialog:
 # the heading on its own line, then its selected row alone on a row, with the

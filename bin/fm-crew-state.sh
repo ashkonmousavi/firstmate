@@ -98,8 +98,12 @@
 #      awaiting_approval/fix_review -> parked (with gate findings), terminal
 #      passed/checks-passed/passed-with-override/passed-with-skips -> done,
 #      failed -> failed, cancelled -> unknown (no verdict unless the green
-#      delivery safeguard below applies). A cancelled outcome takes precedence
-#      over an interrupted step's failed status or outstanding gate findings;
+#      delivery safeguard below applies). A working reading yields when the
+#      endpoint's agent is positively gone and only a shell remains: the
+#      endpoint is reported gone. A missing window, an unreadable probe, and a
+#      terminal or parked run keep the run-step reading. A cancelled outcome
+#      takes precedence over an interrupted step's failed status or outstanding
+#      gate findings;
 #      it does not rewrite historical events or backlog records.
 #      passed-with-override is a passing outcome
 #      carrying an explicitly approved Test or CI exception (no-mistakes' own
@@ -318,10 +322,12 @@ if [ -n "$REMOTE_HOST" ]; then
   esac
 fi
 
-# pane_readable is consulted ONLY in the no-run fallback below. The run-step path
-# stays authoritative regardless of pane liveness - judge by the run-step, not the
-# shell - so a finished crew whose endpoint has closed still reports its run-step
-# state (e.g. done) instead of being masked as unknown. Backend-aware
+# pane_readable is consulted in the no-run fallback below. A working run-step
+# also yields when the endpoint's agent is positively gone and only a shell
+# remains, because a run record can stay "running" after that exit and would
+# otherwise hide the dead endpoint. A missing window is not that case: a
+# finished crew whose endpoint has closed still reports its run-step state
+# (e.g. done), and so does an active run whose window is gone. Backend-aware
 # (fm_backend_of_meta defaults absent backend= to tmux, the P1 contract): a
 # herdr task is read through fm_backend_capture while tmux uses the shared
 # endpoint-existence predicate.
@@ -1284,6 +1290,21 @@ if [ "$HAVE_RUN" = 1 ]; then
   esac
 
   [ -z "$SELECTED_RUN_ID" ] || RUN_DETAIL="$RUN_DETAIL${SEP}run: $SELECTED_RUN_ID"
+  # A shell where the agent used to be outranks a non-terminal run-step.
+  # The probe is the same recovery-grade classifier the no-run fallback uses.
+  # Only its positive `dead` verdict counts: missing, unreadable, and alive
+  # keep the run-step, including a window that has already closed.
+  if [ "$RUN_STATE" = working ] && [ -n "$BACKEND_TARGET" ]; then
+    case "$TASK_BACKEND" in
+      tmux|herdr)
+        case "$(fm_backend_agent_state "$TASK_BACKEND" "$BACKEND_TARGET" 2>/dev/null || true)" in
+          dead)
+            emit unknown none "backend target gone: $BACKEND_TARGET (agent gone, pane shell remains)"
+            ;;
+        esac
+        ;;
+    esac
+  fi
   emit "$RUN_STATE" run-step "$RUN_DETAIL"
 fi
 
