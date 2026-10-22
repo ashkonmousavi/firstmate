@@ -2637,7 +2637,7 @@ watcher_capture() {  # <backend> <target> <lines> [expected-label]
 # (docs/pi-supervision-branch.md). Stale and heartbeat rows retain their existing
 # eligibility rules.
 signal_files_actionable() {  # <status-file> ...
-  local f task record rest endpoint ident needs_decision rc found=1
+  local f task record endpoint ident needs_decision rc found=1
   FM_SIGNAL_SURFACE_ENDPOINTS=''
   FM_SIGNAL_NEEDS_DECISION_FILES=''
   for f in "$@"; do
@@ -2645,9 +2645,13 @@ signal_files_actionable() {  # <status-file> ...
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
     record=''; needs_decision=0
-    status_span_first_actionable_record "$f" \
-      "$(fm_wake_signal_seen_size "$STATE" "$f")" record needs_decision
-    rc=$?
+    if nm_handoff_snapshot "$task"; then
+      status_span_first_actionable_record "$NM_HANDOFF_STATUS" \
+        "$(fm_wake_signal_seen_size "$STATE" "$f")" record needs_decision
+      rc=$?
+    else
+      rc=2
+    fi
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
       # Could not classify this log. Surface it rather than absorbing it, and
@@ -2657,7 +2661,7 @@ signal_files_actionable() {  # <status-file> ...
       found=0
       continue
     fi
-    endpoint=${record%%$'\t'*}; rest=${record#*$'\t'}; ident=${rest%%$'\t'*}
+    endpoint=$NM_HANDOFF_END; ident=$NM_HANDOFF_IDENT
     FM_SIGNAL_SURFACE_ENDPOINTS="${FM_SIGNAL_SURFACE_ENDPOINTS}${f}"$'\t'"${endpoint}"$'\t'"${ident}"$'\n'
     if [ "$needs_decision" -eq 1 ]; then
       FM_SIGNAL_NEEDS_DECISION_FILES="${FM_SIGNAL_NEEDS_DECISION_FILES} ${f}"
@@ -2700,7 +2704,7 @@ EOF
 # is absorbed; it surfaces only an event the per-wake path absorbed by mistake -
 # the fail-safe backstop.
 heartbeat_scan_finds_actionable() {
-  local f task record rest endpoint ident rc found=1 sig marker exclude
+  local f task record endpoint ident rc found=1 sig marker exclude
   # Same self-home exclusion as scan_signals: a remote mate's parent channel
   # must not come back through the heartbeat fail-safe backstop.
   exclude=$(status_scan_parent_channel_exclude "$STATE")
@@ -2709,8 +2713,13 @@ heartbeat_scan_finds_actionable() {
     [ -e "$f" ] || [ -L "$f" ] || continue
     [ "$f" = "$exclude" ] && continue
     task=$(basename "$f"); task="${task%.status}"
-    record=$(status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")")
-    rc=$?
+    nm_handoff_absorb_stale_pane "$task" && continue
+    if nm_handoff_snapshot "$task"; then
+      record=$(status_span_first_actionable_record "$NM_HANDOFF_STATUS" "$(hb_surfaced_offset "$task")")
+      rc=$?
+    else
+      record=''; rc=2
+    fi
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
       sig=$(status_observed_signature "$f")
@@ -2720,7 +2729,7 @@ heartbeat_scan_finds_actionable() {
       found=0
       continue
     fi
-    endpoint=${record%%$'\t'*}; rest=${record#*$'\t'}; ident=${rest%%$'\t'*}
+    endpoint=$NM_HANDOFF_END; ident=$NM_HANDOFF_IDENT
     FM_HEARTBEAT_SURFACE_ENDPOINTS="${FM_HEARTBEAT_SURFACE_ENDPOINTS}${f}"$'\t'"${endpoint}"$'\t'"${ident}"$'\n'
     [ "$rc" -eq 0 ] && found=0
   done
@@ -2839,27 +2848,35 @@ nm_handoff_state_token() {  # <task>
   printf '%s\n' "$state"
 }
 
-# Epochs fm_dod_nm_handoff_ids prints for the bytes of <file> after the
-# presentation cursor. The cursor answers only which lines are new.
-nm_handoff_new_ids() {  # <status-file> <task> <head>
-  local f=$1 task=$2 head=$3 start size length tmp rc
-  start=$(hb_surfaced_offset "$task")
-  size=$(_fm_status_file_size "$f") || return 1
-  size=${size//[[:space:]]/}
-  case "$start" in ''|*[!0-9]*) start=0 ;; esac
-  case "$size" in ''|*[!0-9]*) return 1 ;; esac
-  [ "$start" -le "$size" ] || start=0
-  [ "$start" -lt "$size" ] || return 0
-  length=$((size - start))
-  tmp=$(mktemp "${TMPDIR:-/tmp}/nm-handoff-span.XXXXXX") || return 1
-  if ! _fm_status_read_span "$f" "$start" "$length" > "$tmp"; then
-    rm -f "$tmp"
-    return 1
+NM_HANDOFF_SNAPSHOT_DIR=
+
+nm_handoff_snapshot_clear() {
+  [ -z "$NM_HANDOFF_SNAPSHOT_DIR" ] || rm -rf "$NM_HANDOFF_SNAPSHOT_DIR"
+  NM_HANDOFF_SNAPSHOT_DIR=
+}
+
+nm_handoff_snapshot() {
+  local task=$1 source="$STATE/$1.status" size ident current
+  if [ -z "$NM_HANDOFF_SNAPSHOT_DIR" ]; then
+    NM_HANDOFF_SNAPSHOT_DIR=$(mktemp -d "$STATE/.watch-snapshot.XXXXXX") || return 1
   fi
-  fm_dod_nm_handoff_ids "$tmp" "$head"
-  rc=$?
-  rm -f "$tmp"
-  return "$rc"
+  NM_HANDOFF_STATUS="$NM_HANDOFF_SNAPSHOT_DIR/$task.status"
+  if [ ! -f "$NM_HANDOFF_STATUS" ]; then
+    [ -f "$source" ] && [ -r "$source" ] && [ ! -L "$source" ] || return 1
+    ident=$(_fm_open_decisions_file_ident "$source") || return 1
+    size=$(_fm_status_file_size "$source") || return 1
+    size=${size//[[:space:]]/}
+    _fm_status_read_span "$source" 0 "$size" > "$NM_HANDOFF_STATUS.tmp" || return 1
+    current=$(_fm_open_decisions_file_ident "$source") || return 1
+    [ "$current" = "$ident" ] || return 1
+    [ "$(_fm_status_file_size "$NM_HANDOFF_STATUS.tmp" | tr -d '[:space:]')" = "$size" ] || return 1
+    printf '%s\t%s\n' "$size" "$ident" > "$NM_HANDOFF_STATUS.endpoint" || return 1
+    if [ -f "$STATE/$task.meta" ]; then
+      cp "$STATE/$task.meta" "$NM_HANDOFF_SNAPSHOT_DIR/$task.meta" || return 1
+    fi
+    mv "$NM_HANDOFF_STATUS.tmp" "$NM_HANDOFF_STATUS" || return 1
+  fi
+  IFS=$'\t' read -r NM_HANDOFF_END NM_HANDOFF_IDENT < "$NM_HANDOFF_STATUS.endpoint"
 }
 
 # clean when every captain-relevant line in the not-yet-surfaced span is an
@@ -2888,6 +2905,7 @@ nm_handoff_span_shape() {  # <status-file> <task> <head>
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in *[![:space:]]*) ;; *) continue ;; esac
     status_is_captain_relevant "$line" || continue
+    case "$line" in "done [handoff-escalated=$head]: "*) continue ;; esac
     epoch=$(fm_dod_nm_handoff_line_epoch "$line" "$head") || epoch=
     if [ -n "$epoch" ]; then
       continue
@@ -2906,15 +2924,15 @@ nm_handoff_span_shape() {  # <status-file> <task> <head>
 # Fill the NM_HANDOFF_* decision for one task. Ordinary means this pass does
 # not absorb or escalate that task. A total of 1 still sets STEER.
 nm_handoff_decide() {  # <task>
-  local task=$1 status head state ids epoch total=0 new_ids new=0 shape
+  local task=$1 status head state ids epoch total=0 shape line escalated=0
   NM_HANDOFF_ACTION=ordinary
   NM_HANDOFF_STEER=0
   NM_HANDOFF_HEAD=
   NM_HANDOFF_IDS=
   NM_HANDOFF_EPOCH=
   NM_HANDOFF_PAYLOAD=
-  status="$STATE/$task.status"
-  [ -f "$status" ] && [ -r "$status" ] || return 0
+  nm_handoff_snapshot "$task" || return 0
+  status=$NM_HANDOFF_STATUS
   head=$(nm_handoff_head "$task") || return 0
   [ -n "$head" ] || return 0
   ids=$(fm_dod_nm_handoff_ids "$status" "$head") || return 0
@@ -2928,14 +2946,12 @@ EOF
   [ "$total" -ge 1 ] || return 0
   state=$(nm_handoff_state_token "$task")
   [ "$state" = stopped-before-validation ] || return 0
-  new_ids=$(nm_handoff_new_ids "$status" "$task" "$head") || return 0
-  while IFS= read -r epoch || [ -n "$epoch" ]; do
-    [ -n "$epoch" ] || continue
-    new=$((new + 1))
-  done <<EOF
-$new_ids
-EOF
-  [ "$new" -le "$total" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in "done [handoff-escalated=$head]: "*) escalated=1 ;; esac
+  done < "$status"
+  if fm_wake_queued_keys signal | LC_ALL=C grep -Fx "nm-handoff-$head" >/dev/null; then
+    escalated=1
+  fi
   NM_HANDOFF_HEAD=$head
   shape=$(nm_handoff_span_shape "$status" "$task" "$head")
   if [ "$total" -eq 1 ]; then
@@ -2944,8 +2960,7 @@ EOF
     [ "$shape" = clean ] && NM_HANDOFF_ACTION=absorb
     return 0
   fi
-  # total >= 2. old = total - new. old >= 2 means this head already escalated.
-  if [ $((total - new)) -ge 2 ]; then
+  if [ "$escalated" -eq 1 ]; then
     [ "$shape" = clean ] && NM_HANDOFF_ACTION=absorb
     return 0
   fi
@@ -3010,9 +3025,9 @@ nm_handoff_commit_task() {  # <task>
           end=${surface%%$'\t'*}
           ident=${surface#*$'\t'}
         else
-          end=$(_fm_status_file_size "$f") || return 1
-          end=${end//[[:space:]]/}
-          ident=$(_fm_open_decisions_file_ident "$f") || return 1
+          nm_handoff_snapshot "$task" || return 1
+          end=$NM_HANDOFF_END
+          ident=$NM_HANDOFF_IDENT
         fi
         fm_wake_status_seen_commit "$STATE" "$f" "$end" "$ident" || return 1
         mark_surfaced "$f" "$end" "$ident" || return 1
@@ -3065,14 +3080,12 @@ EOF
         [ "$action" = absorb ] && action=ordinary
       fi
     fi
-    if [ "$action" = absorb ] || [ "$action" = escalate ]; then
-      if ! nm_handoff_commit_task "$task"; then
-        action=ordinary
-      fi
-    fi
     if [ "$action" = escalate ]; then
-      fm_wake_append signal "nm-handoff-$NM_HANDOFF_HEAD" "$NM_HANDOFF_PAYLOAD" || exit 1
+      nm_handoff_publish "$task" || exit 1
       [ -n "$NM_HANDOFF_EXIT_REASON" ] || NM_HANDOFF_EXIT_REASON=$NM_HANDOFF_PAYLOAD
+    fi
+    if [ "$action" = absorb ] || [ "$action" = escalate ]; then
+      nm_handoff_commit_task "$task" || exit 1
     fi
     if [ "$action" = absorb ] || [ "$action" = escalate ]; then
       drop="$drop $task"
@@ -3104,37 +3117,32 @@ EOF
 
 # 0 when a stale pane for this head should be absorbed instead of waking.
 # total 1 sends the steer when it is not already recorded.
-# total >= 2 does not enqueue another escalation.
 nm_handoff_absorb_stale_pane() {  # <task>
-  local task=$1 status head state ids epoch total=0 end ident sig
-  status="$STATE/$task.status"
-  [ -f "$status" ] && [ -r "$status" ] || return 1
-  head=$(nm_handoff_head "$task") || return 1
-  [ -n "$head" ] || return 1
-  ids=$(fm_dod_nm_handoff_ids "$status" "$head") || return 1
-  while IFS= read -r epoch || [ -n "$epoch" ]; do
-    [ -n "$epoch" ] || continue
-    total=$((total + 1))
-    [ "$total" -eq 1 ] && NM_HANDOFF_EPOCH=$epoch
-  done <<EOF
-$ids
-EOF
-  [ "$total" -ge 1 ] || return 1
-  state=$(nm_handoff_state_token "$task")
-  [ "$state" = stopped-before-validation ] || return 1
-  if [ "$total" -eq 1 ]; then
-    NM_HANDOFF_HEAD=$head
-    nm_handoff_send_steer "$task" || true
+  local task=$1 status="$STATE/$1.status" action
+  nm_handoff_decide "$task"
+  [ "$NM_HANDOFF_ACTION" != ordinary ] || return 1
+  if [ "$NM_HANDOFF_STEER" = 1 ]; then
+    nm_handoff_send_steer "$task" || return 1
   fi
-  sig=$(fm_wake_signal_sig "$status") || return 1
-  fm_wake_status_reported_commit "$STATE" "$status" "$sig" || return 1
-  mark_surface_reported "$status" "$sig" || return 1
-  end=$(_fm_status_file_size "$status") || return 1
-  end=${end//[[:space:]]/}
-  ident=$(_fm_open_decisions_file_ident "$status") || return 1
-  fm_wake_status_seen_commit "$STATE" "$status" "$end" "$ident" || return 1
-  mark_surfaced "$status" "$end" "$ident" || return 1
+  action=$NM_HANDOFF_ACTION
+  if [ "$action" = escalate ]; then
+    nm_handoff_publish "$task" || exit 1
+  fi
+  fm_wake_status_seen_commit "$STATE" "$status" "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || return 1
+  mark_surfaced "$status" "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || return 1
+  [ "$action" != escalate ] || wake "$NM_HANDOFF_PAYLOAD"
   return 0
+}
+
+nm_handoff_publish() {
+  local rc=0
+  fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK"
+  fm_wake_append_locked signal "nm-handoff-$NM_HANDOFF_HEAD" "$NM_HANDOFF_PAYLOAD" || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    printf 'done [handoff-escalated=%s]: %s\n' "$NM_HANDOFF_HEAD" "$NM_HANDOFF_PAYLOAD" >> "$STATE/$1.status" || rc=$?
+  fi
+  fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+  return "$rc"
 }
 
 # --- Main entry: the runtime below runs only when this file is executed as a
@@ -3316,6 +3324,7 @@ watcher_cleanup() {
   fm_active_check_stop || cleanup_status=1
   fm_check_output_cleanup
   fm_capture_output_cleanup
+  nm_handoff_snapshot_clear
   fm_custom_check_snapshot_cleanup
   if [ "$owns_lock" -eq 1 ] \
     && ! fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" "$transition" "$WATCH_LOCK" \
@@ -3403,6 +3412,7 @@ resurface_after_downtime() {
 }
 
 while :; do
+  nm_handoff_snapshot_clear
   # Home-gone exit: a deleted home, state directory, or code root means this
   # watcher's world is gone (a torn-down temporary home or a discarded
   # disposable checkout). Exit with a logged reason rather than writing state
@@ -3893,6 +3903,11 @@ EOF
             paused) handle_paused_stale "$w" "$task" "$h" ;;
             *)      clear_pause_tracking "$key" ;;
           esac
+        elif nm_handoff_absorb_stale_pane "$task"; then
+          printf '%s' "$h" > "$sf"
+          rm -f "$ssf"
+          clear_write_tracking "$key"
+          triage_log "absorbed stale (stopped-before-validation handoff): $w"
         elif afk_present; then
           # Daemon owns triage: one-shot per distinct stale hash, as before,
           # except that a captain-held pane is never handed over while the
@@ -3927,13 +3942,6 @@ EOF
               date +%s > "$ssf"
               clear_write_tracking "$key"
               triage_log "absorbed stale (provably working, overriding a stale captain-relevant status): $w"
-            elif nm_handoff_absorb_stale_pane "$task"; then
-              # A current-head handoff already steered or escalated from the
-              # log. Absorb the pane and do not enqueue that escalation again.
-              printf '%s' "$h" > "$sf"
-              rm -f "$ssf"
-              clear_write_tracking "$key"
-              triage_log "absorbed stale (stopped-before-validation handoff): $w"
             elif captain_call_stale_bound "$key" "$task"; then
               # The line is captain-relevant and stays so, but the backlog says
               # the captain already holds this work: further NEW pane hashes with
@@ -3954,11 +3962,11 @@ EOF
               rm -f "$ssf"
               clear_write_tracking "$key"
               stale_status="$STATE/$(window_to_task "$w" "$STATE").status"
-              stale_record=$(status_span_first_actionable_record "$stale_status" 0)
-              case $? in
-                0|1) stale_end=${stale_record%%$'\t'*}; stale_rest=${stale_record#*$'\t'}; stale_ident=${stale_rest%%$'\t'*} ;;
-                *) stale_end=''; stale_ident='' ;;
-              esac
+              stale_end=''; stale_ident=''
+              if nm_handoff_snapshot "$task"; then
+                stale_end=$NM_HANDOFF_END
+                stale_ident=$NM_HANDOFF_IDENT
+              fi
               mark_surfaced "$stale_status" "$stale_end" "$stale_ident"
               wake "$stale_reason"
             fi

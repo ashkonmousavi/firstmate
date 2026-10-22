@@ -159,11 +159,24 @@ handle_push_transition() {  # <backend> <session> <record>
     fm_backend_commit_transition "$backend" "$STATE" "$session" "$record" || exit 1
     return
   fi
-  span_record=$(status_span_first_actionable_record "$STATE/$task.status" \
-    "$(hb_surfaced_offset "$task")")
-  case $? in
-    0|1) surface_end=${span_record%%$'\t'*}; rest=${span_record#*$'\t'}; surface_ident=${rest%%$'\t'*} ;;
-  esac
+  if declare -F nm_handoff_absorb_stale_pane >/dev/null; then
+    if nm_handoff_absorb_stale_pane "$task"; then
+      fm_backend_commit_transition "$backend" "$STATE" "$session" "$record" || exit 1
+      return
+    fi
+  fi
+  if declare -F nm_handoff_snapshot >/dev/null; then
+    if nm_handoff_snapshot "$task"; then
+      surface_end=$NM_HANDOFF_END
+      surface_ident=$NM_HANDOFF_IDENT
+    fi
+  else
+    span_record=$(status_span_first_actionable_record "$STATE/$task.status" \
+      "$(hb_surfaced_offset "$task")")
+    case $? in
+      0|1) surface_end=${span_record%%$'\t'*}; rest=${span_record#*$'\t'}; surface_ident=${rest%%$'\t'*} ;;
+    esac
+  fi
   reason="stale: $window (herdr: agent $to - waiting on human, escalated immediately, not via wedge timer)"
   fm_wake_append stale "$window" "$reason" || exit 1
   fm_backend_commit_transition "$backend" "$STATE" "$session" "$record" || exit 1
