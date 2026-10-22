@@ -704,6 +704,7 @@ fi
 exec /bin/sleep 6
 SH
 chmod +x "$HB_BOUND_BIN/sleep"
+# shellcheck disable=SC2031 # Cadence fixture PATH changes stayed in their subshells.
 HOME="$HB_BOUND_HOME" PATH="$HB_BOUND_BIN:$PATH" FM_ROOT_OVERRIDE="$REMOTE_ROOT" \
   FM_REMOTE_JOB_STATE_ROOT="$HB_BOUND_STATE" FM_TEST_HEARTBEAT_DEATHS="$HB_BOUND_LOG" \
   "$REMOTE_ROOT/bin/fm-remote-job-worker.sh" --serve \
