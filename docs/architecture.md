@@ -197,8 +197,13 @@ The guard covers the main primary and genuinely marked secondmate homes, exempts
 
 Away mode is a posture of the one supervision session, recorded in `state/.afk-contract` by `bin/fm-afk-contract.sh` in the same turn as `/afk` with no wait for a further go, read back in plain sentences only after entry, and announced at entry as hold-for-return only because no phone channel exists.
 The captain's away words are the whole mandate: the record owner's header is the single owner of the record schema, the words are recorded verbatim, and by the captain's mandate no parser, tokenizer, classifier, or grammar reads them anywhere.
-The supervision session reads the words at the tail of every wake and acts on them by its own judgment at the moment an event makes them relevant, only through the guarded scripts under standing authority, never by analogy, holding for the return on doubt; `bin/fm-branch-prompt.sh` "Postures" owns those execution rules.
-What stays mechanical is exactly what a script can check without reading words: a merge green at its live head under the record lock, synchronous merges only, the spend cap, and the never-set; destructive, irreversible, and security-sensitive actions are never pre-authorizable whatever the words say.
+The supervision session reads the words at the tail of every wake and acts on them by its own judgment at the moment an event makes them relevant, only through the guarded scripts under standing authority, never by analogy.
+A reserved, destructive, irreversible, or merge doubt holds for the return.
+Technical ambiguity, scope disposition, and a repeated-theme correction are decided, recorded, and reported.
+`bin/fm-branch-prompt.sh` "Postures" owns those execution rules.
+What stays mechanical is exactly what a script can check without reading words: a merge green at its live head under the record lock, synchronous merges only, the spend cap, and the never-set.
+Destructive and irreversible actions, and creating, revealing, or sharing a credential outside our own services, are never pre-authorizable, whatever the words say.
+Reusing an existing key between our own services is decided with the advisor and reported.
 Daemon-backed quiet mode writes the same record marked quiet; `bin/fm-afk-contract.sh` owns the mode reading, and the supervision host treats a quiet record without a daemon as attended, delivering captain outcomes to the present captain.
 The watcher and daemon recheck captain-held work in quiet mode as they do while attended, rather than silencing it until a return.
 The record's mode distinguishes away from quiet on every harness; `bin/fm-afk-launch.sh` owns entry and exit, and `bin/fm-afk-return.sh` archives the record and owns the return brief's ordered sections, including landed live task records that still owe cleanup, rendered from durable state; persistent secondmates are excluded from that cleanup section even if an older record carries a child's merged PR.
@@ -432,7 +437,9 @@ Before the worktree is returned, teardown concludes the task's own no-mistakes r
 Relay is opt-in presence for the shared `@myfirstmate` bot on both public surfaces it supports, X and Discord.
 A user enables it by putting `FMX_PAIRING_TOKEN` in the firstmate home's gitignored `.env`; `FMX_RELAY_URL` is optional and defaults to `https://myfirstmate.io`.
 That token is standing authorization for firstmate to answer public mentions and act autonomously on normal reversible mention requests.
-Destructive, irreversible, or security-sensitive asks are escalated for trusted-channel confirmation instead of being executed from a public mention.
+Destructive or irreversible asks, and creating, revealing, or sharing a credential outside our own services, wait for the captain's word on the trusted channel instead of being executed from a public mention.
+Reusing an existing key between our own services is decided with the advisor and reported.
+Any other security call is decided and reported in the trusted session, and is not executed from the mention.
 The relay uses owner-only routing: a mention delivered to a home is from that home's owner, while its surrounding conversation context may still include other public accounts.
 On the locked session-start bootstrap step, that token creates the local polling and watcher-cadence artifacts described in the [Relay configuration reference](configuration.md#relay-env).
 Without the token, the locked session-start bootstrap step removes those artifacts on opt-out and otherwise stays silent, so non-Relay users see no behavior change.

@@ -603,7 +603,8 @@ The captain's away words are the whole mandate:
 - The branch reads them at the tail.
 - It decides by its own judgment whether the event in front of it is the moment they name.
 - It acts on them only through the guarded scripts, never by analogy.
-- It holds with verdict captain on doubt.
+- It holds a reserved, destructive, irreversible, or merge doubt with verdict captain.
+- It decides, records, and reports technical ambiguity, scope disposition, and a repeated-theme correction.
 
 `bin/fm-branch-prompt.sh` "Postures" owns those execution rules.
 It requires every action taken under the words to open its outcome summary with "per your away instructions:".
@@ -626,7 +627,8 @@ Being away changes how the captain is informed and what happens at a captain-own
 `tests/fm-branch-supervision.test.sh`, `tests/fm-pr-merge.test.sh`, and `tests/fm-send-resolve-key.test.sh` pin this invariant.
 It sets these limits:
 
-- The never-set (credential entry, legal or financial acceptance, an attended prompt, an unnamed discard, a security-sensitive action) has no guarded entrypoint that accepts away authority for either actor.
+- The never-set (credential entry, legal or financial acceptance, an attended prompt, an unnamed discard, creating, revealing, or sharing a credential outside our own services) has no guarded entrypoint that accepts away authority for either actor.
+  Reusing an existing key between our own services is decided with the advisor and reported.
 - A forced teardown stays refused for the branch.
 - A red merge is refused in this posture whatever the words say.
 - No relocation survives the return, because an archived record validates as absent and the words die with it.

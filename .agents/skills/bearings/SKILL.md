@@ -145,7 +145,7 @@ Only the exact answer value `merge` authorizes a merge; an answer carrying a fre
 This skill is the one owner of the `/bearings` chat-response format; the snapshot and classifier own the data that feeds it, and no other file restates this contract.
 Every `/bearings` chat response renders EXACTLY these four sections, in THIS order, and nothing else structural (there is no At Anchor section):
 
-1. **Captain's Call** - ONLY unsuppressed items that need the captain's own action now: a decision to make, a PR to approve or merge, a credential or login to provide, or a blocker only the captain can clear.
+1. **Captain's Call** - ONLY unsuppressed items that need the captain's own action now: a decision `AGENTS.md` section 9 reserves, a PR to approve or merge, a credential or login to provide, or a blocker only the captain can clear.
    Deferred or aged holds follow the presentation safety rule above instead.
    Include `contributions.captain` rows in this section, deduplicating any row already represented by its live captain hold or merge call.
    Show the other contribution actors only as counts beside the checked/known coverage, and disclose `captain_omitted`, `unmeasured_homes`, stale verdicts and checks with no verdict when nonzero.
@@ -196,7 +196,8 @@ When a maintainer verdict has an identifiable judged commit, record it through t
 Never bind old prose to the head current at capture time merely because no judged head was supplied.
 A STALE verdict describes an earlier version; keep its provenance and reassess the current version before treating its blocker as current.
 Route repairs already within accepted intent to the fleet.
-Carry any unresolved scope or authority choice through `captain-hold-lifecycle` in the owning task, then surface it through the existing Captain's Call.
+Decide an unresolved scope choice, record it, and report it.
+Carry an unresolved authority choice that `AGENTS.md` section 9 reserves through `captain-hold-lifecycle` in the owning task, then surface it through the existing Captain's Call.
 The classifier does not infer a captain decision from comment prose, and a recorded captain-actor verdict without a live hold asks the fleet to reconcile that missing arbitration.
 A merge-ready classification grants no merge authority and the ordinary exact-PR checks still govern any later approval.
 

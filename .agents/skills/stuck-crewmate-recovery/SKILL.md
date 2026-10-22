@@ -62,7 +62,11 @@ Nothing reaches the captain in that case.
 
 Never restart, stop, or update the shared daemon on a crewmate's claim.
 It is one instance serving every lane and home, so a restart kills other lanes' in-flight runs.
-Only positive socket refusal or absence is a daemon-down finding; escalate that finding, or a failed run record that names a daemon error, to the captain.
+Only positive socket refusal or absence is a daemon-down finding.
+Report that finding, or a failed run record that names a daemon error, as an outcome.
+Do not ask the captain whether the daemon is down or what to do next.
+Recover the shared daemon through its own control once that positive evidence exists, and report what you did.
+A crewmate's timed-out read is still not that evidence.
 
 ## Live-endpoint escalation
 

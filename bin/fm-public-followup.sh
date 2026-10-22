@@ -823,7 +823,7 @@ print_window_escalation() {
   window=$(fm_pf_followup_window_class "$expires")
   case "$window" in
     expired)
-      printf '  DEADLINE: thread can no longer be reached (window closed %s); this needs a captain decision\n' \
+      printf '  DEADLINE: thread can no longer be reached (window closed %s); report that outcome and decide the next step unless it is reserved for the captain\n' \
         "${expires:-unknown}"
       ;;
     closing)
@@ -1305,7 +1305,7 @@ EOF
     9)  if ! record_error "$id" "$attempt" expired-action-required followup_binding_exhausted ""; then
           die "the relay rejected '$id', and its expired state could not be recorded; the obligation remains mid-delivery and needs explicit reconciliation before retry" 1
         fi
-        die "the relay no longer accepts a follow-up for '$id' (window or cap exhausted); nothing was posted and this needs a captain decision" 1 ;;
+        die "the relay no longer accepts a follow-up for '$id' (window or cap exhausted); nothing was posted. Report that outcome and decide the next step unless it is reserved for the captain." 1 ;;
     *)  if ! record_error "$id" "$attempt" retry-due relay_post_failed "$(next_attempt_rfc3339)"; then
           die "posting the public reply for '$id' failed, and its retryable state could not be recorded; the obligation remains mid-delivery and needs explicit reconciliation before retry" 1
         fi

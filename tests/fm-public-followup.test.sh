@@ -1388,8 +1388,8 @@ SH
   pass "a relay-enabled home with no commitments makes no backlog call and stays silent"
 }
 
-# The relay's own refusal of an exhausted follow-up binding is a captain
-# decision, not something to retry into a public thread.
+# The relay's own refusal of an exhausted follow-up binding is a reported
+# outcome, not something to retry into a public thread.
 test_exhausted_binding_is_not_retried() {
   local home log out posts
   home=$(make_home exhausted)
@@ -1401,7 +1401,7 @@ test_exhausted_binding_is_not_retried() {
   FAKE_CURL_LOG="$log" FAKE_FOLLOWUP_CODE=409 \
     expect_failure "an exhausted binding must not be reported as delivered" \
     run_pf "$home" deliver pf-gone
-  assert_contains "$EXPECT_OUT" "captain decision" "an exhausted binding must be escalated, not retried"
+  assert_contains "$EXPECT_OUT" "decide the next step" "an exhausted binding must be reported, not retried"
   [ "$(delivery_state "$home" pf-gone)" = expired-action-required ] \
     || fail "an exhausted binding must be recorded as needing action, got $(delivery_state "$home" pf-gone)"
   [ "$(task_state "$home" pf-gone)" != 'done' ] \
@@ -2203,8 +2203,8 @@ test_expiry_escalation_uses_now_override() {
   assert_contains "$out" "unresolved pf-exp" "an owed reply must remain listed after expiry"
   assert_contains "$out" "can no longer be reached" \
     "an expired unresolved reply must escalate the unreachable thread"
-  assert_contains "$out" "captain decision" \
-    "an expired unresolved reply must name the captain call"
+  assert_contains "$out" "decide the next step" \
+    "an expired unresolved reply must name the reported next step"
   "$EMIT" --home "$home" --obligation pf-exp --relation rel-code \
     --source-home main --work-id work-exp --generation 1 \
     --outcome report-ready --deliverable report_path=data/x/report.md \
@@ -2217,7 +2217,7 @@ test_expiry_escalation_uses_now_override() {
   assert_contains "$out" "under 48 hours" "the closing wording must name the remaining window"
   out=$(FMX_NOW_OVERRIDE="$now_expired" run_pf "$home" pending)
   assert_contains "$out" "can no longer be reached" "a past expiry must name the unreachable thread"
-  assert_contains "$out" "captain decision" "a past expiry is a captain call"
+  assert_contains "$out" "decide the next step" "a past expiry names the reported next step"
   FMX_NOW_OVERRIDE="$now_expired" expect_failure "rechain past expiry must refuse" \
     run_pf "$home" rechain pf-exp-next --from pf-exp --work-home main --work-id work-next --expected pr-merged
   assert_contains "$EXPECT_OUT" "can no longer be reached" "rechain must name the closed window"

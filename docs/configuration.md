@@ -118,7 +118,8 @@ Untracked files and directories whose names begin with `scratchpad` are also git
 
 - `docs/sessionstart-nudge.md` owns the native session-open adapter tiers that run or nudge the digest command, and the source routing between them.
 
-- `AGENTS.md` retains the run-once and read-once operator rules, lock-refusal safety, installation consent, and direct-report recovery boundaries because those facts apply at every session start.
+- `AGENTS.md` retains the run-once and read-once operator rules, lock-refusal safety, and direct-report recovery boundaries because those facts apply at every session start.
+- [Bootstrap diagnostics](../.agents/skills/bootstrap-diagnostics/SKILL.md) owns installation decisions and manual-step escalation.
 
 - Ordinary dead-direct-report recovery is owned by `stuck-crewmate-recovery`, while persistent-secondmate recovery is owned by `secondmate-provisioning`.
 
@@ -1417,7 +1418,7 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 - Valid files stay silent by default; with `FM_BOOTSTRAP_VERBOSE_FACTS=1`, bootstrap emits `BOOTSTRAP_INFO: crew dispatch active config/crew-dispatch.json`, one `BOOTSTRAP_INFO:` fact per rule, and one fact for the optional default profile set.
 - Malformed JSON, malformed rules, an empty or malformed profile array, an unverified harness, or an effort value unsupported by that harness is reported as `CREW_DISPATCH: invalid config/crew-dispatch.json - ...`.
 - While typed resolution is active, malformed `approval`, `min_confidence`, `floor`, and present `provider` declarations receive the same diagnostic; without the key those inert declarations preserve the pre-existing bootstrap behavior.
-- Missing `jq` is reported through the normal `MISSING: jq` install-consent flow.
+- Missing `jq` follows the [bootstrap diagnostics policy](../.agents/skills/bootstrap-diagnostics/SKILL.md).
 - While the file remains present, no crewmate or scout spawn may proceed without an explicit resolved harness; malformed configuration must be reported and corrected rather than selected around.
 
 **Inheritance**
@@ -1808,7 +1809,9 @@ Both surfaces are the same opt-in and the same machinery - one pairing token, on
 It is off unless the firstmate home's gitignored `.env` contains a non-empty `FMX_PAIRING_TOKEN`.
 The pairing token both identifies the relay tenant and records opt-in consent for autonomous public replies and eligible lifecycle actions.
 
-Destructive, irreversible, or security-sensitive asks are flagged for trusted-channel confirmation instead of being executed from a public mention.
+Destructive or irreversible asks, and creating, revealing, or sharing a credential outside our own services, wait for the captain's word on the trusted channel instead of being executed from a public mention.
+Reusing an existing key between our own services is decided with the advisor and reported.
+Any other security call is decided and reported in the trusted session, and is not executed from the mention.
 The relay uses owner-only routing: a mention delivered to a home is from that home's owner/captain, while its surrounding conversation context may still include other public accounts.
 
 **Endpoint and environment overrides**

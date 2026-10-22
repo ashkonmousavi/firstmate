@@ -41,8 +41,8 @@
 # no per-task merge-grant list. What stays mechanical is exactly what a script can
 # check without reading words: a merge green at its live head under this record's
 # lock, synchronous merges only, the spend cap, and the never-set.
-# HARD RULE: destructive, irreversible, and security-sensitive actions are never
-# pre-authorizable whatever the words say.
+# HARD RULE: destructive and irreversible actions, and creating, revealing, or sharing a credential outside our own services, are never pre-authorizable, whatever the words say.
+# Reusing an existing key between our own services is decided with the advisor and reported.
 #
 # RECORD (state/.afk-contract; written only by this script; YAML-shaped so a
 # human can read it, but parsed only here - consumers use the read subcommands):
@@ -465,11 +465,11 @@ fm_afk_contract_render_announcement() {  # <path>
   words=$(fm_afk_contract_read_words "$path"; rc=$?; printf x; exit "$rc") || return 1
   words=${words%x}
   if [ -n "$words" ]; then
-    mandate_text='Your away instructions are recorded verbatim; the away session will carry them out where it can, and anything it is unsure of, or that needs you, waits for your return.'
+    mandate_text='Your away instructions are recorded verbatim; the away session will carry them out where it can, and a reserved ask, a destructive or irreversible action, a discard, or a merge it cannot settle waits for your return.'
   else
-    mandate_text='No away instructions were recorded; the away session acts on standing authority only, and anything that needs you waits for your return.'
+    mandate_text='No away instructions were recorded; the away session acts on standing authority only, and a reserved ask, a destructive or irreversible action, a discard, or a merge waits for your return.'
   fi
-  printf 'Away posture recorded at %s: hold-for-return only. %s %s Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say. Expected return: %s. Spend cap: %s concurrent workers.\n' \
+  printf 'Away posture recorded at %s: hold-for-return only. %s %s Destructive and irreversible actions, and creating, revealing, or sharing a credential outside our own services, are never pre-authorizable, whatever the words say. Reusing an existing key between our own services is decided with the advisor and reported. Expected return: %s. Spend cap: %s concurrent workers.\n' \
     "$(fm_afk_contract_read_field "$path" confirmed)" \
     "$(fm_afk_contract_read_field "$path" reach_announced)" \
     "$mandate_text" \
