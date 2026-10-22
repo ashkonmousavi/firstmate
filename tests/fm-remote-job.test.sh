@@ -27,6 +27,7 @@ STALL_REPLACEMENT_PID=
 STALL_JOB_GROUP=
 QUIET_WORKER_PID=
 SCAN_LANE_PID=
+HB_BOUND_PID=
 mkdir -p "$REMOTE_ROOT/bin" "$REMOTE_HOME" "$ACCOUNT_HOME" "$RUNTIME_BIN"
 # worker.pid records the serving child, not its restart supervisor, so stopping
 # that pid alone leaves the supervisor to respawn - the leak
@@ -40,6 +41,7 @@ cleanup_remote_job_fixture() {
   [ -z "$REPLACEMENT_OWNER_PID" ] || kill -KILL "$REPLACEMENT_OWNER_PID" 2>/dev/null || true
   [ -z "$QUIET_WORKER_PID" ] || kill -KILL "$QUIET_WORKER_PID" 2>/dev/null || true
   [ -z "$SCAN_LANE_PID" ] || kill -KILL "$SCAN_LANE_PID" 2>/dev/null || true
+  [ -z "$HB_BOUND_PID" ] || { kill -TERM "$HB_BOUND_PID" 2>/dev/null || true; wait "$HB_BOUND_PID" 2>/dev/null || true; }
   local stall_pid
   for stall_pid in "$STALL_WORKER_PID" "$STALL_REPLACEMENT_PID"; do
     [ -n "$stall_pid" ] || continue
@@ -660,14 +662,8 @@ done
 HB_SERVE_PID=$(cat "$STATE_ROOT/worker.pid")
 HB_PID=
 for _ in $(seq 1 50); do
-  HB_CHILDREN=$(cat "/proc/$HB_SERVE_PID/task/$HB_SERVE_PID/children" 2>/dev/null || true)
-  for HB_CHILD in $HB_CHILDREN; do
-    HB_CMD=$(tr '\0' ' ' < "/proc/$HB_CHILD/cmdline" 2>/dev/null || true)
-    case "$HB_CMD" in
-      *'--lane'*) ;;
-      *fm-remote-job-worker.sh*) HB_PID=$HB_CHILD; break ;;
-    esac
-  done
+  HB_PID=$(ps -ax -o pid= -o ppid= -o args= | awk -v owner="$HB_SERVE_PID" \
+    '$2 == owner && /fm-remote-job-worker[.]sh/ && !/--lane/ { print $1; exit }')
   [ -n "$HB_PID" ] && break
   sleep 0.05
 done
@@ -687,6 +683,42 @@ fm_remote_job_reap "$ACCOUNT_HOME" "$JOB_ID" || fail "the heartbeat-loss job cou
 FM_REMOTE_JOB_QUEUE_TIMEOUT=5
 FM_REMOTE_JOB_TIMEOUT=5
 pass "a dead readiness heartbeat does not fail the live job"
+
+HB_BOUND_HOME="$TMP_ROOT/heartbeat-bound-account"
+HB_BOUND_STATE="$TMP_ROOT/heartbeat-bound-state"
+HB_BOUND_BIN="$TMP_ROOT/heartbeat-bound-bin"
+HB_BOUND_LOG="$TMP_ROOT/heartbeat-bound-deaths"
+mkdir -p "$HB_BOUND_HOME" "$HB_BOUND_BIN"
+cat > "$HB_BOUND_BIN/sleep" <<'SH'
+#!/bin/bash
+heartbeat=$(ps -ax -o pid= -o ppid= -o args= | awk -v owner="$PPID" \
+  '$2 == owner && /fm-remote-job-worker[.]sh/ && !/--lane/ { print $1; exit }')
+if [ -z "$heartbeat" ] || ! kill -KILL "$heartbeat"; then
+  kill -TERM "$PPID"
+  exit 1
+fi
+printf '%s\n' "$heartbeat" >> "$FM_TEST_HEARTBEAT_DEATHS"
+if [ "$(wc -l < "$FM_TEST_HEARTBEAT_DEATHS")" -ge 7 ]; then
+  kill -TERM "$PPID"
+fi
+exec /bin/sleep 6
+SH
+chmod +x "$HB_BOUND_BIN/sleep"
+HOME="$HB_BOUND_HOME" PATH="$HB_BOUND_BIN:$PATH" FM_ROOT_OVERRIDE="$REMOTE_ROOT" \
+  FM_REMOTE_JOB_STATE_ROOT="$HB_BOUND_STATE" FM_TEST_HEARTBEAT_DEATHS="$HB_BOUND_LOG" \
+  "$REMOTE_ROOT/bin/fm-remote-job-worker.sh" --serve \
+  > "$TMP_ROOT/heartbeat-bound.out" 2> "$TMP_ROOT/heartbeat-bound.err" &
+HB_BOUND_PID=$!
+HB_BOUND_STATUS=0
+wait "$HB_BOUND_PID" || HB_BOUND_STATUS=$?
+HB_BOUND_PID=
+[ "$HB_BOUND_STATUS" -eq 1 ] \
+  || fail "repeated heartbeat deaths across slow passes did not stop the worker"
+[ "$(wc -l < "$HB_BOUND_LOG")" -eq 6 ] \
+  || fail "the worker did not bound repeated heartbeat replacements"
+grep -F 'readiness heartbeat process stopped' "$TMP_ROOT/heartbeat-bound.err" >/dev/null \
+  || fail "the worker did not report its heartbeat failure bound"
+pass "slow passes do not reset the repeated heartbeat death bound"
 
 mkdir -p "$ACCOUNT_HOME/.local/bin"
 PREEXEC_STARTED="$TMP_ROOT/preexecution-started"

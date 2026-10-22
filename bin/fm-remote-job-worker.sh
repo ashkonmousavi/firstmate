@@ -1247,15 +1247,15 @@ main() {
   while :; do
     # The independent heartbeat keeps readiness fresh through slow serving
     # passes while ownership remains verifiable.
-    if ! kill -0 "$WORKER_HEARTBEAT_PID" 2>/dev/null &&
-      fm_remote_job_lock_owner_matches_process "$account_home" &&
+    if kill -0 "$WORKER_HEARTBEAT_PID" 2>/dev/null; then
+      if [ $((SECONDS - WORKER_HEARTBEAT_BORN)) -ge "$WORKER_HEARTBEAT_STABLE_SECONDS" ]; then
+        WORKER_HEARTBEAT_DEATHS=0
+      fi
+    elif fm_remote_job_lock_owner_matches_process "$account_home" &&
       [ "$FM_REMOTE_JOB_OWNER_PID" = "${BASHPID:-$$}" ]; then
       # The header owns this bound. Reap the dead child, then replace it
       # while the lanes this process already supervises stay in place.
       wait "$WORKER_HEARTBEAT_PID" 2>/dev/null || true
-      if [ $((SECONDS - WORKER_HEARTBEAT_BORN)) -ge "$WORKER_HEARTBEAT_STABLE_SECONDS" ]; then
-        WORKER_HEARTBEAT_DEATHS=0
-      fi
       WORKER_HEARTBEAT_DEATHS=$((WORKER_HEARTBEAT_DEATHS + 1))
       if [ "$WORKER_HEARTBEAT_DEATHS" -gt "$WORKER_HEARTBEAT_DEATH_LIMIT" ]; then
         worker_error "readiness heartbeat process stopped"
