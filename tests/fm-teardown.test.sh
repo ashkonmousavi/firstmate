@@ -5663,7 +5663,7 @@ test_merge_wait_preserves_existing_captain_hold() {
       || fail "retained task body omitted the merge wait"
     assert_grep 'still held for the captain' "$case_dir/stdout" "cleanup omitted the captain obligation"
     assert_grep 'held awaiting merge https://github.com/example/repo/pull/7' "$case_dir/stdout" "cleanup omitted the merge obligation"
-    [ "$(backlog_row_state "$case_dir")" != done ] || fail "merge wait closed the captain call"
+    [ "$(backlog_row_state "$case_dir")" != "done" ] || fail "merge wait closed the captain call"
     if [ "$variant" = dependent ]; then
       assert_grep 'blocked-by: child-one' "$case_dir/stdout" "cleanup omitted the dependent"
     fi
