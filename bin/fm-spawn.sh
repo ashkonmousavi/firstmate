@@ -141,8 +141,9 @@
 #   then creates a disposable
 #   workspace containing only the ordinary task pane. A successful clean create
 #   upgrades its attempt journal with exact home, session, workspace, tab, pane,
-#   parent, and label bindings. On a same-identity restart, that complete binding
-#   plus authoritative metadata may replace one exact agent-free husk in place.
+#   parent, and label bindings. A fresh same-id restart must first pass the
+#   rollback contract below; an agent-free restored pane is still an endpoint
+#   and cannot authorize replacing its retained task record.
 #   The journal, visible token, and labels alone are never endpoint or ownership
 #   authority, and every ambiguous recovery stays on the flat fallback after
 #   duplicate-agent risk is independently absent. Treehouse allocation and task
@@ -155,7 +156,7 @@
 #   default on the same contention (it does not degrade flat; a concurrent
 #   resume is a hard failure). Pass --herdr-resume-lock-wait to opt that
 #   resume into waiting for the lock instead, so two concurrent recoveries
-#   can serialize and each still replace its own exact husk. The flag acts
+#   can serialize after passing the task-record gate. The flag acts
 #   only on that fresh ship or scout spawn path: --relaunch reuses the
 #   recorded endpoint without taking this lock, so the flag has no effect
 #   there, and a secondmate spawn never projects. Unbounded
