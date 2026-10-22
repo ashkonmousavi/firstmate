@@ -41,11 +41,13 @@
 # lift the deferral (it authorizes discarding unlanded WORK, never the
 # captain's question), and bin/fm-captain-hold.sh answer stays the only act
 # that closes the call.
-# REFUSES if the worktree holds work that has not LANDED, because cleanup
-# hard-resets/removes the worktree and kills its processes. Work has landed when it is
-# reachable from any remote-tracking branch (a fork counts as a remote, so
-# upstream-contribution PRs pushed to a fork satisfy this in any mode), OR - for a
-# normal ship task whose commits are not so reachable - when its PR is merged and
+# REFUSES if the worktree holds commits that are not on a remote and have not
+# landed, because cleanup hard-resets/removes the worktree and kills its
+# processes. The local copy may be freed when the commits are reachable from
+# any remote-tracking branch (a fork counts as a remote, so upstream-contribution
+# PRs pushed to a fork satisfy this in any mode). That reachability is not a
+# landed close when the task's recorded pr= is OPEN or unreadable. A normal ship
+# task whose commits are not reachable has landed only when its PR is merged and
 # GitHub reports a PR head that contains the current local work, or its content is
 # already present in the up-to-date default branch. This recognizes the common
 # squash-merge-then-delete-branch flow, where the branch's own commits live nowhere
@@ -68,18 +70,25 @@
 # A gh lookup error falls back to the content check; if that is also inconclusive,
 # teardown refuses rather than risk discarding unlanded work.
 # Reachability from a remote-tracking branch is not enough to close the backlog
-# item. A ship in a PR delivery mode (no-mistakes or direct-PR) with a recorded
-# pr= reads that pull request through bin/fm-pr-lib.sh (gh, glab, tea, or
-# gerrit-axi) before the close. MERGED closes as before. OPEN refuses and keeps
-# every record, naming the URL and saying to clean up after it merges, unless
-# --keep-open is given: then the endpoint and worktree are cleaned, because the
-# pushed branch remains, and the item stays open, held "awaiting merge <url>".
-# An existing captain hold and its question are preserved; the merge wait is
-# recorded in the item's note instead of replacing that hold.
+# item. Every ship with a recorded pr=, in every delivery mode, reads that pull
+# request through bin/fm-pr-lib.sh (gh, glab, tea, or gerrit-axi) before the
+# close. validate_worktree_teardown_safety owns that landed decision: an empty
+# `git log HEAD --not --remotes` means the copy may be freed, and it does not
+# mean the work has landed while the recorded pull request is OPEN.
+# MERGED closes as before and retires the merge watch. OPEN never closes the
+# item. When the commits are already on a remote and the worktree is clean, the
+# local copy may still be freed: the item stays open, held "awaiting merge
+# <url>", the task record stays so the merge watch remains registered, and the
+# recorded worktree path is released so the pool slot is not still named here.
+# An OPEN pull request whose commits are not on a remote still refuses.
+# --force does not close an OPEN pull request. An existing captain hold and its
+# question are preserved; the merge wait is recorded in the item's note instead
+# of replacing that hold.
 # CLOSED without a merge refuses unless --force, the captain's explicit discard.
 # An unreadable state refuses, and neither --force nor --keep-open overrides that.
 # These PR checks apply even in manual-backend homes and markdown homes without
-# a backlog file; --keep-open then prints the merge hold owed as a manual edit.
+# a backlog file; freeing an OPEN pull request's copy then prints the merge hold
+# owed as a manual edit.
 # When the automatic backlog transition gate applies, the same close refuses
 # while any other open item in this home lists this id in blocked-by, naming
 # those items. --keep-open still cleans and leaves this item open, so those
@@ -436,6 +445,9 @@ FORCE=
 KEEP_OPEN=0
 TEARDOWN_KEEP_OPEN=0
 TEARDOWN_KEEP_OPEN_HOLD=0
+TEARDOWN_KEEP_MERGE_WATCH=0
+TEARDOWN_PUSHED_OPEN_PR=0
+TEARDOWN_RECORDED_PR_CLASS=
 TEARDOWN_DEPENDENTS=
 LEGACY_RECORD_GIVEN=0
 shift
@@ -1528,6 +1540,22 @@ validate_pr_poll_cleanup() {
   fi
 }
 
+# The pool slot is back in circulation. Drop this record's name for it so the
+# next task can take the slot, and leave pr= in place so the merge watch stays
+# registered. The replacement path is never created: a later cleanup can still
+# validate the record and will not find a directory to return.
+teardown_release_recorded_copy() {
+  local tmp line
+  tmp=$(umask 077; mktemp "$STATE/.fm-teardown-release.XXXXXX") || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      worktree=*) printf 'worktree=%s\n' "$STATE/$ID.released-copy" ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done < "$META" > "$tmp" || { rm -f "$tmp"; return 1; }
+  mv -f "$tmp" "$META"
+}
+
 remove_pr_poll_artifacts() {
   local state_dir=$1 id=$2
   validate_pr_poll_cleanup "$state_dir" "$id" || return 1
@@ -1745,6 +1773,15 @@ teardown_recorded_pr_class() {
   teardown_pr_class_from_record
 }
 
+# One read per teardown. The landed test and the close guard both need the class,
+# and a second forge read must not be able to disagree with the first.
+teardown_recorded_pr_class_cached() {
+  if [ -z "$TEARDOWN_RECORDED_PR_CLASS" ]; then
+    TEARDOWN_RECORDED_PR_CLASS=$(teardown_recorded_pr_class)
+  fi
+  printf '%s\n' "$TEARDOWN_RECORDED_PR_CLASS"
+}
+
 # Ids of other open items whose blocked-by lists $1. List text is on stdin.
 # Rows are tasks-axi's quoted TOON table; the id is the first field and
 # blocked-by is the last, so a comma inside a title cannot hide a dependent.
@@ -1828,21 +1865,22 @@ teardown_guard_unlanded_close() {
     teardown_collect_dependents || return 1
   fi
 
-  if [ "$KIND" = ship ]; then
-    case "$MODE" in
-      no-mistakes|direct-PR)
-        if [ -n "$PR_URL" ]; then
-          class=$(teardown_recorded_pr_class)
-        fi
-        ;;
-    esac
+  if [ "$KIND" = ship ] && [ -n "$PR_URL" ]; then
+    class=$(teardown_recorded_pr_class_cached)
   fi
 
   case "$class" in
     ''|merged) ;;
     open)
-      if [ "$KEEP_OPEN" = 1 ]; then
+      # A pushed head is not a landed close. --force still must not close it.
+      # The copy may be freed only when the landed test already proved the
+      # commits are on a remote, or when --keep-open asked for that free.
+      if [ "$FORCE" = --force ]; then
+        echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
+        pr_refused=1
+      elif [ "$KEEP_OPEN" = 1 ] || [ "$TEARDOWN_PUSHED_OPEN_PR" = 1 ]; then
         TEARDOWN_KEEP_OPEN=1
+        TEARDOWN_KEEP_MERGE_WATCH=1
       else
         echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
         pr_refused=1
@@ -2284,6 +2322,17 @@ validate_worktree_teardown_safety() {
       echo "Push the branch, land its PR, or get the captain's explicit OK to discard, then --force." >&2
       return 1
     fi
+  fi
+
+  # An empty unpushed list is the only proof the commits are on a remote.
+  # Content already in the default branch is not that proof: an OPEN pull
+  # request is still not landed, and its copy may be freed only when the
+  # commits themselves are reachable from a remote. The caller then keeps
+  # the item and the merge watch.
+  if [ -z "$unpushed" ] && [ "$KIND" = ship ] && [ -n "$PR_URL" ]; then
+    case "$(teardown_recorded_pr_class_cached)" in
+      open) TEARDOWN_PUSHED_OPEN_PR=1 ;;
+    esac
   fi
 }
 
@@ -3817,7 +3866,12 @@ BACKLOG_TRANSITION=$TEARDOWN_BACKLOG_TRANSITION
 BACKLOG_TRANSITION_FLAGS=()
 [ "$BACKLOG_TRANSITION" = close ] || BACKLOG_TRANSITION_FLAGS=(--retain)
 BACKLOG_SKIP_REASON=
-if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
+if [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ] && [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
+  # The guard already held the item. Writing the close marker would replay
+  # into deleting the task record, and the merge watch is registered only
+  # while that record remains.
+  BACKLOG_CLOSED=1
+elif [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
   backlog_done_args || {
     echo "error: the pending backlog $BACKLOG_TRANSITION for $ID is not replayable; refusing destructive teardown" >&2
     exit 1
@@ -4121,7 +4175,9 @@ LAUNCH_HOME_TOKEN=$(teardown_launch_home_token "$FM_HOME") || LAUNCH_HOME_TOKEN=
 if [ -n "$LAUNCH_HOME_TOKEN" ]; then
   rm -rf "/tmp/fm-$ID+$LAUNCH_HOME_TOKEN"
 fi
-remove_pr_poll_artifacts "$STATE" "$ID" || exit 1
+if [ "$TEARDOWN_KEEP_MERGE_WATCH" != 1 ]; then
+  remove_pr_poll_artifacts "$STATE" "$ID" || exit 1
+fi
 retire_busy_state "$STATE" "$ID" "$BUSY_GEN" || exit 1
 # Opt-in fleet activity ledger (docs/fleet-ledger.md), before the status log is
 # retired so its last lines are captured; off costs one file test.
@@ -4171,7 +4227,9 @@ fi
 # racing the same id stays serialized exactly as it was before. A captain-held
 # row takes the retain transition here instead of the close: same record, same
 # ordering, the row returns to Queued with its deliverable recorded.
-if [ "$BACKLOG_CLOSED" = 1 ]; then
+if [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ]; then
+  teardown_release_recorded_copy || exit 1
+elif [ "$BACKLOG_CLOSED" = 1 ]; then
   BACKLOG_CLOSE_MARKER=$(fm_backlog_close_marker_path "$STATE" "$ID") || exit 1
   if ! fm_backlog_atomic_transition "$BACKLOG_TRANSITION" "$STATE/$ID.meta" "$BACKLOG_CLOSE_MARKER" \
       "$DATA" "$ID" "$STATE" "${BACKLOG_DONE_ARGS[@]+"${BACKLOG_DONE_ARGS[@]}"}"; then
