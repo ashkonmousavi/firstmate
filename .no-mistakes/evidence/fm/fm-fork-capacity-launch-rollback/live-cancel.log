@@ -1,8 +1,8 @@
-~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home
-ok: added seat-keep (ship) -> Queued
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.c
+ok: added lv-seat (ship) -> Queued
 task:
-  id: seat-keep
-  title: Disposable seat validation
+  id: lv-seat
+  title: isolated seat check
   state: queued
   blocked: no
   blocked_by: none
@@ -19,12 +19,12 @@ task:
   links: none
   body: ""
 help[2]:
-  - Run `tasks-axi start seat-keep --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/data/backlog.md` to move it to in flight
-  - Run `tasks-axi block seat-keep --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/data/backlog.md` to record a dependency
-ok: added seat-next (ship) -> Queued
+  - Run `tasks-axi start lv-seat --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.c/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lv-seat --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.c/data/backlog.md` to record a dependency
+ok: added lv-next (ship) -> Queued
 task:
-  id: seat-next
-  title: Disposable seat validation
+  id: lv-next
+  title: isolated seat check
   state: queued
   blocked: no
   blocked_by: none
@@ -41,17 +41,12 @@ task:
   links: none
   body: ""
 help[2]:
-  - Run `tasks-axi start seat-next --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/data/backlog.md` to move it to in flight
-  - Run `tasks-axi block seat-next --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/data/backlog.md` to record a dependency
-TERM sent during backlog commit after launch delivery, pid=829043
-fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home
-warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/data/seat-keep/launch-brief.md records no ship branch; defaulting to legacy branch fm/seat-keep
-error: task seat-keep's backlog item could not be moved to In flight (error: injected backlog write refusal), and failed-dispatch cleanup is incomplete; the provisional record may remain at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/state/seat-keep.meta - close out endpoint primary:fm-seat-keep and local copy ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/pool/.treehouse/project-1cb1b1/1/project by hand, then remove the record and busy state before retrying
-cancelled spawn exit=1
+  - Run `tasks-axi start lv-next --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.c/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block lv-next --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.c/data/backlog.md` to record a dependency
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.c
+warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.c/data/lv-seat/launch-brief.md records no ship branch; defaulting to legacy branch fm/lv-seat
+notice: lv-seat ships mode=local-only while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error: task lv-seat's backlog item could not be moved to In flight (error: injected unavailable backlog writer), and failed-dispatch cleanup is incomplete; the provisional record may remain at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.c/state/lv-seat.meta - close out endpoint primary:fm-lv-seat and local copy ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-cancel/pool/.treehouse/project-afaacd/1/project by hand, then remove the record and busy state before retrying
 bash bash
-fm-seat-keep claude
-cancelled spawn retained record and busy generation while worker remains
-fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home
-deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/config/project-capacity) and 1 already hold a place (seat-keep); task seat-next was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
-fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home
-deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/config/project-capacity) and 1 already hold a place (seat-keep); task seat-keep was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+fm-lv-seat sleep
+PASS: TERM after launch delivery and failed backlog starts retains the live endpoint, task record, and exact busy generation.

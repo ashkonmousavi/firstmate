@@ -1,0 +1,4 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.g
+warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.g/data/guard/launch-brief.md records no ship branch; defaulting to legacy branch fm/guard
+notice: guard ships mode=local-only while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error: task guard already has a record at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.g/state/guard.meta that could not be safely removed; refusing to open another endpoint while that record remains

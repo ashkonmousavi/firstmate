@@ -1,0 +1,40 @@
+treehouse get
+zcrew@WIN-P8MLI888O8M:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/project$ treehouse get
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/pool/.treehouse/proje
+ct-9e9225/1/project. Type 'exit' to return.
+zcrew@WIN-P8MLI888O8M:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/pool/.treehouse/projec
+t-9e9225/1/project$ cd -- '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/pool/.t
+reehouse/project-9e9225/1/project'
+zcrew@WIN-P8MLI888O8M:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/pool/.treehouse/projec
+t-9e9225/1/project$ export GOTMPDIR=/tmp/fm-lv-seat/gotmp
+zcrew@WIN-P8MLI888O8M:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/pool/.treehouse/projec
+t-9e9225/1/project$ export COMPACT_ADVISER_DISABLE=1
+zcrew@WIN-P8MLI888O8M:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/pool/.treehouse/projec
+t-9e9225/1/project$ export FM_TASK_ID=lv-seat
+zcrew@WIN-P8MLI888O8M:~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/pool/.treehouse/projec
+t-9e9225/1/project$ . '/tmp/fm-lv-seat+03391520fca4f3580369143cc23797b921512567406bb8fda358c990306a3399/launch.s17926489
+87.4149323.16282.sh'
+2.1.308 (Claude Code)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

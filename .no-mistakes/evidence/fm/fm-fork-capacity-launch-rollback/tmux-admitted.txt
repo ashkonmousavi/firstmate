@@ -1,0 +1,4 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.l
+warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.l/data/lv-next/launch-brief.md records no ship branch; defaulting to legacy branch fm/lv-next
+notice: lv-next ships mode=local-only while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned lv-next harness=claude kind=ship mode=local-only yolo=off window=primary:fm-lv-next worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H2YJS9QER9Z49SC5S97NYQ/.live-seat/pool/.treehouse/project-9e9225/1/project
