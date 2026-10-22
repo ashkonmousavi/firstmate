@@ -1,0 +1,7 @@
+schema=fm-task-inbox.v1
+at=2026-10-22T08:54:45Z
+--
+The pull request https://github.com/o/r/pull/7 has carried the conflict label for more than 15 minutes.
+Merge origin/main into the branch with a merge commit, regenerate generated files, run their tests, and push once.
+Do not rebase.
+Do not force-push.

@@ -1,0 +1,206 @@
+[
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}",
+      "variables": {
+        "owner": "o",
+        "pr_number": 7,
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "endCursor": "page2",
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}",
+      "variables": {
+        "owner": "o",
+        "pr_number": 7,
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "endCursor": "page2",
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}",
+      "variables": {
+        "owner": "o",
+        "pr_number": 7,
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "endCursor": "page2",
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}",
+      "variables": {
+        "owner": "o",
+        "pr_number": 7,
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "endCursor": "page2",
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}",
+      "variables": {
+        "owner": "o",
+        "pr_number": 7,
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "endCursor": "page2",
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "\n\tquery PullRequestByNumber($owner: String!, $repo: String!, $pr_number: Int!) {\n\t\trepository(owner: $owner, name: $repo) {\n\t\t\tpullRequest(number: $pr_number) {state,id,number}\n\t\t}\n\t}",
+      "variables": {
+        "owner": "o",
+        "pr_number": 7,
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  },
+  {
+    "path": "/graphql",
+    "body": {
+      "query": "query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {\n  repository(owner: $owner, name: $repo) {\n    pullRequest(number: $number) {\n      labels(first: 100) { nodes { name } }\n      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {\n        pageInfo { hasNextPage endCursor }\n        nodes {\n          __typename\n          ... on LabeledEvent { createdAt label { name } }\n          ... on UnlabeledEvent { createdAt label { name } }\n        }\n      }\n    }\n  }\n}",
+      "variables": {
+        "endCursor": "page2",
+        "number": 7,
+        "owner": "o",
+        "repo": "r"
+      }
+    }
+  }
+]

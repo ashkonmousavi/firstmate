@@ -1,0 +1,21 @@
+Remote branch reflog (initial publish, then one merge push):
+8a4f988 refs/heads/lane@{0}: push
+b0b0178 refs/heads/lane@{1}: push
+
+Merge parents:
+b0b017858e963dafe8107150c7541dfd843b3ad4
+e5e11048bd3ebba4187284fad86ba8522eef735e
+
+Git history:
+*   8a4f988 Merge origin/main into lane
+|\  
+| * e5e1104 main change
+* | b0b0178 worker change
+|/  
+| * 1155222 rename
+|/  
+* 5bfffbb base
+
+Resolved file:
+main
+worker
