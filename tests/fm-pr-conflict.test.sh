@@ -294,11 +294,13 @@ SH
   grep -qx CALLED "$send_log" || fail "the relaunch did not leave the merge instruction"
   [ -s "$relaunch_log" ] || fail "the exited worker was not relaunched with a progress note"
   : > "$relaunch_log"
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'live\n'; }
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
   [ "$decision" = quiet ] && [ ! -s "$relaunch_log" ] \
     || fail "the relaunched live worker must remain quiet"
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'exited\n'; }
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
@@ -314,11 +316,13 @@ test_steered_worker_exit_recovers() {
   setup_task "$state"
   FM_PR_CONFLICT_SEND=$TMP_ROOT/send-relaunch.sh
   FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/relaunch.sh
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'live\n'; }
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
   [ "$decision" = quiet ] || fail "initial steering failed"
   : > "$TMP_ROOT/relaunch.log"
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'exited\n'; }
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
@@ -339,7 +343,9 @@ printf 'action diagnostic on stderr\n' >&2
 exit 1
 SH
   chmod +x "$TMP_ROOT/action-failure.sh"
+  # shellcheck disable=SC2034 # read by the imported fm_pr_conflict_relaunch
   FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/action-failure.sh
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf '%s\n' "$action_posture"; }
   for action_posture in live exited; do
     if [ "$action_posture" = live ]; then
@@ -366,6 +372,7 @@ test_relabel_starts_a_new_episode() {
   json="$TMP_ROOT/relabel.json"
   setup_task "$state"
   FM_CONFLICT_JSON=$json
+  # shellcheck disable=SC2034 # read by the imported fm_pr_conflict_steer
   FM_PR_CONFLICT_SEND=$TMP_ROOT/send.sh
   fm_pr_conflict_posture() { printf 'live\n'; }
   first=$(jq -nr 'now - 3600 | strftime("%Y-%m-%dT%H:%M:%SZ")')
