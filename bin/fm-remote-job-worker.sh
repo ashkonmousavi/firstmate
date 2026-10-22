@@ -35,8 +35,8 @@
 # and mode 0600 after verifying ownership, without waiting for the serving loop.
 # Losing lock ownership stops heartbeat refresh.
 # A dead heartbeat, while this process still owns the lock, is replaced so the lanes already under way keep running.
-# A replacement that dies within five seconds counts toward a limit of five, and hitting that limit stops the serving loop so the supervisor can restart it.
-# A heartbeat that stayed up for five seconds does not count toward that limit.
+# Each observed heartbeat death counts toward a limit of five replacements; the sixth death stops the serving loop so the supervisor can restart it.
+# The count resets only when a serving-loop pass observes a live heartbeat at least five seconds old, so time spent in a slow pass alone cannot reset it.
 # The stale sweep, whose state preparation also re-applies the queue directories' 0700
 # modes, runs at startup and then at most every 60 seconds, never more rarely
 # than the shortest record reap age.
