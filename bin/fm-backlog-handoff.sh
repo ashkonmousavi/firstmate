@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Hand already-identified, in-scope backlog items off from the main firstmate
-# backlog to a secondmate's own home backlog. Use this when a secondmate is
-# created (or whenever an existing queued item should become its domain's work)
-# so the secondmate owns its queue from day one instead of the item staying
-# stranded in the main backlog.
+# Move already-identified queued items from the active Firstmate home's backlog
+# to a registered secondmate or an explicitly named local or remote peer home.
 #
 # Scope-matching is firstmate's JUDGMENT: you pass the task-id keys you have
-# already judged in-scope for the secondmate. This script performs only the
-# fleet-level validation that the backlog backend cannot know, then DELEGATES
+# already judged in-scope for the receiving home. This script performs the
+# fleet-level validation and receipt checks, then DELEGATES
 # the actual item move to `tasks-axi mv`, the single owner of the backlog
 # format. Delegating the move is the durability end-state: it removes the awk
 # that used to re-implement block extraction and insertion here, so the format
@@ -15,16 +12,18 @@
 # of bug fixed in PR #401 was exactly that drift).
 #
 # What this script still owns (never delegated):
-#   - resolving the secondmate home from data/secondmates.md;
-#   - proving the destination is a genuine seeded secondmate home
-#     (.fm-secondmate-home marker, AGENTS.md + bin/), never a project clone, the
-#     active home, or the firstmate repo;
+#   - resolving registered destinations from data/secondmates.md, or using the
+#     explicit --to / --host --remote-root --remote-home peer route;
+#   - validating local destination isolation and operational directories, with
+#     AGENTS.md + bin/ required for every receiving home and a matching
+#     .fm-secondmate-home marker additionally required for registered local mates;
 #   - moving only `## Queued` items, refusing `## In flight` and historical
 #     `## Done` records, which must stay with their home for pruning or
 #     archiving;
 #   - the multi-key classification and idempotent per-key reporting: a key
-#     already present in the secondmate backlog is reported and skipped, and if
-#     any key matches neither backlog nothing is moved;
+#     already present in the target backlog is not copied again, but must match
+#     before its queued source closes; if any requested key matches neither
+#     backlog, nothing new is staged;
 #   - warning, after a successful move, when a moved key still owes a public
 #     relay reply bound to main/<key>, or when this home has an open public loop
 #     with nothing owed, because routing work out does not close that loop. The
@@ -45,7 +44,9 @@
 # support. Bootstrap requires a compatible build fleet-wide, so this works
 # everywhere; the `config/backlog-backend=manual` knob only governs firstmate's
 # own hand-editing of its own backlog, not this validated helper. Idempotent:
-# re-running converges. Atomic: on any move failure nothing moves.
+# re-running converges after interrupted delivery. Target receipt and source
+# closure are separate steps; a failure can leave the target written while the
+# source remains queued, so retry the handoff rather than dispatching that source.
 # Every move names its markdown backlog files explicitly and pins
 # `--backend markdown`, so a `.tasks.toml` in the caller's working directory
 # cannot redirect the move to another backend.
@@ -53,15 +54,24 @@
 # The live source backlog stays queued until the target read-back matches.
 # Staging copies that backlog and runs tasks-axi mv from the copy into the
 # destination, or into data/handoff/<destination-key>.outbox.md for a remote route.
-# The adjacent .route record pins host, code root, home and receiver wake id.
+# The destination key identifies the SSH alias plus target home path; the
+# adjacent .route record pins host, code root, home and receiver wake id.
+# Remote scratch and generation counters also include the source host and home,
+# so independent source homes do not share a transport generation.
 # A remote route then transfers that outbox and fm-backlog-receive.sh ingests it.
-# Receipt compares tasks-axi show --full and the item header before success.
+# Receipt compares id, title, full body (including prep links), and every
+# dependency edge and reason before success; target lifecycle fields may advance.
 # Only then does the source close with tasks-axi done --note "moved to <home>"
 # --no-prune. A failed or unknown remote write leaves the source queued.
 # An outbox from this command, or from an older move that already removed the
 # source row, remains the retry record until receipt is confirmed.
 # Resume closes a source row that is still queued and treats a missing source
 # row as that older already-removed shape.
+# Under the source backlog lock, closure rechecks the acknowledged fields and
+# refuses if an active source dependent lies outside the delivered set.
+# A legacy <secondmate-id>.outbox.md without a .route record is resolved through
+# its registry destination and migrated under the registry and destination locks;
+# it remains pending work that blocks non-forced retirement.
 # A present outbox is released after that confirmed receipt, independently of
 # the best-effort receiver wake. The wake remains separately tracked by one
 # pending-reply correlation and
@@ -72,8 +82,9 @@
 # requested-key batch; an unrelated handoff to that mate refuses until the
 # original batch is retried, so it cannot discard wake intent for work that
 # already moved. No two-phase journal exists.
-# Every newly durable backlog delivery attempts one marked wake to the receiving
-# endpoint. A local route moves directly into the destination backlog, and a
+# Every newly durable registered-secondmate delivery attempts one marked wake to
+# the receiving endpoint. Explicit peer routes skip receiver wakes.
+# A registered local route moves directly into the destination backlog, and a
 # missing or rejected local wake makes that command fail with the move intact so
 # rerunning the same handoff retries its prepared wake intent. After a durable
 # remote receipt, the outbox is released and the handoff succeeds regardless of
@@ -85,6 +96,8 @@
 # or undeletable stale marker is reported and ignored by later resumes and
 # handoffs, so wake-state cleanup neither suppresses a new wake nor fails a
 # completed remote handoff.
+# Completion notes identify local homes as "<name-or-id> (<resolved-home-path>)"
+# and remote homes as "<ssh-alias>:<home-path>"; retries recognize only that home.
 # Usage: fm-backlog-handoff.sh <secondmate-id> <item-key>...
 #        fm-backlog-handoff.sh --to <local-home> <item-key>...
 #        fm-backlog-handoff.sh --host <ssh-alias> --remote-root <abs> --remote-home <abs> <item-key>...
