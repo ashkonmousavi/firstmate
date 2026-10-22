@@ -330,9 +330,29 @@ case "${1:-}" in
     fi
     exit 0 ;;
   display-message)
-    case "$*" in *cursor_y*) printf '2\n'; exit 0 ;; esac
+    case "$*" in
+      *cursor_y*)
+        if [ "${FM_FAKE_COMPOSER_SHAPE:-}" = cursor ]; then printf '1\n'; else printf '2\n'; fi
+        exit 0 ;;
+      *pane_current_command*)
+        [ -z "${FM_FAKE_TMUX_AGENT:-}" ] || { printf '%s\n' "$FM_FAKE_TMUX_AGENT"; exit 0; }
+        ;;
+      *pane_tty*)
+        [ -z "${FM_FAKE_TMUX_AGENT:-}" ] || { printf '\n'; exit 0; }
+        ;;
+    esac
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    if [ "${FM_FAKE_COMPOSER_SHAPE:-}" = cursor ]; then
+      printf ' ▄▄▄▄▄▄▄▄\n'
+      if [ -s "$FM_FAKE_COMPOSER" ]; then
+        fold -w 40 "$FM_FAKE_COMPOSER" | awk 'NR == 1 { print "  → " $0 " ctrl+c to stop"; next } { print "    " $0 }'
+      else
+        printf '  →\n'
+      fi
+      printf '%s\n' ' ▀▀▀▀▀▀▀▀' '  Cursor Grok 4.5 High · 6.7%   Run Everything' '  ~/wt · main'
+      exit 0
+    fi
     rule=$(printf '─%.0s' $(seq 64))
     printf '● done\n%s\n' "$rule"
     if [ -s "$FM_FAKE_COMPOSER" ]; then
@@ -396,6 +416,85 @@ test_ring_submits_its_own_stuck_doorbell() {
     || fail "the retry Enter should submit the doorbell once:"$'\n'"$(cat "$log")"
   [ ! -s "$composer" ] || fail "a lost Enter left the doorbell unsubmitted"
   pass "inbox: the ring submits its own stuck doorbell, skips other pending text, and retries a lost Enter once on both paths"
+}
+
+# Cursor draws the doorbell inside its box and parks `ctrl+c to stop` on the
+# same row. That hint used to make the pending text look foreign, so the ring
+# skipped instead of pressing Enter. A foreign draft still skips, and the
+# draft is left untouched.
+test_ring_submits_own_doorbell_on_a_cursor_composer() {
+  local dir state rec doorbell log composer rc other
+  dir="$TMP_ROOT/ring-cursor"
+  state="$dir/state"
+  mkdir -p "$state"
+  make_composer_stub "$dir"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
+  log="$dir/send.log"; composer="$dir/composer"
+  ring() {
+    PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
+      FM_FAKE_COMPOSER_SHAPE=cursor \
+      inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1
+  }
+
+  : > "$log"; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a Cursor composer holding our own doorbell should be submitted, got rc $rc"
+  [ "$(cat "$log")" = "SUBMIT: $doorbell" ] \
+    || fail "the Cursor doorbell should be submitted once, not retyped:"$'\n'"$(cat "$log")"
+  [ ! -s "$composer" ] || fail "the Cursor doorbell was left in the composer"
+
+  other='a half-typed draft'
+  : > "$log"; printf '%s' "$other" > "$composer"
+  rc=0; ring || rc=$?
+  [ "$rc" = 1 ] || fail "foreign text on a Cursor composer should skip the ring, got rc $rc"
+  [ ! -s "$log" ] || fail "foreign Cursor text was submitted:"$'\n'"$(cat "$log")"
+  [ "$(cat "$composer")" = "$other" ] || fail "foreign Cursor text was changed: $(cat "$composer")"
+  pass "inbox: a Cursor composer holding our doorbell gets one Enter; foreign text is left alone"
+}
+
+# An idle mate whose composer already holds our doorbell must be allowed to
+# ring, and that ring presses Enter. Foreign pending text still refuses.
+test_mate_ring_submits_own_doorbell_and_skips_foreign_text() {
+  local dir state rec doorbell log composer rc safe
+  dir=$(setup_watch_case mate-doorbell)
+  make_composer_stub "$dir"
+  state="$dir/state"
+  fm_write_meta "$state/t1.meta" "window=sess:fm-t1" "kind=secondmate" "harness=claude" "backend=tmux"
+  "$ROOT/bin/fm-busy-event.sh" arm "$state" t1 >/dev/null \
+    || fail "could not arm the mate busy record"
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 idle --current-gen \
+    --source claude-hook --event stop >/dev/null \
+    || fail "could not mark the mate idle"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
+  log="$dir/send.log"; composer="$dir/composer"
+  : > "$log"; printf '%s' "$doorbell" > "$composer"
+  safe=$(PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_SEND_LOG="$log" \
+    FM_FAKE_COMPOSER="$composer" FM_FAKE_COMPOSER_SHAPE=cursor FM_FAKE_TMUX_AGENT=claude \
+    bash -c 'set +e; . "$1"; secondmate_idle_ring_safe sess:fm-t1; printf "%s" "$?"' _ "$WATCH")
+  [ "$safe" = 0 ] || fail "an idle mate holding our doorbell should be safe to ring, got $safe"
+  rc=0
+  PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
+    FM_FAKE_COMPOSER_SHAPE=cursor FM_FAKE_TMUX_AGENT=claude \
+    inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1 || rc=$?
+  [ "$rc" = 0 ] || fail "the mate ring should submit the doorbell, got rc $rc"
+  [ "$(grep -c '^SUBMIT:' "$log")" = 1 ] \
+    || fail "the mate doorbell should be submitted with one Enter:"$'\n'"$(cat "$log")"
+
+  : > "$log"; printf '%s' 'a half-typed draft' > "$composer"
+  safe=$(PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_SEND_LOG="$log" \
+    FM_FAKE_COMPOSER="$composer" FM_FAKE_COMPOSER_SHAPE=cursor FM_FAKE_TMUX_AGENT=claude \
+    bash -c 'set +e; . "$1"; secondmate_idle_ring_safe sess:fm-t1; printf "%s" "$?"' _ "$WATCH")
+  [ "$safe" = 1 ] || fail "an idle mate holding foreign text should refuse the ring, got $safe"
+  rc=0
+  PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
+    FM_FAKE_COMPOSER_SHAPE=cursor FM_FAKE_TMUX_AGENT=claude \
+    inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1 || rc=$?
+  [ "$rc" = 1 ] || fail "foreign mate text should skip the ring, got rc $rc"
+  [ ! -s "$log" ] || fail "foreign mate text was submitted:"$'\n'"$(cat "$log")"
+  [ "$(cat "$composer")" = 'a half-typed draft' ] || fail "foreign mate text was changed"
+  pass "mate: our own doorbell is submitted with one Enter; foreign pending text is not"
 }
 
 test_idempotent_write_dedups_exact_body() {
@@ -1131,13 +1230,15 @@ test_watcher_escalates_once_after_budget() {
 }
 
 test_watcher_dead_pane_escalates_once_without_ringing() {
-  local dir state out log pid rec
+  local dir state out log pid rec shell_capture
   dir=$(setup_watch_case dead-pane)
   state="$dir/state"; out="$dir/watch.out"; log="$dir/send.log"; : > "$log"
+  shell_capture="$dir/shell.capture"
+  printf 'bash-5.2$ \n' > "$shell_capture"
   rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
   age_path "$rec"
   watch_bg "$state" "$dir/fakebin" "$out" \
-    FM_SEND_LOG="$log" FM_FAKE_TMUX_CAPTURE="$(idle_capture "$dir")" \
+    FM_SEND_LOG="$log" FM_FAKE_TMUX_CAPTURE="$shell_capture" \
     FM_FAKE_TMUX_AGENT=zsh FM_TASK_INBOX_RING_MAX=99
   pid=$!
   wait_watcher_gone "$pid" \
@@ -1156,7 +1257,53 @@ test_watcher_dead_pane_escalates_once_without_ringing() {
   # poll rings the dead pane or queues a second wake.
   [ "$(inbox_lib "$state" fm_task_inbox_due_action "$state" t1)" = quiet ] \
     || fail "a dead pane already surfaced must be quiet on later polls"
-  pass "watcher: a positively dead pane is never typed into and surfaces exactly one stale wake"
+  PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_SEND_LOG="$log" \
+    FM_FAKE_TMUX_CAPTURE="$shell_capture" FM_FAKE_TMUX_AGENT=zsh \
+    FM_TASK_INBOX_GRACE_SECS=0 FM_TASK_INBOX_RING_MAX=99 \
+    bash -c '. "$1" && inbox_steer_check sess:fm-t1 t1' _ "$WATCH" > "$dir/check.out" 2>&1
+  [ ! -s "$log" ] || fail "a later check typed into the exited agent's shell:"$'\n'"$(cat "$log")"
+  [ "$(grep -cF 'unread firstmate instruction' "$state/.wake-queue" 2>/dev/null || true)" = 1 ] \
+    || fail "a later check rang or reported the exited agent again:"$'\n'"$(cat "$state/.wake-queue" 2>/dev/null)"
+  [ ! -e "$state/t1.inbox/.ring-state" ] || fail "a later check started the re-ring ladder"
+  pass "watcher: a pane that shows a shell and no agent is reported once and not re-rung"
+}
+
+# Every delivery attempt was a skip (the composer holds someone else's draft).
+# The skips still spend the ring budget, and the next check reports the
+# message once. The draft is never submitted.
+test_watcher_escalates_when_every_ring_is_a_skip() {
+  local dir state rec log composer draft check wakes
+  dir=$(setup_watch_case skip-budget)
+  make_composer_stub "$dir"
+  state="$dir/state"; log="$dir/send.log"; composer="$dir/composer"
+  draft='a half-typed draft'
+  : > "$log"; printf '%s' "$draft" > "$composer"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  age_path "$rec"
+  for check in 1 2; do
+    PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_SEND_LOG="$log" \
+      FM_FAKE_COMPOSER="$composer" FM_TASK_INBOX_GRACE_SECS=0 FM_TASK_INBOX_RING_MAX=2 \
+      bash -c '. "$1" && inbox_steer_check sess:fm-t1 t1' _ "$WATCH" > "$dir/check.out" 2>&1
+    [ ! -s "$state/.wake-queue" ] || fail "skip $check escalated before the budget was spent"
+    [ "$(cat "$composer")" = "$draft" ] || fail "skip $check changed the foreign draft"
+    [ ! -s "$log" ] || fail "skip $check submitted the foreign draft:"$'\n'"$(cat "$log")"
+  done
+  [ -f "$state/t1.inbox/.ring-state" ] || fail "skips did not spend ring budget"
+  PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_SEND_LOG="$log" \
+    FM_FAKE_COMPOSER="$composer" FM_TASK_INBOX_GRACE_SECS=0 FM_TASK_INBOX_RING_MAX=2 \
+    bash -c '. "$1" && inbox_steer_check sess:fm-t1 t1' _ "$WATCH" > "$dir/check.out" 2>&1
+  grep -qF 'unread firstmate instruction' "$state/.wake-queue" \
+    || fail "a budget spent entirely on skips did not escalate:"$'\n'"$(cat "$dir/check.out")"
+  wakes=$(grep -cF 'unread firstmate instruction' "$state/.wake-queue")
+  PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_SEND_LOG="$log" \
+    FM_FAKE_COMPOSER="$composer" FM_TASK_INBOX_GRACE_SECS=0 FM_TASK_INBOX_RING_MAX=2 \
+    bash -c '. "$1" && inbox_steer_check sess:fm-t1 t1' _ "$WATCH" > "$dir/check.out" 2>&1
+  [ "$(grep -cF 'unread firstmate instruction' "$state/.wake-queue")" = "$wakes" ] \
+    || fail "skip escalation repeated"
+  [ "$(cat "$composer")" = "$draft" ] || fail "escalation changed the foreign draft"
+  [ ! -s "$log" ] || fail "escalation submitted the foreign draft:"$'\n'"$(cat "$log")"
+  [ -f "$rec" ] || fail "escalation lost the unhandled instruction"
+  pass "watcher: a ring budget spent only on skips escalates once and never submits the draft"
 }
 
 test_watcher_dead_pane_ignores_stale_busy_state() {
@@ -1186,6 +1333,8 @@ test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
 test_ring_submits_its_own_stuck_doorbell
+test_ring_submits_own_doorbell_on_a_cursor_composer
+test_mate_ring_submits_own_doorbell_and_skips_foreign_text
 test_idempotent_write_dedups_exact_body
 test_idempotent_write_follows_concurrent_ack
 test_handled_mv_dedups_by_sequence
@@ -1226,5 +1375,6 @@ test_watcher_pays_fire_and_forget_retry_once
 test_watcher_holds_retry_while_the_worker_decides
 test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
+test_watcher_escalates_when_every_ring_is_a_skip
 test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_dead_pane_ignores_stale_busy_state

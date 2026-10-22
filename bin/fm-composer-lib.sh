@@ -716,9 +716,26 @@ fm_composer_classify_content() {  # <bordered> <content> [idle_re] [idle_case] [
   fm_composer_normalize_trim_var content
   plain_content=${5:-$2}
   fm_composer_normalize_trim_var plain_content
+  if [ "$styled" = 1 ] && fm_composer_leading_agent_glyph_var glyph "$plain_content" \
+     && [ "$glyph" = '→' ]; then
+    case "$plain_content" in
+      *'ctrl+c to stop')
+        plain_content=${plain_content%'ctrl+c to stop'}
+        fm_composer_normalize_trim_var plain_content
+        ;;
+    esac
+  fi
   if [ "$bordered" != 1 ] && [ -z "$content" ] && [ -n "$plain_content" ]; then
     if _fm_composer_is_prompt_glyph "$plain_content" "$FM_COMPOSER_AGENT_PROMPT_GLYPHS"; then
       printf 'empty'; return 0
+    fi
+    if [ "$styled" = 1 ] && fm_composer_leading_agent_glyph_var glyph "$plain_content" \
+       && [ "$glyph" = '→' ]; then
+      local plain_body=${plain_content#*"$glyph"}
+      fm_composer_normalize_trim_var plain_body
+      if fm_composer_idle_matches "$plain_body" "$idle_re" "$idle_case"; then
+        printf 'empty'; return 0
+      fi
     fi
     printf 'unknown'; return 0
   fi
@@ -1222,7 +1239,7 @@ _fm_composer_screen_row() {  # <n> <screen>
 # ghost-strip when styled, plain otherwise, normalize-trim, and strip one
 # matching pair of side border glyphs.
 _fm_composer_row_content() {  # <raw-row> <styled> -> content on stdout
-  local raw=$1 styled=$2 stripped
+  local raw=$1 styled=$2 stripped plain glyph=''
   if [ "$styled" = 1 ]; then
     stripped=$(printf '%s\n' "$raw" | fm_composer_strip_ghost)
   else
@@ -1236,6 +1253,14 @@ _fm_composer_row_content() {  # <raw-row> <styled> -> content on stdout
     '|'*'|') stripped=${stripped#|}; stripped=${stripped%|} ;;
   esac
   fm_composer_normalize_trim_var stripped
+  if [ "$styled" = 1 ] && [[ "$raw" == *'→'* ]]; then
+    plain=$(_fm_composer_row_content "$raw" 0)
+    if fm_composer_leading_agent_glyph_var glyph "$plain" && [ "$glyph" = '→' ] \
+       && [ "$(fm_composer_classify_content 0 "$stripped" \
+         "${FM_COMPOSER_IDLE_RE:-$FM_COMPOSER_IDLE_RE_DEFAULT}" insensitive "$plain")" = empty ]; then
+      stripped=$glyph
+    fi
+  fi
   printf '%s' "$stripped"
 }
 
@@ -1989,6 +2014,20 @@ EOF
     row=$((row + 1))
   done
   printf '%s\n' "$joined" | LC_ALL=C awk '{$1=$1; printf "%s", $0}'
+}
+
+# fm_composer_text_is_own_doorbell: 0 when <text> is exactly <line>.
+# Whitespace is ignored, so a wrapped composer row still matches. Cursor draws
+# `ctrl+c to stop` on the same composer row as the draft; that hint is not
+# part of the draft, and removing it is what lets an unsubmitted doorbell
+# match. Any other remaining text is a foreign draft and does not match.
+fm_composer_text_is_own_doorbell() {  # <text> <line>
+  local text=$1 line=$2 hint
+  hint=$(printf '%s' 'ctrl+c to stop' | tr -d '[:space:]')
+  text=$(printf '%s' "$text" | tr -d '[:space:]')
+  line=$(printf '%s' "$line" | tr -d '[:space:]')
+  text=${text//"$hint"/}
+  [ -n "$line" ] && [ "$text" = "$line" ]
 }
 
 # fm_composer_blocking_dialog: name a screen whose next Enter would answer it.

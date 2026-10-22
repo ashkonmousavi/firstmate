@@ -12,23 +12,24 @@
 # assumption already written into the stub, so per
 # .agents/skills/firstmate-coding-guidelines this is proven against every
 # INSTALLED verified harness: each is launched idle in an isolated tmux server,
-# steered through the REAL fm-send (durable record + doorbell), and must both
-# ACT on the instruction (create a named file) and ACKNOWLEDGE it (the mv into
-# handled/), failing loudly with the harness name and version.
+# exercised through REAL fm-send for a fresh record and through
+# fm_task_inbox_ring for a seeded, unsubmitted own-doorbell draft. Each case
+# must both ACT on the instruction (create a named file) and ACKNOWLEDGE it
+# (the mv into handled/), failing loudly with the harness name and version.
+# The pending case requires no action or acknowledgement before the ring and
+# has no later fresh-send retry that could mask a failed recovery.
 #
 # Run explicitly with FM_SEND_INBOX_LIVE_E2E=1. This test spends a small
-# number of real model tokens per installed harness (one short turn each) -
+# number of real model tokens per installed harness -
 # authorized by the harness-dependent-checks rule. An absent harness is
 # reported explicitly and skipped; a run that verified nothing fails rather
 # than passing vacuously. Restrict with
 # FM_SEND_INBOX_LIVE_HARNESSES="claude codex ..." when needed, and tune the
 # per-harness wait with FM_SEND_INBOX_LIVE_TIMEOUT (seconds, default 240).
+# Set FM_SEND_INBOX_LIVE_PENDING_ONLY=1 to run only pending-draft recovery.
 # Record the dated per-harness result in
 # docs/verification/runtime-backends.md ("Steering-inbox doorbell").
 #
-# Folder trust: harnesses launch with the repo root as cwd, which the
-# operator's machine has normally already trusted; a trust dialog is a real
-# unready state and correctly fails that harness's check.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -72,6 +73,7 @@ PATH="$SHIM_DIR:$PATH"
 . "$ROOT/bin/fm-tmux-lib.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-task-inbox-lib.sh"
+. "$ROOT/bin/fm-cursor-lib.sh"
 
 tmux -L "$SOCKET" new-session -d -s "$SESSION" -x 220 -y 50 -c "$ROOT"
 
@@ -82,15 +84,43 @@ harness_version() {  # <binary>
 # Launch <name> idle with its unattended-autonomy flags (the same posture
 # bin/fm-spawn.sh uses), so the doorbell-triggered shell actions need no
 # interactive approval.
-launch_cmd() {  # <name>
+launch_cmd() {  # <name> <home> <binary>
+  local home=${2:-} binary=${3:-} config
   case "$1" in
     claude) printf '%s' 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '\''{"feedbackDrafts":"off"}'\''' ;;
-    codex) printf '%s' 'codex --dangerously-bypass-approvals-and-sandbox --disable hooks' ;;
+    codex) printf '%s' 'codex -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox --disable hooks' ;;
     opencode) printf '%s' "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"}}' opencode" ;;
     pi|pi-signed) printf '%s' "$1" ;;
     grok) printf '%s' 'grok --always-approve' ;;
     kimi) printf '%s' 'kimi --auto' ;;
+    cursor) printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u GEMINI_CLI -u CURSOR_INVOKED_AS %q --trust --yolo' "$binary" ;;
     muse) printf '%s' 'MUSE_EXPERIMENTAL_FOREIGN_PERSONAL_CONTEXT_KILL=on muse --yolo' ;;
+    omp)
+      printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u GEMINI_CLI -u CURSOR_AGENT -u CURSOR_INVOKED_AS FM_OMP_HARNESS=omp OMP_SKIP_SETUP=1 omp --config %q --auto-approve --cwd %q' \
+        "$ROOT/.omp/fm-worker-overlay.yml" "$ROOT"
+      ;;
+    gemini) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS GEMINI_CLI_TRUST_WORKSPACE=true gemini -y' ;;
+    rovo)
+      config=$(jq -cn --arg lab "${home%/*}" '{toolPermissions:{allowedExternalPaths:[$lab]}}') || return 1
+      printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS rovo run --yolo --config-override %q' "$config"
+      ;;
+    agy) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS agy --dangerously-skip-permissions' ;;
+    devin)
+      bash "$ROOT/bin/fm-devin-config.sh" "$home/state" live-devin 0 || return 1
+      printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u NO_COLOR devin --permission-mode dangerous --respect-workspace-trust false --config %q' \
+        "$home/state/live-devin.devin-config.json"
+      ;;
+    commandcode) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u NO_COLOR COLORTERM=truecolor commandcode --yolo --trust --skip-onboarding --no-auto-update' ;;
+    polytoken)
+      . "$ROOT/bin/fm-polytoken-lib.sh"
+      fm_polytoken_write_config "$home/polytoken-config" || return 1
+      fm_polytoken_write_facet "$home" "$home/state/live-polytoken.inbox" || return 1
+      # Expand the environment variables in the launched shell.
+      # shellcheck disable=SC2016
+      printf '%s' 'for _fmv in $(env | cut -d= -f1 | grep -E '\''^(ORCA_|FM_)'\''); do case $_fmv in FM_TASK_ID|FM_TASK_INBOX|FM_ZELLIJ_SESSION) ;; *) unset $_fmv ;; esac; done; '
+      printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u GEMINI_CLI -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u AGENT polytoken --config-dir %q new --sessions-dir %q --facet firstmate-worker --facets-dir %q' \
+        "$home/polytoken-config" "$home/polytoken-sessions" "$home/.polytoken/facets"
+      ;;
     *) return 1 ;;
   esac
 }
@@ -136,16 +166,16 @@ wait_ready() {  # <window>
   return 2
 }
 
-check_harness_doorbell() {  # <name>
-  local name=$1 version cmd win="hx-$1" home task acted rec handled i ready_rc
-  version=$(harness_version "$name")
-  cmd=$(launch_cmd "$name") || { note "no launch recipe for $name"; return 0; }
-  home="$LAB/$name-home"
+check_harness_doorbell() {  # <name> <mode> <binary>
+  local name=$1 mode=$2 binary=$3 version cmd win="hx-$1-$2" home task acted rec handled i ready_rc line seeded=0
+  version=$(harness_version "$binary")
+  home="$LAB/$name-$mode-home"
   mkdir -p "$home/state"
+  cmd=$(launch_cmd "$name" "$home" "$binary") || { FAILED=1; printf 'not ok - %s (%s): launch recipe preparation failed\n' "$name" "$version" >&2; return 0; }
   task="live-$name"
-  acted="$LAB/acted-$name"
+  acted="$LAB/acted-$name-$mode"
   tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$ROOT" \
-    -- bash -lc "export FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" \
+    -- bash -lc "export FM_HOME=$(printf '%q' "$home") FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" \
     || { FAILED=1; printf 'not ok - %s (%s): could not launch in the isolated tmux server\n' "$name" "$version" >&2; return 0; }
   wait_ready "$win"; ready_rc=$?
   if [ "$ready_rc" -eq 1 ]; then
@@ -157,7 +187,15 @@ check_harness_doorbell() {  # <name>
   fi
   [ "$ready_rc" -eq 0 ] || note "$name ($version): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)"
   printf 'window=%s:%s\nkind=ship\nharness=%s\n' "$SESSION" "$win" "$name" > "$home/state/$task.meta"
-  if ! FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" \
+  if [ "$mode" = pending ]; then
+    rec=$(fm_task_inbox_write "$home/state" "$task" \
+      "Firstmate live check: run exactly this shell command now: touch $acted - then follow the mv instruction you were given for this message. Reply with one short line.") || {
+      FAILED=1
+      printf 'not ok - %s (%s): could not write the draft recovery record\n' "$name" "$version" >&2
+      tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
+      return 0
+    }
+  elif ! FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" \
     "Firstmate live check: run exactly this shell command now: touch $acted - then follow the mv instruction you were given for this message. Reply with one short line." \
     >/dev/null 2>&1; then
     FAILED=1
@@ -173,13 +211,48 @@ check_harness_doorbell() {  # <name>
     tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
     return 0
   }
+  if [ "$mode" = pending ]; then
+    line=$(fm_task_inbox_doorbell_line "$rec") || {
+      FAILED=1
+      printf 'not ok - %s (%s): could not construct the doorbell\n' "$name" "$version" >&2
+      tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
+      return 0
+    }
+    tmux -L "$SOCKET" send-keys -t "$SESSION:$win" -l -- "$line" || {
+      FAILED=1
+      printf 'not ok - %s (%s): could not seed the draft\n' "$name" "$version" >&2
+      tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
+      return 0
+    }
+    for i in 1 2 3 4 5; do
+      sleep 1
+      if [ "$(fm_tmux_composer_state "$SESSION:$win")" = pending ] \
+        && fm_task_inbox_composer_holds tmux "$SESSION:$win" "$line"; then
+        seeded=1
+        break
+      fi
+    done
+    if [ "$seeded" -ne 1 ] || [ -f "$handled" ] || [ -e "$acted" ]; then
+      FAILED=1
+      printf 'not ok - %s (%s): could not prove an unsubmitted own-doorbell draft\n' "$name" "$version" >&2
+      tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$win" >&2
+      tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
+      return 0
+    fi
+    if ! fm_task_inbox_ring tmux "$SESSION:$win" "$rec"; then
+      FAILED=1
+      printf 'not ok - %s (%s): production ring refused the pending own doorbell\n' "$name" "$version" >&2
+      tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
+      return 0
+    fi
+  fi
   i=0
   while [ "$i" -lt "$TIMEOUT" ]; do
     [ -f "$handled" ] && [ -e "$acted" ] && break
     # Halfway through, play the watcher's role once: re-ring an unacknowledged
     # message so a doorbell swallowed by a startup or update modal recovers
     # exactly as the production re-ring ladder recovers it.
-    if [ "$i" -eq $((TIMEOUT / 2)) ] && [ -f "$rec" ]; then
+    if [ "$mode" = fresh ] && [ "$i" -eq $((TIMEOUT / 2)) ] && [ -f "$rec" ]; then
       fm_task_inbox_ring tmux "$SESSION:$win" "$rec" || true
       note "$name ($version): re-rang the doorbell once (watcher's role) at ${i}s"
     fi
@@ -188,7 +261,7 @@ check_harness_doorbell() {  # <name>
   done
   if [ -f "$handled" ] && [ -e "$acted" ]; then
     CHECKED=$((CHECKED + 1))
-    pass "$name ($version): the doorbell reached a real worker, which acted and acked with the mv"
+    pass "$name ($version): $mode doorbell reached a real worker, which acted and acked with the mv"
   else
     FAILED=1
     printf 'not ok - %s (%s): doorbell not honored within %ss (acted=%s acked=%s)\n' \
@@ -199,10 +272,17 @@ check_harness_doorbell() {  # <name>
   tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
 }
 
-HARNESSES=${FM_SEND_INBOX_LIVE_HARNESSES:-'claude codex opencode pi grok kimi muse'}
+HARNESSES=${FM_SEND_INBOX_LIVE_HARNESSES:-'cursor claude codex opencode pi pi-signed grok kimi muse omp gemini rovo agy devin commandcode polytoken'}
 for h in $HARNESSES; do
-  if command -v "$h" >/dev/null 2>&1; then
-    check_harness_doorbell "$h"
+  case "$h" in
+    cursor) binary=$(fm_cursor_resolve_binary 2>/dev/null) || binary= ;;
+    *) binary=$(command -v "$h" 2>/dev/null) || binary= ;;
+  esac
+  if [ -n "$binary" ]; then
+    if [ "${FM_SEND_INBOX_LIVE_PENDING_ONLY:-0}" != 1 ]; then
+      check_harness_doorbell "$h" fresh "$binary"
+    fi
+    check_harness_doorbell "$h" pending "$binary"
   else
     note "harness absent, not verified here: $h"
   fi
@@ -216,4 +296,4 @@ if [ "$CHECKED" -eq 0 ]; then
   printf 'not ok - live steering-inbox doorbell guard verified nothing (no harness installed?)\n' >&2
   exit 1
 fi
-pass "live steering-inbox doorbell guard: $CHECKED harness(es) honored the doorbell contract"
+pass "live steering-inbox doorbell guard: $CHECKED cases honored the doorbell contract"
