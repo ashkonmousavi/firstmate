@@ -180,7 +180,7 @@ test_ship_handoff_records_head_and_scout_does_not() {
   home=$TMP_ROOT/handoff-home
   mkdir -p "$home/state"
   fm_write_meta "$home/state/ship-task.meta" "kind=ship" "mode=no-mistakes" "worktree=$repo"
-  "$APPEND" "$home/state/ship-task.status" done <<'EOF'
+  "$APPEND" "$home/state/ship-task.status" 'done' <<'EOF'
 implementation complete
 EOF
   line=$(cat "$home/state/ship-task.status")
@@ -189,7 +189,7 @@ EOF
     *) fail "a no-mistakes ship handoff was written without its head: $line" ;;
   esac
   fm_write_meta "$home/state/scout-task.meta" "kind=scout" "mode=no-mistakes" "worktree=$repo"
-  "$APPEND" "$home/state/scout-task.status" done <<'EOF'
+  "$APPEND" "$home/state/scout-task.status" 'done' <<'EOF'
 implementation complete
 EOF
   line=$(cat "$home/state/scout-task.status")
@@ -197,7 +197,7 @@ EOF
     *'[handoff='*) fail "a scout done was tagged as a ship handoff: $line" ;;
   esac
   fm_write_meta "$home/state/direct-task.meta" "kind=ship" "mode=direct-PR" "worktree=$repo"
-  "$APPEND" "$home/state/direct-task.status" done <<'EOF'
+  "$APPEND" "$home/state/direct-task.status" 'done' <<'EOF'
 implementation complete
 EOF
   line=$(cat "$home/state/direct-task.status")

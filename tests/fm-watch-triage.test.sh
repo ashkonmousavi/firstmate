@@ -8051,7 +8051,7 @@ SH
 test_nm_handoff_receipt_transitions() {
   local mode verdict
   for mode in attended away; do
-    for verdict in working done; do
+    for verdict in working 'done'; do
       nm_handoff_receipt_transition_case "$mode" "$verdict"
     done
   done
