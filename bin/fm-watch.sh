@@ -2643,13 +2643,9 @@ signal_files_actionable() {  # <status-file> ...
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
     record=''; needs_decision=0
-    if nm_handoff_snapshot "$task"; then
-      status_span_first_actionable_record "$NM_HANDOFF_STATUS" \
-        "$(fm_wake_signal_seen_size "$STATE" "$f")" record needs_decision
-      rc=$?
-    else
-      rc=2
-    fi
+    nm_handoff_classify_span "$task" \
+      "$(fm_wake_signal_seen_size "$STATE" "$f")" record needs_decision
+    rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
       # Could not classify this log. Surface it rather than absorbing it, and
@@ -2712,12 +2708,9 @@ heartbeat_scan_finds_actionable() {
     [ "$f" = "$exclude" ] && continue
     task=$(basename "$f"); task="${task%.status}"
     nm_handoff_absorb_stale_pane "$task" && continue
-    if nm_handoff_snapshot "$task"; then
-      record=$(status_span_first_actionable_record "$NM_HANDOFF_STATUS" "$(hb_surfaced_offset "$task")")
-      rc=$?
-    else
-      record=''; rc=2
-    fi
+    record=''
+    nm_handoff_classify_span "$task" "$(hb_surfaced_offset "$task")" record
+    rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
       sig=$(status_observed_signature "$f")

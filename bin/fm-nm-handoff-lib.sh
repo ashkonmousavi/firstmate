@@ -92,13 +92,21 @@ nm_handoff_snapshot_clear() {
 
 nm_handoff_snapshot() {
   local task=$1 source="$STATE/$1.status" size ident current
+  [ -f "$source" ] && [ -r "$source" ] && [ ! -L "$source" ] || return 1
+  # Ordinary logs need only the caller's unread span, never handoff history.
+  if [ -z "$(nm_handoff_head "$task")" ]; then
+    NM_HANDOFF_STATUS=$source
+    NM_HANDOFF_RAW_STATUS=$source
+    NM_HANDOFF_END=$(_fm_status_file_size "$source") || return 1
+    NM_HANDOFF_IDENT=$(_fm_open_decisions_file_ident "$source") || return 1
+    return 0
+  fi
   if [ -z "$NM_HANDOFF_SNAPSHOT_DIR" ]; then
     NM_HANDOFF_SNAPSHOT_DIR=$(mktemp -d "$STATE/.watch-snapshot.XXXXXX") || return 1
   fi
   NM_HANDOFF_STATUS="$NM_HANDOFF_SNAPSHOT_DIR/$task.status"
   NM_HANDOFF_RAW_STATUS="$NM_HANDOFF_STATUS.raw"
   if [ ! -f "$NM_HANDOFF_STATUS" ]; then
-    [ -f "$source" ] && [ -r "$source" ] && [ ! -L "$source" ] || return 1
     ident=$(_fm_open_decisions_file_ident "$source") || return 1
     size=$(_fm_status_file_size "$source") || return 1
     size=${size//[[:space:]]/}
@@ -115,6 +123,24 @@ nm_handoff_snapshot() {
     mv "$NM_HANDOFF_STATUS.tmp" "$NM_HANDOFF_STATUS" || return 1
   fi
   IFS=$'\t' read -r NM_HANDOFF_END NM_HANDOFF_IDENT < "$NM_HANDOFF_STATUS.endpoint"
+}
+
+# Classify the caller's unread span; snapshot only a handoff-capable log.
+# Return original-file endpoints even when classification used a filtered copy.
+nm_handoff_classify_span() {  # <task> <start> <record-var> [needs-decision-var]
+  local task=$1 start=$2 output=$3 needs_output=${4-} classified='' span_needs_decision=0 rc rest
+  nm_handoff_snapshot "$task" || return 2
+  status_span_first_actionable_record "$NM_HANDOFF_STATUS" "$start" classified span_needs_decision
+  rc=$?
+  [ "$rc" -ne 2 ] || return 2
+  if [ "$NM_HANDOFF_STATUS" = "$STATE/$task.status" ] && [ -n "$classified" ]; then
+    NM_HANDOFF_END=${classified%%$'\t'*}
+    rest=${classified#*$'\t'}
+    NM_HANDOFF_IDENT=${rest%%$'\t'*}
+  fi
+  printf -v "$output" '%s' "$classified"
+  [ -z "$needs_output" ] || printf -v "$needs_output" '%s' "$span_needs_decision"
+  return "$rc"
 }
 
 # clean when every captain-relevant line in the not-yet-surfaced span is an
@@ -201,6 +227,8 @@ nm_handoff_decide() {
   NM_HANDOFF_KEY=
   NM_HANDOFF_EPOCH=
   NM_HANDOFF_PAYLOAD=
+  head=$(nm_handoff_head "$task") || return 0
+  [ -n "$head" ] || return 0
   nm_handoff_snapshot "$task" || return 0
   status=$NM_HANDOFF_RAW_STATUS
   shape=$(nm_handoff_span_shape "$status" "$start" '')
@@ -208,8 +236,6 @@ nm_handoff_decide() {
     NM_HANDOFF_ACTION=absorb
     return 0
   fi
-  head=$(nm_handoff_head "$task") || return 0
-  [ -n "$head" ] || return 0
   decision=$(fm_nm_handoff_decision "$status" "$head") || return 0
   action=${decision%%|*}; decision=${decision#*|}
   NM_HANDOFF_KEY=${decision%%|*}; epochs=${decision#*|}
@@ -305,24 +331,23 @@ nm_handoff_publish() {
 }
 
 nm_handoff_daemon_span() {
-  local task=$1 state=$2 start=$3 output=$4 span='' tail rc=1 result
+  local task=$1 state=$2 STATE=$2 start=$3 output=$4 span='' tail rc=1 result=''
   if [ ! -e "$state/$task.status" ]; then
     [ ! -L "$state/$task.status" ] || return 2
     printf -v "$output" '%s' ''
     return 1
   fi
   nm_handoff_daemon_task "$task" "$state" "$start" || return 2
-  [ -f "$NM_HANDOFF_STATUS" ] || return 2
-  result="${NM_HANDOFF_END}"$'\t'"${NM_HANDOFF_IDENT}"
   if [ "$NM_HANDOFF_ACTION" != absorb ]; then
-    status_span_first_actionable_record "$NM_HANDOFF_STATUS" "$start" span
+    nm_handoff_classify_span "$task" "$start" span
     rc=$?
     [ "$rc" -ne 2 ] || return 2
     if [ "$rc" -eq 0 ]; then
       tail=${span#*$'\t'}; tail=${tail#*$'\t'}
-      result="${result}"$'\t'"${tail}"
+      result=$'\t'"${tail}"
     fi
   fi
+  result="${NM_HANDOFF_END}"$'\t'"${NM_HANDOFF_IDENT}${result:-}"
   printf -v "$output" '%s' "$result"
   return "$rc"
 }
