@@ -1,0 +1,4 @@
+error: invalid PR check request
+http://127.0.0.1:19443/example/repo/pull/7: exit=2
+error: invalid PR check request
+https://127.0.0.1:19443/example/repo/pulls/7: exit=2
