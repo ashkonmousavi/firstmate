@@ -1,0 +1,14 @@
+window=primary:fm-seat-keep
+endpoint_task_id=seat-keep
+worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/pool/.treehouse/project-0c2b72/1/project
+project=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/project
+harness=claude
+kind=ship
+mode=no-mistakes
+yolo=off
+branch=fm/seat-keep
+tasktmp=/tmp/fm-seat-keep
+model=sonnet
+effort=default
+busy_gen=g1792641908.787041.15294
+spawn_gen=s1792641909.782925.4377

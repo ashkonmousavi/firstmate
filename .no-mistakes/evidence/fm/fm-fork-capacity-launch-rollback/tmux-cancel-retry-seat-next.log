@@ -1,0 +1,2 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home
+deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/config/project-capacity) and 1 already hold a place (seat-keep); task seat-next was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up

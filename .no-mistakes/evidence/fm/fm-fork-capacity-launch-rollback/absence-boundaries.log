@@ -1,0 +1,17 @@
+Real tmux inventory through an inaccessible socket directory:
+error connecting to ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.deny/s (Permission denied)
+confirmed-gone result=1 (1 means retain)
+backend=herdr empty-target confirmed-gone=1
+backend=tmux empty-target confirmed-gone=1
+backend=zellij empty-target confirmed-gone=1
+backend=cmux empty-target confirmed-gone=1
+backend=paseo empty-target confirmed-gone=1
+backend=orca empty-target confirmed-gone=1
+backend=zellij unsupported-proof confirmed-gone=1
+backend=cmux unsupported-proof confirmed-gone=1
+backend=paseo unsupported-proof confirmed-gone=1
+backend=orca unsupported-proof confirmed-gone=1
+missing task-record confirmed-gone=1 (must retain)
+empty task-record confirmed-gone=1 (must retain)
+unknown task-record confirmed-gone=1 (must retain)
+link task-record confirmed-gone=1 (must retain)

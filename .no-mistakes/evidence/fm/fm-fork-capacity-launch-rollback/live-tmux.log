@@ -1,0 +1,68 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home
+ok: added seat-keep (ship) -> Queued
+task:
+  id: seat-keep
+  title: Disposable seat validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start seat-keep --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block seat-keep --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/data/backlog.md` to record a dependency
+ok: added seat-next (ship) -> Queued
+task:
+  id: seat-next
+  title: Disposable seat validation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start seat-next --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block seat-next --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/data/backlog.md` to record a dependency
+initial spawn exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home
+warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/data/seat-keep/launch-brief.md records no ship branch; defaulting to legacy branch fm/seat-keep
+error: task seat-keep's backlog item could not be moved to In flight (error: injected backlog write refusal), and failed-dispatch cleanup is incomplete; the provisional record may remain at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/state/seat-keep.meta - close out endpoint primary:fm-seat-keep and local copy ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/pool/.treehouse/project-0c2b72/1/project by hand, then remove the record and busy state before retrying
+bash @0 bash
+fm-seat-keep @1 claude
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home
+deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/config/project-capacity) and 1 already hold a place (seat-keep); task seat-next was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+retry seat-next exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home
+deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/config/project-capacity) and 1 already hold a place (seat-keep); task seat-keep was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+retry seat-keep exit=75
+retained record and busy generation unchanged after both refusals
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home
+warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/data/seat-keep/launch-brief.md records no ship branch; defaulting to legacy branch fm/seat-keep
+error: task seat-keep's backlog item could not be moved to In flight (error: injected backlog write refusal); its record was removed so no worker is left that the backlog does not own - close out endpoint primary:fm-seat-keep and local copy ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/pool/.treehouse/project-0c2b72/1/project by hand, then re-run the spawn
+warning: leaving task seat-keep's slot claim on ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/pool/.treehouse/project-0c2b72/1/project in place; the Treehouse project lock is no longer held, so the next spawn's claim replaces it
+stale same-id retry exit=1
+fresh absence read removed the old record and retired its generation
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home
+warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/data/seat-next/launch-brief.md records no ship branch; defaulting to legacy branch fm/seat-next
+spawned seat-next harness=claude kind=ship mode=no-mistakes yolo=off window=primary:fm-seat-next worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/pool/.treehouse/project-0c2b72/1/project
+next id admitted after proven absence

@@ -1,0 +1,3 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home
+warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/home/data/seat-next/launch-brief.md records no ship branch; defaulting to legacy branch fm/seat-next
+spawned seat-next harness=claude kind=ship mode=no-mistakes yolo=off window=primary:fm-seat-next worktree=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-claude/pool/.treehouse/project-0c2b72/1/project

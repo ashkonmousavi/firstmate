@@ -1,0 +1,3 @@
+ok - a failed backlog transition keeps the record while the window is still listed
+ok - a listed window keeps both the task record and its busy generation
+ok - dispatch reports when failed-transition rollback cannot remove its record

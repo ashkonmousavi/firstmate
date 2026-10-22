@@ -1,0 +1,5 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home
+warning: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/data/seat-keep/launch-brief.md records no ship branch; defaulting to legacy branch fm/seat-keep
+error: task seat-keep already has a record at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GVD18FTFEZEN8153998CKS/.test-runtime/live-cancel/home/state/seat-keep.meta that could not be safely removed; refusing to open another endpoint while that record remains
+uncapped same-id retry exit=1
+Record and generation unchanged; no extra endpoint created
