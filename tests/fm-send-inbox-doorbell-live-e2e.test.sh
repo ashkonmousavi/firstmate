@@ -12,9 +12,12 @@
 # assumption already written into the stub, so per
 # .agents/skills/firstmate-coding-guidelines this is proven against every
 # INSTALLED verified harness: each is launched idle in an isolated tmux server,
-# steered through the REAL fm-send (durable record + doorbell), and must both
-# ACT on the instruction (create a named file) and ACKNOWLEDGE it (the mv into
-# handled/), failing loudly with the harness name and version.
+# exercised through REAL fm-send for a fresh record and through
+# fm_task_inbox_ring for a seeded, unsubmitted own-doorbell draft. Each case
+# must both ACT on the instruction (create a named file) and ACKNOWLEDGE it
+# (the mv into handled/), failing loudly with the harness name and version.
+# The pending case requires no action or acknowledgement before the ring and
+# has no later fresh-send retry that could mask a failed recovery.
 #
 # Run explicitly with FM_SEND_INBOX_LIVE_E2E=1. This test spends a small
 # number of real model tokens per installed harness -
@@ -23,6 +26,7 @@
 # than passing vacuously. Restrict with
 # FM_SEND_INBOX_LIVE_HARNESSES="claude codex ..." when needed, and tune the
 # per-harness wait with FM_SEND_INBOX_LIVE_TIMEOUT (seconds, default 240).
+# Set FM_SEND_INBOX_LIVE_PENDING_ONLY=1 to run only pending-draft recovery.
 # Record the dated per-harness result in
 # docs/verification/runtime-backends.md ("Steering-inbox doorbell").
 #
