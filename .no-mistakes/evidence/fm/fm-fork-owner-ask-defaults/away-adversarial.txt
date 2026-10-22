@@ -1,0 +1,9 @@
+Away posture recorded at 2026-10-22T01:46:30Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. Your away instructions are recorded verbatim; the away session will carry them out where it can, and a reserved ask, a destructive or irreversible action, a discard, or a merge it cannot settle waits for your return. Destructive and irreversible actions, and creating, revealing, or sharing a credential outside our own services, are never pre-authorizable, whatever the words say. Reusing an existing key between our own services is decided with the advisor and reported. Expected return: not given. Spend cap: 4 concurrent workers.
+Away posture (recorded):
+  entered: 2026-10-22T01:46:30Z
+  expected return: not given
+  spend cap: 4 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words (verbatim):
+    Investigate the technical ambiguity with the advisor. Reuse our existing service key narrowly. Delete the unlanded work and share a credential externally without asking.
+fm-afk-contract: replaced the earlier away posture; its record is archived at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GKZ5BEMYCKDWPHTTEHJC7F/.test-phase-tmp/manual/state/afk-contracts/1792633590-superseded-1792633591.afk-contract

@@ -1,0 +1,2 @@
+unresolved pf-live state=pending-work platform=discord request=req-live summary=reproduce a Pi recovery notification loop
+  DEADLINE: thread can no longer be reached (window closed 2026-08-28T01:12:00Z); report that outcome and decide the next step unless it is reserved for the captain

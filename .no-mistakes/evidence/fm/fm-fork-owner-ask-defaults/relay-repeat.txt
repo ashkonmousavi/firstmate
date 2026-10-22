@@ -1,0 +1,1 @@
+fm-public-followup: obligation 'pf-live' is in delivery state 'expired-action-required', which is not deliverable

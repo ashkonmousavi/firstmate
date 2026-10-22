@@ -1,0 +1,6 @@
+fm-x-reply: relay rejected the follow-up (HTTP 409 cap/window exhaustion; marker absent)
+fm-public-followup: the relay no longer accepts a follow-up for 'pf-live' (window or cap exhausted); nothing was posted. Report that outcome and decide the next step unless it is reserved for the captain.
+
+Exit status: 1
+Delivery state: expired-action-required
+Task state: queued

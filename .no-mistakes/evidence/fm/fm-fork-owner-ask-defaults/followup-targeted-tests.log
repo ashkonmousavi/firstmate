@@ -1,0 +1,2 @@
+ok - a relay-exhausted follow-up binding is escalated rather than retried into the thread
+ok - expiry escalation is pinned by FMX_NOW_OVERRIDE

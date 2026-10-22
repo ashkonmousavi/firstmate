@@ -1,0 +1,6 @@
+[
+  {
+    "path": "/connector/followup",
+    "body": "{\"request_id\":\"req-live\",\"text\":\"Investigation complete.\"}\n"
+  }
+]

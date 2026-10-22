@@ -1,0 +1,7 @@
+Away posture recorded at 2026-10-22T01:46:30Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. No away instructions were recorded; the away session acts on standing authority only, and a reserved ask, a destructive or irreversible action, a discard, or a merge waits for your return. Destructive and irreversible actions, and creating, revealing, or sharing a credential outside our own services, are never pre-authorizable, whatever the words say. Reusing an existing key between our own services is decided with the advisor and reported. Expected return: not given. Spend cap: 4 concurrent workers.
+Away posture (recorded):
+  entered: 2026-10-22T01:46:30Z
+  expected return: not given
+  spend cap: 4 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words: (none)
