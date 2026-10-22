@@ -1,9 +1,0 @@
-HERDR_SESSION=fmteststatus--json
-HERDR_SESSION=fmteststatus--json--sessionfmtest
-HERDR_SESSION=fmtestworkspacelist--sessionfmtest
-HERDR_SESSION=fmtestworkspacecreate--cwd/proj--labelfirstmate--no-focus--sessionfmtest
-HERDR_SESSION=fmtesttablist--workspacew1--sessionfmtest
-HERDR_SESSION=fmtesttabcreate--workspacew1--cwd/proj--labelfm-busytest--no-focus--sessionfmtest
-HERDR_SESSION=fmtesttablist--workspacew1--sessionfmtest
-HERDR_SESSION=fmtestpanelist--workspacew1--sessionfmtest
-HERDR_SESSION=fmtestagentgetw1:p2--sessionfmtest

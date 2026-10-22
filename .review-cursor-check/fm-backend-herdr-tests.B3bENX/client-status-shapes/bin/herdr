@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-case "${FM_HERDR_STATUS_SHAPE:?}" in
-  legacy-equal) printf '{"client":{"version":"0.7.5","protocol":16},"server":{"running":true,"protocol":16}}\n' ;;
-  legacy-older) printf '{"client":{"version":"0.7.5","protocol":16},"server":{"running":true,"protocol":22}}\n' ;;
-  no-protocol)  printf '{"client":{"version":"0.7.1"},"server":{"running":true}}\n' ;;
-  stopped)      printf '{"client":{"version":"0.9.0","protocol":22},"server":{"running":false}}\n' ;;
-esac

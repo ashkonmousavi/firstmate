@@ -1,6 +1,0 @@
-pane get wCY:p2 --session fm-remote
-status --json --session fm-remote
-agent get wCY:p2 --session fm-remote
-status --json --session fm-remote
-pane process-info --pane wCY:p2 --session fm-remote
-status --json --session fm-remote

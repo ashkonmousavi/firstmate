@@ -1,1 +1,0 @@
-{"result":{"type":"pane_process_info","process_info":{"pane_id":"w2:p2","shell_pid":996533,"foreground_process_group_id":996533,"foreground_processes":[{"pid":99998,"name":"starship","argv":["/usr/local/bin/starship","prompt","--continuation"]},{"pid":996533,"name":"zsh","argv0":"zsh"}]}}}

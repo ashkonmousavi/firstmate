@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-case "$*" in
-  "-axo pid=,ppid=") printf '1 0\n997081 1\n' ;;
-  "-p 997081 -o stat=") printf 'Ss+\n' ;;
-  "-p 997081 -o comm=") printf -- '-zsh\n' ;;
-  *) exit 1 ;;
-esac

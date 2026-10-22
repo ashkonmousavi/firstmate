@@ -1039,74 +1039,78 @@ Pi 0.87.1 was installed but not verified: its configured model returned an accou
 
 ### Unsubmitted doorbell recovery
 
-On 2026-10-21, the guard exercised the installed harnesses on Linux x86_64 with tmux 3.4, using isolated worker directories inside the review worktree.
-The guard now launches each harness from the repository root while retaining private per-case inboxes and generated configuration.
-The recorded run above used the earlier per-case workspaces; its trust-dialog failures do not verify the current launch directory.
+The live guard launches each harness from the repository root with private per-case inboxes and generated configuration.
 Each harness has a fresh-send case through `fm-send.sh` and a pending-draft case through `fm_task_inbox_ring`.
 The pending case writes a durable record, types its doorbell without Enter, proves the composer is pending with exactly that line and neither action nor acknowledgement has occurred, then invokes the production ring once.
 Both cases require the instruction's named file to exist and the record to move into `handled/`; a successful send return alone cannot pass.
 The pending case has no later fresh-send retry that could mask a failed recovery.
 
-Exact commands:
+The verification inventory for the doorbell class is:
+
+| Invariant | Production occurrences and inspected axes | Executable regression and independent oracle |
+| --- | --- | --- |
+| A pending own-doorbell draft is submitted without replacing other input. | `fm_task_inbox_ring` and `fm_task_inbox_composer_holds` in `bin/fm-task-inbox-lib.sh`; mate authorization in `secondmate_idle_ring_safe` in `bin/fm-watch.sh`; styled tmux and Herdr reads and the plain-capture fallback; idle and busy workers, idle mates, wrapped drafts, foreign text, lost Enter and retry. | `tests/fm-task-inbox.test.sh`: `test_ring_submits_its_own_stuck_doorbell`, `test_ring_submits_own_doorbell_on_a_cursor_composer`, and `test_mate_ring_submits_own_doorbell_and_skips_foreign_text`; an own draft clears after Enter without a second text insertion, while a foreign draft receives no keys. The live guard additionally requires actual action and acknowledgement. |
+| Cursor's dim placeholder is empty content while real input stays pending and the stop token remains busy. | `fm_composer_classify_content` and `_fm_composer_row_content` in `bin/fm-composer-lib.sh`; positioned and cursorless styled classification, plain-capture uncertainty, selected-content extraction, and Herdr's independent rendered-busy read. | `tests/fm-composer-lib.test.sh`: `test_matrix_cursor_midturn_placeholder_and_input`; `tests/fm-backend-herdr.test.sh`: `test_composer_state_cursor_midturn_row_reads_empty` and `test_rendered_busy_state_reads_the_cursor_busy_token`; the captured dim row contains no draft, typed text including the doorbell survives extraction, and the stop token still reports busy. |
+| A due ladder ring spends its retry budget even when delivery is skipped. | `inbox_steer_check` in `bin/fm-watch.sh` and the shared due-action/ring-state functions in `bin/fm-task-inbox-lib.sh`; successful, skipped and failed delivery, acknowledgement, subsequent polls, and the separate remote-mate ladder. | `tests/fm-task-inbox.test.sh`: `test_watcher_escalates_when_every_ring_is_a_skip` and `test_watcher_escalates_once_after_budget`; the configured number of attempts produces one stale wake naming the durable record, with no submission of the foreign draft. |
+| An exited agent's unread record is reported once without ringing its shell. | The liveness check and `inbox_steer_escalate_unavailable` in `bin/fm-watch.sh`; dead versus missing/alive probes, stale busy state, repeat polls, escalation markers, and retained unread records. | `tests/fm-task-inbox.test.sh`: `test_watcher_dead_pane_escalates_once_without_ringing` and `test_watcher_dead_pane_ignores_stale_busy_state`; no keys or ring-state file, one home wake, retained record, and quiet subsequent polls. |
+| A positively dead agent outranks a stale working run, while terminal results remain authoritative. | The run-state boundary in `bin/fm-crew-state.sh`; tmux and Herdr positive-dead probes, alive/missing/unreadable targets, working versus terminal/parked runs, and the no-run fallback. Other backends retain their existing run-state behavior. | `tests/fm-crew-state.test.sh`: `test_dead_shell_overrides_stale_running_run_step`, `test_dead_shell_keeps_terminal_run_step`, `test_dead_window_still_reports_active_run_step`, and `test_dead_window_still_reports_terminal_run_step`; a remaining shell reports the agent gone, a completed run stays done, and a missing window alone does not discard a run result. |
+
+This inventory identifies current production boundaries and regression oracles; it does not claim that every axis has live coverage.
+The portable regressions use controlled transport fixtures and cannot substitute for the per-harness action-and-acknowledgement guard.
+No generic pipeline-prompt handoff is used as evidence that an agent submitted or handled a doorbell.
+
+Current harness refresh command:
 
 ```sh
-mkdir -p .review-doorbell-tmp
-TMPDIR="$PWD/.review-doorbell-tmp" FM_SEND_INBOX_LIVE_E2E=1 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh > .review-doorbell-tmp/results.log 2>&1
+ANTHROPIC_MODEL=sonnet FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_TIMEOUT=60 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
 ```
 
-The guard exited 1, with four passing cases and eight failures across six installed harnesses.
-Exact result lines, omitting pane captures and retry notes:
+On 2026-10-22, the command above ran from the current repository worktree on Linux with tmux 3.4.
+The 60-second action-and-acknowledgement limit was shorter than the guard's default 240 seconds; a timeout at this limit does not prove failure at the default limit.
+The guard exited 1 during Codex's pending case, before reaching Pi, Grok, Kimi or the absent-harness reporting loop.
+Current observed results are:
+
+| Harness | Version observed by this run | Fresh case | Pending own-doorbell case |
+| --- | --- | --- | --- |
+| Cursor | 2026.10.19-6bbf2c4 | Passed after the midpoint re-ring. | Draft precondition and production ring reached; no action or acknowledgement within 60 seconds. |
+| Claude | 2.1.308 (Claude Code), Sonnet selected through `ANTHROPIC_MODEL` | Passed. | Passed. |
+| Codex | codex-cli 0.160.0 before the fresh launch | No action or acknowledgement within 60 seconds; the pane showed its package updater. | Could not seed the draft because the window had exited; the executable was no longer available. |
+| Pi | Not observed in this refresh | Not reached. | Not reached. |
+| Grok | Not observed in this refresh | Not reached. | Not reached. |
+| Kimi | Not observed in this refresh | Not reached. | Not reached. |
+
+Exact result lines available before the guard exited:
 
 ```text
+# cursor (2026.10.19-6bbf2c4): re-rang the doorbell once (watcher's role) at 30s
 ok - cursor (2026.10.19-6bbf2c4): fresh doorbell reached a real worker, which acted and acked with the mv
-ok - cursor (2026.10.19-6bbf2c4): pending doorbell reached a real worker, which acted and acked with the mv
-not ok - claude (2.1.308 (Claude Code)): composer stayed visibly pending; the pane is not steerable
-not ok - claude (2.1.308 (Claude Code)): composer stayed visibly pending; the pane is not steerable
-not ok - codex (codex-cli 0.160.0): doorbell not honored within 240s (acted=no acked=no)
-ok - codex (codex-cli 0.160.0): pending doorbell reached a real worker, which acted and acked with the mv
-# harness absent, not verified here: opencode
-ok - pi (1.0.0): fresh doorbell reached a real worker, which acted and acked with the mv
-not ok - pi (1.0.0): could not prove an unsubmitted own-doorbell draft
-# harness absent, not verified here: pi-signed
-not ok - grok (grok 1.0.67 (2fe064390d07)): doorbell not honored within 240s (acted=no acked=no)
-not ok - grok (grok 1.0.67 (2fe064390d07) [stable]): doorbell not honored within 240s (acted=no acked=no)
-not ok - kimi (2.0.0): doorbell not honored within 240s (acted=no acked=no)
-not ok - kimi (2.0.0): could not prove an unsubmitted own-doorbell draft
-# harness absent, not verified here: muse
-# harness absent, not verified here: omp
-# harness absent, not verified here: gemini
-# harness absent, not verified here: rovo
-# harness absent, not verified here: agy
-# harness absent, not verified here: devin
-# harness absent, not verified here: commandcode
-# harness absent, not verified here: polytoken
-not ok - live steering-inbox doorbell guard found failures above
+not ok - cursor (2026.10.19-6bbf2c4): doorbell not honored within 60s (acted=no acked=no)
+ok - claude (2.1.308 (Claude Code)): fresh doorbell reached a real worker, which acted and acked with the mv
+ok - claude (2.1.308 (Claude Code)): pending doorbell reached a real worker, which acted and acked with the mv
+# codex (codex-cli 0.160.0): re-rang the doorbell once (watcher's role) at 30s
+not ok - codex (codex-cli 0.160.0): doorbell not honored within 60s (acted=no acked=no)
+# codex (): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)
+can't find window: hx-codex-pending
+not ok - codex (): could not seed the draft
 ```
 
-Cursor's fresh and pending cases passed, and Codex's pending case passed, proving real-worker action and acknowledgement after the seeded draft was submitted by the production ring.
-Codex's fresh case left two doorbell lines visible and neither acted nor acknowledged within its budget, so the fresh-send guarantee remains unverified for 0.160.0.
-Claude's two cases remained behind an external-import consent dialog.
-Pi's fresh case passed after the midpoint retry, but its pending case remained behind a folder-trust dialog and could not prove the draft precondition.
-Pi also displayed unrelated MCP startup warnings: Figma needed sign-in, and 21st could not resolve its `API_KEY_21ST` header variable.
-Grok displayed its weekly-limit screen and neither case acted or acknowledged within its budget.
-Kimi displayed a folder-trust dialog; its fresh case timed out and its pending case could not prove the draft precondition.
-No account, remembered trust, or user-level tool configuration was changed to obtain these results.
-The failed and absent surfaces are not verified by this run; refresh this guard before claiming a pass for them.
-
-The Cursor refresh from the repository directory on 2026-10-21 used the production executable resolver and passed both cases on Cursor 2026.10.19-6bbf2c4:
-
-```sh
-mkdir -p .review-cursor-check
-TMPDIR="$PWD/.review-cursor-check" FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=cursor bash tests/fm-send-inbox-doorbell-live-e2e.test.sh > .review-cursor-check/live.log 2>&1
-```
+A subsequent read-only `codex --version` returned:
 
 ```text
-ok - cursor (2026.10.19-6bbf2c4): fresh doorbell reached a real worker, which acted and acked with the mv
-ok - cursor (2026.10.19-6bbf2c4): pending doorbell reached a real worker, which acted and acked with the mv
-ok - live steering-inbox doorbell guard: 2 cases honored the doorbell contract
+/home/zcrew/.local/bin/codex: 3: exec: /home/zcrew/.npm-global/bin/codex: not found
 ```
 
-Only Cursor was refreshed in this run; the other harness results above remain the latest recorded observations for those surfaces.
+The fresh Codex pane displayed `Updating Codex via npm install -g @openai/codex` before the executable disappeared.
+No package repair, installation, account change, trust change or global configuration change was performed by the review commands.
+The startup updater was an unwanted effect of launching the harness; this refresh cannot claim that launch left system state unchanged.
+Further live verification requires an available Codex executable and a launch that suppresses its updater within the permitted workspace boundary.
+
+Before the run, `command -v` found Pi, Grok and Kimi on PATH in addition to Cursor, Claude and Codex.
+It found no OpenCode, Pi-signed, Muse, OMP, Gemini, Rovo, agy, Devin, Command Code or Polytoken executable.
+Those discovery results are availability observations, not live behavior proof.
+The earlier results from other directories do not verify the current launch directory.
+The live verification requirement remains open for Cursor pending recovery, both Codex cases, and both cases on Pi, Grok and Kimi.
+Scratch pane captures, generated fixtures and logs belong in PR evidence, outside the tracked source change.
 
 ## Waiting-worker command ceilings
 

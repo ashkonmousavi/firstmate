@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -u
-[ "${1:-}" = status ] || exit 3
-printf '{"client":{"version":"0.7.5","protocol":17},"server":{"running":false}}\n'
