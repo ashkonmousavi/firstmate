@@ -165,6 +165,7 @@ test_live_worker_is_steered_once() {
   write_label_json "$json" yes "$old"
   cat > "$TMP_ROOT/send.sh" <<SH
 #!/usr/bin/env bash
+printf 'steered lane\\n'
 printf 'CALLED\\n' >> "$log"
 printf '%s\\n' "\$2" >> "$log"
 SH
@@ -204,11 +205,13 @@ test_exited_worker_is_relaunched() {
   write_label_json "$TMP_ROOT/relaunch.json" yes "$old"
   cat > "$TMP_ROOT/send-relaunch.sh" <<SH
 #!/usr/bin/env bash
+printf 'steered lane\\n'
 printf 'CALLED\\n' >> "$send_log"
 SH
   cat > "$TMP_ROOT/relaunch.sh" <<SH
 #!/usr/bin/env bash
 [ "\$1" = lane ] && [ "\$2" = relaunch ] && [ "\$3" = --note ] && [ -n "\${4:-}" ] || exit 92
+printf 'relaunched lane\\n'
 printf '%s\\n' "\$4" >> "$relaunch_log"
 SH
   chmod +x "$TMP_ROOT/send-relaunch.sh" "$TMP_ROOT/relaunch.sh"
@@ -257,6 +260,38 @@ test_steered_worker_exit_recovers() {
   pass "a steered worker exiting before handling the inbox recovers"
 }
 
+test_action_failures_preserve_decision_protocol() {
+  local state decision action_posture
+  reset_lib
+  state="$TMP_ROOT/action-failure-state"
+  setup_task "$state"
+  cat > "$TMP_ROOT/action-failure.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'action status on stdout\n'
+printf 'action diagnostic on stderr\n' >&2
+exit 1
+SH
+  chmod +x "$TMP_ROOT/action-failure.sh"
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/action-failure.sh
+  fm_pr_conflict_posture() { printf '%s\n' "$action_posture"; }
+  for action_posture in live exited; do
+    if [ "$action_posture" = live ]; then
+      FM_PR_CONFLICT_SEND=$TMP_ROOT/action-failure.sh
+    else
+      FM_PR_CONFLICT_SEND=$TMP_ROOT/send-relaunch.sh
+    fi
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 conflict 2> "$state/diagnostics")
+    [ "$decision" = wake ] || fail "failed $action_posture recovery contaminated the wake decision: $decision"
+    grep -qx 'action status on stdout' "$state/diagnostics" \
+      || fail "action stdout was not preserved as diagnostics"
+    grep -qx 'action diagnostic on stderr' "$state/diagnostics" \
+      || fail "action stderr was lost"
+    [ ! -e "$state/lane.pr-conflict-episode" ] || fail "failed recovery suppressed a future attempt"
+  done
+  pass "failed steering and relaunch preserve decisions, diagnostics, and retryability"
+}
+
 test_watcher_conflict_recovery() {
   local home state mode pid i
   reset_lib
@@ -267,6 +302,7 @@ exit 1
 SH
   cat > "$TMP_ROOT/watch-send.sh" <<'SH'
 #!/usr/bin/env bash
+printf 'steered lane\n'
 exit 0
 SH
   cat > "$TMP_ROOT/watch-relaunch.sh" <<'SH'
@@ -274,6 +310,7 @@ SH
 [ "$1" = lane ] && [ "$2" = relaunch ] && [ "$3" = --note ] && [ -n "${4:-}" ] || exit 92
 mkdir "$FM_HOME/state/.control-lane.lock" || exit 93
 rmdir "$FM_HOME/state/.control-lane.lock" || exit 94
+printf 'relaunched lane\n'
 printf '%s\n' "$4" > "$FM_HOME/relaunched"
 SH
   chmod +x "$FAKEBIN/tmux" "$TMP_ROOT/watch-send.sh" "$TMP_ROOT/watch-relaunch.sh"
@@ -395,5 +432,6 @@ test_young_label_is_quiet
 test_live_worker_is_steered_once
 test_exited_worker_is_relaunched
 test_steered_worker_exit_recovers
+test_action_failures_preserve_decision_protocol
 test_watcher_conflict_recovery
 test_overlap_names_both_pull_requests

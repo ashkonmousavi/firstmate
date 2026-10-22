@@ -1688,7 +1688,7 @@ fm_pr_conflict_steer() {  # <state> <id> <url>
     send=$dir/fm-send.sh
   fi
   [ -n "$text" ] || return 1
-  "$send" "$id" "$text"
+  "$send" "$id" "$text" >&2
 }
 
 # FM_PR_CONFLICT_RELAUNCH, when set, is the command used instead of
@@ -1702,7 +1702,7 @@ fm_pr_conflict_relaunch() {  # <id> <url>
     cmd=$dir/fm-control.sh
   fi
   note=$(fm_pr_conflict_instruction "$url" "")
-  "$cmd" "$id" relaunch --note "$note"
+  "$cmd" "$id" relaunch --note "$note" >&2
 }
 
 # Print quiet when this observation needs no wake, or wake when supervision
