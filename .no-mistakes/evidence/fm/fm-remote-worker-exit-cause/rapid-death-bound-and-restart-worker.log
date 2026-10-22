@@ -1,0 +1,9 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-nvs4qy2w/root/bin/fm-remote-job-lib.sh: line 819: 1306965 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-nvs4qy2w/root/bin/fm-remote-job-worker.sh: line 1206: 1307111 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-nvs4qy2w/root/bin/fm-remote-job-worker.sh: line 1206: 1307297 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-nvs4qy2w/root/bin/fm-remote-job-worker.sh: line 1206: 1307703 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-nvs4qy2w/root/bin/fm-remote-job-worker.sh: line 1206: 1308194 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-nvs4qy2w/root/bin/fm-remote-job-worker.sh: line 1206: 1309361 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+remote-job-worker: readiness heartbeat process stopped
+Terminated
+Terminated

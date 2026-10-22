@@ -1,0 +1,52 @@
+[
+  {
+    "name": "baseline",
+    "killed_heartbeat": 1299679,
+    "original_owner": 1299489,
+    "result": "exit=125\nremote job worker stopped before this job completed",
+    "side_effect": "",
+    "owner": 1301983
+  },
+  {
+    "name": "heartbeat-loss-active-job",
+    "killed_heartbeat": 1302843,
+    "original_owner": 1302682,
+    "result": "exit=0\njob completed",
+    "side_effect": "completed exactly once",
+    "owner": 1302682
+  },
+  {
+    "name": "rapid-death-bound-and-restart",
+    "original_owner": 1306879,
+    "killed_heartbeats": [
+      1306965,
+      1307111,
+      1307297,
+      1307703,
+      1308194,
+      1309361
+    ],
+    "restarted_owner": 1311889,
+    "result": "exit=0\njob completed",
+    "side_effect": "completed exactly once",
+    "owner": 1311889
+  },
+  {
+    "name": "stable-heartbeat-resets-failure-budget",
+    "original_owner": 1314384,
+    "killed_heartbeats": [
+      1314646,
+      1314883,
+      1315089,
+      1316025,
+      1316837,
+      1318441,
+      1318657,
+      1318872
+    ],
+    "healthy_interval_seconds": 7,
+    "result": "exit=0\njob completed",
+    "side_effect": "completed exactly once",
+    "owner": 1314384
+  }
+]

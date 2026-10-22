@@ -1,0 +1,10 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-_ovx7d5a/root/bin/fm-remote-job-lib.sh: line 819: 1314646 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-_ovx7d5a/root/bin/fm-remote-job-worker.sh: line 1206: 1314883 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-_ovx7d5a/root/bin/fm-remote-job-worker.sh: line 1206: 1315089 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-_ovx7d5a/root/bin/fm-remote-job-worker.sh: line 1206: 1316025 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-_ovx7d5a/root/bin/fm-remote-job-worker.sh: line 1206: 1316837 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-_ovx7d5a/root/bin/fm-remote-job-worker.sh: line 1206: 1318441 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-_ovx7d5a/root/bin/fm-remote-job-worker.sh: line 1206: 1318657 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GMD1NHC865MTNQ7BNSH88E/.worker-live-_ovx7d5a/root/bin/fm-remote-job-worker.sh: line 1206: 1318872 Killed                  worker_heartbeat_loop "$account_home" "$owner"
+Terminated
+Terminated
