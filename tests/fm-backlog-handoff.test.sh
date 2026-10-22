@@ -1465,4 +1465,51 @@ test_target_body_mismatch_leaves_source_queued
 test_split_blocked_by_set_stays_queued
 test_peer_local_home_needs_no_secondmate_marker
 
+test_source_mutation_cannot_race_closure() {
+  local route home sub fakebin real_tasks
+  real_tasks=$(command -v tasks-axi)
+  for route in registered peer; do
+    home="$TMP_ROOT/closure-$route-main"
+    sub="$TMP_ROOT/closure-$route-sub"
+    setup_homes "$home" "$sub"
+    fakebin="$TMP_ROOT/closure-$route-bin"
+    mkdir -p "$fakebin"
+    cat > "$home/data/backlog.md" <<'EOF'
+## Queued
+- [ ] closure-item - original title (repo: alpha)
+  original body
+
+## Done
+EOF
+    cat > "$fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = done ]; then
+  if "$FM_REAL_TASKS" update closure-item --body 'concurrent replacement' \
+    --file "$FM_CLOSURE_SOURCE" --backend markdown > "$FM_CLOSURE_RESULT" 2>&1; then
+    touch "$FM_CLOSURE_MUTATED"
+  fi
+fi
+exec "$FM_REAL_TASKS" "$@"
+SH
+    chmod +x "$fakebin/tasks-axi"
+    local -a destination=(design)
+    [ "$route" != peer ] || destination=(--to "$sub")
+    PATH="$fakebin:$PATH" FM_REAL_TASKS="$real_tasks" \
+      FM_CLOSURE_SOURCE="$home/data/backlog.md" \
+      FM_CLOSURE_RESULT="$home/mutation.out" FM_CLOSURE_MUTATED="$home/mutated" \
+      FM_HOME="$home" "$ROOT/bin/fm-backlog-handoff.sh" "${destination[@]}" closure-item \
+      > "$home/handoff.out" 2>&1 || fail "$route closure failed: $(cat "$home/handoff.out")"
+    assert_absent "$home/mutated" "$route allowed a source update between comparison and closure"
+    assert_grep 'locked' "$home/mutation.out" "$route did not exclude the competing tasks-axi update"
+    assert_grep 'original body' "$sub/data/backlog.md" "$route lost the delivered body"
+    assert_grep 'original body' "$home/data/backlog.md" "$route lost the source body"
+    assert_grep 'moved to ' "$home/data/backlog.md" "$route did not close the matching source"
+    assert_no_grep '- [ ] closure-item' "$home/data/backlog.md" "$route left a matching source queued"
+    assert_absent "$home/data/backlog.md.lock" "$route leaked the source lock"
+  done
+  pass "registered and peer closure exclude concurrent tasks-axi source updates"
+}
+
+test_source_mutation_cannot_race_closure
+
 echo "ALL TESTS PASSED"

@@ -243,6 +243,45 @@ assert_no_grep '- [ ] ios-a' "$PARENT/data/backlog.md" "confirmed retry left ios
   || fail "receipt retry duplicated ios-b"
 pass "re-delivery after unknown completion converges without duplication"
 
+# The intent's receipt contract covers the source version, not merely its ID.
+# Changing any required field after staging must leave the entire source queued.
+for changed_field in title body prep edges reason; do
+  rm -f "$REMOTE/data/backlog.md"
+  original=$'- [ ] stale-anchor - blocker (repo: alpha)\n- [ ] stale-item - original title (repo: alpha) blocked-by: stale-anchor - waits\n  original body\n  prep: data/original.md'
+  write_backlog "$original"
+  if FM_FAKE_SSH_MODE=unreachable handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios stale-anchor stale-item \
+    > "$TMP_ROOT/stale-stage.out" 2>&1; then
+    fail "unreachable staging unexpectedly succeeded"
+  fi
+  updated=$original
+  case "$changed_field" in
+    title) updated=${original/original title/revised title} ;;
+    body) updated=${original/original body/revised body} ;;
+    prep) updated=${original/data\/original.md/data\/revised.md} ;;
+    edges) updated=${original/ blocked-by: stale-anchor - waits/} ;;
+    reason) updated=${original/- waits/- wait} ;;
+  esac
+  write_backlog "$updated"
+  cp "$PARENT/data/backlog.md" "$TMP_ROOT/stale-source.expected"
+  if [ "$changed_field" = body ]; then
+    retry_args=(--resume-pending)
+  else
+    retry_args=(ios stale-anchor stale-item)
+  fi
+  if handoff_env "$ROOT/bin/fm-backlog-handoff.sh" "${retry_args[@]}" \
+    > "$TMP_ROOT/stale-retry.out" 2>&1; then
+    fail "receipt of an older $changed_field closed the newer source"
+  fi
+  cmp -s "$PARENT/data/backlog.md" "$TMP_ROOT/stale-source.expected" \
+    || fail "$changed_field mismatch modified the queued source batch"
+  assert_grep 'original title' "$REMOTE/data/backlog.md" "stale retry never delivered its staged payload"
+  assert_grep 'original body' "$REMOTE/data/backlog.md" "stale retry changed the staged body"
+  assert_grep 'prep: data/original.md' "$REMOTE/data/backlog.md" "stale retry changed the staged prep link"
+  assert_present "$PARENT/data/handoff/ios.outbox.md" "mismatch discarded the retry record"
+  rm -f "$PARENT/data/handoff/ios.outbox.md"
+done
+pass "retained outboxes cannot close a newer title, body, prep link, or dependency"
+
 # A dropped transfer can leave a complete atomically published scratch file but
 # cannot apply half a backlog mutation. The next explicit recovery overwrites
 # that scratch and receives it normally.

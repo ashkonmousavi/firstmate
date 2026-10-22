@@ -422,29 +422,43 @@ item_header_line() { # <file> <id>
 # show --full is the read-back. The header compare keeps a blocked-by reason
 # that the summary deps line does not print.
 confirm_item_match() { # <id> <source-file> <dest-file>
-  local id=$1 src=$2 dst=$3 src_show dst_show src_header dst_header edges
+  local id=$1 src=$2 dst=$3 src_show dst_show src_header dst_header src_edges dst_edges
   src_show=$(show_task "$id" "$src") || return 1
   dst_show=$(show_task "$id" "$dst") || return 1
   [ "$src_show" = "$dst_show" ] || return 1
   printf '%s\n' "$dst_show" | grep -F '  state: queued' >/dev/null || return 1
   src_header=$(item_header_line "$src" "$id") || return 1
   dst_header=$(item_header_line "$dst" "$id") || return 1
-  edges=$(printf '%s\n' "$src_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
-  if [ -n "$edges" ]; then
-    printf '%s\n' "$dst_header" | grep -F -- "$edges" >/dev/null || return 1
-  fi
+  src_edges=$(printf '%s\n' "$src_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
+  dst_edges=$(printf '%s\n' "$dst_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
+  [ "$src_edges" = "$dst_edges" ]
 }
 
-close_source_moved() { # <label> <id>...
-  local label=$1 id section note
-  shift
+close_source_moved() (
+  local label=$1 acknowledged=$2 id section note token tmp=
+  local -a queued=()
+  shift 2
+  [ "$#" -gt 0 ] || return 0
+  token="$$:handoff:$(date +%s):1"
+  if ! (set -C; printf '%s\n' "$token" >"$MAIN_BACKLOG.lock") 2>/dev/null; then
+    echo "error: source backlog is locked; source was not closed" >&2
+    return 1
+  fi
+  trap '[ -z "$tmp" ] || rm -f -- "$tmp"; [ "$(cat "$MAIN_BACKLOG.lock" 2>/dev/null)" != "$token" ] || rm -f -- "$MAIN_BACKLOG.lock"' EXIT
+  trap 'exit 1' HUP INT TERM
+  [ -e "$MAIN_BACKLOG" ] || return 0
+  tmp=$(umask 077; mktemp "$DATA/.handoff-close.XXXXXX") || return 1
+  cp -p -- "$MAIN_BACKLOG" "$tmp" || return 1
   note="moved to $label"
   for id in "$@"; do
-    section=$(backlog_key_section "$MAIN_BACKLOG" "$id" 2>/dev/null || true)
+    section=$(backlog_key_section "$tmp" "$id" 2>/dev/null || true)
     case "$section" in
     '## Queued')
-      tasks-axi 'done' "$id" --note "$note" --no-prune --file "$MAIN_BACKLOG" --backend markdown >/dev/null \
-        || return 1
+      confirm_item_match "$id" "$tmp" "$acknowledged" || {
+        echo "error: delivered $id does not match the source; source left queued" >&2
+        return 1
+      }
+      queued+=("$id")
       ;;
     '## Done' | '') ;;
     *)
@@ -453,7 +467,12 @@ close_source_moved() { # <label> <id>...
       ;;
     esac
   done
-}
+  [ "${#queued[@]}" -gt 0 ] || return 0
+  for id in "${queued[@]}"; do
+    tasks-axi 'done' "$id" --note "$note" --no-prune --file "$tmp" --backend markdown >/dev/null || return 1
+  done
+  mv -f -- "$tmp" "$MAIN_BACKLOG"
+)
 
 source_has_move_note() { # <id> <label>
   local id=$1 label=$2 section
@@ -867,9 +886,9 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
     echo "error: handoff transfer to $id was unavailable or completion is unknown; outbox preserved at $outbox" >&2
     return 1
   fi
-  rm -f -- "$snapshot"
   if ! receive_out=$(fm_on_target fm-backlog-receive.sh \
     "$remote_rel" "$bytes" "$hash" "$generation" </dev/null 2>&1); then
+    rm -f -- "$snapshot"
     [ -z "$receive_out" ] || printf '%s\n' "$receive_out" >&2
     echo "error: handoff receipt by $id was unavailable or completion is unknown; outbox preserved at $outbox" >&2
     return 1
@@ -884,13 +903,15 @@ remote_deliver_outbox() { # <secondmate-id> <outbox-path>
       sub(/[ \t].*/, "", id)
       if (id != "") print id
     }
-  ' "$outbox")
+  ' "$snapshot")
   if [ "${#delivered_keys[@]}" -gt 0 ]; then
-    close_source_moved "$id" "${delivered_keys[@]}" || {
+    close_source_moved "$id" "$snapshot" "${delivered_keys[@]}" || {
+      rm -f -- "$snapshot"
       echo "error: remote backlog is durable at $id, but the source was not closed; outbox preserved at $outbox" >&2
       return 1
     }
   fi
+  rm -f -- "$snapshot"
   if [ "$SKIP_RECEIVER_WAKE" != 1 ]; then
     marker="$STATE/.backlog-handoff-$id.wake-pending"
     if [ "$RECEIVER_WAKE_IGNORE_ID" = "$id" ]; then
@@ -1140,15 +1161,6 @@ peer_local_handoff() { # <item-key>...
       return 1
     done < <(backlog_key_noncanonical_body_lines "$MAIN_BACKLOG" "$key")
   done
-  for key in ${already[@]+"${already[@]}"}; do
-    section=$(backlog_key_section "$MAIN_BACKLOG" "$key" 2>/dev/null || true)
-    if [ "$section" = '## Queued' ]; then
-      confirm_item_match "$key" "$MAIN_BACKLOG" "$dest" || {
-        echo "error: $key on the target does not match the source; source left queued" >&2
-        return 1
-      }
-    fi
-  done
   mkdir -p "$home/data"
   local created=0
   if [ ! -f "$dest" ]; then
@@ -1160,14 +1172,8 @@ peer_local_handoff() { # <item-key>...
       [ "$created" -eq 0 ] || rm -f -- "$dest"
       return 1
     fi
-    for key in "${to_move[@]}"; do
-      confirm_item_match "$key" "$MAIN_BACKLOG" "$dest" || {
-        echo "error: delivered $key did not match the source read-back; source left queued" >&2
-        return 1
-      }
-    done
   fi
-  close_source_moved "$label" "$@" || return 1
+  close_source_moved "$label" "$dest" "$@" || return 1
   echo "handed off $# item(s) to $label: $*"
   [ "${#already[@]}" -eq 0 ] || echo "  already present (skipped): ${already[*]}"
 }
@@ -1291,16 +1297,6 @@ if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi
 
-for key in ${ALREADY[@]+"${ALREADY[@]}"}; do
-  section=$(backlog_key_section "$MAIN_BACKLOG" "$key" 2>/dev/null || true)
-  if [ "$section" = '## Queued' ]; then
-    if ! confirm_item_match "$key" "$MAIN_BACKLOG" "$SUB_BACKLOG"; then
-      echo "error: $key on the target does not match the source; source left queued" >&2
-      exit 1
-    fi
-  fi
-done
-
 REQUESTED_BATCH=$(receiver_wake_batch_id "$@") || {
   echo "error: receiver wake batch identity could not be recorded; nothing was moved" >&2
   exit 1
@@ -1315,7 +1311,7 @@ if [ "${#TO_MOVE[@]}" -eq 0 ]; then
     exit 1
     ;;
   esac
-  close_source_moved "$ID" ${ALREADY[@]+"${ALREADY[@]}"} || exit 1
+  close_source_moved "$ID" "$SUB_BACKLOG" ${ALREADY[@]+"${ALREADY[@]}"} || exit 1
   echo "nothing to move: ${ALREADY[*]:-no keys} already present in $SUB_BACKLOG"
   wake_pending_secondmate_receiver "$ID" || exit 1
   exit 0
@@ -1383,13 +1379,7 @@ if ! stage_move_from_copy "$MAIN_BACKLOG" "$SUB_BACKLOG" "${TO_MOVE[@]}"; then
   echo "error: tasks-axi mv failed; nothing was moved." >&2
   exit 1
 fi
-for key in "${TO_MOVE[@]}"; do
-  if ! confirm_item_match "$key" "$MAIN_BACKLOG" "$SUB_BACKLOG"; then
-    echo "error: delivered $key did not match the source read-back; source left queued" >&2
-    exit 1
-  fi
-done
-close_source_moved "$ID" "${TO_MOVE[@]}" ${ALREADY[@]+"${ALREADY[@]}"} || {
+close_source_moved "$ID" "$SUB_BACKLOG" "${TO_MOVE[@]}" ${ALREADY[@]+"${ALREADY[@]}"} || {
   echo "error: delivered to $SUB_BACKLOG, but the source was not closed" >&2
   exit 1
 }
