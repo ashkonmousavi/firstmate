@@ -1,0 +1,14 @@
+--- Cursor Agent Debug Session 2026-10-22T06:34:57.914Z ---
+{"event":"debug-session-start","directory":"/home/zcrew/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.review-cursor-check/cursor-agent-logs-1001","logFile":"/home/zcrew/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.review-cursor-check/cursor-agent-logs-1001/session-2026-10-22T06-34-57-907Z-764197-1.log","pid":764197,"startTime":"2026-10-22T06:34:57.915Z"}
+[2026-10-22T06:34:57.916Z] ripgrep.configureSuccess {"ripgrepPath":"/home/zcrew/.local/share/cursor-agent/versions/2026.10.19-6bbf2c4/rg","ripgrepSource":"colocated"}
+Stack trace:
+    at J (/home/zcrew/.local/share/cursor-agent/versions/2026.10.19-6bbf2c4/index.js:414:5779)
+    at T (/home/zcrew/.local/share/cursor-agent/versions/2026.10.19-6bbf2c4/index.js:414:9667)
+    at /home/zcrew/.local/share/cursor-agent/versions/2026.10.19-6bbf2c4/index.js:414:11233
+[2026-10-22T06:34:57.918Z] sandbox.configureSuccess {"sandboxBinary":"/home/zcrew/.local/share/cursor-agent/versions/2026.10.19-6bbf2c4/cursorsandbox","sandboxSource":"colocated"}
+Stack trace:
+    at J (/home/zcrew/.local/share/cursor-agent/versions/2026.10.19-6bbf2c4/index.js:414:5779)
+    at P (/home/zcrew/.local/share/cursor-agent/versions/2026.10.19-6bbf2c4/index.js:414:9929)
+    at /home/zcrew/.local/share/cursor-agent/versions/2026.10.19-6bbf2c4/index.js:414:11237
+[2026-10-22T06:34:57.938Z] analytics.track {"eventName":"cli.launch"}
+[2026-10-22T06:34:58.068Z] statsig.setupLazyInit {"endpoint":"https://api2.cursor.sh"}

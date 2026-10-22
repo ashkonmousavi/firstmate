@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "$FM_FAKE_MOVER_LOG"
+calls=$(wc -l < "$FM_FAKE_MOVER_LOG" | tr -d ' ')
+if [ "$calls" -ge 2 ] && [ -f "${FM_FAKE_MOVER_RESPONSE_2:-}" ]; then
+  cat "$FM_FAKE_MOVER_RESPONSE_2"
+  exit 0
+fi
+if [ -f "$FM_FAKE_MOVER_RESPONSE" ]; then
+  cat "$FM_FAKE_MOVER_RESPONSE"
+  exit 0
+fi
+exit 9

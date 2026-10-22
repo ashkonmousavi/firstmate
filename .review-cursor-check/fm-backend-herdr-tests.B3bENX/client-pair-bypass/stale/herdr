@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${FM_HERDR_PAIR_DIR:?}/stale.log"
+case "${1:-} ${2:-}" in
+  "status --json")
+    printf '{"client":{"version":"0.8.2","channel":"stable","protocol":20},"server":{"status":"running","running":true,"version":"0.9.0","protocol":22,"compatible":false,"session":"fm-remote","restart_needed":true}}\n'
+    exit 0 ;;
+esac
+printf '{"id":"cli:%s:%s","error":{"code":"protocol_mismatch","message":"client protocol 20 is older than server protocol 22; upgrade the Herdr client before using this command"}}\n' "${1:-}" "${2:-}" >&2
+exit 1

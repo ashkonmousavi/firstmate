@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -u
+[ "${1:-}" = status ] || exit 3
+exit 4

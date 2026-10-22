@@ -1,0 +1,4 @@
+fmtest pane get w2:p2
+fmtest terminal title clear
+fmtest pane close w2:p2
+fmtest pane get w2:p2

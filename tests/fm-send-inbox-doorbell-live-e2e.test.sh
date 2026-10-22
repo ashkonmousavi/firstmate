@@ -69,6 +69,7 @@ PATH="$SHIM_DIR:$PATH"
 . "$ROOT/bin/fm-tmux-lib.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-task-inbox-lib.sh"
+. "$ROOT/bin/fm-cursor-lib.sh"
 
 tmux -L "$SOCKET" new-session -d -s "$SESSION" -x 220 -y 50 -c "$ROOT"
 
@@ -79,8 +80,8 @@ harness_version() {  # <binary>
 # Launch <name> idle with its unattended-autonomy flags (the same posture
 # bin/fm-spawn.sh uses), so the doorbell-triggered shell actions need no
 # interactive approval.
-launch_cmd() {  # <name> <home>
-  local home=${2:-} config
+launch_cmd() {  # <name> <home> <binary>
+  local home=${2:-} binary=${3:-} config
   case "$1" in
     claude) printf '%s' 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '\''{"feedbackDrafts":"off"}'\''' ;;
     codex) printf '%s' 'codex --dangerously-bypass-approvals-and-sandbox --disable hooks' ;;
@@ -88,11 +89,11 @@ launch_cmd() {  # <name> <home>
     pi|pi-signed) printf '%s' "$1" ;;
     grok) printf '%s' 'grok --always-approve' ;;
     kimi) printf '%s' 'kimi --auto' ;;
-    cursor) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u GEMINI_CLI -u CURSOR_INVOKED_AS cursor-agent --trust --yolo' ;;
+    cursor) printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u GEMINI_CLI -u CURSOR_INVOKED_AS %q --trust --yolo' "$binary" ;;
     muse) printf '%s' 'MUSE_EXPERIMENTAL_FOREIGN_PERSONAL_CONTEXT_KILL=on muse --yolo' ;;
     omp)
       printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u GEMINI_CLI -u CURSOR_AGENT -u CURSOR_INVOKED_AS FM_OMP_HARNESS=omp OMP_SKIP_SETUP=1 omp --config %q --auto-approve --cwd %q' \
-        "$ROOT/.omp/fm-worker-overlay.yml" "$home/workspace"
+        "$ROOT/.omp/fm-worker-overlay.yml" "$ROOT"
       ;;
     gemini) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS GEMINI_CLI_TRUST_WORKSPACE=true gemini -y' ;;
     rovo)
@@ -109,10 +110,10 @@ launch_cmd() {  # <name> <home>
     polytoken)
       . "$ROOT/bin/fm-polytoken-lib.sh"
       fm_polytoken_write_config "$home/polytoken-config" || return 1
-      fm_polytoken_write_facet "$home/workspace" "$home/state/live-polytoken.inbox" || return 1
+      fm_polytoken_write_facet "$home" "$home/state/live-polytoken.inbox" || return 1
       printf '%s' 'for _fmv in $(env | cut -d= -f1 | grep -E '\''^(ORCA_|FM_)'\''); do case $_fmv in FM_TASK_ID|FM_TASK_INBOX|FM_ZELLIJ_SESSION) ;; *) unset $_fmv ;; esac; done; '
       printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u GEMINI_CLI -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u AGENT polytoken --config-dir %q new --sessions-dir %q --facet firstmate-worker --facets-dir %q' \
-        "$home/polytoken-config" "$home/polytoken-sessions" "$home/workspace/.polytoken/facets"
+        "$home/polytoken-config" "$home/polytoken-sessions" "$home/.polytoken/facets"
       ;;
     *) return 1 ;;
   esac
@@ -159,17 +160,15 @@ wait_ready() {  # <window>
   return 2
 }
 
-check_harness_doorbell() {  # <name> <mode>
-  local name=$1 mode=$2 version cmd win="hx-$1-$2" home task acted rec handled i ready_rc line seeded=0 binary
-  binary=$name
-  [ "$name" != cursor ] || binary=cursor-agent
+check_harness_doorbell() {  # <name> <mode> <binary>
+  local name=$1 mode=$2 binary=$3 version cmd win="hx-$1-$2" home task acted rec handled i ready_rc line seeded=0
   version=$(harness_version "$binary")
   home="$LAB/$name-$mode-home"
-  mkdir -p "$home/state" "$home/workspace"
-  cmd=$(launch_cmd "$name" "$home") || { FAILED=1; printf 'not ok - %s (%s): launch recipe preparation failed\n' "$name" "$version" >&2; return 0; }
+  mkdir -p "$home/state"
+  cmd=$(launch_cmd "$name" "$home" "$binary") || { FAILED=1; printf 'not ok - %s (%s): launch recipe preparation failed\n' "$name" "$version" >&2; return 0; }
   task="live-$name"
   acted="$LAB/acted-$name-$mode"
-  tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$home/workspace" \
+  tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$ROOT" \
     -- bash -lc "export FM_HOME=$(printf '%q' "$home") FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" \
     || { FAILED=1; printf 'not ok - %s (%s): could not launch in the isolated tmux server\n' "$name" "$version" >&2; return 0; }
   wait_ready "$win"; ready_rc=$?
@@ -258,11 +257,13 @@ check_harness_doorbell() {  # <name> <mode>
 
 HARNESSES=${FM_SEND_INBOX_LIVE_HARNESSES:-'cursor claude codex opencode pi pi-signed grok kimi muse omp gemini rovo agy devin commandcode polytoken'}
 for h in $HARNESSES; do
-  binary=$h
-  [ "$h" != cursor ] || binary=cursor-agent
-  if command -v "$binary" >/dev/null 2>&1; then
-    check_harness_doorbell "$h" fresh
-    check_harness_doorbell "$h" pending
+  case "$h" in
+    cursor) binary=$(fm_cursor_resolve_binary 2>/dev/null) || binary= ;;
+    *) binary=$(command -v "$h" 2>/dev/null) || binary= ;;
+  esac
+  if [ -n "$binary" ]; then
+    check_harness_doorbell "$h" fresh "$binary"
+    check_harness_doorbell "$h" pending "$binary"
   else
     note "harness absent, not verified here: $h"
   fi

@@ -1,0 +1,6 @@
+HERDR_SESSION=fmteststatus--json
+HERDR_SESSION=fmteststatus--json--sessionfmtest
+HERDR_SESSION=fmtestserver--sessionfmtest
+HERDR_SESSION=fmteststatus--json--sessionfmtest
+HERDR_SESSION=fmtestworkspacelist--sessionfmtest
+HERDR_SESSION=fmtestworkspacecreate--cwd/tmp--labelfirstmate--no-focus--sessionfmtest

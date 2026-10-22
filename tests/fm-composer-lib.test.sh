@@ -444,6 +444,37 @@ test_matrix_cursor_reverse_video_placeholder_remnant() {
   pass "matrix: cursor's reverse-video placeholder remnant reads empty; real typed text stays pending"
 }
 
+test_matrix_cursor_midturn_placeholder_and_input() {
+  local row screen plain caps text typed held out
+  row=$(cat "$ROOT/tests/fixtures/cursor-midturn-row.ansi")
+  screen=$'transcript\n ▄▄▄▄▄▄▄▄\n'"$row"$'\n ▀▀▀▀▀▀▀▀'
+  assert_screen "cursor mid-turn on tmux" empty "$CAPS_TMUX" "$screen" 2 cursor
+  for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID"; do
+    assert_screen "cursor mid-turn without cursor coordinates" empty "$caps" "$screen"
+    held=$(fm_composer_extract_selected_content "$caps" "$screen")
+    [ -z "$held" ] || fail "cursor's placeholder must extract no draft, got '$held'"
+  done
+  printf '%s' "$screen" | fm_busy_lines_match cursor || fail "cursor's stop token must still read busy"
+  plain=$(printf '%s' "$screen" | fm_composer_strip_ansi)
+  assert_screen "cursor plain capture cannot prove placeholder styling" unknown "$CAPS_PLAIN" "$plain"
+  out=$(fm_composer_classify_content 1 '→ Add a follow-up ctrl+c to stop' \
+    "$FM_COMPOSER_IDLE_RE_DEFAULT" insensitive '→ Add a follow-up ctrl+c to stop' 1 0)
+  [ "$out" = pending ] || fail "an unstyled container must retain the literal stop-token input, got '$out'"
+  row="${ESC}[2m→ Add a follow-up                   ctrl+c to stop${ESC}[0m"
+  assert_screen "cursor fully dim placeholder" empty "$CAPS_STYLED" $'transcript\n'"$row"
+  screen=$'transcript\n'"$row"$'\n  continued draft'
+  assert_screen "cursor real continuation stays pending" pending "$CAPS_TMUX" "$screen" 2 cursor
+  for text in 'please continue' 'Add a follow-up' ': Firstmate instruction waiting: read your inbox'; do
+    typed="${ESC}[2m→ ${ESC}[0m$text${ESC}[2m                   ctrl+c to stop${ESC}[0m"
+    screen=$'transcript\n ▄▄▄▄▄▄▄▄\n'"$typed"$'\n ▀▀▀▀▀▀▀▀'
+    assert_screen "cursor actual input stays pending" pending "$CAPS_TMUX" "$screen" 2 cursor
+    assert_screen "cursor actual input without cursor stays pending" pending "$CAPS_STYLED" "$screen"
+    held=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$screen")
+    [ "$held" = "$text" ] || fail "cursor's actual draft must survive extraction, got '$held'"
+  done
+  pass "cursor's dim mid-turn placeholder is empty, actual drafts stay pending, and the stop token stays busy"
+}
+
 test_matrix_herdr_halfblock_rule_bounds_bare_wrap() {
   # Herdr draws a composer's rules with half-block glyphs (▄ above, ▀ below)
   # rather than the box-drawing family. Without treating those as edges, a bare
@@ -1361,6 +1392,7 @@ test_composer_footer_zone_claude_slash_popup
 test_matrix_codex_dim_hint_row
 test_matrix_muse_truecolor_glyph_survives_signal_loss
 test_matrix_cursor_reverse_video_placeholder_remnant
+test_matrix_cursor_midturn_placeholder_and_input
 test_matrix_herdr_halfblock_rule_bounds_bare_wrap
 test_matrix_omp_status_row_bounds_bare_composer
 test_matrix_codex_idle_starfield_furniture

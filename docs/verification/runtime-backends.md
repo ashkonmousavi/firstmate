@@ -1040,6 +1040,8 @@ Pi 0.87.1 was installed but not verified: its configured model returned an accou
 ### Unsubmitted doorbell recovery
 
 On 2026-10-21, the guard exercised the installed harnesses on Linux x86_64 with tmux 3.4, using isolated worker directories inside the review worktree.
+The guard now launches each harness from the repository root while retaining private per-case inboxes and generated configuration.
+The recorded run above used the earlier per-case workspaces; its trust-dialog failures do not verify the current launch directory.
 Each harness has a fresh-send case through `fm-send.sh` and a pending-draft case through `fm_task_inbox_ring`.
 The pending case writes a durable record, types its doorbell without Enter, proves the composer is pending with exactly that line and neither action nor acknowledgement has occurred, then invokes the production ring once.
 Both cases require the instruction's named file to exist and the record to move into `handled/`; a successful send return alone cannot pass.
@@ -1090,6 +1092,21 @@ Grok displayed its weekly-limit screen and neither case acted or acknowledged wi
 Kimi displayed a folder-trust dialog; its fresh case timed out and its pending case could not prove the draft precondition.
 No account, remembered trust, or user-level tool configuration was changed to obtain these results.
 The failed and absent surfaces are not verified by this run; refresh this guard before claiming a pass for them.
+
+The Cursor refresh from the repository directory on 2026-10-21 used the production executable resolver and passed both cases on Cursor 2026.10.19-6bbf2c4:
+
+```sh
+mkdir -p .review-cursor-check
+TMPDIR="$PWD/.review-cursor-check" FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=cursor bash tests/fm-send-inbox-doorbell-live-e2e.test.sh > .review-cursor-check/live.log 2>&1
+```
+
+```text
+ok - cursor (2026.10.19-6bbf2c4): fresh doorbell reached a real worker, which acted and acked with the mv
+ok - cursor (2026.10.19-6bbf2c4): pending doorbell reached a real worker, which acted and acked with the mv
+ok - live steering-inbox doorbell guard: 2 cases honored the doorbell contract
+```
+
+Only Cursor was refreshed in this run; the other harness results above remain the latest recorded observations for those surfaces.
 
 ## Waiting-worker command ceilings
 
@@ -2390,6 +2407,8 @@ The glyph and the placeholder tail are dim (SGR 2), but the cell under the termi
 Reverse video is neither dim nor a dark foreground, so ghost stripping leaves a lone `P` and an idle composer read `pending` before the fix.
 After teaching the shared classifier the glyph, both placeholders, and the plain-row remnant rule, the same captures read `empty` on the styled cursorless backends, while real typed text - including text typed to exactly match the placeholder - still read `pending`.
 An unstyled capture has no ghost-strip proof and correctly stays `unknown`.
+The dim mid-turn `→ Add a follow-up` placeholder with the same-row `ctrl+c to stop` hint is also empty composer content; the stop token independently remains a busy signal.
+`tests/fixtures/cursor-midturn-row.ansi` and the Cursor cases in `tests/fm-composer-lib.test.sh` pin that distinction, including real input that matches the placeholder and real input wrapped beneath it.
 
 #### tmux composer verdict, corrected 2026-08-13
 

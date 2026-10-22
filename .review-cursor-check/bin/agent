@@ -1,0 +1,2 @@
+#!/bin/bash
+case "$1" in --help) printf "Start the Cursor Agent\n" ;; --version) printf "alias-version\n" ;; *) printf "%s\n" "$0" "$@" ;; esac

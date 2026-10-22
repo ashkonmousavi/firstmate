@@ -1,0 +1,1 @@
+warning: herdr version 0.7.5 (protocol 17) is older than the 0.8.0 floor for presentation spaces, where projected cleanup can steal the active workspace; using the ordinary flat layout instead. Upgrade herdr to 0.8.0 or newer (herdr update) to restore the projection, or write "on" into config/herdr-presentation-spaces to force it on this release.

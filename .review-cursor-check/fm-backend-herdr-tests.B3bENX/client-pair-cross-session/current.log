@@ -1,0 +1,3 @@
+status --json --session modern
+pane get w1:p1 --session modern
+pane get w1:p1 --session modern

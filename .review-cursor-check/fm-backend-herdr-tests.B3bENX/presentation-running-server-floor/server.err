@@ -1,0 +1,1 @@
+warning: the selected herdr release could not be read, so the 0.8.0 floor for presentation spaces cannot be verified; using the ordinary flat layout instead. Upgrade herdr to 0.8.0 or newer (herdr update) to restore the projection, or write "on" into config/herdr-presentation-spaces to force it on this release.

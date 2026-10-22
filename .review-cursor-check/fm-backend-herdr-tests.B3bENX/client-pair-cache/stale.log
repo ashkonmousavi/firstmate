@@ -1,0 +1,2 @@
+pane get wCY:p2 --session fm-remote
+status --json --session fm-remote

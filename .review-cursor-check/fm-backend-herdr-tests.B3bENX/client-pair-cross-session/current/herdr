@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+session=${!#}
+printf '%s\n' "$*" >> "${FM_HERDR_PAIR_DIR:?}/current.log"
+if [ "${1:-} ${2:-}" = "status --json" ]; then
+  if [ "$session" = fresh ]; then
+    printf '{"client":{"version":"0.9.0","protocol":22},"server":{"running":false}}\n'
+  elif [ -e "$FM_HERDR_PAIR_DIR/switched" ]; then
+    printf '{"client":{"version":"0.9.0","protocol":22},"server":{"running":true,"protocol":20,"compatible":false}}\n'
+  else
+    printf '{"client":{"version":"0.9.0","protocol":22},"server":{"running":true,"protocol":22,"compatible":true}}\n'
+  fi
+elif [ "$session" = fresh ] && [ "${1:-}" = server ]; then
+  printf 'selected-server\n'
+elif [ "$session" = modern ] && [ ! -e "$FM_HERDR_PAIR_DIR/switched" ]; then
+  printf 'modern\n'
+else
+  printf '{"error":{"code":"protocol_mismatch"}}\n' >&2
+  exit 1
+fi

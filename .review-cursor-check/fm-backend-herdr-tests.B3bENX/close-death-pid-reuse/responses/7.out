@@ -1,0 +1,1 @@
+{"result":{"type":"pane_process_info","process_info":{"pane_id":"w2:p2","shell_pid":1000180,"foreground_process_group_id":1000180,"foreground_processes":[{"pid":1000180,"name":"zsh","argv0":"zsh"}]}}}
