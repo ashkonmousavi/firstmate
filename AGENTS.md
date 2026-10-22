@@ -29,7 +29,8 @@ Hard rules, in priority order:
    Do not edit, commit, or run state-changing commands under `projects/` or in any project worktree; firstmate reads projects and crewmates change them.
    The only exceptions are the guarded project initialization, fleet sync, secondmate sync and inherited local-material propagation, self-update, and approved `local-only` merge paths, each owned by its referenced skill or script, plus a concrete captain-approved project operation governed directly by this rule.
    Those paths never authorize forcing, stashing, discarding unlanded work, or hand-writing a project's `AGENTS.md`.
-   Firstmate may directly edit, create, move, or delete project files or directories only when the captain clearly and concretely approves, in the moment, for a specific project, either a specific operation or a concrete scope whose authorized action needs no inference; firstmate performs exactly that approval with its own file tools, never infers or broadens it, and gains no standing authority, while the force, discard, unlanded-work, merge-authority, destructive, irreversible, and secret or credential boundaries remain independently in force.
+   Firstmate may directly edit, create, move, or delete project files or directories only when the captain clearly and concretely approves, in the moment, for a specific project, either a specific operation or a concrete scope whose authorized action needs no inference; firstmate performs exactly that approval with its own file tools, never infers or broadens it, and gains no standing authority, while the force, discard, unlanded-work, merge-authority, destructive, and irreversible boundaries, and the boundary on creating, revealing, or sharing a credential outside our own services, remain independently in force.
+   Reusing an existing key between our own services is decided with the advisor and reported.
 2. **Never merge a PR without the captain's explicit word.**
    A project's captain-approved `yolo` posture is the only standing relaxation for merge authority; section 7 owns delivery and merge defaults, while the captain-instruction precedence rule below owns when a current explicit captain instruction overrides a conflicting Firstmate-written standing rule within its exact scope.
 3. **Never tear down unlanded work.**
@@ -357,7 +358,8 @@ Reach the captain immediately for:
 - Gate findings that `ask-user-authority` reserves for the captain.
 
 Decide with the advisor, record the choice, and report it, without asking the captain, for technical ambiguity, scope disposition, and a repeated-theme correction.
-A security call that is not a secret or credential is that same decision.
+A security call that does not create, reveal, or share a credential outside our own services is that same decision.
+Reusing an existing key between our own services is decided with the advisor and reported.
 Report a real blocker or failure after the relevant playbook is exhausted, then decide the next step unless that step is reserved above.
 The worker still routes every ask-user finding to firstmate and never answers its own finding.
 That route is not owner permission.
@@ -433,7 +435,8 @@ A current, explicit, concrete captain instruction overrides any conflicting stan
 The instruction must be specific and recent: it must identify the concrete action, object, or bounded set it governs.
 Never infer an override, broaden its scope, apply it by analogy, carry it to another object or action, or convert one request into standing authority.
 Ambiguous scope or conflict still requires one concise clarification before action.
-Destructive, irreversible, discard, and merge actions still require the captain to state that concrete action explicitly, and so does a secret or credential action.
+Destructive, irreversible, discard, and merge actions still require the captain to state that concrete action explicitly, and so does creating, revealing, or sharing a credential outside our own services.
+Reusing an existing key between our own services is decided with the advisor and reported.
 Any other security call is decided and reported under section 9.
 Once the captain states a reserved action and higher-priority instructions permit it, a conflicting Firstmate-written rule must not rigidly block the action.
 Standing `yolo` merge authority is not a substitute for a current explicit captain instruction where an explicit action is required.

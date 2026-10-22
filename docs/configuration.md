@@ -1808,7 +1808,8 @@ Both surfaces are the same opt-in and the same machinery - one pairing token, on
 It is off unless the firstmate home's gitignored `.env` contains a non-empty `FMX_PAIRING_TOKEN`.
 The pairing token both identifies the relay tenant and records opt-in consent for autonomous public replies and eligible lifecycle actions.
 
-Destructive or irreversible asks, and any secret or credential action, wait for the captain's word on the trusted channel instead of being executed from a public mention.
+Destructive or irreversible asks, and creating, revealing, or sharing a credential outside our own services, wait for the captain's word on the trusted channel instead of being executed from a public mention.
+Reusing an existing key between our own services is decided with the advisor and reported.
 Any other security call is decided and reported in the trusted session, and is not executed from the mention.
 The relay uses owner-only routing: a mention delivered to a home is from that home's owner/captain, while its surrounding conversation context may still include other public accounts.
 

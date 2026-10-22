@@ -34,9 +34,12 @@ That route is not owner permission.
    - a Fix that would materially expand the contract by adding a new guarantee, threat model, subsystem, abstraction, compatibility surface, state machine, continuous-monitoring requirement, generalized framework, or broader architecture not required by the accepted intent
    - a product or architecture call not settled by accepted intent, when the unsettled part is technical rather than taste
    - repeated same-theme findings when incremental corrections are preserving a questionable abstraction rather than closing independent defects: choose with the advisor whether to revert to the minimal fix or change the abstraction
-   - a security call that is not a secret or credential
+   - a security call that does not create, reveal, or share a credential outside our own services
+     Reusing an existing key between our own services is decided with the advisor and reported.
+     Scope that reuse as narrowly as works.
 5. Escalate to the captain only when `AGENTS.md` section 9 reserves the ask.
-   That set includes taste, a secret or credential, and a destructive or irreversible choice.
+   That set includes taste, creating, revealing, or sharing a credential outside our own services, and a destructive or irreversible choice.
+   Reusing an existing key between our own services is decided with the advisor and reported.
    A merge-authority choice stays with the captain under section 7, which this skill does not relax.
 6. Treat labels such as correctness, security, fail-closed, high-risk, or required as evidence about the finding, never as authority to broaden the task or to ask the captain.
 
@@ -68,7 +71,8 @@ State all five of these elements in one concise, evidence-first escalation:
 - Fixing a concrete defect that violates an original acceptance criterion is firstmate's to decide, regardless of implementation difficulty.
 - Adding continuous frame-by-frame monitoring when the accepted criterion requested checkpoint proof is scope disposition: firstmate decides, records the choice, and reports it.
 - A new finding in the same causal theme is a repeated-theme correction: firstmate chooses with the advisor whether to revert to the minimal fix or change the abstraction, records that choice, and reports it.
-- A secret or credential action requires the captain even when it is otherwise within scope.
+- Creating, revealing, or sharing a credential outside our own services requires the captain even when it is otherwise within scope.
+- Reusing an existing key between our own services is decided with the advisor and reported.
 - Any other security call is firstmate's to decide, record, and report.
 - A destructive or irreversible action still requires the captain.
 - Complex architecture explicitly requested by the captain stays within scope and does not escalate merely because it is complex.

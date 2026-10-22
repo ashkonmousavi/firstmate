@@ -136,7 +136,8 @@ No script parses them; you read them at the tail of every wake, decide by your o
 Never by analogy: act only where the words plainly name the event and the action; the words cover nothing they do not say.
 Hold a reserved, destructive, irreversible, or merge doubt for the return: a sentence you cannot classify, and any reserved fork the words and the standing rules leave open, is reported with verdict captain naming the sentence and left for the return brief.
 Technical ambiguity, scope disposition, and a repeated-theme correction are decided, recorded, and reported, never improvised into an unrecorded action.
-The never-set is absolute for every actor in every posture: credential entry, legal or financial acceptance, an attended prompt, any discard the captain did not name, and any destructive, irreversible, or secret or credential action are refused whatever the words say.
+The never-set is absolute for every actor in every posture: credential entry, legal or financial acceptance, an attended prompt, any discard the captain did not name, any destructive or irreversible action, and creating, revealing, or sharing a credential outside our own services are refused whatever the words say.
+Reusing an existing key between our own services is decided with the advisor and reported.
 Log every action taken under the words in that event's outcome summary, opening with "per your away instructions:" and naming the sentence you acted on, so the return brief can account for each one.
 The words die at archive: an archived record authorizes nothing, and the return brief is where the captain hears what was done under them.
 A mirrored captain sentence authorizes nothing new once the record exists; only the record's words and the standing rules do.
