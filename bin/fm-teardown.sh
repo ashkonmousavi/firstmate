@@ -1540,10 +1540,11 @@ validate_pr_poll_cleanup() {
   fi
 }
 
-# The pool slot is back in circulation. Drop this record's name for it so the
-# next task can take the slot, and leave pr= in place so the merge watch stays
-# registered. The replacement path is never created: a later cleanup can still
-# validate the record and will not find a directory to return.
+teardown_recorded_copy_released() {
+  local meta=$1 state=$2 id=$3
+  [ "$(meta_value "$meta" worktree)" = "$state/$id.released-copy" ]
+}
+
 teardown_release_recorded_copy() {
   local tmp line
   tmp=$(umask 077; mktemp "$STATE/.fm-teardown-release.XXXXXX") || return 1
@@ -1878,7 +1879,8 @@ teardown_guard_unlanded_close() {
       if [ "$FORCE" = --force ]; then
         echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
         pr_refused=1
-      elif [ "$KEEP_OPEN" = 1 ] || [ "$TEARDOWN_PUSHED_OPEN_PR" = 1 ]; then
+      elif [ "$KEEP_OPEN" = 1 ] || [ "$TEARDOWN_PUSHED_OPEN_PR" = 1 ] \
+          || teardown_recorded_copy_released "$META" "$STATE" "$ID"; then
         TEARDOWN_KEEP_OPEN=1
         TEARDOWN_KEEP_MERGE_WATCH=1
       else
@@ -2830,7 +2832,8 @@ require_owned_task_worktree_slot() {
 }
 
 teardown_owns_worktree() {
-  [ "$TEARDOWN_SLOT_REASSIGNED" != 1 ]
+  [ "$TEARDOWN_SLOT_REASSIGNED" != 1 ] \
+    && [ "$WT" != "$STATE/$ID.released-copy" ]
 }
 
 firstmate_home_has_treehouse_slot() {
@@ -3387,6 +3390,8 @@ validate_firstmate_home_children_removal() {
       [ -n "$child_home" ] || child_home=$child_wt
       validate_firstmate_home_for_removal "$child_home" "child firstmate home" "$child_id" >/dev/null || return 1
       validate_firstmate_home_children_removal "$child_home" || return 1
+    elif teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; then
+      :
     elif [ "$child_backend" = orca ]; then
       child_orca_worktree_id=$(require_orca_worktree_id "$child_meta") || return 1
       if [ -n "$child_wt" ] && [ -e "$child_wt" ]; then
@@ -3594,13 +3599,14 @@ cleanup_firstmate_home_children() {
     else
       child_t=$(fm_backend_target_of_meta "$child_meta")
     fi
-    if [ "$child_backend" = orca ] && [ "$child_kind" != secondmate ]; then
+    if [ "$child_backend" = orca ] && [ "$child_kind" != secondmate ] \
+        && ! teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; then
       child_orca_worktree_id=$(require_orca_worktree_id "$child_meta") || return 1
       if [ -n "$child_wt" ] && [ -e "$child_wt" ]; then
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
       fi
     fi
-    if [ -n "$child_t" ]; then
+    if [ -n "$child_t" ] && ! teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; then
       if [ "$child_backend" = herdr ]; then
         fm_backend_herdr_parse_target "$child_t" || return 1
         if ! teardown_herdr_session_lock_held "$FM_BACKEND_HERDR_SESSION"; then
@@ -3629,6 +3635,8 @@ cleanup_firstmate_home_children() {
         cleanup_firstmate_home_children "$child_home" || return $?
         remove_firstmate_home "$child_home" "child firstmate home" "$child_id" || return $?
       fi
+    elif teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; then
+      :
     elif [ "$child_backend" = orca ]; then
       if [ -n "$child_wt" ] && [ -d "$child_wt" ]; then
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
@@ -3817,7 +3825,8 @@ if [ -n "$X_REQUEST" ]; then
   echo "warning: task $ID still carries an unreconciled Relay request link ($X_REQUEST) on its task record." >&2
 fi
 
-if [ "$BACKEND" = orca ] && [ "$KIND" != scout ] && [ "$KIND" != secondmate ] && [ "$FORCE" != "--force" ]; then
+if [ "$BACKEND" = orca ] && [ "$KIND" != scout ] && [ "$KIND" != secondmate ] \
+    && teardown_owns_worktree && [ "$FORCE" != "--force" ]; then
   if ! inspectable_git_worktree "$WT"; then
     echo "REFUSED: Orca ship task $ID has no inspectable git worktree at ${WT:-<missing>}." >&2
     echo "Cannot verify dirty or unlanded work; restore the worktree path or get explicit OK to discard, then --force." >&2
@@ -3968,7 +3977,7 @@ fi
 "$SCRIPT_DIR/fm-remote-job-reap-orphans.sh" >&2 || true
 
 # Best-effort: drop the local task branch so the shared repo does not accumulate refs.
-if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
+if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree; then
   if [ "$ORCA_PATH_MATCH_VERIFIED" != 1 ]; then
     require_orca_worktree_path_match_if_present "$ORCA_WORKTREE_ID" "$WT" || exit 1
     ORCA_PATH_MATCH_VERIFIED=1
@@ -4269,6 +4278,8 @@ if [ "$TEARDOWN_POOL_SLOT_LOST" = 1 ]; then
   echo "teardown $ID finished its cleanup and removed its task record, but a returned pool slot did not come back clean (see the warning above); clear those paths so the pool can reuse the slot" >&2
 elif [ "$TEARDOWN_LEGACY_ACCEPTED" = 1 ]; then
   echo "teardown $ID complete (window ${T:-none}, worktree $WT, legacy record accepted without spawn_gen: endpoint $TEARDOWN_LEGACY_ENDPOINT, incarnation $TEARDOWN_META_SPAWN_GEN)"
+elif [ "$WT" = "$STATE/$ID.released-copy" ]; then
+  echo "teardown $ID complete (local copy already released)"
 elif teardown_owns_worktree; then
   echo "teardown $ID complete (window ${T:-none}, worktree $WT)"
 else

@@ -5476,6 +5476,64 @@ test_pushed_open_pr_keeps_the_item_and_the_merge_watch() {
   pass "a pushed open pull request keeps the item and the merge watch, and the watch fires when it later merges"
 }
 
+test_released_copy_completes_after_merge() {
+  local case_dir backend calls
+  for backend in tmux orca; do
+    case_dir=$(prepare_recorded_github_pr "released-copy-$backend")
+    install_github_pr_class "$case_dir" open
+    push_task_branch "$case_dir"
+    arm_registered_merge_watch "$case_dir"
+    if [ "$backend" = orca ]; then
+      sed 's/^window=.*/window=fm-task-x1/' "$case_dir/state/task-x1.meta" > "$case_dir/meta.tmp"
+      mv "$case_dir/meta.tmp" "$case_dir/state/task-x1.meta"
+      printf '%s\n' 'backend=orca' 'terminal=term-7' \
+        "orca_worktree_id=wt-7::$case_dir/wt" >> "$case_dir/state/task-x1.meta"
+      cat > "$case_dir/fakebin/orca" <<'SH'
+#!/usr/bin/env bash
+case_dir=$(cd "$(dirname "$0")/.." && pwd)
+printf '%s\n' "$*" >> "$case_dir/orca.log"
+case "${1:-} ${2:-}" in
+  'worktree show')
+    [ -d "$case_dir/wt" ] || exit 1
+    printf '{"ok":true,"result":{"worktree":{"path":"%s/wt"}}}\n' "$case_dir"
+    ;;
+  'worktree rm')
+    [ -d "$case_dir/wt" ] || exit 1
+    git -C "$case_dir/project" worktree remove --force "$case_dir/wt" || exit 1
+    printf '%s\n' '{"ok":true}'
+    ;;
+  'terminal close') printf '%s\n' '{"ok":true}' ;;
+  *) exit 1 ;;
+esac
+SH
+      chmod +x "$case_dir/fakebin/orca"
+    fi
+    teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: initial release failed"$'\n'"$(cat "$case_dir/stderr")"
+    assert_present "$case_dir/state/task-x1.meta" "$backend: open PR lost its record"
+    assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: open PR lost its watch"
+    if [ "$backend" = orca ]; then
+      assert_absent "$case_dir/wt" "Orca did not release its copy"
+      calls=$(grep -E '^(worktree (show|rm)|terminal close) ' "$case_dir/orca.log")
+    fi
+    teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: repeated open cleanup failed"$'\n'"$(cat "$case_dir/stderr")"
+    [ "$(backlog_row_state "$case_dir")" != done ] || fail "$backend: repeated cleanup closed an open PR"
+    assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: repeated cleanup lost its watch"
+    install_github_pr_class "$case_dir" merged
+    teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: released copy prevented merge completion"$'\n'"$(cat "$case_dir/stderr")"
+    [ "$(backlog_row_state "$case_dir")" = done ] || fail "$backend: merged item did not close"
+    assert_absent "$case_dir/state/task-x1.meta" "$backend: completed record remained"
+    assert_absent "$case_dir/state/task-x1.pr-poll-registration" "$backend: completed watch remained"
+    if [ "$backend" = orca ]; then
+      [ "$(grep -E '^(worktree (show|rm)|terminal close) ' "$case_dir/orca.log")" = "$calls" ] \
+        || fail "Orca touched the already released copy or endpoint: $(cat "$case_dir/orca.log")"
+    fi
+  done
+  pass "released copies stay open until merge and complete without a second removal"
+}
+
 test_pushed_merged_pr_still_closes() {
   local case_dir
   case_dir=$(prepare_recorded_github_pr pushed-merged)
@@ -5942,6 +6000,7 @@ test_open_pr_keep_open_cleans_and_holds
 test_direct_pr_open_refuses_the_same_way
 test_merged_pr_on_a_reachable_branch_closes
 test_pushed_open_pr_keeps_the_item_and_the_merge_watch
+test_released_copy_completes_after_merge
 test_pushed_merged_pr_still_closes
 test_closed_unmerged_pr_refuses_unless_force
 test_unreadable_pr_refuses_even_with_force
