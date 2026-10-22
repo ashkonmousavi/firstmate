@@ -125,8 +125,8 @@ test_enter_writes_a_v2_record_in_one_step_and_announces_hold_for_return() {
   [ ! -e "$home/state/.afk-contract.proposed" ] || fail "enter staged a proposal instead of writing the record"
   assert_contains "$out" 'Away posture recorded at ' 'announcement opens with the recorded time'
   assert_contains "$out" 'hold-for-return only. No phone channel is configured; anything that needs you waits for your return.' 'announcement says hold-for-return only, aloud'
-  assert_contains "$out" 'Your away instructions are recorded verbatim; the away session will carry them out where it can, and anything it is unsure of, or that needs you, waits for your return.' 'announcement says the words will be carried out'
-  assert_contains "$out" 'Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say.' 'announcement states the never-set'
+  assert_contains "$out" 'Your away instructions are recorded verbatim; the away session will carry them out where it can, and a reserved ask, a destructive or irreversible action, a discard, or a merge it cannot settle waits for your return.' 'announcement says the words will be carried out'
+  assert_contains "$out" 'Destructive and irreversible actions, and any secret or credential action, are never pre-authorizable, whatever the words say.' 'announcement states the never-set'
   assert_contains "$out" 'Expected return: not given. Spend cap: 4 concurrent workers.' 'announcement carries the defaults'
   assert_contains "$out" 'Away posture (recorded):' 'the read-back follows the entry'
   assert_contains "$out" '    merge it when green' 'the read-back carries the words'
@@ -206,7 +206,7 @@ test_same_turn_entry_pre_authorizes_nothing_on_the_never_set() {
   keys=$(sed -n 's/^\([a-z_]*\):.*/\1/p' "$home/state/.afk-contract" | tr '\n' ' ')
   [ "$keys" = 'version entered entered_epoch expected_return reach_channels reach_announced spend_max_concurrent_workers confirmed confirmed_epoch words ' ] \
     || fail "the record carries fields beyond its fixed schema: $keys"
-  assert_contains "$out" 'Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say.' \
+  assert_contains "$out" 'Destructive and irreversible actions, and any secret or credential action, are never pre-authorizable, whatever the words say.' \
     'the same-turn announcement must restate the never-set'
   pass "a same-turn entry records never-set words verbatim, adds no authority field, and restates the never-set"
 }
@@ -216,7 +216,7 @@ test_plain_entry_and_refresh_leave_no_wait() {
   home=$(make_home defaults)
   out=$(contract "$home" enter 2>&1) || fail "plain entry failed: $out"
   [ -f "$home/state/.afk-contract" ] || fail "plain entry did not write the record"
-  assert_contains "$out" 'No away instructions were recorded; the away session acts on standing authority only, and anything that needs you waits for your return.' 'plain announcement'
+  assert_contains "$out" 'No away instructions were recorded; the away session acts on standing authority only, and a reserved ask, a destructive or irreversible action, a discard, or a merge waits for your return.' 'plain announcement'
   assert_contains "$out" 'hold-for-return only.' 'plain announcement says hold-for-return'
   assert_contains "$out" '  your words: (none)' 'a plain entry reads back no words'
   first=$(cat "$home/state/.afk-contract")
