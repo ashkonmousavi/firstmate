@@ -7,7 +7,8 @@
 # request whose merge into the project's HEAD changes one of those paths.
 # git merge-tree supplies that file list when the pull request head is a
 # local commit. When merge-tree cannot run, the pull request's own file list
-# is used instead. A missing SCOPE section leaves the brief unchanged.
+# is used instead. FILES and BLAST RADIUS path lines supply paths when SCOPE
+# is absent. A brief without planned paths receives an unchecked note.
 # Listing failures, a missing tool, and a brief that cannot be rewritten are
 # recorded in the note or skipped. This script exits 0 either way, so a spawn
 # is never blocked on it.
@@ -22,31 +23,41 @@ overlap_fail_note() {
 }
 
 overlap_scope_paths() {  # <brief>
-  local brief=$1 line in_scope=0
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      '## SCOPE') in_scope=1; continue ;;
-      '## '*|'# '*)
-        [ "$in_scope" -eq 1 ] && break
-        continue
-        ;;
-    esac
-    [ "$in_scope" -eq 1 ] || continue
-    case "$line" in
-      ''|'#'*) continue ;;
-    esac
-    case "$line" in
-      /*|-*|*' '*) continue ;;
-    esac
-    case "/$line/" in
-      */../*|*/./*) continue ;;
-    esac
-    printf '%s\n' "$line"
-  done < "$brief"
-}
-
-overlap_has_scope_heading() {  # <brief>
-  grep -qxF '## SCOPE' "$1"
+  awk '
+    function paths(text,    count, lines, row, n, parts, i, path) {
+      count = split(text, lines, "\n")
+      for (row = 1; row <= count; row++) {
+        gsub(/[`*]/, "", lines[row])
+        sub(/^[[:space:]]*[-+][[:space:]]+/, "", lines[row])
+        sub(/^[[:space:]]+/, "", lines[row])
+        sub(/[[:space:]]+$/, "", lines[row])
+        n = split(lines[row], parts, /[[:space:],]+/)
+        for (i = 1; i <= n; i++) {
+          path = parts[i]
+          if (path == "" || path ~ /^[-\/]/ || path ~ /:/ || path ~ /[{}<>]/) continue
+          if ((n > 1 && path !~ /[.\/]/) || path ~ /(^|\/)\.\.?(\/|$)/) continue
+          print path
+        }
+      }
+    }
+    /^## SCOPE[[:space:]]*$/ { scope=1; have_scope=1; next }
+    /^#/ { scope=0 }
+    scope { scope_text = scope_text $0 "\n"; next }
+    {
+      line=$0
+      gsub(/[`*]/, "", line)
+      sub(/^[#[:space:]-]+/, "", line)
+      if (line ~ /^(FILES|BLAST RADIUS)(:|[[:space:]]*$)/) {
+        fallback=1
+        sub(/^(FILES|BLAST RADIUS):?[[:space:]]*/, "", line)
+        fallback_text = fallback_text line "\n"
+        next
+      }
+      if ($0 ~ /^#/ || line ~ /^[A-Z][A-Z _-]*:/) fallback=0
+      if (fallback) fallback_text = fallback_text line "\n"
+    }
+    END { paths(have_scope ? scope_text : fallback_text) }
+  ' "$1"
 }
 
 # Drop any previous note, then insert the new one immediately after the
@@ -77,13 +88,9 @@ overlap_rewrite_brief() {  # <brief> <note>
       '## SCOPE') in_scope=1 ;;
     esac
   done < "$brief"
-  if [ "$inserted" -eq 0 ] && grep -qxF '## SCOPE' "$tmp"; then
+  if [ "$inserted" -eq 0 ]; then
     printf '%s\n' "$note" >> "$tmp"
     inserted=1
-  fi
-  if [ "$inserted" -eq 0 ]; then
-    rm -f -- "$tmp"
-    return 1
   fi
   mv -f -- "$tmp" "$brief"
 }
@@ -98,7 +105,7 @@ overlap_merge_tree_files() {  # <project> <base> <head>
     *) return 1 ;;
   esac
   git -C "$project" cat-file -e "${tree}^{tree}" 2>/dev/null || return 1
-  git -C "$project" diff --name-only "$base" "$tree" 2>/dev/null || true
+  git -C "$project" diff --name-only "$base" "$tree" 2>/dev/null || return 1
   printf '%s\n' "$raw" | tail -n +2
 }
 
@@ -134,7 +141,7 @@ overlap_join() {
 
 overlap_main() {
   local project='' brief='' note='' scope='' base='' json='' number='' url='' head=''
-  local changed='' hits='' hit_text='' lines='' listed=0
+  local changed='' hits='' hit_text='' lines='' compared=0 unchecked='' rows=''
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --project)
@@ -151,17 +158,13 @@ overlap_main() {
     esac
   done
   [ -n "$project" ] && [ -n "$brief" ] && [ -f "$brief" ] || return 0
-  overlap_has_scope_heading "$brief" || return 0
   scope=$(overlap_scope_paths "$brief")
   if [ -z "$scope" ]; then
-    # A heading with no usable paths should not keep a stale note.
-    if grep -qF '<!-- fm-pr-overlap:start -->' "$brief"; then
-      overlap_rewrite_brief "$brief" "$(printf '%s\n' \
-        '<!-- fm-pr-overlap:start -->' \
-        '## SHARED' \
-        'No planned paths were declared, so no open pull request was compared.' \
-        '<!-- fm-pr-overlap:end -->')" || true
-    fi
+    overlap_rewrite_brief "$brief" "$(printf '%s\n' \
+      '<!-- fm-pr-overlap:start -->' \
+      '## SHARED' \
+      'Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.' \
+      '<!-- fm-pr-overlap:end -->')" || true
     return 0
   fi
   if ! command -v gh >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 \
@@ -177,43 +180,35 @@ overlap_main() {
     overlap_rewrite_brief "$brief" "$(overlap_fail_note)" || true
     return 0
   }
+  rows=$(printf '%s\n' "$json" | jq -er '
+    if type == "array" and all(.[];
+      (.number | type == "number" and . > 0 and . == floor)
+      and (.url | type == "string" and test("^https://[^\\s]+$"))
+      and (.headRefOid == null or (.headRefOid | type == "string")))
+    then sort_by(.number) | map([(.number | tostring), .url, (.headRefOid // "")] | @tsv) | join("\n")
+    else error("invalid pull request list") end' 2>/dev/null) || {
+      overlap_rewrite_brief "$brief" "$(overlap_fail_note)" || true
+      return 0
+    }
   lines=
   while IFS=$(printf '\t') read -r -u 3 number url head || [ -n "${number:-}" ]; do
     [ -n "$number" ] || continue
-    case "$number" in
-      ''|*[!0-9]*) continue ;;
-    esac
-    case "$url" in
-      https://*) ;;
-      *) continue ;;
-    esac
-    case "$url" in
-      *[[:space:]]*) continue ;;
-    esac
-    listed=1
-    changed=
-    if [ -n "$head" ]; then
-      changed=$(overlap_merge_tree_files "$project" "$base" "$head" 2>/dev/null) || changed=
+    if ! changed=$(overlap_merge_tree_files "$project" "$base" "$head" 2>/dev/null); then
+      if ! changed=$(overlap_pr_file_list "$project" "$number" 2>/dev/null); then
+        unchecked="${unchecked}
+- ${url} (unchecked: could not read changed files)"
+        continue
+      fi
     fi
-    if [ -z "$changed" ]; then
-      changed=$(overlap_pr_file_list "$project" "$number" 2>/dev/null) || changed=
-    fi
-    [ -n "$changed" ] || continue
+    compared=$((compared + 1))
     hits=$(overlap_hits "$scope" "$changed") || hits=
     [ -n "$hits" ] || continue
     hit_text=$(printf '%s\n' "$hits" | overlap_join)
     lines="${lines}
 - ${url} (${hit_text})"
   done 3<<EOF
-$(printf '%s\n' "$json" | jq -r 'if type == "array" then sort_by(.number) | .[] | [(.number | tostring), (.url // ""), (.headRefOid // "")] | @tsv else empty end' 2>/dev/null)
+$rows
 EOF
-  if [ "$listed" -eq 0 ] && [ -z "$lines" ]; then
-    # An empty list is a real answer. A jq failure on a non-array is not.
-    if ! printf '%s\n' "$json" | jq -e 'type == "array"' >/dev/null 2>&1; then
-      overlap_rewrite_brief "$brief" "$(overlap_fail_note)" || true
-      return 0
-    fi
-  fi
   if [ -n "$lines" ]; then
     note=$(printf '%s\n' \
       '<!-- fm-pr-overlap:start -->' \
@@ -225,7 +220,12 @@ EOF
     note=$(printf '%s\n' \
       '<!-- fm-pr-overlap:start -->' \
       '## SHARED' \
-      'No open pull request touches the planned files.' \
+      "No overlap found among $compared compared open pull requests." \
+      '<!-- fm-pr-overlap:end -->')
+  fi
+  if [ -n "$unchecked" ]; then
+    note=${note%$'\n<!-- fm-pr-overlap:end -->'}
+    note=$(printf '%s\n' "$note" 'Unchecked open pull requests:' "${unchecked#?}" \
       '<!-- fm-pr-overlap:end -->')
   fi
   overlap_rewrite_brief "$brief" "$note" || true

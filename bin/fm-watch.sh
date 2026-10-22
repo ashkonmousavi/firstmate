@@ -3208,6 +3208,16 @@ while :; do
             triage_log "PR poll for $id changed before its validated check; skipping the stale snapshot"
             continue
           fi
+          if ! cmp -s "$SCRIPT_DIR/fm-pr-poll.sh" "$STATE/$id.check.sh"; then
+            PR_POLL_PUBLISH_LOCK="$STATE/.pr-poll-publish-$id.lock"
+            fm_lock_acquire_wait "$PR_POLL_PUBLISH_LOCK" || exit 1
+            fm_pr_poll_snapshot_matches "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh" \
+              && fm_pr_poll_prepare "$STATE" "$id" "$provider" "$url" "$host" "$path" "$number" \
+                "$SCRIPT_DIR/fm-pr-poll.sh" \
+              && fm_pr_poll_publish_prepared \
+              && fm_pr_poll_snapshot_capture "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh" || exit 1
+            pr_poll_publish_release || exit 1
+          fi
           run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
             "$provider" "$url" "$host" "$path" "$number" || exit 1
           out=$FM_CHECK_RESULT
@@ -3215,7 +3225,8 @@ while :; do
           # one, or leave out=conflict so the check wake below fires once.
           # conflict-clear removes the episode and stays quiet.
           case "$out" in
-            conflict|conflict-clear)
+            conflict:*|conflict-clear)
+              conflict_added_at=${out#conflict:}
               pr_poll_control_release || exit 1
               conflict_decision=$(fm_pr_conflict_handle "$STATE" "$id" \
                 "$provider" "$host" "$path" "$number" "$url" "$out" || true)
@@ -3309,7 +3320,7 @@ EOF
         fm_wake_append check "$c" "$reason" || exit 1
         if [ "$is_pr_poll" -eq 1 ] && [ "$out" = conflict ]; then
           fm_pr_conflict_episode_open "$STATE" "$id" \
-            "$provider" "$host" "$path" "$number" || exit 1
+            "$provider" "$host" "$path" "$number" "$conflict_added_at" || exit 1
         fi
         pr_poll_control_release || exit 1
         touch "$STATE/.last-check"

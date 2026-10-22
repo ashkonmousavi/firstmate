@@ -3,7 +3,7 @@
 # change poll sidecar.
 # It emits exactly one merged line for a merged change.
 # On GitHub, when the change is not merged, it also emits exactly one of
-# `conflict` (a label named conflict has been applied for at least 15 minutes)
+# `conflict:<added-at>` (a label named conflict has been applied for at least 15 minutes)
 # or `conflict-clear` (the label is absent or still younger than that).
 # Every error, and any GitHub label age that cannot be proved, stays silent, so
 # a failed lookup can never be read as a merge or as a conflict.
@@ -48,14 +48,15 @@ print(int(datetime.datetime.fromisoformat(s).timestamp()))' "$ts" 2>/dev/null) |
 # label read failed or the conflict label is present but its age cannot be
 # proved from the timeline window.
 fm_pr_poll_github_conflict() {  # <owner> <repo> <number>
-  local owner=$1 repo=$2 number=$3 raw line present='' labeled_at='' oldest=''
+  local owner=$1 repo=$2 number=$3 raw line present='' labeled_at=''
   local now='' applied='' age='' query jqprog
   query=$(cat <<'EOF'
-query($owner: String!, $repo: String!, $number: Int!) {
+query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       labels(first: 100) { nodes { name } }
-      timelineItems(last: 50, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {
+      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {
+        pageInfo { hasNextPage endCursor }
         nodes {
           __typename
           ... on LabeledEvent { createdAt label { name } }
@@ -68,61 +69,47 @@ query($owner: String!, $repo: String!, $number: Int!) {
 EOF
 )
   jqprog=$(cat <<'EOF'
-.data.repository.pullRequest as $pr
+.[-1].data.repository.pullRequest as $pr
 | if $pr == null then error("no pull request") else
   ($pr.labels.nodes // [] | map(.name) | index("conflict") != null) as $present
-  | [ $pr.timelineItems.nodes[]?
+  | [ .[].data.repository.pullRequest.timelineItems.nodes[]?
       | select(.__typename == "LabeledEvent" or .__typename == "UnlabeledEvent")
       | select(.label.name == "conflict") ] as $events
   | ($events | map(select(.__typename == "LabeledEvent")) | last // {} | .createdAt // "") as $labeled
   | ($events | map(select(.__typename == "UnlabeledEvent")) | last // {} | .createdAt // "") as $unlabeled
-  | ($pr.timelineItems.nodes // [] | map(.createdAt // empty) | sort | .[0] // "") as $oldest
   | if $present | not then "present=no"
-    elif $unlabeled != "" and ($labeled == "" or $unlabeled > $labeled) then "present=unseen\noldest=\($oldest)"
+    elif $unlabeled != "" and ($labeled == "" or $unlabeled > $labeled) then "present=unseen"
     elif $labeled != "" then "present=yes\nlabeled_at=\($labeled)"
-    else "present=unseen\noldest=\($oldest)"
+    else "present=unseen"
     end
   end
 EOF
 )
-  raw=$(gh api graphql -f owner="$owner" -f repo="$repo" -F number="$number" \
+  raw=$(gh api graphql --paginate --slurp -f owner="$owner" -f repo="$repo" -F number="$number" \
     -f query="$query" --jq "$jqprog" 2>/dev/null) || return 0
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
       present=*) present=${line#present=} ;;
       labeled_at=*) labeled_at=${line#labeled_at=} ;;
-      oldest=*) oldest=${line#oldest=} ;;
     esac
   done <<EOF
 $raw
 EOF
   case "$present" in
     no) printf '%s\n' conflict-clear; return 0 ;;
-    yes|unseen) ;;
+    yes) ;;
     *) return 0 ;;
   esac
   now=$(date -u +%s 2>/dev/null) || return 0
   case "$now" in
     ''|*[!0-9]*) return 0 ;;
   esac
-  if [ "$present" = yes ]; then
-    applied=$(fm_pr_poll_epoch "$labeled_at") || return 0
-    age=$((now - applied))
-    if [ "$age" -ge "$FM_PR_POLL_CONFLICT_MIN_AGE" ]; then
-      printf '%s\n' conflict
-    else
-      printf '%s\n' conflict-clear
-    fi
-    return 0
-  fi
-  [ -n "$oldest" ] || return 0
-  applied=$(fm_pr_poll_epoch "$oldest") || return 0
+  applied=$(fm_pr_poll_epoch "$labeled_at") || return 0
   age=$((now - applied))
-  # The conflict label is on the pull request but older than this timeline
-  # window. If that window itself starts at least 15 minutes ago, the label
-  # application is at least that old.
   if [ "$age" -ge "$FM_PR_POLL_CONFLICT_MIN_AGE" ]; then
-    printf '%s\n' conflict
+    printf 'conflict:%s\n' "$labeled_at"
+  else
+    printf '%s\n' conflict-clear
   fi
 }
 

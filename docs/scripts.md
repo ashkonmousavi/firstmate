@@ -145,7 +145,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-startup-growth-check.sh` | Daily metadata-only growth check for startup memory and tracked startup/instruction surfaces |
 | `fm-pr-lib.sh`           | Own canonical task and PR validation plus private atomic PR-poll publication, merge-notification identity, retirement, and the conflict-episode marker |
 | `fm-pr-poll.sh`          | Provide the byte-static watcher program for validated pull-request, merge-request, and Gerrit-change poll sidecars, including a GitHub conflict-label observation |
-| `fm-pr-overlap.sh`       | Read-only: note open pull requests that touch a brief's SCOPE paths; never blocks spawn |
+| `fm-pr-overlap.sh`       | Read-only: note open pull requests that touch a brief's SCOPE, FILES, or BLAST RADIUS paths, reporting unchecked comparisons; never blocks spawn |
 | `fm-contributions.sh`    | Observe owned publications, retain exact-head judgments, measure required actors, and wake on maintainer signals |
 | `fm-pr-check.sh`         | Record validated task `pr=` and `pr_head=` values, then atomically arm a static merge poll; refuses GitHub drafts and persistent secondmate records (see [architecture.md](architecture.md)) |
 | `fm-review-check.sh`    | Record a forge=external task's validated `review=` and `review_head=` without arming a merge watch ([design](external-review-forge.md)) |

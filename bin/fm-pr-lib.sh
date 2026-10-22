@@ -721,7 +721,12 @@ fm_pr_poll_artifacts_content_valid() {
   fm_pr_private_file_valid "$registration" 600 "$state_device" || return 1
   [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
   [ "$(fm_pr_file_link_count "$meta")" = 1 ] || return 1
-  cmp -s "$template" "$check" || return 1
+  if ! cmp -s "$template" "$check"; then
+    case "$(fm_pr_sha256 "$check")" in
+      1ecb514c04dca8c7ff1d253998499335c162d73b76b143a2506d7b3627466dfe|05e9e742af771c84d2ed2b41045de7f555cd30bbbb8d19f09f257bd527c0fd57) ;;
+      *) return 1 ;;
+    esac
+  fi
   fm_pr_poll_data_parse "$data" || return 1
   data_hash=$(fm_pr_sha256 "$data") || return 1
   template_hash=$(fm_pr_sha256 "$check") || return 1
@@ -1529,80 +1534,59 @@ fm_pr_poll_merge_notified_remove() {  # <state> <id>
   rm -f -- "$marker"
 }
 
-# One conflict-label episode for a task's registered pull request.
-# The marker matches the merge-notification identity: five lines, mode 600,
-# same device as the state directory. A later observation that the label is
-# gone or still younger than 15 minutes removes it, which is what lets the
-# next real episode steer or wake again.
 fm_pr_conflict_episode_path() {  # <state> <id>
   printf '%s\n' "$1/$2.pr-conflict-episode"
 }
 
-fm_pr_conflict_identity_lines_valid() {  # <provider> <host> <path> <number>
-  local provider=$1 host=$2 path=$3 number=$4
-  case "$provider$host$path$number" in
+fm_pr_conflict_identity_lines_valid() {
+  local provider=$1 host=$2 path=$3 number=$4 added_at=$5
+  case "$provider$host$path$number$added_at" in
     *$'\n'*|'') return 1 ;;
   esac
-  [ -n "$provider" ] && [ -n "$host" ] && [ -n "$path" ] && [ -n "$number" ]
+  [ -n "$provider" ] && [ -n "$host" ] && [ -n "$path" ] && [ -n "$number" ] \
+    && [ -n "$added_at" ]
 }
 
-fm_pr_conflict_episode_matches() {  # <state> <id> <provider> <host> <path> <number>
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6
-  local marker state_device version got_provider got_host got_path got_number
+fm_pr_conflict_episode_matches() {
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+  local marker state_device
   fm_pr_task_id_valid "$id" || return 1
-  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" || return 1
+  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" "$added_at" || return 1
   [ -d "$state" ] && [ ! -L "$state" ] || return 1
   state_device=$(fm_pr_file_device "$state") || return 1
   marker=$(fm_pr_conflict_episode_path "$state" "$id")
-  fm_pr_private_file_valid "$marker" 600 "$state_device" || return 1
-  exec 8< "$marker" || return 1
-  IFS= read -r version <&8 || { exec 8<&-; return 1; }
-  IFS= read -r got_provider <&8 || { exec 8<&-; return 1; }
-  IFS= read -r got_host <&8 || { exec 8<&-; return 1; }
-  IFS= read -r got_path <&8 || { exec 8<&-; return 1; }
-  IFS= read -r got_number <&8 || { exec 8<&-; return 1; }
-  if IFS= read -r _extra <&8; then
-    exec 8<&-
-    return 1
-  fi
-  exec 8<&-
-  [ "$version" = fm-pr-conflict-episode-v1 ] \
-    && [ "$got_provider" = "$provider" ] \
-    && [ "$got_host" = "$host" ] \
-    && [ "$got_path" = "$path" ] \
-    && [ "$got_number" = "$number" ]
+  fm_pr_conflict_episode_matches_file "$marker" "$state_device" \
+    "$provider" "$host" "$path" "$number" "$added_at"
 }
 
-fm_pr_conflict_episode_open() {  # <state> <id> <provider> <host> <path> <number>
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6
+fm_pr_conflict_episode_open() {
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
   local marker tmp state_device
   fm_pr_task_id_valid "$id" || return 1
-  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" || return 1
+  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" "$added_at" || return 1
   [ -d "$state" ] && [ ! -L "$state" ] || return 1
   state_device=$(fm_pr_file_device "$state") || return 1
   marker=$(fm_pr_conflict_episode_path "$state" "$id")
   fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" || return 1
   umask 077
   tmp=$(mktemp "$state/.fm-pr-conflict-episode.XXXXXX") || return 1
-  if ! printf '%s\n%s\n%s\n%s\n%s\n' \
-      fm-pr-conflict-episode-v1 "$provider" "$host" "$path" "$number" > "$tmp" \
+  if ! printf '%s\n%s\n%s\n%s\n%s\n%s\n' \
+      fm-pr-conflict-episode-v2 "$provider" "$host" "$path" "$number" "$added_at" > "$tmp" \
     || ! chmod 0600 "$tmp" \
     || ! fm_pr_conflict_episode_matches_file "$tmp" "$state_device" \
-      "$provider" "$host" "$path" "$number" \
+      "$provider" "$host" "$path" "$number" "$added_at" \
     || ! fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" \
     || ! mv -f -- "$tmp" "$marker" \
     || ! fm_pr_conflict_episode_matches "$state" "$id" \
-      "$provider" "$host" "$path" "$number"; then
+      "$provider" "$host" "$path" "$number" "$added_at"; then
     rm -f -- "$tmp"
     return 1
   fi
 }
 
-# Same identity check as fm_pr_conflict_episode_matches, for a file that is
-# not yet the task's marker (the private temp written before the rename).
-fm_pr_conflict_episode_matches_file() {  # <file> <device> <provider> <host> <path> <number>
-  local marker=$1 device=$2 provider=$3 host=$4 path=$5 number=$6
-  local version got_provider got_host got_path got_number
+fm_pr_conflict_episode_matches_file() {
+  local marker=$1 device=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+  local version got_provider got_host got_path got_number got_added_at
   fm_pr_private_file_valid "$marker" 600 "$device" || return 1
   exec 9< "$marker" || return 1
   IFS= read -r version <&9 || { exec 9<&-; return 1; }
@@ -1610,16 +1594,18 @@ fm_pr_conflict_episode_matches_file() {  # <file> <device> <provider> <host> <pa
   IFS= read -r got_host <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_path <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_number <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_added_at <&9 || { exec 9<&-; return 1; }
   if IFS= read -r _extra <&9; then
     exec 9<&-
     return 1
   fi
   exec 9<&-
-  [ "$version" = fm-pr-conflict-episode-v1 ] \
+  [ "$version" = fm-pr-conflict-episode-v2 ] \
     && [ "$got_provider" = "$provider" ] \
     && [ "$got_host" = "$host" ] \
     && [ "$got_path" = "$path" ] \
-    && [ "$got_number" = "$number" ]
+    && [ "$got_number" = "$number" ] \
+    && [ "$got_added_at" = "$added_at" ]
 }
 
 fm_pr_conflict_episode_remove() {  # <state> <id>
@@ -1709,14 +1695,14 @@ fm_pr_conflict_relaunch() {  # <id> <url>
 # must dispatch the worker itself.
 fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url> <result>
   local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 url=$7 result=$8
-  local posture=''
+  local posture='' added_at=''
   case "$result" in
     conflict-clear)
       fm_pr_conflict_episode_remove "$state" "$id" || true
       printf 'quiet\n'
       return 0
       ;;
-    conflict) ;;
+    conflict:*) added_at=${result#conflict:} ;;
     *)
       printf 'quiet\n'
       return 0
@@ -1724,14 +1710,14 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
   esac
   posture=$(fm_pr_conflict_posture "$state" "$id")
   if [ "$posture" != exited ] \
-    && fm_pr_conflict_episode_matches "$state" "$id" "$provider" "$host" "$path" "$number"; then
+    && fm_pr_conflict_episode_matches "$state" "$id" "$provider" "$host" "$path" "$number" "$added_at"; then
     printf 'quiet\n'
     return 0
   fi
   case "$posture" in
     live)
       if fm_pr_conflict_steer "$state" "$id" "$url"; then
-        if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number"; then
+        if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number" "$added_at"; then
           printf 'quiet\n'
           return 0
         fi
@@ -1740,7 +1726,7 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
     exited)
       if fm_pr_conflict_steer "$state" "$id" "$url" \
         && fm_pr_conflict_relaunch "$id" "$url"; then
-        if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number"; then
+        if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number" "$added_at"; then
           printf 'quiet\n'
           return 0
         fi
