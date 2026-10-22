@@ -2446,8 +2446,8 @@ test_nm_handoff_first_steer_then_one_escalation() {
   window="test:fm-handoff"
   status_file="$state/handoff.status"
   printf 'idle\n' > "$capture_file"
-  printf 'window=%s\nkind=ship\nmode=no-mistakes\nharness=claude\n' "$window" > "$state/handoff.meta"
-  printf 'done: café implementation complete\n' > "$status_file"
+  printf 'window=%s\nkind=ship\nmode=no-mistakes\nharness=claude\nworktree=%s\n' "$window" "$ROOT" > "$state/handoff.meta"
+  printf 'done [at=100]: café implementation complete\n' > "$status_file"
   export FM_FAKE_CREW_STATE='state: stopped-before-validation · source: status-log · stopped-before-validation'
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
@@ -2475,130 +2475,230 @@ test_nm_handoff_first_steer_then_one_escalation() {
   [ "$(cat "$state/.heartbeat-streak" 2>/dev/null || echo 0)" -ge 1 ] \
     || fail "the heartbeat after the steer did not absorb"
   count=$(inbox_msg_count "$state" handoff)
-  printf 'done: committed again, validation still not started\n' >> "$status_file"
+  printf 'done [at=101]: committed again, validation still not started\n' >> "$status_file"
   wait_for_exit "$pid" 200 || { reap "$pid"; fail "the second handoff done did not escalate: $(cat "$out")"; }
   grep -F "signal: $status_file" "$out" >/dev/null || fail "the second handoff did not wake: $(cat "$out")"
   [ "$(inbox_msg_count "$state" handoff)" = "$count" ] || fail "the second handoff sent another steer"
   [ -f "$state/.nm-handoff-escalated-handoff" ] || fail "the second handoff did not record its one escalation"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the handoff escalation"
+  touch "$state/handoff.turn-ended"
+  watch_bg "$state" "$fakebin" "$out"
+  pid=$!
+  wait_poll_cycle "$state" "$pid" \
+    || { reap "$pid"; fail "a delayed companion hook repeated the handoff wake: $(cat "$out")"; }
+  [ ! -s "$state/.wake-queue" ] || fail "the delayed companion hook queued another escalation"
+  printf 'unrelated turn ended\n' > "$state/other.turn-ended"
+  wait_for_exit "$pid" 200 || { reap "$pid"; fail "an unrelated hook was absorbed"; }
+  grep -F "$(printf '\tsignal\tother.turn-ended\t')" "$state/.wake-queue" >/dev/null \
+    || fail "the unrelated hook was not queued"
+  if grep -F -e "$state/handoff.status" -e "$state/handoff.turn-ended" "$state/.wake-queue" >/dev/null; then
+    fail "the unrelated wake replayed the absorbed handoff"
+  fi
   unset FM_FAKE_CREW_STATE
   pass "the first handoff done steers once and the second escalates once"
 }
 
-test_nm_handoff_record_and_batch_regressions() (
-  local dir state fakebin timing first endpoint extra phase order sends
-  dir=$(make_case nm-handoff-records); state="$dir/state"; fakebin="$dir/fakebin"
+nm_handoff_test_setup() {
+  local name=$1
+  dir=$(make_case "$name"); state="$dir/state"; fakebin="$dir/fakebin"
   export FM_HOME="$dir" FM_STATE_OVERRIDE="$state"
   export FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh"
   export FM_FAKE_CREW_STATE='state: stopped-before-validation · source: status-log · stopped-before-validation'
   . "$WATCH"
   SCRIPT_DIR="$fakebin"
+  git init -q "$dir/repo" || fail "could not initialize handoff worktree"
+  git -C "$dir/repo" -c user.name=Test -c user.email=test@example.test commit -qm initial --allow-empty \
+    || fail "could not initialize handoff HEAD"
+  head=$(git -C "$dir/repo" rev-parse HEAD)
+  printf 'worktree=%s\n' "$dir/repo" > "$state/task.meta"
   cat > "$fakebin/fm-send.sh" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$1" >> "$FM_HOME/sends"
 if [ "${FM_TEST_APPEND_DURING_SEND:-0}" = 1 ]; then
-  printf 'done: repeated during send\n' >> "$FM_STATE_OVERRIDE/$1.status"
+  printf 'done [at=101]: repeated during send\n' >> "$FM_STATE_OVERRIDE/$1.status"
 fi
 SH
   chmod +x "$fakebin/fm-send.sh"
-  first='done: café finished'
-  endpoint=$(printf '%s\n' "$first" | wc -c | tr -d '[:space:]')
+  printf 'done [at=100]: café finished\n' > "$state/task.status"
+}
+
+nm_handoff_test_first() {
+  if nm_handoff_batch_should_wake "$state/task.status"; then
+    fail "the first handoff woke instead of steering"
+  fi
+  [ "$(cat "$state/.nm-handoff-steered-task")" = "100@$head" ] \
+    || fail "the steer did not capture the done stamp and HEAD"
+}
+
+nm_handoff_test_commit_repeat() {
+  nm_handoff_commit_escalations
+  [ "$(cat "$state/.nm-handoff-escalated-task")" = "101@$head" ] \
+    || fail "the repeat escalation did not retain its record identity"
+  nm_handoff_stale_suppressed task "$state/task.status" \
+    || fail "the already-escalated handoff woke again through the stale path"
+  [ "$(wc -l < "$dir/sends" | tr -d '[:space:]')" = 1 ] \
+    || fail "the repeated handoff sent another steer"
+}
+
+test_nm_handoff_unicode_identity() (
+  local dir state fakebin head
+  nm_handoff_test_setup nm-unicode
+  nm_handoff_test_first
+  printf 'note [at=99]: rewritten history with 日本語\ndone [at=100]: café finished\n' > "$state/task.status"
+  if nm_handoff_batch_should_wake "$state/task.status"; then
+    fail "rewriting history changed the handoff identity"
+  fi
+  printf 'done [at=101]: repeated après commit\n' >> "$state/task.status"
+  nm_handoff_batch_should_wake "$state/task.status" || fail "a Unicode repeat was absorbed"
+  nm_handoff_test_commit_repeat
+  nm_handoff_test_setup nm-head-identity
+  nm_handoff_test_first
+  git -C "$dir/repo" -c user.name=Test -c user.email=test@example.test commit -qm next --allow-empty \
+    || fail "could not advance the task HEAD"
+  head=$(git -C "$dir/repo" rev-parse HEAD)
+  printf 'done [at=100]: same stamp on a new head\n' > "$state/task.status"
+  nm_handoff_batch_should_wake "$state/task.status" || fail "a new task HEAD reused an old handoff identity"
+  nm_handoff_commit_escalations
+  [ "$(cat "$state/.nm-handoff-escalated-task")" = "100@$head" ] \
+    || fail "the escalation did not identify the new task HEAD"
+  pass "R1: Unicode and rewritten history preserve stamp-and-head identity"
+)
+
+test_nm_handoff_mixed_batch() (
+  local dir state fakebin head order
+  nm_handoff_test_setup nm-mixed
+  nm_handoff_test_first
+  printf 'blocked [at=102]: unrelated blocker\n' > "$state/other.status"
+  printf 'done [at=101]: repeated\n' >> "$state/task.status"
+  for order in first last; do
+    if [ "$order" = first ]; then
+      nm_handoff_batch_should_wake "$state/other.status" "$state/task.status" \
+        || fail "mixed batch did not wake"
+    else
+      nm_handoff_batch_should_wake "$state/task.status" "$state/other.status" \
+        || fail "reversed mixed batch did not wake"
+    fi
+    nm_handoff_test_commit_repeat
+    rm -f "$state/.nm-handoff-escalated-task"
+  done
+  pass "R2: every task in a mixed batch retains escalation bookkeeping"
+)
+
+test_nm_handoff_send_race() (
+  local dir state fakebin head timing
   for timing in before during; do
-    printf '%s\n' "$first" > "$state/$timing.status"
+    nm_handoff_test_setup "nm-send-$timing"
     if [ "$timing" = before ]; then
-      printf 'done: repeated before send\n' >> "$state/$timing.status"
+      printf 'done [at=101]: repeated before send\n' >> "$state/task.status"
       export FM_TEST_APPEND_DURING_SEND=0
     else
       export FM_TEST_APPEND_DURING_SEND=1
     fi
-    NM_HANDOFF_ESCALATIONS=''
-    nm_handoff_decide "$timing" "$state/$timing.status" \
-      || fail "$timing-send repeat did not request an escalation"
-    [ "$(cat "$state/.nm-handoff-steered-$timing")" = "$endpoint" ] \
-      || fail "$timing-send steer did not retain the first record's byte endpoint"
-    [ "$NM_HANDOFF_ESCALATIONS" = "$timing" ] \
-      || fail "$timing-send repeat lost escalation bookkeeping"
-    nm_handoff_commit_escalations
-    nm_handoff_stale_suppressed "$timing" "$state/$timing.status" \
-      || fail "$timing-send repeat escalated again through stale handling"
-    [ "$(wc -l < "$dir/sends" | tr -d '[:space:]')" = "$([ "$timing" = before ] && echo 1 || echo 2)" ] \
-      || fail "$timing-send repeat sent more than one steer"
+    nm_handoff_batch_should_wake "$state/task.status" || fail "$timing-send repeat was absorbed"
+    [ "$(cat "$state/.nm-handoff-steered-task")" = "100@$head" ] \
+      || fail "$timing-send repeat changed the first identity"
+    nm_handoff_test_commit_repeat
   done
-  export FM_TEST_APPEND_DURING_SEND=0
-  for extra in blocked.status batch.turn-ended; do
-    printf 'blocked: release approval required\n' > "$state/$extra"
-    for timing in first last; do
-      printf '%s\n' "$first" > "$state/repeat.status"
-      printf '%s\n' "$endpoint" > "$state/.nm-handoff-steered-repeat"
-      rm -f "$state/.nm-handoff-escalated-repeat"
-      printf 'done: repeated without validation\n' >> "$state/repeat.status"
-      if [ "$timing" = first ]; then
-        nm_handoff_batch_should_wake "$state/$extra" "$state/repeat.status" \
-          || fail "mixed $extra batch did not wake"
-      else
-        nm_handoff_batch_should_wake "$state/repeat.status" "$state/$extra" \
-          || fail "reversed $extra batch did not wake"
+  pass "R3: repeats before and during sending remain distinct handoffs"
+)
+
+test_nm_handoff_coalesced_turnend() (
+  local dir state fakebin head order
+  for order in first last; do
+    nm_handoff_test_setup "nm-hook-$order"
+    touch "$state/task.turn-ended"
+    if [ "$order" = first ]; then
+      if nm_handoff_batch_should_wake "$state/task.turn-ended" "$state/task.status"; then
+        fail "a coalesced hook prevented first-handoff absorption"
       fi
-      [ "$NM_HANDOFF_ESCALATIONS" = repeat ] \
-        || fail "$extra in position $timing skipped the sibling escalation"
-      nm_handoff_commit_escalations
-      nm_handoff_stale_suppressed repeat "$state/repeat.status" \
-        || fail "$extra batch repeated its escalation through stale handling"
-    done
-  done
-  printf 'neighbor steer\n' > "$state/.nm-handoff-steered-neighbor"
-  printf 'neighbor escalation\n' > "$state/.nm-handoff-escalated-neighbor"
-  for phase in status-present markers-only; do
-    printf '%s\n' "$first" > "$state/reused.status"
-    printf '%s\n' "$endpoint" > "$state/.nm-handoff-steered-reused"
-    printf '%s\n' "$endpoint" > "$state/.nm-handoff-escalated-reused"
-    [ "$phase" != markers-only ] || rm -f "$state/reused.status"
-    status_retire_presentation_task "$state" reused || fail "$phase retirement failed"
-    [ ! -e "$state/.nm-handoff-steered-reused" ] \
-      && [ ! -e "$state/.nm-handoff-escalated-reused" ] \
-      || fail "$phase retirement retained handoff state"
-    [ -f "$state/.nm-handoff-steered-neighbor" ] \
-      && [ -f "$state/.nm-handoff-escalated-neighbor" ] \
-      || fail "$phase retirement removed another task's handoff state"
-    sends=$(wc -l < "$dir/sends" | tr -d '[:space:]')
-    printf '%s\n' "$first" > "$state/reused.status"
-    if nm_handoff_file_should_wake reused "$state/reused.status"; then
-      fail "$phase reused task's first handoff woke instead of steering"
+    elif nm_handoff_batch_should_wake "$state/task.status" "$state/task.turn-ended"; then
+      fail "a reversed coalesced hook prevented first-handoff absorption"
     fi
-    [ "$(wc -l < "$dir/sends" | tr -d '[:space:]')" = "$((sends + 1))" ] \
-      || fail "$phase reused task did not receive a fresh steer"
-    printf 'done: repeated for new task\n' >> "$state/reused.status"
-    NM_HANDOFF_ESCALATIONS=''
-    nm_handoff_file_should_wake reused "$state/reused.status" \
-      || fail "$phase reused task did not escalate its second handoff"
-    [ "$NM_HANDOFF_ESCALATIONS" = reused ] || fail "$phase reused task lost its escalation"
-    nm_handoff_commit_escalations
+    [ "$(wc -l < "$dir/sends" | tr -d '[:space:]')" = 1 ] || fail "coalesced hook duplicated the steer"
+    [ -z "$NM_HANDOFF_WAKE_FILES" ] || fail "coalesced hook retained a wake"
+    printf 'done [at=101]: repeated\n' >> "$state/task.status"
+    nm_handoff_batch_should_wake "$state/task.status" "$state/task.turn-ended" \
+      || fail "a coalesced repeat was absorbed"
+    nm_handoff_test_commit_repeat
   done
+  pass "R4: coalesced status and companion hooks share one task verdict"
+)
+
+test_nm_handoff_retirement() (
+  local dir state fakebin head phase
+  nm_handoff_test_setup nm-retirement
+  printf 'neighbor\n' > "$state/.nm-handoff-steered-neighbor"
+  for phase in status-present markers-only; do
+    printf '100@%s\n' "$head" > "$state/.nm-handoff-steered-task"
+    printf '101@%s\n' "$head" > "$state/.nm-handoff-escalated-task"
+    [ "$phase" != markers-only ] || rm -f "$state/task.status"
+    status_retire_presentation_task "$state" task || fail "$phase retirement failed"
+    [ ! -e "$state/.nm-handoff-steered-task" ] \
+      && [ ! -e "$state/.nm-handoff-escalated-task" ] || fail "retirement retained suppression markers"
+    [ -f "$state/.nm-handoff-steered-neighbor" ] || fail "retirement changed the neighboring task"
+    : > "$dir/sends"
+    printf 'done [at=100]: reused task\n' > "$state/task.status"
+    nm_handoff_test_first
+    printf 'done [at=101]: repeated\n' >> "$state/task.status"
+    nm_handoff_batch_should_wake "$state/task.status" || fail "reused task could not escalate"
+    nm_handoff_test_commit_repeat
+  done
+  pass "R5: task retirement permits a fresh steer and escalation after ID reuse"
+)
+
+test_nm_handoff_failed_events() (
+  local dir state fakebin head order phase
+  nm_handoff_test_setup nm-failed
   for order in before after; do
-    for phase in first steered escalated; do
-      rm -f "$state/.nm-handoff-steered-failure" "$state/.nm-handoff-escalated-failure"
+    for phase in first escalated; do
+      rm -f "$state/.nm-handoff-steered-task" "$state/.nm-handoff-escalated-task"
       if [ "$order" = before ]; then
-        printf 'failed: validation could not start\n%s\n' "$first" > "$state/failure.status"
+        printf 'failed [at=99]: validation could not start\ndone [at=100]: finished\n' > "$state/task.status"
       else
-        printf '%s\nfailed: validation could not start\n' "$first" > "$state/failure.status"
+        printf 'done [at=100]: finished\nfailed [at=101]: validation could not start\n' > "$state/task.status"
       fi
-      [ "$phase" = first ] || nm_handoff_steer_once failure "$state/failure.status" \
-        || fail "could not prime the failure fixture's steer"
-      [ "$phase" != escalated ] || printf '%s\n' "$endpoint" > "$state/.nm-handoff-escalated-failure"
-      nm_handoff_batch_should_wake "$state/failure.status" \
-        || fail "$phase handoff absorbed a failure $order done"
-      if nm_handoff_stale_suppressed failure "$state/failure.status"; then
-        fail "$phase stale handoff suppressed a failure $order done"
+      if [ "$phase" = escalated ]; then
+        printf '100@%s\n' "$head" > "$state/.nm-handoff-steered-task"
+        printf '101@%s\n' "$head" > "$state/.nm-handoff-escalated-task"
+      fi
+      nm_handoff_batch_should_wake "$state/task.status" || fail "$phase handoff absorbed failure $order done"
+      if nm_handoff_stale_suppressed task "$state/task.status"; then
+        fail "$phase stale handoff suppressed failure $order done"
       fi
     done
   done
-  printf 'done: no newline' > "$state/unterminated.status"
-  [ "$(nm_handoff_done_endpoint "$state/unterminated.status" 0)" = 16 ] \
-    || fail "an unterminated done record did not use its exact byte endpoint"
-  pass "handoff record endpoints and mixed batches preserve one-time escalation"
+  pass "R6: failed events always wake regardless of handoff order or escalation"
+)
+
+test_nm_handoff_delayed_turnend() (
+  local dir state fakebin head
+  nm_handoff_test_setup nm-late-hook
+  nm_handoff_test_first
+  touch "$state/task.turn-ended" "$state/other.turn-ended"
+  if nm_handoff_batch_should_wake "$state/task.turn-ended"; then
+    fail "a delayed first-handoff hook woke"
+  fi
+  printf 'done [at=101]: repeated\n' >> "$state/task.status"
+  nm_handoff_batch_should_wake "$state/task.status" || fail "the second handoff did not wake"
+  nm_handoff_test_commit_repeat
+  if nm_handoff_batch_should_wake "$state/task.turn-ended"; then
+    fail "a delayed hook repeated an already-queued escalation"
+  fi
+  nm_handoff_batch_should_wake "$state/task.turn-ended" "$state/other.turn-ended" \
+    || fail "an unrelated hook was swallowed with the handoff hook"
+  case " $NM_HANDOFF_WAKE_FILES " in *" $state/task.turn-ended "*) fail "mixed batch retained the absorbed companion hook" ;; esac
+  case " $NM_HANDOFF_WAKE_FILES " in *" $state/other.turn-ended "*) ;; *) fail "mixed batch lost the unrelated hook" ;; esac
+  pass "review-1: delayed companion hooks stay absorbed while unrelated hooks wake"
 )
 
 test_nm_handoff_review_regressions() {
-  test_nm_handoff_record_and_batch_regressions
+  test_nm_handoff_unicode_identity
+  test_nm_handoff_mixed_batch
+  test_nm_handoff_send_race
+  test_nm_handoff_coalesced_turnend
+  test_nm_handoff_retirement
+  test_nm_handoff_failed_events
+  test_nm_handoff_delayed_turnend
   test_nm_handoff_first_steer_then_one_escalation
   test_direct_pr_and_scout_done_do_not_steer
   test_handoff_with_blocked_still_wakes
@@ -2635,8 +2735,8 @@ test_handoff_with_actionable_still_wakes() {
   out="$dir/watch.out"
   window="test:fm-both"
   status_file="$state/both.status"
-  printf 'window=%s\nkind=ship\nmode=no-mistakes\nharness=claude\n' "$window" > "$state/both.meta"
-  printf '%s: validation could not start\ndone: implementation complete\n' "$verb" > "$status_file"
+  printf 'window=%s\nkind=ship\nmode=no-mistakes\nharness=claude\nworktree=%s\n' "$window" "$ROOT" > "$state/both.meta"
+  printf '%s [at=99]: validation could not start\ndone [at=100]: implementation complete\n' "$verb" > "$status_file"
   export FM_FAKE_CREW_STATE='state: stopped-before-validation · source: status-log · stopped-before-validation'
   PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
@@ -7460,7 +7560,13 @@ test_unreadable_status_reports_once_per_file_state
 test_permission_recovery_surfaces_preserved_status
 test_terminal_stale_surfaced
 test_stale_terminal_status_overridden_by_active_run
-test_nm_handoff_record_and_batch_regressions
+test_nm_handoff_unicode_identity
+test_nm_handoff_mixed_batch
+test_nm_handoff_send_race
+test_nm_handoff_coalesced_turnend
+test_nm_handoff_retirement
+test_nm_handoff_failed_events
+test_nm_handoff_delayed_turnend
 test_nm_handoff_first_steer_then_one_escalation
 test_direct_pr_and_scout_done_do_not_steer
 test_handoff_with_blocked_still_wakes

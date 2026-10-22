@@ -2716,99 +2716,90 @@ nm_handoff_span_demands_wake() {  # <status-file>
   nm_handoff_span_verbs "$1" failed
 }
 
-nm_handoff_done_endpoint() {  # <status-file> <offset>
-  local LC_ALL=C
-  local f=$1 offset=$2 line pos=0 bytes more=1
-  case "$offset" in ''|*[!0-9]*) return 1 ;; esac
-  while [ "$more" -eq 1 ]; do
-    if IFS= read -r line; then
-      bytes=$((${#line} + 1))
-    else
-      more=0
-      bytes=${#line}
-      [ "$bytes" -gt 0 ] || break
-    fi
-    if [ "$pos" -ge "$offset" ] && [ "$(status_line_verb "$line")" = "done" ]; then
-      printf '%s\n' "$((pos + bytes))"
-      return 0
-    fi
-    pos=$((pos + bytes))
-  done < "$f"
-  return 1
+nm_handoff_done_ids() {  # <status-file> <head>
+  local line stamp
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ "$(status_line_verb "$line")" = done ] || continue
+    stamp=$(status_line_at_epoch "$line") || return 1
+    printf '%s@%s\n' "$stamp" "$2"
+  done < "$1"
 }
 
-nm_handoff_steer_once() {  # <task> <status-file>
-  local task=$1 statusf=$2 marker size
+nm_handoff_steer_once() {  # <task> <identity>
+  local task=$1 identity=$2 marker
   marker="$STATE/.nm-handoff-steered-$task"
   [ -f "$marker" ] && return 0
-  size=$(nm_handoff_done_endpoint "$statusf" 0) || return 1
-  # The text must not start with "/": fm-send keeps a leading slash off the inbox.
   FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-send.sh" "$task" \
     "$NM_HANDOFF_STEER_TEXT" >/dev/null || return 1
-  printf '%s\n' "$size" > "$marker"
+  printf '%s\n' "$identity" > "$marker"
 }
 
-nm_handoff_note_escalation_if_new() {  # <task> <status-file>
-  local task=$1 statusf=$2 steered
-  [ -f "$STATE/.nm-handoff-steered-$task" ] || return 0
-  [ -f "$STATE/.nm-handoff-escalated-$task" ] && return 0
-  steered=$(cat "$STATE/.nm-handoff-steered-$task" 2>/dev/null || true)
-  nm_handoff_done_endpoint "$statusf" "$steered" >/dev/null || return 0
-  case " $NM_HANDOFF_ESCALATIONS " in
-    *" $task "*) return 0 ;;
-  esac
-  NM_HANDOFF_ESCALATIONS="${NM_HANDOFF_ESCALATIONS:+$NM_HANDOFF_ESCALATIONS }$task"
-}
-
-# 0 when the caller should wake, 1 when this handoff is absorbed.
 nm_handoff_decide() {  # <task> <status-file>
-  local task=$1 statusf=$2 steered
+  local task=$1 statusf=$2 wt head records first steered identity
   nm_handoff_is_stopped "$task" || return 0
-  if nm_handoff_span_demands_wake "$statusf"; then
-    nm_handoff_steer_once "$task" "$statusf" || true
-    nm_handoff_note_escalation_if_new "$task" "$statusf"
-    return 0
-  fi
-  if [ ! -f "$STATE/.nm-handoff-steered-$task" ]; then
-    nm_handoff_steer_once "$task" "$statusf" || return 0
-  fi
-  steered=$(cat "$STATE/.nm-handoff-steered-$task" 2>/dev/null || true)
-  case "$steered" in ''|*[!0-9]*) return 0 ;; esac
-  if nm_handoff_done_endpoint "$statusf" "$steered" >/dev/null; then
-    if [ ! -f "$STATE/.nm-handoff-escalated-$task" ]; then
-      nm_handoff_note_escalation_if_new "$task" "$statusf"
+  wt=$(fm_meta_get "$STATE/$task.meta" worktree)
+  [ -n "$wt" ] || return 0
+  head=$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null) || return 0
+  records=$(nm_handoff_done_ids "$statusf" "$head") || return 0
+  [ -n "$records" ] || return 0
+  first=${records%%$'\n'*}
+  nm_handoff_steer_once "$task" "$first" || return 0
+  steered=$(cat "$STATE/.nm-handoff-steered-$task" 2>/dev/null) || return 0
+  records=$(nm_handoff_done_ids "$statusf" "$head") || return 0
+  if [ ! -f "$STATE/.nm-handoff-escalated-$task" ]; then
+    while IFS= read -r identity; do
+      [ -n "$identity" ] && [ "$identity" != "$steered" ] || continue
+      NM_HANDOFF_ESCALATIONS="${NM_HANDOFF_ESCALATIONS}${task}"$'\t'"${identity}"$'\n'
       return 0
-    fi
-    return 1
+    done <<EOF
+$records
+EOF
   fi
+  nm_handoff_span_demands_wake "$statusf" && return 0
   return 1
 }
 
-# 0 when this file should still wake. A span with no new done line is not a
-# handoff absorb: the caller's ordinary rule wakes it.
 nm_handoff_file_should_wake() {  # <task> <status-file>
-  nm_handoff_span_has_done "$2" || return 0
+  if ! nm_handoff_span_has_done "$2" \
+    && [ "$(status_line_verb "$(last_status_line "$2")")" != done ]; then
+    return 0
+  fi
   nm_handoff_decide "$1" "$2"
 }
 
-# 0 when the signal batch must wake, 1 when every file is an absorbed handoff.
-nm_handoff_batch_should_wake() {  # <status-file>...
-  local f task saw=0 should_wake=1
+nm_handoff_batch_should_wake() {  # <signal-file>...
+  local f task seen='' wake_tasks='' should_wake=1
   NM_HANDOFF_ESCALATIONS=""
+  NM_HANDOFF_WAKE_FILES=""
   [ "$#" -gt 0 ] || return 0
   for f in "$@"; do
     [ -n "$f" ] || continue
-    saw=1
-    case "$f" in
-      *.status) ;;
+    task=$(basename "$f")
+    case "$task" in
+      *.status) task=${task%.status} ;;
+      *.turn-ended) task=${task%.turn-ended} ;;
       *) should_wake=0; continue ;;
     esac
-    task=$(basename "$f" .status)
-    if nm_handoff_file_should_wake "$task" "$f"; then
+    case " $seen " in *" $task "*) continue ;; esac
+    seen="${seen:+$seen }$task"
+    if nm_handoff_file_should_wake "$task" "$STATE/$task.status"; then
+      wake_tasks="${wake_tasks:+$wake_tasks }$task"
       should_wake=0
     fi
   done
-  [ "$saw" -eq 1 ] || return 0
+  for f in "$@"; do
+    [ -n "$f" ] || continue
+    task=$(basename "$f")
+    case "$task" in
+      *.status) task=${task%.status} ;;
+      *.turn-ended) task=${task%.turn-ended} ;;
+      *) NM_HANDOFF_WAKE_FILES="$NM_HANDOFF_WAKE_FILES $f"; continue ;;
+    esac
+    case " $wake_tasks " in
+      *" $task "*) NM_HANDOFF_WAKE_FILES="$NM_HANDOFF_WAKE_FILES $f" ;;
+    esac
+  done
+  [ -n "$seen" ] || return 0
   return "$should_wake"
 }
 
@@ -2826,15 +2817,13 @@ nm_handoff_stale_suppressed() {  # <task> <status-file>
 }
 
 nm_handoff_commit_escalations() {
-  local task statusf size
-  [ -n "${NM_HANDOFF_ESCALATIONS:-}" ] || return 0
-  # shellcheck disable=SC2086  # task ids are single tokens separated by spaces
-  for task in $NM_HANDOFF_ESCALATIONS; do
-    statusf="$STATE/$task.status"
-    [ -f "$statusf" ] || continue
-    size=$(wc -c < "$statusf" | tr -d '[:space:]')
-    printf '%s\n' "$size" > "$STATE/.nm-handoff-escalated-$task"
-  done
+  local task identity
+  while IFS=$'\t' read -r task identity; do
+    [ -n "$task" ] && [ -n "$identity" ] || continue
+    printf '%s\n' "$identity" > "$STATE/.nm-handoff-escalated-$task"
+  done <<EOF
+$NM_HANDOFF_ESCALATIONS
+EOF
   NM_HANDOFF_ESCALATIONS=""
 }
 
@@ -3559,8 +3548,11 @@ EOF
         nm_handoff_commit_signal_markers
         triage_log "absorbed handoff done (start-validation steer): $reason"
       else
+      files=$NM_HANDOFF_WAKE_FILES
+      reason="signal:$files"
       while IFS=$(printf '\t') read -r sf sig f; do
         [ -n "$sf" ] || continue
+        case " $NM_HANDOFF_WAKE_FILES " in *" $f "*) ;; *) continue ;; esac
         file_reason="$reason"
         case " $FM_SIGNAL_NEEDS_DECISION_FILES " in *" $f "*) file_reason="needs-decision:$files" ;; esac
         fm_wake_append signal "$(basename "$f")" "$file_reason" || exit 1
