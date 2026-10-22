@@ -1539,6 +1539,7 @@ test_terminal_passed_with_open_pr_does_not_claim_merged() {
   FM_FAKE_PR_STATE=OPEN
   FM_FAKE_PR_MERGED=false
   FM_FAKE_AXI_STATUS="$(run_passed fm/feat-dopen)"
+  printf 'done: implementation complete\n' > "$d/state/feat-dopen.status"
   local out; out=$(run_crew_state "$d" feat-dopen)
   assert_contains "$out" "state: done" "passed run with open PR -> done"
   assert_contains "$out" "run passed: PR open" "open PR state is named"
@@ -2464,7 +2465,7 @@ test_merged_pr_reads_done_under_captured_meta() {
   pass "recorded merged PR reads done under the fleet snapshot's captured meta"
 }
 
-test_no_mistakes_prevalidation_done_stays_done() {
+test_no_mistakes_prevalidation_done_stops_before_validation() {
   reset_fakes
   local d out
   d=$(new_case preval-done)
@@ -2475,14 +2476,63 @@ test_no_mistakes_prevalidation_done_stays_done() {
     "window=fm:fm-preval" "worktree=$d/wt" "project=$d/wt" \
     "kind=ship" "mode=no-mistakes" "harness=claude"
   printf 'done: implementation complete\n' > "$d/state/preval.status"
-  FM_FAKE_AXI_STATUS=""
+  FM_FAKE_AXI_STATUS="$(printf 'current_branch: fm/preval\nruns_on_current_branch: 0\n')"
   FM_FAKE_RUNS_LIST=""
   FM_FAKE_BUSY=0
   arm_idle_record "$d/state" preval
   out=$(run_crew_state "$d" preval)
-  assert_contains "$out" "state: done" "no-mistakes pre-validation done: remains done"
+  assert_contains "$out" "state: stopped-before-validation" "positive no-run handoff is not done"
+  assert_contains "$out" "source: status-log" "the handoff is read from the status log"
+  assert_not_contains "$out" "state: done" "positive no-run handoff must not read done"
   assert_not_contains "$out" "state: blocked" "pre-validation done: must not be the named-head gate"
-  pass "no-mistakes pre-validation done: stays current-state done"
+  pass "no-mistakes pre-validation done with a positive no-run is stopped-before-validation"
+}
+
+test_ci_is_green_without_run_stays_on_named_head_gate() {
+  reset_fakes
+  local d out fix_sha
+  d=$(new_case ci-is-green)
+  make_repo_on_branch "$d/wt" fm/ci-green
+  git -C "$d/wt" commit -q --allow-empty -m 'fix only in the worktree'
+  fix_sha=$(git -C "$d/wt" rev-parse HEAD)
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/ci-green.meta" \
+    "window=fm:fm-ci-green" "worktree=$d/wt" "project=$d/wt" \
+    "kind=ship" "mode=no-mistakes" "harness=claude"
+  printf 'done: CI is green https://github.com/o/r/pull/9\n' > "$d/state/ci-green.status"
+  FM_FAKE_AXI_STATUS="$(printf 'current_branch: fm/ci-green\nruns_on_current_branch: 0\n')"
+  FM_FAKE_RUNS_LIST=""
+  FM_FAKE_BUSY=0
+  arm_idle_record "$d/state" ci-green
+  out=$(run_crew_state "$d" ci-green)
+  assert_contains "$out" "state: blocked" "CI is green with no reachable head stays on the named-head gate"
+  assert_contains "$out" "named head $fix_sha is unreachable outside the worker copy" \
+    "the refusal names the head that exists only in the worktree"
+  assert_not_contains "$out" "state: stopped-before-validation" "a ready report is not a start-validation handoff"
+  assert_not_contains "$out" "state: done" "an unreachable ready report is not done"
+  pass "CI is green plus a PR reference with no run stays on the named-head gate"
+}
+
+test_missing_no_mistakes_does_not_stop_before_validation() {
+  reset_fakes
+  local d out toolbin
+  d=$(new_case missing-nm)
+  make_repo_on_branch "$d/wt" fm/missing-nm
+  git -C "$d/wt" commit -q --allow-empty -m 'fix only in the worktree'
+  make_fakebin "$d" >/dev/null
+  rm -f "$d/fakebin/no-mistakes"
+  toolbin=$(make_no_python_toolbin "$d")
+  fm_write_meta "$d/state/missing-nm.meta" \
+    "window=fm:fm-missing-nm" "worktree=$d/wt" "project=$d/wt" \
+    "kind=ship" "mode=no-mistakes" "harness=claude"
+  printf 'done: implementation complete\n' > "$d/state/missing-nm.status"
+  FM_FAKE_BUSY=0
+  arm_idle_record "$d/state" missing-nm
+  out=$(PATH="$d/fakebin:$toolbin" FM_STATE_OVERRIDE="$d/state" "$CREW_STATE" missing-nm)
+  assert_contains "$out" "state: done" "a missing no-mistakes binary still accepts the handoff"
+  assert_not_contains "$out" "state: stopped-before-validation" "a missing binary must not steer"
+  assert_not_contains "$out" "state: blocked" "a missing binary is not the named-head gate"
+  pass "a missing no-mistakes binary does not classify the handoff as stopped-before-validation"
 }
 
 test_moved_remote_branch_without_named_head_is_blocked() {
@@ -5840,7 +5890,9 @@ test_coarse_run_does_not_probe_other_branch_ci_log_for_ready_status
 test_other_branch_run_ignored
 test_unpushed_ship_done_is_blocked
 test_merged_pr_reads_done_under_captured_meta
-test_no_mistakes_prevalidation_done_stays_done
+test_no_mistakes_prevalidation_done_stops_before_validation
+test_ci_is_green_without_run_stays_on_named_head_gate
+test_missing_no_mistakes_does_not_stop_before_validation
 test_moved_remote_branch_without_named_head_is_blocked
 test_external_review_done_reads_ready
 test_no_run_busy_pane
