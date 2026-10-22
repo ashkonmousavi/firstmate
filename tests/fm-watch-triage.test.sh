@@ -2447,7 +2447,7 @@ test_nm_handoff_first_steer_then_one_escalation() {
   status_file="$state/handoff.status"
   printf 'idle\n' > "$capture_file"
   printf 'window=%s\nkind=ship\nmode=no-mistakes\nharness=claude\n' "$window" > "$state/handoff.meta"
-  printf 'done: implementation complete\n' > "$status_file"
+  printf 'done: café implementation complete\n' > "$status_file"
   export FM_FAKE_CREW_STATE='state: stopped-before-validation · source: status-log · stopped-before-validation'
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
@@ -2482,6 +2482,80 @@ test_nm_handoff_first_steer_then_one_escalation() {
   [ -f "$state/.nm-handoff-escalated-handoff" ] || fail "the second handoff did not record its one escalation"
   unset FM_FAKE_CREW_STATE
   pass "the first handoff done steers once and the second escalates once"
+}
+
+test_nm_handoff_record_and_batch_regressions() (
+  local dir state fakebin timing first endpoint extra
+  dir=$(make_case nm-handoff-records); state="$dir/state"; fakebin="$dir/fakebin"
+  export FM_HOME="$dir" FM_STATE_OVERRIDE="$state"
+  export FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh"
+  export FM_FAKE_CREW_STATE='state: stopped-before-validation · source: status-log · stopped-before-validation'
+  . "$WATCH"
+  SCRIPT_DIR="$fakebin"
+  cat > "$fakebin/fm-send.sh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$1" >> "$FM_HOME/sends"
+if [ "${FM_TEST_APPEND_DURING_SEND:-0}" = 1 ]; then
+  printf 'done: repeated during send\n' >> "$FM_STATE_OVERRIDE/$1.status"
+fi
+SH
+  chmod +x "$fakebin/fm-send.sh"
+  first='done: café finished'
+  endpoint=$(printf '%s\n' "$first" | wc -c | tr -d '[:space:]')
+  for timing in before during; do
+    printf '%s\n' "$first" > "$state/$timing.status"
+    if [ "$timing" = before ]; then
+      printf 'done: repeated before send\n' >> "$state/$timing.status"
+      export FM_TEST_APPEND_DURING_SEND=0
+    else
+      export FM_TEST_APPEND_DURING_SEND=1
+    fi
+    NM_HANDOFF_ESCALATIONS=''
+    nm_handoff_decide "$timing" "$state/$timing.status" \
+      || fail "$timing-send repeat did not request an escalation"
+    [ "$(cat "$state/.nm-handoff-steered-$timing")" = "$endpoint" ] \
+      || fail "$timing-send steer did not retain the first record's byte endpoint"
+    [ "$NM_HANDOFF_ESCALATIONS" = "$timing" ] \
+      || fail "$timing-send repeat lost escalation bookkeeping"
+    nm_handoff_commit_escalations
+    nm_handoff_stale_suppressed "$timing" "$state/$timing.status" \
+      || fail "$timing-send repeat escalated again through stale handling"
+    [ "$(wc -l < "$dir/sends" | tr -d '[:space:]')" = "$([ "$timing" = before ] && echo 1 || echo 2)" ] \
+      || fail "$timing-send repeat sent more than one steer"
+  done
+  export FM_TEST_APPEND_DURING_SEND=0
+  for extra in blocked.status batch.turn-ended; do
+    printf 'blocked: release approval required\n' > "$state/$extra"
+    for timing in first last; do
+      printf '%s\n' "$first" > "$state/repeat.status"
+      printf '%s\n' "$endpoint" > "$state/.nm-handoff-steered-repeat"
+      rm -f "$state/.nm-handoff-escalated-repeat"
+      printf 'done: repeated without validation\n' >> "$state/repeat.status"
+      if [ "$timing" = first ]; then
+        nm_handoff_batch_should_wake "$state/$extra" "$state/repeat.status" \
+          || fail "mixed $extra batch did not wake"
+      else
+        nm_handoff_batch_should_wake "$state/repeat.status" "$state/$extra" \
+          || fail "reversed $extra batch did not wake"
+      fi
+      [ "$NM_HANDOFF_ESCALATIONS" = repeat ] \
+        || fail "$extra in position $timing skipped the sibling escalation"
+      nm_handoff_commit_escalations
+      nm_handoff_stale_suppressed repeat "$state/repeat.status" \
+        || fail "$extra batch repeated its escalation through stale handling"
+    done
+  done
+  printf 'done: no newline' > "$state/unterminated.status"
+  [ "$(nm_handoff_done_endpoint "$state/unterminated.status" 0)" = 16 ] \
+    || fail "an unterminated done record did not use its exact byte endpoint"
+  pass "handoff record endpoints and mixed batches preserve one-time escalation"
+)
+
+test_nm_handoff_review_regressions() {
+  test_nm_handoff_record_and_batch_regressions
+  test_nm_handoff_first_steer_then_one_escalation
+  test_direct_pr_and_scout_done_do_not_steer
+  test_handoff_with_blocked_still_wakes
 }
 
 test_direct_pr_and_scout_done_do_not_steer() {
@@ -7330,6 +7404,7 @@ test_unreadable_status_reports_once_per_file_state
 test_permission_recovery_surfaces_preserved_status
 test_terminal_stale_surfaced
 test_stale_terminal_status_overridden_by_active_run
+test_nm_handoff_record_and_batch_regressions
 test_nm_handoff_first_steer_then_one_escalation
 test_direct_pr_and_scout_done_do_not_steer
 test_handoff_with_blocked_still_wakes
