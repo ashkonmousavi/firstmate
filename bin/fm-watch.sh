@@ -2712,7 +2712,8 @@ nm_handoff_span_has_done() {  # <status-file>
 
 nm_handoff_span_demands_wake() {  # <status-file>
   nm_handoff_span_verbs "$1" needs-decision && return 0
-  nm_handoff_span_verbs "$1" blocked
+  nm_handoff_span_verbs "$1" blocked && return 0
+  nm_handoff_span_verbs "$1" failed
 }
 
 nm_handoff_done_endpoint() {  # <status-file> <offset>

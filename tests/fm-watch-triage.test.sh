@@ -2485,7 +2485,7 @@ test_nm_handoff_first_steer_then_one_escalation() {
 }
 
 test_nm_handoff_record_and_batch_regressions() (
-  local dir state fakebin timing first endpoint extra
+  local dir state fakebin timing first endpoint extra phase order sends
   dir=$(make_case nm-handoff-records); state="$dir/state"; fakebin="$dir/fakebin"
   export FM_HOME="$dir" FM_STATE_OVERRIDE="$state"
   export FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh"
@@ -2545,6 +2545,52 @@ SH
         || fail "$extra batch repeated its escalation through stale handling"
     done
   done
+  printf 'neighbor steer\n' > "$state/.nm-handoff-steered-neighbor"
+  printf 'neighbor escalation\n' > "$state/.nm-handoff-escalated-neighbor"
+  for phase in status-present markers-only; do
+    printf '%s\n' "$first" > "$state/reused.status"
+    printf '%s\n' "$endpoint" > "$state/.nm-handoff-steered-reused"
+    printf '%s\n' "$endpoint" > "$state/.nm-handoff-escalated-reused"
+    [ "$phase" != markers-only ] || rm -f "$state/reused.status"
+    status_retire_presentation_task "$state" reused || fail "$phase retirement failed"
+    [ ! -e "$state/.nm-handoff-steered-reused" ] \
+      && [ ! -e "$state/.nm-handoff-escalated-reused" ] \
+      || fail "$phase retirement retained handoff state"
+    [ -f "$state/.nm-handoff-steered-neighbor" ] \
+      && [ -f "$state/.nm-handoff-escalated-neighbor" ] \
+      || fail "$phase retirement removed another task's handoff state"
+    sends=$(wc -l < "$dir/sends" | tr -d '[:space:]')
+    printf '%s\n' "$first" > "$state/reused.status"
+    if nm_handoff_file_should_wake reused "$state/reused.status"; then
+      fail "$phase reused task's first handoff woke instead of steering"
+    fi
+    [ "$(wc -l < "$dir/sends" | tr -d '[:space:]')" = "$((sends + 1))" ] \
+      || fail "$phase reused task did not receive a fresh steer"
+    printf 'done: repeated for new task\n' >> "$state/reused.status"
+    NM_HANDOFF_ESCALATIONS=''
+    nm_handoff_file_should_wake reused "$state/reused.status" \
+      || fail "$phase reused task did not escalate its second handoff"
+    [ "$NM_HANDOFF_ESCALATIONS" = reused ] || fail "$phase reused task lost its escalation"
+    nm_handoff_commit_escalations
+  done
+  for order in before after; do
+    for phase in first steered escalated; do
+      rm -f "$state/.nm-handoff-steered-failure" "$state/.nm-handoff-escalated-failure"
+      if [ "$order" = before ]; then
+        printf 'failed: validation could not start\n%s\n' "$first" > "$state/failure.status"
+      else
+        printf '%s\nfailed: validation could not start\n' "$first" > "$state/failure.status"
+      fi
+      [ "$phase" = first ] || nm_handoff_steer_once failure "$state/failure.status" \
+        || fail "could not prime the failure fixture's steer"
+      [ "$phase" != escalated ] || printf '%s\n' "$endpoint" > "$state/.nm-handoff-escalated-failure"
+      nm_handoff_batch_should_wake "$state/failure.status" \
+        || fail "$phase handoff absorbed a failure $order done"
+      if nm_handoff_stale_suppressed failure "$state/failure.status"; then
+        fail "$phase stale handoff suppressed a failure $order done"
+      fi
+    done
+  done
   printf 'done: no newline' > "$state/unterminated.status"
   [ "$(nm_handoff_done_endpoint "$state/unterminated.status" 0)" = 16 ] \
     || fail "an unterminated done record did not use its exact byte endpoint"
@@ -2556,6 +2602,7 @@ test_nm_handoff_review_regressions() {
   test_nm_handoff_first_steer_then_one_escalation
   test_direct_pr_and_scout_done_do_not_steer
   test_handoff_with_blocked_still_wakes
+  test_handoff_with_failed_still_wakes
 }
 
 test_direct_pr_and_scout_done_do_not_steer() {
@@ -2581,24 +2628,33 @@ test_direct_pr_and_scout_done_do_not_steer() {
   pass "a direct-PR done and a scout done do not steer"
 }
 
-test_handoff_with_blocked_still_wakes() {
+test_handoff_with_actionable_still_wakes() {
+  local verb=$1
   local dir state fakebin out window status_file pid
-  dir=$(make_case nm-handoff-blocked); state="$dir/state"; fakebin="$dir/fakebin"
+  dir=$(make_case "nm-handoff-$verb"); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"
   window="test:fm-both"
   status_file="$state/both.status"
   printf 'window=%s\nkind=ship\nmode=no-mistakes\nharness=claude\n' "$window" > "$state/both.meta"
-  printf 'done: implementation complete\nblocked: release approval required\n' > "$status_file"
+  printf '%s: validation could not start\ndone: implementation complete\n' "$verb" > "$status_file"
   export FM_FAKE_CREW_STATE='state: stopped-before-validation · source: status-log · stopped-before-validation'
   PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
     "$WATCH" > "$out" &
   pid=$!
-  wait_for_exit "$pid" 100 || fail "a handoff span that also says blocked did not wake"
-  grep -F "signal: $status_file" "$out" >/dev/null || fail "the blocked span did not wake: $(cat "$out")"
-  [ "$(inbox_msg_count "$state" both)" = 1 ] || fail "the blocked handoff span did not steer once"
+  wait_for_exit "$pid" 100 || fail "a handoff span that also says $verb did not wake"
+  grep -F "signal: $status_file" "$out" >/dev/null || fail "the $verb span did not wake: $(cat "$out")"
+  [ "$(inbox_msg_count "$state" both)" = 1 ] || fail "the $verb handoff span did not steer once"
   unset FM_FAKE_CREW_STATE
-  pass "a handoff span that also contains blocked still wakes"
+  pass "a handoff span that also contains $verb still wakes"
+}
+
+test_handoff_with_blocked_still_wakes() {
+  test_handoff_with_actionable_still_wakes blocked
+}
+
+test_handoff_with_failed_still_wakes() {
+  test_handoff_with_actionable_still_wakes failed
 }
 
 # --- non-terminal stale, crew provably working: absorbed, then wedge-escalated ---
@@ -7408,6 +7464,7 @@ test_nm_handoff_record_and_batch_regressions
 test_nm_handoff_first_steer_then_one_escalation
 test_direct_pr_and_scout_done_do_not_steer
 test_handoff_with_blocked_still_wakes
+test_handoff_with_failed_still_wakes
 test_nonterminal_stale_provably_working_absorbed_then_escalated
 test_wedge_escalation_marks_demand_deep_inspection_after_threshold
 test_wedge_escalation_resets_when_pane_becomes_active
