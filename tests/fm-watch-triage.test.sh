@@ -7881,7 +7881,80 @@ test_nm_handoff_shared_consumers() {
   done
 }
 
+nm_handoff_dirty_case() {
+  local mode=$1 intake=$2 dir state fakebin repo sha
+  dir=$(make_case "nm-dirty-$mode-$intake"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: café\nfailed [at=150]: disk operation failed\ndone [at=200] [handoff=%s]: complete\n' "$sha" "$sha" > "$state/ship1.status"
+  [ "$mode" != away ] || : > "$state/.afk"
+  if [ "$intake" = watcher-batch ]; then
+    nm_watch_exit "$state" "$fakebin" "$dir/watch.out" || fail "mixed handoff batch did not wake"
+    awk -F '\t' '$3 == "signal" && $4 == "ship1.status" { n++ } END { exit n < 1 }' "$state/.wake-queue" \
+      || fail "mixed batch discarded the ordinary signal: $(cat "$state/.wake-queue")"
+  fi
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" DIRTY_INTAKE="$intake" DIRTY_SHA="$sha" \
+    FM_ESCALATE_BATCH_SECS=999999 FM_HEARTBEAT_SCAN_SECS=0 \
+    bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" <<'SH' \
+      || fail "mixed handoff span lost an event: $mode/$intake"
+set -u
+. "$1"
+. "$2"
+LOG="$STATE/daemon.log"
+trap nm_handoff_snapshot_clear EXIT
+case "$DIRTY_INTAKE" in
+  watcher-batch) : ;;
+  watcher-stale)
+    if nm_handoff_absorb_stale_pane ship1; then exit 1; fi
+    [ "$(hb_surfaced_offset ship1)" = 0 ] || exit 1
+    nm_handoff_snapshot_clear
+    housekeeping "$STATE" || exit 1
+    ;;
+  daemon-signal) handle_wake "signal: $STATE/ship1.status" "$STATE" || exit 1 ;;
+  daemon-stale) handle_wake 'stale: test:fm-ship1' "$STATE" || exit 1 ;;
+  daemon-scan) housekeeping "$STATE" || exit 1 ;;
+esac
+awk -F '\t' -v key="nm-handoff-$DIRTY_SHA" '
+  $3 == "signal" && $4 == key && $5 ~ /lines=100,200$/ { n++ }
+  END { exit n != 1 }
+' "$STATE/.wake-queue" || exit 1
+handle_durable_wakes fallback "$STATE" || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(grep -c -F 'disk operation failed' "$STATE/.subsuper-escalations")" = 1 ] || exit 1
+[ "$(grep -c -F -x "signal: $STATE/ship1.status stopped-before-validation head=$DIRTY_SHA lines=100,200" "$STATE/.subsuper-escalations")" = 1 ] || exit 1
+before=$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')
+housekeeping "$STATE" || exit 1
+handle_wake "signal: $STATE/ship1.status" "$STATE" || exit 1
+handle_wake 'stale: test:fm-ship1' "$STATE" || exit 1
+[ "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = "$before" ] || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+SH
+  nm_no_marker "$state" || fail "mixed handoff left a marker"
+  unset FM_FAKE_CREW_STATE
+  pass "mixed handoff preserves the failure through $intake in $mode mode"
+}
+
+test_nm_handoff_dirty_spans() {
+  local mode intake
+  for mode in attended away; do
+    for intake in watcher-batch watcher-stale daemon-signal daemon-stale daemon-scan; do
+      nm_handoff_dirty_case "$mode" "$intake"
+    done
+  done
+}
+
+test_nm_handoff_dirty_review_round() {
+  test_nm_handoff_dirty_spans
+  test_nm_handoff_shared_consumers
+  test_nm_handoff_snapshot_regressions
+  test_nm_handoff_both_lines_escalate_without_steer
+  test_nm_handoff_failed_line_wakes_and_steers
+}
+
 test_nm_handoff_review_round() {
+  test_nm_handoff_dirty_spans
   test_nm_handoff_shared_consumers
   test_nm_handoff_snapshot_regressions
   test_nm_handoff_first_steers_once
@@ -8074,6 +8147,9 @@ test_exit_picker_wedge_keeps_climbing
 test_quoted_exit_picker_stays_ordinary_stale
 test_secondmate_exit_picker_stays_quiet
 test_closed_exit_picker_drops_saved_dialog_name
+
+test_nm_handoff_shared_consumers
+test_nm_handoff_dirty_spans
 
 test_nm_handoff_snapshot_regressions
 

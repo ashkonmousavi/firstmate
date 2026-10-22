@@ -152,6 +152,10 @@ nm_handoff_decide() {
       [ "$shape" = needs-decision ] && return 0
       NM_HANDOFF_ACTION=escalate
       NM_HANDOFF_PAYLOAD="signal: $(cd "$STATE" && pwd)/$task.status stopped-before-validation head=$head lines=$epochs"
+      if [ "$shape" = dirty ]; then
+        nm_handoff_publish "$task" || exit 1
+        NM_HANDOFF_ACTION=ordinary
+      fi
       return 0
     fi
   fi
