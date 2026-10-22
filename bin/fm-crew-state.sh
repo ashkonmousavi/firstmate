@@ -12,8 +12,12 @@
 # the pane busy-signature) and reconciles the possibly-stale log against it.
 # A ship `done:` is current-state done only when bin/fm-dod-lib.sh accepts the
 # named head as reachable outside the worker's disposable copy; otherwise blocked.
-# A no-mistakes handoff with a positive no-run is stopped-before-validation
-# (fm_dod_done_is_nm_handoff). A missing or unreadable no-mistakes binary is not.
+# In the idle status-log fallback, a no-mistakes handoff recognized by
+# fm_dod_done_is_nm_handoff reads stopped-before-validation only when axi status
+# names this branch and reports runs_on_current_branch: 0. Missing or unreadable
+# no-mistakes tooling is not positive absence and leaves the usual verdict intact.
+# An attributed passed run with a PR stays authoritative over a handoff log line.
+# This classification sends no automatic start-validation steer or escalation.
 #
 # The determinism lives entirely here - run-step / pane / log reads, fixed
 # mapping logic, and terminal passed-run PR detail from bounded evidence only,
