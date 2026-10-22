@@ -375,7 +375,20 @@ classify_signal() {  # <reason-after-colon> <state>
   local NM_HANDOFF_SNAPSHOT_DIR=''
   local reason=$1 state=$2 f last event record rest endpoint ident rc distilled="" rel="" seen_rel="" task sig marker
   for f in $reason; do
-    case "$f" in *.status) ;; *) continue ;; esac
+    case "$f" in
+      *.turn-ended)
+        [ -e "$f" ] || [ -L "$f" ] || continue
+        task=$(basename "$f"); task=${task%.turn-ended}
+        if ! nm_handoff_daemon_task "$task" "$state" "$(status_seen_offset "$state" "$task")" \
+          || [ "$NM_HANDOFF_ACTION" != absorb ]; then
+          distilled="${distilled}$(basename "$f"): turn ended | "
+          rel=1
+        fi
+        continue
+        ;;
+      *.status) ;;
+      *) continue ;;
+    esac
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
     record=''
