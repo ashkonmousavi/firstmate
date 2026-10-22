@@ -3503,6 +3503,53 @@ test_forced_secondmate_herdr_child_retains_records_when_close_unconfirmed() {
   pass "forced secondmate teardown retains Herdr child identity until exact pane disappearance"
 }
 
+test_open_herdr_child_survives_unconfirmed_close_and_forced_cleanup() {
+  local case_dir home log closed rc representation
+  for representation in original released; do
+    case_dir=$(make_case "open-herdr-child-$representation")
+    write_meta "$case_dir" local-only secondmate
+    configure_secondmate_with_herdr_child "$case_dir"
+    install_github_pr_class "$case_dir" open
+    push_task_branch "$case_dir"
+    home="$case_dir/secondmate-home"
+    printf '%s\n' 'schema=fm-secondmate-parent.v1' 'route=remote' > "$home/.fm-secondmate-parent"
+    printf '%s\n' 'spawn_gen=open-herdr-child' 'pr=https://github.com/example/repo/pull/7' \
+      >> "$home/state/child-herdr.meta"
+    printf '%s\n' 'version=1' 'task_id=child-herdr' 'projection_id=AbCdEfGhIjKlMnOpQrStUv' \
+      > "$home/state/child-herdr.herdr-presentation"
+    log="$case_dir/herdr.log"; closed="$case_dir/closed"; : > "$log"
+    rc=0
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
+      FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+      FM_FAKE_HERDR_LOG="$log" FM_FAKE_HERDR_CLOSED="$closed" FM_FAKE_HERDR_PRESENCE_UNKNOWN=1 \
+      PATH="$case_dir/fakebin:$PATH" "$TEARDOWN" child-herdr \
+      > "$case_dir/child.stdout" 2> "$case_dir/child.stderr" || rc=$?
+    [ "$rc" -ne 0 ] || fail "$representation: unconfirmed child close reported success"
+    assert_grep 'not confirmed gone' "$case_dir/child.stderr" "$representation: child did not reach endpoint confirmation"
+    assert_present "$closed" "$representation: child close was not attempted"
+    assert_grep "worktree=$case_dir/wt" "$home/state/child-herdr.meta" \
+      "$representation: copy release marker preceded endpoint confirmation"
+    if [ "$representation" = released ]; then
+      sed "s|^worktree=.*|worktree=$home/state/child-herdr.released-copy|" \
+        "$home/state/child-herdr.meta" > "$case_dir/child.meta.tmp"
+      mv "$case_dir/child.meta.tmp" "$home/state/child-herdr.meta"
+    fi
+    mv "$closed" "$case_dir/child-close-attempt"
+    rc=0
+    FM_FAKE_HERDR_LOG="$log" FM_FAKE_HERDR_CLOSED="$closed" FM_FAKE_HERDR_PRESENCE_UNKNOWN=1 \
+      run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    [ "$rc" -ne 0 ] || fail "$representation: forced cleanup erased an unconfirmed child endpoint"
+    assert_grep "retaining that child's durable identity records" "$case_dir/stderr" \
+      "$representation: forced cleanup bypassed child endpoint confirmation: $(cat "$case_dir/stderr")"
+    assert_present "$home/state/child-herdr.meta" "$representation: child metadata was erased"
+    assert_present "$home/state/child-herdr.herdr-presentation" "$representation: pane record was erased"
+    assert_present "$case_dir/state/task-x1.meta" "$representation: parent metadata was erased"
+    [ -d "$home" ] || fail "$representation: secondmate home was removed"
+    assert_grep 'herdr_pane_id=wC:p1' "$home/state/child-herdr.meta" "$representation: pane identity was lost"
+  done
+  pass "open Herdr children retain endpoint identity and home through unconfirmed and forced cleanup"
+}
+
 configure_nested_secondmate_with_herdr_grandchild() {  # <case-dir>
   local case_dir=$1 home="$1/secondmate-home" nested_home="$1/secondmate-home/nested-home"
   mkdir -p "$home/state" "$home/data" "$home/config" "$home/projects"
@@ -5918,6 +5965,7 @@ test_herdr_teardown_presentation_lock_namespace_is_per_account
 test_forced_secondmate_herdr_child_preflight_refuses_before_changes
 test_forced_secondmate_teardown_holds_descendant_lifecycle_locks
 test_forced_secondmate_herdr_child_retains_records_when_close_unconfirmed
+test_open_herdr_child_survives_unconfirmed_close_and_forced_cleanup
 test_forced_teardown_retains_nested_secondmate_home_when_grandchild_close_unconfirmed
 test_herdr_projection_teardown_retires_journal_only_after_confirmed_close
 test_herdr_projection_teardown_retains_journal_when_close_unconfirmed

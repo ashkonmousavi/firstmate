@@ -3607,7 +3607,9 @@ cleanup_firstmate_home_children() {
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
       fi
     fi
-    if [ -n "$child_t" ] && ! teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; then
+    if [ -n "$child_t" ] \
+        && { [ "$child_backend" != orca ] \
+          || ! teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; }; then
       if [ "$child_backend" = herdr ]; then
         fm_backend_herdr_parse_target "$child_t" || return 1
         if ! teardown_herdr_session_lock_held "$FM_BACKEND_HERDR_SESSION"; then
@@ -4002,7 +4004,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree;
   fm_backend_remove_worktree "$BACKEND" "$ORCA_WORKTREE_ID"
   teardown_release_recorded_copy || exit 1
 elif [ "$KIND" != secondmate ] && ! teardown_owns_worktree; then
-  teardown_release_recorded_copy || exit 1
+  :
 elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
   branch=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
   if [ "$branch" != "HEAD" ]; then
@@ -4031,15 +4033,12 @@ elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
     echo "error: treehouse return failed for worktree $WT; teardown aborted" >&2
     exit 1
   }
-  teardown_release_recorded_copy || exit 1
   [ "$wt_pool_slot" = 0 ] || teardown_note_dirty_return "$WT"
   # The slot is back in the pool, so this task's claim on it is spent. Dropping
   # it here - and only after a return that succeeded - keeps a returned slot
   # unclaimed until its next holder claims it, and leaves the claim in place
   # whenever the return did not actually happen.
   fm_treehouse_slot_owner_release "$WT" "$ID"
-else
-  teardown_release_recorded_copy || exit 1
 fi
 
 HERDR_PRESENTATION_JOURNAL="$STATE/$ID.herdr-presentation"
@@ -4132,6 +4131,9 @@ if [ "$BACKEND" = herdr ]; then
     echo "error: herdr pane $T for $ID is not confirmed gone after its close was refused, skipped, or failed; retaining every durable task record - rerun teardown once the close can run under the session lock" >&2
     exit 1
   fi
+fi
+if [ "$BACKEND" != orca ]; then
+  teardown_release_recorded_copy || exit 1
 fi
 if [ "$KIND" != secondmate ]; then
   if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
