@@ -5,8 +5,8 @@
 # On GitHub, when the change is not merged, it also emits exactly one of
 # `conflict:<added-at>` (a label named conflict has been applied for at least 15 minutes)
 # or `conflict-clear` (the label is absent or still younger than that).
-# Every error, and any GitHub label age that cannot be proved, stays silent, so
-# a failed lookup can never be read as a merge or as a conflict.
+# GitHub label lookup and JSON failures return nonzero. An unproved label age
+# emits no observation, so it cannot be read as a merge or as a conflict.
 # The provider-tagged identity is data in the sidecar and is never
 # interpolated into this source: these bytes are identical for every task.
 # Each provider is read through its own standard CLI, gh for GitHub, glab for
@@ -45,8 +45,7 @@ print(int(datetime.datetime.fromisoformat(s).timestamp()))' "$ts" 2>/dev/null) |
 }
 
 # Print conflict or conflict-clear. Silence (no output, success) means the
-# label read failed or the conflict label is present but its age cannot be
-# proved from the timeline window.
+# conflict label is present but its age cannot be proved.
 fm_pr_poll_github_conflict() {  # <owner> <repo> <number>
   local owner=$1 repo=$2 number=$3 raw line present='' labeled_at=''
   local now='' applied='' age='' query jqprog
@@ -86,7 +85,8 @@ EOF
 EOF
 )
   raw=$(gh api graphql --paginate --slurp -f owner="$owner" -f repo="$repo" -F number="$number" \
-    -f query="$query" --jq "$jqprog" 2>/dev/null) || return 0
+    -f query="$query") || return $?
+  raw=$(printf '%s\n' "$raw" | jq -r "$jqprog") || return $?
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
       present=*) present=${line#present=} ;;
@@ -169,7 +169,7 @@ case "$provider" in
     if [ "$state" = MERGED ]; then
       printf '%s\n' merged
     else
-      fm_pr_poll_github_conflict "$owner" "$repo" "$number" || true
+      fm_pr_poll_github_conflict "$owner" "$repo" "$number" || exit $?
     fi
     ;;
   gitlab)

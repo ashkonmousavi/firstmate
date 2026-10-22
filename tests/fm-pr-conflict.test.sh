@@ -26,23 +26,31 @@ case "${1:-} ${2:-}" in
     printf '%s\n' "${FM_TEST_GH_STATE:-OPEN}"
     ;;
   "api graphql")
-    prog=
-    prev=
+    slurp=0
+    filter=0
     for arg in "$@"; do
-      [ "$prev" != --jq ] || prog=$arg
-      prev=$arg
+      [ "$arg" != --slurp ] || slurp=1
+      [ "$arg" != --jq ] || filter=1
     done
-    [ -n "$prog" ] || exit 91
-    jq -sr "$prog" "$FM_CONFLICT_JSON"
+    if [ "$slurp" -eq 1 ] && [ "$filter" -eq 1 ]; then
+      printf 'cannot use --slurp with --jq\n' >&2
+      exit 91
+    fi
+    if [ "${FM_TEST_GRAPHQL_FAIL:-0}" = 1 ]; then
+      printf 'fixture lookup failed\n' >&2
+      exit 47
+    fi
+    jq -s . "$FM_CONFLICT_JSON"
     ;;
   "pr list")
     cat "$FM_OVERLAP_PRS"
     ;;
-  "pr diff")
-    number=$3
+  "api repos/"*)
+    endpoint=${2%/files}
+    number=${endpoint##*/}
     list="$FM_OVERLAP_DIFF_DIR/$number"
     [ -f "$list" ] || exit 91
-    cat "$list"
+    jq -r "$5" "$list"
     ;;
   *)
     printf 'unexpected gh: %s\n' "$*" >&2
@@ -100,6 +108,25 @@ setup_task() {
   local state=$1
   mkdir -p "$state"
   fm_write_meta "$state/lane.meta" 'base_branch=curated'
+}
+
+test_graphql_failure_and_flag_contract() {
+  local json out rc
+  json="$TMP_ROOT/graphql-failure.json"
+  write_label_json "$json" yes "$CONFLICT_ADDED_AT"
+  rc=0
+  PATH="$FAKEBIN:$PATH" FM_CONFLICT_JSON="$json" gh api graphql --slurp --jq . \
+    > "$TMP_ROOT/invalid-flags.out" 2> "$TMP_ROOT/invalid-flags.err" || rc=$?
+  [ "$rc" -eq 91 ] || fail "the GitHub recorder accepted mutually exclusive flags"
+  rc=0
+  out=$(FM_CONFLICT_JSON="$json" FM_TEST_GRAPHQL_FAIL=1 run_poll 2> "$TMP_ROOT/lookup.err") || rc=$?
+  [ "$rc" -eq 47 ] && [ -z "$out" ] || fail "lookup failure became a successful observation"
+  grep -qx 'fixture lookup failed' "$TMP_ROOT/lookup.err" || fail "lookup diagnostics were lost"
+  printf '{broken json\n' > "$json"
+  rc=0
+  out=$(FM_CONFLICT_JSON="$json" run_poll 2> "$TMP_ROOT/parse.err") || rc=$?
+  [ "$rc" -ne 0 ] && [ -z "$out" ] || fail "invalid API JSON became a successful observation"
+  pass "GraphQL rejects conflicting flags and preserves lookup and JSON failures"
 }
 
 test_old_label_wakes_once_and_clear_removes_it() {
@@ -364,16 +391,24 @@ test_legacy_poll_authentication() {
 }
 
 test_watcher_conflict_recovery() {
-  local home state mode pid i template gh_state
+  local home state mode pid i template gh_state endpoint
   reset_lib
   cat > "$FAKEBIN/tmux" <<'SH'
 #!/usr/bin/env bash
-[ "${1:-}" = list-windows ] && exit 0
+if [ "${1:-}" = list-windows ]; then
+  [ "${FM_TEST_ENDPOINT:-}" != live ] || printf 'fm-lane\n'
+  exit 0
+fi
+if [ "${FM_TEST_ENDPOINT:-}" = live ] && [ "${1:-}" = display-message ]; then
+  printf 'codex\n'
+  exit 0
+fi
 exit 1
 SH
   cat > "$TMP_ROOT/watch-send.sh" <<'SH'
 #!/usr/bin/env bash
 printf 'steered lane\n'
+printf 'steered\n' > "$FM_HOME/steered"
 exit 0
 SH
   cat > "$TMP_ROOT/watch-relaunch.sh" <<'SH'
@@ -387,7 +422,7 @@ SH
   chmod +x "$FAKEBIN/tmux" "$TMP_ROOT/watch-send.sh" "$TMP_ROOT/watch-relaunch.sh"
   write_label_json "$TMP_ROOT/watch.json" yes \
     "$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')"
-  for mode in wake relaunch legacy-conflict legacy-merged; do
+  for mode in wake relaunch legacy-conflict legacy-merged secondmate-live secondmate-exited secondmate-none; do
     home="$TMP_ROOT/watch-$mode"
     state="$home/state"
     mkdir -p "$home/config" "$home/data"
@@ -395,10 +430,18 @@ SH
     if [ "$mode" = relaunch ]; then
       fm_write_meta "$state/lane.meta" 'base_branch=curated' 'window=firstmate:fm-lane'
     fi
+    endpoint=
+    case "$mode" in
+      secondmate-*)
+        fm_write_meta "$state/lane.meta" 'base_branch=curated' 'kind=secondmate'
+        endpoint=${mode#secondmate-}
+        [ "$endpoint" = none ] || printf 'window=firstmate:fm-lane\n' >> "$state/lane.meta"
+        ;;
+    esac
     printf 'pr=https://github.com/o/r/pull/7\n' >> "$state/lane.meta"
     template=$POLL
     gh_state=OPEN
-    case "$mode" in legacy-*) template=$LEGACY_POLL ;; esac
+    case "$mode" in legacy-*|secondmate-*) template=$LEGACY_POLL ;; esac
     [ "$mode" != legacy-merged ] || gh_state=MERGED
     fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
       github.com o/r 7 "$template" && fm_pr_poll_publish_prepared \
@@ -407,7 +450,7 @@ SH
     PATH="$FAKEBIN:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
       FM_PR_CONFLICT_SEND="$TMP_ROOT/watch-send.sh" \
       FM_PR_CONFLICT_RELAUNCH="$TMP_ROOT/watch-relaunch.sh" \
-      FM_TEST_GH_STATE="$gh_state" FM_CONFLICT_JSON="$TMP_ROOT/watch.json" FM_CHECK_INTERVAL=0 \
+      FM_TEST_ENDPOINT="$endpoint" FM_TEST_GH_STATE="$gh_state" FM_CONFLICT_JSON="$TMP_ROOT/watch.json" FM_CHECK_INTERVAL=0 \
       FM_POLL=0.05 FM_HEARTBEAT=999999 FM_SIGNAL_GRACE=0 \
       bash "$ROOT/bin/fm-watch.sh" > "$home/out" 2> "$home/err" &
     pid=$!
@@ -417,6 +460,8 @@ SH
         [ ! -s "$home/relaunched" ] || break
       elif [ "$mode" = legacy-merged ]; then
         [ ! -s "$home/out" ] || break
+      elif [ -n "$endpoint" ]; then
+        [ ! -f "$state/.last-check" ] || break
       else
         [ ! -f "$state/lane.pr-conflict-episode" ] || break
       fi
@@ -429,6 +474,12 @@ SH
     if [ "$mode" = relaunch ]; then
       [ -s "$home/relaunched" ] \
         || fail "watcher could not relaunch with its control lock and note requirements: $(cat "$home/err")"
+    elif [ -n "$endpoint" ]; then
+      [ -f "$state/.last-check" ] || fail "secondmate fixture never completed its poll"
+      [ ! -e "$home/steered" ] && [ ! -e "$home/relaunched" ] \
+        || fail "a secondmate conflict reached its parent worker ($endpoint)"
+      [ ! -s "$state/.wake-queue" ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
+        || fail "a secondmate conflict published fallback recovery ($endpoint)"
     elif [ "$mode" = legacy-merged ]; then
       grep -q 'lane.check.sh: merged' "$home/out" \
         || fail "a legacy-armed watcher lost its merge notification: output=$(cat "$home/out") errors=$(cat "$home/err") triage=$(cat "$state/.watch-triage.log" 2>/dev/null)"
@@ -473,7 +524,7 @@ test_overlap_names_both_pull_requests() {
   git -C "$repo" commit -qam pr4
   sha4=$(git -C "$repo" rev-parse HEAD)
   git -C "$repo" checkout -q main
-  printf 'shared.txt\n' > "$TMP_ROOT/overlap-diffs/3"
+  printf '[{"filename":"shared.txt"}]\n' > "$TMP_ROOT/overlap-diffs/3"
   jq -n --arg sha1 "$sha1" --arg sha2 "$sha2" --arg sha4 "$sha4" '[
     {number: 2, url: "https://github.com/o/r/pull/2", headRefOid: $sha2},
     {number: 1, url: "https://github.com/o/r/pull/1", headRefOid: $sha1},
@@ -533,7 +584,7 @@ EOF
     || fail "an unchecked PR was counted as compared"
   grep -F 'https://github.com/o/r/pull/5 (unchecked:' "$brief" >/dev/null \
     || fail "an unread PR was reported clean"
-  : > "$TMP_ROOT/overlap-diffs/5"
+  printf '[]\n' > "$TMP_ROOT/overlap-diffs/5"
   FM_OVERLAP_PRS=$prs FM_OVERLAP_DIFF_DIR=$TMP_ROOT/overlap-diffs \
     PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
     || fail "an empty PR file list blocked dispatch"
@@ -542,6 +593,40 @@ EOF
   pass "overlap handles ordinary briefs and distinguishes compared from unchecked PRs"
 }
 
+test_rename_overlap_endpoints() {
+  local repo brief prs head mode path
+  repo="$TMP_ROOT/rename-repo"
+  brief="$TMP_ROOT/rename-brief.md"
+  prs="$TMP_ROOT/rename-prs.json"
+  mkdir -p "$repo" "$TMP_ROOT/rename-files"
+  git init -q -b main "$repo"
+  printf 'preserve this content\n' > "$repo/old.txt"
+  git -C "$repo" add old.txt
+  git -C "$repo" commit -qm base
+  git -C "$repo" checkout -qb rename
+  git -C "$repo" mv old.txt new.txt
+  git -C "$repo" commit -qm rename
+  head=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q main
+  printf '[{"filename":"new.txt","previous_filename":"old.txt","status":"renamed"}]\n' \
+    > "$TMP_ROOT/rename-files/6"
+  for mode in merge-tree fallback; do
+    [ "$mode" != fallback ] || head=0123456789abcdef0123456789abcdef01234567
+    jq -n --arg head "$head" \
+      '[{number:6,url:"https://github.com/o/r/pull/6",headRefOid:$head}]' > "$prs"
+    for path in old.txt new.txt; do
+      printf '## SCOPE\n%s\n' "$path" > "$brief"
+      FM_OVERLAP_PRS="$prs" FM_OVERLAP_DIFF_DIR="$TMP_ROOT/rename-files" \
+        PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
+        || fail "rename overlap blocked dispatch"
+      grep -Fx -- "- https://github.com/o/r/pull/6 ($path)" "$brief" >/dev/null \
+        || fail "$mode lost rename endpoint $path"
+    done
+  done
+  pass "merge-tree and GitHub fallback report both rename endpoints"
+}
+
+test_graphql_failure_and_flag_contract
 test_old_label_wakes_once_and_clear_removes_it
 test_young_label_is_quiet
 test_live_worker_is_steered_once
@@ -552,3 +637,4 @@ test_legacy_poll_authentication
 test_relabel_starts_a_new_episode
 test_watcher_conflict_recovery
 test_overlap_names_both_pull_requests
+test_rename_overlap_endpoints

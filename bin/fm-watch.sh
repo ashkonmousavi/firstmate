@@ -3226,6 +3226,11 @@ while :; do
           # conflict-clear removes the episode and stays quiet.
           case "$out" in
             conflict:*|conflict-clear)
+              if [ "$(fm_meta_get "$STATE/$id.meta" kind)" = secondmate ]; then
+                fm_pr_conflict_episode_remove "$STATE" "$id" || true
+                pr_poll_control_release || exit 1
+                continue
+              fi
               conflict_added_at=${out#conflict:}
               pr_poll_control_release || exit 1
               conflict_decision=$(fm_pr_conflict_handle "$STATE" "$id" \

@@ -105,13 +105,14 @@ overlap_merge_tree_files() {  # <project> <base> <head>
     *) return 1 ;;
   esac
   git -C "$project" cat-file -e "${tree}^{tree}" 2>/dev/null || return 1
-  git -C "$project" diff --name-only "$base" "$tree" 2>/dev/null || return 1
+  git -C "$project" diff --no-renames --name-only "$base" "$tree" 2>/dev/null || return 1
   printf '%s\n' "$raw" | tail -n +2
 }
 
 overlap_pr_file_list() {  # <project> <number>
   local project=$1 number=$2
-  ( cd "$project" && gh pr diff "$number" --name-only )
+  ( cd "$project" && gh api "repos/{owner}/{repo}/pulls/$number/files" --paginate \
+    --jq '.[] | .filename, (.previous_filename // empty)' )
 }
 
 overlap_hits() {  # <scope-text> <changed-text>
