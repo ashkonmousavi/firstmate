@@ -5523,6 +5523,45 @@ test_pushed_open_pr_keeps_the_item_and_the_merge_watch() {
   pass "a pushed open pull request keeps the item and the merge watch, and the watch fires when it later merges"
 }
 
+test_pr_classification_is_reused_when_forge_becomes_unavailable() {
+  local case_dir class
+  for class in open merged; do
+    case_dir=$(prepare_recorded_github_pr "cached-pr-$class")
+    install_github_pr_class "$case_dir" "$class"
+    push_task_branch "$case_dir"
+    arm_registered_merge_watch "$case_dir"
+    mv "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-response"
+    cat > "$case_dir/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case_dir=$(cd "$(dirname "$0")/.." && pwd)
+case "${1:-} ${2:-}" in
+  'api graphql')
+    printf '%s\n' lookup >> "$case_dir/pr-lookups"
+    [ ! -e "$case_dir/forge-unavailable" ] || exit 1
+    : > "$case_dir/forge-unavailable"
+    exec "$case_dir/fakebin/gh-response" "$@"
+    ;;
+  *) exit 1 ;;
+esac
+SH
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$case_dir/fakebin/gh-axi"
+    chmod +x "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-axi"
+    teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$class: cached PR state should survive later forge failure"$'\n'"$(cat "$case_dir/stderr")"
+    [ "$(wc -l < "$case_dir/pr-lookups" | tr -d ' ')" = 1 ] || fail "$class: teardown repeated the PR-state lookup"
+    if [ "$class" = open ]; then
+      [ "$(backlog_row_state "$case_dir")" != done ] || fail "cached OPEN classification closed the item"
+      assert_present "$case_dir/state/task-x1.meta" "cached OPEN classification lost the record"
+      assert_present "$case_dir/state/task-x1.pr-poll-registration" "cached OPEN classification lost the watch"
+    else
+      [ "$(backlog_row_state "$case_dir")" = done ] || fail "cached MERGED classification left the item open"
+      assert_absent "$case_dir/state/task-x1.meta" "cached MERGED classification retained the record"
+      assert_absent "$case_dir/state/task-x1.pr-poll-registration" "cached MERGED classification retained the watch"
+    fi
+  done
+  pass "teardown reuses its first PR classification when the forge becomes unavailable"
+}
+
 test_released_copy_completes_after_merge() {
   local case_dir backend calls interrupted=${1:-0}
   for backend in tmux orca; do
@@ -6067,6 +6106,7 @@ test_open_pr_keep_open_cleans_and_holds
 test_direct_pr_open_refuses_the_same_way
 test_merged_pr_on_a_reachable_branch_closes
 test_pushed_open_pr_keeps_the_item_and_the_merge_watch
+test_pr_classification_is_reused_when_forge_becomes_unavailable
 test_released_copy_completes_after_merge
 test_interrupted_release_completes_after_merge
 test_pushed_merged_pr_still_closes

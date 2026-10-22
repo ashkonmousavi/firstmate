@@ -1781,7 +1781,6 @@ teardown_recorded_pr_class_cached() {
   if [ -z "$TEARDOWN_RECORDED_PR_CLASS" ]; then
     TEARDOWN_RECORDED_PR_CLASS=$(teardown_recorded_pr_class)
   fi
-  printf '%s\n' "$TEARDOWN_RECORDED_PR_CLASS"
 }
 
 # Ids of other open items whose blocked-by lists $1. List text is on stdin.
@@ -1868,7 +1867,8 @@ teardown_guard_unlanded_close() {
   fi
 
   if [ "$KIND" = ship ] && [ -n "$PR_URL" ]; then
-    class=$(teardown_recorded_pr_class_cached)
+    teardown_recorded_pr_class_cached
+    class=$TEARDOWN_RECORDED_PR_CLASS
   fi
 
   case "$class" in
@@ -2333,7 +2333,8 @@ validate_worktree_teardown_safety() {
   # commits themselves are reachable from a remote. The caller then keeps
   # the item and the merge watch.
   if [ -z "$unpushed" ] && [ "$KIND" = ship ] && [ -n "$PR_URL" ]; then
-    case "$(teardown_recorded_pr_class_cached)" in
+    teardown_recorded_pr_class_cached
+    case "$TEARDOWN_RECORDED_PR_CLASS" in
       open) TEARDOWN_PUSHED_OPEN_PR=1 ;;
     esac
   fi
