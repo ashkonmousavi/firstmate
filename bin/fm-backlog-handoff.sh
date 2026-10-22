@@ -403,7 +403,11 @@ show_task() { # <id> <file>
   local out
   # The help trailer names the backlog path, so it is not part of the item.
   out=$(tasks-axi show "$1" --full --file "$2" --backend markdown) || return 1
-  printf '%s\n' "$out" | awk '/^help\[/ { exit } { print }'
+  printf '%s\n' "$out" | awk '
+    /^help\[/ { exit }
+    /^  (state|blocked|blocked_by|held|hold_reason|hold_kind|hold_until|created|closed):/ { next }
+    { print }
+  '
 }
 
 item_header_line() { # <file> <id>
@@ -426,7 +430,6 @@ confirm_item_match() { # <id> <source-file> <dest-file>
   src_show=$(show_task "$id" "$src") || return 1
   dst_show=$(show_task "$id" "$dst") || return 1
   [ "$src_show" = "$dst_show" ] || return 1
-  printf '%s\n' "$dst_show" | grep -F '  state: queued' >/dev/null || return 1
   src_header=$(item_header_line "$src" "$id") || return 1
   dst_header=$(item_header_line "$dst" "$id") || return 1
   src_edges=$(printf '%s\n' "$src_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')

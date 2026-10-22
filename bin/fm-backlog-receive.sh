@@ -8,9 +8,10 @@
 # to FM_HOME/state/handoff. This home must contain AGENTS.md and bin/. Every
 # item must be Queued. Keys already present in data/backlog.md stay in place;
 # every remaining key moves in one dependency-closed `tasks-axi mv` transaction
-# under tasks-axi's own locks. Success requires tasks-axi show --full and the
-# item header to match the delivered file, including keys already present. A
-# mismatch keeps the delivered file and does not overwrite the backlog.
+# under tasks-axi's own locks. Success requires preserved task fields and
+# blocked-by reasons to match the delivered file, including keys already present.
+# Target lifecycle fields may advance. A mismatch keeps the delivered file and
+# does not overwrite the backlog.
 #
 # If tasks-axi reports a lock failure, this host may remove and retry once only
 # for its own backlog or delivered lock whose pid is dead and whose mtime is at
@@ -60,7 +61,11 @@ show_task() { # <id> <file>
   local out
   # The help trailer names the backlog path, so it is not part of the item.
   out=$(tasks-axi show "$1" --full --file "$2" --backend markdown) || return 1
-  printf '%s\n' "$out" | awk '/^help\[/ { exit } { print }'
+  printf '%s\n' "$out" | awk '
+    /^help\[/ { exit }
+    /^  (state|blocked|blocked_by|held|hold_reason|hold_kind|hold_until|created|closed):/ { next }
+    { print }
+  '
 }
 
 item_header_line() { # <file> <id>
@@ -77,14 +82,15 @@ item_header_line() { # <file> <id>
 }
 
 confirm_received() { # <id> <source-file>
-  local id=$1 src=$2 src_show dst_show src_header dst_header
+  local id=$1 src=$2 src_show dst_show src_header dst_header src_edges dst_edges
   src_show=$(show_task "$id" "$src") || return 1
   dst_show=$(show_task "$id" "$DEST") || return 1
   [ "$src_show" = "$dst_show" ] || return 1
-  printf '%s\n' "$dst_show" | grep -F '  state: queued' >/dev/null || return 1
   src_header=$(item_header_line "$src" "$id") || return 1
   dst_header=$(item_header_line "$DEST" "$id") || return 1
-  [ "$src_header" = "$dst_header" ]
+  src_edges=$(printf '%s\n' "$src_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
+  dst_edges=$(printf '%s\n' "$dst_header" | sed -n 's/.*\(blocked-by:.*\)$/\1/p')
+  [ "$src_edges" = "$dst_edges" ]
 }
 
 lock_age() {
