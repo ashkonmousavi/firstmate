@@ -17,6 +17,10 @@
 #
 # A validated exact merged result is retired through a private receipt only
 # after its durable wake is appended.
+# A GitHub conflict label older than 15 minutes is one episode per task,
+# stored beside the poll. bin/fm-pr-poll.sh owns the observation words.
+# This file owns the episode marker. bin/fm-watch.sh steers a live worker,
+# relaunches an exited one, or raises the single wake.
 # The receipt binds the terminal observation to the canonical registration and
 # lets a restart finish fixed-path removal without executing state-file bytes.
 
@@ -1523,4 +1527,226 @@ fm_pr_poll_merge_notified_remove() {  # <state> <id>
   [ -e "$marker" ] || [ -L "$marker" ] || return 0
   [ -f "$marker" ] && [ ! -L "$marker" ] || return 1
   rm -f -- "$marker"
+}
+
+# One conflict-label episode for a task's registered pull request.
+# The marker matches the merge-notification identity: five lines, mode 600,
+# same device as the state directory. A later observation that the label is
+# gone or still younger than 15 minutes removes it, which is what lets the
+# next real episode steer or wake again.
+fm_pr_conflict_episode_path() {  # <state> <id>
+  printf '%s\n' "$1/$2.pr-conflict-episode"
+}
+
+fm_pr_conflict_identity_lines_valid() {  # <provider> <host> <path> <number>
+  local provider=$1 host=$2 path=$3 number=$4
+  case "$provider$host$path$number" in
+    *$'\n'*|'') return 1 ;;
+  esac
+  [ -n "$provider" ] && [ -n "$host" ] && [ -n "$path" ] && [ -n "$number" ]
+}
+
+fm_pr_conflict_episode_matches() {  # <state> <id> <provider> <host> <path> <number>
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6
+  local marker state_device version got_provider got_host got_path got_number
+  fm_pr_task_id_valid "$id" || return 1
+  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" || return 1
+  [ -d "$state" ] && [ ! -L "$state" ] || return 1
+  state_device=$(fm_pr_file_device "$state") || return 1
+  marker=$(fm_pr_conflict_episode_path "$state" "$id")
+  fm_pr_private_file_valid "$marker" 600 "$state_device" || return 1
+  exec 8< "$marker" || return 1
+  IFS= read -r version <&8 || { exec 8<&-; return 1; }
+  IFS= read -r got_provider <&8 || { exec 8<&-; return 1; }
+  IFS= read -r got_host <&8 || { exec 8<&-; return 1; }
+  IFS= read -r got_path <&8 || { exec 8<&-; return 1; }
+  IFS= read -r got_number <&8 || { exec 8<&-; return 1; }
+  if IFS= read -r _extra <&8; then
+    exec 8<&-
+    return 1
+  fi
+  exec 8<&-
+  [ "$version" = fm-pr-conflict-episode-v1 ] \
+    && [ "$got_provider" = "$provider" ] \
+    && [ "$got_host" = "$host" ] \
+    && [ "$got_path" = "$path" ] \
+    && [ "$got_number" = "$number" ]
+}
+
+fm_pr_conflict_episode_open() {  # <state> <id> <provider> <host> <path> <number>
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6
+  local marker tmp state_device
+  fm_pr_task_id_valid "$id" || return 1
+  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" || return 1
+  [ -d "$state" ] && [ ! -L "$state" ] || return 1
+  state_device=$(fm_pr_file_device "$state") || return 1
+  marker=$(fm_pr_conflict_episode_path "$state" "$id")
+  fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" || return 1
+  umask 077
+  tmp=$(mktemp "$state/.fm-pr-conflict-episode.XXXXXX") || return 1
+  if ! printf '%s\n%s\n%s\n%s\n%s\n' \
+      fm-pr-conflict-episode-v1 "$provider" "$host" "$path" "$number" > "$tmp" \
+    || ! chmod 0600 "$tmp" \
+    || ! fm_pr_conflict_episode_matches_file "$tmp" "$state_device" \
+      "$provider" "$host" "$path" "$number" \
+    || ! fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" \
+    || ! mv -f -- "$tmp" "$marker" \
+    || ! fm_pr_conflict_episode_matches "$state" "$id" \
+      "$provider" "$host" "$path" "$number"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+}
+
+# Same identity check as fm_pr_conflict_episode_matches, for a file that is
+# not yet the task's marker (the private temp written before the rename).
+fm_pr_conflict_episode_matches_file() {  # <file> <device> <provider> <host> <path> <number>
+  local marker=$1 device=$2 provider=$3 host=$4 path=$5 number=$6
+  local version got_provider got_host got_path got_number
+  fm_pr_private_file_valid "$marker" 600 "$device" || return 1
+  exec 9< "$marker" || return 1
+  IFS= read -r version <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_provider <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_host <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_path <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_number <&9 || { exec 9<&-; return 1; }
+  if IFS= read -r _extra <&9; then
+    exec 9<&-
+    return 1
+  fi
+  exec 9<&-
+  [ "$version" = fm-pr-conflict-episode-v1 ] \
+    && [ "$got_provider" = "$provider" ] \
+    && [ "$got_host" = "$host" ] \
+    && [ "$got_path" = "$path" ] \
+    && [ "$got_number" = "$number" ]
+}
+
+fm_pr_conflict_episode_remove() {  # <state> <id>
+  local state=$1 id=$2 marker
+  fm_pr_task_id_valid "$id" || return 1
+  marker=$(fm_pr_conflict_episode_path "$state" "$id")
+  [ -e "$marker" ] || [ -L "$marker" ] || return 0
+  [ -f "$marker" ] && [ ! -L "$marker" ] || return 1
+  rm -f -- "$marker"
+}
+
+# live: the recorded endpoint's agent is alive.
+# exited: that agent is positively dead.
+# none: no endpoint to steer or relaunch.
+# unknown: liveness could not be proved, so the caller wakes instead of
+# relaunching a worker that might still be in the middle of a turn.
+fm_pr_conflict_posture() {  # <state> <id>
+  local state=$1 id=$2 meta target backend alive
+  if ! type fm_backend_target_of_meta >/dev/null 2>&1; then
+    printf 'none\n'
+    return 0
+  fi
+  meta="$state/$id.meta"
+  [ -f "$meta" ] && [ ! -L "$meta" ] || { printf 'none\n'; return 0; }
+  target=$(fm_backend_target_of_meta "$meta" 2>/dev/null || true)
+  [ -n "$target" ] || { printf 'none\n'; return 0; }
+  backend=$(fm_backend_of_meta "$meta" 2>/dev/null || true)
+  [ -n "$backend" ] || backend=tmux
+  alive=$(fm_backend_agent_alive "$backend" "$target" 2>/dev/null || true)
+  case "$alive" in
+    alive) printf 'live\n' ;;
+    dead) printf 'exited\n' ;;
+    *) printf 'unknown\n' ;;
+  esac
+}
+
+fm_pr_conflict_instruction() {  # <url> <base-branch-or-empty>
+  local url=$1 base=$2
+  printf '%s\n' "The pull request $url has carried the conflict label for more than 15 minutes."
+  if [ -n "$base" ]; then
+    printf '%s\n' "Merge origin/$base into the branch with a merge commit, regenerate generated files, run their tests, and push once."
+  else
+    printf '%s\n' "Merge the pull request's base branch into the branch with a merge commit, regenerate generated files, run their tests, and push once."
+  fi
+  printf '%s\n' "Do not rebase." "Do not force-push."
+}
+
+fm_pr_conflict_bin_dir() {
+  CDPATH='' cd -- "${BASH_SOURCE[0]%/*}" && pwd
+}
+
+# FM_PR_CONFLICT_SEND, when set, is the command used instead of fm-send.sh.
+# Tests point it at a recorder. Ordinary supervision leaves it unset.
+fm_pr_conflict_steer() {  # <state> <id> <url>
+  local state=$1 id=$2 url=$3 meta base text send dir
+  meta="$state/$id.meta"
+  base=
+  if [ -f "$meta" ] && [ ! -L "$meta" ]; then
+    base=$(grep '^base_branch=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  fi
+  text=$(fm_pr_conflict_instruction "$url" "$base")
+  if [ -n "${FM_PR_CONFLICT_SEND:-}" ]; then
+    send=$FM_PR_CONFLICT_SEND
+  else
+    dir=$(fm_pr_conflict_bin_dir) || return 1
+    send=$dir/fm-send.sh
+  fi
+  [ -n "$text" ] || return 1
+  "$send" "$id" "$text"
+}
+
+# FM_PR_CONFLICT_RELAUNCH, when set, is the command used instead of
+# fm-control.sh. Tests point it at a recorder. Ordinary supervision leaves it unset.
+fm_pr_conflict_relaunch() {  # <id>
+  local id=$1 cmd dir
+  if [ -n "${FM_PR_CONFLICT_RELAUNCH:-}" ]; then
+    cmd=$FM_PR_CONFLICT_RELAUNCH
+  else
+    dir=$(fm_pr_conflict_bin_dir) || return 1
+    cmd=$dir/fm-control.sh
+  fi
+  "$cmd" "$id" relaunch
+}
+
+# Print quiet when this observation needs no wake, or wake when supervision
+# must dispatch the worker itself. Opens the episode only after a successful
+# steer or relaunch, and also when the wake is the action, so the same label
+# does not steer or wake again until a conflict-clear observation removes it.
+fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url> <result>
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 url=$7 result=$8
+  local posture=''
+  case "$result" in
+    conflict-clear)
+      fm_pr_conflict_episode_remove "$state" "$id" || true
+      printf 'quiet\n'
+      return 0
+      ;;
+    conflict) ;;
+    *)
+      printf 'quiet\n'
+      return 0
+      ;;
+  esac
+  if fm_pr_conflict_episode_matches "$state" "$id" "$provider" "$host" "$path" "$number"; then
+    printf 'quiet\n'
+    return 0
+  fi
+  posture=$(fm_pr_conflict_posture "$state" "$id")
+  case "$posture" in
+    live)
+      if fm_pr_conflict_steer "$state" "$id" "$url"; then
+        if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number"; then
+          printf 'quiet\n'
+          return 0
+        fi
+      fi
+      ;;
+    exited)
+      if fm_pr_conflict_steer "$state" "$id" "$url" \
+        && fm_pr_conflict_relaunch "$id"; then
+        if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number"; then
+          printf 'quiet\n'
+          return 0
+        fi
+      fi
+      ;;
+  esac
+  fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number" || true
+  printf 'wake\n'
 }

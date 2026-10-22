@@ -3211,6 +3211,19 @@ while :; do
           run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
             "$provider" "$url" "$host" "$path" "$number" || exit 1
           out=$FM_CHECK_RESULT
+          # conflict is one episode: steer a live worker, relaunch an exited
+          # one, or leave out=conflict so the check wake below fires once.
+          # conflict-clear removes the episode and stays quiet.
+          case "$out" in
+            conflict|conflict-clear)
+              conflict_decision=$(fm_pr_conflict_handle "$STATE" "$id" \
+                "$provider" "$host" "$path" "$number" "$url" "$out" || true)
+              case "$conflict_decision" in
+                quiet) out='' ;;
+                *) out=conflict ;;
+              esac
+              ;;
+          esac
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
           run_check_capture "$custom_snapshot" || exit 1
@@ -3249,6 +3262,7 @@ EOF
             # persistent worker, never landed work, and the merge it detected
             # belongs to a task in the mate's own home. Retire the poll with no
             # outcome and no wake; bin/fm-pr-check.sh refuses to arm another.
+            fm_pr_conflict_episode_remove "$STATE" "$id" || true
             retire_merged_pr_poll "$id"
             pr_poll_control_release || exit 1
             touch "$STATE/.last-check"
@@ -3275,6 +3289,7 @@ EOF
             triage_log "published merge outcome for $id but could not retire its authority record"
             exit 1
           fi
+          fm_pr_conflict_episode_remove "$STATE" "$id" || true
           retire_merged_pr_poll "$id"
           pr_poll_control_release || exit 1
           touch "$STATE/.last-check"
