@@ -2664,6 +2664,12 @@ test_retained_row_artifacts_survive_captain_answers() {
   local local_repo local_wt
   local precedence_pr rejected_pr approved_pr released_pr json show
   home=$(make_home retained-row-artifacts)
+  # Cleanup must read the merged PR from the forge, independently of approval.
+  cat > "$home/fakebin/gh-axi" <<'SH'
+#!/usr/bin/env bash
+printf 'pull_request:\n  state: merged\n'
+SH
+  chmod +x "$home/fakebin/gh-axi"
   perl -0pi -e 's/done_keep = 10/done_keep = 20/' "$home/.tasks.toml"
   retained_id=sample-retained-report
   mkdir -p "$home/data/$retained_id"
@@ -3029,6 +3035,11 @@ SH
 test_answer_before_cleanup_replay_notes_a_retained_gerrit_change() {
   local home id repo wt rc show real_tasks_axi gerrit_url=https://gerrit.example.com/c/project/+/12345
   home=$(make_home answer-before-replay-gerrit)
+  cat > "$home/fakebin/gerrit-axi" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' '{"ok":true,"changes":[{"change":12345,"status":"MERGED"}]}'
+SH
+  chmod +x "$home/fakebin/gerrit-axi"
   id=sample-answer-before-replay-gerrit
   repo="$home/projects/sample"
   wt="$home/projects/$id"
@@ -3274,6 +3285,11 @@ EOF
 test_teardown_retains_a_gerrit_captain_call_with_its_change_url() {
   local home id repo wt show real_tasks_axi gerrit_url=https://gerrit.example.com/c/project/+/12345
   home=$(make_home teardown-held-gerrit)
+  cat > "$home/fakebin/gerrit-axi" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' '{"ok":true,"changes":[{"change":12345,"status":"MERGED"}]}'
+SH
+  chmod +x "$home/fakebin/gerrit-axi"
   id=sample-held-gerrit
   repo="$home/projects/sample"
   wt="$home/projects/$id"
@@ -3320,6 +3336,12 @@ SH
 test_merge_approval_releases_before_zero_done_retention() {
   local home id archive repo wt pr show
   home=$(make_home zero-done-retention)
+  # Cleanup must read the merged PR from the forge, independently of approval.
+  cat > "$home/fakebin/gh-axi" <<'SH'
+#!/usr/bin/env bash
+printf 'pull_request:\n  state: merged\n'
+SH
+  chmod +x "$home/fakebin/gh-axi"
   id=sample-zero-retention-merge
   archive="$home/data/done-archive.md"
   repo="$home/projects/sample"
