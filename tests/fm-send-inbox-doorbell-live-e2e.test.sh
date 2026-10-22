@@ -115,6 +115,8 @@ launch_cmd() {  # <name> <home> <binary>
       . "$ROOT/bin/fm-polytoken-lib.sh"
       fm_polytoken_write_config "$home/polytoken-config" || return 1
       fm_polytoken_write_facet "$home" "$home/state/live-polytoken.inbox" || return 1
+      # Expand the environment variables in the launched shell.
+      # shellcheck disable=SC2016
       printf '%s' 'for _fmv in $(env | cut -d= -f1 | grep -E '\''^(ORCA_|FM_)'\''); do case $_fmv in FM_TASK_ID|FM_TASK_INBOX|FM_ZELLIJ_SESSION) ;; *) unset $_fmv ;; esac; done; '
       printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u GEMINI_CLI -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u AGENT polytoken --config-dir %q new --sessions-dir %q --facet firstmate-worker --facets-dir %q' \
         "$home/polytoken-config" "$home/polytoken-sessions" "$home/.polytoken/facets"
