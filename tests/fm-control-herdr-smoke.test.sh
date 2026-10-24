@@ -83,6 +83,7 @@ SCRATCH=$(cd "$SCRATCH" && pwd)
 HOME_DIR="$SCRATCH/home"
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/data/hsmoke" "$HOME_DIR/config"
 printf '999999 0\n' > "$HOME_DIR/config/lane-capacity"
+fm_test_machine_policy "$HOME_DIR/config"
 cat > "$HOME_DIR/data/hsmoke/brief.md" <<'EOF'
 # Task
 ## Captain's intent

@@ -93,6 +93,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Admission regressions explicitly override this test-only reader input.
 export FM_CAPACITY_MEMINFO=${FM_CAPACITY_MEMINFO:-$ROOT/tests/captures/capacity-meminfo}
 
+export FM_RESOURCE_CGROUP_FILE=${FM_RESOURCE_CGROUP_FILE:-/dev/null}
+# Resource fixtures never read this host's live pressure or policy.
+export FM_CAPACITY_PRESSURE_FILE=${FM_CAPACITY_PRESSURE_FILE:-$ROOT/tests/captures/capacity-pressure}
+fm_test_machine_policy() { # <config-directory>; keep intentionally changed policy
+  [ -e "$1/machine-admission.json" ] && return 0
+  jq -n --arg path "$1" '{schema:"fm-machine-admission.v1",memory_floor_gib:0,memory_full_avg60_max:5,disk_floor_gib:0,disk_paths:[$path]}' > "$1/machine-admission.json"
+}
+
 # --- reporters --------------------------------------------------------------
 
 fail() {

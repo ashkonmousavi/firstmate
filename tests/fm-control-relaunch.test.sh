@@ -188,6 +188,7 @@ new_case() {
   mkdir -p "$dir/home/state" "$dir/home/data" "$dir/fake"
   mkdir -p "$dir/home/config"
   printf '999999 0\n' > "$dir/home/config/lane-capacity"
+  fm_test_machine_policy "$dir/home/config"
   : > "$dir/fake/literal"
   : > "$dir/fake/keys"
   printf 'claude' > "$dir/fake/command"

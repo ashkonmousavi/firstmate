@@ -406,6 +406,7 @@ write_ship_brief() {  # <home> <id> [description]
   mkdir -p "$home/data/$id"
   mkdir -p "$home/config"
   [ -e "$home/config/lane-capacity" ] || printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent

@@ -49,6 +49,7 @@ make_home() {  # <home> [task-id...]
   mkdir -p "$home/state" "$home/config" "$home/data" "$home/projects"
   touch "$home/state/.last-watcher-beat"
   printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   printf '%s\n' codex > "$home/config/crew-harness"
   if [ "$HAVE_TASKS_AXI" = 1 ]; then
     printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' '' '## Done' \
@@ -657,6 +658,7 @@ test_machine_ceiling_across_projects() {
   case_dir=$(make_case machine-ceiling task-six)
   home="$case_dir/home"
   printf '5 3\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   for n in 1 2 3 4 5; do
     write_live "$home" "live-$n" "$case_dir/project-$((n % 3))"
   done
@@ -674,6 +676,7 @@ test_machine_memory_and_unreadable() {
   case_dir=$(make_case machine-memory task-a)
   home="$case_dir/home"
   printf '5 3\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   memfile="$case_dir/meminfo"
   printf 'MemAvailable: 356000 kB\n' > "$memfile"
   rc=0
@@ -687,10 +690,24 @@ test_machine_memory_and_unreadable() {
   expect_code 75 "$rc" "unreadable machine: $out"
   assert_contains "$out" "$memfile" 'unreadable machine names reading'
   printf 'broken\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   rc=0
   out=$(spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
   expect_code 75 "$rc" "unreadable declaration: $out"
   assert_contains "$out" "$home/config/lane-capacity" 'unreadable file named'
+  printf '5 3\n' > "$home/config/lane-capacity"
+  printf 'MemAvailable: 8388608 kB\n' > "$memfile"
+  printf 'full avg10=0.00 avg60=5.00 avg300=0.00 total=0\n' > "$case_dir/pressure"
+  rc=0
+  out=$(FM_CAPACITY_PRESSURE_FILE="$case_dir/pressure" spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
+  expect_code 75 "$rc" 'actual spawn consumes pressure refusal'
+  assert_contains "$out" 'memory PSI full avg60' 'spawn names pressure source'
+  assert_absent "$home/state/task-a.meta" 'pressure refusal published a worker'
+  rm "$home/config/machine-admission.json"
+  rc=0
+  out=$(spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
+  expect_code 75 "$rc" 'missing resource policy refuses before launch'
+  assert_contains "$out" 'machine-admission.json' 'spawn names missing numeric policy'
   pass 'fresh spawn refuses low memory and unreadable machine facts'
 }
 
@@ -731,6 +748,7 @@ test_machine_counts_published_lane_without_lock() {
   printf -- '- mate - local (home: %s; scope: tests; projects: other-project; added 2026-09-01)\n' "$mate" > "$home/data/secondmates.md"
   printf '%s\n' schema=fm-secondmate-parent.v1 route=local "parent_home=$home" > "$mate/.fm-secondmate-parent"
   printf '5 3\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   for n in 1 2 3 4; do write_live "$home" "live-$n" "$case_dir/other-$n"; done
   hold="$case_dir/hold"
   wt=$(new_worktree "$case_dir" task-a)
@@ -768,6 +786,7 @@ test_machine_registry_parent_refuses_spawn() {
   printf -- '- mate - local (home: %s; scope: tests; projects: project; added 2026-09-01)\n' "$mate" > "$root/data/secondmates.md"
   printf -- '- sibling - local (home: %s; scope: tests; projects: other; added 2026-09-01)\n' "$sibling" >> "$root/data/secondmates.md"
   printf '5 3\n' > "$root/config/lane-capacity"
+  fm_test_machine_policy "$root/config"
   for n in 1 2 3 4 5; do write_live "$sibling" "live-$n" "$case_dir/other-$n"; done
   chmod 000 "$root/data"
   rc=0
