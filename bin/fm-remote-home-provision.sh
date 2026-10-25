@@ -19,6 +19,11 @@
 # .fm-secondmate-home marker commits the complete seed last.
 # A newly created home is removed on failure. An existing matching seeded home
 # is converged only through guarded ordinary-file updates and new project clones.
+# Machine policy is target-host material, never supplied by the remote parent.
+# An existing home's own numeric policy is validated and preserved. Otherwise
+# config/machine-admission.json is seeded from this target code root's config/;
+# absence or malformed input refuses before cloning or publishing completion.
+# The existing two-field lane-capacity declaration follows the same local route.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,6 +54,8 @@ safe_id() { case "$1" in ''|*[!A-Za-z0-9._-]*) return 1 ;; esac; }
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-remote-provision.XXXXXX") || die "cannot create provisioning state"
 CREATED_HOME=0
 CREATED_BACKLOG=0
+CREATED_MACHINE_POLICY=0
+CREATED_LANE_CAPACITY=0
 EXISTING_HOME=0
 PUBLISHED=0
 PROVISION_LOCK=
@@ -87,6 +94,8 @@ rollback() {
       restore_owned_file .fm-secondmate-home || true
       restore_owned_file .fm-secondmate-parent || true
       [ "$CREATED_BACKLOG" -eq 0 ] || rm -f -- "$FM_HOME/data/backlog.md"
+      [ "$CREATED_MACHINE_POLICY" -eq 0 ] || rm -f -- "$FM_HOME/config/machine-admission.json"
+      [ "$CREATED_LANE_CAPACITY" -eq 0 ] || rm -f -- "$FM_HOME/config/lane-capacity"
     fi
   fi
   release_provision_lock
@@ -149,6 +158,28 @@ PROVISION_LOCK="$STATE/.remote-home-provision-$HOME_LOCK_KEY.lock"
 fm_lock_acquire_wait "$PROVISION_LOCK"
 PROVISION_LOCK_HELD=1
 
+# Snapshot and validate only target-host configuration. An SSH sender cannot
+# supply policy bytes, and a routine reseed never overwrites a home's choices.
+POLICY_SOURCE="$FM_HOME/config/machine-admission.json"
+if [ ! -e "$POLICY_SOURCE" ] && [ ! -L "$POLICY_SOURCE" ]; then
+  POLICY_SOURCE="$FM_ROOT/config/machine-admission.json"
+fi
+[ -f "$POLICY_SOURCE" ] && [ ! -L "$POLICY_SOURCE" ] && [ -r "$POLICY_SOURCE" ] \
+  || die "target-host policy unavailable: $POLICY_SOURCE; install the host's numeric admission policy there before seeding"
+cp -- "$POLICY_SOURCE" "$TMP/machine-admission.json" || die "cannot snapshot target-host policy: $POLICY_SOURCE"
+python3 "$SCRIPT_DIR/fm-machine-resources.py" --policy "$TMP/machine-admission.json" --validate-policy >/dev/null \
+  || die "target-host policy invalid: $POLICY_SOURCE; correct its numeric fields before seeding"
+LANE_SOURCE="$FM_HOME/config/lane-capacity"
+if [ ! -e "$LANE_SOURCE" ] && [ ! -L "$LANE_SOURCE" ]; then LANE_SOURCE="$FM_ROOT/config/lane-capacity"; fi
+[ -f "$LANE_SOURCE" ] && [ ! -L "$LANE_SOURCE" ] && [ -r "$LANE_SOURCE" ] \
+  || die "target-host lane declaration unavailable: $LANE_SOURCE; install the existing ceiling and reserve before seeding"
+cp -- "$LANE_SOURCE" "$TMP/lane-capacity" || die "cannot snapshot $LANE_SOURCE"
+lane_raw=$(cat "$TMP/lane-capacity")
+IFS=' ' read -r lane_ceiling lane_reserve lane_extra <<< "$lane_raw"
+if [[ "$lane_raw" == *$'\n'* ]] || ! [[ "$lane_ceiling" =~ ^[0-9]{1,6}$ && "$lane_reserve" =~ ^[0-9]{1,6}$ ]] || [ -n "$lane_extra" ]; then
+  die "target-host lane declaration invalid: $LANE_SOURCE; expected <lane-ceiling> <memory-reserve-gb>"
+fi
+
 if [ -e "$FM_HOME" ] || [ -L "$FM_HOME" ]; then
   [ -d "$FM_HOME" ] && [ ! -L "$FM_HOME" ] || die "remote home exists but is not a safe directory"
   [ -f "$FM_HOME/AGENTS.md" ] && [ ! -L "$FM_HOME/AGENTS.md" ] \
@@ -209,6 +240,14 @@ for operational_dir in data state config projects; do
     mkdir "$operational_path" || die "cannot create remote operational directory: $operational_dir"
   fi
 done
+if [ ! -e "$FM_HOME/config/machine-admission.json" ]; then
+  install -m 600 "$TMP/machine-admission.json" "$FM_HOME/config/machine-admission.json"
+  CREATED_MACHINE_POLICY=1
+fi
+if [ ! -e "$FM_HOME/config/lane-capacity" ]; then
+  install -m 600 "$TMP/lane-capacity" "$FM_HOME/config/lane-capacity"
+  CREATED_LANE_CAPACITY=1
+fi
 if [ -e "$FM_HOME/data/backlog.md" ] || [ -L "$FM_HOME/data/backlog.md" ]; then
   [ -f "$FM_HOME/data/backlog.md" ] && [ ! -L "$FM_HOME/data/backlog.md" ] \
     || die "remote backlog is not a safe regular file"

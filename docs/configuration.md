@@ -1289,6 +1289,11 @@ The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective
 The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
 Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
 During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.
+Machine policy is not a generic inherited item: local descendants resolve their machine-root config, while a remote home owns target-host policy.
+Remote provisioning validates and preserves an existing home's policy and ceiling/reserve declaration, or seeds missing declarations from the target code root's own config directory before publishing the home marker.
+The remote parent never supplies those bytes; a missing target-host declaration refuses provisioning and names the exact file to prepare.
+Tracked self-update preserves these ignored host declarations.
+
 
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
 It exits 75 when room cannot be proved and does not change task state.

@@ -133,6 +133,7 @@ def measure(rules, meminfo='/proc/meminfo', pressure_file='/proc/pressure/memory
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--policy', required=True)
+    parser.add_argument('--validate-policy', action='store_true', help='Validate numeric policy without reading host resources')
     args = parser.parse_args()
     try:
         options = {}
@@ -143,7 +144,11 @@ def main():
                     options[key] = os.environ[env]
             if options.get('cgroup_file') == '/dev/null':
                 options['cgroup_file'] = None
-        facts = measure(policy(args.policy), **options)
+        rules = policy(args.policy)
+        if args.validate_policy:
+            print(json.dumps({'valid':True,'resource_policy_sha256':rules['sha256']},sort_keys=True))
+            return 0
+        facts = measure(rules, **options)
     except (OSError,ValueError,KeyError,TypeError) as error:
         facts = {'admitted':False,'readable':False,'refusal_reasons':[str(error)]}
     print(json.dumps(facts,sort_keys=True))

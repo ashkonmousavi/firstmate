@@ -28,6 +28,9 @@
 
 install_remote_herdr_fixture() { # <remote-root> <state> <log> <send-fail> <socket>
   local remote_root=$1 state=$2 log=$3 send_fail=$4 socket=$5 script="$1/bin/herdr"
+  mkdir -p "$remote_root/config"
+  [ -e "$remote_root/config/lane-capacity" ] || printf '999999 0\n' > "$remote_root/config/lane-capacity"
+  fm_test_machine_policy "$remote_root/config"
   mkdir -p "$remote_root/bin"
   cat > "$script" <<SH
 #!/usr/bin/env bash
