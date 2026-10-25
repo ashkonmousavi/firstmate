@@ -5618,12 +5618,14 @@ SH
       calls=$(grep -E '^(worktree (show|rm)|terminal close) ' "$case_dir/orca.log")
     fi
     FM_HOME="$case_dir" teardown_capture "$case_dir"
-    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: repeated open cleanup failed"$'\n'"$(cat "$case_dir/stderr")"
+    expect_code 1 "$TEARDOWN_CAPTURE_RC" "$backend: external merge hold must await acceptance"$'\n'"$(cat "$case_dir/stderr")"
     [ "$(backlog_row_state "$case_dir")" != "done" ] || fail "$backend: repeated cleanup closed an open PR"
     assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: repeated cleanup lost its watch"
     install_github_pr_class "$case_dir" merged
+    tasks-axi unhold task-x1 --file "$case_dir/data/backlog.md" >/dev/null
+    tasks-axi 'done' task-x1 --note 'accepted fixture proof after merge' --file "$case_dir/data/backlog.md" >/dev/null
     FM_HOME="$case_dir" teardown_capture "$case_dir"
-    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: released copy prevented merge completion"$'\n'"$(cat "$case_dir/stderr")"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: released copy prevented accepted completion"$'\n'"$(cat "$case_dir/stderr")"
     [ "$(backlog_row_state "$case_dir")" = "done" ] || fail "$backend: merged item did not close"
     assert_absent "$case_dir/state/task-x1.meta" "$backend: completed record remained"
     assert_absent "$case_dir/state/task-x1.pr-poll-registration" "$backend: completed watch remained"
@@ -5971,6 +5973,9 @@ test_keep_open_without_automatic_backlog_requests_merge_hold() {
   done
   pass "--keep-open requests the manual merge hold when automatic backlog transitions are disabled"
 }
+
+# Reuse these hermetic fixtures in the pending-proof lifecycle regression.
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != "teardown" ] || return 0
 
 test_teardown_preserves_opencode_busy_plugin_on_pool_return
 test_missing_startup_source_refuses_before_cleanup

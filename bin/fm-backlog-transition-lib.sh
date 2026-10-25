@@ -476,6 +476,24 @@ fm_backlog_row_probe() {  # <data-dir> <id>
   return 0
 }
 
+# A merge or a replay is not evidence that an external acceptance wait ended.
+# The existing owner clears its hold after observing that condition; a read
+# failure preserves the same task and recovery records rather than guessing.
+fm_backlog_require_no_external_hold() {  # <data-dir> <id>
+  if ! fm_backlog_row_probe "$1" "$2"; then
+    [ "$FM_BACKLOG_ROW_RESULT" = not_found ] && return 0
+    FM_BACKLOG_TRANSITION_ERROR=$FM_BACKLOG_ROW_ERROR
+    return 1
+  fi
+  case "$FM_BACKLOG_ROW_STATE:$FM_BACKLOG_ROW_HOLD_KIND" in
+    'done '*) return 0 ;;
+    *' yes '*:external)
+      FM_BACKLOG_TRANSITION_ERROR="$2 is externally held; preserve its task and proof obligation, use fm-control.sh $2 exit to release a safe worker, and clear the hold only when its recorded condition is satisfied"
+      return 1
+      ;;
+  esac
+}
+
 # Run one tasks-axi mutation against <home>'s backlog, capturing its first
 # output line in FM_BACKLOG_TRANSITION_ERROR on failure. The home boundary is
 # authorized through fm_backlog_source_present first; fm_backlog_tasks_axi owns
@@ -1173,12 +1191,18 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
       FM_BACKLOG_CLOSE_REPLAY_RESULT=stale
       return 0
     fi
+    if [ "$mode" = close ]; then
+      fm_backlog_require_no_external_hold "$data" "$id" || return 1
+    fi
     fm_backlog_close_marker_mark_cleanup_incomplete "$state" "$marker" "$id" "$data" \
       "$marker_spawn_gen" "${mode_flags[@]+"${mode_flags[@]}"}" "${args[@]+"${args[@]}"}" \
       || return 1
     cleanup_incomplete=1
     fm_backlog_atomic_transition remove "$meta" "the interrupted task record" "$state" \
       || return 1
+  fi
+  if [ "$mode" = close ]; then
+    fm_backlog_require_no_external_hold "$data" "$id" || return 1
   fi
   if fm_backlog_row_probe "$data" "$id"; then
     row_state=$FM_BACKLOG_ROW_STATE

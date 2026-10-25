@@ -2203,8 +2203,8 @@ test_recovery_retry_preserves_incomplete_cleanup_warning() {
   break_verb "$case_dir" show
 
   out=$(run_bootstrap "$case_dir")
-  assert_absent "$home/state/$id.meta" \
-    "failed replay did not cross the task-record removal boundary"
+  assert_present "$home/state/$id.meta" \
+    "unreadable acceptance state removed the resumable task record"
   assert_present "$marker" "failed replay discarded its pending close"
   rm -f "$case_dir/fakebin/tasks-axi"
 
@@ -3113,6 +3113,9 @@ test_a_persistent_secondmate_is_never_a_backlog_item() {
   assert_present "$(home_of "$case_dir")/state/$id.meta" "secondmate spawn published no record"
   pass "dispatching a persistent secondmate needs no backlog item"
 }
+
+# Allow focused lifecycle regressions to reuse these hermetic fixtures.
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != atomicity ] || return 0
 
 test_backend_resolution_preserves_config_errors
 test_backend_resolution_preserves_precedence_and_defaults

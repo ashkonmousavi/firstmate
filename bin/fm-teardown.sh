@@ -1871,6 +1871,10 @@ teardown_guard_unlanded_close() {
   TEARDOWN_KEEP_OPEN=0
   TEARDOWN_KEEP_OPEN_HOLD=0
   if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
+    if ! fm_backlog_require_no_external_hold "$DATA" "$ID"; then
+      echo "REFUSED: $FM_BACKLOG_TRANSITION_ERROR" >&2
+      return 1
+    fi
     teardown_collect_dependents || return 1
   fi
 
@@ -1915,7 +1919,7 @@ teardown_guard_unlanded_close() {
       TEARDOWN_KEEP_OPEN=1
     else
       echo "REFUSED: $ID is listed in blocked-by of: $TEARDOWN_DEPENDENTS." >&2
-      echo "Refusing to close it while those items depend on it." >&2
+      echo "Record accepted completion with fm-tasks-axi.sh done only after its proof passes, then retry cleanup; pending proof releases through fm-control.sh exit." >&2
       dep_refused=1
     fi
   fi
