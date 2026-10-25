@@ -76,7 +76,20 @@ while IFS= read -r rel; do
     data/*) source="$DATA/${rel#data/}" ;;
   esac
   source_present=$(fm_config_source_present "$source") || exit 1
+  if [ "$rel" = config/worker-sheet.md ] && [ "$source_present" = 0 ] \
+    && { [ -e "$DATA/worker-sheet.md" ] || [ -L "$DATA/worker-sheet.md" ]; }; then
+    die "worker policy alias remains without its canonical source: preserve both paths and reconcile before remote inheritance"
+  fi
   if [ "$source_present" = 1 ]; then
+    if [ "$rel" = config/worker-sheet.md ]; then
+      if [ "$CONFIG" = "$FM_HOME/config" ] && [ "$DATA" = "$FM_HOME/data" ]; then
+        fm_worker_sheet_alias_ensure "$FM_HOME" \
+          || die "worker policy compatibility alias requires reconciliation before remote inheritance"
+      else
+        [ -L "$DATA/worker-sheet.md" ] && [ "$DATA/worker-sheet.md" -ef "$source" ] \
+          || die "worker policy alias drift in overridden config/data paths: preserve both files and reconcile before remote inheritance"
+      fi
+    fi
     [ -f "$source" ] && [ ! -L "$source" ] || die "inherited source is unsafe: $source"
     [ "$(file_link_count "$source")" = 1 ] || die "inherited source is hardlinked: $source"
     if [ "$rel" = data/captain-shared.md ]; then

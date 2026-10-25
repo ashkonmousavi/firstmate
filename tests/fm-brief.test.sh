@@ -1688,3 +1688,45 @@ test_branch_prefix_is_refused_where_it_does_not_apply
 test_branch_prefix_value_is_validated
 test_branch_prefix_command_is_shell_safe
 test_crewmate_scaffolds_forbid_pool_administration
+
+# Native worker policy is optional. Once selected, the compatibility path must
+# resolve to that one source even if an editor atomically replaces the alias.
+test_worker_policy_alias_drift_refuses_brief() {
+  local home output
+  home="$TMP_ROOT/worker-policy-alias"
+  mkdir -p "$home/config" "$home/data"
+  printf 'Complete current owner instruction.\n' > "$home/config/worker-sheet.md"
+  ln -s ../config/worker-sheet.md "$home/data/worker-sheet.md"
+  FM_HOME="$home" bash "$ROOT/bin/fm-brief.sh" policy-good sample --mode direct-PR >/dev/null || fail "valid worker policy alias refused"
+  printf 'New owner edit that must survive.\n' > "$home/data/replacement"
+  mv "$home/data/replacement" "$home/data/worker-sheet.md"
+  if output=$(FM_HOME="$home" bash "$ROOT/bin/fm-brief.sh" policy-drift sample --mode direct-PR 2>&1); then
+    fail "atomic editor replacement silently became an independent worker source"
+  fi
+  [ ! -e "$home/data/policy-drift/brief.md" ] || fail "alias drift left a brief behind"
+  assert_grep 'New owner edit that must survive.' "$home/data/worker-sheet.md" "new owner edit was discarded"
+  case "$output" in *'preserve both'*'restore'*) ;; *) fail "missing alias drift remedy: $output" ;; esac
+  rm "$home/data/worker-sheet.md"
+  ln -s ../config/absent.md "$home/data/worker-sheet.md"
+  if FM_HOME="$home" bash "$ROOT/bin/fm-brief.sh" policy-missing sample --scout >/dev/null 2>&1; then
+    fail "missing worker source target accepted"
+  fi
+  [ ! -e "$home/data/policy-missing/brief.md" ] || fail "missing alias target left a brief behind"
+  rm "$home/config/worker-sheet.md"
+  if FM_HOME="$home" bash "$ROOT/bin/fm-brief.sh" policy-orphan-link sample --scout >/dev/null 2>&1; then
+    fail "dangling worker alias without canonical source produced a brief"
+  fi
+  [ ! -e "$home/data/policy-orphan-link/brief.md" ] || fail "orphaned alias left a brief behind"
+  rm "$home/data/worker-sheet.md"
+  printf 'orphaned owner edit\n' > "$home/data/worker-sheet.md"
+  if FM_HOME="$home" bash "$ROOT/bin/fm-brief.sh" policy-orphan-regular sample --scout >/dev/null 2>&1; then
+    fail "regular worker alias without canonical source produced a brief"
+  fi
+  assert_grep 'orphaned owner edit' "$home/data/worker-sheet.md" "orphaned owner edit was lost"
+  rm "$home/data/worker-sheet.md"
+  FM_HOME="$home" bash "$ROOT/bin/fm-brief.sh" policy-optional sample --scout >/dev/null \
+    || fail "optional worker policy with both paths absent was refused"
+  pass "worker policy alias drift refuses scaffolding and preserves the new owner edit"
+}
+
+test_worker_policy_alias_drift_refuses_brief

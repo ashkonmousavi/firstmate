@@ -608,3 +608,270 @@ test_session_start_digest_labels_shared_file_and_read_once_rule
 test_header_check_names_the_missing_phrase
 
 echo "# all fm-shared-captain-inheritance tests passed"
+
+# Worker policy uses the existing config inheritance path; home-local brief
+# additions and host facts must never be overwritten by this shared source.
+test_worker_sheet_config_inheritance() {
+  local base primary second remote hash bytes before
+  base="$TMP_ROOT/worker-policy"
+  primary="$base/primary"
+  second="$base/second"
+  remote="$base/remote"
+  mkdir -p "$primary/config" "$second/config" "$second/data" "$remote/config" "$remote/data"
+  printf 'Shared scope: all workers; X scope: full walker access.\n' > "$primary/config/worker-sheet.md"
+  printf 'Host-specific room check and cache paths.\n' > "$second/config/brief-include.md"
+  cp "$second/config/brief-include.md" "$remote/config/brief-include.md"
+  propagate_inheritable_config "$primary/config" "$second/config" "$primary" || fail "worker policy local propagation failed"
+  cmp "$primary/config/worker-sheet.md" "$second/data/worker-sheet.md" || fail "worker source not inherited through compatibility alias"
+  before=$(cat "$second/config/brief-include.md")
+  printf 'Updated full condition: act only after current proof; keep all task rules.\n' >> "$primary/config/worker-sheet.md"
+  propagate_inheritable_config "$primary/config" "$second/config" "$primary" || fail "worker policy update failed"
+  cmp "$primary/config/worker-sheet.md" "$second/data/worker-sheet.md" || fail "worker source update drifted"
+  [ "$(cat "$second/config/brief-include.md")" = "$before" ] || fail "home brief additions overwritten"
+  hash=$(fm_inherit_sha256 "$primary/config/worker-sheet.md") || fail "source hash failed"
+  bytes=$(wc -c < "$primary/config/worker-sheet.md" | tr -d ' ')
+  FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 1 < "$primary/config/worker-sheet.md" || fail "remote worker policy transfer refused"
+  cmp "$primary/config/worker-sheet.md" "$remote/data/worker-sheet.md" || fail "remote worker policy differs"
+  [ "$(cat "$remote/config/brief-include.md")" = "$before" ] || fail "remote host additions overwritten"
+  FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 1 < "$primary/config/worker-sheet.md" || fail "same generation should be idempotent"
+  if FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/brief-include.md "$bytes" "$hash" 2 < "$primary/config/worker-sheet.md" >/dev/null 2>&1; then
+    fail "host-specific include unexpectedly inherited"
+  fi
+  if printf 'wrong bytes\n' | FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 2 >/dev/null 2>&1; then
+    fail "wrong worker source digest accepted"
+  fi
+  cmp "$primary/config/worker-sheet.md" "$remote/data/worker-sheet.md" || fail "refused transfer damaged source"
+  FM_HOME="$second" bash "$ROOT/bin/fm-brief.sh" fresh-local project --mode direct-PR >/dev/null || fail "fresh inherited local home cannot scaffold"
+  FM_HOME="$remote" bash "$ROOT/bin/fm-brief.sh" fresh-remote project --scout >/dev/null || fail "fresh inherited remote home cannot scaffold"
+  printf 'New unique owner edit.\n' > "$remote/data/new-edit"
+  mv "$remote/data/new-edit" "$remote/data/worker-sheet.md"
+  if FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 2 < "$primary/config/worker-sheet.md" >/dev/null 2>&1; then
+    fail "remote propagation silently ignored an independent owner edit"
+  fi
+  assert_grep 'New unique owner edit.' "$remote/data/worker-sheet.md" "remote owner edit was lost"
+  pass "worker-sheet config converges through native local and remote routes without replacing home facts"
+}
+
+test_worker_sheet_config_inheritance
+
+# The native sender must not publish an older config source after an editor
+# atomically replaces its data compatibility alias with a new owner edit.
+test_worker_sheet_sender_refuses_alias_drift() {
+  local base bin home config data alias calls name
+  base="$TMP_ROOT/worker-sender"
+  bin="$base/bin"
+  mkdir -p "$bin"
+  cp "$ROOT/bin/fm-remote-inherit-push.sh" "$bin/"
+  for name in fm-config-inherit-lib.sh fm-secondmate-registry-lib.sh fm-startup-memory-budget-lib.sh fm-role-lib.sh; do
+    ln -s "$ROOT/bin/$name" "$bin/$name"
+  done
+  cat > "$bin/fm-on.sh" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$FM_TEST_CALL_LOG"
+cat >/dev/null
+printf 'transport called\n'
+EOF
+  chmod 755 "$bin/fm-on.sh"
+  calls="$base/calls"
+
+  home="$base/default"
+  config="$home/config"
+  data="$home/data"
+  mkdir -p "$config" "$data"
+  printf 'canonical policy\n' > "$config/worker-sheet.md"
+  ln -s ../config/worker-sheet.md "$data/worker-sheet.md"
+  printf '%s\n' '- test - fixture (host: fixture; root: /tmp/fixture; home: /tmp/fixture; scope: test; projects: none; added 2026-10-25)' > "$data/secondmates.md"
+  FM_HOME="$home" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
+    bash "$bin/fm-remote-inherit-push.sh" test 1 > "$base/default-valid.out" 2>&1 \
+    || fail "valid default source could not be sent"
+  [ -L "$data/worker-sheet.md" ] && [ "$data/worker-sheet.md" -ef "$config/worker-sheet.md" ] \
+    || fail "valid default source compatibility alias was not preserved"
+  assert_grep 'config/worker-sheet.md' "$calls" "valid default source was not sent"
+  : > "$calls"
+  printf 'new owner edit\n' > "$data/new-edit"
+  mv "$data/new-edit" "$data/worker-sheet.md"
+  if FM_HOME="$home" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
+    bash "$bin/fm-remote-inherit-push.sh" test 2 > "$base/default-drift.out" 2>&1; then
+    fail "atomic default alias replacement sent stale canonical policy"
+  fi
+  [ ! -s "$calls" ] || fail "default alias drift reached remote transport"
+  assert_grep 'new owner edit' "$data/worker-sheet.md" "default owner edit was lost"
+  assert_grep 'canonical policy' "$config/worker-sheet.md" "default canonical bytes changed"
+  rm "$config/worker-sheet.md"
+  if FM_HOME="$home" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
+    bash "$bin/fm-remote-inherit-push.sh" test 3 > "$base/default-orphan-regular.out" 2>&1; then
+    fail "sender accepted regular alias after canonical source disappeared"
+  fi
+  [ ! -s "$calls" ] || fail "orphaned regular alias reached remote transport"
+  rm "$data/worker-sheet.md"
+  ln -s ../config/worker-sheet.md "$data/worker-sheet.md"
+  if FM_HOME="$home" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
+    bash "$bin/fm-remote-inherit-push.sh" test 4 > "$base/default-orphan-link.out" 2>&1; then
+    fail "sender accepted dangling alias after canonical source disappeared"
+  fi
+  [ ! -s "$calls" ] || fail "orphaned dangling alias reached remote transport"
+
+  home="$base/override"
+  config="$home/config-override"
+  data="$home/data-override"
+  alias="$data/worker-sheet.md"
+  mkdir -p "$config" "$data"
+  printf 'canonical policy\n' > "$config/worker-sheet.md"
+  ln -s ../config-override/worker-sheet.md "$alias"
+  printf '%s\n' '- test - fixture (host: fixture; root: /tmp/fixture; home: /tmp/fixture; scope: test; projects: none; added 2026-10-25)' > "$data/secondmates.md"
+  : > "$calls"
+  FM_HOME="$home" FM_CONFIG_OVERRIDE="$config" FM_DATA_OVERRIDE="$data" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
+    bash "$bin/fm-remote-inherit-push.sh" test 1 > "$base/override-valid.out" 2>&1 \
+    || fail "valid overridden source could not be sent"
+  assert_grep 'config/worker-sheet.md' "$calls" "valid overridden source was not sent"
+  : > "$calls"
+  printf 'new override owner edit\n' > "$data/new-edit"
+  mv "$data/new-edit" "$alias"
+  if FM_HOME="$home" FM_CONFIG_OVERRIDE="$config" FM_DATA_OVERRIDE="$data" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
+    bash "$bin/fm-remote-inherit-push.sh" test 2 > "$base/override-drift.out" 2>&1; then
+    fail "atomic overridden alias replacement sent stale canonical policy"
+  fi
+  [ ! -s "$calls" ] || fail "overridden alias drift reached remote transport"
+  assert_grep 'new override owner edit' "$alias" "overridden owner edit was lost"
+  assert_grep 'canonical policy' "$config/worker-sheet.md" "overridden canonical bytes changed"
+  rm "$config/worker-sheet.md"
+  if FM_HOME="$home" FM_CONFIG_OVERRIDE="$config" FM_DATA_OVERRIDE="$data" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
+    bash "$bin/fm-remote-inherit-push.sh" test 3 > "$base/override-orphan-regular.out" 2>&1; then
+    fail "sender accepted overridden regular alias without canonical source"
+  fi
+  [ ! -s "$calls" ] || fail "overridden orphaned alias reached remote transport"
+  rm "$alias"
+  ln -s ../config-override/worker-sheet.md "$alias"
+  if FM_HOME="$home" FM_CONFIG_OVERRIDE="$config" FM_DATA_OVERRIDE="$data" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
+    bash "$bin/fm-remote-inherit-push.sh" test 4 > "$base/override-orphan-link.out" 2>&1; then
+    fail "sender accepted overridden dangling alias without canonical source"
+  fi
+  [ ! -s "$calls" ] || fail "overridden dangling alias reached remote transport"
+  pass "worker policy sender checks default and overridden aliases before remote transport"
+}
+
+test_worker_sheet_sender_refuses_alias_drift
+
+test_worker_sheet_orphans_refuse_local_and_receiver_writes() {
+  local base primary second remote payload bytes hash empty_hash
+  base="$TMP_ROOT/worker-orphans"
+  primary="$base/primary"
+  second="$base/second"
+  remote="$base/remote"
+  mkdir -p "$primary/config" "$primary/data" "$second/config" "$second/data" "$remote/config" "$remote/data"
+  printf 'current owner policy\n' > "$primary/config/worker-sheet.md"
+  FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary" \
+    || fail "worker policy setup inheritance failed"
+  rm "$primary/config/worker-sheet.md"
+  if FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary"; then
+    fail "local inheritance accepted dangling source alias and removed destination policy"
+  fi
+  assert_grep 'current owner policy' "$second/config/worker-sheet.md" "destination policy was deleted"
+  rm "$primary/data/worker-sheet.md"
+  printf 'new owner edit\n' > "$primary/data/worker-sheet.md"
+  if FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary"; then
+    fail "local inheritance accepted independent source edit without canonical policy"
+  fi
+  assert_grep 'new owner edit' "$primary/data/worker-sheet.md" "source owner edit was lost"
+  rm "$primary/data/worker-sheet.md"
+  printf 'current owner policy\n' > "$primary/config/worker-sheet.md"
+  ln -s ../config/worker-sheet.md "$primary/data/worker-sheet.md"
+  rm "$second/config/worker-sheet.md"
+  if FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary"; then
+    fail "local inheritance silently repaired an orphaned destination alias"
+  fi
+  [ ! -e "$second/config/worker-sheet.md" ] && [ -L "$second/data/worker-sheet.md" ] \
+    || fail "orphaned destination alias was changed"
+  rm "$primary/config/worker-sheet.md" "$primary/data/worker-sheet.md" "$second/data/worker-sheet.md"
+  FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary" \
+    || fail "optional policy with both paths absent was refused"
+  [ ! -e "$second/data/worker-sheet.md" ] && [ ! -L "$second/data/worker-sheet.md" ] \
+    || fail "optional absence created an alias"
+
+  payload="$base/payload"
+  printf 'current owner policy\n' > "$payload"
+  bytes=$(wc -c < "$payload" | tr -d ' ')
+  hash=$(fm_inherit_sha256 "$payload") || fail "cannot hash policy fixture"
+  : > "$base/empty"
+  empty_hash=$(fm_inherit_sha256 "$base/empty") || fail "cannot hash empty fixture"
+  printf 'new remote owner edit\n' > "$remote/data/worker-sheet.md"
+  if FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 1 < "$payload" >/dev/null 2>&1; then
+    fail "remote receiver overwrote orphaned regular alias"
+  fi
+  if FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" absent config/worker-sheet.md 0 "$empty_hash" 1 >/dev/null 2>&1; then
+    fail "remote receiver accepted absence with orphaned regular alias"
+  fi
+  assert_grep 'new remote owner edit' "$remote/data/worker-sheet.md" "remote owner edit was lost"
+  rm "$remote/data/worker-sheet.md"
+  ln -s ../config/worker-sheet.md "$remote/data/worker-sheet.md"
+  if FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 1 < "$payload" >/dev/null 2>&1; then
+    fail "remote receiver accepted orphaned dangling alias"
+  fi
+  if FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" absent config/worker-sheet.md 0 "$empty_hash" 1 >/dev/null 2>&1; then
+    fail "remote receiver accepted absence with orphaned dangling alias"
+  fi
+  [ -L "$remote/data/worker-sheet.md" ] && [ ! -e "$remote/config/worker-sheet.md" ] \
+    || fail "remote orphaned alias state was changed"
+  rm "$remote/data/worker-sheet.md"
+  FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" absent config/worker-sheet.md 0 "$empty_hash" 1 >/dev/null \
+    || fail "remote receiver refused optional absence with both paths absent"
+  pass "worker policy orphaned aliases refuse local and remote writes while preserving optional absence"
+}
+
+test_worker_sheet_orphans_refuse_local_and_receiver_writes
+
+test_worker_sheet_failed_publication_leaves_fresh_alias_absent() {
+  local base primary second remote payload bytes hash empty_hash report out
+  base="$TMP_ROOT/worker-failed-publication"
+  primary="$base/primary"
+  second="$base/second"
+  remote="$base/remote"
+  mkdir -p "$primary/config" "$primary/data" "$second/config" "$second/data" "$remote/config" "$remote/data"
+  printf 'current owner policy\n' > "$primary/config/worker-sheet.md"
+  if (
+    copy_inheritable_file() { return 1; }
+    FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary"
+  ) >/dev/null 2>&1; then
+    fail "injected local copy failure unexpectedly succeeded"
+  fi
+  [ ! -e "$second/config/worker-sheet.md" ] && [ ! -e "$second/data/worker-sheet.md" ] && [ ! -L "$second/data/worker-sheet.md" ] \
+    || fail "failed local copy created a dangling destination alias"
+  FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary" \
+    || fail "valid local retry did not converge"
+  [ -L "$second/data/worker-sheet.md" ] && [ "$second/data/worker-sheet.md" -ef "$second/config/worker-sheet.md" ] \
+    || fail "valid local retry omitted the alias"
+  rm "$second/data/worker-sheet.md"
+  report="$base/alias-restored.report"
+  FM_CONFIG_INHERIT_REPORT="$report" FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary" \
+    || fail "unchanged local retry did not restore the alias"
+  [ -L "$second/data/worker-sheet.md" ] && [ "$second/data/worker-sheet.md" -ef "$second/config/worker-sheet.md" ] \
+    || fail "unchanged local retry omitted the alias"
+  assert_grep $'worker-sheet.md\tpushed\t' "$report" "restored local alias was not reported as a change"
+
+  payload="$base/payload"
+  printf 'current owner policy\n' > "$payload"
+  bytes=$(wc -c < "$payload" | tr -d ' ')
+  hash=$(fm_inherit_sha256 "$payload") || fail "cannot hash policy fixture"
+  : > "$base/empty"
+  empty_hash=$(fm_inherit_sha256 "$base/empty") || fail "cannot hash empty fixture"
+  FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" absent config/worker-sheet.md 0 "$empty_hash" 2 >/dev/null \
+    || fail "fresh remote absence setup failed"
+  if FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 1 < "$payload" >/dev/null 2>&1; then
+    fail "stale remote generation unexpectedly succeeded"
+  fi
+  [ ! -e "$remote/config/worker-sheet.md" ] && [ ! -e "$remote/data/worker-sheet.md" ] && [ ! -L "$remote/data/worker-sheet.md" ] \
+    || fail "rejected stale generation created a dangling remote alias"
+  FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 3 < "$payload" >/dev/null \
+    || fail "valid remote retry did not converge"
+  [ -L "$remote/data/worker-sheet.md" ] && [ "$remote/data/worker-sheet.md" -ef "$remote/config/worker-sheet.md" ] \
+    || fail "valid remote retry omitted the alias"
+  rm "$remote/data/worker-sheet.md"
+  out=$(FM_HOME="$remote" bash "$ROOT/bin/fm-remote-inherit.sh" put config/worker-sheet.md "$bytes" "$hash" 3 < "$payload") \
+    || fail "unchanged remote retry did not restore the alias"
+  [ -L "$remote/data/worker-sheet.md" ] && [ "$remote/data/worker-sheet.md" -ef "$remote/config/worker-sheet.md" ] \
+    || fail "unchanged remote retry omitted the alias"
+  [ "$out" = 'pushed: config/worker-sheet.md' ] || fail "restored remote alias was not reported as a change: $out"
+  pass "failed local and remote policy publications leave fresh aliases absent; valid retries converge"
+}
+
+test_worker_sheet_failed_publication_leaves_fresh_alias_absent

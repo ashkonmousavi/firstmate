@@ -86,10 +86,13 @@ FM_SHARED_CAPTAIN_FILE="captain-shared.md"
 FM_SHARED_CAPTAIN_REL="data/$FM_SHARED_CAPTAIN_FILE"
 FM_SHARED_CAPTAIN_MODE="444"
 
+# config/worker-sheet.md is optional primary-authored worker policy.
+# Homes may point data/worker-sheet.md at it; config/brief-include.md remains
+# home-local so shared policy cannot overwrite host paths or task scope.
 # The declared inheritable set (space-separated, config-dir-relative item paths).
 # Extend here to inherit more of the primary's local config; override via the
 # environment only in tests. Items must not contain whitespace.
-FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send crew-harness backlog-backend backend herdr-presentation-spaces herdr-project-groups startup-memory-budget trace-context launch-env-allowlist claude-permission-mode lavish-axi-host keep-ai-trailers supervision-host-off firstmate-role}"
+FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send crew-harness backlog-backend backend herdr-presentation-spaces herdr-project-groups startup-memory-budget trace-context launch-env-allowlist claude-permission-mode lavish-axi-host keep-ai-trailers supervision-host-off firstmate-role worker-sheet.md}"
 
 # firstmate-role additionally carries a proof-of-state receipt: a scoped role
 # grant (or its recorded absence) authorizes a secondmate home only while
@@ -131,6 +134,31 @@ fm_config_inherit_items() {
     printf 'config/%s\n' "$item"
   done
   printf '%s\n' "$FM_SHARED_CAPTAIN_REL"
+}
+
+# Keep the legacy read path usable on a freshly provisioned home. A regular
+# data file may be an atomic editor replacement with new owner instructions:
+# preserve it and refuse convergence until its owner reconciles those bytes.
+fm_worker_sheet_alias_validate() { # <home>; read-only preflight
+  local home=$1 alias="$1/data/worker-sheet.md" canonical="$1/config/worker-sheet.md"
+  [ ! -L "$home/data" ] && { [ ! -e "$home/data" ] || [ -d "$home/data" ]; } || return 1
+  if [ -e "$alias" ] || [ -L "$alias" ]; then
+    if [ -f "$canonical" ] && [ ! -L "$canonical" ] && [ -L "$alias" ] \
+      && { [ "$(readlink "$alias")" = ../config/worker-sheet.md ] || [ "$alias" -ef "$canonical" ]; }; then
+      return 0
+    fi
+    echo "error: worker policy alias drift: preserve both $alias and $canonical; reconcile the latest owner edit into the config source, then restore the data alias" >&2
+    return 1
+  fi
+  return 0
+}
+
+fm_worker_sheet_alias_ensure() { # <home>; call after canonical exists
+  local home=$1 alias="$1/data/worker-sheet.md" canonical="$1/config/worker-sheet.md"
+  [ -f "$canonical" ] && [ ! -L "$canonical" ] || return 1
+  fm_worker_sheet_alias_validate "$home" || return 1
+  if [ -e "$alias" ] || [ -L "$alias" ]; then return 0; fi
+  mkdir -p "$home/data" && ln -s ../config/worker-sheet.md "$alias"
 }
 
 fm_config_source_present() {
@@ -666,7 +694,7 @@ propagate_secondmate_inheritance() {
 }
 
 propagate_inheritable_config() {
-  local src_config=$1 dest_config=$2 src_home=${3:-${1%/*}} item src dest source_present reason rc
+  local src_config=$1 dest_config=$2 src_home=${3:-${1%/*}} item src dest src_alias dest_alias source_present reason rc item_status alias_missing
   local prior_dest_config=${FM_INHERIT_DEST_CONFIG-} role_stage=
   [ -n "$src_config" ] || return 1
   [ -n "$dest_config" ] || return 1
@@ -706,6 +734,25 @@ propagate_inheritable_config() {
       record_inheritable_config_result "$item" error "$reason"
       rc=1
       continue
+    fi
+    if [ "$item" = worker-sheet.md ]; then
+      src_alias="$src_home/data/worker-sheet.md"
+      dest_alias="${dest_config%/*}/data/worker-sheet.md"
+      if [ "$source_present" = 0 ]; then
+        if [ -e "$src_alias" ] || [ -L "$src_alias" ] \
+          || [ -e "$dest" ] || [ -L "$dest" ] \
+          || [ -e "$dest_alias" ] || [ -L "$dest_alias" ]; then
+          record_inheritable_config_result "$item" error "worker policy source is absent while a source or destination path remains; preserve both paths for reconciliation"
+          rc=1
+          continue
+        fi
+      elif [ ! -f "$src" ] || [ -L "$src" ] \
+        || ! fm_worker_sheet_alias_ensure "$src_home" \
+        || ! fm_worker_sheet_alias_validate "${dest_config%/*}"; then
+        record_inheritable_config_result "$item" error "worker policy source or compatibility alias requires reconciliation"
+        rc=1
+        continue
+      fi
     fi
     # This one scalar config is consumed as a local safety boundary, so reject
     # every unsafe or malformed source/destination artifact before the generic
@@ -757,16 +804,32 @@ propagate_inheritable_config() {
       fi
       if [ -L "$dest" ] || [ ! -f "$dest" ] || ! cmp -s "$src" "$dest"; then
         if copy_inheritable_file "$src" "$dest"; then
-          record_inheritable_config_result "$item" pushed ""
+          item_status=pushed
         else
           reason="failed to copy"
           warn_inheritable_config_error "$item" "$dest" "$reason"
           record_inheritable_config_result "$item" error "$reason"
           rc=1
+          continue
         fi
       else
-        record_inheritable_config_result "$item" unchanged ""
+        item_status=unchanged
       fi
+      if [ "$item" = worker-sheet.md ]; then
+        alias_missing=0
+        if [ ! -e "$dest_alias" ] && [ ! -L "$dest_alias" ]; then alias_missing=1; fi
+        if ! fm_worker_sheet_alias_ensure "${dest_config%/*}"; then
+          reason="worker policy compatibility alias could not be finalized"
+          warn_inheritable_config_error "$item" "$dest" "$reason"
+          record_inheritable_config_result "$item" error "$reason"
+          rc=1
+          continue
+        fi
+        if [ "$item_status" = unchanged ] && [ "$alias_missing" = 1 ]; then
+          item_status=pushed
+        fi
+      fi
+      record_inheritable_config_result "$item" "$item_status" ""
     elif [ "$source_present" = 1 ]; then
       reason="primary source is not a regular file"
       warn_inheritable_config_error "$item" "$src" "$reason"

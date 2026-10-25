@@ -402,6 +402,17 @@ fi
 
 # The optional home-local include is read before anything is written, so an
 # unusable file never leaves a partial scaffold behind.
+# A home opting into native worker-policy inheritance keeps one regular
+# config source. An atomic editor replacement of its compatibility alias must
+# be reconciled before any harness receives a fresh worker brief.
+if [ "$KIND" != secondmate ] && { [ -e "$CONFIG/worker-sheet.md" ] || [ -L "$CONFIG/worker-sheet.md" ] || [ -e "$DATA/worker-sheet.md" ] || [ -L "$DATA/worker-sheet.md" ]; }; then
+  if [ ! -f "$CONFIG/worker-sheet.md" ] || [ -L "$CONFIG/worker-sheet.md" ] \
+    || [ ! -L "$DATA/worker-sheet.md" ] || [ ! "$DATA/worker-sheet.md" -ef "$CONFIG/worker-sheet.md" ]; then
+    echo "error: worker policy alias drift: preserve both $DATA/worker-sheet.md and $CONFIG/worker-sheet.md; reconcile the latest owner edit into the config source, then restore the data alias before scaffolding" >&2
+    exit 1
+  fi
+fi
+
 BRIEF_INCLUDE_FILE="$CONFIG/brief-include.md"
 BRIEF_INCLUDE_BODY=
 if [ "$KIND" != secondmate ] && { [ -e "$BRIEF_INCLUDE_FILE" ] || [ -L "$BRIEF_INCLUDE_FILE" ]; }; then
