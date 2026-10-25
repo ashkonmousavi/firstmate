@@ -26,6 +26,15 @@ assert_absent "$policy_home" 'malformed policy must not create a home'
 pass 'missing and malformed target policy refuse before home publication'
 
 jq -n '{schema:"fm-machine-admission.v1",memory_floor_gib:1.5,memory_full_avg60_max:5,disk_floor_gib:5,disk_paths:["/server-home","/tmp"]}' > "$policy_host_root/config/machine-admission.json"
+rc=0; out=$(provision 2>&1) || rc=$?
+expect_code 1 "$rc" 'missing target lane declaration refuses'
+assert_contains "$out" "$policy_host_root/config/lane-capacity" 'refusal names lane declaration'
+assert_absent "$policy_home" 'missing lane declaration must not create a home'
+printf '6 malformed\n' > "$policy_host_root/config/lane-capacity"
+rc=0; out=$(provision 2>&1) || rc=$?
+expect_code 1 "$rc" 'malformed target lane declaration refuses'
+assert_absent "$policy_home" 'malformed lane declaration must not create a home'
+pass 'missing and malformed target lane declaration refuse before publication'
 printf '6 2\n' > "$policy_host_root/config/lane-capacity"
 jq '.memory_floor_gib=3 | .disk_paths=["/pc-home","/tmp"]' "$policy_host_root/config/machine-admission.json" > "$policy_parent/config/machine-admission.json"
 printf '5 4\n' > "$policy_parent/config/lane-capacity"
