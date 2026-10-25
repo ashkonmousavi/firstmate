@@ -93,6 +93,7 @@ make_settle_case() {
   mkdir -p "$home/data" "$home/projects" "$home/state" "$home/config"
   printf 'codex\n' > "$home/config/crew-harness"
   printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   fm_git_worktree "$proj" "$wt" "wt-$name"
   fm_git_init_commit "$stale"
   mkdir -p "$home/data/$id"

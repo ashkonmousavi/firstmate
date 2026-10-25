@@ -1281,6 +1281,23 @@ Relaunch uses the same machine admission as fresh dispatch, excluding its own ta
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
 
+The root home must also provide `config/machine-admission.json` before installing this reader.
+It is the numeric policy owner for resource admission, independent of the ceiling/reserve pair; worker-instruction prose is not parsed.
+Its schema is `fm-machine-admission.v1`, with nonnegative numeric `memory_floor_gib` and `disk_floor_gib`, numeric `memory_full_avg60_max` greater than zero and at most 100, and a nonempty `disk_paths` array of absolute paths.
+Memory must exceed the floor as well as satisfy the existing reserve; every configured disk path must exceed its floor, and memory full PSI avg60 must remain below its limit on the host and every memory-controller ancestor.
+Missing or malformed policy, pressure or disk evidence refuses admission rather than treating the machine as healthy.
+The shared `bin/fm-machine-resources.py` reader bounds host MemAvailable by every finite cgroup memory.high/memory.max minus max(memory.current - inactive_file, 0), using the same hard-floor calculation as private consumers.
+This effective reading is separate from the unchanged high-(anon+shmem) reserve balance.
+The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
+The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
+Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
+During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.
+Machine policy is not a generic inherited item: local descendants resolve their machine-root config, while a remote home owns target-host policy.
+Remote provisioning validates and preserves an existing home's policy and ceiling/reserve declaration, or seeds missing declarations from the target code root's own config directory before publishing the home marker.
+The remote parent never supplies those bytes; a missing target-host declaration refuses provisioning and names the exact file to prepare.
+Tracked self-update preserves these ignored host declarations.
+
+
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
 It exits 75 when room cannot be proved and does not change task state.
 `bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.

@@ -503,6 +503,7 @@ test_spawn_preserves_orca_metadata_when_pathless_worktree_cleanup_fails() {
   fm_git_init_commit "$proj"
   mkdir -p "$data/$id" "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case pathless-cleanup-fail
@@ -540,6 +541,7 @@ test_spawn_writes_orca_metadata_and_launches_harness() {
   fm_git_worktree "$proj" "$wt" "fm/$id"
   mkdir -p "$data/$id" "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case spawn
@@ -611,6 +613,7 @@ test_spawn_refuses_orca_when_runtime_not_ready() {
   fm_git_init_commit "$proj"
   mkdir -p "$data/$id" "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case runtime-down-spawn
@@ -641,6 +644,7 @@ test_spawn_refuses_orca_nonisolated_worktree() {
   fm_git_init_commit "$proj"
   mkdir -p "$data/$id" "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case bad-spawn
@@ -676,6 +680,7 @@ test_spawn_removes_orca_worktree_when_terminal_create_fails() {
   fm_git_worktree "$proj" "$wt" "fm/$id"
   mkdir -p "$data/$id" "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case terminal-fail
@@ -710,6 +715,7 @@ test_spawn_preserves_orca_metadata_when_abort_cleanup_fails() {
   fm_git_worktree "$proj" "$wt" "fm/$id"
   mkdir -p "$data/$id" "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case cleanup-fail
@@ -745,6 +751,7 @@ test_spawn_releases_orca_resources_when_metadata_write_fails() {
   fm_git_worktree "$proj" "$wt" "fm/$id"
   mkdir -p "$data/$id" "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
   write_spawn_brief "$data" "$id"
   orca_case meta-fail
   # Fail the public record publication after resource allocation, rather than
