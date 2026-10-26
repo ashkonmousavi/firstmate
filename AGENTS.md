@@ -172,6 +172,12 @@ Resolve the project independently for every request.
 An explicit project wins, a clear follow-up inherits its referent, and otherwise match the request against the registry, work under way, and project code or README.
 Proceed on one confident match while naming the project in plain language; ask one concise question when multiple or no projects plausibly match.
 
+For each owner-origin request that creates or updates a native task, including an explanation-only request or later correction, MAIN or the receiving secondmate authors a private `Owner request acceptance v1` packet before `bin/fm-tasks-axi.sh add|update --owner-request-file`.
+Capture every action and explanation part under its source UUID and stable requirement ID; append later corrections instead of rewriting earlier requirements.
+Read the packet authoring contract in `bin/fm-request-acceptance.py` before that call: never copy or hash secret spans, bind independently safe parts, and hold inseparable restricted parts.
+Transfer and relaunch preserve the bound native section; a Done row or the helper's structural readback does not qualify proof or accept a requirement.
+Non-owner tasks and historical unbound rows keep their existing task path.
+
 Route by the nature of the work against each registered secondmate scope, not by a non-exclusive clone list.
 Keep `local-only` work in the main home.
 Send in-scope work to the fitting secondmate unless it is blocked or the captain explicitly redirects it; do not read the secondmate's chat because marked routed replies return through its status or referenced document.
@@ -223,7 +229,8 @@ When a steer answers an open keyed decision or blocker, pass `fm-send`'s `--reso
 Drive a worker's lifecycle through `bin/fm-control.sh <task-id> interrupt|exit|relaunch`, which owns the per-runtime mechanics, verifies each action, and never tears down or discards anything ([`docs/agent-control.md`](docs/agent-control.md)).
 A secondmate's routed reply returns through status or a document pointer, not by firstmate peeking into its chat.
 For the parent-owned correlation, recovery, and escalation contract on marked secondmate requests, see `bin/fm-pending-reply-lib.sh`.
-When the captain adds or changes an ask mid-task, append the captain's words without added speaker labels or direct address to that brief's `## Captain's intent` and relay those words to the worker; Firstmate build constraints stay in `## Firstmate spec` or the steer.
+When the captain adds or changes an ask mid-task, first append its native source-linked requirement or correction through the intake packet path above; update the same bound task, or create a separate bound item when the existing task is legacy unbound.
+Then append the captain's words without added speaker labels or direct address to that brief's `## Captain's intent` and relay those words to the worker; Firstmate build constraints stay in `## Firstmate spec` or the steer.
 Supervise all live work under section 8.
 
 ### Selected delivery path and merge authority

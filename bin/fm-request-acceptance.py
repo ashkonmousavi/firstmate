@@ -1,5 +1,47 @@
 #!/usr/bin/env python3
-"""Pure structural custody and merge for explicitly bound native owner requests."""
+"""Pure structural custody and merge for explicitly bound native owner requests.
+
+Owner-request packet authoring contract for fm-tasks-axi.sh --owner-request-file:
+Write one private UTF-8 JSON file with exactly the PACKET keys declared below.
+For add, expected_body_sha256 is null; for update it is SHA256 of the exact
+previous native body. origin_home and origin_task_id identify the original
+home/task, while the wrapper addresses the current owning home and task ID.
+Set interpretation_complete=true only after conversational intake has identified
+every action and explanation part, including later corrections. This assertion
+belongs to that interpreter: this helper cannot detect omitted intent.
+
+Each SOURCE row keeps the source session_id, message_uuid and file_ref.
+For nonsecret source_custody=complete, retain full_text and its exact UTF-8
+full_text_sha256 in the native body. If a source contains credentials, mark it
+restricted with both fields null; never copy or hash a secret span into the
+packet. Preserve its original only in the existing protected source.
+For each independently verified safe part of a restricted source, use a
+verified_safe requirement with complete nonsecret safe_text. Keep inseparable
+or secret-dependent parts restricted with text_ref/safe_text null and pending
+or held disposition. For a complete source, verified_complete text_ref must
+resolve inside its retained full_text. Unknown source completeness cannot
+silently make an omitted requirement accepted.
+
+Each REQ row has a stable id, source_message_uuid, action|explanation kind,
+binding, disposition, proof_refs and superseded_by. Record every action part;
+an explanation-only request still has one explanation requirement with
+proof_kind=reply, not an empty requirement list. Action proof_kind is one of
+product_live, installed_generation, observed_consumer or artifact_delivery.
+acceptance_level=source|installed|observed records the promised evidence level,
+not a verdict. Required kind-specific fields are checked in validate() below.
+proof_refs identify existing receipts by source_owner, receipt_id and exact
+content_sha256; do not invent a receipt or infer one from a filename.
+
+On correction, append the new source UUID and replacement requirement ID in
+the same task. Use corrections[{id,superseded_by:[replacement_id]}] only for
+the specifically superseded prior IDs; preserve unrelated sources and parts.
+The wrapper merges under the existing task lock and verifies show --full;
+an unconfirmed write or stale body preimage is a refusal, not an automatic retry.
+Transfer, archive and relaunch retain the section rather than reinterpret it.
+The helper validates structure and retained source custody only. A task Done,
+an acknowledgement, or a syntactically accepted disposition never establishes
+the qualified owner receipt and current proof required by B6.
+"""
 import argparse
 import hashlib
 import json

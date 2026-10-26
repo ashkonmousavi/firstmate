@@ -18,6 +18,9 @@
 # merges its protected section under this task's existing control lock, and
 # verifies the native full-body readback. It is never forwarded to tasks-axi.
 # Ordinary body edits to bound tasks preserve that section exactly.
+# Packet authoring contract and exact PACKET/SOURCE/REQ/REF fields:
+# bin/fm-request-acceptance.py's module header and validator below those fields.
+# Example: fm-tasks-axi.sh add <id> '<title>' --owner-request-file <private-json-path>.
 #
 # `show` (including `view`) and `list` decode stored captain-hold reasons
 # through bin/fm-hold-reason-lib.sh, which owns the field-only decoding contract.
