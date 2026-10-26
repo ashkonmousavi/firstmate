@@ -211,8 +211,24 @@ def validate(metadata, task_id, home):
     for req in metadata["requirements"]:
         for replacement in req["superseded_by"]:
             slug(replacement, "superseding requirement")
-            if replacement not in ids or replacement == req["id"]:
+            if replacement not in ids:
                 raise Invalid("invalid superseding requirement")
+    graph = {req["id"]: req["superseded_by"] for req in metadata["requirements"]}
+    incoming = dict.fromkeys(graph, 0)
+    for replacements in graph.values():
+        for replacement in replacements:
+            incoming[replacement] += 1
+    ready = [key for key, count in incoming.items() if count == 0]
+    visited = 0
+    while ready:
+        key = ready.pop()
+        visited += 1
+        for replacement in graph[key]:
+            incoming[replacement] -= 1
+            if incoming[replacement] == 0:
+                ready.append(replacement)
+    if visited != len(graph):
+        raise Invalid("cyclic superseding requirements")
 
 
 def section(body):

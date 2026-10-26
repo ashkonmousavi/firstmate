@@ -123,6 +123,41 @@ class RequestCustody(unittest.TestCase):
         self.run_task("update", "owner-1", "--body", "erase", ok=False)
         self.assertIn("Explain café", self.body())
 
+    def test_unbound_mint_preserves_native_creation_with_every_body_form(self):
+        backlog = self.home / "data/backlog.md"
+        body_file = self.home / "mint-body.md"
+        body_file.write_text("context")
+        def ids():
+            return {line.split(" - ", 1)[0].split()[-1]
+                    for line in backlog.read_text().splitlines() if line.startswith("- [ ] ")}
+        for command in ("add", "create"):
+            for title in ("Summary", "A summary"):
+                for flag in ("--body", "--body-file", "--body=context", f"--body-file={body_file}"):
+                    with self.subTest(command=command, title=title, flag=flag):
+                        before = ids()
+                        args = [command, title, "--mint", flag]
+                        if flag == "--body":
+                            args.append("context")
+                        elif flag == "--body-file":
+                            args.append(str(body_file))
+                        self.run_task(*args)
+                        created = ids() - before
+                        self.assertEqual(len(created), 1)
+                        task = created.pop()
+                        self.assertNotEqual(task, title)
+                        self.assertEqual(self.body(task), "context")
+                        self.assertEqual(len(ids()), len(before) + 1)
+
+    def test_mint_packet_refuses_before_creation_and_body_value_is_not_a_flag(self):
+        backlog = self.home / "data/backlog.md"
+        before = backlog.read_bytes()
+        packet = self.save("mint-packet.json", self.packet())
+        for command in ("add", "create"):
+            self.run_task(command, "owner-1", "--mint", "--owner-request-file", packet, ok=False)
+            self.assertEqual(backlog.read_bytes(), before)
+        self.run_task("add", "literal-mint", "Literal", "--body", "--mint")
+        self.assertEqual(self.body("literal-mint"), "--mint")
+
     def test_correction_archives_and_confirms_exact_replay(self):
         self.run_task("add", "owner-1", "Owner", "--owner-request-file",
                       self.save("first.json", self.packet()))
@@ -141,6 +176,51 @@ class RequestCustody(unittest.TestCase):
         self.assertIn("source-1", archive.read_text())
         self.run_task("update", "owner-1", "--owner-request-file", path)
         self.assertEqual(body, self.body())
+
+    def test_correction_cycles_refuse_without_native_writes(self):
+        first = self.packet()
+        first["requirements"][0].update(disposition="accepted", proof_refs=[
+            {"source_owner": "reply", "receipt_id": "reply-1", "content_sha256": "a" * 64}])
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file", self.save("cycle-first.json", first))
+        before = self.body()
+        backlog = (self.home / "data/backlog.md").read_bytes()
+        for length in (2, 3):
+            packet = self.packet(source="source-2", requirement="r2", expected=sha(before))
+            for index in range(3, length + 1):
+                extra = self.packet(source=f"source-{index}", requirement=f"r{index}")
+                packet["sources"] += extra["sources"]
+                packet["requirements"] += extra["requirements"]
+            packet["corrections"] = [{"id": f"r{index}", "superseded_by": [f"r{index + 1}" if index < length else "r1"]}
+                                     for index in range(1, length + 1)]
+            result = self.run_task("update", "owner-1", "--owner-request-file",
+                                   self.save("cycle.json", packet), ok=False)
+            self.assertIn("cyclic superseding requirements", result.stderr)
+            self.assertEqual(self.body(), before)
+            self.assertEqual((self.home / "data/backlog.md").read_bytes(), backlog)
+            self.assertFalse((self.home / "data/note-archive.md").exists())
+
+    def test_multistep_correction_preserves_accepted_and_restricted_history(self):
+        first = self.packet()
+        first["requirements"][0].update(disposition="accepted", proof_refs=[
+            {"source_owner": "reply", "receipt_id": "reply-1", "content_sha256": "a" * 64}])
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file", self.save("chain-first.json", first))
+        second = self.packet(source="source-2", requirement="r2", restricted=True, expected=sha(self.body()))
+        second["requirements"][0]["disposition"] = "held"
+        second["corrections"] = [{"id": "r1", "superseded_by": ["r2"]}]
+        self.run_task("update", "owner-1", "--owner-request-file", self.save("chain-second.json", second))
+        third = self.packet(source="source-3", requirement="r3", expected=sha(self.body()))
+        third["corrections"] = [{"id": "r2", "superseded_by": ["r3"]}]
+        path = self.save("chain-third.json", third)
+        self.run_task("update", "owner-1", "--owner-request-file", path)
+        body = self.body()
+        metadata = json.loads(body.split("```Owner request acceptance v1\n", 1)[1].split("\n```", 1)[0])
+        self.assertEqual(metadata["sources"], first["sources"] + second["sources"] + third["sources"])
+        self.assertEqual(metadata["requirements"], [
+            dict(first["requirements"][0], disposition="superseded", superseded_by=["r2"]),
+            dict(second["requirements"][0], disposition="superseded", superseded_by=["r3"]),
+            third["requirements"][0]])
+        self.run_task("update", "owner-1", "--owner-request-file", path)
+        self.assertEqual(self.body(), body)
 
     def test_exact_replay_confirms_without_second_native_update(self):
         self.run_task("add", "owner-1", "Owner", "--owner-request-file",

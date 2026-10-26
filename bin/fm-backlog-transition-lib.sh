@@ -476,10 +476,7 @@ fm_backlog_row_probe() {  # <data-dir> <id>
   return 0
 }
 
-# A merge or a replay is not evidence that an external acceptance wait ended.
-# The existing owner clears its hold after observing that condition; a read
-# failure preserves the same task and recovery records rather than guessing.
-fm_backlog_require_no_external_hold() {  # <data-dir> <id>
+fm_backlog_require_cleanup_ready() {
   if ! fm_backlog_row_probe "$1" "$2"; then
     [ "$FM_BACKLOG_ROW_RESULT" = not_found ] && return 0
     FM_BACKLOG_TRANSITION_ERROR=$FM_BACKLOG_ROW_ERROR
@@ -492,6 +489,9 @@ fm_backlog_require_no_external_hold() {  # <data-dir> <id>
       return 1
       ;;
   esac
+  [ "$3" != retain ] || return 0
+  FM_BACKLOG_TRANSITION_ERROR="$2 has not been explicitly accepted; record accepted completion with fm-tasks-axi.sh done only after its proof passes, or use fm-control.sh $2 exit to release a safe worker without closing the task"
+  return 1
 }
 
 # Run one tasks-axi mutation against <home>'s backlog, capturing its first
@@ -912,8 +912,11 @@ fm_backlog_dispatch_rollback() {
 fm_backlog_close_transition() {
   local meta=$1 marker=$2 data=$3 id=$4 state=$5
   shift 5
+  fm_backlog_require_cleanup_ready "$data" "$id" close || return 1
   [ -z "$meta" ] || fm_backlog_record_remove "$meta" "task record" "$state" || return 1
-  fm_backlog_done "$data" "$id" "$@" || return 1
+  if [ "$FM_BACKLOG_ROW_RESULT" = found ]; then
+    fm_backlog_done "$data" "$id" "$@" || return 1
+  fi
   fm_backlog_record_remove "$marker" "pending-close record" "$state"
 }
 
@@ -1234,9 +1237,24 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
       FM_BACKLOG_CLOSE_REPLAY_RESULT=stale
       return 0
     fi
-    if [ "$mode" = close ]; then
-      fm_backlog_require_no_external_hold "$data" "$id" || return 1
+  fi
+  if fm_backlog_row_probe "$data" "$id"; then
+    row_state=$FM_BACKLOG_ROW_STATE
+    if [ "${row_state%% *}" != "done" ] && [ "$FM_BACKLOG_ROW_HOLD_KIND" = captain ]; then
+      mode=retain
+      mode_flags=(--retain)
     fi
+  else
+    if [ "$FM_BACKLOG_ROW_RESULT" != not_found ]; then
+      FM_BACKLOG_TRANSITION_ERROR=$FM_BACKLOG_ROW_ERROR
+      return 1
+    fi
+    row_state=
+  fi
+  if [ "$mode" = close ]; then
+    fm_backlog_require_cleanup_ready "$data" "$id" close || return 1
+  fi
+  if [ -e "$meta" ] || [ -L "$meta" ]; then
     fm_backlog_close_marker_mark_cleanup_incomplete "$state" "$marker" "$id" "$data" \
       "$marker_spawn_gen" "${mode_flags[@]+"${mode_flags[@]}"}" "${args[@]+"${args[@]}"}" \
       || return 1
@@ -1245,19 +1263,7 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
       || return 1
   fi
   if [ "$mode" = close ]; then
-    fm_backlog_require_no_external_hold "$data" "$id" || return 1
-  fi
-  if fm_backlog_row_probe "$data" "$id"; then
-    row_state=$FM_BACKLOG_ROW_STATE
-    if [ "${row_state%% *}" != "done" ] && [ "$FM_BACKLOG_ROW_HOLD_KIND" = captain ]; then
-      mode=retain
-    fi
-  else
-    if [ "$FM_BACKLOG_ROW_RESULT" != not_found ]; then
-      FM_BACKLOG_TRANSITION_ERROR=$FM_BACKLOG_ROW_ERROR
-      return 1
-    fi
-    row_state=
+    fm_backlog_require_cleanup_ready "$data" "$id" close || return 1
   fi
   case "$row_state" in
     done\ *)
@@ -1285,18 +1291,12 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
       return 0
       ;;
   esac
-  if fm_backlog_atomic_transition "$mode" '' "$marker" "$data" "$id" "$state" \
+  if fm_backlog_atomic_transition retain '' "$marker" "$data" "$id" "$state" \
       "${args[@]+"${args[@]}"}"; then
-    if [ "$mode" = retain ]; then
-      if [ "$cleanup_incomplete" = 1 ]; then
-        FM_BACKLOG_CLOSE_REPLAY_RESULT=retained_incomplete
-      else
-        FM_BACKLOG_CLOSE_REPLAY_RESULT=retained
-      fi
-    elif [ "$cleanup_incomplete" = 1 ]; then
-      FM_BACKLOG_CLOSE_REPLAY_RESULT=closed_incomplete
+    if [ "$cleanup_incomplete" = 1 ]; then
+      FM_BACKLOG_CLOSE_REPLAY_RESULT=retained_incomplete
     else
-      FM_BACKLOG_CLOSE_REPLAY_RESULT=closed
+      FM_BACKLOG_CLOSE_REPLAY_RESULT=retained
     fi
     return 0
   fi

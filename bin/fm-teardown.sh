@@ -1871,9 +1871,13 @@ teardown_guard_unlanded_close() {
   TEARDOWN_KEEP_OPEN=0
   TEARDOWN_KEEP_OPEN_HOLD=0
   if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
-    if ! fm_backlog_require_no_external_hold "$DATA" "$ID"; then
+    if ! fm_backlog_require_cleanup_ready "$DATA" "$ID" retain; then
       echo "REFUSED: $FM_BACKLOG_TRANSITION_ERROR" >&2
       return 1
+    fi
+    if [ "$KEEP_OPEN" = 1 ] && [ "$FM_BACKLOG_ROW_RESULT" = found ] \
+        && [ "${FM_BACKLOG_ROW_STATE%% *}" != 'done' ]; then
+      TEARDOWN_KEEP_OPEN=1
     fi
     teardown_collect_dependents || return 1
   fi
@@ -1928,6 +1932,12 @@ teardown_guard_unlanded_close() {
     return 1
   fi
   if [ "$TEARDOWN_KEEP_OPEN" != 1 ]; then
+    if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ] && [ "$TEARDOWN_BACKLOG_TRANSITION" = close ]; then
+      if ! fm_backlog_require_cleanup_ready "$DATA" "$ID" close; then
+        echo "REFUSED: $FM_BACKLOG_TRANSITION_ERROR" >&2
+        return 1
+      fi
+    fi
     return 0
   fi
   if [ "$class" = open ]; then

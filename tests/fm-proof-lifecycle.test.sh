@@ -80,6 +80,39 @@ case "${1:-}" in
     FM_TEST_FIXTURE_IMPORT=teardown
     # shellcheck source=tests/fm-teardown.test.sh
     . "$TEST_DIR/fm-teardown.test.sh"
+    for proof_wait in pending expired; do
+      case_dir=$(prepare_recorded_github_pr "proof-$proof_wait")
+      install_github_pr_class "$case_dir" merged
+      arm_registered_merge_watch "$case_dir"
+      if [ "$proof_wait" = expired ]; then
+        tasks-axi hold task-x1 --kind external --reason 'awaiting deployment proof' --until 2000-01-01 --file "$case_dir/data/backlog.md" >/dev/null
+      fi
+      cp "$case_dir/state/task-x1.meta" "$case_dir/before.meta"
+      cp "$case_dir/data/backlog.md" "$case_dir/before.backlog"
+      teardown_capture "$case_dir"
+      expect_code 1 "$TEARDOWN_CAPTURE_RC" "$proof_wait proof must refuse ordinary cleanup"
+      assert_grep 'has not been explicitly accepted' "$case_dir/stderr" 'cleanup must require explicit acceptance'
+      cmp "$case_dir/before.meta" "$case_dir/state/task-x1.meta"
+      cmp "$case_dir/before.backlog" "$case_dir/data/backlog.md"
+      assert_present "$case_dir/state/task-x1.pr-poll-registration" 'proof refusal retired merge watch'
+      assert_present "$case_dir/wt/.git" 'proof refusal removed the resumable copy'
+    done
+    pass 'unheld and expired external proof waits preserve task, copy and merge watch before acceptance'
+    case_dir=$(prepare_recorded_github_pr proof-keep-open)
+    install_github_pr_class "$case_dir" merged
+    teardown_capture "$case_dir" --keep-open
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" 'explicit keep-open must retain an unaccepted task'
+    [ "$(backlog_row_state "$case_dir")" != 'done' ] || fail 'keep-open accepted pending work'
+    assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/data/backlog.md" 'retention lost delivery reference'
+    pass 'explicit keep-open releases cleanup resources while preserving the open task and delivery reference'
+    case_dir=$(prepare_recorded_github_pr accepted-keep-open)
+    install_github_pr_class "$case_dir" merged
+    tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
+    teardown_capture "$case_dir" --keep-open
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" 'keep-open must preserve an already accepted task'
+    [ "$(backlog_row_state "$case_dir")" = 'done' ] || fail 'keep-open reopened accepted work'
+    assert_absent "$case_dir/state/task-x1.meta" 'accepted keep-open cleanup retained task metadata'
+    pass 'keep-open preserves existing acceptance while cleaning the finished worker record'
     case_dir=$(prepare_recorded_github_pr proof-held)
     install_github_pr_class "$case_dir" merged
     arm_registered_merge_watch "$case_dir"
@@ -111,35 +144,78 @@ case "${1:-}" in
     teardown_capture "$case_dir"
     cmp "$case_dir/accepted.backlog" "$case_dir/data/backlog.md"
     pass 'accepted completion precedes cleanup, preserves child edge, unblocks child and safely repeats'
+    case_dir=$(prepare_recorded_github_pr accepted-archived)
+    install_github_pr_class "$case_dir" merged
+    printf '%s\n' 'backend = "markdown"' '[markdown]' 'path = "data/backlog.md"' \
+      'archive = "data/done-archive.md"' 'done_keep = 0' > "$case_dir/.tasks.toml"
+    (cd "$case_dir" && tasks-axi 'done' task-x1 --pr https://github.com/example/repo/pull/7 >/dev/null)
+    assert_present "$case_dir/data/done-archive.md" 'explicit acceptance did not archive the task'
+    cp "$case_dir/data/done-archive.md" "$case_dir/before.archive"
+    teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" 'already archived accepted task must still clean'
+    assert_absent "$case_dir/state/task-x1.meta" 'archived accepted cleanup retained task metadata'
+    assert_absent "$case_dir/state/task-x1.backlog-close" 'archived accepted cleanup retained recovery marker'
+    cmp "$case_dir/before.archive" "$case_dir/data/done-archive.md"
+    pass 'zero-retention acceptance archives before cleanup without a second completion write'
+    for proof_wait in pending external expired; do
+      for record in present removed; do
+        (
+          case_dir=$(prepare_recorded_github_pr "interrupted-$proof_wait-$record")
+          FM_HOME="$case_dir"
+          # shellcheck source=bin/fm-tasks-axi-lib.sh
+          . "$ROOT/bin/fm-tasks-axi-lib.sh"
+          # shellcheck source=bin/fm-backlog-transition-lib.sh
+          . "$ROOT/bin/fm-backlog-transition-lib.sh"
+          case "$proof_wait" in
+            external) tasks-axi hold task-x1 --kind external --reason 'awaiting deployment proof' --file "$case_dir/data/backlog.md" >/dev/null ;;
+            expired) tasks-axi hold task-x1 --kind external --reason 'awaiting deployment proof' --until 2000-01-01 --file "$case_dir/data/backlog.md" >/dev/null ;;
+          esac
+          replay_gen=$(sed -n 's/^spawn_gen=//p' "$case_dir/state/task-x1.meta")
+          marker="$case_dir/state/task-x1.backlog-close"
+          printf 'id=task-x1\ndata=%s\nspawn_gen=%s\narg=--note\narg=local%%20main\n' "$case_dir/data" "$replay_gen" > "$marker"
+          cp "$marker" "$case_dir/before.marker"
+          cp "$case_dir/data/backlog.md" "$case_dir/before.backlog"
+          if [ "$record" = present ]; then
+            cp "$case_dir/state/task-x1.meta" "$case_dir/before.meta"
+          else
+            rm "$case_dir/state/task-x1.meta"
+          fi
+          for replay in 1 2; do
+            rc=0
+            fm_backlog_close_marker_replay "$case_dir/state" "$marker" "$case_dir/data" || rc=$?
+            expect_code 1 "$rc" "$proof_wait proof with $record metadata must refuse replay $replay"
+            if [ "$record" = present ]; then cmp "$case_dir/before.meta" "$case_dir/state/task-x1.meta"; fi
+            cmp "$case_dir/before.marker" "$marker"
+            cmp "$case_dir/before.backlog" "$case_dir/data/backlog.md"
+          done
+          tasks-axi unhold task-x1 --file "$case_dir/data/backlog.md" >/dev/null
+          tasks-axi 'done' task-x1 --note 'accepted fixture deployment proof' --file "$case_dir/data/backlog.md" >/dev/null
+          fm_backlog_close_marker_replay "$case_dir/state" "$marker" "$case_dir/data" || fail "accepted replay failed: $FM_BACKLOG_TRANSITION_ERROR"
+          assert_absent "$case_dir/state/task-x1.meta" 'accepted close replay retained old record'
+          assert_absent "$marker" 'accepted close replay left marker'
+          fm_backlog_close_marker_replay "$case_dir/state" "$marker" "$case_dir/data" || fail "accepted replay failed: $FM_BACKLOG_TRANSITION_ERROR"
+          [ "$FM_BACKLOG_CLOSE_REPLAY_RESULT" = noop ] || fail 'accepted replay was not idempotent'
+        )
+      done
+    done
+    pass 'both interrupted-close states preserve pending and expired proof waits until explicit acceptance'
     (
-      case_dir=$(prepare_recorded_github_pr interrupted-proof)
+      case_dir=$(prepare_recorded_github_pr replay-captain-retains)
       FM_HOME="$case_dir"
       # shellcheck source=bin/fm-tasks-axi-lib.sh
       . "$ROOT/bin/fm-tasks-axi-lib.sh"
       # shellcheck source=bin/fm-backlog-transition-lib.sh
       . "$ROOT/bin/fm-backlog-transition-lib.sh"
-      tasks-axi hold task-x1 --kind external --reason 'awaiting deployment proof' --file "$case_dir/data/backlog.md" >/dev/null
+      tasks-axi hold task-x1 --kind captain --reason 'choose delivery' --file "$case_dir/data/backlog.md" >/dev/null
       replay_gen=$(sed -n 's/^spawn_gen=//p' "$case_dir/state/task-x1.meta")
-      printf 'id=task-x1\ndata=%s\nspawn_gen=%s\narg=--note\narg=local%%20main\n' "$case_dir/data" "$replay_gen" > "$case_dir/state/task-x1.backlog-close"
-      cp "$case_dir/state/task-x1.meta" "$case_dir/before.meta"
-      for replay in 1 2; do
-        rc=0
-        fm_backlog_close_marker_replay "$case_dir/state" "$case_dir/state/task-x1.backlog-close" "$case_dir/data" || rc=$?
-        expect_code 1 "$rc" "pending external proof must refuse replay $replay"
-        assert_contains "$FM_BACKLOG_TRANSITION_ERROR" 'externally held' 'replay must refuse the hold, not fail on an unrelated read'
-        cmp "$case_dir/before.meta" "$case_dir/state/task-x1.meta"
-        assert_present "$case_dir/state/task-x1.backlog-close" 'deferred close lost recovery intent'
-        [ "$(backlog_row_state "$case_dir")" != 'done' ] || fail 'replay accepted task without proof'
-      done
-      tasks-axi unhold task-x1 --file "$case_dir/data/backlog.md" >/dev/null
-      tasks-axi 'done' task-x1 --note 'accepted fixture deployment proof' --file "$case_dir/data/backlog.md" >/dev/null
-      fm_backlog_close_marker_replay "$case_dir/state" "$case_dir/state/task-x1.backlog-close" "$case_dir/data" || fail "accepted replay failed: $FM_BACKLOG_TRANSITION_ERROR"
-      assert_absent "$case_dir/state/task-x1.meta" 'accepted close replay retained old record'
-      assert_absent "$case_dir/state/task-x1.backlog-close" 'accepted close replay left marker'
-      fm_backlog_close_marker_replay "$case_dir/state" "$case_dir/state/task-x1.backlog-close" "$case_dir/data" || fail "accepted replay failed: $FM_BACKLOG_TRANSITION_ERROR"
-      [ "$FM_BACKLOG_CLOSE_REPLAY_RESULT" = noop ] || fail 'accepted replay was not idempotent'
+      marker="$case_dir/state/task-x1.backlog-close"
+      printf 'id=task-x1\ndata=%s\nspawn_gen=%s\narg=--note\narg=local%%20main\n' "$case_dir/data" "$replay_gen" > "$marker"
+      fm_backlog_close_marker_replay "$case_dir/state" "$marker" "$case_dir/data" || fail "captain retention failed: $FM_BACKLOG_TRANSITION_ERROR"
+      [ "$FM_BACKLOG_CLOSE_REPLAY_RESULT" = retained_incomplete ] || fail 'captain hold was not retained'
+      [ "$(backlog_row_state "$case_dir")" = queued ] || fail 'captain retention accepted pending work'
+      tasks-axi show task-x1 --file "$case_dir/data/backlog.md" | grep -q 'hold_kind: captain' || fail 'retention lost captain decision'
     )
-    pass 'interrupted close preserves external proof wait and replays idempotently after acceptance'
+    pass 'close replay retains a captain-held task without accepting it'
 
     ;;
   '')

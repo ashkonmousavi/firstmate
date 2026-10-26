@@ -110,6 +110,7 @@ OWNER_FLAG_SEEN=0
 BODY_FILE=
 BODY_LITERAL=
 BODY_PRESENT=0
+MINT=0
 body_value_next=0
 path_value_next=0
 last_flag=
@@ -133,6 +134,10 @@ for arg in "$@"; do
     continue
   fi
   case "$arg" in
+    --mint)
+      MINT=1
+      ARGS+=("$arg")
+      ;;
     --file|--file=*)
       fail "this command always addresses this home's backlog at $DATA; drop --file, or run tasks-axi directly for another backlog"
       ;;
@@ -204,13 +209,18 @@ cd "$FM_BACKLOG_AXI_ROOT" || fail "cannot enter the backlog root $FM_BACKLOG_AXI
 # A control lock covers the full read/merge/write/readback span. Only explicit
 # task IDs are accepted for this path; minted IDs have no prewrite lock identity.
 case "${1:-}" in add|create|update|edit) mutation=1 ;; *) mutation=0 ;; esac
+case "${1:-}" in
+  add|create)
+    if [ "$MINT" = 1 ]; then
+      [ -z "$OWNER_REQUEST_FILE" ] || fail "owner request custody requires an explicit task id without --mint"
+      exec tasks-axi "${ARGS[@]}"
+    fi
+    ;;
+esac
 if [ "$mutation" = 1 ] && { [ -n "$OWNER_REQUEST_FILE" ] || [ -n "$BODY_FILE" ] || [ "$BODY_PRESENT" = 1 ]; }; then
   ID=${2:-}
   case "$ID" in
     ''|*[!A-Za-z0-9._-]*)
-      if [ -z "$OWNER_REQUEST_FILE" ] && [[ "${1:-}" = add || "${1:-}" = create ]] && [[ " $* " == *" --mint "* ]]; then
-        exec tasks-axi "${ARGS[@]}"
-      fi
       fail "body custody requires an explicit safe task id"
       ;;
   esac
