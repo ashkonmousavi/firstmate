@@ -1,0 +1,14 @@
+[
+  {
+    "temporary_parent": ".phase-test-tmp",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: --branch-prefix and task id must form a valid git branch (got '$(touch${IFS}~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/brief-repro/marker)shell-prefix')\n"
+  },
+  {
+    "temporary_parent": "phase-test-tmp",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "error: --branch-prefix and task id must form a valid git branch (got '$(touch${IFS}~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/brief-repro/marker)shell-prefix')\n"
+  }
+]

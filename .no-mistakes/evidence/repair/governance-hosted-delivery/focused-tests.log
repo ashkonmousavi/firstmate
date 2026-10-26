@@ -1,0 +1,229 @@
+FM_TEST_BEGIN 2026-10-26T20:51:55Z tests/fm-brief.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract
+ok - fm-brief.sh: bash -n succeeds
+~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-test-run.P36DcF/w1/tmp/fm-brief.IIqioF/heredoc-in-substitution.sh:2
+ok - fm-brief.sh: no heredoc is nested inside a command substitution (Bash 3.2 parse-safe)
+ok - fm-brief.sh: --help renders the complete header
+ok - fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly
+ok - fm-brief.sh: --forge forgejo names tea in Rule 3, the direct-PR DOD, and the draft read-back, marks the delivery contract, and the closed set refuses everything else
+ok - fm-brief.sh: --forge external renders the no-push rule, the review contract, and the adapter, and refuses every impossible shape
+ok - fm-brief.sh: ship --mode is required and closed-set validated
+ok - fm-brief.sh: the explicit ship mode wins over the registered posture
+ok - fm-brief.sh: --yolo and scout/secondmate --mode are refused, never silently dropped
+ok - fm-brief.sh: faster paths use configured authority without stacked review
+ok - fm-brief.sh: no-mistakes DOD keeps its apostrophe prose and bans --yes outright
+ok - fm-brief.sh: no-mistakes DOD detects a green PR from the drive call, not a status poll
+ok - fm-brief.sh: PR-based done requires a non-draft PR; a deliberate draft declares a wait
+ok - fm-brief.sh: no-mistakes ask-user findings use one event plus a verbatim snapshot
+ok - fm-brief.sh: ship project-memory wording bounds edits to corrections of wrong information
+ok - fm-brief.sh: --herdr-lab emits the complete hard safety contract
+ok - fm-brief.sh: --herdr-lab uses its quoted Firstmate-owned helper path
+ok - fm-brief.sh: ship and scout scaffolds make omitted Herdr intent fail-visible
+ok - fm-brief.sh: the documented {TASK} and {FIRSTMATE_SPEC} fills cannot corrupt the Herdr safety gate
+ok - fm-brief.sh: Herdr lab contract covers scouts and rejects secondmate misuse
+ok - fm-brief.sh: --no-projects scaffolds a project-less charter and guards misuse
+ok - fm-brief.sh: marked requests avoid generic acknowledgements and preserve material reporting
+ok - fm-brief.sh: relative directory inputs ignore CDPATH, render stable absolute charter paths, or fail loudly
+ok - fm-brief.sh: custom pause verb renders in every scaffold
+ok - fm-brief.sh: ship and scout scaffolds declare a validation-round pause once, then hold it
+ok - fm-brief.sh: investigation and visual-review completions load the shared decision policy
+ok - fm-brief: scout and secondmate code paths still scaffold well-formed briefs
+ok - fm-brief.sh: scout Lavish hosting follows the bootstrap lavish-axi floor
+ok - fm-brief: inbox listing is silent on empty/absent inbox and numerically ordered
+ok - fm-brief: workers end the turn on a decision, wait in one bounded shell command, and never poll
+ok - fm-brief: without config/wait-no-turns the brief and drive text stay as they were
+ok - fm-brief.sh: the home brief include lands last on ship and scout, verbatim, and fails closed
+ok - fm-brief.sh: --base-branch records the base, targets the PR at it, and is refused where no PR carries it
+ok - fm-brief.sh: --branch-prefix omitted defaults every ship mode to fm/<task-id>
+ok - fm-brief.sh: a --branch-prefix override renders identically across every generated section
+ok - fm-brief.sh: an empty --branch-prefix override resolves to a bare <task-id> branch
+ok - fm-brief.sh: --branch-prefix is refused on scout and secondmate scaffolds
+ok - fm-brief.sh: --branch-prefix value is validated against embedded spaces and a leading dash
+not ok - a ref-format-valid metacharacter prefix should scaffold safely
+FM_TEST_END 2026-10-26T20:52:28Z tests/fm-brief.test.sh exit=1 duration_ms=32256 gate_skip=false
+FM_TEST_BEGIN 2026-10-26T20:52:28Z tests/fm-shared-captain-inheritance.test.sh family=secondmate expected_gate_skip=none
+ok - shared captain first copy, unchanged copy, and source-only edit stay quiet
+ok - shared captain true divergence after inherit is still quarantined
+ok - interrupted publication that already matches source heals without quarantine
+ok - remote receiver accepts a source-only edit quietly and still quarantines real drift
+ok - shared captain drift is quarantined collision-safely and repeated convergence is idempotent
+ok - missing primary shared file mirrors absence only after quarantining a local copy
+ok - unsafe shared captain artifacts are rejected and failure restores read-only mode
+ok - spawn convergence point propagates data/captain-shared.md from FM_DATA_OVERRIDE
+ok - bootstrap convergence point propagates data/captain-shared.md from FM_DATA_OVERRIDE
+ok - fm-config-push convergence point updates changed shared captain source bytes from FM_DATA_OVERRIDE
+ok - fm-config-push source-only edit after inherit stays quiet
+ok - session-start digest renders data/captain-shared.md with the shared read-only label
+ok - the header check names the first required phrase it did not find, without widening the accept set
+# all fm-shared-captain-inheritance tests passed
+pushed: config/worker-sheet.md
+unchanged: config/worker-sheet.md
+ok - worker-sheet config converges through native local and remote routes without replacing home facts
+ok - worker policy sender checks default and overridden aliases before remote transport
+error: worker policy alias drift: preserve both ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-test-run.P36DcF/w2/tmp/fm-shared-captain.dmL2UD/worker-orphans/second/data/worker-sheet.md and ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-test-run.P36DcF/w2/tmp/fm-shared-captain.dmL2UD/worker-orphans/second/config/worker-sheet.md; reconcile the latest owner edit into the config source, then restore the data alias
+ok - worker policy orphaned aliases refuse local and remote writes while preserving optional absence
+ok - failed local and remote policy publications leave fresh aliases absent; valid retries converge
+FM_TEST_END 2026-10-26T20:52:56Z tests/fm-shared-captain-inheritance.test.sh exit=0 duration_ms=28248 gate_skip=false
+FM_TEST_BEGIN 2026-10-26T20:52:56Z tests/fm-request-acceptance.test.sh family=unclassified expected_gate_skip=none
+.....F........................F
+======================================================================
+FAIL: test_bound_local_transfer_keeps_full_section_and_source_close (__main__.RequestCustody.test_bound_local_transfer_keeps_full_section_and_source_close)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/tests/test_request_acceptance.py", line 579, in test_bound_local_transfer_keeps_full_section_and_source_close
+    self.assertEqual(moved.returncode, 0, moved.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0 : error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-request-test-m_dqphru-receiver
+
+
+======================================================================
+FAIL: test_unrelated_serialized_handoffs_both_survive (__main__.RequestCustody.test_unrelated_serialized_handoffs_both_survive)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/tests/test_request_acceptance.py", line 491, in test_unrelated_serialized_handoffs_both_survive
+    self.wait_for_marker(self.home / "move-entered", a)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/tests/test_request_acceptance.py", line 50, in wait_for_marker
+    self.fail(f"process exited before {marker.name}: {out}{err}")
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: process exited before move-entered: error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-request-test-ltlgprqd-secondmate
+
+
+----------------------------------------------------------------------
+Ran 31 tests in 127.599s
+
+FAILED (failures=2)
+not ok - native request acceptance tests failed
+FM_TEST_END 2026-10-26T20:55:04Z tests/fm-request-acceptance.test.sh exit=1 duration_ms=127830 gate_skip=false
+FM_TEST_BEGIN 2026-10-26T20:55:04Z tests/fm-machine-resources.test.sh family=unclassified expected_gate_skip=none
+ok - cache-heavy headroom uses current minus inactive_file and finite parent limit
+ok - public consumer keeps hard floor and reserve separate on the same snapshot
+ok - enclosing cgroup pressure refuses despite quiet host and child
+ok - hard maximum can constrain floor while high reserve remains satisfied
+ok - incomplete cgroup evidence refuses
+ok - missing, duplicate, boolean and nonfinite numeric fields refuse
+FM_TEST_END 2026-10-26T20:55:05Z tests/fm-machine-resources.test.sh exit=0 duration_ms=1102 gate_skip=false
+FM_TEST_BEGIN 2026-10-26T20:55:05Z tests/fm-capacity.test.sh family=unclassified expected_gate_skip=none
+ok - machine ceiling spans local homes and projects; handoffs count while live, secondmates excluded
+ok - activity, ledger and admission share facts; local walk markers do not bypass limits
+ok - memory reserve is fixed and refuses below zero headroom
+ok - missing and malformed machine facts refuse placement
+ok - inaccessible root and nested registry parents refuse admission and placement
+unavailable: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-capacity.G8moVO/missing.json
+ok - published facts drive placement; unreadable and stale hosts refused
+ok - capacity counts live endpoints, frees dead records, and retains unknowns
+ok - public capacity command frees shell-only records and counts non-shell work
+ok - stopped A frees a ceiling-one seat for B; both relaunch entry points refuse A
+ok - upstream host probes remain visible and never replace shared admission facts
+ok - finite ancestor excludes file cache and leaves 8.8 GiB before reserve
+fm-capacity: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-capacity.G8moVO/cgroup/crew memory.high-(anon+shmem)=1048576 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-capacity.G8moVO/cgroup-home/config/lane-capacity) gives headroom=-3145728 kB
+fm-capacity: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-capacity.G8moVO/cgroup/crew memory.high-(anon+shmem)=-1048577 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/.phase-test-tmp/fm-capacity.G8moVO/cgroup-home/config/lane-capacity) gives headroom=-5242881 kB
+ok - all finite ancestors constrain admission and require readable statistics
+ok - cgroup statistics fail closed instead of falling back to host memory
+ok - all ancestors unlimited falls back to MemAvailable
+ok - root cgroup fallback and unreadable limit/statistics behave safely
+ok - shared admission enforces numeric policy without confusing floor and reserve
+FM_TEST_END 2026-10-26T20:55:39Z tests/fm-capacity.test.sh exit=0 duration_ms=33724 gate_skip=false
+FM_TEST_BEGIN 2026-10-26T20:55:39Z tests/fm-proof-lifecycle.test.sh family=unclassified expected_gate_skip=none
+ok - pending proof native exit preserves task, owner home, work, branch, proof and child edges
+ok - released seat follows real non-shell process occupancy, not retained metadata or endpoint
+ok - native relaunch resumes same task/worktree with new generation while proof and dependents remain pending
+ok - late cleanup replay cannot erase the resumed task generation
+ok - unheld and expired external proof waits preserve task, copy and merge watch before acceptance
+ok - explicit keep-open releases cleanup resources while preserving the open task and delivery reference
+ok - keep-open preserves existing acceptance while cleaning the finished worker record
+ok - merged pending-proof task refuses destructive cleanup and keeps its merge watch
+ok - accepted completion precedes cleanup, preserves child edge, unblocks child and safely repeats
+ok - zero-retention acceptance archives before cleanup without a second completion write
+ok - both interrupted-close states preserve pending and expired proof waits until explicit acceptance
+ok - close replay retains a captain-held task without accepting it
+FM_TEST_END 2026-10-26T20:57:23Z tests/fm-proof-lifecycle.test.sh exit=0 duration_ms=104033 gate_skip=false
+FM_TEST_BEGIN 2026-10-26T20:57:23Z tests/fm-remote-machine-policy.test.sh family=unclassified expected_gate_skip=none
+Note: switching to '08d6fb867ace4684c0231c12c6e1b01dbb5589b5'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+Note: switching to '08d6fb867ace4684c0231c12c6e1b01dbb5589b5'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+ok - missing and malformed target policy refuse before home publication
+ok - missing and malformed target lane declaration refuse before publication
+Note: switching to '08d6fb867ace4684c0231c12c6e1b01dbb5589b5'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+ok - real remote provisioning seeds server policy and helper without PC values
+ok - generic inheritance preserves target floor, paths, ceiling and reserve
+ok - existing home validates and preserves its own policy on reseed
+fixture: skipped: cannot determine default branch
+FM_TEST_END 2026-10-26T20:57:28Z tests/fm-remote-machine-policy.test.sh exit=1 duration_ms=4615 gate_skip=false
+FM_TEST_BEGIN 2026-10-26T20:57:28Z tests/fm-ci-workflow.test.sh family=unclassified expected_gate_skip=none
+ok - CI matrices cover every executable serial lane and canonical lint root exactly once
+ok - a newer push to one PR supersedes that PR's in-flight CI
+ok - distinct PRs get distinct concurrency groups
+ok - every main push keeps its own group and is never cancelled
+ok - push, macOS and hosted-evidence variables change only their own jobs
+ok - the timing aggregate skips without hosted inputs and still runs after a failed lane when enabled
+ok - every ci.yml job carries a finite timeout
+ok - every ci.yml job belongs to one of the three timeout tiers
+ok - fast tier jobs share one 5 minute tripwire
+ok - normal tier jobs share one 30 minute budget
+ok - Herdr keeps a 20 minute step tripwire under a 75 minute job backstop
+FM_TEST_END 2026-10-26T20:57:39Z tests/fm-ci-workflow.test.sh exit=0 duration_ms=11459 gate_skip=false
+FM_TEST_BEGIN 2026-10-26T20:57:39Z tests/fm-ci-remote-routing.test.sh family=unclassified expected_gate_skip=none
+ok - 8 Linux jobs use hosted routing; required producers propagate failures, separate compliance stays intact, optional aggregate requires real archive paths
+FM_TEST_END 2026-10-26T20:57:43Z tests/fm-ci-remote-routing.test.sh exit=0 duration_ms=3745 gate_skip=false
+FM_TEST_SUMMARY total=9 failed=3 skipped_gate=0 duration_ms=347945
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=32256 failed=1
+FM_TEST_SUMMARY_FAMILY family=secondmate count=1 duration_ms=28248 failed=0
+FM_TEST_SUMMARY_FAMILY family=unclassified count=7 duration_ms=286508 failed=2
+FM_TEST_SLOWEST rank=1 script=tests/fm-request-acceptance.test.sh duration_ms=127830
+FM_TEST_SLOWEST rank=2 script=tests/fm-proof-lifecycle.test.sh duration_ms=104033
+FM_TEST_SLOWEST rank=3 script=tests/fm-capacity.test.sh duration_ms=33724
+FM_TEST_SLOWEST rank=4 script=tests/fm-brief.test.sh duration_ms=32256
+FM_TEST_SLOWEST rank=5 script=tests/fm-shared-captain-inheritance.test.sh duration_ms=28248
+FM_TEST_SLOWEST rank=6 script=tests/fm-ci-workflow.test.sh duration_ms=11459
+FM_TEST_SLOWEST rank=7 script=tests/fm-remote-machine-policy.test.sh duration_ms=4615
+FM_TEST_SLOWEST rank=8 script=tests/fm-ci-remote-routing.test.sh duration_ms=3745
+FM_TEST_SLOWEST rank=9 script=tests/fm-machine-resources.test.sh duration_ms=1102
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M5WMNBP9QMYQH4SJPKY592H2/focused-results.json

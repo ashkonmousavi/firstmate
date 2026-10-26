@@ -1,0 +1,25 @@
+
+$ bash -c '. bin/fm-config-inherit-lib.sh; FM_CONFIG_INHERIT_LIVE=0; propagate_inheritable_config "$1/config" "$2/config" "$1"' policy ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/primary ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/second
+exit=0
+Published policy alias content:
+Shared rule: preserve full source and evidence.
+Shared lesson: retain pending deployment proof after merge.
+Preserved domain:
+Domain: fixture-only local ownership.
+
+$ bash bin/fm-brief.sh policy-proof fixture --mode local-only
+scaffolded: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/second/data/policy-proof/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+
+$ bash bin/fm-brief.sh domain-proof --secondmate --no-projects
+scaffolded: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/second/data/domain-proof/brief.md (secondmate charter; replace {TASK})
+exit=0
+
+$ bash -c '. bin/fm-config-inherit-lib.sh; FM_CONFIG_INHERIT_LIVE=0; propagate_inheritable_config "$1/config" "$2/config" "$1"' policy ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/primary ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/second
+error: worker policy alias drift: preserve both ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/second/data/worker-sheet.md and ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/second/config/worker-sheet.md; reconcile the latest owner edit into the config source, then restore the data alias
+exit=1
+
+$ bash bin/fm-brief.sh drift-proof fixture --mode local-only
+error: worker policy alias drift: preserve both ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/second/data/worker-sheet.md and ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/policy-live-sm5am9lz/second/config/worker-sheet.md; reconcile the latest owner edit into the config source, then restore the data alias before scaffolding
+exit=1
+Both policy copies preserved byte-for-byte; no partial drift-proof brief was created.

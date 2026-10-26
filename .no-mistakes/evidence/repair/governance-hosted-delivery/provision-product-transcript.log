@@ -1,0 +1,58 @@
+
+$ git clone -q --shared ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2 ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/host
+Note: switching to '08d6fb867ace4684c0231c12c6e1b01dbb5589b5'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+exit=0
+
+$ git -C ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/host checkout -q -B main
+exit=0
+
+$ bash bin/fm-remote-home-provision.sh
+error: target-host policy unavailable: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/host/config/machine-admission.json; install the host's numeric admission policy there before seeding
+exit=1
+
+$ bash bin/fm-remote-home-provision.sh
+provisioned: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/remote projects=0
+exit=0
+Persisted target policy:
+{"schema": "fm-machine-admission.v1", "memory_floor_gib": 1.5, "memory_full_avg60_max": 5, "disk_floor_gib": 0, "disk_paths": ["~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc"]}
+Persisted target lanes:
+6 2
+
+$ git -C ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/host add policy-proof-file
+exit=0
+
+$ git -C ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/host commit -qm 'Fixture update'
+exit=0
+
+$ git -C ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/host rev-parse HEAD
+4e739cdbe0a8838c591d25362ddff58385562f1e
+exit=0
+
+$ git -C ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/remote fetch -q origin
+exit=0
+
+$ bash -c '. bin/fm-ff-lib.sh; ff_target "$1" live-fixture "$2" no no; test "$FF_STATUS" = updated' proof ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/remote 4e739cdbe0a8838c591d25362ddff58385562f1e
+live-fixture: updated 08d6fb8..4e739cd
+exit=0
+
+$ git -C ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc/remote rev-parse HEAD
+4e739cdbe0a8838c591d25362ddff58385562f1e
+exit=0
+Policy after guarded update remains:
+{"schema": "fm-machine-admission.v1", "memory_floor_gib": 1.5, "memory_full_avg60_max": 5, "disk_floor_gib": 0, "disk_paths": ["~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/provision-live-ovlagyfc"]}

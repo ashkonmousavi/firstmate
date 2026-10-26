@@ -1,0 +1,12 @@
+FM_TEST_BEGIN 2026-10-26T20:54:58Z tests/fm-request-acceptance.test.sh family=unclassified expected_gate_skip=none
+...............................
+----------------------------------------------------------------------
+Ran 31 tests in 140.454s
+
+OK
+ok - native owner-request custody, corrections and confirmed no-write replay
+FM_TEST_END 2026-10-26T20:57:19Z tests/fm-request-acceptance.test.sh exit=0 duration_ms=140697 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=140803
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=140697 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-request-acceptance.test.sh duration_ms=140697
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M5WMNBP9QMYQH4SJPKY592H2/native-normal-tmp-results.json

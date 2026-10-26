@@ -1,0 +1,1952 @@
+test_create_and_rotation_and_ordinary_preservation (request_cases.RequestCustody.test_create_and_rotation_and_ordinary_preservation) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-_m7tuddj/packet.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-_m7tuddj\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640\n... (truncated, 629 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-_m7tuddj\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-_m7tuddj","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain café"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain café","full_text_sha256":"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --body-file /tmp/fm-request-test-_m7tuddj/next.md
+exit=0
+ok: updated owner-1 (body)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Note\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-_m7tuddj\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d7\n... (truncated, 634 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Note\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-_m7tuddj\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Note
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-_m7tuddj","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain café"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain café","full_text_sha256":"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Note\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-_m7tuddj\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Note
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-_m7tuddj","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain café"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain café","full_text_sha256":"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --body-file /tmp/fm-request-test-_m7tuddj/next.md
+exit=2
+fm-request-acceptance: acceptance section count is not one
+fm-tasks-axi: bound acceptance section changed by ordinary edit
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --body erase
+exit=2
+fm-request-acceptance: acceptance section count is not one
+fm-tasks-axi: bound acceptance section changed by ordinary edit
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Note\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-_m7tuddj\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Note
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-_m7tuddj","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain café"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain café","full_text_sha256":"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_unbound_mint_preserves_native_creation_with_every_body_form (request_cases.RequestCustody.test_unbound_mint_preserves_native_creation_with_every_body_form) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add Summary --mint --body context
+exit=0
+ok: added summary-29 -> Queued
+task:
+  id: summary-29
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start summary-29` to move it to in flight
+  - Run `tasks-axi block summary-29 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show summary-29 --full
+exit=0
+task:
+  id: summary-29
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id summary-29
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add Summary --mint --body-file /tmp/fm-request-test-o4l8sm0k/mint-body.md
+exit=0
+ok: added summary-78 -> Queued
+task:
+  id: summary-78
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start summary-78` to move it to in flight
+  - Run `tasks-axi block summary-78 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show summary-78 --full
+exit=0
+task:
+  id: summary-78
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id summary-78
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add Summary --mint --body=context
+exit=0
+ok: added summary-bd -> Queued
+task:
+  id: summary-bd
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start summary-bd` to move it to in flight
+  - Run `tasks-axi block summary-bd --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show summary-bd --full
+exit=0
+task:
+  id: summary-bd
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id summary-bd
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add Summary --mint --body-file=/tmp/fm-request-test-o4l8sm0k/mint-body.md
+exit=0
+ok: added summary-f6 -> Queued
+task:
+  id: summary-f6
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start summary-f6` to move it to in flight
+  - Run `tasks-axi block summary-f6 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show summary-f6 --full
+exit=0
+task:
+  id: summary-f6
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id summary-f6
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add 'A summary' --mint --body context
+exit=0
+ok: added a-summary-6b -> Queued
+task:
+  id: a-summary-6b
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start a-summary-6b` to move it to in flight
+  - Run `tasks-axi block a-summary-6b --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show a-summary-6b --full
+exit=0
+task:
+  id: a-summary-6b
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id a-summary-6b
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add 'A summary' --mint --body-file /tmp/fm-request-test-o4l8sm0k/mint-body.md
+exit=0
+ok: added a-summary-f1 -> Queued
+task:
+  id: a-summary-f1
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start a-summary-f1` to move it to in flight
+  - Run `tasks-axi block a-summary-f1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show a-summary-f1 --full
+exit=0
+task:
+  id: a-summary-f1
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id a-summary-f1
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add 'A summary' --mint --body=context
+exit=0
+ok: added a-summary-6a -> Queued
+task:
+  id: a-summary-6a
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start a-summary-6a` to move it to in flight
+  - Run `tasks-axi block a-summary-6a --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show a-summary-6a --full
+exit=0
+task:
+  id: a-summary-6a
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id a-summary-6a
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add 'A summary' --mint --body-file=/tmp/fm-request-test-o4l8sm0k/mint-body.md
+exit=0
+ok: added a-summary-42 -> Queued
+task:
+  id: a-summary-42
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start a-summary-42` to move it to in flight
+  - Run `tasks-axi block a-summary-42 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show a-summary-42 --full
+exit=0
+task:
+  id: a-summary-42
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id a-summary-42
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh create Summary --mint --body context
+exit=0
+ok: added summary-96 -> Queued
+task:
+  id: summary-96
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start summary-96` to move it to in flight
+  - Run `tasks-axi block summary-96 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show summary-96 --full
+exit=0
+task:
+  id: summary-96
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id summary-96
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh create Summary --mint --body-file /tmp/fm-request-test-o4l8sm0k/mint-body.md
+exit=0
+ok: added summary-e4 -> Queued
+task:
+  id: summary-e4
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start summary-e4` to move it to in flight
+  - Run `tasks-axi block summary-e4 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show summary-e4 --full
+exit=0
+task:
+  id: summary-e4
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id summary-e4
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh create Summary --mint --body=context
+exit=0
+ok: added summary-f8 -> Queued
+task:
+  id: summary-f8
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start summary-f8` to move it to in flight
+  - Run `tasks-axi block summary-f8 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show summary-f8 --full
+exit=0
+task:
+  id: summary-f8
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id summary-f8
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh create Summary --mint --body-file=/tmp/fm-request-test-o4l8sm0k/mint-body.md
+exit=0
+ok: added summary-59 -> Queued
+task:
+  id: summary-59
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start summary-59` to move it to in flight
+  - Run `tasks-axi block summary-59 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show summary-59 --full
+exit=0
+task:
+  id: summary-59
+  title: Summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id summary-59
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh create 'A summary' --mint --body context
+exit=0
+ok: added a-summary-9c -> Queued
+task:
+  id: a-summary-9c
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start a-summary-9c` to move it to in flight
+  - Run `tasks-axi block a-summary-9c --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show a-summary-9c --full
+exit=0
+task:
+  id: a-summary-9c
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id a-summary-9c
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh create 'A summary' --mint --body-file /tmp/fm-request-test-o4l8sm0k/mint-body.md
+exit=0
+ok: added a-summary-00 -> Queued
+task:
+  id: a-summary-00
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start a-summary-00` to move it to in flight
+  - Run `tasks-axi block a-summary-00 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show a-summary-00 --full
+exit=0
+task:
+  id: a-summary-00
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id a-summary-00
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh create 'A summary' --mint --body=context
+exit=0
+ok: added a-summary-7c -> Queued
+task:
+  id: a-summary-7c
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start a-summary-7c` to move it to in flight
+  - Run `tasks-axi block a-summary-7c --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show a-summary-7c --full
+exit=0
+task:
+  id: a-summary-7c
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id a-summary-7c
+exit=0
+context
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh create 'A summary' --mint --body-file=/tmp/fm-request-test-o4l8sm0k/mint-body.md
+exit=0
+ok: added a-summary-8d -> Queued
+task:
+  id: a-summary-8d
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+help[2]:
+  - Run `tasks-axi start a-summary-8d` to move it to in flight
+  - Run `tasks-axi block a-summary-8d --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show a-summary-8d --full
+exit=0
+task:
+  id: a-summary-8d
+  title: A summary
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: context
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id a-summary-8d
+exit=0
+contextok
+test_correction_archives_and_confirms_exact_replay (request_cases.RequestCustody.test_correction_archives_and_confirms_exact_replay) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-qshlp4ym/first.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-qshlp4ym\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a\n... (truncated, 641 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-qshlp4ym\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-qshlp4ym","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-qshlp4ym/correction.json
+exit=0
+ok: updated owner-1 (body, archive)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-qshlp4ym\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_\n... (truncated, 1147 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-qshlp4ym\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Correct the explanation\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Correct the explanation\",\"full_text_sha256\":\"c7635725251efd24aa04a06c198e528c4b739aab32cfee426a886ea8d08778ca\",\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-qshlp4ym","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"pending","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-2","superseded_by":[],"text_ref":"Correct the explanation"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":"Correct the explanation","full_text_sha256":"c7635725251efd24aa04a06c198e528c4b739aab32cfee426a886ea8d08778ca","message_uuid":"source-2","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-qshlp4ym/correction.json
+exit=0
+ok: owner request already recorded for owner-1
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-qshlp4ym\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Correct the explanation\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Correct the explanation\",\"full_text_sha256\":\"c7635725251efd24aa04a06c198e528c4b739aab32cfee426a886ea8d08778ca\",\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-qshlp4ym","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"pending","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-2","superseded_by":[],"text_ref":"Correct the explanation"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":"Correct the explanation","full_text_sha256":"c7635725251efd24aa04a06c198e528c4b739aab32cfee426a886ea8d08778ca","message_uuid":"source-2","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_correction_cycles_refuse_without_native_writes (request_cases.RequestCustody.test_correction_cycles_refuse_without_native_writes) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-5w3au6lv/cycle-first.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-5w3au6lv\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain \n... (truncated, 773 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-5w3au6lv\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-5w3au6lv","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"accepted","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-5w3au6lv/cycle.json
+exit=2
+fm-request-acceptance: cyclic superseding requirements
+fm-tasks-axi: owner request packet refused
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-5w3au6lv\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-5w3au6lv","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"accepted","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-5w3au6lv/cycle.json
+exit=2
+fm-request-acceptance: cyclic superseding requirements
+fm-tasks-axi: owner request packet refused
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-5w3au6lv\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-5w3au6lv","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"accepted","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_multistep_correction_preserves_accepted_and_restricted_history (request_cases.RequestCustody.test_multistep_correction_preserves_accepted_and_restricted_history) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-4oz4f96j/chain-first.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-4oz4f96j\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain \n... (truncated, 773 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-4oz4f96j\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-4oz4f96j","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"accepted","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-4oz4f96j/chain-second.json
+exit=0
+ok: updated owner-1 (body, archive)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-4oz4f96j\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Ex\n... (truncated, 1166 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-4oz4f96j\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"held\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"restricted\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":null}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":null,\"full_text_sha256\":null,\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"restricted\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-4oz4f96j","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"held","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"restricted","source_message_uuid":"source-2","superseded_by":[],"text_ref":null}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":null,"full_text_sha256":null,"message_uuid":"source-2","session_id":"session-1","source_custody":"restricted"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-4oz4f96j/chain-third.json
+exit=0
+ok: updated owner-1 (body, archive)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-4oz4f96j\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Ex\n... (truncated, 1666 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-4oz4f96j\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"restricted\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[\"r3\"],\"text_ref\":null},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r3\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-3\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":null,\"full_text_sha256\":null,\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"restricted\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-3\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-4oz4f96j","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"superseded","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"restricted","source_message_uuid":"source-2","superseded_by":["r3"],"text_ref":null},{"acceptance_level":"source","disposition":"pending","id":"r3","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-3","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":null,"full_text_sha256":null,"message_uuid":"source-2","session_id":"session-1","source_custody":"restricted"},{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-3","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-4oz4f96j/chain-third.json
+exit=0
+ok: owner request already recorded for owner-1
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-4oz4f96j\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"restricted\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[\"r3\"],\"text_ref\":null},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r3\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-3\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":null,\"full_text_sha256\":null,\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"restricted\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-3\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-4oz4f96j","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"superseded","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"restricted","source_message_uuid":"source-2","superseded_by":["r3"],"text_ref":null},{"acceptance_level":"source","disposition":"pending","id":"r3","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-3","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":null,"full_text_sha256":null,"message_uuid":"source-2","session_id":"session-1","source_custody":"restricted"},{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-3","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_bound_local_transfer_keeps_full_section_and_source_close (request_cases.RequestCustody.test_bound_local_transfer_keeps_full_section_and_source_close) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-preoigx5/transfer.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-preoigx5\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a\n... (truncated, 641 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-preoigx5\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-preoigx5","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-backlog-handoff.sh --to /tmp/fm-request-test-preoigx5-receiver owner-1
+exit=0
+handed off 1 item(s) to fm-request-test-preoigx5-receiver (/tmp/fm-request-test-preoigx5-receiver): owner-1
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-preoigx5\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-preoigx5","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_native_done_does_not_accept_pending_requirement (request_cases.RequestCustody.test_native_done_does_not_accept_pending_requirement) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-uc5t73md/pending-done.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-uc5t73md\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a\n... (truncated, 641 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh done owner-1
+exit=0
+ok: done owner-1 -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-26
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-uc5t73md\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-uc5t73md","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_exact_replay_confirms_without_second_native_update (request_cases.RequestCustody.test_exact_replay_confirms_without_second_native_update) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-cb4ybdbb/replay-first.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-cb4ybdbb\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a\n... (truncated, 641 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-cb4ybdbb\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-cb4ybdbb","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ which tasks-axi
+exit=0
+~/.local/bin/tasks-axi
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-cb4ybdbb/replay-correction.json
+exit=0
+ok: updated owner-1 (body, archive)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-cb4ybdbb\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_\n... (truncated, 1133 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-cb4ybdbb\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Corrected result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Corrected result\",\"full_text_sha256\":\"def77ccf9c93e28cb6a0734809c2138b8683f496500522627f94a24e756bce3b\",\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-cb4ybdbb","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"pending","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-2","superseded_by":[],"text_ref":"Corrected result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":"Corrected result","full_text_sha256":"def77ccf9c93e28cb6a0734809c2138b8683f496500522627f94a24e756bce3b","message_uuid":"source-2","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --body-file /tmp/fm-request-test-cb4ybdbb/unrelated.md
+exit=0
+ok: updated owner-1 (body)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Unrelated note\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-cb4ybdbb\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\"\n... (truncated, 1149 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Unrelated note\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-cb4ybdbb\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Corrected result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Corrected result\",\"full_text_sha256\":\"def77ccf9c93e28cb6a0734809c2138b8683f496500522627f94a24e756bce3b\",\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Unrelated note
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-cb4ybdbb","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"pending","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-2","superseded_by":[],"text_ref":"Corrected result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":"Corrected result","full_text_sha256":"def77ccf9c93e28cb6a0734809c2138b8683f496500522627f94a24e756bce3b","message_uuid":"source-2","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file /tmp/fm-request-test-cb4ybdbb/replay-correction.json
+exit=0
+ok: owner request already recorded for owner-1
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Unrelated note\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-cb4ybdbb\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Corrected result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Corrected result\",\"full_text_sha256\":\"def77ccf9c93e28cb6a0734809c2138b8683f496500522627f94a24e756bce3b\",\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Unrelated note
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-cb4ybdbb","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"pending","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-2","superseded_by":[],"text_ref":"Corrected result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":"Corrected result","full_text_sha256":"def77ccf9c93e28cb6a0734809c2138b8683f496500522627f94a24e756bce3b","message_uuid":"source-2","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Unrelated note\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-cb4ybdbb\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Corrected result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Corrected result\",\"full_text_sha256\":\"def77ccf9c93e28cb6a0734809c2138b8683f496500522627f94a24e756bce3b\",\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Unrelated note
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-cb4ybdbb","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"pending","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-2","superseded_by":[],"text_ref":"Corrected result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":"Corrected result","full_text_sha256":"def77ccf9c93e28cb6a0734809c2138b8683f496500522627f94a24e756bce3b","message_uuid":"source-2","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_mixed_safe_and_restricted_source_keeps_secret_out (request_cases.RequestCustody.test_mixed_safe_and_restricted_source_keeps_secret_out) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-nthy55c0/restricted.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-nthy55c0\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":\"Write a public summary\",\"source_binding\":\"verified_safe\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":null},{\"acceptance_level\":\"installed\",\"delivered_path\":\"report.md\",\"disposition\":\"held\",\"id\":\"r2\",\"kind\":\"action\",\"proof_kind\n... (truncated, 863 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-nthy55c0\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":\"Write a public summary\",\"source_binding\":\"verified_safe\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":null},{\"acceptance_level\":\"installed\",\"delivered_path\":\"report.md\",\"disposition\":\"held\",\"id\":\"r2\",\"kind\":\"action\",\"proof_kind\":\"artifact_delivery\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"restricted\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"target_refs\":[\"report\"],\"text_ref\":null}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":null,\"full_text_sha256\":null,\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"restricted\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-nthy55c0","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":"Write a public summary","source_binding":"verified_safe","source_message_uuid":"source-1","superseded_by":[],"text_ref":null},{"acceptance_level":"installed","delivered_path":"report.md","disposition":"held","id":"r2","kind":"action","proof_kind":"artifact_delivery","proof_refs":[],"safe_text":null,"source_binding":"restricted","source_message_uuid":"source-1","superseded_by":[],"target_refs":["report"],"text_ref":null}],"sources":[{"file_ref":"old-session.json","full_text":null,"full_text_sha256":null,"message_uuid":"source-1","session_id":"session-1","source_custody":"restricted"}],"version":1}
+```ok
+test_captain_hold_answer_keeps_bound_request (request_cases.RequestCustody.test_captain_hold_answer_keeps_bound_request) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file /tmp/fm-request-test-pjathmh9/captain.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-pjathmh9\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a\n... (truncated, 641 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-pjathmh9\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-pjathmh9","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-captain-hold.sh hold owner-1 --reason 'Choose result'
+exit=0
+owner-1
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Choose result"
+  hold_kind: captain
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-26T20:57:22Z\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-pjathmh9\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Captain hold set: 2026-10-26T20:57:22Z
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-pjathmh9","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-captain-hold.sh answer owner-1 --decision-file /tmp/fm-request-test-pjathmh9/decision.txt
+exit=0
+answered: owner-1
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "Choose result"
+  hold_kind: captain
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-26
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: a3edf9b3837cda92efe77d560675a6a8f5da2e398b8d9d2697205a84f807f550\nResolution mode: answered\n\nCaptain decision:\nProceed with the summary\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-pjathmh9\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Resolution recorded by fm-captain-hold.
+Decision digest: a3edf9b3837cda92efe77d560675a6a8f5da2e398b8d9d2697205a84f807f550
+Resolution mode: answered
+
+Captain decision:
+Proceed with the summary
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-pjathmh9","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "Choose result"
+  hold_kind: captain
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-26
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: a3edf9b3837cda92efe77d560675a6a8f5da2e398b8d9d2697205a84f807f550\nResolution mode: answered\n\nCaptain decision:\nProceed with the summary\n\n```Owner request acceptance v1\n{\"origin_home\":\"/tmp/fm-request-test-pjathmh9\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Resolution recorded by fm-captain-hold.
+Decision digest: a3edf9b3837cda92efe77d560675a6a8f5da2e398b8d9d2697205a84f807f550
+Resolution mode: answered
+
+Captain decision:
+Proceed with the summary
+
+```Owner request acceptance v1
+{"origin_home":"/tmp/fm-request-test-pjathmh9","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 38.361s
+
+OK

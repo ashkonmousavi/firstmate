@@ -1,0 +1,1 @@
+{"command": ["bash", "bin/fm-test-run.sh", "tests/fm-remote-machine-policy.test.sh", "--json", "~/.no-mistakes/evidence/01M5WMNBP9QMYQH4SJPKY592H2/policy-recheck-results.json"], "exit": 0}

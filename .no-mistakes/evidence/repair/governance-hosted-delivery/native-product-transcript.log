@@ -1,0 +1,727 @@
+test_create_and_rotation_and_ordinary_preservation (request_cases.RequestCustody.test_create_and_rotation_and_ordinary_preservation) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc/packet.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.jso\n... (truncated, 714 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain café"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain café","full_text_sha256":"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --body-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc/next.md
+exit=0
+ok: updated owner-1 (body)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Note\n\n```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-sessi\n... (truncated, 719 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Note\n\n```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Note
+
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain café"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain café","full_text_sha256":"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Note\n\n```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Note
+
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain café"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain café","full_text_sha256":"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --body-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc/next.md
+exit=2
+fm-request-acceptance: acceptance section count is not one
+fm-tasks-axi: bound acceptance section changed by ordinary edit
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --body erase
+exit=2
+fm-request-acceptance: acceptance section count is not one
+fm-tasks-axi: bound acceptance section changed by ordinary edit
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "Note\n\n```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain café\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain café\",\"full_text_sha256\":\"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+Note
+
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-goq0elhc","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain café"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain café","full_text_sha256":"19635aa02562068480bd80f3ba0d765e640a443307ea57b906f2a021f6dc94f0","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_correction_archives_and_confirms_exact_replay (request_cases.RequestCustody.test_correction_archives_and_confirms_exact_replay) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt/first.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-sessi\n... (truncated, 726 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt/correction.json
+exit=0
+ok: updated owner-1 (body, archive)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\n... (truncated, 1232 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Correct the explanation\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Correct the explanation\",\"full_text_sha256\":\"c7635725251efd24aa04a06c198e528c4b739aab32cfee426a886ea8d08778ca\",\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"pending","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-2","superseded_by":[],"text_ref":"Correct the explanation"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":"Correct the explanation","full_text_sha256":"c7635725251efd24aa04a06c198e528c4b739aab32cfee426a886ea8d08778ca","message_uuid":"source-2","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt/correction.json
+exit=0
+ok: owner request already recorded for owner-1
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Correct the explanation\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Correct the explanation\",\"full_text_sha256\":\"c7635725251efd24aa04a06c198e528c4b739aab32cfee426a886ea8d08778ca\",\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-ubzb60kt","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"pending","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-2","superseded_by":[],"text_ref":"Correct the explanation"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":"Correct the explanation","full_text_sha256":"c7635725251efd24aa04a06c198e528c4b739aab32cfee426a886ea8d08778ca","message_uuid":"source-2","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_correction_cycles_refuse_without_native_writes (request_cases.RequestCustody.test_correction_cycles_refuse_without_native_writes) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor/cycle-first.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verifi\n... (truncated, 858 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"accepted","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor/cycle.json
+exit=2
+fm-request-acceptance: cyclic superseding requirements
+fm-tasks-axi: owner request packet refused
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"accepted","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor/cycle.json
+exit=2
+fm-request-acceptance: cyclic superseding requirements
+fm-tasks-axi: owner request packet refused
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-fb_tfxor","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"accepted","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_multistep_correction_preserves_accepted_and_restricted_history (request_cases.RequestCustody.test_multistep_correction_preserves_accepted_and_restricted_history) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957/chain-first.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verifi\n... (truncated, 858 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"accepted\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"accepted","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957/chain-second.json
+exit=0
+ok: updated owner-1 (body, archive)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"veri\n... (truncated, 1251 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"held\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"restricted\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":null}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":null,\"full_text_sha256\":null,\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"restricted\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"held","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"restricted","source_message_uuid":"source-2","superseded_by":[],"text_ref":null}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":null,"full_text_sha256":null,"message_uuid":"source-2","session_id":"session-1","source_custody":"restricted"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957/chain-third.json
+exit=0
+ok: updated owner-1 (body, archive)
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"veri\n... (truncated, 1751 chars total - use show owner-1 --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show owner-1 --full` to see the result
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"restricted\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[\"r3\"],\"text_ref\":null},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r3\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-3\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":null,\"full_text_sha256\":null,\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"restricted\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-3\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"superseded","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"restricted","source_message_uuid":"source-2","superseded_by":["r3"],"text_ref":null},{"acceptance_level":"source","disposition":"pending","id":"r3","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-3","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":null,"full_text_sha256":null,"message_uuid":"source-2","session_id":"session-1","source_custody":"restricted"},{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-3","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh update owner-1 --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957/chain-third.json
+exit=0
+ok: owner request already recorded for owner-1
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[{\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_id\":\"reply-1\",\"source_owner\":\"reply\"}],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explain the result\"},{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"restricted\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[\"r3\"],\"text_ref\":null},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r3\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-3\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"},{\"file_ref\":\"old-session.json\",\"full_text\":null,\"full_text_sha256\":null,\"message_uuid\":\"source-2\",\"session_id\":\"session-1\",\"source_custody\":\"restricted\"},{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-3\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-s9ch0957","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"superseded","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[{"content_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","receipt_id":"reply-1","source_owner":"reply"}],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":["r2"],"text_ref":"Explain the result"},{"acceptance_level":"source","disposition":"superseded","id":"r2","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"restricted","source_message_uuid":"source-2","superseded_by":["r3"],"text_ref":null},{"acceptance_level":"source","disposition":"pending","id":"r3","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-3","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"},{"file_ref":"old-session.json","full_text":null,"full_text_sha256":null,"message_uuid":"source-2","session_id":"session-1","source_custody":"restricted"},{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-3","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+test_bound_local_transfer_keeps_full_section_and_source_close (request_cases.RequestCustody.test_bound_local_transfer_keeps_full_section_and_source_close) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-5nsg9unj/transfer.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-5nsg9unj\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-sessi\n... (truncated, 726 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-5nsg9unj\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-5nsg9unj","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-backlog-handoff.sh --to ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-5nsg9unj-receiver owner-1
+exit=1
+error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-5nsg9unj-receiver
+FAIL
+test_native_done_does_not_accept_pending_requirement (request_cases.RequestCustody.test_native_done_does_not_accept_pending_requirement) ... 
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh add owner-1 Owner --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-27auh47d/pending-done.json
+exit=0
+ok: added owner-1 -> Queued
+task:
+  id: owner-1
+  title: Owner
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-26
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-27auh47d\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-sessi\n... (truncated, 726 chars total - use show owner-1 --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start owner-1` to move it to in flight
+  - Run `tasks-axi block owner-1 --by <other>` to record a dependency
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh done owner-1
+exit=0
+ok: done owner-1 -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-tasks-axi.sh show owner-1 --full
+exit=0
+task:
+  id: owner-1
+  title: Owner
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-26
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-27auh47d\",\"origin_task_id\":\"owner-1\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explain the result\"}],\"sources\":[{\"file_ref\":\"old-session.json\",\"full_text\":\"Explain the result\",\"full_text_sha256\":\"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395\",\"message_uuid\":\"source-1\",\"session_id\":\"session-1\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+
+$ ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/bin/fm-request-acceptance.py show-body --task-id owner-1
+exit=0
+```Owner request acceptance v1
+{"origin_home":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-27auh47d","origin_task_id":"owner-1","requirements":[{"acceptance_level":"source","disposition":"pending","id":"r1","kind":"explanation","proof_kind":"reply","proof_refs":[],"safe_text":null,"source_binding":"verified_complete","source_message_uuid":"source-1","superseded_by":[],"text_ref":"Explain the result"}],"sources":[{"file_ref":"old-session.json","full_text":"Explain the result","full_text_sha256":"79542e1dc7e1707abc67f8a86eb84bd91690aeb365022107ac4e34eea6374395","message_uuid":"source-1","session_id":"session-1","source_custody":"complete"}],"version":1}
+```ok
+
+======================================================================
+FAIL: test_bound_local_transfer_keeps_full_section_and_source_close (request_cases.RequestCustody.test_bound_local_transfer_keeps_full_section_and_source_close)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/tests/test_request_acceptance.py", line 579, in test_bound_local_transfer_keeps_full_section_and_source_close
+    self.assertEqual(moved.returncode, 0, moved.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0 : error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/fm-request-test-5nsg9unj-receiver
+
+
+----------------------------------------------------------------------
+Ran 6 tests in 16.199s
+
+FAILED (failures=1)

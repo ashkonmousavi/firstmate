@@ -1,0 +1,53 @@
+
+Numeric policy admits with all independent floors satisfied
+$ fm-capacity.sh --admit
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 load1=6.37 cores=8 mem_free_pct=45 disk_free_mb=22235 mem_available_kb=8388608 reserve_kb=1048576 headroom_kb=7340032
+Lanes: 0 of 5; 5 open. Memory headroom: 7340032 kB.
+Host: load 6.37 on 8 cores, memory free 45%, disk free 22235 MB.
+exit=0
+$ fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"vps-23156a3c","generated_epoch":1793048100,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/live-capacity-8hs1nvid/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":8388608,"reserve_kb":1048576,"headroom_kb":7340032,"resource_policy_sha256":"f0195e7864333cd3282da6ead48e7af8018f3be65f35e7d9546bc35cdd0191fd","memory_floor_kb":2097152,"effective_available_kb":8388608,"memory_full_avg60":0.0,"disk_free_min_kb":22768668}
+
+Memory floor refuses despite positive reserve headroom
+$ fm-capacity.sh --admit
+capacity: free_lanes=0 reason=memory lanes=0 target=5 secondmates=0 load1=6.37 cores=8 mem_free_pct=45 disk_free_mb=22234 mem_available_kb=8388608 reserve_kb=1048576 headroom_kb=7340032
+Lanes: 0 of 5; 0 open. Memory headroom: 7340032 kB.
+Host: load 6.37 on 8 cores, memory free 45%, disk free 22234 MB.
+fm-capacity: Required cache-aware effective memory floor not met
+exit=75
+$ fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"vps-23156a3c","generated_epoch":1793048100,"readable":true,"reason":"memory","error":"Required cache-aware effective memory floor not met","config_file":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/live-capacity-8hs1nvid/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":8388608,"reserve_kb":1048576,"headroom_kb":7340032,"resource_policy_sha256":"fbc39e5fcb8d6cdced4e3c5eb662941786be61be50c73c9c7f73a503e74c3d33","memory_floor_kb":9437184,"effective_available_kb":8388608,"memory_full_avg60":0.0,"disk_free_min_kb":22768296}
+fm-capacity: Required cache-aware effective memory floor not met
+
+PSI threshold refuses with ample memory and disk
+$ fm-capacity.sh --admit
+capacity: free_lanes=0 reason=pressure lanes=0 target=5 secondmates=0 load1=6.50 cores=8 mem_free_pct=45 disk_free_mb=22234 mem_available_kb=8388608 reserve_kb=1048576 headroom_kb=7340032
+Lanes: 0 of 5; 0 open. Memory headroom: 7340032 kB.
+Host: load 6.50 on 8 cores, memory free 45%, disk free 22234 MB.
+fm-capacity: memory PSI full avg60 refuses
+exit=75
+$ fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"vps-23156a3c","generated_epoch":1793048101,"readable":true,"reason":"pressure","error":"memory PSI full avg60 refuses","config_file":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/live-capacity-8hs1nvid/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":8388608,"reserve_kb":1048576,"headroom_kb":7340032,"resource_policy_sha256":"f0195e7864333cd3282da6ead48e7af8018f3be65f35e7d9546bc35cdd0191fd","memory_floor_kb":2097152,"effective_available_kb":8388608,"memory_full_avg60":5.0,"disk_free_min_kb":22767916}
+fm-capacity: memory PSI full avg60 refuses
+
+Disk floor refuses with ample memory and quiet PSI
+$ fm-capacity.sh --admit
+capacity: free_lanes=0 reason=disk lanes=0 target=5 secondmates=0 load1=6.50 cores=8 mem_free_pct=45 disk_free_mb=22233 mem_available_kb=8388608 reserve_kb=1048576 headroom_kb=7340032
+Lanes: 0 of 5; 0 open. Memory headroom: 7340032 kB.
+Host: load 6.50 on 8 cores, memory free 45%, disk free 22233 MB.
+fm-capacity: Required free disk floor not met
+exit=75
+$ fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"vps-23156a3c","generated_epoch":1793048101,"readable":true,"reason":"disk","error":"Required free disk floor not met","config_file":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/live-capacity-8hs1nvid/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":8388608,"reserve_kb":1048576,"headroom_kb":7340032,"resource_policy_sha256":"93b5de5c17c8ed752f56fbc5d4025a17d700539529f48bb66f1b2457e01134ca","memory_floor_kb":2097152,"effective_available_kb":8388608,"memory_full_avg60":0.0,"disk_free_min_kb":22767392}
+fm-capacity: Required free disk floor not met
+
+Malformed numeric boolean refuses without admission
+$ fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 load1=6.50 cores=8 mem_free_pct=45 disk_free_mb=22233 mem_available_kb=0 reserve_kb=0 headroom_kb=0
+Lanes: 0 of 0; 0 open. Memory headroom: 0 kB.
+Host: load 6.50 on 8 cores, memory free 45%, disk free 22233 MB.
+fm-capacity: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/live-capacity-8hs1nvid/config/machine-admission.json: missing/invalid memory_floor_gib
+exit=75
+$ fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"vps-23156a3c","generated_epoch":1793048101,"readable":false,"reason":"unreadable","error":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/live-capacity-8hs1nvid/config/machine-admission.json: missing/invalid memory_floor_gib","config_file":"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/live-capacity-8hs1nvid/config/lane-capacity","lanes":0,"target":0,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":0,"headroom_kb":0,"resource_policy_sha256":"","memory_floor_kb":0,"effective_available_kb":0,"memory_full_avg60":0,"disk_free_min_kb":0}
+fm-capacity: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5WMNBP9QMYQH4SJPKY592H2/phase-test-tmp/live-capacity-8hs1nvid/config/machine-admission.json: missing/invalid memory_floor_gib
