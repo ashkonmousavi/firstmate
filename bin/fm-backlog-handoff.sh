@@ -126,6 +126,58 @@ RECEIVER_WAKE_MESSAGE='New routed work is in your backlog. Run bin/fm-session-st
 
 ACTIVE_HANDOFF_LOCK=
 ACTIVE_REGISTRY_LOCK=
+ACTIVE_TASK_LOCKS=()
+CUSTODY_SOURCE_HASH=
+CUSTODY_OUTBOX_MANIFEST=
+snapshot_outboxes() {
+  local item item_hash
+  for item in "$DATA/handoff"/*.outbox.md; do
+    [ -e "$item" ] || [ -L "$item" ] || continue
+    [ -f "$item" ] && [ ! -L "$item" ] || return 1
+    item_hash=$(sha256_file "$item") || return 1
+    printf '%s %s\n' "$item" "$item_hash" || return 1
+  done
+}
+release_task_locks() {
+  local i
+  for ((i=${#ACTIVE_TASK_LOCKS[@]}-1; i>=0; i--)); do
+    fm_lock_release "${ACTIVE_TASK_LOCKS[i]}" || true
+  done
+  ACTIVE_TASK_LOCKS=()
+}
+acquire_task_custody() { # <keys...>
+  local key lock current
+  local -a ordered=()
+  [ -f "$MAIN_BACKLOG" ] && [ ! -L "$MAIN_BACKLOG" ] || return 1
+  CUSTODY_SOURCE_HASH=$(sha256_file "$MAIN_BACKLOG") || return 1
+  CUSTODY_OUTBOX_MANIFEST=$(snapshot_outboxes) || return 1
+  local -a pending=() all=("$@")
+  local item
+  for item in "$DATA/handoff"/*.outbox.md; do
+    [ -f "$item" ] && [ ! -L "$item" ] || continue
+    mapfile -t pending < <(awk '/^- \[[ x]\] / {rest=$0; sub(/^- \[[ x]\] +/, "", rest); sub(/[ \t].*/, "", rest); print rest}' "$item")
+    all+=("${pending[@]}")
+  done
+  if [ "${#all[@]}" -gt 0 ]; then mapfile -t ordered < <(printf '%s\n' "${all[@]}" | LC_ALL=C sort -u); fi
+  fm_current_pid current || return 1
+  for key in "${ordered[@]}"; do
+    case "$key" in ''|*[!A-Za-z0-9._-]*) echo "error: unsafe transfer task ID" >&2; return 1 ;; esac
+    lock="$STATE/.control-$key.lock"
+    if [ -L "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$current" ]; then
+      continue
+    fi
+    fm_lock_acquire_wait "$lock" || return 1
+    ACTIVE_TASK_LOCKS+=("$lock")
+  done
+}
+verify_task_custody() {
+  [ -f "$MAIN_BACKLOG" ] && [ ! -L "$MAIN_BACKLOG" ] \
+    && [ "$(sha256_file "$MAIN_BACKLOG")" = "$CUSTODY_SOURCE_HASH" ] \
+    && [ "$(snapshot_outboxes)" = "$CUSTODY_OUTBOX_MANIFEST" ] || {
+      echo "error: source backlog changed before locked handoff; nothing moved" >&2
+      return 1
+    }
+}
 RECEIVER_WAKE_IGNORE_ID=
 release_remote_locks() {
   if [ -n "$ACTIVE_HANDOFF_LOCK" ]; then
@@ -137,7 +189,7 @@ release_remote_locks() {
     ACTIVE_REGISTRY_LOCK=
   fi
 }
-trap release_remote_locks EXIT
+trap 'release_remote_locks; release_task_locks' EXIT
 trap 'exit 1' HUP INT TERM
 
 sha256_file() {
@@ -203,6 +255,10 @@ else
     ;;
   esac
   shift
+fi
+
+if [ "$RESUME_PENDING" -eq 0 ]; then
+  acquire_task_custody "$@" || exit 1
 fi
 
 secondmate_home() {
@@ -415,6 +471,10 @@ show_task() { # <id> <file>
   local out
   # The help trailer names the backlog path, so it is not part of the item.
   out=$(tasks-axi show "$1" --full --file "$2" --backend markdown) || return 1
+  if [[ "$out" == *'```Owner request acceptance v1'* ]]; then
+    [ -x "$SCRIPT_DIR/fm-request-acceptance.py" ] || return 1
+    printf '%s\n' "$out" | "$SCRIPT_DIR/fm-request-acceptance.py" validate-show --task-id "$1" --home "$FM_HOME" || return 1
+  fi
   printf '%s\n' "$out" | awk '
     /^help\[/ { exit }
     /^  (state|blocked|blocked_by|held|hold_reason|hold_kind|hold_until|created|closed|deps):/ { next }
@@ -1148,7 +1208,8 @@ resume_remote_outbox() { # <secondmate-id> <outbox-path>
 }
 
 resume_pending_outboxes() {
-  local outbox id lock_key legacy=0 failed=0
+  local outbox id lock_key legacy=0 failed=0 pending_hash current_hash
+  local -a pending_keys=()
   [ -d "$DATA/handoff" ] || return 0
   for outbox in "$DATA/handoff"/*.outbox.md; do
     [ -e "$outbox" ] || [ -L "$outbox" ] || continue
@@ -1159,6 +1220,10 @@ resume_pending_outboxes() {
       continue
       ;;
     esac
+    [ -f "$outbox" ] && [ ! -L "$outbox" ] || { failed=1; continue; }
+    pending_hash=$(sha256_file "$outbox") || { failed=1; continue; }
+    mapfile -t pending_keys < <(awk '/^- \[[ x]\] / {rest=$0; sub(/^- \[[ x]\] +/, "", rest); sub(/[ \t].*/, "", rest); print rest}' "$outbox")
+    acquire_task_custody "${pending_keys[@]}" || { failed=1; release_task_locks; continue; }
     ACTIVE_REGISTRY_LOCK=$(secondmate_registry_lock_path "$STATE")
     fm_lock_acquire_wait "$ACTIVE_REGISTRY_LOCK" || return 1
     legacy=0
@@ -1178,12 +1243,20 @@ resume_pending_outboxes() {
       if ! fm_tasks_axi_migrate_legacy_handoff "$DATA" "$id" "$PEER_HOST" "$PEER_ROOT" "$PEER_HOME"; then
         failed=1
         release_remote_locks
+        release_task_locks
         continue
       fi
       outbox="$DATA/handoff/$HANDOFF_KEY.outbox.md"
     fi
-    resume_remote_outbox "$id" "$outbox" || failed=1
+    current_hash=$(sha256_file "$outbox" 2>/dev/null || true)
+    if [ "$current_hash" != "$pending_hash" ]; then
+      echo "error: pending outbox changed before locked handoff; nothing moved" >&2
+      failed=1
+    else
+      verify_task_custody && resume_remote_outbox "$id" "$outbox" || failed=1
+    fi
     release_remote_locks
+    release_task_locks
   done
   return "$failed"
 }
@@ -1291,6 +1364,7 @@ peer_remote_handoff() { # <item-key>...
   fm_lock_acquire_wait "$ACTIVE_REGISTRY_LOCK" || return 1
   ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$HANDOFF_KEY.lock"
   fm_lock_acquire_wait "$ACTIVE_HANDOFF_LOCK"
+  verify_task_custody || { release_remote_locks; return 1; }
   if remote_handoff "$PEER_HOST" "$@"; then rc=0; else rc=$?; fi
   release_remote_locks
   return "$rc"
@@ -1304,10 +1378,12 @@ if [ "$RESUME_PENDING" -eq 1 ]; then
 fi
 
 if [ "$PEER_MODE" = local ]; then
+  verify_task_custody || exit 1
   peer_local_handoff "$@"
   exit $?
 fi
 if [ "$PEER_MODE" = remote ]; then
+  verify_task_custody || exit 1
   peer_remote_handoff "$@"
   exit $?
 fi
@@ -1324,6 +1400,7 @@ if [ "$REMOTE" = 1 ]; then
   ACTIVE_HANDOFF_LOCK="$STATE/.backlog-handoff-$HANDOFF_KEY.lock"
   fm_lock_acquire_wait "$ACTIVE_HANDOFF_LOCK"
   fm_tasks_axi_migrate_legacy_handoff "$DATA" "$ID" "$PEER_HOST" "$PEER_ROOT" "$PEER_HOME" || exit 1
+  verify_task_custody || exit 1
   if remote_handoff "$ID" "$@"; then rc=0; else rc=$?; fi
   release_remote_locks
   exit "$rc"
@@ -1340,6 +1417,7 @@ RAW_HOME=$(secondmate_home "$ID") || exit 1
 }
 SUB_HOME=$(validate_secondmate_home "$ID" "$RAW_HOME") || exit 1
 SUB_BACKLOG="$SUB_HOME/data/backlog.md"
+verify_task_custody || exit 1
 LOCAL_MOVE_LABEL="$ID ($SUB_HOME)"
 validate_backlog_file "main backlog" "$MAIN_BACKLOG" || exit 1
 validate_backlog_file "secondmate backlog" "$SUB_BACKLOG" || exit 1

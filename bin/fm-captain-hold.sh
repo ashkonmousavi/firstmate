@@ -355,9 +355,51 @@ tasks_axi() {
   backend=$(fm_tasks_axi_backend "$root") || return 2
   if [ "$backend" = markdown ]; then
     file=$(fm_backlog_file "$data") || fail "$FM_BACKLOG_TRANSITION_ERROR"
-    (cd "$root" && tasks-axi "$@" --file "$file")
+  fi
+  # Body writers already hold the task CONTROL lock from their command entry.
+  # Check its actual owner before reusing it; reacquiring a same-PID fm_lock
+  # would reclaim the parent's lock and admit a concurrent correction.
+  if [ "${1:-}" = update ]; then
+    local arg body_file='' bound_body='' current shown prior
+    local -a all_args=("$@")
+    for ((i=0; i<${#all_args[@]}; i++)); do
+      arg=${all_args[i]}
+      case "$arg" in
+        --body-file) body_file=${all_args[i+1]:-} ;;
+        --body-file=*) body_file=${arg#*=} ;;
+      esac
+    done
+    if [ -n "$body_file" ]; then
+      [ "$CAPTAIN_CONTROL_LOCK_HELD" = 1 ] || fail "body edit lacks task control ownership"
+      [ "$CAPTAIN_CONTROL_LOCK" = "$STATE/.control-$2.lock" ] || fail "body edit holds another task's control lock"
+      fm_current_pid current || fail "cannot verify task control owner"
+      [ "$(cat "$CAPTAIN_CONTROL_LOCK/pid" 2>/dev/null)" = "$current" ] || fail "task control lock is not owned by this process"
+      if [ "$backend" = markdown ]; then
+        shown=$(cd "$root" && tasks-axi show "$2" --full --file "$file") || fail "native body read failed"
+      else
+        shown=$(cd "$root" && tasks-axi show "$2" --full) || fail "native body read failed"
+      fi
+      prior=$(umask 077; mktemp "${TMPDIR:-/tmp}/fm-hold-prior.XXXXXX") || fail "cannot stage prior body"
+      printf '%s\n' "$shown" | "$SCRIPT_DIR/fm-request-acceptance.py" show-body --task-id "$2" > "$prior" || { rm -f "$prior"; fail "native body malformed"; }
+      "$SCRIPT_DIR/fm-request-acceptance.py" compare-section --body-file "$prior" --packet-file "$body_file" --task-id "$2" --home "$FM_HOME" || { rm -f "$prior"; fail "protected acceptance changed by captain body edit"; }
+      if [[ "$(cat "$prior")" == *'```Owner request acceptance v1'* ]]; then
+        bound_body=$body_file
+      fi
+      rm -f "$prior"
+    fi
+  fi
+  if [ "$backend" = markdown ]; then
+    (cd "$root" && tasks-axi "$@" --file "$file") || return $?
   else
-    (cd "$root" && tasks-axi "$@")
+    (cd "$root" && tasks-axi "$@") || return $?
+  fi
+  if [ -n "${bound_body:-}" ]; then
+    if [ "$backend" = markdown ]; then
+      shown=$(cd "$root" && tasks-axi show "$2" --full --file "$file") || fail "native body readback failed"
+    else
+      shown=$(cd "$root" && tasks-axi show "$2" --full) || fail "native body readback failed"
+    fi
+    printf '%s\n' "$shown" | "$SCRIPT_DIR/fm-request-acceptance.py" compare-show --body-file "$bound_body" --task-id "$2" --home "$FM_HOME" || fail "native captain body readback mismatch"
   fi
 }
 
