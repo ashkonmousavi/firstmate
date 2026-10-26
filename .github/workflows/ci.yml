@@ -37,7 +37,7 @@ concurrency:
 jobs:
   lint:
     name: Lint ${{ matrix.partition }}
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
@@ -72,15 +72,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/fm-lint"
           bin/fm-lint.sh --partition "${{ matrix.partition }}of${{ strategy.job-total }}" \
             --telemetry "$RUNNER_TEMP/fm-lint/partition-${{ matrix.partition }}.tsv"
-      - name: Preserve lint-${{ matrix.partition }} evidence on the owned runner
-        if: always()
-        env:
-          FM_CI_JOB_STATUS: ${{ job.status }}
-          FM_CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-        run: |
-          python3 bin/fm-ci-evidence.py --slot "lint-${{ matrix.partition }}" \
-            --require "$RUNNER_TEMP/fm-lint/partition-${{ matrix.partition }}.tsv" \
-            --require "$RUNNER_TEMP/fm-lint/partition-${{ matrix.partition }}.roots.tsv"
       - name: Upload lint telemetry
         if: ${{ always() && vars.FM_CI_HOSTED_EVIDENCE == '1' }}
         continue-on-error: true
@@ -97,7 +88,7 @@ jobs:
   # and that the portable serial CI shards partition that serial lane exactly.
   test-coverage:
     name: Test coverage guard
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
     # Fast tier: the coverage guard is a seconds-long local computation.
     timeout-minutes: 5
@@ -110,7 +101,7 @@ jobs:
   # set only. Composition owner: bin/fm-test-run.sh (docs/fm-test-portable-shards.md).
   tests-portable-parallel-1:
     name: Behavior portable parallel 1
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
@@ -145,14 +136,6 @@ jobs:
           bin/fm-test-run.sh --lane portable-parallel-1 \
             --fail-on-gate-skip 'Pi extension typecheck prerequisite not found' \
             --json "$RUNNER_TEMP/fm-test/fm-test-timing-portable-parallel-1.json"
-      - name: Preserve portable-parallel-1 evidence on the owned runner
-        if: always()
-        env:
-          FM_CI_JOB_STATUS: ${{ job.status }}
-          FM_CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-        run: |
-          python3 bin/fm-ci-evidence.py --slot "portable-parallel-1" \
-            --require "$RUNNER_TEMP/fm-test/fm-test-timing-portable-parallel-1.json"
       - name: Upload shard 1 timing artifact
         if: ${{ always() && vars.FM_CI_HOSTED_EVIDENCE == '1' }}
         continue-on-error: true
@@ -164,7 +147,7 @@ jobs:
 
   tests-portable-parallel-2:
     name: Behavior portable parallel 2
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
@@ -193,14 +176,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/fm-test"
           bin/fm-test-run.sh --lane portable-parallel-2 \
             --json "$RUNNER_TEMP/fm-test/fm-test-timing-portable-parallel-2.json"
-      - name: Preserve portable-parallel-2 evidence on the owned runner
-        if: always()
-        env:
-          FM_CI_JOB_STATUS: ${{ job.status }}
-          FM_CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-        run: |
-          python3 bin/fm-ci-evidence.py --slot "portable-parallel-2" \
-            --require "$RUNNER_TEMP/fm-test/fm-test-timing-portable-parallel-2.json"
       - name: Upload shard 2 timing artifact
         if: ${{ always() && vars.FM_CI_HOSTED_EVIDENCE == '1' }}
         continue-on-error: true
@@ -218,7 +193,7 @@ jobs:
   # whose "ofN" disagrees with it (docs/fm-test-portable-shards.md).
   tests-portable-serial:
     name: Behavior portable serial ${{ matrix.shard }}
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
@@ -275,14 +250,6 @@ jobs:
           bin/fm-test-run.sh --lane "$FM_SERIAL_LANE" \
             --fail-on-gate-skip 'Pi extension typecheck prerequisite not found' \
             --json "$RUNNER_TEMP/fm-test/fm-test-timing-portable-serial-${FM_SERIAL_SHARD}.json"
-      - name: Preserve portable-serial-${{ matrix.shard }} evidence on the owned runner
-        if: always()
-        env:
-          FM_CI_JOB_STATUS: ${{ job.status }}
-          FM_CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-        run: |
-          python3 bin/fm-ci-evidence.py --slot "portable-serial-${{ matrix.shard }}" \
-            --require "$RUNNER_TEMP/fm-test/fm-test-timing-portable-serial-${{ matrix.shard }}.json"
       - name: Upload portable serial shard ${{ matrix.shard }} timing artifact
         if: ${{ always() && vars.FM_CI_HOSTED_EVIDENCE == '1' }}
         continue-on-error: true
@@ -298,7 +265,7 @@ jobs:
   # the failure evidence and move the job to macOS rather than skip assertions.
   tests-herdr:
     name: Behavior tests (Herdr)
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
     # Heavy tier (see the timeout policy above): the last-resort job backstop.
     # The family-run step below owns the hang tripwire, so a wedged suite fails
@@ -406,16 +373,6 @@ jobs:
             herdr session list --json || true
             exit 1
           }
-      - name: Preserve herdr evidence on the owned runner
-        if: always()
-        env:
-          FM_CI_JOB_STATUS: ${{ job.status }}
-          FM_CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-        run: |
-          python3 bin/fm-ci-evidence.py --slot "herdr" \
-            --require "$RUNNER_TEMP/fm-test/fm-test-timing-herdr.json" \
-            --require "$RUNNER_TEMP/fm-herdr/sessions-before.json" \
-            --input "$RUNNER_TEMP/fm-herdr/default-server.log"
       - name: Upload Herdr timing and diagnostics
         if: ${{ always() && vars.FM_CI_HOSTED_EVIDENCE == '1' }}
         continue-on-error: true
@@ -429,10 +386,10 @@ jobs:
           if-no-files-found: warn
 
   # Aggregate only when hosted lane copies are deliberately enabled.
-  # Local per-runner evidence remains required even when this job is skipped.
+  # Required lane results remain visible in their native job logs when skipped.
   tests-timing-aggregate:
     name: Behavior timing aggregate
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     # Fast tier: aggregation is seconds of work over lane artifacts.
     timeout-minutes: 5
     needs:
@@ -475,14 +432,6 @@ jobs:
           bin/fm-test-run.sh --aggregate-json \
             "$RUNNER_TEMP/fm-test/fm-test-timing-aggregate.json" \
             "${inputs[@]}"
-      - name: Preserve aggregate evidence on the owned runner
-        if: always()
-        env:
-          FM_CI_JOB_STATUS: ${{ job.status }}
-          FM_CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-        run: |
-          python3 bin/fm-ci-evidence.py --slot "aggregate" \
-            --require "$RUNNER_TEMP/fm-test/fm-test-timing-aggregate.json"
       - name: Upload aggregate timing artifact
         if: ${{ always() && vars.FM_CI_HOSTED_EVIDENCE == '1' }}
         continue-on-error: true
@@ -589,7 +538,7 @@ jobs:
 
   invariants:
     name: Repo invariants
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
     # Fast tier: the invariant checks are seconds-long file comparisons.
     timeout-minutes: 5

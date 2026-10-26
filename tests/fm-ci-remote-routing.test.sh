@@ -12,12 +12,11 @@ ci=YAML.load_file(File.join(root,'.github/workflows/ci.yml'))
 checks=0
 ci.fetch('jobs').each do |id,job|
  next if id=='macos-stock-bash'
- labels=Array(job.fetch('runs-on')).map{|x| x.to_s.gsub(/\A\$\{\{\s*'([^']+)'\s*\}\}\z/,'\\1').downcase}
- raise "#{id}: not the owned remote-only route" unless labels.sort==%w[self-hosted linux x64 fm-fork-remote].sort
- job.fetch('steps').each_with_index do |step,index|
+ raise "#{id}: not on the standard hosted route" unless job.fetch('runs-on')=='ubuntu-latest'
+ raise "#{id}: custom runner receipt remains" if job.fetch('steps').any?{|step| step['run'].to_s.include?('bin/fm-ci-evidence.py')}
+ job.fetch('steps').each do |step|
   action=step['uses'].to_s
   if action.start_with?('actions/upload-artifact@')
-   raise "#{id}: upload lacks persistent predecessor" unless job['steps'][0...index].any?{|s| s['run'].to_s.include?('bin/fm-ci-evidence.py') && s['if']=='always()' && !s['continue-on-error']}
    raise "#{id}: hosted copy still mandatory" unless step['continue-on-error']==true && step['if'].include?("vars.FM_CI_HOSTED_EVIDENCE == '1'")
   elsif action.start_with?('actions/download-artifact@')
    raise 'hosted download still mandatory' unless step['continue-on-error']==true && step['if'].include?("vars.FM_CI_HOSTED_EVIDENCE == '1'")
@@ -29,14 +28,13 @@ ci.fetch('jobs').each do |id,job|
 end
 compliance=YAML.load_file(File.join(root,'.github/workflows/no-mistakes-required.yml'))
 job=compliance.fetch('jobs').fetch('check')
-raise 'compliance is not on the remote route' unless job['runs-on']==ci['jobs']['lint']['runs-on']
+raise 'separate compliance route changed' unless job['runs-on']=='ubuntu-latest'
 action=job['steps'].find{|s| s['uses'].to_s.include?('require-no-mistakes@')}
 raise 'genuine attestation gate changed' unless action['uses'].end_with?('@f6441c96c352a18b9cadcaef6b6c7017e9ac3970') && action['with']=={'exempt-authors'=>'kunchenguid'}
 raise 'compliance made nonfatal' if job['continue-on-error'] || action['continue-on-error']
 aggregate=ci.fetch('jobs').fetch('tests-timing-aggregate')
 build=aggregate.fetch('steps').find{|step| step['name']=='Build aggregate timing summary'}
-receipt=aggregate.fetch('steps').find{|step| step['name']=='Preserve aggregate evidence on the owned runner'}
-raise 'aggregate steps absent' unless build && receipt
+raise 'aggregate builder absent' unless build
 Dir.mktmpdir('fm-ci-aggregate-') do |temp|
  runner_temp=File.join(temp,'runner-temp')
  timing=File.join(runner_temp,'fm-test-aggregate')
@@ -61,6 +59,19 @@ Dir.mktmpdir('fm-ci-aggregate-') do |temp|
  raise 'aggregate omitted or added lane inputs' unless recorded==expected.map{|name| File.join(timing,name)}
  raise 'aggregate JSON was not produced' unless File.size?(File.join(runner_temp,'fm-test','fm-test-timing-aggregate.json'))
 end
-raise 'aggregate receipt does not require its JSON' unless receipt.fetch('run').include?('--require "$RUNNER_TEMP/fm-test/fm-test-timing-aggregate.json"')
-puts "ok - #{checks} Linux jobs and genuine compliance use remote-only routing; empty/partial aggregate inputs fail, complete inputs aggregate, and receipt requires JSON"
+producers={
+ 'lint'=>['bin/fm-lint.sh --partition'],
+ 'test-coverage'=>['bin/fm-test-run.sh --check-coverage'],
+ 'tests-portable-parallel-1'=>['bin/fm-test-run.sh --lane portable-parallel-1', "--fail-on-gate-skip 'Pi extension typecheck prerequisite not found'"],
+ 'tests-portable-parallel-2'=>['bin/fm-test-run.sh --lane portable-parallel-2'],
+ 'tests-portable-serial'=>['bin/fm-test-run.sh --lane "$FM_SERIAL_LANE"', "--fail-on-gate-skip 'Pi extension typecheck prerequisite not found'"],
+ 'tests-herdr'=>['bin/fm-test-run.sh --family real-herdr-gated', "--fail-on-gate-skip 'herdr not found'", 'bin/fm-herdr-ci-cleanup.sh teardown'],
+ 'invariants'=>['CLAUDE.md must be the canonical @AGENTS.md pointer'],
+}
+producers.each do |id,commands|
+ runs=ci.fetch('jobs').fetch(id).fetch('steps').map{|step| step['run'].to_s}.join("\n")
+ commands.each{|command| raise "#{id}: required producer or guard removed: #{command}" unless runs.include?(command)}
+end
+raise 'required job expansion changed' unless ci.fetch('jobs').reject{|id,_| id=='tests-timing-aggregate'}.sum{|_,job| (job.dig('strategy','matrix') || {}).values.map(&:length).inject(1,:*)}==17
+puts "ok - #{checks} Linux jobs use hosted routing; all 17 required jobs retain their producers and gates, separate compliance stays intact, optional aggregate refuses missing inputs"
 RUBY

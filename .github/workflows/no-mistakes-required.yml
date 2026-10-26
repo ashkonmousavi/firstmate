@@ -23,7 +23,7 @@ concurrency:
 jobs:
   check:
     name: PR must be raised via no-mistakes
-    runs-on: [self-hosted, linux, x64, "${{ 'fm-fork-remote' }}"]
+    runs-on: ubuntu-latest
     if: >-
       github.event.pull_request.user.login != 'github-actions[bot]' &&
       github.event.pull_request.user.login != 'dependabot[bot]'
