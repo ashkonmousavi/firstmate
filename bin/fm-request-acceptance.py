@@ -187,7 +187,7 @@ def validate(metadata, task_id, home):
             if req["text_ref"] is not None:
                 raise Invalid("safe binding has unexpected text reference")
         elif req["source_binding"] == "restricted":
-            if req["safe_text"] is not None or req["text_ref"] is not None or req["disposition"] not in ("pending", "held"):
+            if req["safe_text"] is not None or req["text_ref"] is not None or req["disposition"] not in ("pending", "held", "superseded"):
                 raise Invalid("restricted binding cannot close")
         else:
             raise Invalid("binding is unknown")
@@ -293,7 +293,7 @@ def merge(body, packet, task_id, home, operation):
             raise Invalid("ambiguous correction")
         if original["disposition"] == "superseded" and original["superseded_by"] == replacements:
             continue
-        if original["disposition"] not in ("pending", "proof_owed", "held") or original["superseded_by"]:
+        if original["disposition"] not in ("pending", "proof_owed", "held", "accepted") or original["superseded_by"]:
             raise Invalid("conflicting correction")
         original["disposition"] = "superseded"
         original["superseded_by"] = replacements

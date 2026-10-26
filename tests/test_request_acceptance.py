@@ -145,6 +145,55 @@ class RequestCustody(unittest.TestCase):
         self.assertEqual(self.body(), expected)
         self.assertIn("Unrelated note", self.body())
 
+    def test_corrections_preserve_every_supported_prior_state(self):
+        cases = [(kind, binding, disposition)
+                 for kind in ("action", "explanation")
+                 for binding, dispositions in (
+                     ("verified_complete", ("pending", "proof_owed", "held", "accepted")),
+                     ("verified_safe", ("pending", "proof_owed", "held", "accepted")),
+                     ("restricted", ("pending", "held")))
+                 for disposition in dispositions]
+        for index, (kind, binding, disposition) in enumerate(cases):
+            with self.subTest(kind=kind, binding=binding, disposition=disposition):
+                task = f"correction-{index}"
+                first = self.packet(task=task, kind=kind, restricted=binding != "verified_complete",
+                                    safe_text="Explain safely" if binding == "verified_safe" else None)
+                prior = first["requirements"][0]
+                prior["disposition"] = disposition
+                if disposition == "accepted":
+                    prior["proof_refs"] = [{"source_owner": "reply" if kind == "explanation" else "artifact",
+                                            "receipt_id": "delivered-1", "content_sha256": "a" * 64}]
+                self.run_task("add", task, "Owner", "--owner-request-file", self.save(f"first-{index}.json", first))
+                before = self.body(task)
+                correction = self.packet(task=task, source="source-2", requirement="r2",
+                                         text="Corrected instruction", kind=kind, expected=sha(before))
+                correction["corrections"] = [{"id": "r1", "superseded_by": ["r2"]}]
+                path = self.save(f"correction-{index}.json", correction)
+                self.run_task("update", task, "--owner-request-file", path)
+                body = self.body(task)
+                metadata = json.loads(body.split("```Owner request acceptance v1\n", 1)[1].split("\n```", 1)[0])
+                self.assertEqual(metadata["requirements"], [dict(prior, disposition="superseded", superseded_by=["r2"]),
+                                                           correction["requirements"][0]])
+                self.assertEqual(metadata["sources"], first["sources"] + correction["sources"])
+                self.assertEqual(metadata["requirements"][1]["disposition"], "pending")
+                self.assertEqual(metadata["requirements"][1]["proof_refs"], [])
+                self.run_task("update", task, "--owner-request-file", path)
+                self.assertEqual(self.body(task), body)
+
+    def test_restricted_corrections_cannot_accept_the_replacement(self):
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                      self.save("restricted-first.json", self.packet(restricted=True)))
+        before = self.body()
+        for disposition in ("accepted", "proof_owed"):
+            correction = self.packet(source="source-2", requirement="r2", restricted=True, expected=sha(before))
+            correction["requirements"][0]["disposition"] = disposition
+            correction["requirements"][0]["proof_refs"] = [
+                {"source_owner": "reply", "receipt_id": "reply-2", "content_sha256": "b" * 64}]
+            correction["corrections"] = [{"id": "r1", "superseded_by": ["r2"]}]
+            self.run_task("update", "owner-1", "--owner-request-file",
+                          self.save("restricted-correction.json", correction), ok=False)
+            self.assertEqual(self.body(), before)
+
     def test_stale_unapplied_or_conflicting_packet_refuses(self):
         self.run_task("add", "owner-1", "Owner", "--owner-request-file",
                       self.save("stale-first.json", self.packet()))

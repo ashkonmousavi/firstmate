@@ -127,8 +127,8 @@ RECEIVER_WAKE_MESSAGE='New routed work is in your backlog. Run bin/fm-session-st
 ACTIVE_HANDOFF_LOCK=
 ACTIVE_REGISTRY_LOCK=
 ACTIVE_TASK_LOCKS=()
-declare -A CUSTODY_LOCKED_IDS=()
-declare -A CUSTODY_SOURCE_SNAPSHOTS=()
+CUSTODY_LOCKED_IDS=' '
+CUSTODY_SOURCE_SNAPSHOTS=()
 CUSTODY_REQUESTED_KEYS=()
 # Preserve the exact source block and section for each requested task. A
 # different task may close while this transfer waits for its route lock.
@@ -155,48 +155,54 @@ release_task_locks() {
     fm_lock_release "${ACTIVE_TASK_LOCKS[i]}" || true
   done
   ACTIVE_TASK_LOCKS=()
-  CUSTODY_LOCKED_IDS=()
+  CUSTODY_LOCKED_IDS=' '
   CUSTODY_SOURCE_SNAPSHOTS=()
   CUSTODY_REQUESTED_KEYS=()
 }
 acquire_task_custody() { # <requested-keys...>
   local key lock current item snapshot
-  local -a ordered=() pending=() all=("$@")
+  local -a ordered=() all=("$@")
   [ -f "$MAIN_BACKLOG" ] && [ ! -L "$MAIN_BACKLOG" ] || return 1
   CUSTODY_REQUESTED_KEYS=("$@")
-  for key in "${CUSTODY_REQUESTED_KEYS[@]}"; do
+  for key in ${CUSTODY_REQUESTED_KEYS[@]+"${CUSTODY_REQUESTED_KEYS[@]}"}; do
     case "$key" in ''|*[!A-Za-z0-9._-]*) echo "error: unsafe transfer task ID" >&2; return 1 ;; esac
     snapshot=$(source_task_snapshot "$key"; printf '\036') || return 1
-    CUSTODY_SOURCE_SNAPSHOTS["$key"]=$snapshot
+    CUSTODY_SOURCE_SNAPSHOTS+=("$snapshot")
   done
   # An existing pending outbox may be delivered by this same route, so take
   # its observed task locks before the route lock as well.
   for item in "$DATA/handoff"/*.outbox.md; do
     [ -e "$item" ] || [ -L "$item" ] || continue
     [ -f "$item" ] && [ ! -L "$item" ] || return 1
-    mapfile -t pending < <(outbox_keys "$item")
-    all+=("${pending[@]}")
+    while IFS= read -r key; do
+      all+=("$key")
+    done < <(outbox_keys "$item")
   done
-  if [ "${#all[@]}" -gt 0 ]; then mapfile -t ordered < <(printf '%s\n' "${all[@]}" | LC_ALL=C sort -u); fi
+  if [ "${#all[@]}" -gt 0 ]; then
+    while IFS= read -r key; do
+      ordered+=("$key")
+    done < <(printf '%s\n' "${all[@]}" | LC_ALL=C sort -u)
+  fi
   fm_current_pid current || return 1
-  for key in "${ordered[@]}"; do
+  for key in ${ordered[@]+"${ordered[@]}"}; do
     case "$key" in ''|*[!A-Za-z0-9._-]*) echo "error: unsafe transfer task ID" >&2; return 1 ;; esac
     lock="$STATE/.control-$key.lock"
     if [ -L "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$current" ]; then
-      CUSTODY_LOCKED_IDS["$key"]=1
+      CUSTODY_LOCKED_IDS+="$key "
       continue
     fi
     fm_lock_acquire_wait "$lock" || return 1
     ACTIVE_TASK_LOCKS+=("$lock")
-    CUSTODY_LOCKED_IDS["$key"]=1
+    CUSTODY_LOCKED_IDS+="$key "
   done
 }
 verify_task_custody() {
-  local key current
+  local key current i
   [ -f "$MAIN_BACKLOG" ] && [ ! -L "$MAIN_BACKLOG" ] || return 1
-  for key in "${CUSTODY_REQUESTED_KEYS[@]}"; do
+  for ((i=0; i<${#CUSTODY_REQUESTED_KEYS[@]}; i++)); do
+    key=${CUSTODY_REQUESTED_KEYS[i]}
     current=$(source_task_snapshot "$key"; printf '\036') || return 1
-    if [ "$current" != "${CUSTODY_SOURCE_SNAPSHOTS[$key]}" ]; then
+    if [ "$current" != "${CUSTODY_SOURCE_SNAPSHOTS[i]}" ]; then
       echo "error: task $key changed before locked handoff; nothing moved" >&2
       return 1
     fi
@@ -208,10 +214,10 @@ verify_pending_outbox_lockset() { # <current-route-outbox>
   [ -f "$path" ] && [ ! -L "$path" ] || { echo "error: unsafe pending handoff outbox: $path" >&2; return 1; }
   while IFS= read -r key; do
     case "$key" in ''|*[!A-Za-z0-9._-]*) echo "error: unsafe pending task ID" >&2; return 1 ;; esac
-    [ -n "${CUSTODY_LOCKED_IDS[$key]:-}" ] || {
-      echo "error: pending outbox gained unlocked task $key; nothing moved" >&2
-      return 1
-    }
+    case "$CUSTODY_LOCKED_IDS" in
+      *" $key "*) ;;
+      *) echo "error: pending outbox gained unlocked task $key; nothing moved" >&2; return 1 ;;
+    esac
   done < <(outbox_keys "$path")
 }
 RECEIVER_WAKE_IGNORE_ID=
@@ -1244,7 +1250,7 @@ resume_remote_outbox() { # <secondmate-id> <outbox-path>
 }
 
 resume_pending_outboxes() {
-  local outbox id lock_key legacy=0 failed=0
+  local outbox id lock_key key legacy=0 failed=0
   local -a pending_keys=()
   [ -d "$DATA/handoff" ] || return 0
   for outbox in "$DATA/handoff"/*.outbox.md; do
@@ -1257,8 +1263,11 @@ resume_pending_outboxes() {
       ;;
     esac
     [ -f "$outbox" ] && [ ! -L "$outbox" ] || { failed=1; continue; }
-    mapfile -t pending_keys < <(outbox_keys "$outbox")
-    acquire_task_custody "${pending_keys[@]}" || { failed=1; release_task_locks; continue; }
+    pending_keys=()
+    while IFS= read -r key; do
+      pending_keys+=("$key")
+    done < <(outbox_keys "$outbox")
+    acquire_task_custody ${pending_keys[@]+"${pending_keys[@]}"} || { failed=1; release_task_locks; continue; }
     ACTIVE_REGISTRY_LOCK=$(secondmate_registry_lock_path "$STATE")
     fm_lock_acquire_wait "$ACTIVE_REGISTRY_LOCK" || return 1
     legacy=0

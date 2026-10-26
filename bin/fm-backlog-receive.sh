@@ -143,9 +143,16 @@ case "$ID" in ''|*[!A-Za-z0-9._-]*) die "delivered outbox id is unsafe" ;; esac
 # delivered bytes and keys after locking; a changed preimage is refused.
 [ -f "$DELIVERED" ] && [ ! -L "$DELIVERED" ] || die "delivered outbox is unsafe"
 PRE_HASH=$(sha256_file "$DELIVERED") || die "cannot read delivered outbox"
-mapfile -t PRE_KEYS < <(list_keys "$DELIVERED")
+PRE_KEYS=()
+while IFS= read -r key; do
+  PRE_KEYS+=("$key")
+done < <(list_keys "$DELIVERED")
 ORDERED_KEYS=()
-if [ "${#PRE_KEYS[@]}" -gt 0 ]; then mapfile -t ORDERED_KEYS < <(printf '%s\n' "${PRE_KEYS[@]}" | LC_ALL=C sort -u); fi
+if [ "${#PRE_KEYS[@]}" -gt 0 ]; then
+  while IFS= read -r key; do
+    ORDERED_KEYS+=("$key")
+  done < <(printf '%s\n' "${PRE_KEYS[@]}" | LC_ALL=C sort -u)
+fi
 TASK_LOCKS=()
 release_receiver_locks() {
   local i
@@ -156,7 +163,7 @@ release_receiver_locks() {
 }
 TRANSFER_LOCK="$PARENT_REAL/.$ID.upload.lock"
 trap release_receiver_locks EXIT
-for key in "${ORDERED_KEYS[@]}"; do
+for key in ${ORDERED_KEYS[@]+"${ORDERED_KEYS[@]}"}; do
   case "$key" in ''|*[!A-Za-z0-9._-]*) die "unsafe delivered task id" ;; esac
   lock="$FM_HOME/state/.control-$key.lock"
   fm_lock_acquire_wait "$lock" || die "cannot lock received task"
@@ -193,7 +200,7 @@ KEYS=()
 while IFS= read -r key; do
   [ -n "$key" ] && KEYS+=("$key")
 done < <(list_keys "$DELIVERED")
-[ "${KEYS[*]}" = "${PRE_KEYS[*]}" ] || die "delivered task set changed before locked receipt"
+[ "${KEYS[*]-}" = "${PRE_KEYS[*]-}" ] || die "delivered task set changed before locked receipt"
 for key in "${KEYS[@]}"; do
   section=$(backlog_key_section "$DELIVERED" "$key") || die "delivered key disappeared during classification: $key"
   [ "$section" = '## Queued' ] || die "delivered outbox contains non-Queued item $key under $section"
