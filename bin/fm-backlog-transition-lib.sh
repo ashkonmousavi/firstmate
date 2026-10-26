@@ -580,9 +580,34 @@ fm_backlog_row_artifact_supported() {
 # shape for an open captain call.
 # bin/fm-fleet-snapshot.sh classifies that retained hold from its structured
 # fields; only bin/fm-captain-hold.sh answer resolves the call.
+# Reuse an actual held CONTROL lock (teardown and bootstrap replay own it),
+# otherwise acquire that same task lock before the first body read. The wake
+# lock helper reclaims same-PID acquisition, so ownership must be checked first.
 fm_backlog_retain() {  # <data-dir> <id> [flag...]
+  local state lock current owns=0 status
+  state=${STATE:-${FM_STATE_OVERRIDE:-$(dirname "$1")/state}}
+  mkdir -p -- "$state" || { FM_BACKLOG_TRANSITION_ERROR="cannot open task control directory"; return 1; }
+  lock="$state/.control-$2.lock"
+  if ! declare -F fm_lock_acquire_wait >/dev/null 2>&1; then
+    # shellcheck source=bin/fm-wake-lib.sh disable=SC1091
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-wake-lib.sh"
+  fi
+  fm_current_pid current || return 1
+  if [ -L "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$current" ]; then
+    owns=1
+  else
+    fm_lock_acquire_wait "$lock" || { FM_BACKLOG_TRANSITION_ERROR="cannot acquire task control lock"; return 1; }
+  fi
+  _fm_backlog_retain_locked "$@"
+  status=$?
+  [ "$owns" = 1 ] || fm_lock_release "$lock"
+  return "$status"
+}
+
+_fm_backlog_retain_locked() {  # <data-dir> <id> [flag...]
+
   local data authorized_data=$1 id=$2 out command_status previous_arg=''
-  local arg deliverable='' line body new_body tmp
+  local arg deliverable='' line body new_body tmp prior
   local -a row_args=()
   if ! data=$(fm_backlog_data_absolute "$1"); then
     FM_BACKLOG_TRANSITION_ERROR="data directory cannot be resolved: $1"
@@ -656,9 +681,27 @@ fm_backlog_retain() {  # <data-dir> <id> [flag...]
           FM_BACKLOG_TRANSITION_ERROR="cannot stage the deliverable for $id"
           return 1
         fi
+        if [[ "$body" == *'```Owner request acceptance v1'* ]]; then
+          prior=$(umask 077; mktemp "${TMPDIR:-/tmp}/fm-retain-prior.XXXXXX") || return 1
+          printf '%s' "$body" > "$prior"
+          if ! "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-request-acceptance.py" compare-section --body-file "$prior" --packet-file "$tmp" --task-id "$id" --home "${FM_HOME:-$(dirname "$data")}"; then
+            rm -f -- "$prior" "$tmp"
+            FM_BACKLOG_TRANSITION_ERROR="protected acceptance changed by retain"
+            return 1
+          fi
+          rm -f -- "$prior"
+        fi
         if ! fm_backlog_mutate "$authorized_data" update "$id" --body-file "$tmp"; then
           rm -f -- "$tmp"
           return 1
+        fi
+        if [[ "$body" == *'```Owner request acceptance v1'* ]]; then
+          out=$(fm_backlog_row_show "$data" "$id" --full) || { rm -f -- "$tmp"; FM_BACKLOG_TRANSITION_ERROR="native readback failed"; return 1; }
+          if ! printf '%s\n' "$out" | "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-request-acceptance.py" compare-show --body-file "$tmp" --task-id "$id" --home "${FM_HOME:-$(dirname "$data")}"; then
+            rm -f -- "$tmp"
+            FM_BACKLOG_TRANSITION_ERROR="native retain readback mismatch"
+            return 1
+          fi
         fi
         rm -f -- "$tmp"
         ;;
