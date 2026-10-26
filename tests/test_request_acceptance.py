@@ -106,6 +106,115 @@ class RequestCustody(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr)
         return p.stdout
 
+    def proof_packet(self, body, refs, disposition="accepted"):
+        packet = self.packet(expected=sha(body))
+        packet["sources"] = []
+        packet["requirements"] = []
+        packet["proof_updates"] = [{"id": "r1", "proof_refs": refs,
+                                     "disposition": disposition}]
+        return packet
+
+    def test_proof_update_refreshes_same_receipt_path_with_native_archive(self):
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                      self.save("intake.json", self.packet()))
+        pending = self.body()
+        first_ref = {"source_owner": "reply", "receipt_id": "thread/message-1",
+                     "content_sha256": sha("first delivered reply")}
+        first = self.save("proof-first.json", self.proof_packet(pending, [first_ref]))
+        self.run_task("update", "owner-1", "--owner-request-file", first)
+        accepted = self.body()
+        self.assertIn(first_ref["content_sha256"], accepted)
+        self.assertIn('"disposition":"accepted"', accepted)
+        archive = self.home / "data/note-archive.md"
+        self.assertIn('"disposition":"pending"', archive.read_text())
+
+        refreshed_ref = dict(first_ref, content_sha256=sha("corrected delivered reply"))
+        refreshed = self.save("proof-refreshed.json", self.proof_packet(accepted, [refreshed_ref]))
+        self.run_task("update", "owner-1", "--owner-request-file", refreshed)
+        current = self.body()
+        self.assertIn(refreshed_ref["content_sha256"], current)
+        self.assertNotIn(first_ref["content_sha256"], current)
+        self.assertIn(first_ref["content_sha256"], archive.read_text())
+        archive_before_replay = archive.read_bytes()
+        self.run_task("update", "owner-1", "--owner-request-file", refreshed)
+        self.assertEqual(self.body(), current)
+        self.assertEqual(archive.read_bytes(), archive_before_replay)
+
+        invalidated = self.save("proof-invalidate.json",
+                                self.proof_packet(current, [], "proof_owed"))
+        self.run_task("update", "owner-1", "--owner-request-file", invalidated)
+        self.assertIn('"disposition":"proof_owed"', self.body())
+        self.assertIn('"proof_refs":[]', self.body())
+        self.assertIn(refreshed_ref["content_sha256"], archive.read_text())
+        no_proof = self.proof_packet(self.body(), [], "accepted")
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("accepted-without-proof.json", no_proof), ok=False)
+        self.assertIn('"disposition":"proof_owed"', self.body())
+
+    def test_proof_updates_refuse_held_superseded_collision_and_stale_preimage(self):
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                      self.save("base.json", self.packet()))
+        old = self.body()
+        ref = {"source_owner": "reply", "receipt_id": "thread/message-1",
+               "content_sha256": sha("reply")}
+        packet = self.proof_packet(old, [ref])
+        packet["proof_updates"][0]["proof_refs"].append(dict(ref))
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("duplicate.json", packet), ok=False)
+        packet["proof_updates"][0]["proof_refs"] = [ref, dict(ref, content_sha256=sha("changed"))]
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("conflict.json", packet), ok=False)
+        self.assertEqual(self.body(), old)
+
+        stale = self.proof_packet(old, [ref])
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("current.json", stale))
+        current = self.body()
+        stale["proof_updates"][0]["disposition"] = "proof_owed"
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("stale.json", stale), ok=False)
+        self.assertEqual(self.body(), current)
+
+        collision = self.packet(source="source-2", requirement="r2", expected=sha(current))
+        collision["corrections"] = [{"id": "r1", "superseded_by": ["r2"]}]
+        collision["proof_updates"] = [{"id": "r1", "proof_refs": [ref],
+                                        "disposition": "accepted"}]
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("collision.json", collision), ok=False)
+        self.assertEqual(self.body(), current)
+
+        held_intake = self.packet(task="held", restricted=True,
+                                  safe_text="Safe requested part")
+        held_intake["requirements"][0]["disposition"] = "held"
+        self.run_task("add", "held", "Held", "--owner-request-file",
+                      self.save("held.json", held_intake))
+        held_body = self.body("held")
+        held_packet = self.proof_packet(held_body, [ref])
+        held_packet["origin_task_id"] = "held"
+        held_packet["requirements"] = []
+        held_packet["proof_updates"][0]["id"] = "r1"
+        self.run_task("update", "held", "--owner-request-file",
+                      self.save("held-proof.json", held_packet), ok=False)
+        self.assertEqual(self.body("held"), held_body)
+
+        correction = self.packet(source="source-2", requirement="r2", expected=sha(current))
+        correction["corrections"] = [{"id": "r1", "superseded_by": ["r2"]}]
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("supersede.json", correction))
+        superseded = self.body()
+        after = self.proof_packet(superseded, [ref])
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("superseded-proof.json", after), ok=False)
+        self.assertEqual(self.body(), superseded)
+
+        self.run_task("add", "unbound", "Unbound")
+        unbound = self.proof_packet("", [ref])
+        unbound["origin_task_id"] = "unbound"
+        unbound["expected_body_sha256"] = sha(self.body("unbound"))
+        self.run_task("update", "unbound", "--owner-request-file",
+                      self.save("unbound-proof.json", unbound), ok=False)
+        self.assertEqual(self.body("unbound"), "")
+
     def test_create_and_rotation_and_ordinary_preservation(self):
         packet = self.save("packet.json", self.packet(text="Explain café"))
         self.run_task("add", "owner-1", "Owner", "--owner-request-file", packet)

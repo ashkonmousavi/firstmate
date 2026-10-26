@@ -2,7 +2,8 @@
 """Pure structural custody and merge for explicitly bound native owner requests.
 
 Owner-request packet authoring contract for fm-tasks-axi.sh --owner-request-file:
-Write one private UTF-8 JSON file with exactly the PACKET keys declared below.
+Write one private UTF-8 JSON file with the required PACKET keys below;
+proof_updates is the only optional top-level key.
 For add, expected_body_sha256 is null; for update it is SHA256 of the exact
 previous native body. origin_home and origin_task_id identify the original
 home/task, while the wrapper addresses the current owning home and task ID.
@@ -31,6 +32,12 @@ acceptance_level=source|installed|observed records the promised evidence level,
 not a verdict. Required kind-specific fields are checked in validate() below.
 proof_refs identify existing receipts by source_owner, receipt_id and exact
 content_sha256; do not invent a receipt or infer one from a filename.
+For an existing requirement, an update packet may include optional
+proof_updates[{id,proof_refs,disposition}] with the complete current proof
+reference list and proof_owed|accepted disposition. The native archived body
+retains the prior list, including a receipt refreshed at the same path.
+These fields are structural custody only: B6's proof observer still decides
+whether the referenced content qualifies on the current release.
 
 On correction, append the new source UUID and replacement requirement ID in
 the same task. Use corrections[{id,superseded_by:[replacement_id]}] only for
@@ -58,6 +65,7 @@ REQ = {"id", "kind", "source_message_uuid", "text_ref", "safe_text", "source_bin
 PROOF_KINDS = {"product_live", "installed_generation", "observed_consumer", "artifact_delivery", "reply"}
 LEVELS = {"source", "installed", "observed"}
 PACKET = {"version", "origin_home", "origin_task_id", "expected_body_sha256", "interpretation_owner", "interpretation_complete", "sources", "requirements", "corrections"}
+PROOF_UPDATE = {"id", "proof_refs", "disposition"}
 REF = {"source_owner", "receipt_id", "content_sha256"}
 HEX = re.compile(r"^[0-9a-f]{64}$")
 
@@ -250,15 +258,20 @@ def encoded(metadata):
 
 
 def merge(body, packet, task_id, home, operation):
-    fields(packet, PACKET, "packet")
+    if not isinstance(packet, dict) or not PACKET <= set(packet) or set(packet) - PACKET - {"proof_updates"}:
+        raise Invalid("packet has missing or unknown fields")
     if type(packet["version"]) is not int or packet["version"] != 1 or packet["interpretation_complete"] is not True:
         raise Invalid("packet version or interpretation assertion is invalid")
     slug(packet["interpretation_owner"], "interpretation owner")
     if packet["origin_task_id"] != task_id:
         raise Invalid("packet task identity mismatch")
-    if not isinstance(packet["sources"], list) or not isinstance(packet["requirements"], list) or not isinstance(packet["corrections"], list):
+    proof_updates = packet.get("proof_updates", [])
+    if (not isinstance(packet["sources"], list) or not isinstance(packet["requirements"], list)
+            or not isinstance(packet["corrections"], list) or not isinstance(proof_updates, list)):
         raise Invalid("packet lists are malformed")
-    if not packet["requirements"]:
+    if operation == "add" and proof_updates:
+        raise Invalid("new task cannot update prior proof")
+    if not packet["requirements"] and not proof_updates:
         raise Invalid("empty owner request packet")
     if operation == "add":
         if packet["expected_body_sha256"] is not None or START in body:
@@ -277,6 +290,7 @@ def merge(body, packet, task_id, home, operation):
         raise Invalid("new task origin home mismatch")
     prior_sources = {item["message_uuid"]: item for item in current["sources"]}
     prior_requirements = {item["id"]: item for item in current["requirements"]}
+    existing_requirement_ids = set(prior_requirements)
     for source in packet["sources"]:
         if not isinstance(source, dict) or "message_uuid" not in source:
             raise Invalid("malformed source")
@@ -314,6 +328,38 @@ def merge(body, packet, task_id, home, operation):
             raise Invalid("conflicting correction")
         original["disposition"] = "superseded"
         original["superseded_by"] = replacements
+    corrected_ids = {item["id"] for item in packet["corrections"]}
+    corrected_ids.update(replacement for item in packet["corrections"]
+                         for replacement in item["superseded_by"])
+    updated_ids = set()
+    for update in proof_updates:
+        fields(update, PROOF_UPDATE, "proof update")
+        slug(update["id"], "proof requirement ID")
+        rid = update["id"]
+        if rid in updated_ids or rid not in existing_requirement_ids or rid in corrected_ids:
+            raise Invalid("proof update identity is ambiguous")
+        updated_ids.add(rid)
+        original = prior_requirements[rid]
+        if original["disposition"] in ("held", "superseded") or original["superseded_by"]:
+            raise Invalid("proof update cannot change held or superseded requirement")
+        if update["disposition"] not in ("proof_owed", "accepted"):
+            raise Invalid("proof update disposition is invalid")
+        refs = update["proof_refs"]
+        if not isinstance(refs, list):
+            raise Invalid("proof update references are malformed")
+        seen_refs = set()
+        for ref in refs:
+            fields(ref, REF, "proof reference")
+            for key in ("source_owner", "receipt_id"):
+                slug(ref[key], key)
+            if not isinstance(ref["content_sha256"], str) or not HEX.fullmatch(ref["content_sha256"]):
+                raise Invalid("proof digest is invalid")
+            identity = (ref["source_owner"], ref["receipt_id"])
+            if identity in seen_refs:
+                raise Invalid("duplicate proof reference identity")
+            seen_refs.add(identity)
+        original["proof_refs"] = refs
+        original["disposition"] = update["disposition"]
     validate(current, task_id, home)
     if operation == "add":
         return body.rstrip("\n") + ("\n\n" if body.strip() else "") + encoded(current) + "\n"
