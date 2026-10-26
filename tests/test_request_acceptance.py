@@ -95,7 +95,7 @@ class RequestCustody(unittest.TestCase):
         self.run_task("update", "owner-1", "--body", "erase", ok=False)
         self.assertIn("Explain café", self.body())
 
-    def test_correction_archives_and_rejects_stale_preimage(self):
+    def test_correction_archives_and_confirms_exact_replay(self):
         self.run_task("add", "owner-1", "Owner", "--owner-request-file",
                       self.save("first.json", self.packet()))
         old = self.body()
@@ -111,8 +111,70 @@ class RequestCustody(unittest.TestCase):
         archive = self.home / "data/note-archive.md"
         self.assertTrue(archive.exists())
         self.assertIn("source-1", archive.read_text())
-        self.run_task("update", "owner-1", "--owner-request-file", path, ok=False)
+        self.run_task("update", "owner-1", "--owner-request-file", path)
         self.assertEqual(body, self.body())
+
+    def test_exact_replay_confirms_without_second_native_update(self):
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                      self.save("replay-first.json", self.packet()))
+        original = self.body()
+        packet = self.packet(source="source-2", requirement="r2", text="Corrected result", expected=sha(original))
+        packet["corrections"] = [{"id": "r1", "superseded_by": ["r2"]}]
+        path = self.save("replay-correction.json", packet)
+        fakebin = self.home / "replay-bin"
+        fakebin.mkdir()
+        log = self.home / "native-updates.log"
+        real = subprocess.check_output(["which", "tasks-axi"], text=True).strip()
+        shim = fakebin / "tasks-axi"
+        shim.write_text("#!/usr/bin/env bash\n"
+                        "if [ \"$1\" = update ]; then printf 'update\n' >> \"$FM_NATIVE_UPDATE_LOG\"; fi\n"
+                        f"exec {real} \"$@\"\n")
+        shim.chmod(0o755)
+        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env["PATH"],
+                   FM_NATIVE_UPDATE_LOG=str(log))
+        for iteration in range(2):
+            if iteration == 1:
+                note = self.home / "unrelated.md"
+                note.write_text("Unrelated note\n\n" + self.body())
+                self.run_task("update", "owner-1", "--body-file", note)
+                expected = self.body()
+            result = subprocess.run([str(WRAPPER), "update", "owner-1", "--owner-request-file", str(path)],
+                                    env=env, cwd=self.home, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(log.read_text().splitlines(), ["update"])
+        self.assertEqual(self.body(), expected)
+        self.assertIn("Unrelated note", self.body())
+
+    def test_stale_unapplied_or_conflicting_packet_refuses(self):
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                      self.save("stale-first.json", self.packet()))
+        old = self.body()
+        packet = self.packet(source="source-2", requirement="r2", text="New result", expected=sha(old))
+        packet["corrections"] = [{"id": "r1", "superseded_by": ["r2"]}]
+        path = self.save("stale-unapplied.json", packet)
+        note = self.home / "note.md"
+        note.write_text("Independent note\n\n" + old)
+        self.run_task("update", "owner-1", "--body-file", note)
+        self.run_task("update", "owner-1", "--owner-request-file", path, ok=False)
+        self.assertNotIn("source-2", self.body())
+        packet["expected_body_sha256"] = sha(self.body())
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("stale-fresh.json", packet))
+        packet["sources"][0]["full_text"] = "Conflicting text"
+        packet["sources"][0]["full_text_sha256"] = sha("Conflicting text")
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("stale-conflict.json", packet), ok=False)
+        self.assertIn("New result", self.body())
+        self.assertNotIn("Conflicting text", self.body())
+
+    def test_malformed_source_uuid_type_fails_without_traceback(self):
+        packet = self.packet()
+        packet["requirements"][0]["source_message_uuid"] = ["source-1"]
+        result = self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                               self.save("bad-uuid-type.json", packet), ok=False)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertNotIn("unhashable type", result.stderr)
+        self.run_task("show", "owner-1", "--full", ok=False)
 
     def test_mixed_safe_and_restricted_source_keeps_secret_out(self):
         secret = "CREDENTIAL-DO-NOT-COPY"

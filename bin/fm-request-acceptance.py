@@ -128,8 +128,9 @@ def validate(metadata, task_id, home):
         if req["id"] in ids:
             raise Invalid("duplicate requirement ID")
         ids.add(req["id"])
-        if req["kind"] not in ("action", "explanation") or req["source_message_uuid"] not in sources:
-            raise Invalid("requirement kind or source is invalid")
+        slug(req["source_message_uuid"], "source message UUID")
+        if req["source_message_uuid"] not in sources:
+            raise Invalid("requirement source is invalid")
         if req["disposition"] not in ("pending", "proof_owed", "accepted", "superseded", "held"):
             raise Invalid("disposition is invalid")
         if req["source_binding"] == "verified_complete":
@@ -205,8 +206,10 @@ def merge(body, packet, task_id, home, operation):
             raise Invalid("new task has stale or duplicate acceptance")
         current = {"version": 1, "origin_home": home, "origin_task_id": task_id, "sources": [], "requirements": []}
     else:
-        if packet["expected_body_sha256"] != digest(body):
-            raise Invalid("stale body preimage")
+        expected = packet["expected_body_sha256"]
+        if not isinstance(expected, str) or not HEX.fullmatch(expected):
+            raise Invalid("expected body digest is malformed")
+        stale = expected != digest(body)
         _, _, current = section(body)
         validate(current, task_id, home)
         if packet["origin_home"] != current["origin_home"] or packet["origin_task_id"] != current["origin_task_id"]:
@@ -256,7 +259,10 @@ def merge(body, packet, task_id, home, operation):
     if operation == "add":
         return body.rstrip("\n") + ("\n\n" if body.strip() else "") + encoded(current) + "\n"
     first, last, _ = section(body)
-    return body[:first] + encoded(current) + body[last:]
+    candidate = body[:first] + encoded(current) + body[last:]
+    if stale and candidate != body:
+        raise Invalid("stale body preimage")
+    return candidate
 
 
 def shown_body(show, task_id):

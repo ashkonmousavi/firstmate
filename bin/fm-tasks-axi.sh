@@ -250,6 +250,12 @@ PYPACKET
       "$SCRIPT_DIR/fm-request-acceptance.py" compare-section --body-file "$PRIOR_BODY" --packet-file "$STAGED_BODY" --task-id "$ID" --home "$FM_HOME" || fail "bound acceptance section changed by ordinary edit"
     fi
   fi
+  if [ "$operation" = update ] && [ -n "$OWNER_REQUEST_FILE" ] && cmp -s "$PRIOR_BODY" "$STAGED_BODY"; then
+    [ "${#ARGS[@]}" -eq 2 ] || fail "already recorded packet has unrelated update fields"
+    printf '%s\n' "$shown" | "$SCRIPT_DIR/fm-request-acceptance.py" compare-show --body-file "$PRIOR_BODY" --task-id "$ID" --home "$FM_HOME" || fail "native no-op confirmation failed"
+    printf 'ok: owner request already recorded for %s\n' "$ID"
+    exit 0
+  fi
   REWRITTEN=()
   skip=0
   for arg in "${ARGS[@]}"; do
