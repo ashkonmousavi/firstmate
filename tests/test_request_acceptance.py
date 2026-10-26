@@ -4,8 +4,11 @@ import hashlib
 import json
 import os
 import pathlib
+import shlex
+import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -37,6 +40,31 @@ class RequestCustody(unittest.TestCase):
         else:
             self.assertNotEqual(p.returncode, 0)
         return p
+
+    def wait_for_marker(self, marker, process):
+        for _ in range(750):
+            if marker.exists():
+                return
+            if process.poll() is not None:
+                out, err = process.communicate()
+                self.fail(f"process exited before {marker.name}: {out}{err}")
+            time.sleep(.02)
+        self.fail(f"process never reached {marker.name}")
+
+    def observe_lock_wait(self, fakebin, lock):
+        real = shutil.which("cat")
+        self.assertIsNotNone(real, "cat is required to observe lock contention")
+        marker = self.home / (lock.name + ".wait-entered")
+        shim = fakebin / "cat"
+        shim.write_text("#!/usr/bin/env bash\n"
+                        f"{shlex.quote(real)} \"$@\"\n"
+                        "result=$?\n"
+                        f"if [ \"$result\" -eq 0 ] && [ \"$#\" -eq 1 ] && [ \"$1\" = {shlex.quote(str(lock / 'pid'))} ]; then\n"
+                        f"  touch {shlex.quote(str(marker))}\n"
+                        "fi\n"
+                        "exit \"$result\"\n")
+        shim.chmod(0o755)
+        return marker
 
     def packet(self, *, task="owner-1", source="source-1", requirement="r1",
                text="Explain the result", kind="explanation", expected=None,
@@ -319,15 +347,14 @@ class RequestCustody(unittest.TestCase):
                    PATH=str(fakebin) + os.pathsep + self.env["PATH"])
         intake = subprocess.Popen([str(WRAPPER), "update", "owner-1", "--owner-request-file", str(path)],
                                   cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        retain = None
         try:
-            import time
-            deadline = time.monotonic() + 8
-            while not (self.home / "entered").exists() and time.monotonic() < deadline:
-                time.sleep(.02)
-            self.assertTrue((self.home / "entered").exists(), "correction never entered native read")
+            self.wait_for_marker(self.home / "entered", intake)
+            waiting = self.observe_lock_wait(fakebin, self.home / "state/.control-owner-1.lock")
             shell = '. "$1/bin/fm-tasks-axi-lib.sh"; . "$1/bin/fm-backlog-transition-lib.sh"; fm_backlog_retain "$2/data" owner-1 --note ready'
             retain = subprocess.Popen(["bash", "-c", shell, "_", str(ROOT), str(self.home)],
-                                      cwd=self.home, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                      cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.wait_for_marker(waiting, retain)
             (self.home / "release").touch()
             intake_out, intake_err = intake.communicate(timeout=15)
             self.assertEqual(intake.returncode, 0, intake_err)
@@ -338,9 +365,10 @@ class RequestCustody(unittest.TestCase):
             self.assertIn("source-2", final)
         finally:
             (self.home / "release").touch()
-            if intake.poll() is None:
-                intake.terminate()
-                intake.communicate(timeout=5)
+            for process in (intake, retain):
+                if process is not None and process.poll() is None:
+                    process.terminate()
+                    process.communicate(timeout=5)
 
 
     def test_unrelated_serialized_handoffs_both_survive(self):
@@ -378,16 +406,14 @@ class RequestCustody(unittest.TestCase):
                    FM_SEND_SETTLE="0", FM_SEND_SLEEP="0", FM_SEND_RETRIES="1")
         a = subprocess.Popen([str(ROOT / "bin/fm-backlog-handoff.sh"), "design", "scope-a"],
                              cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        b = None
         try:
-            import time
-            deadline = time.monotonic() + 15
-            while not (self.home / "move-entered").exists() and time.monotonic() < deadline:
-                time.sleep(.02)
-            self.assertTrue((self.home / "move-entered").exists(), "first handoff never reached native move")
+            self.wait_for_marker(self.home / "move-entered", a)
+            waiting = self.observe_lock_wait(fakebin, self.home / "state/.backlog-handoff-design.lock")
             self.run_task("add", "scope-b", "B")
             b = subprocess.Popen([str(ROOT / "bin/fm-backlog-handoff.sh"), "design", "scope-b"],
                                  cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            time.sleep(.2)
+            self.wait_for_marker(waiting, b)
             (self.home / "move-release").touch()
             ao, ae = a.communicate(timeout=30)
             bo, be = b.communicate(timeout=30)
@@ -398,9 +424,10 @@ class RequestCustody(unittest.TestCase):
             self.assertEqual(target_body.count("scope-b - B"), 1)
         finally:
             (self.home / "move-release").touch()
-            if a.poll() is None:
-                a.terminate()
-                a.communicate(timeout=5)
+            for process in (a, b):
+                if process is not None and process.poll() is None:
+                    process.terminate()
+                    process.communicate(timeout=5)
 
     def test_same_task_correction_while_handoff_waits_refuses_stale_source(self):
         self.run_task("add", "owner-1", "Owner", "--owner-request-file",
@@ -433,15 +460,13 @@ class RequestCustody(unittest.TestCase):
                    FM_CORRECTION_RELEASE=str(self.home / "correction-release"))
         intake = subprocess.Popen([str(WRAPPER), "update", "owner-1", "--owner-request-file", str(packet_path)],
                                   cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        handoff = None
         try:
-            import time
-            deadline = time.monotonic() + 15
-            while not (self.home / "correction-entered").exists() and time.monotonic() < deadline:
-                time.sleep(.02)
-            self.assertTrue((self.home / "correction-entered").exists(), "correction never entered native read")
+            self.wait_for_marker(self.home / "correction-entered", intake)
+            waiting = self.observe_lock_wait(fakebin, self.home / "state/.control-owner-1.lock")
             handoff = subprocess.Popen([str(ROOT / "bin/fm-backlog-handoff.sh"), "--to", str(target), "owner-1"],
-                                       cwd=self.home, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            time.sleep(.2)
+                                       cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.wait_for_marker(waiting, handoff)
             (self.home / "correction-release").touch()
             io, ie = intake.communicate(timeout=20)
             self.assertEqual(intake.returncode, 0, io + ie)
@@ -452,9 +477,10 @@ class RequestCustody(unittest.TestCase):
             self.assertNotIn("owner-1", (target / "data/backlog.md").read_text())
         finally:
             (self.home / "correction-release").touch()
-            if intake.poll() is None:
-                intake.terminate()
-                intake.communicate(timeout=5)
+            for process in (intake, handoff):
+                if process is not None and process.poll() is None:
+                    process.terminate()
+                    process.communicate(timeout=5)
 
     def test_bound_local_transfer_keeps_full_section_and_source_close(self):
         self.run_task("add", "owner-1", "Owner", "--owner-request-file",
