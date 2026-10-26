@@ -232,6 +232,119 @@ class RequestCustody(unittest.TestCase):
                 intake.communicate(timeout=5)
 
 
+    def test_unrelated_serialized_handoffs_both_survive(self):
+        self.run_task("add", "scope-a", "A")
+        target = self.home.parent / (self.home.name + "-secondmate")
+        target.mkdir()
+        self.addCleanup(lambda: __import__("shutil").rmtree(target, ignore_errors=True))
+        for child in ("data", "state", "config", "projects", "bin"):
+            (target / child).mkdir()
+        (target / "AGENTS.md").write_text("fixture\n")
+        (target / ".fm-secondmate-home").write_text("design\n")
+        (target / "data/backlog.md").write_text("## In flight\n\n## Queued\n\n## Done\n")
+        (self.home / "data/secondmates.md").write_text(
+            f"- design - feature work (home: {target}; scope: feature work; projects: alpha; added 2026-07-09)\n")
+        (self.home / "state/design.meta").write_text(
+            f"window=firstmate:fm-design\nkind=secondmate\nharness=claude\nbackend=tmux\nhome={target}\nworktree={target}\n")
+        fakebin = self.home / "handoff-fakebin"
+        fakebin.mkdir()
+        tmux = fakebin / "tmux"
+        tmux.write_text('#!/usr/bin/env bash\ncase "$1" in list-windows) echo fm-design;; capture-pane) printf "❯\\n";; display-message) echo firstmate;; *) exit 0;; esac\n')
+        tmux.chmod(0o755)
+        real = subprocess.check_output(["which", "tasks-axi"], text=True).strip()
+        shim = fakebin / "tasks-axi"
+        shim.write_text("#!/usr/bin/env bash\n"
+                        "if [ \"$1\" = mv ] && [ \"$2\" = scope-a ] && mkdir \"$FM_HANDOFF_ONCE\" 2>/dev/null; then\n"
+                        "  touch \"$FM_HANDOFF_ENTERED\"\n"
+                        "  while [ ! -f \"$FM_HANDOFF_RELEASE\" ]; do sleep .02; done\n"
+                        "fi\n"
+                        f"exec {real} \"$@\"\n")
+        shim.chmod(0o755)
+        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env["PATH"],
+                   FM_HANDOFF_ONCE=str(self.home / "move-once"),
+                   FM_HANDOFF_ENTERED=str(self.home / "move-entered"),
+                   FM_HANDOFF_RELEASE=str(self.home / "move-release"),
+                   FM_SEND_SETTLE="0", FM_SEND_SLEEP="0", FM_SEND_RETRIES="1")
+        a = subprocess.Popen([str(ROOT / "bin/fm-backlog-handoff.sh"), "design", "scope-a"],
+                             cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            import time
+            deadline = time.monotonic() + 15
+            while not (self.home / "move-entered").exists() and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue((self.home / "move-entered").exists(), "first handoff never reached native move")
+            self.run_task("add", "scope-b", "B")
+            b = subprocess.Popen([str(ROOT / "bin/fm-backlog-handoff.sh"), "design", "scope-b"],
+                                 cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            time.sleep(.2)
+            (self.home / "move-release").touch()
+            ao, ae = a.communicate(timeout=30)
+            bo, be = b.communicate(timeout=30)
+            self.assertEqual(a.returncode, 0, ao + ae)
+            self.assertEqual(b.returncode, 0, bo + be)
+            target_body = (target / "data/backlog.md").read_text()
+            self.assertEqual(target_body.count("scope-a - A"), 1)
+            self.assertEqual(target_body.count("scope-b - B"), 1)
+        finally:
+            (self.home / "move-release").touch()
+            if a.poll() is None:
+                a.terminate()
+                a.communicate(timeout=5)
+
+    def test_same_task_correction_while_handoff_waits_refuses_stale_source(self):
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                      self.save("handoff-first.json", self.packet()))
+        old = self.body()
+        correction = self.packet(source="source-2", requirement="r2", text="Corrected intent", expected=sha(old))
+        correction["corrections"] = [{"id": "r1", "superseded_by": ["r2"]}]
+        packet_path = self.save("handoff-correction.json", correction)
+        target = self.home.parent / (self.home.name + "-waiting-target")
+        target.mkdir()
+        self.addCleanup(lambda: __import__("shutil").rmtree(target, ignore_errors=True))
+        for child in ("data", "state", "config", "projects", "bin"):
+            (target / child).mkdir()
+        (target / "AGENTS.md").write_text("fixture\n")
+        (target / "data/backlog.md").write_text("## In flight\n\n## Queued\n\n## Done\n")
+        real = subprocess.check_output(["which", "tasks-axi"], text=True).strip()
+        fakebin = self.home / "correction-fakebin"
+        fakebin.mkdir()
+        shim = fakebin / "tasks-axi"
+        shim.write_text("#!/usr/bin/env bash\n"
+                        "if [ \"$1\" = show ] && mkdir \"$FM_CORRECTION_ONCE\" 2>/dev/null; then\n"
+                        "  touch \"$FM_CORRECTION_ENTERED\"\n"
+                        "  while [ ! -f \"$FM_CORRECTION_RELEASE\" ]; do sleep .02; done\n"
+                        "fi\n"
+                        f"exec {real} \"$@\"\n")
+        shim.chmod(0o755)
+        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env["PATH"],
+                   FM_CORRECTION_ONCE=str(self.home / "correction-once"),
+                   FM_CORRECTION_ENTERED=str(self.home / "correction-entered"),
+                   FM_CORRECTION_RELEASE=str(self.home / "correction-release"))
+        intake = subprocess.Popen([str(WRAPPER), "update", "owner-1", "--owner-request-file", str(packet_path)],
+                                  cwd=self.home, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            import time
+            deadline = time.monotonic() + 15
+            while not (self.home / "correction-entered").exists() and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue((self.home / "correction-entered").exists(), "correction never entered native read")
+            handoff = subprocess.Popen([str(ROOT / "bin/fm-backlog-handoff.sh"), "--to", str(target), "owner-1"],
+                                       cwd=self.home, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            time.sleep(.2)
+            (self.home / "correction-release").touch()
+            io, ie = intake.communicate(timeout=20)
+            self.assertEqual(intake.returncode, 0, io + ie)
+            ho, he = handoff.communicate(timeout=20)
+            self.assertNotEqual(handoff.returncode, 0, ho + he)
+            self.assertIn("task owner-1 changed before locked handoff", he)
+            self.assertIn("source-2", self.body())
+            self.assertNotIn("owner-1", (target / "data/backlog.md").read_text())
+        finally:
+            (self.home / "correction-release").touch()
+            if intake.poll() is None:
+                intake.terminate()
+                intake.communicate(timeout=5)
+
     def test_bound_local_transfer_keeps_full_section_and_source_close(self):
         self.run_task("add", "owner-1", "Owner", "--owner-request-file",
                       self.save("transfer.json", self.packet()))
