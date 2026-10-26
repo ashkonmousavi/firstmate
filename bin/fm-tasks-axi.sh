@@ -6,8 +6,8 @@
 #
 # Every routine firstmate backlog read or mutation goes through this command
 # rather than a bare `tasks-axi`; `fm-tasks-axi.sh <command> --help` prints
-# tasks-axi's own help. Arguments reach tasks-axi as given, apart from one
-# rewrite that keeps file arguments meaning what the caller meant: a relative
+# tasks-axi's own help. Apart from the owner-request custody path below, arguments
+# reach tasks-axi as given, with a rewrite that preserves file arguments: a relative
 # value of `--to` or any `--*-file` flag (`--body-file`, `--relation-file`, ...)
 # is made absolute against the caller's working directory, because tasks-axi
 # starts from the backlog root instead. `--report` stays as given: tasks-axi
@@ -21,6 +21,11 @@
 # Packet authoring contract and exact PACKET/SOURCE/REQ/REF fields:
 # bin/fm-request-acceptance.py's module header and validator below those fields.
 # Example: fm-tasks-axi.sh add <id> '<title>' --owner-request-file <private-json-path>.
+# Owner-request custody requires an explicit safe task ID; add/create --mint
+# remains the ordinary unbound path and cannot take --owner-request-file.
+# An exact packet retry confirms the existing native full body without another
+# write; conflicting or unavailable confirmation refuses. Packet updates archive
+# the prior body, preserving ordinary prose and earlier source/correction records.
 #
 # `show` (including `view`) and `list` decode stored captain-hold reasons
 # through bin/fm-hold-reason-lib.sh, which owns the field-only decoding contract.
@@ -44,7 +49,7 @@
 # The data directory is FM_DATA_OVERRIDE, else $FM_HOME/data, else the code
 # root's data/ (FM_HOME unset keeps the single-home layout unchanged).
 #
-# Refusals (exit 2, nothing run):
+# Preflight refusals (exit 2, no tasks-axi mutation):
 #   - tasks-axi missing from PATH;
 #   - a caller-supplied --file, because this command owns the addressing and
 #     tasks-axi would silently let the last --file win;
@@ -58,6 +63,8 @@
 #   - a markdown `<data>/backlog.md` that is itself a symlink, because the
 #     first write would replace the link with a private copy, exactly the fork
 #     this command exists to prevent. Lifecycle transitions refuse the same file.
+# Custody failures also exit 2; a post-write failure leaves the write unconfirmed,
+# so preserve the packet for exact readback confirmation rather than recreating it.
 # Otherwise the exit status is tasks-axi's own, unless decoding a read fails;
 # in that case the decoder's nonzero status is returned.
 set -u

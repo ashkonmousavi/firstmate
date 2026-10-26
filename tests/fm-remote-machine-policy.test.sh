@@ -8,6 +8,8 @@ policy_host_root="$TMP_ROOT/host-root"
 policy_home="$TMP_ROOT/remote-home"
 policy_parent="$TMP_ROOT/main"
 git clone -q --shared "$ROOT" "$policy_host_root"
+# Gate worktrees have detached HEADs; give the disposable host a default branch.
+git -C "$policy_host_root" checkout -q -B main
 git clone -q --shared "$ROOT" "$policy_parent"
 mkdir -p "$policy_host_root/config" "$policy_parent/"{config,data,state}
 printf 'schema=fm-remote-home-provision.v1\nid_b64=%s\ncharter_b64=%s\nproject_count=0\n' \

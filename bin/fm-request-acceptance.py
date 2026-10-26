@@ -35,6 +35,7 @@ content_sha256; do not invent a receipt or infer one from a filename.
 On correction, append the new source UUID and replacement requirement ID in
 the same task. Use corrections[{id,superseded_by:[replacement_id]}] only for
 the specifically superseded prior IDs; preserve unrelated sources and parts.
+Replacement IDs must exist and the combined replacement graph must be acyclic.
 The wrapper merges under the existing task lock and verifies show --full;
 an unconfirmed write or stale body preimage is a refusal, not an automatic retry.
 Transfer, archive and relaunch retain the section rather than reinterpret it.

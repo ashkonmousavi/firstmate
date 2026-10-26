@@ -4,15 +4,17 @@
 # (this library reads that one's backend gate and never sources it itself, so a
 # caller that already sourced it keeps its memoised compatibility verdict).
 #
-# INVARIANT. In ordinary successful lifecycle state, `state/<id>.meta` exists
-# <=> this home's backlog row for <id> is In flight; the one teardown crash
-# window is represented by `state/<id>.backlog-close`. The script performing the
-# mechanical record change owns the paired backlog transition and runs it in the
+# INVARIANT. Dispatch pairs `state/<id>.meta` publication with this home's
+# In flight transition. Explicit native acceptance may leave a Done row with
+# metadata awaiting cleanup; retained work may remain open without a worker.
+# The teardown crash window is represented by `state/<id>.backlog-close`.
+# The script performing the mechanical record change owns its bookkeeping in the
 # same process, under the per-task meta lock it already holds, before it reports
 # success. Nothing else - not a later agent turn, not a printed reminder - is
 # load-bearing for the pairing.
 #   bin/fm-spawn.sh      meta published => `tasks-axi start`
-#   bin/fm-teardown.sh   meta removed => `tasks-axi done`, or `tasks-axi reopen`
+#   bin/fm-teardown.sh   meta removed => completion-link backfill on an accepted
+#                        row, or `tasks-axi reopen`
 #                        with the deliverable recorded when the row is still an
 #                        open captain call (bin/fm-captain-hold.sh `open`), so
 #                        cleanup never retires the captain's own question
@@ -45,7 +47,9 @@
 # The writer and replay share one complete-record validator, and teardown stages
 # that record before destructive cleanup, so it never publishes or acts on a close
 # replay would reject. The validator pins the data path to this home's configured
-# root before any recovery mutation, then re-runs exactly that close.
+# root before any recovery mutation. A closing replay requires an already-Done
+# row (or confirmed absence) both before metadata removal and before close
+# bookkeeping; pending work keeps its recovery record instead of being accepted.
 # `tasks-axi done` on an already-closed task backfills links
 # without moving the close date, so replay is idempotent. Spawn needs no marker:
 # it publishes the meta first, so a crash

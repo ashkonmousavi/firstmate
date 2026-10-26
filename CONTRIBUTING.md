@@ -44,9 +44,9 @@ Add required status checks with `strict_required_status_checks_policy: false`; a
 Bind the checks to the GitHub Actions app already producing them, rather than accepting the same context from any integration.
 No new app installation or manual runner setup is needed for that setting.
 
-Require the actual job contexts: `Lint 1`, `Lint 2`, `Test coverage guard`, `Repo invariants`, `Stock macOS Bash snapshot compatibility`, `Behavior portable parallel 1`, `Behavior portable parallel 2`, `Behavior portable serial 1` through `Behavior portable serial 9`, `Behavior tests (Herdr)`, `Behavior timing aggregate`, and `PR must be raised via no-mistakes`.
+Require the actual job contexts: `Lint 1`, `Lint 2`, `Test coverage guard`, `Repo invariants`, `Stock macOS Bash snapshot compatibility`, `Behavior portable parallel 1`, `Behavior portable parallel 2`, `Behavior portable serial 1` through `Behavior portable serial 9`, `Behavior tests (Herdr)`, and `PR must be raised via no-mistakes`.
 The last name is the compliance job context, not its workflow title; its existing automation exceptions remain unchanged.
-The timing aggregate is not a substitute for individual jobs because it can succeed while collecting evidence from a failed run.
+Keep `Behavior timing aggregate` out of required checks; its optional evidence configuration is described under [Development](#development), and it cannot substitute for individual producer jobs.
 
 Apply the approved rule change only after the corresponding workflow is green and landed, confirming exact names and the Actions integration id from real checks first.
 Snapshot the current ruleset, amend that same rule with the authenticated GitHub API or settings UI, and read back both the ruleset and effective branch rules.
@@ -135,7 +135,8 @@ CI owns broad regression across required portable parallel shards, the portable 
 Pushing a new head to a pull request cancels that pull request's still-running CI so only the current head is validated; push-event runs are never cancelled by this concurrency policy, and the workflow owns that contract and its rationale.
 A fork can set the repository variable `FM_CI_SKIP_PUSH` to `1` to skip the push run of `CI`, and `FM_CI_SKIP_MACOS` to `1` to skip the stock macOS Bash job, without a tracked edit that drifts from upstream.
 Each skip is a job-level condition, so a skipped job reports success rather than leaving the pull request pending.
-On this fork's remote Linux CI route, `FM_CI_HOSTED_EVIDENCE` is an optional repository variable: leave it unset to skip hosted artifact uploads and the timing aggregate job, or set it to `1` to run both.
+Linux CI jobs run on standard hosted Ubuntu runners, including the separate no-mistakes compliance job.
+`FM_CI_HOSTED_EVIDENCE` is an optional repository variable: leave it unset to skip hosted artifact uploads and the timing aggregate job, or set it to `1` to run both.
 When enabled, missing timing inputs fail the aggregate; required producer and test outcomes remain visible in their job logs.
 Use `bin/fm-test-run.sh --list-lanes` for exact lane names and `--help` for `--jobs` rules and required gate-skip flags when reproducing a lane locally.
 Leave the `sleep 0.1` cadence in the suites' bounded condition waits alone.
