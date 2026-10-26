@@ -847,6 +847,7 @@ test_secondmate_marked_request_reporting_contract() {
     "secondmate charter lost correlated parent results"
   assert_grep "bin/fm-secondmate-report.sh <state> <corr_id> '<one short note>'" "$brief" \
     "secondmate charter lost the mechanical helper invocation"
+  # shellcheck disable=SC2016 # Match the documented fallback's literal backticks.
   assert_grep 'literal line `<state> [corr=<id>] [at=<epoch>]: <note>`' "$brief" \
     "secondmate charter lost the correlated literal fallback"
   assert_grep 'safe literal-input contract of the status command below' "$brief" \
