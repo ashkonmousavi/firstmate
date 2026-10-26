@@ -1,5 +1,6 @@
 """End-to-end backstop cases: fake transports, real durable inbox and processes."""
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -7,6 +8,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(os.environ['ROOT'])
 HAS_PROC_RUNNER = all(os.access('/proc/self/' + name, os.R_OK)
@@ -47,6 +49,7 @@ a=sys.argv[1:]
 if a[-2:-1]==['--session']:a=a[:-2]
 with open(os.environ['BACKSTOP_CALLS'],'a') as f:f.write(json.dumps(a)+'\\n')
 if a==['pane','list']:
+ if c.get('revoke_on_discovery'):Path(os.environ['BACKSTOP_SEND_FILE']).unlink(missing_ok=True)
  p={'pane_id':'live:p1','agent':c['agent'],'cwd':os.environ['FM_HOME']}
  print(json.dumps({'result':{'panes':[p]*c['panes']}}))
 elif a[:2]==['pane','process-info']:
@@ -110,6 +113,7 @@ os.execv(real,[command]+sys.argv[3:])
                         BACKSTOP_REMOTE=str(self.base / 'remote'),
                         BACKSTOP_ROOT=str(ROOT),
                         BACKSTOP_REMOTE_FAILS=str(self.base / 'remote-fails.txt'))
+        self.send_enabled_file = None
         # No test inherits a real operational state override.
         for key in ['FM_STATE_OVERRIDE', 'FM_DATA_OVERRIDE', 'FM_CONFIG_OVERRIDE']:
             self.env.pop(key, None)
@@ -120,15 +124,123 @@ os.execv(real,[command]+sys.argv[3:])
 
     def run_guard(self):
         self.fixture.write_text(json.dumps(self.config))
-        result = subprocess.run(['python3', '-c',
+        argv = ['python3', '-c',
                                  'import runpy,sys,time; clock=float(sys.argv.pop(1)); time.time=lambda:clock; '
                                  'sys.argv=sys.argv[1:]; runpy.run_path(sys.argv[0],run_name="__main__")',
                                  str(self.now), str(ROOT / 'bin/fm-main-backstop.py'),
                                  '--home', str(self.home), '--code-root', str(self.code),
-                                 '--mate', 'q-server'], env=self.env,
+                                 '--mate', 'q-server']
+        if self.send_enabled_file is not None:
+            argv += ['--send-enabled-file', str(self.send_enabled_file)]
+        result = subprocess.run(argv, env=self.env,
                                 capture_output=True, text=True, timeout=25)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
+
+    def select_send_file(self, content=b'enabled\n'):
+        config = self.home / 'config'
+        config.mkdir(exist_ok=True)
+        config.chmod(0o700)
+        self.send_enabled_file = config / 'main-backstop-send-enabled'
+        self.send_enabled_file.write_bytes(content)
+        self.send_enabled_file.chmod(0o600)
+        self.env['BACKSTOP_SEND_FILE'] = str(self.send_enabled_file)
+        return self.send_enabled_file
+
+    def assert_observe_only(self):
+        self.assertEqual(self.notes(), '')
+        self.assertFalse((self.state / '.wake-queue').exists())
+        self.assertFalse(any(c[0] in ('pane', 'agent') for c in self.commands()))
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('last_nudge', self.memory())
+        self.assertEqual((self.home / 'data/main-pane').read_text(), 'dead:old\n')
+
+    def test_selected_missing_or_malformed_capability_keeps_watcher_observe_only(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        self.run_guard()
+        self.assert_observe_only()
+        self.assertIn('recovery', self.memory()['deferred_alarms'])
+
+    def test_held_incident_keeps_identity_until_enabled_note(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        self.run_guard()
+        incident = self.memory()['episodes']['recovery']
+        self.assertIn('recovery', self.memory()['deferred_alarms'])
+        selected.write_bytes(b'enabled\n')
+        selected.chmod(0o600)
+        self.run_guard()
+        self.assertIn('BACKSTOP HELD', self.notes())
+        self.assertIn(incident, self.notes())
+        self.assertNotIn('recovery', self.memory()['deferred_alarms'])
+
+    def test_selected_valid_capability_is_recognized(self):
+        selected = self.select_send_file()
+        spec = importlib.util.spec_from_file_location('backstop_candidate', ROOT / 'bin/fm-main-backstop.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertTrue(module.send_capability_enabled(self.home, selected))
+
+    def test_malformed_large_and_symlink_capabilities_refuse_send(self):
+        for contents in (b'enabled', b'enabled\nextra', b'x' * 1024):
+            with self.subTest(contents=contents[:12]):
+                self.select_send_file(contents)
+                self.run_guard()
+                self.assert_observe_only()
+        selected = self.send_enabled_file
+        selected.unlink()
+        target = self.base / 'enabled-target'
+        target.write_bytes(b'enabled\n')
+        selected.symlink_to(target)
+        self.run_guard()
+        self.assert_observe_only()
+        selected.unlink()
+        selected.write_bytes(b'enabled\n')
+        (self.home / 'config').chmod(0o777)
+        self.run_guard()
+        self.assert_observe_only()
+
+    def test_disabled_runner_and_lag_incidents_keep_cursors_without_notes(self):
+        self.send_enabled_file = self.home / 'config/main-backstop-send-enabled'
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.config['remote'] = 1001
+        self.run_guard()
+        self.run_guard()
+        self.assert_observe_only()
+        memory = self.memory()
+        self.assertIn('q-server', memory['runner_fails'])
+        self.assertEqual(memory['lag_oldest']['q-server'], 1001)
+        self.assertEqual(memory['readers']['q-server']['pending_at'], [1001])
+
+    def test_disabled_read_failure_does_not_write_alarm_or_drop_incident(self):
+        self.send_enabled_file = self.home / 'config/main-backstop-send-enabled'
+        (self.state / '.last-watcher-beat').touch()
+        self.config['fail_reads'] = 2
+        self.run_guard()
+        self.run_guard()
+        self.assert_observe_only()
+        self.assertIn('q-server', self.memory()['read_fails'])
+
+    def test_revocation_during_discovery_refuses_submission_and_note(self):
+        self.select_send_file()
+        self.config['revoke_on_discovery'] = True
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('last_nudge', self.memory())
+        self.assertEqual(self.notes(), '')
+
+    def test_wrong_owner_capability_is_refused_by_reader(self):
+        selected = self.select_send_file()
+        spec = importlib.util.spec_from_file_location('backstop_candidate', ROOT / 'bin/fm-main-backstop.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        original = os.stat(selected)
+        values = list(original)
+        values[4] = original.st_uid + 1
+        with patch.object(module.os, 'fstat', return_value=os.stat_result(values)):
+            self.assertFalse(module.send_capability_enabled(self.home, selected))
 
     def commands(self):
         return [json.loads(x) for x in self.calls.read_text().splitlines()] if self.calls.exists() else []
