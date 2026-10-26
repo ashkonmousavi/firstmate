@@ -98,7 +98,8 @@ def send_capability_enabled(home, path):
         if (not stat.S_ISDIR(config.st_mode) or config.st_uid != owner
                 or config.st_mode & 0o022):
             return False
-        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+                     | os.O_NONBLOCK)
         info = os.fstat(fd)
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner
                 or info.st_uid != os.geteuid() or info.st_nlink != 1
@@ -465,8 +466,6 @@ def main():
                 # use a saved id when a primary has exited or changed panes.
                 if live_primary(home, env) != pane:
                     raise ProbeError('primary changed during discovery')
-                if not send_enabled():
-                    raise ProbeError('send capability revoked')
                 text = '[backstop] ' + '; '.join(trouble) + '. Drain wakes and handle the recovery; your turn-end owner re-arms supervision.'
                 target = env.get('HERDR_SESSION', 'default') + ':' + pane
                 if not send_enabled():

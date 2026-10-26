@@ -219,6 +219,23 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.assert_observe_only()
 
+    def test_fifo_capability_is_rejected_without_blocking(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        os.mkfifo(selected, 0o600)
+        program = (
+            'import importlib.util,sys; from pathlib import Path; '
+            'spec=importlib.util.spec_from_file_location("backstop_fifo",sys.argv[1]); '
+            'module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); '
+            'print(module.send_capability_enabled(Path(sys.argv[2]),Path(sys.argv[3])))'
+        )
+        child = subprocess.run(
+            ['python3', '-c', program, str(ROOT / 'bin/fm-main-backstop.py'),
+             str(self.home), str(selected)], env=self.env,
+            capture_output=True, text=True, timeout=2)
+        self.assertEqual(child.returncode, 0, child.stderr)
+        self.assertEqual(child.stdout.strip(), 'False')
+
     def test_disabled_runner_and_lag_incidents_keep_cursors_without_notes(self):
         self.send_enabled_file = self.home / 'config/main-backstop-send-enabled'
         (self.state / '.last-watcher-beat').touch()
