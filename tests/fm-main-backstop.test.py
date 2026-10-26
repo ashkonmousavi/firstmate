@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 import time
@@ -28,6 +29,7 @@ class Backstop(unittest.TestCase):
             path.mkdir(parents=True)
         self.executable(self.code / 'bin/fm-inbox.sh', '#!/bin/bash\nexec \"' + str(ROOT / 'bin/fm-inbox.sh') + '\" \"$@\"\n')
         self.executable(self.code / 'bin/fm-backend.sh',
+                        'export PATH=' + shlex.quote(str(self.fake)) + ':$PATH\n'
                         '. ' + repr(str(ROOT / 'bin/fm-backend.sh')) + '\n')
         (self.state / 'example.meta').touch()
         (self.state / '.last-watcher-beat').touch()
@@ -155,6 +157,15 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertNotIn('last_nudge', self.memory())
         self.assertEqual((self.home / 'data/main-pane').read_text(), 'dead:old\n')
 
+    def test_nested_backend_shell_uses_recording_transport(self):
+        selected = self.select_send_file()
+        self.assertTrue(selected.exists())
+        probe = subprocess.run(['bash', '-c', '. "$1"; command -v herdr', 'fixture',
+                                str(self.code / 'bin/fm-backend.sh')], env=self.env,
+                               capture_output=True, text=True, timeout=5)
+        self.assertEqual(probe.returncode, 0, probe.stderr)
+        self.assertEqual(probe.stdout.strip(), str(self.fake / 'herdr'))
+
     def test_selected_missing_or_malformed_capability_keeps_watcher_observe_only(self):
         selected = self.select_send_file()
         selected.unlink()
@@ -181,6 +192,13 @@ os.execv(real,[command]+sys.argv[3:])
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         self.assertTrue(module.send_capability_enabled(self.home, selected))
+
+    def test_selected_valid_capability_allows_confirmed_nudge(self):
+        self.select_send_file()
+        self.run_guard()
+        self.assertTrue(any(c[:2] == ['pane', 'read'] for c in self.commands()))
+        self.assertEqual(len(self.sends()), 1)
+        self.assertIn('last_nudge', self.memory())
 
     def test_malformed_large_and_symlink_capabilities_refuse_send(self):
         for contents in (b'enabled', b'enabled\nextra', b'x' * 1024):
