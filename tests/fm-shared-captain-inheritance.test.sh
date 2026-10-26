@@ -829,6 +829,7 @@ test_worker_sheet_failed_publication_leaves_fresh_alias_absent() {
   mkdir -p "$primary/config" "$primary/data" "$second/config" "$second/data" "$remote/config" "$remote/data"
   printf 'current owner policy\n' > "$primary/config/worker-sheet.md"
   if (
+    # shellcheck disable=SC2329 # Called by propagate_inheritable_config in the sourced library.
     copy_inheritable_file() { return 1; }
     FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$primary/config" "$second/config" "$primary"
   ) >/dev/null 2>&1; then

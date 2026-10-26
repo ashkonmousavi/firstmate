@@ -7,6 +7,8 @@
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=tests/lib.sh
+. "$ROOT/tests/lib.sh"
 HERDR_LAB_HELPER=${HERDR_LAB_HELPER:-$ROOT/bin/fm-herdr-lab.sh}
 
 fail() { printf 'not ok - %s\n' "$1" >&2; cleanup_all; exit 1; }
@@ -299,6 +301,7 @@ EOF
   fi
   find "$TMP_ROOT" -type d -exec chmod u+rwx {} + 2>/dev/null || true
   rm -rf "$TMP_ROOT"
+  fm_test_cleanup
 }
 trap cleanup_all EXIT
 

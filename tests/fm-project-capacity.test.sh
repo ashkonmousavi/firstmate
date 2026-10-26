@@ -167,7 +167,7 @@ declare_capacity() {  # <home> <line>...
 }
 
 # A live worker already on a project: the record shape bin/fm-spawn.sh
-# publishes, with its backlog item In flight so cleanup can close it.
+# publishes, with its backlog item In flight until explicitly accepted.
 write_live() {  # <home> <id> <project-dir> [extra-line...]
   local home=$1 id=$2 project=$3
   shift 3
@@ -495,7 +495,11 @@ test_release_frees_a_place() {
   expect_code "$DEFER_EXIT" "$rc" "one freed place admitted two workers: $out"
   assert_contains "$out" "2 already hold a place (live-b, task-c)" "the new worker did not take the freed place"
 
-  # Cleanup: the real teardown removes the record, which frees its place.
+  # Accepted cleanup: the real teardown removes the record, freeing its place.
+  if [ "$HAVE_TASKS_AXI" = 1 ]; then
+    FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" 'done' live-b >/dev/null \
+      || fail "could not accept the completed worker before cleanup"
+  fi
   rc=0
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_CONFIG_OVERRIDE='' \
     FM_FAKE_CALL_LOG="$case_dir/calls.log" PATH="$case_dir/fakebin:$PATH" \

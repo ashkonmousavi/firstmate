@@ -27,6 +27,8 @@
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=tests/lib.sh
+. "$ROOT/tests/lib.sh"
 
 fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
 pass() { printf 'ok - %s\n' "$1"; }
@@ -78,6 +80,7 @@ cleanup_all() {
   [ -n "$WT" ] && command -v treehouse >/dev/null 2>&1 && treehouse return --force "$WT" >/dev/null 2>&1
   "$HERDR_LAB_HELPER" teardown "$HERDR_LAB_SESSION" || cleanup_status=$?
   rm -rf "$TMP_ROOT"
+  fm_test_cleanup
   return "$cleanup_status"
 }
 on_exit() {
@@ -94,6 +97,7 @@ trap on_exit EXIT
 STATE="$TMP_ROOT/state"; DATA="$TMP_ROOT/data"; CONFIG="$TMP_ROOT/config"
 mkdir -p "$STATE" "$DATA/$ID" "$CONFIG"
 printf '999999 0\n' > "$CONFIG/lane-capacity"
+fm_test_machine_policy "$CONFIG"
 # Backend auto-detection is what is under test here, so opt out of the default-on
 # presentation projection and keep the assertions on the flat per-home workspace.
 printf 'off\n' > "$CONFIG/herdr-presentation-spaces"
