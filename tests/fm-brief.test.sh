@@ -783,10 +783,14 @@ test_secondmate_no_projects_charter() {
     "project-less charter kept the with-projects operating-model line"
   assert_grep '# The captain and the parent channel' "$brief" \
     "secondmate charter lost the parent-channel section"
-  assert_grep 'Nobody reads this chat' "$brief" \
-    "secondmate charter no longer says the chat is unread"
-  assert_grep 'in this home it IS the captain' "$brief" \
-    "secondmate charter no longer names the parent channel as the captain"
+  assert_grep 'For MAIN-routed work, the main firstmate reads replies appended to' "$brief" \
+    "secondmate charter lost MAIN-routed parent replies"
+  assert_grep "does not replace the captain's direct conversation or expand this charter's routing scope" "$brief" \
+    "secondmate charter overrode direct captain conversation or routing scope"
+  assert_no_grep 'Nobody reads this chat' "$brief" \
+    "secondmate charter still claims no one reads direct chat"
+  assert_no_grep 'in this home it IS the captain' "$brief" \
+    "secondmate charter still equates the parent channel with the captain"
   assert_grep 'working [key=<work-slug>]' "$brief" \
     "secondmate charter did not key material routed-work phases"
   assert_grep 'resolved [key=<work-slug>]' "$brief" \
@@ -841,8 +845,18 @@ test_secondmate_marked_request_reporting_contract() {
 
   assert_grep 'include that exact token in your parent status reply' "$brief" \
     "secondmate charter lost correlated parent results"
-  assert_grep 'bin/fm-secondmate-report.sh <verb> <corr_id> <note>' "$brief" \
+  assert_grep "bin/fm-secondmate-report.sh <state> <corr_id> '<one short note>'" "$brief" \
     "secondmate charter lost the mechanical helper invocation"
+  assert_grep 'literal line `<state> [corr=<id>] [at=<epoch>]: <note>`' "$brief" \
+    "secondmate charter lost the correlated literal fallback"
+  assert_grep 'safe literal-input contract of the status command below' "$brief" \
+    "secondmate charter lost the safe append contract"
+  assert_grep 'For an unsolicited material report, retain the state/time/key format' "$brief" \
+    "secondmate charter lost unsolicited report format"
+  assert_grep 'An explicit stop or task hold takes precedence' "$brief" \
+    "secondmate charter lost stop and hold precedence"
+  assert_grep 'do not bootstrap, recover, dispatch, or wake actors while a stop or hold applies' "$brief" \
+    "secondmate charter still permits bootstrap or actor wakes under a hold"
   assert_grep 'do not pass a status path' "$brief" \
     "secondmate charter still tells the mate to pass a hand path to the helper"
   assert_grep 'For a terse result, a status line is the whole answer.' "$brief" \
@@ -1289,7 +1303,7 @@ test_worker_role_scope() {
   assert_no_grep '# Current worker role contract' "$brief" "secondmate received the worker exception"
   assert_no_grep 'do not adopt the supervisor identity' "$brief" "secondmate received the worker exception"
   assert_grep "The local \`AGENTS.md\` is your job description" "$brief" "secondmate lost its supervisor contract"
-  assert_grep 'That file is your parent channel' "$brief" "secondmate lost its parent channel"
+  assert_grep 'That file is the parent channel for shared-fleet coordination and MAIN-routed outcomes' "$brief" "secondmate lost its parent channel"
   pass "fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract"
 }
 
