@@ -480,6 +480,87 @@ class RequestCustody(unittest.TestCase):
         self.assertNotIn("fix_commit", body)
         self.assertNotIn("deployed_receipt_ref", body)
 
+    def test_add_retry_confirms_unconfirmed_write_without_second_add(self):
+        packet = self.save("add-retry.json", self.packet())
+        fakebin = self.home / "add-retry-bin"
+        fakebin.mkdir()
+        real = subprocess.check_output(["which", "tasks-axi"], text=True).strip()
+        shim = fakebin / "tasks-axi"
+        shim.write_text("#!/usr/bin/env bash\n"
+                        "if [ \"$1\" = add ]; then printf 'add\n' >> \"$FM_ADD_LOG\"; touch \"$FM_ADD_SEEN\"; fi\n"
+                        "if [ \"$1\" = show ] && [ -f \"$FM_ADD_SEEN\" ] && mkdir \"$FM_READBACK_FAIL_ONCE\" 2>/dev/null; then exit 29; fi\n"
+                        f"exec {real} \"$@\"\n")
+        shim.chmod(0o755)
+        log = self.home / "native-add.log"
+        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env["PATH"],
+                   FM_ADD_LOG=str(log), FM_ADD_SEEN=str(self.home / "add-seen"),
+                   FM_READBACK_FAIL_ONCE=str(self.home / "readback-failed"))
+        first = subprocess.run([str(WRAPPER), "add", "owner-1", "Owner", "--owner-request-file", str(packet)],
+                               env=env, cwd=self.home, capture_output=True, text=True)
+        self.assertNotEqual(first.returncode, 0)
+        self.assertIn("unconfirmed", first.stderr)
+        self.assertIn("source-1", self.body())
+        second = subprocess.run([str(WRAPPER), "add", "owner-1", "Owner", "--owner-request-file", str(packet)],
+                                env=env, cwd=self.home, capture_output=True, text=True)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertIn("no task write", second.stdout)
+        self.assertEqual(log.read_text().splitlines(), ["add"])
+
+    def test_add_retry_existing_different_body_refuses_without_write(self):
+        self.run_task("add", "owner-1", "Owner", "--body", "Different source")
+        before = self.body()
+        result = self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                               self.save("different-existing.json", self.packet()), ok=False)
+        self.assertNotIn("no task write", result.stdout)
+        self.assertEqual(self.body(), before)
+
+    def test_add_retry_preserves_later_native_state(self):
+        packet = self.save("state-retry.json", self.packet())
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file", packet)
+        self.run_task("start", "owner-1")
+        before = self.run_task("show", "owner-1", "--full").stdout
+        retry = self.run_task("add", "owner-1", "Different title", "--owner-request-file", packet)
+        self.assertIn("no task write", retry.stdout)
+        after = self.run_task("show", "owner-1", "--full").stdout
+        self.assertEqual(before, after)
+
+    def test_add_retry_stale_absence_cannot_accept_backend_duplicate(self):
+        packet = self.save("stale-absence.json", self.packet())
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file", packet)
+        before = self.body()
+        fakebin = self.home / "stale-absence-bin"
+        fakebin.mkdir()
+        real = subprocess.check_output(["which", "tasks-axi"], text=True).strip()
+        shim = fakebin / "tasks-axi"
+        shim.write_text("#!/usr/bin/env bash\n"
+                        "if [ \"$1\" = show ] && mkdir \"$FM_FALSE_ABSENCE_ONCE\" 2>/dev/null; then printf 'error: absent\ncode: NOT_FOUND\n'; exit 1; fi\n"
+                        f"exec {real} \"$@\"\n")
+        shim.chmod(0o755)
+        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env["PATH"],
+                   FM_FALSE_ABSENCE_ONCE=str(self.home / "false-absence-once"))
+        retry = subprocess.run([str(WRAPPER), "add", "owner-1", "Owner", "--owner-request-file", str(packet)],
+                               env=env, cwd=self.home, capture_output=True, text=True)
+        self.assertNotEqual(retry.returncode, 0)
+        self.assertIn("write unconfirmed", retry.stderr)
+        self.assertEqual(self.body(), before)
+
+    def test_add_retry_unreadable_existing_row_cannot_confirm(self):
+        packet = self.save("unreadable-retry.json", self.packet())
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file", packet)
+        fakebin = self.home / "unreadable-bin"
+        fakebin.mkdir()
+        real = subprocess.check_output(["which", "tasks-axi"], text=True).strip()
+        shim = fakebin / "tasks-axi"
+        shim.write_text("#!/usr/bin/env bash\nif [ \"$1\" = show ]; then exit 29; fi\n"
+                        f"exec {real} \"$@\"\n")
+        shim.chmod(0o755)
+        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env["PATH"])
+        retry = subprocess.run([str(WRAPPER), "add", "owner-1", "Owner", "--owner-request-file", str(packet)],
+                               env=env, cwd=self.home, capture_output=True, text=True)
+        self.assertNotEqual(retry.returncode, 0)
+        self.assertNotIn("no task write", retry.stdout)
+        self.assertIn("source-1", self.body())
+
     def test_failed_native_full_readback_reports_unconfirmed_write(self):
         packet = self.save("readback.json", self.packet())
         real = subprocess.check_output(["which", "tasks-axi"], text=True).strip()
@@ -487,10 +568,12 @@ class RequestCustody(unittest.TestCase):
         fakebin.mkdir()
         shim = fakebin / "tasks-axi"
         shim.write_text("#!/usr/bin/env bash\n"
-                        "if [ \"$1\" = show ]; then printf 'task:\n  id: wrong-id\n  body: \"-\"\n'; exit 0; fi\n"
+                        "if [ \"$1\" = add ]; then touch \"$FM_READBACK_ADDED\"; fi\n"
+                        "if [ \"$1\" = show ] && [ -f \"$FM_READBACK_ADDED\" ]; then printf 'task:\n  id: wrong-id\n  body: \"-\"\n'; exit 0; fi\n"
                         f"exec {real} \"$@\"\n")
         shim.chmod(0o755)
-        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env["PATH"])
+        env = dict(self.env, PATH=str(fakebin) + os.pathsep + self.env["PATH"],
+                   FM_READBACK_ADDED=str(self.home / "readback-added"))
         result = subprocess.run([str(WRAPPER), "add", "owner-1", "Owner", "--owner-request-file", str(packet)],
                                 env=env, cwd=self.home, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)

@@ -250,6 +250,17 @@ PYPACKET
       "$SCRIPT_DIR/fm-request-acceptance.py" compare-section --body-file "$PRIOR_BODY" --packet-file "$STAGED_BODY" --task-id "$ID" --home "$FM_HOME" || fail "bound acceptance section changed by ordinary edit"
     fi
   fi
+  if [ "$operation" = add ] && [ -n "$OWNER_REQUEST_FILE" ]; then
+    # An add may have landed before its readback failed. Only a complete
+    # native show of this exact task body can confirm that prior write.
+    if shown=$(tasks-axi show "$ID" --full 2>&1); then
+      printf '%s\n' "$shown" | "$SCRIPT_DIR/fm-request-acceptance.py" compare-show --body-file "$STAGED_BODY" --task-id "$ID" --home "$FM_HOME" || fail "existing native task does not match owner request; no task write"
+      printf 'ok: owner request already recorded for %s; no task write\n' "$ID"
+      exit 0
+    fi
+    show_code=$(printf '%s\n' "$shown" | sed -n 's/^code: //p')
+    [ "$show_code" = NOT_FOUND ] || fail "native task confirmation unavailable; no task write"
+  fi
   if [ "$operation" = update ] && [ -n "$OWNER_REQUEST_FILE" ] && cmp -s "$PRIOR_BODY" "$STAGED_BODY"; then
     [ "${#ARGS[@]}" -eq 2 ] || fail "already recorded packet has unrelated update fields"
     printf '%s\n' "$shown" | "$SCRIPT_DIR/fm-request-acceptance.py" compare-show --body-file "$PRIOR_BODY" --task-id "$ID" --home "$FM_HOME" || fail "native no-op confirmation failed"
@@ -268,7 +279,15 @@ PYPACKET
   done
   REWRITTEN+=(--body-file "$STAGED_BODY")
   [ -z "$OWNER_REQUEST_FILE" ] || { [ "$operation" != update ] || REWRITTEN+=(--archive-body); }
-  tasks-axi "${REWRITTEN[@]}" || fail "native task write failed"
+  if [ "$operation" = add ] && [ -n "$OWNER_REQUEST_FILE" ]; then
+    write_out=$(tasks-axi "${REWRITTEN[@]}" 2>&1) || fail "native task write failed"
+    if printf '%s\n' "$write_out" | grep -Fxq 'already: true'; then
+      fail "native add found an existing task after the absence read; write unconfirmed"
+    fi
+    printf '%s\n' "$write_out"
+  else
+    tasks-axi "${REWRITTEN[@]}" || fail "native task write failed"
+  fi
   shown=$(tasks-axi show "$ID" --full) || fail "native full task readback failed; write unconfirmed"
   if [ -n "$OWNER_REQUEST_FILE" ]; then
     printf '%s\n' "$shown" | "$SCRIPT_DIR/fm-request-acceptance.py" compare-show --body-file "$STAGED_BODY" --task-id "$ID" --home "$FM_HOME" || fail "native request readback mismatch; write unconfirmed"
