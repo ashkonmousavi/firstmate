@@ -1,0 +1,5 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5YHVT77DFX9ZHWYVCCZTXPR/.test-tmp/fm-codex-typed-live.PBt5vZ/home
+ok - real codex codex-cli 0.163.0 on tmux: a new-folder scout starts processing its typed launch brief within 9s and answers it
+ok - real codex codex-cli 0.163.0 on tmux: the trusted-folder relaunch rendered no trust dialog
+ok - real codex codex-cli 0.163.0 on tmux: a trusted-folder relaunch starts processing its typed launch brief within 6s
+ok - real codex codex-cli 0.163.0 typed launch brief verified end to end on an isolated tmux server

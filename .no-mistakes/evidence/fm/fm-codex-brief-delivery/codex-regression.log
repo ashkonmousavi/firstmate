@@ -1,0 +1,13 @@
+ok - fm-spawn: codex launches bare, answers its dialogs, and types its launch brief
+ok - fm-spawn: FM_CODEX_POSITIONAL_LAUNCH=1 keeps the positional launch and skips the typed gates
+ok - fm-spawn: secondmates type their charter, preserve primary hooks, and honor the positional probe
+ok - fm-spawn: a codex that never readies reports 'codex did not take the brief'
+ok - fm-spawn: the update dialog is skipped, never confirmed
+ok - fm-spawn: a trust dialog that never clears fails the spawn
+ok - fm-spawn: partial dialog text never receives a key and never reads ready
+ok - fm-spawn: an unconfirmed brief submit refuses the spawn
+ok - fm-spawn: the working footer confirms brief processing
+ok - fm-spawn: old working and completed turns cannot confirm a new submission
+ok - fm-spawn: a fresh completed turn confirms delivery without a sampled busy frame
+ok - fm-spawn: a viewport read failure fails the codex spawn loudly
+ok - fm-spawn: codex refuses a backend that cannot read the viewport, before launching

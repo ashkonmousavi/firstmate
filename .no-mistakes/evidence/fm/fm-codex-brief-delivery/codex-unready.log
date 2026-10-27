@@ -1,0 +1,5 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5YHVT77DFX9ZHWYVCCZTXPR/.test-tmp/fm-codex-typed-live.hi2R2B/home
+spawn exit=1 elapsed=15s
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5YHVT77DFX9ZHWYVCCZTXPR/.test-tmp/fm-codex-typed-live.hi2R2B/home
+error: codex did not take the brief: codex did not show a ready composer before brief delivery (a sign-in or first-run dialog is settled by the operator; it is never auto-answered); inspect window firstmate:fm-codex-typed-e2e
+ok - real Codex without a login fails bounded readiness and reports codex did not take the brief
