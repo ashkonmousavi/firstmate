@@ -172,6 +172,12 @@ Resolve the project independently for every request.
 An explicit project wins, a clear follow-up inherits its referent, and otherwise match the request against the registry, work under way, and project code or README.
 Proceed on one confident match while naming the project in plain language; ask one concise question when multiple or no projects plausibly match.
 
+For each owner-origin request that creates or updates a native task, including an explanation-only request or later correction, MAIN or the receiving secondmate authors a private `Owner request acceptance v1` packet before `bin/fm-tasks-axi.sh add|update --owner-request-file`.
+Capture every action and explanation part under its source UUID and stable requirement ID; append later corrections instead of rewriting earlier requirements.
+Read the packet authoring contract in `bin/fm-request-acceptance.py` before that call: never copy or hash secret spans, bind independently safe parts, and hold inseparable restricted parts.
+Transfer and relaunch preserve the bound native section; a Done row or the helper's structural readback does not qualify proof or accept a requirement.
+Non-owner tasks and historical unbound rows keep their existing task path.
+
 Route by the nature of the work against each registered secondmate scope, not by a non-exclusive clone list.
 Keep `local-only` work in the main home.
 Send in-scope work to the fitting secondmate unless it is blocked or the captain explicitly redirects it; do not read the secondmate's chat because marked routed replies return through its status or referenced document.
@@ -223,7 +229,8 @@ When a steer answers an open keyed decision or blocker, pass `fm-send`'s `--reso
 Drive a worker's lifecycle through `bin/fm-control.sh <task-id> interrupt|exit|relaunch`, which owns the per-runtime mechanics, verifies each action, and never tears down or discards anything ([`docs/agent-control.md`](docs/agent-control.md)).
 A secondmate's routed reply returns through status or a document pointer, not by firstmate peeking into its chat.
 For the parent-owned correlation, recovery, and escalation contract on marked secondmate requests, see `bin/fm-pending-reply-lib.sh`.
-When the captain adds or changes an ask mid-task, append the captain's words without added speaker labels or direct address to that brief's `## Captain's intent` and relay those words to the worker; Firstmate build constraints stay in `## Firstmate spec` or the steer.
+When the captain adds or changes an ask mid-task, first append its native source-linked requirement or correction through the intake packet path above; update the same bound task, or create a separate bound item when the existing task is legacy unbound.
+Then append the captain's words without added speaker labels or direct address to that brief's `## Captain's intent` and relay those words to the worker; Firstmate build constraints stay in `## Firstmate spec` or the steer.
 Supervise all live work under section 8.
 
 ### Selected delivery path and merge authority
@@ -365,7 +372,7 @@ Report a real blocker or failure after the relevant playbook is exhausted, then 
 The worker still routes every ask-user finding to firstmate and never answers its own finding.
 That route is not owner permission.
 
-- In a secondmate home, reaching the captain means appending the outcome to the parent channel your charter names; a captain-facing sentence in that home's chat has not been sent, and [`docs/secondmate-parent-channel.md`](docs/secondmate-parent-channel.md) owns which outcomes the home's own scripts deliver there without you.
+- In a secondmate home, route MAIN-requested outcomes through the parent channel your charter names; the charter owns direct captain conversation, and [`docs/secondmate-parent-channel.md`](docs/secondmate-parent-channel.md) owns which outcomes the home's own scripts deliver there without you.
 - Do not surface automatic fixes, retries, routine progress, or internal supervision mechanics.
 - Reply exactly `Captain, shipshape.` only for a true no-op that still needs an answer - an idle re-read, an empty heartbeat, or a pure acknowledgement with no consequence for the captain - without characterizing the visible session's unrelated decisions.
 - For a captain-requested completion, or any wake that needs the captain's review, merge, or reserved ask, give a captain-facing outcome that states what finished and never reply `Captain, shipshape.`; a finished requested deliverable is an outcome rather than progress or a no-op, and a transcript entry or durable record already showing the substance does not discharge the reply.
@@ -384,7 +391,8 @@ Work routed to a secondmate is recorded in that secondmate home's own backlog, n
 A decision is simply a task held for the captain: create the task with `bin/fm-tasks-axi.sh add` when needed, then always hold it through `bin/fm-captain-hold.sh hold <id> --reason "<reason>"`, with `--until <date>` when the captain defers it.
 When a main-side thread such as a pending captain decision or relay reminder is worth durable tracking, file it as its own work item and hold it through that wrapper.
 Captain calls discovered by investigations or visual reviews follow `captain-hold-lifecycle`, which owns their completion gate and recorded-answer rules.
-When the automatic transition gate applies, dispatch and completion move the item themselves - `bin/fm-spawn.sh` and `bin/fm-teardown.sh` own those transitions and refuse rather than report success without them - so what remains yours is filing the item before dispatch, recording decisions, and keeping notes current; `docs/configuration.md` owns gate applicability and the manual-backend exception.
+When the automatic transition gate applies, `bin/fm-spawn.sh` owns dispatch and `bin/fm-teardown.sh` owns cleanup; `ship-landing` owns pending-proof resource release and acceptance-before-cleanup ordering through the existing task commands.
+Keep filing, ownership, decisions and acceptance evidence current; `docs/configuration.md` owns gate applicability and the manual-backend exception.
 Re-evaluate queued work after every teardown and heartbeat, and also after a recorded PR-ready handoff when `config/project-capacity` caps that project, dispatching items only when dependencies, time gates, and project capacity have cleared.
 Use `bin/fm-capacity.sh` for that re-evaluation under the [machine admission requirements](docs/configuration.md#machine-capacity-configlane-capacity).
 

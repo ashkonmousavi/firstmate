@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tear down a finished task: return the treehouse worktree, release the Orca
 # worktree, or retire a secondmate home; kill the recorded runtime endpoint,
-# clear volatile state, and transition this home's backlog item for ship and
+# clear volatile state, and commit backlog cleanup bookkeeping for ship and
 # scout tasks before reporting success (a secondmate teardown transitions none,
 # since secondmates are not backlog items), then refresh/prune the project's
 # clone for PR-based ship tasks.
@@ -12,7 +12,7 @@
 # the one site where --force overrides it, and bin/fm-backend.sh's
 # fm_backend_kill owns what each backend can prove about its own close - an
 # already-exited endpoint is not a failure and stays silent.
-# Removing state/<id>.meta and landing the backlog transition are one step, not
+# Removing state/<id>.meta and committing backlog cleanup are one step, not
 # two: bin/fm-backlog-transition-lib.sh owns that invariant, and both halves run
 # under the task's own meta lock before this script reports success. Because the
 # completion links (the PR, the report path, a local-main note) live only in the
@@ -25,8 +25,14 @@
 # data/backlog.md; those cases print the manual follow-up. A configured
 # non-markdown adapter remains active without a markdown file; any active
 # automatic backend without compatible tasks-axi refuses before cleanup.
-# None of this loosens the landed-work gates below: the transition runs only on
-# the paths that already proceed to remove the record.
+# On an automatic backend, ordinary closing cleanup requires explicit native
+# acceptance through fm-tasks-axi.sh done before any destructive step; a merged
+# PR or an expired external hold never accepts pending work. A missing row may
+# already have been pruned or archived and does not require recreating it.
+# bin/fm-backlog-transition-lib.sh owns guarded close replay.
+# ship-landing owns the acceptance procedure and
+# pending-proof resource release through fm-control.sh exit.
+# None of this loosens the landed-work gates below or the retained-task paths.
 # The close - and only the close - is replaced by `tasks-axi reopen` with the
 # deliverable recorded while the backlog item is still an open captain call
 # (bin/fm-captain-hold.sh `open` owns that predicate), because the policy holds
@@ -75,14 +81,15 @@
 # close. validate_worktree_teardown_safety owns that landed decision: an empty
 # `git log HEAD --not --remotes` means the copy may be freed, and it does not
 # mean the work has landed while the recorded pull request is OPEN.
-# MERGED closes as before and retires the merge watch. OPEN never closes the
-# item. When the commits are already on a remote and the worktree is clean, the
-# local copy may still be freed: the item stays open, held "awaiting merge
+# MERGED allows closing cleanup after acceptance and retires the merge watch.
+# OPEN never closes the item. When the commits are already on a remote and the
+# worktree is clean, the local copy may still be freed: the item stays open,
+# held "awaiting merge
 # <url>", the task record stays so the merge watch remains registered, and the
 # recorded worktree path is released so the pool slot is not still named here.
 # The retained record uses worktree=<absolute-state-directory>/<id>.released-copy
 # as a sentinel, not an actual worktree. A later teardown
-# rechecks the PR and, once merged, closes the item and retires its watch without
+# rechecks the PR and, once merged and accepted, retires the item's watch without
 # removing the released copy again. Release is persisted before fallible parent
 # reporting or artifact retirement, so an interrupted cleanup can be retried.
 # Only Orca skips endpoint closure for that sentinel: it closes its terminal
@@ -1871,6 +1878,14 @@ teardown_guard_unlanded_close() {
   TEARDOWN_KEEP_OPEN=0
   TEARDOWN_KEEP_OPEN_HOLD=0
   if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
+    if ! fm_backlog_require_cleanup_ready "$DATA" "$ID" retain; then
+      echo "REFUSED: $FM_BACKLOG_TRANSITION_ERROR" >&2
+      return 1
+    fi
+    if [ "$KEEP_OPEN" = 1 ] && [ "$FM_BACKLOG_ROW_RESULT" = found ] \
+        && [ "${FM_BACKLOG_ROW_STATE%% *}" != 'done' ]; then
+      TEARDOWN_KEEP_OPEN=1
+    fi
     teardown_collect_dependents || return 1
   fi
 
@@ -1915,7 +1930,7 @@ teardown_guard_unlanded_close() {
       TEARDOWN_KEEP_OPEN=1
     else
       echo "REFUSED: $ID is listed in blocked-by of: $TEARDOWN_DEPENDENTS." >&2
-      echo "Refusing to close it while those items depend on it." >&2
+      echo "Record accepted completion with fm-tasks-axi.sh done only after its proof passes, then retry cleanup; pending proof releases through fm-control.sh exit." >&2
       dep_refused=1
     fi
   fi
@@ -1924,6 +1939,12 @@ teardown_guard_unlanded_close() {
     return 1
   fi
   if [ "$TEARDOWN_KEEP_OPEN" != 1 ]; then
+    if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ] && [ "$TEARDOWN_BACKLOG_TRANSITION" = close ]; then
+      if ! fm_backlog_require_cleanup_ready "$DATA" "$ID" close; then
+        echo "REFUSED: $FM_BACKLOG_TRANSITION_ERROR" >&2
+        return 1
+      fi
+    fi
     return 0
   fi
   if [ "$class" = open ]; then

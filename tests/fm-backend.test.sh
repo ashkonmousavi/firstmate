@@ -925,6 +925,7 @@ run_spawn_case() {  # <bin-root> <fakebin> <log> <state> <data> <config> <proj> 
   [ "${1:-}" = -- ] && shift
   home="$TMP_ROOT/spawn-home"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
   mkdir -p "$home/state"
   : > "$log"
   env PATH="$fb:$PATH" FM_ROOT_OVERRIDE="$bin" FM_HOME="$home" HOME="$SPAWN_HOME" CLAUDE_CONFIG_DIR='' \
@@ -1202,6 +1203,7 @@ test_spawn_default_backend_writes_no_meta_field() {
   state="$TMP_ROOT/nobackend-state"; config="$TMP_ROOT/nobackend-config"
   mkdir -p "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
 
   out=$(PATH="$fb:$PATH" FM_ROOT_OVERRIDE="$ROOT" HOME="$SPAWN_HOME" CLAUDE_CONFIG_DIR='' \
     FM_STATE_OVERRIDE="$state" FM_DATA_OVERRIDE="$data" FM_CONFIG_OVERRIDE="$config" \
@@ -1225,6 +1227,7 @@ test_spawn_explicit_backend_flag_beats_autodetect_herdr_env() {
   state="$TMP_ROOT/explicit-backend-state"; config="$TMP_ROOT/explicit-backend-config"
   mkdir -p "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
 
   # HERDR_ENV=1 is present (as if firstmate itself were running under herdr),
   # but an explicit --backend tmux flag must still win outright.
@@ -1250,6 +1253,7 @@ test_spawn_autodetect_nesting_resolves_tmux_silently() {
   state="$TMP_ROOT/nest-state"; config="$TMP_ROOT/nest-config"
   mkdir -p "$state" "$config"
   printf '999999 0\n' > "$config/lane-capacity"
+  fm_test_machine_policy "$config"
 
   # No --backend, no FM_BACKEND, no config/backend: nothing is explicitly
   # configured, so auto-detect runs. $TMUX and HERDR_ENV=1 are both present

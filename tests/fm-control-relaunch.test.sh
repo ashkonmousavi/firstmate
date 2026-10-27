@@ -188,6 +188,7 @@ new_case() {
   mkdir -p "$dir/home/state" "$dir/home/data" "$dir/fake"
   mkdir -p "$dir/home/config"
   printf '999999 0\n' > "$dir/home/config/lane-capacity"
+  fm_test_machine_policy "$dir/home/config"
   : > "$dir/fake/literal"
   : > "$dir/fake/keys"
   printf 'claude' > "$dir/fake/command"
@@ -2968,9 +2969,13 @@ SH
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
 
+# Reuse these hermetic fixtures in the pending-proof lifecycle regression.
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
+
 test_relaunch_off_opencode_removes_tracked_wiring
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
+
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
 test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text
 test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven

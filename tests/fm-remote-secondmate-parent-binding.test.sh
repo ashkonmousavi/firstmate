@@ -94,6 +94,10 @@ printf 'schema=fm-remote-home-provision.v1\nid_b64=%s\ncharter_b64=%s\nparent_ho
   "$(printf publication | base64 | tr -d '\n')" \
   "$(printf 'Publication-order regression charter.\n' | base64 | tr -d '\n')" \
   "$(printf publish-host | base64 | tr -d '\n')" > "$PUBLISH_MANIFEST"
+git clone -q --shared "$ROOT" "$PUBLISH_HOME" || fail 'publication fixture clone failed'
+mkdir -p "$PUBLISH_HOME/"{data,state,config,projects}
+printf '999999 0\n' > "$PUBLISH_HOME/config/lane-capacity"
+fm_test_machine_policy "$PUBLISH_HOME/config"
 PATH="$PUBLISH_FAKEBIN:$PATH" FM_HOME="$PUBLISH_HOME" FM_ROOT_OVERRIDE="$ROOT" \
   FM_TEST_REAL_MV="$REAL_MV" FM_TEST_PUBLISH_ENTERED="$PUBLISH_ENTERED" \
   FM_TEST_PUBLISH_RELEASE="$PUBLISH_RELEASE" \

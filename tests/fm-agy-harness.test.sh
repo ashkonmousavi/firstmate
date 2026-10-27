@@ -580,6 +580,7 @@ Verify launch and delivery behavior.
 EOF
   printf 'agy\n' > "$home/config/crew-harness"
   printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   mkdir -p "$home/.gemini/antigravity-cli"
   printf '%s\n' '{"model":"Gemini 3.8 Flash (High)","trustedWorkspaces":["/home/someone/elsewhere"]}' \
     > "$home/.gemini/antigravity-cli/settings.json"

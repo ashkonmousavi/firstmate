@@ -64,6 +64,8 @@ It is not deterministic across the verified adapters: codex, grok, gemini, devin
 `relaunch` uses the brief on disk - not a harness-private session - as the durable instruction when the backend can prove the old agent stopped and the composer is empty; Devin on Herdr currently fails that composer check and refuses.
 A relaunch does take one session reference when the endpoint's own runtime recorded it - see [the relaunch transaction](#transactional-relaunch) - but that is a relaunch input, not a caller-facing verb.
 
+Pending deployment or acceptance proof follows [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion): preserve the task and follow-up, use `exit` for safe process release, and accept only after the required proof.
+
 ## Transactional relaunch
 
 `relaunch` is the only verb that changes durable records, so it runs as a transaction with a journal at `state/<id>.control-relaunch`, the prior record preserved beside it, and a ship or scout's prior instructions preserved when a progress note is appended.

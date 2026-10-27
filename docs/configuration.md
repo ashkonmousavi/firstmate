@@ -351,16 +351,16 @@ Captain rows have no Beads due semantics, so that create path waives a Beads `du
 
 Do not register a Beads `types.custom` `captain` type for this: captain is a hold kind, and the fleet Beads `due.required` policy for ordinary work stays in the federated beads config.
 
-### Automatic dispatch and completion
+### Dispatch, acceptance and cleanup
 
-When the automatic transition gate applies, dispatch and completion each move the work item in the same run that creates or removes its task record.
-The ordinary successful path therefore keeps the backlog and live task set in sync ([`bin/fm-backlog-transition-lib.sh`](../bin/fm-backlog-transition-lib.sh)).
+When the automatic transition gate applies, dispatch pairs the In flight transition with creation of the task record ([`bin/fm-backlog-transition-lib.sh`](../bin/fm-backlog-transition-lib.sh)).
+Acceptance and worker cleanup follow the separate transitions owned by [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion).
 Under that gate, dispatch accepts only an unheld, unblocked Queued or In flight item in this home; a missing, Done, held, or dependency-blocked item is refused before any endpoint or local copy is created.
 
 [`bin/fm-tasks-axi.sh`](../bin/fm-tasks-axi.sh) refuses `add --start` and its `create --start` alias.
 Either would place a row In flight without a task record, status file, or inbox, counting it as live work that nobody is doing.
 The wrapper still passes through the documented direct transition `tasks-axi start <id>`.
-Completion refuses to report success until its close or retention transition is committed, and session start reconciles this home's own books after an interrupted run.
+Cleanup refuses to report success until its close bookkeeping or retention transition is committed, and session start reconciles this home's own books after an interrupted run without accepting pending work.
 [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header owns the PR-state and dependent-item cleanup gates and the conditions for retaining an open item.
 
 When a spawn is interrupted after launch delivery began, its exit path re-reads the paired task record and the backlog row under the same per-task lock as the commit, repairs a row the commit believed it had moved, and reports only what was verified or honestly attempted, never intent phrased as outcome ([`bin/fm-spawn.sh`](../bin/fm-spawn.sh); [`tests/fm-backlog-atomicity.test.sh`](../tests/fm-backlog-atomicity.test.sh)).
@@ -1167,6 +1167,12 @@ The text is static and never executed or expanded; secondmate charters never tak
 
 `bin/fm-brief.sh`'s header owns the placement rule and its safety argument.
 
+Shared worker policy belongs in the optional primary-authored `config/worker-sheet.md`, inherited through the [secondmate configuration contract](../.agents/skills/secondmate-provisioning/SKILL.md#charter-and-seed).
+Keep `data/worker-sheet.md` as a symlink to that regular canonical file; local and remote inheritance create the alias when absent, and ship/scout scaffolding requires it when either policy path exists.
+If an editor replaces the alias with a regular file, preserve both paths, reconcile the latest instructions into the canonical source, then restore the alias before inheritance or scaffolding.
+The alias validation and recovery mechanics are owned by [`bin/fm-config-inherit-lib.sh`](../bin/fm-config-inherit-lib.sh).
+The shared policy does not replace home-local brief additions: keep role, domain and host-specific instructions in their existing owners rather than overwriting them with shared policy.
+
 ## Worker launch environment (config/launch-env-allowlist)
 
 The optional local, gitignored `config/launch-env-allowlist` limits the ambient environment passed to newly launched workers, scouts, and secondmates, including relaunches.
@@ -1280,6 +1286,23 @@ The shared reader owns the cgroup-aware memory calculation and fail-closed rules
 Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
+
+The root home must also provide `config/machine-admission.json` before installing this reader.
+It is the numeric policy owner for resource admission, independent of the ceiling/reserve pair; worker-instruction prose is not parsed.
+The [resource reader's policy validator](../bin/fm-machine-resources.py) owns the `fm-machine-admission.v1` schema and exact bounds for `memory_floor_gib`, `disk_floor_gib`, `memory_full_avg60_max` and the absolute-path array `disk_paths`.
+Memory must exceed the floor as well as satisfy the existing reserve; every configured disk path must exceed its floor, and memory full PSI avg60 must remain below its limit on the host and every memory-controller ancestor.
+Missing or malformed policy, pressure or disk evidence refuses admission rather than treating the machine as healthy.
+CPU utilization and load average do not gate admission.
+The shared `bin/fm-machine-resources.py` reader bounds host MemAvailable by every finite cgroup memory.high/memory.max minus max(memory.current - inactive_file, 0), using the same hard-floor calculation as private consumers.
+This effective reading is separate from the unchanged high-(anon+shmem) reserve balance.
+The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
+The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
+Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
+During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.
+Machine policy is not a generic inherited item: local descendants resolve their machine-root config, while a remote home owns target-host policy.
+Remote provisioning validates and preserves an existing home's policy and ceiling/reserve declaration, or seeds missing declarations from the target code root's own config directory before publishing the home marker.
+The remote parent never supplies those bytes; a missing target-host declaration refuses provisioning and names the exact file to prepare.
+Tracked self-update preserves these ignored host declarations.
 
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
 It exits 75 when room cannot be proved and does not change task state.

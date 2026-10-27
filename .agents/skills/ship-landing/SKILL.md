@@ -21,10 +21,28 @@ A captain instruction to merge is explicit authority; `yolo` is the only standin
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
 
-Use [`bin/fm-teardown.sh`'s header](../../../bin/fm-teardown.sh) to distinguish releasing a ship's local copy from completing its landed work.
-A teardown refusal for uncommitted or unlanded work is a stop-and-investigate result, never an obstacle to bypass.
-Never force teardown without explicit discard authority.
-After teardown confirms a landed close, record completion, retain only the configured recent Done history, and re-evaluate queued work whose blockers and time gates have cleared.
+## Resource release and accepted completion
+
+A merged PR establishes landing; the task's recorded acceptance criteria establish completion.
+On a merge, inactive-worker report, or cleanup request, claim the task's lease, then read its current identity, branch/head, brief, proof obligation, hold and evidence before deciding which transition applies.
+
+When deployment, product proof or another external condition is pending, preserve the task's existing owner, branch, durable progress and resumption note, proof obligation, dependency edges and merge watch.
+Record the pending condition on that same task with `bin/fm-tasks-axi.sh hold <id> --kind external --reason '<condition and durable proof/resumption reference>'`; preserve an existing captain hold through its own lifecycle instead of replacing it.
+Once the work and follow-up are durable and no active validation or worktree process requires the worker, claim its lease and run `bin/fm-control.sh <id> exit`.
+Confirm the exit and read `bin/fm-capacity.sh --json`: retained metadata and an idle shell are not a live worker, but remaining non-shell work still occupies the seat.
+Keep supervising the recorded condition through its existing owner; releasing a worker does not accept the task or unblock its dependents.
+`--keep-open` teardown returns a local copy and is not a substitute for preserving pending-proof resume artifacts.
+
+When the recorded resumption condition is satisfied and work remains, clear only that satisfied external hold through `bin/fm-tasks-axi.sh unhold <id>`, then use `bin/fm-control.sh <id> relaunch --note '<durable progress, proof still owed and next action>'` in the same home.
+The existing worktree and task identity remain; the relaunch publishes a new generation.
+
+After every required acceptance criterion has current evidence for the delivered revision, recheck the task under its lease and record its durable proof link with `bin/fm-tasks-axi.sh done <id> --note '<acceptance evidence>'`, clearing only a satisfied external hold first.
+Acceptance precedes cleanup so a completed parent unblocks its eligible dependents while their dependency edges remain recorded.
+With that lease still held, run ordinary `bin/fm-teardown.sh <id>` if its worker record remains; the script still proves work preservation and owns generation-safe cleanup.
+An already accepted task with no worker record needs no further teardown.
+A teardown refusal is a stop-and-investigate result, never an obstacle to bypass or force without explicit discard authority.
+Retain the configured recent Done history and re-evaluate queued work only after the acceptance transition.
+Use the configured manual-backend equivalent when automatic task transitions do not apply, preserving the same proof and ordering.
 
 A secondmate is persistent and an empty queue is healthy.
 Retire one only on an explicit captain or main-firstmate decision, after loading `secondmate-provisioning`; its home must contain no work under way, and forced discard still requires explicit captain authority.

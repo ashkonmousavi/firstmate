@@ -1273,6 +1273,8 @@ test_cleanup_refuses_while_a_public_reply_is_owed() {
     || fail "could not add the guarded ship to its home's backlog"
   tasks_in "$home" start ship-task >/dev/null \
     || fail "could not mark the guarded ship In flight"
+  tasks_in "$home" 'done' ship-task >/dev/null \
+    || fail "could not accept the guarded ship before testing its public-reply hold"
   fm_write_meta "$home/state/ship-task.meta" \
     "window=firstmate:fm-ship-task" \
     "worktree=$home/projects/gone" \
@@ -2148,6 +2150,8 @@ test_retention_creates_no_false_teardown_refusal() {
     || fail "could not add the retained-registration ship to its home's backlog"
   tasks_in "$home" start ship-retain >/dev/null \
     || fail "could not mark the retained-registration ship In flight"
+  tasks_in "$home" 'done' ship-retain >/dev/null \
+    || fail "could not accept the ship before testing retained-registration cleanup"
   fm_write_meta "$home/state/ship-retain.meta" \
     "window=firstmate:fm-ship-retain" \
     "worktree=$home/projects/gone" \
@@ -2308,6 +2312,8 @@ test_x_request_teardown_warns_when_final_unposted() {
     || fail "could not add the legacy-link ship to its home's backlog"
   tasks_in "$home" start linked-task >/dev/null \
     || fail "could not mark the legacy-link ship In flight"
+  tasks_in "$home" 'done' linked-task >/dev/null \
+    || fail "could not accept the ship before testing its legacy-link warning"
   fm_write_meta "$home/state/linked-task.meta" \
     "window=firstmate:fm-linked-task" \
     "worktree=$home/projects/gone" \
@@ -3796,8 +3802,10 @@ test_rejection_wake_survives_a_poll_that_cannot_write() {
   assert_present "$home/state/public-followup/rejection-wakes/$event_id" \
     "a refusal must queue a wake"
 
+  # Invoke Bash directly: some env implementations reopen closed standard
+  # descriptors before executing a script's shebang interpreter.
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" \
-    FM_STATE_OVERRIDE="$home/state" "$POLL" >&- 2>/dev/null || true
+    FM_STATE_OVERRIDE="$home/state" bash "$POLL" >&- 2>/dev/null || true
   assert_present "$home/state/public-followup/rejection-wakes/$event_id" \
     "a wake whose line could not be written must stay queued"
   assert_contains "$(run_poll "$home")" "public-followup rejected $event_id" \

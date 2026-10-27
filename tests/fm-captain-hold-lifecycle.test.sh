@@ -795,6 +795,7 @@ EOF
       and (.gates | any(.id == "sample-route-call") | not)
   ' >/dev/null || fail "Bearings did not surface the captain-held task: $json"
 
+  tasks_in "$home" 'done' "$id" --report "data/$id/report.md" >/dev/null
   run_teardown "$home" "$id" >/dev/null 2> "$home/teardown.err" \
     || fail "reviewed investigation teardown failed: $(cat "$home/teardown.err")"
   tasks_in "$home" "done" "$id" --report "data/$id/report.md" --keep 0 >/dev/null \
@@ -1037,7 +1038,7 @@ EOF
   mkdir -p "$home/at-close"
   cat > "$home/fakebin/tasks-axi" <<'EOF'
 #!/usr/bin/env bash
-if [ "${1:-}" = done ] && [ "${2:-}" = sample-interrupted-call ] \
+if [ "${1:-}" = 'done' ] && [ "${2:-}" = sample-interrupted-call ] \
   && [ ! -e "$FM_HOME/close-failed-once" ]; then
   cp "$FM_HOME/data/backlog.md" "$FM_HOME/at-close/backlog.md" || exit 93
   : > "$FM_HOME/close-failed-once"
@@ -1046,7 +1047,7 @@ fi
 if [ "${1:-}" = update ] && [ "${2:-}" = sample-interrupted-call ] \
   && [ ! -e "$FM_HOME/normalize-failed-once" ]; then
   state=$("$REAL_TASKS_AXI" show "$2" --full | sed -n 's/^  state: //p' | head -1)
-  if [ "$state" = done ]; then
+  if [ "$state" = 'done' ]; then
     : > "$FM_HOME/normalize-failed-once"
     exit 94
   fi
@@ -1213,6 +1214,7 @@ test_out_of_band_close_is_recordable() {
     > "$home/drifted.out" 2> "$home/drifted.err"; then
     fail "a drifted retry overwrote the recorded captain decision"
   fi
+  tasks_in "$home" 'done' "$id" --report "data/$id/report.md" >/dev/null
   run_teardown "$home" "$id" >/dev/null 2> "$home/teardown.err" \
     || fail "teardown still refused after the answer was recorded: $(cat "$home/teardown.err")"
 
@@ -1243,6 +1245,7 @@ test_visual_review_uses_shared_completion_owner() {
   printf '# Sample board investigation\n\nThe initial findings need no captain choice.\n' > "$home/data/$id/report.md"
   run_captain "$home" complete "$id" --none >/dev/null \
     || fail "initial investigation could not pass the shared completion owner"
+  tasks_in "$home" 'done' "$id" --report "data/$id/report.md" >/dev/null
   run_teardown "$home" "$id" >/dev/null 2> "$home/visual-teardown.err" \
     || fail "completed investigation teardown failed: $(cat "$home/visual-teardown.err")"
   tasks_in "$home" "done" "$id" --report "data/$id/report.md" --keep 0 >/dev/null
@@ -1314,6 +1317,7 @@ test_terminal_single_owner_status_decision_does_not_block_empty_inventory() {
   printf 'resolved [key=access]: answered\nfailed: investigation ended\nnote: final cleanup\n' >> "$home/state/$id.status"
   run_captain "$home" complete "$id" --none >/dev/null || fail "resolved reopening blocked completion"
   run_captain "$home" verify "$id" >/dev/null || fail "resolved reopening blocked verification"
+  tasks_in "$home" 'done' "$id" --report "data/$id/report.md" >/dev/null
   run_teardown "$home" "$id" >/dev/null 2> "$home/terminal-teardown.err" \
     || fail "terminal single-owner stale status decision blocked teardown: $(cat "$home/terminal-teardown.err")"
 
@@ -1366,6 +1370,7 @@ EOF
     "$mate" > "$parent/data/secondmates.md"
   fm_write_secondmate_meta "$parent/state/sample-mate.meta" "$mate" \
     "firstmate:fm-sample-mate" sample
+  tasks_in "$mate" 'done' "$origin" --report "data/$origin/report.md" >/dev/null
   run_teardown "$mate" "$origin" >/dev/null 2> "$mate/teardown.err" \
     || fail "secondmate investigation teardown failed: $(cat "$mate/teardown.err")"
   tasks_in "$mate" "done" "$origin" --report "data/$origin/report.md" --keep 0 >/dev/null
@@ -1973,7 +1978,7 @@ test_reconcile_outcomes_retry_partial_failures_once() {
   printf 'Captain answered despite retirement failure.\n' > "$home/answer-retire.txt"
   cat > "$home/fakebin/tasks-axi" <<'SH'
 #!/usr/bin/env bash
-if [ "${1:-}" = done ] && [ "${2:-}" = sample-reconcile-close-retry ] \
+if [ "${1:-}" = 'done' ] && [ "${2:-}" = sample-reconcile-close-retry ] \
   && [ ! -e "$FM_HOME/reconcile-close-failed" ]; then
   : > "$FM_HOME/reconcile-close-failed"
   exit 92
@@ -2617,6 +2622,7 @@ test_teardown_never_closes_a_captain_held_task() {
   printf '# Sample cache\n\nNothing waits on the captain.\n' > "$home/data/$plain/report.md"
   run_captain "$home" complete "$plain" --none >/dev/null \
     || fail "completion gate failed for the ordinary investigation"
+  tasks_in "$home" 'done' "$plain" --report "data/$plain/report.md" >/dev/null
   run_teardown "$home" "$plain" > "$home/plain.out" 2> "$home/plain.err" \
     || fail "ordinary cleanup failed: $(cat "$home/plain.err")"
   show=$(tasks_in "$home" show "$plain" --full) || fail "the ordinary row vanished"
@@ -2783,6 +2789,7 @@ SH
     || fail "could not release the approved merge"
   show=$(tasks_in "$home" show "$approved_id" --full) || fail "the approved merge disappeared"
   assert_not_contains "$show" "hold_kind: captain" "merge approval retained its captain hold kind"
+  tasks_in "$home" 'done' "$approved_id" --pr "$approved_pr" >/dev/null
   run_teardown "$home" "$approved_id" > "$home/approved-teardown.out" \
     2> "$home/approved-teardown.err" \
     || fail "approved merge cleanup failed: $(cat "$home/approved-teardown.err")"
@@ -2815,6 +2822,7 @@ SH
     FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-merge-local.sh" "$local_id" \
     > "$home/local-merge.out" 2> "$home/local-merge.err" \
     || fail "approved local merge failed: $(cat "$home/local-merge.err")"
+  tasks_in "$home" 'done' "$local_id" >/dev/null
   run_teardown "$home" "$local_id" > "$home/local-teardown.out" \
     2> "$home/local-teardown.err" \
     || fail "released local cleanup failed: $(cat "$home/local-teardown.err")"
@@ -2836,6 +2844,7 @@ SH
   run_captain "$home" answer "$released_id" --release \
     --decision-file "$home/released-answer.txt" >/dev/null \
     || fail "could not release the completed report"
+  tasks_in "$home" 'done' "$released_id" --report "data/$released_id/report.md" >/dev/null
   run_teardown "$home" "$released_id" > "$home/released-teardown.out" \
     2> "$home/released-teardown.err" \
     || fail "released report cleanup failed: $(cat "$home/released-teardown.err")"
@@ -3369,6 +3378,7 @@ SH
     "merge approval completed the zero-retention row before landing"
   assert_contains "$show" "Resolution mode: released" \
     "merge approval did not record the existing release mode"
+  tasks_in "$home" 'done' "$id" --pr "$pr" >/dev/null
   run_teardown "$home" "$id" > "$home/teardown.out" 2> "$home/teardown.err" \
     || fail "zero-retention cleanup failed: $(cat "$home/teardown.err")"
   assert_no_grep "$id" "$home/data/backlog.md" \
@@ -3618,6 +3628,7 @@ test_merge_entrypoints_refuse_a_reused_task_incarnation() {
     "spawn_gen=original-$id"
   printf 'done: merge ready\n' > "$home/state/$id.status"
 
+  tasks_in "$home" 'done' "$id" >/dev/null
   teardown_ready="$home/reuse-teardown-ready"
   teardown_release="$home/reuse-teardown-release"
   merge_ready="$home/reuse-merge-ready"
@@ -3708,6 +3719,7 @@ test_merge_entrypoints_refuse_a_reused_task_incarnation() {
     "kind=ship" "mode=local-only" "spawn_gen=original-$local_id"
   printf 'done: local merge ready\n' > "$local_home/state/$local_id.status"
 
+  tasks_in "$local_home" 'done' "$local_id" >/dev/null
   local_teardown_ready="$local_home/reuse-teardown-ready"
   local_teardown_release="$local_home/reuse-teardown-release"
   local_merge_ready="$local_home/reuse-merge-ready"
@@ -3991,6 +4003,7 @@ test_released_merge_passes_the_entrypoint_and_lands() {
     "the approved merge remained captain-held after its release"
   run_pr_merge "$home" "$id" "$pr" > "$home/merge.out" 2> "$home/merge.err" \
     || fail "the released merge was refused: $(cat "$home/merge.err")"
+  tasks_in "$home" 'done' "$id" --pr "$pr" >/dev/null
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" "$TEARDOWN" "$id" --force \

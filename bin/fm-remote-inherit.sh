@@ -159,16 +159,29 @@ case "$COMMAND" in
     [ "$BYTES" -eq "$EXPECTED_BYTES" ] || die "inherited material length does not match its commitment"
     ACTUAL_HASH=$(sha256_file "$TMP") || die "cannot hash inherited material"
     [ "$ACTUAL_HASH" = "$EXPECTED_HASH" ] || die "inherited material digest does not match its commitment"
+    if [ "$REL" = config/worker-sheet.md ]; then
+      fm_worker_sheet_alias_validate "$HOME_REAL/config" "$HOME_REAL/data" || die "worker policy compatibility alias requires reconciliation"
+    fi
     commit_generation
     if [ -f "$DEST" ] && cmp -s "$TMP" "$DEST"; then
+      RESULT_STATUS=unchanged
+      if [ "$REL" = config/worker-sheet.md ]; then
+        if [ ! -e "$HOME_REAL/data/worker-sheet.md" ] && [ ! -L "$HOME_REAL/data/worker-sheet.md" ]; then
+          RESULT_STATUS=pushed
+        fi
+        fm_worker_sheet_alias_ensure "$HOME_REAL/config" "$HOME_REAL/data" || die "worker policy compatibility alias could not be finalized"
+      fi
       [ "$REL" != data/captain-shared.md ] || chmod 444 "$DEST"
-      printf 'unchanged: %s\n' "$REL"
+      printf '%s: %s\n' "$RESULT_STATUS" "$REL"
       exit 0
     fi
     dest_matches_last_published || quarantine_shared replaced
     chmod 600 "$TMP" || die "cannot secure inherited material"
     mv -f -- "$TMP" "$DEST" || die "cannot publish inherited material"
     TMP=
+    if [ "$REL" = config/worker-sheet.md ]; then
+      fm_worker_sheet_alias_ensure "$HOME_REAL/config" "$HOME_REAL/data" || die "worker policy compatibility alias could not be finalized"
+    fi
     [ "$REL" != data/captain-shared.md ] || chmod 444 "$DEST"
     printf 'pushed: %s\n' "$REL"
     ;;
@@ -179,6 +192,10 @@ case "$COMMAND" in
     EMPTY_HASH=$(sha256_file "$EMPTY") || die "cannot hash empty inheritance payload"
     rm -f -- "$EMPTY"
     [ "$EMPTY_HASH" = "$EXPECTED_HASH" ] || die "absent inheritance digest is not the empty payload"
+    if [ "$REL" = config/worker-sheet.md ] \
+      && { [ -e "$DEST" ] || [ -L "$DEST" ] || [ -e "$HOME_REAL/data/worker-sheet.md" ] || [ -L "$HOME_REAL/data/worker-sheet.md" ]; }; then
+      die "worker policy paths remain: preserve both paths and reconcile before absent inheritance"
+    fi
     commit_generation
     if [ ! -e "$DEST" ]; then
       printf 'unchanged: %s\n' "$REL"
