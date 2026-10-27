@@ -4994,10 +4994,6 @@ CODEX_TRUST_DIALOG_OPTION='1. Trust and continue'
 CODEX_UPDATE_DIALOG_OPTION='Update now'
 CODEX_UPDATE_DIALOG_SKIP='Skip until next version'
 
-codex_capture() {
-  fm_backend_capture "$BACKEND" "$T" 120 "$W" 2>/dev/null || true
-}
-
 # Trust and update decisions read the visible pane only, exactly like kimi's
 # trust gate: both dialogs are TUI frames, so a scrollback-backed capture
 # keeps reporting them after codex redrew past them - which would storm Enter
@@ -5105,7 +5101,7 @@ codex_wait_for_ready() {
       # dialog is one redraw away; two consecutive captures that are each
       # ready and free of dialog text can, and any other capture restarts
       # the count.
-      if codex_composer_is_empty; then
+      if codex_composer_is_empty && ! printf '%s\n' "$pane" | fm_busy_lines_match codex; then
         ready_captures=$((ready_captures + 1))
         [ "$ready_captures" -lt 2 ] || return 0
       else
@@ -5125,31 +5121,13 @@ codex_wait_for_ready() {
   return 1
 }
 
-# Processing confirmation. The busy signal is the verified codex delivery
-# guard token (FM_DELIVERY_CODEX_BUSY_REGEX_DEFAULT in bin/fm-composer-lib.sh,
-# `esc to interrupt`, plus Herdr's native working state); the completed-turn
-# marker is codex's own summary row, for example `Worked for 6s`, which only
-# renders after a submitted turn ended. The marker exists because a turn
-# short enough to start and finish between two busy polls would otherwise
-# read as never-processed; either signal alone carries the positive verdict.
-codex_turn_completed_is_present() { # <plain-pane-capture>
-  case "$1" in *'Worked for '*) return 0 ;; esac
-  return 1
-}
-
-codex_processing_is_confirmed() { # <plain-pane-capture>
-  case "$(fm_backend_busy_state "$BACKEND" "$T" 2>/dev/null)" in busy) return 0 ;; esac
-  if printf '%s\n' "$1" | fm_busy_lines_match codex; then
-    return 0
-  fi
-  codex_turn_completed_is_present "$1"
-}
-
 codex_wait_for_processing() {
   local pane i=0 max=${FM_CODEX_PROCESSING_POLLS:-30} interval=${FM_CODEX_POLL_INTERVAL:-0.5}
   while [ "$i" -lt "$max" ]; do
-    pane=$(codex_capture)
-    codex_processing_is_confirmed "$pane" && return 0
+    pane=$(codex_visible_capture) || return 1
+    if printf '%s\n' "$pane" | fm_busy_lines_match codex; then
+      return 0
+    fi
     i=$((i + 1))
     [ "$i" -ge "$max" ] || sleep "$interval"
   done

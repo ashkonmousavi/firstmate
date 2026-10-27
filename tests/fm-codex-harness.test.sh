@@ -74,7 +74,7 @@ fake_screen() {
     trust)
       printf '%s\n' "$trust_dialog" ;;
     ready|typed|delivered|working)
-      printf 'transcript line\n\n'
+      printf '• Worked for 6s\n\n'
       case "$state" in
         ready) composer_row "${ESC}[2m${bg}${dim_placeholder}${ESC}[0m" ;;
         typed) composer_row ' FIRSTMATE_OP: v1 launch-brief: Read the brief at /wt/launch-brief.md and follow it exactly.' ;;
@@ -195,7 +195,7 @@ case "${1:-}" in
             esac
             ;;
           typed)
-            case "${FM_FAKE_CODEX_DELIVERY:-delivered}" in
+            case "${FM_FAKE_CODEX_DELIVERY:-working}" in
               delivered) printf 'delivered\n' > "$FM_FAKE_CODEX_STATE" ;;
               working) printf 'working\n' > "$FM_FAKE_CODEX_STATE" ;;
               swallow) : ;;
@@ -229,6 +229,12 @@ case "${1:-}" in
           ;;
       esac
     fi
+    case " $* " in
+      *' -S -0 '*|*' -e '*) ;;
+      *)
+        printf '%s\n' '• Worked for 6s' '• Working (1s • esc to interrupt)'
+        ;;
+    esac
     fake_screen
     exit 0
     ;;
@@ -286,7 +292,7 @@ run_spawn() {
     FM_FAKE_CODEX_STRAY_ENTER_LOG="$case_dir/stray-enter.log" \
     FM_FAKE_CODEX_LAUNCH_DIALOGS="${FM_FAKE_CODEX_LAUNCH_DIALOGS:-update,trust}" \
     FM_FAKE_CODEX_TRUST_CLEARS="${FM_FAKE_CODEX_TRUST_CLEARS:-yes}" \
-    FM_FAKE_CODEX_DELIVERY="${FM_FAKE_CODEX_DELIVERY:-delivered}" \
+    FM_FAKE_CODEX_DELIVERY="${FM_FAKE_CODEX_DELIVERY:-working}" \
     FM_FAKE_TMUX_VISIBLE_FAILS="${FM_FAKE_TMUX_VISIBLE_FAILS:-no}" \
     FM_FAKE_TMUX_CALL_LOG="$case_dir/tmux-calls.log" \
     FM_FAKE_BRIEF_REAL="$(cd "$home/data/$id" && pwd -P)/launch-brief.md" \
@@ -473,6 +479,21 @@ test_codex_processing_confirmation_accepts_the_busy_footer() {
   pass "fm-spawn: the working footer confirms brief processing"
 }
 
+test_codex_old_processing_evidence_refuses_the_spawn() {
+  local id rec out rc
+  id="codex-stale-z11-$$"
+  rec=$(make_spawn_case stale "$id")
+  read_spawn_record "$rec"
+  CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
+  out=$(FM_FAKE_CODEX_DELIVERY=delivered run_spawn \
+    "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+  rc=$?
+  [ "$rc" -ne 0 ] || fail "historical working or completion text confirmed a new submission"
+  assert_contains "$out" "processing never started" "stale evidence did not fail processing confirmation"
+  grep -qxF typed "$CASE_DIR/enter.log" || fail "the stale-evidence case never submitted its brief"
+  pass "fm-spawn: old working and completed turns cannot confirm a new submission"
+}
+
 test_codex_readiness_capture_failure_fails_loudly() {
   local id rec out rc
   id="codex-capturefail-z9-$$"
@@ -516,5 +537,6 @@ test_codex_trust_dialog_that_never_clears_fails
 test_codex_partial_dialog_text_is_never_answered_or_trusted
 test_codex_unconfirmed_submit_refuses_the_spawn
 test_codex_processing_confirmation_accepts_the_busy_footer
+test_codex_old_processing_evidence_refuses_the_spawn
 test_codex_readiness_capture_failure_fails_loudly
 test_codex_refuses_a_backend_without_a_viewport_capture

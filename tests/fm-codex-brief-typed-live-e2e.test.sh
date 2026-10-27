@@ -130,6 +130,13 @@ pane_capture() {  # <id>
   tmux capture-pane -p -t "$target" -S -400 2>/dev/null
 }
 
+pane_visible_capture() {
+  local target
+  target=$(grep '^window=' "$HOME_DIR/state/$1.meta" 2>/dev/null | cut -d= -f2- | tail -1)
+  [ -n "$target" ] || return 1
+  tmux capture-pane -p -t "$target" -S -0 2>/dev/null
+}
+
 wait_for_pane_text() {  # <id> <text> <max-seconds>
   local id=$1 text=$2 max=$3 i=0
   while [ "$i" -lt "$max" ]; do
@@ -162,9 +169,12 @@ pass "real codex $CODEX_VERSION on tmux: a new-folder scout starts processing it
 # --- 2. TRUSTED folder: a relaunch of the same worktree, captured to prove
 #        no trust dialog stood between launch and the typed brief -------------
 
+sed 's/codex-brief-ok/codex-relaunch-ok/' "$HOME_DIR/data/$SCOUT/brief.md" >"$TMP_ROOT/relaunch-brief.md"
+cp "$TMP_ROOT/relaunch-brief.md" "$HOME_DIR/data/$SCOUT/brief.md"
+
 TRUST_POLL="$TMP_ROOT/trust-poll.log"
 ( for _ in $(seq 1 200); do
-    pane_capture "$SCOUT" 2>/dev/null | grep -F 'Trust this folder' >>"$TRUST_POLL" || :
+    pane_visible_capture "$SCOUT" >>"$TRUST_POLL" 2>/dev/null || :
     sleep 0.3
   done ) &
 TRUST_POLLER=$!
@@ -180,15 +190,13 @@ if [ "$SPAWN_RC" -ne 0 ]; then
   fail "a codex relaunch in the trusted folder failed within ${SPAWN_ELAPSED}s"$'\n'"$SPAWN_OUT"
 fi
 [ "$SPAWN_ELAPSED" -le 60 ] || fail "the trusted-folder relaunch took ${SPAWN_ELAPSED}s to start processing its brief (bound: 60s)"
-pane_capture "$SCOUT" | grep -Fq 'FIRSTMATE_OP: v1 launch-brief' \
-  || fail "the trusted-folder pane never showed the typed launch-brief envelope"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
-wait_for_pane_text "$SCOUT" 'codex-brief-ok' 90 \
-  || fail "the trusted-folder scout never replied codex-brief-ok"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
-if [ -s "$TRUST_POLL" ]; then
-  printf '# note: a trust dialog rendered during the relaunch and was answered by the gate\n'
-else
-  pass "real codex $CODEX_VERSION on tmux: the trusted-folder relaunch rendered no trust dialog"
+wait_for_pane_text "$SCOUT" 'codex-relaunch-ok' 90 \
+  || fail "the trusted-folder scout never replied codex-relaunch-ok"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
+[ -s "$TRUST_POLL" ] || fail "codex $CODEX_VERSION trusted-folder viewport was never observed"
+if grep -Fq 'Trust this folder' "$TRUST_POLL"; then
+  fail "codex $CODEX_VERSION showed a trust dialog in the trusted-folder case"
 fi
+pass "real codex $CODEX_VERSION on tmux: the trusted-folder relaunch rendered no trust dialog"
 pass "real codex $CODEX_VERSION on tmux: a trusted-folder relaunch starts processing its typed launch brief within ${SPAWN_ELAPSED}s"
 
 cleanup_all
