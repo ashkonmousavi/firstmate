@@ -160,7 +160,7 @@ case "$COMMAND" in
     ACTUAL_HASH=$(sha256_file "$TMP") || die "cannot hash inherited material"
     [ "$ACTUAL_HASH" = "$EXPECTED_HASH" ] || die "inherited material digest does not match its commitment"
     if [ "$REL" = config/worker-sheet.md ]; then
-      fm_worker_sheet_alias_validate "$HOME_REAL" || die "worker policy compatibility alias requires reconciliation"
+      fm_worker_sheet_alias_validate "$HOME_REAL/config" "$HOME_REAL/data" || die "worker policy compatibility alias requires reconciliation"
     fi
     commit_generation
     if [ -f "$DEST" ] && cmp -s "$TMP" "$DEST"; then
@@ -169,7 +169,7 @@ case "$COMMAND" in
         if [ ! -e "$HOME_REAL/data/worker-sheet.md" ] && [ ! -L "$HOME_REAL/data/worker-sheet.md" ]; then
           RESULT_STATUS=pushed
         fi
-        fm_worker_sheet_alias_ensure "$HOME_REAL" || die "worker policy compatibility alias could not be finalized"
+        fm_worker_sheet_alias_ensure "$HOME_REAL/config" "$HOME_REAL/data" || die "worker policy compatibility alias could not be finalized"
       fi
       [ "$REL" != data/captain-shared.md ] || chmod 444 "$DEST"
       printf '%s: %s\n' "$RESULT_STATUS" "$REL"
@@ -180,7 +180,7 @@ case "$COMMAND" in
     mv -f -- "$TMP" "$DEST" || die "cannot publish inherited material"
     TMP=
     if [ "$REL" = config/worker-sheet.md ]; then
-      fm_worker_sheet_alias_ensure "$HOME_REAL" || die "worker policy compatibility alias could not be finalized"
+      fm_worker_sheet_alias_ensure "$HOME_REAL/config" "$HOME_REAL/data" || die "worker policy compatibility alias could not be finalized"
     fi
     [ "$REL" != data/captain-shared.md ] || chmod 444 "$DEST"
     printf 'pushed: %s\n' "$REL"

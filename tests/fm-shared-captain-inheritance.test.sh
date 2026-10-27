@@ -654,6 +654,97 @@ test_worker_sheet_config_inheritance() {
 
 test_worker_sheet_config_inheritance
 
+test_worker_sheet_local_path_overrides() {
+  local axis rec w root home second config data out command_bin script
+  local -a push
+  for axis in config data both; do
+    rec=$(new_git_world "worker-local-$axis")
+    IFS='|' read -r w root home second <<EOF
+$rec
+EOF
+    config="$home/config"
+    data="$home/data"
+    [ "$axis" = data ] || config="$home/config-override"
+    [ "$axis" = config ] || data="$w/primary-data-override"
+    mkdir -p "$config" "$data"
+    printf 'active policy v1\n' > "$config/worker-sheet.md"
+    ln -s "$config/worker-sheet.md" "$data/worker-sheet.md"
+    if [ "$axis" = both ]; then
+      printf 'inactive policy\n' > "$home/config/worker-sheet.md"
+      ln -s ../config/worker-sheet.md "$home/data/worker-sheet.md"
+    fi
+    {
+      printf 'window=firstmate:fm-sm\nkind=secondmate\n'
+      printf 'home=%s\n' "$second"
+    } > "$home/state/sm.meta"
+    command_bin="$w/push-bin"
+    mkdir -p "$command_bin"
+    for script in "$ROOT/bin/"*; do
+      ln -s "$script" "$command_bin/${script##*/}"
+    done
+    rm "$command_bin/fm-send.sh"
+    printf '#!/bin/sh\nexit 0\n' > "$command_bin/fm-send.sh"
+    chmod +x "$command_bin/fm-send.sh"
+    push=(env "PATH=$BASE_PATH" "FM_HOME=$home" "FM_ROOT_OVERRIDE=$root"
+      "FM_CONFIG_OVERRIDE=$config" "FM_DATA_OVERRIDE=$data" FM_INHERITABLE_CONFIG=worker-sheet.md
+      bash "$command_bin/fm-config-push.sh")
+    out=$("${push[@]}" 2>&1) || fail "$axis override refused valid policy: $out"
+    [ "$(cat "$second/data/worker-sheet.md")" = 'active policy v1' ] \
+      || fail "$axis override did not inherit active policy"
+    rm "$data/worker-sheet.md"
+    printf 'active policy v2\n' > "$config/worker-sheet.md"
+    out=$("${push[@]}" 2>&1) || fail "$axis override failed update or source alias creation: $out"
+    [ -L "$data/worker-sheet.md" ] && [ "$data/worker-sheet.md" -ef "$config/worker-sheet.md" ] \
+      || fail "$axis override source alias points at the wrong policy"
+    [ "$(cat "$second/data/worker-sheet.md")" = 'active policy v2' ] \
+      || fail "$axis override did not inherit the updated policy"
+    rm "$second/data/worker-sheet.md"
+    out=$("${push[@]}" 2>&1) || fail "$axis override failed unchanged retry: $out"
+    [ -L "$second/data/worker-sheet.md" ] && [ "$second/data/worker-sheet.md" -ef "$second/config/worker-sheet.md" ] \
+      || fail "$axis override did not restore destination alias"
+    rm "$second/data/worker-sheet.md"
+    printf 'destination owner edit\n' > "$second/data/worker-sheet.md"
+    printf 'active policy v3\n' > "$config/worker-sheet.md"
+    if out=$("${push[@]}" 2>&1); then fail "$axis override overwrote destination drift"; fi
+    [ "$(cat "$second/data/worker-sheet.md")" = 'destination owner edit' ] \
+      && [ "$(cat "$second/config/worker-sheet.md")" = 'active policy v2' ] \
+      || fail "$axis override lost destination recovery bytes"
+    rm "$second/data/worker-sheet.md"
+    rm "$data/worker-sheet.md"
+    printf 'source owner edit\n' > "$data/worker-sheet.md"
+    if out=$("${push[@]}" 2>&1); then fail "$axis override ignored source drift"; fi
+    [ "$(cat "$data/worker-sheet.md")" = 'source owner edit' ] \
+      && [ "$(cat "$second/config/worker-sheet.md")" = 'active policy v2' ] \
+      || fail "$axis override changed bytes after source refusal"
+    rm "$config/worker-sheet.md"
+    if out=$("${push[@]}" 2>&1); then fail "$axis override accepted an orphaned source edit"; fi
+    [ "$(cat "$data/worker-sheet.md")" = 'source owner edit' ] \
+      || fail "$axis override lost orphaned source edit"
+    rm "$data/worker-sheet.md"
+    ln -s "$config/worker-sheet.md" "$data/worker-sheet.md"
+    if out=$("${push[@]}" 2>&1); then fail "$axis override accepted a dangling source alias"; fi
+    [ -L "$data/worker-sheet.md" ] \
+      && [ "$(cat "$second/config/worker-sheet.md")" = 'active policy v2' ] \
+      || fail "$axis override changed recovery paths after orphan refusal"
+    if [ "$axis" = both ]; then
+      [ "$(cat "$home/data/worker-sheet.md")" = 'inactive policy' ] \
+        || fail "override propagation changed inactive default policy"
+    fi
+  done
+  config="$second/config-override"
+  data="$second/data-override"
+  printf 'config-override/\ndata-override/\n' >> "$second/.gitignore"
+  printf 'active policy v4\n' > "$home/config-override/worker-sheet.md"
+  FM_INHERITABLE_CONFIG=worker-sheet.md propagate_inheritable_config "$home/config-override" "$config" "$home" "$w/primary-data-override" "$data" \
+    || fail "overridden destination refused active policy"
+  [ -L "$data/worker-sheet.md" ] && [ "$data/worker-sheet.md" -ef "$config/worker-sheet.md" ] \
+    && [ "$(cat "$data/worker-sheet.md")" = 'active policy v4' ] \
+    || fail "overridden destination alias did not resolve to its active config"
+  pass "local config and data overrides converge active worker policy and preserve source and destination drift"
+}
+
+test_worker_sheet_local_path_overrides
+
 # The native sender must not publish an older config source after an editor
 # atomically replaces its data compatibility alias with a new owner edit.
 test_worker_sheet_sender_refuses_alias_drift() {
@@ -717,12 +808,13 @@ EOF
   alias="$data/worker-sheet.md"
   mkdir -p "$config" "$data"
   printf 'canonical policy\n' > "$config/worker-sheet.md"
-  ln -s ../config-override/worker-sheet.md "$alias"
   printf '%s\n' '- test - fixture (host: fixture; root: /tmp/fixture; home: /tmp/fixture; scope: test; projects: none; added 2026-10-25)' > "$data/secondmates.md"
   : > "$calls"
   FM_HOME="$home" FM_CONFIG_OVERRIDE="$config" FM_DATA_OVERRIDE="$data" FM_INHERITABLE_CONFIG=worker-sheet.md FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_TEST_CALL_LOG="$calls" \
     bash "$bin/fm-remote-inherit-push.sh" test 1 > "$base/override-valid.out" 2>&1 \
     || fail "valid overridden source could not be sent"
+  [ -L "$alias" ] && [ "$alias" -ef "$config/worker-sheet.md" ] \
+    || fail "remote sender did not create the active overridden alias"
   assert_grep 'config/worker-sheet.md' "$calls" "valid overridden source was not sent"
   : > "$calls"
   printf 'new override owner edit\n' > "$data/new-edit"

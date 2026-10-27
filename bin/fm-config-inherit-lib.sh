@@ -139,12 +139,12 @@ fm_config_inherit_items() {
 # Keep the legacy read path usable on a freshly provisioned home. A regular
 # data file may be an atomic editor replacement with new owner instructions:
 # preserve it and refuse convergence until its owner reconciles those bytes.
-fm_worker_sheet_alias_validate() { # <home>; read-only preflight
-  local home=$1 alias="$1/data/worker-sheet.md" canonical="$1/config/worker-sheet.md"
-  [ ! -L "$home/data" ] && { [ ! -e "$home/data" ] || [ -d "$home/data" ]; } || return 1
+fm_worker_sheet_alias_validate() {
+  local data=$2 alias="$2/worker-sheet.md" canonical="$1/worker-sheet.md"
+  [ ! -L "$data" ] && { [ ! -e "$data" ] || [ -d "$data" ]; } || return 1
   if [ -e "$alias" ] || [ -L "$alias" ]; then
     if [ -f "$canonical" ] && [ ! -L "$canonical" ] && [ -L "$alias" ] \
-      && { [ "$(readlink "$alias")" = ../config/worker-sheet.md ] || [ "$alias" -ef "$canonical" ]; }; then
+      && [ "$alias" -ef "$canonical" ]; then
       return 0
     fi
     echo "error: worker policy alias drift: preserve both $alias and $canonical; reconcile the latest owner edit into the config source, then restore the data alias" >&2
@@ -153,12 +153,13 @@ fm_worker_sheet_alias_validate() { # <home>; read-only preflight
   return 0
 }
 
-fm_worker_sheet_alias_ensure() { # <home>; call after canonical exists
-  local home=$1 alias="$1/data/worker-sheet.md" canonical="$1/config/worker-sheet.md"
+fm_worker_sheet_alias_ensure() {
+  local data=$2 alias="$2/worker-sheet.md" canonical="$1/worker-sheet.md" target
   [ -f "$canonical" ] && [ ! -L "$canonical" ] || return 1
-  fm_worker_sheet_alias_validate "$home" || return 1
+  fm_worker_sheet_alias_validate "$1" "$data" || return 1
   if [ -e "$alias" ] || [ -L "$alias" ]; then return 0; fi
-  mkdir -p "$home/data" && ln -s ../config/worker-sheet.md "$alias"
+  target=$(perl -MFile::Spec -e 'print File::Spec->abs2rel(File::Spec->rel2abs($ARGV[0]), File::Spec->rel2abs($ARGV[1]))' -- "$canonical" "$data") || return 1
+  mkdir -p "$data" && ln -s "$target" "$alias"
 }
 
 fm_config_source_present() {
@@ -688,13 +689,14 @@ propagate_secondmate_inheritance() {
   [ -n "$src_config" ] || src_config="$src_home/config"
   [ -n "$src_data" ] || src_data="$src_home/data"
   rc=0
-  propagate_inheritable_config "$src_config" "$dest_home/config" "$src_home" || rc=1
+  propagate_inheritable_config "$src_config" "$dest_home/config" "$src_home" "$src_data" "$dest_home/data" || rc=1
   propagate_shared_captain_preferences "$src_data" "$dest_home/data" || rc=1
   return "$rc"
 }
 
 propagate_inheritable_config() {
   local src_config=$1 dest_config=$2 src_home=${3:-${1%/*}} item src dest src_alias dest_alias source_present reason rc item_status alias_missing
+  local src_data=${4:-$src_home/data} dest_data=${5:-${dest_config%/*}/data}
   local prior_dest_config=${FM_INHERIT_DEST_CONFIG-} role_stage=
   [ -n "$src_config" ] || return 1
   [ -n "$dest_config" ] || return 1
@@ -736,8 +738,8 @@ propagate_inheritable_config() {
       continue
     fi
     if [ "$item" = worker-sheet.md ]; then
-      src_alias="$src_home/data/worker-sheet.md"
-      dest_alias="${dest_config%/*}/data/worker-sheet.md"
+      src_alias="$src_data/worker-sheet.md"
+      dest_alias="$dest_data/worker-sheet.md"
       if [ "$source_present" = 0 ]; then
         if [ -e "$src_alias" ] || [ -L "$src_alias" ] \
           || [ -e "$dest" ] || [ -L "$dest" ] \
@@ -747,8 +749,8 @@ propagate_inheritable_config() {
           continue
         fi
       elif [ ! -f "$src" ] || [ -L "$src" ] \
-        || ! fm_worker_sheet_alias_ensure "$src_home" \
-        || ! fm_worker_sheet_alias_validate "${dest_config%/*}"; then
+        || ! fm_worker_sheet_alias_ensure "$src_config" "$src_data" \
+        || ! fm_worker_sheet_alias_validate "$dest_config" "$dest_data"; then
         record_inheritable_config_result "$item" error "worker policy source or compatibility alias requires reconciliation"
         rc=1
         continue
@@ -818,7 +820,7 @@ propagate_inheritable_config() {
       if [ "$item" = worker-sheet.md ]; then
         alias_missing=0
         if [ ! -e "$dest_alias" ] && [ ! -L "$dest_alias" ]; then alias_missing=1; fi
-        if ! fm_worker_sheet_alias_ensure "${dest_config%/*}"; then
+        if ! fm_worker_sheet_alias_ensure "$dest_config" "$dest_data"; then
           reason="worker policy compatibility alias could not be finalized"
           warn_inheritable_config_error "$item" "$dest" "$reason"
           record_inheritable_config_result "$item" error "$reason"
