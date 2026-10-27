@@ -1,0 +1,234 @@
+
+SCENARIO INVALID CAPABILITY: missing
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-0xkbgymb/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-0xkbgymb/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.041 
+STDOUT: BACKSTOP ALARM HELD: backstop-b2d3d4c68733444c995c8443bd71f31f
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-b2d3d4c68733444c995c8443bd71f31f": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-b2d3d4c68733444c995c8443bd71f31f"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-b2d3d4c68733444c995c8443bd71f31f
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: missing-newline
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-xlogne8t/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-xlogne8t/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.045 
+STDOUT: BACKSTOP ALARM HELD: backstop-8f66b441add54370b49e030b58b81ee2
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-8f66b441add54370b49e030b58b81ee2": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-8f66b441add54370b49e030b58b81ee2"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-8f66b441add54370b49e030b58b81ee2
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: extra-content
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-w0k4irj4/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-w0k4irj4/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.042 
+STDOUT: BACKSTOP ALARM HELD: backstop-b012408263654418bdd9be2246f38efc
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-b012408263654418bdd9be2246f38efc": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-b012408263654418bdd9be2246f38efc"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-b012408263654418bdd9be2246f38efc
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: oversized
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-su0tpfxa/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-su0tpfxa/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.044 
+STDOUT: BACKSTOP ALARM HELD: backstop-ad32c2a80a8e4e7a82e4f5f095edeb74
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-ad32c2a80a8e4e7a82e4f5f095edeb74": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-ad32c2a80a8e4e7a82e4f5f095edeb74"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-ad32c2a80a8e4e7a82e4f5f095edeb74
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: symlink
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-toemhbej/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-toemhbej/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.045 
+STDOUT: BACKSTOP ALARM HELD: backstop-487c4e67e5e4451d96e729062e3d6f25
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-487c4e67e5e4451d96e729062e3d6f25": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-487c4e67e5e4451d96e729062e3d6f25"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-487c4e67e5e4451d96e729062e3d6f25
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: hardlink
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-1zri2zhl/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-1zri2zhl/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.044 
+STDOUT: BACKSTOP ALARM HELD: backstop-7e27d30e5e7a44ecada18cc97815d462
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-7e27d30e5e7a44ecada18cc97815d462": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-7e27d30e5e7a44ecada18cc97815d462"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-7e27d30e5e7a44ecada18cc97815d462
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: writable-file
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-6p83608j/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-6p83608j/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.045 
+STDOUT: BACKSTOP ALARM HELD: backstop-9bbe4927320d48ff96bf309453f650b2
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-9bbe4927320d48ff96bf309453f650b2": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-9bbe4927320d48ff96bf309453f650b2"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-9bbe4927320d48ff96bf309453f650b2
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: writable-config
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-uzbblx_0/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-uzbblx_0/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.045 
+STDOUT: BACKSTOP ALARM HELD: backstop-37a24b87af81402fab70630b280720bd
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-37a24b87af81402fab70630b280720bd": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-37a24b87af81402fab70630b280720bd"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-37a24b87af81402fab70630b280720bd
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: fifo
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-hy1u_jmy/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-hy1u_jmy/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.045 
+STDOUT: BACKSTOP ALARM HELD: backstop-a08a0aa012aa4188a2c96687563e689f
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-a08a0aa012aa4188a2c96687563e689f": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-a08a0aa012aa4188a2c96687563e689f"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-a08a0aa012aa4188a2c96687563e689f
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: directory
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-jiug7mbh/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-jiug7mbh/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.046 
+STDOUT: BACKSTOP ALARM HELD: backstop-32d7804f700141bcb7a62f28b534ad70
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-32d7804f700141bcb7a62f28b534ad70": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-32d7804f700141bcb7a62f28b534ad70"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-32d7804f700141bcb7a62f28b534ad70
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO INVALID CAPABILITY: wrong-path
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-5o51dfpj/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-live-5o51dfpj/home/enabled-target 
+EXIT: 0 ELAPSED: 0.045 
+STDOUT: BACKSTOP ALARM HELD: backstop-7d41af1c8ab54678b822bf8e49051fa2
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-7d41af1c8ab54678b822bf8e49051fa2": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-7d41af1c8ab54678b822bf8e49051fa2"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-7d41af1c8ab54678b822bf8e49051fa2
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+OBSERVED: incident retained, no inbox note/wake/nudge, saved pane unchanged
+
+SCENARIO STOP, RESOLVE, RECUR, RESUME
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.045 
+STDOUT: BACKSTOP ALARM HELD: backstop-911539e331214c1db7faca99114e4683
+checked watcher_age=600s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-911539e331214c1db7faca99114e4683": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {"recovery": "backstop-911539e331214c1db7faca99114e4683"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-911539e331214c1db7faca99114e4683
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.052 
+STDOUT: checked watcher_age=0s alarms=0
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-911539e331214c1db7faca99114e4683": "BACKSTOP HELD: watcher silent for 600s"}, "episodes": {}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-911539e331214c1db7faca99114e4683
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+2026-10-27T16:46:51Z checked watcher_age=0s alarms=0
+
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.048 
+STDOUT: BACKSTOP ALARM HELD: backstop-c71a2e62c6384cb28e862cf3077566ac
+checked watcher_age=1200s alarms=1
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {"backstop-911539e331214c1db7faca99114e4683": "BACKSTOP HELD: watcher silent for 600s", "backstop-c71a2e62c6384cb28e862cf3077566ac": "BACKSTOP HELD: watcher silent for 1200s"}, "episodes": {"recovery": "backstop-c71a2e62c6384cb28e862cf3077566ac"}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-911539e331214c1db7faca99114e4683
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+2026-10-27T16:46:51Z checked watcher_age=0s alarms=0
+2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-c71a2e62c6384cb28e862cf3077566ac
+2026-10-27T16:46:51Z checked watcher_age=1200s alarms=1
+
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.25 
+STDOUT: BACKSTOP HELD: watcher silent for 600s
+BACKSTOP HELD: watcher silent for 1200s
+checked watcher_age=1200s alarms=0
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {}, "episodes": {}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-911539e331214c1db7faca99114e4683
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+2026-10-27T16:46:51Z checked watcher_age=0s alarms=0
+2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-c71a2e62c6384cb28e862cf3077566ac
+2026-10-27T16:46:51Z checked watcher_age=1200s alarms=1
+2026-10-27T16:46:51Z BACKSTOP HELD: watcher silent for 600s
+2026-10-27T16:46:52Z BACKSTOP HELD: watcher silent for 1200s
+2026-10-27T16:46:52Z checked watcher_age=1200s alarms=0
+
+DURABLE INBOX NOTES:
+id=1793119611-y4fRLp
+at=2026-10-27T16:46:51Z
+source=text
+announce_marker=1
+request_id=backstop-911539e331214c1db7faca99114e4683
+--
+BACKSTOP HELD: watcher silent for 600s
+
+id=1793119612-Fe75QP
+at=2026-10-27T16:46:52Z
+source=text
+announce_marker=1
+request_id=backstop-c71a2e62c6384cb28e862cf3077566ac
+--
+BACKSTOP HELD: watcher silent for 1200s
+
+DURABLE WAKE QUEUE:
+1793119611	1	check	inbox:1793119611-y4fRLp	check: captain inbox note 1793119611-y4fRLp - BACKSTOP HELD: watcher silent for 600s
+1793119612	2	check	inbox:1793119612-Fe75QP	check: captain inbox note 1793119612-Fe75QP - BACKSTOP HELD: watcher silent for 1200s
+
+CLI: python3 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/bin/fm-main-backstop.py --home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home --code-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09 --send-enabled-file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5Z39RNY6P89NEV184X3NB09/.test-tmp/backstop-resume-live-069os0do/home/config/main-backstop-send-enabled 
+EXIT: 0 ELAPSED: 0.048 
+STDOUT: checked watcher_age=1201s alarms=0
+ 
+STDERR: 
+PERSISTED JOURNAL: {"deferred_alarms": {}, "episodes": {}, "lag_oldest": {}, "read_fails": {}, "runner_fails": {}}
+AUDIT: 2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-911539e331214c1db7faca99114e4683
+2026-10-27T16:46:51Z checked watcher_age=600s alarms=1
+2026-10-27T16:46:51Z checked watcher_age=0s alarms=0
+2026-10-27T16:46:51Z BACKSTOP ALARM HELD: backstop-c71a2e62c6384cb28e862cf3077566ac
+2026-10-27T16:46:51Z checked watcher_age=1200s alarms=1
+2026-10-27T16:46:51Z BACKSTOP HELD: watcher silent for 600s
+2026-10-27T16:46:52Z BACKSTOP HELD: watcher silent for 1200s
+2026-10-27T16:46:52Z checked watcher_age=1200s alarms=0
+2026-10-27T16:46:52Z checked watcher_age=1201s alarms=0
+
+OBSERVED: distinct incident identities delivered once each on resume; replay did not duplicate notes
+All real CLI scenarios completed; disposable lab homes removed.

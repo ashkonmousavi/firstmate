@@ -1,0 +1,23 @@
+test_nested_backend_shell_uses_recording_transport (__main__.Backstop.test_nested_backend_shell_uses_recording_transport) ... ok
+test_selected_missing_or_malformed_capability_keeps_watcher_observe_only (__main__.Backstop.test_selected_missing_or_malformed_capability_keeps_watcher_observe_only) ... ok
+test_held_incident_keeps_identity_until_enabled_note (__main__.Backstop.test_held_incident_keeps_identity_until_enabled_note) ... ok
+test_runner_resolution_releases_identity_during_stop (__main__.Backstop.test_runner_resolution_releases_identity_during_stop) ... ok
+test_lag_resolution_releases_identity_during_stop (__main__.Backstop.test_lag_resolution_releases_identity_during_stop) ... ok
+test_read_resolution_releases_identity_during_stop (__main__.Backstop.test_read_resolution_releases_identity_during_stop) ... ok
+test_recovery_resolution_releases_identity_during_stop (__main__.Backstop.test_recovery_resolution_releases_identity_during_stop) ... ok
+test_resolved_held_incidents_both_deliver_after_resume (__main__.Backstop.test_resolved_held_incidents_both_deliver_after_resume) ... ok
+test_legacy_deferred_alarm_keeps_original_delivery_identity (__main__.Backstop.test_legacy_deferred_alarm_keeps_original_delivery_identity) ... ok
+test_selected_valid_capability_allows_confirmed_nudge (__main__.Backstop.test_selected_valid_capability_allows_confirmed_nudge) ... ok
+test_malformed_large_and_symlink_capabilities_refuse_send (__main__.Backstop.test_malformed_large_and_symlink_capabilities_refuse_send) ... ok
+test_fifo_capability_is_rejected_without_blocking (__main__.Backstop.test_fifo_capability_is_rejected_without_blocking) ... ok
+test_disabled_runner_and_lag_incidents_keep_cursors_without_notes (__main__.Backstop.test_disabled_runner_and_lag_incidents_keep_cursors_without_notes) ... ok
+test_disabled_read_failure_does_not_write_alarm_or_drop_incident (__main__.Backstop.test_disabled_read_failure_does_not_write_alarm_or_drop_incident) ... ok
+test_revocation_during_discovery_refuses_submission_and_note (__main__.Backstop.test_revocation_during_discovery_refuses_submission_and_note) ... ok
+test_wrong_owner_capability_is_refused_by_reader (__main__.Backstop.test_wrong_owner_capability_is_refused_by_reader) ... ok
+test_stale_saved_pane_is_ignored_and_live_agent_nudged (__main__.Backstop.test_stale_saved_pane_is_ignored_and_live_agent_nudged) ... ok
+test_pending_primary_draft_is_preserved_and_recovery_alarms (__main__.Backstop.test_pending_primary_draft_is_preserved_and_recovery_alarms) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 21.506s
+
+OK
