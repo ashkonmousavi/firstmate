@@ -29,12 +29,20 @@ wait_for_checkpoint_lock() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly() {
-  local home out err status
+  local home out err status started
   home=$(make_home quiet)
   out="$home/out.txt"
   err="$home/err.txt"
   status=0
+  started=$(date +%s%N)
   FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 "$CHECKPOINT" --seconds 1 >"$out" 2>"$err" || status=$?
+  if [ "$status" -ne 124 ]; then
+    # Name the host timeout implementation when the quiet bound is not honored.
+    printf "# diagnostic: exit=%s elapsed_ms=%s timeout=%s (%s)\n" "$status" \
+      "$(( ($(date +%s%N) - started) / 1000000 ))" "$(command -v timeout || echo none)" \
+      "$(timeout --version 2>&1 | head -n 1)"
+    printf "# diagnostic stderr: %s\n" "$(head -c 600 "$err")"
+  fi
   expect_code 124 "$status" "quiet checkpoint exit"
   assert_contains "$(cat "$out")" "checkpoint: no actionable wake within 1s" "quiet checkpoint line missing"
   assert_absent "$home/state/.watch.lock/pid" "watch lock pid survived quiet checkpoint timeout"
