@@ -13,7 +13,7 @@ ci=YAML.load_file(File.join(root,'.github/workflows/ci.yml'))
 checks=0
 ci.fetch('jobs').each do |id,job|
  next if id=='macos-stock-bash'
- raise "#{id}: not on the standard hosted route" unless job.fetch('runs-on')=='ubuntu-latest'
+ raise "#{id}: not on the standard hosted route" unless job.fetch('runs-on')=='ubuntu-24.04'
  raise "#{id}: actual job made nonfatal" if job['continue-on-error']
  job.fetch('steps').each do |step|
   action=step['uses'].to_s
@@ -34,7 +34,7 @@ ci.fetch('jobs').each do |id,job|
 end
 compliance=YAML.load_file(File.join(root,'.github/workflows/no-mistakes-required.yml'))
 job=compliance.fetch('jobs').fetch('check')
-raise 'separate compliance route changed' unless job['runs-on']=='ubuntu-latest'
+raise 'separate compliance route changed' unless job['runs-on']=='ubuntu-24.04'
 action=job['steps'].find{|s| s['name']=='Verify no-mistakes signature and pipeline attestation'}
 raise 'genuine attestation gate changed' unless action && action['uses']=='kunchenguid/no-mistakes/.github/actions/require-no-mistakes@f6441c96c352a18b9cadcaef6b6c7017e9ac3970' && action['with']=={'exempt-authors'=>'kunchenguid'}
 raise 'compliance made nonfatal' if job['continue-on-error'] || action['continue-on-error']
