@@ -774,6 +774,8 @@ They then submit the one-line `\u2063FIRSTMATE_OP: v1 launch-brief: Read the bri
 Every failure reports "codex did not take the brief".
 `FM_CODEX_POSITIONAL_LAUNCH=1` restores the positional form (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict).
 A secondmate uses the same typed delivery for its charter while preserving its primary hooks; an unresolved hook-review modal fails readiness instead of falling back to a positional brief.
+Typed delivery requires verified viewport-bounded capture; a backend without it (Orca, cmux, or Paseo) is refused at preflight before launch rather than using scrollback to infer that a dialog cleared.
+A caller-supplied raw launch command bypasses these gates and owns its own brief delivery.
 
 Herdr-lab e2e: NOT RUN as of 2026-10-27; provisioning refused before Codex launched.
 The recorded provisioning command and exact refusal are:

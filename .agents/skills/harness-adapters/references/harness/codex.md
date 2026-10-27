@@ -6,7 +6,7 @@ Verified on 2026-06-11 with codex-cli 0.139.0 unless a fact gives a newer versio
 
 | Fact | Value |
 |---|---|
-| Launch brief | Typed after launch, never positional: codex-cli 0.163.0 opens at an empty composer ("Ask Codex to do anything") and never runs the positional prompt, in a new folder (after the trust dialog is answered) and in an already trusted folder, with and without the `-c`/`--disable` overrides (verified live 2026-10-27). `bin/fm-spawn.sh` starts codex bare, waits for the ready composer while answering the launch dialogs, then delivers `FIRSTMATE_OP: v1 launch-brief` (a one-line pointer naming `data/<id>/launch-brief.md`) through `fm_backend_send_text_submit` and confirms the turn started; every failure reports "codex did not take the brief". `FM_CODEX_POSITIONAL_LAUNCH=1` restores the positional form (`fm_spawn_codex_positional_brief_probe` owns that verdict). |
+| Launch brief | For typed delivery, confirmation, and the positional probe, see [Codex typed launch brief](../../../../../docs/verification/runtime-backends.md#codex-typed-launch-brief). |
 | Busy state | Unknown until a semantic source is live-verified: the app-server turn lifecycle is unreachable for a pane worker, and project lifecycle hooks did not fire for a Firstmate-launched worker. |
 | Exit command | `/quit`; its slash popup needs about one second between text and Enter, which the shared submit path used by the control plane handles. |
 | Interrupt | Single Escape. |
@@ -33,7 +33,7 @@ A third dialog, "Hooks need review", is covered below.
 
 ## Hook trust
 
-A second dialog, "Hooks need review - N hooks are new or changed", appears whenever the machine's `~/.codex/hooks.json` or a project's own `.codex/hooks.json` carries a hook Codex has not persisted trust for.
+The "Hooks need review - N hooks are new or changed" dialog appears whenever the machine's `~/.codex/hooks.json` or a project's own `.codex/hooks.json` carries a hook Codex has not persisted trust for.
 It is unanswerable rather than merely inconvenient: its selection starts on "Review hooks", which is neither trusting nor declining, and Firstmate's key plane carries Enter, Escape and Ctrl-C with no arrow navigation.
 Writing Codex's own trust store to pre-accept it would manufacture an operator consent that was never given.
 So crewmate and scout launches disable Codex's hook layer outright (`bin/fm-spawn.sh`'s launch template owns the flag), which is the opposite of `--dangerously-bypass-hook-trust` - that flag RUNS the untrusted hooks.
