@@ -171,20 +171,119 @@ os.execv(real,[command]+sys.argv[3:])
         selected.unlink()
         self.run_guard()
         self.assert_observe_only()
-        self.assertIn('recovery', self.memory()['deferred_alarms'])
+        self.assertIn(self.memory()['episodes']['recovery'], self.memory()['deferred_alarms'])
 
     def test_held_incident_keeps_identity_until_enabled_note(self):
         selected = self.select_send_file()
         selected.unlink()
         self.run_guard()
         incident = self.memory()['episodes']['recovery']
-        self.assertIn('recovery', self.memory()['deferred_alarms'])
+        self.assertIn(self.memory()['episodes']['recovery'], self.memory()['deferred_alarms'])
         selected.write_bytes(b'enabled\n')
         selected.chmod(0o600)
         self.run_guard()
         self.assertIn('BACKSTOP HELD', self.notes())
         self.assertIn(incident, self.notes())
-        self.assertNotIn('recovery', self.memory()['deferred_alarms'])
+        self.assertNotIn(incident, self.memory()['deferred_alarms'])
+
+    def check_distinct_incidents_across_stop(self, kind):
+        selected = self.select_send_file()
+        self.config['process'] = 'bash'
+        (self.state / '.last-watcher-beat').touch()
+        key = kind + '-q-server' if kind != 'recovery' else kind
+
+        def trigger():
+            if kind == 'runner':
+                self.register_runner('999999999\n')
+            elif kind == 'lag':
+                self.config['remote'] += 60
+            elif kind == 'read':
+                self.config['fail_reads'] = 100
+            else:
+                os.utime(self.state / '.last-watcher-beat', (4400, 4400))
+            self.run_guard()
+            self.run_guard()
+
+        def resolve():
+            if kind == 'runner':
+                (self.state / 'procevent/remote-reply-q-server.source').unlink()
+            elif kind == 'lag':
+                (self.state / '.remote-reply-mirrored-q-server').write_text(
+                    'done [at=%d]: mirrored\n' % self.config['remote'])
+            elif kind == 'read':
+                self.config['fail_reads'] = 0
+            else:
+                (self.state / '.last-watcher-beat').touch()
+            self.run_guard()
+
+        trigger()
+        first = self.memory()['episodes'][key]
+        self.assertIn(first, self.notes())
+        selected.unlink()
+        self.run_guard()
+        resolve()
+        self.assertNotIn(key, self.memory()['episodes'])
+        self.assertIn(first, self.memory()['deferred_alarms'])
+        trigger()
+        second = self.memory()['episodes'][key]
+        self.assertNotEqual(first, second)
+        self.assertNotIn(second, self.notes())
+        self.select_send_file()
+        self.run_guard()
+        self.assertIn(second, self.notes())
+        self.assertEqual(self.notes().count('request_id=' + first), 1)
+        self.assertEqual(self.notes().count('request_id=' + second), 1)
+        self.assertEqual(self.memory()['deferred_alarms'], {})
+
+    def test_runner_resolution_releases_identity_during_stop(self):
+        self.check_distinct_incidents_across_stop('runner')
+
+    def test_lag_resolution_releases_identity_during_stop(self):
+        self.check_distinct_incidents_across_stop('lag')
+
+    def test_read_resolution_releases_identity_during_stop(self):
+        self.check_distinct_incidents_across_stop('read')
+
+    def test_recovery_resolution_releases_identity_during_stop(self):
+        self.check_distinct_incidents_across_stop('recovery')
+
+    def test_resolved_held_incidents_both_deliver_after_resume(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        self.run_guard()
+        first = self.memory()['episodes']['recovery']
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        second = self.memory()['episodes']['recovery']
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        self.assertNotEqual(first, second)
+        self.assertEqual(self.notes(), '')
+        self.select_send_file()
+        self.run_guard()
+        self.assertIn(first, self.notes())
+        self.assertIn(second, self.notes())
+        self.assertIn('watcher silent for 600s', self.notes())
+        self.assertIn('watcher silent for 1000s', self.notes())
+        self.assertEqual(self.memory()['deferred_alarms'], {})
+
+    def test_legacy_deferred_alarm_keeps_original_delivery_identity(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        journal = self.state / '.main-backstop.json'
+        journal.write_text(json.dumps({
+            'episodes': {'recovery': 'backstop-original'},
+            'deferred_alarms': {'recovery': 'original held incident'}}))
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        self.assertNotIn('recovery', self.memory()['episodes'])
+        self.select_send_file()
+        self.run_guard()
+        self.assertIn('backstop-original', self.notes())
+        self.assertIn('original held incident', self.notes())
+        self.assertEqual(self.memory()['deferred_alarms'], {})
 
     def test_selected_valid_capability_is_recognized(self):
         selected = self.select_send_file()

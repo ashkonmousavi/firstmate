@@ -340,6 +340,9 @@ def main():
         memory = {}
     episodes = memory.setdefault('episodes', {})
     deferred = memory.setdefault('deferred_alarms', {}) if args.send_enabled_file else {}
+    for key in list(deferred):
+        if key in episodes:
+            deferred[episodes[key]] = deferred.pop(key)
     active = set()
     now = int(time.time())
     log = state / '.main-backstop.log'
@@ -361,39 +364,36 @@ def main():
         return (args.send_enabled_file is None
                 or send_capability_enabled(home, args.send_enabled_file))
 
-    def deliver_alarm(key, message):
+    def deliver_alarm(request, message):
         if not send_enabled():
-            audit('BACKSTOP ALARM HELD: ' + key)
+            audit('BACKSTOP ALARM HELD: ' + request)
             return
-        request = episodes[key]
         try:
             run([str(code / 'bin/fm-inbox.sh'), 'note', '--request-id', request,
                  '--', message], env)
         except ProbeError:
             audit('BACKSTOP ALARM SAVE FAILED: ' + message)
             return
-        deferred.pop(key, None)
+        deferred.pop(request, None)
         save()
         audit(message)
 
     def resolve_episode(key):
-        if key not in deferred:
-            episodes.pop(key, None)
+        episodes.pop(key, None)
 
     def alarm(key, message):
         active.add(key)
-        episodes.setdefault(key, 'backstop-' + uuid.uuid4().hex)
+        request = episodes.setdefault(key, 'backstop-' + uuid.uuid4().hex)
         if args.send_enabled_file is not None:
-            deferred[key] = message
+            deferred[request] = message
         save()  # Preserve replay identity before an interrupted note submission.
         # Keep the same request id across a stop or interrupted note. The
         # inbox's idempotent retry repairs an uncertain prior submission.
-        deliver_alarm(key, message)
+        deliver_alarm(request, message)
 
     if send_enabled():
-        for key, message in list(deferred.items()):
-            if key in episodes:
-                deliver_alarm(key, message)
+        for request, message in list(deferred.items()):
+            deliver_alarm(request, message)
 
     try:
         beat_age = now - int((state / '.last-watcher-beat').stat().st_mtime)
