@@ -768,12 +768,25 @@ The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the split the
 Verified 2026-10-27 on codex-cli 0.163.0, Linux x86_64 (zb-crew laptop), against the real installed Codex through a real `bin/fm-spawn.sh` scout spawn.
 
 codex-cli 0.163.0 never runs the positional launch prompt: launched bare or with a positional argument, the TUI opens at an empty composer ("Ask Codex to do anything") and sits there - in a new folder (after the trust dialog is answered with Enter) and in an already trusted folder, with and without the `-c`/`--disable` overrides.
-A crewmate or scout launch therefore starts codex without the positional brief, and `bin/fm-spawn.sh`'s typed-brief gates deliver it after launch in the same launch-then-confirm shape kimi and rovo use.
+A standard Codex launch therefore starts codex without the positional brief, and `bin/fm-spawn.sh`'s typed-brief gates deliver it after launch in the same launch-then-confirm shape kimi and rovo use.
 The gates wait (bounded, two consecutive empty-composer classifications through the shared classifier) for the ready composer, answering codex's own launch dialogs on the way: Enter for the trust dialog's preselected `1. Trust and continue`, and Escape for the update dialog whose Enter would run `npm install -g @openai/codex`.
 They then submit the one-line `\u2063FIRSTMATE_OP: v1 launch-brief: Read the brief at <data/<id>/launch-brief.md> and follow it exactly. Launch receipt: <unique-receipt>.` envelope through `fm_backend_send_text_submit`, and confirm the turn started from the verified `esc to interrupt` busy footer appearing in the current viewport after readiness established an idle viewport, or a `Worked for <t>` completion row following this submission's unique launch receipt in the captured transcript.
 Every failure reports "codex did not take the brief".
 `FM_CODEX_POSITIONAL_LAUNCH=1` restores the positional form (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict).
-A secondmate launch keeps the positional form, because its home is trusted once at provisioning and its hooks modal is the operator's own review.
+A secondmate uses the same typed delivery for its charter while preserving its primary hooks; an unresolved hook-review modal fails readiness instead of falling back to a positional brief.
+
+Herdr proof remains unverified as of 2026-10-27.
+The installed Herdr reports its default session as stopped, so the lab helper's required running-default fleet-state tripwire cannot pass.
+The live guard is `FM_CODEX_LIVE_E2E=1 bash tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh`; a successful run must establish both new-folder and trusted-folder processing within 60 seconds before this record can claim Herdr verification.
+`tests/fm-codex-harness.test.sh` covers current busy frames, immediate completion after the current receipt, rejection of old completion and busy text, secondmate charter delivery with primary hooks preserved, and the explicit positional probe.
+Portable fixture results do not replace the required real-Herdr proof.
+
+The 2026-10-27 Herdr guard attempt exited 1 at provisioning, before launching Codex:
+
+```text
+fm-herdr-lab: fleet-state tripwire requires exactly one running default session
+not ok - could not provision isolated Herdr lab session
+```
 
 Live evidence, codex-cli 0.163.0 on an isolated tmux server, a fresh treehouse worktree nobody had trusted (`tests/fm-codex-brief-typed-live-e2e.test.sh`, `FM_CODEX_LIVE_E2E=1`):
 

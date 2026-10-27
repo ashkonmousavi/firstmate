@@ -285,6 +285,10 @@ EOF
 run_spawn() {
   local case_dir=$1 home=$2 proj=$3 wt=$4 fakebin=$5 id=$6
   shift 6
+  case " $* " in
+    *' --secondmate '*) ;;
+    *) set -- --mode no-mistakes --yolo off "$@" ;;
+  esac
   HOME="$home" FM_ROOT_OVERRIDE='' FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
@@ -304,7 +308,7 @@ run_spawn() {
     FM_CODEX_READY_POLLS="${FM_CODEX_READY_POLLS:-12}" FM_CODEX_PROCESSING_POLLS=6 \
     FM_CODEX_POLL_INTERVAL=0 FM_CODEX_SUBMIT_SLEEP=0 FM_CODEX_SUBMIT_SETTLE=0 \
     PATH="$fakebin:$BASE_PATH" \
-    "$SPAWN" "$id" "$proj" --harness codex --mode no-mistakes --yolo off "$@" 2>&1
+    "$SPAWN" "$id" "$proj" --harness codex "$@" 2>&1
 }
 
 read_spawn_record() {
@@ -368,6 +372,45 @@ test_codex_positional_probe_restores_the_positional_launch() {
   [ ! -s "$CASE_DIR/typed.log" ] \
     || fail "the typed gate ran under the positional probe: $(cat "$CASE_DIR/typed.log")"
   pass "fm-spawn: FM_CODEX_POSITIONAL_LAUNCH=1 keeps the positional launch and skips the typed gates"
+}
+
+test_codex_secondmate_uses_typed_delivery_and_preserves_hooks() {
+  local delivery id rec sm out rc launch
+  for delivery in working delivered failed positional; do
+    id="codex-secondmate-$delivery-$$"
+    rec=$(make_spawn_case "secondmate-$delivery" "$id")
+    read_spawn_record "$rec"
+    sm="$CASE_DIR/secondmate-home"
+    mkdir -p "$sm/bin" "$sm/data"
+    printf '# Firstmate\n' >"$sm/AGENTS.md"
+    printf '%s\n' "$id" >"$sm/.fm-secondmate-home"
+    printf 'charter for %s\n' "$id" >"$sm/data/charter.md"
+    printf '%s\n' 'projects/' 'state/' 'data/' 'config/' '.no-mistakes/' >"$sm/.gitignore"
+    git -C "$sm" init -q -b main
+    CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
+    out=$(FM_SKIP_SECONDMATE_SYNC=1 FM_SKIP_SECONDMATE_INHERIT=1 \
+      FM_CODEX_POSITIONAL_LAUNCH="$([ "$delivery" = positional ] && printf 1 || printf 0)" \
+      FM_FAKE_CODEX_DELIVERY="$delivery" \
+      run_spawn "$CASE_DIR" "$HOME_DIR" "$sm" "$sm" "$FAKEBIN_DIR" "$id" --secondmate)
+    rc=$?
+    launch=$(cat "$CASE_DIR/launch.log")
+    assert_not_contains "$launch" '--disable hooks' "secondmate launch disabled its primary hooks"
+    assert_not_contains "$launch" 'notify=' "secondmate launch replaced its primary turn-end hooks"
+    if [ "$delivery" = failed ]; then
+      [ "$rc" -ne 0 ] || fail "a secondmate whose brief failed still spawned"
+      assert_contains "$out" 'codex did not take the brief' "secondmate brief failure was not reported"
+    else
+      expect_code 0 "$rc" "secondmate $delivery launch should succeed"$'\n'"$out"
+    fi
+    if [ "$delivery" = positional ]; then
+      assert_contains "$launch" 'encode launch-brief' "secondmate positional probe lost its brief"
+      [ ! -s "$CASE_DIR/typed.log" ] || fail "secondmate positional probe also typed the brief"
+    else
+      assert_not_contains "$launch" 'encode launch-brief' "secondmate still relied on a positional brief"
+      assert_contains "$(cat "$CASE_DIR/typed.log")" "$sm/data/charter.md" "secondmate did not receive its own charter pointer"
+    fi
+  done
+  pass "fm-spawn: secondmates type their charter, preserve primary hooks, and honor the positional probe"
 }
 
 test_codex_never_ready_reports_codex_did_not_take_the_brief() {
@@ -551,6 +594,7 @@ test_codex_refuses_a_backend_without_a_viewport_capture() {
 
 test_codex_launches_bare_and_delivers_typed_brief
 test_codex_positional_probe_restores_the_positional_launch
+test_codex_secondmate_uses_typed_delivery_and_preserves_hooks
 test_codex_never_ready_reports_codex_did_not_take_the_brief
 test_codex_answering_the_update_dialog_with_enter_never_readies
 test_codex_trust_dialog_that_never_clears_fails

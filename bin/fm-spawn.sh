@@ -2471,23 +2471,19 @@ launch_template() {
   # codex-cli 0.163.0 never runs the positional launch prompt (verified live:
   # the TUI opens at an empty composer and sits there in a new folder after the
   # trust dialog and in an already trusted folder, with and without the
-  # -c/--disable overrides), so a crewmate or scout launch starts codex bare
+  # -c/--disable overrides), so a launch starts codex bare
   # and the typed-brief gates below deliver `FIRSTMATE_OP: v1 launch-brief`
   # through fm_backend_send_text_submit once the composer is ready - the same
   # launch-then-confirm shape kimi and rovo use. The positional form survives
   # behind fm_spawn_codex_positional_brief_probe for a later codex that runs
-  # positional prompts again. A secondmate keeps the positional form: its home
-  # is trusted once at provisioning and its hooks modal is the operator's own
-  # review, not a fresh-worktree spawn this gate owns.
+  # positional prompts again.
   codex)
-    if [ "$kind" = secondmate ] || fm_spawn_codex_positional_brief_probe; then
-      if [ "$kind" = secondmate ]; then
-        printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
-      else
-        printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]" "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
-      fi
-    else
-      printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]"'
+    printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox'
+    if [ "$kind" != secondmate ]; then
+      printf '%s' ' --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]"'
+    fi
+    if fm_spawn_codex_positional_brief_probe; then
+      printf '%s' ' "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
     fi
     ;;
   opencode) printf '%s' 'OPENCODE_CONFIG_CONTENT='\''{"permission":{"*":"allow"}__EFFORTFLAG__}'\'' opencode __MODELFLAG__--prompt "$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
@@ -3279,9 +3275,9 @@ esac
 # The codex typed-brief gates answer codex's own folder-trust and update
 # dialogs from the live pane, so a backend with no viewport-bounded capture
 # cannot prove a dialog cleared and the spawn is refused at preflight, the
-# same boundary the kimi gate draws. The positional probe and secondmate
-# launches keep the brief on the launch command and need no pane read.
-if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ] && [ "$RAW_LAUNCH" -ne 1 ] \
+# same boundary the kimi gate draws. The positional probe keeps the brief on
+# the launch command and needs no pane read.
+if [ "$HARNESS" = codex ] && [ "$RAW_LAUNCH" -ne 1 ] \
   && ! fm_spawn_codex_positional_brief_probe; then
   fm_backend_visible_capture_supported "$BACKEND" || {
     echo "error: refusing codex spawn because backend '$BACKEND' has no verified viewport-bounded capture; codex gates a fresh worktree on a trust dialog whose clearing can only be proven from a scrollback-free read of the live pane" >&2
@@ -4981,9 +4977,9 @@ agy_wait_for_working() {
 # header plus a pointer to the scaffold-owned brief record, the same pointer
 # kimi and rovo type - through the backend's typed submit path
 # (fm_backend_send_text_submit), and confirm the turn started. Every failure
-# reports "codex did not take the brief". Secondmate launches and the
-# positional probe (fm_spawn_codex_positional_brief_probe) keep the brief on
-# the launch command and skip these gates; the invocation site owns that cut.
+# reports "codex did not take the brief". The positional probe
+# (fm_spawn_codex_positional_brief_probe) keeps the brief on the launch command
+# and skips these gates; the invocation site owns that cut.
 
 # codex 0.163.0 dialog text, verified live. The update dialog is matched on
 # its two option rows and never on its "Update available" heading: that
@@ -6804,13 +6800,13 @@ if [ "$HARNESS" = agy ]; then
   fi
 fi
 # codex's brief no longer rides the launch command (codex-cli 0.163.0 never
-# runs the positional prompt), so a fresh crewmate or scout takes it here:
+# runs the positional prompt), so a launch takes it here:
 # ready composer with codex's own launch dialogs answered, typed submit of
 # the launch-brief envelope, processing confirmed. The gate functions' header
 # owns the full contract; every failure reports "codex did not take the brief".
 # A raw launch command is caller-owned and skips the gate, as does the
-# positional probe and the secondmate launch, whose brief stays positional.
-if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ] && [ "$RAW_LAUNCH" -ne 1 ] \
+# positional probe, whose brief stays positional.
+if [ "$HARNESS" = codex ] && [ "$RAW_LAUNCH" -ne 1 ] \
   && ! fm_spawn_codex_positional_brief_probe; then
   if ! codex_spawn_typed_brief; then
     exit 1
