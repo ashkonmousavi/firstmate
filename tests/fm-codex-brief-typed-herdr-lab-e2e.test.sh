@@ -155,10 +155,10 @@ wait_for_pane_text() {  # <id> <text> <max-seconds>
 # --- 1. NEW folder: the gate answers the trust dialog and delivers the brief -
 
 spawn_scout "$SCOUT" "$PROJ" --scout --harness codex --backend herdr
+record_worktree "$SCOUT"
 if [ "$SPAWN_RC" -ne 0 ]; then
   fail "a codex scout spawn in a new folder failed within ${SPAWN_ELAPSED}s"$'\n'"$SPAWN_OUT"
 fi
-record_worktree "$SCOUT"
 [ -s "$HOME_DIR/state/$SCOUT.meta" ] || fail "the new-folder spawn left no task record"
 case "$SPAWN_OUT" in
   *"spawned $SCOUT harness=codex"*) : ;;

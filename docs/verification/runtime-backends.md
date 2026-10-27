@@ -775,20 +775,21 @@ Every failure reports "codex did not take the brief".
 `FM_CODEX_POSITIONAL_LAUNCH=1` restores the positional form (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict).
 A secondmate uses the same typed delivery for its charter while preserving its primary hooks; an unresolved hook-review modal fails readiness instead of falling back to a positional brief.
 
-Herdr proof remains unverified as of 2026-10-27.
-The installed Herdr reports its default session as stopped, so the lab helper's required running-default fleet-state tripwire cannot pass.
-The live guard is `FM_CODEX_LIVE_E2E=1 bash tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh`; a successful run must establish both new-folder and trusted-folder processing within 60 seconds before this record can claim Herdr verification.
-`tests/fm-codex-harness.test.sh` covers current busy frames, immediate completion after the current receipt, rejection of old completion and busy text, secondmate charter delivery with primary hooks preserved, and the explicit positional probe.
-Portable fixture results do not replace the required real-Herdr proof.
-
-The 2026-10-27 Herdr guard attempt exited 1 at provisioning, before launching Codex:
+Herdr-lab e2e: NOT RUN as of 2026-10-27; provisioning refused before Codex launched.
+The recorded provisioning command and exact refusal are:
 
 ```text
+/home/zcrew/fm-home2/bin/fm-herdr-lab.sh provision <fm-lab-* session>
 fm-herdr-lab: fleet-state tripwire requires exactly one running default session
-not ok - could not provision isolated Herdr lab session
 ```
 
-Live evidence, codex-cli 0.163.0 on an isolated tmux server, a fresh treehouse worktree nobody had trusted (`tests/fm-codex-brief-typed-live-e2e.test.sh`, `FM_CODEX_LIVE_E2E=1`):
+Firstmate owns the deferred Herdr proof on MAIN, on a machine whose default Herdr session is running.
+No Herdr pass is claimed, and this work does not start or stop a default session.
+`FM_CODEX_LIVE_E2E=1 bash tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` remains the live guard for new-folder and trusted-folder processing within 60 seconds.
+`tests/fm-codex-harness.test.sh` covers current busy frames, immediate completion after the current receipt, rejection of old completion and busy text, secondmate charter delivery with primary hooks preserved, and the explicit positional probe.
+Portable fixture results do not replace the deferred real-Herdr proof.
+
+Live evidence retained from 2026-10-27, codex-cli 0.163.0 on an isolated tmux server, a fresh treehouse worktree nobody had trusted (`tests/fm-codex-brief-typed-live-e2e.test.sh`, `FM_CODEX_LIVE_E2E=1`):
 
 ```text
 ok - real codex codex-cli 0.163.0 on tmux: a new-folder scout starts processing its typed launch brief within 9s and answers it
