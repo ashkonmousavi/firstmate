@@ -2,6 +2,7 @@
 """Linux cron backstop for Herdr primary wake delivery, independent of the watcher.
 
 Usage: fm-main-backstop.py --home PATH [--code-root PATH] [--mate ID ...]
+       [--send-enabled-file HOME/config/main-backstop-send-enabled]
 Run every three minutes. After a five-minute watcher silence with supervision
 work and no state/.afk record, discover a unique live Claude/Codex primary in
 this exact home and nudge it so its own turn-end owner re-arms.
@@ -43,10 +44,23 @@ runner read as not alive on a single pass is audited as transient. No remote
 source is changed or live runner reconciled.
 Notes deduplicate for an incident until a healthy observation clears it.
 Runner identity requires Linux /proc process state and command-line records.
-Private state: .main-backstop.json (incident ids, successful nudge time,
-delta cursors and consecutive failure records),
+Private state: .main-backstop.json (incident ids, deferred alarms when gated,
+successful nudge time, delta cursors and consecutive failure records),
 .main-backstop.lock (cron exclusion), .main-backstop.log (bounded audit).
 The caller deploys/backs up its private files and supplies the home's code root.
+When --send-enabled-file is selected, its path must be exactly the resolved
+HOME/config/main-backstop-send-enabled and its contents exactly enabled\n.
+The config directory must be a nonsymlink directory owned by the home owner.
+The file must be regular, nonsymlink, singly linked, and owned by both the home
+owner and effective user; neither directory nor file may be group/world writable.
+Reads are bounded and nonblocking, so a FIFO refuses permission without waiting.
+Permission is rechecked before inbox notes, primary discovery and submission.
+A missing or invalid capability leaves this pass observing and retaining
+incidents without inbox notes or primary discovery/submission.
+Deferred notes retain their request IDs and replay when enabled, even if the
+incident resolved while stopped; a later incident receives a distinct ID.
+Omitting the option preserves upstream send behavior; select it in the private
+scheduler wrapper to enable the intentional-stop posture.
 """
 import argparse
 import fcntl
@@ -56,6 +70,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import stat
 import subprocess
 import time
 import uuid
@@ -77,6 +92,36 @@ DELTA_TIMEOUT = 90
 # moment; a few short re-reads read around it while keeping a pass bounded.
 RUNNER_REREADS = 5
 RUNNER_REREAD_DELAY = 0.02
+
+
+def send_capability_enabled(home, path):
+    """Read the exact private send capability without following a replaced link."""
+    expected = home / 'config/main-backstop-send-enabled'
+    if path != expected:
+        return False
+    fd = None
+    try:
+        config = os.lstat(expected.parent)
+        owner = home.stat().st_uid
+        if (not stat.S_ISDIR(config.st_mode) or config.st_uid != owner
+                or config.st_mode & 0o022):
+            return False
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+                     | os.O_NONBLOCK)
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner
+                or info.st_uid != os.geteuid() or info.st_nlink != 1
+                or info.st_mode & 0o022 or info.st_size != len(b'enabled\n')):
+            return False
+        content = os.read(fd, len(b'enabled\n') + 1)
+        current = os.stat(path, follow_symlinks=False)
+        return (content == b'enabled\n' and current.st_dev == info.st_dev
+                and current.st_ino == info.st_ino and stat.S_ISREG(current.st_mode))
+    except (OSError, ValueError):
+        return False
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def run(argv, env):
@@ -279,6 +324,7 @@ def main():
     parser.add_argument('--home', type=Path, required=True)
     parser.add_argument('--code-root', type=Path)
     parser.add_argument('--mate', action='append', default=[])
+    parser.add_argument('--send-enabled-file', type=Path)
     args = parser.parse_args()
     home = args.home.resolve(strict=True)
     code = (args.code_root or home).resolve(strict=True)
@@ -301,6 +347,10 @@ def main():
     except (OSError, ValueError):
         memory = {}
     episodes = memory.setdefault('episodes', {})
+    deferred = memory.setdefault('deferred_alarms', {}) if args.send_enabled_file else {}
+    for key in list(deferred):
+        if key in episodes:
+            deferred[episodes[key]] = deferred.pop(key)
     active = set()
     now = int(time.time())
     log = state / '.main-backstop.log'
@@ -318,19 +368,40 @@ def main():
         tmp.write_text(json.dumps(memory, sort_keys=True) + '\n')
         tmp.replace(journal)
 
-    def alarm(key, message):
-        active.add(key)
-        request = episodes.setdefault(key, 'backstop-' + uuid.uuid4().hex)
-        save()  # Preserve replay identity before an interrupted note submission.
+    def send_enabled():
+        return (args.send_enabled_file is None
+                or send_capability_enabled(home, args.send_enabled_file))
+
+    def deliver_alarm(request, message):
+        if not send_enabled():
+            audit('BACKSTOP ALARM HELD: ' + request)
+            return
         try:
             run([str(code / 'bin/fm-inbox.sh'), 'note', '--request-id', request,
                  '--', message], env)
         except ProbeError:
-            # Keep the same request id; note may already be saved, and its
-            # idempotent retry repairs announcement rather than duplicating it.
             audit('BACKSTOP ALARM SAVE FAILED: ' + message)
             return
+        deferred.pop(request, None)
+        save()
         audit(message)
+
+    def resolve_episode(key):
+        episodes.pop(key, None)
+
+    def alarm(key, message):
+        active.add(key)
+        request = episodes.setdefault(key, 'backstop-' + uuid.uuid4().hex)
+        if args.send_enabled_file is not None:
+            deferred[request] = message
+        save()  # Preserve replay identity before an interrupted note submission.
+        # Keep the same request id across a stop or interrupted note. The
+        # inbox's idempotent retry repairs an uncertain prior submission.
+        deliver_alarm(request, message)
+
+    if send_enabled():
+        for request, message in list(deferred.items()):
+            deliver_alarm(request, message)
 
     try:
         beat_age = now - int((state / '.last-watcher-beat').stat().st_mtime)
@@ -361,14 +432,14 @@ def main():
                 save()
         else:
             runner_fails.pop(mate, None)
-            episodes.pop('runner-' + mate, None)
+            resolve_episode('runner-' + mate)
         try:
             local_path = state / ('.remote-reply-mirrored-' + mate)
             local = newest(local_path.read_text()) if local_path.exists() else 0
             oldest = remote_oldest(code, env, memory, mate, local, audit)
             lag = max(0, now - oldest) if oldest else 0
             if mate in lag_oldest and local >= lag_oldest[mate]:
-                episodes.pop('lag-' + mate, None)
+                resolve_episode('lag-' + mate)
                 lag_oldest.pop(mate)
             if lag > 900:
                 message = 'REPLY DELIVERY LAG %s: %ds (oldest_at=%d ingested_at=%d); primary wake path needs recovery.' % (mate, lag, oldest, local)
@@ -376,10 +447,10 @@ def main():
                 alarm('lag-' + mate, message)
                 trouble.append('reply lag: ' + mate)
             elif not oldest:
-                episodes.pop('lag-' + mate, None)
+                resolve_episode('lag-' + mate)
                 lag_oldest.pop(mate, None)
             read_fails.pop(mate, None)
-            episodes.pop('read-' + mate, None)
+            resolve_episode('read-' + mate)
         except (ProbeError, OSError, ValueError):
             # One failed pass is transport noise under load; two consecutive
             # passes are a genuinely unverified delivery state and alarm
@@ -391,8 +462,12 @@ def main():
             else:
                 audit('read failed once, tolerating one pass: ' + mate)
                 save()
-    if trouble:
+    if trouble and not send_enabled():
+        alarm('recovery', 'BACKSTOP HELD: ' + '; '.join(trouble))
+    elif trouble:
         try:
+            if not send_enabled():
+                raise ProbeError('send capability revoked')
             pane = live_primary(home, env)
             if now - memory.get('last_nudge', 0) >= 300:
                 # Resolve the live foreground again just before sending; never
@@ -401,6 +476,8 @@ def main():
                     raise ProbeError('primary changed during discovery')
                 text = '[backstop] ' + '; '.join(trouble) + '. Drain wakes and handle the recovery; your turn-end owner re-arms supervision.'
                 target = env.get('HERDR_SESSION', 'default') + ':' + pane
+                if not send_enabled():
+                    raise ProbeError('send capability revoked')
                 verdict = run(['bash', '-c', '''
 . "$1" || exit 1
 state=$(fm_backend_composer_state herdr "$2") || exit 1
@@ -412,14 +489,14 @@ fm_backend_send_text_submit herdr "$2" "$3" 2 0.4 0.3
                 memory['last_nudge'] = now
                 (home / 'data/main-pane').write_text(pane + '\n')
                 audit('nudged verified primary pane=' + pane)
-                episodes.pop('recovery', None)
+                resolve_episode('recovery')
         except (ProbeError, OSError, ValueError, KeyError, TypeError) as error:
             detail = str(error) if isinstance(error, ProbeError) else 'primary discovery unavailable'
             if detail == 'command failed or timed out':
                 detail = 'primary nudge failed or discovery unavailable'
             alarm('recovery', 'BACKSTOP FAILURE: %s; %s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.' % (detail, '; '.join(trouble)))
     elif all(mate not in read_fails and mate not in runner_fails for mate in mates):
-        episodes.pop('recovery', None)
+        resolve_episode('recovery')
     save()
     audit('checked watcher_age=%ds alarms=%d' % (beat_age, len(active)))
 
