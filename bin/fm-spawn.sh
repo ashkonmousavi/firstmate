@@ -776,6 +776,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
+# shellcheck source=bin/fm-operational-input.sh
+. "$SCRIPT_DIR/fm-operational-input.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
 # shellcheck source=bin/fm-gate-refuse-lib.sh
@@ -2365,6 +2367,20 @@ agy_model_validate() {  # <agy-bin> <model>
 
 # The verified launch command per adapter. The knowledge half of each adapter
 # (busy-state source, exit command, dialogs, quirks) lives in the harness-adapters skill.
+# fm_spawn_codex_positional_brief_probe: whether THIS launch may still hand
+# codex its brief as the positional prompt argument. codex-cli 0.163.0 opens
+# at an empty composer ("Ask Codex to do anything") and never runs the
+# positional prompt - in a new folder (after the trust dialog is answered)
+# and in an already trusted folder, with and without the -c/--disable
+# overrides - so the typed launch-brief path below is the default and this
+# probe is the single owner of the positional verdict. FM_CODEX_POSITIONAL_LAUNCH=1
+# restores the positional form everywhere after a live check on a codex that
+# runs positional prompts again; extend this function with that verified
+# version predicate rather than editing the launch arm.
+fm_spawn_codex_positional_brief_probe() {
+  [ "${FM_CODEX_POSITIONAL_LAUNCH:-0}" = 1 ]
+}
+
 launch_template() {
   local harness=$1 kind=${2:-ship}
   # shellcheck disable=SC2016  # single quotes are deliberate: $(cat ...) expands in the crewmate pane, not here
@@ -2452,11 +2468,26 @@ launch_template() {
   # session-start digest, and cd/arm seatbelts are exactly those project hooks
   # (docs/turnend-guard.md, docs/sessionstart-nudge.md, docs/cd-guard.md), so the
   # secondmate launch deliberately keeps hooks on.
+  # codex-cli 0.163.0 never runs the positional launch prompt (verified live:
+  # the TUI opens at an empty composer and sits there in a new folder after the
+  # trust dialog and in an already trusted folder, with and without the
+  # -c/--disable overrides), so a crewmate or scout launch starts codex bare
+  # and the typed-brief gates below deliver `FIRSTMATE_OP: v1 launch-brief`
+  # through fm_backend_send_text_submit once the composer is ready - the same
+  # launch-then-confirm shape kimi and rovo use. The positional form survives
+  # behind fm_spawn_codex_positional_brief_probe for a later codex that runs
+  # positional prompts again. A secondmate keeps the positional form: its home
+  # is trusted once at provisioning and its hooks modal is the operator's own
+  # review, not a fresh-worktree spawn this gate owns.
   codex)
-    if [ "$kind" = secondmate ]; then
-      printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+    if [ "$kind" = secondmate ] || fm_spawn_codex_positional_brief_probe; then
+      if [ "$kind" = secondmate ]; then
+        printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      else
+        printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]" "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      fi
     else
-      printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]" "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]"'
     fi
     ;;
   opencode) printf '%s' 'OPENCODE_CONFIG_CONTENT='\''{"permission":{"*":"allow"}__EFFORTFLAG__}'\'' opencode __MODELFLAG__--prompt "$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
@@ -3244,6 +3275,19 @@ case "$LAUNCH" in
   fi
   ;;
 esac
+
+# The codex typed-brief gates answer codex's own folder-trust and update
+# dialogs from the live pane, so a backend with no viewport-bounded capture
+# cannot prove a dialog cleared and the spawn is refused at preflight, the
+# same boundary the kimi gate draws. The positional probe and secondmate
+# launches keep the brief on the launch command and need no pane read.
+if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ] && [ "$RAW_LAUNCH" -ne 1 ] \
+  && ! fm_spawn_codex_positional_brief_probe; then
+  fm_backend_visible_capture_supported "$BACKEND" || {
+    echo "error: refusing codex spawn because backend '$BACKEND' has no verified viewport-bounded capture; codex gates a fresh worktree on a trust dialog whose clearing can only be proven from a scrollback-free read of the live pane" >&2
+    exit 1
+  }
+fi
 
 case "$LAUNCH" in
 *__ROVOBIN__*)
@@ -4927,6 +4971,243 @@ agy_wait_for_working() {
   return 1
 }
 
+# --- codex typed launch brief -------------------------------------------------
+#
+# codex-cli 0.163.0 never runs the positional launch prompt, so the launch
+# template starts codex bare and these gates deliver the brief after launch in
+# the same launch-then-confirm shape kimi and rovo use: wait (bounded) for the
+# ready composer, answering codex's own launch dialogs on the way, then submit
+# the one-line `FIRSTMATE_OP: v1 launch-brief` envelope - the operational
+# header plus a pointer to the scaffold-owned brief record, the same pointer
+# kimi and rovo type - through the backend's typed submit path
+# (fm_backend_send_text_submit), and confirm the turn started. Every failure
+# reports "codex did not take the brief". Secondmate launches and the
+# positional probe (fm_spawn_codex_positional_brief_probe) keep the brief on
+# the launch command and skip these gates; the invocation site owns that cut.
+
+# codex 0.163.0 dialog text, verified live. The update dialog is matched on
+# its two option rows and never on its "Update available" heading: that
+# heading also renders in the persistent post-skip banner box, which would
+# otherwise hold the gate open forever over a healthy ready composer.
+CODEX_TRUST_DIALOG_QUESTION='Trust this folder?'
+CODEX_TRUST_DIALOG_OPTION='1. Trust and continue'
+CODEX_UPDATE_DIALOG_OPTION='Update now'
+CODEX_UPDATE_DIALOG_SKIP='Skip until next version'
+
+codex_capture() {
+  fm_backend_capture "$BACKEND" "$T" 120 "$W" 2>/dev/null || true
+}
+
+# Trust and update decisions read the visible pane only, exactly like kimi's
+# trust gate: both dialogs are TUI frames, so a scrollback-backed capture
+# keeps reporting them after codex redrew past them - which would storm Enter
+# or Escape into a live composer and fail an already-cleared spawn. There is
+# deliberately no fallback to the bounded capture: the spawn refuses at
+# preflight on a backend that cannot read the viewport, a read that fails
+# outright fails readiness with its exit status, and only a successful empty
+# read is absence of evidence, which the poll loop treats as a skipped poll.
+codex_visible_capture() {
+  fm_backend_visible_capture "$BACKEND" "$T" "$W"
+}
+
+# Readiness routes its composer-emptiness half through the shared classifier
+# (bin/fm-composer-lib.sh via fm_backend_composer_state), the same owner every
+# steer and injection guard reads. The live codex idle guard
+# (tests/fm-composer-codex-idle-live-e2e.test.sh) proves that classifier reads
+# codex's idle composer - the bare `›` row behind the dim "Ask Codex to do
+# anything" placeholder, with the starfield furniture around it - as empty.
+codex_composer_is_empty() {
+  [ "$(fm_backend_composer_state "$BACKEND" "$T" "$W" 2>/dev/null)" = empty ]
+}
+
+# The complete dialog decides whether to press its key; a partial draw of the
+# same dialog does not, and neither does the persistent banner box.
+codex_update_dialog_is_visible() { # <plain-pane-capture>
+  case "$1" in *"$CODEX_UPDATE_DIALOG_OPTION"*) ;; *) return 1 ;; esac
+  case "$1" in *"$CODEX_UPDATE_DIALOG_SKIP"*) return 0 ;; esac
+  return 1
+}
+
+codex_trust_dialog_is_visible() { # <plain-pane-capture>
+  case "$1" in *"$CODEX_TRUST_DIALOG_QUESTION"*) ;; *) return 1 ;; esac
+  case "$1" in *"$CODEX_TRUST_DIALOG_OPTION"*) return 0 ;; esac
+  return 1
+}
+
+# Any single dialog marker on the visible pane keeps that pane unsafe to call
+# ready: a capture caught mid-redraw fails the complete-dialog test while the
+# dialog is still waiting, and a brief pointer typed into a dialog is lost.
+# None of these markers occurs in codex's ready screen, and a false positive
+# only delays readiness, never types.
+codex_dialog_marker_is_present() { # <plain-pane-capture>
+  case "$1" in
+    *"$CODEX_TRUST_DIALOG_QUESTION"* | *"$CODEX_TRUST_DIALOG_OPTION"* | *"2. Quit"* | \
+      *"$CODEX_UPDATE_DIALOG_OPTION"* | *"$CODEX_UPDATE_DIALOG_SKIP"*) return 0 ;;
+  esac
+  return 1
+}
+
+CODEX_READY_FAILURE_DETAIL=
+codex_wait_for_ready() {
+  local pane capture_rc i=0 max=${FM_CODEX_READY_POLLS:-70} interval=${FM_CODEX_POLL_INTERVAL:-0.5}
+  local trust_seen=0 trust_enters=0 update_seen=0 update_skips=0 dialog_pending=0 ready_captures=0
+  CODEX_READY_FAILURE_DETAIL='codex did not show a ready composer before brief delivery (a sign-in or first-run dialog is settled by the operator; it is never auto-answered)'
+  while [ "$i" -lt "$max" ]; do
+    capture_rc=0
+    pane=$(codex_visible_capture) || capture_rc=$?
+    if [ "$capture_rc" -ne 0 ]; then
+      CODEX_READY_FAILURE_DETAIL="codex readiness could not read the visible viewport of backend '$BACKEND' (viewport capture exited $capture_rc), so the trust dialog could neither be answered nor ruled out"
+      return 1
+    fi
+    if [ -z "$pane" ]; then
+      ready_captures=0
+      i=$((i + 1))
+      [ "$i" -ge "$max" ] || sleep "$interval"
+      continue
+    fi
+    if codex_update_dialog_is_visible "$pane"; then
+      update_seen=1
+      dialog_pending=0
+      ready_captures=0
+      # Enter would confirm the preselected "Update now", which runs a
+      # global npm install over the shared toolchain; Escape skips the dialog
+      # for this launch only and leaves the operator's update choice
+      # untouched. Re-sent on every poll the complete dialog is still on
+      # screen, the same startup key-swallow kimi covers: the dialog's own
+      # disappearance is the postcondition, and once it clears this branch
+      # cannot fire again.
+      if ! spawn_send_key "$T" Escape; then
+        CODEX_READY_FAILURE_DETAIL="codex update dialog was seen but the skip selection could not be submitted"
+        return 1
+      fi
+      update_skips=$((update_skips + 1))
+    elif codex_trust_dialog_is_visible "$pane"; then
+      trust_seen=1
+      dialog_pending=0
+      ready_captures=0
+      # The selection sits on "1. Trust and continue", the preselected safe
+      # default for a worktree firstmate itself created (the kimi and agy
+      # gates answer the same dialog class the same way). Re-sent on every
+      # poll the complete dialog is still on screen; its disappearance is the
+      # postcondition and codex saves the decision itself.
+      if ! spawn_send_key "$T" Enter; then
+        CODEX_READY_FAILURE_DETAIL="codex trust dialog was seen but the affirmative selection could not be submitted"
+        return 1
+      fi
+      trust_enters=$((trust_enters + 1))
+    elif codex_dialog_marker_is_present "$pane"; then
+      dialog_pending=1
+      ready_captures=0
+    else
+      dialog_pending=0
+      # Codex paints its startup banner and splash art before the composer,
+      # so one ready-looking capture cannot be told apart from a pane whose
+      # dialog is one redraw away; two consecutive captures that are each
+      # ready and free of dialog text can, and any other capture restarts
+      # the count.
+      if codex_composer_is_empty; then
+        ready_captures=$((ready_captures + 1))
+        [ "$ready_captures" -lt 2 ] || return 0
+      else
+        ready_captures=0
+      fi
+    fi
+    i=$((i + 1))
+    [ "$i" -ge "$max" ] || sleep "$interval"
+  done
+  if [ "$dialog_pending" -eq 1 ]; then
+    CODEX_READY_FAILURE_DETAIL='codex did not show a ready composer; dialog text stayed on screen without the complete dialog, so the pane was never safe to answer or to treat as ready'
+  elif [ "$trust_seen" -eq 1 ]; then
+    CODEX_READY_FAILURE_DETAIL="codex trust dialog was answered with Enter on $trust_enters poll(s) but the pane never advanced to a ready composer"
+  elif [ "$update_seen" -eq 1 ]; then
+    CODEX_READY_FAILURE_DETAIL="codex update dialog was skipped with Escape on $update_skips poll(s) but the pane never advanced to a ready composer"
+  fi
+  return 1
+}
+
+# Processing confirmation. The busy signal is the verified codex delivery
+# guard token (FM_DELIVERY_CODEX_BUSY_REGEX_DEFAULT in bin/fm-composer-lib.sh,
+# `esc to interrupt`, plus Herdr's native working state); the completed-turn
+# marker is codex's own summary row, for example `Worked for 6s`, which only
+# renders after a submitted turn ended. The marker exists because a turn
+# short enough to start and finish between two busy polls would otherwise
+# read as never-processed; either signal alone carries the positive verdict.
+codex_turn_completed_is_present() { # <plain-pane-capture>
+  case "$1" in *'Worked for '*) return 0 ;; esac
+  return 1
+}
+
+codex_processing_is_confirmed() { # <plain-pane-capture>
+  case "$(fm_backend_busy_state "$BACKEND" "$T" 2>/dev/null)" in busy) return 0 ;; esac
+  if printf '%s\n' "$1" | fm_busy_lines_match codex; then
+    return 0
+  fi
+  codex_turn_completed_is_present "$1"
+}
+
+codex_wait_for_processing() {
+  local pane i=0 max=${FM_CODEX_PROCESSING_POLLS:-30} interval=${FM_CODEX_POLL_INTERVAL:-0.5}
+  while [ "$i" -lt "$max" ]; do
+    pane=$(codex_capture)
+    codex_processing_is_confirmed "$pane" && return 0
+    i=$((i + 1))
+    [ "$i" -ge "$max" ] || sleep "$interval"
+  done
+  return 1
+}
+
+codex_spawn_fail() { # <detail>
+  printf '%s\n' "$(status_stamp_line "failed: $1")" >>"$STATE/$ID.status"
+  echo "error: $1; inspect window $T" >&2
+}
+
+# The typed-brief gate proper: ready, submit, confirm. Only an `empty` submit
+# verdict confirms delivery, the same loud-refusal boundary kimi and rovo
+# hold; `pending` and `unknown` refuse the spawn rather than guessing, because
+# a half-delivered brief pointer left in a live composer is exactly the
+# worker-never-started defect this gate exists to catch.
+codex_spawn_typed_brief() {
+  local envelope verdict retries sleep_s settle
+  if ! codex_wait_for_ready; then
+    codex_spawn_fail "codex did not take the brief: $CODEX_READY_FAILURE_DETAIL"
+    return 1
+  fi
+  # One printable line: the operational launch-brief header plus a pointer
+  # naming data/<id>/launch-brief.md, the rendered brief the scaffold owns.
+  # The full brief cannot be typed - a composer submits at every embedded
+  # newline - and the pointer shape is the one kimi and rovo already deliver.
+  fm_operational_input_encode launch-brief \
+    "Read the brief at $BRIEF_REAL and follow it exactly." envelope \
+    || {
+      codex_spawn_fail "codex did not take the brief: the launch-brief envelope could not be encoded"
+      return 1
+    }
+  retries=${FM_CODEX_SUBMIT_RETRIES:-3}
+  sleep_s=${FM_CODEX_SUBMIT_SLEEP:-${FM_CODEX_POLL_INTERVAL:-0.5}}
+  settle=${FM_CODEX_SUBMIT_SETTLE:-0.3}
+  if ! verdict=$(fm_backend_send_text_submit \
+    "$BACKEND" "$T" "$envelope" "$retries" "$sleep_s" "$settle" "$W"); then
+    codex_spawn_fail "codex did not take the brief: the launch brief could not be typed into window $T"
+    return 1
+  fi
+  case "$verdict" in
+    empty) ;;
+    send-failed)
+      codex_spawn_fail "codex did not take the brief: the launch brief could not be submitted into window $T"
+      return 1
+      ;;
+    *)
+      codex_spawn_fail "codex did not take the brief: the launch brief submission was unconfirmed in window $T (verdict=$verdict)"
+      return 1
+      ;;
+  esac
+  if ! codex_wait_for_processing; then
+    codex_spawn_fail "codex did not take the brief: the launch brief was submitted but processing never started in window $T"
+    return 1
+  fi
+  return 0
+}
+
 agy_spawn_fail() {  # <detail>
   printf '%s\n' "$(status_stamp_line "failed: $1")" >>"$STATE/$ID.status"
   echo "error: $1; inspect window $T" >&2
@@ -6532,6 +6813,19 @@ if [ "$HARNESS" = agy ]; then
     else
       agy_spawn_fail "agy never showed its folder-trust dialog on an unregistered worktree in window $T, so the brief could not be confirmed to run there"
     fi
+    exit 1
+  fi
+fi
+# codex's brief no longer rides the launch command (codex-cli 0.163.0 never
+# runs the positional prompt), so a fresh crewmate or scout takes it here:
+# ready composer with codex's own launch dialogs answered, typed submit of
+# the launch-brief envelope, processing confirmed. The gate functions' header
+# owns the full contract; every failure reports "codex did not take the brief".
+# A raw launch command is caller-owned and skips the gate, as does the
+# positional probe and the secondmate launch, whose brief stays positional.
+if [ "$HARNESS" = codex ] && [ "$KIND" != secondmate ] && [ "$RAW_LAUNCH" -ne 1 ] \
+  && ! fm_spawn_codex_positional_brief_probe; then
+  if ! codex_spawn_typed_brief; then
     exit 1
   fi
 fi

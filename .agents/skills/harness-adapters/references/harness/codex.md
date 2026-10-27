@@ -6,6 +6,7 @@ Verified on 2026-06-11 with codex-cli 0.139.0 unless a fact gives a newer versio
 
 | Fact | Value |
 |---|---|
+| Launch brief | Typed after launch, never positional: codex-cli 0.163.0 opens at an empty composer ("Ask Codex to do anything") and never runs the positional prompt, in a new folder (after the trust dialog is answered) and in an already trusted folder, with and without the `-c`/`--disable` overrides (verified live 2026-10-27). `bin/fm-spawn.sh` starts codex bare, waits for the ready composer while answering the launch dialogs, then delivers `FIRSTMATE_OP: v1 launch-brief` (a one-line pointer naming `data/<id>/launch-brief.md`) through `fm_backend_send_text_submit` and confirms the turn started; every failure reports "codex did not take the brief". `FM_CODEX_POSITIONAL_LAUNCH=1` restores the positional form (`fm_spawn_codex_positional_brief_probe` owns that verdict). |
 | Busy state | Unknown until a semantic source is live-verified: the app-server turn lifecycle is unreachable for a pane worker, and project lifecycle hooks did not fire for a Firstmate-launched worker. |
 | Exit command | `/quit`; its slash popup needs about one second between text and Enter, which the shared submit path used by the control plane handles. |
 | Interrupt | Single Escape. |
@@ -16,9 +17,19 @@ Verified on 2026-06-11 with codex-cli 0.139.0 unless a fact gives a newer versio
 | Model discovery | Open the current interactive session's `/model` picker. |
 | Marker | None; identity comes from ancestry, and `../../../bin/fm-harness.sh` is what keeps a retained foreign `CLAUDECODE` from renaming it. Verified on 2026-09-01 with codex-cli 0.152.0: the pane process is the `node` npm shim and the native `codex` binary runs as its foreground child, so a tool subprocess reaches the native name directly while the shim itself is identified from its script path. |
 
-A directory trust dialog appears on the first run for a repository root: "Do you trust the contents of this directory?"
-Accept it with Enter and verify the instructions begin processing.
-The decision persists for the repository, so later worktrees of the same project skip it.
+## Launch dialogs
+
+A directory trust dialog appears on the first run for a repository root.
+codex-cli 0.163.0 renders it as "Folder access" over the path, the question "Trust this folder? Codex can read, edit, and run files here, subject to your permission settings.", the preselected option `1. Trust and continue`, `2. Quit`, and the hint `enter continue · esc quit` (verified live 2026-10-27; 0.139.0 asked "Do you trust the contents of this directory?").
+Enter selects the preselected affirmative and codex saves the decision itself, so later launches in the same folder skip the dialog.
+`bin/fm-spawn.sh`'s typed-brief readiness gate answers it with Enter, the same preselected-safe-default answer the kimi and agy gates give their folder-trust dialogs.
+
+A second dialog, "Update available · <from> → <to>" with `1. Update now (runs \`npm install -g @openai/codex\`)`, `2. Skip`, `3. Skip until next version`, and the hint `enter confirm · esc skip`, renders whenever an update is pending and the operator has not chosen "Skip until next version" (verified live 2026-10-27, 0.163.0 → 0.164.0).
+Enter would run a global npm install over the shared toolchain, so the gate answers it with Escape, which skips the dialog for that launch only and leaves the operator's update choice untouched.
+Option 3 persists a skip and is the operator's own choice to make.
+The dialog is matched on its option rows (`Update now`, `Skip until next version`), never on its "Update available" heading, because the persistent post-skip banner box carries that heading over a healthy ready composer.
+
+A third dialog, "Hooks need review", is covered below.
 
 ## Hook trust
 

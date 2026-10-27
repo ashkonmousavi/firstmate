@@ -210,8 +210,18 @@ done
 [ "$(fm_backend_herdr_current_path "$SESSION:$PANE_ID" 2>/dev/null || true)" = "$PROJ_REAL" ] \
   || fail "the real Herdr pane did not drift out of its recorded worktree"
 
-OUT=$(env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \
-  "$ROOT/bin/fm-spawn.sh" hsmoke --relaunch --harness codex) \
+# relaunch_codex: the smoke's inert argv-touching codex fake can never show
+# the ready composer the typed-brief gates wait for, so the replacement
+# launches here keep the positional brief transport
+# (FM_CODEX_POSITIONAL_LAUNCH=1); the real typed path is proven by
+# tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh against real codex.
+relaunch_codex() {
+  env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \
+    FM_CODEX_POSITIONAL_LAUNCH=1 \
+    "$ROOT/bin/fm-spawn.sh" hsmoke --relaunch --harness codex
+}
+
+OUT=$(relaunch_codex) \
   || fail "a drifted, agent-free Herdr pane should be re-homed and relaunched: $OUT"
 for _ in $(seq 1 20); do
   [ ! -e "$SCRATCH/codex-launched" ] || break
@@ -324,8 +334,7 @@ esac
 pass "real herdr: exit on a pane with a stale registration is idempotent success"
 
 rm -f "$SCRATCH/codex-launched"
-OUT=$(env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \
-  "$ROOT/bin/fm-spawn.sh" hsmoke --relaunch --harness codex) \
+OUT=$(relaunch_codex) \
   || fail "a stale-registration Herdr pane should be relaunched: $OUT"
 for _ in $(seq 1 20); do
   [ ! -e "$SCRATCH/codex-launched" ] || break

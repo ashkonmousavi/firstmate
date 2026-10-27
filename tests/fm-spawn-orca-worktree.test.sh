@@ -28,6 +28,13 @@ set -u
 
 SPAWN="$ROOT/bin/fm-spawn.sh"
 TMP_ROOT=$(fm_test_tmproot fm-spawn-orca-worktree)
+# Orca has no verified viewport-bounded capture, so a codex spawn on it is
+# refused at preflight for the typed-brief gates; this suite exercises the
+# Orca worktree carve-outs, not brief delivery, so its codex spawns keep the
+# positional brief transport (tests/fm-codex-harness.test.sh owns the typed
+# gates against a live ready composer).
+FM_CODEX_POSITIONAL_LAUNCH=1
+export FM_CODEX_POSITIONAL_LAUNCH
 
 # make_orca_fakebin <dir>: a fake `orca` CLI that performs a REAL `git
 # worktree add` for `worktree create` (so spawn_worktree_isolated's checks are

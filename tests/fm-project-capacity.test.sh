@@ -196,6 +196,11 @@ new_worktree() {  # <case-dir> <name>
 run_spawn() {  # <case-dir> <home> <pane-path> <args...>
   local case_dir=$1 home=$2 pane=$3
   shift 3
+  # This suite exercises capacity accounting through a stub pane that renders
+  # no harness screens, so its codex spawns keep the positional brief
+  # transport; the typed-brief gates need a live ready composer and are
+  # covered by tests/fm-codex-harness.test.sh.
+  FM_CODEX_POSITIONAL_LAUNCH=1 \
   FM_ROOT_OVERRIDE='' FM_HOME="$home" \
     FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' \
     FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_BACKEND=tmux \

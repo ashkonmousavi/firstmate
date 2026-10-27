@@ -55,6 +55,11 @@ EOF
 run_spawn() {
   local id=$1
   shift
+  # The pool stub pane renders no harness screens, so these codex spawns keep
+  # the positional brief transport; the typed-brief gates that replace it on
+  # real installs need a live ready composer and are covered by
+  # tests/fm-codex-harness.test.sh.
+  FM_CODEX_POSITIONAL_LAUNCH=1 \
   fm_test_run_spawn "$HOME_DIR" "$POOL_DIR" "$FAKEBIN_DIR" \
     "$id" "$PROJECT_DIR" "$@"
 }

@@ -763,6 +763,65 @@ It captures the launch `bin/fm-spawn.sh` actually builds, replays those exact fl
 It spends no model tokens, so it runs by default wherever Codex is installed.
 The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the split the launch template makes: a crewmate launches hook-free while a secondmate, which runs a primary session on this repository's own project hooks, keeps them.
 
+## Codex typed launch brief
+
+Verified 2026-10-27 on codex-cli 0.163.0, Linux x86_64 (zb-crew laptop), against the real installed Codex through a real `bin/fm-spawn.sh` scout spawn.
+
+codex-cli 0.163.0 never runs the positional launch prompt: launched bare or with a positional argument, the TUI opens at an empty composer ("Ask Codex to do anything") and sits there - in a new folder (after the trust dialog is answered with Enter) and in an already trusted folder, with and without the `-c`/`--disable` overrides.
+A crewmate or scout launch therefore starts codex without the positional brief, and `bin/fm-spawn.sh`'s typed-brief gates deliver it after launch in the same launch-then-confirm shape kimi and rovo use.
+The gates wait (bounded, two consecutive empty-composer classifications through the shared classifier) for the ready composer, answering codex's own launch dialogs on the way: Enter for the trust dialog's preselected `1. Trust and continue`, and Escape for the update dialog whose Enter would run `npm install -g @openai/codex`.
+They then submit the one-line `\u2063FIRSTMATE_OP: v1 launch-brief: Read the brief at <data/<id>/launch-brief.md> and follow it exactly.` envelope through `fm_backend_send_text_submit`, and confirm the turn started from the verified `esc to interrupt` busy footer, Herdr's native working state, or codex's own `Worked for <t>` completed-turn row.
+Every failure reports "codex did not take the brief".
+`FM_CODEX_POSITIONAL_LAUNCH=1` restores the positional form (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict).
+A secondmate launch keeps the positional form, because its home is trusted once at provisioning and its hooks modal is the operator's own review.
+
+Live evidence, codex-cli 0.163.0 on an isolated tmux server, a fresh treehouse worktree nobody had trusted (`tests/fm-codex-brief-typed-live-e2e.test.sh`, `FM_CODEX_LIVE_E2E=1`):
+
+```text
+ok - real codex codex-cli 0.163.0 on tmux: a new-folder scout starts processing its typed launch brief within 9s and answers it
+ok - real codex codex-cli 0.163.0 on tmux: the trusted-folder relaunch rendered no trust dialog
+ok - real codex codex-cli 0.163.0 on tmux: a trusted-folder relaunch starts processing its typed launch brief within 5s
+ok - real codex codex-cli 0.163.0 typed launch brief verified end to end on an isolated tmux server
+```
+
+The turn's pane shows the delivered envelope, the working row, and the reply:
+
+```text
+› FIRSTMATE_OP: v1 launch-brief: Read the brief at <...>/launch-brief.md and follow it exactly.
+• Working (1s • esc to interrupt)
+• codex-brief-ok
+  Worked for 6s • 2:39 AM
+```
+
+The dialogs the gate answered on the way, captured from the same version:
+
+```text
+  Folder access
+  <worktree path>
+
+  Trust this folder? Codex can read, edit, and run files here, subject to your permission settings. ...
+
+› 1. Trust and continue
+  2. Quit
+
+  enter continue · esc quit
+```
+
+```text
+  Update available · 0.163.0 → 0.164.0
+  Release notes: https://github.com/openai/codex/releases/latest
+
+› 1. Update now (runs `npm install -g @openai/codex`)
+  2. Skip
+  3. Skip until next version
+
+  enter continue · esc skip
+```
+
+`tests/fm-codex-brief-typed-live-e2e.test.sh` (isolated tmux server) and `tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` (isolated Herdr lab session) are the commands that refresh this record.
+Both submit a brief, so both are opt-in (`FM_CODEX_LIVE_E2E=1`).
+The portable half, `tests/fm-codex-harness.test.sh`, pins the gate logic - dialog answers, partial-draw safety, envelope text, unconfirmed-submit refusal, processing confirmation, the positional probe, and the viewport-capture preflight - against a state-machine fake with no model tokens.
+
 ## 2026-10-20 Grok weekly-limit border coverage
 
 The dedicated token-free guard requires the real weekly-limit border before checking empty and unsent typed input through the tmux wrapper and styled/plain cursorless reads.
