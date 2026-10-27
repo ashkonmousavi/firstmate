@@ -36,6 +36,8 @@ For an existing requirement, an update packet may include optional
 proof_updates[{id,proof_refs,disposition}] with the complete current proof
 reference list and proof_owed|accepted disposition. The native archived body
 retains the prior list, including a receipt refreshed at the same path.
+Product proof updates may also supply fix_commit and deployed_receipt_ref;
+omitted release fields retain their current values.
 These fields are structural custody only: B6's proof observer still decides
 whether the referenced content qualifies on the current release.
 
@@ -66,6 +68,7 @@ PROOF_KINDS = {"product_live", "installed_generation", "observed_consumer", "art
 LEVELS = {"source", "installed", "observed"}
 PACKET = {"version", "origin_home", "origin_task_id", "expected_body_sha256", "interpretation_owner", "interpretation_complete", "sources", "requirements", "corrections"}
 PROOF_UPDATE = {"id", "proof_refs", "disposition"}
+PRODUCT_PROOF_UPDATE = {"fix_commit", "deployed_receipt_ref"}
 REF = {"source_owner", "receipt_id", "content_sha256"}
 HEX = re.compile(r"^[0-9a-f]{64}$")
 
@@ -333,13 +336,17 @@ def merge(body, packet, task_id, home, operation):
                          for replacement in item["superseded_by"])
     updated_ids = set()
     for update in proof_updates:
-        fields(update, PROOF_UPDATE, "proof update")
+        if (not isinstance(update, dict) or not PROOF_UPDATE <= set(update)
+                or set(update) - PROOF_UPDATE - PRODUCT_PROOF_UPDATE):
+            raise Invalid("proof update has missing or unknown fields")
         slug(update["id"], "proof requirement ID")
         rid = update["id"]
         if rid in updated_ids or rid not in existing_requirement_ids or rid in corrected_ids:
             raise Invalid("proof update identity is ambiguous")
         updated_ids.add(rid)
         original = prior_requirements[rid]
+        if original["proof_kind"] != "product_live" and set(update) & PRODUCT_PROOF_UPDATE:
+            raise Invalid("release references require product proof")
         if original["disposition"] in ("held", "superseded") or original["superseded_by"]:
             raise Invalid("proof update cannot change held or superseded requirement")
         if update["disposition"] not in ("proof_owed", "accepted"):
@@ -360,6 +367,9 @@ def merge(body, packet, task_id, home, operation):
             seen_refs.add(identity)
         original["proof_refs"] = refs
         original["disposition"] = update["disposition"]
+        for key in PRODUCT_PROOF_UPDATE:
+            if key in update:
+                original[key] = update[key]
     validate(current, task_id, home)
     if operation == "add":
         return body.rstrip("\n") + ("\n\n" if body.strip() else "") + encoded(current) + "\n"

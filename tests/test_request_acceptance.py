@@ -114,6 +114,102 @@ class RequestCustody(unittest.TestCase):
                                      "disposition": disposition}]
         return packet
 
+    def product_packet(self):
+        packet = self.packet(kind="action", text="Deploy the requested outcome")
+        req = packet["requirements"][0]
+        del req["delivered_path"]
+        req.update(proof_kind="product_live", project="example", outcome_ids=["outcome-1"],
+                   fix_commit=None, deployed_receipt_ref=None)
+        return packet
+
+    def stored_requirement(self):
+        raw = self.body().split("```Owner request acceptance v1\n", 1)[1].split("\n```", 1)[0]
+        return json.loads(raw)["requirements"][0]
+
+    def test_product_proof_update_completes_refreshes_and_invalidates_release(self):
+        intake = self.product_packet()
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                      self.save("product.json", intake))
+        pending = self.body()
+        ref = {"source_owner": "deployment", "receipt_id": "release-1",
+               "content_sha256": sha("deployed outcome")}
+        packet = self.proof_packet(pending, [ref])
+        packet["proof_updates"][0].update(fix_commit="commit-1", deployed_receipt_ref="release-1")
+        proof = self.save("product-proof.json", packet)
+        self.run_task("update", "owner-1", "--owner-request-file", proof)
+        expected = dict(intake["requirements"][0], disposition="accepted", proof_refs=[ref],
+                        fix_commit="commit-1", deployed_receipt_ref="release-1")
+        self.assertEqual(self.stored_requirement(), expected)
+        archive = self.home / "data/note-archive.md"
+        archived_metadata = json.loads(next(line.strip() for line in archive.read_text().splitlines()
+                                            if line.strip().startswith("{")))
+        self.assertEqual(archived_metadata, json.loads(pending.splitlines()[1]))
+        accepted = self.body()
+        archived = archive.read_bytes()
+        self.run_task("update", "owner-1", "--owner-request-file", proof)
+        self.assertEqual(self.body(), accepted)
+        self.assertEqual(archive.read_bytes(), archived)
+
+        packet = self.proof_packet(accepted, [ref])
+        packet["proof_updates"][0].update(fix_commit="commit-2", deployed_receipt_ref="release-2")
+        self.run_task("update", "owner-1", "--owner-request-file", self.save("refresh.json", packet))
+        expected.update(fix_commit="commit-2", deployed_receipt_ref="release-2")
+        self.assertEqual(self.stored_requirement(), expected)
+        packet = self.proof_packet(self.body(), [], "proof_owed")
+        packet["proof_updates"][0]["deployed_receipt_ref"] = None
+        self.run_task("update", "owner-1", "--owner-request-file", self.save("invalidate.json", packet))
+        expected.update(disposition="proof_owed", proof_refs=[], deployed_receipt_ref=None)
+        self.assertEqual(self.stored_requirement(), expected)
+        packet = self.proof_packet(self.body(), [ref])
+        packet["proof_updates"][0]["deployed_receipt_ref"] = "release-3"
+        self.run_task("update", "owner-1", "--owner-request-file", self.save("complete.json", packet))
+        expected.update(disposition="accepted", proof_refs=[ref], deployed_receipt_ref="release-3")
+        self.assertEqual(self.stored_requirement(), expected)
+
+    def test_product_release_updates_refuse_invalid_missing_and_stale_evidence(self):
+        self.run_task("add", "owner-1", "Owner", "--owner-request-file",
+                      self.save("product.json", self.product_packet()))
+        pending = self.body()
+        ref = {"source_owner": "deployment", "receipt_id": "release-1",
+               "content_sha256": sha("deployed outcome")}
+        for field in ("fix_commit", "deployed_receipt_ref"):
+            for value in (None, "", [], "two\nlines"):
+                with self.subTest(field=field, value=value):
+                    packet = self.proof_packet(pending, [ref])
+                    packet["proof_updates"][0].update(fix_commit="commit-1", deployed_receipt_ref="release-1")
+                    packet["proof_updates"][0][field] = value
+                    self.run_task("update", "owner-1", "--owner-request-file",
+                                  self.save("invalid.json", packet), ok=False)
+                    self.assertEqual(self.body(), pending)
+        packet = self.proof_packet(pending, [], "proof_owed")
+        packet["proof_updates"][0]["fix_commit"] = "commit-1"
+        self.run_task("update", "owner-1", "--owner-request-file", self.save("partial.json", packet))
+        current = self.body()
+        packet["proof_updates"][0]["fix_commit"] = "stale-commit"
+        self.run_task("update", "owner-1", "--owner-request-file",
+                      self.save("stale-release.json", packet), ok=False)
+        self.assertEqual(self.body(), current)
+
+    def test_release_updates_cannot_change_nonproduct_requirements_or_scope(self):
+        for kind in ("reply", "artifact_delivery", "installed_generation", "observed_consumer"):
+            with self.subTest(kind=kind):
+                task = "owner-" + kind
+                packet = self.packet(task=task, kind="explanation" if kind == "reply" else "action")
+                req = packet["requirements"][0]
+                if kind in ("installed_generation", "observed_consumer"):
+                    del req["delivered_path"]
+                    req["proof_kind"] = kind
+                    req["expected_hosts" if kind == "installed_generation" else "consumer_targets"] = ["target-1"]
+                self.run_task("add", task, "Owner", "--owner-request-file", self.save("intake.json", packet))
+                before = self.body(task)
+                for field in ("fix_commit", "deployed_receipt_ref", "project", "target_refs"):
+                    update = self.proof_packet(before, [], "proof_owed")
+                    update["origin_task_id"] = task
+                    update["proof_updates"][0][field] = "forged"
+                    self.run_task("update", task, "--owner-request-file",
+                                  self.save("wrong-kind.json", update), ok=False)
+                    self.assertEqual(self.body(task), before)
+
     def test_proof_update_refreshes_same_receipt_path_with_native_archive(self):
         self.run_task("add", "owner-1", "Owner", "--owner-request-file",
                       self.save("intake.json", self.packet()))
