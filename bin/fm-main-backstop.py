@@ -44,15 +44,23 @@ runner read as not alive on a single pass is audited as transient. No remote
 source is changed or live runner reconciled.
 Notes deduplicate for an incident until a healthy observation clears it.
 Runner identity requires Linux /proc process state and command-line records.
-Private state: .main-backstop.json (incident ids, successful nudge time,
-delta cursors and consecutive failure records),
+Private state: .main-backstop.json (incident ids, deferred alarms when gated,
+successful nudge time, delta cursors and consecutive failure records),
 .main-backstop.lock (cron exclusion), .main-backstop.log (bounded audit).
 The caller deploys/backs up its private files and supplies the home's code root.
-When --send-enabled-file is selected, only exact enabled\n in a safe home-owned
-regular file permits inbox notes or primary discovery/submission. A missing or
-invalid capability leaves this pass observing and retaining incidents only.
-Omitting the option preserves upstream send behavior; the private scheduler
-wrapper selects the stricter intentional-stop posture.
+When --send-enabled-file is selected, its path must be exactly the resolved
+HOME/config/main-backstop-send-enabled and its contents exactly enabled\n.
+The config directory must be a nonsymlink directory owned by the home owner.
+The file must be regular, nonsymlink, singly linked, and owned by both the home
+owner and effective user; neither directory nor file may be group/world writable.
+Reads are bounded and nonblocking, so a FIFO refuses permission without waiting.
+Permission is rechecked before inbox notes, primary discovery and submission.
+A missing or invalid capability leaves this pass observing and retaining
+incidents without inbox notes or primary discovery/submission.
+Deferred notes retain their request IDs and replay when enabled, even if the
+incident resolved while stopped; a later incident receives a distinct ID.
+Omitting the option preserves upstream send behavior; select it in the private
+scheduler wrapper to enable the intentional-stop posture.
 """
 import argparse
 import fcntl

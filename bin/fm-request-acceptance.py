@@ -34,10 +34,19 @@ proof_refs identify existing receipts by source_owner, receipt_id and exact
 content_sha256; do not invent a receipt or infer one from a filename.
 For an existing requirement, an update packet may include optional
 proof_updates[{id,proof_refs,disposition}] with the complete current proof
-reference list and proof_owed|accepted disposition. The native archived body
-retains the prior list, including a receipt refreshed at the same path.
+reference list and proof_owed|accepted disposition.
+Proof-only updates may leave sources and requirements empty.
+Each updated ID must exist before this packet, appear once in proof_updates,
+and be neither held nor superseded nor involved in this packet's corrections
+as an original or replacement ID.
+Each proof list must have unique (source_owner, receipt_id) identities.
+The native archived body retains the prior list, including a receipt refreshed
+at the same path.
 Product proof updates may also supply fix_commit and deployed_receipt_ref;
 omitted release fields retain their current values.
+Only product_live requirements allow these release fields; accepted products
+require both to be nonnull, while proof_owed permits null to invalidate one.
+All other requirement fields remain immutable under an existing ID.
 These fields are structural custody only: B6's proof observer still decides
 whether the referenced content qualifies on the current release.
 
