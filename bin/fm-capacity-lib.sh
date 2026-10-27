@@ -5,8 +5,8 @@
 #
 # config/lane-capacity in the local root home is mandatory: one line with
 # <lane-ceiling> <memory-reserve-gb>, both non-negative integers (up to 6 digits).
-# GB here means 1024^3 bytes. Zero ceiling stops admission; zero reserve allows
-# zero available memory. Available memory minus reserve must be >= 0. There are no
+# GB here means 1024^3 bytes. Zero ceiling stops admission; the reserve check
+# requires available memory minus reserve >= 0. There are no
 # per-lane estimates and CPU load never refuses admission.
 # Every local registered home is counted through fm_local_firstmate_state_dirs.
 # Task records hold a lane unless the endpoint is proven agent-free and the
@@ -20,7 +20,9 @@
 # Only without a finite high limit, use /proc/meminfo's MemAvailable.
 # Reports retain mem_available_kb for this pre-reserve balance, floored to KiB;
 # headroom_kb subtracts the configured reserve. Either balance may be negative.
-# Unreadable config, state, registry or memory facts fail closed with exit 75.
+# Independent resource floors and pressure/disk admission are owned by
+# fm-machine-resources.py and require config/machine-admission.json in that root.
+# Unreadable config, state, registry or resource facts fail closed with exit 75.
 # Admission is a fresh reading before launch, including relaunch. No machine
 # lock is held across launch; reports and placement advice reserve no lane.
 

@@ -132,19 +132,19 @@ The `--force` path remains the explicit captain-approved discard escape hatch.
 ## Cleanup never closes a captain call
 
 The policy prefers holding the very work item a question gates.
-So the backlog row a finished task's cleanup is about to close is routinely the captain's own call.
+So the backlog row a finished task's cleanup encounters is routinely the captain's own call.
 
-`bin/fm-teardown.sh` therefore asks the read-only `open` subcommand before its automatic close:
+`bin/fm-teardown.sh` therefore asks the read-only `open` subcommand before selecting its cleanup transition:
 
 | `open` exit | Meaning | What teardown does |
 | --- | --- | --- |
 | 0 | The row is still an open captain call (not Done, `hold_kind: captain`). | Retains the row, as described below. |
-| 1 | The row is not an open captain call. | Proceeds with its automatic close. |
+| 1 | The row is not an open captain call. | Applies the ordinary cleanup gates in [`bin/fm-teardown.sh`'s header](../bin/fm-teardown.sh). |
 | 2 | The answer could not be established. | Treats it as a refusal before any destructive step, never as permission to close. |
 
 ### Retaining the row on exit 0
 
-On 0 only the close changes.
+On 0 cleanup uses retention instead of closing bookkeeping.
 After cleanup, and still under the task's own lock, teardown does three things:
 
 - It records one `Deliverable of the finished work: ...` line at the end of the task body.

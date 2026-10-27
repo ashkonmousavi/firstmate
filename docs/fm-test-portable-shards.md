@@ -76,7 +76,7 @@ Even so, maxima from five runs do not establish a P95 or guarantee future headro
 Job timeouts remain hang tripwires under the policy in [Timeouts](#timeouts) below; they are not the desired healthy duration.
 `tests/fm-ci-workflow.test.sh` compares the parsed CI matrix to the executable runner lanes, and the runner rejects parallel `--jobs` on a serial lane even when that shard has only one member.
 
-Refresh the CI-derived hints by downloading the per-shard timing artifacts from several green CI runs and replacing the `portable_serial_weight_hints` table in `bin/fm-test-run.sh` with the slowest measured `duration_ms` per `path`:
+Refresh the CI-derived hints from several green CI runs collected under the [hosted evidence configuration](../CONTRIBUTING.md#development), downloading their per-shard timing artifacts and replacing the `portable_serial_weight_hints` table in `bin/fm-test-run.sh` with the slowest measured `duration_ms` per `path`:
 
 ```sh
 for run in <run-id> <run-id> <run-id>; do
@@ -101,7 +101,7 @@ Its hint-coverage and modeled-budget checks are described in [Portable serial CI
 
 ## Timing artifacts
 
-Portable shards, each portable serial shard, and the Herdr lane upload runner-generated timing JSON.
+Hosted timing uploads and aggregation follow the optional evidence policy in [CONTRIBUTING.md](../CONTRIBUTING.md#development).
 `bin/fm-test-run.sh --aggregate-json` creates the combined summary artifact.
 `.github/workflows/ci.yml` owns the exact artifact names and aggregation wiring.
 
@@ -110,7 +110,7 @@ Portable shards, each portable serial shard, and the Herdr lane upload runner-ge
 `bin/fm-lint.sh` owns two canonical CI partitions, each attempting full source-aware ShellCheck analysis and running workflow validation and backend-purity checks.
 CI requires its per-root bounds, so an unenforceable deadline or address-space limit refuses lint rather than running uncapped; the script header owns the envelope, per-root execution contract, and memory fallback.
 Its `--list-files` interface exposes partition membership; `tests/fm-lint.test.sh` verifies complete/disjoint executed roots, initial analysis flags, and fallback reporting.
-The workflow uploads each partition's quiet telemetry plus its per-root lifecycle sidecar to distinguish analysis cost, memory use, and host contention.
+Each partition's quiet telemetry and per-root lifecycle sidecar distinguish analysis cost, memory use, and host contention; uploads follow the [hosted evidence policy](../CONTRIBUTING.md#development).
 No fast mode, path skips, or paid runner provisioning is part of this layout.
 
 The longer-term performance objective remains a complete green run under fifteen minutes including start delay, but the current watch-triage floor alone exceeds that objective.

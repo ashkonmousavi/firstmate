@@ -1,12 +1,12 @@
 # Secondmate parent channel
 
-This note records why a secondmate home's captain-facing outcomes are delivered by scripts instead of by the mate model, and which script delivers each one.
+This note records why a secondmate home's shared-fleet outcomes are delivered by scripts instead of by the mate model, and which script delivers each one.
 `bin/fm-parent-channel-lib.sh` owns the channel contract: where the channel lives, how a line is appended, and the return codes every publisher shares.
 [`remote-secondmates.md`](remote-secondmates.md) owns the transport that carries the remote form of the channel back to the parent.
 
 ## The problem
 
-A secondmate is a firstmate in its own home, and nobody reads its chat: the captain and the main firstmate see only what is appended to the parent channel.
+For MAIN-routed work, chat alone does not reach the parent; [`bin/fm-brief.sh`](../bin/fm-brief.sh)'s generated charter owns the distinction between marked parent requests and direct captain conversation.
 On 2026-09-02 four outcomes across two mate homes never reached the captain.
 The watcher had delivered the parent's request within a minute each time, the mate did the work, and then the mate addressed "captain" in its own chat instead of appending to the channel.
 The cause is structural rather than a one-off lapse: the mate can satisfy the [address rule in `AGENTS.md`](../AGENTS.md#firstmate) in local chat while missing the charter's later return-channel instruction.
@@ -18,7 +18,7 @@ The design goal is therefore: the parent channel must not depend on the model re
 ## The design
 
 The delivery rule has one sentence: the scripts report facts, the mate reports judgement.
-Every captain-facing outcome that leaves durable evidence in the mate home is published on the channel by the script that records that evidence, at record time or on the next supervision poll, and the charter reserves the mate's own appends for judgement.
+Every shared-fleet outcome that leaves durable evidence in the mate home is published on the channel by the script that records that evidence, at record time or on the next supervision poll, and the charter reserves the mate's own appends for judgement.
 
 | Outcome | Durable evidence in the mate home | Published by |
 |---|---|---|

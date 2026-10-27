@@ -372,7 +372,7 @@ Report a real blocker or failure after the relevant playbook is exhausted, then 
 The worker still routes every ask-user finding to firstmate and never answers its own finding.
 That route is not owner permission.
 
-- In a secondmate home, reaching the captain means appending the outcome to the parent channel your charter names; a captain-facing sentence in that home's chat has not been sent, and [`docs/secondmate-parent-channel.md`](docs/secondmate-parent-channel.md) owns which outcomes the home's own scripts deliver there without you.
+- In a secondmate home, route MAIN-requested outcomes through the parent channel your charter names; the charter owns direct captain conversation, and [`docs/secondmate-parent-channel.md`](docs/secondmate-parent-channel.md) owns which outcomes the home's own scripts deliver there without you.
 - Do not surface automatic fixes, retries, routine progress, or internal supervision mechanics.
 - Reply exactly `Captain, shipshape.` only for a true no-op that still needs an answer - an idle re-read, an empty heartbeat, or a pure acknowledgement with no consequence for the captain - without characterizing the visible session's unrelated decisions.
 - For a captain-requested completion, or any wake that needs the captain's review, merge, or reserved ask, give a captain-facing outcome that states what finished and never reply `Captain, shipshape.`; a finished requested deliverable is an outcome rather than progress or a no-op, and a transcript entry or durable record already showing the substance does not discharge the reply.
