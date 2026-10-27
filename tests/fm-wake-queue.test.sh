@@ -3043,7 +3043,9 @@ case "${1:-}" in
     for a in "$@"; do
       case "$a" in
         *pane_current_command*) printf '%s\n' "$cmd"; exit 0 ;;
-        *cursor_y*) printf '0\n'; exit 0 ;;
+        *cursor_y*)
+          if [ -f "$probe.spawned" ]; then printf '1\n'; else printf '0\n'; fi
+          exit 0 ;;
       esac
     done
     exit 0 ;;
@@ -3060,10 +3062,27 @@ case "${1:-}" in
       fi
     fi
     exit 0 ;;
-  capture-pane) [ -z "${FM_FAKE_TMUX_CAPTURE:-}" ] || cat "$FM_FAKE_TMUX_CAPTURE"; exit 0 ;;
+  capture-pane)
+    if [ -f "$probe.spawned" ]; then
+      printf '╭────╮\n│    │\n╰────╯\n'
+      [ ! -f "$probe.brief-submitted" ] || printf '• Working (1s • esc to interrupt)\n'
+    else
+      [ -z "${FM_FAKE_TMUX_CAPTURE:-}" ] || cat "$FM_FAKE_TMUX_CAPTURE"
+    fi
+    exit 0 ;;
+  send-keys)
+    for arg in "$@"; do
+      case "$arg" in
+        ". '"*"'") rm -f "$probe.brief-pending" "$probe.brief-submitted" ;;
+        *'FIRSTMATE_OP: v1 launch-brief'*) : > "$probe.brief-pending" ;;
+        Enter) [ ! -f "$probe.brief-pending" ] || mv "$probe.brief-pending" "$probe.brief-submitted" ;;
+      esac
+    done
+    exit 0 ;;
   new-window)
     printf '%s\n' "$*" >> "$log"
     [ "${FM_TEST_FAIL_NEW_WINDOW:-0}" = 1 ] && exit 1
+    rm -f "$probe.brief-pending" "$probe.brief-submitted"
     name=
     previous=
     for arg in "$@"; do

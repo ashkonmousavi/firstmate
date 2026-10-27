@@ -16,6 +16,8 @@
 # registered agent once anything has been typed into it, and submitting starts
 # one turn: the next agent read reports working and the pane settles back to
 # idle, which is the native transition the adapter confirms a submit with.
+# The Codex viewport starts with an empty composer and shows processing only
+# after the typed launch brief is submitted, independently of agent-status reads.
 #
 # Usage:
 #   . "$(dirname "${BASH_SOURCE[0]}")/remote-herdr-fixture.sh"
@@ -90,14 +92,30 @@ case "${1:-} ${2:-}" in
     jq_state --arg p "${3:-}" \
       '.tabs |= [.[]|select(.pane_id != $p)]
        | .typed |= with_entries(select(.key != $p))
-       | .working |= with_entries(select(.key != $p))' | save ;;
+       | .working |= with_entries(select(.key != $p))
+       | .brief_draft |= with_entries(select(.key != $p))
+       | .processing |= with_entries(select(.key != $p))' | save ;;
   "pane send-text")
     [ ! -f "$SEND_FAIL" ] || exit 1
-    jq_state --arg p "${3:-}" '.typed[$p] = true' | save ;;
+    brief=false
+    case "${4:-}" in *'FIRSTMATE_OP: v1 launch-brief'*) brief=true ;; esac
+    jq_state --arg p "${3:-}" --argjson brief "$brief" \
+      '.typed[$p] = true | .brief_draft[$p] = $brief | .processing[$p] = false' | save ;;
   "pane send-keys")
     [ ! -f "$SEND_FAIL" ] || exit 1
-    jq_state --arg p "${3:-}" '.typed[$p] = true | .working[$p] = true' | save ;;
-  "pane read") printf '\n' ;;
+    jq_state --arg p "${3:-}" --arg key "${4:-}" \
+      '.typed[$p] = true | .working[$p] = true
+       | if $key == "enter" then
+           .processing[$p] = (.brief_draft[$p] // false) | .brief_draft[$p] = false
+         else . end' | save ;;
+  "pane read")
+    if [ "$(jq_state -r --arg p "${3:-}" '.processing[$p] // false')" = true ]; then
+      jq_state --arg p "${3:-}" '.processing[$p] = false' | save
+      printf '%s\n' '• Working (1s • esc to interrupt)' '›'
+    else
+      printf '%s\n' '›'
+    fi
+    ;;
   "pane process-info")
     printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"codex","argv0":"codex","argv":["codex"],"cmdline":"codex"}]}}}\n' \
       "$pane" "$$" "$$" "$$" ;;
@@ -124,5 +142,5 @@ SH
 # reset_remote_herdr_fixture <state>: return the fake host to "no workspaces,
 # tabs, or panes", which is what a test means by "the previous endpoint is gone".
 reset_remote_herdr_fixture() { # <state>
-  printf '{"next":1,"workspaces":[],"tabs":[],"typed":{},"working":{}}\n' > "$1"
+  printf '{"next":1,"workspaces":[],"tabs":[],"typed":{},"working":{},"brief_draft":{},"processing":{}}\n' > "$1"
 }

@@ -99,6 +99,9 @@ fm_test_fake_gh_axi() {
 # carry no -l) is appended there instead, one per line in send order. Optional
 # FM_FAKE_DUPLICATE_WINDOW is printed from list-windows; FM_FAKE_PANE_COMMAND
 # controls pane_current_command (default firstmate, an unknown agent).
+# Captures expose an empty composer; a typed launch brief followed by Enter
+# adds a working footer. Sourcing a replacement launch resets that pane's turn.
+# Typed briefs are kept out of the launch-command log.
 #
 # The pane path defaults to empty when FM_FAKE_PANE_PATH is unset. Window
 # cleanup and option operations are no-ops. Launch logging is env-gated, so
@@ -109,11 +112,26 @@ fm_test_fake_tmux_spawn() {
 #!/usr/bin/env bash
 set -u
 case "$*" in
+  *"#{cursor_y}"*) printf '1\n'; exit 0 ;;
   *"#{pane_current_path}"*) printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;;
   *"#{pane_current_command}"*) printf '%s\n' "${FM_FAKE_PANE_COMMAND:-firstmate}"; exit 0 ;;
 esac
 window_file="$(dirname "$0")/.spawn-window"
+target=
+previous=
+for arg in "$@"; do
+  [ "$previous" != -t ] || target=$arg
+  previous=$arg
+done
+input_file="$(dirname "$0")/.spawn-input-$target"
 case "${1:-}" in
+  capture-pane)
+    printf '╭────╮\n│    │\n╰────╯\n'
+    if [ "$(cat "$input_file" 2>/dev/null)" = working ]; then
+      printf '• Working (1s • esc to interrupt)\n'
+    fi
+    exit 0
+    ;;
   display-message) printf 'firstmate\n'; exit 0 ;;
   list-windows)
     if [ -n "${FM_FAKE_DUPLICATE_WINDOW:-}" ]; then
@@ -138,6 +156,23 @@ case "${1:-}" in
     ;;
   has-session|new-session|set-window-option) exit 0 ;;
   send-keys)
+    previous=
+    for arg in "$@"; do
+      if [ "$previous" = -l ]; then
+        case "$arg" in
+          *FIRSTMATE_OP:*launch-brief*) printf 'typed\n' > "$input_file"; exit 0 ;;
+          ". '"*"'") : > "$input_file" ;;
+        esac
+      fi
+      case "$arg" in
+        Enter|C-m)
+          if [ "$(cat "$input_file" 2>/dev/null)" = typed ]; then
+            printf 'working\n' > "$input_file"
+          fi
+          ;;
+      esac
+      previous=$arg
+    done
     if [ -n "${FM_FAKE_LAUNCH_LOG:-}" ]; then
       prev=
       for a in "$@"; do
