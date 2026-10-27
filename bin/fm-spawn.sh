@@ -5122,12 +5122,20 @@ codex_wait_for_ready() {
 }
 
 codex_wait_for_processing() {
-  local pane i=0 max=${FM_CODEX_PROCESSING_POLLS:-30} interval=${FM_CODEX_POLL_INTERVAL:-0.5}
+  local receipt=$1 pane transcript i=0 max=${FM_CODEX_PROCESSING_POLLS:-30} interval=${FM_CODEX_POLL_INTERVAL:-0.5}
   while [ "$i" -lt "$max" ]; do
     pane=$(codex_visible_capture) || return 1
     if printf '%s\n' "$pane" | fm_busy_lines_match codex; then
       return 0
     fi
+    transcript=$(fm_backend_capture "$BACKEND" "$T" 120 "$W") || return 1
+    transcript=$(printf '%s' "$transcript" | tr -d '\r\n')
+    case "$transcript" in
+      *"$receipt"*)
+        transcript=${transcript#*"$receipt"}
+        case "$transcript" in *'Worked for '*) return 0 ;; esac
+        ;;
+    esac
     i=$((i + 1))
     [ "$i" -ge "$max" ] || sleep "$interval"
   done
@@ -5145,7 +5153,7 @@ codex_spawn_fail() { # <detail>
 # a half-delivered brief pointer left in a live composer is exactly the
 # worker-never-started defect this gate exists to catch.
 codex_spawn_typed_brief() {
-  local envelope verdict retries sleep_s settle
+  local envelope verdict retries sleep_s settle receipt
   if ! codex_wait_for_ready; then
     codex_spawn_fail "codex did not take the brief: $CODEX_READY_FAILURE_DETAIL"
     return 1
@@ -5154,8 +5162,9 @@ codex_spawn_typed_brief() {
   # naming data/<id>/launch-brief.md, the rendered brief the scaffold owns.
   # The full brief cannot be typed - a composer submits at every embedded
   # newline - and the pointer shape is the one kimi and rovo already deliver.
+  receipt="fm-launch-${BASHPID:-$$}-$RANDOM-$RANDOM"
   fm_operational_input_encode launch-brief \
-    "Read the brief at $BRIEF_REAL and follow it exactly." envelope \
+    "Read the brief at $BRIEF_REAL and follow it exactly. Launch receipt: $receipt." envelope \
     || {
       codex_spawn_fail "codex did not take the brief: the launch-brief envelope could not be encoded"
       return 1
@@ -5179,7 +5188,7 @@ codex_spawn_typed_brief() {
       return 1
       ;;
   esac
-  if ! codex_wait_for_processing; then
+  if ! codex_wait_for_processing "$receipt"; then
     codex_spawn_fail "codex did not take the brief: the launch brief was submitted but processing never started in window $T"
     return 1
   fi

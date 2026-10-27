@@ -73,14 +73,18 @@ fake_screen() {
       printf '%s\n' "$update_partial" ;;
     trust)
       printf '%s\n' "$trust_dialog" ;;
-    ready|typed|delivered|working)
+    ready|typed|delivered|working|failed)
       printf '• Worked for 6s\n\n'
       case "$state" in
         ready) composer_row "${ESC}[2m${bg}${dim_placeholder}${ESC}[0m" ;;
         typed) composer_row ' FIRSTMATE_OP: v1 launch-brief: Read the brief at /wt/launch-brief.md and follow it exactly.' ;;
         delivered)
-          printf '%s\n\n' '› FIRSTMATE_OP: v1 launch-brief: Read the brief at /wt/launch-brief.md and follow it exactly.'
+          printf '› %s\n\n' "$(cat "$FM_FAKE_CODEX_TYPED_LOG")"
           printf '%s\n' '• Worked for 6s • 2:39 AM'
+          composer_row "${ESC}[2m${bg}${dim_placeholder}${ESC}[0m" ;;
+        failed)
+          printf '› %s\n\n' "$(cat "$FM_FAKE_CODEX_TYPED_LOG")"
+          printf '%s\n' 'request failed'
           composer_row "${ESC}[2m${bg}${dim_placeholder}${ESC}[0m" ;;
         working)
           printf '%s\n' '• Working (1s • esc to interrupt)'
@@ -98,7 +102,7 @@ fake_cursor_y() {
   case "$state" in
     ready|typed) printf '2\n' ;;
     working) printf '3\n' ;;
-    delivered) printf '5\n' ;;
+    delivered|failed) printf '5\n' ;;
     *) printf '1\n' ;;
   esac
 }
@@ -197,11 +201,12 @@ case "${1:-}" in
           typed)
             case "${FM_FAKE_CODEX_DELIVERY:-working}" in
               delivered) printf 'delivered\n' > "$FM_FAKE_CODEX_STATE" ;;
+              failed) printf 'failed\n' > "$FM_FAKE_CODEX_STATE" ;;
               working) printf 'working\n' > "$FM_FAKE_CODEX_STATE" ;;
               swallow) : ;;
             esac
             ;;
-          ready|delivered|working)
+          ready|delivered|working|failed)
             printf '%s\n' "$state" >> "$FM_FAKE_CODEX_STRAY_ENTER_LOG"
             ;;
         esac
@@ -232,7 +237,7 @@ case "${1:-}" in
     case " $* " in
       *' -S -0 '*|*' -e '*) ;;
       *)
-        printf '%s\n' '• Worked for 6s' '• Working (1s • esc to interrupt)'
+        printf '%s\n' '› FIRSTMATE_OP: v1 launch-brief: Launch receipt: fm-launch-previous.' '• Worked for 6s' '• Working (1s • esc to interrupt)'
         ;;
     esac
     fake_screen
@@ -338,7 +343,7 @@ test_codex_launches_bare_and_delivers_typed_brief() {
   brief_real="$(cd "$HOME_DIR/data/$id" && pwd -P)/launch-brief.md"
   typed=$(cat "$CASE_DIR/typed.log")
   case "$typed" in
-    *$'\xe2\x81\xa3'"FIRSTMATE_OP: v1 launch-brief: Read the brief at $brief_real and follow it exactly.") : ;;
+    *$'\xe2\x81\xa3'"FIRSTMATE_OP: v1 launch-brief: Read the brief at $brief_real and follow it exactly. Launch receipt: fm-launch-"*) : ;;
     *) fail "codex typed envelope was not the exact launch-brief pointer: $typed" ;;
   esac
   [ ! -s "$CASE_DIR/stray-enter.log" ] \
@@ -485,13 +490,28 @@ test_codex_old_processing_evidence_refuses_the_spawn() {
   rec=$(make_spawn_case stale "$id")
   read_spawn_record "$rec"
   CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
-  out=$(FM_FAKE_CODEX_DELIVERY=delivered run_spawn \
+  out=$(FM_FAKE_CODEX_DELIVERY=failed run_spawn \
     "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
   rc=$?
   [ "$rc" -ne 0 ] || fail "historical working or completion text confirmed a new submission"
   assert_contains "$out" "processing never started" "stale evidence did not fail processing confirmation"
   grep -qxF typed "$CASE_DIR/enter.log" || fail "the stale-evidence case never submitted its brief"
   pass "fm-spawn: old working and completed turns cannot confirm a new submission"
+}
+
+test_codex_completed_short_turn_confirms_the_spawn() {
+  local id rec out rc
+  id="codex-completed-z12-$$"
+  rec=$(make_spawn_case completed "$id")
+  read_spawn_record "$rec"
+  CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
+  out=$(FM_FAKE_CODEX_DELIVERY=delivered run_spawn \
+    "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+  rc=$?
+  expect_code 0 "$rc" "a turn completed before the first processing poll should confirm the spawn"
+  assert_contains "$out" "spawned $id harness=codex" "the completed turn did not report spawn success"
+  grep -qxF delivered "$CASE_DIR/codex.state" || fail "the short turn did not complete"
+  pass "fm-spawn: a fresh completed turn confirms delivery without a sampled busy frame"
 }
 
 test_codex_readiness_capture_failure_fails_loudly() {
@@ -538,5 +558,6 @@ test_codex_partial_dialog_text_is_never_answered_or_trusted
 test_codex_unconfirmed_submit_refuses_the_spawn
 test_codex_processing_confirmation_accepts_the_busy_footer
 test_codex_old_processing_evidence_refuses_the_spawn
+test_codex_completed_short_turn_confirms_the_spawn
 test_codex_readiness_capture_failure_fails_loudly
 test_codex_refuses_a_backend_without_a_viewport_capture
