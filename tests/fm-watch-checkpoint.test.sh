@@ -49,8 +49,8 @@ test_quiet_checkpoint_exits_124_cleanly() {
   pass "quiet checkpoint exits 124 with a clean checkpoint line and no live lock"
 }
 
-test_perl_timeout_fallback_honors_cleanup_bound_before_escalating() {
-  local home fallback_bin tool tool_path status watcher_pid
+test_checkpoint_honors_cleanup_bound_before_escalating() {
+  local home fallback_bin tool tool_path status watcher_pid checkpoint_path
   home=$(make_home perl-fallback)
   fallback_bin="$home/fallback-bin"
   mkdir -p "$home/root/bin" "$fallback_bin"
@@ -81,21 +81,52 @@ sleep 20;
 PL
   chmod +x "$home/root/bin/fm-watch-checkpoint.sh" "$home/root/bin/fm-watch.sh"
 
-  status=0
-  PATH="$fallback_bin" FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_WATCHER_CLEANUP_LOCK_BOUND=8 \
-    "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out.txt" 2>"$home/err.txt" || status=$?
+  # The checkpoint contract requires grace even when timeout is on PATH.
+  # A premature escalation loses the cleanup marker; no escalation leaves a
+  # live watcher or lets it exit naturally instead of enforcing the bound.
+  for checkpoint_path in "$fallback_bin" "$PATH"; do
+    rm -f "$home/cleanup-reached" "$home/natural-exit" "$home/watcher.pid"
+    status=0
+    PATH="$checkpoint_path" FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_WATCHER_CLEANUP_LOCK_BOUND=8 \
+      "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out.txt" 2>"$home/err.txt" || status=$?
 
-  expect_code 124 "$status" "Perl fallback checkpoint exit"
-  assert_contains "$(cat "$home/out.txt")" "checkpoint: no actionable wake within 1s" \
-    "Perl fallback did not return a quiet checkpoint"
-  [ -e "$home/cleanup-reached" ] || fail "the Perl fallback killed the watcher before its 8-second cleanup bound"
-  [ ! -e "$home/natural-exit" ] || fail "the INT-ignoring watcher exited naturally instead of being killed"
-  [ -s "$home/watcher.pid" ] || fail "the INT-ignoring watcher did not start"
-  watcher_pid=$(cat "$home/watcher.pid")
-  if kill -0 "$watcher_pid" 2>/dev/null; then
-    fail "the INT-ignoring watcher survived the Perl fallback escalation"
-  fi
-  pass "Perl fallback honors the cleanup bound before escalating an INT-ignoring direct watcher"
+    expect_code 124 "$status" "checkpoint exit"
+    assert_contains "$(cat "$home/out.txt")" "checkpoint: no actionable wake within 1s" \
+      "checkpoint did not return a quiet checkpoint"
+    [ -e "$home/cleanup-reached" ] || fail "checkpoint killed the watcher before its 8-second cleanup bound"
+    [ ! -e "$home/natural-exit" ] || fail "the INT-ignoring watcher exited naturally instead of being killed"
+    [ -s "$home/watcher.pid" ] || fail "the INT-ignoring watcher did not start"
+    watcher_pid=$(cat "$home/watcher.pid")
+    if kill -0 "$watcher_pid" 2>/dev/null; then
+      fail "the INT-ignoring watcher survived checkpoint escalation"
+    fi
+  done
+  pass "checkpoint honors cleanup grace and then escalates with and without timeout on PATH"
+}
+
+test_checkpoint_preserves_watcher_failure_status() {
+  local home status expected
+  home=$(make_home watcher-failure)
+  mkdir -p "$home/root/bin"
+  cp "$CHECKPOINT" "$home/root/bin/fm-watch-checkpoint.sh"
+  cp "$ROOT/bin/fm-supervision-engine-lib.sh" "$home/root/bin/fm-supervision-engine-lib.sh"
+  cat > "$home/root/bin/fm-watch.sh" <<'SH'
+#!/usr/bin/env bash
+case "$WATCHER_FAILURE" in
+  17) exit 17 ;;
+  137) kill -KILL "$$" ;;
+esac
+SH
+  chmod +x "$home/root/bin/fm-watch.sh"
+  # The shell exit contract is 128 + signal: a killed watcher is failure,
+  # while an ordinary nonzero exit must also survive the checkpoint wrapper.
+  for expected in 17 137; do
+    status=0
+    FM_HOME="$home" WATCHER_FAILURE="$expected" \
+      "$home/root/bin/fm-watch-checkpoint.sh" --seconds 5 >"$home/out" 2>"$home/err" || status=$?
+    expect_code "$expected" "$status" "watcher failure before checkpoint expiry"
+  done
+  pass "checkpoint preserves nonzero exits and signal deaths before its deadline"
 }
 
 test_announced_recovery_is_not_reannounced_by_next_checkpoint() {
@@ -353,7 +384,8 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly
-test_perl_timeout_fallback_honors_cleanup_bound_before_escalating
+test_checkpoint_honors_cleanup_bound_before_escalating
+test_checkpoint_preserves_watcher_failure_status
 test_announced_recovery_is_not_reannounced_by_next_checkpoint
 test_never_announced_recovery_is_announced_once
 test_queue_append_during_checkpoint_still_resurfaces

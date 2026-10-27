@@ -104,7 +104,7 @@ run_with_perl_timeout() {  # <seconds> <signal> <kill-after-seconds> <command...
       my $waited = waitpid $pid, WNOHANG;
       if ($waited == $pid) {
         alarm 0;
-        exit($timed_out ? 124 : ($? >> 8));
+        exit($timed_out ? 124 : (($? & 127) ? 128 + ($? & 127) : $? >> 8));
       }
       select undef, undef, undef, 0.05;
     }
@@ -123,19 +123,15 @@ run_bounded() {  # <seconds> <signal> <kill-after-seconds> <command...>
     [ "$cleanup_lock_bound" -gt 0 ] || cleanup_lock_bound=2
     [ "$cleanup_lock_bound" -gt "$kill_after" ] || cleanup_lock_bound=$kill_after
     kill_after=$cleanup_lock_bound
+    # uutils timeout 0.10.0 can escalate INT before the grace expires.
+    # Keep cleanup grace under the existing runner.
+    run_with_perl_timeout "$seconds" "$signal" "$kill_after" "$@"
+    return
   fi
   if command -v timeout >/dev/null 2>&1; then
-    if [ "$kill_after" -gt 0 ]; then
-      timeout --signal="$signal" --kill-after="${kill_after}s" "$seconds" "$@"
-    else
-      timeout --signal="$signal" "$seconds" "$@"
-    fi
+    timeout --signal="$signal" "$seconds" "$@"
   elif command -v gtimeout >/dev/null 2>&1; then
-    if [ "$kill_after" -gt 0 ]; then
-      gtimeout --signal="$signal" --kill-after="${kill_after}s" "$seconds" "$@"
-    else
-      gtimeout --signal="$signal" "$seconds" "$@"
-    fi
+    gtimeout --signal="$signal" "$seconds" "$@"
   else
     run_with_perl_timeout "$seconds" "$signal" "$kill_after" "$@"
   fi
