@@ -1,0 +1,42 @@
+Note: switching to '2c551cd12425ec210631503acaf5c923c301dd71'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+Note: switching to '2c551cd12425ec210631503acaf5c923c301dd71'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+ok - missing and malformed target policy refuse before home publication
+ok - missing and malformed target lane declaration refuse before publication
+ok - real remote provisioning seeds server policy and helper without PC values
+ok - generic inheritance preserves target floor, paths, ceiling and reserve
+ok - existing home validates and preserves its own policy on reseed
+fixture: updated 2c551cd..f7f99f1
+ok - tracked guarded update preserves ignored host policy bytes
+ok - existing malformed policy is an explicit technical correction

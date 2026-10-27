@@ -1,0 +1,5 @@
+Controlled timeout-boundary injection: timeout refuses with exit 137 before launching a watcher.
+# diagnostic: exit=137 elapsed_ms=43 timeout=~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/timeout-fault-zfnljdkx/timeout (timeout (uutils coreutils) 0.8.0)
+# diagnostic stderr: 
+not ok - quiet checkpoint exit: expected exit 124, got 137
+Expected test exit=1; actual=1

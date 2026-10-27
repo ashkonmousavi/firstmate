@@ -1,0 +1,41 @@
+{
+  "head": "2c551cd12425ec210631503acaf5c923c301dd71",
+  "source_changes": false,
+  "completed_checks": {
+    "native CLI walkthrough": 0,
+    "native correction walkthrough": 0,
+    "native inheritance walkthrough": 0,
+    "fm-request-final": 0,
+    "fm-watch-checkpoint": 0,
+    "fm-machine-resources": 0,
+    "fm-shared-captain-inheritance": 0,
+    "fm-remote-machine-policy": 0,
+    "fm-proof-cleanup": 0,
+    "fm-proof-control": 0,
+    "fm-ci-workflow": 0,
+    "fm-ci-remote-routing": 0,
+    "fm-crew-state": 0,
+    "closed-output-poll": 0,
+    "fm-backlog-final-case": 0,
+    "fm-brief-final": 0,
+    "fm-captain-hold-routing-rerun": 0,
+    "timeout fault-injection driver": 0
+  },
+  "expected_fault_injection": {
+    "quiet-checkpoint test exit": 1,
+    "injected timeout exit": 137,
+    "diagnostic_assertion": "passed"
+  },
+  "resolved_fixture_failures": [
+    "Request and backlog-transfer cases reject secondmate homes nested below the code root; request suite passed using unchanged bin files copied to an isolated code root and the stock suite isolation helper; final backlog case passed with standard /tmp fixtures.",
+    "A branch-name shell-safety fixture embedded the hidden workspace path into a Git ref; the full brief suite passed with standard /tmp fixtures.",
+    "Captain-hold lifecycle suite passed its preceding cases, then rejected a secondmate fixture below the code root. The failed authoritative-home routing case passed when selected from unchanged function definitions with standard /tmp fixtures. Later unrelated cases were not run."
+  ],
+  "not_executed": [
+    "remote hosted CI and signature enforcement",
+    "creation/control of a real no-CI/no-checks pipeline",
+    "full repository suite",
+    "lint/format phase"
+  ],
+  "children": "All invoked commands completed and exit statuses were read; disposable homes were removed by drivers or suite cleanup."
+}

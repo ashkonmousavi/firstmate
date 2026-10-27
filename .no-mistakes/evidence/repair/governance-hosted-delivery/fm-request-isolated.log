@@ -1,0 +1,18 @@
+..............................F
+======================================================================
+FAIL: test_unrelated_serialized_handoffs_both_survive (__main__.RequestCustody.test_unrelated_serialized_handoffs_both_survive)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/isolated-code/tests/test_request_acceptance.py", line 500, in test_unrelated_serialized_handoffs_both_survive
+    self.assertEqual(a.returncode, 0, ao + ae)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0 : handed off 1 item(s) to design: scope-a
+  into ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/fm-request-test-6i0_v0tv-secondmate/data/backlog.md
+error: no-mistakes gate agent must not drive the fleet (NO_MISTAKES_GATE set)
+error: backlog delivery to secondmate design succeeded, but its receiver wake failed; retry a tracked remote wake with --resume-pending or a later new handoff, and retry a local wake by rerunning its handoff
+
+
+----------------------------------------------------------------------
+Ran 31 tests in 135.864s
+
+FAILED (failures=1)

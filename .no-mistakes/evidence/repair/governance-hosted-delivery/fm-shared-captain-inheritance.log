@@ -1,0 +1,22 @@
+ok - shared captain first copy, unchanged copy, and source-only edit stay quiet
+ok - shared captain true divergence after inherit is still quarantined
+ok - interrupted publication that already matches source heals without quarantine
+ok - remote receiver accepts a source-only edit quietly and still quarantines real drift
+ok - shared captain drift is quarantined collision-safely and repeated convergence is idempotent
+ok - missing primary shared file mirrors absence only after quarantining a local copy
+ok - unsafe shared captain artifacts are rejected and failure restores read-only mode
+ok - spawn convergence point propagates data/captain-shared.md from FM_DATA_OVERRIDE
+ok - bootstrap convergence point propagates data/captain-shared.md from FM_DATA_OVERRIDE
+ok - fm-config-push convergence point updates changed shared captain source bytes from FM_DATA_OVERRIDE
+ok - fm-config-push source-only edit after inherit stays quiet
+ok - session-start digest renders data/captain-shared.md with the shared read-only label
+ok - the header check names the first required phrase it did not find, without widening the accept set
+# all fm-shared-captain-inheritance tests passed
+pushed: config/worker-sheet.md
+unchanged: config/worker-sheet.md
+ok - worker-sheet config converges through native local and remote routes without replacing home facts
+ok - local config and data overrides converge active worker policy and preserve source and destination drift
+ok - worker policy sender checks default and overridden aliases before remote transport
+error: worker policy alias drift: preserve both ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/fm-shared-captain.Jr1Fnv/worker-orphans/second/data/worker-sheet.md and ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/fm-shared-captain.Jr1Fnv/worker-orphans/second/config/worker-sheet.md; reconcile the latest owner edit into the config source, then restore the data alias
+ok - worker policy orphaned aliases refuse local and remote writes while preserving optional absence
+ok - failed local and remote policy publications leave fresh aliases absent; valid retries converge

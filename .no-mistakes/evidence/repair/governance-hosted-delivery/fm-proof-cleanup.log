@@ -1,0 +1,8 @@
+ok - unheld and expired external proof waits preserve task, copy and merge watch before acceptance
+ok - explicit keep-open releases cleanup resources while preserving the open task and delivery reference
+ok - keep-open preserves existing acceptance while cleaning the finished worker record
+ok - merged pending-proof task refuses destructive cleanup and keeps its merge watch
+ok - accepted completion precedes cleanup, preserves child edge, unblocks child and safely repeats
+ok - zero-retention acceptance archives before cleanup without a second completion write
+ok - both interrupted-close states preserve pending and expired proof waits until explicit acceptance
+ok - close replay retains a captain-held task without accepting it

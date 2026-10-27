@@ -1,0 +1,146 @@
+$ fm-tasks-axi.sh add request Correctable explanation --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_/packet.json
+ok: added request -> Queued
+task:
+  id: request
+  title: Correctable explanation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-27
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_\",\"origin_task_id\":\"request\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explanation revision 1\"}],\"sources\":[{\"file_ref\":\"reti\n... (truncated, 734 chars total - use show request --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start request` to move it to in flight
+  - Run `tasks-axi block request --by <other>` to record a dependency
+[exit 0]
+$ fm-tasks-axi.sh show request --full
+task:
+  id: request
+  title: Correctable explanation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-27
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_\",\"origin_task_id\":\"request\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[],\"text_ref\":\"Explanation revision 1\"}],\"sources\":[{\"file_ref\":\"retired.json\",\"full_text\":\"Explanation revision 1\",\"full_text_sha256\":\"3c9b68467e45491da54a3a72974f2695310693578816cb0c8e07edaeeea7f98a\",\"message_uuid\":\"source-1\",\"session_id\":\"live-session\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+[exit 0]
+$ fm-tasks-axi.sh update request --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_/packet.json
+fm-request-acceptance: cyclic superseding requirements
+fm-tasks-axi: owner request packet refused
+[exit 2]
+$ fm-tasks-axi.sh update request --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_/packet.json
+ok: updated request (body, archive)
+task:
+  id: request
+  title: Correctable explanation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-27
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_\",\"origin_task_id\":\"request\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explanation revision 1\"},{\"acceptance_level\":\"s\n... (truncated, 1237 chars total - use show request --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show request --full` to see the result
+[exit 0]
+$ fm-tasks-axi.sh show request --full
+task:
+  id: request
+  title: Correctable explanation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-27
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_\",\"origin_task_id\":\"request\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explanation revision 1\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[],\"text_ref\":\"Explanation revision 2\"}],\"sources\":[{\"file_ref\":\"retired.json\",\"full_text\":\"Explanation revision 1\",\"full_text_sha256\":\"3c9b68467e45491da54a3a72974f2695310693578816cb0c8e07edaeeea7f98a\",\"message_uuid\":\"source-1\",\"session_id\":\"live-session\",\"source_custody\":\"complete\"},{\"file_ref\":\"retired.json\",\"full_text\":\"Explanation revision 2\",\"full_text_sha256\":\"1989834b6c6a949a87726000f67b0e943de188a4f9e57572d574d639cee68593\",\"message_uuid\":\"source-2\",\"session_id\":\"live-session\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+[exit 0]
+$ fm-tasks-axi.sh update request --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_/packet.json
+ok: owner request already recorded for request
+[exit 0]
+$ fm-tasks-axi.sh update request --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_/packet.json
+ok: updated request (body, archive)
+task:
+  id: request
+  title: Correctable explanation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-27
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_\",\"origin_task_id\":\"request\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explanation revision 1\"},{\"acceptance_level\":\"s\n... (truncated, 1741 chars total - use show request --full to see complete text)"
+help[1]:
+  - Run `tasks-axi show request --full` to see the result
+[exit 0]
+$ fm-tasks-axi.sh show request --full
+task:
+  id: request
+  title: Correctable explanation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-27
+  closed: "-"
+  deps: none
+  links: none
+  body: "```Owner request acceptance v1\n{\"origin_home\":\"~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_\",\"origin_task_id\":\"request\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-1\",\"superseded_by\":[\"r2\"],\"text_ref\":\"Explanation revision 1\"},{\"acceptance_level\":\"source\",\"disposition\":\"superseded\",\"id\":\"r2\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-2\",\"superseded_by\":[\"r3\"],\"text_ref\":\"Explanation revision 2\"},{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r3\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"source-3\",\"superseded_by\":[],\"text_ref\":\"Explanation revision 3\"}],\"sources\":[{\"file_ref\":\"retired.json\",\"full_text\":\"Explanation revision 1\",\"full_text_sha256\":\"3c9b68467e45491da54a3a72974f2695310693578816cb0c8e07edaeeea7f98a\",\"message_uuid\":\"source-1\",\"session_id\":\"live-session\",\"source_custody\":\"complete\"},{\"file_ref\":\"retired.json\",\"full_text\":\"Explanation revision 2\",\"full_text_sha256\":\"1989834b6c6a949a87726000f67b0e943de188a4f9e57572d574d639cee68593\",\"message_uuid\":\"source-2\",\"session_id\":\"live-session\",\"source_custody\":\"complete\"},{\"file_ref\":\"retired.json\",\"full_text\":\"Explanation revision 3\",\"full_text_sha256\":\"29eecfbfa541197a75288bd8613d0e944666b43cc012dd2ff009eb487788de87\",\"message_uuid\":\"source-3\",\"session_id\":\"live-session\",\"source_custody\":\"complete\"}],\"version\":1}\n```"
+[exit 0]
+$ fm-tasks-axi.sh update request --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_/packet.json
+ok: owner request already recorded for request
+[exit 0]
+$ fm-tasks-axi.sh update request --owner-request-file ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/correction-live-ygfn7b3_/packet.json
+fm-request-acceptance: stale body preimage
+fm-tasks-axi: owner request packet refused
+[exit 2]
+SCENARIO native corrections: cycle and stale preimage refuse without writes; multistep correction preserves all source history; exact replay makes no second write
+Disposable home removed

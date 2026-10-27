@@ -1,0 +1,6 @@
+ok - cache-heavy headroom uses current minus inactive_file and finite parent limit
+ok - public consumer keeps hard floor and reserve separate on the same snapshot
+ok - enclosing cgroup pressure refuses despite quiet host and child
+ok - hard maximum can constrain floor while high reserve remains satisfied
+ok - incomplete cgroup evidence refuses
+ok - missing, duplicate, boolean and nonfinite numeric fields refuse

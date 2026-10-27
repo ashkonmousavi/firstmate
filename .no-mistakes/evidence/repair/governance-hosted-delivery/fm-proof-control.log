@@ -1,0 +1,4 @@
+ok - pending proof native exit preserves task, owner home, work, branch, proof and child edges
+ok - released seat follows real non-shell process occupancy, not retained metadata or endpoint
+ok - native relaunch resumes same task/worktree with new generation while proof and dependents remain pending
+ok - late cleanup replay cannot erase the resumed task generation

@@ -1,0 +1,29 @@
+.....F........................F
+======================================================================
+FAIL: test_bound_local_transfer_keeps_full_section_and_source_close (__main__.RequestCustody.test_bound_local_transfer_keeps_full_section_and_source_close)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/tests/test_request_acceptance.py", line 579, in test_bound_local_transfer_keeps_full_section_and_source_close
+    self.assertEqual(moved.returncode, 0, moved.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0 : error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/fm-request-test-px3y0gt0-receiver
+
+
+======================================================================
+FAIL: test_unrelated_serialized_handoffs_both_survive (__main__.RequestCustody.test_unrelated_serialized_handoffs_both_survive)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/tests/test_request_acceptance.py", line 491, in test_unrelated_serialized_handoffs_both_survive
+    self.wait_for_marker(self.home / "move-entered", a)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/tests/test_request_acceptance.py", line 50, in wait_for_marker
+    self.fail(f"process exited before {marker.name}: {out}{err}")
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: process exited before move-entered: error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/fm-request-test-8kezuduu-secondmate
+
+
+----------------------------------------------------------------------
+Ran 31 tests in 129.674s
+
+FAILED (failures=2)
+not ok - native request acceptance tests failed

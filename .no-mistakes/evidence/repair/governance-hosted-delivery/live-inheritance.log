@@ -1,0 +1,25 @@
+$ fm-remote-inherit.sh put config/worker-sheet.md <bytes> <sha256> 1
+pushed: config/worker-sheet.md
+[exit 0]
+$ fm-remote-inherit.sh put config/worker-sheet.md <bytes> <sha256> 2
+pushed: config/worker-sheet.md
+[exit 0]
+$ fm-remote-inherit.sh put config/worker-sheet.md <bytes> <sha256> 3
+pushed: config/worker-sheet.md
+[exit 0]
+Persisted policy via compatibility alias: Worker policy v2
+$ fm-remote-inherit.sh put config/worker-sheet.md <bytes> <sha256> 4
+error: worker policy alias drift: preserve both ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/inherit-live-i3kuc_nu/home/data/worker-sheet.md and ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/inherit-live-i3kuc_nu/home/config/worker-sheet.md; reconcile the latest owner edit into the config source, then restore the data alias
+error: worker policy compatibility alias requires reconciliation
+[exit 1]
+Preserved canonical: Worker policy v2 | Preserved owner edit: Latest owner edit
+$ fm-remote-inherit.sh put config/worker-sheet.md <bytes> <sha256> 4
+error: worker policy alias drift: preserve both ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/inherit-live-i3kuc_nu/home/data/worker-sheet.md and ~/.no-mistakes/worktrees/d0d2cdb60c08/01M5Y6APHPBD491VF8057QX9C9/.test-phase-tmp/inherit-live-i3kuc_nu/home/config/worker-sheet.md; reconcile the latest owner edit into the config source, then restore the data alias
+error: worker policy compatibility alias requires reconciliation
+[exit 1]
+SCENARIO native receiver: publish/update/alias repair work; replaced and orphaned owner edits refuse without losing bytes
+$ propagate_inheritable_config <active-config> <child-config> <primary> <active-data> <child-data>
+[exit 0]
+Persisted child alias: Active policy
+SCENARIO active-path inheritance: active config/data converge and inactive default policy stays unchanged
+Disposable homes removed
