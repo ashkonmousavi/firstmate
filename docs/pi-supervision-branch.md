@@ -482,7 +482,7 @@ The branch accepts it without a project only when every branch-ownable row obser
 A heartbeat is never vetoed or ridden into main by a co-present check row or decision-owned signal/stale row.
 Those rows are main-owned while attended.
 They are excluded from what the branch may claim and left queued for main.
-Main is woken for each on its own watcher cycle, so nothing starves by being left behind.
+Main delivery follows [Event-driven supervision](architecture.md#event-driven-supervision).
 Under the away-posture record the branch claims them too ("Postures" below).
 
 Deferring the fleet review to main merely because some unrelated merge poll or Relay mention happened to be sitting unread put a routine review in the captain's chat for a reason that had nothing to do with the fleet.
