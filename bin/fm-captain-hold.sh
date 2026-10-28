@@ -1027,6 +1027,15 @@ command_hold() {
     # record left behind by an interrupted hold.
     fm_hold_release_record_write "$STATE" "$id" "$release_on" \
       || fail "the captain hold was recorded but its release condition could not be stored; re-run the same hold to retry"
+  elif [ -e "$(fm_hold_release_record_path "$STATE" "$id")" ] \
+    || [ -L "$(fm_hold_release_record_path "$STATE" "$id")" ]; then
+    # A re-hold that no longer names a structured condition ends that
+    # lifecycle, the same way bin/fm-tasks-axi.sh does. The hold itself
+    # already succeeded, so a drop that fails is reported and the next
+    # evaluation sweep reconciles the leftover record.
+    fm_hold_release_record_drop "$STATE" "$id" \
+      "re-held without a structured release condition" \
+      || printf 'fm-captain-hold: warning: the hold was re-held but its stale release record could not be dropped\n' >&2
   fi
   occurrence=$(( $(resolution_record_count "$(show_field "$show" body)") + 1 ))
   [ -n "$(body_hold_set_timestamp "$(show_field_value "$show" body)")" ] \

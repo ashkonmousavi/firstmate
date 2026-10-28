@@ -296,13 +296,68 @@ test_captain_hold_carries_a_release_condition() {
     || fail "a captain hold with --release-on must succeed"
   assert_grep "condition=pr:owner/repo#42" "$home/state/hold-releases/q1" \
     "the captain hold stores its release condition"
+  # A process substitution is not a regular file, and load_decision refuses
+  # anything but one, so the decision has to be a real file. Swallowing a
+  # failed answer would leave the record in place and look like a pass.
+  printf 'go ahead\n' > "$home/decision.txt"
   PATH="$fakebin:$PATH" REAL_TASKS_AXI=$(command -v tasks-axi) \
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" \
-    "$CAPTAIN" answer q1 --decision-file <(printf 'go ahead\n') >/dev/null 2>&1 \
-    || true
-  [ -e "$home/state/hold-releases/q1" ] || fail "the answered call reconciles its record at or after the sweep"
-  pass "hold-release: captain holds accept --release-on"
+    "$CAPTAIN" answer q1 --decision-file "$home/decision.txt" >/dev/null \
+    || fail "answering the captain hold must succeed"
+  [ ! -e "$home/state/hold-releases/q1" ] \
+    || fail "answering the hold must drop its release record"
+  pass "hold-release: captain holds accept --release-on and answering drops it"
+}
+
+# A met captain hold stays open until the hold ends. Answering it, or
+# re-holding it without a new structured condition, closes that decision.
+test_captain_answer_and_rehold_close_the_decision() {
+  local home fakebin decision
+  home=$(make_home captain-close)
+  fakebin=$(fm_fakebin "$home")
+  fm_fake_exit0 "$fakebin" tmux treehouse no-mistakes gh gh-axi
+  decision="$home/decision.txt"
+  printf 'go ahead\n' > "$decision"
+  PATH="$fakebin:$PATH" \
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_CONFIG_OVERRIDE="$home/config" \
+    "$CAPTAIN" hold q1 --title "activation" --reason "waiting on the marker" \
+    --repo demo --release-on "marker:$TMP_ROOT/captain-close.flag" >/dev/null \
+    || fail "the marker captain hold must succeed"
+  : > "$TMP_ROOT/captain-close.flag"
+  run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
+  open_decisions "$home" q1 | grep -q '^hold-release-q1	blocked' \
+    || fail "a met captain hold must open the keyed decision"
+  PATH="$fakebin:$PATH" \
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_CONFIG_OVERRIDE="$home/config" \
+    "$CAPTAIN" answer q1 --decision-file "$decision" >/dev/null \
+    || fail "answering a met captain hold must succeed"
+  [ ! -e "$home/state/hold-releases/q1" ] \
+    || fail "the answer must drop the met release record"
+  open_decisions "$home" q1 | grep -q '^hold-release-q1' \
+    && fail "the answer must close the open hold-release decision"
+  PATH="$fakebin:$PATH" \
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_CONFIG_OVERRIDE="$home/config" \
+    "$CAPTAIN" hold q2 --title "second" --reason "first reason" \
+    --repo demo --release-on "marker:$TMP_ROOT/captain-rehold.flag" >/dev/null \
+    || fail "the second captain hold must succeed"
+  : > "$TMP_ROOT/captain-rehold.flag"
+  run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
+  open_decisions "$home" q2 | grep -q '^hold-release-q2	blocked' \
+    || fail "the second met hold must open its decision"
+  PATH="$fakebin:$PATH" \
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_CONFIG_OVERRIDE="$home/config" \
+    "$CAPTAIN" hold q2 --reason "updated reason" >/dev/null \
+    || fail "re-holding without --release-on must succeed"
+  [ ! -e "$home/state/hold-releases/q2" ] \
+    || fail "a captain re-hold without --release-on must drop the record"
+  open_decisions "$home" q2 | grep -q '^hold-release-q2' \
+    && fail "that re-hold must close the open hold-release decision"
+  pass "hold-release: answering or re-holding a captain hold ends its release decision"
 }
 
 test_await_merge_transition_derives_the_condition() {
@@ -339,6 +394,7 @@ test_rehold_after_met_opens_a_new_episode
 test_closed_task_reconciles_its_record_away
 test_pr_condition_reads_merge_state_through_gh
 test_captain_hold_carries_a_release_condition
+test_captain_answer_and_rehold_close_the_decision
 test_await_merge_transition_derives_the_condition
 
 echo "# fm-hold-release.test.sh: all assertions passed"
