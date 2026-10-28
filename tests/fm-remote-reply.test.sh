@@ -1319,7 +1319,7 @@ cat > "$LIVE_PARENT/data/secondmates.md" <<EOF
 - mac - live session relay (host: remote-mac; root: $ROOT; home: $LIVE_REMOTE; scope: relay; projects: alpha; added 2026-10-19)
 EOF
 : > "$LIVE_REMOTE/state/parent-replies.status"
-cp "$(command -v sleep)" "$FAKEBIN/claude"
+ln -s "$(fm_agent_standin "$FAKEBIN/standin")" "$FAKEBIN/claude" || fail 'could not create Claude stand-in'
 "$FAKEBIN/claude" 300 &
 LIVE_SESSION_PID=$!
 printf '%s\n' "$LIVE_SESSION_PID" > "$LIVE_PARENT/state/.lock"

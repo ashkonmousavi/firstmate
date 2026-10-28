@@ -97,6 +97,12 @@
 #                          a state check exited non-zero or was killed at
 #                          FM_CHECK_TIMEOUT; queued once per failure episode
 #                          (check_run_record owns the episode and its record)
+#   check: hold-release: hold condition met: <task-id> <condition>
+#                          a held row's structured release condition (its
+#                          --release-on pr:/marker:) was found met by this
+#                          sweep; the keyed decision it opened stays in OPEN
+#                          DECISIONS until the hold is released or re-held
+#                          (bin/fm-hold-release-lib.sh owns the contract)
 #   check: process-event result captured: <keys>
 #                          a durably captured process-to-event result is queued
 #                          and has not been surfaced yet; reported once per
@@ -238,6 +244,11 @@ WATCH_HOME_EXISTED=0
 # cheap when no records exist and never scrapes secondmate conversation.
 # shellcheck source=bin/fm-pending-reply-lib.sh
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
+# Structured hold release conditions: the check sweep below evaluates the
+# records written beside holds with --release-on and wakes once per met
+# condition, keeping a keyed decision open until the hold is dispositioned.
+# shellcheck source=bin/fm-hold-release-lib.sh
+. "$SCRIPT_DIR/fm-hold-release-lib.sh"
 # shellcheck source=bin/fm-busy-lib.sh
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # Steering-inbox loss detection: bin/fm-task-inbox-lib.sh owns the record,
@@ -3337,6 +3348,23 @@ evict_stalled_holder() {
 EVICTED_PID=
 EVICTED_BEAT_AGE=
 BEAT="$STATE/.last-watcher-beat"
+# Teardown can race either a poll or a recovery lock acquisition. Classify
+# that loss before reporting a recovery failure at any of those boundaries.
+watcher_exit_if_home_gone() {
+  if [ "$WATCH_HOME_EXISTED" -eq 1 ] && [ ! -d "$FM_HOME" ]; then
+    echo "watcher: exiting - home no longer exists: $FM_HOME" >&2
+    exit 1
+  elif [ ! -d "$STATE" ]; then
+    echo "watcher: exiting - state directory no longer exists: $STATE" >&2
+    exit 1
+  elif [ ! -e "$WATCH_LOCK/pid" ]; then
+    echo "watcher: exiting - state directory was torn down (singleton lock removed): $STATE" >&2
+    exit 1
+  elif [ ! -d "$SCRIPT_DIR" ]; then
+    echo "watcher: exiting - code root no longer exists: $SCRIPT_DIR" >&2
+    exit 1
+  fi
+}
 # A bounded foreground checkpoint may time out immediately after this watcher
 # claims its singleton lock. Arm owner-checked recovery before the claim, then
 # replace it with the full cleanup once that code is ready. A signal in this
@@ -3394,6 +3422,7 @@ if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" != 1 ] \
   recovery_rc=0
   fm_recovery_marker_reopen_announced "$WATCHER_DOWNTIME_MARKER" || recovery_rc=$?
   if [ "$recovery_rc" -ne 0 ]; then
+    watcher_exit_if_home_gone
     [ "$recovery_rc" -ne 124 ] || checkpoint_wake_failed "$recovery_rc"
     echo "watcher: recovery state could not be reopened safely; retaining stale lock evidence" >&2
     exit 1
@@ -3402,6 +3431,7 @@ fi
 recovery_rc=0
 fm_recovery_marker_arm_check "$WATCHER_DOWNTIME_MARKER" || recovery_rc=$?
 if [ "$recovery_rc" -ne 0 ]; then
+  watcher_exit_if_home_gone
   [ "$recovery_rc" -ne 124 ] || checkpoint_wake_failed "$recovery_rc"
   echo "watcher: recovery state could not be consumed safely; retaining stale lock evidence" >&2
   exit 1
@@ -3582,6 +3612,7 @@ resurface_after_downtime() {
     recovery_rc=0
     fm_recovery_marker_arm_check "$WATCHER_DOWNTIME_MARKER" || recovery_rc=$?
     if [ "$recovery_rc" -ne 0 ]; then
+      watcher_exit_if_home_gone
       [ "$recovery_rc" -ne 124 ] || checkpoint_wake_failed "$recovery_rc"
       echo "watcher: recovery state could not be consumed safely" >&2
       exit 1
@@ -3605,19 +3636,7 @@ while :; do
   # with no holder at all is read as the same teardown: only a fresh watcher
   # ever recreates the lock, and that case is the self-eviction below.
   # Scoped to this process alone: no other watcher is signalled.
-  if [ "$WATCH_HOME_EXISTED" -eq 1 ] && [ ! -d "$FM_HOME" ]; then
-    echo "watcher: exiting - home no longer exists: $FM_HOME" >&2
-    exit 1
-  elif [ ! -d "$STATE" ]; then
-    echo "watcher: exiting - state directory no longer exists: $STATE" >&2
-    exit 1
-  elif [ ! -e "$WATCH_LOCK/pid" ]; then
-    echo "watcher: exiting - state directory was torn down (singleton lock removed): $STATE" >&2
-    exit 1
-  elif [ ! -d "$SCRIPT_DIR" ]; then
-    echo "watcher: exiting - code root no longer exists: $SCRIPT_DIR" >&2
-    exit 1
-  fi
+  watcher_exit_if_home_gone
 
   # Self-eviction: if the singleton lock no longer names this process, a second
   # watcher has taken over (e.g. a transient duplicate from a racy arm). Stand
@@ -3760,6 +3779,33 @@ while :; do
       [ -e "$STATE/${check_record##*/.check-run-}.check.sh" ] || rm -f -- "$check_record"
     done
     check_sweep_deferred=0
+    # Hold release conditions are evaluated in the same sweep, before the
+    # per-check loop: each newly-met condition has already opened its durable
+    # keyed decision and queued its check wake before announcing it.
+    # The evaluation is bounded (its own per-record reads and sweep cap)
+    # and its diagnostics are triage, not wakes.
+    hold_release_out=$(fm_hold_release_evaluate "$STATE" 2>"$STATE/.hold-release-sweep.err")
+    hold_release_rc=$?
+    [ ! -s "$STATE/.hold-release-sweep.err" ] || {
+      while IFS= read -r hold_release_diag; do
+        [ -n "$hold_release_diag" ] || continue
+        triage_log "$hold_release_diag"
+      done < "$STATE/.hold-release-sweep.err"
+      : > "$STATE/.hold-release-sweep.err"
+    }
+    [ "$hold_release_rc" -ne 124 ] || check_sweep_deferred=1
+    if [ "$hold_release_rc" -ne 0 ]; then
+      triage_log "hold-release evaluation reported rc=$hold_release_rc"
+    fi
+    if [ -n "$hold_release_out" ]; then
+      while IFS= read -r hold_release_line; do
+        [ -n "$hold_release_line" ] || continue
+        reason="check: hold-release: $hold_release_line"
+        [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
+      done <<EOF
+$hold_release_out
+EOF
+    fi
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue
       # A bounded checkpoint starts no check past its bound; the unrun checks

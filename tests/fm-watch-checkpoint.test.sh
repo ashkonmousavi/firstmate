@@ -483,15 +483,39 @@ run_sweep_checkpoint() {  # <home> [seconds]
     > "$home/out.txt" 2> "$home/err.txt" || SWEEP_RC=$?
 }
 
-test_recorded_sweep_closes_at_checkpoint_budget() {
-  local home count
-  for count in 1 18; do
-    home=$(make_sweep_home "sweep-$count" "$count")
+run_sweep_until_capture() {  # <home>
+  local home=$1 attempt
+  # Earlier stages may consume a whole checkpoint. Resume their recorded
+  # progress before requiring the pane-stage witness.
+  for attempt in {1..10}; do
     run_sweep_checkpoint "$home"
-    expect_code 124 "$SWEEP_RC" "recorded sweep ($count lanes): $(cat "$home/err.txt")"
+    expect_code 124 "$SWEEP_RC" "recorded sweep attempt $attempt: $(cat "$home/err.txt")"
     assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'sweep did not close cleanly'
     assert_absent "$home/state/.watch.lock/pid" 'quiet sweep retained singleton'
-    [ -s "$home/captures" ] || fail 'sweep control never reached a pane read'
+    [ ! -s "$home/captures" ] || return 0
+  done
+  fail 'sweep control never reached a pane read'
+}
+
+test_recorded_sweep_closes_at_checkpoint_budget() {
+  local home count real_mv
+  real_mv=$(command -v mv)
+  for count in 1 18; do
+    home=$(make_sweep_home "sweep-$count" "$count")
+    # Force one budget to end before panes, independent of runner load.
+    cat > "$home/fakebin/mv" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  *"$FM_HOME/state/.watch-window-cursor.tmp."*)
+    if [ ! -e "$FM_HOME/delayed-stage" ]; then
+      touch "$FM_HOME/delayed-stage"
+      sleep 4
+    fi ;;
+esac
+exec "$FM_FIXTURE_REAL_MV" "$@"
+SH
+    chmod +x "$home/fakebin/mv"
+    FM_FIXTURE_REAL_MV="$real_mv" run_sweep_until_capture "$home"
   done
   [ "$(wc -l < "$home/captures")" -lt 18 ] || fail 'long sweep ignored deadline and visited every lane'
   pass 'checkpoint bounds long recorded sweeps and preserves the short control'
@@ -500,7 +524,7 @@ test_recorded_sweep_closes_at_checkpoint_budget() {
 test_slow_pane_read_obeys_remaining_budget() {
   local home
   home=$(make_sweep_home stuck-read 1)
-  FM_FIXTURE_CAPTURE_DELAY=30 run_sweep_checkpoint "$home"
+  FM_FIXTURE_CAPTURE_DELAY=30 run_sweep_until_capture "$home"
   expect_code 124 "$SWEEP_RC" "slow pane read: $(cat "$home/err.txt")"
   assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'slow read missed clean close'
   pass 'checkpoint bounds one stalled pane read without an outer-watchdog failure'

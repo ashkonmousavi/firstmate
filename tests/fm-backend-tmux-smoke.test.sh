@@ -81,7 +81,6 @@ pass "real tmux: fm_backend_tmux_create_task creates a window and refuses a dupl
 # until the shell acknowledges it.
 SHELL_READY=false
 for _ in $(seq 1 100); do
-  tmux send-keys -t "$TARGET" C-c
   tmux send-keys -t "$TARGET" -l "printf 'shell-%s\\n' ready"
   tmux send-keys -t "$TARGET" Enter
   if wait_for_capture_text "$TARGET" "shell-ready" 10; then

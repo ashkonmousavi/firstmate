@@ -62,7 +62,8 @@ After each fix is installed, send the focused re-walk of that repaired stage and
 A re-walk waits for the installed build that contains the fix.
 When the served-build check wakes with a newly served commit, send at once the focused re-check for each landed user-visible task (its preparation answers Q1 yes) whose walk assignment is recorded and whose merge that commit serves, whether the install was automatic or by hand.
 Skip a task with no recorded assignment or whose merge is not yet served, and send nothing for a wake that reports no new served commit.
-Send a Grok Bot walker through `bin/fm-grok-bot-dispatch.sh` with the walk-marker flags above and `--once-key <assignment>@<served-commit>`, so a repeated wake for the same commit sends nothing new.
+Send a Grok Bot walker through the dispatcher-owning home; a secondmate uses the [walk-request carrier](../../../docs/configuration.md#walk-request-carrier), whose script headers own request and delivery mechanics.
+Direct dispatch uses `bin/fm-grok-bot-dispatch.sh` with the walk-marker flags above and `--once-key <assignment>@<served-commit>`, so a repeated wake for the same commit sends nothing new.
 Every walker first re-runs the reproduction of each fix installed since its last walk, so a fix that did not hold is caught before new ground, then walks its assigned journey ids and records everything it sees.
 Do not restart the walk from step 1.
 The project's walk procedure and the walker's own instructions own how that re-walk is executed.

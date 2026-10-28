@@ -54,6 +54,32 @@ test_concurrent_append_and_drain() {
   pass "concurrent append plus drain preserves durable records through acknowledgement"
 }
 
+test_queue_reclaim_contention_is_retriable() {
+  local dir state before
+  dir=$(make_case queue-reclaim-contention)
+  state="$dir/state"
+  append_wake "$state" check fixture 'check: preserve through reclaim contention' || fail 'could not seed wake'
+  before=$(cat "$state/.wake-queue")
+  # The reclaim mutex excludes acquisition even while the primary lock is
+  # absent. A presentation timeout here is retriable, just like a held primary.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    lock="$STATE/.wake-queue.lock.steal"
+    fm_lock_acquire_wait "$lock" || exit 2
+    trap '\''fm_lock_release "$lock"'\'' EXIT
+    FM_STATUS_PRESENTATION_LOCK_TIMEOUT=1 "$2"
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$DRAIN" > "$dir/out" 2> "$dir/err" \
+    || fail "reclaim contention became an acquisition error: $(cat "$dir/err")"
+  grep -F 'WAKE DRAIN SKIPPED:' "$dir/out" >/dev/null || fail 'reclaim timeout was not reported'
+  [ ! -s "$dir/err" ] || fail 'reclaim timeout requested an acknowledgement'
+  [ "$(cat "$state/.wake-queue")" = "$before" ] || fail 'reclaim timeout changed the durable queue'
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/replay" 2> "$dir/replay.err" || fail 'drain could not retry'
+  grep -F 'check: preserve through reclaim contention' "$dir/replay" >/dev/null || fail 'retry lost wake'
+  ack_drain_err "$state" "$dir/replay.err" || fail 'retry could not acknowledge wake'
+  [ ! -s "$state/.wake-queue" ] || fail 'acknowledged wake remained queued'
+  pass 'queue reclaim contention is retriable without losing or consuming the wake'
+}
+
 test_signal_catchup_without_running_watcher() {
   local dir state fakebin out drain_out drain_err status_file sequence generation
   dir=$(make_case signal)
@@ -2984,7 +3010,7 @@ test_live_presentation_holder_is_deadlined_without_weakening_ack() {
   [ "$elapsed" -le 4 ] \
     || { kill "$queue_holder" 2>/dev/null || true; fail "queue lock delayed the drain for ${elapsed}s"; }
   advisory_count=$(grep -Fc \
-    "WAKE DRAIN SKIPPED: queue lock remains held by live pid $queue_holder" \
+    "WAKE DRAIN SKIPPED: queue lock acquisition timed out after 1s (last observed pid $queue_holder)" \
     "$queue_out" || true)
   [ "$advisory_count" -eq 1 ] \
     || { kill "$queue_holder" 2>/dev/null || true; fail "queue deadline did not emit exactly one holder advisory"; }
@@ -3024,7 +3050,7 @@ test_live_presentation_holder_is_deadlined_without_weakening_ack() {
   [ "$elapsed" -le 4 ] \
     || { kill "$presentation_holder" 2>/dev/null || true; fail "presentation lock delayed the drain for ${elapsed}s"; }
   advisory_count=$(grep -Fc \
-    "STATUS PRESENTATION SKIPPED: lock remains held by live pid $presentation_holder" \
+    "STATUS PRESENTATION SKIPPED: lock acquisition timed out after 1s (last observed pid $presentation_holder)" \
     "$first_out" || true)
   [ "$advisory_count" -eq 1 ] \
     || { kill "$presentation_holder" 2>/dev/null || true; fail "presentation deadline did not emit exactly one holder advisory"; }
@@ -3102,7 +3128,7 @@ test_malformed_presentation_lock_reports_acquire_failure() {
     "$DRAIN" > "$out" 2> "$err" || fail "malformed-lock drain failed"
   grep -F 'wake drain: status presentation lock could not be acquired safely' "$err" >/dev/null \
     || fail "malformed presentation lock did not report an acquire failure"
-  if grep -F 'STATUS PRESENTATION SKIPPED: lock remains held by live pid' "$out" >/dev/null; then
+  if grep -F 'STATUS PRESENTATION SKIPPED: lock acquisition timed out' "$out" >/dev/null; then
     fail "malformed presentation lock was reported as live-holder contention"
   fi
   grep "$(printf '\tsignal\t')" "$out" >/dev/null \
@@ -3780,6 +3806,7 @@ test_folded_worker_resolved_is_not_owned_lag
 test_owned_growth_still_annotates_turn_ended
 test_historical_annotation_skips_announced_status
 test_concurrent_append_and_drain
+test_queue_reclaim_contention_is_retriable
 test_signal_catchup_without_running_watcher
 test_stale_enqueue_before_suppressor
 test_not_working_stale_enqueue_before_suppressor

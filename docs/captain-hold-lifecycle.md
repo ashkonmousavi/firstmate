@@ -63,6 +63,7 @@ Repeat and edge cases:
 - Re-holding released work starts a new timestamped lifecycle.
 - A closed task is refused rather than reopened.
 - `--until` stores the captain's own deferral date through tasks-axi's date gate.
+- Optional structured release conditions use the shared [hold-release contract](../bin/fm-hold-release-lib.sh).
 - Before the backend hold runs, `--origin` records the origin the call is held for on its own `Captain hold origin:` body line, which `complete` and `verify` check using backend identities rather than alias spellings.
   If that write fails, the backend hold is not attempted.
 - The reason may contain parentheses, semicolons, quotes, and line breaks.

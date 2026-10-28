@@ -787,6 +787,11 @@ EOF
 # block the owner's close - leaving a decision nothing will ever resolve - or
 # clear the owner's decision with a bare resolution.
 #
+# Reserved namespaces today: `pending-reply-` (bin/fm-pending-reply-lib.sh,
+# notes beginning pending-reply-...:) and `hold-release-`
+# (bin/fm-hold-release-lib.sh, notes beginning hold-release-met:/
+# hold-release-closed:).
+#
 # The rule is deliberately generic, so this fold needs no knowledge of any
 # particular owner: a reserved key may only be opened or closed by a line whose
 # note speaks that namespace's own vocabulary, which its owner states by
@@ -795,7 +800,7 @@ EOF
 # consumer-side rule on purpose - it protects local and remote writers
 # identically, and it can never fail a whole delta or wedge a stream the way a
 # writer-side rejection would.
-FM_CLASSIFY_RESERVED_KEY_PREFIXES_DEFAULT='pending-reply-'
+FM_CLASSIFY_RESERVED_KEY_PREFIXES_DEFAULT='pending-reply- hold-release-'
 
 # 0 when <key> is not reserved, or is reserved and <note> speaks its vocabulary.
 _fm_decision_key_transition_allowed() {  # <key> <note>
@@ -931,7 +936,8 @@ EOF
 
 # The subset of status_open_decisions the task raised about its own work: a
 # reserved-namespace key is raised by a supervisor library about the task (a
-# pending-reply escalation), a `remote-reply-continuity-` key is the parent's
+# pending-reply escalation, or a hold-release condition the watcher found met
+# on a held row), a `remote-reply-continuity-` key is the parent's
 # own blocker about a broken remote reply mirror
 # (bin/fm-procevent-remote-reply.sh), and a `captain-hold-` key relays a child
 # decision a secondmate escalated to the captain (bin/fm-captain-hold.sh) while

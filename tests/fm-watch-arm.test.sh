@@ -1407,24 +1407,39 @@ wait_for_pid_gone() {  # <pid> <polls>
 # already in progress before its next FM_POLL=1 tick. A busy poll may spend
 # longer than ten seconds in subprocesses on a contended CI runner.
 test_watcher_exits_when_its_state_directory_is_removed() {
-  local dir home state fakebin armout
-  dir=$(make_case state-dir-removed)
-  home="$dir/home"
-  state="$dir/state"
-  fakebin="$dir/fakebin"
-  armout="$dir/arm.out"
-  mkdir -p "$home/data"
-  start_owned_watcher "$home" "$state" "$fakebin" "$armout"
+  local dir home state fakebin armout mode real_mktemp
+  real_mktemp=$(command -v mktemp)
+  for mode in poll recovery; do
+    dir=$(make_case "state-dir-removed-$mode")
+    home="$dir/home"
+    state="$dir/state"
+    fakebin="$dir/fakebin"
+    armout="$dir/arm.out"
+    mkdir -p "$home/data"
+    # Remove state during recovery's next lock creation as well as between
+    # polls. The former must retain the teardown reason instead of blaming
+    # recovery consumption for the missing directory.
+    cat > "$fakebin/mktemp" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  *"$FM_STATE_OVERRIDE/.wake-queue.lock.owner."*)
+    if [ -e "$FM_HOME/remove-state" ]; then rm -rf "$FM_STATE_OVERRIDE"; fi ;;
+esac
+exec "$FM_FIXTURE_REAL_MKTEMP" "$@"
+SH
+    chmod +x "$fakebin/mktemp"
+    FM_FIXTURE_REAL_MKTEMP="$real_mktemp" start_owned_watcher "$home" "$state" "$fakebin" "$armout"
 
-  rm -rf "$state"
-  wait_for_pid_gone "$WATCH_PID" 400 \
-    || { kill -TERM "$WATCH_PID" 2>/dev/null; fail "watcher pid $WATCH_PID outlived its deleted state directory"; }
-  wait_for_exit "$ARM_PID" 100 >/dev/null 2>&1 || true
-  grep -qF 'watcher: exiting - state directory' "$armout" \
-    || fail "watcher did not log the state-gone exit reason: $(cat "$armout")"
-  ! grep -q '^signal:\|^check:\|^stale:\|^heartbeat' "$armout" \
-    || fail "a state-gone exit was reported as an actionable wake: $(cat "$armout")"
-  pass "watch-arm: a watcher exits when its state directory is removed"
+    if [ "$mode" = recovery ]; then touch "$home/remove-state"; else rm -rf "$state"; fi
+    wait_for_pid_gone "$WATCH_PID" 400 \
+      || { kill -TERM "$WATCH_PID" 2>/dev/null; fail "watcher pid $WATCH_PID outlived its deleted state directory"; }
+    wait_for_exit "$ARM_PID" 100 >/dev/null 2>&1 || true
+    grep -qF 'watcher: exiting - state directory' "$armout" \
+      || fail "watcher did not log the state-gone exit reason: $(cat "$armout")"
+    ! grep -q '^signal:\|^check:\|^stale:\|^heartbeat' "$armout" \
+      || fail "a state-gone exit was reported as an actionable wake: $(cat "$armout")"
+    pass "watch-arm: a watcher logs state removal during $mode"
+  done
 }
 
 # The same for a deleted home whose state directory still exists elsewhere: the
