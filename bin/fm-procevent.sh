@@ -899,7 +899,7 @@ EOF
             ring_rc=0
             fm_task_inbox_ring "$ring_backend" "$ring_target" "$record" "fm-$owner_task" "$ring_harness" >/dev/null 2>&1 || ring_rc=$?
             if [ "$ring_rc" -eq 4 ]; then
-              fm_task_inbox_release_exhausted "$owner_task" >/dev/null 2>&1 || true
+              fm_task_inbox_release_exhausted "$owner_task" >/dev/null || printf 'warning: process-event owner %s still needs exhausted-seat recovery\n' "$owner_task" >&2
             fi
           fi
         fi

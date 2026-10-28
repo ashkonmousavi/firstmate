@@ -39,6 +39,7 @@
 #   at=<utc timestamp>
 #   delivery=fire-and-forget   present only when the re-ring ladder must ignore it
 #                              (it still gets one retry ring; see below)
+#   request-id=<32 lowercase hex digits>   present for an ordinary one-way request
 #   --
 #   <exact message text; newlines are legal; a marked secondmate request keeps
 #    its from-firstmate marker and corr token verbatim in this body>
@@ -230,8 +231,8 @@ fm_task_inbox_lock_acquire() {  # <lock-path>
 
 # Write one record into the next sequence slot: temp-write, then atomic
 # rename. Prints the record path. Caller must hold .seq.lock.
-_fm_task_inbox_write_record_locked() {  # <inbox-dir> <text> [delivery-mode]
-  local dir=$1 text=$2 delivery_mode=${3:-} seq tmp rec status=0
+_fm_task_inbox_write_record_locked() {  # <inbox-dir> <text> [delivery-mode] [request-id]
+  local dir=$1 text=$2 delivery_mode=${3:-} request_id=${4:-} seq tmp rec status=0
   seq=$(fm_task_inbox_next_seq "$dir")
   rec="$dir/$seq.msg"
   tmp=$(mktemp "$dir/.staging.XXXXXX") || return 1
@@ -239,6 +240,7 @@ _fm_task_inbox_write_record_locked() {  # <inbox-dir> <text> [delivery-mode]
     printf 'schema=%s\n' "$FM_TASK_INBOX_SCHEMA"
     printf 'at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     [ "$delivery_mode" != fire-and-forget ] || printf 'delivery=fire-and-forget\n'
+    [ -z "$request_id" ] || printf 'request-id=%s\n' "$request_id"
     printf -- '--\n'
     printf '%s' "$text"
   } > "$tmp" && mv "$tmp" "$rec" || status=1
@@ -248,36 +250,32 @@ _fm_task_inbox_write_record_locked() {  # <inbox-dir> <text> [delivery-mode]
 
 # Durably enqueue one steer: temp-write, then atomic rename into the next
 # sequence slot. Prints the record path. Fails without a partial record.
-fm_task_inbox_write() {  # <state-dir> <task-id> <text> [delivery-mode]
-  local state=$1 task=$2 text=$3 delivery_mode=${4:-} dir lock rec status=0
+fm_task_inbox_write() {  # <state-dir> <task-id> <text> [delivery-mode] [request-id]
+  local state=$1 task=$2 text=$3 delivery_mode=${4:-} request_id=${5:-} dir lock rec status=0
+  [ -z "$request_id" ] || { [ -z "$delivery_mode" ] && fm_task_inbox_request_id_valid "$request_id"; } || return 1
   dir=$(fm_task_inbox_dir "$state" "$task")
   mkdir -p "$dir/handled" || return 1
   lock="$dir/.seq.lock"
   fm_task_inbox_lock_acquire "$lock" || return 1
-  rec=$(_fm_task_inbox_write_record_locked "$dir" "$text" "$delivery_mode") || status=1
+  rec=$(_fm_task_inbox_write_record_locked "$dir" "$text" "$delivery_mode" "$request_id") || status=1
   fm_lock_release "$lock"
   [ "$status" -eq 0 ] || return 1
   printf '%s' "$rec"
 }
 
-# Durably enqueue one steer at most once: when a record with the exact same
-# body already exists - unhandled or already acknowledged in handled/ - no new
-# record is written and the existing record's path is printed instead.
-# This is the enqueue primitive for a transport that can fail with completion
-# unknown (the remote steer leg over ssh): the caller's safe recovery is to run
-# the same enqueue again, and this dedup is what makes the re-run land on the
-# same record instead of a duplicate the worker would act on twice. Two
-# distinct logical requests never collapse in practice because a marked
-# secondmate request embeds a per-request correlation token in its body. The
-# local plane keeps plain fm_task_inbox_write: its outcome is synchronous, so
-# a repeated identical local steer is a deliberate new instruction.
-# Only records of the exact byte size this body would produce are compared:
-# the header above is fixed-width, so one find call replaces per-record reads
-# that grew with handled/ and, on a loaded host, outlasted the remote send
-# budget before the doorbell could ring.
-fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mode]
-  local state=$1 task=$2 text=$3 delivery_mode=${4:-} dir lock want have f size rec='' status=0
-  local -a candidates=()
+fm_task_inbox_request_id_valid() {
+  [ "${#1}" -eq 32 ] || return 1
+  case "$1" in *[!0-9a-f]*) return 1 ;; esac
+}
+
+fm_task_inbox_request_id() {
+  awk '$0 == "--" { exit } /^request-id=/ { sub(/^request-id=/, ""); print; exit }' "$1"
+}
+
+fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mode] [request-id]
+  local state=$1 task=$2 text=$3 delivery_mode=${4:-} request_id=${5:-} dir lock want have f size found_id rec='' status=0
+  local -a candidates=() size_filter=()
+  [ -z "$request_id" ] || { [ -z "$delivery_mode" ] && fm_task_inbox_request_id_valid "$request_id"; } || return 1
   dir=$(fm_task_inbox_dir "$state" "$task")
   mkdir -p "$dir/handled" || return 1
   lock="$dir/.seq.lock"
@@ -286,9 +284,10 @@ fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mod
     if printf '%s' "$text" > "$want" && size=$(wc -c < "$want"); then
       size=$((size + ${#FM_TASK_INBOX_SCHEMA} + 35))
       [ "$delivery_mode" != fire-and-forget ] || size=$((size + 25))
+      [ -n "$request_id" ] || size_filter=(-size "${size}c")
       while IFS= read -r f; do
         candidates+=("$f")
-      done < <(find "$dir" "$dir/handled" -maxdepth 1 -type f -name '*.msg' -size "${size}c" 2>/dev/null)
+      done < <(find "$dir" "$dir/handled" -maxdepth 1 -type f -name '*.msg' ${size_filter[@]+"${size_filter[@]}"} 2>/dev/null)
       for f in ${candidates[@]+"${candidates[@]}"}; do
         if [ ! -e "$f" ]; then
           case "$f" in
@@ -299,6 +298,11 @@ fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mod
             *) continue ;;
           esac
         fi
+        if ! found_id=$(fm_task_inbox_request_id "$f" 2>/dev/null); then
+          f="$dir/handled/${f##*/}"
+          found_id=$(fm_task_inbox_request_id "$f" 2>/dev/null) || continue
+        fi
+        [ "$found_id" = "$request_id" ] || continue
         if [ "$delivery_mode" = fire-and-forget ]; then
           fm_task_inbox_is_fire_and_forget "$f" || continue
         elif fm_task_inbox_is_fire_and_forget "$f"; then
@@ -313,7 +317,10 @@ fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mod
             *) continue ;;
           esac
         fi
-        cmp -s "$want" "$have" || continue
+        if ! cmp -s "$want" "$have"; then
+          [ -z "$request_id" ] || { status=1; break; }
+          continue
+        fi
         [ ! -e "$dir/handled/${f##*/}" ] || f="$dir/handled/${f##*/}"
         rec=$f
         break
@@ -327,7 +334,7 @@ fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mod
     status=1
   fi
   if [ "$status" -eq 0 ] && [ -z "$rec" ]; then
-    rec=$(_fm_task_inbox_write_record_locked "$dir" "$text" "$delivery_mode") || status=1
+    rec=$(_fm_task_inbox_write_record_locked "$dir" "$text" "$delivery_mode" "$request_id") || status=1
   fi
   fm_lock_release "$lock"
   [ "$status" -eq 0 ] || return 1
@@ -411,7 +418,24 @@ fm_task_inbox_usage_exhausted() {  # <backend> <target> <harness> [expected-labe
 # composer reads unknown beside that report. A second call sees an agent that
 # has already stopped.
 fm_task_inbox_release_exhausted() {  # <task-id>
-  "$_FM_TASK_INBOX_LIB_DIR/fm-control.sh" "$1" exit
+  local status=0
+  "$_FM_TASK_INBOX_LIB_DIR/fm-control.sh" "$1" exit || status=$?
+  [ "$status" -eq 0 ] || printf 'warning: exhausted task %s seat release failed (fm-control exit %s)\n' "$1" "$status" >&2
+  return "$status"
+}
+
+fm_task_inbox_composer_doorbells() {
+  local cap held line
+  fm_backend_source "$1" || return 1
+  cap=$(fm_backend_capture "$1" "$2" "$FM_COMPOSER_CAPTURE_LINES" "fm-$4" 2>/dev/null) || return 1
+  held=$(fm_composer_extract_selected_content styled=0 "$cap") || return 1
+  line=$(fm_task_inbox_doorbell_line "$3/$4.inbox/001.msg") || return 1
+  held=$(printf '%s' "$held" | tr -d '[:space:]')
+  line=$(printf '%s' "$line" | tr -d '[:space:]')
+  [ -n "$held" ] && [ -n "$line" ] || return 1
+  while [ -n "$held" ]; do
+    case "$held" in "$line"*) held=${held#"$line"} ;; *) return 1 ;; esac
+  done
 }
 
 # 0 when a non-queue harness still owes a doorbell that was deferred while

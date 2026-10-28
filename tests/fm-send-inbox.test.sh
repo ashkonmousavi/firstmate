@@ -561,6 +561,23 @@ test_one_way_records_no_pending_reply() {
   pass "fm-send --one-way records the steer and writes no pending-reply correlation"
 }
 
+test_one_way_retry_identity() {
+  local dir err id
+  dir=$(setup_case oneway-identity)
+  err="$dir/send.err"
+  id=0123456789abcdef0123456789abcdef
+  run_send "$dir" "$err" "FM_SEND_REQUEST_ID=$id" -- t1 --one-way 'continue supervision' || fail "one-way request failed"
+  run_send "$dir" "$err" "FM_SEND_REQUEST_ID=$id" -- t1 --one-way 'continue supervision' || fail "one-way retry failed"
+  [ ! -f "$dir/home/state/t1.inbox/002.msg" ] || fail "a retry duplicated the request"
+  mv "$dir/home/state/t1.inbox/001.msg" "$dir/home/state/t1.inbox/handled/"
+  run_send "$dir" "$err" "FM_SEND_REQUEST_ID=$id" -- t1 --one-way 'continue supervision' || fail "handled retry failed"
+  [ ! -s "$dir/send.log" ] || fail "a handled request was rung again"
+  run_send "$dir" "$err" -- t1 --one-way 'continue supervision' || fail "deliberate repeated request failed"
+  [ -f "$dir/home/state/t1.inbox/002.msg" ] || fail "a distinct request was collapsed"
+  run_send "$dir" "$err" "FM_SEND_REQUEST_ID=$id" -- t1 --one-way 'different instruction' && fail "request-id reuse with a different body succeeded"
+  pass "one-way identities preserve retries and distinct repeated local instructions"
+}
+
 test_text_steer_rides_inbox
 test_deep_home_doorbell_stays_short
 test_multiline_steer_is_legal
@@ -578,3 +595,4 @@ test_meta_lock_contention_fails_bounded
 test_unwritable_inbox_fails_loudly
 test_empty_message_refused
 test_one_way_records_no_pending_reply
+test_one_way_retry_identity

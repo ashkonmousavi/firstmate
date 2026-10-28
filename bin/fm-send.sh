@@ -123,7 +123,9 @@
 # ladder is sent with --fire-and-forget.
 # --one-way is the ordinary inbox steer that expects no reply: the record,
 # doorbell, and re-ring ladder are unchanged, and no pending-reply correlation
-# is minted or embedded. It is not fire-and-forget and it does not set
+# is minted or embedded. Its request-id header distinguishes intentional repeats;
+# FM_SEND_REQUEST_ID=<32 lowercase hex digits> reuses an uncertain request.
+# It is not fire-and-forget and it does not set
 # delivery=. It cannot accompany --fire-and-forget, --resolve-key, or --key.
 # A correlation that already exists is closed by the recipient, not by this
 # flag and not by moving the inbox record to handled/:
@@ -481,6 +483,7 @@ fi
 RESOLVE_KEYS=
 FIRE_AND_FORGET_ID=
 ONE_WAY=0
+ONE_WAY_REQUEST_ID=${FM_SEND_REQUEST_ID:-}
 fm_send_add_resolve_key() { # <key>
   local k=$1
   case "$k" in
@@ -672,6 +675,12 @@ if [ -n "$FIRE_AND_FORGET_ID" ]; then
     }
 fi
 
+if [ -n "$ONE_WAY_REQUEST_ID" ]; then
+  if [ "$ONE_WAY" != 1 ] || ! fm_task_inbox_request_id_valid "$ONE_WAY_REQUEST_ID"; then
+    echo "error: FM_SEND_REQUEST_ID requires --one-way and exactly 32 lowercase hex digits" >&2
+    exit 1
+  fi
+fi
 if [ "$ONE_WAY" = 1 ]; then
   [ -z "$FIRE_AND_FORGET_ID" ] ||
     {
@@ -1006,6 +1015,13 @@ else
       esac
     fi
   fi
+  if [ "$INBOX_PLANE" = 1 ] && [ "$ONE_WAY" = 1 ]; then
+    if [ -z "$ONE_WAY_REQUEST_ID" ]; then
+      ONE_WAY_REQUEST_ID=$(LC_ALL=C od -An -v -tx1 -N 16 /dev/urandom | tr -d ' \n')
+      fm_task_inbox_request_id_valid "$ONE_WAY_REQUEST_ID" || exit 1
+    fi
+    FM_SEND_IDEMPOTENT=1
+  fi
   if [ "$INBOX_PLANE" = 1 ] && [ "$TARGET_BACKEND" = remote ]; then
     # Remote inbox leg: the message becomes a durable record in the remote
     # home's steering inbox, written idempotently by the host-local leg, then
@@ -1051,6 +1067,7 @@ else
     remote_completion_unknown=0
     REMOTE_SEND_ARGS=("$TARGET_REMOTE_ID" "$MESSAGE")
     [ -z "$FIRE_AND_FORGET_ID" ] || REMOTE_SEND_ARGS+=(fire-and-forget)
+    [ -z "$ONE_WAY_REQUEST_ID" ] || REMOTE_SEND_ARGS+=('' "$ONE_WAY_REQUEST_ID")
     # Each transport attempt is bounded by FM_SEND_REMOTE_BUDGET seconds.
     # fm_run_timed's 124 means the attempt was killed at the bound with remote
     # completion unknown - the enqueue may have landed - so it exits through
@@ -1078,11 +1095,20 @@ else
         fm_pending_reply_mark_delivery_unknown "$STATE" "$PENDING_REPLY_CORR" || true
       fi
       if [ "$remote_rc" -eq 255 ]; then
-        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (transport lost twice; remote completion unknown). Only the correlation-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
+        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (transport lost twice; remote completion unknown). Retry guidance:" >&2
       elif [ "$remote_rc" -eq 124 ]; then
-        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (the remote transport did not complete within its ${FM_SEND_REMOTE_BUDGET}s budget; remote completion unknown). Only the correlation-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
+        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (the remote transport did not complete within its ${FM_SEND_REMOTE_BUDGET}s budget; remote completion unknown). Retry guidance:" >&2
       else
-        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (the first transport attempt had unknown completion and the retry failed). Only the correlation-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
+        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (the first transport attempt had unknown completion and the retry failed). Retry guidance:" >&2
+      fi
+      if [ -z "$PENDING_REPLY_CORR" ] && [ -z "$ONE_WAY_REQUEST_ID" ]; then
+        echo "No durable retry identity is available; inspect the remote inbox before resending." >&2
+        exit 1
+      fi
+      if [ -n "$PENDING_REPLY_CORR" ]; then
+        echo "Only the correlation-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
+      else
+        echo "Only the request-id-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
       fi
       resend_home=$(cd "$FM_HOME" 2>/dev/null && pwd) || resend_home=$FM_HOME
       printf 'FM_HOME=%q ' "$resend_home" >&2
@@ -1090,7 +1116,11 @@ else
         resend_state=$(cd "$STATE" 2>/dev/null && pwd) || resend_state=$STATE
         printf 'FM_STATE_OVERRIDE=%q ' "$resend_state" >&2
       fi
-      printf 'FM_PENDING_REPLY_EXISTING_CORR=%q %q' "$PENDING_REPLY_CORR" "$SCRIPT_DIR/fm-send.sh" >&2
+      if [ -n "$ONE_WAY_REQUEST_ID" ]; then
+        printf 'FM_SEND_REQUEST_ID=%q %q' "$ONE_WAY_REQUEST_ID" "$SCRIPT_DIR/fm-send.sh" >&2
+      else
+        printf 'FM_PENDING_REPLY_EXISTING_CORR=%q %q' "$PENDING_REPLY_CORR" "$SCRIPT_DIR/fm-send.sh" >&2
+      fi
       for resend_arg in "${FM_SEND_ORIGINAL_ARGS[@]}"; do
         printf ' %q' "$resend_arg" >&2
       done
@@ -1154,7 +1184,7 @@ else
     fi
     if [ "${FM_SEND_IDEMPOTENT:-0}" = 1 ]; then
       INBOX_RECORD=$(fm_task_inbox_write_idempotent "$STATE" "$INBOX_TASK_ID" "$MESSAGE" \
-        "${FIRE_AND_FORGET_ID:+fire-and-forget}") || inbox_write_rc=$?
+        "${FIRE_AND_FORGET_ID:+fire-and-forget}" "$ONE_WAY_REQUEST_ID") || inbox_write_rc=$?
     else
       INBOX_RECORD=$(fm_task_inbox_write "$STATE" "$INBOX_TASK_ID" "$MESSAGE" \
         "${FIRE_AND_FORGET_ID:+fire-and-forget}") || inbox_write_rc=$?
@@ -1200,6 +1230,7 @@ else
     # Ring the doorbell, best-effort: no ring outcome changes the exit status,
     # because the watcher owns loss detection from here, either through its
     # bounded re-ring ladder or direct unavailable-endpoint recovery.
+    case "$INBOX_RECORD" in */handled/*) exit 0 ;; esac
     ring_rc=0
     fm_task_inbox_ring "$TARGET_BACKEND" "$T" "$INBOX_RECORD" "$EXPECTED_LABEL" "$TARGET_HARNESS" || ring_rc=$?
     ring_retry="the watcher will re-ring"
@@ -1222,7 +1253,7 @@ else
     4)
       echo "fm-send: doorbell not typed because $T reports usage exhausted; the steer is durably recorded at $INBOX_RECORD" >&2
       fm_lease_guard_release
-      fm_task_inbox_release_exhausted "$INBOX_TASK_ID" || true
+      fm_task_inbox_release_exhausted "$INBOX_TASK_ID" || echo "fm-send: exhausted seat release remains unconfirmed for $INBOX_TASK_ID; recover the recorded task" >&2
       ;;
     esac
     exit 0

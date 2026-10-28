@@ -689,7 +689,7 @@ inbox_steer_check() {  # <window> <task>
       ring_rc=0
       fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
       if [ "$ring_rc" -eq 4 ]; then
-        fm_task_inbox_release_exhausted "$task" || true
+        fm_task_inbox_release_exhausted "$task" || triage_log "steer-inbox seat release failed: $task"
         triage_log "steer-inbox usage exhausted: $task ${rec##*/}"
         return 0
       fi
@@ -714,7 +714,7 @@ inbox_steer_check() {  # <window> <task>
       ring_rc=0
       fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
       if [ "$ring_rc" -eq 4 ]; then
-        fm_task_inbox_release_exhausted "$task" || true
+        fm_task_inbox_release_exhausted "$task" || triage_log "steer-inbox seat release failed: $task"
         fm_task_inbox_clear_retry "$STATE" "$task" "$rec" || true
         triage_log "steer-inbox usage exhausted: $task ${rec##*/}"
         return 0
@@ -1085,7 +1085,7 @@ secondmate_ring_to_drain() {  # <task> <window>
   harness=$(window_harness "$w")
   fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
   if [ "$ring_rc" -eq 4 ]; then
-    fm_task_inbox_release_exhausted "$task" || true
+    fm_task_inbox_release_exhausted "$task" || triage_log "steer-inbox seat release failed: $task"
     return 1
   fi
   [ "$ring_rc" -eq 0 ]
@@ -2036,7 +2036,7 @@ gate_nudge_ring() {  # <window> <task> <class> <detail>
   harness=$(window_harness "$w")
   fm_task_inbox_ring "$(window_backend "$w")" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
   if [ "$ring_rc" -eq 4 ]; then
-    fm_task_inbox_release_exhausted "$task" || true
+    fm_task_inbox_release_exhausted "$task" || triage_log "steer-inbox seat release failed: $task"
   fi
   triage_log "gate nudge rung: $task ${rec##*/} class=$class ring=$ring_rc ($detail)"
   return 0

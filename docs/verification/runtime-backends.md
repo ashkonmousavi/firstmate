@@ -1001,16 +1001,32 @@ The guard also notes whether the starfield and the placeholder were actually dra
 
 ## Steering-inbox doorbell
 
-The live guard also submits a Claude doorbell while a real foreground tool is blocked, then requires the instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
+The live guard submits Claude, OpenCode, and Rovo doorbells while a real foreground tool is blocked, then separately requires each instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
 The portable busy-Claude, OpenCode, and Rovo regressions verify literal input followed by Enter; they do not claim model consumption.
 
-The same guard accepts `FM_SEND_INBOX_LIVE_HARNESSES=cursor` to check a genuinely exhausted Cursor account: it requires the real usage banner, observes that the ring sends no terminal input, then requires fm-send to release the agent through fm-control.
-It clears its own retained launch probe before observing ring input, and reports whether the settled composer exercised ordinary empty-composer exit or the exhaustion-only unknown-composer shutdown.
+The same guard accepts `FM_SEND_INBOX_LIVE_HARNESSES=cursor` to check a genuinely exhausted Cursor account in separately identified unknown-composer and concatenated-doorbell scenarios.
+It requires the real usage banner, observes that the ring sends no terminal input, then requires fm-send to release the agent through fm-control without typing an exit command.
+After clearing its own rejected launch probe, the unknown-composer scenario opens the native model picker without selecting a model and requires the actual classifier to report unknown; the residue scenario seeds exact repeated doorbells and requires their recognition in the real composer.
+Ordinary empty-composer exit cannot satisfy either scenario.
 Run with `FM_SEND_INBOX_LIVE_E2E=1`; optional `FM_SEND_INBOX_LIVE_CURSOR_MODEL` selects the exhausted model.
 It fails rather than claiming coverage if the installed Cursor account/model does not produce the exhaustion surface.
 Recorded harness aliases use the shared family normalization for both exhaustion and busy-submit capabilities; the portable regressions cover `cursor-agent`, `claude-latest`, OpenCode/Rovo aliases, and unsupported capabilities.
 
-On 2026-10-28, Cursor Agent 2026.10.19-6bbf2c4 with Grok 4.7 256K High on Linux and tmux 3.4 produced the real `You're out of usage` banner and passed the exhaustion guard.
+On 2026-10-28, the stricter guard ran on Cursor Agent 2026.10.19-6bbf2c4 with Grok 4.7 256K High, Linux, and tmux 3.4, using isolated configuration and credentials inside the verification worktree.
+The real pending-doorbell scenario passed: the banner suppressed ring input and fm-control stopped the agent without typing or submitting an exit command.
+The unknown-composer scenario failed its precondition because the native model picker classified pending; unknown-composer live recovery remains unverified on this release.
+The focused Cursor invocation returned 1 and included:
+
+```text
+not ok - cursor (2026.10.19-6bbf2c4): native picker reads pending, so unknown-composer recovery is unverified
+ok - cursor (2026.10.19-6bbf2c4): residue exhaustion suppresses ringing and fm-control stops the agent without typing (composer=pending)
+not ok - live steering-inbox doorbell guard found failures above
+```
+
+OpenCode and Rovo were absent from PATH on the same date, so their separate busy guards could not run; their busy-submit capabilities remain without live proof here.
+Refresh them with `FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES='opencode rovo' bash tests/fm-send-inbox-doorbell-live-e2e.test.sh` on a host with those executables and authentication.
+
+An earlier empty-composer check on 2026-10-28, using the same Cursor release, model, platform, and tmux version, produced the real `You're out of usage` banner and passed ordinary exit.
 The run used throwaway copies of the CLI config and Linux XDG credential store, with `CURSOR_CONFIG_DIR`, `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`, `TMPDIR`, `FM_HOME`, and `FM_ROOT_OVERRIDE` inside the verification worktree.
 The rejected launch probe remained pending after Escape; removing only that test-owned input yielded an empty composer, so this run verified ordinary `/exit` shutdown rather than the unknown-composer Escape/SIGTERM path covered by the portable regressions.
 

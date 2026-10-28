@@ -1436,6 +1436,42 @@ test_cursor_quoted_usage_row_still_refuses_exit() {
   pass "fm-control exit: an unknown cursor composer that only quotes the usage row still refuses"
 }
 
+test_cursor_exhausted_doorbell_residue() (
+  local dir line out rc suffix border banner
+  for suffix in clean draft foreign no-banner; do
+    dir=$(cursor_exhausted_case "doorbell-$suffix" '')
+    mkdir -p "$dir/home/state/t1.inbox"
+    line=$(FM_STATE_OVERRIDE="$dir/home/state" bash -c '. "$1"; fm_task_inbox_doorbell_line "$2"' \
+      _ "$ROOT/bin/fm-task-inbox-lib.sh" "$dir/home/state/t1.inbox/001.msg")
+    case "$suffix" in
+      clean|no-banner) ;;
+      draft) line="${line} unrelated draft" ;;
+      foreign) line=${line//t1.inbox/other.inbox} ;;
+    esac
+    printf -v border '%*s' "$(( ${#line} * 2 + 2 ))" ''
+    border=${border// /─}
+    banner="You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue."
+    [ "$suffix" != no-banner ] || banner=''
+    printf '%s\n╭%s╮\n│ %s%s │\n╰%s╯\n' "$banner" "$border" "$line" "$line" "$border" > "$dir/fake/pane"
+    printf '2\n' > "$dir/fake/cursor"
+    [ "$(composer_state_of "$dir")" = pending ] || fail "$suffix fixture did not preserve pending text"
+    start_cursor_process "$dir"
+    trap 'stop_grok_process "$dir"' EXIT
+    out=$(run_cursor_exit "$dir" t1 exit); rc=$?
+    if [ "$suffix" = clean ]; then
+      expect_code 0 "$rc" "exact concatenated task doorbells beside exhaustion must release the seat: $out"
+      assert_cursor_stopped_without_exit_command "$dir" "$out" "doorbell residue"
+    else
+      expect_code 1 "$rc" "$suffix pending text must survive exhaustion: $out"
+      [ ! -e "$dir/fake/terminated" ] || fail "$suffix draft's agent was terminated"
+      [ ! -s "$dir/fake/literal" ] || fail "$suffix draft received typed text"
+    fi
+    stop_grok_process "$dir"
+    trap - EXIT
+  done
+  pass "exhausted cursor releases exact repeated doorbells and preserves unrelated or foreign drafts"
+)
+
 test_cursor_pending_text_refuses_exit_beside_usage_row() {
   local dir out rc
   dir=$(cursor_exhausted_case pending $'You\'re out of usage. Switch to Auto, or ask your admin to increase your limit to continue.\n\n╭────╮\n│ hi │\n╰────╯\n')
@@ -1450,6 +1486,16 @@ test_cursor_pending_text_refuses_exit_beside_usage_row() {
     fail "no exit command may be typed onto pending text"
   fi
   pass "fm-control exit: cursor pending text refuses even with the usage row visible"
+}
+
+test_exhausted_release_failure_is_reported() {
+  local dir out rc
+  dir=$(new_case release-failed)
+  out=$(FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" bash -c \
+    '. "$1"; fm_task_inbox_release_exhausted missing' _ "$ROOT/bin/fm-task-inbox-lib.sh" 2>&1); rc=$?
+  [ "$rc" -ne 0 ] || fail "a failed lifecycle release claimed success"
+  assert_contains "$out" 'exhausted task missing seat release failed' "release failure must be reported"
+  pass "exhausted seat release failures propagate and report lifecycle failure"
 }
 
 # --- 6. marker non-regression -----------------------------------------------
@@ -1590,6 +1636,8 @@ test_send_releases_exhausted_cursor_with_lease_guard || exit 1
 test_send_releases_exhausted_cursor_with_lease_guard cursor-agent || exit 1
 test_recorded_harness_capabilities
 test_cursor_quoted_usage_row_still_refuses_exit
+test_cursor_exhausted_doorbell_residue || exit 1
 test_cursor_pending_text_refuses_exit_beside_usage_row
+test_exhausted_release_failure_is_reported
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task
