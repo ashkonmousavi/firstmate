@@ -1205,6 +1205,84 @@ SH
   pass "a dead endpoint relaunches once or wakes once and is not steered"
 }
 
+test_relaunch_marker_failure_prevents_launch() {
+  local state log decision prior_steer wanted_posture
+  for prior_steer in no yes; do
+    reset_lib
+    state="$TMP_ROOT/relaunch-marker-failure-$prior_steer"
+    setup_task "$state"
+    log="$state/relaunch.log"
+    FM_PR_CONFLICT_SEND=$FM_TEST_INBOX_WRITER
+    # shellcheck disable=SC2329
+    fm_pr_conflict_posture() { printf '%s\n' "$wanted_posture"; }
+    if [ "$prior_steer" = yes ]; then
+      wanted_posture=live
+      decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+        https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+      [ "$decision" = quiet ] || fail "could not establish the prior steer"
+    fi
+    wanted_posture=exited
+    mkdir "$state/lane.pr-conflict-relaunched"
+    cat > "$state/relaunch.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'relaunched\n' >> "$FM_TEST_INBOX_STATE/relaunch.log"
+SH
+    chmod +x "$state/relaunch.sh"
+    FM_PR_CONFLICT_RELAUNCH=$state/relaunch.sh
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+    [ "$decision" = wake ] && [ ! -e "$log" ] \
+      || fail "a failed attempt marker allowed relaunch (prior steer: $prior_steer)"
+    assert_conflict_wake_published_once "$state"
+    [ ! -e "$log" ] || fail "a repeated sweep launched without a durable attempt marker"
+  done
+  pass "attempt-marker failure wakes without launching, initially or after steering"
+}
+
+test_interrupted_relaunch_retains_attempt() (
+  local state log decision prior_steer wanted_posture rc
+  for prior_steer in no yes; do
+    reset_lib
+    state="$TMP_ROOT/relaunch-interruption-$prior_steer"
+    setup_task "$state"
+    log="$state/relaunch.log"
+    FM_PR_CONFLICT_SEND=$FM_TEST_INBOX_WRITER
+    # shellcheck disable=SC2329
+    fm_pr_conflict_posture() { printf '%s\n' "$wanted_posture"; }
+    if [ "$prior_steer" = yes ]; then
+      wanted_posture=live
+      decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+        https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+      [ "$decision" = quiet ] || fail "could not establish the prior steer"
+    fi
+    wanted_posture=exited
+    # shellcheck disable=SC2329
+    fm_pr_conflict_relaunch() {
+      printf 'relaunched\n' >> "$log"
+      exit 79
+    }
+    rc=0
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT") || rc=$?
+    [ "$rc" -eq 79 ] && [ -z "$decision" ] && [ "$(wc -l < "$log")" -eq 1 ] \
+      || fail "the relaunch interruption was not exercised"
+    fm_pr_conflict_relaunch_marked "$state" lane github github.com o/r 7 "$CONFLICT_ADDED_AT" \
+      || fail "interruption lost the relaunch attempt (prior steer: $prior_steer)"
+    reset_lib
+    # shellcheck disable=SC2329
+    fm_pr_conflict_posture() { printf 'exited\n'; }
+    FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/dead-relaunch.sh
+    export FM_TEST_RELAUNCH_LOG=$log
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+    [ "$decision" = wake ] && [ "$(wc -l < "$log")" -eq 1 ] \
+      || fail "an interrupted relaunch was attempted again"
+    assert_conflict_wake_published_once "$state"
+    [ "$(wc -l < "$log")" -eq 1 ] || fail "fallback publication repeated the relaunch"
+  done
+  pass "interruption during relaunch preserves its attempt and falls back to one wake"
+)
+
 test_acked_steer_allows_next_episode() {
   local state decision log next_added_at
   reset_lib
@@ -1265,4 +1343,6 @@ test_unread_steer_survives_relabel_and_clear
 test_successful_steer_becomes_unavailable
 test_done_task_wakes_once_without_steering
 test_dead_endpoint_relaunches_or_wakes_once
+test_relaunch_marker_failure_prevents_launch
+test_interrupted_relaunch_retains_attempt
 test_acked_steer_allows_next_episode

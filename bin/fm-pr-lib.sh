@@ -1954,7 +1954,7 @@ fm_pr_conflict_relaunch() {  # <id> <url>
 # A done task, or a missing or unproved endpoint, is not steered or relaunched.
 fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url> <result>
   local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 url=$7 result=$8
-  local posture='' added_at='' relaunch_rc=0
+  local posture='' added_at=''
   case "$result" in
     conflict-clear)
       fm_pr_conflict_episode_remove "$state" "$id" || true
@@ -1990,11 +1990,9 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
     return 0
   fi
   if [ "$posture" = exited ]; then
-    relaunch_rc=0
-    fm_pr_conflict_relaunch "$id" "$url" || relaunch_rc=$?
-    fm_pr_conflict_relaunch_mark "$state" "$id" \
-      "$provider" "$host" "$path" "$number" "$added_at" || true
-    if [ "$relaunch_rc" -eq 0 ] \
+    if fm_pr_conflict_relaunch_mark "$state" "$id" \
+        "$provider" "$host" "$path" "$number" "$added_at" \
+      && fm_pr_conflict_relaunch "$id" "$url" \
       && fm_pr_conflict_episode_open "$state" "$id" \
         "$provider" "$host" "$path" "$number" "$added_at" action; then
       printf 'quiet\n'
