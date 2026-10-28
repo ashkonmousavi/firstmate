@@ -41,7 +41,7 @@
 #
 # The dispatcher call waits minutes, not seconds, while a watcher check must
 # finish inside FM_CHECK_TIMEOUT (default 30). Each dispatch therefore runs
-# DETACHED (setsid, log under state/walk-requests/) and this check only
+# DETACHED (Python subprocess, log under state/walk-requests/) and this check only
 # spawns, collects finished logs, and delivers; a sweep never blocks on a
 # walk in flight.
 #
@@ -150,18 +150,34 @@ record_write() {  # <record> <key=value>...
   mv -f -- "$tmp" "$rec" || { rm -f -- "$tmp"; return 1; }
 }
 
-record_set() {  # <record> <key> <value>
-  local rec=$1 key=$2 value=$3 tmp
+record_set() {
+  local rec=$1 tmp line key i
+  shift
+  local fields=("$@") written=()
   [ -f "$rec" ] || return 1
-  [ "$(record_get "$rec" "$key")" = "$value" ] && return 0
   tmp=$(umask 077; mktemp "$REQUESTS_DIR/.record.XXXXXX") || return 1
-  sed "s/^$key=.*/$key=$(printf '%s' "$value" | sed 's/[&/\]/\\&/g')/" "$rec" > "$tmp" \
-    || { rm -f -- "$tmp"; return 1; }
-  if ! grep -q "^$key=" "$rec"; then
-    printf '%s=%s\n' "$key" "$value" >> "$tmp" || { rm -f -- "$tmp"; return 1; }
-  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    for ((i=0; i<${#fields[@]}; i+=2)); do
+      key=${fields[$i]}
+      case "$line" in
+        "$key="*) line="$key=${fields[$((i + 1))]}"; written[$i]=1; break ;;
+      esac
+    done
+    printf '%s\n' "$line" || { rm -f -- "$tmp"; return 1; }
+  done < "$rec" > "$tmp"
+  for ((i=0; i<${#fields[@]}; i+=2)); do
+    [ "${written[$i]:-}" = 1 ] || printf '%s=%s\n' "${fields[$i]}" "${fields[$((i + 1))]}" >> "$tmp" \
+      || { rm -f -- "$tmp"; return 1; }
+  done
   chmod 0600 "$tmp" || { rm -f -- "$tmp"; return 1; }
   mv -f -- "$tmp" "$rec" || { rm -f -- "$tmp"; return 1; }
+}
+
+walk_request_budget() {
+  local bound=${FM_WALK_REQUEST_SEND_BOUND:-25}
+  case "$bound" in ''|*[!0-9]*) bound=25 ;; esac
+  [ "$bound" -gt 0 ] 2>/dev/null || bound=25
+  fm_checkpoint_budget "$bound"
 }
 
 # --- outcome delivery ------------------------------------------------------
@@ -180,11 +196,12 @@ delivery_id() {  # <corr> <walk>
 }
 
 deliver_outcome() {  # <mate> <corr> <walk> <release> <text>
-  local mate=$1 corr=$2 walk=$3 release=$4 text=$5 send id rc=0
+  local mate=$1 corr=$2 walk=$3 release=$4 text=$5 send id bound rc=0
   send=${FM_WALK_REQUEST_SEND:-$SCRIPT_DIR/fm-send.sh}
   id=$(delivery_id "$corr" "$walk")
   text=$(printf '%s' "$text" | tr '\n\r\t' '   ' | LC_ALL=C tr -d '\000-\037\177' | cut -c1-400)
-  fm_run_timed "${FM_WALK_REQUEST_SEND_BOUND:-25}" \
+  bound=$(walk_request_budget) || { printf 124; return 0; }
+  fm_run_timed "$bound" \
     "$send" "$mate" --fire-and-forget "$id" \
     "walk $walk@$release (corr=$corr) outcome: $text" >/dev/null 2>&1 || rc=$?
   [ "$rc" -eq 0 ] || printf '%s' "$rc"
@@ -246,7 +263,7 @@ intake_line() {  # <mate> <line>
 }
 
 discover_requests() {
-  local meta mate status_file line
+  local meta mate status_file line bound
   [ -d "$STATE" ] || return 0
   for meta in "$STATE"/*.meta; do
     [ -f "$meta" ] || continue
@@ -254,10 +271,12 @@ discover_requests() {
     mate=${meta##*/}; mate=${mate%.meta}
     status_file="$STATE/$mate.status"
     [ -f "$status_file" ] || continue
+    bound=$(walk_request_budget) || return 0
     while IFS= read -r line; do
+      fm_checkpoint_expired && return 0
       [ -n "$line" ] || continue
       intake_line "$mate" "$line" || true
-    done < <(fm_run_timed "${FM_WALK_REQUEST_SEND_BOUND:-25}" grep -F "$TYPED_MARKER" "$status_file" 2>/dev/null || true)
+    done < <(fm_run_timed "$bound" grep -F "$TYPED_MARKER" "$status_file" 2>/dev/null || true)
   done
   return 0
 }
@@ -305,11 +324,22 @@ dispatch_one() {  # <corr> <walk>
 }
 
 spawn_walk() {
-  local corr=$1 walk=$2 log
+  local corr=$1 walk=$2 log rc=0
   log=$(record_log_path "$corr" "$walk")
-  : > "$log" 2>/dev/null || return 1
-  setsid bash "$0" dispatch-one "$corr" "$walk" </dev/null >>"$log" 2>&1 &
-  return 0
+  python3 - "$0" "$corr" "$walk" "$log" <<'PYTHON' >> "$log" 2>&1 || rc=$?
+import subprocess
+import sys
+
+script, corr, walk, log = sys.argv[1:]
+with open(log, "ab") as output:
+    subprocess.Popen(["bash", script, "dispatch-one", corr, walk],
+                     stdin=subprocess.DEVNULL, stdout=output,
+                     stderr=subprocess.STDOUT, start_new_session=True)
+PYTHON
+  if [ "$rc" -ne 0 ]; then
+    printf '\n__FM_WALK_DISPATCH_EXIT__=%s\n' "$rc" >> "$log"
+  fi
+  return "$rc"
 }
 
 record_refused() {
@@ -323,7 +353,7 @@ record_refused() {
 
 process_record() {
   local rec=$1 corr mate walks brief release bot phase spawned delivered retried
-  local walk log sentinel outcome rc age
+  local walk log sentinel outcome rc age launched=0 pending_walk rotated
   local walk_id_re='[A-Za-z0-9][A-Za-z0-9._-]{0,63}' walks_re
   corr=$(record_get "$rec" corr)
   mate=$(record_get "$rec" mate)
@@ -383,21 +413,21 @@ process_record() {
           "refused: no bot was named for the walk and MAIN has no default; re-send with a bot field"
         return 0
       fi
-      spawned=
-      for walk in $(printf '%s' "$walks" | tr ',' ' '); do
-        spawn_walk "$corr" "$walk" || {
-          record_refused "$rec" "could not spawn the dispatch for $walk@$release (state dir unwritable?)" \
-            "refused: could not spawn the dispatch for $walk@$release"
-          return 0
-        }
-        spawned="${spawned:+$spawned,}$walk"
-      done
-      record_set "$rec" phase dispatching || true
-      record_set "$rec" spawned "$spawned" || true
-      return 0
       ;;
   esac
+  for walk in $(printf '%s' "$walks" | tr ',' ' '); do
+    fm_checkpoint_expired && return 0
+    case ",$spawned," in *",$walk,"*) continue ;; esac
+    log=$(record_log_path "$corr" "$walk")
+    : > "$log" || return 1
+    spawned="${spawned:+$spawned,}$walk"
+    record_set "$rec" phase dispatching spawned "$spawned" || return 1
+    spawn_walk "$corr" "$walk" || true
+    launched=1
+  done
+  [ "$launched" -eq 0 ] || return 0
   for walk in $(printf '%s' "$spawned" | tr ',' ' '); do
+    fm_checkpoint_expired && return 0
     case ",$delivered," in
       *",$walk,"*) continue ;;
     esac
@@ -427,6 +457,12 @@ process_record() {
         outcome="dispatch failed (exit=$sentinel): $outcome"
       fi
     fi
+    rotated=
+    for pending_walk in $(printf '%s' "$spawned" | tr ',' ' '); do
+      [ "$pending_walk" = "$walk" ] || rotated="${rotated:+$rotated,}$pending_walk"
+    done
+    spawned="${rotated:+$rotated,}$walk"
+    record_set "$rec" spawned "$spawned" || return 1
     rc=$(deliver_outcome "$mate" "$corr" "$walk" "$release" "$outcome")
     if [ -n "$rc" ]; then
       report_record "$rec" "outcome delivery to $mate failed (fm-send rc=$rc) for request $corr; will retry"
@@ -446,14 +482,34 @@ process_record() {
 }
 
 action_check() {
+  local FM_CHECKPOINT_DEADLINE=${FM_CHECKPOINT_DEADLINE:-} seconds=${FM_CHECK_TIMEOUT:-30} deadline
+  case "$seconds" in ''|0*|*[!0-9]*) seconds=30 ;; esac
+  seconds=$((seconds - 2))
+  [ "$seconds" -gt 0 ] || seconds=1
+  fm_checkpoint_clock
+  deadline=$((FM_CHECKPOINT_NOW + seconds))
+  if [ -z "$FM_CHECKPOINT_DEADLINE" ] || [ "$deadline" -lt "$FM_CHECKPOINT_DEADLINE" ]; then
+    FM_CHECKPOINT_DEADLINE=$deadline
+  fi
   mkdir -p "$REQUESTS_DIR" || return 1
   discover_requests
-  local rec
-  for rec in "$REQUESTS_DIR"/*.record; do
-    [ -e "$rec" ] || continue
-    [ ! -L "$rec" ] || continue
-    [ "$(record_get "$rec" schema)" = "$RECORD_SCHEMA" ] || continue
-    process_record "$rec"
+  local rec name pass cursor='' cursor_file="$REQUESTS_DIR/.cursor"
+  local LC_ALL=C
+  [ ! -f "$cursor_file" ] || IFS= read -r cursor < "$cursor_file" || true
+  for pass in after before; do
+    [ "$pass" != before ] || [ -n "$cursor" ] || break
+    for rec in "$REQUESTS_DIR"/*.record; do
+      fm_checkpoint_expired && return 0
+      [ -f "$rec" ] && [ ! -L "$rec" ] || continue
+      name=${rec##*/}
+      if [ -n "$cursor" ]; then
+        if [ "$pass" = after ]; then [[ "$name" > "$cursor" ]] || continue
+        else [[ "$name" > "$cursor" ]] && continue; fi
+      fi
+      [ "$(record_get "$rec" schema)" = "$RECORD_SCHEMA" ] || continue
+      printf '%s\n' "$name" > "$cursor_file" || return 1
+      process_record "$rec" || return $?
+    done
   done
   return 0
 }

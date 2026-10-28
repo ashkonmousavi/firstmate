@@ -437,6 +437,163 @@ SH
   pass "walk-request: lost walks fail explicitly and delivery retries remain independent"
 }
 
+test_launch_progress_survives_interruption() {
+  local parent mate dispatch send fakebin real_mv out corr rc rec
+  parent=$(make_parent interrupted-main)
+  mate=$(make_mate interrupted-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_dispatcher "$dispatch"
+  fake_send "$send"
+  out=$(run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks first,second --bot Walker)
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  fakebin="$parent/path"
+  mkdir -p "$fakebin"
+  real_mv=$(command -v mv)
+  : > "$parent/interrupt"
+  cat > "$fakebin/mv" <<SH
+#!/usr/bin/env bash
+'$real_mv' "\$@" || exit \$?
+last=\${!#}
+case "\$last" in
+  '$parent/state/walk-requests/'*.record)
+    phase=\$(sed -n 's/^phase=//p' "\$last")
+    spawned=\$(sed -n 's/^spawned=//p' "\$last")
+    if [ "\$phase" = dispatching ]; then
+      [ -n "\$spawned" ] || : > '$parent/invalid-publication'
+      if [ -f '$parent/interrupt' ]; then
+        rm '$parent/interrupt'
+        kill -TERM "\$PPID"
+      fi
+    fi
+    ;;
+esac
+SH
+  chmod +x "$fakebin/mv"
+  rc=0
+  run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" \
+    FM_WALK_REQUEST_SEND="$send" >/dev/null 2>&1 || rc=$?
+  expect_code 143 "$rc" "the check must be interrupted at the launch-progress commit"
+  [ ! -e "$parent/invalid-publication" ] || fail "phase and launched walks must publish atomically"
+  rec="$parent/state/walk-requests/$corr.record"
+  grep -Fxq phase=dispatching "$rec" || fail "launch progress must survive interruption"
+  grep -Fxq spawned=first "$rec" || fail "the interrupted snapshot must identify its scheduled walk"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  wait_for "$parent/state/walk-requests/$corr.second.log" '__FM_WALK_DISPATCH_EXIT__=0' \
+    || fail "the unstarted sibling must dispatch after resuming"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  wait_for "$parent/state/walk-requests/$corr.first.log" '__FM_WALK_DISPATCH_EXIT__=0' \
+    || fail "the interrupted scheduled walk must recover"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  [ "$(wc -l < "$dispatch.calls")" -eq 2 ] || fail "resuming must dispatch every walk once"
+  [ "$(wc -l < "$send.calls")" -eq 2 ] || fail "both resumed outcomes must return"
+  grep -Fxq phase=delivered "$rec" || fail "the resumed request must finish"
+  pass "walk-request: atomic launch progress survives interruption and resumes every sibling"
+}
+
+test_launch_is_portable_and_failures_return() {
+  local parent mate dispatch send fakebin corr out
+  parent=$(make_parent portable-main)
+  mate=$(make_mate portable-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fakebin="$parent/path"
+  mkdir -p "$fakebin"
+  fake_dispatcher "$dispatch"
+  fake_send "$send"
+  cat > "$fakebin/setsid" <<SH
+#!/usr/bin/env bash
+: > '$parent/setsid-called'
+exit 127
+SH
+  chmod +x "$fakebin/setsid"
+  out=$(run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks portable --bot Walker)
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  wait_for "$parent/state/walk-requests/$corr.portable.log" '__FM_WALK_DISPATCH_EXIT__=0' \
+    || fail "dispatch must detach and finish without a setsid utility"
+  [ ! -e "$parent/setsid-called" ] || fail "portable detachment must not invoke setsid"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  assert_grep 'walk portable@' "$send.calls" "the portable dispatch returns its result"
+  cat > "$fakebin/python3" <<'SH'
+#!/usr/bin/env bash
+exit 23
+SH
+  chmod +x "$fakebin/python3"
+  out=$(run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks launch-error --bot Walker)
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  assert_grep 'dispatch failed (exit=23)' "$send.calls" "a launcher failure must return its actual status"
+  [ "$(wc -l < "$dispatch.calls")" -eq 1 ] || fail "a failed launcher must never reach the dispatcher"
+  grep -Fxq phase=delivered "$parent/state/walk-requests/$corr.record" || fail "launch failure delivery must finish the request"
+  cat > "$dispatch" <<SH
+#!/usr/bin/env bash
+printf 'args=%s\n' "\$*" >> '$dispatch.calls'
+kill -KILL "\$PPID"
+SH
+  out=$(run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks recovery-error --bot Walker)
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  wait_for_calls "$dispatch.calls" 2 || fail "the recovery fixture must lose its first dispatcher"
+  run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  [ "$(grep -c 'dispatch failed (exit=23)' "$send.calls")" -eq 2 ] || fail "initial and recovery launch failures must both return"
+  grep -Fxq phase=delivered "$parent/state/walk-requests/$corr.record" || fail "recovery launch failure must finish its request"
+  pass "walk-request: detachment works without setsid and launch failures return explicitly"
+}
+
+test_slow_deliveries_are_bounded_and_fair() {
+  local parent mate dispatch send n corr walks out
+  parent=$(make_parent fair-main)
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_dispatcher "$dispatch"
+  cat > "$send" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "\$4" >> '$send.attempts'
+if [ ! -f '$send.allow' ]; then sleep 10; exit 12; fi
+printf '%s\n' "\$4" >> '$send.calls'
+SH
+  chmod +x "$send"
+  for n in 1 2 3; do
+    mate=$(make_mate "fair-mate-$n" "$parent")
+    printf -v corr '%016x' "$n"
+    case "$n" in
+      1) walks=first,middle,last ;;
+      2) walks=other ;;
+      3) walks=refusal ;;
+    esac
+    if [ "$n" -eq 3 ]; then
+      printf 'note [corr=%s]: walk-request: walks=refusal\n' "$corr" > "$parent/state/fair-mate-$n.status"
+    else
+      printf 'note [corr=%s]: walk-request: walks=%s brief=/b.md release=%s bot=Walker\n' \
+        "$corr" "$walks" "$RELEASE" > "$parent/state/fair-mate-$n.status"
+    fi
+  done
+  . "$ROOT/bin/fm-timeout-lib.sh"
+  for n in {1..8}; do
+    FM_HOME="$parent" FM_STATE_OVERRIDE="$parent/state" FM_CHECK_TIMEOUT=4 \
+      FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+      FM_WALK_REQUEST_SEND_BOUND=25 fm_run_timed 4 "$CHECK" check > "$parent/check-output" \
+      || fail "a sweep must yield inside the registered check's bound"
+  done
+  for walks in first middle last other request; do
+    assert_grep "walk $walks@" "$send.attempts" "pending outcome $walks must get a turn despite stalled transports"
+  done
+  : > "$send.allow"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  [ "$(wc -l < "$send.calls")" -eq 5 ] || fail "every pending walk and refusal must deliver after recovery"
+  out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
+  [ -z "$out" ] || fail "fully delivered records must be quiet"
+  [ "$(wc -l < "$send.calls")" -eq 5 ] || fail "completed records must not resend"
+  pass "walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks"
+}
+
 test_carrier_writes_the_typed_request
 test_carrier_refusals
 test_carrier_without_openssl
@@ -447,5 +604,8 @@ test_missing_dispatcher_is_reported_plainly
 test_incomplete_and_botless_requests_fail_loudly
 test_refusal_delivery_recovers
 test_lost_dispatches_and_delivery_recover_independently
+test_launch_progress_survives_interruption
+test_launch_is_portable_and_failures_return
+test_slow_deliveries_are_bounded_and_fair
 
 echo "# fm-walk-request.test.sh: all assertions passed"

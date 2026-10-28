@@ -546,6 +546,79 @@ SH
   pass "hold-release: all hold mutations serialize with evaluation and close stale decisions"
 }
 
+test_met_wake_is_durable_before_later_reads_expire() {
+  local home deadline out rc keys
+  home=$(make_home durable-wake)
+  fake_held_show "$home/show"
+  : > "$home/met"
+  run_lib "$home" fm_hold_release_record_write "$home/state" t1 "marker:$home/met"
+  run_lib "$home" fm_hold_release_record_write "$home/state" t2 'pr:owner/repo#42'
+  run_lib "$home" fm_hold_release_record_write "$home/state" t3 "marker:$home/unmet"
+  cat > "$home/gh" <<'SH'
+#!/usr/bin/env bash
+sleep 10
+echo OPEN
+SH
+  chmod +x "$home/gh"
+  deadline=$(( $(date +%s) + 2 ))
+  rc=0
+  out=$(FM_CHECKPOINT_DEADLINE="$deadline" FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+    FM_HOLD_RELEASE_GH="$home/gh" run_lib "$home" fm_hold_release_evaluate "$home/state") || rc=$?
+  expect_code 124 "$rc" "a later read must exhaust the checkpoint budget"
+  assert_contains "$out" 'hold condition met: t1' "the first hold must have been evaluated"
+  keys=$(STATE="$home/state" FM_STATE_OVERRIDE="$home/state" bash -c \
+    '. "$1"; fm_wake_queued_keys check' _ "$ROOT/bin/fm-wake-lib.sh")
+  assert_contains "$keys" 'hold-release:t1' "the first hold must already have a durable check wake"
+  open_decisions "$home" t1 | grep -q '^hold-release-t1' || fail "the announced hold must retain its decision"
+  FM_HOLD_RELEASE_MAX_RECORDS=2 FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+    run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
+  [ "$(awk -F '\t' '$3 == "check" && $4 == "hold-release:t1" {n++} END {print n+0}' "$home/state/.wake-queue")" -eq 1 ] \
+    || fail "a later sweep must not duplicate the committed wake"
+  pass "hold-release: an announced decision always has a durable wake before budget expiry"
+}
+
+test_uncommitted_wake_does_not_suppress_publication() {
+  local home out
+  home=$(make_home rejected-wake)
+  fake_held_show "$home/show"
+  : > "$home/met"
+  run_lib "$home" fm_hold_release_record_write "$home/state" t1 "marker:$home/met"
+  mkdir "$home/state/.wake-queue"
+  FM_HOLD_RELEASE_SHOW_CMD="$home/show" run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null 2>&1 || true
+  open_decisions "$home" t1 | grep -q '^hold-release-t1' && fail "a failed wake commit must not announce the decision"
+  rmdir "$home/state/.wake-queue"
+  out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" run_lib "$home" fm_hold_release_evaluate "$home/state")
+  assert_contains "$out" 'hold condition met: t1' "publication must resume when the queue can accept the wake"
+  pass "hold-release: failed wake commits leave publication retryable"
+}
+
+test_non_github_reholds_clear_previous_release_metadata() {
+  local home url n=0 marker
+  for url in https://gitlab.example/group/repo/-/merge_requests/43 \
+    https://forge.example/owner/repo/pulls/43 https://review.example/c/repo/+/43; do
+    n=$((n + 1))
+    home=$(make_home "provider-$n")
+    run_axi "$home" add t1 one --repo demo >/dev/null
+    : > "$home/met"
+    run_axi "$home" hold t1 --kind external --reason old --release-on "marker:$home/met" >/dev/null
+    run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
+    open_decisions "$home" t1 | grep -q '^hold-release-t1' || fail "the old marker must open its decision"
+    marker="$home/state/t1.backlog-close"
+    printf 'id=t1\ndata=%s\nspawn_gen=spawn-closing\nmode=await-merge\narg=--pr\narg=%s\n' \
+      "$home/data" "$url" > "$marker"
+    (
+      . "$ROOT/bin/fm-tasks-axi-lib.sh"
+      . "$ROOT/bin/fm-backlog-transition-lib.sh"
+      fm_backlog_atomic_transition await-merge '' "$marker" "$home/data" t1 "$home/state" --pr "$url"
+    ) || fail "the supported provider's await-merge transition must succeed"
+    run_axi "$home" show t1 | grep -q '^  held: yes$' || fail "the new merge hold must remain active"
+    [ ! -e "$home/state/hold-releases/t1" ] || fail "a non-GitHub rehold must clear the old release record"
+    open_decisions "$home" t1 | grep -q '^hold-release-t1' && fail "the old condition's decision must close"
+    [ -z "$(run_lib "$home" fm_hold_release_evaluate "$home/state")" ] || fail "the old marker must never announce the new hold"
+  done
+  pass "hold-release: every non-GitHub rehold clears the previous condition and decision"
+}
+
 test_condition_syntax
 test_external_hold_refused_without_condition
 test_hold_with_release_on_records_the_condition
@@ -562,5 +635,8 @@ test_await_merge_transition_derives_the_condition
 test_bounded_sweeps_visit_every_hold
 test_external_reads_respect_the_checkpoint_budget
 test_hold_mutations_cannot_reopen_stale_decisions
+test_met_wake_is_durable_before_later_reads_expire
+test_uncommitted_wake_does_not_suppress_publication
+test_non_github_reholds_clear_previous_release_metadata
 
 echo "# fm-hold-release.test.sh: all assertions passed"

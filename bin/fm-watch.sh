@@ -3773,8 +3773,8 @@ while :; do
     check_sweep_deferred=0
     # Hold release conditions are evaluated in the same sweep, before the
     # per-check loop: each newly-met condition has already opened its durable
-    # keyed decision, and this queues exactly one check wake per episode for
-    # it. The evaluation is bounded (its own per-record reads and sweep cap)
+    # keyed decision and queued its check wake before announcing it.
+    # The evaluation is bounded (its own per-record reads and sweep cap)
     # and its diagnostics are triage, not wakes.
     hold_release_out=$(fm_hold_release_evaluate "$STATE" 2>"$STATE/.hold-release-sweep.err")
     hold_release_rc=$?
@@ -3792,11 +3792,7 @@ while :; do
     if [ -n "$hold_release_out" ]; then
       while IFS= read -r hold_release_line; do
         [ -n "$hold_release_line" ] || continue
-        hold_release_rest=${hold_release_line#"$FM_HOLD_RELEASE_WAKE_PREFIX"}
-        hold_release_id=${hold_release_rest%% *}
-        [ -n "$hold_release_id" ] || continue
         reason="check: hold-release: $hold_release_line"
-        fm_wake_append check "hold-release:$hold_release_id" "$reason" || checkpoint_wake_failed $?
         [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
       done <<EOF
 $hold_release_out

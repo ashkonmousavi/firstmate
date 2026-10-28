@@ -71,8 +71,8 @@
 # for tests through FM_HOLD_RELEASE_SHOW_CMD), reconciles vanished holds, and
 # evaluates conditions. A pr lookup that fails (no gh, no network, bad auth)
 # is UNKNOWN, never met: a failed lookup can never release a hold. Each
-# newly-met condition prints its wake line on stdout; the caller (the watcher
-# check sweep) turns each printed line into one durable check wake.
+# newly-met condition commits its check wake before announcing the decision,
+# then prints its wake line for the watcher to surface.
 #
 # Tunables (env):
 #   FM_HOLD_RELEASE_GH          gh replacement used for pr lookups (tests)
@@ -226,7 +226,7 @@ fm_hold_release_decision_open_p() {  # <state-dir> <task-id>
 }
 
 # Open the "condition met" decision on the held task's status log. Idempotent:
-# returns 0 when the line was newly appended (the caller emits the wake),
+# returns 0 when the wake was committed and the line newly appended,
 # 1 when the decision is already open (no wake), 2 when the append failed.
 # The append is the home's own bookkeeping and goes through the guarded
 # self-announced writer (bin/fm-wake-lib.sh), so opening the decision does not
@@ -246,6 +246,9 @@ fm_hold_release_decision_open() {  # <state-dir> <task-id> <condition>
   fi
   line="blocked [key=$key]: $FM_HOLD_RELEASE_MET_PREFIX$condition"
   fm_hold_release_wake_lib "$state"
+  STATE="$state" FM_WAKE_QUEUE="$state/.wake-queue" FM_WAKE_QUEUE_LOCK="$state/.wake-queue.lock" \
+    fm_wake_append check "hold-release:$id" \
+    "check: hold-release: $FM_HOLD_RELEASE_WAKE_PREFIX$id $condition" || return $?
   fm_wake_status_append_self_announced "$state" "$status_file" "$line" || true
   fm_hold_release_decision_open_p "$state" "$id" || return 2
   return 0
@@ -408,7 +411,7 @@ _fm_hold_release_show() {  # <task-id>
 
 # One evaluation sweep over the records. Prints one
 #   hold condition met: <task-id> <condition>
-# line per newly-met condition; the caller turns each into one check wake.
+# line per newly-met condition after its check wake is durably queued.
 # Diagnostics go to stderr. Returns 0 unless the sweep itself could not run.
 fm_hold_release_evaluate() {
   local state=$1 dir rec id rc=0 seen=0 max pass cursor='' cursor_file
@@ -475,6 +478,7 @@ _fm_hold_release_evaluate_one_locked() {
   local open_rc=0
   fm_hold_release_decision_open "$state" "$id" "$condition" || open_rc=$?
   case "$open_rc" in
+    124) return 124 ;;
     0) printf '%s%s %s\n' "$FM_HOLD_RELEASE_WAKE_PREFIX" "$id" "$condition" ;;
     1) return 0 ;;
     *) printf 'fm-hold-release: could not record the met condition for %s\n' "$id" >&2; return 1 ;;

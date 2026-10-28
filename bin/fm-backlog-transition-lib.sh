@@ -891,6 +891,8 @@ _fm_backlog_await_merge_transition() {
   fm_backlog_mutate "$data" hold "$id" --kind external --reason "awaiting merge $2" || return 1
   if fm_pr_url_parse "$2" && [ "$FM_PR_PROVIDER" = github ]; then
     fm_hold_release_record_write "$state" "$id" "pr:$FM_PR_PATH#$FM_PR_NUMBER" || return 1
+  else
+    fm_hold_release_record_drop "$state" "$id" "re-held without a structured release condition" || return 1
   fi
   fm_backlog_record_remove "$marker" "pending-close record" "$state"
 }
