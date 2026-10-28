@@ -88,7 +88,8 @@ Authenticated legacy PR polls are upgraded through the existing locked publicati
 When a canonical validated task PR poll returns exactly `merged`, the watcher routes it through the shared merge-outcome emitter before retiring the poll.
 When that poll returns `conflict:<added-at>`, the watcher steers a live worker at most once while that conflict steer stays unacknowledged, or relaunches a dead relaunchable worker once through `bin/fm-control.sh`, to merge the base branch in with a merge commit.
 A done task, a dead endpoint, and a missing endpoint are not steered.
-It raises one `check` wake per label application only when that action does not run, and a later `conflict-clear` observation removes the episode marker `bin/fm-pr-lib.sh` owns.
+It raises one `check` wake per label application when recovery cannot run or becomes unavailable after a successful action; published wakes are recorded separately from successful actions.
+A later `conflict-clear` observation removes the episode marker `bin/fm-pr-lib.sh` owns, while an unacknowledged steer continues to suppress duplicates for the same task and PR across label applications.
 [`bin/fm-pr-poll.sh`'s header](../bin/fm-pr-poll.sh) owns GitHub conflict eligibility, label-age requirements, terminal-state silence, and lookup-failure behavior.
 Persistent `kind=secondmate` records are excluded from conflict steering, relaunch, and fallback wakes because the relayed PR belongs to their child.
 A legacy poll armed on a persistent `kind=secondmate` record is residue from a child's relayed PR: on a merged observation, the watcher retires it without a merge outcome, notification marker, or wake, leaving the mate's lifecycle intact; `bin/fm-pr-check.sh` refuses new polls on such records.

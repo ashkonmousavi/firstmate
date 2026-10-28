@@ -22,12 +22,11 @@
 #
 # This file owns the conflict-episode marker beside the poll, bound to the
 # task, provider, host, repository, PR number, and label's added-at time.
-# Recovery steers a live worker at most once while that episode's steer
+# Recovery steers a live worker at most once while that PR's steer
 # record is still unacknowledged, relaunches a dead worker once when the
 # task is not done, and otherwise leaves the watcher to raise one check wake.
 # A done task, or a dead or missing endpoint, is not steered.
-# The steer and relaunch records sit beside the episode marker and are
-# removed with it.
+# The steer record survives episode removal; the relaunch record does not.
 # bin/fm-pr-poll.sh owns conflict eligibility and observation words;
 # bin/fm-watch.sh routes observations through this file's recovery handler.
 # Other automatic steers are a different shape. The validation handoff
@@ -1561,7 +1560,7 @@ fm_pr_conflict_steer_path() {  # <state> <id>
 }
 
 fm_pr_conflict_identity_lines_valid() {
-  local provider=$1 host=$2 path=$3 number=$4 added_at=$5
+  local provider=$1 host=$2 path=$3 number=$4 added_at=${5-identity}
   case "$provider$host$path$number$added_at" in
     *$'\n'*|'') return 1 ;;
   esac
@@ -1570,7 +1569,7 @@ fm_pr_conflict_identity_lines_valid() {
 }
 
 fm_pr_conflict_episode_matches() {
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7 outcome=${8:-wake}
   local marker state_device
   fm_pr_task_id_valid "$id" || return 1
   fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" "$added_at" || return 1
@@ -1578,11 +1577,11 @@ fm_pr_conflict_episode_matches() {
   state_device=$(fm_pr_file_device "$state") || return 1
   marker=$(fm_pr_conflict_episode_path "$state" "$id")
   fm_pr_conflict_episode_matches_file "$marker" "$state_device" \
-    "$provider" "$host" "$path" "$number" "$added_at"
+    "$provider" "$host" "$path" "$number" "$added_at" "$outcome"
 }
 
 fm_pr_conflict_episode_open() {
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7 outcome=${8:-wake}
   local marker tmp state_device
   fm_pr_task_id_valid "$id" || return 1
   fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" "$added_at" || return 1
@@ -1592,23 +1591,23 @@ fm_pr_conflict_episode_open() {
   fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" || return 1
   umask 077
   tmp=$(mktemp "$state/.fm-pr-conflict-episode.XXXXXX") || return 1
-  if ! printf '%s\n%s\n%s\n%s\n%s\n%s\n' \
-      fm-pr-conflict-episode-v2 "$provider" "$host" "$path" "$number" "$added_at" > "$tmp" \
+  if ! printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+      fm-pr-conflict-episode-v3 "$provider" "$host" "$path" "$number" "$added_at" "$outcome" > "$tmp" \
     || ! chmod 0600 "$tmp" \
     || ! fm_pr_conflict_episode_matches_file "$tmp" "$state_device" \
-      "$provider" "$host" "$path" "$number" "$added_at" \
+      "$provider" "$host" "$path" "$number" "$added_at" "$outcome" \
     || ! fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" \
     || ! mv -f -- "$tmp" "$marker" \
     || ! fm_pr_conflict_episode_matches "$state" "$id" \
-      "$provider" "$host" "$path" "$number" "$added_at"; then
+      "$provider" "$host" "$path" "$number" "$added_at" "$outcome"; then
     rm -f -- "$tmp"
     return 1
   fi
 }
 
 fm_pr_conflict_episode_matches_file() {
-  local marker=$1 device=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
-  local version got_provider got_host got_path got_number got_added_at
+  local marker=$1 device=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7 outcome=${8:-wake}
+  local version got_provider got_host got_path got_number got_added_at got_outcome
   fm_pr_private_file_valid "$marker" 600 "$device" || return 1
   exec 9< "$marker" || return 1
   IFS= read -r version <&9 || { exec 9<&-; return 1; }
@@ -1617,17 +1616,19 @@ fm_pr_conflict_episode_matches_file() {
   IFS= read -r got_path <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_number <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_added_at <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_outcome <&9 || { exec 9<&-; return 1; }
   if IFS= read -r _extra <&9; then
     exec 9<&-
     return 1
   fi
   exec 9<&-
-  [ "$version" = fm-pr-conflict-episode-v2 ] \
+  [ "$version" = fm-pr-conflict-episode-v3 ] \
     && [ "$got_provider" = "$provider" ] \
     && [ "$got_host" = "$host" ] \
     && [ "$got_path" = "$path" ] \
     && [ "$got_number" = "$number" ] \
-    && [ "$got_added_at" = "$added_at" ]
+    && [ "$got_added_at" = "$added_at" ] \
+    && [ "$got_outcome" = "$outcome" ]
 }
 
 # Absent is success. A symlink or other non-regular file fails and is left in
@@ -1643,7 +1644,6 @@ fm_pr_conflict_episode_remove() {  # <state> <id>
   fm_pr_task_id_valid "$id" || return 1
   fm_pr_conflict_file_remove "$(fm_pr_conflict_episode_path "$state" "$id")" || rc=1
   fm_pr_conflict_file_remove "$(fm_pr_conflict_relaunch_path "$state" "$id")" || rc=1
-  fm_pr_conflict_file_remove "$(fm_pr_conflict_steer_path "$state" "$id")" || rc=1
   return "$rc"
 }
 
@@ -1726,11 +1726,11 @@ fm_pr_conflict_relaunch_mark() {  # <state> <id> <provider> <host> <path> <numbe
   fi
 }
 
-# Print the record basename when the sidecar names this episode. An extra
+# Print the record basename when the sidecar names this PR. An extra
 # line, a foreign device, or a basename that is not an inbox sequence fails.
 fm_pr_conflict_steer_matches_file() {
-  local marker=$1 device=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
-  local version got_provider got_host got_path got_number got_added_at got_base
+  local marker=$1 device=$2 provider=$3 host=$4 path=$5 number=$6
+  local version got_provider got_host got_path got_number got_base
   fm_pr_private_file_valid "$marker" 600 "$device" || return 1
   type fm_task_inbox_seq_of >/dev/null 2>&1 || return 1
   exec 9< "$marker" || return 1
@@ -1739,40 +1739,38 @@ fm_pr_conflict_steer_matches_file() {
   IFS= read -r got_host <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_path <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_number <&9 || { exec 9<&-; return 1; }
-  IFS= read -r got_added_at <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_base <&9 || { exec 9<&-; return 1; }
   if IFS= read -r _extra <&9; then
     exec 9<&-
     return 1
   fi
   exec 9<&-
-  [ "$version" = fm-pr-conflict-steer-v1 ] \
+  [ "$version" = fm-pr-conflict-steer-v2 ] \
     && [ "$got_provider" = "$provider" ] \
     && [ "$got_host" = "$host" ] \
     && [ "$got_path" = "$path" ] \
-    && [ "$got_number" = "$number" ] \
-    && [ "$got_added_at" = "$added_at" ] || return 1
+    && [ "$got_number" = "$number" ] || return 1
   fm_task_inbox_seq_of "$got_base" >/dev/null || return 1
   printf '%s\n' "$got_base"
 }
 
-fm_pr_conflict_steer_recorded_basename() {  # <state> <id> <provider> <host> <path> <number> <added_at>
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+fm_pr_conflict_steer_recorded_basename() {  # <state> <id> <provider> <host> <path> <number>
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6
   local marker state_device
   fm_pr_task_id_valid "$id" || return 1
-  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" "$added_at" || return 1
+  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" || return 1
   [ -d "$state" ] && [ ! -L "$state" ] || return 1
   state_device=$(fm_pr_file_device "$state") || return 1
   marker=$(fm_pr_conflict_steer_path "$state" "$id")
   fm_pr_conflict_steer_matches_file "$marker" "$state_device" \
-    "$provider" "$host" "$path" "$number" "$added_at"
+    "$provider" "$host" "$path" "$number"
 }
 
-fm_pr_conflict_steer_store() {  # <state> <id> <provider> <host> <path> <number> <added_at> <basename>
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7 base=$8
+fm_pr_conflict_steer_store() {  # <state> <id> <provider> <host> <path> <number> <basename>
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 base=$7
   local marker tmp state_device got=''
   fm_pr_task_id_valid "$id" || return 1
-  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" "$added_at" || return 1
+  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" || return 1
   type fm_task_inbox_seq_of >/dev/null 2>&1 || return 1
   fm_task_inbox_seq_of "$base" >/dev/null || return 1
   [ -d "$state" ] && [ ! -L "$state" ] || return 1
@@ -1781,34 +1779,34 @@ fm_pr_conflict_steer_store() {  # <state> <id> <provider> <host> <path> <number>
   fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" || return 1
   umask 077
   tmp=$(mktemp "$state/.fm-pr-conflict-steer.XXXXXX") || return 1
-  if ! printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
-      fm-pr-conflict-steer-v1 "$provider" "$host" "$path" "$number" "$added_at" "$base" > "$tmp" \
+  if ! printf '%s\n%s\n%s\n%s\n%s\n%s\n' \
+      fm-pr-conflict-steer-v2 "$provider" "$host" "$path" "$number" "$base" > "$tmp" \
     || ! chmod 0600 "$tmp" \
     || ! got=$(fm_pr_conflict_steer_matches_file "$tmp" "$state_device" \
-      "$provider" "$host" "$path" "$number" "$added_at") \
+      "$provider" "$host" "$path" "$number") \
     || [ "$got" != "$base" ] \
     || ! fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" \
     || ! mv -f -- "$tmp" "$marker" \
     || ! got=$(fm_pr_conflict_steer_recorded_basename "$state" "$id" \
-      "$provider" "$host" "$path" "$number" "$added_at") \
+      "$provider" "$host" "$path" "$number") \
     || [ "$got" != "$base" ]; then
     rm -f -- "$tmp"
     return 1
   fi
 }
 
-# True when this episode's steer record is still sitting unacknowledged in
+# True when this PR's steer record is still sitting unacknowledged in
 # the inbox. An acknowledged record lives under handled/ and does not count.
 # Without the inbox helpers this is false, so the episode marker stays the
 # only dedupe for a caller that has not loaded them.
-fm_pr_conflict_steer_outstanding() {  # <state> <id> <provider> <host> <path> <number> <added_at>
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+fm_pr_conflict_steer_outstanding() {  # <state> <id> <provider> <host> <path> <number>
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6
   local base inbox handled rec
   type fm_task_inbox_dir >/dev/null 2>&1 || return 1
   type fm_task_inbox_handled_dir >/dev/null 2>&1 || return 1
   type fm_task_inbox_seq_of >/dev/null 2>&1 || return 1
   base=$(fm_pr_conflict_steer_recorded_basename "$state" "$id" \
-    "$provider" "$host" "$path" "$number" "$added_at") || return 1
+    "$provider" "$host" "$path" "$number") || return 1
   inbox=$(fm_task_inbox_dir "$state" "$id")
   handled=$(fm_task_inbox_handled_dir "$state" "$id")
   rec="$inbox/$base"
@@ -1816,11 +1814,11 @@ fm_pr_conflict_steer_outstanding() {  # <state> <id> <provider> <host> <path> <n
   [ ! -e "$handled/$base" ] && [ ! -L "$handled/$base" ]
 }
 
-# Bind this episode to the newest unhandled record whose body is the steer
+# Bind this PR to the newest unhandled record whose body is the steer
 # text. Failure is non-fatal: the episode marker still suppresses a repeat
 # after a successful send.
-fm_pr_conflict_steer_bind() {  # <state> <id> <provider> <host> <path> <number> <added_at> <text>
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7 text=$8
+fm_pr_conflict_steer_bind() {  # <state> <id> <provider> <host> <path> <number> <text>
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 text=$7
   local inbox f best='' best_seq=-1 seq body base
   type fm_task_inbox_dir >/dev/null 2>&1 || return 0
   type fm_task_inbox_body >/dev/null 2>&1 || return 0
@@ -1839,7 +1837,7 @@ fm_pr_conflict_steer_bind() {  # <state> <id> <provider> <host> <path> <number> 
     fi
   done
   [ -n "$best" ] || return 1
-  fm_pr_conflict_steer_store "$state" "$id" "$provider" "$host" "$path" "$number" "$added_at" "$best"
+  fm_pr_conflict_steer_store "$state" "$id" "$provider" "$host" "$path" "$number" "$best"
 }
 
 # live: the recorded endpoint's agent is alive.
@@ -1884,13 +1882,13 @@ fm_pr_conflict_bin_dir() {
 
 # FM_PR_CONFLICT_SEND, when set, is the command used instead of fm-send.sh.
 # Tests point it at a recorder. Ordinary supervision leaves it unset.
-# An outstanding unacknowledged steer for this same episode returns success
+# An outstanding unacknowledged steer for this same PR returns success
 # without writing another record.
-fm_pr_conflict_steer() {  # <state> <id> <url> <provider> <host> <path> <number> <added_at>
-  local state=$1 id=$2 url=$3 provider=$4 host=$5 path=$6 number=$7 added_at=$8
+fm_pr_conflict_steer() {  # <state> <id> <url> <provider> <host> <path> <number>
+  local state=$1 id=$2 url=$3 provider=$4 host=$5 path=$6 number=$7
   local meta base text send dir
   if fm_pr_conflict_steer_outstanding "$state" "$id" \
-    "$provider" "$host" "$path" "$number" "$added_at"; then
+    "$provider" "$host" "$path" "$number"; then
     return 0
   fi
   meta="$state/$id.meta"
@@ -1908,7 +1906,7 @@ fm_pr_conflict_steer() {  # <state> <id> <url> <provider> <host> <path> <number>
   [ -n "$text" ] || return 1
   "$send" "$id" "$text" >&2 || return 1
   fm_pr_conflict_steer_bind "$state" "$id" \
-    "$provider" "$host" "$path" "$number" "$added_at" "$text" || true
+    "$provider" "$host" "$path" "$number" "$text" || true
 }
 
 # FM_PR_CONFLICT_RELAUNCH, when set, is the command used instead of
@@ -1945,33 +1943,25 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
       return 0
       ;;
   esac
-  posture=$(fm_pr_conflict_posture "$state" "$id")
   if fm_pr_conflict_episode_matches "$state" "$id" \
     "$provider" "$host" "$path" "$number" "$added_at"; then
-    if fm_pr_conflict_task_done "$state" "$id" \
-      || [ "$posture" != exited ] \
-      || fm_pr_conflict_relaunch_marked "$state" "$id" \
-        "$provider" "$host" "$path" "$number" "$added_at"; then
-      printf 'quiet\n'
-      return 0
-    fi
-    fm_pr_conflict_relaunch "$id" "$url" || relaunch_rc=$?
-    fm_pr_conflict_relaunch_mark "$state" "$id" \
-      "$provider" "$host" "$path" "$number" "$added_at" || true
-    if [ "$relaunch_rc" -eq 0 ]; then
-      printf 'quiet\n'
-      return 0
-    fi
+    printf 'quiet\n'
+    return 0
+  fi
+  posture=$(fm_pr_conflict_posture "$state" "$id")
+  if fm_pr_conflict_task_done "$state" "$id" \
+    || [ "$posture" = none ] || [ "$posture" = unknown ]; then
     printf 'wake\n'
+    return 0
+  fi
+  if [ "$posture" = live ] \
+    && fm_pr_conflict_episode_matches "$state" "$id" \
+      "$provider" "$host" "$path" "$number" "$added_at" action; then
+    printf 'quiet\n'
     return 0
   fi
   if fm_pr_conflict_relaunch_marked "$state" "$id" \
     "$provider" "$host" "$path" "$number" "$added_at"; then
-    printf 'wake\n'
-    return 0
-  fi
-  if fm_pr_conflict_task_done "$state" "$id" \
-    || [ "$posture" = none ] || [ "$posture" = unknown ]; then
     printf 'wake\n'
     return 0
   fi
@@ -1982,7 +1972,7 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
       "$provider" "$host" "$path" "$number" "$added_at" || true
     if [ "$relaunch_rc" -eq 0 ] \
       && fm_pr_conflict_episode_open "$state" "$id" \
-        "$provider" "$host" "$path" "$number" "$added_at"; then
+        "$provider" "$host" "$path" "$number" "$added_at" action; then
       printf 'quiet\n'
       return 0
     fi
@@ -1991,9 +1981,9 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
   fi
   if [ "$posture" = live ]; then
     if fm_pr_conflict_steer "$state" "$id" "$url" \
-      "$provider" "$host" "$path" "$number" "$added_at" \
+      "$provider" "$host" "$path" "$number" \
       && fm_pr_conflict_episode_open "$state" "$id" \
-        "$provider" "$host" "$path" "$number" "$added_at"; then
+        "$provider" "$host" "$path" "$number" "$added_at" action; then
       printf 'quiet\n'
       return 0
     fi

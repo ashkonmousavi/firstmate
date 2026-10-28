@@ -3381,7 +3381,7 @@ while :; do
           fi
           out=$FM_CHECK_RESULT
           # conflict is one episode: steer a live worker once while its earlier
-          # conflict steer for that episode is unacknowledged, relaunch an
+          # conflict steer for that PR is unacknowledged, relaunch an
           # exited relaunchable worker once, or leave out=conflict so the
           # check wake below fires once. A done task, or a dead or missing
           # endpoint, is not steered.
