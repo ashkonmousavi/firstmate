@@ -1616,14 +1616,17 @@ fm_pr_conflict_episode_matches_file() {
   IFS= read -r got_path <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_number <&9 || { exec 9<&-; return 1; }
   IFS= read -r got_added_at <&9 || { exec 9<&-; return 1; }
-  IFS= read -r got_outcome <&9 || { exec 9<&-; return 1; }
+  case "$version" in
+    fm-pr-conflict-episode-v2) got_outcome=action ;;
+    fm-pr-conflict-episode-v3) IFS= read -r got_outcome <&9 || { exec 9<&-; return 1; } ;;
+    *) exec 9<&-; return 1 ;;
+  esac
   if IFS= read -r _extra <&9; then
     exec 9<&-
     return 1
   fi
   exec 9<&-
-  [ "$version" = fm-pr-conflict-episode-v3 ] \
-    && [ "$got_provider" = "$provider" ] \
+  [ "$got_provider" = "$provider" ] \
     && [ "$got_host" = "$host" ] \
     && [ "$got_path" = "$path" ] \
     && [ "$got_number" = "$number" ] \
@@ -1797,8 +1800,6 @@ fm_pr_conflict_steer_store() {  # <state> <id> <provider> <host> <path> <number>
 
 # True when this PR's steer record is still sitting unacknowledged in
 # the inbox. An acknowledged record lives under handled/ and does not count.
-# Without the inbox helpers this is false, so the episode marker stays the
-# only dedupe for a caller that has not loaded them.
 fm_pr_conflict_steer_outstanding() {  # <state> <id> <provider> <host> <path> <number>
   local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6
   local base inbox handled rec
@@ -1814,30 +1815,31 @@ fm_pr_conflict_steer_outstanding() {  # <state> <id> <provider> <host> <path> <n
   [ ! -e "$handled/$base" ] && [ ! -L "$handled/$base" ]
 }
 
-# Bind this PR to the newest unhandled record whose body is the steer
-# text. Failure is non-fatal: the episode marker still suppresses a repeat
-# after a successful send.
 fm_pr_conflict_steer_bind() {  # <state> <id> <provider> <host> <path> <number> <text>
   local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 text=$7
-  local inbox f best='' best_seq=-1 seq body base
-  type fm_task_inbox_dir >/dev/null 2>&1 || return 0
-  type fm_task_inbox_body >/dev/null 2>&1 || return 0
-  type fm_task_inbox_seq_of >/dev/null 2>&1 || return 0
-  inbox=$(fm_task_inbox_dir "$state" "$id")
-  [ -d "$inbox" ] && [ ! -L "$inbox" ] || return 1
+  local inbox handled f best='' best_seq=-1 seq body base
+  type fm_task_inbox_dir >/dev/null 2>&1 || return 2
+  type fm_task_inbox_handled_dir >/dev/null 2>&1 || return 2
+  type fm_task_inbox_body >/dev/null 2>&1 || return 2
+  type fm_task_inbox_seq_of >/dev/null 2>&1 || return 2
+  inbox=$(fm_task_inbox_dir "$state" "$id") || return 2
+  handled=$(fm_task_inbox_handled_dir "$state" "$id") || return 2
+  [ -e "$inbox" ] || [ -L "$inbox" ] || return 1
+  [ -d "$inbox" ] && [ ! -L "$inbox" ] || return 2
   for f in "$inbox"/*.msg; do
     [ -f "$f" ] && [ ! -L "$f" ] || continue
     base=${f##*/}
+    [ ! -e "$handled/$base" ] && [ ! -L "$handled/$base" ] || continue
     seq=$(fm_task_inbox_seq_of "$base") || continue
-    body=$(fm_task_inbox_body "$f") || continue
-    [ "$body" = "$text" ] || continue
+    body=$(fm_task_inbox_body "$f") || return 2
+    [ "${body%%$'\n'*}" = "${text%%$'\n'*}" ] || continue
     if [ "$seq" -gt "$best_seq" ]; then
       best_seq=$seq
       best=$base
     fi
   done
   [ -n "$best" ] || return 1
-  fm_pr_conflict_steer_store "$state" "$id" "$provider" "$host" "$path" "$number" "$best"
+  fm_pr_conflict_steer_store "$state" "$id" "$provider" "$host" "$path" "$number" "$best" || return 2
 }
 
 # live: the recorded endpoint's agent is alive.
@@ -1886,7 +1888,7 @@ fm_pr_conflict_bin_dir() {
 # without writing another record.
 fm_pr_conflict_steer() {  # <state> <id> <url> <provider> <host> <path> <number>
   local state=$1 id=$2 url=$3 provider=$4 host=$5 path=$6 number=$7
-  local meta base text send dir
+  local meta base text send dir bind_rc=0
   if fm_pr_conflict_steer_outstanding "$state" "$id" \
     "$provider" "$host" "$path" "$number"; then
     return 0
@@ -1897,16 +1899,23 @@ fm_pr_conflict_steer() {  # <state> <id> <url> <provider> <host> <path> <number>
     base=$(grep '^base_branch=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
   fi
   text=$(fm_pr_conflict_instruction "$url" "$base")
+  [ -n "$text" ] || return 1
+  fm_pr_conflict_steer_bind "$state" "$id" \
+    "$provider" "$host" "$path" "$number" "$text" || bind_rc=$?
+  case "$bind_rc" in
+    0) return 0 ;;
+    1) ;;
+    *) return 1 ;;
+  esac
   if [ -n "${FM_PR_CONFLICT_SEND:-}" ]; then
     send=$FM_PR_CONFLICT_SEND
   else
     dir=$(fm_pr_conflict_bin_dir) || return 1
     send=$dir/fm-send.sh
   fi
-  [ -n "$text" ] || return 1
   "$send" "$id" "$text" >&2 || return 1
   fm_pr_conflict_steer_bind "$state" "$id" \
-    "$provider" "$host" "$path" "$number" "$text" || true
+    "$provider" "$host" "$path" "$number" "$text"
 }
 
 # FM_PR_CONFLICT_RELAUNCH, when set, is the command used instead of

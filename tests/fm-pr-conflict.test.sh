@@ -125,6 +125,7 @@ setup_task() {
   local state=$1
   mkdir -p "$state"
   fm_write_meta "$state/lane.meta" 'base_branch=curated'
+  export FM_TEST_INBOX_STATE=$state FM_TEST_INBOX_LOG=$state/inbox-send.log
 }
 
 test_graphql_failure_and_flag_contract() {
@@ -232,6 +233,7 @@ test_live_worker_is_steered_once() {
   write_label_json "$json" yes "$old"
   cat > "$TMP_ROOT/send.sh" <<SH
 #!/usr/bin/env bash
+"\$FM_TEST_INBOX_WRITER" "\$1" "\$2" || exit 1
 printf 'steered lane\\n'
 printf 'CALLED\\n' >> "$log"
 printf '%s\\n' "\$2" >> "$log"
@@ -272,6 +274,7 @@ test_exited_worker_is_relaunched() {
   write_label_json "$TMP_ROOT/relaunch.json" yes "$old"
   cat > "$TMP_ROOT/send-relaunch.sh" <<SH
 #!/usr/bin/env bash
+"\$FM_TEST_INBOX_WRITER" "\$1" "\$2" || exit 1
 printf 'steered lane\\n'
 printf 'CALLED\\n' >> "$send_log"
 SH
@@ -427,6 +430,8 @@ test_relabel_starts_a_new_episode() {
       https://github.com/o/r/pull/7 "$out")
     [ "$decision" = quiet ] && [ -s "$TMP_ROOT/steer.log" ] \
       || fail "a new label application was suppressed (clear observed: $cleared)"
+    mkdir -p "$state/lane.inbox/handled"
+    mv "$state/lane.inbox/"*.msg "$state/lane.inbox/handled/"
   done
   write_label_json "$json" yes ''
   [ -z "$(run_poll)" ] || fail "an unknown label application must not invent an episode identity"
@@ -472,6 +477,7 @@ exit 1
 SH
   cat > "$TMP_ROOT/watch-send.sh" <<'SH'
 #!/usr/bin/env bash
+"$FM_TEST_INBOX_WRITER" "$1" "$2" || exit 1
 printf 'steered lane\n'
 printf 'steered\n' > "$FM_HOME/steered"
 exit 0
@@ -736,7 +742,7 @@ load_classify_helpers() {
 write_inbox_send() {  # <path>
   cat > "$1" <<'SH'
 #!/usr/bin/env bash
-dir=$FM_TEST_INBOX_STATE/lane.inbox
+dir=$FM_TEST_INBOX_STATE/$1.inbox
 mkdir -p "$dir/handled"
 seq=1
 while [ -e "$dir/$(printf '%03d' "$seq").msg" ] || [ -e "$dir/handled/$(printf '%03d' "$seq").msg" ]; do
@@ -836,6 +842,155 @@ test_unread_steer_survives_relabel_and_clear() {
       || fail "an acknowledged steer blocked a later episode"
   done
   pass "unread steers deduplicate across relabeling with or without an observed clear"
+}
+
+test_upgrade_recovers_unbound_conflict_steer() {
+  local state log decision marker legacy_text
+  legacy_text=$(cat <<'TEXT'
+The pull request https://github.com/o/r/pull/7 has carried the conflict label for more than 15 minutes.
+Merge origin/old-base into the branch with a merge commit, regenerate generated files, run their tests, and push once.
+Do not rebase.
+Do not force-push.
+TEXT
+)
+  for marker in absent v2; do
+    reset_lib
+    state="$TMP_ROOT/upgrade-unbound-$marker"
+    setup_task "$state"
+    log=$FM_TEST_INBOX_LOG
+    "$FM_TEST_INBOX_WRITER" lane "$legacy_text" || fail "could not seed the pre-upgrade instruction"
+    if [ "$marker" = v2 ]; then
+      printf '%s\n' fm-pr-conflict-episode-v2 github github.com o/r 7 "$CONFLICT_ADDED_AT" \
+        > "$state/lane.pr-conflict-episode"
+      chmod 600 "$state/lane.pr-conflict-episode"
+    fi
+    FM_PR_CONFLICT_SEND=$FM_TEST_INBOX_WRITER
+    # shellcheck disable=SC2329
+    fm_pr_conflict_posture() { printf 'live\n'; }
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 conflict:2026-02-02T00:00:00Z)
+    [ "$decision" = quiet ] && [ "$(wc -l < "$log")" -eq 1 ] \
+      || fail "upgrade duplicated the unbound instruction ($marker)"
+    [ "$(fm_pr_conflict_steer_recorded_basename "$state" lane github github.com o/r 7)" = 001.msg ] \
+      || fail "upgrade did not bind the original unread record ($marker)"
+  done
+  pass "upgrade binds an unread conflict instruction despite changed base or label identity"
+}
+
+test_restart_recovers_enqueue_before_binding() {
+  local state log decision
+  reset_lib
+  state="$TMP_ROOT/interrupted-binding"
+  setup_task "$state"
+  log=$FM_TEST_INBOX_LOG
+  cat > "$TMP_ROOT/interrupted-send.sh" <<'SH'
+#!/usr/bin/env bash
+"$FM_TEST_INBOX_WRITER" "$1" "$2" || exit 1
+exit 75
+SH
+  chmod +x "$TMP_ROOT/interrupted-send.sh"
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/interrupted-send.sh
+  # shellcheck disable=SC2329
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] && [ "$(wc -l < "$log")" -eq 1 ] \
+    || fail "interrupted send did not leave exactly one durable instruction"
+  [ ! -e "$state/lane.pr-conflict-steer" ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
+    || fail "interrupted send unexpectedly committed its binding"
+  reset_lib
+  FM_PR_CONFLICT_SEND=$FM_TEST_INBOX_WRITER
+  # shellcheck disable=SC2329
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] && [ "$(wc -l < "$log")" -eq 1 ] \
+    || fail "restart duplicated the instruction enqueued before binding"
+  [ "$(fm_pr_conflict_steer_recorded_basename "$state" lane github github.com o/r 7)" = 001.msg ] \
+    || fail "restart did not bind the surviving instruction"
+  pass "restart recovers an enqueue interrupted before sidecar binding"
+}
+
+test_binding_failure_blocks_repeat_send() {
+  local state log decision
+  reset_lib
+  state="$TMP_ROOT/binding-failure"
+  setup_task "$state"
+  log=$FM_TEST_INBOX_LOG
+  mkdir "$state/lane.pr-conflict-steer"
+  FM_PR_CONFLICT_SEND=$FM_TEST_INBOX_WRITER
+  # shellcheck disable=SC2329
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] && [ "$(wc -l < "$log")" -eq 1 ] \
+    || fail "post-send binding failure must wake after one enqueue"
+  [ ! -e "$state/lane.pr-conflict-episode" ] || fail "failed binding committed a successful action"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] && [ "$(wc -l < "$log")" -eq 1 ] \
+    || fail "pre-send binding failure allowed a duplicate enqueue"
+  rmdir "$state/lane.pr-conflict-steer"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] && [ "$(wc -l < "$log")" -eq 1 ] \
+    || fail "repaired binding did not recover the original instruction"
+  pass "binding errors wake and block repeat sends until the existing record can be bound"
+}
+
+test_unbound_scan_respects_acknowledgement_and_identity() {
+  local state log decision axis task host path number url text
+  for axis in handled host path number task; do
+    reset_lib
+    state="$TMP_ROOT/unbound-scope-$axis"
+    setup_task "$state"
+    log=$FM_TEST_INBOX_LOG
+    text=$(fm_pr_conflict_instruction https://github.com/o/r/pull/7 main)
+    "$FM_TEST_INBOX_WRITER" lane "$text" || fail "could not seed the identity fixture"
+    task=lane host=github.com path=o/r number=7
+    case "$axis" in
+      handled) cp "$state/lane.inbox/001.msg" "$state/lane.inbox/handled/001.msg" ;;
+      host) host=github.example ;;
+      path) path=other/repository ;;
+      number) number=8 ;;
+      task) task=other ;;
+    esac
+    url="https://$host/$path/pull/$number"
+    FM_PR_CONFLICT_SEND=$FM_TEST_INBOX_WRITER
+    # shellcheck disable=SC2329
+    fm_pr_conflict_posture() { printf 'live\n'; }
+    decision=$(fm_pr_conflict_handle "$state" "$task" github "$host" "$path" "$number" \
+      "$url" "conflict:$CONFLICT_ADDED_AT")
+    [ "$decision" = quiet ] && [ "$(wc -l < "$log")" -eq 2 ] \
+      || fail "the inbox scan incorrectly suppressed a new steer ($axis)"
+  done
+  pass "unbound scans ignore acknowledgements and instructions for another task or PR"
+}
+
+test_v2_episode_preserves_recovery() {
+  local state decision
+  reset_lib
+  load_classify_helpers
+  state="$TMP_ROOT/v2-episode"
+  setup_task "$state"
+  printf '%s\n' fm-pr-conflict-episode-v2 github github.com o/r 7 "$CONFLICT_ADDED_AT" \
+    > "$state/lane.pr-conflict-episode"
+  chmod 600 "$state/lane.pr-conflict-episode"
+  fm_pr_conflict_episode_matches "$state" lane github github.com o/r 7 "$CONFLICT_ADDED_AT" action \
+    || fail "the v2 serialized episode must remain readable as a previous action"
+  FM_PR_CONFLICT_SEND=$FM_TEST_INBOX_WRITER
+  # shellcheck disable=SC2329
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] && [ ! -e "$FM_TEST_INBOX_LOG" ] \
+    || fail "a live v2 episode repeated its action after upgrade"
+  printf 'done [at=1700000000]: finished\n' > "$state/lane.status"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] || fail "a v2 episode suppressed unavailable recovery"
+  assert_conflict_wake_published_once "$state"
+  pass "v2 episodes suppress live repeats and preserve the unavailable-recovery fallback"
 }
 
 test_unread_conflict_steer_is_not_repeated() {
@@ -1018,6 +1173,10 @@ test_acked_steer_allows_next_episode() {
   pass "an acknowledged steer allows the next episode's steer"
 }
 
+load_inbox_helpers
+write_inbox_send "$TMP_ROOT/inbox-write.sh"
+export FM_TEST_INBOX_WRITER=$TMP_ROOT/inbox-write.sh
+
 test_graphql_failure_and_flag_contract
 test_gh_only_poll_and_terminal_states
 test_old_label_wakes_once_and_clear_removes_it
@@ -1031,6 +1190,11 @@ test_relabel_starts_a_new_episode
 test_watcher_conflict_recovery
 test_overlap_names_both_pull_requests
 test_rename_overlap_endpoints
+test_upgrade_recovers_unbound_conflict_steer
+test_restart_recovers_enqueue_before_binding
+test_binding_failure_blocks_repeat_send
+test_unbound_scan_respects_acknowledgement_and_identity
+test_v2_episode_preserves_recovery
 test_unread_conflict_steer_is_not_repeated
 test_unread_steer_survives_relabel_and_clear
 test_successful_steer_becomes_unavailable
