@@ -1001,6 +1001,25 @@ The guard also notes whether the starfield and the placeholder were actually dra
 
 ## Steering-inbox doorbell
 
+The live guard also submits a Claude doorbell while a real foreground tool is blocked, then requires the instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
+The portable busy-Claude, OpenCode, and Rovo regressions verify literal input followed by Enter; they do not claim model consumption.
+
+On 2026-10-28, Claude Code 2.1.312 on Linux with tmux 3.4 passed both the idle and busy checks, using an isolated authenticated config with hooks disabled and the bypass-mode acknowledgement set.
+`CLAUDE_CONFIG_DIR`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`, `TMPDIR`, `FM_HOME`, and `FM_ROOT_OVERRIDE` pointed inside the verification worktree.
+The focused invocation was:
+
+```sh
+CLAUDE_CODE_SAFE_MODE=1 FM_SEND_INBOX_LIVE_E2E=1 \
+  FM_SEND_INBOX_LIVE_HARNESSES=claude FM_SEND_INBOX_LIVE_TIMEOUT=90 \
+  bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+```text
+ok - claude (2.1.312 (Claude Code)): the doorbell reached a real worker, which acted and acked with the mv
+ok - claude (2.1.312 (Claude Code)): a doorbell submitted during a real foreground tool was acted on and acked without an idle re-ring
+ok - live steering-inbox doorbell guard: 1 harness(es) honored the doorbell contract
+```
+
 The steering channel's one behavioral assumption - a real worker agent follows the constant self-describing doorbell line (list the inbox, read and act on its records in numeric order, then `mv` each into `handled/`) - was verified on 2026-08-23 against every installed verified harness, on tmux 3.6a, macOS arm64, on an isolated private socket, driving the REAL `bin/fm-send.sh` end to end (durable record plus doorbell, with one mid-wait re-ring playing the watcher's role).
 
 ```sh

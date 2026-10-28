@@ -125,6 +125,58 @@ wait_ready() {  # <window>
   return 2
 }
 
+check_busy_claude_doorbell() {
+  local win=$1 home=$2 task=$3 version=$4 started release finished acted handled i command
+  started="$LAB/claude-tool-started"
+  release="$LAB/claude-tool-release"
+  finished="$LAB/claude-tool-finished"
+  acted="$LAB/acted-busy-claude"
+  handled="$home/state/$task.inbox/handled/003.msg"
+  command="touch $(printf '%q' "$started"); while [ ! -e $(printf '%q' "$release") ] && [ \"\$SECONDS\" -lt $TIMEOUT ]; do sleep 1; done; test -e $(printf '%q' "$release") && touch $(printf '%q' "$finished")"
+  if ! FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" --one-way \
+    "First move this record into handled/. Then run the following exact shell command in a foreground Bash tool call with timeout at least $((TIMEOUT * 1000)) milliseconds, without backgrounding it, and wait for it to return before finishing your response:
+$command" \
+    > "$LAB/claude-busy-start.log" 2>&1; then
+    printf 'not ok - claude (%s): could not send the blocking-tool instruction\n' "$version" >&2
+    return 1
+  fi
+  i=0
+  while [ "$i" -lt "$TIMEOUT" ]; do
+    if [ -e "$started" ] && [ ! -e "$finished" ] && fm_pane_is_busy "$SESSION:$win" claude; then
+      break
+    fi
+    sleep 1
+    i=$((i + 1))
+  done
+  if [ "$i" -eq "$TIMEOUT" ]; then
+    printf 'not ok - claude (%s): never observed the real foreground tool running beside a busy pane\n' "$version" >&2
+    return 1
+  fi
+  if ! FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" --one-way \
+    "After running the following exact shell command, move this record into handled/:
+touch $(printf '%q' "$acted")" \
+    > "$LAB/claude-busy-send.log" 2>&1; then
+    printf 'not ok - claude (%s): fm-send refused the busy steer\n' "$version" >&2
+    return 1
+  fi
+  if [ -e "$finished" ]; then
+    printf 'not ok - claude (%s): the blocking tool finished before the busy steer was submitted\n' "$version" >&2
+    return 1
+  fi
+  : > "$release"
+  i=0
+  while [ "$i" -lt "$TIMEOUT" ]; do
+    [ -e "$finished" ] && [ -e "$acted" ] && [ -f "$handled" ] && break
+    sleep 1
+    i=$((i + 1))
+  done
+  if [ ! -e "$finished" ] || [ ! -e "$acted" ] || [ ! -f "$handled" ]; then
+    printf 'not ok - claude (%s): busy doorbell not acted on and acknowledged without an idle re-ring\n' "$version" >&2
+    return 1
+  fi
+  pass "claude ($version): a doorbell submitted during a real foreground tool was acted on and acked without an idle re-ring"
+}
+
 check_harness_doorbell() {  # <name>
   local name=$1 version cmd win="hx-$1" home task acted rec handled i ready_rc
   version=$(harness_version "$name")
@@ -178,6 +230,9 @@ check_harness_doorbell() {  # <name>
   if [ -f "$handled" ] && [ -e "$acted" ]; then
     CHECKED=$((CHECKED + 1))
     pass "$name ($version): the doorbell reached a real worker, which acted and acked with the mv"
+    if [ "$name" = claude ]; then
+      check_busy_claude_doorbell "$win" "$home" "$task" "$version" || FAILED=1
+    fi
   else
     FAILED=1
     printf 'not ok - %s (%s): doorbell not honored within %ss (acted=%s acked=%s)\n' \

@@ -32,6 +32,8 @@ set -u
 . "$ROOT/bin/fm-control-lib.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-marker-lib.sh"
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-timeout-lib.sh"
 
 CONTROL="$ROOT/bin/fm-control.sh"
 SEND="$ROOT/bin/fm-send.sh"
@@ -1377,6 +1379,21 @@ test_cursor_usage_exhausted_exit_stops_unknown_composer() (
   pass "fm-control exit: an unknown cursor composer beside a usage-exhausted row stops without typing an exit command"
 )
 
+test_send_releases_exhausted_cursor_with_lease_guard() (
+  local dir out rc
+  dir=$(cursor_exhausted_case send-guarded "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue.")
+  start_cursor_process "$dir"
+  trap 'stop_grok_process "$dir"' EXIT
+  out=$(fm_run_timed 10 env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+    FM_SUPERVISION_ACTOR=main FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
+    FM_CONTROL_EXIT_WAIT=1 "$SEND" t1 --one-way "please continue" 2>&1); rc=$?
+  expect_code 0 "$rc" "a guarded send must finish lifecycle control without deadlocking"$'\n'"$out"
+  assert_cursor_stopped_without_exit_command "$dir" "$out" "guarded send"
+  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "the guarded send lost its durable steer"
+  [ ! -s "$dir/fake/literal" ] || fail "the exhausted pane received text"
+  pass "fm-send: a guarded exhausted cursor handoff stops the agent without deadlocking"
+)
+
 test_cursor_quoted_usage_row_still_refuses_exit() {
   local dir out rc
   dir=$(cursor_exhausted_case quoted "The log quoted You're out of usage in a sentence.")
@@ -1542,6 +1559,7 @@ test_grok_pending_unproven_refuses_relaunch_beside_usage_limit || exit 1
 test_grok_unknown_composer_without_usage_limit_refuses_relaunch
 test_grok_usage_picker_refuses_when_agent_cannot_be_stopped
 test_cursor_usage_exhausted_exit_stops_unknown_composer || exit 1
+test_send_releases_exhausted_cursor_with_lease_guard || exit 1
 test_cursor_quoted_usage_row_still_refuses_exit
 test_cursor_pending_text_refuses_exit_beside_usage_row
 test_secondmate_control_command_carries_no_marker

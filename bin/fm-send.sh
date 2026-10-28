@@ -1221,6 +1221,7 @@ else
     3) echo "fm-send: doorbell not typed because the agent in $T has exited; the steer is durably recorded at $INBOX_RECORD for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane" >&2 ;;
     4)
       echo "fm-send: doorbell not typed because $T reports usage exhausted; the steer is durably recorded at $INBOX_RECORD" >&2
+      fm_lease_guard_release
       fm_task_inbox_release_exhausted "$INBOX_TASK_ID" || true
       ;;
     esac

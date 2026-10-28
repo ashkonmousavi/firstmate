@@ -29,8 +29,8 @@
 #   7. A fire-and-forget record stays outside the ladder, but one whose first
 #      ring did not land gets exactly one retry ring and never escalates. The
 #      retry waits while the worker has an open decision of its own.
-#   8. A submit-queue harness is rung while busy. Claude's fixture consumes
-#      that doorbell within the turn. A harness without a submit queue is
+#   8. A submit-queue harness receives literal input followed by Enter while
+#      busy. A harness without a submit queue is
 #      rung on the next idle observation, including inside grace and after
 #      stuck-busy. A cursor usage-exhausted pane is not typed into, and the
 #      seat-release hook runs.
@@ -88,12 +88,6 @@ case "${1:-}" in
     done
     if [ "$literal" = 1 ]; then
       printf '%s\n' "${1:-}" >> "${FM_SEND_LOG:-/dev/null}"
-      if [ "${FM_FAKE_TMUX_CONSUME:-0}" = 1 ]; then
-        printf 'consumed-within-turn\n' >> "${FM_SEND_LOG:-/dev/null}"
-        if [ -n "${FM_FAKE_TMUX_CAPTURE:-}" ]; then
-          printf '╭────╮\n│    │\n╰────╯\n' > "$FM_FAKE_TMUX_CAPTURE"
-        fi
-      fi
       if [ -n "${FM_ACK_RECORD:-}" ] && [ -f "$FM_ACK_RECORD" ]; then
         mv "$FM_ACK_RECORD" "${FM_ACK_RECORD%/*}/handled/"
       fi
@@ -101,6 +95,8 @@ case "${1:-}" in
       if [ -n "${FM_RING_MARKS_RETRY:-}" ]; then
         printf '%s\n' "${FM_RING_MARKS_RETRY##*/}" > "${FM_RING_MARKS_RETRY%/*}/.retry-ring"
       fi
+    else
+      printf 'key:%s\n' "$@" >> "${FM_SEND_LOG:-/dev/null}"
     fi
     exit 0 ;;
   display-message)
@@ -910,7 +906,7 @@ test_watcher_successor_escalation_stays_quiet() {
   done
   [ "$(cut -f1 "$dir/state/t1.inbox/.ring-state")" = 001.msg ] \
     || fail "$mode successor changed the predecessor's delivery history"
-  [ "$(wc -l < "$dir/send.log" | tr -d ' ')" = 1 ] || fail "$mode successor was typed into"
+  [ "$(grep -cF 'Firstmate instruction waiting' "$dir/send.log")" = 1 ] || fail "$mode successor was typed into"
   [ -f "$rec" ] || fail "$mode successor lost its unhandled instruction"
   mv "$rec" "$dir/state/t1.inbox/handled/"
   rec=$(inbox_lib "$dir/state" fm_task_inbox_write "$dir/state" t1 "next instruction")
@@ -1230,7 +1226,15 @@ set_watch_harness() {  # <dir> <harness>
   fm_write_meta "$1/state/t1.meta" "window=sess:fm-t1" "kind=ship" "harness=$2"
 }
 
-test_watcher_submits_busy_claude_within_turn() {
+assert_doorbell_submitted() {
+  awk '
+    /Firstmate instruction waiting/ { typed=1; next }
+    typed && $0 == "key:Enter" { submitted=1 }
+    END { exit !submitted }
+  ' "$1/send.log" || fail "the busy doorbell lacked a following Enter:"$'\n'"$(cat "$1/send.log")"
+}
+
+test_watcher_submits_busy_claude() {
   local dir state capture
   dir=$(setup_watch_case claude-busy)
   state="$dir/state"
@@ -1241,17 +1245,14 @@ test_watcher_submits_busy_claude_within_turn() {
   capture=$(idle_capture "$dir")
   arm_semantic_busy "$state" claude-hook user-prompt-submit || fail "claude busy arm failed"
   assert_classified_busy "$dir" "$capture" "busy claude"
-  steer_check "$dir" "$capture" FM_FAKE_TMUX_CONSUME=1 FM_TASK_INBOX_GRACE_SECS=0
-  grep -qF 'Firstmate instruction waiting' "$dir/send.log" \
-    || fail "a busy claude pane was not rung:"$'\n'"$(cat "$dir/send.log")"
-  grep -qxF 'consumed-within-turn' "$dir/send.log" \
-    || fail "the submitted doorbell was not consumed within the turn:"$'\n'"$(cat "$dir/send.log")"
+  steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=0
+  assert_doorbell_submitted "$dir"
   [ ! -s "$state/.wake-queue" ] || fail "a busy claude submit woke firstmate:"$'\n'"$(cat "$state/.wake-queue")"
   [ -f "$state/t1.inbox/001.msg" ] || fail "the durable steer was removed"
-  pass "watcher: a busy claude pane is rung and the doorbell is consumed within that turn"
+  pass "watcher: a busy claude pane receives the doorbell followed by Enter"
 }
 
-test_watcher_submits_busy_opencode_without_claiming_consumption() {
+test_watcher_submits_busy_opencode() {
   local dir state capture
   dir=$(setup_watch_case opencode-busy)
   state="$dir/state"
@@ -1263,15 +1264,12 @@ test_watcher_submits_busy_opencode_without_claiming_consumption() {
   arm_semantic_busy "$state" opencode-plugin session-status || fail "opencode busy arm failed"
   assert_classified_busy "$dir" "$capture" "busy opencode"
   steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=0
-  grep -qF 'Firstmate instruction waiting' "$dir/send.log" \
-    || fail "a busy opencode pane was not rung:"$'\n'"$(cat "$dir/send.log")"
-  grep -qF 'consumed-within-turn' "$dir/send.log" \
-    && fail "opencode must not claim the doorbell was consumed within the turn"
+  assert_doorbell_submitted "$dir"
   [ ! -s "$state/.wake-queue" ] || fail "a busy opencode submit woke firstmate:"$'\n'"$(cat "$state/.wake-queue")"
-  pass "watcher: a busy opencode pane is rung without a within-turn consumption claim"
+  pass "watcher: a busy opencode pane receives the doorbell followed by Enter"
 }
 
-test_watcher_submits_busy_rovo_without_claiming_consumption() {
+test_watcher_submits_busy_rovo() {
   local dir state capture
   dir=$(setup_watch_case rovo-busy)
   state="$dir/state"
@@ -1283,12 +1281,9 @@ test_watcher_submits_busy_rovo_without_claiming_consumption() {
   capture="$dir/rovo.capture"
   assert_classified_busy "$dir" "$capture" "busy rovo"
   steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=0
-  grep -qF 'Firstmate instruction waiting' "$dir/send.log" \
-    || fail "a busy rovo pane was not rung:"$'\n'"$(cat "$dir/send.log")"
-  grep -qF 'consumed-within-turn' "$dir/send.log" \
-    && fail "rovo must not claim the doorbell was consumed within the turn"
+  assert_doorbell_submitted "$dir"
   [ ! -s "$state/.wake-queue" ] || fail "a busy rovo submit woke firstmate:"$'\n'"$(cat "$state/.wake-queue")"
-  pass "watcher: a busy rovo pane is rung without a within-turn consumption claim"
+  pass "watcher: a busy rovo pane receives the doorbell followed by Enter"
 }
 
 test_watcher_rerings_nonqueue_on_idle_after_escalation() {
@@ -1397,9 +1392,9 @@ test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
 test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_dead_pane_ignores_stale_busy_state
-test_watcher_submits_busy_claude_within_turn
-test_watcher_submits_busy_opencode_without_claiming_consumption
-test_watcher_submits_busy_rovo_without_claiming_consumption
+test_watcher_submits_busy_claude
+test_watcher_submits_busy_opencode
+test_watcher_submits_busy_rovo
 test_watcher_rerings_nonqueue_on_idle_after_escalation
 test_watcher_rerings_nonqueue_inside_grace_after_busy
 test_watcher_skips_exhausted_cursor_and_releases
