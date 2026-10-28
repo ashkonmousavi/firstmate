@@ -1,0 +1,5 @@
+{
+  "state/inbox/1793192010-w0PSVs.note": "id=1793192010-w0PSVs\nat=2026-10-28T12:53:30Z\nsource=text\nannounce_marker=1\nrequest_id=backstop-4c4f4247e10743a494cd27161c301798\n--\nREPLY DELIVERY UNVERIFIED lab-peer: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.\n",
+  "state/inbox/.requests/backstop-4c4f4247e10743a494cd27161c301798": "1793192010-w0PSVs\n",
+  "state/inbox/.announced/1793192010-w0PSVs": "2026-10-28T12:53:30Z\n"
+}

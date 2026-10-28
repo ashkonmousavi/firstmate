@@ -1,0 +1,10 @@
+{
+  "product": "Unmodified fm-main-backstop.py executable, fm-on.sh, OpenSSH client, genuine remote job lanes, delta reader and durable inbox.",
+  "isolation": "Disposable homes, remote queue, account and SSH config under the run worktree. AsyncSSH served localhost with no operator credentials. Its lab entrypoint staged commands through the real fm-remote-job-lib.sh and ran the real worker --lane; it did not fabricate exit statuses, delta records or backstop results. No Herdr or live fleet session was used.",
+  "fault_injection": "SIGSTOP on only each disposable reader execution group, with a genuine short command queued for that same disposable home. The real worker published exit 76 and emptied stdout/stderr. Every queued short command completed successfully.",
+  "oracle": "Author intent: three reissues at identical offset and prefix, four scan slots unaffected by preemptions, four failed attempts per cursor, first failed pass tolerated, second alarms, prior progress preserved. Remote job library header owns preemption exit 76; remote delta reader header owns non-destructive cursor reads.",
+  "baseline": "Both new regression tests rejected base 8ff9ead0: the retry case had no second attempt; the bounded case observed one attempt instead of four.",
+  "targeted": "bash tests/fm-main-backstop.test.sh completed with exit 0; all 66 component tests passed. The complete repository suite was not run.",
+  "cleanup": "All check children exited; localhost SSH listener stopped; disposable homes, downloaded local dependencies, baseline copy and generated Python bytecode removed. Git worktree clean.",
+  "research": "The repository-local data/research-book/INDEX.md is absent. No operational research book or fleet data was accessed. Public reference checked via Exa: https://docs.python.org/3/library/subprocess.html ; product-specific behavior validated against the executable local protocol owners."
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Reissue a preempted read at the identical cursor; three retries per window leave all four scan slots available, including multiline data and exit-75 tail",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Persist successful cursor progress before retry exhaustion; four preemptions tolerate one pass and the next failed pass writes a durable UNVERIFIED alarm",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "When the lane clears, the next cron pass resumes at the preserved cursor, reaches the tail and clears the read incident without modifying the reply log",
+    "result": "pass",
+    "live": true
+  }
+]

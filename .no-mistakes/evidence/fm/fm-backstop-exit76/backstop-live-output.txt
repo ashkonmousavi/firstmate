@@ -1,0 +1,9 @@
+bootstrap-retry checked watcher_age=1793191968s alarms=0
+three-preemptions-per-window checked watcher_age=1793191969s alarms=0
+bootstrap-exhaustion checked watcher_age=1793191993s alarms=0
+progress-then-four-preemptions read failed once, tolerating one pass: lab-peer
+checked watcher_age=1793191994s alarms=0
+second-preempted-pass-alarms REPLY DELIVERY UNVERIFIED lab-peer: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=1793192002s alarms=1
+lane-clears-and-resumes checked watcher_age=1793192010s alarms=0
+All live scenarios passed; local SSH server and lane children stopped; disposable homes removed.
