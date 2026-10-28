@@ -780,6 +780,9 @@ do_exit() {
     dialog=$(cat "$FM_COMPOSER_DIALOG_SINK")
     refuse_blocking_prompt "$dialog"
   fi
+  # A visible quota report permits a non-typing stop for an unknown composer,
+  # or for content proven to contain only repetitions of this task's doorbell.
+  # Unrelated and foreign-task pending drafts retain the ordinary refusal.
   if quota_exhausted_shown && {
     [ "$composer_state" = unknown ] ||
       fm_task_inbox_composer_doorbells "$BACKEND" "$T" "$STATE" "$ID"

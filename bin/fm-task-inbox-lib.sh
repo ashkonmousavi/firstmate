@@ -61,8 +61,10 @@
 # busy. Any other harness keeps that deferral, and the next poll that sees the
 # pane idle rings immediately, including inside grace and after the stuck-busy
 # escalation. At the busy bound the same escalation path surfaces a
-# stuck-busy reason without typing. A non-busy due check or acknowledgement resets
-# this budget. Fire-and-forget retries remain outside escalation. A positively
+# stuck-busy reason without typing. An owed idle follow-up keeps its .busy-state
+# marker through deadline and checkpoint-admission deferrals, consuming it only
+# when delivery is admitted for an attempt; acknowledgement also resets the budget.
+# Fire-and-forget retries remain outside escalation. A positively
 # dead or missing endpoint skips delivery and the ladder and escalates directly.
 # This library owns the schedule, durable budgets, and escalation marker.
 # If delivery-attempt or busy-deferral bookkeeping fails while the record remains unhandled,
@@ -274,6 +276,14 @@ fm_task_inbox_request_id() {
   awk '$0 == "--" { exit } /^request-id=/ { sub(/^request-id=/, ""); print; exit }' "$1"
 }
 
+# Re-enqueue onto an existing unhandled or handled record with matching delivery
+# mode, request identity, and exact body. Without a request id, only records with
+# no request-id header and the expected byte size are candidates; reply-bearing
+# bodies carry their own correlation, and fire-and-forget bodies their delivery id.
+# With a request id, a different body is a conflict, even when its size differs.
+# One bulk header parse selects candidates before body comparisons: spawning a
+# parser per retained record under .seq.lock can exceed remote delivery budgets.
+# Follow a concurrent acknowledgement into handled/ rather than enqueue twice.
 fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mode] [request-id]
   local state=$1 task=$2 text=$3 delivery_mode=${4:-} request_id=${5:-} dir lock want have f size rec='' status=0
   local -a candidates=() size_filter=()
@@ -430,10 +440,8 @@ fm_task_inbox_usage_exhausted() {  # <backend> <target> <harness> [expected-labe
   printf '%s\n' "$cap" | grep -Eq -- "$signal"
 }
 
-# Stop the task whose pane reported usage exhaustion. fm-control's exit verb
-# owns the sanctioned clear: interrupt, then SIGTERM, and only when the
-# composer reads unknown beside that report. A second call sees an agent that
-# has already stopped.
+# Stop the task whose pane reported usage exhaustion through fm-control's exit
+# contract (bin/fm-control.sh do_exit), preserving the inbox for recovery.
 fm_task_inbox_release_exhausted() {  # <task-id>
   local status=0
   "$_FM_TASK_INBOX_LIB_DIR/fm-control.sh" "$1" exit || status=$?

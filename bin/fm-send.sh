@@ -37,7 +37,8 @@
 # command: it preserves the same correlation, body, and record, while a plain
 # re-run mints a new correlation and delivers a separate record. An explicit
 # fire-and-forget request instead retries with its same caller-supplied delivery
-# id. A still-unconfirmed reply-bearing request keeps its reply expectation
+# id. A one-way request instead uses the FM_SEND_REQUEST_ID retry contract below.
+# A still-unconfirmed reply-bearing request keeps its reply expectation
 # preserved for the record that may have landed.
 # Pending-reply bookkeeping trouble after a durable enqueue NEVER exits
 # nonzero: with the recovery marker stored the watcher reconciles it silently,
@@ -100,7 +101,7 @@
 # marked - their behavior is unchanged.
 #
 # Parent-owned pending-reply expectation: every newly marked secondmate request
-# except an explicit --fire-and-forget delivery receives a privacy-safe
+# except an explicit --fire-and-forget or --one-way delivery receives a privacy-safe
 # correlation id and a durable parent record under state/pending-replies/ before
 # delivery (bin/fm-pending-reply-lib.sh). Delivery
 # success and reply success are separate facts: delivery never resolves the
@@ -144,8 +145,8 @@
 # deduplicates the same request onto the same record - and a still-lost
 # transport exits nonzero while preserving a reply-bearing marked request's
 # expectation, since the record may have landed. Its error prints the exact
-# FM_PENDING_REPLY_EXISTING_CORR=<id> resend command that preserves the body
-# and makes a later remote enqueue deduplicate onto that same record. An
+# identity-preserving resend command described above, so a later remote enqueue
+# deduplicates onto that same record. An
 # unconfirmed fire-and-forget request exits 3 and names the same delivery id to
 # retry. Every remote transport attempt is bounded by FM_SEND_REMOTE_BUDGET
 # seconds (default 30, and any override must be a positive integer): a bound
@@ -1199,8 +1200,8 @@ else
     fi
     fm_lock_release "$INBOX_META_LOCK"
     # Enqueue IS durable delivery to the task's record: mark the pending
-    # expectation delivered now, without resolving it - only a correlated
-    # parent report acknowledges the request.
+    # expectation delivered now, without resolving it; resolution belongs to
+    # bin/fm-pending-reply-lib.sh, independently of the delivery result.
     if [ -n "$PENDING_REPLY_CORR" ]; then
       if fm_pending_reply_confirm_delivery "$STATE" "$PENDING_REPLY_CORR"; then
         :
@@ -1338,7 +1339,7 @@ else
     ;;
   esac
   # Delivery confirmed. Mark the pending expectation delivered without resolving
-  # it: only a correlated parent report acknowledges the request.
+  # it; resolution belongs to bin/fm-pending-reply-lib.sh.
   if [ -n "$PENDING_REPLY_CORR" ]; then
     if fm_pending_reply_confirm_delivery "$STATE" "$PENDING_REPLY_CORR"; then
       :

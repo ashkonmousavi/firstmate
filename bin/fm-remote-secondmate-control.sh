@@ -6,7 +6,7 @@
 #   fm-remote-secondmate-control.sh relaunch <id> <harness> <model|default|-> <effort|default|->
 #   fm-remote-secondmate-control.sh state <id>
 #   fm-remote-secondmate-control.sh route <id>
-#   fm-remote-secondmate-control.sh send <id> <message> [fire-and-forget]
+#   fm-remote-secondmate-control.sh send <id> <message> [delivery-mode] [request-id]
 #   fm-remote-secondmate-control.sh inbox <id> due <grace-secs> <ring-max>|ring <record>|escalated <record>
 #   fm-remote-secondmate-control.sh key <id> <key>
 #   fm-remote-secondmate-control.sh capture <id> [lines]
@@ -38,6 +38,8 @@
 # state/*.meta remains reserved for workers the secondmate supervises.
 # Retirement closes only this secondmate's panes or workspace and never
 # stops fm-remote or removes a sibling secondmate's workspace or panes.
+# The send delivery mode is empty or fire-and-forget; a one-way request uses
+# an empty mode followed by its request id (bin/fm-task-inbox-lib.sh).
 #
 # Relaunch is not a second lifecycle implementation: it runs the ORDINARY local
 # control plane here, because from this host the mate is a plain local

@@ -581,6 +581,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "tests/captures/grok-idle-always-approve.txt",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "tests/captures/no-mistakes-v1.70.1/README.md",
       "audience": "maintainer-verification"
     },

@@ -4,10 +4,12 @@
 # When the main firstmate delivers a reply-bearing marked from-firstmate request
 # to a secondmate, this library records a durable parent-owned pending-reply
 # expectation BEFORE delivery, embeds a privacy-safe correlation id in the
-# outbound message, and later resolves that expectation only from a correlated
+# outbound message, and later automatically resolves that expectation from a correlated
 # line in the asked task's own parent status log, or a document it points to -
 # never from transport success, chat content, unrelated status activity, or
 # another task's line that echoes or quotes the token.
+# Explicit no-reply resolution is owned by fm_pending_reply_retire_notice and
+# fm_pending_reply_ack_handled below; delivery acknowledgement alone never closes it.
 #
 # Safety property (captain direction 2026-07-22): a secondmate agent may ignore
 # the marker and answer only in its visible conversation. The parent must notice

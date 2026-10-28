@@ -194,10 +194,9 @@ fm_control_interrupt_hazard_signal() {  # <harness>
 }
 
 # The rendered row, as one ERE, by which a harness reports that its usage or
-# quota is exhausted. While that report is visible the runtime is out of
-# credits and is being replaced anyway, and its composer cannot be proven
-# empty: an open usage picker replaces it, and a dismissed one leaves it
-# reading unknown. Grok's weekly-limit notice
+# quota is exhausted. The exit safety contract is owned by bin/fm-control.sh
+# do_exit; the report alone does not authorize discarding a pending draft.
+# Grok's weekly-limit notice
 # (tests/captures/grok-weekly-limit-picker.txt) heads its picker, so it is
 # recognised while the picker is open and, while the notice is still visible,
 # after the picker is dismissed. Cursor's report is the row the fleet read

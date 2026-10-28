@@ -41,12 +41,8 @@ Other correlated mate-home status lines remain wrong-home evidence, while a remo
 The mate home's own status scans treat that remote channel the same way: `status_scan_parent_channel_exclude` in `bin/fm-classify-lib.sh` resolves the outbound path through the same `bin/fm-parent-channel-lib.sh` binding, and the watcher's signal scan and heartbeat backstop, the away-mode daemon's catch-all scan, and the fleet-wide folds skip exactly that resolved path, never a file name.
 The remote reply adapter already mirrors every channel line into the parent home, so folding the channel again here would only spin spurious wakes and a phantom `parent-replies` task, while a `parent-replies.status` in a main home or in a local mate is an ordinary task log that keeps folding and waking.
 A missed-reply escalation includes the complete first sighting path and line number in readable shell-escaped form.
-Routine one-way notices are sent fire-and-forget and never create a pending-reply record.
-An ordinary steer that expects no reply and stays on the re-ring ladder is sent with `fm-send --one-way`, which writes no pending-reply correlation and uses the durable request identity owned by `bin/fm-task-inbox-lib.sh`.
-A record left by a notice that was mistakenly sent as a reply request is retired with `FM_HOME=<parent-home> bin/fm-pending-reply-retire-notice.sh <task-id> <corr-id>`, after the operator has confirmed that the original message was a one-way notice.
-It resolves that exact record with `resolved_via=notice` and closes only its own escalation, and it refuses a record that was already resolved through another path.
-A correlation the recipient has handled and does not need to answer is closed with `FM_HOME=<parent-home> bin/fm-pending-reply-ack-handled.sh <task-id> <corr-id>`.
-That command resolves the exact record with `resolved_via=handled` and the close note `handled, no reply needed`, and moving an inbox record to `handled/` does not call it.
+For no-reply steers, [`fm-send.sh`](../bin/fm-send.sh) owns the choice between `--one-way` and fire-and-forget delivery.
+Existing correlations use the exact-record commands owned by [`fm-pending-reply-retire-notice.sh`](../bin/fm-pending-reply-retire-notice.sh) for operator-confirmed notices or [`fm-pending-reply-ack-handled.sh`](../bin/fm-pending-reply-ack-handled.sh) for recipient acknowledgements.
 
 ## What is deliberately not built
 
