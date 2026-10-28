@@ -940,14 +940,14 @@ test_binding_failure_blocks_repeat_send() {
 
 test_acknowledgement_during_conflict_delivery() (
   local state log decision timing text
-  for timing in before_scan post_read pre_read no_enqueue; do
+  for timing in before_scan post_stat post_read pre_stat pre_read no_enqueue; do
     reset_lib
     state="$TMP_ROOT/ack-during-delivery-$timing"
     setup_task "$state"
     log=$FM_TEST_INBOX_LOG
     text=$(fm_pr_conflict_instruction https://github.com/o/r/pull/7 curated)
     "$FM_TEST_INBOX_WRITER" lane "$text" || fail "could not seed the acknowledgement fixture"
-    if [ "$timing" != pre_read ]; then
+    if [ "$timing" != pre_read ] && [ "$timing" != pre_stat ]; then
       mv "$state/lane.inbox/001.msg" "$state/lane.inbox/handled/"
     fi
     cat > "$TMP_ROOT/ack-send.sh" <<'SH'
@@ -963,6 +963,17 @@ SH
     FM_PR_CONFLICT_SEND=$TMP_ROOT/ack-send.sh
     # shellcheck disable=SC2329
     fm_pr_conflict_posture() { printf 'live\n'; }
+    [() {
+      if [[ $# = 3 && $1 = -f && $3 = ']' ]] \
+        && { [[ $timing = pre_stat && $2 = "$state/lane.inbox/001.msg" ]] \
+          || [[ $timing = post_stat && $2 = "$state/lane.inbox/002.msg" ]]; }; then
+        if [[ -f $2 ]]; then
+          mv "$2" "$state/lane.inbox/handled/" || return 1
+          printf 'acknowledged\n' > "$state/stat-acknowledgement"
+        fi
+      fi
+      builtin [ "$@"
+    }
     # shellcheck disable=SC2329
     fm_task_inbox_body() {
       if { [ "$timing" = pre_read ] && [ "$1" = "$state/lane.inbox/001.msg" ]; } \
@@ -984,9 +995,14 @@ SH
     [ "$(fm_pr_conflict_steer_recorded_basename "$state" lane github github.com o/r 7)" = 002.msg ] \
       || fail "confirmation did not bind the newly delivered instruction ($timing)"
     case "$timing" in
-      before_scan|post_read)
+      before_scan|post_stat|post_read)
         [ -f "$state/lane.inbox/handled/002.msg" ] && [ ! -e "$state/lane.inbox/002.msg" ] \
           || fail "the delivered instruction was not acknowledged ($timing)"
+        ;;
+    esac
+    case "$timing" in
+      pre_stat|post_stat)
+        [ -f "$state/stat-acknowledgement" ] || fail "the acknowledgement before file validation was never exercised"
         ;;
     esac
     case "$timing" in

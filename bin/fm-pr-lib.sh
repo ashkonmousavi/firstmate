@@ -1832,10 +1832,12 @@ fm_pr_conflict_steer_bind() {  # <state> <id> <provider> <host> <path> <number> 
     if [ -z "$min_seq" ]; then
       case "$f" in "$handled"/*) continue ;; esac
       [ ! -e "$handled/$base" ] && [ ! -L "$handled/$base" ] || continue
-    elif [ ! -e "$f" ]; then
-      f="$handled/$base"
     fi
-    [ -f "$f" ] && [ ! -L "$f" ] || continue
+    if ! { [ -f "$f" ] && [ ! -L "$f" ]; }; then
+      [ -n "$min_seq" ] || continue
+      f="$handled/$base"
+      [ -f "$f" ] && [ ! -L "$f" ] || continue
+    fi
     seq=$(fm_task_inbox_seq_of "$base") || continue
     [ -z "$min_seq" ] || [ "$seq" -ge "$min_seq" ] || continue
     if ! body=$(fm_task_inbox_body "$f"); then
