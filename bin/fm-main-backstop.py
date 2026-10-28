@@ -35,9 +35,15 @@ get bootstraps a delta cursor, then fm-remote-delta-read returns only appended
 lines. A moved log is re-read from the beginning, preserving unmirrored
 stamps; a source past the whole-file bound is scanned from the beginning
 through the bounded delta path across successive passes.
-A delta scan must reach the current tail within four reads; exhausting that
-budget counts as a failed read while preserving cursor progress for the next
-pass, never reporting an intermediate timestamp as current. Delta reads allow one
+A delta scan reads at most four windows per pass. Exhausting them with the
+cursor advanced persists that progress and continues next pass as catching
+up, reporting only the oldest unmirrored stamp actually seen, while a budget
+exhausted with no cursor progress counts as a failed read, never reporting an
+intermediate timestamp as current. A reader with exactly the legacy
+{offset, prefix, stamp} keys migrates only when its offset and prefix pass
+validation and its stamp is a nonnegative integer; it keeps its cursor and
+seeds pending_at with that stamp.
+Delta reads allow one
 reply-runner poll window in the shared remote job lane (ninety seconds); other
 commands keep fifteen seconds. On exit 76, re-issue the same (offset, prefix)
 read up to three times per read (DELTA_PREEMPT_REREADS).
@@ -223,6 +229,23 @@ def valid_reader(record):
             and re.fullmatch(r'[0-9a-f]{64}', prefix) is not None)
 
 
+def migrate_reader(record):
+    """A legacy {offset, prefix, stamp} record as the pending_at shape, or
+    None when the record is not exactly that older private-copy shape."""
+    if not isinstance(record, dict) or set(record) != {'offset', 'prefix', 'stamp'}:
+        return None
+    try:
+        offset = int(record['offset'])
+        prefix = str(record['prefix'])
+        stamp = record['stamp']
+    except (KeyError, TypeError, ValueError):
+        return None
+    if (offset >= 0 and re.fullmatch(r'[0-9a-f]{64}', prefix) is not None
+            and type(stamp) is int and stamp >= 0):
+        return {'offset': offset, 'prefix': prefix, 'pending_at': [stamp]}
+    return None
+
+
 def delta_call(code, env, mate, offset, prefix):
     """One fm-remote-delta.v1 record as (fields, payload); fields is None when
     the window closed with no new complete line.
@@ -258,7 +281,8 @@ def delta_call(code, env, mate, offset, prefix):
     return fields, payload
 
 
-def drain_delta(code, env, readers, mate, local):
+def drain_delta(code, env, readers, mate, local, audit):
+    start = readers[mate]['offset']
     for _ in range(DELTA_READ_BUDGET):
         record = readers[mate]
         record['pending_at'] = sorted({stamp for stamp in record['pending_at'] if stamp > local})
@@ -276,14 +300,25 @@ def drain_delta(code, env, readers, mate, local):
         readers[mate] = {'offset': int(fields['to_offset']),
                          'prefix': fields['to_prefix_sha256'],
                          'pending_at': sorted(set(record['pending_at']) | {stamp for stamp in found if stamp > local})}
+    if readers[mate]['offset'] > start:
+        # An advancing rescan of a large log is catching up, not a failed
+        # read: the persisted cursor converges across passes, and the oldest
+        # unmirrored stamp seen so far reports real lag without implying the
+        # tail was reached. No cursor progress is still a failed read.
+        audit('read %s log catching up: cursor at %d' % (mate, readers[mate]['offset']))
+        return min(readers[mate]['pending_at'], default=0)
     raise ProbeError('remote reply tail not reached within read budget')
 
 
 def remote_oldest(code, env, memory, mate, local, audit):
     readers = memory.setdefault('readers', {})
     pending = []
+    legacy = migrate_reader(readers.get(mate))
+    if legacy is not None:
+        readers[mate] = legacy
+        audit('migrated %s legacy reader cursor' % mate)
     if valid_reader(readers.get(mate)):
-        oldest = drain_delta(code, env, readers, mate, local)
+        oldest = drain_delta(code, env, readers, mate, local, audit)
         if oldest is not None:
             return oldest
         pending = readers[mate]['pending_at']
@@ -302,7 +337,7 @@ def remote_oldest(code, env, memory, mate, local, audit):
         raise ProbeError('command failed or timed out')
     readers[mate] = {'offset': 0, 'prefix': hashlib.sha256(b'').hexdigest(),
                      'pending_at': pending}
-    oldest = drain_delta(code, env, readers, mate, local)
+    oldest = drain_delta(code, env, readers, mate, local, audit)
     if oldest is None:
         raise ProbeError('remote reply log kept moving')
     return oldest
@@ -385,8 +420,7 @@ def main():
         memory = {}
     # An older private copy stored these as lists; reset any non-dict shape
     # to a fresh dict so the dict-typed bookkeeping below starts cleanly,
-    # keeping last_nudge and any reader cursors. Reader records failing
-    # valid_reader rebootstrap as on any first pass.
+    # keeping last_nudge and any reader cursors.
     for key in ('episodes', 'read_fails', 'runner_fails'):
         if not isinstance(memory.get(key), dict):
             memory[key] = {}

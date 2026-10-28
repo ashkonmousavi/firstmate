@@ -111,6 +111,9 @@ if command=='fm-remote-delta-read.sh' and c.get('preempt_delta',0)>0:
     counter.write_text(str(n+1))
     if n<c['preempt_delta']:
         sys.exit(76)
+if command=='fm-remote-delta-read.sh' and c.get('stuck_delta',0)>0:
+    sys.stdout.write('schema=fm-remote-delta.v1\\nstatus=delta\\nto_offset=%s\\npayload_bytes=0\\nto_prefix_sha256=%s\\n\\n' % (sys.argv[4],sys.argv[5]))
+    sys.exit(0)
 os.environ['FM_HOME']=str(remote)
 real=str(Path(os.environ['BACKSTOP_ROOT'])/'bin'/command)
 os.execv(real,[command]+sys.argv[3:])
@@ -538,7 +541,10 @@ os.execv(real,[command]+sys.argv[3:])
             'readers': {'q-server': {'offset': 9999, 'prefix': '0' * 64, 'stamp': 99999}}}))
         self.run_guard()
         self.assertIn('3940s (oldest_at=1060 ingested_at=1000)', self.notes())
-        self.assertEqual(self.reader_calls()[0][1], 'fm-remote-file.sh')
+        # The migrated legacy cursor is tried first; its bogus prefix breaks
+        # continuity and the pass rebuilds from the whole file.
+        self.assertEqual(self.reader_calls()[0][1], 'fm-remote-delta-read.sh')
+        self.assertEqual(self.reader_calls()[1][1], 'fm-remote-file.sh')
 
     def test_report_body_cannot_advance_mirror_or_clear_incident(self):
         (self.state / '.last-watcher-beat').touch()
@@ -919,20 +925,109 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertIn('REPLY DELIVERY LAG q-server: 3800s', self.notes())
         self.assertNotIn('q-server', self.memory()['read_fails'])
 
-    def test_over_budget_backlog_stays_unverified_until_tail(self):
+    def test_over_budget_backlog_catches_up_without_unverified_alarm(self):
         (self.state / '.last-watcher-beat').touch()
         self.run_guard()
         self.config['remote_file'] = ('working [at=1000]: remote reply\n' +
                                       'working [at=1200]: backlog\n' * 22000 +
                                       'done [at=3000]: latest\n')
+        for _ in range(6):
+            self.run_guard()
+            self.assertNotIn('q-server', self.memory()['read_fails'])
+            self.assertNotIn('REPLY DELIVERY UNVERIFIED', self.notes())
+            if self.memory()['readers']['q-server']['offset'] == len(self.config['remote_file'].encode()):
+                break
+        self.assertEqual(self.memory()['readers']['q-server']['offset'],
+                         len(self.config['remote_file'].encode()))
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+        self.assertIn('REPLY DELIVERY LAG q-server: 3800s', self.notes())
+        self.assertNotIn('REPLY DELIVERY UNVERIFIED', self.notes())
+
+    def test_tail_never_reached_without_progress_still_alarms(self):
+        (self.state / '.last-watcher-beat').touch()
         self.run_guard()
+        offset = self.memory()['readers']['q-server']['offset']
+        calls = len(self.reader_calls())
+        self.config['remote_file'] = ('working [at=1000]: remote reply\n'
+                                      'done [at=1901]: newer reply\n')
+        self.config['stuck_delta'] = 1
+        self.run_guard()
+        attempts = self.reader_calls()[calls:]
+        self.assertEqual(len(attempts), 4)
+        self.assertTrue(all(call[1] == 'fm-remote-delta-read.sh' for call in attempts))
+        self.assertEqual(self.memory()['readers']['q-server']['offset'], offset)
         self.assertIn('q-server', self.memory()['read_fails'])
         self.assertEqual(self.notes(), '')
         self.run_guard()
         self.assertIn('REPLY DELIVERY UNVERIFIED q-server', self.notes())
+
+    def test_legacy_reader_record_migrates_and_keeps_cursor(self):
+        (self.state / '.last-watcher-beat').touch()
+        body = 'working [at=1000]: remote reply\n'
+        self.config['remote_file'] = body
+        prefix = hashlib.sha256(body.encode()).hexdigest()
+        for stamp in (0, 1000):
+            with self.subTest(stamp=stamp):
+                (self.state / '.main-backstop.json').write_text(json.dumps({
+                    'readers': {'q-server': {'offset': len(body), 'prefix': prefix,
+                                             'stamp': stamp}}}))
+                calls = len(self.reader_calls())
+                self.run_guard()
+                reads = self.reader_calls()[calls:]
+                self.assertEqual(len(reads), 1)
+                self.assertEqual(reads[0][1], 'fm-remote-delta-read.sh')
+                self.assertEqual(reads[0][3:5], [str(len(body)), prefix])
+                self.assertEqual(self.memory()['readers']['q-server'],
+                                 {'offset': len(body), 'prefix': prefix, 'pending_at': []})
+                self.assertNotIn('q-server', self.memory()['read_fails'])
+                self.assertEqual(self.notes(), '')
+
+    def test_legacy_reader_preserves_unmirrored_stamp_until_mirrored(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.now = 2802
+        body = 'done [at=1901]: remote reply\n'
+        self.config['remote_file'] = body
+        prefix = hashlib.sha256(body.encode()).hexdigest()
+        (self.state / '.main-backstop.json').write_text(json.dumps({
+            'readers': {'q-server': {'offset': len(body), 'prefix': prefix,
+                                     'stamp': 1901}}}))
         self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 3800s', self.notes())
+        self.assertEqual(len(self.reader_calls()), 1)
+        self.assertEqual(self.reader_calls()[0][1], 'fm-remote-delta-read.sh')
+        self.assertEqual(self.reader_calls()[0][3:5], [str(len(body)), prefix])
+        self.assertEqual(self.memory()['readers']['q-server'],
+                         {'offset': len(body), 'prefix': prefix, 'pending_at': [1901]})
+        self.assertIn('901s (oldest_at=1901 ingested_at=1000)', self.notes())
         self.assertNotIn('q-server', self.memory()['read_fails'])
+        (self.state / '.remote-reply-mirrored-q-server').write_text(
+            'done [at=1901]: mirrored\n')
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [])
+        self.assertNotIn('lag-q-server', self.memory()['episodes'])
+
+    def test_invalid_legacy_reader_rebootstraps_before_reporting_lag(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.now = 2802
+        body = 'done [at=1901]: remote reply\n'
+        self.config['remote_file'] = body
+        prefix = hashlib.sha256(body.encode()).hexdigest()
+        legacy = {'offset': len(body), 'prefix': prefix, 'stamp': 1901}
+        records = [dict(legacy, version=2),
+                   {key: value for key, value in legacy.items() if key != 'stamp'},
+                   dict(legacy, offset=-1), dict(legacy, prefix='bogus')]
+        records += [dict(legacy, stamp=stamp)
+                    for stamp in (-1, True, False, 1901.0, '1901', None, [], {})]
+        for record in records:
+            with self.subTest(record=record):
+                (self.state / '.main-backstop.json').write_text(json.dumps({
+                    'readers': {'q-server': record}}))
+                calls = len(self.reader_calls())
+                self.run_guard()
+                self.assertEqual(self.reader_calls()[calls][1], 'fm-remote-file.sh')
+                self.assertEqual(self.memory()['readers']['q-server'],
+                                 {'offset': len(body), 'prefix': prefix, 'pending_at': [1901]})
+                self.assertIn('901s (oldest_at=1901 ingested_at=1000)', self.notes())
+                self.assertNotIn('q-server', self.memory()['read_fails'])
 
     def test_single_transient_read_failure_is_tolerated_without_alarm(self):
         (self.state / '.last-watcher-beat').touch()
