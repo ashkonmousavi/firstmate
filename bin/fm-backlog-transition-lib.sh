@@ -88,6 +88,12 @@ if ! declare -F fm_pr_url_parse >/dev/null 2>&1; then
   # shellcheck source=bin/fm-pr-lib.sh disable=SC1091
   . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-pr-lib.sh"
 fi
+# fm-hold-release-lib.sh owns the structured release condition recorded beside
+# the await-merge hold below. It is functions and empty globals only.
+if ! declare -F fm_hold_release_valid >/dev/null 2>&1; then
+  # shellcheck source=bin/fm-hold-release-lib.sh disable=SC1091
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-hold-release-lib.sh"
+fi
 
 # Latched when a row read hits its bound. fm_backlog_row_show runs inside a
 # command substitution, so the subshell can READ this latch but cannot set it;
@@ -865,6 +871,9 @@ fm_backlog_retain_transition() {
 
 # A PR cleanup keeps the row open and externally held. The marker carries
 # this distinct mode so crash replay cannot accidentally close the item.
+# A GitHub PR also records its structured release condition, so the watcher's
+# hold-release evaluation - not a hand re-check - notices the merge and wakes
+# firstmate to disposition the row (bin/fm-hold-release-lib.sh).
 fm_backlog_await_merge_transition() {
   local meta=$1 marker=$2 data=$3 id=$4 state=$5
   shift 5
@@ -876,6 +885,9 @@ fm_backlog_await_merge_transition() {
     fm_backlog_retain "$data" "$id" "$@" || return 1
   fi
   fm_backlog_mutate "$data" hold "$id" --kind external --reason "awaiting merge $2" || return 1
+  if fm_pr_url_parse "$2" && [ "$FM_PR_PROVIDER" = github ]; then
+    fm_hold_release_record_write "$state" "$id" "pr:$FM_PR_PATH#$FM_PR_NUMBER" || return 1
+  fi
   fm_backlog_record_remove "$marker" "pending-close record" "$state"
 }
 

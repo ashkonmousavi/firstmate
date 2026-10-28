@@ -117,8 +117,9 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-ff-lib.sh`           | Shared guarded fast-forward/reconcile helper for origin pulls and secondmate syncs, with durable divergence markers |
 | `fm-lock-lib.sh`         | Shared "is this git lock provably abandoned?" proof used by teardown and fleet-sync   |
 | `fm-config-inherit-lib.sh` | Shared primary-to-secondmate inherited local-material propagation and config-reread delivery |
-| `fm-tasks-axi.sh`        | Run `tasks-axi` against this home's backlog from any working directory               |
+| `fm-tasks-axi.sh`        | Run `tasks-axi` against this home's backlog from any working directory, with the hold `--release-on` condition and the kind-external refusal |
 | `fm-tasks-axi-lib.sh`    | Shared backlog-backend selector and `tasks-axi` compatibility probe                  |
+| `fm-hold-release-lib.sh` | Structured hold release conditions: syntax, per-task records, evaluation, and the `hold condition met` keyed decision |
 | `fm-backlog-transition-lib.sh` | Pair task-record changes with their backlog transitions and replay interrupted closes |
 | `fm-quota-axi-lib.sh`    | Shared `quota-axi` compatibility floor and quota snapshot schema validation           |
 | `fm-quota-choose.sh`     | Choose the first candidate with known positive quota from an ordered harness:model list |
@@ -173,6 +174,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-mail.sh`             | General-purpose mail plane: read unseen IMAP mail, send one SMTP message, or surface new mail as a `check` wake via `poll` (configuration in the home's gitignored `.env`) |
 | `fm-mail.py`             | The IMAP/SMTP engine behind `fm-mail.sh` |
 | `fm-mail-check.sh`       | Standing received-mail poll: `arm` registers a watcher check that runs `fm-mail.sh poll` on the watcher cadence (new mail still wakes via the poll; the check's own line also wakes unless the poll is a proven no-op), `disarm` removes it |
+| `fm-walk-request.sh`     | A secondmate's typed walk request on its parent channel, for dispatch by the walker-owning home |
+| `fm-walk-request-check.sh` | Standing walk-request dispatch: `arm` registers a watcher check that runs each requested walk through the home-private `data/bin/fm-grok-bot-dispatch.sh` at most once per `<walk>@<release>` and returns the outcome to the requesting mate, `disarm` removes it |
 | `fm-voice-relay.py`      | Hold the spoken conversation on this host, answer from the records, and hand real work to `fm-inbox.sh` ([voice-relay.md](voice-relay.md)) |
 | `fm-voice-client.py`     | The laptop end of the spoken interface: capture, playback, and turn timing over SSH; audio devices unverified |
 | `fm_voice_frame.py`      | The wire format both machines share, copied to the laptop beside the client          |

@@ -42,6 +42,7 @@ The mate home's own status scans treat that remote channel the same way: `status
 The remote reply adapter already mirrors every channel line into the parent home, so folding the channel again here would only spin spurious wakes and a phantom `parent-replies` task, while a `parent-replies.status` in a main home or in a local mate is an ordinary task log that keeps folding and waking.
 A missed-reply escalation includes the complete first sighting path and line number in readable shell-escaped form.
 Routine one-way notices are sent fire-and-forget and never create a pending-reply record.
+The channel also carries one typed request a mate script emits rather than an outcome: a walk request written by `bin/fm-walk-request.sh`, read and dispatched by the dispatcher-owning home's registered check (`bin/fm-walk-request-check.sh`), whose carrier header owns the line format.
 A record left by a notice that was mistakenly sent as a reply request is retired with `FM_HOME=<parent-home> bin/fm-pending-reply-retire-notice.sh <task-id> <corr-id>`, after the operator has confirmed that the original message was a one-way notice.
 It resolves that exact record with `resolved_via=notice` and closes only its own escalation, and it refuses a record that was already resolved through another path.
 

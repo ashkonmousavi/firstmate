@@ -97,6 +97,12 @@
 #                          a state check exited non-zero or was killed at
 #                          FM_CHECK_TIMEOUT; queued once per failure episode
 #                          (check_run_record owns the episode and its record)
+#   check: hold-release: hold condition met: <task-id> <condition>
+#                          a held row's structured release condition (its
+#                          --release-on pr:/marker:) was found met by this
+#                          sweep; the keyed decision it opened stays in OPEN
+#                          DECISIONS until the hold is released or re-held
+#                          (bin/fm-hold-release-lib.sh owns the contract)
 #   check: process-event result captured: <keys>
 #                          a durably captured process-to-event result is queued
 #                          and has not been surfaced yet; reported once per
@@ -238,6 +244,11 @@ WATCH_HOME_EXISTED=0
 # cheap when no records exist and never scrapes secondmate conversation.
 # shellcheck source=bin/fm-pending-reply-lib.sh
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
+# Structured hold release conditions: the check sweep below evaluates the
+# records written beside holds with --release-on and wakes once per met
+# condition, keeping a keyed decision open until the hold is dispositioned.
+# shellcheck source=bin/fm-hold-release-lib.sh
+. "$SCRIPT_DIR/fm-hold-release-lib.sh"
 # shellcheck source=bin/fm-busy-lib.sh
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # Steering-inbox loss detection: bin/fm-task-inbox-lib.sh owns the record,
@@ -3760,6 +3771,36 @@ while :; do
       [ -e "$STATE/${check_record##*/.check-run-}.check.sh" ] || rm -f -- "$check_record"
     done
     check_sweep_deferred=0
+    # Hold release conditions are evaluated in the same sweep, before the
+    # per-check loop: each newly-met condition has already opened its durable
+    # keyed decision, and this queues exactly one check wake per episode for
+    # it. The evaluation is bounded (its own per-record reads and sweep cap)
+    # and its diagnostics are triage, not wakes.
+    hold_release_out=$(fm_hold_release_evaluate "$STATE" 2>"$STATE/.hold-release-sweep.err")
+    hold_release_rc=$?
+    [ ! -s "$STATE/.hold-release-sweep.err" ] || {
+      while IFS= read -r hold_release_diag; do
+        [ -n "$hold_release_diag" ] || continue
+        triage_log "$hold_release_diag"
+      done < "$STATE/.hold-release-sweep.err"
+      : > "$STATE/.hold-release-sweep.err"
+    }
+    if [ "$hold_release_rc" -ne 0 ]; then
+      triage_log "hold-release evaluation reported rc=$hold_release_rc"
+    fi
+    if [ -n "$hold_release_out" ]; then
+      while IFS= read -r hold_release_line; do
+        [ -n "$hold_release_line" ] || continue
+        hold_release_rest=${hold_release_line#"$FM_HOLD_RELEASE_WAKE_PREFIX"}
+        hold_release_id=${hold_release_rest%% *}
+        [ -n "$hold_release_id" ] || continue
+        reason="check: hold-release: $hold_release_line"
+        fm_wake_append check "hold-release:$hold_release_id" "$reason" || checkpoint_wake_failed $?
+        [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
+      done <<EOF
+$hold_release_out
+EOF
+    fi
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue
       # A bounded checkpoint starts no check past its bound; the unrun checks

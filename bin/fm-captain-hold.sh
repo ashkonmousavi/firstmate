@@ -22,6 +22,7 @@
 # Usage:
 #   fm-captain-hold.sh hold <task-id> --reason <reason> \
 #     [--title <title>] [--repo <repo>] [--origin <origin-id>] [--until YYYY-MM-DD]
+#     [--release-on pr:<owner>/<repo>#<n> | --release-on marker:<absolute-path>]
 #   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release]
 #   fm-captain-hold.sh answers [<legacy-origin> | --any-origin] --source <provenance>   (keyed answers on stdin)
 #   fm-captain-hold.sh reconcile-requests --source-id <source-id> --source <provenance>   (task ids on stdin)
@@ -237,6 +238,9 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 # shellcheck source=bin/fm-hold-reason-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-hold-reason-lib.sh"
+# shellcheck source=bin/fm-hold-release-lib.sh
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/fm-hold-release-lib.sh"
 # shellcheck source=bin/fm-parent-channel-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-parent-channel-lib.sh"
@@ -904,7 +908,7 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
 }
 
 command_hold() {
-  local id=${1:-} title='' reason='' repo='' origin='' until='' show state existing_title body='' hold_kind hold_set occurrence
+  local id=${1:-} title='' reason='' repo='' origin='' until='' release_on='' show state existing_title body='' hold_kind hold_set occurrence
   local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' hold_status=0
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   shift
@@ -915,6 +919,7 @@ command_hold() {
       --repo) shift; repo=${1:-} ;;
       --origin) shift; origin=${1:-} ;;
       --until) shift; until=${1:-} ;;
+      --release-on) shift; release_on=${1:-} ;;
       *) usage >&2; exit 2 ;;
     esac
     shift
@@ -931,6 +936,14 @@ command_hold() {
       [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) : ;;
       *) fail "--until must be a YYYY-MM-DD date: $until" ;;
     esac
+  fi
+  # A captain hold may also name the external event that makes the question
+  # moot (the PR whose merge answers it, or an activation marker); the watcher
+  # evaluates it and wakes once when it is met. bin/fm-hold-release-lib.sh
+  # owns the condition syntax, the record, and the keyed decision.
+  if [ -n "$release_on" ]; then
+    release_on=$(fm_hold_release_valid "$release_on") \
+      || fail "--release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: $release_on"
   fi
   hold_set=${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
   case "$hold_set" in
@@ -1007,6 +1020,14 @@ command_hold() {
   show=$TASK_SHOW_OUTPUT
   hold_kind=$(show_field_value "$show" hold_kind)
   [ "$hold_kind" = captain ] || fail "task $id did not retain its captain hold"
+  if [ -n "$release_on" ]; then
+    # Stored after the hold itself: the record names when the question's
+    # premise clears, and a failed store is reported rather than silently
+    # dropping the evaluation. The next evaluation sweep reconciles any
+    # record left behind by an interrupted hold.
+    fm_hold_release_record_write "$STATE" "$id" "$release_on" \
+      || fail "the captain hold was recorded but its release condition could not be stored; re-run the same hold to retry"
+  fi
   occurrence=$(( $(resolution_record_count "$(show_field "$show" body)") + 1 ))
   [ -n "$(body_hold_set_timestamp "$(show_field_value "$show" body)")" ] \
     || fail "task $id lost its hold-set stamp while being held"
@@ -1076,11 +1097,26 @@ apply_pending_retained_artifact() {  # <task-id>
 }
 
 close_answered() {  # <task-id> <release-0-or-1>
+  local close_rc=0
   if [ "$2" = 1 ]; then
-    tasks_axi unhold "$1" >/dev/null
+    # The close status must be carried explicitly: this function runs inside
+    # an `if !` caller, where errexit is disabled and a trailing block would
+    # otherwise mask a failed close.
+    tasks_axi unhold "$1" >/dev/null || close_rc=$?
   else
     apply_pending_retained_artifact "$1" || return 1
-    tasks_axi "done" "$1" "${RETAINED_CLOSE_ARGS[@]+"${RETAINED_CLOSE_ARGS[@]}"}" >/dev/null
+    tasks_axi "done" "$1" "${RETAINED_CLOSE_ARGS[@]+"${RETAINED_CLOSE_ARGS[@]}"}" >/dev/null \
+      || close_rc=$?
+  fi
+  [ "$close_rc" -eq 0 ] || return "$close_rc"
+  # Either close ends the hold lifecycle, so a release condition recorded for
+  # it ends too: drop the record and close any still-open hold-release
+  # decision now rather than at the next evaluation sweep. Best effort - the
+  # sweep reconciles a drop that failed - because the captain's answer itself
+  # already succeeded here.
+  if [ -e "$(fm_hold_release_record_path "$STATE" "$1")" ] \
+    || [ -L "$(fm_hold_release_record_path "$STATE" "$1")" ]; then
+    fm_hold_release_record_drop "$STATE" "$1" "captain call settled" || true
   fi
 }
 

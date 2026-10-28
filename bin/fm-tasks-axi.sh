@@ -18,6 +18,18 @@
 # through bin/fm-hold-reason-lib.sh, which owns the field-only decoding contract.
 # Decoded reasons use quoted strings so embedded line breaks remain intact.
 #
+# HOLD RELEASE CONDITIONS. `hold` accepts one extra flag this wrapper owns,
+# `--release-on pr:<owner>/<repo>#<n>` or `--release-on marker:<absolute-path>`:
+# the condition is recorded beside the hold (state/hold-releases/<id>) and
+# evaluated by the watcher's check sweep, which wakes firstmate once with
+# `hold condition met: <id> <condition>` and keeps a keyed decision open in
+# OPEN DECISIONS until the hold is released or re-held
+# (bin/fm-hold-release-lib.sh owns the whole contract). A hold of kind
+# external with neither --release-on nor --until is refused, so an external
+# hold always names when it clears. `unhold` drops the record and closes any
+# still-open hold-release decision. The flag never reaches tasks-axi itself,
+# and it is refused on every other command.
+#
 # Why it exists: a bare `tasks-axi` resolves the tracked `.tasks.toml` paths
 # against its working directory, so from the code root it forks the queue
 # whenever the home lives elsewhere; docs/configuration.md ("Backlog backend")
@@ -64,6 +76,10 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
 # shellcheck source=bin/fm-hold-reason-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-hold-reason-lib.sh"
+# shellcheck source=bin/fm-hold-release-lib.sh disable=SC1091
+. "$SCRIPT_DIR/fm-hold-release-lib.sh"
+
+HOLD_STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 usage() {
   awk '
@@ -94,9 +110,67 @@ absolute_from_caller() {  # <path-value>
   esac
 }
 
+# Pre-scan of the caller's own arguments for the hold/unhold bookkeeping
+# facts this wrapper needs (id, kind, date gate, release condition). It
+# changes nothing about the ARGS rewrite below, which keeps its own contract;
+# the first argument is the command word and is skipped.
+subcommand=${1:-}
+first_positional=
+hold_kind=
+hold_until=
+hold_release_on=
+prescan_next=
+prescan_skip=1
+for arg in "$@"; do
+  if [ "$prescan_skip" = 1 ]; then
+    prescan_skip=0
+    continue
+  fi
+  if [ -n "$prescan_next" ]; then
+    case "$prescan_next" in
+      kind) hold_kind=$arg ;;
+      until) hold_until=$arg ;;
+      release-on) hold_release_on=$arg ;;
+    esac
+    prescan_next=
+    continue
+  fi
+  case "$arg" in
+    --kind) prescan_next=kind ;;
+    --until) prescan_next=until ;;
+    --release-on)
+      case "$subcommand" in
+        hold) prescan_next=release-on ;;
+        *)
+          fail "--release-on is a hold flag; it names when a held row clears and is valid only on hold"
+          ;;
+      esac
+      ;;
+    --kind=*) hold_kind=${arg#--kind=} ;;
+    --until=*) hold_until=${arg#--until=} ;;
+    --release-on=*)
+      case "$subcommand" in
+        hold) hold_release_on=${arg#--release-on=} ;;
+        *)
+          fail "--release-on is a hold flag; it names when a held row clears and is valid only on hold"
+          ;;
+      esac
+      ;;
+    -*) : ;;
+    *) [ -n "$first_positional" ] || first_positional=$arg ;;
+  esac
+done
+
 ARGS=()
 path_value_next=0
+release_value_next=0
 for arg in "$@"; do
+  if [ "$release_value_next" = 1 ]; then
+    # The --release-on value is this wrapper's own token and never reaches
+    # tasks-axi; it is a condition, not a path, so it is dropped as given.
+    release_value_next=0
+    continue
+  fi
   if [ "$path_value_next" = 1 ]; then
     ARGS+=("$(absolute_from_caller "$arg")")
     path_value_next=0
@@ -121,6 +195,13 @@ for arg in "$@"; do
     --to=*|--*-file=*)
       ARGS+=("${arg%%=*}=$(absolute_from_caller "${arg#*=}")")
       ;;
+    --release-on|--release-on=*)
+      # Validated by the prescan above; consumed here so tasks-axi never sees
+      # this wrapper's own flag.
+      case "$arg" in
+        --release-on) release_value_next=1 ;;
+      esac
+      ;;
     *)
       ARGS+=("$arg")
       ;;
@@ -144,7 +225,46 @@ else
 fi
 
 cd "$FM_BACKLOG_AXI_ROOT" || fail "cannot enter the backlog root $FM_BACKLOG_AXI_ROOT"
-case "${1:-}" in
+case "$subcommand" in
+  hold)
+    # A kind-external hold always names when it clears: an undated free-text
+    # external hold is exactly the record nothing ever re-checked.
+    if [ "$hold_kind" = external ] && [ -z "$hold_until" ] && [ -z "$hold_release_on" ]; then
+      fail "a hold of kind external needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable"
+    fi
+    if [ -n "$hold_release_on" ]; then
+      fm_hold_release_valid "$hold_release_on" >/dev/null \
+        || fail "--release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: $hold_release_on"
+    fi
+    ;;
+esac
+case "$subcommand" in
+  hold|unhold)
+    tasks-axi ${ARGS[@]+"${ARGS[@]}"}
+    axi_rc=$?
+    [ "$axi_rc" -eq 0 ] || exit "$axi_rc"
+    case "$subcommand" in
+      hold)
+        if [ -n "$hold_release_on" ]; then
+          fm_hold_release_record_write "$HOLD_STATE" "$first_positional" "$hold_release_on" \
+            || fail "the hold was recorded but its release condition could not be stored; re-run the same hold to retry"
+        elif [ -e "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ] \
+          || [ -L "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ]; then
+          fm_hold_release_record_drop "$HOLD_STATE" "$first_positional" \
+            "re-held without a structured release condition" \
+            || printf 'fm-tasks-axi: warning: the hold was re-held but its stale release record could not be dropped\n' >&2
+        fi
+        ;;
+      unhold)
+        if [ -e "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ] \
+          || [ -L "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ]; then
+          fm_hold_release_record_drop "$HOLD_STATE" "$first_positional" "released" \
+            || printf 'fm-tasks-axi: warning: the hold was released but its release record could not be dropped\n' >&2
+        fi
+        ;;
+    esac
+    exit 0
+    ;;
   show|view|list)
     set -o pipefail
     tasks-axi ${ARGS[@]+"${ARGS[@]}"} | fm_hold_reason_decode_stream

@@ -92,6 +92,8 @@ Each effective `FM_HOME` contains private operational directories.
 - Private secondmate config-reread generations with their retry and quarantine state.
 - Per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`).
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
+- Structured hold release conditions beside their held rows under `state/hold-releases/` (`bin/fm-hold-release-lib.sh`).
+- Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -350,6 +352,16 @@ Captain-hold row creation is owned by [`bin/fm-captain-hold.sh`](../bin/fm-capta
 Captain rows have no Beads due semantics, so that create path waives a Beads `due.required` setting rather than passing a synthetic `--due`; `--until` remains the optional hold deferral.
 
 Do not register a Beads `types.custom` `captain` type for this: captain is a hold kind, and the fleet Beads `due.required` policy for ordinary work stays in the federated beads config.
+
+### Hold release conditions
+
+A held row may name the event that clears it: `--release-on pr:<owner>/<repo>#<n>` (a GitHub pull request, met when it is MERGED) or `--release-on marker:<absolute-path>` (met when that path exists).
+The condition is accepted by [`bin/fm-tasks-axi.sh`](../bin/fm-tasks-axi.sh) `hold`, [`bin/fm-captain-hold.sh`](../bin/fm-captain-hold.sh) `hold`, and the teardown await-merge transition, which derives `pr:<owner>/<repo>#<n>` from the PR it holds the row for.
+A hold of kind `external` with neither `--release-on` nor `--until <date>` is refused, so an external hold always names when it clears; a bare `tasks-axi hold` writes no condition and is the documented bypass, never evaluated.
+
+The watcher's check sweep evaluates the conditions - no new daemon - and when one is met it wakes firstmate once with `hold condition met: <id> <condition>` and opens a keyed decision that stays in OPEN DECISIONS until the hold is released or re-held, so a met condition can no longer sit undispositioned while work waits.
+[`bin/fm-hold-release-lib.sh`](../bin/fm-hold-release-lib.sh) owns the condition syntax, the per-task record under `state/hold-releases/`, the evaluation, and the decision lifecycle; its header documents the tunables (`FM_HOLD_RELEASE_GH` for tests among them).
+A pull-request lookup that fails is never met: the condition simply retries on the next sweep.
 
 ### Automatic dispatch and completion
 
@@ -683,6 +695,13 @@ Unsafe or unreadable inputs, missing required tracked owner files, or material g
 That one line goes out through the shared per-line digest cut, so an over-long finding set carries the repo's `[truncated]` marker instead of ending mid-finding, while deduplication keeps comparing the full uncapped set.
 Older bulk learning files remain reference-only; this monitor neither loads nor merges them.
 A reported review need is only a recommendation, not cleanup authority.
+
+## Walk-request carrier
+
+A secondmate whose machine has no access to the home-private walker dispatcher asks for a checkpoint walk with [`bin/fm-walk-request.sh`](../bin/fm-walk-request.sh): it writes one typed request (brief path, release sha, walk ids, optional bot name) on the mate's parent channel, which is the pipe that already reaches the dispatcher-owning home for every mate shape.
+Arming [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) with `arm` in that home - the same authenticated watcher-check binding as the growth check above - dispatches each requested walk at most once per `<walk-id>@<release>` through the home's `data/bin/fm-grok-bot-dispatch.sh` and returns the outcome to the requesting mate as a fire-and-forget steering-inbox message.
+The bridge and its sign-in stay private to that home: the check only invokes the dispatcher, and a home without the dispatcher reports that plainly rather than guessing.
+`disarm` removes the check, its trust binding, and the record directory; the script headers own the typed line, the dispatch and delivery contract, and the tunables (including `FM_WALK_REQUEST_BOT`, the default bot for requests that omit one).
 
 ## Stow pass horizon (config/stow-pass-horizon)
 
