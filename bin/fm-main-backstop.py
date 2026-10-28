@@ -39,8 +39,10 @@ A delta scan reads at most four windows per pass. Exhausting them with the
 cursor advanced persists that progress and continues next pass as catching
 up, reporting only the oldest unmirrored stamp actually seen, while a budget
 exhausted with no cursor progress counts as a failed read, never reporting an
-intermediate timestamp as current. A legacy {offset, prefix, stamp} reader
-record migrates to a pending_at set containing its stamp, keeping its cursor.
+intermediate timestamp as current. A reader with exactly the legacy
+{offset, prefix, stamp} keys migrates only when its offset and prefix pass
+validation and its stamp is a nonnegative integer; it keeps its cursor and
+seeds pending_at with that stamp.
 Delta reads allow one
 reply-runner poll window in the shared remote job lane (ninety seconds); other
 commands keep fifteen seconds. On exit 76, re-issue the same (offset, prefix)
@@ -418,8 +420,7 @@ def main():
         memory = {}
     # An older private copy stored these as lists; reset any non-dict shape
     # to a fresh dict so the dict-typed bookkeeping below starts cleanly,
-    # keeping last_nudge and any reader cursors. Reader records failing
-    # valid_reader rebootstrap as on any first pass.
+    # keeping last_nudge and any reader cursors.
     for key in ('episodes', 'read_fails', 'runner_fails'):
         if not isinstance(memory.get(key), dict):
             memory[key] = {}
