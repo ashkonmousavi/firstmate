@@ -121,7 +121,7 @@
 #   FM_TASK_INBOX_BUSY_MAX     default 2; consecutive busy-deferred due polls before escalation
 
 _FM_TASK_INBOX_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Both dependencies are canonical lint roots in their own right. Keep them as
+# Dependencies are canonical lint roots in their own right. Keep them as
 # analysis boundaries here so ShellCheck's external-source traversal does not
 # recursively duplicate the full backend graph for every inbox consumer.
 # shellcheck source=/dev/null
@@ -130,6 +130,8 @@ _FM_TASK_INBOX_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_FM_TASK_INBOX_LIB_DIR/fm-backend.sh"
 # shellcheck source=/dev/null
 . "$_FM_TASK_INBOX_LIB_DIR/fm-control-lib.sh"
+# shellcheck source=/dev/null
+. "$_FM_TASK_INBOX_LIB_DIR/fm-busy-lib.sh"
 
 FM_TASK_INBOX_SCHEMA='fm-task-inbox.v1'
 FM_TASK_INBOX_GRACE_DEFAULT=90
@@ -273,7 +275,7 @@ fm_task_inbox_request_id() {
 }
 
 fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mode] [request-id]
-  local state=$1 task=$2 text=$3 delivery_mode=${4:-} request_id=${5:-} dir lock want have f size found_id rec='' status=0
+  local state=$1 task=$2 text=$3 delivery_mode=${4:-} request_id=${5:-} dir lock want have f size rec='' status=0
   local -a candidates=() size_filter=()
   [ -z "$request_id" ] || { [ -z "$delivery_mode" ] && fm_task_inbox_request_id_valid "$request_id"; } || return 1
   dir=$(fm_task_inbox_dir "$state" "$task")
@@ -287,7 +289,32 @@ fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mod
       [ -n "$request_id" ] || size_filter=(-size "${size}c")
       while IFS= read -r f; do
         candidates+=("$f")
-      done < <(find "$dir" "$dir/handled" -maxdepth 1 -type f -name '*.msg' ${size_filter[@]+"${size_filter[@]}"} 2>/dev/null)
+      done < <(find "$dir" "$dir/handled" -maxdepth 1 -type f -name '*.msg' ${size_filter[@]+"${size_filter[@]}"} 2>/dev/null |
+        awk -v wanted="$request_id" -v mode="$delivery_mode" -v handled="$dir/handled/" '
+          function selected(path,    line, id, seen, delivery, result) {
+            while ((result = (getline line < path)) > 0) {
+              if (line == "--") break
+              if (!seen && line ~ /^request-id=/) {
+                id = substr(line, 12)
+                seen = 1
+              }
+              if (line == "delivery=fire-and-forget") delivery = 1
+            }
+            close(path)
+            if (result < 0) return -1
+            return id == wanted && (delivery == 1) == (mode == "fire-and-forget")
+          }
+          {
+            path = $0
+            result = selected(path)
+            if (result < 0 && index(path, handled) != 1) {
+              sub(/^.*\//, "", path)
+              path = handled path
+              result = selected(path)
+            }
+            if (result == 1) print path
+          }
+        ')
       for f in ${candidates[@]+"${candidates[@]}"}; do
         if [ ! -e "$f" ]; then
           case "$f" in
@@ -297,16 +324,6 @@ fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mod
               ;;
             *) continue ;;
           esac
-        fi
-        if ! found_id=$(fm_task_inbox_request_id "$f" 2>/dev/null); then
-          f="$dir/handled/${f##*/}"
-          found_id=$(fm_task_inbox_request_id "$f" 2>/dev/null) || continue
-        fi
-        [ "$found_id" = "$request_id" ] || continue
-        if [ "$delivery_mode" = fire-and-forget ]; then
-          fm_task_inbox_is_fire_and_forget "$f" || continue
-        elif fm_task_inbox_is_fire_and_forget "$f"; then
-          continue
         fi
         if ! fm_task_inbox_body "$f" > "$have" 2>/dev/null; then
           case "$f" in
@@ -454,7 +471,7 @@ fm_task_inbox_idle_followup() {  # <state-dir> <task-id> <harness>
 }
 
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness]
-  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict
+  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict inbox task
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;
   esac
@@ -467,9 +484,16 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [har
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
   case "$cstate" in
     pending)
-      if fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
-        && { [ "$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)" != busy ] \
-          || fm_control_submit_queue "$harness"; }; then
+      if fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label"; then
+        if ! fm_control_submit_queue "$harness"; then
+          inbox=${rec%/*}
+          task=${inbox##*/}
+          task=${task%.inbox}
+          if [ "$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)" = busy ] \
+            || fm_busy_is_busy "$backend" "$target" "$harness" "$task" "${inbox%/*}"; then
+            return 1
+          fi
+        fi
         fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
         sleep 0.3
         fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 0

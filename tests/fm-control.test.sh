@@ -1396,10 +1396,10 @@ test_send_releases_exhausted_cursor_with_lease_guard() (
 
 test_recorded_harness_capabilities() {
   local harness signal
-  for harness in claude claude-latest opencode opencode-dev rovo rovo-preview; do
+  for harness in claude claude-latest opencode opencode-dev; do
     fm_control_submit_queue "$harness" || fail "$harness must accept busy submission"
   done
-  for harness in cursor cursor-agent codex codex-dev pi pi-signed grok grok-dev kimi gemini muse omp agy devin unknown ''; do
+  for harness in rovo rovo-preview cursor cursor-agent codex codex-dev pi pi-signed grok grok-dev kimi gemini muse omp agy devin unknown ''; do
     fm_control_submit_queue "$harness" && fail "$harness must not claim a busy submit queue"
   done
   for harness in cursor cursor-agent; do

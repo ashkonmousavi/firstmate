@@ -1001,8 +1001,9 @@ The guard also notes whether the starfield and the placeholder were actually dra
 
 ## Steering-inbox doorbell
 
-The live guard submits Claude, OpenCode, and Rovo doorbells while a real foreground tool is blocked, then separately requires each instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
-The portable busy-Claude, OpenCode, and Rovo regressions verify literal input followed by Enter; they do not claim model consumption.
+The live guard submits Claude and OpenCode doorbells while a real foreground tool is blocked, then separately requires each instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
+The portable busy-Claude and OpenCode regressions verify literal input followed by Enter; they do not claim model consumption.
+Rovo retains busy deferral and re-ring on idle because its footer has no retained queued-consumption proof; portable regressions cover both fresh and pending-doorbell deferral.
 
 The same guard includes Cursor in its default installed-harness refresh; `FM_SEND_INBOX_LIVE_HARNESSES=cursor` selects its genuinely exhausted-account checks in separately identified unknown-composer and concatenated-doorbell scenarios.
 It requires the real usage banner, observes that the ring sends no terminal input, then requires fm-send to release the agent through fm-control without typing an exit command.
@@ -1010,7 +1011,7 @@ After clearing its own rejected launch probe, the unknown-composer scenario redu
 Ordinary empty-composer exit cannot satisfy either scenario.
 Run with `FM_SEND_INBOX_LIVE_E2E=1`; optional `FM_SEND_INBOX_LIVE_CURSOR_MODEL` selects the exhausted model.
 It fails rather than claiming coverage if the installed Cursor account/model does not produce the exhaustion surface.
-Recorded harness aliases use the shared family normalization for both exhaustion and busy-submit capabilities; the portable regressions cover `cursor-agent`, `claude-latest`, OpenCode/Rovo aliases, and unsupported capabilities.
+Recorded harness aliases use the shared family normalization for both exhaustion and busy-submit capabilities; the portable regressions cover `cursor-agent`, `claude-latest`, OpenCode aliases, and the negative Rovo capability.
 
 On 2026-10-28, Cursor Agent 2026.10.19-6bbf2c4 with Grok 4.7 256K High passed both scenarios on Linux with tmux 3.4.
 The eight-row viewport kept the native usage banner visible while the real composer classifier reported unknown; the independent concatenated-doorbell scenario classified pending.
@@ -1030,8 +1031,8 @@ ok - cursor (2026.10.19-6bbf2c4): residue exhaustion suppresses ringing and fm-c
 ok - live steering-inbox doorbell guard: 1 harness(es) honored the doorbell contract
 ```
 
-OpenCode and Rovo were absent from PATH on the same date, so their separate busy guards could not run; their busy-submit capabilities remain without live proof here.
-Refresh them with `FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES='opencode rovo' bash tests/fm-send-inbox-doorbell-live-e2e.test.sh` on a host with those executables and authentication.
+OpenCode was absent from PATH on the same date, so its busy guard could not refresh the existing 1.18.4 busy-queue verification recorded in its harness reference.
+Refresh it with `FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=opencode bash tests/fm-send-inbox-doorbell-live-e2e.test.sh` on a host with that executable and authentication.
 
 On 2026-10-28, Claude Code 2.1.312 on Linux with tmux 3.4 passed both the idle and busy checks, using an isolated authenticated config with hooks disabled and the bypass-mode acknowledgement set.
 `CLAUDE_CONFIG_DIR`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`, `TMPDIR`, `FM_HOME`, and `FM_ROOT_OVERRIDE` pointed inside the verification worktree.

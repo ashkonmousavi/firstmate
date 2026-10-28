@@ -226,8 +226,7 @@ fm_control_quota_exhausted_signal() {  # <harness>
 # and keeps it for delivery. Claude Code queues that submit and delivers it
 # within the turn, once the in-flight tool calls finish, or at the end of the
 # turn (https://code.claude.com/docs/en/interactive-mode, "Queue messages
-# while Claude works"). OpenCode's Busy-queued Enter and Rovo's
-# "Enter to queue, Ctrl+Enter to steer" are the same submit-while-busy class.
+# while Claude works"). OpenCode's Busy-queued Enter is the same class.
 # Pi queued continuations and Codex queued notifications are not a user
 # submit queue. The doorbell path (bin/fm-task-inbox-lib.sh) submits while
 # busy only for the harnesses this function accepts.
@@ -235,7 +234,7 @@ fm_control_submit_queue() {  # <harness>
   local harness
   harness=$(fm_control_harness_family "${1-}") || return 1
   case "$harness" in
-    claude|opencode|rovo) return 0 ;;
+    claude|opencode) return 0 ;;
   esac
   return 1
 }

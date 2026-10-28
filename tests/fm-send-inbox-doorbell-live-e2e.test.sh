@@ -328,7 +328,7 @@ check_harness_doorbell() {  # <name>
     CHECKED=$((CHECKED + 1))
     pass "$name ($version): the doorbell reached a real worker, which acted and acked with the mv"
     case "$name" in
-      claude|opencode|rovo) check_busy_doorbell "$win" "$home" "$task" "$version" "$name" || FAILED=1 ;;
+      claude|opencode) check_busy_doorbell "$win" "$home" "$task" "$version" "$name" || FAILED=1 ;;
     esac
   else
     FAILED=1

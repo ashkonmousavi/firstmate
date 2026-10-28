@@ -354,7 +354,7 @@ case "${1:-}" in
     else
       printf '❯ \n'
     fi
-    printf '%s\n  ? for shortcuts\n' "$rule"
+    printf '%s\n  %s\n' "$rule" "${FM_FAKE_COMPOSER_ACTIVITY:-? for shortcuts}"
     exit 0 ;;
   list-windows) printf 'fm-t1\n'; exit 0 ;;
 esac
@@ -378,7 +378,7 @@ test_ring_submits_its_own_stuck_doorbell() {
   log="$dir/send.log"; composer="$dir/composer"; drops="$dir/drops"
   ring() {
     PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
-      FM_FAKE_DROP_ENTERS="$drops" inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1
+      FM_FAKE_DROP_ENTERS="$drops" inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1 "${1:-}"
   }
 
   : > "$log"; printf '%s' "$doorbell" > "$composer"
@@ -394,6 +394,21 @@ test_ring_submits_its_own_stuck_doorbell() {
   [ "$(cat "$log")" = "SUBMIT: $doorbell" ] \
     || fail "the retry Enter should submit the stuck doorbell once, not retype it:"$'\n'"$(cat "$log")"
   [ ! -s "$composer" ] || fail "a lost Enter left the stuck doorbell unsubmitted"
+
+  for other in rovo rovo-preview; do
+    : > "$log"; printf '%s' "$doorbell" > "$composer"
+    PATH="$dir/fakebin:$PATH" FM_FAKE_COMPOSER="$composer" FM_FAKE_COMPOSER_ACTIVITY='Rovo is thinking' \
+      inbox_lib "$state" fm_busy_is_busy tmux sess:fm-t1 "$other" t1 "$state" \
+      || fail "$other pending-doorbell fixture is not busy"
+    rc=0
+    FM_FAKE_COMPOSER_ACTIVITY='Rovo is thinking' ring "$other" || rc=$?
+    [ "$rc" = 1 ] || fail "busy $other submitted a pending doorbell: $rc"
+    [ ! -s "$log" ] || fail "busy $other received Enter"
+    [ "$(cat "$composer")" = "$doorbell" ] || fail "busy $other changed the pending doorbell"
+    ring "$other" || fail "idle $other did not submit its pending doorbell"
+    [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "idle $other did not submit exactly once"
+    [ ! -s "$composer" ] || fail "idle $other retained the pending doorbell"
+  done
 
   for other in 'a half-typed draft' "$doorbell and a draft"; do
     : > "$log"; printf '%s' "$other" > "$composer"
@@ -444,11 +459,90 @@ test_idempotent_write_dedups_exact_body() {
   pass "inbox: the idempotent enqueue dedups an exact re-run onto the same record, handled or not"
 }
 
+test_one_way_dedup_bulk_selects_request_ids() {
+  local dir state fakebin real_awk real_cmp i id rec retry rc
+  local wanted=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa text=$'one-way steer\nsecond line'
+  dir="$TMP_ROOT/one-way-bulk"
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  mkdir -p "$state/t1.inbox/handled" "$fakebin"
+  for ((i=1; i<=256; i++)); do
+    printf -v id '%032x' "$i"
+    printf -v rec '%s/t1.inbox/%03d.msg' "$state" "$i"
+    [ "$i" -le 128 ] || printf -v rec '%s/t1.inbox/handled/%03d.msg' "$state" "$i"
+    printf 'schema=fm-task-inbox.v1\nat=2026-10-28T00:00:00Z\nrequest-id=%s\n--\nrequest-id=%s\nunrelated retained body %s' \
+      "$id" "$wanted" "$i" > "$rec"
+  done
+  real_awk=$(command -v awk)
+  real_cmp=$(command -v cmp)
+  cat > "$fakebin/awk" <<SH
+#!/usr/bin/env bash
+printf 'parse\n' >> "\$FM_DEDUP_PARSE_LOG"
+exec "$real_awk" "\$@"
+SH
+  cat > "$fakebin/cmp" <<SH
+#!/usr/bin/env bash
+printf 'compare\n' >> "\$FM_DEDUP_COMPARE_LOG"
+exec "$real_cmp" "\$@"
+SH
+  chmod +x "$fakebin/awk" "$fakebin/cmp"
+  bulk_write() {
+    : > "$dir/parses"
+    : > "$dir/comparisons"
+    PATH="$fakebin:$PATH" FM_DEDUP_PARSE_LOG="$dir/parses" FM_DEDUP_COMPARE_LOG="$dir/comparisons" \
+      inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$1" '' "$wanted"
+  }
+  rec=$(bulk_write "$text") || fail "fresh one-way enqueue failed"
+  [ "$rec" = "$state/t1.inbox/257.msg" ] || fail "fresh request did not create a distinct record: $rec"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "retained history required more than one header parse"
+  [ ! -s "$dir/comparisons" ] || fail "fresh request compared bodies of unrelated request ids"
+  retry=$(bulk_write "$text") || fail "unhandled retry failed"
+  [ "$retry" = "$rec" ] || fail "same-id retry created another record"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "retry parsed headers per record"
+  [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "retry compared unrelated bodies"
+  mv "$rec" "$state/t1.inbox/handled/"
+  retry=$(bulk_write "$text") || fail "handled retry failed"
+  [ "$retry" = "$state/t1.inbox/handled/257.msg" ] || fail "handled retry did not find its record"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "handled retry parsed headers per record"
+  [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "handled retry compared unrelated bodies"
+  rc=0
+  bulk_write 'conflicting request body of a different size' > "$dir/conflict.out" || rc=$?
+  [ "$rc" != 0 ] || fail "same request id accepted a conflicting body"
+  [ ! -e "$state/t1.inbox/258.msg" ] || fail "conflict created a new record"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "conflict parsed headers per record"
+  [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "conflict compared unrelated bodies"
+  pass "inbox: one bulk header parse selects only matching one-way requests across retained history"
+}
+
+test_one_way_dedup_follows_ack_before_header_open() {
+  local dir state rec result real_find
+  local wanted=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  dir="$TMP_ROOT/one-way-header-ack"
+  state="$dir/state"
+  mkdir -p "$state" "$dir/fakebin"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 'ack during header selection' '' "$wanted") \
+    || fail "header-race fixture write failed"
+  real_find=$(command -v find)
+  cat > "$dir/fakebin/find" <<SH
+#!/usr/bin/env bash
+"$real_find" "\$@" > "\$FM_FIND_LIST" || exit 1
+mv "\$FM_ACK_RECORD" "\${FM_ACK_RECORD%/*}/handled/" || exit 1
+cat "\$FM_FIND_LIST"
+SH
+  chmod +x "$dir/fakebin/find"
+  result=$(PATH="$dir/fakebin:$PATH" FM_FIND_LIST="$dir/selected-paths" FM_ACK_RECORD="$rec" \
+    inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 'ack during header selection' '' "$wanted") \
+    || fail "one-way retry failed during acknowledgement before header open"
+  [ "$result" = "$state/t1.inbox/handled/001.msg" ] || fail "header selection lost the acknowledged request: $result"
+  [ ! -e "$state/t1.inbox/002.msg" ] || fail "header selection race duplicated the request"
+  pass "inbox: bulk header selection follows an acknowledgement before opening the record"
+}
+
 test_idempotent_write_follows_concurrent_ack() {
-  local state rec result count text
-  state="$TMP_ROOT/idem-ack-race/state"; mkdir -p "$state"
+  local state rec result count text request_id=${1:-}
+  state="$TMP_ROOT/idem-ack-race-${request_id:-ordinary}/state"; mkdir -p "$state"
   text="acknowledge while dedup scans"
-  rec=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$text") \
+  rec=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$text" '' "$request_id") \
     || fail "race fixture write failed"
   result=$(FM_STATE_OVERRIDE="$state" bash -c '
     . "$1"
@@ -462,8 +556,8 @@ test_idempotent_write_follows_concurrent_ack() {
       esac
       _original_fm_task_inbox_body "$candidate"
     }
-    fm_task_inbox_write_idempotent "$2" t1 "$3"
-  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" "$text") \
+    fm_task_inbox_write_idempotent "$2" t1 "$3" "" "$4"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" "$text" "$request_id") \
     || fail "idempotent enqueue failed while acknowledgement moved its candidate"
   [ "$result" = "$state/t1.inbox/handled/${rec##*/}" ] \
     || fail "dedup did not follow the concurrently acknowledged record: $result"
@@ -1276,21 +1370,40 @@ test_watcher_submits_busy_opencode() {
   pass "watcher: a busy opencode pane receives the doorbell followed by Enter"
 }
 
-test_watcher_submits_busy_rovo() {
-  local dir state capture
-  dir=$(setup_watch_case rovo-busy)
+test_watcher_defers_busy_rovo_until_idle() {
+  local dir state capture harness=${1:-rovo} delivery_mode=${2:-}
+  dir=$(setup_watch_case "$harness-${delivery_mode:-ordinary}-busy")
   state="$dir/state"
-  set_watch_harness "$dir" rovo
-  inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue" >/dev/null
+  set_watch_harness "$dir" "$harness"
+  inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue" "$delivery_mode" >/dev/null
   age_path "$state/t1.inbox/001.msg"
+  if [ "$delivery_mode" = fire-and-forget ]; then
+    mkdir -p "$dir/config"
+    : > "$dir/config/wait-no-turns"
+    inbox_lib "$state" fm_task_inbox_mark_retry "$state" t1 "$state/t1.inbox/001.msg"
+    age_path "$state/t1.inbox/.retry-ring"
+  fi
   : > "$dir/send.log"
   printf 'Rovo is thinking\n╭────╮\n│    │\n╰────╯\n' > "$dir/rovo.capture"
   capture="$dir/rovo.capture"
   assert_classified_busy "$dir" "$capture" "busy rovo"
-  steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=0
+  steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=0 FM_CONFIG_OVERRIDE="$dir/config"
+  [ ! -s "$dir/send.log" ] || fail "a busy $harness pane received a doorbell"
+  if [ "$delivery_mode" = fire-and-forget ]; then
+    [ -s "$state/t1.inbox/.retry-ring" ] || fail "busy $harness consumed the deferred retry"
+  else
+    [ -s "$state/t1.inbox/.busy-state" ] || fail "busy $harness did not retain the owed doorbell"
+  fi
+  [ ! -s "$state/.wake-queue" ] || fail "the first busy $harness deferral woke firstmate"
+  steer_check "$dir" "$(idle_capture "$dir")" FM_TASK_INBOX_GRACE_SECS=3600 FM_CONFIG_OVERRIDE="$dir/config"
   assert_doorbell_submitted "$dir"
-  [ ! -s "$state/.wake-queue" ] || fail "a busy rovo submit woke firstmate:"$'\n'"$(cat "$state/.wake-queue")"
-  pass "watcher: a busy rovo pane receives the doorbell followed by Enter"
+  [ ! -e "$state/t1.inbox/.busy-state" ] || fail "idle $harness retained the owed doorbell after submission"
+  [ ! -e "$state/t1.inbox/.retry-ring" ] || fail "idle $harness retained a consumed retry"
+  [ -f "$state/t1.inbox/001.msg" ] || fail "$harness deferral lost the durable steer"
+  : > "$dir/send.log"
+  steer_check "$dir" "$(idle_capture "$dir")" FM_TASK_INBOX_GRACE_SECS=3600 FM_CONFIG_OVERRIDE="$dir/config"
+  [ ! -s "$dir/send.log" ] || fail "idle $harness repeated the consumed follow-up"
+  pass "watcher: $harness defers while busy and submits the doorbell once on idle"
 }
 
 test_watcher_rerings_nonqueue_on_idle_after_escalation() {
@@ -1430,7 +1543,10 @@ test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
 test_ring_submits_its_own_stuck_doorbell
 test_idempotent_write_dedups_exact_body
+test_one_way_dedup_bulk_selects_request_ids
+test_one_way_dedup_follows_ack_before_header_open
 test_idempotent_write_follows_concurrent_ack
+test_idempotent_write_follows_concurrent_ack cccccccccccccccccccccccccccccccc
 test_handled_mv_dedups_by_sequence
 test_concurrent_writers_never_clobber
 test_writer_retries_after_a_vanished_lock_collision
@@ -1474,7 +1590,10 @@ test_watcher_dead_pane_ignores_stale_busy_state
 test_watcher_submits_busy_claude
 test_watcher_submits_busy_claude claude-latest
 test_watcher_submits_busy_opencode
-test_watcher_submits_busy_rovo
+test_watcher_defers_busy_rovo_until_idle
+test_watcher_defers_busy_rovo_until_idle rovo-preview
+test_watcher_defers_busy_rovo_until_idle rovo fire-and-forget
+test_watcher_defers_busy_rovo_until_idle rovo-preview fire-and-forget
 test_watcher_rerings_nonqueue_on_idle_after_escalation
 test_watcher_idle_followup_survives_checkpoint_deferral deadline escalated
 test_watcher_idle_followup_survives_checkpoint_deferral admission escalated
