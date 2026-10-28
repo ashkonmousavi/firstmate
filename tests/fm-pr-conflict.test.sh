@@ -291,22 +291,26 @@ SH
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
   [ "$decision" = quiet ] || fail "an exited worker must be relaunched instead of woken, got: $decision"
-  grep -qx CALLED "$send_log" || fail "the relaunch did not leave the merge instruction"
+  [ ! -s "$send_log" ] || fail "a dead worker was steered"
   [ -s "$relaunch_log" ] || fail "the exited worker was not relaunched with a progress note"
-  : > "$relaunch_log"
+  [ -f "$state/lane.pr-conflict-episode" ] || fail "relaunch did not commit the episode"
+  cp "$relaunch_log" "$relaunch_log.once"
   # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'live\n'; }
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
-  [ "$decision" = quiet ] && [ ! -s "$relaunch_log" ] \
-    || fail "the relaunched live worker must remain quiet"
+  [ "$decision" = quiet ] || fail "the relaunched live worker must remain quiet, got: $decision"
+  cmp -s "$relaunch_log" "$relaunch_log.once" \
+    || fail "the relaunched live worker was relaunched again"
   # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'exited\n'; }
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
-  [ "$decision" = quiet ] && [ -s "$relaunch_log" ] \
-    || fail "an unresolved episode must recover again after the worker exits"
-  pass "an exited worker relaunches with a note despite a prior episode"
+  [ "$decision" = quiet ] || fail "the same episode must stay quiet, got: $decision"
+  cmp -s "$relaunch_log" "$relaunch_log.once" \
+    || fail "the same episode relaunched the dead worker again"
+  [ ! -s "$send_log" ] || fail "the same episode steered the dead worker"
+  pass "an exited worker is relaunched once and not steered"
 }
 
 test_steered_worker_exit_recovers() {
@@ -316,11 +320,15 @@ test_steered_worker_exit_recovers() {
   setup_task "$state"
   FM_PR_CONFLICT_SEND=$TMP_ROOT/send-relaunch.sh
   FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/relaunch.sh
+  : > "$TMP_ROOT/relaunch-send.log"
+  : > "$TMP_ROOT/relaunch.log"
   # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'live\n'; }
   decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
   [ "$decision" = quiet ] || fail "initial steering failed"
+  [ "$(grep -c '^CALLED$' "$TMP_ROOT/relaunch-send.log")" -eq 1 ] \
+    || fail "the live worker was not steered once"
   : > "$TMP_ROOT/relaunch.log"
   # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'exited\n'; }
@@ -328,7 +336,15 @@ test_steered_worker_exit_recovers() {
     https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
   [ "$decision" = quiet ] && [ -s "$TMP_ROOT/relaunch.log" ] \
     || fail "a worker exiting before handling its steer must relaunch"
-  pass "a steered worker exiting before handling the inbox recovers"
+  [ "$(grep -c '^CALLED$' "$TMP_ROOT/relaunch-send.log")" -eq 1 ] \
+    || fail "the exit recovery steered the worker again"
+  cp "$TMP_ROOT/relaunch.log" "$TMP_ROOT/relaunch.log.once"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "the same episode must stay quiet after relaunch, got: $decision"
+  cmp -s "$TMP_ROOT/relaunch.log" "$TMP_ROOT/relaunch.log.once" \
+    || fail "the same episode relaunched the exited worker again"
+  pass "a steered worker exiting before handling the inbox recovers once"
 }
 
 test_action_failures_preserve_decision_protocol() {
@@ -374,6 +390,7 @@ test_relabel_starts_a_new_episode() {
   FM_CONFLICT_JSON=$json
   # shellcheck disable=SC2034 # read by the imported fm_pr_conflict_steer
   FM_PR_CONFLICT_SEND=$TMP_ROOT/send.sh
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
   fm_pr_conflict_posture() { printf 'live\n'; }
   first=$(jq -nr 'now - 3600 | strftime("%Y-%m-%dT%H:%M:%SZ")')
   second=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
@@ -526,6 +543,8 @@ SH
     if [ "$mode" = relaunch ]; then
       [ -s "$home/relaunched" ] \
         || fail "watcher could not relaunch with its control lock and note requirements: $(cat "$home/err")"
+      [ ! -e "$home/steered" ] \
+        || fail "watcher steered a dead endpoint"
     elif [ "$graphql_fail" -eq 1 ]; then
       [ "$watch_rc" -eq 47 ] || fail "$mode watcher swallowed the failed gh invocation ($watch_rc)"
       [ ! -s "$state/.wake-queue" ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
@@ -549,6 +568,8 @@ SH
         || fail "watcher did not commit the fallback episode: $(cat "$home/err")"
       awk -F '\t' '$3 == "check" && $5 ~ /lane.check.sh: conflict$/ { found=1 } END { exit !found }' \
         "$state/.wake-queue" || fail "watcher suppressed a conflict without durable notification"
+      [ ! -e "$home/steered" ] && [ ! -e "$home/relaunched" ] \
+        || fail "fallback wake also steered or relaunched ($mode)"
       if [ "$mode" = legacy-conflict ]; then
         cmp -s "$POLL" "$state/lane.check.sh" || fail "legacy poll was not upgraded through publication"
       fi
@@ -687,6 +708,222 @@ test_rename_overlap_endpoints() {
   pass "merge-tree and GitHub fallback report both rename endpoints"
 }
 
+load_inbox_helpers() {
+  mkdir -p "$TMP_ROOT/inbox-home/state"
+  export FM_HOME="$TMP_ROOT/inbox-home"
+  export FM_STATE_OVERRIDE="$TMP_ROOT/inbox-home/state"
+  export STATE="$FM_STATE_OVERRIDE"
+  type fm_task_inbox_dir >/dev/null 2>&1 && return 0
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-task-inbox-lib.sh"
+}
+
+load_classify_helpers() {
+  type last_status_line >/dev/null 2>&1 && type status_line_verb >/dev/null 2>&1 && return 0
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-classify-lib.sh"
+}
+
+write_inbox_send() {  # <path>
+  cat > "$1" <<'SH'
+#!/usr/bin/env bash
+dir=$FM_TEST_INBOX_STATE/lane.inbox
+mkdir -p "$dir/handled"
+seq=1
+while [ -e "$dir/$(printf '%03d' "$seq").msg" ] || [ -e "$dir/handled/$(printf '%03d' "$seq").msg" ]; do
+  seq=$((seq + 1))
+done
+name=$(printf '%03d.msg' "$seq")
+{
+  printf 'schema=fm-task-inbox.v1\n'
+  printf 'at=2026-01-01T00:00:00Z\n'
+  printf -- '--\n'
+  printf '%s' "$2"
+} > "$dir/$name"
+printf '1\n' >> "$FM_TEST_INBOX_LOG"
+SH
+  chmod +x "$1"
+}
+
+test_unread_conflict_steer_is_not_repeated() {
+  local state decision log unhandled f
+  reset_lib
+  load_inbox_helpers
+  state="$TMP_ROOT/unread-state"
+  log="$TMP_ROOT/unread-send.log"
+  rm -rf "$state" "$log"
+  setup_task "$state"
+  write_inbox_send "$TMP_ROOT/inbox-send.sh"
+  export FM_TEST_INBOX_STATE=$state FM_TEST_INBOX_LOG=$log
+  # shellcheck disable=SC2034 # read by fm_pr_conflict_steer
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/inbox-send.sh
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "unread steer setup did not steer, got: $decision"
+  [ "$(wc -l < "$log")" -eq 1 ] || fail "first sweep did not write one steer"
+  [ -f "$state/lane.pr-conflict-episode" ] || fail "first sweep did not commit the episode"
+  rm -f "$state/lane.pr-conflict-episode"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "repeat sweep with an unread steer woke, got: $decision"
+  [ "$(wc -l < "$log")" -eq 1 ] || fail "repeat sweep wrote another steer"
+  [ -f "$state/lane.pr-conflict-episode" ] || fail "outstanding steer did not reopen the episode"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "third sweep woke, got: $decision"
+  [ "$(wc -l < "$log")" -eq 1 ] || fail "third sweep wrote another steer"
+  unhandled=0
+  for f in "$state/lane.inbox"/*.msg; do
+    [ -f "$f" ] && [ ! -L "$f" ] || continue
+    unhandled=$((unhandled + 1))
+  done
+  [ "$unhandled" -eq 1 ] || fail "expected one unhandled steer, got $unhandled"
+  pass "an unread conflict steer is not repeated"
+}
+
+test_done_task_wakes_once_without_steering() {
+  local state decision want_posture send_log relaunch_log
+  reset_lib
+  load_classify_helpers
+  state="$TMP_ROOT/done-state"
+  send_log="$TMP_ROOT/done-send.log"
+  relaunch_log="$TMP_ROOT/done-relaunch.log"
+  rm -rf "$state" "$send_log" "$relaunch_log"
+  setup_task "$state"
+  printf 'done [at=1700000000]: finished\n' > "$state/lane.status"
+  cat > "$TMP_ROOT/done-send.sh" <<EOF
+#!/usr/bin/env bash
+printf '1\\n' >> "$send_log"
+EOF
+  cat > "$TMP_ROOT/done-relaunch.sh" <<EOF
+#!/usr/bin/env bash
+printf '1\\n' >> "$relaunch_log"
+EOF
+  chmod +x "$TMP_ROOT/done-send.sh" "$TMP_ROOT/done-relaunch.sh"
+  # shellcheck disable=SC2034 # read by fm_pr_conflict_steer and fm_pr_conflict_relaunch
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/done-send.sh
+  # shellcheck disable=SC2034
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/done-relaunch.sh
+  for want_posture in live exited none; do
+    rm -f "$state/lane.pr-conflict-episode" "$state/lane.pr-conflict-relaunched" \
+      "$state/lane.pr-conflict-steer" "$send_log" "$relaunch_log"
+    # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+    fm_pr_conflict_posture() { printf '%s\n' "$want_posture"; }
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+    [ "$decision" = wake ] || fail "done $want_posture first look must wake, got: $decision"
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+    [ "$decision" = wake ] || fail "done $want_posture unpublished wake must retry, got: $decision"
+    [ ! -s "$send_log" ] || fail "done $want_posture was steered"
+    [ ! -s "$relaunch_log" ] || fail "done $want_posture was relaunched"
+    [ ! -e "$state/lane.pr-conflict-episode" ] \
+      || fail "done $want_posture opened an episode before publication"
+    fm_pr_conflict_episode_open "$state" lane github github.com o/r 7 "$CONFLICT_ADDED_AT" \
+      || fail "could not commit the done-task wake"
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+    [ "$decision" = quiet ] || fail "done $want_posture published look must stay quiet, got: $decision"
+    [ ! -s "$send_log" ] && [ ! -s "$relaunch_log" ] \
+      || fail "done $want_posture acted after the wake"
+  done
+  pass "a done task is not steered and wakes once"
+}
+
+test_dead_endpoint_relaunches_or_wakes_once() {
+  local state decision send_log relaunch_log
+  reset_lib
+  state="$TMP_ROOT/dead-state"
+  send_log="$TMP_ROOT/dead-send.log"
+  relaunch_log="$TMP_ROOT/dead-relaunch.log"
+  rm -rf "$state" "$send_log" "$relaunch_log"
+  setup_task "$state"
+  export FM_TEST_SEND_LOG=$send_log FM_TEST_RELAUNCH_LOG=$relaunch_log
+  cat > "$TMP_ROOT/dead-send.sh" <<'SH'
+#!/usr/bin/env bash
+printf '1\n' >> "$FM_TEST_SEND_LOG"
+SH
+  cat > "$TMP_ROOT/dead-relaunch.sh" <<'SH'
+#!/usr/bin/env bash
+[ "$1" = lane ] && [ "$2" = relaunch ] && [ "$3" = --note ] && [ -n "${4:-}" ] || exit 92
+printf '1\n' >> "$FM_TEST_RELAUNCH_LOG"
+SH
+  cat > "$TMP_ROOT/dead-relaunch-fail.sh" <<'SH'
+#!/usr/bin/env bash
+printf '1\n' >> "$FM_TEST_RELAUNCH_LOG"
+exit 1
+SH
+  chmod +x "$TMP_ROOT/dead-send.sh" "$TMP_ROOT/dead-relaunch.sh" "$TMP_ROOT/dead-relaunch-fail.sh"
+  # shellcheck disable=SC2034 # read by fm_pr_conflict_steer and fm_pr_conflict_relaunch
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/dead-send.sh
+  # shellcheck disable=SC2034
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/dead-relaunch.sh
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+  fm_pr_conflict_posture() { printf 'exited\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "a dead endpoint must relaunch instead of waking, got: $decision"
+  [ "$(wc -l < "$relaunch_log")" -eq 1 ] || fail "a dead endpoint was not relaunched once"
+  [ ! -s "$send_log" ] || fail "a dead endpoint was steered"
+  [ -f "$state/lane.pr-conflict-episode" ] || fail "relaunch did not commit the episode"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "the second dead sweep must stay quiet, got: $decision"
+  [ "$(wc -l < "$relaunch_log")" -eq 1 ] || fail "the same episode relaunched again"
+  [ ! -s "$send_log" ] || fail "the second dead sweep steered"
+  rm -rf "$state"
+  setup_task "$state"
+  : > "$relaunch_log"
+  rm -f "$send_log"
+  # shellcheck disable=SC2034 # read by fm_pr_conflict_relaunch
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/dead-relaunch-fail.sh
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] || fail "a failed relaunch must wake, got: $decision"
+  [ "$(wc -l < "$relaunch_log")" -eq 1 ] || fail "a failed relaunch was not attempted once"
+  [ ! -e "$state/lane.pr-conflict-episode" ] || fail "a failed relaunch committed the episode"
+  [ ! -s "$send_log" ] || fail "a failed relaunch steered"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] || fail "an unpublished failed relaunch must still wake, got: $decision"
+  [ "$(wc -l < "$relaunch_log")" -eq 1 ] || fail "a failed relaunch was attempted again"
+  pass "a dead endpoint relaunches once or wakes once and is not steered"
+}
+
+test_acked_steer_allows_next_episode() {
+  local state decision log next_added_at
+  reset_lib
+  load_inbox_helpers
+  state="$TMP_ROOT/ack-state"
+  log="$TMP_ROOT/ack-send.log"
+  next_added_at=2026-02-02T00:00:00Z
+  rm -rf "$state" "$log"
+  setup_task "$state"
+  write_inbox_send "$TMP_ROOT/inbox-send.sh"
+  export FM_TEST_INBOX_STATE=$state FM_TEST_INBOX_LOG=$log
+  # shellcheck disable=SC2034 # read by fm_pr_conflict_steer
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/inbox-send.sh
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "first episode did not steer, got: $decision"
+  [ "$(wc -l < "$log")" -eq 1 ] || fail "first episode did not write one steer"
+  mkdir -p "$state/lane.inbox/handled"
+  mv "$state/lane.inbox/"*.msg "$state/lane.inbox/handled/"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "acknowledged same episode woke, got: $decision"
+  [ "$(wc -l < "$log")" -eq 1 ] || fail "acknowledged same episode steered again"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$next_added_at")
+  [ "$decision" = quiet ] || fail "next episode did not steer, got: $decision"
+  [ "$(wc -l < "$log")" -eq 2 ] || fail "an acknowledged steer blocked the next episode"
+  pass "an acknowledged steer allows the next episode's steer"
+}
+
 test_graphql_failure_and_flag_contract
 test_gh_only_poll_and_terminal_states
 test_old_label_wakes_once_and_clear_removes_it
@@ -700,3 +937,7 @@ test_relabel_starts_a_new_episode
 test_watcher_conflict_recovery
 test_overlap_names_both_pull_requests
 test_rename_overlap_endpoints
+test_unread_conflict_steer_is_not_repeated
+test_done_task_wakes_once_without_steering
+test_dead_endpoint_relaunches_or_wakes_once
+test_acked_steer_allows_next_episode

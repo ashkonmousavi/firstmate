@@ -86,7 +86,8 @@ Each automatic relaunch surfaces as exactly one `check` wake plus a durable line
 `tests/fm-wake-queue.test.sh` pins the no-progress notification, drain-progress reset, declared-pause exclusion, active-turn deferral, proven-idle child-first ring, busy and unknown parent-alarm paths, genuine stall after a ring, idempotence, quiet-queue, and byte-for-byte foreign-row preservation guarantees.
 Authenticated legacy PR polls are upgraded through the existing locked publication path before their next check.
 When a canonical validated task PR poll returns exactly `merged`, the watcher routes it through the shared merge-outcome emitter before retiring the poll.
-When that poll returns `conflict:<added-at>`, the watcher steers a live worker, or relaunches an exited one through `bin/fm-control.sh`, to merge the base branch in with a merge commit.
+When that poll returns `conflict:<added-at>`, the watcher steers a live worker at most once while that conflict steer stays unacknowledged, or relaunches a dead relaunchable worker once through `bin/fm-control.sh`, to merge the base branch in with a merge commit.
+A done task, a dead endpoint, and a missing endpoint are not steered.
 It raises one `check` wake per label application only when that action does not run, and a later `conflict-clear` observation removes the episode marker `bin/fm-pr-lib.sh` owns.
 [`bin/fm-pr-poll.sh`'s header](../bin/fm-pr-poll.sh) owns GitHub conflict eligibility, label-age requirements, terminal-state silence, and lookup-failure behavior.
 Persistent `kind=secondmate` records are excluded from conflict steering, relaunch, and fallback wakes because the relayed PR belongs to their child.
