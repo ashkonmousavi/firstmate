@@ -1,0 +1,8 @@
+[
+  "PASS: actual remote delta reader transports an entire maximum-size inline request with matching payload hash",
+  "PASS: remote-style inline request reaches real dispatcher; missing-bridge failure and report pointer return through real fm-send exactly once",
+  "PASS: real dispatcher suppresses a previously sent once-key and returns its exit-0 receipt into the mate inbox",
+  "PASS: seeded stale interrupted-launch state recovers via real launcher, preserves report prefix and delivers actual dispatcher outcome",
+  "PASS: interrupted multi-walk state returns the started walk result and refuses only its unstarted sibling after snapshot removal",
+  "PASS: MAIN refuses oversize, binary and invalid UTF-8 inline briefs; mate-side carrier refuses .env without publishing"
+]

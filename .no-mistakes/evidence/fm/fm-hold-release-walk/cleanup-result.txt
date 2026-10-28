@@ -1,0 +1,1 @@
+All disposable fixture directories removed. No active bash/python product child using this worktree remains. No tmux or Herdr server was created.

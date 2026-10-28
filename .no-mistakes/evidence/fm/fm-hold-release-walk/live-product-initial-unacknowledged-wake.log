@@ -1,0 +1,191 @@
+Oracle: user intent and recorded decisions: conditions wake once and remain open until disposition; confined UTF-8 briefs <=65536 bytes; dispatcher once-key and durable reply. No mock dispatcher, forge, send command, or ledger is used below.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh add marker-case Live activation gate --repo demo
+ok: added marker-case (repo demo) -> Queued
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start marker-case` to move it to in flight
+  - Run `tasks-axi block marker-case --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason waiting --kind external
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+exit=2
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason waiting
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+exit=2
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh show marker-case
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason dated --until 2099-01-01
+ok: hold marker-case -> held (until 2099-01-01)
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: dated
+  hold_kind: "-"
+  hold_until: 2099-01-01
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason activation --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds/data/activation
+ok: hold marker-case -> held (external)
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: activation
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+watcher: quiet checkpoint
+exit=75
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+check: hold-release: hold condition met: marker-case marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds/data/activation
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds/state/marker-case.status
+hold-release-marker-case	blocked	hold-release-met: marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds/data/activation
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh show marker-case
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: activation
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+check: rearm-resurface
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds/state/marker-case.status
+hold-release-marker-case	blocked	hold-release-met: marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds/data/activation
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh unhold marker-case
+ok: unhold marker-case -> cleared
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds/state/marker-case.status
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason second episode --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-vhud6s00/holds/data/activation
+ok: hold marker-case -> held
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: second episode
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+check: rearm-resurface
+exit=0
+Disposable fixture removed. No default tmux or Herdr session was started or addressed.

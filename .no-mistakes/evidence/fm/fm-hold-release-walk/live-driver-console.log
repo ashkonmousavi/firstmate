@@ -1,0 +1,545 @@
+Oracle: user intent and recorded decisions: conditions wake once and remain open until disposition; confined UTF-8 briefs <=65536 bytes; dispatcher once-key and durable reply. No mock dispatcher, forge, send command, or ledger is used below.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh add marker-case Live activation gate --repo demo
+ok: added marker-case (repo demo) -> Queued
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start marker-case` to move it to in flight
+  - Run `tasks-axi block marker-case --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason waiting --kind external
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+exit=2
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason waiting
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+exit=2
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh show marker-case
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason dated --until 2099-01-01
+ok: hold marker-case -> held (until 2099-01-01)
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: dated
+  hold_kind: "-"
+  hold_until: 2099-01-01
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason activation --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+ok: hold marker-case -> held (external)
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: activation
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+watcher: quiet checkpoint
+exit=75
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+check: hold-release: hold condition met: marker-case marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+1793219497	1	check	hold-release:marker-case	check: hold-release: hold condition met: marker-case marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 20567.1793219497.Xx5B97
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+marker-case [key=hold-release-marker-case] blocked: hold-release-met: marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 20567.1793219497.Xx5B97
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/state/marker-case.status
+hold-release-marker-case	blocked	hold-release-met: marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh show marker-case
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: activation
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+watcher: quiet checkpoint
+exit=75
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+marker-case [key=hold-release-marker-case] blocked: hold-release-met: marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/state/marker-case.status
+hold-release-marker-case	blocked	hold-release-met: marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh unhold marker-case
+ok: unhold marker-case -> cleared
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/state/marker-case.status
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason second episode --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+ok: hold marker-case -> held
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: second episode
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+check: hold-release: hold condition met: marker-case marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+1793219507	2	check	hold-release:marker-case	check: hold-release: hold condition met: marker-case marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 28767.1793219507.viXVbq
+UNREAD STATUS (new since last drain, not re-printed after this presentation):
+marker-case resolved [key=hold-release-marker-case] [at=1793219506]: hold-release-closed: released
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+marker-case [key=hold-release-marker-case] blocked: hold-release-met: marker:~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/data/activation
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 28767.1793219507.viXVbq
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold marker-case --reason deferred --until 2099-01-01
+ok: hold marker-case -> held (until 2099-01-01)
+task:
+  id: marker-case
+  title: Live activation gate
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: deferred
+  hold_kind: "-"
+  hold_until: 2099-01-01
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/state/marker-case.status
+
+exit=0
+$ gh-axi pr view 14815 -R cli/cli
+pull_request:
+  number: 14815
+  title: "fix(gh auth status): explain expired expiring tokens with `--no-refresh`"
+  state: merged
+  author: babakks
+  draft: no
+  merged: "2026-10-26T18:02:47Z"
+  checks: "11 passed, 0 failed, 7 skipped, 18 total"
+  body: "<!--\nThank you for contributing to GitHub CLI!\n\nIf you are proposing a fix for a security issue, STOP and follow .github/SECURITY.md instead.\n\nKeep the entire pull request self-contained, reviewer-facing, and diegetic: describe the\nchange, rationale, and evidence within the context of the repository and pull request. Do not\nnarrate how the pull request was produced or refer to private conversations, prior agent work,\nor other behind-the-scenes context. Omit those details unless they materially a\n... (truncated, 6641 chars total - use --full to see complete body)"
+  comment_count: 0 — use --comments to see full comments
+  review_count: 3 — use --reviews to see full reviews
+exit=0
+$ gh-axi pr view 14858 -R cli/cli
+pull_request:
+  number: 14858
+  title: Require confirmation before `gh repo delete` deletes private forks
+  state: open
+  author: BagToad
+  draft: no
+  merged: no
+  checks: "12 passed, 0 failed, 8 skipped, 20 total"
+  merge_state: blocked — blocked by branch protection (e.g. required reviews or checks)
+  body: "<!--\nThank you for contributing to GitHub CLI!\n\nIf you are proposing a fix for a security issue, STOP and follow .github/SECURITY.md instead.\n\nKeep the entire pull request self-contained, reviewer-facing, and diegetic: describe the\nchange, rationale, and evidence within the context of the repository and pull request. Do not\nnarrate how the pull request was produced or refer to private conversations, prior agent work,\nor other behind-the-scenes context. Omit those details unless they materially a\n... (truncated, 12684 chars total - use --full to see complete body)"
+  comment_count: 0 — use --comments to see full comments
+  review_count: 1 — use --reviews to see full reviews
+exit=0
+$ gh-axi pr view 14857 -R cli/cli
+pull_request:
+  number: 14857
+  title: "pkg/cmd/auth: validate advertised required scopes in token flow"
+  state: closed
+  author: AdamMagued
+  draft: no
+  merged: no
+  checks: "2 passed, 0 failed, 5 skipped, 7 total"
+  body: "### Description\nFixes #14754\n\nWhen authenticating via a personal access token in `gh auth login`, the command advertises minimum required scopes (including `workflow` if git credential helper setup is enabled, or `admin:public_key` if SSH key upload is selected). However, `HasMinimumScopes` only checked `repo` and org scopes, allowing tokens missing advertised scopes to succeed.\n\nThis change updates `HasMinimumScopes` and `HeaderHasMinimumScopes` to accept extra required scopes and validates the\n... (truncated, 2252 chars total - use --full to see complete body)"
+  comment_count: 1 — use --comments to see full comments
+  review_count: 0 — use --reviews to see full reviews
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh add merged-case Public PR condition merged-case --repo demo
+ok: added merged-case (repo demo) -> Queued
+task:
+  id: merged-case
+  title: Public PR condition merged-case
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start merged-case` to move it to in flight
+  - Run `tasks-axi block merged-case --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold merged-case --reason waiting for merge --release-on pr:cli/cli#14815
+ok: hold merged-case -> held
+task:
+  id: merged-case
+  title: Public PR condition merged-case
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: waiting for merge
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold merged-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh add open-case Public PR condition open-case --repo demo
+ok: added open-case (repo demo) -> Queued
+task:
+  id: open-case
+  title: Public PR condition open-case
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start open-case` to move it to in flight
+  - Run `tasks-axi block open-case --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold open-case --reason waiting for merge --release-on pr:cli/cli#14858
+ok: hold open-case -> held
+task:
+  id: open-case
+  title: Public PR condition open-case
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: waiting for merge
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold open-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh add closed-case Public PR condition closed-case --repo demo
+ok: added closed-case (repo demo) -> Queued
+task:
+  id: closed-case
+  title: Public PR condition closed-case
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start closed-case` to move it to in flight
+  - Run `tasks-axi block closed-case --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh hold closed-case --reason waiting for merge --release-on pr:cli/cli#14857
+ok: hold closed-case -> held
+task:
+  id: closed-case
+  title: Public PR condition closed-case
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: waiting for merge
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold closed-case` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+check: hold-release: hold condition met: merged-case pr:cli/cli#14815
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+1793219514	3	check	hold-release:merged-case	check: hold-release: hold condition met: merged-case pr:cli/cli#14815
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 33138.1793219514.cUt7E7
+UNREAD STATUS (new since last drain, not re-printed after this presentation):
+marker-case resolved [key=hold-release-marker-case] [at=1793219508]: hold-release-closed: re-held without a structured release condition
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+merged-case [key=hold-release-merged-case] blocked: hold-release-met: pr:cli/cli#14815
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 33138.1793219514.cUt7E7
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+watcher: quiet checkpoint
+exit=75
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+merged-case [key=hold-release-merged-case] blocked: hold-release-met: pr:cli/cli#14815
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+watcher: quiet checkpoint
+exit=75
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+merged-case [key=hold-release-merged-case] blocked: hold-release-met: pr:cli/cli#14815
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/state/merged-case.status
+hold-release-merged-case	blocked	hold-release-met: pr:cli/cli#14815
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh show merged-case
+task:
+  id: merged-case
+  title: Public PR condition merged-case
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: waiting for merge
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-tasks-axi.sh unhold merged-case
+ok: unhold merged-case -> cleared
+task:
+  id: merged-case
+  title: Public PR condition merged-case
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/holds/state/merged-case.status
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+watcher: quiet checkpoint
+exit=75
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+UNREAD STATUS (new since last drain, not re-printed after this presentation):
+merged-case resolved [key=hold-release-merged-case] [at=1793219572]: hold-release-closed: released
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/main
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/main
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/mate
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/mate
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh arm
+registered: state/walk-request.check.sh
+armed: state/walk-request.check.sh
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+DISPATCH REPORT
+error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-mtqyo0oj/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+
+__FM_WALK_DISPATCH_EXIT__=2
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+walk-request: outcome delivery to lab-mate failed (fm-send rc=124) for request abcde00000000001; will retry
+exit=0
+Disposable fixture removed. No default tmux or Herdr session was started or addressed.
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M61WRRBFWGKFM6VM24YW2TYM/live-product-check.py", line 149, in <module>
+    assert record(m, corr)['phase'] == 'delivered'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

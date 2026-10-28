@@ -1,0 +1,63 @@
+Oracle: user intent and recorded decisions: conditions wake once and remain open until disposition; confined UTF-8 briefs <=65536 bytes; dispatcher once-key and durable reply. No mock dispatcher, forge, send command, or ledger is used below.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-r6rbh7n7/main
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-r6rbh7n7/main
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-r6rbh7n7/mate
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-r6rbh7n7/mate
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh arm
+registered: state/walk-request.check.sh
+armed: state/walk-request.check.sh
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-remote-delta-read.sh state/parent-replies.status 0 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0
+schema=fm-remote-delta.v1
+status=delta
+path=state/parent-replies.status
+from_offset=0
+to_offset=87525
+from_prefix_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+to_prefix_sha256=c8402178bfcbcd61238574c16decb6208c34870f4ee790fea9f086942a492faa
+payload_sha256=c8402178bfcbcd61238574c16decb6208c34870f4ee790fea9f086942a492faa
+payload_bytes=87525
+reason=
+
+note [corr=abcde00000000001]: walk-request: walks=bridge-unavailable brief64=RGlzcG9zYWJsZSBsaXZlIHdhbGsgYnJpZWY6IHJlcG9ydCB0aGUgcmVzdWx0IG9mIHRoaXMgcmVxdWVzdC4gQ2Fmw6kuCnh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eH
+[large public protocol payload: 87902 total characters; independently checked below]
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-r6rbh7n7/main/state/lab-mate.status
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+1793219944	1	signal	lab-mate.status	signal: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-r6rbh7n7/main/state/lab-mate.status
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 41189.1793219944.eGdOEx
+wake annotation: latest wake-EVENT observed at drain, not current state: lab-mate.status: note [corr=abcde00000000001]: walk-request: walks=bridge-unavailable brief64=RGlzcG9zYWJsZSBsaXZlIHdhbGsgYnJpZWY6IHJlcG9ydCB0aGUgcmVzdWx0IG9mIHRoaXMgcmVxdWVzdC4gQ2Fmw6kuCnh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh
+[large public protocol payload: 176227 total characters; independently checked below]
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 41189.1793219944.eGdOEx
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-watch.sh
+watcher: quiet checkpoint
+exit=75
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-wake-drain.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 4s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+exit=0
+SCHEDULER-DELIVERED INBOX RECORD
+schema=fm-task-inbox.v1
+at=2026-10-28T20:39:08Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=41b8e6a14bf7534d walk bridge-unavailable@0123456789abcdef0123456789abcdef01234567 (corr=abcde00000000001) outcome: dispatch failed (exit=2): error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-r6rbh7n7/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-r6rbh7n7/main/state/walk-requests/abcde00000000001.bridge-unavailable.log
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh disarm
+unregistered: state/walk-request.check.sh
+disarmed: state/walk-request.check.sh
+exit=0
+PASS: the real watcher authenticates the registered walk-request check, launches the real dispatcher, and returns its outcome through real fm-send
+Disposable fixture removed. No default tmux or Herdr session was started or addressed.

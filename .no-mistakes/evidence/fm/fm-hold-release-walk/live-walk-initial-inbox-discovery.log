@@ -1,0 +1,25 @@
+Oracle: user intent and recorded decisions: conditions wake once and remain open until disposition; confined UTF-8 briefs <=65536 bytes; dispatcher once-key and durable reply. No mock dispatcher, forge, send command, or ledger is used below.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-oe_pkx1z/main
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-oe_pkx1z/main
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-oe_pkx1z/mate
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-oe_pkx1z/mate
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh arm
+registered: state/walk-request.check.sh
+armed: state/walk-request.check.sh
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+DISPATCH REPORT
+error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-oe_pkx1z/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+
+__FM_WALK_DISPATCH_EXIT__=2
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+ACTUAL MATE INBOX
+
+Disposable fixture removed. No default tmux or Herdr session was started or addressed.

@@ -1,0 +1,78 @@
+Oracle: user intent and recorded decisions: conditions wake once and remain open until disposition; confined UTF-8 briefs <=65536 bytes; dispatcher once-key and durable reply. No mock dispatcher, forge, send command, or ledger is used below.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/mate
+~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/mate
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh arm
+registered: state/walk-request.check.sh
+armed: state/walk-request.check.sh
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+DISPATCH REPORT
+error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+
+__FM_WALK_DISPATCH_EXIT__=2
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+ACTUAL MATE INBOX
+schema=fm-task-inbox.v1
+at=2026-10-28T20:36:08Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=41b8e6a14bf7534d walk bridge-unavailable@0123456789abcdef0123456789abcdef01234567 (corr=abcde00000000001) outcome: dispatch failed (exit=2): error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/state/walk-requests/abcde00000000001.bridge-unavailable.log
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+DISPATCH REPORT
+grok-bot: once-key already-sent@0123456789abcdef0123456789abcdef01234567 already sent to LabWalker; not sent again
+
+__FM_WALK_DISPATCH_EXIT__=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+ACTUAL MATE INBOX AFTER ONCE-KEY
+schema=fm-task-inbox.v1
+at=2026-10-28T20:36:15Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=f56f0c3b50622c9e walk already-sent@0123456789abcdef0123456789abcdef01234567 (corr=abcde00000000002) outcome: sent, exit=0: grok-bot: once-key already-sent@0123456789abcdef0123456789abcdef01234567 already sent to LabWalker; not sent again
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/state/walk-requests/abcde00000000002.already-sent.log
+schema=fm-task-inbox.v1
+at=2026-10-28T20:36:08Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=41b8e6a14bf7534d walk bridge-unavailable@0123456789abcdef0123456789abcdef01234567 (corr=abcde00000000001) outcome: dispatch failed (exit=2): error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/state/walk-requests/abcde00000000001.bridge-unavailable.log
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+DISPATCH REPORT
+error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+
+__FM_WALK_DISPATCH_EXIT__=2
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+DISPATCH REPORT
+error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+
+error: Grok Bot bridge not found: ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/.test-phase-tmp/live-phase-xmephce_/main/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+
+__FM_WALK_DISPATCH_EXIT__=2
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61WRRBFWGKFM6VM24YW2TYM/bin/fm-walk-request-check.sh check
+
+exit=0
+Disposable fixture removed. No default tmux or Herdr session was started or addressed.
