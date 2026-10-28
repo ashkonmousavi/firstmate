@@ -493,6 +493,51 @@ test_relaunch_preserves_durable_task_metadata() {
   pass "fm-control relaunch: durable task metadata survives replacement launch publication"
 }
 
+test_relaunched_conflict_replacement_exit_wakes_once() (
+  local dir state id=rl-conflict url=https://github.com/example/repo/pull/7
+  local added_at=2026-01-01T00:00:00Z decision out
+  # R1's oracle: an unresolved replacement's exit must request one conflict
+  # wake. A successful launch that invalidates its registered poll fails this.
+  dir=$(new_case conflict-poll "$id")
+  add_ship_task "$dir" "$id" claude
+  state="$dir/home/state"
+  printf 'pr=%s\n' "$url" >> "$state/$id.meta"
+  mkdir -p "$dir/user-home"
+  export FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" PATH="$dir/fakebin:$PATH"
+  export HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' GROK_HOME="$dir/grokhome"
+  export FM_SPAWN_NO_GUARD=1 FM_CONTROL_POLL=0.01
+  export FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-pr-lib.sh"
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-backend.sh"
+  fm_pr_poll_prepare "$state" "$id" github "$url" github.com example/repo 7 \
+    "$ROOT/bin/fm-pr-poll.sh" && fm_pr_poll_publish_prepared \
+    || fail "could not register the conflict poll before relaunch"
+  fm_pr_poll_snapshot_capture "$state" "$id" "$ROOT/bin/fm-pr-poll.sh" \
+    || fail "the initial conflict poll did not authenticate"
+
+  out=$(run_control "$dir" "$id" exit) \
+    || fail "could not stop the original worker: $out"
+  decision=$(fm_pr_conflict_handle "$state" "$id" github github.com example/repo 7 \
+    "$url" "conflict:$added_at")
+  [ "$decision" = quiet ] || fail "the dead worker was not relaunched: $decision"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "relaunch did not start the replacement"
+  out=$(run_control "$dir" "$id" exit) \
+    || fail "could not stop the unresolved replacement: $out"
+  fm_pr_poll_snapshot_capture "$state" "$id" "$ROOT/bin/fm-pr-poll.sh" \
+    || fail "relaunch invalidated the conflict poll, suppressing replacement-exit recovery"
+  decision=$(fm_pr_conflict_handle "$state" "$id" github github.com example/repo 7 \
+    "$url" "conflict:$added_at")
+  [ "$decision" = wake ] || fail "an exited replacement must request a conflict wake: $decision"
+  fm_pr_conflict_episode_open "$state" "$id" github github.com example/repo 7 "$added_at" \
+    || fail "could not record the published conflict wake"
+  decision=$(fm_pr_conflict_handle "$state" "$id" github github.com example/repo 7 \
+    "$url" "conflict:$added_at")
+  [ "$decision" = quiet ] || fail "the published replacement-exit wake repeated: $decision"
+  pass "real relaunch preserves poll authentication and wakes once after unresolved replacement exit"
+)
+
 test_relaunch_serializes_concurrent_durable_metadata_publication() {
   local dir control_pid link_pid rc i=0 traceparent prepare launch_release waiting ready release
   dir=$(new_case metadata-race rl28)
@@ -2981,6 +3026,7 @@ test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text
 test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven
 test_relaunch_from_linked_home_preserves_recorded_worktree
 test_relaunch_preserves_durable_task_metadata
+test_relaunched_conflict_replacement_exit_wakes_once
 test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_the_progress_note_to_the_instructions
