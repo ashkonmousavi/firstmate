@@ -1,0 +1,45 @@
+test_legacy_reader_record_migrates_and_keeps_cursor (__main__.Backstop.test_legacy_reader_record_migrates_and_keeps_cursor) ... 
+  test_legacy_reader_record_migrates_and_keeps_cursor (__main__.Backstop.test_legacy_reader_record_migrates_and_keeps_cursor) (stamp=0) ... FAIL
+  test_legacy_reader_record_migrates_and_keeps_cursor (__main__.Backstop.test_legacy_reader_record_migrates_and_keeps_cursor) (stamp=1000) ... FAIL
+test_over_budget_backlog_catches_up_without_unverified_alarm (__main__.Backstop.test_over_budget_backlog_catches_up_without_unverified_alarm) ... FAIL
+test_tail_never_reached_without_progress_still_alarms (__main__.Backstop.test_tail_never_reached_without_progress_still_alarms) ... ok
+test_two_consecutive_read_failures_alarm_then_dedup_and_clear (__main__.Backstop.test_two_consecutive_read_failures_alarm_then_dedup_and_clear) ... ok
+
+======================================================================
+FAIL: test_legacy_reader_record_migrates_and_keeps_cursor (__main__.Backstop.test_legacy_reader_record_migrates_and_keeps_cursor) (stamp=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M61BXCN0V04T032YN6W9PRDJ/tests/fm-main-backstop.test.py", line 978, in test_legacy_reader_record_migrates_and_keeps_cursor
+    self.assertEqual(reads[0][1], 'fm-remote-delta-read.sh')
+AssertionError: 'fm-remote-file.sh' != 'fm-remote-delta-read.sh'
+- fm-remote-file.sh
+?           ^^
++ fm-remote-delta-read.sh
+?           ^^ ++++ ++
+
+
+======================================================================
+FAIL: test_legacy_reader_record_migrates_and_keeps_cursor (__main__.Backstop.test_legacy_reader_record_migrates_and_keeps_cursor) (stamp=1000)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M61BXCN0V04T032YN6W9PRDJ/tests/fm-main-backstop.test.py", line 978, in test_legacy_reader_record_migrates_and_keeps_cursor
+    self.assertEqual(reads[0][1], 'fm-remote-delta-read.sh')
+AssertionError: 'fm-remote-file.sh' != 'fm-remote-delta-read.sh'
+- fm-remote-file.sh
+?           ^^
++ fm-remote-delta-read.sh
+?           ^^ ++++ ++
+
+
+======================================================================
+FAIL: test_over_budget_backlog_catches_up_without_unverified_alarm (__main__.Backstop.test_over_budget_backlog_catches_up_without_unverified_alarm)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M61BXCN0V04T032YN6W9PRDJ/tests/fm-main-backstop.test.py", line 936, in test_over_budget_backlog_catches_up_without_unverified_alarm
+    self.assertNotIn('q-server', self.memory()['read_fails'])
+AssertionError: 'q-server' unexpectedly found in {'q-server': 5000}
+
+----------------------------------------------------------------------
+Ran 4 tests in 7.256s
+
+FAILED (failures=3)

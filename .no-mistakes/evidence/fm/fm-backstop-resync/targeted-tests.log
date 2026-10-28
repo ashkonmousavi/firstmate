@@ -1,0 +1,17 @@
+test_legacy_reader_record_migrates_and_keeps_cursor (__main__.Backstop.test_legacy_reader_record_migrates_and_keeps_cursor) ... ok
+test_legacy_reader_preserves_unmirrored_stamp_until_mirrored (__main__.Backstop.test_legacy_reader_preserves_unmirrored_stamp_until_mirrored) ... ok
+test_invalid_legacy_reader_rebootstraps_before_reporting_lag (__main__.Backstop.test_invalid_legacy_reader_rebootstraps_before_reporting_lag) ... ok
+test_newest_only_cursor_is_rebuilt_before_reporting_delay (__main__.Backstop.test_newest_only_cursor_is_rebuilt_before_reporting_delay) ... ok
+test_over_budget_backlog_catches_up_without_unverified_alarm (__main__.Backstop.test_over_budget_backlog_catches_up_without_unverified_alarm) ... ok
+test_tail_never_reached_without_progress_still_alarms (__main__.Backstop.test_tail_never_reached_without_progress_still_alarms) ... ok
+test_single_transient_read_failure_is_tolerated_without_alarm (__main__.Backstop.test_single_transient_read_failure_is_tolerated_without_alarm) ... ok
+test_two_consecutive_read_failures_alarm_then_dedup_and_clear (__main__.Backstop.test_two_consecutive_read_failures_alarm_then_dedup_and_clear) ... ok
+test_multiline_reply_entries_read_as_continuations_from_the_head (__main__.Backstop.test_multiline_reply_entries_read_as_continuations_from_the_head) ... ok
+test_delta_window_beginning_mid_entry_reads_continuations (__main__.Backstop.test_delta_window_beginning_mid_entry_reads_continuations) ... ok
+test_preempted_delta_read_reissues_same_cursor_and_progresses (__main__.Backstop.test_preempted_delta_read_reissues_same_cursor_and_progresses) ... ok
+test_permanently_preempted_delta_read_fails_boundedly (__main__.Backstop.test_permanently_preempted_delta_read_fails_boundedly) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 35.135s
+
+OK

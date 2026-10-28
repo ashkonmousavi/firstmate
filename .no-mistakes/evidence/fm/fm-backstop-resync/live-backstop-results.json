@@ -1,0 +1,122 @@
+[
+  {
+    "name": "legacy-large-cursor",
+    "result": "pass",
+    "evidence": "Kept 1699879-byte cursor and SHA256; one tail delta read, no whole-file get or alarms.",
+    "passes": 1
+  },
+  {
+    "name": "legacy-pending-lag-and-clear",
+    "result": "pass",
+    "evidence": "Migrated pending stamp triggers durable lag; mirroring it clears pending and active lag episode.",
+    "passes": 2
+  },
+  {
+    "name": "invalid-legacy-0",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-1",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-2",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-3",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-4",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-5",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-6",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-7",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-8",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-9",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-10",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "invalid-legacy-11",
+    "result": "pass",
+    "evidence": "Invalid shape/stamp bypasses migration, rebuilds through real whole-file reader and reports oldest lag.",
+    "passes": 1
+  },
+  {
+    "name": "bogus-valid-hash-continuity",
+    "result": "pass",
+    "evidence": "Validly shaped but false prefix produces continuity-broken, then rebuilds before reporting lag.",
+    "passes": 1
+  },
+  {
+    "name": "cold-large-backlog",
+    "result": "pass",
+    "evidence": "Cold 1720430-byte resync refused whole-file get and converged in 7 passes at offsets [260132, 520265, 782409, 1044553, 1306697, 1568841, 1720430]; real oldest lag retained with zero read failures/unverified alarms.",
+    "passes": 7
+  },
+  {
+    "name": "stalled-budget",
+    "result": "pass",
+    "evidence": "First failure tolerated; second pass records durable UNVERIFIED; real healthy tail read clears active read failure. Four calls per stalled/preempted pass, one per transport failure.",
+    "passes": 3
+  },
+  {
+    "name": "transport-failure",
+    "result": "pass",
+    "evidence": "First failure tolerated; second pass records durable UNVERIFIED; real healthy tail read clears active read failure. Four calls per stalled/preempted pass, one per transport failure.",
+    "passes": 3
+  },
+  {
+    "name": "permanent-preemption",
+    "result": "pass",
+    "evidence": "First failure tolerated; second pass records durable UNVERIFIED; real healthy tail read clears active read failure. Four calls per stalled/preempted pass, one per transport failure.",
+    "passes": 3
+  },
+  {
+    "name": "bounded-preemption-retry",
+    "result": "pass",
+    "evidence": "Three preemptions retry exactly the same cursor; fourth attempt executes real reader and reports lag without read failure.",
+    "passes": 1
+  }
+]

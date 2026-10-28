@@ -1,0 +1,34 @@
+legacy-large-cursor 1 migrated q-server legacy reader cursor | checked watcher_age=1793195838s alarms=0
+legacy-pending-lag-and-clear 1 migrated q-server legacy reader cursor | BACKSTOP ALARM HELD: backstop-bb1cb867cb374de481d5493f4d0d368f | BACKSTOP ALARM HELD: backstop-a1dff71580da49ff889c8608971e5674 | checked watcher_age=1793195838s alarms=2
+legacy-pending-lag-and-clear 2 checked watcher_age=1793195838s alarms=0
+invalid-legacy-0 1 BACKSTOP ALARM HELD: backstop-d315a92c749b4eabbdf4343e862e39cd | BACKSTOP ALARM HELD: backstop-70faa38042574171924f58f6cbebd529 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-1 1 BACKSTOP ALARM HELD: backstop-70311680532d42a0bab8514331003cf4 | BACKSTOP ALARM HELD: backstop-abfe42681e2f4664bf31d5f5a4998230 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-2 1 BACKSTOP ALARM HELD: backstop-58702cb98ec14b76a96c44b27f4cde55 | BACKSTOP ALARM HELD: backstop-108dc0a6d84e44939ebfffb0c6e1f2f7 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-3 1 BACKSTOP ALARM HELD: backstop-e23696bc83a04e77959f970438c59d98 | BACKSTOP ALARM HELD: backstop-ee804cf9e3db486897434970762fff78 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-4 1 BACKSTOP ALARM HELD: backstop-cb7708b704944773af0a4f84fa9b4986 | BACKSTOP ALARM HELD: backstop-26daa7be0fd34d7298f2910c9d8f07fc | checked watcher_age=1793195839s alarms=2
+invalid-legacy-5 1 BACKSTOP ALARM HELD: backstop-bd11b87c027c4e7cb9c6d414d60930b5 | BACKSTOP ALARM HELD: backstop-f974aea56efb42de9af9ddffc21f9a33 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-6 1 BACKSTOP ALARM HELD: backstop-73c2f76d578443c48b95e89c06465bb8 | BACKSTOP ALARM HELD: backstop-5b33440e4c644d5084e18b7315785da2 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-7 1 BACKSTOP ALARM HELD: backstop-be942bb664d7405cae9dd86062ee9d27 | BACKSTOP ALARM HELD: backstop-c0afddec359e46dc819c690390df77a6 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-8 1 BACKSTOP ALARM HELD: backstop-c586652edc594bef90ee730c126b107a | BACKSTOP ALARM HELD: backstop-342c24c36da84ae1ba3451a94e3fe205 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-9 1 BACKSTOP ALARM HELD: backstop-35bcee907ab94c4f8f60961d975b49b6 | BACKSTOP ALARM HELD: backstop-cc7d3d90dfa7490a8feaa2602af06865 | checked watcher_age=1793195839s alarms=2
+invalid-legacy-10 1 BACKSTOP ALARM HELD: backstop-2cc08adc522d4112b806db1257e12686 | BACKSTOP ALARM HELD: backstop-9d2675d18d9147a395239fd5ed5ab1aa | checked watcher_age=1793195840s alarms=2
+invalid-legacy-11 1 BACKSTOP ALARM HELD: backstop-3e73cb707e214c57b91253239d7156c5 | BACKSTOP ALARM HELD: backstop-3b726996c20e437480dfa62c686f2a16 | checked watcher_age=1793195840s alarms=2
+bogus-valid-hash-continuity 1 migrated q-server legacy reader cursor | read q-server log moved; resyncing cursor | BACKSTOP ALARM HELD: backstop-a2af02fad6cb4555bed540ba8fe56004 | BACKSTOP ALARM HELD: backstop-dd395a3e3e7e4053974cba0ca6f2202a | checked watcher_age=1793195840s alarms=2
+cold-large-backlog 1 read q-server log catching up: cursor at 260132 | checked watcher_age=1793195840s alarms=0
+cold-large-backlog 2 read q-server log catching up: cursor at 520265 | BACKSTOP ALARM HELD: backstop-69151188e1604bc999b056fb0afea3fe | BACKSTOP ALARM HELD: backstop-7330e894060c44be8afd7ae12259aee4 | checked watcher_age=1793195841s alarms=2
+cold-large-backlog 3 read q-server log catching up: cursor at 782409 | BACKSTOP ALARM HELD: backstop-69151188e1604bc999b056fb0afea3fe | BACKSTOP ALARM HELD: backstop-7330e894060c44be8afd7ae12259aee4 | checked watcher_age=1793195841s alarms=2
+cold-large-backlog 4 read q-server log catching up: cursor at 1044553 | BACKSTOP ALARM HELD: backstop-69151188e1604bc999b056fb0afea3fe | BACKSTOP ALARM HELD: backstop-7330e894060c44be8afd7ae12259aee4 | checked watcher_age=1793195842s alarms=2
+cold-large-backlog 5 read q-server log catching up: cursor at 1306697 | BACKSTOP ALARM HELD: backstop-69151188e1604bc999b056fb0afea3fe | BACKSTOP ALARM HELD: backstop-7330e894060c44be8afd7ae12259aee4 | checked watcher_age=1793195840s alarms=2
+cold-large-backlog 6 read q-server log catching up: cursor at 1568841 | BACKSTOP ALARM HELD: backstop-69151188e1604bc999b056fb0afea3fe | BACKSTOP ALARM HELD: backstop-7330e894060c44be8afd7ae12259aee4 | checked watcher_age=1793195840s alarms=2
+cold-large-backlog 7 BACKSTOP ALARM HELD: backstop-69151188e1604bc999b056fb0afea3fe | BACKSTOP ALARM HELD: backstop-7330e894060c44be8afd7ae12259aee4 | checked watcher_age=1793195841s alarms=2
+stalled-budget 1 read failed once, tolerating one pass: q-server | checked watcher_age=1793195842s alarms=0
+stalled-budget 2 BACKSTOP ALARM HELD: backstop-d36004e6c61841dbb43a5f560571bcab | checked watcher_age=1793195842s alarms=1
+stalled-budget 3 checked watcher_age=1793195842s alarms=0
+transport-failure 1 read failed once, tolerating one pass: q-server | checked watcher_age=1793195842s alarms=0
+transport-failure 2 BACKSTOP ALARM HELD: backstop-27410bb2430e4b11b59773c0e89bc07f | checked watcher_age=1793195842s alarms=1
+transport-failure 3 checked watcher_age=1793195842s alarms=0
+permanent-preemption 1 read failed once, tolerating one pass: q-server | checked watcher_age=1793195842s alarms=0
+permanent-preemption 2 BACKSTOP ALARM HELD: backstop-dfc41eee0ef242bfb829fc30b1dd71ff | checked watcher_age=1793195843s alarms=1
+permanent-preemption 3 checked watcher_age=1793195843s alarms=0
+bounded-preemption-retry 1 BACKSTOP ALARM HELD: backstop-c9870af5bb124b5595bfe2edc8f3d81a | BACKSTOP ALARM HELD: backstop-bea689da5b9e411fa3a9274d77d98483 | checked watcher_age=1793195843s alarms=2
+All disposable CLI scenarios passed; fixtures removed.
