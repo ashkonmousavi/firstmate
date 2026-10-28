@@ -3380,8 +3380,11 @@ while :; do
             exit "$FM_CHECK_EXIT_STATUS"
           fi
           out=$FM_CHECK_RESULT
-          # conflict is one episode: steer a live worker, relaunch an exited
-          # one, or leave out=conflict so the check wake below fires once.
+          # conflict is one episode: steer a live worker once while its earlier
+          # conflict steer for that PR is unacknowledged, relaunch an
+          # exited relaunchable worker once, or leave out=conflict so the
+          # check wake below fires once. A done task, or a dead or missing
+          # endpoint, is not steered.
           # conflict-clear removes the episode and stays quiet.
           case "$out" in
             conflict:*|conflict-clear)
