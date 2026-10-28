@@ -409,7 +409,7 @@ fm_task_inbox_usage_exhausted() {  # <backend> <target> <harness> [expected-labe
   [ -n "${3:-}" ] || return 1
   signal=$(fm_control_quota_exhausted_signal "$3" 2>/dev/null) || return 1
   [ -n "$signal" ] || return 1
-  cap=$(fm_backend_capture "$1" "$2" 40 "${4:-}" 2>/dev/null) || return 1
+  cap=$(fm_backend_visible_capture "$1" "$2" "${4:-}" 2>/dev/null) || return 1
   printf '%s\n' "$cap" | grep -Eq -- "$signal"
 }
 
