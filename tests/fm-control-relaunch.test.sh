@@ -493,6 +493,7 @@ test_relaunch_preserves_durable_task_metadata() {
   pass "fm-control relaunch: durable task metadata survives replacement launch publication"
 }
 
+# shellcheck disable=SC2030 # This case intentionally isolates its exported fixture environment.
 test_relaunched_conflict_replacement_exit_wakes_once() (
   local dir state id=rl-conflict url=https://github.com/example/repo/pull/7
   local added_at=2026-01-01T00:00:00Z decision out
@@ -511,9 +512,10 @@ test_relaunched_conflict_replacement_exit_wakes_once() (
   . "$ROOT/bin/fm-pr-lib.sh"
   # shellcheck source=/dev/null
   . "$ROOT/bin/fm-backend.sh"
-  fm_pr_poll_prepare "$state" "$id" github "$url" github.com example/repo 7 \
-    "$ROOT/bin/fm-pr-poll.sh" && fm_pr_poll_publish_prepared \
-    || fail "could not register the conflict poll before relaunch"
+  if ! fm_pr_poll_prepare "$state" "$id" github "$url" github.com example/repo 7 \
+    "$ROOT/bin/fm-pr-poll.sh" || ! fm_pr_poll_publish_prepared; then
+    fail "could not register the conflict poll before relaunch"
+  fi
   fm_pr_poll_snapshot_capture "$state" "$id" "$ROOT/bin/fm-pr-poll.sh" \
     || fail "the initial conflict poll did not authenticate"
 
@@ -538,6 +540,7 @@ test_relaunched_conflict_replacement_exit_wakes_once() (
   pass "real relaunch preserves poll authentication and wakes once after unresolved replacement exit"
 )
 
+# shellcheck disable=SC2031 # PATH intentionally retains the parent environment between cases.
 test_relaunch_serializes_concurrent_durable_metadata_publication() {
   local dir control_pid link_pid rc i=0 traceparent prepare launch_release waiting ready release
   dir=$(new_case metadata-race rl28)
@@ -1855,6 +1858,7 @@ test_launch_failure_keeps_the_prior_record_and_reports_it() {
   pass "fm-control relaunch: a launch failure after the stop keeps the prior record and reports the real state"
 }
 
+# shellcheck disable=SC2031 # PATH intentionally retains the parent environment between cases.
 test_prepublication_failure_keeps_concurrent_durable_metadata() {
   local dir control_pid link_out rc i=0
   dir=$(new_case rollback-race rl30)

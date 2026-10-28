@@ -963,7 +963,8 @@ SH
     FM_PR_CONFLICT_SEND=$TMP_ROOT/ack-send.sh
     # shellcheck disable=SC2329
     fm_pr_conflict_posture() { printf 'live\n'; }
-    [() {
+    # shellcheck disable=SC2329 # Imported conflict helpers invoke this test override indirectly.
+    function [() {
       if [[ $# = 3 && $1 = -f && $3 = ']' ]] \
         && { [[ $timing = pre_stat && $2 = "$state/lane.inbox/001.msg" ]] \
           || [[ $timing = post_stat && $2 = "$state/lane.inbox/002.msg" ]]; }; then
@@ -1287,6 +1288,7 @@ test_interrupted_relaunch_retains_attempt() (
     reset_lib
     # shellcheck disable=SC2329
     fm_pr_conflict_posture() { printf 'exited\n'; }
+    # shellcheck disable=SC2034 # Read by the imported fm_pr_conflict_relaunch.
     FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/dead-relaunch.sh
     export FM_TEST_RELAUNCH_LOG=$log
     decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
