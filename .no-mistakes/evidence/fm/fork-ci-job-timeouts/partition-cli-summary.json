@@ -1,0 +1,79 @@
+{
+  "canonical_roots": 501,
+  "partitions": {
+    "1of4": {
+      "roots": 124,
+      "bytes": 4514172
+    },
+    "2of4": {
+      "roots": 125,
+      "bytes": 4514377
+    },
+    "3of4": {
+      "roots": 126,
+      "bytes": 4514353
+    },
+    "4of4": {
+      "roots": 126,
+      "bytes": 4514367
+    },
+    "1of2": {
+      "roots": 250,
+      "bytes": 9028631
+    },
+    "2of2": {
+      "roots": 251,
+      "bytes": 9028638
+    }
+  },
+  "invalid_options": [
+    "0of2",
+    "3of2",
+    "1of1",
+    "1of3",
+    "1of5",
+    "1of6",
+    "1of7",
+    "1of8",
+    "1of9",
+    "0of4",
+    "5of4",
+    "1of",
+    "2of2x",
+    "abc",
+    ""
+  ],
+  "weakened_modes_rejected": [
+    [
+      "1of2",
+      "--fast",
+      "--list-files"
+    ],
+    [
+      "1of2",
+      "--list-files",
+      "bin/fm-lint.sh"
+    ],
+    [
+      "1of4",
+      "--fast",
+      "--list-files"
+    ],
+    [
+      "1of4",
+      "--list-files",
+      "bin/fm-lint.sh"
+    ],
+    [
+      "4of4",
+      "--fast",
+      "--list-files"
+    ],
+    [
+      "4of4",
+      "--list-files",
+      "bin/fm-lint.sh"
+    ]
+  ],
+  "result": "pass"
+}
