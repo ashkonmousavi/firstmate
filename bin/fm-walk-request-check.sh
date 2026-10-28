@@ -35,7 +35,7 @@
 #   3. the outcome returns to the requesting mate through its existing reply
 #      path: one fire-and-forget message (bin/fm-send.sh --fire-and-forget,
 #      no reply expectation) into the mate's steering inbox, one per walk,
-#      with the dispatch result and the dispatcher's first reply line. The
+#      with up to 8192 bytes of the dispatcher report and its full MAIN log path. The
 #      delivery id is derived from the corr and walk id, so an interrupted
 #      delivery retries as the same send.
 #
@@ -196,10 +196,11 @@ delivery_id() {  # <corr> <walk>
 }
 
 deliver_outcome() {  # <mate> <corr> <walk> <release> <text>
-  local mate=$1 corr=$2 walk=$3 release=$4 text=$5 send id bound rc=0
+  local mate=$1 corr=$2 walk=$3 release=$4 text=$5 report=${6:-} send id bound rc=0
   send=${FM_WALK_REQUEST_SEND:-$SCRIPT_DIR/fm-send.sh}
   id=$(delivery_id "$corr" "$walk")
-  text=$(printf '%s' "$text" | tr '\n\r\t' '   ' | LC_ALL=C tr -d '\000-\037\177' | cut -c1-400)
+  text=$(printf '%s' "$text" | LC_ALL=C tr -d '\000-\010\013-\037\177' | head -c 8192)
+  [ -z "$report" ] || text="$text"$'\n'"Full report (MAIN): $report"
   bound=$(walk_request_budget) || { printf 124; return 0; }
   fm_run_timed "$bound" \
     "$send" "$mate" --fire-and-forget "$id" \
@@ -258,25 +259,64 @@ intake_line() {  # <mate> <line>
     "outcome=" \
     "retried=" \
     "spawned=" \
-    "delivered=" || return 1
+    "delivered=" || return 2
   return 0
 }
 
 discover_requests() {
-  local meta mate status_file line bound
-  [ -d "$STATE" ] || return 0
-  for meta in "$STATE"/*.meta; do
-    [ -f "$meta" ] || continue
-    grep -qx 'kind=secondmate' "$meta" 2>/dev/null || continue
-    mate=${meta##*/}; mate=${mate%.meta}
-    status_file="$STATE/$mate.status"
-    [ -f "$status_file" ] || continue
-    bound=$(walk_request_budget) || return 0
-    while IFS= read -r line; do
+  local FM_CHECKPOINT_DEADLINE=${FM_CHECKPOINT_DEADLINE:-} remaining slice=5
+  fm_checkpoint_clock
+  if [ -n "$FM_CHECKPOINT_DEADLINE" ]; then
+    remaining=$((FM_CHECKPOINT_DEADLINE - FM_CHECKPOINT_NOW))
+    [ "$remaining" -gt 1 ] || return 0
+    [ "$((remaining / 2))" -ge "$slice" ] || slice=$((remaining / 2))
+  fi
+  FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + slice))
+  local meta mate status_file line bound identity saved offset progress next rc
+  local pass cursor='' cursor_file="$REQUESTS_DIR/.discovery-cursor"
+  [ ! -f "$cursor_file" ] || IFS= read -r cursor < "$cursor_file" || true
+  for pass in after before; do
+    [ "$pass" != before ] || [ -n "$cursor" ] || break
+    for meta in "$STATE"/*.meta; do
       fm_checkpoint_expired && return 0
-      [ -n "$line" ] || continue
-      intake_line "$mate" "$line" || true
-    done < <(fm_run_timed "$bound" grep -F "$TYPED_MARKER" "$status_file" 2>/dev/null || true)
+      [ -f "$meta" ] && [ ! -L "$meta" ] || continue
+      mate=${meta##*/}; mate=${mate%.meta}
+      if [ -n "$cursor" ]; then
+        if [ "$pass" = after ]; then [[ "$mate" > "$cursor" ]] || continue
+        else [[ "$mate" > "$cursor" ]] && continue; fi
+      fi
+      grep -qx 'kind=secondmate' "$meta" 2>/dev/null || continue
+      status_file="$STATE/$mate.status"
+      [ -f "$status_file" ] && [ ! -L "$status_file" ] || continue
+      printf '%s\n' "$mate" > "$cursor_file" || return 1
+      progress="$REQUESTS_DIR/.discovered-$mate"
+      saved=''; offset=0
+      [ ! -f "$progress" ] || read -r saved offset < "$progress" || true
+      case "$offset" in ''|*[!0-9]*) offset=0 ;; esac
+      bound=$(fm_checkpoint_budget 5) || return 0
+      while IFS=$'\t' read -r identity next line; do
+        fm_checkpoint_expired && return 0
+        rc=0
+        intake_line "$mate" "$line" || rc=$?
+        [ "$rc" -ne 2 ] || return 1
+        printf '%s %s\n' "$identity" "$next" > "$progress" || return 1
+      done < <(fm_run_timed "$bound" python3 - "$status_file" "$saved" "$offset" <<'PYTHON'
+import os
+import sys
+
+path, saved, offset = sys.argv[1:]
+with open(path, "rb") as source:
+    stat = os.fstat(source.fileno())
+    identity = f"{stat.st_dev}:{stat.st_ino}"
+    offset = int(offset) if saved == identity else 0
+    source.seek(offset if offset <= stat.st_size else 0)
+    for line in iter(source.readline, b""):
+        if not line.endswith(b"\n"):
+            break
+        sys.stdout.buffer.write(f"{identity}\t{source.tell()}\t".encode() + line)
+PYTHON
+      )
+    done
   done
   return 0
 }
@@ -302,6 +342,19 @@ dispatcher_path() {
 # Internal action, run detached: run ONE walk's dispatch in the foreground and
 # append the exit sentinel the sweep collects. The once-key inside the
 # dispatcher is what makes a respawn of this action safe.
+validated_brief() {
+  local mate=$1 brief=$2 home
+  [ -f "$STATE/$mate.meta" ] && [ ! -L "$STATE/$mate.meta" ] || return 1
+  grep -qx kind=secondmate "$STATE/$mate.meta" || return 1
+  home=$(sed -n 's/^home=//p' "$STATE/$mate.meta" | head -1)
+  if [ -z "$home" ]; then
+    # shellcheck source=bin/fm-secondmate-registry-lib.sh disable=SC1091
+    . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
+    home=$(secondmate_registry_field "${FM_DATA_OVERRIDE:-$FM_HOME/data}/secondmates.md" "$mate" home) || home=''
+  fi
+  python3 "$SCRIPT_DIR/fm-walk-request-path.py" "$brief" "$home" "$FM_HOME"
+}
+
 dispatch_one() {  # <corr> <walk>
   local corr=${1:-} walk=${2:-} rec walk bot mate brief release log dispatch rc
   [ -n "$corr" ] && [ -n "$walk" ] || exit 2
@@ -314,7 +367,10 @@ dispatch_one() {  # <corr> <walk>
   [ -n "$bot" ] || bot=${FM_WALK_REQUEST_BOT:-}
   dispatch=$(dispatcher_path)
   log=$(record_log_path "$corr" "$walk")
-  printf '%s\n' "dispatching $walk@$release brief=$brief bot=${bot:-<none>} owner=$mate" > "$log" || exit 3
+  if ! brief=$(validated_brief "$mate" "$brief" 2>/dev/null); then
+    printf 'refused: brief is outside the approved walk brief directories\n__FM_WALK_DISPATCH_EXIT__=2\n' >> "$log"
+    exit 0
+  fi
   "$dispatch" "$brief" --bot "$bot" --walk "$walk" --walk-owner "$mate" \
     --timeout "${FM_WALK_REQUEST_TIMEOUT:-1800}" \
     --once-key "$walk@$release" >> "$log" 2>&1
@@ -418,6 +474,11 @@ process_record() {
   for walk in $(printf '%s' "$walks" | tr ',' ' '); do
     fm_checkpoint_expired && return 0
     case ",$spawned," in *",$walk,"*) continue ;; esac
+    if ! validated_brief "$mate" "$brief" >/dev/null 2>&1; then
+      record_refused "$rec" "request $corr names a private or unavailable brief; nothing dispatched" \
+        "refused: brief must resolve inside the requesting mate walk-briefs or MAIN walk-lists directories"
+      return 0
+    fi
     log=$(record_log_path "$corr" "$walk")
     : > "$log" || return 1
     spawned="${spawned:+$spawned,}$walk"
@@ -439,7 +500,7 @@ process_record() {
       [ "$age" -gt "${FM_WALK_REQUEST_STALE_SECS:-3600}" ] || continue
       case ",$retried," in
         *",$walk,"*)
-          outcome="dispatch failed: no completion was recorded after one recovery attempt for $walk@$release"
+          outcome="dispatch failed: no completion was recorded after one recovery attempt for $walk@$release"$'\n'"$(sed '/^__FM_WALK_DISPATCH_EXIT__=/d' "$log")"
           ;;
         *)
           retried="${retried:+$retried,}$walk"
@@ -449,7 +510,7 @@ process_record() {
           ;;
       esac
     else
-      outcome=$(sed -n '/^__FM_WALK_DISPATCH_EXIT__=/q; p' "$log" 2>/dev/null | sed -n '2,$p' | head -1)
+      outcome=$(sed '/^__FM_WALK_DISPATCH_EXIT__=/d' "$log" 2>/dev/null)
       [ -n "$outcome" ] || outcome="(no dispatcher output)"
       if [ "$sentinel" = 0 ]; then
         outcome="sent, exit=0: $outcome"
@@ -463,7 +524,7 @@ process_record() {
     done
     spawned="${rotated:+$rotated,}$walk"
     record_set "$rec" spawned "$spawned" || return 1
-    rc=$(deliver_outcome "$mate" "$corr" "$walk" "$release" "$outcome")
+    rc=$(deliver_outcome "$mate" "$corr" "$walk" "$release" "$outcome" "$log")
     if [ -n "$rc" ]; then
       report_record "$rec" "outcome delivery to $mate failed (fm-send rc=$rc) for request $corr; will retry"
       continue
@@ -492,7 +553,7 @@ action_check() {
     FM_CHECKPOINT_DEADLINE=$deadline
   fi
   mkdir -p "$REQUESTS_DIR" || return 1
-  discover_requests
+  discover_requests || return $?
   local rec name pass cursor='' cursor_file="$REQUESTS_DIR/.cursor"
   local LC_ALL=C
   [ ! -f "$cursor_file" ] || IFS= read -r cursor < "$cursor_file" || true

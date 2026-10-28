@@ -61,7 +61,8 @@ MAIN's registered walk-request check dispatches it through the home-private
 fm-grok-bot-dispatch.sh (at most once per <walk-id>@<release>) and returns
 the outcome to this home's steering inbox.
 
-The brief path must be absolute and readable on MAIN. The release is the
+The brief must be readable on both hosts, inside this mate data/walk-briefs
+or MAIN data/from-main/walk-lists; private paths and symlink escapes are refused. The release is the
 served commit the walk covers. Walk ids are privacy-safe slugs.
 EOF
 }
@@ -129,7 +130,7 @@ esac
 case "$WALKS" in
   ''|*[[:space:]]*) fail "--walks must be comma-separated privacy-safe slugs with no spaces" ;;
 esac
-WALKS=$(printf '%s' "$WALKS" | tr ',;' '  ' | tr -s ' ' ' ')
+WALKS=$(printf '%s' "$WALKS" | tr ',' ' ' | tr -s ' ' ' ')
 WALKS=${WALKS# }; WALKS=${WALKS% }
 for walk in $WALKS; do
   case "$walk" in
@@ -153,6 +154,10 @@ case "${rc:-0}" in
   1) fail "this home is not a secondmate; run the walker dispatcher in the home that owns it" ;;
   *) fail "this home's parent channel is unavailable (rc=$rc); fix the secondmate binding before requesting a walk" ;;
 esac
+
+fm_secondmate_parent_record_parse "$FM_HOME/.fm-secondmate-parent" || fail "this home's parent binding is unavailable"
+BRIEF=$(python3 "$SCRIPT_DIR/fm-walk-request-path.py" "$BRIEF" "$FM_HOME" "${FM_SECONDMATE_PARENT_HOME:-}") \
+  || fail "--brief must name an approved readable walk brief"
 
 corr=$(walk_request_new_corr)
 [ -n "$corr" ] || fail "could not mint a correlation id"

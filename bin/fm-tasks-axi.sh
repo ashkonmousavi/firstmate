@@ -25,7 +25,7 @@
 # `hold condition met: <id> <condition>` and keeps a keyed decision open in
 # OPEN DECISIONS until the hold is released or re-held
 # (bin/fm-hold-release-lib.sh owns the whole contract). A hold of kind
-# external with neither --release-on nor --until is refused, so an external
+# external, or with no kind, with neither --release-on nor --until is refused, so each such
 # hold always names when it clears. `unhold` drops the record and closes any
 # still-open hold-release decision. The flag never reaches tasks-axi itself,
 # and it is refused on every other command.
@@ -120,6 +120,7 @@ hold_kind=
 hold_until=
 hold_release_on=
 prescan_next=
+help_requested=0
 prescan_skip=1
 for arg in "$@"; do
   if [ "$prescan_skip" = 1 ]; then
@@ -136,6 +137,8 @@ for arg in "$@"; do
     continue
   fi
   case "$arg" in
+    -h|--help) help_requested=1 ;;
+    --reason) prescan_next=reason ;;
     --kind) prescan_next=kind ;;
     --until) prescan_next=until ;;
     --release-on)
@@ -225,12 +228,14 @@ else
 fi
 
 cd "$FM_BACKLOG_AXI_ROOT" || fail "cannot enter the backlog root $FM_BACKLOG_AXI_ROOT"
+if [ "$help_requested" = 1 ]; then
+  exec tasks-axi ${ARGS[@]+"${ARGS[@]}"}
+fi
 case "$subcommand" in
   hold)
-    # A kind-external hold always names when it clears: an undated free-text
-    # external hold is exactly the record nothing ever re-checked.
-    if [ "$hold_kind" = external ] && [ -z "$hold_until" ] && [ -z "$hold_release_on" ]; then
-      fail "a hold of kind external needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable"
+    # Kindless and kind-external holds always name when they clear.
+    if { [ "$hold_kind" = external ] || [ -z "$hold_kind" ]; } && [ -z "$hold_until" ] && [ -z "$hold_release_on" ]; then
+      fail "a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable"
     fi
     if [ -n "$hold_release_on" ]; then
       fm_hold_release_valid "$hold_release_on" >/dev/null \

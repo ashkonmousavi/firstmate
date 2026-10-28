@@ -129,17 +129,20 @@ test_hold_with_release_on_records_the_condition() {
 }
 
 test_other_hold_kinds_still_work_without_a_condition() {
-  local home
+  local home rc
   home=$(make_home kinds)
   run_axi "$home" add t1 "one" --repo demo >/dev/null
-  run_axi "$home" hold t1 --reason "plain wait" >/dev/null \
-    || fail "a kindless hold stays allowed"
+  rc=0
+  run_axi "$home" hold t1 --reason "plain wait" >/dev/null 2>&1 || rc=$?
+  expect_code 2 "$rc" "an undated kindless hold must be refused"
+  run_axi "$home" hold t1 --reason "dated wait" --until 2099-01-01 >/dev/null \
+    || fail "a dated kindless hold must succeed"
   run_axi "$home" hold t1 --reason "parked" --kind parked >/dev/null \
     || fail "a non-external kind stays allowed without a condition"
   run_axi "$home" hold t1 --reason "dated" --kind external --until 2099-01-01 >/dev/null \
     || fail "a dated external hold stays allowed"
   [ ! -e "$home/state/hold-releases/t1" ] || fail "no record without --release-on"
-  pass "hold-release: only undated external holds are refused"
+  pass "hold-release: kindless and external holds require an event or date"
 }
 
 test_rehold_and_unhold_manage_the_record() {
@@ -619,6 +622,55 @@ test_non_github_reholds_clear_previous_release_metadata() {
   pass "hold-release: every non-GitHub rehold clears the previous condition and decision"
 }
 
+test_wrapper_spellings_and_captain_exemption() {
+  local home fakebin rc args
+  home=$(make_home kindless-spellings)
+  run_axi "$home" add t1 one --repo demo >/dev/null
+  for args in '' '--kind=external'; do
+    rc=0
+    run_axi "$home" hold t1 --reason waiting ${args:+$args} >/dev/null 2>&1 || rc=$?
+    expect_code 2 "$rc" "every kindless and external spelling must require an event or date"
+    run_axi "$home" hold t1 --reason dated ${args:+$args} --until=2099-01-01 >/dev/null || fail "dated holds must work"
+    run_axi "$home" hold t1 --reason event ${args:+$args} --release-on="marker:$home/unmet" >/dev/null || fail "event holds must work"
+  done
+  run_axi "$home" hold --help >/dev/null || fail "help must remain available without a hold condition"
+  run_axi "$home" hold --reason before-id t1 --release-on "marker:$home/ordered" >/dev/null \
+    || fail "options before the task id must retain the same hold contract"
+  assert_grep "condition=marker:$home/ordered" "$home/state/hold-releases/t1" "option ordering must store the condition on the named task"
+  fakebin=$(fm_fakebin "$home")
+  fm_fake_exit0 "$fakebin" tmux treehouse no-mistakes gh gh-axi
+  PATH="$fakebin:$PATH" run_captain "$home" hold c1 --title question --reason 'owner decision' --repo demo >/dev/null \
+    || fail "captain holds must remain exempt from the event-or-date rule"
+  PATH="$fakebin:$PATH" run_captain "$home" hold c1 --reason deferred --until 2099-01-01 >/dev/null \
+    || fail "captain holds must retain date deferral"
+  [ ! -e "$home/state/hold-releases/c1" ] || fail "captain holds must not acquire a synthetic release condition"
+  pass "hold-release: all wrapper spellings require a condition while captain holds stay exempt"
+}
+
+test_hold_reads_reserve_time_for_registered_checks() {
+  local home
+  home=$(make_home reserved-check)
+  fake_held_show "$home/show"
+  cat > "$home/gh" <<'SH'
+#!/usr/bin/env bash
+sleep 10
+echo OPEN
+SH
+  chmod +x "$home/gh"
+  run_lib "$home" fm_hold_release_record_write "$home/state" t1 'pr:owner/repo#42'
+  run_lib "$home" fm_hold_release_record_write "$home/state" t2 'pr:owner/repo#43'
+  (
+    . "$LIB"
+    export FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_HOLD_RELEASE_SHOW_CMD="$home/show" FM_HOLD_RELEASE_GH="$home/gh"
+    FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 4 ))
+    fm_hold_release_evaluate "$home/state" >/dev/null || true
+    remaining=$(fm_checkpoint_budget 10) || fail "hold reads must leave time for later registered checks"
+    fm_run_timed "$remaining" bash -c ': > "$1"' _ "$home/registered-check-ran" || fail "the next registered check must run"
+  ) || fail "hold evaluation must reserve the next check's turn"
+  [ -f "$home/registered-check-ran" ] || fail "later work must make observable progress"
+  pass "hold-release: stalled lookups reserve processing time for later registered checks"
+}
+
 test_condition_syntax
 test_external_hold_refused_without_condition
 test_hold_with_release_on_records_the_condition
@@ -638,5 +690,7 @@ test_hold_mutations_cannot_reopen_stale_decisions
 test_met_wake_is_durable_before_later_reads_expire
 test_uncommitted_wake_does_not_suppress_publication
 test_non_github_reholds_clear_previous_release_metadata
+test_wrapper_spellings_and_captain_exemption
+test_hold_reads_reserve_time_for_registered_checks
 
 echo "# fm-hold-release.test.sh: all assertions passed"

@@ -357,7 +357,7 @@ Do not register a Beads `types.custom` `captain` type for this: captain is a hol
 
 A held row may name the event that clears it: `--release-on pr:<owner>/<repo>#<n>` (a GitHub pull request, met when it is MERGED) or `--release-on marker:<absolute-path>` (met when that path exists).
 The condition is accepted by [`bin/fm-tasks-axi.sh`](../bin/fm-tasks-axi.sh) `hold`, [`bin/fm-captain-hold.sh`](../bin/fm-captain-hold.sh) `hold`, and the teardown await-merge transition, which derives `pr:<owner>/<repo>#<n>` from the PR it holds the row for.
-A hold of kind `external` with neither `--release-on` nor `--until <date>` is refused, so an external hold always names when it clears; a bare `tasks-axi hold` writes no condition and is the documented bypass, never evaluated.
+A kindless hold or a hold of kind `external` with neither `--release-on` nor `--until <date>` is refused, so those holds always name when they clear; captain holds remain exempt and retain optional date deferral; a bare `tasks-axi hold` writes no condition and is the documented bypass, never evaluated.
 
 The watcher's check sweep evaluates the conditions - no new daemon - and when one is met it wakes firstmate once with `hold condition met: <id> <condition>` and opens a keyed decision that stays in OPEN DECISIONS until the hold is released or re-held, so a met condition can no longer sit undispositioned while work waits.
 [`bin/fm-hold-release-lib.sh`](../bin/fm-hold-release-lib.sh) owns the condition syntax, the per-task record under `state/hold-releases/`, the evaluation, and the decision lifecycle; its header documents the tunables (`FM_HOLD_RELEASE_GH` for tests among them).
@@ -700,6 +700,9 @@ A reported review need is only a recommendation, not cleanup authority.
 
 A secondmate whose machine has no access to the home-private walker dispatcher asks for a checkpoint walk with [`bin/fm-walk-request.sh`](../bin/fm-walk-request.sh): it writes one typed request (brief path, release sha, walk ids, optional bot name) on the mate's parent channel, which is the pipe that already reaches the dispatcher-owning home for every mate shape.
 Arming [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) with `arm` in that home - the same authenticated watcher-check binding as the growth check above - dispatches each requested walk at most once per `<walk-id>@<release>` through the home's `data/bin/fm-grok-bot-dispatch.sh` and returns the outcome to the requesting mate as a fire-and-forget steering-inbox message.
+Briefs must be readable at the same absolute path on the requesting machine and MAIN, under the requesting mate's `data/walk-briefs/` or MAIN's `data/from-main/walk-lists/`.
+The carrier and dispatch both resolve symlinks and refuse paths outside those directories, dotfiles, and any path under `config/` or `state/`.
+Outcomes preserve multiline report text up to the carrier's bound and include the full report's MAIN path; recovery appends to that report.
 The bridge and its sign-in stay private to that home: the check only invokes the dispatcher, and a home without the dispatcher reports that plainly rather than guessing.
 `disarm` removes the check, its trust binding, and the record directory; the script headers own the typed line, the dispatch and delivery contract, and the tunables (including `FM_WALK_REQUEST_BOT`, the default bot for requests that omit one).
 

@@ -32,7 +32,7 @@
 # The record is advisory metadata for evaluation; the backlog row remains the
 # authority on whether a hold exists. A bare `tasks-axi hold` (bypassing the
 # wrapper) writes no record and is therefore never evaluated - that is the
-# documented bypass, and bin/fm-tasks-axi.sh refuses a kind-external hold with
+# documented bypass, and bin/fm-tasks-axi.sh refuses an external or kindless hold with
 # neither --release-on nor --until precisely so the bypass is a choice.
 #
 # RECORD LIFECYCLE. The record exists exactly while its hold exists:
@@ -414,12 +414,15 @@ _fm_hold_release_show() {  # <task-id>
 # line per newly-met condition after its check wake is durably queued.
 # Diagnostics go to stderr. Returns 0 unless the sweep itself could not run.
 fm_hold_release_evaluate() {
-  local state=$1 dir rec id rc=0 seen=0 max pass cursor='' cursor_file
+  local state=$1 dir rec id rc=0 seen=0 max pass cursor='' cursor_file slice=30 remaining
   local LC_ALL=C FM_CHECKPOINT_DEADLINE=${FM_CHECKPOINT_DEADLINE:-}
   fm_checkpoint_clock
-  if [ -z "$FM_CHECKPOINT_DEADLINE" ]; then
-    FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + 30))
+  if [ -n "$FM_CHECKPOINT_DEADLINE" ]; then
+    remaining=$((FM_CHECKPOINT_DEADLINE - FM_CHECKPOINT_NOW))
+    [ "$remaining" -gt 1 ] || return 124
+    [ "$((remaining / 2))" -ge "$slice" ] || slice=$((remaining / 2))
   fi
+  FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + slice))
   dir=$(fm_hold_release_dir "$state")
   cursor_file="$state/.hold-release-cursor"
   max=${FM_HOLD_RELEASE_MAX_RECORDS:-25}

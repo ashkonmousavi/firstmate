@@ -24,17 +24,19 @@ RELEASE=0123456789abcdef0123456789abcdef01234567
 # make_mate <name>: a local-route secondmate home reporting into <parent>.
 make_mate() {  # <name> <parent-home>
   local mate="$TMP_ROOT/$1" parent=$2
-  mkdir -p "$mate/state" "$parent/state"
+  mkdir -p "$mate/state" "$mate/data/walk-briefs" "$parent/state"
+  printf 'walk brief\n' > "$mate/data/walk-briefs/brief.md"
   printf '%s\n' "$1" > "$mate/.fm-secondmate-home"
   printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' "$parent" \
     > "$mate/.fm-secondmate-parent"
-  printf 'kind=secondmate\n' > "$parent/state/$1.meta"
+  printf 'kind=secondmate\nhome=%s\n' "$mate" > "$parent/state/$1.meta"
   printf '%s\n' "$mate"
 }
 
 make_parent() {  # <name>
   local parent="$TMP_ROOT/$1"
-  mkdir -p "$parent/state"
+  mkdir -p "$parent/state" "$parent/data/from-main/walk-lists"
+  printf 'shared walk brief\n' > "$parent/data/from-main/walk-lists/brief.md"
   printf '%s\n' "$parent"
 }
 
@@ -71,7 +73,8 @@ SH
 fake_send() {
   cat > "$1" <<SH
 #!/usr/bin/env bash
-printf 'target=%s id=%s text=%s\n' "\$1" "\$3" "\$4" >> '$1.calls'
+printf 'target=%s id=%s text=%s\n' "\$1" "\$3" "\$(printf '%s' "\$4" | tr '\n' '|')" >> '$1.calls'
+printf '%s' "\$4" > '$1.'"\$3"'.message'
 exit 0
 SH
   chmod +x "$1"
@@ -93,13 +96,13 @@ test_carrier_writes_the_typed_request() {
   local parent mate out
   parent=$(make_parent carrier-main)
   mate=$(make_mate carrier-mate "$parent")
-  out=$(run_carrier "$mate" --brief /srv/walks/brief.md --release "$RELEASE" \
+  out=$(run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" \
     --walks desk-step,money-step --bot J01Walker) \
     || fail "the carrier must succeed on a secondmate home"
   assert_contains "$out" "corr=" "the carrier prints its correlation id"
   assert_contains "$out" "once-key=desk-step@$RELEASE" "the carrier prints the first once-key"
   assert_contains "$out" "once-key=money-step@$RELEASE" "the carrier prints the second once-key"
-  assert_grep 'walk-request: walks=desk-step,money-step brief=/srv/walks/brief.md' \
+  assert_grep "walk-request: walks=desk-step,money-step brief=$parent/data/from-main/walk-lists/brief.md" \
     "$parent/state/carrier-mate.status" "the typed line lands on the parent channel"
   assert_grep "release=$RELEASE" "$parent/state/carrier-mate.status" \
     "the typed line names the release"
@@ -116,20 +119,20 @@ test_carrier_refusals() {
   mate=$(make_mate refusals-mate "$parent")
   # A main home is not a secondmate: refused plainly.
   rc=0
-  run_carrier "$parent" --brief /b.md --release "$RELEASE" --walks w1 >/dev/null 2>&1 || rc=$?
+  run_carrier "$parent" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks w1 >/dev/null 2>&1 || rc=$?
   expect_code 2 "$rc" "the carrier must refuse a main home"
   # Invalid fields are refused before anything is written.
   rc=0
   run_carrier "$mate" --brief relative.md --release "$RELEASE" --walks w1 >/dev/null 2>&1 || rc=$?
   expect_code 2 "$rc" "a relative brief path must be refused"
   rc=0
-  run_carrier "$mate" --brief /b.md --release nothex --walks w1 >/dev/null 2>&1 || rc=$?
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release nothex --walks w1 >/dev/null 2>&1 || rc=$?
   expect_code 2 "$rc" "a non-hex release must be refused"
   rc=0
-  run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks 'bad id' >/dev/null 2>&1 || rc=$?
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks 'bad id' >/dev/null 2>&1 || rc=$?
   expect_code 2 "$rc" "a non-slug walk id must be refused"
   rc=0
-  run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks w1 --bot 'Two Words' >/dev/null 2>&1 || rc=$?
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks w1 --bot 'Two Words' >/dev/null 2>&1 || rc=$?
   expect_code 2 "$rc" "a bot name with whitespace must be refused"
   [ ! -e "$parent/state/refusals-mate.status" ] \
     || fail "a refused carrier run must not write the channel"
@@ -150,7 +153,7 @@ test_arm_and_disarm() {
     || fail "arm must succeed: $out"
   [ -f "$parent/state/walk-request.check.sh" ] || fail "arm must write the shim"
   [ -f "$parent/state/walk-request.check-trust" ] || fail "arm must write the trust binding"
-  run_carrier "$mate" --brief /srv/walks/brief.md --release "$RELEASE" \
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" \
     --walks armed-step --bot J01Walker >/dev/null || fail "the armed request must publish"
   FM_STATE_OVERRIDE="$parent/state" FM_WALK_REQUEST_DISPATCH="$dispatch" \
     FM_WALK_REQUEST_SEND="$send" bash "$parent/state/walk-request.check.sh" \
@@ -180,7 +183,7 @@ test_check_dispatches_and_returns_the_outcome() {
   send="$parent/fake-send"
   fake_dispatcher "$dispatch"
   fake_send "$send"
-  run_carrier "$mate" --brief /srv/walks/brief.md --release "$RELEASE" \
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" \
     --walks desk-step,money-step --bot J01Walker >/dev/null \
     || fail "the carrier must succeed"
   # First sweep: intake and spawn (silent on success).
@@ -227,7 +230,7 @@ test_missing_dispatcher_is_reported_plainly() {
   dispatch="$parent/no-such-dispatcher"
   send="$parent/fake-send"
   fake_send "$send"
-  run_carrier "$mate" --brief /srv/walks/brief.md --release "$RELEASE" \
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" \
     --walks desk-step --bot J01Walker >/dev/null
   out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
   assert_contains "$out" "dispatcher absent" \
@@ -253,14 +256,14 @@ test_incomplete_and_botless_requests_fail_loudly() {
   # An incomplete typed line (no release) is hand-written: the carrier refuses
   # this shape, so the check's own validation is what protects MAIN.
   printf '%s\n' \
-    'note [corr=0123456789abcdef] [at=1793200000]: walk-request: walks=desk-step brief=/srv/walks/brief.md' \
+    "note [corr=0123456789abcdef] [at=1793200000]: walk-request: walks=desk-step brief=$parent/data/from-main/walk-lists/brief.md" \
     >> "$parent/state/invalid-mate.status"
   out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
   assert_contains "$out" "incomplete" "an incomplete request is reported"
   wait_for "$send.calls" 'refused: the typed walk request was incomplete' \
     || fail "the mate learns its request was refused"
   # A request with no bot and no default bot.
-  run_carrier "$mate" --brief /srv/walks/brief.md --release "$RELEASE" --walks desk-step >/dev/null
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks desk-step >/dev/null
   out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
   assert_contains "$out" "no bot" "a botless request is reported"
   wait_for "$send.calls" 'refused: no bot was named' \
@@ -268,7 +271,7 @@ test_incomplete_and_botless_requests_fail_loudly() {
   [ ! -e "$dispatch.calls" ] || [ ! -s "$dispatch.calls" ] \
     || fail "a refused request must never reach the dispatcher"
   # With a default bot configured, the same request dispatches.
-  run_carrier "$mate" --brief /srv/walks/brief.md --release "$RELEASE" --walks desk-step2 >/dev/null
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks desk-step2 >/dev/null
   run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
     FM_WALK_REQUEST_BOT=DefaultWalker >/dev/null
   wait_for "$dispatch.calls" 'DefaultWalker' || fail "the default bot dispatches the request"
@@ -281,11 +284,11 @@ test_carrier_without_openssl() {
   mate=$(make_mate fallback-mate "$parent")
   fakebin="$parent/path"
   mkdir -p "$fakebin"
-  for tool in bash dirname date cksum awk shasum tr cut paste mkdir cat wc sed grep head; do
+  for tool in bash dirname date cksum awk shasum tr cut paste mkdir cat wc sed grep head python3; do
     location=$(command -v "$tool") || fail "fallback fixture needs $tool"
     ln -s "$location" "$fakebin/$tool"
   done
-  out=$(PATH="$fakebin" run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks fallback-step) \
+  out=$(PATH="$fakebin" run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks fallback-step) \
     || fail "the carrier must publish without openssl"
   [[ "$out" =~ corr=[0-9a-f]{16} ]] || fail "the fallback must return a 16-hex correlation id"
   assert_grep 'walks=fallback-step' "$parent/state/fallback-mate.status" \
@@ -305,21 +308,21 @@ test_walk_id_boundaries() {
   long="${max}a"
   for walk in _walk .walk -walk "$long"; do
     rc=0
-    run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks "$walk" >/dev/null 2>&1 || rc=$?
+    run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks "$walk" >/dev/null 2>&1 || rc=$?
     expect_code 2 "$rc" "the carrier must reject walk id $walk"
   done
   [ ! -e "$parent/state/ids-mate.status" ] || fail "invalid ids must never publish"
   corr=0
   for walk in _walk .walk -walk "$long"; do
     corr=$((corr + 1))
-    printf 'note [corr=%016x]: walk-request: walks=%s brief=/b.md release=%s bot=Walker\n' \
+    printf "note [corr=%016x]: walk-request: walks=%s brief=$parent/data/from-main/walk-lists/brief.md release=%s bot=Walker\n" \
       "$corr" "$walk" "$RELEASE" >> "$parent/state/ids-mate.status"
   done
   out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
   assert_contains "$out" 'invalid walk ids' "MAIN validates handwritten request ids"
   [ ! -e "$dispatch.calls" ] || fail "invalid handwritten ids must not dispatch"
   [ "$(wc -l < "$send.calls")" -eq 4 ] || fail "each invalid request must return a refusal"
-  run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks "$max" --bot Walker >/dev/null \
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks "$max" --bot Walker >/dev/null \
     || fail "a 64-character alphanumeric-leading id must publish"
   run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   wait_for "$dispatch.calls" "--once-key $max@$RELEASE" || fail "the maximum valid id must dispatch"
@@ -337,7 +340,8 @@ printf '%s\n' "\$3" >> '$1.attempts'
     *) exit 12 ;;
   esac
 }
-printf 'target=%s id=%s text=%s\n' "\$1" "\$3" "\$4" >> '$1.calls'
+printf 'target=%s id=%s text=%s\n' "\$1" "\$3" "\$(printf '%s' "\$4" | tr '\n' '|')" >> '$1.calls'
+printf '%s' "\$4" > '$1.'"\$3"'.message'
 SH
   chmod +x "$1"
 }
@@ -351,14 +355,14 @@ test_refusal_delivery_recovers() {
     send="$parent/fake-send"
     fake_dispatcher "$dispatch"
     fake_retrying_send "$send"
-    payload="walks=step brief=/b.md release=$RELEASE bot=Walker"
+    payload="walks=step brief=$parent/data/from-main/walk-lists/brief.md release=$RELEASE bot=Walker"
     case "$kind" in
-      incomplete) payload='walks=step brief=/b.md' ;;
-      sha) payload='walks=step brief=/b.md release=nope bot=Walker' ;;
-      short) payload='walks=step brief=/b.md release=abc bot=Walker' ;;
+      incomplete) payload="walks=step brief=$parent/data/from-main/walk-lists/brief.md" ;;
+      sha) payload="walks=step brief=$parent/data/from-main/walk-lists/brief.md release=nope bot=Walker" ;;
+      short) payload="walks=step brief=$parent/data/from-main/walk-lists/brief.md release=abc bot=Walker" ;;
       dispatcher) dispatch="$parent/missing-dispatch" ;;
-      bot) payload="walks=step brief=/b.md release=$RELEASE" ;;
-      ids) payload="walks=_step brief=/b.md release=$RELEASE bot=Walker" ;;
+      bot) payload="walks=step brief=$parent/data/from-main/walk-lists/brief.md release=$RELEASE" ;;
+      ids) payload="walks=_step brief=$parent/data/from-main/walk-lists/brief.md release=$RELEASE bot=Walker" ;;
     esac
     printf 'note [corr=0123456789abcdef]: walk-request: %s\n' "$payload" > "$parent/state/retry-$kind-mate.status"
     for n in 1 2 3 4; do
@@ -405,7 +409,7 @@ SH
   chmod +x "$dispatch"
   fake_retrying_send "$send"
   : > "$send.allow-healthy"
-  run_carrier "$mate" --brief /b.md --release "$RELEASE" \
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" \
     --walks lost-one,healthy,lost-two --bot Walker >/dev/null || fail "the lost-walk request must publish"
   run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
     FM_WALK_REQUEST_NOW=4102444800 >/dev/null
@@ -445,7 +449,7 @@ test_launch_progress_survives_interruption() {
   send="$parent/fake-send"
   fake_dispatcher "$dispatch"
   fake_send "$send"
-  out=$(run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks first,second --bot Walker)
+  out=$(run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks first,second --bot Walker)
   corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
   fakebin="$parent/path"
   mkdir -p "$fakebin"
@@ -510,7 +514,7 @@ test_launch_is_portable_and_failures_return() {
 exit 127
 SH
   chmod +x "$fakebin/setsid"
-  out=$(run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks portable --bot Walker)
+  out=$(run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks portable --bot Walker)
   corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
   run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   wait_for "$parent/state/walk-requests/$corr.portable.log" '__FM_WALK_DISPATCH_EXIT__=0' \
@@ -518,12 +522,15 @@ SH
   [ ! -e "$parent/setsid-called" ] || fail "portable detachment must not invoke setsid"
   run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   assert_grep 'walk portable@' "$send.calls" "the portable dispatch returns its result"
-  cat > "$fakebin/python3" <<'SH'
+  local real_python
+  real_python=$(command -v python3)
+  cat > "$fakebin/python3" <<SH
 #!/usr/bin/env bash
-exit 23
+[ "\$#" -ne 5 ] || exit 23
+exec '$real_python' "\$@"
 SH
   chmod +x "$fakebin/python3"
-  out=$(run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks launch-error --bot Walker)
+  out=$(run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks launch-error --bot Walker)
   corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
   run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
@@ -535,7 +542,7 @@ SH
 printf 'args=%s\n' "\$*" >> '$dispatch.calls'
 kill -KILL "\$PPID"
 SH
-  out=$(run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks recovery-error --bot Walker)
+  out=$(run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" --walks recovery-error --bot Walker)
   corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
   run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   wait_for_calls "$dispatch.calls" 2 || fail "the recovery fixture must lose its first dispatcher"
@@ -555,9 +562,9 @@ test_slow_deliveries_are_bounded_and_fair() {
   fake_dispatcher "$dispatch"
   cat > "$send" <<SH
 #!/usr/bin/env bash
-printf '%s\n' "\$4" >> '$send.attempts'
+printf '%s\n' "\$(printf '%s' "\$4" | tr '\n' '|')" >> '$send.attempts'
 if [ ! -f '$send.allow' ]; then sleep 10; exit 12; fi
-printf '%s\n' "\$4" >> '$send.calls'
+printf '%s\n' "\$(printf '%s' "\$4" | tr '\n' '|')" >> '$send.calls'
 SH
   chmod +x "$send"
   for n in 1 2 3; do
@@ -571,7 +578,7 @@ SH
     if [ "$n" -eq 3 ]; then
       printf 'note [corr=%s]: walk-request: walks=refusal\n' "$corr" > "$parent/state/fair-mate-$n.status"
     else
-      printf 'note [corr=%s]: walk-request: walks=%s brief=/b.md release=%s bot=Walker\n' \
+      printf "note [corr=%s]: walk-request: walks=%s brief=$parent/data/from-main/walk-lists/brief.md release=%s bot=Walker\n" \
         "$corr" "$walks" "$RELEASE" > "$parent/state/fair-mate-$n.status"
     fi
   done
@@ -594,6 +601,167 @@ SH
   pass "walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks"
 }
 
+test_brief_disclosure_boundaries() {
+  local parent mate other dispatch send bad n=0 rc before alias out real_python fakebin corr
+  parent=$(make_parent private-main)
+  mate=$(make_mate private-mate "$parent")
+  other=$(make_mate other-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_dispatcher "$dispatch"
+  fake_send "$send"
+  mkdir -p "$parent/config" "$parent/state" "$mate/data/walk-briefs/config" "$mate/data/walk-briefs/state"
+  for bad in "$parent/.env" "$parent/config/brief.md" "$parent/state/brief.md" \
+    "$mate/data/walk-briefs/.hidden.md" "$mate/data/walk-briefs/config/brief.md" \
+    "$mate/data/walk-briefs/state/brief.md" "$parent/outside.md"; do
+    printf 'private material\n' > "$bad"
+  done
+  alias="$mate/data/walk-briefs/escape.md"
+  ln -s "$parent/.env" "$alias"
+  for bad in "$parent/.env" "$parent/config/brief.md" "$parent/state/brief.md" \
+    "$mate/data/walk-briefs/.hidden.md" "$mate/data/walk-briefs/config/brief.md" \
+    "$mate/data/walk-briefs/state/brief.md" "$parent/outside.md" \
+    "$other/data/walk-briefs/brief.md" "$alias"; do
+    rc=0
+    run_carrier "$mate" --brief "$bad" --release "$RELEASE" --walks private --bot Walker >/dev/null 2>&1 || rc=$?
+    expect_code 2 "$rc" "private or out-of-scope briefs must be refused before publishing"
+    n=$((n + 1))
+    printf 'note [corr=%016x]: walk-request: walks=private brief=%s release=%s bot=Walker\n' \
+      "$n" "$bad" "$RELEASE" >> "$parent/state/private-mate.status"
+  done
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  [ ! -e "$dispatch.calls" ] || fail "forged private-file requests must never dispatch"
+  [ "$(wc -l < "$send.calls")" -eq "$n" ] || fail "MAIN must return every private-file refusal"
+  before=$(wc -l < "$parent/state/private-mate.status")
+  rc=0
+  run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" \
+    --walks 'first;second' --bot Walker >/dev/null 2>&1 || rc=$?
+  expect_code 2 "$rc" "the undocumented semicolon alias must be refused"
+  [ "$(wc -l < "$parent/state/private-mate.status")" -eq "$before" ] || fail "invalid list syntax must not publish"
+  ln -s "$mate/data/walk-briefs/brief.md" "$mate/data/walk-briefs/approved.md"
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/approved.md" --release "$RELEASE" --walks approved --bot Walker) \
+    || fail "an in-scope symlink must resolve to its approved file"
+  assert_grep "brief=$mate/data/walk-briefs/brief.md" "$parent/state/private-mate.status" "the carrier publishes the resolved file"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  wait_for "$dispatch.calls" '--walk approved' || fail "the requesting mate's approved brief must dispatch"
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  wait_for "$parent/state/walk-requests/$corr.approved.log" '__FM_WALK_DISPATCH_EXIT__=0' || fail "approved dispatch must finish"
+  fakebin="$parent/path"
+  mkdir -p "$fakebin"
+  real_python=$(command -v python3)
+  cat > "$fakebin/python3" <<SH
+#!/usr/bin/env bash
+if [ "\$#" -eq 5 ]; then ln -sf '$parent/.env' '$mate/data/walk-briefs/brief.md'; fi
+exec '$real_python' "\$@"
+SH
+  chmod +x "$fakebin/python3"
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks swapped --bot Walker)
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  wait_for "$parent/state/walk-requests/$corr.swapped.log" '__FM_WALK_DISPATCH_EXIT__=2' \
+    || fail "dispatch must recheck a brief swapped after intake"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  [ "$(wc -l < "$dispatch.calls")" -eq 1 ] || fail "a swapped private brief must never reach the dispatcher"
+  assert_grep 'refused: brief is outside' "$send.calls" "the mate learns why dispatch refused the swapped file"
+  pass "walk-request: private files, cross-mate paths, symlink escapes, and dispatch-time swaps are refused"
+}
+
+test_complete_reports_survive_recovery_and_return_with_pointers() {
+  local mode parent mate dispatch send out corr log message n
+  for mode in complete recovery large; do
+    parent=$(make_parent "report-$mode-main")
+    mate=$(make_mate "report-$mode-mate" "$parent")
+    dispatch="$parent/fake-dispatch"
+    send="$parent/fake-send"
+    fake_send "$send"
+    printf 'Walk report\nBLOCKED: login failed\n' > "$parent/report"
+    for n in {1..20}; do printf 'Detailed observation %s: the login remains blocked.\n' "$n" >> "$parent/report"; done
+    if [ "$mode" = large ]; then
+      for n in {1..400}; do printf 'Long observation %s: retained in the complete report file.\n' "$n" >> "$parent/report"; done
+    fi
+    printf 'UNVERIFIED: this report requires review\n' >> "$parent/report"
+    cat > "$dispatch" <<SH
+#!/usr/bin/env bash
+printf 'dispatch\n' >> '$dispatch.calls'
+if [ -f '$dispatch.sent' ]; then echo 'grok-bot: once-key already sent'; exit 0; fi
+: > '$dispatch.sent'
+cat '$parent/report'
+if [ '$mode' = recovery ]; then kill -KILL "\$PPID"; fi
+SH
+    chmod +x "$dispatch"
+    out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks report --bot Walker)
+    corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+    log="$parent/state/walk-requests/$corr.report.log"
+    run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+    if [ "$mode" = recovery ]; then
+      wait_for "$log" 'UNVERIFIED: this report requires review' || fail "the original dispatch must emit its full report"
+      run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+    fi
+    wait_for "$log" '__FM_WALK_DISPATCH_EXIT__=0' || fail "the dispatch must record completion"
+    run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+    message=$(cat "$send."*.message)
+    assert_contains "$message" $'Walk report\nBLOCKED: login failed' "multiline findings must reach the mate"
+    assert_contains "$message" "Full report (MAIN): $log" "every returned report must include its full-file pointer"
+    assert_contains "$(cat "$log")" "$(cat "$parent/report")" "the complete report must survive in its referenced file"
+    if [ "$mode" = large ]; then
+      [ "${#message}" -lt 9000 ] || fail "a large inline report must stay bounded while preserving its pointer"
+    else
+      assert_contains "$message" "$(cat "$parent/report")" "the entire report must return within the inline bound"
+    fi
+    if [ "$mode" = recovery ]; then
+      [ "$(wc -l < "$dispatch.calls")" -eq 2 ] || fail "the lost wrapper must retry with its once-key"
+      assert_contains "$message" 'once-key already sent' "recovery diagnostics must accompany the preserved original report"
+    fi
+  done
+  pass "walk-request: whole multiline reports survive recovery and return with bounded inline text and full-file pointers"
+}
+
+test_historical_discovery_reserves_processing_and_advances() {
+  local parent mate dispatch send fakebin real_grep n out
+  parent=$(make_parent history-main)
+  mate=$(make_mate history-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_dispatcher "$dispatch"
+  fake_send "$send"
+  mkdir -p "$parent/state/walk-requests"
+  printf 'schema=fm-walk-request-v1\ncorr=0000000000000001\nphase=delivered\n' > "$parent/state/walk-requests/0000000000000001.record"
+  printf '%s\n' schema=fm-walk-request-v1 corr=ffffffffffffffff mate=history-mate walks=ready \
+    "brief=$mate/data/walk-briefs/brief.md" "release=$RELEASE" bot=Walker phase=dispatching \
+    spawned=ready delivered= retried= > "$parent/state/walk-requests/ffffffffffffffff.record"
+  printf 'pending result\n__FM_WALK_DISPATCH_EXIT__=0\n' > "$parent/state/walk-requests/ffffffffffffffff.ready.log"
+  for n in {1..100}; do
+    printf 'note [corr=0000000000000001]: walk-request: walks=old brief=%s release=%s bot=Walker\n' \
+      "$mate/data/walk-briefs/brief.md" "$RELEASE" >> "$parent/state/history-mate.status"
+  done
+  run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks late --bot Walker >/dev/null
+  fakebin="$parent/path"
+  mkdir -p "$fakebin"
+  real_grep=$(command -v grep)
+  cat > "$fakebin/grep" <<SH
+#!/usr/bin/env bash
+if [ "\$1" = -oE ]; then sleep 0.03; fi
+exec '$real_grep' "\$@"
+SH
+  chmod +x "$fakebin/grep"
+  . "$ROOT/bin/fm-timeout-lib.sh"
+  FM_HOME="$parent" FM_STATE_OVERRIDE="$parent/state" FM_CHECK_TIMEOUT=4 PATH="$fakebin:$PATH" \
+    FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    fm_run_timed 4 "$CHECK" check >/dev/null || fail "history discovery must yield within the check bound"
+  assert_grep 'pending result' "$send.calls" "pending delivery must progress while history discovery is still busy"
+  for n in {1..8}; do
+    run_check "$parent" PATH="$fakebin:$PATH" FM_CHECK_TIMEOUT=4 FM_WALK_REQUEST_DISPATCH="$dispatch" \
+      FM_WALK_REQUEST_SEND="$send" >/dev/null
+    [ ! -e "$dispatch.calls" ] || break
+  done
+  wait_for "$dispatch.calls" '--walk late' || fail "discovery must eventually advance beyond historical requests"
+  wait_for "$parent/state/walk-requests/"*.late.log '__FM_WALK_DISPATCH_EXIT__=0' || fail "the late request must complete"
+  out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
+  [ -z "$out" ] || fail "successful discovery and delivery must be quiet"
+  assert_grep 'walk late@' "$send.calls" "the late request's result must return"
+  pass "walk-request: historical discovery leaves processing time and eventually reaches new requests"
+}
+
 test_carrier_writes_the_typed_request
 test_carrier_refusals
 test_carrier_without_openssl
@@ -607,5 +775,8 @@ test_lost_dispatches_and_delivery_recover_independently
 test_launch_progress_survives_interruption
 test_launch_is_portable_and_failures_return
 test_slow_deliveries_are_bounded_and_fair
+test_brief_disclosure_boundaries
+test_complete_reports_survive_recovery_and_return_with_pointers
+test_historical_discovery_reserves_processing_and_advances
 
 echo "# fm-walk-request.test.sh: all assertions passed"
