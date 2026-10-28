@@ -88,12 +88,6 @@ if ! declare -F fm_pr_url_parse >/dev/null 2>&1; then
   # shellcheck source=bin/fm-pr-lib.sh disable=SC1091
   . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-pr-lib.sh"
 fi
-# fm-hold-release-lib.sh owns the structured release condition recorded beside
-# the await-merge hold below. It is functions and empty globals only.
-if ! declare -F fm_hold_release_valid >/dev/null 2>&1; then
-  # shellcheck source=bin/fm-hold-release-lib.sh disable=SC1091
-  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-hold-release-lib.sh"
-fi
 
 # Latched when a row read hits its bound. fm_backlog_row_show runs inside a
 # command substitution, so the subshell can READ this latch but cannot set it;
@@ -875,6 +869,12 @@ fm_backlog_retain_transition() {
 # hold-release evaluation - not a hand re-check - notices the merge and wakes
 # firstmate to disposition the row (bin/fm-hold-release-lib.sh).
 fm_backlog_await_merge_transition() {
+  # Only await-merge needs structured release records; ordinary backlog
+  # operations must not acquire its source-time dependencies.
+  if ! declare -F fm_hold_release_with_lock >/dev/null 2>&1; then
+    # shellcheck source=bin/fm-hold-release-lib.sh disable=SC1091
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-hold-release-lib.sh" || return 1
+  fi
   fm_hold_release_with_lock "$5" "$4" _fm_backlog_await_merge_transition "$@"
 }
 

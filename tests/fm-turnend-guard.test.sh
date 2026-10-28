@@ -2091,7 +2091,8 @@ test_hook_codex_handling_interval_still_blocks_stop() {
   touch "$dir/state/.last-watcher-beat"
   # The lock owner must look like a live Codex client to real ps.
   mkdir -p "$TMP_ROOT/codex-client-bin"
-  cp "$(command -v sleep)" "$TMP_ROOT/codex-client-bin/codex"
+  ln -s "$(fm_agent_standin "$TMP_ROOT/codex-client-bin/standin")" "$TMP_ROOT/codex-client-bin/codex" \
+    || fail 'could not create Codex stand-in'
   "$TMP_ROOT/codex-client-bin/codex" 60 &
   pid=$!
   birth=$(bash -c '. "$1"; fm_codex_pid_birth "$2"' _ "$dir/bin/fm-session-lock-lib.sh" "$pid") || {

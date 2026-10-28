@@ -365,8 +365,9 @@ os.execv(real,[command]+sys.argv[3:])
     def test_over_budget_backlog_stays_unverified_until_tail(self):
         (self.state / '.last-watcher-beat').touch()
         self.run_guard()
+        # More than eight 128 KiB chunks: two four-read passes cannot reach the tail.
         self.config['remote_file'] = ('working [at=1000]: remote reply\n' +
-                                      'working [at=1200]: backlog\n' * 22000 +
+                                      'working [at=1200]: backlog\n' * 44000 +
                                       'done [at=3000]: latest\n')
         self.run_guard()
         self.assertIn('q-server', self.memory()['read_fails'])

@@ -431,6 +431,7 @@ SH
   for n in 1 2 3; do
     run_lib "$home" fm_hold_release_record_write "$home/state" "t$n" 'pr:owner/repo#42'
   done
+  : > "$home/lookups"
   started=$SECONDS
   deadline=$(( $(date +%s) + 2 ))
   rc=0
@@ -440,7 +441,8 @@ SH
   elapsed=$((SECONDS - started))
   expect_code 124 "$rc" "the sweep must stop at the checkpoint deadline"
   [ "$elapsed" -lt 5 ] || fail "a stalled PR lookup must not consume its full ten-second bound"
-  [ "$(wc -l < "$home/lookups")" -eq 1 ] || fail "no further lookups may start after the budget expires"
+  # Expiry during startup may prevent even the first read on a loaded runner.
+  [ "$(wc -l < "$home/lookups")" -le 1 ] || fail "no further lookups may start after the budget expires"
   [ -z "$out" ] || fail "a timed-out PR lookup must never count as merged"
   cat > "$home/show" <<SH
 #!/usr/bin/env bash
@@ -448,6 +450,7 @@ printf 'show\n' >> '$home/shows'
 sleep 10
 printf '  state: queued\n  held: yes\n'
 SH
+  : > "$home/shows"
   started=$SECONDS
   deadline=$(( $(date +%s) + 2 ))
   rc=0
@@ -455,7 +458,7 @@ SH
     FM_HOLD_RELEASE_SHOW_BOUND=10 run_lib "$home" fm_hold_release_evaluate "$home/state") || rc=$?
   expect_code 124 "$rc" "task reads must also stop at the checkpoint deadline"
   [ "$((SECONDS - started))" -lt 5 ] || fail "task reads must use the remaining checkpoint budget"
-  [ "$(wc -l < "$home/shows")" -eq 1 ] || fail "no further task reads may start after expiry"
+  [ "$(wc -l < "$home/shows")" -le 1 ] || fail "no further task reads may start after expiry"
   [ -z "$out" ] || fail "a timed-out task read must never publish a decision"
   pass "hold-release: PR and task reads respect the remaining sweep budget"
 }

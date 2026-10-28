@@ -245,6 +245,7 @@ case "$subcommand" in
 esac
 case "$subcommand" in
   hold|unhold)
+    # shellcheck disable=SC2329 # Invoked by fm_hold_release_with_lock through "$@".
     hold_mutation() {
       tasks-axi ${ARGS[@]+"${ARGS[@]}"}
       axi_rc=$?
