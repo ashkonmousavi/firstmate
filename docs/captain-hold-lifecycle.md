@@ -51,7 +51,7 @@ It works in this order:
 
 1. It uses an existing task, or creates one when nothing exists to hold.
 2. It records the task's UTC hold-set timestamp as the leading line of the task body.
-3. When `--origin` is supplied, it records the origin on the task, replacing any previous association.
+3. It records any supplied originating-task association and attribution metadata before publishing the hold.
 4. It invokes the underlying tasks-axi hold operation.
 5. It verifies the hold and timestamp.
 
@@ -65,6 +65,7 @@ Repeat and edge cases:
 - `--until` stores the captain's own deferral date through tasks-axi's date gate.
 - Before the backend hold runs, `--origin` records the origin the call is held for on its own `Captain hold origin:` body line, which `complete` and `verify` check using backend identities rather than alias spellings.
   If that write fails, the backend hold is not attempted.
+- [`bin/fm-captain-hold.sh`'s header and `--help`](../bin/fm-captain-hold.sh) own the optional attribution flag's values, storage, re-hold behavior, and rollback contract.
 - The reason may contain parentheses, semicolons, quotes, and line breaks.
   [`bin/fm-hold-reason-lib.sh`](../bin/fm-hold-reason-lib.sh) owns the storage encoding and compatibility rules; [`bin/fm-tasks-axi.sh --help`](../bin/fm-tasks-axi.sh) owns the public read commands and output contract.
 

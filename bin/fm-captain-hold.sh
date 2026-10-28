@@ -21,7 +21,8 @@
 #
 # Usage:
 #   fm-captain-hold.sh hold <task-id> --reason <reason> \
-#     [--title <title>] [--repo <repo>] [--origin <origin-id>] [--until YYYY-MM-DD]
+#     [--title <title>] [--repo <repo>] [--origin <origin-id>] \
+#     [--origin-kind <owner-request|finding|pipeline-outcome>] [--until YYYY-MM-DD]
 #   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release]
 #   fm-captain-hold.sh answers [<legacy-origin> | --any-origin] --source <provenance>   (keyed answers on stdin)
 #   fm-captain-hold.sh reconcile-requests --source-id <source-id> --source <provenance>   (task ids on stdin)
@@ -50,7 +51,14 @@
 # hold preserves the existing timestamp, while re-holding released work starts
 # a new lifecycle. A task already closed is refused rather than reopened.
 # `--origin` also records the origin on a `Captain hold origin:` body line, which
-# `complete` and `verify` check. The reason may hold parentheses and line breaks:
+# `complete` and `verify` check. `--origin-kind` records the call's attribution -
+# `owner-request` (the owner's own message), `finding` (a firstmate or worker
+# finding), or `pipeline-outcome` (a delivery-pipeline outcome) - on its own
+# `Captain hold origin-kind:` body line. Supplied values replace recorded ones;
+# omitted origin and attribution fields preserve their recorded values, and a
+# refused backend hold restores both previous fields. Attribution is optional
+# metadata and no command gates on it. The reason may hold
+# parentheses and line breaks:
 # tasks-axi refuses them, so `hold` escapes them where it writes the reason and
 # readers decode them (bin/fm-hold-reason-lib.sh owns the encoding).
 # `--until` records the captain's own deferral date through `tasks-axi hold
@@ -848,8 +856,13 @@ write_hold_set_stamp() {  # <task-id> <shown-body> <timestamp> <preserve-existin
 # The origin a hold was recorded for lives in the held task's own body, on a
 # line of its own, so `complete` can tell a call held for this origin from one
 # held for another. Omitting --origin leaves any existing association intact.
+# The origin-kind line beside it records the call's attribution class.
 body_hold_origin() {  # <decoded-task-body>
   printf '%s\n' "$1" | sed -n 's/^Captain hold origin: \(.*\)$/\1/p' | head -1
+}
+
+body_hold_origin_kind() {  # <decoded-task-body>
+  printf '%s\n' "$1" | sed -n 's/^Captain hold origin-kind: \(.*\)$/\1/p' | head -1
 }
 
 task_identity() {
@@ -863,18 +876,22 @@ task_identity() {
   printf '%s' "$id"
 }
 
-write_hold_origin() {  # <task-id> <shown-body> <origin-or-empty>
-  local id=$1 body=$2 origin=$3 stamp rest new_body tmp
+write_hold_origin() {  # <task-id> <shown-body> <origin-or-empty> [<origin-kind-or-empty>]
+  local id=$1 body=$2 origin=$3 origin_kind=${4:-} stamp rest new_body tmp
   body=$(decode_shown_value "$body") \
     || fail "could not decode the existing body for $id"
   stamp=$(printf '%s\n' "$body" | sed -n 1p)
   [ -n "$(body_hold_set_timestamp "$body")" ] \
     || fail "task $id lost its hold-set stamp before its origin was recorded"
-  rest=$(printf '%s\n' "$body" | sed 1d | awk '!/^Captain hold origin: /' \
+  rest=$(printf '%s\n' "$body" | sed 1d \
+    | awk '!/^Captain hold origin: / && !/^Captain hold origin-kind: /' \
     | awk 'NF || started { started = 1; print }')
   new_body=$stamp
   if [ -n "$origin" ]; then
-    new_body=$(printf '%s\nCaptain hold origin: %s' "$stamp" "$origin")
+    new_body=$(printf '%s\nCaptain hold origin: %s' "$new_body" "$origin")
+  fi
+  if [ -n "$origin_kind" ]; then
+    new_body=$(printf '%s\nCaptain hold origin-kind: %s' "$new_body" "$origin_kind")
   fi
   if [ -n "$rest" ]; then
     new_body=$(printf '%s\n\n%s' "$new_body" "$rest")
@@ -943,8 +960,8 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
 }
 
 command_hold() {
-  local id=${1:-} title='' reason='' repo='' origin='' until='' show state existing_title body='' hold_kind hold_set occurrence
-  local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' hold_status=0
+  local id=${1:-} title='' reason='' repo='' origin='' origin_kind='' until='' show state existing_title body='' hold_kind hold_set occurrence
+  local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' previous_origin_kind='' hold_status=0
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   shift
   while [ "$#" -gt 0 ]; do
@@ -953,6 +970,7 @@ command_hold() {
       --reason) shift; reason=${1:-} ;;
       --repo) shift; repo=${1:-} ;;
       --origin) shift; origin=${1:-} ;;
+      --origin-kind) shift; origin_kind=${1:-} ;;
       --until) shift; until=${1:-} ;;
       *) usage >&2; exit 2 ;;
     esac
@@ -965,6 +983,10 @@ command_hold() {
   if [ -n "$origin" ]; then
     validate_slug origin-id "$origin"
   fi
+  case "$origin_kind" in
+    ''|owner-request|finding|pipeline-outcome) : ;;
+    *) fail "--origin-kind must be owner-request, finding, or pipeline-outcome: $origin_kind" ;;
+  esac
   if [ -n "$until" ]; then
     case "$until" in
       [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) : ;;
@@ -1024,8 +1046,14 @@ command_hold() {
     || fail "task $id did not retain its hold-set stamp"
   if [ -n "$origin" ]; then
     origin=$(task_identity "$origin") || exit $?
+  fi
+  if [ -n "$origin" ] || [ -n "$origin_kind" ]; then
     previous_origin=$(body_hold_origin "$(show_field_value "$show" body)")
-    write_hold_origin "$id" "$(show_field "$show" body)" "$origin" || exit $?
+    previous_origin_kind=$(body_hold_origin_kind "$(show_field_value "$show" body)")
+    # Omitting --origin leaves any existing association intact, so an
+    # origin-kind write passes the preserved origin through, not an empty one.
+    write_hold_origin "$id" "$(show_field "$show" body)" \
+      "${origin:-$previous_origin}" "${origin_kind:-$previous_origin_kind}" || exit $?
   fi
   if [ -n "$until" ]; then
     tasks_axi hold "$id" --reason "$stored_reason" --kind captain --until "$until" >/dev/null \
@@ -1036,9 +1064,10 @@ command_hold() {
   fi
   if [ "$hold_status" -ne 0 ]; then
     # A refused re-hold must not associate the previous hold or answer with a
-    # new origin. Restore the old line verbatim, without resolving it again.
-    if [ -n "$origin" ]; then
-      write_hold_origin "$id" "$(show_field "$show" body)" "$previous_origin" || exit $?
+    # new origin. Restore the old lines verbatim, without resolving them again.
+    if [ -n "$origin" ] || [ -n "$origin_kind" ]; then
+      write_hold_origin "$id" "$(show_field "$show" body)" \
+        "$previous_origin" "$previous_origin_kind" || exit $?
     fi
     fail "could not hold task $id for the captain"
   fi
