@@ -530,9 +530,9 @@ process_record() {
           outcome="dispatch failed: no completion was recorded after one recovery attempt for $walk@$release"$'\n'"$(sed '/^__FM_WALK_DISPATCH_EXIT__=/d' "$log")"
           ;;
         *)
+          spawn_walk "$corr" "$walk" || true
           retried="${retried:+$retried,}$walk"
           record_set "$rec" retried "$retried" || return 1
-          spawn_walk "$corr" "$walk" || true
           continue
           ;;
       esac

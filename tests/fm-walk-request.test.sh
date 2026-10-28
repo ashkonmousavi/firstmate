@@ -934,6 +934,56 @@ SHWRAPPER
   pass "walk-request: a resumed partial launch refuses only its unstarted remainder and delivers prior results"
 }
 
+test_interrupted_launch_does_not_consume_recovery() {
+  local parent mate dispatch send fakebin real_python out corr rec log rc n
+  parent=$(make_parent retry-commit-main)
+  mate=$(make_mate retry-commit-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_dispatcher "$dispatch"
+  fake_send "$send"
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks step --bot Walker)
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  rec="$parent/state/walk-requests/$corr.record"
+  log="$parent/state/walk-requests/$corr.step.log"
+  fakebin="$parent/path"
+  mkdir -p "$fakebin"
+  real_python=$(command -v python3)
+  cat > "$fakebin/python3" <<SHWRAPPER
+#!/usr/bin/env bash
+if [ "\$1" = - ] && [ "\$#" -eq 5 ]; then
+  kill -TERM "\$PPID"
+  exit 0
+fi
+exec '$real_python' "\$@"
+SHWRAPPER
+  chmod +x "$fakebin/python3"
+  for n in 1 2 3; do
+    rc=0
+    run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" \
+      FM_WALK_REQUEST_SEND="$send" FM_WALK_REQUEST_NOW=4102444800 >/dev/null 2>&1 || rc=$?
+    expect_code 143 "$rc" "interruption before initial or recovery launch must leave the request pending"
+    grep -Fxq retried= "$rec" || fail "an unacknowledged launch must not consume recovery"
+    grep -Fxq phase=dispatching "$rec" || fail "an interrupted launch must not finish the request"
+    [ ! -e "$dispatch.calls" ] || fail "the interrupted launcher must not dispatch"
+    [ ! -e "$send.calls" ] || fail "an unattempted recovery must not return a false failure"
+    if [ "$n" -eq 1 ]; then printf 'preserved report bytes\n' >> "$log"; fi
+  done
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  grep -Fxq retried=step "$rec" || fail "acknowledging the launcher must consume its recovery attempt"
+  wait_for "$log" '__FM_WALK_DISPATCH_EXIT__=0' || fail "recovery must still run after interrupted launches"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  assert_grep 'preserved report bytes' "$send.calls" "recovery must preserve previous report bytes"
+  assert_grep 'walk green: every step passed' "$send.calls" "the eventual dispatch result must return"
+  [ "$(wc -l < "$dispatch.calls")" -eq 1 ] || fail "only the acknowledged launch must dispatch"
+  [ "$(wc -l < "$send.calls")" -eq 1 ] || fail "only the real result must be delivered"
+  grep -Fxq phase=delivered "$rec" || fail "the acknowledged recovery must complete the request"
+  pass "walk-request: interrupted initial and recovery launches leave recovery available until acknowledged"
+}
+
+test_interrupted_launch_does_not_consume_recovery
+
 test_inline_remote_briefs_and_size_limits
 test_launch_refreshes_stale_attempt_without_losing_output
 test_partial_launch_refuses_only_unstarted_walks
