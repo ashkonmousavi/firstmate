@@ -105,6 +105,12 @@ if c.get('fail_reads',0)>0:
         sys.exit(1)
 command=sys.argv[2]
 with open(os.environ['BACKSTOP_CALLS'],'a') as f:f.write(json.dumps(['reader',command]+sys.argv[3:])+'\\n')
+if command=='fm-remote-delta-read.sh' and c.get('preempt_delta',0)>0:
+    counter=Path(os.environ['BACKSTOP_PREEMPTS'])
+    n=int(counter.read_text()) if counter.exists() else 0
+    counter.write_text(str(n+1))
+    if n<c['preempt_delta']:
+        sys.exit(76)
 os.environ['FM_HOME']=str(remote)
 real=str(Path(os.environ['BACKSTOP_ROOT'])/'bin'/command)
 os.execv(real,[command]+sys.argv[3:])
@@ -114,7 +120,8 @@ os.execv(real,[command]+sys.argv[3:])
                         BACKSTOP_FIXTURE=str(self.fixture), BACKSTOP_CALLS=str(self.calls),
                         BACKSTOP_REMOTE=str(self.base / 'remote'),
                         BACKSTOP_ROOT=str(ROOT),
-                        BACKSTOP_REMOTE_FAILS=str(self.base / 'remote-fails.txt'))
+                        BACKSTOP_REMOTE_FAILS=str(self.base / 'remote-fails.txt'),
+                        BACKSTOP_PREEMPTS=str(self.base / 'preempts.txt'))
         self.send_enabled_file = None
         # No test inherits a real operational state override.
         for key in ['FM_STATE_OVERRIDE', 'FM_DATA_OVERRIDE', 'FM_CONFIG_OVERRIDE']:
@@ -637,6 +644,45 @@ os.execv(real,[command]+sys.argv[3:])
         self.config['remote_file'] += 'done [at=4990]: second entry\n'
         self.run_guard()
         self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [4990])
+
+    def test_preempted_delta_read_reissues_same_cursor_and_progresses(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        offset = self.memory()['readers']['q-server']['offset']
+        calls = len(self.reader_calls())
+        self.config['remote_file'] = ('working [at=1000]: remote reply\n'
+                                      'done [at=1901]: newer reply\n')
+        self.config['preempt_delta'] = 1
+        self.run_guard()
+        attempts = self.reader_calls()[calls:]
+        self.assertEqual(attempts[0][1], 'fm-remote-delta-read.sh')
+        self.assertEqual(attempts[1][3], attempts[0][3])
+        self.assertEqual(attempts[1][4], attempts[0][4])
+        self.assertEqual(self.memory()['readers']['q-server']['offset'],
+                         len(self.config['remote_file'].encode()))
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+        self.assertIn('REPLY DELIVERY LAG q-server: 3099s (oldest_at=1901 ingested_at=1000)',
+                      self.notes())
+
+    def test_permanently_preempted_delta_read_fails_boundedly(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        offset = self.memory()['readers']['q-server']['offset']
+        calls = len(self.reader_calls())
+        self.config['remote_file'] = ('working [at=1000]: remote reply\n'
+                                      'done [at=1901]: newer reply\n')
+        self.config['preempt_delta'] = 100
+        self.run_guard()
+        attempts = self.reader_calls()[calls:]
+        self.assertEqual(len(attempts), 4)
+        self.assertTrue(all(call[1] == 'fm-remote-delta-read.sh' for call in attempts))
+        self.assertTrue(all(call[3] == str(offset) for call in attempts))
+        self.assertEqual(self.memory()['readers']['q-server']['offset'], offset)
+        self.assertIn('q-server', self.memory()['read_fails'])
+        self.assertEqual(self.notes(), '')
+        self.run_guard()
+        self.assertIn('REPLY DELIVERY UNVERIFIED q-server', self.notes())
+        self.assertEqual(self.memory()['readers']['q-server']['offset'], offset)
 
     def test_canonical_timestamp_upper_bound_is_accepted(self):
         (self.state / '.last-watcher-beat').touch()

@@ -39,7 +39,13 @@ A delta scan must reach the current tail within four reads; exhausting that
 budget counts as a failed read while preserving cursor progress for the next
 pass, never reporting an intermediate timestamp as current. Delta reads allow one
 reply-runner poll window in the shared remote job lane (ninety seconds); other
-commands keep fifteen seconds. Output bodies are never logged. A read failing
+commands keep fifteen seconds. On exit 76, re-issue the same (offset, prefix)
+read up to three times per read (DELTA_PREEMPT_REREADS).
+A preempted attempt makes no cursor progress and consumes none of the four-read
+budget; four consecutive preemptions count as one failed read, preserving
+cursor progress for the next pass.
+The bin/fm-remote-job-lib.sh header owns the lane preemption contract.
+Output bodies are never logged. A read failing
 on two consecutive passes alarms instead of claiming caught-up; a single
 failed pass is audited as transport noise. A live runner removes its .runner
 pid record while it applies each captured reply and rewrites it by
@@ -92,6 +98,7 @@ DELTA_READ_BUDGET = 4
 # and a queued delta read does not preempt a running one, so one delta call can
 # legitimately wait a full window behind it before its own bounded read.
 DELTA_TIMEOUT = 90
+DELTA_PREEMPT_REREADS = 3
 # The runner's truncate-then-write rewrite leaves its pid record empty for a
 # moment; a few short re-reads read around it while keeping a pass bounded.
 RUNNER_REREADS = 5
@@ -218,12 +225,18 @@ def valid_reader(record):
 
 def delta_call(code, env, mate, offset, prefix):
     """One fm-remote-delta.v1 record as (fields, payload); fields is None when
-    the window closed with no new complete line."""
+    the window closed with no new complete line.
+    The module header owns the bounded preemption retry policy."""
     argv = [str(code / 'bin/fm-on.sh'), mate, 'fm-remote-delta-read.sh',
             DELTA_LOG, str(offset), prefix, DELTA_WAIT]
-    rc, stdout, _ = run_status(argv, env, DELTA_TIMEOUT)
+    for _ in range(DELTA_PREEMPT_REREADS + 1):
+        rc, stdout, _ = run_status(argv, env, DELTA_TIMEOUT)
+        if rc != 76:
+            break
     if rc == 75:
         return None, b''
+    if rc == 76:
+        raise ProbeError('delta read stayed preempted')
     if rc != 0:
         raise ProbeError('command failed or timed out')
     header, split, payload = stdout.partition(b'\n\n')
