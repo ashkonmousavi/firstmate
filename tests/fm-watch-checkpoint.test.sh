@@ -487,6 +487,9 @@ test_recorded_sweep_closes_at_checkpoint_budget() {
   local home count
   for count in 1 18; do
     home=$(make_sweep_home "sweep-$count" "$count")
+    # Start this focused budget test at its owned stage; earlier sweeps may
+    # legitimately consume a short checkpoint before any pane is observed.
+    printf 'stage=panes\n' > "$home/state/.watch-window-cursor"
     run_sweep_checkpoint "$home"
     expect_code 124 "$SWEEP_RC" "recorded sweep ($count lanes): $(cat "$home/err.txt")"
     assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'sweep did not close cleanly'
@@ -500,9 +503,11 @@ test_recorded_sweep_closes_at_checkpoint_budget() {
 test_slow_pane_read_obeys_remaining_budget() {
   local home
   home=$(make_sweep_home stuck-read 1)
+  printf 'stage=panes\n' > "$home/state/.watch-window-cursor"
   FM_FIXTURE_CAPTURE_DELAY=30 run_sweep_checkpoint "$home"
   expect_code 124 "$SWEEP_RC" "slow pane read: $(cat "$home/err.txt")"
   assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'slow read missed clean close'
+  [ -s "$home/captures" ] || fail 'the slow pane read was never exercised'
   pass 'checkpoint bounds one stalled pane read without an outer-watchdog failure'
 }
 
@@ -563,6 +568,7 @@ test_duplicate_target_cannot_pin_sweep_continuation() {
 test_slow_crew_read_defers_without_false_stale() {
   local home hash
   home=$(make_sweep_home slow-crew 1)
+  printf 'stage=panes\n' > "$home/state/.watch-window-cursor"
   cat > "$home/fakebin/tmux" <<'SH'
 #!/usr/bin/env bash
 case "$1" in capture-pane) printf 'idle pane\n'; exit 0 ;; esac
@@ -626,6 +632,7 @@ ack_checkpoint_wakes() {
 test_secondmate_stall_read_is_bounded_and_resumes() {
   local home before started elapsed i
   home=$(make_mate_checkpoint_home sibling-stall)
+  printf 'stage=stall\n' > "$home/state/.watch-window-cursor"
   before=$(cat "$home/state/mate.meta" "$home/child/state/.wake-queue" "$home/state/.secondmate-wake-progress-mate")
   started=$SECONDS
   FM_FIXTURE_CAPTURE_DELAY=30 run_mate_checkpoint "$home" --seconds 3
@@ -712,6 +719,7 @@ test_sibling_pending_observation_preserves_unknown() {
 test_capacity_read_cannot_starve_later_lane() {
   local home i
   home=$(make_sweep_home sibling-capacity 0)
+  printf 'stage=capacity\n' > "$home/state/.watch-window-cursor"
   printf '2\n' > "$home/config/writing-lane-cap"
   cat > "$home/fakebin/tasks-axi" <<'SH'
 #!/usr/bin/env bash
@@ -741,6 +749,7 @@ SH
 test_inactive_read_shares_deadline_and_keeps_cadence_due() {
   local home
   home=$(make_sweep_home sibling-inactive 1)
+  printf 'stage=inactive\n' > "$home/state/.watch-window-cursor"
   touch -t 202001010000 "$home/state/lane-001.meta"
   cat > "$home/fakebin/inactive-state" <<'SH'
 #!/usr/bin/env bash
@@ -760,6 +769,7 @@ SH
 test_unknown_liveness_keeps_checkpoint_cadence_due() {
   local home
   home=$(make_mate_checkpoint_home unknown-liveness)
+  printf 'stage=liveness\n' > "$home/state/.watch-window-cursor"
   rm -f "$home/state/.secondmate-liveness-tick" "$home/child/state/.wake-queue"
   cat > "$home/fakebin/tmux" <<'SH'
 #!/usr/bin/env bash
