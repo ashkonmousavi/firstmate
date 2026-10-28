@@ -16,7 +16,9 @@
 #   1. discovery: every state/<mate-id>.status whose state/<mate-id>.meta
 #      records kind=secondmate is scanned for
 #        note [corr=<16hex>] [at=...]: walk-request: walks=<ids>
-#             brief=<absolute-path> release=<sha> [bot=<name>]
+#             brief64=<base64-UTF-8> release=<sha> [bot=<name>]
+#      Local requests may instead name a confined brief=<absolute-path>.
+#      Accepted briefs are copied to data/walk-requests/<corr>/brief.md.
 #      Both mate shapes land there: a local route appends into the parent
 #      home directly and a remote route's reply adapter mirrors its channel
 #      into the same file (bin/fm-parent-channel-lib.sh).
@@ -214,7 +216,7 @@ deliver_outcome() {  # <mate> <corr> <walk> <release> <text>
 # One line from a mate channel becomes one record. Returns 0 when a record was
 # written (valid or failed), 1 when the line yields nothing new.
 intake_line() {  # <mate> <line>
-  local mate=$1 line=$2 corr payload walks brief release bot rest token key value
+  local mate=$1 line=$2 corr payload walks brief brief64 brief_format release bot rest token key value
   case "$line" in
     *"$TYPED_MARKER"*) ;;
     *) return 1 ;;
@@ -225,6 +227,8 @@ intake_line() {  # <mate> <line>
   payload=${line#*"$TYPED_MARKER"}
   walks=''
   brief=''
+  brief64=''
+  brief_format=''
   release=''
   bot=''
   rest=$payload
@@ -236,6 +240,7 @@ intake_line() {  # <mate> <line>
     case "$key" in
       walks) walks=$value ;;
       brief) brief=$value ;;
+      brief64) brief64=$value; brief_format=inline ;;
       release) release=$value ;;
       bot) bot=$value ;;
     esac
@@ -250,6 +255,8 @@ intake_line() {  # <mate> <line>
     "mate=$mate" \
     "walks=$walks" \
     "brief=$brief" \
+    "brief64=$brief64" \
+    "brief_format=$brief_format" \
     "release=$release" \
     "bot=$bot" \
     "created_epoch=$(walk_request_now)" \
@@ -342,17 +349,30 @@ dispatcher_path() {
 # Internal action, run detached: run ONE walk's dispatch in the foreground and
 # append the exit sentinel the sweep collects. The once-key inside the
 # dispatcher is what makes a respawn of this action safe.
-validated_brief() {
-  local mate=$1 brief=$2 home
+staged_brief() {
+  python3 "$SCRIPT_DIR/fm-walk-request-path.py" snapshot "$FM_HOME" "$1"
+}
+
+prepare_brief() {
+  local rec=$1 mate=$2 corr=$3 home remote mode source
   [ -f "$STATE/$mate.meta" ] && [ ! -L "$STATE/$mate.meta" ] || return 1
   grep -qx kind=secondmate "$STATE/$mate.meta" || return 1
-  home=$(sed -n 's/^home=//p' "$STATE/$mate.meta" | head -1)
-  if [ -z "$home" ]; then
+  mode=$(record_get "$rec" brief_format)
+  if [ "$mode" = inline ]; then
+    source=$(record_get "$rec" brief64)
+  else
+    remote=$(record_get "$STATE/$mate.meta" remote_host)
+    [ -z "$remote" ] || return 1
+    mode=local
+    source=$(record_get "$rec" brief)
+  fi
+  home=$(record_get "$STATE/$mate.meta" home)
+  if [ -z "$home" ] && [ "$mode" = local ]; then
     # shellcheck source=bin/fm-secondmate-registry-lib.sh disable=SC1091
     . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
     home=$(secondmate_registry_field "${FM_DATA_OVERRIDE:-$FM_HOME/data}/secondmates.md" "$mate" home) || home=''
   fi
-  python3 "$SCRIPT_DIR/fm-walk-request-path.py" "$brief" "$home" "$FM_HOME"
+  python3 "$SCRIPT_DIR/fm-walk-request-path.py" stage "$FM_HOME" "$corr" "$mode" "$source" "$home"
 }
 
 dispatch_one() {  # <corr> <walk>
@@ -361,14 +381,13 @@ dispatch_one() {  # <corr> <walk>
   rec=$(record_path "$corr")
   [ -f "$rec" ] || exit 2
   mate=$(record_get "$rec" mate)
-  brief=$(record_get "$rec" brief)
   release=$(record_get "$rec" release)
   bot=$(record_get "$rec" bot)
   [ -n "$bot" ] || bot=${FM_WALK_REQUEST_BOT:-}
   dispatch=$(dispatcher_path)
   log=$(record_log_path "$corr" "$walk")
-  if ! brief=$(validated_brief "$mate" "$brief" 2>/dev/null); then
-    printf 'refused: brief is outside the approved walk brief directories\n__FM_WALK_DISPATCH_EXIT__=2\n' >> "$log"
+  if ! brief=$(staged_brief "$corr" 2>/dev/null); then
+    printf 'refused: brief snapshot is private or unavailable\n__FM_WALK_DISPATCH_EXIT__=2\n' >> "$log"
     exit 0
   fi
   "$dispatch" "$brief" --bot "$bot" --walk "$walk" --walk-owner "$mate" \
@@ -383,11 +402,13 @@ spawn_walk() {
   local corr=$1 walk=$2 log rc=0
   log=$(record_log_path "$corr" "$walk")
   python3 - "$0" "$corr" "$walk" "$log" <<'PYTHON' >> "$log" 2>&1 || rc=$?
+import os
 import subprocess
 import sys
 
 script, corr, walk, log = sys.argv[1:]
 with open(log, "ab") as output:
+    os.utime(log, None)
     subprocess.Popen(["bash", script, "dispatch-one", corr, walk],
                      stdin=subprocess.DEVNULL, stdout=output,
                      stderr=subprocess.STDOUT, start_new_session=True)
@@ -408,13 +429,14 @@ record_refused() {
 }
 
 process_record() {
-  local rec=$1 corr mate walks brief release bot phase spawned delivered retried
+  local rec=$1 corr mate walks brief brief_format release bot phase spawned delivered retried
   local walk log sentinel outcome rc age launched=0 pending_walk rotated
   local walk_id_re='[A-Za-z0-9][A-Za-z0-9._-]{0,63}' walks_re
   corr=$(record_get "$rec" corr)
   mate=$(record_get "$rec" mate)
   walks=$(record_get "$rec" walks)
   brief=$(record_get "$rec" brief)
+  brief_format=$(record_get "$rec" brief_format)
   release=$(record_get "$rec" release)
   bot=$(record_get "$rec" bot)
   phase=$(record_get "$rec" phase)
@@ -433,8 +455,8 @@ process_record() {
       return 0
       ;;
   esac
-  if [ -z "$walks" ] || [ -z "$brief" ] || [ -z "$release" ]; then
-    record_refused "$rec" "request $corr from $mate is incomplete (walks, brief path, and release sha are all required); nothing dispatched" \
+  if [ -z "$walks" ] || { [ -z "$brief" ] && [ "$brief_format" != inline ]; } || [ -z "$release" ]; then
+    record_refused "$rec" "request $corr from $mate is incomplete (walks, brief, and release sha are all required); nothing dispatched" \
       "refused: the typed walk request was incomplete; re-send it with walks, brief, and release"
     return 0
   fi
@@ -471,15 +493,20 @@ process_record() {
       fi
       ;;
   esac
+  if [ "$phase" = new ]; then
+    prepare_brief "$rec" "$mate" "$corr" >/dev/null 2>&1 || true
+  fi
   for walk in $(printf '%s' "$walks" | tr ',' ' '); do
     fm_checkpoint_expired && return 0
     case ",$spawned," in *",$walk,"*) continue ;; esac
-    if ! validated_brief "$mate" "$brief" >/dev/null 2>&1; then
-      record_refused "$rec" "request $corr names a private or unavailable brief; nothing dispatched" \
-        "refused: brief must resolve inside the requesting mate walk-briefs or MAIN walk-lists directories"
-      return 0
-    fi
     log=$(record_log_path "$corr" "$walk")
+    if ! staged_brief "$corr" >/dev/null 2>&1; then
+      printf 'refused: brief snapshot is private, unavailable, binary, or exceeds 64 KiB; this walk was not dispatched\n__FM_WALK_DISPATCH_EXIT__=2\n' > "$log" || return 1
+      spawned="${spawned:+$spawned,}$walk"
+      record_set "$rec" phase dispatching spawned "$spawned" || return 1
+      report_record "$rec" "request $corr: unstarted walk $walk refused because its brief is unavailable or invalid"
+      continue
+    fi
     : > "$log" || return 1
     spawned="${spawned:+$spawned,}$walk"
     record_set "$rec" phase dispatching spawned "$spawned" || return 1

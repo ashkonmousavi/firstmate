@@ -21,13 +21,14 @@
 # THE TYPED LINE, owned here and read by MAIN's walk-request check
 # (bin/fm-walk-request-check.sh):
 #   note [corr=<16hex>] [at=<epoch>]: walk-request: walks=<ids>
-#   brief=<absolute-path> release=<sha> [bot=<name>]
+#   brief64=<base64-UTF-8> release=<sha> [bot=<name>]
+# Local requests may use brief=<absolute-path> instead of brief64.
 # The corr token is the request's receipt identity. The bot field may be
 # omitted by the caller only when MAIN's default names one
 # (FM_WALK_REQUEST_BOT there); the check reports a request with no resolvable
-# bot plainly rather than guessing. The brief path must be absolute and
-# readable by MAIN's dispatcher, because the dispatcher reads the brief on
-# MAIN and sends only its Captain's intent and Firstmate spec sections.
+# bot plainly rather than guessing. Briefs are UTF-8 text, at most 64 KiB,
+# with binary control bytes refused. Remote requests carry their content inline;
+# local paths are confined and copied by MAIN before dispatch.
 #
 # OUTPUT. Prints the corr id and one <walk-id>@<release> dispatch key per
 # walk, so the caller can correlate the outcome MAIN returns. The request is
@@ -61,8 +62,9 @@ MAIN's registered walk-request check dispatches it through the home-private
 fm-grok-bot-dispatch.sh (at most once per <walk-id>@<release>) and returns
 the outcome to this home's steering inbox.
 
-The brief must be readable on both hosts, inside this mate data/walk-briefs
-or MAIN data/from-main/walk-lists; private paths and symlink escapes are refused. The release is the
+The brief must be UTF-8 text of at most 64 KiB, inside this mate data/walk-briefs
+or MAIN data/from-main/walk-lists; private paths and symlink escapes are refused.
+Remote requests carry the content inline. MAIN dispatches a private copy. The release is the
 served commit the walk covers. Walk ids are privacy-safe slugs.
 EOF
 }
@@ -108,7 +110,7 @@ done
 }
 case "$BRIEF" in
   /*) ;;
-  *) fail "--brief must be an absolute path readable on MAIN: $BRIEF" ;;
+  *) fail "--brief must be an absolute path: $BRIEF" ;;
 esac
 case "$BRIEF" in
   # A single token: the typed line is space-separated key=value fields, so a
@@ -156,12 +158,18 @@ case "${rc:-0}" in
 esac
 
 fm_secondmate_parent_record_parse "$FM_HOME/.fm-secondmate-parent" || fail "this home's parent binding is unavailable"
-BRIEF=$(python3 "$SCRIPT_DIR/fm-walk-request-path.py" "$BRIEF" "$FM_HOME" "${FM_SECONDMATE_PARENT_HOME:-}") \
-  || fail "--brief must name an approved readable walk brief"
+brief_field=brief
+brief_action=path
+if [ "$FM_SECONDMATE_PARENT_ROUTE" = remote ]; then
+  brief_field=brief64
+  brief_action=encode
+fi
+BRIEF=$(python3 "$SCRIPT_DIR/fm-walk-request-path.py" "$brief_action" "$BRIEF" "$FM_HOME" "${FM_SECONDMATE_PARENT_HOME:-}") \
+  || fail "--brief must name an approved UTF-8 walk brief of at most 64 KiB"
 
 corr=$(walk_request_new_corr)
 [ -n "$corr" ] || fail "could not mint a correlation id"
-line="note [corr=$corr]: walk-request: walks=$WALKS brief=$BRIEF release=$RELEASE"
+line="note [corr=$corr]: walk-request: walks=$WALKS $brief_field=$BRIEF release=$RELEASE"
 [ -z "$BOT" ] || line="$line bot=$BOT"
 fm_parent_channel_append_once "$destination" "$(status_stamp_line "$line")" || {
   printf 'fm-walk-request: could not append the request to the parent channel at %s\n' "$destination" >&2

@@ -200,6 +200,11 @@ test_check_dispatches_and_returns_the_outcome() {
   wait_for "$send.calls" 'outcome: sent, exit=0: walk green' \
     || fail "the outcome must reach the mate through fm-send"
   assert_grep "target=sweep-mate" "$send.calls" "the outcome goes to the requesting mate"
+  local snapshot
+  snapshot=$(head -1 "$dispatch.calls")
+  snapshot=${snapshot#args=}; snapshot=${snapshot%% *}
+  case "$snapshot" in "$parent/data/walk-requests/"*/brief.md) ;; *) fail "local requests must dispatch MAIN's snapshot" ;; esac
+  cmp "$parent/data/from-main/walk-lists/brief.md" "$snapshot" || fail "the local snapshot must preserve the approved source bytes"
   assert_grep "desk-step@$RELEASE" "$send.calls" "the outcome names the walk and release"
   assert_grep "money-step@$RELEASE" "$send.calls" "every walk gets its own outcome"
   # The dispatcher saw the once-keys and the walk ownership. grep -F takes
@@ -526,7 +531,7 @@ SH
   real_python=$(command -v python3)
   cat > "$fakebin/python3" <<SH
 #!/usr/bin/env bash
-[ "\$#" -ne 5 ] || exit 23
+[ "\$1" != - ] || [ "\$#" -ne 5 ] || exit 23
 exec '$real_python' "\$@"
 SH
   chmod +x "$fakebin/python3"
@@ -651,7 +656,7 @@ test_brief_disclosure_boundaries() {
   real_python=$(command -v python3)
   cat > "$fakebin/python3" <<SH
 #!/usr/bin/env bash
-if [ "\$#" -eq 5 ]; then ln -sf '$parent/.env' '$mate/data/walk-briefs/brief.md'; fi
+if [ "\$1" = - ] && [ "\$#" -eq 5 ]; then ln -sf '$parent/.env' '$parent/data/walk-requests/'"\$3"'/brief.md'; fi
 exec '$real_python' "\$@"
 SH
   chmod +x "$fakebin/python3"
@@ -662,7 +667,7 @@ SH
     || fail "dispatch must recheck a brief swapped after intake"
   run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   [ "$(wc -l < "$dispatch.calls")" -eq 1 ] || fail "a swapped private brief must never reach the dispatcher"
-  assert_grep 'refused: brief is outside' "$send.calls" "the mate learns why dispatch refused the swapped file"
+  assert_grep 'refused: brief snapshot is private' "$send.calls" "the mate learns why dispatch refused the swapped file"
   pass "walk-request: private files, cross-mate paths, symlink escapes, and dispatch-time swaps are refused"
 }
 
@@ -762,6 +767,176 @@ SH
   pass "walk-request: historical discovery leaves processing time and eventually reaches new requests"
 }
 
+test_inline_remote_briefs_and_size_limits() {
+  local parent mate dispatch send out corr remote_log snapshot delta payload rc n file
+  parent=$(make_parent inline-main)
+  mate=$(make_mate inline-mate "$parent")
+  printf 'schema=fm-secondmate-parent.v1\nroute=remote\nparent_host=main\n' > "$mate/.fm-secondmate-parent"
+  printf 'kind=secondmate\nremote_host=server\nhome=/not-on-main/mate\n' > "$parent/state/inline-mate.meta"
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_send "$send"
+  cat > "$dispatch" <<SHDISPATCH
+#!/usr/bin/env bash
+printf '%s\n' "\$1" >> '$dispatch.calls'
+cat "\$1" > '$dispatch.received'
+echo 'remote walk completed'
+SHDISPATCH
+  chmod +x "$dispatch"
+  python3 - "$mate/data/walk-briefs/brief.md" <<'PYTHON'
+from pathlib import Path
+import sys
+Path(sys.argv[1]).write_bytes('Remote café brief\n'.encode() + b'x' * (65536 - len('Remote café brief\n'.encode())))
+PYTHON
+  cp "$mate/data/walk-briefs/brief.md" "$parent/expected"
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks remote --bot Walker) \
+    || fail "a remote binding must publish its local UTF-8 brief inline"
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  remote_log="$mate/state/parent-replies.status"
+  assert_grep 'brief64=' "$remote_log" "the remote request carries inline content"
+  delta="$parent/delta"
+  FM_HOME="$mate" "$ROOT/bin/fm-remote-delta-read.sh" state/parent-replies.status 0 \
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0 > "$delta" \
+    || fail "the existing remote reader must carry a maximum-size inline request"
+  assert_grep 'status=delta' "$delta" "the inline request must fit the remote channel bound"
+  sed '1,/^$/d' "$delta" > "$parent/state/inline-mate.status"
+  rm "$mate/data/walk-briefs/brief.md"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  wait_for "$parent/state/walk-requests/$corr.remote.log" '__FM_WALK_DISPATCH_EXIT__=0' || fail "the remote inline request must finish"
+  snapshot="$parent/data/walk-requests/$corr/brief.md"
+  assert_equals "$snapshot" "$(cat "$dispatch.calls")" "MAIN dispatches its request snapshot"
+  cmp "$parent/expected" "$snapshot" || fail "the 64 KiB UTF-8 snapshot must preserve every byte"
+  cmp "$parent/expected" "$dispatch.received" || fail "the dispatcher must receive the remote content without opening the source path"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  assert_grep 'remote walk completed' "$send.calls" "the remote result must return"
+  for n in oversize binary invalid-utf8; do
+    file="$mate/data/walk-briefs/$n.md"
+    python3 - "$file" "$n" <<'PYTHON'
+from pathlib import Path
+import sys
+Path(sys.argv[1]).write_bytes({'oversize': b'x' * 65537, 'binary': b'brief\x00secret', 'invalid-utf8': b'\xff'}[sys.argv[2]])
+PYTHON
+    rc=0
+    run_carrier "$mate" --brief "$file" --release "$RELEASE" --walks "$n" --bot Walker >/dev/null 2>&1 || rc=$?
+    expect_code 2 "$rc" "the carrier must refuse $n content before publishing"
+    payload=$(python3 - "$file" <<'PYTHON'
+import base64
+from pathlib import Path
+import sys
+print(base64.b64encode(Path(sys.argv[1]).read_bytes()).decode())
+PYTHON
+)
+    case "$n" in oversize) out=1111111111111111 ;; binary) out=2222222222222222 ;; *) out=3333333333333333 ;; esac
+    printf 'note [corr=%s]: walk-request: walks=%s brief64=%s release=%s bot=Walker\n' \
+      "$out" "$n" "$payload" "$RELEASE" >> "$parent/state/inline-mate.status"
+  done
+  printf 'note [corr=4444444444444444]: walk-request: walks=remote-path brief=%s release=%s bot=Walker\n' \
+    "$parent/data/from-main/walk-lists/brief.md" "$RELEASE" >> "$parent/state/inline-mate.status"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  [ "$(wc -l < "$remote_log")" -eq 1 ] || fail "refused content must never publish on the remote channel"
+  [ "$(wc -l < "$dispatch.calls")" -eq 1 ] || fail "MAIN must refuse invalid inline content and remote path-only requests"
+  [ "$(wc -l < "$send.calls")" -eq 5 ] || fail "every invalid remote request must receive its refusal"
+  pass "walk-request: remote UTF-8 briefs travel inline up to 64 KiB and invalid content is refused at both boundaries"
+}
+
+test_launch_refreshes_stale_attempt_without_losing_output() {
+  local parent mate dispatch send corr log snapshot
+  parent=$(make_parent freshness-main)
+  mate=$(make_mate freshness-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_send "$send"
+  corr=1234567890abcdef
+  mkdir -p "$parent/state/walk-requests" "$parent/data/walk-requests/$corr"
+  snapshot="$parent/data/walk-requests/$corr/brief.md"
+  cp "$mate/data/walk-briefs/brief.md" "$snapshot"
+  printf '%s\n' schema=fm-walk-request-v1 "corr=$corr" mate=freshness-mate walks=slow \
+    "brief=$mate/data/walk-briefs/brief.md" "release=$RELEASE" bot=Walker phase=dispatching \
+    spawned=slow delivered= retried= > "$parent/state/walk-requests/$corr.record"
+  log="$parent/state/walk-requests/$corr.slow.log"
+  printf 'preserved report bytes\n' > "$log"
+  touch -t 200001010000 "$log"
+  cat > "$dispatch" <<SHDISPATCH
+#!/usr/bin/env bash
+: > '$dispatch.started'
+for ((n=0; n<200; n++)); do
+  [ ! -f '$dispatch.finish' ] || { echo 'eventual successful report'; exit 0; }
+  sleep 0.05
+done
+exit 8
+SHDISPATCH
+  chmod +x "$dispatch"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  wait_for "$parent/state/walk-requests/$corr.record" 'retried=slow' || fail "the scheduled walk must enter recovery"
+  local n=0
+  until [ -f "$dispatch.started" ]; do
+    n=$((n + 1)); [ "$n" -lt 100 ] || fail "the first actual launch must start"; sleep 0.05
+  done
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  [ ! -e "$send.calls" ] || fail "a fresh recovery must not be declared exhausted while its dispatcher runs"
+  assert_grep 'preserved report bytes' "$log" "refreshing freshness must preserve previous report bytes"
+  : > "$dispatch.finish"
+  wait_for "$log" '__FM_WALK_DISPATCH_EXIT__=0' || fail "the running recovery must finish normally"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  assert_grep 'eventual successful report' "$send.calls" "the eventual result must reach the mate"
+  [ "$(wc -l < "$send.calls")" -eq 1 ] || fail "only the successful result may be delivered"
+  pass "walk-request: recovery refreshes attempt freshness and preserves the running walk's eventual result"
+}
+
+test_partial_launch_refuses_only_unstarted_walks() {
+  local parent mate dispatch send corr out fakebin real_python snapshot rec
+  parent=$(make_parent partial-main)
+  mate=$(make_mate partial-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_send "$send"
+  cat > "$dispatch" <<SHDISPATCH
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> '$dispatch.calls'
+echo 'first walk complete'
+SHDISPATCH
+  chmod +x "$dispatch"
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks first,second,third --bot Walker)
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  fakebin="$parent/path"
+  mkdir -p "$fakebin"
+  real_python=$(command -v python3)
+  cat > "$fakebin/python3" <<SHWRAPPER
+#!/usr/bin/env bash
+if [ "\$1" = - ] && [ "\$#" -eq 5 ] && [ "\$4" = first ]; then
+  '$real_python' "\$@" || exit \$?
+  for ((n=0; n<100; n++)); do
+    if grep -q '__FM_WALK_DISPATCH_EXIT__=0' "\$5" 2>/dev/null; then break; fi
+    sleep 0.05
+  done
+  kill -TERM "\$PPID"
+  exit 0
+fi
+exec '$real_python' "\$@"
+SHWRAPPER
+  chmod +x "$fakebin/python3"
+  local rc=0
+  run_check "$parent" PATH="$fakebin:$PATH" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null 2>&1 || rc=$?
+  expect_code 143 "$rc" "the sweep must stop after its first launch"
+  wait_for "$parent/state/walk-requests/$corr.first.log" '__FM_WALK_DISPATCH_EXIT__=0' || fail "the spawned walk must finish independently"
+  snapshot="$parent/data/walk-requests/$corr/brief.md"
+  rm "$snapshot" "$mate/data/walk-briefs/brief.md"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" > "$parent/wakes"
+  assert_grep 'first walk complete' "$send.calls" "the already-spawned result must survive sibling refusal"
+  for out in second third; do
+    assert_grep "walk $out@" "$send.calls" "each unstarted sibling must receive its own refusal"
+  done
+  [ "$(wc -l < "$dispatch.calls")" -eq 1 ] || fail "only the spawned walk may reach the dispatcher"
+  [ "$(wc -l < "$send.calls")" -eq 3 ] || fail "all three per-walk results must return"
+  ! grep -q 'nothing dispatched' "$parent/wakes" "$send.calls" || fail "partial dispatch must never be described as nothing dispatched"
+  rec="$parent/state/walk-requests/$corr.record"
+  grep -Fxq phase=delivered "$rec" || fail "the mixed request must complete after every outcome returns"
+  pass "walk-request: a resumed partial launch refuses only its unstarted remainder and delivers prior results"
+}
+
+test_inline_remote_briefs_and_size_limits
+test_launch_refreshes_stale_attempt_without_losing_output
+test_partial_launch_refuses_only_unstarted_walks
 test_carrier_writes_the_typed_request
 test_carrier_refusals
 test_carrier_without_openssl
