@@ -1004,6 +1004,27 @@ The guard also notes whether the starfield and the placeholder were actually dra
 The live guard also submits a Claude doorbell while a real foreground tool is blocked, then requires the instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
 The portable busy-Claude, OpenCode, and Rovo regressions verify literal input followed by Enter; they do not claim model consumption.
 
+The same guard accepts `FM_SEND_INBOX_LIVE_HARNESSES=cursor` to check a genuinely exhausted Cursor account: it requires the real usage banner, observes that the ring sends no terminal input, then requires fm-send to release the agent through fm-control.
+It clears its own retained launch probe before observing ring input, and reports whether the settled composer exercised ordinary empty-composer exit or the exhaustion-only unknown-composer shutdown.
+Run with `FM_SEND_INBOX_LIVE_E2E=1`; optional `FM_SEND_INBOX_LIVE_CURSOR_MODEL` selects the exhausted model.
+It fails rather than claiming coverage if the installed Cursor account/model does not produce the exhaustion surface.
+Recorded harness aliases use the shared family normalization for both exhaustion and busy-submit capabilities; the portable regressions cover `cursor-agent`, `claude-latest`, OpenCode/Rovo aliases, and unsupported capabilities.
+
+On 2026-10-28, Cursor Agent 2026.10.19-6bbf2c4 with Grok 4.7 256K High on Linux and tmux 3.4 produced the real `You're out of usage` banner and passed the exhaustion guard.
+The run used throwaway copies of the CLI config and Linux XDG credential store, with `CURSOR_CONFIG_DIR`, `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`, `TMPDIR`, `FM_HOME`, and `FM_ROOT_OVERRIDE` inside the verification worktree.
+The rejected launch probe remained pending after Escape; removing only that test-owned input yielded an empty composer, so this run verified ordinary `/exit` shutdown rather than the unknown-composer Escape/SIGTERM path covered by the portable regressions.
+
+```sh
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=cursor \
+  FM_SEND_INBOX_LIVE_TIMEOUT=90 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+```text
+# cursor (2026.10.19-6bbf2c4): exhausted composer initially pending
+ok - cursor (2026.10.19-6bbf2c4): real exhaustion suppresses ringing and fm-send delegates sanctioned empty-composer shutdown to fm-control
+ok - live steering-inbox doorbell guard: 1 harness(es) honored the doorbell contract
+```
+
 On 2026-10-28, Claude Code 2.1.312 on Linux with tmux 3.4 passed both the idle and busy checks, using an isolated authenticated config with hooks disabled and the bypass-mode acknowledgement set.
 `CLAUDE_CONFIG_DIR`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`, `TMPDIR`, `FM_HOME`, and `FM_ROOT_OVERRIDE` pointed inside the verification worktree.
 The focused invocation was:

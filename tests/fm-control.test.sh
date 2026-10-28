@@ -1339,10 +1339,10 @@ run_cursor_exit() {
     "$CONTROL" "$@" 2>&1
 }
 
-cursor_exhausted_case() {  # <name> <screen> -> echoes the case dir
+cursor_exhausted_case() {  # <name> <screen> [harness] -> echoes the case dir
   local dir
   dir=$(new_case "$1")
-  add_task "$dir" t1 cursor
+  add_task "$dir" t1 "${3:-cursor}"
   alive_as "$dir" cursor-agent
   printf '%s\n' "$2" > "$dir/fake/pane"
   printf '%s\n' "$dir"
@@ -1380,8 +1380,8 @@ test_cursor_usage_exhausted_exit_stops_unknown_composer() (
 )
 
 test_send_releases_exhausted_cursor_with_lease_guard() (
-  local dir out rc
-  dir=$(cursor_exhausted_case send-guarded "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue.")
+  local dir out rc harness=${1:-cursor}
+  dir=$(cursor_exhausted_case "send-guarded-$harness" "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue." "$harness")
   start_cursor_process "$dir"
   trap 'stop_grok_process "$dir"' EXIT
   out=$(fm_run_timed 10 env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
@@ -1391,8 +1391,35 @@ test_send_releases_exhausted_cursor_with_lease_guard() (
   assert_cursor_stopped_without_exit_command "$dir" "$out" "guarded send"
   [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "the guarded send lost its durable steer"
   [ ! -s "$dir/fake/literal" ] || fail "the exhausted pane received text"
-  pass "fm-send: a guarded exhausted cursor handoff stops the agent without deadlocking"
+  pass "fm-send: a guarded exhausted $harness handoff stops the agent without deadlocking"
 )
+
+test_recorded_harness_capabilities() {
+  local harness signal
+  for harness in claude claude-latest opencode opencode-dev rovo rovo-preview; do
+    fm_control_submit_queue "$harness" || fail "$harness must accept busy submission"
+  done
+  for harness in cursor cursor-agent codex codex-dev pi pi-signed grok grok-dev kimi gemini muse omp agy devin unknown ''; do
+    fm_control_submit_queue "$harness" && fail "$harness must not claim a busy submit queue"
+  done
+  for harness in cursor cursor-agent; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
+    printf '%s\n' "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue." \
+      | grep -Eq -- "$signal" || fail "$harness missed Cursor's usage banner"
+    printf '%s\n' "The log quoted You're out of usage in a sentence." \
+      | grep -Eq -- "$signal" && fail "$harness mistook a quotation for exhaustion"
+  done
+  for harness in grok grok-dev; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
+    printf '%s\n' 'You hit your weekly limit' | grep -Eq -- "$signal" || fail "$harness missed Grok's usage banner"
+  done
+  for harness in claude-latest codex-dev opencode-dev pi pi-signed rovo-preview kimi gemini muse omp agy devin; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness was not recognized"
+    [ -z "$signal" ] || fail "$harness invented an exhaustion signal"
+  done
+  fm_control_quota_exhausted_signal unknown >/dev/null && fail "an unknown harness must be refused"
+  pass "recorded harness capabilities normalize aliases and refuse unsupported capabilities"
+}
 
 test_cursor_quoted_usage_row_still_refuses_exit() {
   local dir out rc
@@ -1560,6 +1587,8 @@ test_grok_unknown_composer_without_usage_limit_refuses_relaunch
 test_grok_usage_picker_refuses_when_agent_cannot_be_stopped
 test_cursor_usage_exhausted_exit_stops_unknown_composer || exit 1
 test_send_releases_exhausted_cursor_with_lease_guard || exit 1
+test_send_releases_exhausted_cursor_with_lease_guard cursor-agent || exit 1
+test_recorded_harness_capabilities
 test_cursor_quoted_usage_row_still_refuses_exit
 test_cursor_pending_text_refuses_exit_beside_usage_row
 test_secondmate_control_command_carries_no_marker

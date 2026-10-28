@@ -1235,10 +1235,10 @@ assert_doorbell_submitted() {
 }
 
 test_watcher_submits_busy_claude() {
-  local dir state capture
-  dir=$(setup_watch_case claude-busy)
+  local dir state capture harness=${1:-claude}
+  dir=$(setup_watch_case "$harness-busy")
   state="$dir/state"
-  set_watch_harness "$dir" claude
+  set_watch_harness "$dir" "$harness"
   inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue" >/dev/null
   age_path "$state/t1.inbox/001.msg"
   : > "$dir/send.log"
@@ -1249,7 +1249,7 @@ test_watcher_submits_busy_claude() {
   assert_doorbell_submitted "$dir"
   [ ! -s "$state/.wake-queue" ] || fail "a busy claude submit woke firstmate:"$'\n'"$(cat "$state/.wake-queue")"
   [ -f "$state/t1.inbox/001.msg" ] || fail "the durable steer was removed"
-  pass "watcher: a busy claude pane receives the doorbell followed by Enter"
+  pass "watcher: a busy $harness pane receives the doorbell followed by Enter"
 }
 
 test_watcher_submits_busy_opencode() {
@@ -1320,10 +1320,10 @@ test_watcher_rerings_nonqueue_inside_grace_after_busy() {
 }
 
 test_watcher_skips_exhausted_cursor_and_releases() {
-  local dir state
-  dir=$(setup_watch_case cursor-exhausted)
+  local dir state harness=${1:-cursor}
+  dir=$(setup_watch_case "$harness-exhausted")
   state="$dir/state"
-  set_watch_harness "$dir" cursor
+  set_watch_harness "$dir" "$harness"
   inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue" >/dev/null
   age_path "$state/t1.inbox/001.msg"
   : > "$dir/send.log"
@@ -1393,8 +1393,10 @@ test_watcher_escalates_once_after_budget
 test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_dead_pane_ignores_stale_busy_state
 test_watcher_submits_busy_claude
+test_watcher_submits_busy_claude claude-latest
 test_watcher_submits_busy_opencode
 test_watcher_submits_busy_rovo
 test_watcher_rerings_nonqueue_on_idle_after_escalation
 test_watcher_rerings_nonqueue_inside_grace_after_busy
 test_watcher_skips_exhausted_cursor_and_releases
+test_watcher_skips_exhausted_cursor_and_releases cursor-agent

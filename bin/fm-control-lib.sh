@@ -208,7 +208,9 @@ fm_control_interrupt_hazard_signal() {  # <harness>
 # The doorbell path reads this same pattern and does not type while it matches
 # (bin/fm-task-inbox-lib.sh). No vendor CLI is consulted.
 fm_control_quota_exhausted_signal() {  # <harness>
-  case "${1-}" in
+  local harness
+  harness=$(fm_control_harness_family "${1-}") || return 1
+  case "$harness" in
     grok) printf '%s' '^[^[:alnum:]]*You hit your [[:alpha:]]+ limit' ;;
     cursor)
       # $'\u2019' is the right single quotation mark some banners use for You're.
@@ -230,7 +232,9 @@ fm_control_quota_exhausted_signal() {  # <harness>
 # submit queue. The doorbell path (bin/fm-task-inbox-lib.sh) submits while
 # busy only for the harnesses this function accepts.
 fm_control_submit_queue() {  # <harness>
-  case "${1-}" in
+  local harness
+  harness=$(fm_control_harness_family "${1-}") || return 1
+  case "$harness" in
     claude|opencode|rovo) return 0 ;;
   esac
   return 1
