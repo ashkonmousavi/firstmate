@@ -355,11 +355,12 @@ Do not register a Beads `types.custom` `captain` type for this: captain is a hol
 
 ### Hold release conditions
 
-A held row may name the event that clears it: `--release-on pr:<owner>/<repo>#<n>` (a GitHub pull request, met when it is MERGED) or `--release-on marker:<absolute-path>` (met when that path exists).
-The condition is accepted by [`bin/fm-tasks-axi.sh`](../bin/fm-tasks-axi.sh) `hold`, [`bin/fm-captain-hold.sh`](../bin/fm-captain-hold.sh) `hold`, and the teardown await-merge transition, which derives `pr:<owner>/<repo>#<n>` from the PR it holds the row for.
+A held row may name a GitHub PR merge or the appearance of an activation marker as the event that makes it ready for disposition.
+The hold wrappers accept a structured release condition; teardown's await-merge transition records one automatically for a GitHub PR.
+[`bin/fm-tasks-axi.sh --help`](../bin/fm-tasks-axi.sh) and [`bin/fm-captain-hold.sh --help`](../bin/fm-captain-hold.sh) own the invocation syntax.
 A kindless hold or a hold of kind `external` with neither `--release-on` nor `--until <date>` is refused, so those holds always name when they clear; captain holds remain exempt and retain optional date deferral; a bare `tasks-axi hold` writes no condition and is the documented bypass, never evaluated.
 
-The watcher's check sweep evaluates the conditions - no new daemon - and when one is met it wakes firstmate once with `hold condition met: <id> <condition>` and opens a keyed decision that stays in OPEN DECISIONS until the hold is released or re-held, so a met condition can no longer sit undispositioned while work waits.
+The watcher's check sweep evaluates the conditions - no new daemon - and wakes firstmate when one is met, leaving it visible in OPEN DECISIONS for disposition rather than automatically releasing the hold.
 [`bin/fm-hold-release-lib.sh`](../bin/fm-hold-release-lib.sh) owns the condition syntax, the per-task record under `state/hold-releases/`, the evaluation, and the decision lifecycle; its header documents the tunables (`FM_HOLD_RELEASE_GH` for tests among them).
 A pull-request lookup that fails is never met: the condition simply retries on the next sweep.
 
@@ -706,7 +707,7 @@ The carrier confines source paths to the requesting mate's `data/walk-briefs/` o
 MAIN applies the same confinement to local path requests and copies every accepted brief into `data/walk-requests/<request-id>/brief.md` before dispatching that snapshot.
 Outcomes preserve multiline report text up to the carrier's bound and include the full report's MAIN path; recovery appends to that report.
 The bridge and its sign-in stay private to that home: the check only invokes the dispatcher, and a home without the dispatcher reports that plainly rather than guessing.
-`disarm` removes the check, its trust binding, and the record directory; the script headers own the typed line, the dispatch and delivery contract, and the tunables (including `FM_WALK_REQUEST_BOT`, the default bot for requests that omit one).
+The script headers own the typed line, dispatch, recovery, delivery, disarming, and tunables (including `FM_WALK_REQUEST_BOT`, the default bot for requests that omit one).
 
 ## Stow pass horizon (config/stow-pass-horizon)
 

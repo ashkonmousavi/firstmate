@@ -14,15 +14,13 @@
 # home that owns the dispatcher (MAIN), reads those typed lines and acts:
 #
 #   1. discovery: every state/<mate-id>.status whose state/<mate-id>.meta
-#      records kind=secondmate is scanned for
-#        note [corr=<16hex>] [at=...]: walk-request: walks=<ids>
-#             brief64=<base64-UTF-8> release=<sha> [bot=<name>]
-#      Local requests may instead name a confined brief=<absolute-path>.
+#      records kind=secondmate is scanned for the typed request format owned
+#      by bin/fm-walk-request.sh, including its local-path alternative.
 #      Accepted briefs are copied to data/walk-requests/<corr>/brief.md.
 #      Both mate shapes land there: a local route appends into the parent
 #      home directly and a remote route's reply adapter mirrors its channel
 #      into the same file (bin/fm-parent-channel-lib.sh).
-#   2. dispatch: each walk is dispatched exactly once through
+#   2. dispatch: each walk is sent at most once through
 #      $FM_HOME/data/bin/fm-grok-bot-dispatch.sh (overridable with
 #      FM_WALK_REQUEST_DISPATCH) as
 #        fm-grok-bot-dispatch.sh <brief> --bot <bot> --walk <walk-id>
@@ -46,10 +44,17 @@
 # DETACHED (Python subprocess, log under state/walk-requests/) and this check only
 # spawns, collects finished logs, and delivers; a sweep never blocks on a
 # walk in flight.
+# A launch refreshes log freshness without truncating existing report bytes.
+# Recovery consumes its one retry only after the launcher acknowledges launch
+# or records failure; interruption before bookkeeping can repeat the launch
+# safely with the same once-key. If a resumed request's brief becomes invalid,
+# only its unstarted walks are refused; already-spawned results still return.
+# tests/fm-walk-request.test.sh covers these interruption and report invariants.
 #
 # `arm` writes state/walk-request.check.sh and binds its bytes with
 # fm-check-register.sh (the bin/fm-mail-check.sh pattern); `disarm` removes
-# the shim, its trust binding, and the record directory. The check is silent
+# the shim, its trust binding, and the state record/log directory, retaining
+# brief snapshots under data/walk-requests/. The check is silent
 # on success: dispatch and outcome delivery are the mate's business, and a
 # printed line is reserved for what this home's firstmate must see - a
 # missing dispatcher, an invalid request, or an outcome that cannot be

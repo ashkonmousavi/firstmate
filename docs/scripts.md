@@ -175,7 +175,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-mail.py`             | The IMAP/SMTP engine behind `fm-mail.sh` |
 | `fm-mail-check.sh`       | Standing received-mail poll: `arm` registers a watcher check that runs `fm-mail.sh poll` on the watcher cadence (new mail still wakes via the poll; the check's own line also wakes unless the poll is a proven no-op), `disarm` removes it |
 | `fm-walk-request.sh`     | A secondmate's typed walk request on its parent channel, for dispatch by the walker-owning home |
-| `fm-walk-request-check.sh` | Standing walk-request dispatch: `arm` registers a watcher check that runs each requested walk through the home-private `data/bin/fm-grok-bot-dispatch.sh` at most once per `<walk>@<release>` and returns the outcome to the requesting mate, `disarm` removes it |
+| `fm-walk-request-check.sh` | MAIN-side dispatch and outcome delivery for the [walk-request carrier](configuration.md#walk-request-carrier) |
 | `fm-voice-relay.py`      | Hold the spoken conversation on this host, answer from the records, and hand real work to `fm-inbox.sh` ([voice-relay.md](voice-relay.md)) |
 | `fm-voice-client.py`     | The laptop end of the spoken interface: capture, playback, and turn timing over SSH; audio devices unverified |
 | `fm_voice_frame.py`      | The wire format both machines share, copied to the laptop beside the client          |
