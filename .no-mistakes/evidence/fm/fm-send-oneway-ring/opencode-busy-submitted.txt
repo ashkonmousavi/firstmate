@@ -1,0 +1,40 @@
+  ┃  opencode.inbox:
+  ┃  total 12
+  ┃  drwxrwxr-x 3 tegris tegris 4096 Oct 28 13:38 .
+  ┃  drwxrwxr-x 3 tegris tegris 4096 Oct 28 13:36 ..
+  ┃  drwxrwxr-x 2 tegris tegris 4096 Oct 28 13:38 handled
+  ┃
+  ┃  ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/opencode-home/state/live-
+  ┃  opencode.inbox/handled:
+  ┃  total 16
+  ┃  drwxrwxr-x 2 tegris tegris 4096 Oct 28 13:38 .
+  ┃  drwxrwxr-x 3 tegris tegris 4096 Oct 28 13:38 ..
+  ┃  …
+  ┃
+  ┃  Click to expand
+  ┃
+
+  ┃
+  ┃  ⠦ touch ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/opencode-tool-
+  ┃    started; while [ ! -e ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/
+  ┃    opencode-tool-release ] && [ "$SECONDS" -lt 120 ]; do sleep 1; done; test -e ~/.no-mistakes/
+  ┃    worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/opencode-tool-release && touch ~/.no-
+  ┃    mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/opencode-tool-finished; echo "waited ${
+  ┃    SECONDS}s"; ls -la ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/
+  ┃
+
+     ▣  Build · Big Pickle
+
+  ┃
+  ┃  : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'live-opencode.inbox' steering inbox, read
+  ┃  and act on each in numeric order, then mv each into its handled/.
+  ┃   QUEUED
+  ┃
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · Big Pickle OpenCode
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                36.6K (18%)  ctrl+p commands
+

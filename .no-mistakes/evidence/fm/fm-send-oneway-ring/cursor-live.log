@@ -1,0 +1,5 @@
+# cursor (2026.10.19-6bbf2c4): exhausted composer initially pending
+ok - cursor (2026.10.19-6bbf2c4): unknown exhaustion suppresses ringing and fm-control stops the agent without typing (composer=unknown)
+# cursor (2026.10.19-6bbf2c4): exhausted composer initially pending
+ok - cursor (2026.10.19-6bbf2c4): residue exhaustion suppresses ringing and fm-control stops the agent without typing (composer=pending)
+ok - live steering-inbox doorbell guard: 1 harness(es) honored the doorbell contract

@@ -1,0 +1,40 @@
+  ┃  -rw-rw-r--  1 tegris tegris  291 Oct 28 13:38 opencode-busy-send.log
+  ┃  -rw-rw-r--  1 tegris tegris  291 Oct 28 13:36 opencode-busy-start.log
+  ┃  …
+  ┃
+  ┃  Click to expand
+  ┃
+
+  ┃
+  ┃  : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'live-opencode.inbox' steering inbox, read
+  ┃  and act on each in numeric order, then mv each into its handled/.
+  ┃
+
+  ┃
+  ┃  $ ls -la "$FM_TASK_INBOX"/*.msg 2>&1
+  ┃
+  ┃  -rw------- 1 tegris tegris 286 Oct 28 13:38 ~/.no-mistakes/worktrees/049a88734b0e/
+  ┃  01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/opencode-home/state/live-opencode.inbox/003.msg
+  ┃
+
+     → Read .lCLAgUi/opencode-home/state/live-opencode.inbox/003.msg
+
+     + Thought: 516ms
+
+  ┃
+  ┃  $ touch ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/acted-busy-opencode
+  ┃  && mv "$FM_TASK_INBOX/003.msg" "$FM_TASK_INBOX/handled/" && ls -la "$FM_TASK_INBOX"/*.msg 2>&1
+  ┃
+  ┃  ls: cannot access '~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.lCLAgUi/opencode-
+  ┃  home/state/live-opencode.inbox/*.msg': No such file or directory
+  ┃
+
+     ▣  Build · Big Pickle
+
+  ┃
+  ┃
+  ┃
+  ┃  Build · Big Pickle OpenCode
+  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+   ⬝⬝⬝⬝⬝⬝⬝⬝  esc interrupt                                                                37.9K (19%)  ctrl+p commands
+

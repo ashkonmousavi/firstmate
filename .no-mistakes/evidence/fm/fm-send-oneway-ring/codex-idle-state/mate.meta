@@ -1,0 +1,10 @@
+window=primary:fm-mate
+kind=secondmate
+mode=secondmate
+backend=tmux
+harness=codex
+endpoint_task_id=mate
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5
+project=~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5
+home=~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.i2X2rBI
+projects=alpha

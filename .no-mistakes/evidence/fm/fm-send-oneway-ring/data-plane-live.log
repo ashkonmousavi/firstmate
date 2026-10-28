@@ -1,0 +1,58 @@
+$ fm-send mate --one-way <two-line steer>
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in primary:0 has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI/state/mate.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+schema=fm-task-inbox.v1
+at=2026-10-28T20:20:15Z
+request-id=11111111111111111111111111111111
+--
+[fm-from-firstmate]⁣Status only; no reply required.
+Preserve the second line.pending-replies after one-way: empty
+$ retry the identical request before and after acknowledgement
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:0 has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI/state/mate.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+$ deliberate repeat with a new request identity
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:0 has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI/state/mate.inbox/002.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+$ reuse first identity with conflicting body (must refuse)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: steer not sent to mate: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI/state/mate.inbox
+$ reject --one-way --fire-and-forget 0123456789abcdef
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --one-way cannot accompany --fire-and-forget
+$ reject --one-way --key Enter
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --one-way cannot accompany --key
+$ reject --one-way --resolve-key missing
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --one-way cannot accompany --resolve-key
+$ ordinary correlated send for a notice and an unrelated genuine ask
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:0 has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI/state/mate.inbox/003.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:0 has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.dAiAaWI/state/mate.inbox/004.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+moving the inbox record to handled left its correlation open: 36e53a535b91ab13
+$ acknowledge exact notice correlation
+handled, no reply needed: mate 36e53a535b91ab13
+handled, no reply needed: mate 36e53a535b91ab13
+error: pending record identity mismatch
+error: unsafe correlation id
+Remaining open decision:
+pending-reply-826fa07ddc390bda	blocked	pending-reply-missed: task=mate pending-reply-id=826fa07ddc390bda request=Please report genuine task completion
+PASS: one-way durability, identity, conflicts, flag guards, explicit closure, unrelated debt preservation

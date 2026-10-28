@@ -1,0 +1,3 @@
+ok - claude (2.1.312 (Claude Code)): the doorbell reached a real worker, which acted and acked with the mv
+ok - claude (2.1.312 (Claude Code)): a doorbell submitted during a real foreground tool was acted on and acked without an idle re-ring
+ok - live steering-inbox doorbell guard: 1 harness(es) honored the doorbell contract

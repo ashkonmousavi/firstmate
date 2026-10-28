@@ -1,0 +1,6 @@
+ok - opencode (1.18.4): the doorbell reached a real worker, which acted and acked with the mv
+# opencode: waiting for the initial response to finish before the blocking-tool setup
+# opencode: setup readiness=0 composer=empty
+ok - opencode (1.18.4): a doorbell submitted during a real foreground tool was acted on and acked without an idle re-ring
+ok - live steering-inbox doorbell guard: 1 harness(es) honored the doorbell contract
+Cleanup verified: private tmux server and 1 observed descendants stopped; lab removed

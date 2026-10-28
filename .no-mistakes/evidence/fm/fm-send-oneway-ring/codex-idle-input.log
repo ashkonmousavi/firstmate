@@ -1,0 +1,4 @@
+send-keys -t primary:fm-mate -l :\ Firstmate\ instruction\ waiting:\ list\ \"\$FM_TASK_INBOX\"/\*.msg\ in\ your\ \'mate.inbox\'\ steering\ inbox\,\ read\ and\ act\ on\ each\ in\ numeric\ order\,\ then\ mv\ each\ into\ its\ handled/. 
+send-keys -t primary:fm-mate Enter 
+send-keys -t primary:fm-mate -l :\ Firstmate\ instruction\ waiting:\ list\ \"\$FM_TASK_INBOX\"/\*.msg\ in\ your\ \'mate.inbox\'\ steering\ inbox\,\ read\ and\ act\ on\ each\ in\ numeric\ order\,\ then\ mv\ each\ into\ its\ handled/. 
+send-keys -t primary:fm-mate Enter 

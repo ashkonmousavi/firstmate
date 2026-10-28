@@ -1,0 +1,8 @@
+
+
+  Grok 4.7 256K High                                                                                                                                                                                        Run Everything
+  ~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.l04taM6/cursor-unknown-home/workspace · beba5a2
+
+  Error: Increase limits for faster responses
+  You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue.
+bash-5.2$

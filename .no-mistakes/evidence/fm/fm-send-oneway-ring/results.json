@@ -1,0 +1,25 @@
+{
+  "target": "beba5a22d3d1b0e5d6ad8e0e306c43addbc98154",
+  "baseline_exit_codes": {
+    "send-inbox": 0,
+    "task-inbox": 0,
+    "ack": 0,
+    "remote-delivery": 0,
+    "control": 0,
+    "composer": 0
+  },
+  "live_exit_codes": {
+    "data-plane": 0,
+    "claude": 0,
+    "cursor": 0,
+    "grok-always-approve": 0,
+    "grok-idle-handler": 0,
+    "grok-public-watcher": 0,
+    "opencode-1.18.4": 0
+  },
+  "not_live": [
+    "Rovo (recorded prohibition)",
+    "remote SSH (lab session contract)"
+  ],
+  "source_changes": false
+}

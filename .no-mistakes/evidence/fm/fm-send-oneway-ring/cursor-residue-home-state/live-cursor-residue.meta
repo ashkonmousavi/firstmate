@@ -1,0 +1,7 @@
+window=inboxlive:fm-live-cursor-residue
+kind=ship
+harness=cursor-agent
+backend=tmux
+endpoint_task_id=live-cursor-residue
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5/.l04taM6/cursor-residue-home/workspace
+project=~/.no-mistakes/worktrees/049a88734b0e/01M61T4DT0DWZ6683608ERTGB5
