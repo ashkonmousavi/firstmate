@@ -39,7 +39,11 @@ A delta scan must reach the current tail within four reads; exhausting that
 budget counts as a failed read while preserving cursor progress for the next
 pass, never reporting an intermediate timestamp as current. Delta reads allow one
 reply-runner poll window in the shared remote job lane (ninety seconds); other
-commands keep fifteen seconds. Output bodies are never logged. A read failing
+commands keep fifteen seconds. The job lane preempts a running read-only poll
+(distinct exit 76) to unblock a queued command; such a poll is re-issued
+unchanged, bounded per read without consuming the read budget, and only a lane
+preempting every re-read counts as a failed read.
+Output bodies are never logged. A read failing
 on two consecutive passes alarms instead of claiming caught-up; a single
 failed pass is audited as transport noise. A live runner removes its .runner
 pid record while it applies each captured reply and rewrites it by
@@ -92,6 +96,10 @@ DELTA_READ_BUDGET = 4
 # and a queued delta read does not preempt a running one, so one delta call can
 # legitimately wait a full window behind it before its own bounded read.
 DELTA_TIMEOUT = 90
+# A queued command for the same home preempts the running read-only delta poll
+# (exit 76, lossless and cursor-anchored): re-issue the same read unchanged,
+# and only a lane preempting every re-read counts as a failed read.
+DELTA_PREEMPT_REREADS = 3
 # The runner's truncate-then-write rewrite leaves its pid record empty for a
 # moment; a few short re-reads read around it while keeping a pass bounded.
 RUNNER_REREADS = 5
@@ -218,12 +226,20 @@ def valid_reader(record):
 
 def delta_call(code, env, mate, offset, prefix):
     """One fm-remote-delta.v1 record as (fields, payload); fields is None when
-    the window closed with no new complete line."""
+    the window closed with no new complete line. A read the remote job lane
+    preempted (exit 76) is lossless and cursor-anchored, so the same read is
+    re-issued unchanged up to DELTA_PREEMPT_REREADS times; a preempted attempt
+    consumes no read budget, and only a lane preempting every re-read raises."""
     argv = [str(code / 'bin/fm-on.sh'), mate, 'fm-remote-delta-read.sh',
             DELTA_LOG, str(offset), prefix, DELTA_WAIT]
-    rc, stdout, _ = run_status(argv, env, DELTA_TIMEOUT)
+    for _ in range(DELTA_PREEMPT_REREADS + 1):
+        rc, stdout, _ = run_status(argv, env, DELTA_TIMEOUT)
+        if rc != 76:
+            break
     if rc == 75:
         return None, b''
+    if rc == 76:
+        raise ProbeError('delta read stayed preempted')
     if rc != 0:
         raise ProbeError('command failed or timed out')
     header, split, payload = stdout.partition(b'\n\n')
