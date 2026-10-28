@@ -1,0 +1,38 @@
+[
+  {
+    "name": "printing checks both queue before one wake, including intervening quiet check",
+    "result": "pass",
+    "baseline": false,
+    "elapsed": 0.83
+  },
+  {
+    "name": "per-check timeout preserves later results (native timeout)",
+    "result": "pass",
+    "baseline": false,
+    "elapsed": 1.76
+  },
+  {
+    "name": "per-check timeout preserves later results (Perl fallback)",
+    "result": "pass",
+    "baseline": false,
+    "elapsed": 1.98
+  },
+  {
+    "name": "rejected unsigned check cannot execute or prevent later valid check",
+    "result": "pass",
+    "baseline": false,
+    "elapsed": 0.66
+  },
+  {
+    "name": "all-quiet sweep updates cadence, stays silent, and does not rerun early",
+    "result": "pass",
+    "baseline": false,
+    "elapsed": 3.78
+  },
+  {
+    "name": "pre-fix watcher reproduces starvation with identical checks",
+    "result": "pass",
+    "baseline": true,
+    "elapsed": 0.58
+  }
+]

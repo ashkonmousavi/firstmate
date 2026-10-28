@@ -1,0 +1,180 @@
+
+SCENARIO: printing checks both queue before one wake, including intervening quiet check
+$ bin/fm-check-register.sh a-news
+registered: state/a-news.check.sh
+
+$ bin/fm-check-register.sh b-quiet
+registered: state/b-quiet.check.sh
+
+$ bin/fm-check-register.sh c-news
+registered: state/c-news.check.sh
+
+$ FM_HOME=<disposable lab> FM_CHECK_TIMEOUT=1 FM_CHECK_INTERVAL=300 ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/bin/fm-watch.sh
+exit=0 elapsed=0.83s
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/a-news.check.sh: memory-low
+stderr:
+
+check execution trace: ["early", "quiet", "late"]
+durable wake queue:
+1793195482	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/a-news.check.sh: memory-low
+1793195482	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/c-news.check.sh: disk-full
+
+$ bin/fm-wake-drain.sh
+exit=0
+1793195482	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/a-news.check.sh: memory-low
+1793195482	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-m8a6ev99/state/c-news.check.sh: disk-full
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 5760.1793195482.Ex0cWh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  3 registered custom check(s), but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+PASS: printing checks both queue before one wake, including intervening quiet check
+
+SCENARIO: per-check timeout preserves later results (native timeout)
+$ bin/fm-check-register.sh a-news
+registered: state/a-news.check.sh
+
+$ bin/fm-check-register.sh b-slow
+registered: state/b-slow.check.sh
+
+$ bin/fm-check-register.sh c-news
+registered: state/c-news.check.sh
+
+$ FM_HOME=<disposable lab> FM_CHECK_TIMEOUT=1 FM_CHECK_INTERVAL=300 ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/bin/fm-watch.sh
+exit=0 elapsed=1.76s
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/a-news.check.sh: memory-low
+stderr:
+
+check execution trace: ["early", "slow", "late"]
+durable wake queue:
+1793195484	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/a-news.check.sh: memory-low
+1793195485	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/c-news.check.sh: disk-full
+
+$ bin/fm-wake-drain.sh
+exit=0
+1793195484	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/a-news.check.sh: memory-low
+1793195485	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i94xqkiz/state/c-news.check.sh: disk-full
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 10303.1793195484.mhgLFv
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  3 registered custom check(s), but no live watcher process holds this home lock (last beat: 2s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+PASS: per-check timeout preserves later results (native timeout)
+
+SCENARIO: per-check timeout preserves later results (Perl fallback)
+$ bin/fm-check-register.sh a-news
+registered: state/a-news.check.sh
+
+$ bin/fm-check-register.sh b-slow
+registered: state/b-slow.check.sh
+
+$ bin/fm-check-register.sh c-news
+registered: state/c-news.check.sh
+
+$ FM_HOME=<disposable lab> FM_CHECK_TIMEOUT=1 FM_CHECK_INTERVAL=300 ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/bin/fm-watch.sh
+exit=0 elapsed=1.98s
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/a-news.check.sh: memory-low
+stderr:
+
+check execution trace: ["early", "slow", "late"]
+durable wake queue:
+1793195487	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/a-news.check.sh: memory-low
+1793195486	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/c-news.check.sh: disk-full
+
+$ bin/fm-wake-drain.sh
+exit=0
+1793195487	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/a-news.check.sh: memory-low
+1793195486	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-5co09ekf/state/c-news.check.sh: disk-full
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 13789.1793195487.851VnK
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  3 registered custom check(s), but no watcher has a fresh beacon (last beat: -1s ago, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+PASS: per-check timeout preserves later results (Perl fallback)
+
+SCENARIO: rejected unsigned check cannot execute or prevent later valid check
+$ bin/fm-check-register.sh c-news
+registered: state/c-news.check.sh
+
+$ FM_HOME=<disposable lab> FM_CHECK_TIMEOUT=1 FM_CHECK_INTERVAL=300 ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/bin/fm-watch.sh
+exit=0 elapsed=0.66s
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-_d34jk0w/state/c-news.check.sh: disk-full
+stderr:
+
+check execution trace: ["late"]
+durable wake queue:
+1793195487	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-_d34jk0w/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-_d34jk0w/state/c-news.check.sh: disk-full
+1793195487	2	check	unauthenticated-state-checks	check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-_d34jk0w/state/a-unsigned.check.sh
+
+$ bin/fm-wake-drain.sh
+exit=0
+1793195487	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-_d34jk0w/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-_d34jk0w/state/c-news.check.sh: disk-full
+1793195487	2	check	unauthenticated-state-checks	check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-_d34jk0w/state/a-unsigned.check.sh
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 17485.1793195487.qVISIU
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+PASS: rejected unsigned check cannot execute or prevent later valid check
+
+SCENARIO: all-quiet sweep updates cadence, stays silent, and does not rerun early
+$ bin/fm-check-register.sh b-quiet
+registered: state/b-quiet.check.sh
+
+$ FM_HOME=<disposable lab> FM_CHECK_TIMEOUT=1 FM_CHECK_INTERVAL=300 ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/bin/fm-watch.sh
+exit=-15 elapsed=3.78s
+stdout:
+stderr:
+
+check execution trace: ["quiet"]
+durable wake queue:
+
+PASS: all-quiet sweep updates cadence, stays silent, and does not rerun early
+
+SCENARIO: pre-fix watcher reproduces starvation with identical checks
+$ bin/fm-check-register.sh a-news
+registered: state/a-news.check.sh
+
+$ bin/fm-check-register.sh b-quiet
+registered: state/b-quiet.check.sh
+
+$ bin/fm-check-register.sh c-news
+registered: state/c-news.check.sh
+
+$ FM_HOME=<disposable lab> FM_CHECK_TIMEOUT=1 FM_CHECK_INTERVAL=300 ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/bin/.fm-watch-before-live.sh
+exit=0 elapsed=0.58s
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i_p635g9/state/a-news.check.sh: memory-low
+stderr:
+
+check execution trace: ["early"]
+durable wake queue:
+1793195493	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i_p635g9/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M61C4M8YZZ1ZH5FT4V7MKZ56/.watch-live-i_p635g9/state/a-news.check.sh: memory-low
+
+BASELINE REPRODUCED: early check exits the sweep; quiet and later printing checks never run.
+
+All disposable homes and watcher children cleaned up.
