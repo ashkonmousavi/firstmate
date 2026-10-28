@@ -1488,7 +1488,7 @@ test_watcher_rerings_nonqueue_inside_grace_after_busy() {
 }
 
 test_cursor_exhaustion_uses_visible_viewport() {
-  local dir state harness=${1:-cursor} surface=${2:-visible} capture history= status=0
+  local dir state harness=${1:-cursor} surface=${2:-visible} capture history='' status=0
   dir=$(setup_watch_case "$harness-exhausted-$surface")
   state="$dir/state"
   set_watch_harness "$dir" "$harness"
