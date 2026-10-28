@@ -40,7 +40,7 @@ cursor advanced persists that progress and continues next pass as catching
 up, reporting only the oldest unmirrored stamp actually seen, while a budget
 exhausted with no cursor progress counts as a failed read, never reporting an
 intermediate timestamp as current. A legacy {offset, prefix, stamp} reader
-record migrates to an empty pending_at set instead of losing its cursor.
+record migrates to a pending_at set containing its stamp, keeping its cursor.
 Delta reads allow one
 reply-runner poll window in the shared remote job lane (ninety seconds); other
 commands keep fifteen seconds. On exit 76, re-issue the same (offset, prefix)
@@ -229,17 +229,18 @@ def valid_reader(record):
 
 def migrate_reader(record):
     """A legacy {offset, prefix, stamp} record as the pending_at shape, or
-    None when the record is not exactly that older private-copy shape; its
-    cursor survives with no known unmirrored stamps."""
-    if not isinstance(record, dict) or 'pending_at' in record or 'stamp' not in record:
+    None when the record is not exactly that older private-copy shape."""
+    if not isinstance(record, dict) or set(record) != {'offset', 'prefix', 'stamp'}:
         return None
     try:
         offset = int(record['offset'])
         prefix = str(record['prefix'])
+        stamp = record['stamp']
     except (KeyError, TypeError, ValueError):
         return None
-    if offset >= 0 and re.fullmatch(r'[0-9a-f]{64}', prefix) is not None:
-        return {'offset': offset, 'prefix': prefix, 'pending_at': []}
+    if (offset >= 0 and re.fullmatch(r'[0-9a-f]{64}', prefix) is not None
+            and type(stamp) is int and stamp >= 0):
+        return {'offset': offset, 'prefix': prefix, 'pending_at': [stamp]}
     return None
 
 

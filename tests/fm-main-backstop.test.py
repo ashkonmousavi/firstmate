@@ -966,15 +966,68 @@ os.execv(real,[command]+sys.argv[3:])
         body = 'working [at=1000]: remote reply\n'
         self.config['remote_file'] = body
         prefix = hashlib.sha256(body.encode()).hexdigest()
+        for stamp in (0, 1000):
+            with self.subTest(stamp=stamp):
+                (self.state / '.main-backstop.json').write_text(json.dumps({
+                    'readers': {'q-server': {'offset': len(body), 'prefix': prefix,
+                                             'stamp': stamp}}}))
+                calls = len(self.reader_calls())
+                self.run_guard()
+                reads = self.reader_calls()[calls:]
+                self.assertEqual(len(reads), 1)
+                self.assertEqual(reads[0][1], 'fm-remote-delta-read.sh')
+                self.assertEqual(reads[0][3:5], [str(len(body)), prefix])
+                self.assertEqual(self.memory()['readers']['q-server'],
+                                 {'offset': len(body), 'prefix': prefix, 'pending_at': []})
+                self.assertNotIn('q-server', self.memory()['read_fails'])
+                self.assertEqual(self.notes(), '')
+
+    def test_legacy_reader_preserves_unmirrored_stamp_until_mirrored(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.now = 2802
+        body = 'done [at=1901]: remote reply\n'
+        self.config['remote_file'] = body
+        prefix = hashlib.sha256(body.encode()).hexdigest()
         (self.state / '.main-backstop.json').write_text(json.dumps({
             'readers': {'q-server': {'offset': len(body), 'prefix': prefix,
-                                     'stamp': 1000}}}))
+                                     'stamp': 1901}}}))
         self.run_guard()
+        self.assertEqual(len(self.reader_calls()), 1)
         self.assertEqual(self.reader_calls()[0][1], 'fm-remote-delta-read.sh')
+        self.assertEqual(self.reader_calls()[0][3:5], [str(len(body)), prefix])
         self.assertEqual(self.memory()['readers']['q-server'],
-                         {'offset': len(body), 'prefix': prefix, 'pending_at': []})
+                         {'offset': len(body), 'prefix': prefix, 'pending_at': [1901]})
+        self.assertIn('901s (oldest_at=1901 ingested_at=1000)', self.notes())
         self.assertNotIn('q-server', self.memory()['read_fails'])
-        self.assertEqual(self.notes(), '')
+        (self.state / '.remote-reply-mirrored-q-server').write_text(
+            'done [at=1901]: mirrored\n')
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [])
+        self.assertNotIn('lag-q-server', self.memory()['episodes'])
+
+    def test_invalid_legacy_reader_rebootstraps_before_reporting_lag(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.now = 2802
+        body = 'done [at=1901]: remote reply\n'
+        self.config['remote_file'] = body
+        prefix = hashlib.sha256(body.encode()).hexdigest()
+        legacy = {'offset': len(body), 'prefix': prefix, 'stamp': 1901}
+        records = [dict(legacy, version=2),
+                   {key: value for key, value in legacy.items() if key != 'stamp'},
+                   dict(legacy, offset=-1), dict(legacy, prefix='bogus')]
+        records += [dict(legacy, stamp=stamp)
+                    for stamp in (-1, True, False, 1901.0, '1901', None, [], {})]
+        for record in records:
+            with self.subTest(record=record):
+                (self.state / '.main-backstop.json').write_text(json.dumps({
+                    'readers': {'q-server': record}}))
+                calls = len(self.reader_calls())
+                self.run_guard()
+                self.assertEqual(self.reader_calls()[calls][1], 'fm-remote-file.sh')
+                self.assertEqual(self.memory()['readers']['q-server'],
+                                 {'offset': len(body), 'prefix': prefix, 'pending_at': [1901]})
+                self.assertIn('901s (oldest_at=1901 ingested_at=1000)', self.notes())
+                self.assertNotIn('q-server', self.memory()['read_fails'])
 
     def test_single_transient_read_failure_is_tolerated_without_alarm(self):
         (self.state / '.last-watcher-beat').touch()
