@@ -1,0 +1,79 @@
+[
+  {
+    "name": "Live worker receives one durable conflict steer across repeated polls",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "Unread steer survives label reapplication and observed conflict-clear",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "Upgrade and restart recover an unbound unread steer and accept a v2 episode",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "Failed binding blocks a duplicate send and publishes one fallback wake",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "Acknowledging the old steer allows exactly one steer for a new episode",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "A task completing after steering receives one conflict wake and no more steers",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "Dead or missing endpoints fall back to one wake without enqueueing unread instructions",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "Concurrent acknowledgement of delivered steers does not emit false fallback wakes",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "A real relaunched replacement exits unresolved and receives one conflict wake without another relaunch",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "Failed attempt persistence prevents relaunch and publishes one fallback wake",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.log",
+    "reason": ""
+  },
+  {
+    "name": "Ready and stale events surface supervision without adding instruction records",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/adjacent.log",
+    "reason": ""
+  }
+]

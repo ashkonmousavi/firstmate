@@ -1,0 +1,66 @@
+Production watcher + sender + tmux/Codex endpoint. Only the external forge is a disposable fixture; no real PR or fleet data is accessed.
+Oracle: author intent and recorded R1-R6 decisions; forbidden outcomes are duplicate unread messages, steering done/dead tasks, lost fallback wakes, and duplicate wakes.
+Actual endpoint probes: 'alive\npending'
+01-first-conflict: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at /tmp/fm-lab.NPjjO4/state/lane.inbox/001.msg and the watcher will re-ring
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+02-repeat-0: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+02-repeat-1: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+02-repeat-2: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+PASS Live worker receives one durable conflict steer across repeated polls
+03-relabel-without-clear: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-02-02T00:00:00Z | action | 
+04-conflict-clear: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+05-relabel-after-clear: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | action | 
+PASS Unread steer survives label reapplication and observed conflict-clear
+06-upgrade-unbound: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | action | 
+07-restart-before-bind: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | action | 
+08-existing-v2: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v2 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | 
+PASS Upgrade and restart recover an unbound unread steer and accept a v2 episode
+09-unwritable-binding: watcher exit=0; unread=['001.msg']; conflict wakes=1
+  watcher output: check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-04-04T00:00:00Z | wake | 
+10-binding-failure-repeat: watcher exit=-15; unread=['001.msg']; conflict wakes=1
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-04-04T00:00:00Z | wake | 
+PASS Failed binding blocks a duplicate send and publishes one fallback wake
+11-clear-after-ack: watcher exit=-15; unread=[]; conflict wakes=1
+12-new-episode-after-ack: watcher exit=-15; unread=['002.msg']; conflict wakes=1
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at /tmp/fm-lab.NPjjO4/state/lane.inbox/002.msg and the watcher will re-ring
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-05-05T00:00:00Z | action | 
+PASS Acknowledging the old steer allows exactly one steer for a new episode
+13-live-worker-becomes-done: watcher exit=0; unread=['002.msg']; conflict wakes=2
+  watcher output: check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-05-05T00:00:00Z | wake | 
+14-done-repeat-0: watcher exit=-15; unread=['002.msg']; conflict wakes=2
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-05-05T00:00:00Z | wake | 
+14-done-repeat-1: watcher exit=-15; unread=['002.msg']; conflict wakes=2
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-05-05T00:00:00Z | wake | 
+PASS A task completing after steering receives one conflict wake and no more steers
+15-dead-endpoint: watcher exit=0; unread=['002.msg']; conflict wakes=3
+  watcher output: check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+REFUSED: task lane has a missing, empty, or ambiguous worktree identity; preserving task state.
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-06-06T00:00:00Z | wake | 
+16-dead-endpoint-repeat: watcher exit=-15; unread=['002.msg']; conflict wakes=3
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-06-06T00:00:00Z | wake | 
+17-no-endpoint: watcher exit=0; unread=['002.msg']; conflict wakes=4
+  watcher output: check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-07-07T00:00:00Z | wake | 
+18-no-endpoint-repeat: watcher exit=-15; unread=['002.msg']; conflict wakes=4
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-07-07T00:00:00Z | wake | 
+PASS Dead or missing endpoints fall back to one wake without enqueueing unread instructions
+Final durable conflict wakes:
+1793223245	1	check	/tmp/fm-lab.NPjjO4/state/lane.check.sh	check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+1793223249	2	check	/tmp/fm-lab.NPjjO4/state/lane.check.sh	check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+1793223252	3	check	/tmp/fm-lab.NPjjO4/state/lane.check.sh	check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+1793223254	4	check	/tmp/fm-lab.NPjjO4/state/lane.check.sh	check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict

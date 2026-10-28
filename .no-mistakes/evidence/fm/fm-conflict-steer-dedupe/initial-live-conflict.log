@@ -1,0 +1,22 @@
+Production watcher + sender + tmux/Codex endpoint. Only the external forge is a disposable fixture; no real PR or fleet data is accessed.
+Oracle: author intent and recorded R1-R6 decisions; forbidden outcomes are duplicate unread messages, steering done/dead tasks, lost fallback wakes, and duplicate wakes.
+Actual endpoint probes: 'alive\npending'
+01-first-conflict: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at /tmp/fm-lab.NPjjO4/state/lane.inbox/001.msg and the watcher will re-ring
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/live-conflict.py", line 93, in <module>
+    scenario('Live worker receives one durable conflict steer across repeated polls',live_dedupe)
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/live-conflict.py", line 78, in scenario
+    fn(); results.append({'name':name,'result':'pass','live':True}); note('PASS '+name)
+    ^^^^
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/live-conflict.py", line 91, in live_dedupe
+    for i in range(3): cycle(f'02-repeat-{i}')
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/live-conflict.py", line 65, in cycle
+    if p.poll() is not None: raise RuntimeError(f'{label}: watcher exited {p.returncode} before completing sweep: {err.read_text()} {out.read_text()}')
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: 02-repeat-0: watcher exited 0 before completing sweep:  check: rearm-resurface
+
+

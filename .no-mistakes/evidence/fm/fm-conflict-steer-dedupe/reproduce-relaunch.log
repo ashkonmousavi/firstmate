@@ -1,0 +1,16 @@
+Before relaunch endpoint=dead
+40-clean-real-relaunch: watcher exit=-15; unread=[]; conflict wakes=0
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.XkO6El
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.XkO6El
+relaunched lane harness=codex from=codex model=default effort=default backend=tmux endpoint=primary:fm-lane worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+After relaunch endpoint=alive
+Actual replacement exit: stopped lane harness=codex backend=tmux endpoint=primary:fm-lane worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.XkO6El
+
+41-clean-replacement-exited: watcher exit=0; unread=[]; conflict wakes=0
+  watcher output: check: rejected unauthenticated state checks: /tmp/fm-lab.XkO6El/state/lane.check.sh
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+Expected exactly one conflict wake after the replacement exits; actual conflict wake count=0
+Private tmux teardown exit=0
+Disposable lab and worktree fixture removed.

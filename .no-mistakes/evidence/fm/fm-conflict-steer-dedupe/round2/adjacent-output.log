@@ -1,0 +1,5 @@
+ready watcher exit=0; stdout='signal: ~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/r2/state/lane.status\n'; stderr=''
+stale watcher exit=0; stdout='stale: primary:fm-lane\n'; stderr=''
+PASS Ready and stale events surface supervision without adding instruction records
+Private tmux teardown exit=0
+Disposable lab and worktree fixtures removed.

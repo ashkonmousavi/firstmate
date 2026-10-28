@@ -1,0 +1,7 @@
+[
+  {
+    "name": "Ready and stale events surface supervision without adding instruction records",
+    "result": "pass",
+    "live": true
+  }
+]

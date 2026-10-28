@@ -1,0 +1,233 @@
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/live-relaunch.py", line 26, in <module>
+    forge(); arm()
+             ^^^^^
+  File "<string>", line 49, in arm
+  File "<string>", line 45, in shell
+  File "<string>", line 15, in run
+RuntimeError: ['bash', '-c', '. bin/fm-pr-lib.sh; fm_pr_poll_prepare "$FM_HOME/state" lane github https://github.com/disposable/conflict-lab/pull/7 github.com disposable/conflict-lab 7 "$PWD/bin/fm-pr-poll.sh" && fm_pr_poll_publish_prepared']: exit 1:  
+
+Before recovery: dead
+19-real-relaunch: watcher exit=0; unread=[]; conflict wakes=1
+  watcher output: check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+deferred: /tmp/fm-lab.NPjjO4/config/lane-capacity is missing or unreadable; task lane stays queued
+error: lane's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | wake | 
+Control journal:
+v1
+task=lane
+phase=failed:launching
+ts=2026-10-28T21:35:48Z
+backend=tmux
+endpoint=primary:fm-lane
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project
+kind=scout
+from_harness=codex
+from_model=default
+from_effort=default
+to_harness=codex
+to_model=default
+to_effort=default
+rollback=prior-record-kept
+
+Endpoint after recovery: dead
+Pane after recovery:
+bash-5.2$ cd ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+20-failed-relaunch-repeat: watcher exit=-15; unread=[]; conflict wakes=1
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | wake | 
+Before recovery: dead
+22-configured-real-relaunch: watcher exit=0; unread=[]; conflict wakes=2
+  watcher output: check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+error: relaunch did not yield an isolated worktree (resolved '~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project'; worktree root '~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project'; spawning project '~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project'); refusing to launch to avoid tangling the primary checkout. Inspect target primary:fm-lane
+error: the replacement agent for lane could not be launched on codex
+error: lane's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-02-02T00:00:00Z | wake | 
+Control journal:
+v1
+task=lane
+phase=failed:launching
+ts=2026-10-28T21:36:24Z
+backend=tmux
+endpoint=primary:fm-lane
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project
+kind=scout
+from_harness=codex
+from_model=default
+from_effort=default
+to_harness=codex
+to_model=default
+to_effort=default
+rollback=prior-record-kept
+
+Endpoint after recovery: dead
+Pane after recovery:
+bash-5.2$ cd ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+23-configured-relaunch-repeat: watcher exit=-15; unread=[]; conflict wakes=2
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-02-02T00:00:00Z | wake | 
+Before recovery: dead
+25-isolated-real-relaunch: watcher exit=-15; unread=[]; conflict wakes=2
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+relaunched lane harness=codex from=codex model=default effort=default backend=tmux endpoint=primary:fm-lane worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | action | 
+Control journal:
+v1
+task=lane
+phase=complete
+ts=2026-10-28T21:36:57Z
+backend=tmux
+endpoint=primary:fm-lane
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker
+kind=scout
+from_harness=codex
+from_model=default
+from_effort=default
+to_harness=codex
+to_model=default
+to_effort=default
+worktree_head=4a70ebb626ea06b608636069f040d87d2cf09c45
+worktree_dirty=no
+note_file=/tmp/fm-lab.NPjjO4/state/lane.control-relaunch.note
+exit_result=already-stopped
+
+Endpoint after recovery: alive
+Pane after recovery:
+bash-5.2$ cd ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project
+bash-5.2$ cd ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker
+bash-5.2$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker'
+bash-5.2$ export GOTMPDIR=/tmp/fm-lane/gotmp
+bash-5.2$ export COMPACT_ADVISER_DISABLE=1
+bash-5.2$ export FM_TASK_ID=lane
+bash-5.2$ . '/tmp/fm-lane+3b0af7abb2186643a879d4e3f2087af7af366e8c829f7ce8cfd92f4661cc6e3c/launch.s1793223417.12085.31414.sh'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Public lifecycle exit: stopped lane harness=codex backend=tmux endpoint=primary:fm-lane worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+
+26-isolated-replacement-exited: watcher exit=0; unread=[]; conflict wakes=2
+  watcher output: check: rejected unauthenticated state checks: /tmp/fm-lab.NPjjO4/state/lane.check.sh
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | action | 
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/live-relaunch-isolated.py", line 109, in <module>
+    assert len(wakes())==3 and not messages()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+

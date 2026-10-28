@@ -1,0 +1,8 @@
+Targeted conflict suite exit: 0
+Selected transactional relaunch regression exit: 0
+Live product scenarios: 11 passed
+Initial driver interrupted a watcher after a completed sweep; stop accounting corrected.
+Adjacent check initially blocked by generated read-only Git template directory cleanup; owner permissions restored in disposable lab and the check re-driven successfully (adjacent.py exit 0).
+Private tmux kill-server confirmed exit 0 for each lab.
+Lab home and worktree fixtures removed.
+No source or test files changed.

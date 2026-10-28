@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Live worker receives one durable conflict steer across repeated polls",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Unread steer survives label reapplication and observed conflict-clear",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Upgrade and restart recover an unbound unread steer and accept a v2 episode",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Failed binding blocks a duplicate send and publishes one fallback wake",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Acknowledging the old steer allows exactly one steer for a new episode",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A task completing after steering receives one conflict wake and no more steers",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Dead or missing endpoints fall back to one wake without enqueueing unread instructions",
+    "result": "pass",
+    "live": true
+  }
+]

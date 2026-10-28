@@ -1,0 +1,13 @@
+window=primary:fm-lane
+endpoint_task_id=lane
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker
+project=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project
+harness=codex
+kind=scout
+tasktmp=/tmp/fm-lane
+base_branch=main
+model=default
+effort=default
+spawn_gen=s1793223417.12085.31414
+pr=https://github.com/disposable/conflict-lab/pull/7
+control_relaunch_tx=10999.20261028T213656Z.14904

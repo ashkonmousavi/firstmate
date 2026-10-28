@@ -1,0 +1,4 @@
+ready actual watcher exit=0; stdout='signal: /tmp/fm-lab.NPjjO4/state/lane.status\n'; stderr=''
+PASS ready event surfaces supervision without writing an instruction record.
+stale actual watcher exit=0; stdout='stale: primary:fm-lane\n'; stderr=''
+PASS stale event surfaces supervision without writing an instruction record.

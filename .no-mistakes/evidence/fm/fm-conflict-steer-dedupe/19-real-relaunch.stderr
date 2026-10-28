@@ -1,0 +1,4 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+deferred: /tmp/fm-lab.NPjjO4/config/lane-capacity is missing or unreadable; task lane stays queued
+error: lane's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/project

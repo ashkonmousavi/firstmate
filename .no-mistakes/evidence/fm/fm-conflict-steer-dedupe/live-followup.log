@@ -1,0 +1,40 @@
+Causal check: preserve the real relaunch output, then reorder only lab metadata to test why authentication rejects it.
+Actual product-emitted metadata parser exit=1
+Same fields with control_relaunch_tx before pr: parser exit=0
+28-reordered-fixture-conflict-recovery: watcher exit=0; unread=[]; conflict wakes=3
+  watcher output: check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | wake | 
+29-reordered-fixture-repeat: watcher exit=-15; unread=[]; conflict wakes=3
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | wake | 
+Restoring metadata order in fixture alone restores exactly one conflict fallback wake; source remains unchanged.
+30-attempt-marker-unwritable: watcher exit=0; unread=[]; conflict wakes=4
+  watcher output: check: /tmp/fm-lab.NPjjO4/state/lane.check.sh: conflict
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-04-04T00:00:00Z | wake | 
+31-attempt-marker-unwritable-repeat: watcher exit=-15; unread=[]; conflict wakes=4
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-04-04T00:00:00Z | wake | 
+PASS Failed attempt persistence published one conflict wake and never invoked relaunch (journal unchanged).
+32-immediate-worker-ack: watcher exit=-15; unread=[]; conflict wakes=4
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at /tmp/fm-lab.NPjjO4/state/lane.inbox/001.msg and the watcher will re-ring
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-08-08T00:00:00Z | action | 
+33-immediate-worker-ack: watcher exit=-15; unread=[]; conflict wakes=4
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at /tmp/fm-lab.NPjjO4/state/lane.inbox/002.msg and the watcher will re-ring
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-09-09T00:00:00Z | action | 
+34-immediate-worker-ack: watcher exit=-15; unread=[]; conflict wakes=4
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.NPjjO4
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at /tmp/fm-lab.NPjjO4/state/lane.inbox/003.msg and the watcher will re-ring
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-10-10T00:00:00Z | action | 
+PASS Immediate acknowledgements while real fm-send confirms delivery produced no false fallback wakes: [('001.msg', 1793223539507893082), ('002.msg', 1793223541303473803), ('003.msg', 1793223542872445342)]
+Adjacent stale/ready classification for 'working: isolated ongoing work':
+self|transient stale (primary:fm-lane): working: isolated ongoing work
+self|routine signal: lane.status: working: isolated ongoing work
+
+Adjacent stale/ready classification for 'done: PR ready https://github.com/disposable/conflict-lab/pull/7':
+escalate|stale + actionable status: done: PR ready https://github.com/disposable/conflict-lab/pull/7
+escalate|lane.status: done: PR ready https://github.com/disposable/conflict-lab/pull/7
+
+PASS Adjacent stale/ready classifiers route supervision events without creating conflict-like instruction records.

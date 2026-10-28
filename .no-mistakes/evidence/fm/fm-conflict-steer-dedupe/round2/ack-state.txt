@@ -1,0 +1,7 @@
+Handled records: ['001.msg', '002.msg', '003.msg', '004.msg', '005.msg']
+fm-pr-conflict-steer-v2
+github
+github.com
+disposable/conflict-lab
+7
+005.msg

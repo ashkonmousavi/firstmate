@@ -1,0 +1,16 @@
+Handled records: ['001.msg', '002.msg', '003.msg']
+Binding:
+fm-pr-conflict-steer-v2
+github
+github.com
+disposable/conflict-lab
+7
+003.msg
+Episode:
+fm-pr-conflict-episode-v3
+github
+github.com
+disposable/conflict-lab
+7
+2026-10-10T00:00:00Z
+action

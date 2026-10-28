@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Live worker receives one durable conflict steer across repeated polls",
+    "result": "fail",
+    "live": true,
+    "reason": "02-repeat-0: watcher exited 0 before completing sweep:  check: rearm-resurface\n"
+  }
+]

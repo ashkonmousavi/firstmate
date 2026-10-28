@@ -1,0 +1,3 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/r2
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/r2
+relaunched lane harness=codex from=codex model=default effort=default backend=tmux endpoint=primary:fm-lane worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.conflict-live-validation/worker

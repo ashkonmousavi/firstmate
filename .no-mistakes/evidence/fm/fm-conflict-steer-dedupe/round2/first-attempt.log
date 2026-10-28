@@ -1,0 +1,59 @@
+Production watcher + sender + tmux/Codex endpoint. Only the external forge is a disposable fixture; no real PR or fleet data is accessed.
+Oracle: author intent and recorded R1-R6 decisions; forbidden outcomes are duplicate unread messages, steering done/dead tasks, lost fallback wakes, and duplicate wakes.
+Actual endpoint probes: 'alive\npending'
+01-first-conflict: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  watcher stderr: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/r2
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at ~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/r2/state/lane.inbox/001.msg and the watcher will re-ring
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+02-repeat-0: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+02-repeat-1: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+02-repeat-2: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-01-01T00:00:00Z | action | 
+PASS Live worker receives one durable conflict steer across repeated polls
+03-relabel-without-clear: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-02-02T00:00:00Z | action | 
+04-conflict-clear: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+05-relabel-after-clear: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | action | 
+PASS Unread steer survives label reapplication and observed conflict-clear
+06-upgrade-unbound: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | action | 
+07-restart-before-bind: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | action | 
+08-existing-v2: watcher exit=-15; unread=['001.msg']; conflict wakes=0
+  episode: fm-pr-conflict-episode-v2 | github | github.com | disposable/conflict-lab | 7 | 2026-03-03T00:00:00Z | 
+PASS Upgrade and restart recover an unbound unread steer and accept a v2 episode
+09-unwritable-binding: watcher exit=0; unread=['001.msg']; conflict wakes=1
+  watcher output: check: ~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/r2/state/lane.check.sh: conflict
+  episode: fm-pr-conflict-episode-v3 | github | github.com | disposable/conflict-lab | 7 | 2026-04-04T00:00:00Z | wake | 
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.py", line 126, in <module>
+    scenario('Failed binding blocks a duplicate send and publishes one fallback wake',binding_failure)
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.py", line 78, in scenario
+    fn(); results.append({'name':name,'result':'pass','live':True}); note('PASS '+name)
+    ^^^^
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.py", line 124, in binding_failure
+    cycle('10-binding-failure-repeat'); assert len(messages())==1 and len(wakes())==1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.py", line 71, in cycle
+    assert rc in (0,143,-15), (label,rc,err.read_text())
+           ^^^^^^^^^^^^^^^^^
+AssertionError: ('10-binding-failure-repeat', 1, '')
+
+Private tmux teardown exit=0
+Disposable lab and worktree fixtures removed.
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.py", line 126, in <module>
+    scenario('Failed binding blocks a duplicate send and publishes one fallback wake',binding_failure)
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.py", line 78, in scenario
+    fn(); results.append({'name':name,'result':'pass','live':True}); note('PASS '+name)
+    ^^^^
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.py", line 124, in binding_failure
+    cycle('10-binding-failure-repeat'); assert len(messages())==1 and len(wakes())==1
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/evidence/01M623WEVE8Z0BJ53B6V14ECWW/round2/live.py", line 71, in cycle
+    assert rc in (0,143,-15), (label,rc,err.read_text())
+           ^^^^^^^^^^^^^^^^^
+AssertionError: ('10-binding-failure-repeat', 1, '')

@@ -1,0 +1,4 @@
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.test-tmp/fm-control-relaunch.52QoGg/conflict-poll-14506/home/data/rl-conflict/launch-brief.md records no ship branch; defaulting to legacy branch fm/rl-conflict
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.test-tmp/fm-control-relaunch.52QoGg/conflict-poll-14506/home/data/rl-conflict/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+relaunched rl-conflict harness=claude from=claude model=default effort=default backend=tmux endpoint=fmses:fm-rl-conflict worktree=~/.no-mistakes/worktrees/049a88734b0e/01M623WEVE8Z0BJ53B6V14ECWW/.test-tmp/fm-control-relaunch.52QoGg/conflict-poll-14506/wt
+ok - real relaunch preserves poll authentication and wakes once after unresolved replacement exit
