@@ -862,6 +862,8 @@ It uses an isolated Grok home with a copy of the managed authentication file and
 On Linux with `grok 1.0.62 (1474f9cbdd91) [stable]`, the real idle composer rendered `Grok 4.7 (high) · always-approve` without `Weekly limit left:`.
 The guard therefore failed rather than claiming coverage of the weekly-limit surface.
 Live verification of that surface remains outstanding; the portable regression is not a substitute.
+A later idle pane drew the same model line with no weekly-limit prefix, `Grok 4.7 (high) · always-approve`, and the classifier read the box unknown because the middle dot is not ASCII.
+`test_matrix_grok_always_approve_border_from_capture` pins that captured screen: empty when the only content row is the prompt glyph, pending when that row holds a draft, and unknown when the model title is not the known shape or a border is clipped.
 `test_matrix_grok_weekly_limit_border` in `tests/fm-composer-lib.test.sh` pins empty, typed, and malformed-title verdicts across the shared capture capability profiles.
 
 ```sh

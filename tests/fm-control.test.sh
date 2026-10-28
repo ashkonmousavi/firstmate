@@ -18,7 +18,9 @@
 #      picker open or dismissed, lets relaunch stop the agent without typing
 #      (interrupt key, then SIGTERM) and switch runtime; pending and
 #      pending-unproven text and an unknown composer with no notice still
-#      refuse.
+#      refuse. Cursor's usage-exhausted row, beside an unknown composer, lets
+#      exit stop the agent the same way; a quoted mention and pending text
+#      still refuse.
 #   6. Marker non-regression: a control command to a kind=secondmate task
 #      carries NO from-firstmate marker and opens no pending-reply expectation,
 #      while fm-send's marking of the same task is untouched.
@@ -1301,6 +1303,111 @@ test_grok_usage_picker_refuses_when_agent_cannot_be_stopped() {
   pass "fm-control relaunch: a grok usage picker agent with nothing to signal refuses and keeps the prior record"
 }
 
+# start_cursor_process <case-dir>: a real process standing in for cursor-agent.
+# The fake ps reports it while the pane command is cursor-agent, and SIGTERM
+# is what moves the pane to a shell. Escape alone must not stop it.
+start_cursor_process() {
+  local dir=$1 real_ps
+  real_ps=$(command -v ps)
+  bash -c 'trap '"'"'printf zsh > "$1/command"; : > "$1/terminated"; exit 0'"'"' TERM
+    while :; do /bin/sleep 0.05; done' _ "$dir/fake" &
+  printf '%s' "$!" > "$dir/fake/agent-pid"
+  cat > "$dir/fakebin/ps" <<SH
+#!/usr/bin/env bash
+D=\$FM_FAKE_DIR
+pid=\$(cat "\$D/agent-pid")
+if [ "\$(cat "\$D/command")" = cursor-agent ]; then
+  case " \$* " in
+    *" -t "*) printf '%s %s %s cursor-agent\\n' "\$pid" "\$pid" "\$pid"; exit 0 ;;
+    *" -p \$pid "*) printf 'cursor-agent\\n'; exit 0 ;;
+  esac
+fi
+case " \$* " in *" -t "*) exit 0 ;; esac
+exec "$real_ps" "\$@"
+SH
+  chmod +x "$dir/fakebin/ps"
+}
+
+# run_cursor_exit <case-dir> <args...>: exit with enough time for SIGTERM.
+run_cursor_exit() {
+  local dir=$1; shift
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+    FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
+    FM_CONTROL_EXIT_WAIT=1 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    "$CONTROL" "$@" 2>&1
+}
+
+cursor_exhausted_case() {  # <name> <screen> -> echoes the case dir
+  local dir
+  dir=$(new_case "$1")
+  add_task "$dir" t1 cursor
+  alive_as "$dir" cursor-agent
+  printf '%s\n' "$2" > "$dir/fake/pane"
+  printf '%s\n' "$dir"
+}
+
+assert_cursor_stopped_without_exit_command() {  # <dir> <out> <label>
+  local dir=$1 out=$2 label=$3
+  assert_contains "$out" "stopped t1 harness=cursor" "$label: exit should report the stop"
+  [ -e "$dir/fake/terminated" ] || fail "$label: the cursor agent should have received SIGTERM"
+  [ "$(keys_sent "$dir")" = "Escape" ] || fail "$label: cursor should get Escape before SIGTERM, got: $(keys_sent "$dir")"
+  if [ -f "$dir/fake/literal" ] && grep -Fqx /exit "$dir/fake/literal"; then
+    fail "$label: no exit command may be typed into the exhausted pane"
+  fi
+  [ "$(cat "$dir/fake/command")" = zsh ] || fail "$label: the pane should be a shell after the stop"
+}
+
+test_cursor_usage_exhausted_exit_stops_unknown_composer() (
+  local dir out rc name banner
+  for name in out-of-usage hit-limit; do
+    case "$name" in
+      out-of-usage)
+        banner="You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue."
+        ;;
+      hit-limit) banner="You've hit your usage limit" ;;
+    esac
+    dir=$(cursor_exhausted_case "cursor-$name" "$banner")
+    [ "$(composer_state_of "$dir")" = unknown ] || fail "$name: the exhausted composer should read unknown, got: $(composer_state_of "$dir")"
+    start_cursor_process "$dir"
+    out=$(run_cursor_exit "$dir" t1 exit); rc=$?
+    stop_grok_process "$dir"
+    expect_code 0 "$rc" "$name: exit beside the usage row should stop the agent"$'\n'"$out"
+    assert_cursor_stopped_without_exit_command "$dir" "$out" "$name"
+  done
+  pass "fm-control exit: an unknown cursor composer beside a usage-exhausted row stops without typing an exit command"
+)
+
+test_cursor_quoted_usage_row_still_refuses_exit() {
+  local dir out rc
+  dir=$(cursor_exhausted_case quoted "The log quoted You're out of usage in a sentence.")
+  [ "$(composer_state_of "$dir")" = unknown ] || fail "fixture: a quoted usage sentence should still read unknown"
+  out=$(run_cursor_exit "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a quoted usage sentence must still refuse"$'\n'"$out"
+  assert_contains "$out" "not proven empty" "the refusal should name the unproven composer"
+  [ "$(cat "$dir/fake/command")" = cursor-agent ] || fail "the refusal must leave cursor-agent running"
+  [ -z "$(keys_sent "$dir")" ] || fail "a quoted usage sentence must receive no keys"
+  if [ -f "$dir/fake/literal" ] && [ -s "$dir/fake/literal" ]; then
+    fail "a quoted usage sentence must not be typed into"
+  fi
+  pass "fm-control exit: an unknown cursor composer that only quotes the usage row still refuses"
+}
+
+test_cursor_pending_text_refuses_exit_beside_usage_row() {
+  local dir out rc
+  dir=$(cursor_exhausted_case pending $'You\'re out of usage. Switch to Auto, or ask your admin to increase your limit to continue.\n\n╭────╮\n│ hi │\n╰────╯\n')
+  printf '3\n' > "$dir/fake/cursor"
+  [ "$(composer_state_of "$dir")" = pending ] || fail "fixture: typed text beside the usage row should read pending, got: $(composer_state_of "$dir")"
+  out=$(run_cursor_exit "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "pending text must refuse even beside the usage row"$'\n'"$out"
+  assert_contains "$out" "composer visibly holds pending text" "the refusal should name the pending text"
+  [ "$(cat "$dir/fake/command")" = cursor-agent ] || fail "a pending-text refusal must leave cursor-agent running"
+  [ -z "$(keys_sent "$dir")" ] || fail "pending text must receive no keys"
+  if [ -f "$dir/fake/literal" ] && grep -Fqx /exit "$dir/fake/literal"; then
+    fail "no exit command may be typed onto pending text"
+  fi
+  pass "fm-control exit: cursor pending text refuses even with the usage row visible"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1434,5 +1541,8 @@ test_grok_pending_text_refuses_relaunch_beside_usage_limit
 test_grok_pending_unproven_refuses_relaunch_beside_usage_limit || exit 1
 test_grok_unknown_composer_without_usage_limit_refuses_relaunch
 test_grok_usage_picker_refuses_when_agent_cannot_be_stopped
+test_cursor_usage_exhausted_exit_stops_unknown_composer || exit 1
+test_cursor_quoted_usage_row_still_refuses_exit
+test_cursor_pending_text_refuses_exit_beside_usage_row
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task

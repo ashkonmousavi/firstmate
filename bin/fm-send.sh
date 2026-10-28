@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Steer a task by durable record: write the message into the task's steering
 # inbox and ring a constant doorbell line into its terminal, best-effort.
-# Usage: fm-send.sh <target> [--resolve-key <key>]... [--fire-and-forget <delivery-id>] <text...>
+# Usage: fm-send.sh <target> [--resolve-key <key>]... [--fire-and-forget <delivery-id>] [--one-way] <text...>
 #   <target> may be an exact task id, a legacy fm-<id> task label resolved
 #   through this home's state/<id>.meta, or an explicit well-formed backend
 #   target. fm-send refuses unresolved guesses rather than falling back to a
@@ -119,7 +119,16 @@
 # sent with --fire-and-forget <16-hex-delivery-id> uses the same inbox transport
 # without creating a reply expectation; its delivery id makes uncertain retries
 # idempotent while allowing a later identical instruction to be distinct.
-# A routine notice that expects no reply is sent with --fire-and-forget.
+# A routine notice that expects no reply and must stay outside the re-ring
+# ladder is sent with --fire-and-forget.
+# --one-way is the ordinary inbox steer that expects no reply: the record,
+# doorbell, and re-ring ladder are unchanged, and no pending-reply correlation
+# is minted or embedded. It is not fire-and-forget and it does not set
+# delivery=. It cannot accompany --fire-and-forget, --resolve-key, or --key.
+# A correlation that already exists is closed by the recipient, not by this
+# flag and not by moving the inbox record to handled/:
+# FM_HOME=<parent-home> bin/fm-pending-reply-ack-handled.sh <task-id> <corr-id>
+# (bin/fm-pending-reply-lib.sh owns that resolved_via=handled transition).
 #
 # Remote secondmate delivery: the send crosses fm-on.sh to a host-local leg
 # (bin/fm-remote-secondmate-control.sh cmd_send) that writes the message as a
@@ -471,6 +480,7 @@ fi
 # message exactly as before, so ordinary sends are byte-identical.
 RESOLVE_KEYS=
 FIRE_AND_FORGET_ID=
+ONE_WAY=0
 fm_send_add_resolve_key() { # <key>
   local k=$1
   case "$k" in
@@ -519,6 +529,14 @@ while :; do
       exit 1
     }
     FIRE_AND_FORGET_ID=${1#--fire-and-forget=}
+    shift
+    ;;
+  --one-way)
+    [ "$ONE_WAY" = 0 ] || {
+      echo "error: duplicate --one-way" >&2
+      exit 1
+    }
+    ONE_WAY=1
     shift
     ;;
   *) break ;;
@@ -650,6 +668,19 @@ if [ -n "$FIRE_AND_FORGET_ID" ]; then
   [ -z "$RESOLVE_KEYS" ] ||
     {
       echo "error: --fire-and-forget cannot accompany --resolve-key" >&2
+      exit 1
+    }
+fi
+
+if [ "$ONE_WAY" = 1 ]; then
+  [ -z "$FIRE_AND_FORGET_ID" ] ||
+    {
+      echo "error: --one-way cannot accompany --fire-and-forget" >&2
+      exit 1
+    }
+  [ -z "$RESOLVE_KEYS" ] ||
+    {
+      echo "error: --one-way cannot accompany --resolve-key" >&2
       exit 1
     }
 fi
@@ -836,6 +867,11 @@ if [ "${1:-}" = "--key" ]; then
       echo "error: --fire-and-forget cannot accompany --key" >&2
       exit 1
     }
+  [ "$ONE_WAY" = 0 ] ||
+    {
+      echo "error: --one-way cannot accompany --key" >&2
+      exit 1
+    }
   case "$*" in
   *--resolve-key*)
     echo "error: --resolve-key cannot accompany --key; answering a decision requires a text answer" >&2
@@ -885,6 +921,11 @@ else
     fm_message_mark_from_firstmate "$MESSAGE" MESSAGE
     MESSAGE="${FM_FROMFIRST_MARK}delivery=${FIRE_AND_FORGET_ID} ${MESSAGE#"$FM_FROMFIRST_MARK"}"
     FM_SEND_IDEMPOTENT=1
+  elif [ "$MARK_FROM_FIRSTMATE" = 1 ] && [ "$ONE_WAY" = 1 ]; then
+    # Ordinary steer, no reply expectation. The marker stays so the mate
+    # reads it as a parent message. Do not mint or embed a correlation, and
+    # do not mark the record fire-and-forget: the re-ring ladder still applies.
+    fm_message_mark_from_firstmate "$MESSAGE" MESSAGE
   elif [ "$MARK_FROM_FIRSTMATE" = 1 ] && fm_send_pending_reply_close_only; then
     # The acknowledgement closes the expectation. Mark it so the mate reads it
     # as a parent message, and do not mint a replacement expectation.
@@ -1160,7 +1201,7 @@ else
     # because the watcher owns loss detection from here, either through its
     # bounded re-ring ladder or direct unavailable-endpoint recovery.
     ring_rc=0
-    fm_task_inbox_ring "$TARGET_BACKEND" "$T" "$INBOX_RECORD" "$EXPECTED_LABEL" || ring_rc=$?
+    fm_task_inbox_ring "$TARGET_BACKEND" "$T" "$INBOX_RECORD" "$EXPECTED_LABEL" "$TARGET_HARNESS" || ring_rc=$?
     ring_retry="the watcher will re-ring"
     if [ -n "$FIRE_AND_FORGET_ID" ] \
       && [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/wait-no-turns" ]; then
@@ -1178,6 +1219,10 @@ else
     1) echo "fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
     2) echo "fm-send: doorbell did not reach $T; the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
     3) echo "fm-send: doorbell not typed because the agent in $T has exited; the steer is durably recorded at $INBOX_RECORD for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane" >&2 ;;
+    4)
+      echo "fm-send: doorbell not typed because $T reports usage exhausted; the steer is durably recorded at $INBOX_RECORD" >&2
+      fm_task_inbox_release_exhausted "$INBOX_TASK_ID" || true
+      ;;
     esac
     exit 0
   fi

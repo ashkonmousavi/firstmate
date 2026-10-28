@@ -744,6 +744,32 @@ test_matrix_grok_weekly_limit_border() {
   pass "matrix: grok weekly-limit border preserves empty, pending, and unknown verdicts"
 }
 
+test_matrix_grok_always_approve_border_from_capture() {
+  # Captured idle Grok pane whose bottom title is "Grok 4.7 (high) · always-approve"
+  # with no weekly-limit prefix. The middle dot used to fail the width proof,
+  # so the box read unknown and exit refused a visibly empty composer.
+  local screen typed malformed clipped caps pad
+  screen=$(cat "$ROOT/tests/captures/grok-idle-always-approve.txt")
+  pad=$(printf '%15s' '')
+  typed=$(printf '%s\n' "$screen" | awk -v pad="$pad" 'NR==37 { sub("❯" pad, "❯ deploy the fix") } { print }')
+  malformed=$(printf '%s\n' "$screen" | awk 'NR==38 { sub(/Grok 4\.7 \(high\)/, "Grok ??? (high)") } { print }')
+  clipped=$(printf '%s\n' "$screen" | awk 'NR>=36 && NR<=38 { sub(/.$/, "") } { print }')
+  for caps in "$CAPS_TMUX" "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+    if [ "$caps" = "$CAPS_TMUX" ]; then
+      assert_screen "grok always-approve capture" empty "$caps" "$screen" 36
+      assert_screen "grok always-approve typed capture" pending "$caps" "$typed" 36
+      assert_screen "grok always-approve malformed title" unknown "$caps" "$malformed" 36
+      assert_screen "grok always-approve clipped box" unknown "$caps" "$clipped" 36
+    else
+      assert_screen "grok always-approve capture" empty "$caps" "$screen"
+      assert_screen "grok always-approve typed capture" pending "$caps" "$typed"
+      assert_screen "grok always-approve malformed title" unknown "$caps" "$malformed"
+      assert_screen "grok always-approve clipped box" unknown "$caps" "$clipped"
+    fi
+  done
+  pass "matrix: grok always-approve capture is empty only when the prompt row is the sole content"
+}
+
 test_matrix_claude_titled_top_rule() {
   # A named Claude Code session draws its title into the composer's TOP rule
   # (issues #5601 and #5558; observed on herdr as
@@ -1049,6 +1075,7 @@ test_matrix_pi_dollar_status_footer_is_empty
 test_matrix_opencode_leftbar_signals
 test_matrix_grok_titled_bottom_border
 test_matrix_grok_weekly_limit_border
+test_matrix_grok_always_approve_border_from_capture
 test_matrix_claude_titled_top_rule
 test_matrix_kimi_bordered_shell_glyph_box
 test_matrix_claude_inside_zellij_ansi_dump

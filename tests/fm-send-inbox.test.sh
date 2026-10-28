@@ -27,6 +27,9 @@
 #  10. An empty or whitespace-only text steer is refused before anything is
 #      marked, recorded, or typed - on the marked secondmate path that means
 #      no marker-only record and no pending-reply expectation.
+#  11. --one-way records the same inbox steer and writes no pending-reply
+#      correlation. It refuses to combine with --fire-and-forget, --key, or
+#      --resolve-key.
 # Every case below that passes a literal `$...` message quotes it on purpose
 # (the point is sending an unexpanded `$` line), so SC2016 is disabled.
 # shellcheck disable=SC2016
@@ -504,6 +507,60 @@ test_empty_message_refused() {
   pass "fm-send: an empty or whitespace-only text steer refuses before marking, recording, or typing"
 }
 
+test_one_way_records_no_pending_reply() {
+  local dir err body rc
+  dir=$(setup_case oneway-ship)
+  err="$dir/send.err"
+  run_send "$dir" "$err" -- t1 --one-way "status only, no reply" || fail "a ship --one-way steer should succeed"
+  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "a --one-way steer should still record the inbox message"
+  body=$(record_body _ "$dir/home/state/t1.inbox/001.msg")
+  [ "$body" = "status only, no reply" ] || fail "a ship --one-way body differs: $body"
+  case "$body" in
+  *corr=*|*delivery=*) fail "a ship --one-way body embedded corr or delivery: $body" ;;
+  esac
+  [ -z "$(find "$dir/home/state/pending-replies" -type f -not -name '.*' 2>/dev/null)" ] ||
+    fail "a ship --one-way steer wrote a pending-reply record"
+
+  dir=$(setup_case oneway-mate)
+  err="$dir/send.err"
+  fm_write_secondmate_meta "$dir/home/state/domain.meta" "$dir/home" "sess:fm-domain"
+  run_send "$dir" "$err" -- fm-domain --one-way "fleet note, no reply" ||
+    fail "a secondmate --one-way steer should succeed"
+  body=$(record_body _ "$dir/home/state/domain.inbox/001.msg")
+  [ "$body" = "${FM_FROMFIRST_MARK}fleet note, no reply" ] ||
+    fail "a secondmate --one-way body lost the marker or the message:"$'\n'"$body"
+  case "$body" in
+  *corr=*|*delivery=*) fail "a --one-way body must not carry corr or delivery: $body" ;;
+  esac
+  [ -z "$(find "$dir/home/state/pending-replies" -type f -not -name '.*' 2>/dev/null)" ] ||
+    fail "a secondmate --one-way steer wrote a pending-reply record"
+  run_send "$dir" "$err" -- fm-domain --one-way "fleet note, no reply" ||
+    fail "a repeated --one-way steer should succeed"
+  [ -f "$dir/home/state/domain.inbox/002.msg" ] || fail "a repeated --one-way steer should write a new inbox record"
+  [ -z "$(find "$dir/home/state/pending-replies" -type f -not -name '.*' 2>/dev/null)" ] ||
+    fail "a repeated --one-way steer wrote a pending-reply record"
+
+  dir=$(setup_case oneway-refuse)
+  err="$dir/send.err"
+  fm_write_secondmate_meta "$dir/home/state/domain.meta" "$dir/home" "sess:fm-domain"
+  run_send "$dir" "$err" -- fm-domain --one-way --fire-and-forget 0123456789abcdef "no"
+  rc=$?
+  [ "$rc" -ne 0 ] || fail "--one-way with --fire-and-forget should refuse"
+  assert_contains "$(cat "$err")" "--one-way cannot accompany --fire-and-forget" \
+    "the combined-flag refusal should name both flags"
+  run_send "$dir" "$err" -- t1 --one-way --key Enter
+  rc=$?
+  [ "$rc" -ne 0 ] || fail "--one-way with --key should refuse"
+  assert_contains "$(cat "$err")" "--one-way cannot accompany --key" \
+    "the --key refusal should name --one-way"
+  run_send "$dir" "$err" -- t1 --one-way --resolve-key some-key "answered"
+  rc=$?
+  [ "$rc" -ne 0 ] || fail "--one-way with --resolve-key should refuse"
+  assert_contains "$(cat "$err")" "--one-way cannot accompany --resolve-key" \
+    "the --resolve-key refusal should name --one-way"
+  pass "fm-send --one-way records the steer and writes no pending-reply correlation"
+}
+
 test_text_steer_rides_inbox
 test_deep_home_doorbell_stays_short
 test_multiline_steer_is_legal
@@ -520,3 +577,4 @@ test_post_enqueue_bookkeeping_failure_is_not_retryable
 test_meta_lock_contention_fails_bounded
 test_unwritable_inbox_fails_loudly
 test_empty_message_refused
+test_one_way_records_no_pending_reply

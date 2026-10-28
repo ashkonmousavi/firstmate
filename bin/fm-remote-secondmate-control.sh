@@ -270,7 +270,7 @@ cmd_relaunch() {
 }
 
 cmd_send() {
-  local id=$1 message=$2 delivery_mode=${3:-} rec ring_rc=0 meta meta_lock
+  local id=$1 message=$2 delivery_mode=${3:-} rec ring_rc=0 meta meta_lock harness
   validate_id "$id"
   [ -z "$delivery_mode" ] || [ "$delivery_mode" = fire-and-forget ] || die "invalid send delivery mode"
   validate_home "$id"
@@ -304,11 +304,13 @@ cmd_send() {
       return 0
       ;;
   esac
-  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" || ring_rc=$?
+  harness=$(fm_meta_get "$REMOTE_ENDPOINT_META" harness)
+  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" || ring_rc=$?
   case "$ring_rc" in
     1) printf 'notice: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at %s\n' "$rec" >&2 ;;
     2) printf 'notice: doorbell did not reach %s; the steer is durably recorded at %s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
     3) printf 'notice: doorbell not typed because the agent in %s has exited; the steer is durably recorded at %s for recovery\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
+    4) printf 'notice: doorbell not typed because %s reports usage exhausted; the steer is durably recorded at %s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
   esac
 }
 
@@ -317,14 +319,14 @@ cmd_send() {
 # (bin/fm-task-inbox-lib.sh owns the ladder; "Remote leg" there). Each action
 # prints one line:
 #   due <grace> <max> quiet | ring <record> | escalate <record> <count>
-#   ring <record>    rang <ring-status> | handled | unavailable | bookkeeping-failed
+#   ring <record>    rang <ring-status> | handled | unavailable | exhausted | bookkeeping-failed
 #   escalated <rec>  escalated
 # <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
 # re-checks that the record is still unhandled, rings once, and spends one
 # ladder attempt; `escalated` writes the marker after the parent has queued its
 # wake.
 cmd_inbox() {
-  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0
+  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 harness
   validate_id "$id"
   validate_home "$id"
   remote_endpoint_require "$id"
@@ -367,7 +369,14 @@ cmd_inbox() {
     printf 'handled\n'
     return 0
   fi
-  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" || ring_rc=$?
+  harness=$(fm_meta_get "$REMOTE_ENDPOINT_META" harness)
+  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" || ring_rc=$?
+  if [ "$ring_rc" -eq 4 ]; then
+    # No ladder attempt: the pane cannot accept a doorbell. The parent logs
+    # this word and does not release the seat from the other host.
+    printf 'exhausted\n'
+    return 0
+  fi
   if [ "$ring_rc" -eq 3 ]; then
     printf 'unavailable\n'
     return 0

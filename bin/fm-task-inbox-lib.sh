@@ -55,7 +55,11 @@
 # FM_TASK_INBOX_RING_MAX attempts without an acknowledgement it escalates. The
 # caller owns the busy and recovery-grade endpoint checks: due actions deferred
 # by a busy pane consume a separate durable consecutive-poll budget,
-# FM_TASK_INBOX_BUSY_MAX. At that bound the same escalation path surfaces a
+# FM_TASK_INBOX_BUSY_MAX, except a harness whose submit queue
+# fm_control_submit_queue accepts (bin/fm-control-lib.sh), which is rung while
+# busy. Any other harness keeps that deferral, and the next poll that sees the
+# pane idle rings immediately, including inside grace and after the stuck-busy
+# escalation. At the busy bound the same escalation path surfaces a
 # stuck-busy reason without typing. A non-busy due check or acknowledgement resets
 # this budget. Fire-and-forget retries remain outside escalation. A positively
 # dead or missing endpoint skips delivery and the ladder and escalates directly.
@@ -86,6 +90,7 @@
 # beside the records, and the parent queues the escalation wake. It rings a
 # busy mate as the remote enqueue ring does, so it keeps no busy budget, and
 # no fire-and-forget retry is owed there.
+# A usage-exhausted report prints exhausted and spends no ladder attempt.
 # The parent passes its effective grace and ring maximum to each remote due
 # check; individual hops have a fixed 30-second bound, and ordinary supervision
 # runs the pass detached from its cycle, so a slow host never delays the
@@ -122,6 +127,8 @@ _FM_TASK_INBOX_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_FM_TASK_INBOX_LIB_DIR/fm-wake-lib.sh"
 # shellcheck source=/dev/null
 . "$_FM_TASK_INBOX_LIB_DIR/fm-backend.sh"
+# shellcheck source=/dev/null
+. "$_FM_TASK_INBOX_LIB_DIR/fm-control-lib.sh"
 
 FM_TASK_INBOX_SCHEMA='fm-task-inbox.v1'
 FM_TASK_INBOX_GRACE_DEFAULT=90
@@ -373,8 +380,10 @@ fm_task_inbox_doorbell_line() {  # <record-path>
 # Returns 0 rang, 1 skipped because the composer PROVENLY holds pending text
 # other than our own doorbell (the watcher re-rings later), 2 the backend send
 # failed, 3 skipped because the endpoint is positively dead or missing (nothing
-# typed; recovery owns the record). No return value is delivery proof; the
-# acknowledgement move is the only delivery signal.
+# typed; recovery owns the record), 4 skipped because the pane shows that
+# harness's usage-exhausted report (nothing typed; the caller releases the
+# seat with fm_task_inbox_release_exhausted). No return value is delivery
+# proof; the acknowledgement move is the only delivery signal.
 # The skip is deliberately narrow: only an exact `pending` verdict can defer,
 # because there our Enter could submit someone's real half-typed content.
 # `pending-unproven` and `unknown` still ring - the worst outcome is a garbled
@@ -383,27 +392,67 @@ fm_task_inbox_doorbell_line() {  # <record-path>
 # positively identify (that classifier is advisory here by design).
 # A pending composer holding exactly our own doorbell line is a previous ring
 # whose Enter never landed, so on an agent not reported busy it is submitted
-# rather than skipped; skipping it would block every later ring. On both paths
+# rather than skipped; skipping it would block every later ring. A submit-queue
+# harness submits that same Enter while busy. On both paths
 # a lost first Enter gets one confirmed retry.
-fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
-  local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict
+# Optional <harness> selects the usage-exhausted report and the submit queue.
+# Callers that omit it keep the previous ring behavior.
+fm_task_inbox_usage_exhausted() {  # <backend> <target> <harness> [expected-label]
+  local signal cap
+  [ -n "${3:-}" ] || return 1
+  signal=$(fm_control_quota_exhausted_signal "$3" 2>/dev/null) || return 1
+  [ -n "$signal" ] || return 1
+  cap=$(fm_backend_capture "$1" "$2" 40 "${4:-}" 2>/dev/null) || return 1
+  printf '%s\n' "$cap" | grep -Eq -- "$signal"
+}
+
+# Stop the task whose pane reported usage exhaustion. fm-control's exit verb
+# owns the sanctioned clear: interrupt, then SIGTERM, and only when the
+# composer reads unknown beside that report. A second call sees an agent that
+# has already stopped.
+fm_task_inbox_release_exhausted() {  # <task-id>
+  "$_FM_TASK_INBOX_LIB_DIR/fm-control.sh" "$1" exit
+}
+
+# 0 when a non-queue harness still owes a doorbell that was deferred while
+# busy, so the next idle observation rings even when the ladder would be quiet.
+# The owed doorbell is the record named in .busy-state. An escalation marker
+# alone does not qualify: that would reopen a later record whose predecessor
+# left the marker unremovable.
+fm_task_inbox_idle_followup() {  # <state-dir> <task-id> <harness>
+  local oldest base dir named
+  fm_control_submit_queue "${3:-}" && return 1
+  oldest=$(fm_task_inbox_oldest_unhandled "$1" "$2") || return 1
+  base=${oldest##*/}
+  dir=$(fm_task_inbox_dir "$1" "$2")
+  { IFS=$(printf '\t') read -r named _ < "$dir/.busy-state"; } 2>/dev/null || named=
+  [ "$named" = "$base" ]
+}
+
+fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness]
+  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;
   esac
   if ! line=$(fm_task_inbox_doorbell_line "$rec"); then
     return 2
   fi
+  if fm_task_inbox_usage_exhausted "$backend" "$target" "$harness" "$label"; then
+    return 4
+  fi
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
   case "$cstate" in
     pending)
-      fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
-        && [ "$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)" != busy ] \
-        || return 1
-      fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
-      sleep 0.3
-      fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 0
-      fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
-      return 0
+      if fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
+        && { [ "$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)" != busy ] \
+          || fm_control_submit_queue "$harness"; }; then
+        fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
+        sleep 0.3
+        fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 0
+        fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
+        return 0
+      fi
+      return 1
       ;;
   esac
   # Accepted residual race: terminal input and Enter are separate delivery
