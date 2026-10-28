@@ -54,8 +54,10 @@
 # `complete` and `verify` check. `--origin-kind` records the call's attribution -
 # `owner-request` (the owner's own message), `finding` (a firstmate or worker
 # finding), or `pipeline-outcome` (a delivery-pipeline outcome) - on its own
-# `Captain hold origin-kind:` body line, preserved when a re-hold omits it;
-# it is attribution metadata and no command gates on it. The reason may hold
+# `Captain hold origin-kind:` body line. Supplied values replace recorded ones;
+# omitted origin and attribution fields preserve their recorded values, and a
+# refused backend hold restores both previous fields. Attribution is optional
+# metadata and no command gates on it. The reason may hold
 # parentheses and line breaks:
 # tasks-axi refuses them, so `hold` escapes them where it writes the reason and
 # readers decode them (bin/fm-hold-reason-lib.sh owns the encoding).
