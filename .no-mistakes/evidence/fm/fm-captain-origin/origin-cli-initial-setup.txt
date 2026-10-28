@@ -1,0 +1,363 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-lab-home.sh create <LAB>
+<LAB>
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-owner-request --title 'Attribution owner-request' --reason 'Sample unresolved preference' --origin-kind owner-request
+class-owner-request
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-owner-request --full
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Sample unresolved preference"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:14:55Z\nCaptain hold origin-kind: owner-request"
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-finding --title 'Attribution finding' --reason 'Sample unresolved preference' --origin-kind finding
+class-finding
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-finding --full
+task:
+  id: class-finding
+  title: Attribution finding
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Sample unresolved preference"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:14:56Z\nCaptain hold origin-kind: finding"
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-pipeline-outcome --title 'Attribution pipeline-outcome' --reason 'Sample unresolved preference' --origin-kind pipeline-outcome
+class-pipeline-outcome
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-pipeline-outcome --full
+task:
+  id: class-pipeline-outcome
+  title: Attribution pipeline-outcome
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Sample unresolved preference"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:14:57Z\nCaptain hold origin-kind: pipeline-outcome"
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold legacy --title 'Existing caller without classification' --reason 'Sample unresolved preference'
+legacy
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show legacy --full
+task:
+  id: legacy
+  title: Existing caller without classification
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Sample unresolved preference"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:14:58Z"
+[exit 0]
+
+SCENARIO PASS: Create holds for all three origins and retain compatibility without a class
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh add review-origin 'Sample review' --kind scout --repo sample --body 'Review context survives'
+ok: added review-origin (scout, repo sample) -> Queued
+task:
+  id: review-origin
+  title: Sample review
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: Review context survives
+help[2]:
+  - Run `tasks-axi start review-origin` to move it to in flight
+  - Run `tasks-axi block review-origin --by <other>` to record a dependency
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh update class-owner-request --body 'Unrelated task context survives'
+ok: updated class-owner-request (body)
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v1:U2FtcGxlIHVucmVzb2x2ZWQgcHJlZmVyZW5jZQ=="
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: Unrelated task context survives
+help[1]:
+  - Run `tasks-axi show class-owner-request --full` to see the result
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-owner-request --reason 'Owner request awaiting preference' --origin review-origin --origin-kind owner-request
+class-owner-request
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-owner-request --full
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Owner request awaiting preference"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:15:00Z\nCaptain hold origin: review-origin\nCaptain hold origin-kind: owner-request\n\nUnrelated task context survives"
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-owner-request --reason 'Unclassified re-hold preserves custody'
+class-owner-request
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-owner-request --full
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Unclassified re-hold preserves custody"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:15:00Z\nCaptain hold origin: review-origin\nCaptain hold origin-kind: owner-request\n\nUnrelated task context survives"
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-owner-request --reason 'Pipeline reclassification' --origin-kind pipeline-outcome
+class-owner-request
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-owner-request --full
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Pipeline reclassification"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:15:00Z\nCaptain hold origin: review-origin\nCaptain hold origin-kind: pipeline-outcome\n\nUnrelated task context survives"
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-owner-request --reason 'Association-only update' --origin review-origin
+class-owner-request
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-owner-request --full
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Association-only update"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:15:00Z\nCaptain hold origin: review-origin\nCaptain hold origin-kind: pipeline-outcome\n\nUnrelated task context survives"
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-owner-request --reason 'Worker finding' --origin-kind finding
+class-owner-request
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-owner-request --full
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Worker finding"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:15:00Z\nCaptain hold origin: review-origin\nCaptain hold origin-kind: finding\n\nUnrelated task context survives"
+[exit 0]
+
+SCENARIO PASS: Re-hold and edit either origin field without losing association, class, timestamp or task context
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold invalid-new --title 'Should never exist' --reason 'Invalid class' --origin-kind owner_request
+fm-captain-hold: --origin-kind must be owner-request, finding, or pipeline-outcome: owner_request
+[exit 1]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-owner-request --reason 'Should never change' --origin-kind captain
+fm-captain-hold: --origin-kind must be owner-request, finding, or pipeline-outcome: captain
+[exit 1]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-owner-request --full
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Worker finding"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:15:00Z\nCaptain hold origin: review-origin\nCaptain hold origin-kind: finding\n\nUnrelated task context survives"
+[exit 0]
+
+SCENARIO PASS: Invalid origin kinds refuse before creating or changing a task
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh add other-origin 'Different review' --kind scout --repo sample
+ok: added other-origin (scout, repo sample) -> Queued
+task:
+  id: other-origin
+  title: Different review
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start other-origin` to move it to in flight
+  - Run `tasks-axi block other-origin --by <other>` to record a dependency
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-tasks-axi.sh show class-owner-request --full
+task:
+  id: class-owner-request
+  title: Attribution owner-request
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Worker finding"
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: firstmate
+  priority: "-"
+  created: 2026-10-28
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-28T14:15:00Z\nCaptain hold origin: review-origin\nCaptain hold origin-kind: finding\n\nUnrelated task context survives"
+[exit 0]
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/bin/fm-captain-hold.sh hold class-owner-request --reason 'Rejected date must roll back metadata' --origin other-origin --origin-kind owner-request --until 2099-02-31
+class-owner-request
+[exit 0]
+

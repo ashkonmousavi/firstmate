@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Create holds for all three origins and retain compatibility without a class",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Re-hold and edit either origin field without losing association, class, timestamp or task context",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Invalid origin kinds refuse before creating or changing a task",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A backend-refused re-hold restores the previous origin and attribution",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Origin metadata survives completion, verification and an actual answer, while closed tasks stay closed",
+    "result": "pass",
+    "live": true
+  }
+]

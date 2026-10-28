@@ -1,0 +1,4 @@
+error: "EACCES: permission denied, open '~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/.origin-live-4z3vg1tj/data/backlog.md.lock'"
+code: UNKNOWN
+
+[real tasks-axi exit 1]

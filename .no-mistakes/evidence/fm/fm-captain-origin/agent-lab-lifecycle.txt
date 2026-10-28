@@ -1,0 +1,18 @@
+$ bin/fm-lab-home.sh create <LAB>
+~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9/.origin-primary-ehemh9or
+
+[exit 0]
+$ bin/fm-lab-home.sh tmux-dir <LAB>
+/tmp/fml.6tgbms
+
+[exit 0]
+$ tmux -L fm-lab new-session -d -s primary -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M61D11BKFQH1DMTFW1H18EW9 -e FM_HOME=<LAB> 'bash <LAB>/launch.sh'
+
+[exit 0]
+$ tmux -L fm-lab kill-server
+no server running on /tmp/fml.6tgbms/tmux-1000/fm-lab
+
+[exit 1]
+$ bin/fm-lab-home.sh teardown <LAB>
+
+[exit 0]
