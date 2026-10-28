@@ -938,6 +938,70 @@ test_binding_failure_blocks_repeat_send() {
   pass "binding errors wake and block repeat sends until the existing record can be bound"
 }
 
+test_acknowledgement_during_conflict_delivery() (
+  local state log decision timing text
+  for timing in before_scan post_read pre_read no_enqueue; do
+    reset_lib
+    state="$TMP_ROOT/ack-during-delivery-$timing"
+    setup_task "$state"
+    log=$FM_TEST_INBOX_LOG
+    text=$(fm_pr_conflict_instruction https://github.com/o/r/pull/7 curated)
+    "$FM_TEST_INBOX_WRITER" lane "$text" || fail "could not seed the acknowledgement fixture"
+    if [ "$timing" != pre_read ]; then
+      mv "$state/lane.inbox/001.msg" "$state/lane.inbox/handled/"
+    fi
+    cat > "$TMP_ROOT/ack-send.sh" <<'SH'
+#!/usr/bin/env bash
+[ "$FM_TEST_ACK_TIMING" != no_enqueue ] || exit 0
+"$FM_TEST_INBOX_WRITER" "$1" "$2" || exit 1
+if [ "$FM_TEST_ACK_TIMING" = before_scan ]; then
+  mv "$FM_TEST_INBOX_STATE/$1.inbox/"*.msg "$FM_TEST_INBOX_STATE/$1.inbox/handled/" || exit 1
+fi
+SH
+    chmod +x "$TMP_ROOT/ack-send.sh"
+    export FM_TEST_ACK_TIMING=$timing
+    FM_PR_CONFLICT_SEND=$TMP_ROOT/ack-send.sh
+    # shellcheck disable=SC2329
+    fm_pr_conflict_posture() { printf 'live\n'; }
+    # shellcheck disable=SC2329
+    fm_task_inbox_body() {
+      if { [ "$timing" = pre_read ] && [ "$1" = "$state/lane.inbox/001.msg" ]; } \
+        || { [ "$timing" = post_read ] && [ "$1" = "$state/lane.inbox/002.msg" ]; }; then
+        mv "$1" "$state/lane.inbox/handled/" || return 1
+        printf 'acknowledged\n' > "$state/read-acknowledgement"
+      fi
+      bash -c '. "$1"; fm_task_inbox_body "$2"' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$1"
+    }
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+    if [ "$timing" = no_enqueue ]; then
+      [ "$decision" = wake ] && [ "$(wc -l < "$log")" -eq 1 ] \
+        || fail "an older acknowledged instruction falsely confirmed a new send"
+      continue
+    fi
+    [ "$decision" = quiet ] && [ "$(wc -l < "$log")" -eq 2 ] \
+      || fail "acknowledgement caused a false delivery failure ($timing)"
+    [ "$(fm_pr_conflict_steer_recorded_basename "$state" lane github github.com o/r 7)" = 002.msg ] \
+      || fail "confirmation did not bind the newly delivered instruction ($timing)"
+    case "$timing" in
+      before_scan|post_read)
+        [ -f "$state/lane.inbox/handled/002.msg" ] && [ ! -e "$state/lane.inbox/002.msg" ] \
+          || fail "the delivered instruction was not acknowledged ($timing)"
+        ;;
+    esac
+    case "$timing" in
+      pre_read|post_read)
+        [ -f "$state/read-acknowledgement" ] || fail "the concurrent acknowledgement was never exercised"
+        ;;
+    esac
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+    [ "$decision" = quiet ] && [ "$(wc -l < "$log")" -eq 2 ] \
+      || fail "a confirmed action was repeated ($timing)"
+  done
+  pass "delivery confirmation survives acknowledgement and excludes older handled instructions"
+)
+
 test_unbound_scan_respects_acknowledgement_and_identity() {
   local state log decision axis task host path number url text
   for axis in handled host path number task; do
@@ -1193,6 +1257,7 @@ test_rename_overlap_endpoints
 test_upgrade_recovers_unbound_conflict_steer
 test_restart_recovers_enqueue_before_binding
 test_binding_failure_blocks_repeat_send
+test_acknowledgement_during_conflict_delivery
 test_unbound_scan_respects_acknowledgement_and_identity
 test_v2_episode_preserves_recovery
 test_unread_conflict_steer_is_not_repeated

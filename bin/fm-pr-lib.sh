@@ -1815,8 +1815,8 @@ fm_pr_conflict_steer_outstanding() {  # <state> <id> <provider> <host> <path> <n
   [ ! -e "$handled/$base" ] && [ ! -L "$handled/$base" ]
 }
 
-fm_pr_conflict_steer_bind() {  # <state> <id> <provider> <host> <path> <number> <text>
-  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 text=$7
+fm_pr_conflict_steer_bind() {  # <state> <id> <provider> <host> <path> <number> <text> [minimum-sequence]
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 text=$7 min_seq=${8:-}
   local inbox handled f best='' best_seq=-1 seq body base
   type fm_task_inbox_dir >/dev/null 2>&1 || return 2
   type fm_task_inbox_handled_dir >/dev/null 2>&1 || return 2
@@ -1826,12 +1826,24 @@ fm_pr_conflict_steer_bind() {  # <state> <id> <provider> <host> <path> <number> 
   handled=$(fm_task_inbox_handled_dir "$state" "$id") || return 2
   [ -e "$inbox" ] || [ -L "$inbox" ] || return 1
   [ -d "$inbox" ] && [ ! -L "$inbox" ] || return 2
-  for f in "$inbox"/*.msg; do
-    [ -f "$f" ] && [ ! -L "$f" ] || continue
+  [ ! -L "$handled" ] || return 2
+  for f in "$inbox"/*.msg "$handled"/*.msg; do
     base=${f##*/}
-    [ ! -e "$handled/$base" ] && [ ! -L "$handled/$base" ] || continue
+    if [ -z "$min_seq" ]; then
+      case "$f" in "$handled"/*) continue ;; esac
+      [ ! -e "$handled/$base" ] && [ ! -L "$handled/$base" ] || continue
+    elif [ ! -e "$f" ]; then
+      f="$handled/$base"
+    fi
+    [ -f "$f" ] && [ ! -L "$f" ] || continue
     seq=$(fm_task_inbox_seq_of "$base") || continue
-    body=$(fm_task_inbox_body "$f") || return 2
+    [ -z "$min_seq" ] || [ "$seq" -ge "$min_seq" ] || continue
+    if ! body=$(fm_task_inbox_body "$f"); then
+      f="$handled/$base"
+      [ -f "$f" ] && [ ! -L "$f" ] || return 2
+      [ -n "$min_seq" ] || continue
+      body=$(fm_task_inbox_body "$f") || return 2
+    fi
     [ "${body%%$'\n'*}" = "${text%%$'\n'*}" ] || continue
     if [ "$seq" -gt "$best_seq" ]; then
       best_seq=$seq
@@ -1888,7 +1900,7 @@ fm_pr_conflict_bin_dir() {
 # without writing another record.
 fm_pr_conflict_steer() {  # <state> <id> <url> <provider> <host> <path> <number>
   local state=$1 id=$2 url=$3 provider=$4 host=$5 path=$6 number=$7
-  local meta base text send dir bind_rc=0
+  local meta base text send dir inbox min_seq bind_rc=0
   if fm_pr_conflict_steer_outstanding "$state" "$id" \
     "$provider" "$host" "$path" "$number"; then
     return 0
@@ -1913,9 +1925,12 @@ fm_pr_conflict_steer() {  # <state> <id> <url> <provider> <host> <path> <number>
     dir=$(fm_pr_conflict_bin_dir) || return 1
     send=$dir/fm-send.sh
   fi
+  inbox=$(fm_task_inbox_dir "$state" "$id") || return 1
+  min_seq=$(fm_task_inbox_next_seq "$inbox") || return 1
+  min_seq=$(fm_task_inbox_seq_of "$min_seq.msg") || return 1
   "$send" "$id" "$text" >&2 || return 1
   fm_pr_conflict_steer_bind "$state" "$id" \
-    "$provider" "$host" "$path" "$number" "$text"
+    "$provider" "$host" "$path" "$number" "$text" "$min_seq"
 }
 
 # FM_PR_CONFLICT_RELAUNCH, when set, is the command used instead of
