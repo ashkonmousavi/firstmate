@@ -55,6 +55,7 @@ run_lib() {
     # home for the whole subshell.
     # shellcheck disable=SC2030  # the export is deliberately local to this subshell
     FM_HOME="$home"
+    # shellcheck disable=SC2030  # the override is deliberately local to this subshell
     FM_STATE_OVERRIDE="$home/state"
     FM_DATA_OVERRIDE="$home/data"
     export FM_HOME FM_STATE_OVERRIDE FM_DATA_OVERRIDE
@@ -660,11 +661,14 @@ SH
   run_lib "$home" fm_hold_release_record_write "$home/state" t1 'pr:owner/repo#42'
   run_lib "$home" fm_hold_release_record_write "$home/state" t2 'pr:owner/repo#43'
   (
+    # shellcheck source=bin/fm-hold-release-lib.sh disable=SC1091
     . "$LIB"
+    # shellcheck disable=SC2031  # these exports assign fresh values for this subshell
     export FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_HOLD_RELEASE_SHOW_CMD="$home/show" FM_HOLD_RELEASE_GH="$home/gh"
     FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 4 ))
     fm_hold_release_evaluate "$home/state" >/dev/null || true
     remaining=$(fm_checkpoint_budget 10) || fail "hold reads must leave time for later registered checks"
+    # shellcheck disable=SC2016  # the child bash must expand its own positional argument
     fm_run_timed "$remaining" bash -c ': > "$1"' _ "$home/registered-check-ran" || fail "the next registered check must run"
   ) || fail "hold evaluation must reserve the next check's turn"
   [ -f "$home/registered-check-ran" ] || fail "later work must make observable progress"

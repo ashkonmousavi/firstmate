@@ -163,11 +163,12 @@ record_set() {
   local fields=("$@") written=()
   [ -f "$rec" ] || return 1
   tmp=$(umask 077; mktemp "$REQUESTS_DIR/.record.XXXXXX") || return 1
+  # shellcheck disable=SC2094  # tmp is only written or removed on failure; rec is the input
   while IFS= read -r line || [ -n "$line" ]; do
     for ((i=0; i<${#fields[@]}; i+=2)); do
       key=${fields[$i]}
       case "$line" in
-        "$key="*) line="$key=${fields[$((i + 1))]}"; written[$i]=1; break ;;
+        "$key="*) line="$key=${fields[$((i + 1))]}"; written[i]=1; break ;;
       esac
     done
     printf '%s\n' "$line" || { rm -f -- "$tmp"; return 1; }
@@ -406,6 +407,7 @@ dispatch_one() {  # <corr> <walk>
 spawn_walk() {
   local corr=$1 walk=$2 log rc=0
   log=$(record_log_path "$corr" "$walk")
+  # shellcheck disable=SC2094  # both Python and this redirection append; neither reads the log
   python3 - "$0" "$corr" "$walk" "$log" <<'PYTHON' >> "$log" 2>&1 || rc=$?
 import os
 import subprocess
