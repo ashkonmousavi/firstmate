@@ -53,6 +53,20 @@ run_check() {  # <parent-home> [env assignments...]
     "$CHECK" check
 }
 
+# A bounded sweep may leave intake or delivery for the next watcher tick.
+# Count the fake transport's observable deliveries, not internal record phases.
+check_until_calls() {  # <parent-home> <calls-file> <count> [env assignments...]
+  local parent=$1 calls=$2 expected=$3 n
+  shift 3
+  for n in {1..20}; do
+    run_check "$parent" "$@" || fail "walk-request sweep failed before delivery completed"
+    if [ -f "$calls" ] && [ "$(wc -l < "$calls")" -ge "$expected" ]; then
+      return 0
+    fi
+  done
+  fail "walk-request deliveries did not reach $expected across bounded sweeps"
+}
+
 # fake_dispatcher <path>: records one argument line per invocation, emits a
 # reply, and exits 0 - the shape the real dispatcher shows on a successful
 # walk (reply text then exit 0; the "unverified" marker line is not load
@@ -323,7 +337,8 @@ test_walk_id_boundaries() {
     printf "note [corr=%016x]: walk-request: walks=%s brief=$parent/data/from-main/walk-lists/brief.md release=%s bot=Walker\n" \
       "$corr" "$walk" "$RELEASE" >> "$parent/state/ids-mate.status"
   done
-  out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
+  out=$(check_until_calls "$parent" "$send.calls" 4 FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send") \
+    || fail "invalid walk-id refusals must complete successfully"
   assert_contains "$out" 'invalid walk ids' "MAIN validates handwritten request ids"
   [ ! -e "$dispatch.calls" ] || fail "invalid handwritten ids must not dispatch"
   [ "$(wc -l < "$send.calls")" -eq 4 ] || fail "each invalid request must return a refusal"
@@ -598,7 +613,7 @@ SH
     assert_grep "walk $walks@" "$send.attempts" "pending outcome $walks must get a turn despite stalled transports"
   done
   : > "$send.allow"
-  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  check_until_calls "$parent" "$send.calls" 5 FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   [ "$(wc -l < "$send.calls")" -eq 5 ] || fail "every pending walk and refusal must deliver after recovery"
   out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
   [ -z "$out" ] || fail "fully delivered records must be quiet"
@@ -634,7 +649,7 @@ test_brief_disclosure_boundaries() {
     printf 'note [corr=%016x]: walk-request: walks=private brief=%s release=%s bot=Walker\n' \
       "$n" "$bad" "$RELEASE" >> "$parent/state/private-mate.status"
   done
-  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  check_until_calls "$parent" "$send.calls" "$n" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   [ ! -e "$dispatch.calls" ] || fail "forged private-file requests must never dispatch"
   [ "$(wc -l < "$send.calls")" -eq "$n" ] || fail "MAIN must return every private-file refusal"
   before=$(wc -l < "$parent/state/private-mate.status")
@@ -768,7 +783,7 @@ SH
 }
 
 test_inline_remote_briefs_and_size_limits() {
-  local parent mate dispatch send out corr remote_log snapshot delta payload rc n file
+  local parent mate dispatch send out corr remote_log snapshot delta payload rc n file fakebin real_grep
   parent=$(make_parent inline-main)
   mate=$(make_mate inline-mate "$parent")
   printf 'schema=fm-secondmate-parent.v1\nroute=remote\nparent_host=main\n' > "$mate/.fm-secondmate-parent"
@@ -832,7 +847,19 @@ PYTHON
   done
   printf 'note [corr=4444444444444444]: walk-request: walks=remote-path brief=%s release=%s bot=Walker\n' \
     "$parent/data/from-main/walk-lists/brief.md" "$RELEASE" >> "$parent/state/inline-mate.status"
-  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  # Force discovery to span sweeps even on a fast host. The oracle remains
+  # four refused inputs plus the successful remote walk, each delivered once.
+  fakebin="$parent/slow-intake"
+  mkdir -p "$fakebin"
+  real_grep=$(command -v grep)
+  cat > "$fakebin/grep" <<SH
+#!/usr/bin/env bash
+if [ "\$1" = -oE ]; then sleep 1; fi
+exec '$real_grep' "\$@"
+SH
+  chmod +x "$fakebin/grep"
+  check_until_calls "$parent" "$send.calls" 5 PATH="$fakebin:$PATH" FM_CHECK_TIMEOUT=4 \
+    FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
   [ "$(wc -l < "$remote_log")" -eq 1 ] || fail "refused content must never publish on the remote channel"
   [ "$(wc -l < "$dispatch.calls")" -eq 1 ] || fail "MAIN must refuse invalid inline content and remote path-only requests"
   [ "$(wc -l < "$send.calls")" -eq 5 ] || fail "every invalid remote request must receive its refusal"
