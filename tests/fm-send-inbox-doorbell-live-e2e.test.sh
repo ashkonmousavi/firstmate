@@ -197,6 +197,8 @@ check_exhausted_cursor_doorbell() {
   tmux new-window -d -t "$SESSION:" -n "$win" -c "$home/workspace" \
     env FM_HOME="$home" FM_ROOT_OVERRIDE="$home" bash --noprofile --norc \
     || fail "cursor ($version): launch failed"
+  tmux resize-window -t "$SESSION:$win" -x 220 -y 50 \
+    || fail "cursor ($version): could not set the initial viewport"
   tmux send-keys -t "$SESSION:$win" -l "$cmd $(printf '%q' "$probe")"
   tmux send-keys -t "$SESSION:$win" Enter
   i=0
@@ -226,13 +228,13 @@ check_exhausted_cursor_doorbell() {
     || fail "cursor ($version): could not seed the inbox"
   case "$mode" in
     unknown)
-      tmux send-keys -t "$SESSION:$win" -l /model
-      tmux send-keys -t "$SESSION:$win" Enter
+      tmux resize-window -t "$SESSION:$win" -y 8 \
+        || fail "cursor ($version): could not reduce the viewport"
       sleep 0.3
       composer=$(fm_tmux_composer_state "$SESSION:$win")
       if [ "$composer" != unknown ]; then
         tmux capture-pane -p -t "$SESSION:$win" 2>/dev/null | tail -20 >&2
-        fail "cursor ($version): native picker reads $composer, so unknown-composer recovery is unverified"
+        fail "cursor ($version): reduced viewport reads $composer, so unknown-composer recovery is unverified"
       fi
       ;;
     residue)
@@ -338,7 +340,7 @@ check_harness_doorbell() {  # <name>
   tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
 }
 
-HARNESSES=${FM_SEND_INBOX_LIVE_HARNESSES:-'claude codex opencode pi grok kimi muse rovo'}
+HARNESSES=${FM_SEND_INBOX_LIVE_HARNESSES:-'claude codex opencode pi grok kimi cursor muse rovo'}
 for h in $HARNESSES; do
   if [ "$h" = cursor ]; then
     cursor_binary=$(command -v cursor-agent || command -v agent || true)

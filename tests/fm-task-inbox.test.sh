@@ -1310,6 +1310,54 @@ test_watcher_rerings_nonqueue_on_idle_after_escalation() {
   pass "watcher: a non-queue runtime is re-rung on the next idle observation after stuck-busy"
 }
 
+test_watcher_idle_followup_survives_checkpoint_deferral() {
+  local gate=$1 phase=$2 dir state capture grace=0 marker
+  dir=$(busy_case "idle-followup-$gate-$phase")
+  state="$dir/state"
+  busy_steer_check "$dir"
+  if [ "$phase" = escalated ]; then
+    busy_steer_check "$dir"
+    [ "$(cat "$state/t1.inbox/.escalated")" = 001.msg ] || fail "the fixture did not reach stuck-busy escalation"
+  else
+    grace=3600
+    touch "$state/t1.inbox/001.msg"
+  fi
+  marker=$(cat "$state/t1.inbox/.busy-state")
+  capture=$(idle_capture "$dir")
+  PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_SEND_LOG="$dir/send.log" \
+    FM_FAKE_TMUX_CAPTURE="$capture" FM_TASK_INBOX_GRACE_SECS="$grace" \
+    FM_BUSY_REGEX=BUSYTOKEN bash -c '
+      . "$1"
+      FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 60 ))
+      if [ "$2" = deadline ]; then
+        checkpoint_read() {
+          local status=0
+          "$@" || status=$?
+          if [ "$1" = window_is_busy ]; then
+            FM_CHECKPOINT_DEADLINE=$(( $(date +%s) - 1 ))
+          fi
+          return "$status"
+        }
+      fi
+      inbox_steer_check sess:fm-t1 t1
+    ' _ "$WATCH" "$gate" > "$dir/deferred.out" 2>&1
+  [ "$(cat "$state/t1.inbox/.busy-state" 2>/dev/null)" = "$marker" ] \
+    || fail "$gate consumed the $phase idle follow-up before a delivery attempt"
+  [ ! -s "$dir/send.log" ] || fail "$gate deferral typed into the pane"
+  [ ! -e "$state/t1.inbox/.ring-state" ] || fail "$gate deferral spent a delivery attempt"
+  if [ "$gate" = admission ]; then
+    grep -qF 'checkpoint-recovery-inbox-ring-t1' "$state/.wake-queue" \
+      || fail "the checkpoint did not defer delivery to recovery"
+  fi
+  steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=3600 FM_BUSY_REGEX=BUSYTOKEN
+  assert_doorbell_submitted "$dir"
+  [ ! -e "$state/t1.inbox/.busy-state" ] || fail "the delivery attempt retained the idle follow-up"
+  : > "$dir/send.log"
+  steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=3600 FM_BUSY_REGEX=BUSYTOKEN
+  [ ! -s "$dir/send.log" ] || fail "the consumed idle follow-up rang twice"
+  pass "watcher: $phase idle follow-up survives $gate deferral and recovery rings it once"
+}
+
 test_watcher_rerings_nonqueue_inside_grace_after_busy() {
   local dir state action
   dir=$(busy_case grok-grace)
@@ -1428,6 +1476,10 @@ test_watcher_submits_busy_claude claude-latest
 test_watcher_submits_busy_opencode
 test_watcher_submits_busy_rovo
 test_watcher_rerings_nonqueue_on_idle_after_escalation
+test_watcher_idle_followup_survives_checkpoint_deferral deadline escalated
+test_watcher_idle_followup_survives_checkpoint_deferral admission escalated
+test_watcher_idle_followup_survives_checkpoint_deferral deadline grace
+test_watcher_idle_followup_survives_checkpoint_deferral admission grace
 test_watcher_rerings_nonqueue_inside_grace_after_busy
 test_cursor_exhaustion_uses_visible_viewport
 test_cursor_exhaustion_uses_visible_viewport cursor-agent

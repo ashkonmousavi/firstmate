@@ -609,7 +609,7 @@ inbox_steer_escalate_unavailable() {  # <window> <task> <record>
 # being healthy, while an unacknowledged instruction can still be a stuck steer.
 inbox_steer_check() {  # <window> <task>
   local w=$1 task=$2 action verb rec count tail40 reason='' ring_rc backend agent_state
-  local harness idle_followup=0
+  local harness idle_followup=0 nonbusy=0
   action=$(fm_task_inbox_due_action "$STATE" "$task") || return 0
   verb=${action%% *}
   harness=$(window_harness "$w")
@@ -671,7 +671,14 @@ inbox_steer_check() {  # <window> <task>
       fi
       verb=escalate
     fi
-  elif [ "$verb" != retry ] && ! fm_task_inbox_clear_busy "$STATE" "$task"; then
+  else
+    nonbusy=1
+  fi
+  checkpoint_deadline_passed && return 0
+  case "$verb" in
+    ring|retry) fm_checkpoint_admit "$task" inbox-ring || { checkpoint_recovery_surface; return 0; } ;;
+  esac
+  if [ "$nonbusy" = 1 ] && [ "$verb" != retry ] && ! fm_task_inbox_clear_busy "$STATE" "$task"; then
     # A follow-up of a doorbell already escalated must not raise that same
     # bookkeeping failure on every later idle poll.
     if [ "$idle_followup" = 1 ] && [ "$(cat "${rec%/*}/.escalated" 2>/dev/null || true)" = "${rec##*/}" ]; then
@@ -680,10 +687,6 @@ inbox_steer_check() {  # <window> <task>
     reason="stale: $w (steering-inbox busy bookkeeping unwritable: ${rec%/*}/.busy-state cannot be reset after a non-busy check; inspect the inbox directory)"
     verb=escalate
   fi
-  checkpoint_deadline_passed && return 0
-  case "$verb" in
-    ring|retry) fm_checkpoint_admit "$task" inbox-ring || { checkpoint_recovery_surface; return 0; } ;;
-  esac
   case "$verb" in
     ring)
       ring_rc=0
