@@ -21,7 +21,11 @@ Reply lag is the elapsed time since the oldest remote at= stamp not yet
 mirrored in state/.remote-reply-mirrored-<mate>, or zero when caught up.
 All reply and watermark timestamps use status_line_at_epoch in
 bin/fm-classify-lib.sh, the canonical status timestamp grammar owner.
-An unparseable nonblank line makes the read fail rather than imply caught up.
+A nonblank line that grammar rejects is a continuation of the previous
+entry's multi-line text and contributes no stamp, including a leading one
+when a byte-cursor window begins mid-entry; a rejected line before the
+first entry of a read from the log's beginning is corrupt and makes the
+read fail rather than imply caught up.
 An incident clears only when its oldest reply is mirrored.
 Local status notices cannot advance that ingestion watermark, and a missing
 or empty watermark counts as zero.
@@ -161,15 +165,32 @@ def run_status(argv, env, timeout=15, input_data=None):
     return process.returncode, stdout, stderr
 
 
-def stamps(text):
+def stamps(text, at_start):
+    """Entry epochs in one reply-log read, in file order.
+
+    A nonblank line the canonical grammar rejects is a continuation of the
+    previous entry's multi-line text and contributes no stamp. A read that
+    starts at a byte cursor can start mid-entry, so a rejected leading line
+    there is the tail of an entry from before the cursor; at_start marks a
+    read of the log from its beginning, where a rejected line before the
+    first entry is corrupt and fails the read rather than imply caught up.
+    """
     rc, output, _ = run_status(['bash', '-c', r'''
 . "$1" || exit 1
+seen=0
 while IFS= read -r line || [ -n "$line" ]; do
     [ -n "${line//[$' \t\r']/}" ] || continue
-    status_line_at_epoch "$line" || exit 1
-    printf '\n'
+    if ! epoch=$(status_line_at_epoch "$line"); then
+        if [ "$seen" -gt 0 ] || [ "$2" != log-start ]; then
+            continue
+        fi
+        exit 1
+    fi
+    seen=1
+    printf '%s\n' "$epoch"
 done
-''', 'backstop-timestamps', str(Path(__file__).parent / 'fm-classify-lib.sh')],
+''', 'backstop-timestamps', str(Path(__file__).parent / 'fm-classify-lib.sh'),
+                               'log-start' if at_start else 'at-cursor'],
                                os.environ, input_data=text.encode('utf-8'))
     if rc != 0:
         raise ProbeError('reply timestamps unavailable')
@@ -177,7 +198,7 @@ done
 
 
 def newest(text):
-    return max(stamps(text), default=0)
+    return max(stamps(text, True), default=0)
 
 
 def valid_reader(record):
@@ -235,7 +256,10 @@ def drain_delta(code, env, readers, mate, local):
             return None
         if int(fields['payload_bytes']) != len(payload):
             raise ProbeError('delta record is malformed')
-        found = stamps(payload.decode('utf-8', errors='replace'))
+        # A window at a nonzero cursor can begin mid-entry; offset zero is
+        # the head of the log, where no entry precedes the first line.
+        found = stamps(payload.decode('utf-8', errors='replace'),
+                       record['offset'] == 0)
         readers[mate] = {'offset': int(fields['to_offset']),
                          'prefix': fields['to_prefix_sha256'],
                          'pending_at': sorted(set(record['pending_at']) | {stamp for stamp in found if stamp > local})}
@@ -255,7 +279,7 @@ def remote_oldest(code, env, memory, mate, local, audit):
                                   'fm-remote-file.sh', 'get', DELTA_LOG,
                                   str(TRANSFER_BOUND)], env)
     if rc == 0:
-        found = stamps(body.decode('utf-8', errors='replace'))
+        found = stamps(body.decode('utf-8', errors='replace'), True)
         pending = sorted(set(pending) | {stamp for stamp in found if stamp > local})
         readers[mate] = {'offset': len(body),
                          'prefix': hashlib.sha256(body).hexdigest(),
@@ -346,6 +370,13 @@ def main():
         memory = json.loads(journal.read_text())
     except (OSError, ValueError):
         memory = {}
+    # An older private copy stored these as lists; reset any non-dict shape
+    # to a fresh dict so the dict-typed bookkeeping below starts cleanly,
+    # keeping last_nudge and any reader cursors. Reader records failing
+    # valid_reader rebootstrap as on any first pass.
+    for key in ('episodes', 'read_fails', 'runner_fails'):
+        if not isinstance(memory.get(key), dict):
+            memory[key] = {}
     episodes = memory.setdefault('episodes', {})
     deferred = memory.setdefault('deferred_alarms', {}) if args.send_enabled_file else {}
     for key in list(deferred):
