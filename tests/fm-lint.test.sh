@@ -213,20 +213,20 @@ test_canonical_partitions_preserve_full_lint() {
       || fail "partition $part did not stream an end record per root"
   done
   [ "$(LC_ALL=C sort "$tmp/union")" = "$all" ] || fail "lint partitions lose or duplicate canonical roots"
-  local total index
-  for total in 2 3 5 8; do
-    : > "$tmp/union$total"
-    for index in $(seq 1 "$total"); do
-      "$LINT" --partition "${index}of${total}" --list-files >> "$tmp/union$total" \
-        || fail "partition ${index}of${total} was refused"
-    done
-    [ "$(LC_ALL=C sort "$tmp/union$total")" = "$all" ] \
-      || fail "${total} lint partitions lose or duplicate canonical roots"
+  : > "$tmp/union2"
+  for part in 1of2 2of2; do
+    "$LINT" --partition="$part" --list-files >> "$tmp/union2" \
+      || fail "partition $part was refused"
   done
-  for option in 0of2 3of2 1of1 1of9 5of4 1of 2of2x abc; do
+  [ "$(LC_ALL=C sort "$tmp/union2")" = "$all" ] \
+    || fail "two lint partitions lose or duplicate canonical roots"
+  for option in 0of2 3of2 1of1 1of3 1of5 1of6 1of7 1of8 1of9 0of4 5of4 1of 2of2x abc; do
     rc=0
     "$LINT" --partition "$option" --list-files > "$tmp/refused" 2>&1 || rc=$?
     [ "$rc" = 2 ] || fail "invalid partition $option was not refused"
+    rc=0
+    "$LINT" --partition="$option" --list-files > "$tmp/refused" 2>&1 || rc=$?
+    [ "$rc" = 2 ] || fail "invalid partition=$option was not refused"
   done
   rc=0
   "$LINT" --partition 1of2 --fast > "$tmp/refused" 2>&1 || rc=$?

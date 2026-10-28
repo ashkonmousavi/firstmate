@@ -102,7 +102,7 @@ Portable shards, each portable serial shard, and the Herdr lane upload runner-ge
 
 ## Lint partitions and end-to-end latency
 
-`bin/fm-lint.sh` owns the canonical CI partitions (`NofM`; CI runs four), each attempting full source-aware ShellCheck analysis and running workflow validation and backend-purity checks.
+`bin/fm-lint.sh` owns the supported canonical partition forms (see its header and `--help`); CI runs four partitions, each attempting full source-aware ShellCheck analysis and running workflow validation and backend-purity checks.
 Byte-balanced partitions are estimated to reduce each partition's lint time toward a quarter of the roughly 24-minute serial lint, pending runtime measurement in the later CI phase; file size does not establish analysis cost or headroom below the 30-minute limit.
 CI requires its per-root bounds, so an unenforceable deadline or address-space limit refuses lint rather than running uncapped; the script header owns the envelope, per-root execution contract, and memory fallback.
 Its `--list-files` interface exposes partition membership; `tests/fm-lint.test.sh` verifies complete/disjoint executed roots, initial analysis flags, and fallback reporting.
