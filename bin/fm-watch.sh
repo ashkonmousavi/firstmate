@@ -3534,8 +3534,24 @@ pr_poll_publish_release() {
   PR_POLL_PUBLISH_LOCK=
 }
 
+watcher_world_gone() {
+  if [ "$WATCH_HOME_EXISTED" -eq 1 ] && [ ! -d "$FM_HOME" ]; then
+    echo "watcher: exiting - home no longer exists: $FM_HOME"
+  elif [ ! -d "$STATE" ]; then
+    echo "watcher: exiting - state directory no longer exists: $STATE"
+  elif [ ! -e "$WATCH_LOCK/pid" ]; then
+    echo "watcher: exiting - state directory was torn down (singleton lock removed): $STATE"
+  elif [ ! -d "$SCRIPT_DIR" ]; then
+    echo "watcher: exiting - code root no longer exists: $SCRIPT_DIR"
+  else
+    return 1
+  fi
+}
+
 watcher_cleanup() {
   local cleanup_status=0 owns_lock=0 transition=release-lock
+  # Teardown can interrupt any poll stage before the next poll-head check.
+  watcher_world_gone >&2 || true
   pr_poll_publish_release || cleanup_status=1
   pr_poll_control_release || cleanup_status=1
   if [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "${WATCHER_PID:-}" ]; then
@@ -3658,19 +3674,7 @@ while :; do
   # with no holder at all is read as the same teardown: only a fresh watcher
   # ever recreates the lock, and that case is the self-eviction below.
   # Scoped to this process alone: no other watcher is signalled.
-  if [ "$WATCH_HOME_EXISTED" -eq 1 ] && [ ! -d "$FM_HOME" ]; then
-    echo "watcher: exiting - home no longer exists: $FM_HOME" >&2
-    exit 1
-  elif [ ! -d "$STATE" ]; then
-    echo "watcher: exiting - state directory no longer exists: $STATE" >&2
-    exit 1
-  elif [ ! -e "$WATCH_LOCK/pid" ]; then
-    echo "watcher: exiting - state directory was torn down (singleton lock removed): $STATE" >&2
-    exit 1
-  elif [ ! -d "$SCRIPT_DIR" ]; then
-    echo "watcher: exiting - code root no longer exists: $SCRIPT_DIR" >&2
-    exit 1
-  fi
+  watcher_world_gone >/dev/null && exit 1
 
   # Self-eviction: if the singleton lock no longer names this process, a second
   # watcher has taken over (e.g. a transient duplicate from a racy arm). Stand

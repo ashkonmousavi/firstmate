@@ -1374,8 +1374,29 @@ test_arm_refuses_a_disposable_validation_checkout() {
 # so the watcher's own exit reason, which it logs to stderr, is readable there.
 WATCH_PID=
 start_owned_watcher() {  # <home> <state> <fakebin> <arm-out>
-  local home=$1 state=$2 fakebin=$3 armout=$4 i
+  local home=$1 state=$2 fakebin=$3 armout=$4 i real_touch
+  real_touch=$(command -v touch)
+  # Hold the first poll after its beacon becomes visible, so teardown happens
+  # during a poll rather than depending on a race with the next poll head.
+  cat > "$fakebin/touch" <<'SH'
+#!/usr/bin/env bash
+"$FM_TEST_REAL_TOUCH" "$@" || exit $?
+case "${1:-}" in
+  */.last-watcher-beat)
+    i=0
+    while [ "$i" -lt 1000 ]; do
+      [ ! -e "$FM_TEST_BEACON_RELEASE" ] || exit 0
+      sleep 0.02
+      i=$((i + 1))
+    done
+    echo 'test beacon was not released' >&2
+    exit 1
+    ;;
+esac
+SH
+  chmod +x "$fakebin/touch"
   PATH="$fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
+    FM_TEST_REAL_TOUCH="$real_touch" FM_TEST_BEACON_RELEASE="$armout.release" \
     FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
     FM_ARM_CONFIRM_TIMEOUT=2 "$WATCH_ARM" > "$armout" 2>&1 &
   ARM_PID=$!
@@ -1417,6 +1438,7 @@ test_watcher_exits_when_its_state_directory_is_removed() {
   start_owned_watcher "$home" "$state" "$fakebin" "$armout"
 
   rm -rf "$state"
+  : > "$armout.release"
   wait_for_pid_gone "$WATCH_PID" 400 \
     || { kill -TERM "$WATCH_PID" 2>/dev/null; fail "watcher pid $WATCH_PID outlived its deleted state directory"; }
   wait_for_exit "$ARM_PID" 100 >/dev/null 2>&1 || true
@@ -1440,6 +1462,7 @@ test_watcher_exits_when_its_home_is_removed() {
   start_owned_watcher "$home" "$state" "$fakebin" "$armout"
 
   rm -rf "$home"
+  : > "$armout.release"
   wait_for_pid_gone "$WATCH_PID" 400 \
     || { kill -TERM "$WATCH_PID" 2>/dev/null; fail "watcher pid $WATCH_PID outlived its deleted home"; }
   wait_for_exit "$ARM_PID" 100 >/dev/null 2>&1 || true
