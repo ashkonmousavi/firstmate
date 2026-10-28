@@ -1,0 +1,7 @@
+id=1793189091-N3mqk5
+at=2026-10-28T12:04:51Z
+source=text
+announce_marker=1
+request_id=backstop-5de2a4d4e86f46e094a2b8233e68644d
+--
+REPLY DELIVERY UNVERIFIED q-server: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.

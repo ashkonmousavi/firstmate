@@ -1,0 +1,48 @@
+{
+  "one-preemption": {
+    "episodes": {},
+    "lag_oldest": {},
+    "read_fails": {},
+    "readers": {
+      "q-server": {
+        "offset": 135,
+        "pending_at": [
+          1793189022,
+          1793189023
+        ],
+        "prefix": "a78190783a42850b737dc2039388782e7e40e8379d3314ec279be7f3b0bad36c"
+      }
+    },
+    "runner_fails": {}
+  },
+  "window-budget": {
+    "episodes": {},
+    "lag_oldest": {},
+    "read_fails": {},
+    "readers": {
+      "q-server": {
+        "offset": 173635,
+        "pending_at": [
+          1793189036
+        ],
+        "prefix": "8e1ae049efa54b0415ba7ba9544641c9496a798d80f42f8a6823a363e1e04d7b"
+      }
+    },
+    "runner_fails": {}
+  },
+  "exhaustion": {
+    "episodes": {},
+    "lag_oldest": {},
+    "read_fails": {},
+    "readers": {
+      "q-server": {
+        "offset": 173635,
+        "pending_at": [
+          1793189050
+        ],
+        "prefix": "7496acff6eb9a35fb395595d8d33118b9baf935a05a422189fb86450cfe43f87"
+      }
+    },
+    "runner_fails": {}
+  }
+}

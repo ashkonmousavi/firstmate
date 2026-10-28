@@ -1,0 +1,13 @@
+test_preempted_delta_read_reissues_same_cursor_and_progresses (__main__.Backstop.test_preempted_delta_read_reissues_same_cursor_and_progresses) ... ok
+test_permanently_preempted_delta_read_fails_boundedly (__main__.Backstop.test_permanently_preempted_delta_read_fails_boundedly) ... ok
+test_multiline_reply_entries_read_as_continuations_from_the_head (__main__.Backstop.test_multiline_reply_entries_read_as_continuations_from_the_head) ... ok
+test_delta_window_beginning_mid_entry_reads_continuations (__main__.Backstop.test_delta_window_beginning_mid_entry_reads_continuations) ... ok
+test_multi_chunk_backlog_reports_tail_lag (__main__.Backstop.test_multi_chunk_backlog_reports_tail_lag) ... ok
+test_over_budget_backlog_stays_unverified_until_tail (__main__.Backstop.test_over_budget_backlog_stays_unverified_until_tail) ... ok
+test_two_consecutive_read_failures_alarm_then_dedup_and_clear (__main__.Backstop.test_two_consecutive_read_failures_alarm_then_dedup_and_clear) ... ok
+test_steady_state_reads_only_appended_lines (__main__.Backstop.test_steady_state_reads_only_appended_lines) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 22.156s
+
+OK
