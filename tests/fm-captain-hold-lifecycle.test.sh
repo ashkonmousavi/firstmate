@@ -971,6 +971,64 @@ EOF
   pass "release frees held work with the captain's words recorded and the body preserved"
 }
 
+# A hold names who the call is attributed to. --origin-kind records one of the
+# three attribution classes on the held task itself, replaces it when a later
+# hold names a new class, keeps it when a re-hold omits the flag, never clears
+# a recorded origin association, and refuses a class outside the three before
+# anything is mutated.
+test_hold_records_and_preserves_its_origin_kind() {
+  local home show
+  home=$(make_home origin-kind)
+  if run_captain "$home" hold sample-kind-call --title "Sample attribution call" \
+    --reason "captain choice pending" --origin-kind owner_request \
+    > "$home/bad-kind.out" 2> "$home/bad-kind.err"; then
+    fail "hold accepted an origin kind outside the three classes"
+  fi
+  assert_grep "origin-kind must be owner-request, finding, or pipeline-outcome" \
+    "$home/bad-kind.err" "the refused origin kind did not name the three classes"
+  run_captain "$home" hold sample-kind-call --title "Sample attribution call" \
+    --reason "captain choice pending" --origin-kind owner-request >/dev/null \
+    || fail "could not hold a call attributed to an owner request"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin-kind: owner-request" \
+    "the hold did not record its attribution on the task"
+  FM_CAPTAIN_HOLD_NOW=2026-07-15T09:00:00Z run_captain "$home" hold sample-kind-call \
+    --reason "captain choice still pending" >/dev/null \
+    || fail "could not re-hold without naming an origin kind"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin-kind: owner-request" \
+    "a re-hold without --origin-kind dropped the recorded attribution"
+  run_captain "$home" hold sample-kind-call --reason "re-scoped to the pipeline" \
+    --origin-kind pipeline-outcome >/dev/null \
+    || fail "could not re-hold with a new origin kind"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin-kind: pipeline-outcome" \
+    "a new origin kind did not replace the recorded attribution"
+  assert_not_contains "$show" "Captain hold origin-kind: owner-request" \
+    "the replaced attribution survived on the task"
+
+  tasks_in "$home" add sample-kind-origin "Review the sample" --kind scout --repo sample >/dev/null \
+    || fail "could not create the origin task"
+  write_origin_meta "$home" sample-kind-origin
+  run_captain "$home" hold sample-kind-call --reason "association needed" \
+    --origin sample-kind-origin >/dev/null \
+    || fail "could not hold with an origin"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin: sample-kind-origin" \
+    "the origin association was not recorded"
+  assert_contains "$show" "Captain hold origin-kind: pipeline-outcome" \
+    "recording an origin dropped the origin kind"
+  run_captain "$home" hold sample-kind-call --reason "re-attributed" \
+    --origin-kind finding >/dev/null \
+    || fail "could not re-hold with only an origin kind"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin: sample-kind-origin" \
+    "an origin-kind re-hold cleared the origin association"
+  assert_contains "$show" "Captain hold origin-kind: finding" \
+    "an origin-kind re-hold did not replace the attribution"
+  pass "hold records and preserves its origin kind beside its origin"
+}
+
 # The hold-set stamp must be durable before the captain hold becomes visible.
 # A wrapper observes the real tasks-axi hold boundary, and a forced stamp-write
 # failure proves the command never publishes the hold without its timestamp.
@@ -4677,6 +4735,7 @@ test_completion_gate_attests_and_transfers
 test_answer_records_and_closes
 test_release_frees_held_work
 test_hold_stamp_precedes_hold_visibility
+test_hold_records_and_preserves_its_origin_kind
 test_interrupted_answer_preserves_hold_age
 test_deferral_leaves_captains_call_until_due
 test_out_of_band_close_is_recordable
