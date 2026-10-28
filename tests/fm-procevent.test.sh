@@ -227,10 +227,11 @@ hold_source_lock_then_handle() {  # <home> <source-id> <sequence> <ready-file> <
 }
 
 # A live primary session holds its home's session lock: line 1 of state/.lock
-# names a running harness process. A copy of sleep named claude is exactly that
-# to bin/fm-session-lock-lib.sh, so a runner in that home sees a live session.
+# names a running harness process. A native stand-in named claude supplies that
+# identity to bin/fm-session-lock-lib.sh on standalone and multicall hosts.
 SESSION_BIN=$(fm_fakebin "$TMP_ROOT/session-owner-bin")
-cp "$(command -v sleep)" "$SESSION_BIN/claude"
+ln -s "$(fm_agent_standin "$SESSION_BIN/native-client")" "$SESSION_BIN/claude" \
+  || fail "could not create the simulated primary session"
 start_fake_session() {  # <home>: hold the home's session lock; prints the pid
   "$SESSION_BIN/claude" 300 >/dev/null 2>&1 &
   printf '%s\n' "$!" > "$1/state/.lock"

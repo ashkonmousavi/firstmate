@@ -1308,8 +1308,8 @@ pass "a retirement that stops after removing the cursor leaves the old count"
 # The listener's owner guard reads the home's lease, and only the supervision
 # cycle's reconcile refreshes it. A cycle that stalls before its next reconcile
 # while the primary session is live must not end the listener: it keeps applying
-# deltas past the lease and stops only once that session is gone. A copy of
-# sleep named claude holding state/.lock is a live primary session to
+# deltas past the lease and stops only once that session is gone. A native
+# stand-in named claude holding state/.lock is a live primary session to
 # bin/fm-session-lock-lib.sh.
 LIVE_PARENT="$TMP_ROOT/live-parent"
 LIVE_REMOTE="$TMP_ROOT/live-remote"
@@ -1319,7 +1319,8 @@ cat > "$LIVE_PARENT/data/secondmates.md" <<EOF
 - mac - live session relay (host: remote-mac; root: $ROOT; home: $LIVE_REMOTE; scope: relay; projects: alpha; added 2026-10-19)
 EOF
 : > "$LIVE_REMOTE/state/parent-replies.status"
-cp "$(command -v sleep)" "$FAKEBIN/claude"
+ln -s "$(fm_agent_standin "$TMP_ROOT/live-primary-client")" "$FAKEBIN/claude" \
+  || fail "could not create the simulated primary session"
 "$FAKEBIN/claude" 300 &
 LIVE_SESSION_PID=$!
 printf '%s\n' "$LIVE_SESSION_PID" > "$LIVE_PARENT/state/.lock"
