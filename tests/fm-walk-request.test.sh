@@ -139,14 +139,30 @@ test_carrier_refusals() {
 # --- arm and disarm ----------------------------------------------------------
 
 test_arm_and_disarm() {
-  local parent out
+  local parent mate dispatch send out
   parent=$(make_parent armed)
+  mate=$(make_mate armed-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_dispatcher "$dispatch"
+  fake_send "$send"
   out=$(FM_HOME="$parent" FM_STATE_OVERRIDE="$parent/state" "$CHECK" arm) \
     || fail "arm must succeed: $out"
   [ -f "$parent/state/walk-request.check.sh" ] || fail "arm must write the shim"
   [ -f "$parent/state/walk-request.check-trust" ] || fail "arm must write the trust binding"
-  assert_grep "$(printf '%q' "$ROOT/bin/fm-walk-request-check.sh")" \
-    "$parent/state/walk-request.check.sh" "the shim execs the tracked check script"
+  run_carrier "$mate" --brief /srv/walks/brief.md --release "$RELEASE" \
+    --walks armed-step --bot J01Walker >/dev/null || fail "the armed request must publish"
+  FM_STATE_OVERRIDE="$parent/state" FM_WALK_REQUEST_DISPATCH="$dispatch" \
+    FM_WALK_REQUEST_SEND="$send" bash "$parent/state/walk-request.check.sh" \
+    || fail "the armed shim must run"
+  wait_for "$dispatch.calls" "--once-key armed-step@$RELEASE" \
+    || fail "arming must enable dispatch through the generated shim"
+  wait_for "$parent/state/walk-requests/"*.log '__FM_WALK_DISPATCH_EXIT__=0' \
+    || fail "the armed dispatch must finish"
+  FM_STATE_OVERRIDE="$parent/state" FM_WALK_REQUEST_DISPATCH="$dispatch" \
+    FM_WALK_REQUEST_SEND="$send" bash "$parent/state/walk-request.check.sh" \
+    || fail "the armed shim must collect the result"
+  assert_grep 'target=armed-mate' "$send.calls" "the armed shim returns the outcome"
   out=$(FM_HOME="$parent" FM_STATE_OVERRIDE="$parent/state" "$CHECK" disarm) \
     || fail "disarm must succeed: $out"
   [ ! -e "$parent/state/walk-request.check.sh" ] || fail "disarm must remove the shim"
@@ -171,9 +187,10 @@ test_check_dispatches_and_returns_the_outcome() {
   out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
   [ -z "$out" ] || fail "a successful intake must print nothing: $out"
   wait_for "$dispatch.calls" 'args=' || fail "the dispatcher must have been invoked"
-  wait_for "$parent/state/walk-requests" '__FM_WALK_DISPATCH_EXIT__=0' || true
-  [ -n "$(find "$parent/state/walk-requests" -name '*.log' -exec grep -l '__FM_WALK_DISPATCH_EXIT__=0' {} \;)" ] \
-    || fail "the detached dispatch must record its exit"
+  local log
+  for log in "$parent/state/walk-requests/"*.log; do
+    wait_for "$log" '__FM_WALK_DISPATCH_EXIT__=0' || fail "each detached dispatch must record its exit"
+  done
   # Second sweep: collect and deliver both outcomes (still silent).
   out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
   [ -z "$out" ] || fail "outcome delivery must print nothing: $out"
@@ -258,11 +275,177 @@ test_incomplete_and_botless_requests_fail_loudly() {
   pass "walk-request: incomplete or botless requests fail loudly and never dispatch"
 }
 
+test_carrier_without_openssl() {
+  local parent mate fakebin tool location out
+  parent=$(make_parent fallback-main)
+  mate=$(make_mate fallback-mate "$parent")
+  fakebin="$parent/path"
+  mkdir -p "$fakebin"
+  for tool in bash dirname date cksum awk shasum tr cut paste mkdir cat wc sed grep head; do
+    location=$(command -v "$tool") || fail "fallback fixture needs $tool"
+    ln -s "$location" "$fakebin/$tool"
+  done
+  out=$(PATH="$fakebin" run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks fallback-step) \
+    || fail "the carrier must publish without openssl"
+  [[ "$out" =~ corr=[0-9a-f]{16} ]] || fail "the fallback must return a 16-hex correlation id"
+  assert_grep 'walks=fallback-step' "$parent/state/fallback-mate.status" \
+    "the fallback correlation must permit publishing the request"
+  pass "walk-request: correlation generation works without openssl"
+}
+
+test_walk_id_boundaries() {
+  local parent mate dispatch send walk rc corr long max out
+  parent=$(make_parent ids-main)
+  mate=$(make_mate ids-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_dispatcher "$dispatch"
+  fake_send "$send"
+  max=$(printf 'a%063d' 0)
+  long="${max}a"
+  for walk in _walk .walk -walk "$long"; do
+    rc=0
+    run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks "$walk" >/dev/null 2>&1 || rc=$?
+    expect_code 2 "$rc" "the carrier must reject walk id $walk"
+  done
+  [ ! -e "$parent/state/ids-mate.status" ] || fail "invalid ids must never publish"
+  corr=0
+  for walk in _walk .walk -walk "$long"; do
+    corr=$((corr + 1))
+    printf 'note [corr=%016x]: walk-request: walks=%s brief=/b.md release=%s bot=Walker\n' \
+      "$corr" "$walk" "$RELEASE" >> "$parent/state/ids-mate.status"
+  done
+  out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
+  assert_contains "$out" 'invalid walk ids' "MAIN validates handwritten request ids"
+  [ ! -e "$dispatch.calls" ] || fail "invalid handwritten ids must not dispatch"
+  [ "$(wc -l < "$send.calls")" -eq 4 ] || fail "each invalid request must return a refusal"
+  run_carrier "$mate" --brief /b.md --release "$RELEASE" --walks "$max" --bot Walker >/dev/null \
+    || fail "a 64-character alphanumeric-leading id must publish"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+  wait_for "$dispatch.calls" "--once-key $max@$RELEASE" || fail "the maximum valid id must dispatch"
+  wait_for "$parent/state/walk-requests/"*.log '__FM_WALK_DISPATCH_EXIT__=0' || fail "boundary dispatch must finish"
+  pass "walk-request: both boundaries enforce dispatcher-compatible ids"
+}
+
+fake_retrying_send() {
+  cat > "$1" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "\$3" >> '$1.attempts'
+[ -f '$1.allow' ] || {
+  case "\$4" in
+    *'walk healthy@'*) [ -f '$1.allow-healthy' ] || exit 12 ;;
+    *) exit 12 ;;
+  esac
+}
+printf 'target=%s id=%s text=%s\n' "\$1" "\$3" "\$4" >> '$1.calls'
+SH
+  chmod +x "$1"
+}
+
+test_refusal_delivery_recovers() {
+  local kind parent mate dispatch send payload out n
+  for kind in incomplete sha short dispatcher bot ids; do
+    parent=$(make_parent "retry-$kind-main")
+    mate=$(make_mate "retry-$kind-mate" "$parent")
+    dispatch="$parent/fake-dispatch"
+    send="$parent/fake-send"
+    fake_dispatcher "$dispatch"
+    fake_retrying_send "$send"
+    payload="walks=step brief=/b.md release=$RELEASE bot=Walker"
+    case "$kind" in
+      incomplete) payload='walks=step brief=/b.md' ;;
+      sha) payload='walks=step brief=/b.md release=nope bot=Walker' ;;
+      short) payload='walks=step brief=/b.md release=abc bot=Walker' ;;
+      dispatcher) dispatch="$parent/missing-dispatch" ;;
+      bot) payload="walks=step brief=/b.md release=$RELEASE" ;;
+      ids) payload="walks=_step brief=/b.md release=$RELEASE bot=Walker" ;;
+    esac
+    printf 'note [corr=0123456789abcdef]: walk-request: %s\n' "$payload" > "$parent/state/retry-$kind-mate.status"
+    for n in 1 2 3 4; do
+      run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+    done
+    [ ! -e "$send.calls" ] || fail "an unavailable transport must not deliver"
+    [ "$(wc -l < "$send.attempts")" -eq 4 ] || fail "refusal $kind must remain deliverable across outages"
+    [ "$(sort -u "$send.attempts" | wc -l)" -eq 1 ] || fail "refusal retries must keep the deterministic delivery id"
+    : > "$send.allow"
+    run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+    assert_grep 'outcome: refused:' "$send.calls" "refusal $kind reaches the recovered transport"
+    run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+    [ "$(wc -l < "$send.calls")" -eq 1 ] || fail "a delivered refusal must be terminal"
+    [ ! -e "$dispatch.calls" ] || fail "a refused request must never dispatch"
+  done
+  pass "walk-request: every refusal survives transport outages until delivered"
+}
+
+wait_for_calls() {
+  local file=$1 expected=$2 n=0 count
+  while :; do
+    count=$(wc -l < "$file" 2>/dev/null || printf 0)
+    [ "$count" -ge "$expected" ] && return 0
+    n=$((n + 1))
+    [ "$n" -le 100 ] || return 1
+    sleep 0.1
+  done
+}
+
+test_lost_dispatches_and_delivery_recover_independently() {
+  local parent mate dispatch send rec n
+  parent=$(make_parent lost-main)
+  mate=$(make_mate lost-mate "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  cat > "$dispatch" <<SH
+#!/usr/bin/env bash
+printf 'args=%s\n' "\$*" >> '$dispatch.calls'
+case " \$* " in
+  *' --walk lost-'*) kill -KILL "\$PPID"; exit 0 ;;
+esac
+echo 'healthy result'
+SH
+  chmod +x "$dispatch"
+  fake_retrying_send "$send"
+  : > "$send.allow-healthy"
+  run_carrier "$mate" --brief /b.md --release "$RELEASE" \
+    --walks lost-one,healthy,lost-two --bot Walker >/dev/null || fail "the lost-walk request must publish"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  wait_for_calls "$dispatch.calls" 3 || fail "all initial walks must dispatch"
+  wait_for "$parent/state/walk-requests/"*.healthy.log '__FM_WALK_DISPATCH_EXIT__=0' \
+    || fail "the healthy dispatch must finish"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  wait_for_calls "$dispatch.calls" 5 || fail "each lost walk must get its own recovery attempt"
+  for n in 1 2 3 4; do
+    run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+      FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  done
+  [ "$(wc -l < "$send.calls")" -eq 1 ] || fail "the healthy sibling must deliver while lost outcomes remain pending"
+  : > "$send.allow"
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  [ "$(wc -l < "$send.calls")" -eq 3 ] || fail "both exhausted dispatches and the successful sibling must return outcomes"
+  [ "$(grep -c 'no completion was recorded after one recovery attempt' "$send.calls")" -eq 2 ] \
+    || fail "each exhausted dispatch must return an explicit failure"
+  assert_grep 'sent, exit=0: healthy result' "$send.calls" "the successful sibling retains its result"
+  for rec in "$parent/state/walk-requests/"*.record; do
+    grep -Fxq 'phase=delivered' "$rec" || fail "out-of-order delivery must complete the request"
+  done
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_NOW=4102444800 >/dev/null
+  [ "$(wc -l < "$send.calls")" -eq 3 ] || fail "completed outcomes must not resend"
+  [ "$(wc -l < "$dispatch.calls")" -eq 5 ] || fail "each lost walk must have at most one recovery attempt"
+  pass "walk-request: lost walks fail explicitly and delivery retries remain independent"
+}
+
 test_carrier_writes_the_typed_request
 test_carrier_refusals
+test_carrier_without_openssl
+test_walk_id_boundaries
 test_arm_and_disarm
 test_check_dispatches_and_returns_the_outcome
 test_missing_dispatcher_is_reported_plainly
 test_incomplete_and_botless_requests_fail_loudly
+test_refusal_delivery_recovers
+test_lost_dispatches_and_delivery_recover_independently
 
 echo "# fm-walk-request.test.sh: all assertions passed"

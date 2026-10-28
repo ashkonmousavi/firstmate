@@ -383,6 +383,169 @@ test_await_merge_transition_derives_the_condition() {
   pass "hold-release: the await-merge transition records pr:<owner>/<repo>#<n>"
 }
 
+fake_held_show() {
+  cat > "$1" <<'SH'
+#!/usr/bin/env bash
+printf '  state: queued\n  held: yes\n'
+SH
+  chmod +x "$1"
+}
+
+test_bounded_sweeps_visit_every_hold() {
+  local home n id out first second
+  home=$(make_home fair)
+  fake_held_show "$home/show"
+  : > "$home/met"
+  for n in {1..26}; do
+    printf -v id 't%02d' "$n"
+    run_lib "$home" fm_hold_release_record_write "$home/state" "$id" "marker:$home/met" \
+      || fail "release record $id must be written"
+  done
+  first=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" run_lib "$home" fm_hold_release_evaluate "$home/state") \
+    || fail "the first bounded sweep must succeed"
+  [ "$(printf '%s\n' "$first" | wc -l)" -eq 25 ] || fail "the first sweep must respect its 25-record cap"
+  assert_not_contains "$first" 'hold condition met: t26' "the last hold must lie beyond the first sweep"
+  second=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" run_lib "$home" fm_hold_release_evaluate "$home/state") \
+    || fail "the second bounded sweep must succeed"
+  assert_contains "$second" 'hold condition met: t26' "the next sweep must visit the deferred hold"
+  [ "$(printf '%s\n' "$second" | wc -l)" -eq 1 ] || fail "already-open conditions must never wake twice"
+  open_decisions "$home" t26 | grep -q '^hold-release-t26' || fail "the deferred hold must have a durable decision"
+  pass "hold-release: bounded sweeps eventually disposition all 26 met holds"
+}
+
+test_external_reads_respect_the_checkpoint_budget() {
+  local home out rc deadline started elapsed n
+  home=$(make_home budget)
+  fake_held_show "$home/show"
+  cat > "$home/gh" <<SH
+#!/usr/bin/env bash
+printf 'lookup\n' >> '$home/lookups'
+sleep 10
+echo MERGED
+SH
+  chmod +x "$home/gh"
+  for n in 1 2 3; do
+    run_lib "$home" fm_hold_release_record_write "$home/state" "t$n" 'pr:owner/repo#42'
+  done
+  started=$SECONDS
+  deadline=$(( $(date +%s) + 2 ))
+  rc=0
+  out=$(FM_HOLD_RELEASE_GH="$home/gh" FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+    FM_CHECKPOINT_DEADLINE="$deadline" FM_HOLD_RELEASE_SHOW_BOUND=10 \
+    run_lib "$home" fm_hold_release_evaluate "$home/state") || rc=$?
+  elapsed=$((SECONDS - started))
+  expect_code 124 "$rc" "the sweep must stop at the checkpoint deadline"
+  [ "$elapsed" -lt 5 ] || fail "a stalled PR lookup must not consume its full ten-second bound"
+  [ "$(wc -l < "$home/lookups")" -eq 1 ] || fail "no further lookups may start after the budget expires"
+  [ -z "$out" ] || fail "a timed-out PR lookup must never count as merged"
+  cat > "$home/show" <<SH
+#!/usr/bin/env bash
+printf 'show\n' >> '$home/shows'
+sleep 10
+printf '  state: queued\n  held: yes\n'
+SH
+  started=$SECONDS
+  deadline=$(( $(date +%s) + 2 ))
+  rc=0
+  out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" FM_CHECKPOINT_DEADLINE="$deadline" \
+    FM_HOLD_RELEASE_SHOW_BOUND=10 run_lib "$home" fm_hold_release_evaluate "$home/state") || rc=$?
+  expect_code 124 "$rc" "task reads must also stop at the checkpoint deadline"
+  [ "$((SECONDS - started))" -lt 5 ] || fail "task reads must use the remaining checkpoint budget"
+  [ "$(wc -l < "$home/shows")" -eq 1 ] || fail "no further task reads may start after expiry"
+  [ -z "$out" ] || fail "a timed-out task read must never publish a decision"
+  pass "hold-release: PR and task reads respect the remaining sweep budget"
+}
+
+wait_for_file() {
+  local file=$1 n=0
+  until [ -f "$file" ]; do
+    n=$((n + 1))
+    [ "$n" -le 100 ] || return 1
+    sleep 0.1
+  done
+}
+
+run_captain() {
+  local home=$1
+  shift
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_CONFIG_OVERRIDE="$home/config" "$CAPTAIN" "$@"
+}
+
+race_hold_mutation() {
+  local home=$1 mode=$2
+  case "$mode" in
+    unhold) run_axi "$home" unhold t1 >/dev/null ;;
+    rehold) run_axi "$home" hold t1 --reason new --kind external --release-on "marker:$home/unmet" >/dev/null ;;
+    captain-answer) run_captain "$home" answer t1 --decision-file "$home/answer" >/dev/null ;;
+    captain-rehold) run_captain "$home" hold t1 --reason new --release-on "marker:$home/unmet" >/dev/null ;;
+    await-merge)
+      (
+        . "$ROOT/bin/fm-tasks-axi-lib.sh"
+        . "$ROOT/bin/fm-backlog-transition-lib.sh"
+        fm_backlog_atomic_transition await-merge '' "$home/state/t1.backlog-close" "$home/data" t1 "$home/state" \
+          --pr https://github.com/owner/repo/pull/43 >/dev/null
+      )
+      ;;
+  esac
+}
+
+test_hold_mutations_cannot_reopen_stale_decisions() {
+  local home mode fakebin evaluator mutation
+  for mode in unhold rehold captain-answer captain-rehold await-merge; do
+    home=$(make_home "race-$mode")
+    fakebin=$(fm_fakebin "$home")
+    fm_fake_exit0 "$fakebin" tmux treehouse no-mistakes gh gh-axi
+    case "$mode" in
+      captain-*)
+        PATH="$fakebin:$PATH" run_captain "$home" hold t1 --title one --reason waiting --repo demo \
+          --release-on 'pr:owner/repo#42' >/dev/null || fail "the initial captain hold must succeed"
+        ;;
+      *)
+        run_axi "$home" add t1 one --repo demo >/dev/null
+        run_axi "$home" hold t1 --reason waiting --kind external --release-on 'pr:owner/repo#42' >/dev/null
+        ;;
+    esac
+    printf 'yes\n' > "$home/answer"
+    printf 'id=t1\ndata=%s\nspawn_gen=spawn-closing\nmode=await-merge\narg=--pr\narg=https://github.com/owner/repo/pull/43\n' \
+      "$home/data" > "$home/state/t1.backlog-close"
+    cat > "$home/gh" <<SH
+#!/usr/bin/env bash
+case "\$*" in *'/pull/43 '*) echo OPEN; exit 0 ;; esac
+: > '$home/evaluating'
+until [ -f '$home/release' ]; do sleep 0.05; done
+echo MERGED
+SH
+    chmod +x "$home/gh"
+    FM_HOLD_RELEASE_GH="$home/gh" run_lib "$home" fm_hold_release_evaluate "$home/state" > "$home/wakes" &
+    evaluator=$!
+    wait_for_file "$home/evaluating" || fail "evaluation must reach the external lookup"
+    (
+      PATH="$fakebin:$PATH" race_hold_mutation "$home" "$mode" || exit 1
+      : > "$home/mutated"
+    ) &
+    mutation=$!
+    sleep 0.2
+    if [ -f "$home/mutated" ]; then
+      : > "$home/release"
+      wait "$evaluator" || true
+      wait "$mutation" || true
+      fail "$mode must serialize with decision publication"
+    fi
+    : > "$home/release"
+    wait "$evaluator" || fail "the racing evaluation must finish"
+    wait "$mutation" || fail "the $mode mutation must finish"
+    [ -f "$home/mutated" ] || fail "the mutation must commit"
+    open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+      && fail "$mode must close the stale condition's decision"
+    FM_HOLD_RELEASE_GH="$home/gh" run_lib "$home" fm_hold_release_evaluate "$home/state" > "$home/after"
+    [ ! -s "$home/after" ] || fail "$mode must not reopen the old condition on a later sweep"
+    open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+      && fail "$mode must leave no orphan decision"
+  done
+  pass "hold-release: all hold mutations serialize with evaluation and close stale decisions"
+}
+
 test_condition_syntax
 test_external_hold_refused_without_condition
 test_hold_with_release_on_records_the_condition
@@ -396,5 +559,8 @@ test_pr_condition_reads_merge_state_through_gh
 test_captain_hold_carries_a_release_condition
 test_captain_answer_and_rehold_close_the_decision
 test_await_merge_transition_derives_the_condition
+test_bounded_sweeps_visit_every_hold
+test_external_reads_respect_the_checkpoint_budget
+test_hold_mutations_cannot_reopen_stale_decisions
 
 echo "# fm-hold-release.test.sh: all assertions passed"

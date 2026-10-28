@@ -73,7 +73,7 @@ fail() {
 
 # Privacy-safe correlation id, same shape as bin/fm-pending-reply-lib.sh's.
 walk_request_new_corr() {
-  local raw hex
+  local raw='' hex
   if command -v openssl >/dev/null 2>&1; then
     raw=$(openssl rand -hex 8 2>/dev/null || true)
   fi
@@ -133,8 +133,9 @@ WALKS=$(printf '%s' "$WALKS" | tr ',;' '  ' | tr -s ' ' ' ')
 WALKS=${WALKS# }; WALKS=${WALKS% }
 for walk in $WALKS; do
   case "$walk" in
-    ''|.*|-*|*[!A-Za-z0-9._-]*) fail "--walks ids must be privacy-safe slugs: $walk" ;;
+    ''|[!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) fail "--walks ids must be privacy-safe slugs: $walk" ;;
   esac
+  [ "${#walk}" -le 64 ] || fail "--walks ids must be at most 64 characters: $walk"
 done
 # shellcheck disable=SC2086  # deliberate word split: every id is a validated slug
 WALKS=$(printf '%s\n' $WALKS | awk '!seen[$0]++' | paste -sd, -)

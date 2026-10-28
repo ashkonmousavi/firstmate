@@ -875,6 +875,10 @@ fm_backlog_retain_transition() {
 # hold-release evaluation - not a hand re-check - notices the merge and wakes
 # firstmate to disposition the row (bin/fm-hold-release-lib.sh).
 fm_backlog_await_merge_transition() {
+  fm_hold_release_with_lock "$5" "$4" _fm_backlog_await_merge_transition "$@"
+}
+
+_fm_backlog_await_merge_transition() {
   local meta=$1 marker=$2 data=$3 id=$4 state=$5
   shift 5
   [ "${1:-}" = --pr ] && [ -n "${2:-}" ] || return 1

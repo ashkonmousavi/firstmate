@@ -240,30 +240,33 @@ case "$subcommand" in
 esac
 case "$subcommand" in
   hold|unhold)
-    tasks-axi ${ARGS[@]+"${ARGS[@]}"}
-    axi_rc=$?
-    [ "$axi_rc" -eq 0 ] || exit "$axi_rc"
-    case "$subcommand" in
-      hold)
-        if [ -n "$hold_release_on" ]; then
-          fm_hold_release_record_write "$HOLD_STATE" "$first_positional" "$hold_release_on" \
-            || fail "the hold was recorded but its release condition could not be stored; re-run the same hold to retry"
-        elif [ -e "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ] \
-          || [ -L "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ]; then
-          fm_hold_release_record_drop "$HOLD_STATE" "$first_positional" \
-            "re-held without a structured release condition" \
-            || printf 'fm-tasks-axi: warning: the hold was re-held but its stale release record could not be dropped\n' >&2
-        fi
-        ;;
-      unhold)
-        if [ -e "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ] \
-          || [ -L "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ]; then
-          fm_hold_release_record_drop "$HOLD_STATE" "$first_positional" "released" \
-            || printf 'fm-tasks-axi: warning: the hold was released but its release record could not be dropped\n' >&2
-        fi
-        ;;
-    esac
-    exit 0
+    hold_mutation() {
+      tasks-axi ${ARGS[@]+"${ARGS[@]}"}
+      axi_rc=$?
+      [ "$axi_rc" -eq 0 ] || return "$axi_rc"
+      case "$subcommand" in
+        hold)
+          if [ -n "$hold_release_on" ]; then
+            fm_hold_release_record_write "$HOLD_STATE" "$first_positional" "$hold_release_on" \
+              || fail "the hold was recorded but its release condition could not be stored; re-run the same hold to retry"
+          elif [ -e "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ] \
+            || [ -L "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ]; then
+            fm_hold_release_record_drop "$HOLD_STATE" "$first_positional" \
+              "re-held without a structured release condition" \
+              || printf 'fm-tasks-axi: warning: the hold was re-held but its stale release record could not be dropped\n' >&2
+          fi
+          ;;
+        unhold)
+          if [ -e "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ] \
+            || [ -L "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ]; then
+            fm_hold_release_record_drop "$HOLD_STATE" "$first_positional" "released" \
+              || printf 'fm-tasks-axi: warning: the hold was released but its release record could not be dropped\n' >&2
+          fi
+          ;;
+      esac
+    }
+    fm_hold_release_with_lock "$HOLD_STATE" "$first_positional" hold_mutation
+    exit $?
     ;;
   show|view|list)
     set -o pipefail

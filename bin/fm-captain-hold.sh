@@ -908,9 +908,15 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
 }
 
 command_hold() {
+  [ "$#" -ge 1 ] || { usage >&2; exit 2; }
+  validate_slug task-id "${1:-}"
+  acquire_task_control_lock "$1"
+  fm_hold_release_with_lock "$STATE" "$1" command_hold_locked "$@"
+}
+
+command_hold_locked() {
   local id=${1:-} title='' reason='' repo='' origin='' until='' release_on='' show state existing_title body='' hold_kind hold_set occurrence
   local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' hold_status=0
-  [ "$#" -ge 1 ] || { usage >&2; exit 2; }
   shift
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -924,7 +930,6 @@ command_hold() {
     esac
     shift
   done
-  validate_slug task-id "$id"
   [ -n "$reason" ] || fail "reason must not be empty"
   # bin/fm-hold-reason-lib.sh owns the storage constraint and reversible encoding.
   stored_reason=$(fm_hold_reason_encode "$reason") || fail "could not encode the hold reason"
@@ -950,7 +955,6 @@ command_hold() {
     [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) : ;;
     *) fail "FM_CAPTAIN_HOLD_NOW must be a UTC YYYY-MM-DDTHH:MM:SSZ timestamp" ;;
   esac
-  acquire_task_control_lock "$id"
   require_tasks_axi
   if task_show "$id"; then
     show=$TASK_SHOW_OUTPUT
@@ -1105,7 +1109,11 @@ apply_pending_retained_artifact() {  # <task-id>
   esac
 }
 
-close_answered() {  # <task-id> <release-0-or-1>
+close_answered() {
+  fm_hold_release_with_lock "$STATE" "$1" close_answered_locked "$@"
+}
+
+close_answered_locked() {
   local close_rc=0
   if [ "$2" = 1 ]; then
     # The close status must be carried explicitly: this function runs inside

@@ -3785,6 +3785,7 @@ while :; do
       done < "$STATE/.hold-release-sweep.err"
       : > "$STATE/.hold-release-sweep.err"
     }
+    [ "$hold_release_rc" -ne 124 ] || check_sweep_deferred=1
     if [ "$hold_release_rc" -ne 0 ]; then
       triage_log "hold-release evaluation reported rc=$hold_release_rc"
     fi

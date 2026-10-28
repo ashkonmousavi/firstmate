@@ -157,6 +157,9 @@ record_set() {  # <record> <key> <value>
   tmp=$(umask 077; mktemp "$REQUESTS_DIR/.record.XXXXXX") || return 1
   sed "s/^$key=.*/$key=$(printf '%s' "$value" | sed 's/[&/\]/\\&/g')/" "$rec" > "$tmp" \
     || { rm -f -- "$tmp"; return 1; }
+  if ! grep -q "^$key=" "$rec"; then
+    printf '%s=%s\n' "$key" "$value" >> "$tmp" || { rm -f -- "$tmp"; return 1; }
+  fi
   chmod 0600 "$tmp" || { rm -f -- "$tmp"; return 1; }
   mv -f -- "$tmp" "$rec" || { rm -f -- "$tmp"; return 1; }
 }
@@ -235,7 +238,8 @@ intake_line() {  # <mate> <line>
     "phase=new" \
     "reason=" \
     "reported=" \
-    "attempts=0" \
+    "outcome=" \
+    "retried=" \
     "spawned=" \
     "delivered=" || return 1
   return 0
@@ -300,26 +304,27 @@ dispatch_one() {  # <corr> <walk>
   exit 0
 }
 
-spawn_walk() {  # <record> <corr> <walk>
-  local rec=$1 corr=$2 walk=$3 log
+spawn_walk() {
+  local corr=$1 walk=$2 log
   log=$(record_log_path "$corr" "$walk")
   : > "$log" 2>/dev/null || return 1
   setsid bash "$0" dispatch-one "$corr" "$walk" </dev/null >>"$log" 2>&1 &
   return 0
 }
 
-record_failed() {  # <record> <reason>
-  local rec=$1 reason=$2
-  record_set "$rec" phase failed || true
-  record_set "$rec" reason "$reason" || true
+record_refused() {
+  local rec=$1 reason=$2 outcome=$3
+  record_set "$rec" reason "$reason" || return 1
+  record_set "$rec" outcome "$outcome" || return 1
+  record_set "$rec" phase refusing || return 1
   report_record "$rec" "$reason"
+  process_record "$rec"
 }
 
-# --- the sweep --------------------------------------------------------------
-
-process_record() {  # <record>
-  local rec=$1 corr mate walks brief release bot phase spawned delivered
-  local walk log sentinel outcome rc attempts age
+process_record() {
+  local rec=$1 corr mate walks brief release bot phase spawned delivered retried
+  local walk log sentinel outcome rc age
+  local walk_id_re='[A-Za-z0-9][A-Za-z0-9._-]{0,63}' walks_re
   corr=$(record_get "$rec" corr)
   mate=$(record_get "$rec" mate)
   walks=$(record_get "$rec" walks)
@@ -329,49 +334,60 @@ process_record() {  # <record>
   phase=$(record_get "$rec" phase)
   spawned=$(record_get "$rec" spawned)
   delivered=$(record_get "$rec" delivered)
+  retried=$(record_get "$rec" retried)
   case "$phase" in
     delivered|failed) return 0 ;;
+    refusing)
+      rc=$(deliver_outcome "$mate" "$corr" request "$release" "$(record_get "$rec" outcome)")
+      if [ -z "$rc" ]; then
+        record_set "$rec" phase failed || return 1
+      else
+        report_record "$rec" "outcome delivery to $mate failed (fm-send rc=$rc) for request $corr; will retry"
+      fi
+      return 0
+      ;;
   esac
-  # Validation: the typed line must name everything the dispatcher needs.
   if [ -z "$walks" ] || [ -z "$brief" ] || [ -z "$release" ]; then
-    record_failed "$rec" "request $corr from $mate is incomplete (walks, brief path, and release sha are all required); nothing dispatched"
-    deliver_outcome "$mate" "$corr" request "$release" \
+    record_refused "$rec" "request $corr from $mate is incomplete (walks, brief path, and release sha are all required); nothing dispatched" \
       "refused: the typed walk request was incomplete; re-send it with walks, brief, and release"
     return 0
   fi
   case "$release" in
     ''|*[!0-9a-fA-F]*)
-      record_failed "$rec" "request $corr from $mate names a malformed release sha; nothing dispatched"
-      deliver_outcome "$mate" "$corr" request "$release" \
+      record_refused "$rec" "request $corr from $mate names a malformed release sha; nothing dispatched" \
         "refused: the release field must be a commit sha"
       return 0
       ;;
   esac
   [ "${#release}" -ge 7 ] && [ "${#release}" -le 64 ] || {
-    record_failed "$rec" "request $corr from $mate names a malformed release sha; nothing dispatched"
-    deliver_outcome "$mate" "$corr" request "$release" \
+    record_refused "$rec" "request $corr from $mate names a malformed release sha; nothing dispatched" \
       "refused: the release field must be a 7..64 character commit sha"
     return 0
   }
+  walks_re="^$walk_id_re(,$walk_id_re)*$"
+  if ! [[ "$walks" =~ $walks_re ]]; then
+    record_refused "$rec" "request $corr from $mate names invalid walk ids; nothing dispatched" \
+      "refused: walk ids must be 1..64 character slugs starting with a letter or digit"
+    return 0
+  fi
   case "$phase" in
     new)
       if [ ! -x "$(dispatcher_path)" ]; then
-        record_failed "$rec" "dispatcher absent at $(dispatcher_path); install the home's walker dispatcher or disarm this check"
-        deliver_outcome "$mate" "$corr" request "$release" \
+        record_refused "$rec" "dispatcher absent at $(dispatcher_path); install the home's walker dispatcher or disarm this check" \
           "refused: MAIN has no walker dispatcher at $(dispatcher_path); the walk was not dispatched"
         return 0
       fi
       [ -n "$bot" ] || bot=${FM_WALK_REQUEST_BOT:-}
       if [ -z "$bot" ]; then
-        record_failed "$rec" "request $corr names no bot and this home sets no FM_WALK_REQUEST_BOT; nothing dispatched"
-        deliver_outcome "$mate" "$corr" request "$release" \
+        record_refused "$rec" "request $corr names no bot and this home sets no FM_WALK_REQUEST_BOT; nothing dispatched" \
           "refused: no bot was named for the walk and MAIN has no default; re-send with a bot field"
         return 0
       fi
       spawned=
       for walk in $(printf '%s' "$walks" | tr ',' ' '); do
-        spawn_walk "$rec" "$corr" "$walk" || {
-          record_failed "$rec" "could not spawn the dispatch for $walk@$release (state dir unwritable?)"
+        spawn_walk "$corr" "$walk" || {
+          record_refused "$rec" "could not spawn the dispatch for $walk@$release (state dir unwritable?)" \
+            "refused: could not spawn the dispatch for $walk@$release"
           return 0
         }
         spawned="${spawned:+$spawned,}$walk"
@@ -381,9 +397,6 @@ process_record() {  # <record>
       return 0
       ;;
   esac
-  # phase=dispatching: collect finished logs, deliver outcomes.
-  attempts=$(record_get "$rec" attempts)
-  case "$attempts" in ''|*[!0-9]*) attempts=0 ;; esac
   for walk in $(printf '%s' "$spawned" | tr ',' ' '); do
     case ",$delivered," in
       *",$walk,"*) continue ;;
@@ -393,35 +406,40 @@ process_record() {  # <record>
     if [ -z "$sentinel" ]; then
       age=$(age_of_file "$log")
       case "$age" in ''|*[!0-9]*) age=0 ;; esac
-      if [ "$age" -gt "${FM_WALK_REQUEST_STALE_SECS:-3600}" ] && [ "$attempts" -lt 1 ]; then
-        # No exit and long untouched: the detached dispatch was lost. The
-        # once-key makes one respawn safe (an already-sent key exits 0).
-        attempts=$((attempts + 1))
-        record_set "$rec" attempts "$attempts" || true
-        spawn_walk "$rec" "$corr" "$walk" || true
-      fi
-      continue
-    fi
-    outcome=$(sed -n '/^__FM_WALK_DISPATCH_EXIT__=/q; p' "$log" 2>/dev/null | sed -n '2,$p' | head -1)
-    [ -n "$outcome" ] || outcome="(no dispatcher output)"
-    if [ "$sentinel" = 0 ]; then
-      outcome="sent, exit=0: $outcome"
+      [ "$age" -gt "${FM_WALK_REQUEST_STALE_SECS:-3600}" ] || continue
+      case ",$retried," in
+        *",$walk,"*)
+          outcome="dispatch failed: no completion was recorded after one recovery attempt for $walk@$release"
+          ;;
+        *)
+          retried="${retried:+$retried,}$walk"
+          record_set "$rec" retried "$retried" || return 1
+          spawn_walk "$corr" "$walk" || true
+          continue
+          ;;
+      esac
     else
-      outcome="dispatch failed (exit=$sentinel): $outcome"
+      outcome=$(sed -n '/^__FM_WALK_DISPATCH_EXIT__=/q; p' "$log" 2>/dev/null | sed -n '2,$p' | head -1)
+      [ -n "$outcome" ] || outcome="(no dispatcher output)"
+      if [ "$sentinel" = 0 ]; then
+        outcome="sent, exit=0: $outcome"
+      else
+        outcome="dispatch failed (exit=$sentinel): $outcome"
+      fi
     fi
     rc=$(deliver_outcome "$mate" "$corr" "$walk" "$release" "$outcome")
     if [ -n "$rc" ]; then
-      attempts=$((attempts + 1))
-      record_set "$rec" attempts "$attempts" || true
-      if [ "$attempts" -ge 3 ]; then
-        record_failed "$rec" "outcome delivery to $mate failed (fm-send rc=$rc) after $attempts attempts for $walk@$release"
-      fi
-      return 0
+      report_record "$rec" "outcome delivery to $mate failed (fm-send rc=$rc) for request $corr; will retry"
+      continue
     fi
     delivered="${delivered:+$delivered,}$walk"
-    record_set "$rec" delivered "$delivered" || true
+    record_set "$rec" delivered "$delivered" || return 1
   done
-  if [ "$delivered" = "$spawned" ] && [ -n "$spawned" ]; then
+  local pending=0
+  for walk in $(printf '%s' "$spawned" | tr ',' ' '); do
+    case ",$delivered," in *",$walk,"*) ;; *) pending=1 ;; esac
+  done
+  if [ "$pending" -eq 0 ] && [ -n "$spawned" ]; then
     record_set "$rec" phase delivered || true
   fi
   return 0

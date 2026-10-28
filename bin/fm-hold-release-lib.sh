@@ -79,7 +79,7 @@
 #   FM_HOLD_RELEASE_SHOW_CMD    prefix command receiving <task-id> that prints
 #                               a tasks-axi `show` block (tests)
 #   FM_HOLD_RELEASE_NOW         fixed epoch for deterministic tests
-#   FM_HOLD_RELEASE_SHOW_BOUND  per-task show bound in seconds (default 10)
+#   FM_HOLD_RELEASE_SHOW_BOUND  per-task show and PR bound in seconds (default 10)
 #   FM_HOLD_RELEASE_MAX_RECORDS records per evaluation sweep (default 25)
 #
 # Sourced by bin/fm-tasks-axi.sh, bin/fm-captain-hold.sh,
@@ -263,7 +263,7 @@ fm_hold_release_decision_close() {  # <state-dir> <task-id> <how>
   line="resolved [key=$key]: $FM_HOLD_RELEASE_CLOSED_PREFIX$how"
   fm_hold_release_wake_lib "$state"
   fm_wake_status_append_self_announced "$state" "$status_file" "$line" || true
-  return 0
+  ! fm_hold_release_decision_open_p "$state" "$id"
 }
 
 # Source bin/fm-wake-lib.sh for the guarded self-announced append, with this
@@ -280,9 +280,29 @@ fm_hold_release_wake_lib() {  # <state-dir>
   . "$_FM_HOLD_RELEASE_LIB_DIR/fm-wake-lib.sh"
 }
 
+fm_hold_release_with_lock() {
+  local state=$1 id=$2
+  shift 2
+  case "$id" in *[!A-Za-z0-9._-]*) return 1 ;; esac
+  if [ "${_FM_HOLD_RELEASE_LOCK:-}" = "$state/.hold-release-$id.lock" ]; then
+    "$@"
+    return $?
+  fi
+  local _FM_HOLD_RELEASE_LOCK="$state/.hold-release-$id.lock" STATE=$state rc=0
+  fm_hold_release_wake_lib "$state"
+  fm_checkpoint_lock "$_FM_HOLD_RELEASE_LOCK" || return $?
+  "$@" || rc=$?
+  fm_lock_release "$_FM_HOLD_RELEASE_LOCK" || rc=1
+  return "$rc"
+}
+
 # Write (or rewrite) the record for a hold that carries --release-on, closing
 # any still-open hold-release decision for the task: that lifecycle ended.
-fm_hold_release_record_write() {  # <state-dir> <task-id> <condition>
+fm_hold_release_record_write() {
+  fm_hold_release_with_lock "$1" "$2" _fm_hold_release_record_write "$@"
+}
+
+_fm_hold_release_record_write() {  # <state-dir> <task-id> <condition>
   local state=$1 id=$2 condition=$3 dir rec tmp
   condition=$(fm_hold_release_valid "$condition") || return 1
   dir=$(fm_hold_release_dir "$state")
@@ -299,19 +319,23 @@ fm_hold_release_record_write() {  # <state-dir> <task-id> <condition>
     return 1
   fi
   chmod 0600 "$tmp" || { rm -f -- "$tmp"; return 1; }
+  fm_hold_release_decision_close "$state" "$id" "re-held with release condition $condition" \
+    || { rm -f -- "$tmp"; return 1; }
   mv -f -- "$tmp" "$rec" || { rm -f -- "$tmp"; return 1; }
-  fm_hold_release_decision_close "$state" "$id" "re-held with release condition $condition"
   return 0
 }
 
 # Drop the record and close any open decision: the hold ended or was re-held
 # without a structured condition.
-fm_hold_release_record_drop() {  # <state-dir> <task-id> <how>
+fm_hold_release_record_drop() {
+  fm_hold_release_with_lock "$1" "$2" _fm_hold_release_record_drop "$@"
+}
+
+_fm_hold_release_record_drop() {  # <state-dir> <task-id> <how>
   local state=$1 id=$2 how=$3 rec
   rec=$(fm_hold_release_record_path "$state" "$id")
-  [ -e "$rec" ] || [ -L "$rec" ] || return 0
+  fm_hold_release_decision_close "$state" "$id" "$how" || return 1
   rm -f -- "$rec" || return 1
-  fm_hold_release_decision_close "$state" "$id" "$how"
   return 0
 }
 
@@ -320,13 +344,17 @@ fm_hold_release_record_drop() {  # <state-dir> <task-id> <how>
 # canonical URL, mirroring bin/fm-pr-poll.sh; every failure path - missing gh,
 # nonzero exit, unparsable output - is unknown.
 fm_hold_release_condition_met() {  # <condition>
-  local condition=${1-} gh state url marker
+  local condition=${1-} gh state url marker bound
   case "$condition" in
     pr:*)
       gh=${FM_HOLD_RELEASE_GH:-gh}
       command -v "$gh" >/dev/null 2>&1 || return 2
       url=$(fm_hold_release_pr_url "$condition") || return 2
-      state=$("$gh" pr view "$url" --json state -q .state 2>/dev/null) || return 2
+      bound=${FM_HOLD_RELEASE_SHOW_BOUND:-10}
+      case "$bound" in ''|*[!0-9]*) bound=10 ;; esac
+      [ "$bound" -gt 0 ] 2>/dev/null || bound=10
+      bound=$(fm_checkpoint_budget "$bound") || return 2
+      state=$(fm_run_timed "$bound" "$gh" pr view "$url" --json state -q .state 2>/dev/null) || return 2
       case "$state" in
         MERGED) return 0 ;;
         OPEN|CLOSED) return 1 ;;
@@ -355,6 +383,8 @@ _fm_hold_release_show() {  # <task-id>
   FM_HOLD_RELEASE_SHOW_HELD=
   bound=${FM_HOLD_RELEASE_SHOW_BOUND:-10}
   case "$bound" in ''|*[!0-9]*) bound=10 ;; esac
+  [ "$bound" -gt 0 ] 2>/dev/null || bound=10
+  bound=$(fm_checkpoint_budget "$bound") || return 2
   if [ -n "${FM_HOLD_RELEASE_SHOW_CMD:-}" ]; then
     # shellcheck disable=SC2086  # a test-supplied prefix command
     out=$(fm_run_timed "$bound" $FM_HOLD_RELEASE_SHOW_CMD "$id" 2>/dev/null) || rc=$?
@@ -380,27 +410,45 @@ _fm_hold_release_show() {  # <task-id>
 #   hold condition met: <task-id> <condition>
 # line per newly-met condition; the caller turns each into one check wake.
 # Diagnostics go to stderr. Returns 0 unless the sweep itself could not run.
-fm_hold_release_evaluate() {  # <state-dir>
-  local state=$1 dir rec id rc=0 seen=0 max
+fm_hold_release_evaluate() {
+  local state=$1 dir rec id rc=0 seen=0 max pass cursor='' cursor_file
+  local LC_ALL=C FM_CHECKPOINT_DEADLINE=${FM_CHECKPOINT_DEADLINE:-}
+  fm_checkpoint_clock
+  if [ -z "$FM_CHECKPOINT_DEADLINE" ]; then
+    FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + 30))
+  fi
   dir=$(fm_hold_release_dir "$state")
+  cursor_file="$state/.hold-release-cursor"
   max=${FM_HOLD_RELEASE_MAX_RECORDS:-25}
   case "$max" in ''|*[!0-9]*) max=25 ;; esac
+  [ "$max" -gt 0 ] 2>/dev/null || max=25
   [ -d "$dir" ] || return 0
-  for rec in "$dir"/*; do
-    [ -e "$rec" ] || continue
-    [ ! -L "$rec" ] || continue
-    id=${rec##*/}
-    [ "$seen" -ge "$max" ] && {
-      printf 'fm-hold-release: evaluation bound reached, %s deferred to the next sweep\n' "$id" >&2
-      break
-    }
-    seen=$((seen + 1))
-    _fm_hold_release_evaluate_one "$state" "$id" || rc=$?
+  [ ! -f "$cursor_file" ] || IFS= read -r cursor < "$cursor_file" || true
+  for pass in after before; do
+    [ "$pass" != before ] || [ -n "$cursor" ] || break
+    for rec in "$dir"/*; do
+      [ -f "$rec" ] && [ ! -L "$rec" ] || continue
+      id=${rec##*/}
+      if [ -n "$cursor" ]; then
+        if [ "$pass" = after ]; then [[ "$id" > "$cursor" ]] || continue
+        else [[ "$id" > "$cursor" ]] && continue; fi
+      fi
+      [ "$seen" -lt "$max" ] || return "$rc"
+      fm_checkpoint_expired && return 124
+      printf '%s\n' "$id" > "$cursor_file" || return 1
+      seen=$((seen + 1))
+      _fm_hold_release_evaluate_one "$state" "$id" || rc=$?
+      [ "$rc" -ne 124 ] || return "$rc"
+    done
   done
   return "$rc"
 }
 
-_fm_hold_release_evaluate_one() {  # <state-dir> <task-id>
+_fm_hold_release_evaluate_one() {
+  fm_hold_release_with_lock "$1" "$2" _fm_hold_release_evaluate_one_locked "$@"
+}
+
+_fm_hold_release_evaluate_one_locked() {
   local state=$1 id=$2 condition show_rc=0
   fm_hold_release_record_read "$state" "$id" || {
     printf 'fm-hold-release: unusable release record for %s, dropping it\n' "$id" >&2
@@ -421,13 +469,12 @@ _fm_hold_release_evaluate_one() {  # <state-dir> <task-id>
       "hold no longer active (task ${FM_HOLD_RELEASE_SHOW_STATE:-unknown})"
     return 0
   }
-  fm_hold_release_condition_met "$condition"
-  case $? in
-    0) ;;
-    1|2) return 0 ;;
-  esac
-  fm_hold_release_decision_open "$state" "$id" "$condition"
-  case $? in
+  if ! fm_hold_release_condition_met "$condition"; then
+    return 0
+  fi
+  local open_rc=0
+  fm_hold_release_decision_open "$state" "$id" "$condition" || open_rc=$?
+  case "$open_rc" in
     0) printf '%s%s %s\n' "$FM_HOLD_RELEASE_WAKE_PREFIX" "$id" "$condition" ;;
     1) return 0 ;;
     *) printf 'fm-hold-release: could not record the met condition for %s\n' "$id" >&2; return 1 ;;
