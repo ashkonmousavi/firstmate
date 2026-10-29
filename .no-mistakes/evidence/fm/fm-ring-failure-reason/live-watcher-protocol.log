@@ -1,0 +1,3 @@
+Watcher stale wake: 1793307101	1	stale	remote-inbox:rsm:001.msg	stale: fm-remote:w1:p1 (unread firstmate instruction: remote record 001.msg still unhandled after 1 doorbell delivery attempts (last ring reason=dialog-sink-failed); inspect the secondmate)
+Escalated marker: 001.msg
+Second pass retained exactly one wake.

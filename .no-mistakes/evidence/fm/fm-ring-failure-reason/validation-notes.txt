@@ -1,0 +1,58 @@
+Target: 8dcb14dfe1e9fe1cd8a5674fabad3246621c207b
+Baseline: e616ffacaa32fbed1bf6d609d793fb283ce9bfcb
+
+All four targeted test processes completed with exit 0:
+  TMPDIR="$PWD/.tmp-ring-validation" bash tests/fm-task-inbox.test.sh
+  TMPDIR="$PWD/.tmp-ring-validation" bash tests/fm-backend-herdr.test.sh
+  TMPDIR="$PWD/.tmp-ring-validation" bash tests/fm-send-remote-delivery.test.sh
+  TMPDIR="$PWD/.tmp-ring-validation" bash tests/fm-send-inbox.test.sh
+No full suite, lint, formatting, static analysis, publishing or other pipeline phase was run.
+
+Live setup: real Herdr 0.9.5 and real Claude Code 2.1.312 using existing login;
+40x120 grid. The only session used was fm-lab-ring-reasons-01m64. The home was
+created by bin/fm-lab-home.sh inside the worktree. Session lifecycle and CLI
+calls used bin/fm-herdr-lab.sh. Provision performs prepare internally. Its
+tripwire checked the default session before and after. Teardown completed,
+the lab was absent from session list, all managed processes exited and all
+worktree fixtures were removed. No source or test files were changed.
+
+herdr-lab-router.sh routes adapter CLI calls through the lab helper. For the
+host-local remote-controller proof, it translates the fixed fm-remote session
+argument to the owned lab name; responses are the actual Herdr responses.
+The watcher protocol proof replaces only SSH transport with direct execution
+of the real host-local controller. No fleet endpoint or production remote was
+accessed. This proves the changed controller and consumer behavior, not SSH
+transport health or the historical incident's cause.
+
+The two outage cases forward an actual Enter and then call the guarded helper's
+stop action. No response or agent status is fabricated. Fresh submit records
+status-unknown; an already typed own doorbell records post-enter-unreadable.
+Other live proofs cover successful delivery, foreign draft protection, rejected
+control characters, dead endpoints, failing reason-file writes, real invalid
+dialog-sink paths, a real background-task exit picker, reason propagation into
+remote notices/rang/escalation and the parent wake, and a real working agent
+still consuming a ring attempt without a remote busy budget.
+
+Setup/exploration notes:
+* Initial unstyled idle suggestion was treated as a pending draft. A whitespace
+  input removed the suggestion for the subsequent empty-composer probes.
+* live-dialog.sh initially expected the ring itself to reach backend preflight.
+  The real exit picker has a pending selected row, so the ring keeps its existing
+  foreign-pending-draft guard (rc=1). The direct backend check in
+  live-preflight-backend.sh then verified preflight-dialog and unchanged stdout.
+* live-native-composer.sh is an exploratory probe, exit 1: a whitespace-prefixed
+  /permissions was accepted as a real turn and native status became working.
+  It did not induce the intended fresh-submit unreadable-composer boundary.
+  This is a setup limitation, not a diagnosed product failure. Selective fresh
+  compositor-read failures, foreign-draft transitions and retry exhaustion are
+  covered by the focused fixture tests, not claimed as live here.
+
+Evidence scripts record exact scenario drivers and expect their disposable
+home, router and named session to be provisioned. Product outputs are in the
+corresponding logs; persisted-results retains actual record/reason/wake data.
+This change affects CLI diagnostics; no rendered UI placement changed.
+
+Research skill consulted for session mechanics. Primary sources:
+https://herdr.dev/docs/persistence-remote/
+https://herdr.dev/docs/agent-automation/
+Repository owners: docs/herdr-backend.md and bin/fm-herdr-lab.sh.

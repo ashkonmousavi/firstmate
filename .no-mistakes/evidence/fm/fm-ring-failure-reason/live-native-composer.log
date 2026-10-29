@@ -1,0 +1,43 @@
+{"id":"cli:agent:start","result":{"agent":{"agent":"claude","agent_session":{"agent":"claude","kind":"id","source":"herdr:claude","value":"8146051a-670d-4741-a720-70a798bb119f"},"agent_status":"idle","cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M64NPQ8218XYJRT9WNGFRNBA","focused":true,"foreground_cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M64NPQ8218XYJRT9WNGFRNBA","interactive_ready":true,"name":"ring-native","pane_id":"w1:p1","revision":4,"state_change_seq":1,"tab_id":"w1:t1","terminal_id":"term_65f00dd7843741","terminal_title":"✳ Claude Code","terminal_title_stripped":"Claude Code","tokens":{"quota_5h_unknown":"5h N/A","quota_provider":"Claude","quota_provider_model":"Claude","quota_topic":"Try \"create a util logging.py that...\""},"workspace_id":"w1"},"argv":["claude"],"type":"agent_started"}}
+Permissions submit: exit=0 verdict=empty reason=
+{"id":"cli:agent:get","result":{"agent":{"agent":"claude","agent_session":{"agent":"claude","kind":"id","source":"herdr:claude","value":"8146051a-670d-4741-a720-70a798bb119f"},"agent_status":"working","cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M64NPQ8218XYJRT9WNGFRNBA","focused":true,"foreground_cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M64NPQ8218XYJRT9WNGFRNBA","interactive_ready":true,"name":"ring-native","pane_id":"w1:p1","revision":5,"state_change_seq":2,"tab_id":"w1:t1","terminal_id":"term_65f00dd7843741","terminal_title":"◐ Claude Code","terminal_title_stripped":"Claude Code","tokens":{"quota_5h_unknown":"5h N/A","quota_provider":"Claude","quota_provider_model":"Claude","quota_topic":"/permissions"},"workspace_id":"w1"},"type":"agent_info"}}
+
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Sonnet 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M64NPQ8218XYJRT9WNGFRNBA · /rc
+
+
+❯  /permissions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+✢ Perambulating…
+                                                                                                   ◐ medium · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:01M64NPQ8218XYJRT9WN... · sonnet/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 3 agents

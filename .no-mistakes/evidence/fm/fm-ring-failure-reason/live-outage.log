@@ -1,0 +1,4 @@
+Before ring, real agent state: alive
+After actual Enter, guarded lab server stop: {"session":{"default":false,"name":"fm-lab-ring-reasons-01m64","running":false,"session_dir":"~/.config/herdr/sessions/fm-lab-ring-reasons-01m64","socket_path":"~/.config/herdr/sessions/fm-lab-ring-reasons-01m64/herdr.sock"},"stopped":true}
+Outage ring: rc=4 reason=status-unknown stdout_bytes=0 sibling=rc=4 token=status-unknown
+Outage retained the original .msg bytes. No backend responses were fabricated.

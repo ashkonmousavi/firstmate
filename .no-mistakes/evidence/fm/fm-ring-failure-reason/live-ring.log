@@ -1,0 +1,8 @@
+Live Claude native state: alive
+dialog-sink-failure: rc=2 token=dialog-sink-failed stdout_bytes=0 sibling=rc=2 token=dialog-sink-failed
+unsafe-inbox-name: rc=2 token=doorbell-rejected stdout_bytes=0 sibling=rc=2 token=doorbell-rejected
+foreign-draft: rc=1 token=foreign-pending-draft stdout_bytes=0 sibling=rc=1 token=foreign-pending-draft
+Composer preserved: PRESERVE THIS FOREIGN DRAFT
+Missing endpoint with unwritable reason sibling: rc=3 token=agent-dead
+missing-endpoint: rc=3 token=agent-dead stdout_bytes=0 sibling=rc=3 token=agent-dead
+All live checks preserved the original .msg bytes.

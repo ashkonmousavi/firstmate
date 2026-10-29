@@ -1,0 +1,7 @@
+Isolation: map the controller fixed fm-remote session to fm-lab-ring-reasons-01m64; no SSH or fleet endpoint is used.
+send exit=0 stdout= stderr=notice: doorbell did not reach fm-remote:w1:p1; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M64NPQ8218XYJRT9WNGFRNBA/.tmp-ring-validation/fm-lab.wdXq32/state/parent-route/rsm.inbox/001.msg reason=dialog-sink-failed
+ring protocol: rang 2 reason=dialog-sink-failed
+rc=2 token=dialog-sink-failed
+ladder: 001.msg	1	1793306988
+due protocol: escalate 001.msg 1 reason=dialog-sink-failed
+Remote notice, rang and escalation carry the same reason; .msg bytes unchanged and no remote busy budget created.
