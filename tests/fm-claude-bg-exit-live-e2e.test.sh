@@ -18,7 +18,7 @@
 #      folder.
 #   3. VERB BACKSTOP: bin/fm-control.sh's session check (the same listing and
 #      matching it uses after an exit) finds the control run's leftover session
-#      by its exact cwd and `claude rm` ends it.
+#      by its exact cwd and verifies that its carried processes end too.
 # The project is isolated; Claude keeps using its existing managed
 # authentication. A few Haiku turns are submitted and any background session
 # this test creates is stopped by exact id before it exits.
@@ -287,9 +287,23 @@ for id in $CONTROL_IDS; do
   [ "$stopped_state" = stopped ] || fail "the stopped session was not retained by --all on Claude Code $CLAUDE_VERSION"
   lab_process_live "$CONTROL_PROJECT" \
     || fail "the carried shell did not survive stopping its session on Claude Code $CLAUDE_VERSION"
-  env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF claude rm "$id" >/dev/null 2>&1 \
-    || fail "background cleanup of $id failed on Claude Code $CLAUDE_VERSION"
 done
+# Exercise the public exit boundary, rather than trusting the vendor's removal
+# or replacing its cleanup with the assertion's own PID list.
+CONTROL_HOME="$LAB/control-home"
+bash "$ROOT/bin/fm-lab-home.sh" create "$CONTROL_HOME" >/dev/null \
+  || fail "cannot create the isolated control home"
+tmux -L "$SOCKET" new-session -d -s "$SESSION" -n fm-bgtest 'bash --noprofile --norc'
+tmux -L "$SOCKET" set-window-option -t "$SESSION:fm-bgtest" automatic-rename off
+{
+  printf 'window=%s:fm-bgtest\nendpoint_task_id=bgtest\n' "$SESSION"
+  printf 'worktree=%s\nproject=%s\n' "$CONTROL_PROJECT" "$CONTROL_PROJECT"
+  printf 'harness=claude\nkind=ship\nbackend=tmux\nclaude_config_dir=%s\n' "${CLAUDE_CONFIG_DIR:-}"
+} > "$CONTROL_HOME/state/bgtest.meta"
+env -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE -u FM_DATA_OVERRIDE -u FM_CONFIG_OVERRIDE \
+  FM_HOME="$CONTROL_HOME" TMUX="$(tmux -L "$SOCKET" display-message -p '#{socket_path},#{pid},0')" \
+  bash "$ROOT/bin/fm-control.sh" bgtest exit \
+  || fail "fm-control exit failed on Claude Code $CLAUDE_VERSION"
 i=0
 while [ "$i" -lt 40 ] && [ -n "$(bg_ids "$CONTROL_PROJECT")" ]; do
   sleep 0.5

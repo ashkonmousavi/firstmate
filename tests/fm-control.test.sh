@@ -241,7 +241,7 @@ case "${1:-}" in
     printf '%s\n' "${2:-}" >> "$D/claude-stops"
     [ -z "${FM_FAKE_CLAUDE_REMOVE_FAIL:-}" ] || exit 1
     [ -z "${FM_FAKE_CLAUDE_REMOVE_KEEPS:-}" ] || exit 0
-    if [ "$1" = rm ] && [ -f "$D/carried-${2:-}" ]; then
+    if [ "$1" = rm ] && [ -z "${FM_FAKE_CLAUDE_REMOVE_ORPHANS:-}" ] && [ -f "$D/carried-${2:-}" ]; then
       while read -r pid; do
         kill -KILL "$pid" 2>/dev/null || true
       done < "$D/carried-${2:-}"
@@ -459,18 +459,28 @@ test_claude_exit_lists_under_the_worker_account_and_with_agent_view_on() {
 }
 
 test_claude_exit_removes_carried_work_from_previous_incarnations() {
-  local dir out rc root child leaf unrelated replacement i
+  local dir out rc root child leaf late unrelated replacement i account transcript other_account
   dir=$(new_case bg-carried)
   add_task "$dir" t1 claude
+  account="$dir/launch account"
+  printf 'claude_config_dir=%s\n' "$account" >> "$dir/home/state/t1.meta"
+  transcript="$account/projects/$(printf '%s' "$(cat "$dir/fake/cwd")" | sed 's/[^a-zA-Z0-9]/-/g')"
+  mkdir -p "$transcript"
+  # Vendor transcript lineage connects the original interactive session to its
+  # background fork. The process retains the original session environment.
+  printf '%s\n' '{"type":"continued-in","sessionId":"previous-session","continuedInSessionId":"aaaa1111-session"}' > "$transcript/previous-session.jsonl"
   mkdir -p "$dir/outside"
   cat > "$dir/outside/child.sh" <<'SH'
 cd "$1" || exit 1
-/bin/sleep 600 &
+set -m
+trap '/bin/sleep 600 & echo $! > "$1/late"; exit 0' TERM
+env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CONFIG_DIR /bin/sleep 600 &
 echo $! > "$1/leaf"
 echo "$BASHPID" > "$1/child"
 wait
 SH
-  bash -c 'bash "$1/child.sh" "$1" & wait' _ "$dir/outside" >/dev/null 2>&1 </dev/null &
+  env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=previous-session \
+    bash -c 'bash "$1/child.sh" "$1" & wait' _ "$dir/outside" >/dev/null 2>&1 </dev/null &
   root=$!
   printf '%s\n' "$root" >> "$TMP_ROOT/background-pids"
   for ((i=0; i<100; i++)); do
@@ -480,44 +490,61 @@ SH
   child=$(cat "$dir/outside/child")
   leaf=$(cat "$dir/outside/leaf")
   printf '%s\n' "$child" "$leaf" >> "$TMP_ROOT/background-pids"
-  /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+  [ "$(ps -p "$child" -o pgid=)" != "$(ps -p "$leaf" -o pgid=)" ] \
+    || fail "the carried child did not create a separate process group"
+  env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=neighbor-session \
+    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
   unrelated=$!
   printf '%s\n' "$unrelated" >> "$TMP_ROOT/background-pids"
   kill -TERM "$root"
   wait "$root" 2>/dev/null || true
   kill -0 "$child" 2>/dev/null || fail "the earlier incarnation's carried shell did not survive"
   [ "$(ps -p "$child" -o ppid= | tr -d ' ')" != "$root" ] || fail "the carried shell was not reparented"
-  /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+  env CLAUDE_CONFIG_DIR="$dir/other account" CLAUDE_CODE_SESSION_ID=previous-session \
+    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+  other_account=$!
+  printf '%s\n' "$other_account" >> "$TMP_ROOT/background-pids"
+  env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=aaaa1111-session \
+    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
   replacement=$!
   printf '%s\n' "$replacement" >> "$TMP_ROOT/background-pids"
   printf '%s\n' "$child" "$leaf" "$replacement" > "$dir/fake/carried-aaaa1111"
   set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" background "$replacement")"
-  out=$(run_control "$dir" t1 exit); rc=$?
+  # Oracle: cleanup ends the original PID/start-time identities, even when the
+  # vendor drops its record without killing them (the reported live failure).
+  out=$(FM_FAKE_CLAUDE_REMOVE_ORPHANS=1 run_control "$dir" t1 exit); rc=$?
   expect_code 0 "$rc" "exit must stop the carried process tree"$'\n'"$out"
-  for root in "$root" "$child" "$leaf" "$replacement"; do
+  [ -f "$dir/outside/late" ] || fail "the carried shell did not spawn work during termination"
+  late=$(cat "$dir/outside/late")
+  printf '%s\n' "$late" >> "$TMP_ROOT/background-pids"
+  for root in "$root" "$child" "$leaf" "$late" "$replacement"; do
     case "$(ps -p "$root" -o stat= 2>/dev/null)" in
       ''|*Z*) : ;;
       *) fail "session-owned process $root survived cleanup: $out" ;;
     esac
   done
   kill -0 "$unrelated" 2>/dev/null || fail "cleanup killed an unrelated process"
+  kill -0 "$other_account" 2>/dev/null || fail "cleanup crossed the recorded account boundary"
   assert_contains "$out" 'background-sessions=stopped:aaaa1111' "success must follow session and process termination"
   pass "fm-control exit (claude): exact-session removal stops earlier incarnations and preserves unrelated work"
 }
 
 test_claude_exit_removes_a_session_without_a_live_pid() {
-  local dir out rc state hidden carried
+  local dir out rc state hidden carried account
   for state in stopped done failed; do
     dir=$(new_case "bg-no-pid-$state")
     add_task "$dir" t1 claude
-    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+    account="$dir/launch account"
+    printf 'claude_config_dir=%s\n' "$account" >> "$dir/home/state/t1.meta"
+    env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=aaaa1111-session \
+      /bin/sleep 600 >/dev/null 2>&1 </dev/null &
     carried=$!
     printf '%s\n' "$carried" >> "$TMP_ROOT/background-pids"
     printf '%s\n' "$carried" > "$dir/fake/carried-aaaa1111"
     set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" | jq --arg state "$state" 'del(.pid) | .state = $state')"
     hidden=$(FM_FAKE_DIR="$dir/fake" "$dir/fakebin/claude" agents --json)
     [ "$hidden" = '[]' ] || fail "the vendor's default listing must omit $state sessions"
-    out=$(run_control "$dir" t1 exit); rc=$?
+    out=$(FM_FAKE_CLAUDE_REMOVE_ORPHANS=1 run_control "$dir" t1 exit); rc=$?
     expect_code 0 "$rc" "exact-session removal must cover $state sessions without a live process"$'\n'"$out"
     assert_contains "$out" 'background-sessions=stopped:aaaa1111' "removal must enumerate retained session records"
     [ "$(cat "$dir/fake/agents.json")" = '[]' ] || fail "the retained $state session was not removed"

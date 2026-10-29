@@ -711,9 +711,10 @@ claude_bg_list() {
 
 # exit_background_check: after a Claude exit, end any background session of this
 # worktree. Prints `background-sessions=none|stopped:<ids>|unverified`, nothing
-# for another harness. Dies when a session survives `claude rm`.
+# for another harness. Dies when a session or its captured carried work survives
+# cleanup; fm-claude-bg-stop.py owns cross-incarnation process ownership.
 exit_background_check() {
-  local json ids remaining id stopped=() i unverified
+  local json ids remaining id session stopped=() i unverified
   [ "$HARNESS" = claude ] || return 0
   unverified="❌ task $ID: the Claude background-session check failed (claude agents --json --all), so a background session running in $WT cannot be ruled out; list it with 'claude agents --json --all --cwd $WT' and stop it with 'claude rm <id>'"
   if ! claude_bg_prepare || ! json=$(claude_bg_list) || ! ids=$(fm_control_claude_bg_ids "$WT" "$json"); then
@@ -726,7 +727,8 @@ exit_background_check() {
     return 0
   fi
   for id in $ids; do
-    fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" claude rm "$id" >/dev/null 2>&1 </dev/null \
+    session=$(jq -c --arg id "$id" '.[] | select(.id == $id) | {sessionId, cwd}' <<< "$json")
+    fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" python3 "$SCRIPT_DIR/fm-claude-bg-stop.py" "$id" "$BG_TIMEOUT" "$session" \
       || die "task $ID's Claude background session $id could not be stopped with its carried work"
     stopped+=("$id")
   done
