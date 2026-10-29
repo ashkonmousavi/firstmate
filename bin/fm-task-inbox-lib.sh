@@ -450,17 +450,19 @@ fm_task_inbox_release_exhausted() {  # <task-id>
 }
 
 fm_task_inbox_composer_doorbells() {
-  local cap held line
+  local cap held line rest
   fm_backend_source "$1" || return 1
-  cap=$(fm_backend_capture "$1" "$2" "$FM_COMPOSER_CAPTURE_LINES" "fm-$4" 2>/dev/null) || return 1
+  cap=$(fm_backend_visible_capture "$1" "$2" "fm-$4" 2>/dev/null) || return 1
   held=$(fm_composer_extract_selected_content styled=0 "$cap") || return 1
   line=$(fm_task_inbox_doorbell_line "$3/$4.inbox/001.msg") || return 1
   held=$(printf '%s' "$held" | tr -d '[:space:]')
   line=$(printf '%s' "$line" | tr -d '[:space:]')
-  [ -n "$held" ] && [ -n "$line" ] || return 1
-  while [ -n "$held" ]; do
-    case "$held" in "$line"*) held=${held#"$line"} ;; *) return 1 ;; esac
+  [ -n "$line" ] || return 1
+  rest=$held
+  while [ -n "$rest" ]; do
+    case "$rest" in "$line"*) rest=${rest#"$line"} ;; *) return 1 ;; esac
   done
+  printf '%s' "$held"
 }
 
 # 0 when a non-queue harness still owes a doorbell that was deferred while

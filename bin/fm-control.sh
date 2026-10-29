@@ -173,6 +173,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
+# shellcheck source=bin/fm-task-inbox-lib.sh
+. "$SCRIPT_DIR/fm-task-inbox-lib.sh"
 # shellcheck source=bin/fm-polytoken-lib.sh
 . "$SCRIPT_DIR/fm-polytoken-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
@@ -671,7 +673,7 @@ retire_busy_incarnation() {
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
-  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
+  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog residue
   if [ "$EXHAUSTED_SET" = 1 ]; then
     if [ "$(fm_meta_get "$META" spawn_gen)" != "$EXHAUSTED_GEN" ]; then
       printf 'exhaustion-release-skipped'
@@ -761,6 +763,16 @@ do_exit() {
   if [ -s "${FM_COMPOSER_DIALOG_SINK:-}" ]; then
     dialog=$(cat "$FM_COMPOSER_DIALOG_SINK")
     refuse_blocking_prompt "$dialog"
+  fi
+  if [ "$EXHAUSTED_SET" = 1 ] && [ "$composer_state" != empty ]; then
+    if residue=$(fm_task_inbox_composer_doorbells "$BACKEND" "$T" "$STATE" "$ID"); then
+      fm_control_backend_supports_key "$BACKEND" C-u || die "backend $BACKEND cannot clear the exhausted composer"
+      fm_backend_send_key "$BACKEND" "$T" C-u "$LABEL" || die "exhausted composer clear failed for task $ID"
+      residue=$(fm_task_inbox_composer_doorbells "$BACKEND" "$T" "$STATE" "$ID") \
+        || die "task $ID's exhausted composer could not be verified after clearing"
+      [ -z "$residue" ] || die "task $ID's exhausted composer still holds doorbell residue"
+      composer_state=empty
+    fi
   fi
   case "$composer_state" in
     empty) ;;

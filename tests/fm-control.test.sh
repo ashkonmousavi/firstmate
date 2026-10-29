@@ -137,6 +137,9 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
+      if [ "$payload" = C-u ] && [ -f "$D/clear-to" ]; then
+        cp "$D/clear-to" "$D/pane"
+      fi
       printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
       if [ "$payload" = Escape ] && [ -f "$D/devin" ]; then
         case "$(cat "$D/devin")" in
@@ -1222,6 +1225,65 @@ test_exhausted_release_revalidates_incarnation_and_banner() {
   pass "exhausted release stops only the observed, still-exhausted incarnation and preserves its inbox"
 }
 
+test_exhausted_composer_recovery_preserves_other_drafts() {
+  local dir harness mode line held out rc banner width rule
+  for harness in cursor cursor-agent grok; do
+    for mode in pending unknown empty-unknown unrelated unrelated-unknown unreadable lower-draft foreign ordinary failed-clear; do
+      dir=$(new_case "exhausted-$harness-$mode")
+      add_task "$dir" t1 "$harness"
+      case "$harness" in grok) alive_as "$dir" grok; banner='You hit your weekly limit' ;; *) alive_as "$dir" cursor-agent; banner="You're out of usage" ;; esac
+      printf 'spawn_gen=observed\n' >> "$dir/home/state/t1.meta"
+      mkdir -p "$dir/home/state/t1.inbox"
+      printf 'retain instruction\n' > "$dir/home/state/t1.inbox/001.msg"
+      line=$(bash -c '. "$1/bin/fm-task-inbox-lib.sh"; fm_task_inbox_doorbell_line "$2/home/state/t1.inbox/001.msg"' _ "$ROOT" "$dir")
+      held="$line $line"
+      case "$mode" in
+        empty-unknown) held= ;;
+        unrelated|unrelated-unknown|unreadable|lower-draft) held='keep this unrelated draft' ;;
+        foreign) held=$(bash -c '. "$1/bin/fm-task-inbox-lib.sh"; fm_task_inbox_doorbell_line "$2/home/state/other.inbox/001.msg"' _ "$ROOT" "$dir") ;;
+      esac
+      width=$((${#held} + 2))
+      [ "$width" -ge 24 ] || width=24
+      rule=$(printf '%*s' "$width" '')
+      rule=${rule// /─}
+      printf '%s\n╭%s╮\n│ %-*s │\n╰%s╯\n' "$banner" "$rule" "$((width - 2))" "$held" "$rule" > "$dir/fake/pane"
+      case "$mode" in
+        unreadable) printf '%s\n%s\n' "$banner" "$held" > "$dir/fake/pane" ;;
+        lower-draft) printf '%s\n╭────────────────────────╮\n│                        │\n╰────────────────────────╯\n$ %s\n' "$banner" "$held" > "$dir/fake/pane" ;;
+      esac
+      case "$mode" in unknown|empty-unknown|unrelated-unknown|unreadable|lower-draft) printf '0\n' ;; *) printf '2\n' ;; esac > "$dir/fake/cursor-y"
+      printf '%s\n╭%s╮\n│%*s│\n╰%s╯\n' "$banner" "$rule" "$width" '' "$rule" > "$dir/fake/clear-to"
+      [ "$mode" != failed-clear ] || cp "$dir/fake/pane" "$dir/fake/clear-to"
+      if [ "$mode" = ordinary ]; then
+        out=$(run_control "$dir" t1 exit); rc=$?
+      else
+        out=$(run_control "$dir" t1 exit --if-exhausted observed); rc=$?
+      fi
+      case "$mode" in
+        pending|unknown|empty-unknown)
+          expect_code 0 "$rc" "$harness $mode recovery failed: $out"
+          [ "$(keys_sent "$dir")" = C-u ] || fail "$harness $mode recovery did not use the sanctioned clear"
+          [ "$(literals "$dir")" = /exit ] || fail "$harness $mode recovery did not stop through lifecycle exit"
+          [ "$(cat "$dir/fake/command")" = zsh ] || fail "$harness $mode agent remains alive"
+          ;;
+        *)
+          [ "$rc" -ne 0 ] || fail "$harness $mode must refuse"
+          [ ! -s "$dir/fake/literal" ] || fail "$harness $mode submitted a command"
+          if [ "$mode" = failed-clear ]; then
+            [ "$(keys_sent "$dir")" = C-u ] || fail "failed clear did not reach the composer"
+            assert_not_contains "$(cat "$dir/fake/keys")" Enter 'failed clear must not submit'
+          else
+            [ ! -s "$dir/fake/keys" ] || fail "$harness $mode modified a protected draft"
+            assert_contains "$(cat "$dir/fake/pane")" "$held" 'protected draft changed'
+          fi
+          ;;
+      esac
+      [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "recovery removed the inbox"
+    done
+  done
+  pass "exhausted composer recovery clears only own residue or proven emptiness and preserves unrelated drafts"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1352,5 +1414,6 @@ test_grok_idle_footer_does_not_confirm_cancellation
 test_recorded_harness_capabilities
 test_exhausted_release_failure_is_reported
 test_exhausted_release_revalidates_incarnation_and_banner
+test_exhausted_composer_recovery_preserves_other_drafts
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task

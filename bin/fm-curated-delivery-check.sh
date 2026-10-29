@@ -18,7 +18,7 @@
 #     whose re-landing PR is itself merged onto curated.
 #   * an OPEN fork PR whose base is main and that lacks the label
 #     FM_CURATED_BASE_OK_LABEL (default base-main-ok).
-#   * per home, curated commits missing from that home's code-root HEAD.
+#   * per home, merged PRs and curated commits missing from its code-root HEAD.
 #
 # Exceptions: <FM_HOME>/config/curated-delivery-exceptions (FM_CURATED_EXCEPTIONS
 # overrides the path), one entry per line, `#` comments allowed:
@@ -29,14 +29,12 @@
 # upstream base curated was cut from; it qualifies when <sha> is an ancestor of
 # curated.
 #
-# Baseline: PRs merged before curated was cut cannot be delivered by the check.
-# `since <pr> <evidence text...>` in the exceptions file (or FM_CURATED_SINCE_PR)
-# ignores merged PRs numbered below <pr>; evidence is required for the file form.
+# Homes: FM_CURATED_HOMES_FILE or <FM_HOME>/config/curated-delivery-homes,
+# one `label|code-root|ssh-host` per line, ssh-host empty for a local path.
+# Repository: FM_CURATED_REPO or <FM_HOME>/config/curated-delivery-repo,
+# containing the GitHub owner/repository. Missing configuration is incomplete.
 #
-# Homes: the built-in fleet list, or FM_CURATED_HOMES_FILE (one
-# `label|code-root|ssh-host` per line, ssh-host empty for a local path).
-#
-# Environment: FM_CURATED_REPO (default ashkonmousavi/firstmate),
+# Environment: FM_CURATED_REPO,
 # FM_CURATED_REF (default origin/curated), FM_CURATED_CODE (the git checkout
 # the PR ancestry is read from; default this script's checkout),
 # FM_CHECK_TIMEOUT (default 30; every gh, git fetch and ssh call is bounded
@@ -66,7 +64,11 @@ case "${1:-}" in
   *) echo "usage: fm-curated-delivery-check.sh [--list]" >&2; exit 2 ;;
 esac
 
-REPO=${FM_CURATED_REPO:-ashkonmousavi/firstmate}
+REPO=${FM_CURATED_REPO:-}
+if [ -z "$REPO" ] && [ -f "$FM_HOME/config/curated-delivery-repo" ]; then
+  REPO=$(cat "$FM_HOME/config/curated-delivery-repo")
+fi
+HOMES_FILE=${FM_CURATED_HOMES_FILE:-$FM_HOME/config/curated-delivery-homes}
 REF=${FM_CURATED_REF:-origin/curated}
 CODE=${FM_CURATED_CODE:-$FM_ROOT}
 GH=${FM_CURATED_GH:-gh}
@@ -74,11 +76,6 @@ LABEL=${FM_CURATED_BASE_OK_LABEL:-base-main-ok}
 EXCEPTIONS=${FM_CURATED_EXCEPTIONS:-$FM_HOME/config/curated-delivery-exceptions}
 TOTAL=${FM_CHECK_TIMEOUT:-30}
 case "$TOTAL" in '' | *[!0-9]*) TOTAL=30 ;; esac
-SINCE=${FM_CURATED_SINCE_PR:-}
-if [ -z "$SINCE" ] && [ -f "$EXCEPTIONS" ]; then
-  SINCE=$(awk '$1=="since" && $2 ~ /^[0-9]+$/ && NF>=3 {print $2; exit}' "$EXCEPTIONS")
-fi
-case "$SINCE" in '' | *[!0-9]*) SINCE=0 ;; esac
 START=$SECONDS
 DEADLINE=$((START + TOTAL - 3))
 [ "$DEADLINE" -gt "$START" ] || DEADLINE=$((START + 1))
@@ -88,6 +85,7 @@ trap 'rm -rf -- "$FINDINGS"' EXIT
 : > "$FINDINGS/incomplete"
 : > "$FINDINGS/prs"
 : > "$FINDINGS/open"
+: > "$FINDINGS/proofs"
 
 # bounded <max-seconds> <cmd...>: run with the smaller of max and what is left
 # of the overall budget. 124 when no budget is left or the bound is hit.
@@ -102,15 +100,7 @@ bounded() {
 
 incomplete() { printf '%s\n' "$1" >> "$FINDINGS/incomplete"; }
 
-default_homes() {
-  cat <<'EOF'
-pc-main|/home/tegris/Firstmate/firstmate|
-fleet-ops|/home/tegris/.treehouse/firstmate-8bf1b0/1/firstmate|
-eel-web|/home/tegris/.treehouse/firstmate-8bf1b0/12/firstmate|
-q-server|~/firstmate-stock|q-crew
-q-zenbook|~/firstmate-stock|zb-crew
-EOF
-}
+[ -n "$REPO" ] || incomplete "repository is not configured (FM_CURATED_REPO or config/curated-delivery-repo)"
 
 # ---- curated tip and ancestry ------------------------------------------------
 TIP=
@@ -161,106 +151,118 @@ rows_merged() {
   done
 }
 
-exception_valid() {  # <orig> -> 0 when an evidenced entry's re-landing is on curated
-  local orig=$1 line o r ev
-  [ -f "$EXCEPTIONS" ] || return 1
+delivery_commits() {
+  local orig=$1 sha=$2 line o r carrier
+  [ -z "$sha" ] || printf '%s\n' "$sha"
+  if [ -n "$sha" ]; then
+    awk -F '\t' -v sha="$sha" '$1==sha {print $2}' "$FINDINGS/picked"
+  fi
+  [ -f "$EXCEPTIONS" ] || return 0
   while IFS= read -r line; do
     case "$line" in '' | '#'*) continue ;; esac
-    # shellcheck disable=SC2086
-    set -- $line
-    o=${1:-}
-    r=${2:-}
-    [ "$o" = "$orig" ] || continue
-    shift 2 2>/dev/null || continue
-    ev=$*
-    [ -n "$ev" ] || continue
+    read -r o r carrier <<< "$line"
+    [ "$o" = "$orig" ] && [ -n "$carrier" ] || continue
     case "$r" in
-      base:*)
-        # The carrier is a non-PR commit already on curated, such as the
-        # upstream base curated was cut from.
-        git -C "$CODE" merge-base --is-ancestor "${r#base:}" "$TIP" 2>/dev/null && return 0
-        ;;
-      *) grep -Fxq -- "$r" "$FINDINGS/curated-prs" 2>/dev/null && return 0 ;;
+      base:*) carrier=${r#base:} ;;
+      *) carrier=$(awk -F '\t' -v pr="$r" '$1==pr {print $2}' "$FINDINGS/merged.tsv") ;;
     esac
+    [ -n "$carrier" ] || continue
+    git -C "$CODE" merge-base --is-ancestor "$carrier" "$TIP" 2>/dev/null && printf '%s\n' "$carrier"
   done < "$EXCEPTIONS"
+  return 0
+}
+
+delivered_to() {
+  local root=$1 target=$2 proofs=$3 carrier
+  for carrier in $proofs; do
+    git -C "$root" merge-base --is-ancestor "$carrier" "$target" 2>/dev/null && return 0
+  done
   return 1
 }
 
-if [ -n "$TIP" ]; then
-  rows_merged > "$FINDINGS/merged.tsv"
-  # PR numbers whose merge commit is on curated: the re-landing proof for exceptions.
-  while IFS=$'\t' read -r num sha _; do
-    [ -n "$sha" ] || continue
-    if git -C "$CODE" merge-base --is-ancestor "$sha" "$TIP" 2>/dev/null; then
-      printf '%s\n' "$num"
-    fi
-  done < "$FINDINGS/merged.tsv" > "$FINDINGS/curated-prs"
-  # Commits recorded by cherry-pick -x trailers on curated.
-  git -C "$CODE" log "$TIP" --format=%B 2>/dev/null \
-    | sed -n 's/.*cherry picked from commit \([0-9a-f]\{40\}\).*/\1/p' \
-    | sort -u > "$FINDINGS/picked"
-
+if [ -n "$TIP" ] && [ -n "$REPO" ]; then
+  rows_merged | sort -n -u > "$FINDINGS/merged.tsv"
+  git -C "$CODE" log "$TIP" --format='%H%x00%B%x00' 2>/dev/null | jq -Rrs '
+    split("\u0000") as $parts |
+    range(0; ($parts | length) - 1; 2) as $i |
+    ($parts[$i] | gsub("^\\s+|\\s+$"; "")) as $carrier |
+    $parts[$i+1] | scan("cherry picked from commit ([0-9a-f]{40})") |
+    [.[0], $carrier] | @tsv' > "$FINDINGS/picked"
   while IFS=$'\t' read -r num sha title url; do
     [ -n "$num" ] || continue
-    [ "$num" -lt "$SINCE" ] && continue
-    grep -Fxq -- "$num" "$FINDINGS/curated-prs" && continue
-    [ -n "$sha" ] && grep -Fxq -- "$sha" "$FINDINGS/picked" && continue
-    exception_valid "$num" && continue
-    printf '%s\t%s\t%s\n' "$num" "$url" "$title"
-  done < "$FINDINGS/merged.tsv" | sort -n -u > "$FINDINGS/prs"
+    proofs=$(delivery_commits "$num" "$sha" | sort -u | paste -sd' ' -)
+    printf '%s|%s\n' "$num" "$proofs" >> "$FINDINGS/proofs"
+    delivered_to "$CODE" "$TIP" "$proofs" && continue
+    printf '%s\t%s\t%s\n' "$num" "$url" "$title" >> "$FINDINGS/prs"
+  done < "$FINDINGS/merged.tsv"
 fi
 
-out=$(pr_json open main) || {
-  incomplete "gh open PR list failed"
-  out='[]'
-}
-printf '%s' "$out" \
-  | jq -r --arg l "$LABEL" '.[] | select(([.labels[].name] | index($l)) | not) | [.number, .url, .title] | @tsv' 2>/dev/null \
-  | sort -n > "$FINDINGS/open" || incomplete "gh open PR list is unreadable"
+if [ -n "$REPO" ]; then
+  out=$(pr_json open main) || {
+    incomplete "gh open PR list failed"
+    out='[]'
+  }
+  printf '%s' "$out" \
+    | jq -r --arg l "$LABEL" '.[] | select(([.labels[].name] | index($l)) | not) | [.number, .url, .title] | @tsv' 2>/dev/null \
+    | sort -n > "$FINDINGS/open" || incomplete "gh open PR list is unreadable"
+fi
 
 # ---- homes -------------------------------------------------------------------
-check_home() {  # <label> <code-root> <ssh-host>
-  local label=$1 root=$2 host=$3 rc n
-  [ -n "$TIP" ] || return 0
-  if [ -z "$host" ]; then
-    if ! git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
-      echo "$label|home code root $root is not readable"
-      return 0
-    fi
-    git -C "$root" cat-file -e "$TIP^{commit}" 2>/dev/null \
-      || bounded 8 git -C "$root" fetch --quiet origin >/dev/null 2>&1 || true
-    git -C "$root" merge-base --is-ancestor "$TIP" HEAD 2>/dev/null
-    rc=$?
-    if [ "$rc" -eq 0 ]; then
-      return 0
-    elif [ "$rc" -eq 1 ]; then
-      n=$(git -C "$root" rev-list --count "HEAD..$TIP" 2>/dev/null || echo '?')
-      echo "$label|HEAD lacks $n curated commit(s) (tip ${TIP:0:8})"
-    else
-      echo "$label|cannot compare HEAD with curated tip ${TIP:0:8} (commit unknown there)"
-    fi
+home_comparison() {
+  local root=$1 tip=$2 rc n num proofs missing=
+  case "$root" in '~/'*) root="$HOME/${root#\~/}" ;; esac
+  if ! git -C "$root" rev-parse --verify HEAD >/dev/null 2>&1; then
+    printf 'home code root %s is not readable\n' "$root"
     return 0
   fi
-  # Remote: one ssh call prints the verdict; the root keeps its ~ for the remote shell.
-  # shellcheck disable=SC2016
-  n=$(bounded 10 ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" \
-    'cd '"$root"' 2>/dev/null || { echo nodir; exit 0; }
-     git cat-file -e '"$TIP"'^{commit} 2>/dev/null || { echo unknown; exit 0; }
-     if git merge-base --is-ancestor '"$TIP"' HEAD; then echo ok
-     else echo behind "$(git rev-list --count HEAD..'"$TIP"')"; fi' 2>/dev/null) || n=unreachable
-  case "$n" in
-    ok) ;;
-    "behind "*) echo "$label|HEAD lacks ${n#behind } curated commit(s) (tip ${TIP:0:8})" ;;
-    nodir) echo "$label|code root $root is missing on $host" ;;
-    unknown) echo "$label|HEAD cannot be compared: curated tip ${TIP:0:8} not fetched on $host" ;;
-    *) echo "$label|cannot reach $host in time" ;;
-  esac
+  git -C "$root" merge-base --is-ancestor "$tip" HEAD 2>/dev/null
+  rc=$?
+  if [ "$rc" -eq 1 ]; then
+    n=$(git -C "$root" rev-list --count "HEAD..$tip" 2>/dev/null) || n='?'
+    printf 'HEAD lacks %s curated commit(s) (tip %.8s)\n' "$n" "$tip"
+  elif [ "$rc" -ne 0 ]; then
+    printf 'cannot compare HEAD with curated tip %.8s (commit unknown there)\n' "$tip"
+  fi
+  while IFS='|' read -r num proofs; do
+    [ -n "$num" ] || continue
+    delivered_to "$root" HEAD "$proofs" && continue
+    missing="${missing:+$missing }$num"
+  done
+  [ -z "$missing" ] || printf 'HEAD lacks merged PRs: %s\n' "$missing"
+  return 0
 }
 
-if [ -n "${FM_CURATED_HOMES_FILE:-}" ] && [ -f "$FM_CURATED_HOMES_FILE" ]; then
-  HOMES=$(cat "$FM_CURATED_HOMES_FILE")
+check_home() {
+  local label=$1 root=$2 host=$3 out quoted_root script quoted_script
+  [ -n "$TIP" ] || return 0
+  if [ -z "$host" ]; then
+    git -C "$root" cat-file -e "$TIP^{commit}" 2>/dev/null \
+      || bounded 8 git -C "$root" fetch --quiet origin >/dev/null 2>&1 || true
+    out=$(home_comparison "$root" "$TIP" < "$FINDINGS/proofs")
+  else
+    printf -v quoted_root '%q' "$root"
+    script=$(cat <<EOF
+$(declare -f delivered_to)
+$(declare -f home_comparison)
+home_comparison $quoted_root '$TIP' <<'FM_DELIVERY_PROOFS'
+$(cat "$FINDINGS/proofs")
+FM_DELIVERY_PROOFS
+EOF
+    )
+    quoted_script=$(printf '%s' "$script" | sed "s/'/'\\\\''/g")
+    out=$(bounded 10 ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" "bash -c '$quoted_script'") \
+      || out="cannot reach $host in time"
+  fi
+  while IFS= read -r out; do
+    [ -z "$out" ] || printf '%s|%s\n' "$label" "$out"
+  done <<< "$out"
+}
+
+HOMES=
+if [ -f "$HOMES_FILE" ] && [ -r "$HOMES_FILE" ]; then
+  HOMES=$(cat "$HOMES_FILE")
 else
-  HOMES=$(default_homes)
+  incomplete "cannot read homes configuration $HOMES_FILE"
 fi
 i=0
 while IFS='|' read -r label root host; do
@@ -287,8 +289,10 @@ if [ -s "$FINDINGS/open" ]; then
   parts="${parts:+$parts; }open PRs to main without $LABEL: $(nums "$FINDINGS/open")"
 fi
 if [ -s "$FINDINGS/homes" ]; then
-  parts="${parts:+$parts; }homes behind: $(cut -d'|' -f1 "$FINDINGS/homes" | paste -sd' ' -)"
+  parts="${parts:+$parts; }homes behind: $(cut -d'|' -f1 "$FINDINGS/homes" | sort -u | paste -sd' ' -)"
 fi
+home_prs=$(awk -F '|' '$2 ~ /^HEAD lacks merged PRs:/ {sub(/^HEAD lacks merged PRs: /,"",$2); printf "%s%s=%s", sep,$1,$2;sep="; "}' "$FINDINGS/homes")
+[ -z "$home_prs" ] || parts="${parts:+$parts; }missing home PRs: $home_prs"
 if [ -s "$FINDINGS/incomplete" ]; then
   parts="${parts:+$parts; }check incomplete: $(paste -sd',' "$FINDINGS/incomplete")"
 fi

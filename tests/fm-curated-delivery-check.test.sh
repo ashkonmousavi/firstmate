@@ -40,16 +40,17 @@ git -C "$TMP_ROOT/home-old" checkout -q "$CURATED_TIP" 2>/dev/null
 
 cat > "$FAKEBIN/gh" <<'GH'
 #!/usr/bin/env bash
-state= base= paginate=0
+state= base= owner= name= paginate=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --paginate) paginate=1 ;;
-    -F) case "$2" in base=*) base=${2#base=} ;; esac; shift ;;
+    -F) case "$2" in base=*) base=${2#base=} ;; owner=*) owner=${2#owner=} ;; name=*) name=${2#name=} ;; esac; shift ;;
     -f) case "$2" in *'states: [MERGED]'*) state=merged ;; *'states: [OPEN]'*) state=open ;; esac; shift ;;
   esac
   shift
 done
 [ -z "${FIXTURE_GH_FAIL:-}" ] || exit 1
+[ -z "${FIXTURE_EXPECT_REPO:-}" ] || [ "$owner/$name" = "$FIXTURE_EXPECT_REPO" ] || exit 2
 f="$FIXTURE_DIR/$state-$base.json"
 [ -f "$f" ] || f="$FIXTURE_DIR/empty.json"
 jq -c --argjson paginate "$paginate" '
@@ -77,8 +78,10 @@ chmod +x "$FAKEBIN/git"
 
 cat > "$FAKEBIN/ssh" <<'SSH'
 #!/usr/bin/env bash
-eval "host=\${$(($# - 1))}"
-case "$host" in sleepy) sleep 30 ;; behind) echo "behind 2" ;; *) echo ok ;; esac
+while [ "$1" = -o ]; do shift 2; done
+host=$1
+shift
+case "$host" in sleepy) sleep 30 ;; *) bash -c "$*" ;; esac
 SSH
 chmod +x "$FAKEBIN/ssh"
 
@@ -95,7 +98,7 @@ printf 'ok|%s|\n' "$TMP_ROOT/home-ok" > "$TMP_ROOT/homes"
 run_check() {  # <out-file> [env...]
   local out=$1
   shift
-  env FM_CHECK_TIMEOUT=20 FM_CURATED_CODE="$CODE" FM_CURATED_REF=origin/curated \
+  env FM_CURATED_REPO=test-owner/firstmate FM_CHECK_TIMEOUT=20 FM_CURATED_CODE="$CODE" FM_CURATED_REF=origin/curated \
     FM_CURATED_HOMES_FILE="$TMP_ROOT/homes" FM_HOME="$TMP_ROOT/emptyhome" \
     FIXTURE_DIR="$FIX" PATH="$FAKEBIN:$PATH" "$@" "$CHECK" --list > "$out" 2>&1
   expect_code 0 "$?" "check exit"
@@ -151,11 +154,15 @@ test_exception_needs_evidence_and_a_landed_relanding() {
   pass "curated-delivery: exceptions need evidence and a re-landing that is on curated"
 }
 
-test_since_baseline_ignores_older_prs() {
-  write_prs "$PR144" '[]'
-  run_check "$TMP_ROOT/o7" FM_CURATED_SINCE_PR=200
-  [ ! -s "$TMP_ROOT/o7" ] || fail "baseline above 144 must ignore it"
-  pass "curated-delivery: the baseline ignores PRs merged before curated was cut"
+test_every_merged_pr_requires_delivery_evidence() {
+  write_prs '[{"number":1,"mergeCommit":{"oid":"'"$MAIN_SHA"'"},"title":"old undelivered work","url":"https://example.test/1"}]' '[]'
+  run_check "$TMP_ROOT/old-undelivered-env" FM_CURATED_SINCE_PR=200
+  assert_grep 'merged PR not on curated: #1 ' "$TMP_ROOT/old-undelivered-env" "an environment cutoff cannot suppress undelivered PRs"
+  printf 'since 200 legacy baseline\n' > "$TMP_ROOT/emptyhome/config/curated-delivery-exceptions"
+  run_check "$TMP_ROOT/old-undelivered-file"
+  assert_grep 'merged PR not on curated: #1 ' "$TMP_ROOT/old-undelivered-file" "a file cutoff cannot suppress undelivered PRs"
+  rm -f "$TMP_ROOT/emptyhome/config/curated-delivery-exceptions"
+  pass "curated-delivery: every merged PR requires delivery evidence regardless of number"
 }
 
 test_open_pr_to_main_flagged_unless_labeled() {
@@ -171,12 +178,12 @@ test_home_behind_is_flagged_and_remote_is_bounded() {
   git -C "$CODE" commit -q --allow-empty -m "curated moves"
   git -C "$CODE" update-ref refs/remotes/origin/curated HEAD
   git -C "$TMP_ROOT/home-old" fetch -q "$CODE" 2>/dev/null
-  printf 'old|%s|\nremote-behind|~/x|behind\nremote-ok|~/x|fine\nremote-slow|~/x|sleepy\n' "$TMP_ROOT/home-old" > "$TMP_ROOT/homes"
+  printf 'old|%s|\nremote-behind|%s|behind\nremote-ok|%s|fine\nremote-slow|~/x|sleepy\n' "$TMP_ROOT/home-old" "$TMP_ROOT/home-old" "$CODE" > "$TMP_ROOT/homes"
   local start=$SECONDS
   run_check "$TMP_ROOT/o9" FM_CHECK_TIMEOUT=12
   [ $((SECONDS - start)) -lt 12 ] || fail "check overran its bound"
   assert_grep "home old: HEAD lacks 1 curated commit(s)" "$TMP_ROOT/o9" "local home behind"
-  assert_grep "home remote-behind: HEAD lacks 2 curated commit(s)" "$TMP_ROOT/o9" "remote home behind"
+  assert_grep "home remote-behind: HEAD lacks 1 curated commit(s)" "$TMP_ROOT/o9" "remote home behind"
   assert_no_grep "home remote-ok" "$TMP_ROOT/o9" "up-to-date remote home is silent"
   assert_grep "home remote-slow: cannot reach sleepy in time" "$TMP_ROOT/o9" "slow ssh is bounded and reported"
   printf 'ok|%s|\n' "$TMP_ROOT/home-ok" > "$TMP_ROOT/homes"
@@ -231,10 +238,76 @@ test_lists_merged_main_pr_not_on_curated
 test_clean_is_silent
 test_cherry_pick_trailer_counts_as_landed
 test_exception_needs_evidence_and_a_landed_relanding
-test_since_baseline_ignores_older_prs
+test_every_merged_pr_requires_delivery_evidence
 test_open_pr_to_main_flagged_unless_labeled
 test_home_behind_is_flagged_and_remote_is_bounded
 test_gh_failure_is_reported_not_clean
 
 test_all_merged_pages_and_relanding_membership
 test_failed_refresh_suppresses_stale_ancestry
+
+
+test_missing_prs_are_listed_per_home() {
+  local kind carrier missing remote_root="$TMP_ROOT/remote home's code"
+  ln -s "$TMP_ROOT/home-old" "$remote_root"
+  for kind in direct cherry exception-pr exception-base; do
+    missing=144
+    write_prs "$PR144" '[]'
+    if [ "$kind" = direct ]; then
+      git -C "$CODE" merge -q --ff-only side
+    else
+      if [ "$kind" = cherry ]; then
+        git -C "$CODE" commit -q --allow-empty -m "carrier" -m "(cherry picked from commit $MAIN_SHA)"
+      else
+        git -C "$CODE" commit -q --allow-empty -m "carrier"
+      fi
+    fi
+    carrier=$(git -C "$CODE" rev-parse HEAD)
+    git -C "$CODE" update-ref refs/remotes/origin/curated "$carrier"
+    case "$kind" in
+      exception-pr)
+        missing='141 144'
+        printf '[{"number":141,"mergeCommit":{"oid":"%s"},"title":"carrier","url":"https://example.test/141"}]\n' "$carrier" > "$FIX/merged-curated.json"
+        printf '144 141 independently evidenced re-landing\n' > "$TMP_ROOT/emptyhome/config/curated-delivery-exceptions"
+        ;;
+      exception-base)
+        printf '144 base:%s independently evidenced re-landing\n' "$carrier" > "$TMP_ROOT/emptyhome/config/curated-delivery-exceptions"
+        ;;
+    esac
+    printf 'local|%s|\nremote|%s|remote-fixture\n' "$TMP_ROOT/home-old" "$remote_root" > "$TMP_ROOT/homes"
+    run_check "$TMP_ROOT/home-prs-$kind"
+    assert_no_grep 'merged PR not on curated: #144' "$TMP_ROOT/home-prs-$kind" "$kind carrier delivers 144 to curated"
+    assert_grep "home local: HEAD lacks merged PRs: $missing" "$TMP_ROOT/home-prs-$kind" "$kind lists original PR in local home"
+    assert_grep "home remote: HEAD lacks merged PRs: $missing" "$TMP_ROOT/home-prs-$kind" "$kind lists original PR in remote home"
+    assert_grep "missing home PRs: local=$missing; remote=$missing" "$TMP_ROOT/home-prs-$kind" "$kind summary identifies missing home PRs"
+    git -C "$TMP_ROOT/home-old" fetch -q "$CODE"
+    git -C "$TMP_ROOT/home-old" checkout -q "$carrier"
+    run_check "$TMP_ROOT/home-prs-fixed-$kind"
+    [ ! -s "$TMP_ROOT/home-prs-fixed-$kind" ] || fail "$kind delivery to both homes must be silent: $(cat "$TMP_ROOT/home-prs-fixed-$kind")"
+    git -C "$TMP_ROOT/home-old" checkout -q "$CURATED_TIP"
+    git -C "$CODE" reset -q --hard "$CURATED_TIP"
+    git -C "$CODE" update-ref refs/remotes/origin/curated "$CURATED_TIP"
+    rm -f "$TMP_ROOT/emptyhome/config/curated-delivery-exceptions"
+  done
+  printf 'ok|%s|\n' "$TMP_ROOT/home-ok" > "$TMP_ROOT/homes"
+  pass "curated-delivery: local and remote PR identities include every equivalent carrier and clear after delivery"
+}
+
+test_private_targets_and_missing_configuration() {
+  local home="$TMP_ROOT/configured-home"
+  mkdir -p "$home/config"
+  write_prs '[]' '[]'
+  printf 'configured-owner/configured-repo\n' > "$home/config/curated-delivery-repo"
+  printf 'configured|%s|\n' "$TMP_ROOT/home-ok" > "$home/config/curated-delivery-homes"
+  run_check "$TMP_ROOT/private-config" FM_HOME="$home" FM_CURATED_REPO= FM_CURATED_HOMES_FILE= FIXTURE_EXPECT_REPO=configured-owner/configured-repo
+  [ ! -s "$TMP_ROOT/private-config" ] || fail "private target configuration must be consumed: $(cat "$TMP_ROOT/private-config")"
+  run_check "$TMP_ROOT/env-config" FM_HOME="$home" FM_CURATED_REPO=override-owner/override-repo FIXTURE_EXPECT_REPO=override-owner/override-repo
+  [ ! -s "$TMP_ROOT/env-config" ] || fail "explicit repository selection must override private configuration"
+  run_check "$TMP_ROOT/missing-config" FM_HOME="$TMP_ROOT/unconfigured" FM_CURATED_REPO= FM_CURATED_HOMES_FILE=
+  assert_grep 'repository is not configured' "$TMP_ROOT/missing-config" "no default personal repository is queried"
+  assert_grep 'cannot read homes configuration' "$TMP_ROOT/missing-config" "missing fleet configuration is incomplete"
+  pass "curated-delivery: private targets and explicit overrides work; missing targets are incomplete"
+}
+
+test_missing_prs_are_listed_per_home
+test_private_targets_and_missing_configuration
