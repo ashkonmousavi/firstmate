@@ -113,16 +113,38 @@ EOF
 }
 
 # ---- curated tip and ancestry ------------------------------------------------
-bounded 8 git -C "$CODE" fetch --quiet origin >/dev/null 2>&1 || true
-TIP=$(git -C "$CODE" rev-parse --verify --quiet "$REF^{commit}" 2>/dev/null) || TIP=
-if [ -z "$TIP" ]; then
-  incomplete "cannot read $REF in $CODE"
+TIP=
+if bounded 8 git -C "$CODE" fetch --quiet origin >/dev/null 2>&1; then
+  TIP=$(git -C "$CODE" rev-parse --verify --quiet "$REF^{commit}" 2>/dev/null) || TIP=
+  [ -n "$TIP" ] || incomplete "cannot read $REF in $CODE"
+else
+  incomplete "cannot refresh $REF in $CODE"
 fi
 
 # ---- merged and open PRs -----------------------------------------------------
-pr_json() {  # <state> <base> <fields>
-  bounded 12 "$GH" pr list --repo "$REPO" --state "$1" --base "$2" \
-    --limit 300 --json "$3"
+pr_json() {  # <state> <base>
+  local state=$1 base=$2 fields out
+  case "$state" in
+    merged) state=MERGED; fields='number mergeCommit { oid } title url' ;;
+    open) state=OPEN; fields='number labels(first: 100) { nodes { name } } title url' ;;
+  esac
+  out=$(bounded 12 "$GH" api graphql --paginate \
+    -F owner="${REPO%/*}" -F name="${REPO#*/}" -F base="$base" \
+    -f query="query(\$owner: String!, \$name: String!, \$base: String!, \$endCursor: String) {
+      repository(owner: \$owner, name: \$name) {
+        pullRequests(first: 100, after: \$endCursor, states: [$state], baseRefName: \$base) {
+          nodes { $fields }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }") || return 1
+  printf '%s' "$out" | jq -se '
+    if length > 0 and all(.[]; .errors == null and
+      (.data.repository.pullRequests.nodes | type) == "array") and
+      (.[-1].data.repository.pullRequests.pageInfo.hasNextPage == false)
+    then [.[].data.repository.pullRequests.nodes[] |
+      if has("labels") then .labels = .labels.nodes else . end]
+    else error("incomplete PR pagination") end'
 }
 
 # One tab-separated row per PR: number, merge commit (or empty), title, url.
@@ -130,7 +152,7 @@ pr_json() {  # <state> <base> <fields>
 rows_merged() {
   local base out
   for base in main curated; do
-    out=$(pr_json merged "$base" number,mergeCommit,title,url) || {
+    out=$(pr_json merged "$base") || {
       incomplete "gh merged PR list for $base failed"
       continue
     }
@@ -188,7 +210,7 @@ if [ -n "$TIP" ]; then
   done < "$FINDINGS/merged.tsv" | sort -n -u > "$FINDINGS/prs"
 fi
 
-out=$(pr_json open main number,labels,url,title) || {
+out=$(pr_json open main) || {
   incomplete "gh open PR list failed"
   out='[]'
 }

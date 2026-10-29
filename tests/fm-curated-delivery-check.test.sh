@@ -18,6 +18,7 @@ CODE="$TMP_ROOT/code"
 mkdir -p "$FIX" "$CODE"
 
 git -C "$CODE" init -q -b main
+git -C "$CODE" remote add origin "$CODE"
 git -C "$CODE" config user.email t@example.com
 git -C "$CODE" config user.name t
 echo 1 > "$CODE/f"
@@ -39,16 +40,40 @@ git -C "$TMP_ROOT/home-old" checkout -q "$CURATED_TIP" 2>/dev/null
 
 cat > "$FAKEBIN/gh" <<'GH'
 #!/usr/bin/env bash
-state= base=
+state= base= paginate=0
 while [ $# -gt 0 ]; do
-  case "$1" in --state) state=$2; shift ;; --base) base=$2; shift ;; esac
+  case "$1" in
+    --paginate) paginate=1 ;;
+    -F) case "$2" in base=*) base=${2#base=} ;; esac; shift ;;
+    -f) case "$2" in *'states: [MERGED]'*) state=merged ;; *'states: [OPEN]'*) state=open ;; esac; shift ;;
+  esac
   shift
 done
 [ -z "${FIXTURE_GH_FAIL:-}" ] || exit 1
 f="$FIXTURE_DIR/$state-$base.json"
-if [ -f "$f" ]; then cat "$f"; else echo '[]'; fi
+[ -f "$f" ] || f="$FIXTURE_DIR/empty.json"
+jq -c --argjson paginate "$paginate" '
+  map(if has("labels") then .labels = {nodes: .labels} else . end) |
+  . as $prs | (length / 100 | ceil | if . == 0 then 1 else . end) as $pages |
+  range(0; (if $paginate == 1 then $pages else 1 end)) as $page |
+  {data: {repository: {pullRequests: {
+    nodes: $prs[$page * 100:($page + 1) * 100],
+    pageInfo: {hasNextPage: ($page + 1 < $pages), endCursor: (($page + 1) | tostring)}
+  }}}}' "$f"
+[ -z "${FIXTURE_GH_HANG:-}" ] || sleep 30
 GH
 chmod +x "$FAKEBIN/gh"
+printf '[]\n' > "$FIX/empty.json"
+REAL_GIT=$(command -v git)
+export REAL_GIT
+cat > "$FAKEBIN/git" <<'GIT'
+#!/usr/bin/env bash
+if [ -n "${FIXTURE_FETCH_FAIL:-}" ]; then
+  for arg in "$@"; do [ "$arg" != fetch ] || exit 1; done
+fi
+exec "$REAL_GIT" "$@"
+GIT
+chmod +x "$FAKEBIN/git"
 
 cat > "$FAKEBIN/ssh" <<'SSH'
 #!/usr/bin/env bash
@@ -167,6 +192,41 @@ test_gh_failure_is_reported_not_clean() {
   pass "curated-delivery: a failed gh call is reported as incomplete"
 }
 
+test_all_merged_pages_and_relanding_membership() {
+  local base
+  for base in main curated; do
+    write_prs '[]' '[]'
+    jq -n --arg landed "$CURATED_TIP" --arg missing "$MAIN_SHA" '
+      [range(1000;1300) | {number: ., mergeCommit: {oid: $landed}, title: "landed", url: "https://example.test/landed"}] +
+      [{number: 144, mergeCommit: {oid: $missing}, title: "missing", url: "https://example.test/144"}]' > "$FIX/merged-$base.json"
+    run_check "$TMP_ROOT/pages-$base"
+    assert_grep 'merged PR not on curated: #144' "$TMP_ROOT/pages-$base" "PR after 300 entries remains visible on $base"
+  done
+  write_prs "$PR144" '[]'
+  jq -n --arg sha "$CURATED_TIP" '
+    [range(1000;1300) | {number: ., mergeCommit: {oid: $sha}, title: "landed", url: "https://example.test/landed"}] +
+    [{number: 141, mergeCommit: {oid: $sha}, title: "carrier", url: "https://example.test/141"}]' > "$FIX/merged-curated.json"
+  printf '144 141 evidenced re-landing\n' > "$TMP_ROOT/emptyhome/config/curated-delivery-exceptions"
+  run_check "$TMP_ROOT/pages-carrier"
+  [ ! -s "$TMP_ROOT/pages-carrier" ] || fail "late re-landing must count: $(cat "$TMP_ROOT/pages-carrier")"
+  rm -f "$TMP_ROOT/emptyhome/config/curated-delivery-exceptions"
+  run_check "$TMP_ROOT/pages-timeout" FIXTURE_GH_HANG=1 FM_CHECK_TIMEOUT=5
+  assert_grep 'check incomplete' "$TMP_ROOT/pages-timeout" "unfinished enumeration is incomplete"
+  pass "curated-delivery: every merged page and late re-landing are considered; timeout is incomplete"
+}
+
+test_failed_refresh_suppresses_stale_ancestry() {
+  write_prs "$PR144" '[]'
+  printf 'lagged|%s|\nremote|~/x|behind\n' "$TMP_ROOT/home-old" > "$TMP_ROOT/homes"
+  run_check "$TMP_ROOT/refresh-failed" FIXTURE_FETCH_FAIL=1
+  assert_grep 'check incomplete: cannot refresh origin/curated' "$TMP_ROOT/refresh-failed" "failed refresh is incomplete"
+  assert_no_grep 'merged PR not on curated:' "$TMP_ROOT/refresh-failed" "stale PR verdict suppressed"
+  assert_no_grep 'home lagged:' "$TMP_ROOT/refresh-failed" "stale local home verdict suppressed"
+  assert_no_grep 'home remote:' "$TMP_ROOT/refresh-failed" "stale remote home verdict suppressed"
+  printf 'ok|%s|\n' "$TMP_ROOT/home-ok" > "$TMP_ROOT/homes"
+  pass "curated-delivery: a failed refresh never presents stale ancestry as current"
+}
+
 test_lists_merged_main_pr_not_on_curated
 test_clean_is_silent
 test_cherry_pick_trailer_counts_as_landed
@@ -175,3 +235,6 @@ test_since_baseline_ignores_older_prs
 test_open_pr_to_main_flagged_unless_labeled
 test_home_behind_is_flagged_and_remote_is_bounded
 test_gh_failure_is_reported_not_clean
+
+test_all_merged_pages_and_relanding_membership
+test_failed_refresh_suppresses_stale_ancestry

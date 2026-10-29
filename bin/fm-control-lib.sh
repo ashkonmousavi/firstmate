@@ -244,9 +244,8 @@ fm_control_quota_exhausted_signal() {  # <harness>
   case "$harness" in
     grok) printf '%s' '^[^[:alnum:]]*You hit your [[:alpha:]]+ limit' ;;
     cursor)
-      # $'\u2019' is the right single quotation mark some banners use for You're.
-      local apos=$'\u2019'
-      printf '%s' "^[^[:alnum:]]*(You['${apos}]re out of usage|You['${apos}]ve hit your [[:alpha:]]+ limit)"
+      local apos=$'\342\200\231'
+      printf '%s' "^[^[:alnum:]]*(You('|${apos})re out of usage|You('|${apos})ve hit your [[:alpha:]]+ limit)"
       ;;
     claude|codex|opencode|pi|pi-signed|omp|kimi|gemini|muse|rovo|agy|devin) ;;
     *) return 1 ;;

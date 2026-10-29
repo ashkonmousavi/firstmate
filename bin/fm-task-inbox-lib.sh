@@ -444,7 +444,7 @@ fm_task_inbox_usage_exhausted() {  # <backend> <target> <harness> [expected-labe
 # contract (bin/fm-control.sh do_exit), preserving the inbox for recovery.
 fm_task_inbox_release_exhausted() {  # <task-id>
   local status=0
-  "$_FM_TASK_INBOX_LIB_DIR/fm-control.sh" "$1" exit || status=$?
+  "$_FM_TASK_INBOX_LIB_DIR/fm-control.sh" "$1" exit --if-exhausted "${FM_TASK_INBOX_EXHAUSTED_GEN:-}" || status=$?
   [ "$status" -eq 0 ] || printf 'warning: exhausted task %s seat release failed (fm-control exit %s)\n' "$1" "$status" >&2
   return "$status"
 }
@@ -479,7 +479,11 @@ fm_task_inbox_idle_followup() {  # <state-dir> <task-id> <harness>
 }
 
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness]
-  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict inbox task
+  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict inbox task meta observed_gen
+  FM_TASK_INBOX_EXHAUSTED_GEN=
+  meta=${rec%/*}
+  meta=${meta%.inbox}.meta
+  observed_gen=$(fm_meta_get "$meta" spawn_gen 2>/dev/null) || observed_gen=
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;
   esac
@@ -487,6 +491,7 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [har
     return 2
   fi
   if fm_task_inbox_usage_exhausted "$backend" "$target" "$harness" "$label"; then
+    FM_TASK_INBOX_EXHAUSTED_GEN=$observed_gen
     return 4
   fi
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown

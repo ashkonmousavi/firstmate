@@ -164,7 +164,9 @@ case "${1:-}" in
       case "$a" in
         *cursor_y*)
           # A modelled Devin screen parks the cursor on its composer row.
-          if [ -f "$D/devin" ]; then
+          if [ -f "$D/cursor-y" ]; then
+            cat "$D/cursor-y"
+          elif [ -f "$D/devin" ]; then
             devin_screen "$(cat "$D/devin")" | awk '/^❭ /{ print NR - 1; exit }'
           else
             printf '1\n'
@@ -1147,6 +1149,13 @@ test_recorded_harness_capabilities() {
     signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
     printf '%s\n' "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue." \
       | grep -Eq -- "$signal" || fail "$harness missed Cursor's usage banner"
+    local banner
+    for banner in "You’re out of usage" "You’ve hit your weekly limit" "You've hit your weekly limit"; do
+      LC_ALL=C grep -Eq -- "$signal" <<< "$banner" || fail "$harness missed $banner in the C locale"
+    done
+    for banner in $'You\342re out of usage' $'You\200ve hit your weekly limit' "Youâre out of usage"; do
+      LC_ALL=C grep -Eq -- "$signal" <<< "$banner" && fail "$harness accepted a partial UTF-8 apostrophe"
+    done
     printf '%s\n' "The log quoted You're out of usage in a sentence." \
       | grep -Eq -- "$signal" && fail "$harness mistook a quotation for exhaustion"
   done
@@ -1170,6 +1179,47 @@ test_exhausted_release_failure_is_reported() {
   [ "$rc" -ne 0 ] || fail "a failed lifecycle release claimed success"
   assert_contains "$out" 'exhausted task missing seat release failed' "release failure must be reported"
   pass "exhausted seat release failures propagate and report lifecycle failure"
+}
+
+test_exhausted_release_revalidates_incarnation_and_banner() {
+  local dir mode out rc rec
+  for mode in exhausted replaced recovered unrecorded; do
+    dir=$(new_case "release-$mode")
+    add_task "$dir" t1 cursor
+    alive_as "$dir" cursor-agent
+    printf 'spawn_gen=observed\n' >> "$dir/home/state/t1.meta"
+    mkdir -p "$dir/home/state/t1.inbox"
+    rec="$dir/home/state/t1.inbox/001.msg"
+    printf 'retain this instruction\n' > "$rec"
+    printf "You're out of usage\n╭────╮\n│    │\n╰────╯\n" > "$dir/fake/pane"
+    printf '2\n' > "$dir/fake/cursor-y"
+    out=$(PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+      FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 bash -c '
+        . "$1/bin/fm-task-inbox-lib.sh"
+        fm_task_inbox_ring tmux fmses:fm-t1 "$2/home/state/t1.inbox/001.msg" fm-t1 cursor
+        [ "$?" = 4 ] || exit 90
+        case "$3" in
+          replaced) sed "s/spawn_gen=observed/spawn_gen=replacement/" "$2/home/state/t1.meta" > "$2/new.meta"; mv "$2/new.meta" "$2/home/state/t1.meta" ;;
+          recovered) printf "╭────╮\n│    │\n╰────╯\n" > "$2/fake/pane"; printf "1\n" > "$2/fake/cursor-y" ;;
+          unrecorded) FM_TASK_INBOX_EXHAUSTED_GEN= ;;
+        esac
+        fm_task_inbox_release_exhausted t1
+      ' _ "$ROOT" "$dir" "$mode" 2>&1); rc=$?
+    [ -f "$rec" ] || fail "release lost the durable instruction"
+    case "$mode" in
+      exhausted)
+        expect_code 0 "$rc" "same exhausted incarnation must stop: $out"
+        [ "$(literals "$dir")" = /exit ] || fail "exhausted release did not use the exit command"
+        [ "$(cat "$dir/fake/command")" = zsh ] || fail "exhausted agent stayed alive"
+        ;;
+      *)
+        [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail "$mode recovery typed into an unqualified worker"
+        [ "$(cat "$dir/fake/command")" = cursor-agent ] || fail "$mode recovery stopped a healthy or unobserved worker"
+        if [ "$mode" = unrecorded ]; then [ "$rc" -ne 0 ] || fail "missing incarnation must refuse"; else expect_code 0 "$rc" "$mode recovery is a no-op: $out"; fi
+        ;;
+    esac
+  done
+  pass "exhausted release stops only the observed, still-exhausted incarnation and preserves its inbox"
 }
 
 # --- 6. marker non-regression -----------------------------------------------
@@ -1301,5 +1351,6 @@ test_grok_interrupt_without_acknowledgement_reports_unconfirmed
 test_grok_idle_footer_does_not_confirm_cancellation
 test_recorded_harness_capabilities
 test_exhausted_release_failure_is_reported
+test_exhausted_release_revalidates_incarnation_and_banner
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task
