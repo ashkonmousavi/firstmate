@@ -969,6 +969,8 @@ SH
     FM_BOOTSTRAP_NETWORK_LOCK_PID=111111 FM_FAKE_FLEET_SYNC_STARTED_MARKER="$marker" \
     "$ROOT/bin/fm-bootstrap.sh")
   assert_absent "$marker" "a stale worker refreshed project clones after lock handoff"
+  assert_contains "$out" "changed before dead-crewmate relaunch" \
+    "the stale worker did not report the refused crew recovery sweep"
   assert_contains "$out" "changed before dead-secondmate relaunch" \
     "the stale worker did not report the refused liveness sweep"
   assert_contains "$out" "changed before secondmate convergence" \
@@ -1022,6 +1024,7 @@ test_network_phases_record_per_step_elapsed_times() {
 
   assert_present "$log" "the network phase recorded no elapsed times at all"
   assert_timing_record "$log" phase gh-auth '' "the GitHub auth probe was not timed"
+  assert_timing_record "$log" phase crew-recovery '' "the dead-crewmate relaunch sweep was not timed"
   assert_timing_record "$log" phase secondmate-liveness '' "the dead-secondmate relaunch sweep was not timed"
   assert_timing_record "$log" phase secondmate-sync '' "the secondmate convergence sweep was not timed"
   assert_timing_record "$log" phase handoff-delivery '' "the pending handoff sweep was not timed"
