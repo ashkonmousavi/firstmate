@@ -1,0 +1,52 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+GUARDS: clean, captain-held, foreign meta and linked status must not recover
+NEEDS_GH_AUTH
+PASS: ineligible records untouched; work preserved
+ABSENCE generation=missing rc=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+error: task absence-task's endpoint guard-session:fm-absence-task reads 'missing', but tmux absence cannot be proven from a task record: the record does not carry the endpoint's socket identity, and a server-wide window inventory only describes the tmux server this process addresses, so a window absent from it may still be alive on another; exit will not claim an agent stopped at an address it cannot trust, nor send lifecycle input to one
+error: relaunch of absence-task failed while stopping the old agent and its state is 'missing', so it was not proven stopped; its original instructions were restored and the durable record was retained for recovery
+ABSENCE generation=broken rc=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+error: task absence-task's endpoint guard-session:fm-absence-task reads 'missing', but tmux absence cannot be proven from a task record: the record does not carry the endpoint's socket identity, and a server-wide window inventory only describes the tmux server this process addresses, so a window absent from it may still be alive on another; exit will not claim an agent stopped at an address it cannot trust, nor send lifecycle input to one
+error: relaunch of absence-task failed while stopping the old agent and its state is 'missing', so it was not proven stopped; its original instructions were restored and the durable record was retained for recovery
+ABSENCE generation=s1793282327.1.1 rc=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+error: task absence-task's endpoint guard-session:fm-absence-task reads 'missing', but tmux absence cannot be proven from a task record: the record does not carry the endpoint's socket identity, and a server-wide window inventory only describes the tmux server this process addresses, so a window absent from it may still be alive on another; exit will not claim an agent stopped at an address it cannot trust, nor send lifecycle input to one
+error: relaunch of absence-task failed while stopping the old agent and its state is 'missing', so it was not proven stopped; its original instructions were restored and the durable record was retained for recovery
+ABSENCE generation=s999999999999.1.1 rc=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+error: task absence-task's endpoint guard-session:fm-absence-task reads 'missing', but tmux absence cannot be proven from a task record: the record does not carry the endpoint's socket identity, and a server-wide window inventory only describes the tmux server this process addresses, so a window absent from it may still be alive on another; exit will not claim an agent stopped at an address it cannot trust, nor send lifecycle input to one
+error: relaunch of absence-task failed while stopping the old agent and its state is 'missing', so it was not proven stopped; its original instructions were restored and the durable record was retained for recovery
+PASS: uncertain absence refused without altering metadata
+PHASE_BOUNDARY detect-only
+NEEDS_GH_AUTH
+PHASE_BOUNDARY stale-lock
+NEEDS_GH_AUTH
+NETWORK_CHECKS: the recorded fleet lock holder changed before project clone refresh, so this stale worker skipped that sweep
+NETWORK_CHECKS: the recorded fleet lock holder changed before dead-crewmate relaunch, so this stale worker skipped that sweep
+NETWORK_CHECKS: the recorded fleet lock holder changed before dead-secondmate relaunch, so this stale worker skipped that sweep
+NETWORK_CHECKS: the recorded fleet lock holder changed before secondmate convergence, so this stale worker skipped that sweep
+NETWORK_CHECKS: the recorded fleet lock holder changed before pending handoff delivery, so this stale worker skipped that sweep
+PASS: detect-only and stale deferred workers cannot relaunch
+DIRECT_CAPACITY rc=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt/config/lane-capacity: lanes=0 target=0; no free machine lane; task a-first stays queued
+error: a-first's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt/dirty
+CAPACITY: zero lanes defers first attempt and leaves later tasks for next pass
+NEEDS_GH_AUTH
+CREW_RECOVERY: a-first: relaunch deferred after missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+PASS: capacity stops serial recovery
+DIRECT_FAILURE rc=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+error: task a-first records harness 'invalid-harness', which has no verified control mechanics; fm-control refuses to guess an interrupt key or exit command
+FAILURE_BOUND: invalid recorded harness stops at first launch failure
+NEEDS_GH_AUTH
+CREW_RECOVERY: a-first: relaunch failed after missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+NEXT_PASS: once first copy is clean, second retained task is attempted
+NEEDS_GH_AUTH
+CREW_RECOVERY: b-next: relaunch failed after missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.6QYYQt
+PASS: failures preserve records and work for the next pass
+GUARDS_CLEANUP exit=0

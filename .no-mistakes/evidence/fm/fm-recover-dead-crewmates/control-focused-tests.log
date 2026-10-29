@@ -1,0 +1,8 @@
+ok - rebooted tmux ship and scout recovery preserves work through control and spawn
+ok - missing malformed future and current-boot generations never prove tmux absence
+ok - recovery respects active parked terminal and unreadable attributed runs
+ok - a done-before-validation worker resumes its unpublished commits after reboot
+ok - serial recovery rereads capacity and stops at the first deferred launch
+ok - recovery skips a task relaunched since startup discovery
+ok - recovery locks eligibility through replacement and releases the lifecycle lock
+ok - conditional recovery rechecks the task kind, record, and unlanded work

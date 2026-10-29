@@ -1,0 +1,28 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.pX4jo6
+REAL_HARNESS_LOCK anchor=3815402
+DEFERRED_STAGE: real foreground stage runner, preserved lock owner, zero admission lanes
+completed off the startup path in 8s: GitHub authentication, dead-secondmate relaunch, dead-crewmate relaunch, secondmate convergence, pending handoff delivery, project clone refresh with its drift reporting, and inactive terminal-outcome reconciliation.
+NEEDS_GH_AUTH
+CREW_RECOVERY: a-first: relaunch deferred after missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.pX4jo6
+These ran AFTER the sections above were composed, so re-read any record a line here names.
+TIMINGS - where the deferred network checks spent their time (ms):
+  phase       gh-auth                                    start=+371     elapsed=39
+  phase       secondmate-liveness                        start=+417     elapsed=4
+  phase       secondmate-sync                            start=+424     elapsed=12
+  phase       handoff-delivery                           start=+439     elapsed=0
+  phase       fleet-sync                                 start=+414     elapsed=0
+  phase       crew-recovery                              start=+415     elapsed=7443
+  stage       network-checks probe_sweeps                start=+137     elapsed=8144
+  slowest: stage network-checks probe_sweeps 8144ms, phase crew-recovery 7443ms, phase gh-auth 39ms
+state=done
+pid=258344
+started=1793282555
+finished=1793282563
+rc=0
+locked=1
+phases=probe,sweeps
+generation=1793282555.258344.manual
+lock_pid=3815402
+report_published=1
+PASS: real deferred startup stage publishes bounded recovery outcome
+GUARDS_CLEANUP exit=0

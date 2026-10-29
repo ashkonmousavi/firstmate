@@ -1,0 +1,55 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.IfbuhF
+BEFORE: real isolated tmux socket has no server
+error connecting to /tmp/fml.AwuAQw/tmux-1000/fm-lab (No such file or directory)
+BEFORE: task reconciliation
+state: unknown · source: none · backend target gone: lab-recovered:fm-recovery-lab-4095759
+RECOVERY: deferred startup phase
+NEEDS_GH_AUTH
+CREW_RECOVERY: relaunched recovery-lab-4095759 after missing
+AFTER: persisted task metadata
+window=lab-recovered:fm-recovery-lab-4095759
+endpoint_task_id=recovery-lab-4095759
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.IfbuhF/copy
+project=~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.IfbuhF/projects/sample
+harness=codex
+kind=scout
+tasktmp=/tmp/fm-recovery-lab-4095759
+model=gpt-6.1-sol
+effort=low
+spawn_gen=s1793282184.4097725.2679
+control_relaunch_tx=4096574.20261029T135624Z.27051
+AFTER: real tmux endpoints
+lab-recovered:bash bash ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB 80x24
+lab-recovered:fm-recovery-lab-4095759 node ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.IfbuhF/copy 80x24
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST
+  RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+• I’ll check the instruction inbox, then read unlanded.txt without changing it.
+
+• Ran find '~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A…
+  └ (no output)
+    + Show details
+
+• Explored
+  └ Read unlanded.txt
+    + Show details
+
+• RECOVERY_READY
+
+  Worked for 13s • 06:56
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol low · ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X…
+  ? for shortcuts                                      ⚠ 1 warning · f2 to view
+AFTER: preserved unlanded file
+PRESERVE-THIS-UNLANDED-WORK
+SECOND PASS: healthy replacement must stay unchanged
+NEEDS_GH_AUTH
+HEALTHY_METADATA_UNCHANGED
+bash @0
+fm-recovery-lab-4095759 @1
+LAB_CLEANUP exit=0

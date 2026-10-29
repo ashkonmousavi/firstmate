@@ -1,0 +1,32 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.yoiixK
+REAL_STATUS: reading disposable persisted records; no daemon or pipeline was started
+run:
+  id: "01K00000000000000000000001"
+  branch: dirty
+  status: running
+  head: 2ef7a638
+  head_sha: 2ef7a638977e7fbc8d5ed42d32430050511f9014
+  verification_plan: none
+  findings: none
+  steps[1]{step,status,findings,duration_ms}:
+    review,fix_review,0,0
+gate:
+  step: review
+  status: fix_review
+  note: "Review auto-fix is disabled by default (`auto_fix.review: 0`; a repo or global `auto_fix.review > 0` override re-enables it), so blocking and ask-user review findings park for your decision rather than being silently self-fixed."
+  findings[0]:
+help[2]: The explicitly selected gate for run 01K00000000000000000000001 is inspection-only here; respond with `no-mistakes axi respond --run 01K00000000000000000000001 --action approve|fix|skip`,Run `no-mistakes axi logs --run 01K00000000000000000000001 --step review --full` to read the complete step summary and log
+RECONCILIATION status=running
+state: parked · source: run-step · parked at review: 0 finding(s) · run: 01K00000000000000000000001
+CONTROL rc=3 fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.yoiixK
+NEEDS_GH_AUTH
+RECONCILIATION status=completed
+state: parked · source: run-step · parked at review: 0 finding(s) · run: 01K00000000000000000000001
+CONTROL rc=3 fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.yoiixK
+NEEDS_GH_AUTH
+RECONCILIATION status=failed
+state: parked · source: run-step · parked at review: 0 finding(s) · run: 01K00000000000000000000001
+CONTROL rc=3 fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.yoiixK
+NEEDS_GH_AUTH
+PASS: active, parked and terminal attributed run records block recovery using the real status CLI
+GUARDS_CLEANUP exit=0

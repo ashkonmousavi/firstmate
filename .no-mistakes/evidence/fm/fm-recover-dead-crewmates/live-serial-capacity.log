@@ -1,0 +1,58 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.uxTaJj
+BEFORE: real isolated tmux socket has no server
+error connecting to /tmp/fml.SX4gnO/tmux-1000/fm-lab (No such file or directory)
+BEFORE: task reconciliation
+state: unknown · source: none · backend target gone: lab-recovered:fm-recovery-lab-66112
+RECOVERY: deferred startup phase
+NEEDS_GH_AUTH
+CREW_RECOVERY: relaunched recovery-lab-66112 after missing
+CREW_RECOVERY: z-next: relaunch deferred after missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.uxTaJj
+SERIAL_CAPACITY: first real agent launched; next deferred; third untouched
+AFTER: persisted task metadata
+window=lab-recovered:fm-recovery-lab-66112
+endpoint_task_id=recovery-lab-66112
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.uxTaJj/copy
+project=~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.uxTaJj/projects/sample
+harness=codex
+kind=scout
+tasktmp=/tmp/fm-recovery-lab-66112
+model=gpt-6.1-sol
+effort=low
+spawn_gen=s1793282356.67175.24690
+control_relaunch_tx=66554.20261029T135916Z.29093
+AFTER: real tmux endpoints
+lab-recovered:bash bash ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB 80x24
+lab-recovered:fm-recovery-lab-66112 node ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.uxTaJj/copy 80x24
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST
+  RADIUS.
+  <!-- fm-pr-overlap:end -->
+
+
+• I’ll check the instruction inbox, then read unlanded.txt and preserve it.
+
+• Ran find '~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A…
+  └ (no output)
+    + Show details
+
+• Explored
+  └ Read unlanded.txt
+    + Show details
+
+• RECOVERY_READY
+
+  Worked for 13s • 06:59
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol low · ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X…
+  ? for shortcuts                                      ⚠ 1 warning · f2 to view
+AFTER: preserved unlanded file
+PRESERVE-THIS-UNLANDED-WORK
+SECOND PASS: healthy replacement must stay unchanged
+NEEDS_GH_AUTH
+CREW_RECOVERY: z-next: relaunch deferred after missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/lab.uxTaJj
+HEALTHY_METADATA_UNCHANGED
+bash @0
+fm-recovery-lab-66112 @1
+LAB_CLEANUP exit=0

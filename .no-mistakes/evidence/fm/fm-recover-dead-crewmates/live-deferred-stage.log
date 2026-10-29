@@ -1,0 +1,21 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.7pRqhi
+DEFERRED_STAGE: real foreground stage runner, preserved lock owner, zero admission lanes
+completed off the startup path in 1s: GitHub authentication.
+NEEDS_GH_AUTH
+NETWORK_CHECKS: the recorded fleet lock holder changed after these were requested, so dead-secondmate relaunch, dead-crewmate relaunch, secondmate convergence, pending handoff delivery, and project clone refresh were skipped; they belong to whichever session holds the lock now
+These ran AFTER the sections above were composed, so re-read any record a line here names.
+TIMINGS - where the deferred network checks spent their time (ms):
+  phase       gh-auth                                    start=+536     elapsed=74
+  stage       network-checks probe                       start=+180     elapsed=436
+  slowest: stage network-checks probe 436ms, phase gh-auth 74ms
+state=done
+pid=171220
+started=1793282479
+finished=1793282480
+rc=0
+locked=0
+phases=probe
+generation=1793282479.171220.manual
+lock_pid=170997
+report_published=1
+GUARDS_CLEANUP exit=1

@@ -1,0 +1,30 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.qWnXSD
+REAL_STATUS: reading disposable persisted records; no daemon or pipeline was started
+run:
+  id: "01K00000000000000000000001"
+  branch: dirty
+  status: fix_review
+  head: 67a76f55
+  head_sha: 67a76f5566f90ce1f4da26f9e01fbd76b53fbf21
+  verification_plan: none
+  findings: none
+  steps[1]{step,status,findings,duration_ms}:
+    review,needs_decision,0,0
+RECONCILIATION status=fix_review
+state: unknown · source: run-step · unrecognized run status; run ids: 01K00000000000000000000001; last reported run id: 01K00000000000000000000001
+CONTROL rc=3 fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.qWnXSD
+NEEDS_GH_AUTH
+RECONCILIATION status=running
+state: working · source: run-step · validating (running) · run: 01K00000000000000000000001
+CONTROL rc=3 fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.qWnXSD
+NEEDS_GH_AUTH
+RECONCILIATION status=completed
+state: done · source: run-step · run passed: PR state unknown (no PR identity) · run: 01K00000000000000000000001
+CONTROL rc=3 fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.qWnXSD
+NEEDS_GH_AUTH
+RECONCILIATION status=failed
+state: failed · source: run-step · run failed · run: 01K00000000000000000000001
+CONTROL rc=3 fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M63VRJ4X60FN2Q5A00KHKAPB/.test-recovery-tmp/guards.qWnXSD
+NEEDS_GH_AUTH
+PASS: active, parked and terminal attributed run records block recovery using the real status CLI
+GUARDS_CLEANUP exit=0

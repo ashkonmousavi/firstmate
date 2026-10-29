@@ -1,0 +1,1 @@
+All recorded lab servers and agent panes stopped. Private socket directories removed by fm-lab-home teardown. Disposable homes, status-reader database, generated hooks, and worktree test drivers removed. Per-task temp roots emitted by the four live launches removed.
