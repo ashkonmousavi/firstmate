@@ -1,0 +1,38 @@
+{
+  "scope": "Configuration-only supporting checks; not a live no-mistakes run or hosted CI execution",
+  "oracle": "Accepted R1 decision: explicit successful no-op, no local fm-lint, retained hosted lint and Pi coverage",
+  "reference": "https://kunchenguid.github.io/no-mistakes/reference/repo-config/#commandslint",
+  "parsed_commands": {
+    "lint": ":"
+  },
+  "shell_probe": {
+    "argv": [
+      "/bin/sh",
+      "-xc",
+      ":"
+    ],
+    "PATH": "",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "+ :\n",
+    "created_files": []
+  },
+  "other_configuration_semantics": "identical to base",
+  "hosted_workflow_semantics": "identical to base",
+  "hosted_lint_partitions": [
+    1,
+    2
+  ],
+  "hosted_lint_command": "set -eu\nmkdir -p \"$RUNNER_TEMP/fm-lint\"\nbin/fm-lint.sh --partition \"${{ matrix.partition }}of${{ strategy.job-total }}\" \\\n  --telemetry \"$RUNNER_TEMP/fm-lint/partition-${{ matrix.partition }}.tsv\"\n",
+  "pi_lane_command": "set -eu\nmkdir -p \"$RUNNER_TEMP/fm-test\"\nbin/fm-test-run.sh --lane portable-parallel-1 \\\n  --fail-on-gate-skip 'Pi extension typecheck prerequisite not found' \\\n  --json \"$RUNNER_TEMP/fm-test/fm-test-timing-portable-parallel-1.json\"\n",
+  "pi_selection_argv": [
+    "bash",
+    "bin/fm-test-run.sh",
+    "--list",
+    "--lane",
+    "portable-parallel-1"
+  ],
+  "pi_selection_exit_code": 0,
+  "pi_selection_stdout": "tests/fm-pr-merge.test.sh\ntests/fm-lint.test.sh\ntests/fm-backend-herdr.test.sh\ntests/fm-x-mode.test.sh\ntests/fm-cd-pretool-check.test.sh\ntests/fm-composer-lib.test.sh\ntests/fm-send-popup-settle.test.sh\ntests/fm-pi-primary-types.test.sh\ntests/fm-review-diff.test.sh\ntests/fm-send-settle.test.sh\ntests/fm-ensure-agents-md.test.sh\ntests/fm-supervision-instructions.test.sh\ntests/fm-transition-lib.test.sh\n",
+  "pi_selection_stderr": ""
+}
