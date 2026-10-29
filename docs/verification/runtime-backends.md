@@ -628,12 +628,15 @@ None of these three runs ever answered its dialog (Escape only, never Enter), so
 ## Claude background exit
 
 Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
-Choosing the handoff leaves a background session that `claude agents --json` lists with `kind: background` and the session's cwd, outside every lane.
-`bin/fm-spawn.sh` launches every Claude worker and secondmate with `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1`, and `bin/fm-control.sh exit` afterwards stops any background session whose cwd is exactly the task worktree with `claude rm <id>`.
+Choosing the handoff leaves a background session that `claude agents --json --all` lists with `kind: background` and the session's cwd, outside every lane.
+`bin/fm-spawn.sh` applies `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1` at the shared environment boundary for canonical and raw Claude worker and secondmate launches.
+Raw assignments cannot disable either safeguard, and inherited values are overridden.
+`bin/fm-control.sh exit` lists sessions with `claude agents --json --all` and removes any background session whose cwd is exactly the task worktree with `claude rm <id>`, including stopped and completed records that may retain carried work.
 `tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
 The control arm, with no switch, is offered `Move to background and exit`, takes it, and must find a background session for its folder, so the guard fails rather than passing vacuously.
 The switched arm, with the launch environment, must not be offered the handoff, must end the process, and must leave no background session.
-The backstop arm respawns the control session, proves the session PID changed while its original shell survived, removes that exact session with `claude rm`, and checks both listing disappearance and shell termination.
+The backstop arm respawns the control session, proves the session PID changed while its original shell survived, stops the session, and confirms its stopped record remains in `agents --json --all` while the shell survives.
+It then removes that exact session with `claude rm` and checks both listing disappearance and shell termination.
 The vendor's [supervisor lifecycle contract](https://code.claude.com/docs/en/agent-view#the-supervisor-process) makes session deletion the boundary that stops carried work from earlier process incarnations.
 Firstmate creates the matched worktree itself; the vendor's [deletion contract](https://code.claude.com/docs/en/agent-view#what-deleting-a-session-removes) preserves a caller-created worktree and the conversation transcript.
 A refused removal fails cleanup without forcing worktree deletion.
@@ -643,7 +646,7 @@ An unpinned raw command must use a literal absolute `CLAUDE_CONFIG_DIR` or an em
 
 | Class axis | Covered paths and evidence | Validation handoff |
 | --- | --- | --- |
-| Task and home | Ship, scout, and local secondmate records use the same exit/relaunch boundary; remote secondmates route to their owning home | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh` |
+| Task and home | Canonical and raw ship, scout, and local secondmate launches share prevention; their records use the same exit/relaunch boundary; remote secondmates route to their owning home | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh` |
 | Account | Pinned directory, ordinary, ambient, and literal raw overrides; quoted, empty, and final repeated assignments | `tests/fm-worker-account.test.sh`; compare the executed worker environment with persisted metadata |
 | Lifecycle | Current session, exited process, reparented work, respawned session, removal refusal, and surviving listing | Deterministic control regressions plus the live guard's respawn arm |
 | Harness and backend | Cleanup is gated to Claude; tmux and Herdr permit stop-proving verbs; other runtime backends refuse those verbs | Control capability regressions; other harnesses do not enter Claude cleanup |

@@ -53,7 +53,7 @@
 #              cannot see.
 #              A Claude exit has one more postcondition. Claude Code moves a
 #              session with background work into a background session instead
-#              of exiting, so afterwards `claude agents --json` is read under
+#              of exiting, so afterwards `claude agents --json --all` is read under
 #              the worker's account (agent view enabled), and any background
 #              session whose cwd is exactly this worktree is ended with
 #              `claude rm <id>`. The line ends `background-sessions=none`,
@@ -706,7 +706,7 @@ claude_bg_prepare() {
 }
 
 claude_bg_list() {
-  fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" claude agents --json </dev/null 2>/dev/null
+  fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" claude agents --json --all </dev/null 2>/dev/null
 }
 
 # exit_background_check: after a Claude exit, end any background session of this
@@ -715,7 +715,7 @@ claude_bg_list() {
 exit_background_check() {
   local json ids remaining id stopped=() i unverified
   [ "$HARNESS" = claude ] || return 0
-  unverified="❌ task $ID: the Claude background-session check failed (claude agents --json), so a background session running in $WT cannot be ruled out; list it with 'claude agents --json --cwd $WT' and stop it with 'claude rm <id>'"
+  unverified="❌ task $ID: the Claude background-session check failed (claude agents --json --all), so a background session running in $WT cannot be ruled out; list it with 'claude agents --json --all --cwd $WT' and stop it with 'claude rm <id>'"
   if ! claude_bg_prepare || ! json=$(claude_bg_list) || ! ids=$(fm_control_claude_bg_ids "$WT" "$json"); then
     echo "$unverified" >&2
     printf 'background-sessions=unverified'
@@ -740,7 +740,7 @@ exit_background_check() {
     sleep "$POLL"
   done
   [ -z "$remaining" ] \
-    || die "task $ID's Claude exit left background session(s) running in $WT after 'claude rm': ${remaining//$'\n'/ } - they keep running outside every lane; remove them with 'claude rm <id>' and check 'claude agents --json --cwd $WT'"
+    || die "task $ID's Claude exit left background session(s) running in $WT after 'claude rm': ${remaining//$'\n'/ } - they keep running outside every lane; remove them with 'claude rm <id>' and check 'claude agents --json --all --cwd $WT'"
   printf 'background-sessions=stopped:%s' "$(IFS=,; printf '%s' "${stopped[*]}")"
 }
 

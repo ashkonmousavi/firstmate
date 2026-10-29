@@ -391,6 +391,24 @@ test_raw_claude_account_metadata_matches_the_executed_environment() {
   pass "raw Claude account metadata matches quoted, empty, and final assignments and refuses unresolved roots"
 }
 
+test_raw_claude_cannot_disable_managed_background_safeguards() {
+  local pin variable id out rc
+  for pin in absent present; do
+    for variable in CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF CLAUDE_CODE_DISABLE_AGENT_VIEW; do
+      id="guard-$pin-$variable"
+      new_case "$id" claude
+      if [ "$pin" = present ]; then
+        signed_in_claude_root "$CASE/work"
+        printf '%s\n' "$CASE/work" > "$HOME_DIR/config/claude-account"
+      fi
+      out=$(spawn_ship "$id" --harness "$variable=0 claude --model haiku"); rc=$?
+      expect_code 1 "$rc" "a raw command cannot disable a managed safeguard"
+      assert_refused_before_launch "$id" "$out" "managed Claude launches require $variable=1"
+    done
+  done
+  pass "raw Claude commands cannot disable either safeguard with or without an account pin"
+}
+
 test_local_secondmate_reads_the_launching_home_pin() {
   local out rc id=acct-sm sm
   new_case secondmate claude
@@ -532,6 +550,7 @@ test_raw_claude_command_receives_the_pin
 test_raw_claude_account_override_refuses_under_a_pin
 test_raw_claude_account_override_is_kept_without_a_pin
 test_raw_claude_account_metadata_matches_the_executed_environment
+test_raw_claude_cannot_disable_managed_background_safeguards
 test_local_secondmate_reads_the_launching_home_pin
 
 echo "# all fm-worker-account tests passed"

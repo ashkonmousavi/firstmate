@@ -63,7 +63,8 @@ The controls are scoped to the launched process and never modify the captain's g
 ## Background exit
 
 `/exit` on a Claude session with background work offers `Move to background and exit`, which leaves a background session running outside every lane.
-The spawn launches every Claude worker and secondmate with `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1`, and `fm-control.sh exit` ends any background session whose cwd is exactly the task worktree, reporting `background-sessions=none`, `stopped:<ids>`, or `unverified`.
+The shared launch-environment boundary in `../../../../../bin/fm-spawn.sh` applies `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1` to canonical and raw Claude worker and secondmate launches.
+`fm-control.sh exit` lists retained sessions with `claude agents --json --all` and removes each background session whose cwd is exactly the task worktree, reporting `background-sessions=none`, `stopped:<ids>`, or `unverified`.
 `../../../../../bin/fm-control.sh` and `../../../../../bin/fm-control-lib.sh` own the mechanics, and `../../../../../docs/verification/runtime-backends.md` under "Claude background exit" owns the dated live result.
 A Haiku Claude ship or scout launch also carries `--advisor 'opus'`; `launch_template()` and the `MODELFLAG` assembly in `../../../../../bin/fm-spawn.sh` own that rule.
 

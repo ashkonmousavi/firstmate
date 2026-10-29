@@ -279,7 +279,7 @@ fm_control_exit_command() {  # <harness>
 # predate it or slip past it.
 #
 # fm_control_claude_bg_ids <worktree> <agents-json>
-# Reads the `claude agents --json` array on the second argument and prints the
+# Reads the `claude agents --json --all` array on the second argument and prints the
 # id of each BACKGROUND session whose cwd is exactly <worktree> (trailing
 # slashes and the physical path of the worktree are equivalent), one per line.
 # Interactive sessions, a different worktree, and a cwd merely nested under

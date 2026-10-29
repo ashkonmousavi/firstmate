@@ -628,28 +628,45 @@ test_claude_threads_model_and_effort() {
 # carries both documented switches in its environment prefix
 # (https://code.claude.com/docs/en/agent-view.md, env-vars.md).
 test_claude_launches_disable_background_exit_handoff_and_agent_view() {
-  local rec id out status launch sm kind
-  for kind in ship scout secondmate; do
-    id="bgexit-$kind-z31"
-    rec=$(make_spawn_case "bgexit-$kind" claude "$id")
-    read_case_record "$rec"
-    case "$kind" in
-      ship) out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR") ;;
-      scout) out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout) ;;
-      secondmate)
-        sm="$CASE_DIR/secondmate-home"
-        make_seeded_secondmate_home "$sm" "$id"
-        out=$(FM_TEST_CLAUDE_CONFIG_DIR="$CASE_DIR/claude-work" \
-          run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate)
-        ;;
-    esac
-    status=$?
-    expect_code 0 "$status" "claude $kind spawn should succeed"$'\n'"$out"
-    launch=$(cat "$LAUNCH_LOG")
-    assert_contains "$launch" "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 " "$kind launch must stop /exit from backgrounding the session"
-    assert_contains "$launch" "CLAUDE_CODE_DISABLE_AGENT_VIEW=1 " "$kind launch must disable background agents"
+  local rec id out status launch sm kind form executable
+  local -a harness_args
+  for form in canonical raw prefixed; do
+    for kind in ship scout secondmate; do
+      id="bgexit-$form-$kind-z31"
+      rec=$(make_spawn_case "bgexit-$form-$kind" claude "$id")
+      read_case_record "$rec"
+      executable=claude
+      harness_args=()
+      case "$form" in
+        raw) harness_args=(--harness 'claude --model haiku') ;;
+        prefixed) executable=claude-custom; harness_args=(--harness 'claude-custom --model haiku') ;;
+      esac
+      case "$kind" in
+        ship) out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" "${harness_args[@]}") ;;
+        scout) out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout "${harness_args[@]}") ;;
+        secondmate)
+          sm="$CASE_DIR/secondmate-home"
+          make_seeded_secondmate_home "$sm" "$id"
+          out=$(FM_TEST_CLAUDE_CONFIG_DIR="$CASE_DIR/claude-work" \
+            run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate "${harness_args[@]}")
+          ;;
+      esac
+      status=$?
+      expect_code 0 "$status" "claude $form $kind spawn should succeed"$'\n'"$out"
+      launch=$(cat "$LAUNCH_LOG")
+      cat > "$FAKEBIN_DIR/$executable" <<'SH'
+#!/usr/bin/env bash
+printf 'handoff=%s\nview=%s\n' "${CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF-unset}" "${CLAUDE_CODE_DISABLE_AGENT_VIEW-unset}" > "$FM_BG_ENV_LOG"
+SH
+      chmod +x "$FAKEBIN_DIR/$executable"
+      env -i HOME="$CASE_DIR" PATH="$FAKEBIN_DIR:$PATH" TERM=xterm FM_BG_ENV_LOG="$CASE_DIR/worker-env" \
+        CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=0 CLAUDE_CODE_DISABLE_AGENT_VIEW=0 \
+        bash -c "$launch" || fail "the emitted $form $kind launch could not execute"
+      grep -Fxq 'handoff=1' "$CASE_DIR/worker-env" || fail "$form $kind did not disable exit handoff"
+      grep -Fxq 'view=1' "$CASE_DIR/worker-env" || fail "$form $kind did not disable agent view"
+    done
   done
-  pass "every claude launch disables the /exit background handoff and agent view"
+  pass "executed canonical and raw Claude launches receive both safeguards for every task kind"
 }
 
 # A Haiku worker runs with an Opus advisor (https://code.claude.com/docs/en/advisor:
@@ -1617,7 +1634,7 @@ test_claude_forwards_firstmate_config_dir_when_set() {
   status=$?
   expect_code 0 "$status" "claude spawn with CLAUDE_CONFIG_DIR set should succeed"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}'" \
+  assert_contains "$launch" "CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}'" \
     "claude launch did not forward firstmate's CLAUDE_CONFIG_DIR to the crewmate pane"
   pass "claude forwards firstmate's CLAUDE_CONFIG_DIR so the crewmate uses the same credential store"
 }
@@ -2241,7 +2258,7 @@ claude_expected_launch() {  # <launch> <home> <id> <permission-flag>
   [ "$(printf '%s' "$doorbell" | "$ROOT/bin/fm-operational-input.sh" doorbell-kind)" = launch-brief ] \
     || doorbell="not a launch-brief doorbell"
   quoted="'$(printf '%s' "$doorbell" | sed "s/'/'\\\\''/g")'"
-  printf '%s' "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(fm_test_launch_git_prefix "$1")env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
+  printf '%s' "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(fm_test_launch_git_prefix "$1")env -u CLAUDE_CONFIG_DIR env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
 }
 
 test_claude_permission_mode_bypass_matches_absent_launch() {

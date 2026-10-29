@@ -231,7 +231,11 @@ printf '%s\tCLAUDE_CONFIG_DIR=%s\tAGENT_VIEW=%s\n' "$*" "${CLAUDE_CONFIG_DIR-<un
 case "${1:-}" in
   agents)
     [ -z "${FM_FAKE_CLAUDE_AGENTS_FAIL:-}" ] || { echo "claude agents: simulated failure" >&2; exit 1; }
-    if [ -f "$D/agents.json" ]; then cat "$D/agents.json"; else echo '[]'; fi
+    if [ ! -f "$D/agents.json" ]; then echo '[]'; exit 0; fi
+    case " $* " in
+      *' --all '*) cat "$D/agents.json" ;;
+      *) jq 'map(select(.state != "done" and .state != "failed" and .state != "stopped"))' "$D/agents.json" ;;
+    esac
     exit 0 ;;
   stop|rm)
     printf '%s\n' "${2:-}" >> "$D/claude-stops"
@@ -502,14 +506,28 @@ SH
 }
 
 test_claude_exit_removes_a_session_without_a_live_pid() {
-  local dir out rc
-  dir=$(new_case bg-no-pid)
-  add_task "$dir" t1 claude
-  set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" | jq 'del(.pid)')"
-  out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 0 "$rc" "exact-session removal must cover carried work without a live session process"$'\n'"$out"
-  assert_contains "$out" 'background-sessions=stopped:aaaa1111' "removal must use the durable session id"
-  pass "fm-control exit (claude): session removal does not depend on a current process PID"
+  local dir out rc state hidden carried
+  for state in stopped done failed; do
+    dir=$(new_case "bg-no-pid-$state")
+    add_task "$dir" t1 claude
+    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+    carried=$!
+    printf '%s\n' "$carried" >> "$TMP_ROOT/background-pids"
+    printf '%s\n' "$carried" > "$dir/fake/carried-aaaa1111"
+    set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" | jq --arg state "$state" 'del(.pid) | .state = $state')"
+    hidden=$(FM_FAKE_DIR="$dir/fake" "$dir/fakebin/claude" agents --json)
+    [ "$hidden" = '[]' ] || fail "the vendor's default listing must omit $state sessions"
+    out=$(run_control "$dir" t1 exit); rc=$?
+    expect_code 0 "$rc" "exact-session removal must cover $state sessions without a live process"$'\n'"$out"
+    assert_contains "$out" 'background-sessions=stopped:aaaa1111' "removal must enumerate retained session records"
+    [ "$(cat "$dir/fake/agents.json")" = '[]' ] || fail "the retained $state session was not removed"
+    case "$(ps -p "$carried" -o stat= 2>/dev/null)" in
+      ''|*Z*) : ;;
+      *) fail "the $state session's carried process survived cleanup" ;;
+    esac
+    wait "$carried" 2>/dev/null || true
+  done
+  pass "fm-control exit (claude): cleanup includes stopped, completed, and failed records omitted by the default listing"
 }
 
 test_claude_exit_refuses_a_failed_session_removal() {

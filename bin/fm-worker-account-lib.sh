@@ -248,6 +248,9 @@ fm_worker_account_claude_raw_root() {
     for my $word (@words) {
       last unless $word =~ /^[A-Za-z_][A-Za-z0-9_]*=/;
       my ($name, $value) = split /=/, $word, 2;
+      if (($name eq "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF" || $name eq "CLAUDE_CODE_DISABLE_AGENT_VIEW") && $value ne "1") {
+        die "error: managed Claude launches require $name=1\n";
+      }
       if ($name eq "CLAUDE_CONFIG_DIR") { $root = $value; $overridden = 1; }
     }
     if ($overridden && (($root ne "" && $root !~ m{^/}) || $root =~ /[\$\x60;&|<>()*?\[\]\n\r\t]/)) {

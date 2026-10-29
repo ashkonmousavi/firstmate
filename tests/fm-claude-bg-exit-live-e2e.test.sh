@@ -154,8 +154,8 @@ wait_screen() {  # <text> <what> [iterations]
 # bin/fm-control.sh uses after an exit.
 bg_ids() {  # <folder>
   local json
-  json=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json 2>/dev/null) \
-    || fail "claude agents --json failed on Claude Code $CLAUDE_VERSION"
+  json=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json --all 2>/dev/null) \
+    || fail "claude agents --json --all failed on Claude Code $CLAUDE_VERSION"
   fm_control_claude_bg_ids "$1" "$json"
 }
 
@@ -263,12 +263,12 @@ pass "switched: Claude Code $CLAUDE_VERSION /exit with background work ends the 
 # --- 3. the verb backstop stops the control run's leftover session ------------
 
 for id in $CONTROL_IDS; do
-  old_pid=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json | jq -r --arg id "$id" '.[] | select(.id == $id) | .pid')
+  old_pid=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json --all | jq -r --arg id "$id" '.[] | select(.id == $id) | .pid')
   env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude respawn "$id" >/dev/null 2>&1 \
     || fail "claude respawn $id failed on Claude Code $CLAUDE_VERSION"
   new_pid=$old_pid
   for ((i=0; i<80; i++)); do
-    new_pid=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json | jq -r --arg id "$id" '.[] | select(.id == $id) | .pid // empty')
+    new_pid=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json --all | jq -r --arg id "$id" '.[] | select(.id == $id) | .pid // empty')
     [ -z "$new_pid" ] || [ "$new_pid" = "$old_pid" ] || break
     sleep 0.25
   done
@@ -276,6 +276,17 @@ for id in $CONTROL_IDS; do
     || fail "claude respawn did not replace the session process on Claude Code $CLAUDE_VERSION"
   lab_process_live "$CONTROL_PROJECT" \
     || fail "the carried shell did not survive Claude session respawn on Claude Code $CLAUDE_VERSION"
+  env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF claude stop "$id" >/dev/null 2>&1 \
+    || fail "claude stop $id failed on Claude Code $CLAUDE_VERSION"
+  stopped_state=
+  for ((i=0; i<80; i++)); do
+    stopped_state=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json --all | jq -r --arg id "$id" '.[] | select(.id == $id) | .state')
+    [ "$stopped_state" != stopped ] || break
+    sleep 0.25
+  done
+  [ "$stopped_state" = stopped ] || fail "the stopped session was not retained by --all on Claude Code $CLAUDE_VERSION"
+  lab_process_live "$CONTROL_PROJECT" \
+    || fail "the carried shell did not survive stopping its session on Claude Code $CLAUDE_VERSION"
   env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF claude rm "$id" >/dev/null 2>&1 \
     || fail "background cleanup of $id failed on Claude Code $CLAUDE_VERSION"
 done
