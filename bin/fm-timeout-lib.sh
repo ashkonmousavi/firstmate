@@ -283,3 +283,27 @@ fm_exec_timed() {  # <seconds> <grace-seconds> <command...>
   printf 'fm_exec_timed: cannot bound %s within %ss: none of perl, timeout, or gtimeout is available\n' "${1##*/}" "$seconds" >&2
   exit 127
 }
+
+fm_checkpoint_clock() {
+  if [ -z "${FM_CHECKPOINT_CLOCK_OFFSET:-}" ]; then FM_CHECKPOINT_CLOCK_OFFSET=$(( $(date +%s) - SECONDS )); fi
+  FM_CHECKPOINT_NOW=$((FM_CHECKPOINT_CLOCK_OFFSET + SECONDS))
+}
+
+fm_checkpoint_budget() {
+  local budget=$1 remaining whole
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then
+    fm_checkpoint_clock
+    remaining=$((FM_CHECKPOINT_DEADLINE - FM_CHECKPOINT_NOW))
+    [ "$remaining" -gt 0 ] || return 124
+    whole=${budget%%.*}
+    [ "${whole:-0}" -lt "$remaining" ] || budget=$remaining
+  fi
+  printf '%s\n' "$budget"
+}
+
+fm_checkpoint_expired() {
+  [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] || return 1
+  fm_checkpoint_clock
+  [ "$FM_CHECKPOINT_NOW" -ge "$FM_CHECKPOINT_DEADLINE" ]
+}
+

@@ -6,7 +6,7 @@
 #
 # The reader validates continuity by hashing the exact prefix represented by the
 # caller's cursor. It then blocks until at least one complete appended line is
-# available, returns at most 65536 payload bytes, and never truncates or consumes
+# available, returns at most 131072 payload bytes, and never truncates or consumes
 # the source. A shortened or changed prefix returns a structured continuity-break
 # result instead of silently rebasing the cursor.
 #
@@ -28,7 +28,7 @@
 set -eu
 
 FM_HOME=${FM_HOME:?FM_HOME is required}
-MAX_BYTES=${FM_REMOTE_DELTA_MAX_BYTES:-65536}
+MAX_BYTES=${FM_REMOTE_DELTA_MAX_BYTES:-131072}
 POLL_SECONDS=${FM_REMOTE_DELTA_POLL_SECONDS:-0.5}
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
