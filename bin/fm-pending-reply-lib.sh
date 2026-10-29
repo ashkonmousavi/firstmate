@@ -397,7 +397,19 @@ EOF
 }
 
 # Mark delivery success for an existing expectation. Never resolves.
-fm_pending_reply_mark_delivered() {  # <state-dir> <corr_id> [confirmed-epoch]
+fm_pending_reply_mark_delivered() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_mark_delivered_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_mark_delivered_locked() {  # <state-dir> <corr_id> [confirmed-epoch]
   local state=$1 corr=$2 confirmed_epoch=${3-} rec phase delivered now
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
@@ -464,7 +476,7 @@ _fm_pending_reply_confirm_delivery_locked() {  # <state-dir> <corr_id>
   fi
   now=$(fm_pending_reply_now)
   fm_pending_reply_write_delivery_confirmation "$state" "$corr" confirmed "$now" || return 1
-  if fm_pending_reply_mark_delivered "$state" "$corr" "$now"; then
+  if _fm_pending_reply_mark_delivered_locked "$state" "$corr" "$now"; then
     rm -f "$marker" 2>/dev/null || true
     return 0
   fi
@@ -474,7 +486,19 @@ _fm_pending_reply_confirm_delivery_locked() {  # <state-dir> <corr_id>
 # Preserve an expectation when a remote transport disconnect makes delivery
 # completion unknowable. This never resolves or retries the request; it moves
 # the existing prepared record to the owner's explicit unknown-delivery path.
-fm_pending_reply_mark_delivery_unknown() {  # <state-dir> <corr_id>
+fm_pending_reply_mark_delivery_unknown() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_mark_delivery_unknown_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_mark_delivery_unknown_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec phase
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
@@ -504,7 +528,7 @@ _fm_pending_reply_reconcile_delivery_locked() {  # <state-dir> <corr_id>
     confirmed)
       epoch=$value
       case "$epoch" in ''|*[!0-9]*) return 1 ;; esac
-      fm_pending_reply_mark_delivered "$state" "$corr" "$epoch" || return 1
+      _fm_pending_reply_mark_delivered_locked "$state" "$corr" "$epoch" || return 1
       rm -f "$marker" 2>/dev/null || true
       return 0
       ;;
@@ -591,10 +615,23 @@ _fm_pending_reply_reset_known_undelivered_locked() {  # <state-dir> <corr_id>
 
 # Drop an undelivered expectation after a failed send so transport failure does
 # not masquerade as a missed report later.
-fm_pending_reply_discard_undelivered() {  # <state-dir> <corr_id>
+fm_pending_reply_discard_undelivered() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_discard_undelivered_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_discard_undelivered_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec delivered marker
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 0
+  [ "$(fm_pending_reply_get "$rec" phase)" != resolved ] || return 1
   delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
   [ -z "$delivered" ] || return 1
   marker=$(fm_pending_reply_delivery_confirmation_path "$state" "$corr")
@@ -760,7 +797,7 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
   now=$(fm_pending_reply_now)
   fm_pending_reply_set "$rec" phase resolved || return 1
   if [ -z "$delivered" ]; then
-    fm_pending_reply_mark_delivered "$state" "$corr" "$now" || return 1
+    _fm_pending_reply_mark_delivered_locked "$state" "$corr" "$now" || return 1
     rm -f "$marker" 2>/dev/null || true
   fi
   fm_pending_reply_set "$rec" resolved_epoch "$now" || return 1
@@ -773,7 +810,19 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
 
 # Observe backend busy/idle evidence for the active turn without reading chat.
 # busy_state must be one of: busy | idle | unknown.
-fm_pending_reply_observe_busy() {  # <state-dir> <corr_id> <busy_state>
+fm_pending_reply_observe_busy() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_observe_busy_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_observe_busy_locked() {  # <state-dir> <corr_id> <busy_state>
   local state=$1 corr=$2 busy_state=$3
   local rec phase delivered now seen completed field_seen field_completed
   rec=$(fm_pending_reply_path "$state" "$corr")
@@ -892,7 +941,19 @@ fm_pending_reply_busy_state_from_observation() {  # <record-path> <observation>
 
 # Explicit turn-completion proof (for tests and turn-end backends that surface
 # a completion event without a busy/idle pair).
-fm_pending_reply_mark_turn_completed() {  # <state-dir> <corr_id> [which: request|recovery]
+fm_pending_reply_mark_turn_completed() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_mark_turn_completed_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_mark_turn_completed_locked() {  # <state-dir> <corr_id> [which: request|recovery]
   local state=$1 corr=$2 which=${3:-request}
   local rec phase field now
   rec=$(fm_pending_reply_path "$state" "$corr")
@@ -1096,7 +1157,19 @@ fm_pending_reply_sender_alive() {  # <record-path>
   [ "$actual" = "$expected" ]
 }
 
-fm_pending_reply_finish_recovery() {  # <state-dir> <corr_id> <confirmed|failed>
+fm_pending_reply_finish_recovery() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_finish_recovery_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_finish_recovery_locked() {  # <state-dir> <corr_id> <confirmed|failed>
   local state=$1 corr=$2 outcome=$3 rec phase now sent
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
@@ -1118,7 +1191,19 @@ fm_pending_reply_finish_recovery() {  # <state-dir> <corr_id> <confirmed|failed>
   fi
 }
 
-fm_pending_reply_reconcile_recovery() {  # <state-dir> <corr_id>
+fm_pending_reply_reconcile_recovery() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_reconcile_recovery_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_reconcile_recovery_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec phase attempted outcome
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
@@ -1129,8 +1214,8 @@ fm_pending_reply_reconcile_recovery() {  # <state-dir> <corr_id>
   case "$attempted" in *[!0-9]*) return 1 ;; esac
   outcome=$(fm_pending_reply_get "$rec" recovery_delivery_outcome)
   case "$outcome" in
-    confirmed) fm_pending_reply_finish_recovery "$state" "$corr" confirmed; return $? ;;
-    failed) fm_pending_reply_finish_recovery "$state" "$corr" failed; return $? ;;
+    confirmed) _fm_pending_reply_finish_recovery_locked "$state" "$corr" confirmed; return $? ;;
+    failed) _fm_pending_reply_finish_recovery_locked "$state" "$corr" failed; return $? ;;
     unknown)
       fm_pending_reply_set "$rec" phase recovery_unknown || return 1
       return 0
@@ -1355,7 +1440,7 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
     remote_host=$(fm_meta_get "$meta" remote_host)
     sm_home=$(fm_meta_get "$meta" home)
     if [ -z "$remote_host" ] && [ -n "$sm_home" ]; then
-      fm_pending_reply_detect_wrong_home "$state" "$corr" "$sm_home" || true
+      _fm_pending_reply_detect_wrong_home_locked "$state" "$corr" "$sm_home" || true
       fm_pending_reply_restatement_copy_same_basename "$state" "$corr" "$sm_home" || true
     fi
   fi
@@ -1405,7 +1490,19 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
 # Detect a correlated report written under the secondmate home (wrong home)
 # without treating it as acknowledgement. A remote route's
 # parent-replies.status is its parent channel, not a stranded self-home file.
-fm_pending_reply_detect_wrong_home() {  # <state-dir> <corr_id> <secondmate-home>
+fm_pending_reply_detect_wrong_home() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_detect_wrong_home_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_detect_wrong_home_locked() {  # <state-dir> <corr_id> <secondmate-home>
   local state=$1 corr=$2 sm_home=$3
   local rec delivered hits first sightings snapshot previous status_file line line_no sighting_base sighting_id phase changed=0
   local remote_parent_channel=0

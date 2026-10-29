@@ -4,8 +4,9 @@
 set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+PENDING_REPLY_LIB="$ROOT/bin/fm-pending-reply-lib.sh"
 # shellcheck source=bin/fm-pending-reply-lib.sh
-. "$ROOT/bin/fm-pending-reply-lib.sh"
+. "$PENDING_REPLY_LIB"
 
 RETIRE="$ROOT/bin/fm-pending-reply-retire-stale.sh"
 NOW=1700000000
@@ -224,3 +225,136 @@ fi
 help=$(FM_HOME="$home" "$RETIRE" --help) || fail "help failed"
 printf '%s\n' "$help" | grep -F '86400' >/dev/null || fail "help did not show the 24 hour default"
 pass "stale retirement refuses a bad invocation"
+
+wait_for_file() {
+  local path=$1 i
+  for ((i=0; i<500; i++)); do
+    [ ! -e "$path" ] || return 0
+    command sleep 0.01
+  done
+  fail "timed out waiting for $path"
+}
+
+exercise_callback() {
+  local action=$1 state=$2 corr=$3 mate_home=$4
+  case "$action" in
+    finish-confirmed) fm_pending_reply_finish_recovery "$state" "$corr" confirmed ;;
+    finish-failed) fm_pending_reply_finish_recovery "$state" "$corr" failed ;;
+    reconcile-*) fm_pending_reply_reconcile_recovery "$state" "$corr" ;;
+    delivery-unknown) fm_pending_reply_mark_delivery_unknown "$state" "$corr" ;;
+    delivered|delivered-unknown) fm_pending_reply_mark_delivered "$state" "$corr" ;;
+    busy) fm_pending_reply_observe_busy "$state" "$corr" busy ;;
+    idle) fm_pending_reply_observe_busy "$state" "$corr" idle ;;
+    completed-request) fm_pending_reply_mark_turn_completed "$state" "$corr" request ;;
+    completed-recovery) fm_pending_reply_mark_turn_completed "$state" "$corr" recovery ;;
+    wrong-home) fm_pending_reply_detect_wrong_home "$state" "$corr" "$mate_home" ;;
+  esac
+}
+
+for action in finish-confirmed finish-failed reconcile-confirmed reconcile-failed \
+  reconcile-unknown reconcile-dead reconcile-awaiting-unknown reconcile-awaiting-dead \
+  delivery-unknown delivered delivered-unknown busy idle completed-request completed-recovery wrong-home; do
+  (
+    for ordering in ordinary concurrent; do
+      home=$(fm_test_tmproot "fm-retire-$ordering-$action")
+      export FM_HOME=$home
+      seed_task "$home" mate secondmate
+      mate_home="$home/mate-home"
+      mkdir -p "$mate_home/state"
+      corr=$(open_reply "$home" mate 'superseded unanswered request' $((NOW - 500)))
+      rec=$(fm_pending_reply_path "$home/state" "$corr")
+      later=$(open_reply "$home" mate 'newest unanswered request' "$NOW")
+      fm_pending_reply_set "$rec" delivered_epoch "$((NOW - 450))"
+      expected=awaiting_report
+      field=delivered_epoch
+      value=$((NOW - 450))
+      case "$action" in
+        finish-*|reconcile-*)
+          fm_pending_reply_set "$rec" phase recovery_sending
+          fm_pending_reply_set "$rec" recovery_attempted_epoch "$((NOW - 300))"
+          field=recovery_delivery_outcome
+          case "$action" in
+            *confirmed) value=confirmed; expected=recovery_sent ;;
+            *failed) value=failed; expected=recovery_failed ;;
+            *) value=unknown; expected=recovery_unknown ;;
+          esac
+          case "$action" in
+            reconcile-awaiting-*) fm_pending_reply_set "$rec" phase awaiting_report ;;
+          esac
+          case "$action" in
+            reconcile-dead|reconcile-awaiting-dead) ;;
+            reconcile-*) fm_pending_reply_set "$rec" recovery_delivery_outcome "$value" ;;
+          esac
+          ;;
+        delivery-unknown|delivered|delivered-unknown)
+          fm_pending_reply_set "$rec" delivered_epoch ''
+          case "$action" in
+            delivery-unknown) expected=delivery_unknown; field=phase; value=delivery_unknown ;;
+            delivered-unknown) fm_pending_reply_set "$rec" phase delivery_unknown ;;
+          esac
+          if [ "$action" != delivery-unknown ]; then value=$NOW; fi
+          ;;
+        busy) field=turn_seen_busy; value=1 ;;
+        idle)
+          fm_pending_reply_set "$rec" phase recovery_sent
+          expected=recovery_sent; field=recovery_turn_completed_epoch; value=$NOW
+          ;;
+        completed-request) field=request_turn_completed_epoch; value=$NOW ;;
+        completed-recovery)
+          fm_pending_reply_set "$rec" phase recovery_sent
+          expected=recovery_sent; field=recovery_turn_completed_epoch; value=$NOW
+          ;;
+        wrong-home)
+          printf 'working: report corr=%s\n' "$corr" > "$mate_home/state/elsewhere.status"
+          field=wrong_home_hits; value=1
+          ;;
+      esac
+      if [ "$ordering" = ordinary ]; then
+        exercise_callback "$action" "$home/state" "$corr" "$mate_home" || fail "$action failed on an active record"
+        [ "$(fm_pending_reply_get "$rec" phase)" = "$expected" ] || fail "$action broke its ordinary phase transition"
+        [ "$(fm_pending_reply_get "$rec" "$field")" = "$value" ] || fail "$action lost its ordinary $field update"
+        continue
+      fi
+      entered="$home/callback-entered"
+      release="$home/callback-release"
+      export -f exercise_callback wait_for_file fail
+      bash -u -c '
+        . "$1"
+        action=$2 state=$3 corr=$4 mate_home=$5 rec=$6 entered=$7 release=$8
+        mv() {
+          if [ "${!#}" = "$rec" ] && [ ! -e "$entered" ]; then
+            : > "$entered"
+            wait_for_file "$release"
+          fi
+          command mv "$@"
+        }
+        exercise_callback "$action" "$state" "$corr" "$mate_home"
+      ' _ "$PENDING_REPLY_LIB" "$action" "$home/state" "$corr" "$mate_home" "$rec" "$entered" "$release" &
+      callback_pid=$!
+      wait_for_file "$entered"
+      (
+        sleep() {
+          : > "$release"
+          command sleep "$@"
+        }
+        fm_pending_reply_retire_stale_one "$home" "$home/state" "$corr" "$NOW" 100 > "$home/retirement-output"
+        result=$?
+        : > "$release"
+        exit "$result"
+      ) &
+      retire_pid=$!
+      wait "$callback_pid" || fail "$action did not complete during retirement"
+      wait "$retire_pid" || fail "retirement failed alongside $action"
+      [ -f "$rec" ] || fail "$action removed the retired record"
+      [ "$(fm_pending_reply_get "$rec" phase)" = resolved ] || fail "$action reopened a retired record"
+      [ "$(fm_pending_reply_get "$rec" resolved_via)" = retired-stale ] || fail "$action lost the retirement provenance"
+      [ "$(fm_pending_reply_get "$rec" retired_reason)" = "superseded-by-$later" ] || fail "$action lost the retirement reason"
+      [ "$(fm_pending_reply_get "$rec" request_summary)" = 'superseded unanswered request' ] || fail "$action lost the unanswered request"
+      exercise_callback "$action" "$home/state" "$corr" "$mate_home" >/dev/null 2>&1 || true
+      [ "$(fm_pending_reply_get "$rec" phase)" = resolved ] || fail "late $action reopened a retired record"
+      fm_pending_reply_discard_undelivered "$home/state" "$corr" >/dev/null 2>&1 || true
+      [ -f "$rec" ] || fail "late transport cleanup deleted a retired record"
+    done
+  ) || fail "$action retirement invariant failed"
+  pass "retirement remains terminal alongside $action"
+done
