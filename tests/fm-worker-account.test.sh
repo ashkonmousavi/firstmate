@@ -387,6 +387,7 @@ test_raw_claude_account_metadata_matches_the_executed_environment() {
     grep -Fxq "claude_config_dir=$expected" "$HOME_DIR/state/$id.meta" || fail "cleanup must retain the effective root"
   done
   new_case raw-dynamic claude
+  # shellcheck disable=SC2016 # Pass an unresolved HOME expression to exercise rejection.
   out=$(spawn_ship acct-raw-dynamic --harness 'CLAUDE_CONFIG_DIR=$HOME/other claude --print raw'); rc=$?
   expect_code 1 "$rc" "an unresolved raw account must refuse before launch"
   assert_refused_before_launch acct-raw-dynamic "$out" 'CLAUDE_CONFIG_DIR must be a literal absolute path or empty'

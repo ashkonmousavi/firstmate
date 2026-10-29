@@ -479,6 +479,7 @@ echo $! > "$1/leaf"
 echo "$BASHPID" > "$1/child"
 wait
 SH
+  # shellcheck disable=SC2016 # The child shell expands its own positional parameter.
   env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=previous-session \
     bash -c 'bash "$1/child.sh" "$1" & wait' _ "$dir/outside" >/dev/null 2>&1 </dev/null &
   root=$!
@@ -531,7 +532,7 @@ SH
 
 test_claude_exit_removes_a_session_without_a_live_pid() {
   local dir out rc state hidden carried account
-  for state in stopped done failed; do
+  for state in stopped 'done' failed; do
     dir=$(new_case "bg-no-pid-$state")
     add_task "$dir" t1 claude
     account="$dir/launch account"

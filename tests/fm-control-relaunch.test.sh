@@ -1011,6 +1011,7 @@ test_worker_account_pin_follows_the_relaunch() {
   out=$(run_control "$dir" "$id" relaunch --note "pin removed"); rc=$?
   expect_code 0 "$rc" "a relaunch after the pin is removed should succeed"$'\n'"$out"
   assert_no_grep "account=" "$dir/home/state/$id.meta" "a relaunch without a pin must drop the previous account from the record"
+  # shellcheck disable=SC2031 # The earlier subshell fixture leaves the ambient root unchanged.
   [ "$(meta_field "$dir" "$id" claude_config_dir)" = "${CLAUDE_CONFIG_DIR:-}" ] \
     || fail "an unpinned replacement must record its ambient Claude root for later cleanup"
   assert_not_contains "$(cat "$dir/fake/literal")" "CLAUDE_CONFIG_DIR=" \
