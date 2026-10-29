@@ -77,6 +77,7 @@ if [ -n "\${FM_SEND_INBOX_LIVE_FAULT_DIR:-}" ]; then
         [ "\$n" -gt "\$(cat "\$fault/swallow")" ] || exit 0
       else
         printf 'typed\\n' >> "\$fault/types"
+        printf '%s' "\${!#}" > "\$fault/payload"
       fi
       ;;
     capture-pane) [ ! -e "\$fault/accepted" ] || exit 1 ;;
@@ -290,7 +291,7 @@ check_harness_doorbell() {  # <name> <mode> <binary>
 
 check_claude_submit() {
   local mode=$1 binary=$2 version home task=live-claude win="claude-$1" gen prefix receipt
-  local acted rec handled baseline line output rc=0 i=0 fault types=1 actual_types=0 min_enters=3 enters
+  local acted rec handled baseline line output expected b_gen b_seq hash rc=0 i=0 fault types=1 actual_types=0 min_enters=3 enters
   version=$(harness_version "$binary")
   home="$LAB/claude-$mode-home"
   fault="$home/fault"
@@ -304,7 +305,8 @@ check_claude_submit() {
   printf -v receipt '%q' "$fault/accepted"
   jq -n --arg prefix "$prefix" --arg gen "$gen" --arg receipt "$receipt" '
     def hook($state; $event): [{hooks:[{type:"command",command:
-      ($prefix + " " + $state + " --gen " + $gen + " --source claude-hook --event " + $event + " 2>/dev/null"
+      ($prefix + " " + $state + " --gen " + $gen + " --source claude-hook --event " + $event
+        + (if $event == "user-prompt-submit" then " --prompt-stdin" else "" end) + " 2>/dev/null"
         + (if $event == "user-prompt-submit" then " && touch " + $receipt else "" end) + " || true")}]}];
     {feedbackDrafts:"off",hooks:{UserPromptSubmit:hook("busy";"user-prompt-submit"),
       Stop:hook("idle";"stop"),StopFailure:hook("idle";"stop-failure"),SessionEnd:hook("idle";"session-end")}}
@@ -317,9 +319,11 @@ check_claude_submit() {
   wait_ready "$win" || fail "claude ($version): submit guard never reached an empty composer"
   printf 'window=%s:%s\nkind=%s\nharness=claude\n' "$SESSION" "$win" \
     "$([ "$mode" = typed ] && printf secondmate || printf ship)" > "$home/state/$task.meta"
-  baseline=$(fm_busy_submit_baseline "$home/state" "$task" claude) \
-    || fail "claude ($version): live submit baseline unavailable"
   printf -v line 'Run exactly this shell command now: `touch %s`. Then follow the mv instruction if you were given one. Reply with one short line.' "$acted"
+  expected=$line
+  [ "$mode" = typed ] || expected=$(fm_task_inbox_doorbell_line "$rec")
+  baseline=$(fm_busy_submit_baseline "$home/state" "$task" claude "$expected") \
+    || fail "claude ($version): live submit baseline unavailable"
   printf '2\n' > "$fault/swallow"
   if [ "$mode" = pending ]; then
     types=0
@@ -344,7 +348,6 @@ check_claude_submit() {
     fi
     [ "$mode" != typed ] || line="/$line"
     output=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$home" FM_SEND_INBOX_LIVE_FAULT_DIR="$fault" \
-      FM_SEND_RETRIES=5 FM_SEND_SLEEP=2 \
       bash "$ROOT/bin/fm-send.sh" "$task" "$line" 2>&1) || rc=$?
   fi
   if [ "$rc" -ne 0 ]; then
@@ -359,6 +362,11 @@ check_claude_submit() {
   [ ! -e "$fault/types" ] || actual_types=$(wc -l < "$fault/types")
   [ "$actual_types" -eq "$types" ] \
     || fail "claude ($version): $mode submit retyped text"
+  if [ "$mode" = typed ]; then
+    read -r b_gen b_seq _ <<< "$baseline"
+    hash=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read().replace(chr(0x2063).encode("utf-8"), b"")).hexdigest())' < "$fault/payload")
+    baseline="$b_gen $b_seq $hash"
+  fi
   if [ "$mode" = blocked ]; then
     case "$output" in *'doorbell NOT delivered:'*) ;; *) fail "claude ($version): exhausted confirmation was not reported" ;; esac
     [ -f "$rec" ] && [ ! -e "$handled" ] && [ ! -e "$acted" ] \

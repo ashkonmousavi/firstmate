@@ -48,9 +48,11 @@ usage() {
   cat >&2 <<'EOF'
 usage:
   fm-busy-event.sh arm <state-dir> <id> [--state busy|idle|unknown] [--source S] [--event E]
-  fm-busy-event.sh apply <state-dir> <id> <busy|idle|unknown> (--gen G | --current-gen) --source S --event E [--turn-ended]
+  fm-busy-event.sh apply <state-dir> <id> <busy|idle|unknown> (--gen G | --current-gen) --source S --event E [--turn-ended] [--prompt-stdin]
   fm-busy-event.sh progress <state-dir> <id> --gen G
   fm-busy-event.sh retire <state-dir> <id> (--gen G | --current-gen)
+--prompt-stdin reads Claude UserPromptSubmit JSON and records the SHA-256 of its prompt string with U+2063 removed, as Claude does before submission.
+Receipts are state/<id>.submit-state/<hash> files containing '<gen> <seq>'; arm and retire clear them, while other lifecycle events preserve them.
 See the header comment for the full contract.
 EOF
   exit 2
@@ -79,6 +81,8 @@ USE_CURRENT_GEN=0
 TURN_ENDED=0
 SOURCE=
 EVENT=
+PROMPT_STDIN=0
+PROMPT_HASH=
 if [ "$CMD" = apply ]; then
   NEW_STATE=${1:-}
   case "$NEW_STATE" in busy|idle|unknown) shift ;; *) usage ;; esac
@@ -95,6 +99,7 @@ while [ $# -gt 0 ]; do
     --source) SOURCE=${2:-}; shift 2 || usage ;;
     --event) EVENT=${2:-}; shift 2 || usage ;;
     --turn-ended) [ "$CMD" = apply ] || usage; TURN_ENDED=1; shift ;;
+    --prompt-stdin) [ "$CMD" = apply ] || usage; PROMPT_STDIN=1; shift ;;
     *) usage ;;
   esac
 done
@@ -102,6 +107,11 @@ if [ "$CMD" = apply ] || [ "$CMD" = arm ]; then
   case "$NEW_STATE" in busy|idle|unknown) : ;; *) usage ;; esac
   fm_busy_token_valid "$SOURCE" || { echo "error: invalid --source" >&2; exit 1; }
   fm_busy_token_valid "$EVENT" || { echo "error: invalid --event" >&2; exit 1; }
+fi
+
+if [ "$PROMPT_STDIN" = 1 ]; then
+  [ "$SOURCE" = claude-hook ] && [ "$EVENT" = user-prompt-submit ] && [ "$NEW_STATE" = busy ] || usage
+  PROMPT_HASH=$(fm_busy_prompt_hash hook) || PROMPT_HASH=
 fi
 
 [ "$CMD" != progress ] || [ "$USE_CURRENT_GEN" = 0 ] || usage
@@ -166,7 +176,7 @@ if [ "$CMD" = arm ]; then
   lock_acquire || exit 1
   {
     printf '%s\n' "$GEN" > "$GEN_FILE.tmp.$$" && mv -f "$GEN_FILE.tmp.$$" "$GEN_FILE" \
-      && write_record "$GEN" 1 && rm -f "$STATE/$ID.progress"
+      && write_record "$GEN" 1 && rm -f "$STATE/$ID.progress" && rm -rf -- "$STATE/$ID.submit-state"
   } || { lock_release; umask "$old_umask"; echo "error: arm failed for $ID" >&2; exit 1; }
   lock_release
   umask "$old_umask"
@@ -189,7 +199,7 @@ fi
 lock_acquire || { umask "$old_umask"; exit 1; }
 CURRENT=$(fm_busy_current_gen "$STATE" "$ID") || {
   if [ "$CMD" = retire ] && [ ! -e "$GEN_FILE" ] && [ ! -L "$GEN_FILE" ]; then
-    rm -f "$REC" "$STATE/$ID.progress" || {
+    { rm -f "$REC" "$STATE/$ID.progress" && rm -rf -- "$STATE/$ID.submit-state"; } || {
       lock_release
       umask "$old_umask"
       echo "error: busy-state retirement failed for $ID" >&2
@@ -214,7 +224,7 @@ if [ "$GEN" != "$CURRENT" ]; then
   exit 1
 fi
 if [ "$CMD" = retire ]; then
-  rm -f "$GEN_FILE" "$REC" "$STATE/$ID.progress" || {
+  { rm -f "$GEN_FILE" "$REC" "$STATE/$ID.progress" && rm -rf -- "$STATE/$ID.submit-state"; } || {
     lock_release
     umask "$old_umask"
     echo "error: busy-state retirement failed for $ID" >&2
@@ -250,6 +260,16 @@ write_record "$GEN" $((OLD_SEQ + 1)) || {
   echo "error: record write failed for $ID" >&2
   exit 1
 }
+if [ -n "$PROMPT_HASH" ]; then
+  receipt_dir="$STATE/$ID.submit-state"
+  receipt="$receipt_dir/$PROMPT_HASH"
+  if ! { mkdir -p "$receipt_dir" && printf '%s %s\n' "$GEN" "$((OLD_SEQ + 1))" > "$receipt.tmp.$$" && mv -f "$receipt.tmp.$$" "$receipt"; }; then
+    lock_release
+    umask "$old_umask"
+    echo "error: submit receipt write failed for $ID" >&2
+    exit 1
+  fi
+fi
 umask "$old_umask"
 # Best effort: the record already settled, so a failed touch never refuses it.
 [ "$TURN_ENDED" = 0 ] || touch "$STATE/$ID.turn-ended" 2>/dev/null || true
