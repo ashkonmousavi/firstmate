@@ -10,8 +10,8 @@
 # another task's line that echoes or quotes the token. Summary-classified
 # one-way notices are the exception: fm_pending_reply_oneway_expired below
 # owns their expiry rule, which does not prove delivery or acknowledgement.
-# Explicit operator retirement of a stale superseded record is owned by
-# fm_pending_reply_retire_stale below. That path keeps the record file.
+# Explicit operator retirement is separate from acknowledgement; its contract
+# is owned by bin/fm-pending-reply-retire-stale.sh's header.
 #
 # Safety property (captain direction 2026-07-22): a secondmate agent may ignore
 # the marker and answer only in its visible conversation. The parent must notice
@@ -23,8 +23,6 @@
 # report. Never loop, never repeatedly inject, never silently expire unresolved
 # reply-bearing records outside the one-way exception, and never treat
 # wrong-home or structured-home heuristics as acknowledgement.
-# The operator command fm-pending-reply-retire-stale.sh is not that expiry:
-# it resolves only a stale superseded record and keeps the file.
 # A same-basename restatement-copy of the mate home's
 # state/<task_id>.status onto the parent channel is a repair of the
 # FM_HOME-relative mixup, not acknowledgement of an arbitrary mate-home file.
@@ -108,9 +106,10 @@
 # resets the record to awaiting_report and leaves the published escalation
 # decision open: a confirmed delivery does not settle the request; see the
 # resolution contract above. A later escalation reuses that key rather than
-# opening a duplicate while the decision stays open, and only the ordinary
-# resolve close closes it. Once that close is in the log, the next escalation
-# of a record that already escalated and was reset is a new episode: it
+# opening a duplicate while the decision stays open. Resolution, including
+# explicit operator retirement, closes it.
+# Once that close is in the log, the next escalation of a record that already
+# escalated and was reset is a new episode: it
 # appends a new blocked line for the same key, even one identical to the
 # first, and the fold opens the decision again. That reopen belongs to this
 # escalation alone; status_event_recorded (bin/fm-classify-lib.sh) stays an
@@ -1855,9 +1854,9 @@ fm_pending_reply_record_bound() {  # <home> <state-dir> <record> <corr_id>
   return 0
 }
 
-# Corr id of the newest later record for the same task, or empty.
-# Later means a strictly greater created_epoch. Equal epochs break ties by
-# the greater correlation id so the cited successor is stable.
+# Corr id of the newest confirmed-delivery successor for the same task, or empty.
+# A successor must have a strictly greater created_epoch than the original.
+# Ties among eligible successors use the greater correlation id for stability.
 fm_pending_reply_later_corr() {  # <state-dir> <task_id> <created_epoch> <self_corr>
   local state=$1 task_id=$2 created=$3 self=$4 dir rec corr cepoch delivered best='' best_epoch=''
   dir=$(fm_pending_reply_dir "$state")
