@@ -1246,7 +1246,16 @@ fm_pending_reply_close_escalation() {  # <state-dir> <corr_id>
 fm_pending_reply_ack_handled() {  # <parent-home> <task-id> <corr_id>
   local home=$1 task_id=$2 corr=$3 state rec status lock rc=0 now
   local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
-  state="$home/state"
+  [ -d "$home" ] || return 1
+  state="${FM_STATE_OVERRIDE:-$home/state}"
+  case "$home" in
+    /*) ;;
+    *) home=$(cd "$home" && pwd) || return 1 ;;
+  esac
+  case "$state" in
+    /*) ;;
+    *) state=$(cd "$state" && pwd) || return 1 ;;
+  esac
   STATE=$state
   rec=$(fm_pending_reply_path "$state" "$corr")
   status="$state/$task_id.status"

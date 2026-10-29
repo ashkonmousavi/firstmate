@@ -22,6 +22,5 @@ task_id=$1
 corr=$2
 case "$task_id" in ''|*[!A-Za-z0-9._-]*|.*) echo "error: unsafe task id" >&2; exit 2 ;; esac
 [[ $corr =~ ^[a-f0-9]{16}$ ]] || { echo "error: unsafe correlation id" >&2; exit 2; }
-home=$(cd "$FM_HOME" && pwd -P) || exit 1
-fm_pending_reply_ack_handled "$home" "$task_id" "$corr" || exit 1
+fm_pending_reply_ack_handled "$FM_HOME" "$task_id" "$corr" || exit 1
 printf 'handled, no reply needed: %s %s\n' "$task_id" "$corr"

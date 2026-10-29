@@ -1124,6 +1124,7 @@ test_remote_exhaustion_uses_host_local_control() {
   rhome=$(setup_remote_secondmate_home remote-exhaustion)
   sed 's/^harness=claude$/harness=cursor/' "$rhome/state/parent-route/rsm.meta" > "$dir/meta"
   mv "$dir/meta" "$rhome/state/parent-route/rsm.meta"
+  printf 'spawn_gen=observed-remote-worker\n' >> "$rhome/state/parent-route/rsm.meta"
   cat > "$code/bin/herdr" <<'SH'
 #!/usr/bin/env bash
 case "$1 $2" in
@@ -1151,7 +1152,7 @@ SH
         "$code/bin/fm-remote-secondmate-control.sh" inbox rsm ring 001.msg 2>&1); rc=$?
     fi
     expect_code 0 "$rc" "remote $action exhaustion should delegate control: $out"
-    [ "$(sed -n '1p' "$dir/control.log")" = 'rsm exit' ] || fail "$action did not invoke lifecycle exit"
+    [ "$(sed -n '1p' "$dir/control.log")" = 'rsm exit --if-exhausted observed-remote-worker' ] || fail "$action did not guard lifecycle exit with the observed generation"
     [ "$(sed -n '2p' "$dir/control.log")" = "$code" ] || fail "$action used the wrong code home"
     [ "$(sed -n '3p' "$dir/control.log")" = "$rhome/state/parent-route" ] || fail "$action lost endpoint state context"
     [ "$(sed -n '4p' "$dir/control.log")" = "$rhome/data/.parent-route" ] || fail "$action lost endpoint data context"
