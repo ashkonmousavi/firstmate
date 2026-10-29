@@ -1000,7 +1000,34 @@ The steering channel's one behavioral assumption - a real worker agent follows t
 FM_SEND_INBOX_LIVE_E2E=1 tests/fm-send-inbox-doorbell-live-e2e.test.sh
 ```
 
-Observed output (combined across the full run and the grok rerun after the advisory-skip narrowing landed):
+The Claude cases arm a real busy-state generation and install lifecycle hooks invoking the production `bin/fm-busy-event.sh` writer.
+They exercise a fresh doorbell through `fm-send`, an existing own-doorbell draft through `fm_task_inbox_ring`, and a marked secondmate typed send through `fm-send`.
+The test boundary swallows the first two Enter presses, then makes pane capture unavailable only after the real submit hook successfully writes its production busy event and a test receipt, so the real harness hook must confirm submission without a composer fallback or a later watcher re-ring.
+The independent oracles are the sender's bounded-retry contract, Claude's [documented `UserPromptSubmit` event](https://code.claude.com/docs/en/hooks#userpromptsubmit), and the requested worker action and inbox acknowledgement.
+The guard requires three to five Enter presses, no retyping, a generation-matching hook advance, and the requested action; a separate exhausted-budget case requires five swallowed presses, a non-delivery notice, no hook advance, and the durable record remaining unhandled.
+Other harnesses retain the action-and-acknowledgement cases because the submit-event reader currently selects Claude on tmux only.
+
+Verified on 2026-10-29 with Claude Code 2.1.312 and tmux 3.4 on Linux.
+The worktree-local configuration below was seeded from the existing Claude credentials, onboarding store, and recorded bypass acceptance; no original user settings or credential files were changed.
+
+```sh
+HOME="$PWD/.review-submit-live/user-home" \
+CLAUDE_CONFIG_DIR="$PWD/.review-submit-live/claude-config" \
+TMPDIR="$PWD/.review-submit-live/tmp" \
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=claude \
+FM_SEND_INBOX_LIVE_TIMEOUT=90 \
+bash tests/fm-send-inbox-doorbell-live-e2e.test.sh > .review-submit-live/result.log 2>&1
+```
+
+```text
+ok - claude (2.1.312 (Claude Code)): typed submit checked real lifecycle hooks with 4 Enter presses
+ok - claude (2.1.312 (Claude Code)): fresh submit checked real lifecycle hooks with 3 Enter presses
+ok - claude (2.1.312 (Claude Code)): blocked submit checked real lifecycle hooks with 5 Enter presses
+ok - claude (2.1.312 (Claude Code)): pending submit checked real lifecycle hooks with 3 Enter presses
+ok - live steering-inbox doorbell guard: 4 cases honored the doorbell contract
+```
+
+Earlier action-and-acknowledgement output (combined across the full run and the grok rerun after the advisory-skip narrowing landed):
 
 ```text
 ok - claude (2.1.241 (Claude Code)): the doorbell reached a real worker, which acted and acked with the mv
