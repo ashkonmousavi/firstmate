@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fm-inactive-reconcile.sh - bounded reconciliation of suspicious inactive terminal outcomes.
+# fm-inactive-reconcile.sh - bounded reconciliation of inactive outcomes and finished backlog PRs.
 #
 # Usage:
 #   fm-inactive-reconcile.sh scan [--startup]
@@ -7,7 +7,7 @@
 #   fm-inactive-reconcile.sh acknowledge <fingerprint>
 #
 # This is an adjunct to the existing watcher poll loop and session-start path,
-# not a watcher, daemon, PR poll, or forge client of its own.
+# not a separate watcher or daemon.
 # In a secondmate home every `scan` invocation, which is every watcher poll,
 # first runs the LEDGER-FIRST parent delivery: a direct child whose status
 # ledger ends in a whole `done:` or `failed:` line has stated its own outcome,
@@ -93,8 +93,9 @@
 # merged work cannot sit parked as In flight. It lists this home's in-flight rows
 # and collects every https://github.com/<owner>/<repo>/pull/<n>
 # reference from `show --full` plus a worker meta's pr=, and reads each distinct
-# PR with one bounded `gh pr view --json state,mergedAt,closedAt`. An unreadable PR, a PR that is
-# still OPEN, or any mixed set leaves the record alone; a record whose refs are
+# PR with one bounded `gh pr view --json state,mergedAt,closedAt`. An unreadable
+# PR or missing terminal timestamp leaves an unknown finding; a PR that is
+# still OPEN leaves the record alone. A record whose refs are
 # ALL MERGED or CLOSED, that is not held, and that has no live worker (a meta whose
 # fm-crew-state.sh state is not done or failed) is closed through
 # fm_backlog_done in bin/fm-backlog-transition-lib.sh, the owner teardown uses.
