@@ -57,7 +57,7 @@ Stale superseded records use [`fm-pending-reply-retire-stale.sh`](../bin/fm-pend
 `tests/fm-pr-merge.test.sh` covers the PR-ready line at registration and the merge outcome's upward report.
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
-`tests/fm-pending-reply-retire-stale.test.sh` covers stale retirement of superseded, gone, and closed-task records, and the refusal to retire an unanswered record that nothing has superseded.
+`tests/fm-pending-reply-retire-stale.test.sh` covers retirement strictly after 24 hours for records superseded by a confirmed-delivery successor or a gone task, retained records and retirement notes, and the refusal to retire unsuperseded unanswered records.
 `tests/fm-pending-reply.test.sh` covers helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
 `tests/fm-parent-channel-scan-exclusion.test.sh` covers the home-shape-aware scan exclusion against real remote, main-home, and local-mate fixtures: the watcher signal scan, both heartbeat backstops, the fleet-wide folds, and the real `fm-wake-drain.sh` end to end.
 

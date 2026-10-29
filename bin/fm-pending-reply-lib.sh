@@ -74,7 +74,7 @@
 #                           retired-stale is the operator stale retirement
 #                           (fm_pending_reply_retire_stale); the record is
 #                           kept and retired_reason= says why
-#   retired_reason=         task-gone | task-closed | superseded-by-<corr>
+#   retired_reason=         task-gone | superseded-by-<corr>
 #                           empty unless resolved_via=retired-stale
 #   wrong_home_hits=        count of corr sightings under the secondmate home
 #   wrong_home_first_sighting= encoded path:line identity of the first sighting
@@ -156,9 +156,9 @@ _FM_PENDING_REPLY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/n
 FM_PENDING_REPLY_SCHEMA='fm-pending-reply.v1'
 FM_PENDING_REPLY_CORR_RE='corr=[A-Fa-f0-9]{16}'
 FM_PENDING_REPLY_GRACE_DEFAULT=120
-# Default age for fm-pending-reply-retire-stale.sh when --max-age is omitted.
+# Fixed age for fm-pending-reply-retire-stale.sh.
 # A record is eligible only when strictly older than this many seconds.
-FM_PENDING_REPLY_STALE_MAX_AGE_DEFAULT=86400
+FM_PENDING_REPLY_STALE_AGE_SECS=86400
 
 fm_pending_reply_now() {
   if [ -n "${FM_PENDING_REPLY_NOW:-}" ]; then
@@ -1855,45 +1855,6 @@ fm_pending_reply_record_bound() {  # <home> <state-dir> <record> <corr_id>
   return 0
 }
 
-# gone when the task metadata file is absent.
-# closed when an explicit ship or scout metadata record's latest complete
-# status event is done or failed.
-# open for a live secondmate, an unfinished ship or scout, or any unsafe shape.
-# Prints one of those words. Never treats a symlink as a missing task.
-fm_pending_reply_task_disposition() {  # <state-dir> <task_id>
-  local state=$1 task_id=$2 meta kind status last verb endmark
-  if ! fm_pending_reply_task_id_safe "$task_id"; then
-    printf open
-    return 0
-  fi
-  meta="$state/$task_id.meta"
-  if [ ! -e "$meta" ] && [ ! -L "$meta" ]; then
-    printf gone
-    return 0
-  fi
-  if [ -L "$meta" ] || [ ! -f "$meta" ]; then
-    printf open
-    return 0
-  fi
-  kind=$(fm_meta_get "$meta" kind) || true
-  case "$kind" in
-    ship|scout) ;;
-    *) printf open; return 0 ;;
-  esac
-  status="$state/$task_id.status"
-  [ -f "$status" ] && [ ! -L "$status" ] && [ -s "$status" ] || { printf open; return 0; }
-  # Command substitution drops trailing newlines, so the marker keeps a
-  # final newline visible as the byte before x.
-  endmark=$(tail -c 1 "$status" 2>/dev/null; printf x)
-  [ "$endmark" = $'\n'x ] || { printf open; return 0; }
-  last=$(last_status_line "$status")
-  status_line_verb "$last" verb
-  case "$verb" in
-    done|failed) printf closed ;;
-    *) printf open ;;
-  esac
-}
-
 # Corr id of the newest later record for the same task, or empty.
 # Later means a strictly greater created_epoch. Equal epochs break ties by
 # the greater correlation id so the cited successor is stable.
@@ -1930,34 +1891,27 @@ fm_pending_reply_later_corr() {  # <state-dir> <task_id> <created_epoch> <self_c
 }
 
 # 0 and prints "<age> <reason>" when <record> is an unresolved record strictly
-# older than <max-age> and superseded. Reason is task-gone, task-closed, or
+# older than 24 hours and superseded. Reason is task-gone or
 # superseded-by-<corr>. A live task's newest unanswered record is not eligible.
-fm_pending_reply_stale_reason() {  # <state-dir> <record> <now> <max-age>
-  local state=$1 rec=$2 now=$3 max_age=$4
-  local created phase age task_id corr disposition later
+fm_pending_reply_stale_reason() {  # <state-dir> <record> <now>
+  local state=$1 rec=$2 now=$3
+  local created phase age task_id corr later
   [ -f "$rec" ] && [ ! -L "$rec" ] || return 1
   phase=$(fm_pending_reply_get "$rec" phase)
   [ "$phase" != resolved ] || return 1
   created=$(fm_pending_reply_get "$rec" created_epoch)
   case "$created" in ''|*[!0-9]*) return 1 ;; esac
   case "$now" in ''|*[!0-9]*) return 1 ;; esac
-  case "$max_age" in ''|*[!0-9]*) return 1 ;; esac
   age=$((now - created))
-  [ "$age" -gt "$max_age" ] || return 1
+  [ "$age" -gt "$FM_PENDING_REPLY_STALE_AGE_SECS" ] || return 1
   task_id=$(fm_pending_reply_get "$rec" task_id)
   corr=$(fm_pending_reply_get "$rec" corr_id)
   [ -n "$task_id" ] && [ -n "$corr" ] || return 1
-  disposition=$(fm_pending_reply_task_disposition "$state" "$task_id")
-  case "$disposition" in
-    gone)
-      printf '%s %s\n' "$age" task-gone
-      return 0
-      ;;
-    closed)
-      printf '%s %s\n' "$age" task-closed
-      return 0
-      ;;
-  esac
+  fm_pending_reply_task_id_safe "$task_id" || return 1
+  if [ ! -e "$state/$task_id.meta" ] && [ ! -L "$state/$task_id.meta" ]; then
+    printf '%s %s\n' "$age" task-gone
+    return 0
+  fi
   later=$(fm_pending_reply_later_corr "$state" "$task_id" "$created" "$corr")
   [ -n "$later" ] || return 1
   printf '%s %s\n' "$age" "superseded-by-$later"
@@ -1966,7 +1920,7 @@ fm_pending_reply_stale_reason() {  # <state-dir> <record> <now> <max-age>
 # 0 when <reason> is one of the tokens this retirement writes into a record.
 fm_pending_reply_stale_reason_safe() {  # <reason>
   case "$1" in
-    task-gone|task-closed|superseded-by-[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9])
+    task-gone|superseded-by-[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9])
       return 0
       ;;
   esac
@@ -1977,8 +1931,8 @@ fm_pending_reply_stale_reason_safe() {  # <reason>
 # Writes retired_reason=, a status note when that task's status file already
 # exists, and the ordinary escalation close when one is open.
 # Returns 0 retired, 2 no longer eligible, 1 on a failed write.
-fm_pending_reply_retire_stale_one() {  # <home> <state-dir> <corr_id> <now> <max-age>
-  local home=$1 state=$2 corr=$3 now=$4 max_age=$5
+fm_pending_reply_retire_stale_one() {  # <home> <state-dir> <corr_id> <now>
+  local home=$1 state=$2 corr=$3 now=$4
   local rec task_id status lock eligibility age reason note note_rc=0 rc=0
   local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
   STATE=$state
@@ -1990,7 +1944,7 @@ fm_pending_reply_retire_stale_one() {  # <home> <state-dir> <corr_id> <now> <max
   # whole transitive graph under ShellCheck's external-source traversal.
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
   fm_lock_acquire_wait "$lock" || return 1
-  eligibility=$(fm_pending_reply_stale_reason "$state" "$rec" "$now" "$max_age") || rc=$?
+  eligibility=$(fm_pending_reply_stale_reason "$state" "$rec" "$now") || rc=$?
   if [ "$rc" -ne 0 ]; then
     fm_lock_release "$lock"
     return 2
@@ -2033,17 +1987,16 @@ fm_pending_reply_retire_stale_one() {  # <home> <state-dir> <corr_id> <now> <max
 }
 
 # List or retire stale superseded pending-reply records under <home>.
-# <mode> is dry-run or apply. <max-age> is seconds; a record must be strictly
-# older than that. Prints one line per eligible record. Does not delete files
+# <mode> is dry-run or apply. A record must be strictly older than 24 hours.
+# Prints one line per eligible record. Does not delete files
 # and does not retire an unresolved record that is not superseded.
 # The command header of bin/fm-pending-reply-retire-stale.sh is the operator
 # statement of this rule.
-fm_pending_reply_retire_stale() {  # <home> <max-age> <mode>
-  local home=$1 max_age=$2 mode=$3 state dir rec corr now
+fm_pending_reply_retire_stale() {  # <home> <mode>
+  local home=$1 mode=$2 state dir rec corr now
   local matched=0 kept=0 errors=0 one_rc eligibility age reason task_id
   local list='' sorted
   case "$mode" in dry-run|apply) ;; *) echo "error: stale retirement mode must be dry-run or apply" >&2; return 2 ;; esac
-  case "$max_age" in ''|*[!0-9]*) echo "error: stale retirement age must be a non-negative integer" >&2; return 2 ;; esac
   state="$home/state"
   [ -d "$state" ] || { echo "error: parent state directory missing" >&2; return 1; }
   now=$(fm_pending_reply_now)
@@ -2081,7 +2034,7 @@ fm_pending_reply_retire_stale() {  # <home> <max-age> <mode>
     if [ "$(fm_pending_reply_get "$rec" phase)" = resolved ]; then
       continue
     fi
-    eligibility=$(fm_pending_reply_stale_reason "$state" "$rec" "$now" "$max_age") || {
+    eligibility=$(fm_pending_reply_stale_reason "$state" "$rec" "$now") || {
       kept=$((kept + 1))
       continue
     }
@@ -2094,7 +2047,7 @@ fm_pending_reply_retire_stale() {  # <home> <max-age> <mode>
       continue
     fi
     one_rc=0
-    fm_pending_reply_retire_stale_one "$home" "$state" "$corr" "$now" "$max_age" || one_rc=$?
+    fm_pending_reply_retire_stale_one "$home" "$state" "$corr" "$now" || one_rc=$?
     case "$one_rc" in
       0) matched=$((matched + 1)) ;;
       2) kept=$((kept + 1)) ;;
