@@ -1,0 +1,26 @@
+{
+  "configured_shell_command": ":",
+  "shell_trace": "+ :",
+  "exit": 0,
+  "commands_test": "absent",
+  "hosted_pr_branches": [
+    "main",
+    "curated"
+  ],
+  "hosted_lint_partitions": [
+    "1",
+    "2",
+    "3",
+    "4"
+  ],
+  "hosted_lint_example_argv": [
+    "bin/fm-lint.sh",
+    "--partition",
+    "1of4",
+    "--telemetry",
+    "$RUNNER_TEMP/fm-lint/partition-1.tsv"
+  ],
+  "pi_typecheck_selected_by_real_runner": true,
+  "consumer_contract": "https://kunchenguid.github.io/no-mistakes/reference/repo-config/#commandslint",
+  "limitation": "No lint phase or hosted CI was executed; those belong to the outer executor."
+}

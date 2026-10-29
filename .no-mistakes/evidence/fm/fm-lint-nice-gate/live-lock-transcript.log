@@ -1,0 +1,102 @@
+acquired worker=3 cycle=1 pid=695855 target=repair.owner.695855.1879710135
+released worker=3 cycle=1
+acquired worker=3 cycle=2 pid=695855 target=repair.owner.695855.1529614146
+released worker=3 cycle=2
+acquired worker=3 cycle=3 pid=695855 target=repair.owner.695855.1600712788
+released worker=3 cycle=3
+acquired worker=1 cycle=1 pid=695852 target=repair.owner.695852.177278425
+released worker=1 cycle=1
+acquired worker=1 cycle=2 pid=695852 target=repair.owner.695852.3170813556
+released worker=1 cycle=2
+acquired worker=1 cycle=3 pid=695852 target=repair.owner.695852.1417127588
+released worker=1 cycle=3
+acquired worker=4 cycle=1 pid=695857 target=repair.owner.695857.3253729347
+released worker=4 cycle=1
+acquired worker=4 cycle=2 pid=695857 target=repair.owner.695857.287772021
+released worker=4 cycle=2
+acquired worker=4 cycle=3 pid=695857 target=repair.owner.695857.116795525
+released worker=4 cycle=3
+acquired worker=2 cycle=1 pid=695853 target=repair.owner.695853.209818414
+released worker=2 cycle=1
+acquired worker=2 cycle=2 pid=695853 target=repair.owner.695853.607925231
+released worker=2 cycle=2
+acquired worker=2 cycle=3 pid=695853 target=repair.owner.695853.265811589
+released worker=2 cycle=3
+acquired worker=2 cycle=4 pid=695853 target=repair.owner.695853.2860325276
+released worker=2 cycle=4
+acquired worker=2 cycle=5 pid=695853 target=repair.owner.695853.1736714474
+released worker=2 cycle=5
+acquired worker=2 cycle=6 pid=695853 target=repair.owner.695853.301671071
+released worker=2 cycle=6
+acquired worker=1 cycle=4 pid=695852 target=repair.owner.695852.302212236
+released worker=1 cycle=4
+acquired worker=1 cycle=5 pid=695852 target=repair.owner.695852.215919167
+released worker=1 cycle=5
+acquired worker=1 cycle=6 pid=695852 target=repair.owner.695852.2698726531
+released worker=1 cycle=6
+acquired worker=4 cycle=4 pid=695857 target=repair.owner.695857.3221018260
+released worker=4 cycle=4
+acquired worker=4 cycle=5 pid=695857 target=repair.owner.695857.3239727804
+released worker=4 cycle=5
+acquired worker=4 cycle=6 pid=695857 target=repair.owner.695857.207481686
+released worker=4 cycle=6
+acquired worker=3 cycle=4 pid=695855 target=repair.owner.695855.2583430642
+released worker=3 cycle=4
+acquired worker=3 cycle=5 pid=695855 target=repair.owner.695855.146301211
+released worker=3 cycle=5
+acquired worker=3 cycle=6 pid=695855 target=repair.owner.695855.421525329
+released worker=3 cycle=6
+abandoned pid=696862 target=repair.owner.696862.1507512352
+reclaimed pid=695848 target=repair.owner.695848.30994426
+final lock=absent ownership-records=1
+acquired worker=4 cycle=1 pid=789217 target=repair.owner.789217.1105331187
+released worker=4 cycle=1
+acquired worker=4 cycle=2 pid=789217 target=repair.owner.789217.776418486
+released worker=4 cycle=2
+acquired worker=4 cycle=3 pid=789217 target=repair.owner.789217.2681325967
+released worker=4 cycle=3
+acquired worker=1 cycle=1 pid=789211 target=repair.owner.789211.3026822230
+released worker=1 cycle=1
+acquired worker=1 cycle=2 pid=789211 target=repair.owner.789211.32732269
+released worker=1 cycle=2
+acquired worker=1 cycle=3 pid=789211 target=repair.owner.789211.61129775
+released worker=1 cycle=3
+acquired worker=4 cycle=4 pid=789217 target=repair.owner.789217.1202528092
+released worker=4 cycle=4
+acquired worker=4 cycle=5 pid=789217 target=repair.owner.789217.155625889
+released worker=4 cycle=5
+acquired worker=4 cycle=6 pid=789217 target=repair.owner.789217.1536224596
+released worker=4 cycle=6
+acquired worker=1 cycle=4 pid=789211 target=repair.owner.789211.2193815481
+released worker=1 cycle=4
+acquired worker=1 cycle=5 pid=789211 target=repair.owner.789211.848311027
+released worker=1 cycle=5
+acquired worker=3 cycle=1 pid=789214 target=repair.owner.789214.235923275
+released worker=3 cycle=1
+acquired worker=3 cycle=2 pid=789214 target=repair.owner.789214.291883454
+released worker=3 cycle=2
+acquired worker=3 cycle=3 pid=789214 target=repair.owner.789214.2132517899
+released worker=3 cycle=3
+acquired worker=2 cycle=1 pid=789212 target=repair.owner.789212.1656416143
+released worker=2 cycle=1
+acquired worker=2 cycle=2 pid=789212 target=repair.owner.789212.1311728235
+released worker=2 cycle=2
+acquired worker=2 cycle=3 pid=789212 target=repair.owner.789212.85201045
+released worker=2 cycle=3
+acquired worker=1 cycle=6 pid=789211 target=repair.owner.789211.167793356
+released worker=1 cycle=6
+acquired worker=3 cycle=4 pid=789214 target=repair.owner.789214.1402422926
+released worker=3 cycle=4
+acquired worker=3 cycle=5 pid=789214 target=repair.owner.789214.3219414568
+released worker=3 cycle=5
+acquired worker=3 cycle=6 pid=789214 target=repair.owner.789214.1272726646
+released worker=3 cycle=6
+acquired worker=2 cycle=4 pid=789212 target=repair.owner.789212.1593021105
+released worker=2 cycle=4
+acquired worker=2 cycle=5 pid=789212 target=repair.owner.789212.498011594
+released worker=2 cycle=5
+acquired worker=2 cycle=6 pid=789212 target=repair.owner.789212.712866
+released worker=2 cycle=6
+abandoned pid=791772 target=repair.owner.791772.2676118995
+reclaimed pid=789203 target=repair.owner.789203.12567204
+final lock=absent remaining-state=trace-only
