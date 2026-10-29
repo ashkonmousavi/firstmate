@@ -91,12 +91,12 @@
 # BACKLOG PASS. After the cadence gate and before the child scan, each scan also
 # closes in-flight backlog records whose pull request has already finished, so
 # merged work cannot sit parked as In flight. It lists this home's in-flight rows
-# (links and body), collects every https://github.com/<owner>/<repo>/pull/<n>
+# (links, body, hold), collects every https://github.com/<owner>/<repo>/pull/<n>
 # reference (plus a worker meta's pr=; a row with none and a meta is re-read with
 # `show --full`, because the list truncates the body), and reads each distinct
 # PR with one bounded `gh pr view --json state`. An unreadable PR, a PR that is
 # still OPEN, or any mixed set leaves the record alone; a record whose refs are
-# ALL MERGED or CLOSED and that has no live worker (a meta whose
+# ALL MERGED or CLOSED, that is not held, and that has no live worker (a meta whose
 # fm-crew-state.sh state is not done or failed) is closed through
 # fm_backlog_done in bin/fm-backlog-transition-lib.sh, the owner teardown uses.
 # A receipt state/terminal-outcomes/backlog-pr-<fingerprint>.closed, keyed by
@@ -725,12 +725,15 @@ backlog_pr_pass() { # <deadline> <secondmate-id-or-empty> <main-home: 0|1>
   fm_backlog_transition_applies "$config" "$data" ship >/dev/null 2>&1 || return 0
   remaining=$((deadline - $(date +%s)))
   [ "$remaining" -ge 1 ] || return 0
-  rows=$(FM_TASKS_AXI_TIMEOUT=$remaining fm_backlog_row_list "$data" --state in_flight --fields links,body) || return 0
+  rows=$(FM_TASKS_AXI_TIMEOUT=$remaining fm_backlog_row_list "$data" --state in_flight --fields links,body,held,hold_kind) || return 0
   while IFS= read -r row; do
     case "$row" in '  '*,in_flight,*) ;; *) continue ;; esac
     id=${row#  }
     id=${id%%,*}
     valid_id "$id" || continue
+    # A held row is somebody's open question, never closed here (teardown keeps
+    # it open the same way).
+    case "$row" in *,no,'"-"') ;; *) continue ;; esac
     meta="$STATE/$id.meta"
     [ -f "$meta" ] && [ ! -L "$meta" ] || meta=''
     refs=$(printf '%s\n' "$row" | backlog_pr_refs)

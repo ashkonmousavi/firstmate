@@ -1039,6 +1039,8 @@ test_notice_recovery_does_not_duplicate_wake() {
 
 # Forge command shims fail loudly. A successful scan proves this path never uses
 # them while reconciling a local terminal outcome.
+# The child scan never calls the forge; the backlog pass only runs where a
+# backlog with in-flight pull request references exists, which this world lacks.
 test_reconciliation_never_calls_forge() {
   make_world forge; write_child "$MAIN" child 'done: green'
   FM_FAKE_CREW_STATE='done' run_reconcile "$MAIN" --startup
@@ -1094,6 +1096,8 @@ test_backlog_pr_pass_closes_finished_records_once() {
   add_flight_row "$MAIN" t-unreadable 'waiting https://github.com/o/r/pull/45'
   add_flight_row "$MAIN" t-mixed 'two https://github.com/o/r/pull/42 and https://github.com/o/r/pull/44'
   add_flight_row "$MAIN" t-none 'no pull request yet'
+  add_flight_row "$MAIN" t-held 'question https://github.com/o/r/pull/42'
+  (cd "$MAIN" && tasks-axi hold t-held --reason 'captain decision' --kind captain --file data/backlog.md >/dev/null) || fail "hold failed"
   run_reconcile "$MAIN" --startup
   [ "$(row_state "$MAIN" t-merged)" = "done" ] || fail "merged PR did not close its record"
   [ "$(row_state "$MAIN" t-closed)" = "done" ] || fail "closed PR did not close its record"
@@ -1101,6 +1105,7 @@ test_backlog_pr_pass_closes_finished_records_once() {
   [ "$(row_state "$MAIN" t-unreadable)" = in_flight ] || fail "unreadable PR record was closed"
   [ "$(row_state "$MAIN" t-mixed)" = in_flight ] || fail "mixed PR refs closed the record"
   [ "$(row_state "$MAIN" t-none)" = in_flight ] || fail "record with no PR was closed"
+  [ "$(row_state "$MAIN" t-held)" = in_flight ] || fail "a held record was closed"
   [ "$(outcome_count "$MAIN" closed)" = 2 ] || fail "closed records did not leave one receipt each"
   # Once: reopening a closed record for the same PR state is not closed again.
   (cd "$MAIN" && tasks-axi reopen t-merged --file data/backlog.md >/dev/null \
