@@ -99,10 +99,11 @@ Dir.mktmpdir('fm-ci-producers-') do |temp|
    raise "#{id}: producer outcome #{code} was lost: #{output}" unless status.success? == (code==0)
   end
  end
- ci.fetch('jobs').fetch('lint').fetch('strategy').fetch('matrix').fetch('partition').each do |partition|
+ partitions=ci.fetch('jobs').fetch('lint').fetch('strategy').fetch('matrix').fetch('partition')
+ partitions.each do |partition|
   run.call('lint','Lint canonical partition','fm-lint.sh',
-           ['--partition',"#{partition}of2",'--telemetry',"#{runner_temp}/fm-lint/partition-#{partition}.tsv"],
-           {'matrix.partition'=>partition,'strategy.job-total'=>2})
+           ['--partition',"#{partition}of#{partitions.length}",'--telemetry',"#{runner_temp}/fm-lint/partition-#{partition}.tsv"],
+           {'matrix.partition'=>partition,'strategy.job-total'=>partitions.length})
  end
  run.call('test-coverage','Prove complete regression partition','fm-test-run.sh',['--check-coverage'])
  [1,2].each do |shard|
@@ -138,6 +139,6 @@ Dir.mktmpdir('fm-ci-producers-') do |temp|
  output,status=invoke.call
  raise 'symlink compatibility pointer was accepted' if status.success?
 end
-raise 'required job expansion changed' unless ci.fetch('jobs').reject{|id,_| id=='tests-timing-aggregate'}.sum{|_,job| (job.dig('strategy','matrix') || {}).values.map(&:length).inject(1,:*)}==17
+raise 'required job expansion changed' unless ci.fetch('jobs').reject{|id,_| id=='tests-timing-aggregate'}.sum{|_,job| (job.dig('strategy','matrix') || {}).values.map(&:length).inject(1,:*)}==19
 puts "ok - #{checks} Linux jobs use hosted routing; required producers propagate failures, separate compliance stays intact, optional aggregate requires real archive paths"
 RUBY
