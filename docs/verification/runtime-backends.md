@@ -625,6 +625,50 @@ The real pane renders this inside a bordered box, omitted here for readability; 
 That capture demonstrated why each signature function matches the FULL captured tail rather than the Grok/Rovo/AGY busy-footer convention of the last 12 non-blank lines: a bordered dialog box renders many short lines of pure border and padding (`│  ...  │`) that are NOT whitespace-only, so the 12-line reduction pushed this exact heading text out of the window and silently defeated the match on the first attempt.
 None of these three runs ever answered its dialog (Escape only, never Enter), so no credential store was written to and no model tokens were spent.
 
+## Claude background exit
+
+Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
+Choosing the handoff leaves a background session that `claude agents --json --all` lists with `kind: background` and the session's cwd, outside every lane.
+The [Claude adapter](../../.agents/skills/harness-adapters/references/harness/claude.md#background-exit) owns the universal launch safeguards; the [control-plane contract](../agent-control.md#verbs) owns cleanup after exit and before relaunch.
+`tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
+The control arm, with no switch, is offered `Move to background and exit`, takes it, and must find a background session for its folder, so the guard fails rather than passing vacuously.
+The switched arm, with the launch environment, must not be offered the handoff, must end the process, and must leave no background session.
+The backstop arm respawns the control session, proves the session PID changed while its original shell survived, stops the session, and confirms its stopped record remains in `agents --json --all` while the shell survives.
+It then invokes `fm-control.sh exit` and checks both listing disappearance and shell termination.
+`bin/fm-claude-bg-stop.py` captures session-owned process identities before removal, including earlier incarnations linked by transcript handoffs, and terminates and verifies captured survivors afterward.
+Ownership requires the inherited session identity and recorded account, while captured descendants may clear their environment or change process groups.
+The vendor's [supervisor lifecycle contract](https://code.claude.com/docs/en/agent-view#the-supervisor-process) defines deletion as the boundary that stops carried work; Firstmate verifies process termination independently of the listing.
+Firstmate creates the matched worktree itself; the vendor's [deletion contract](https://code.claude.com/docs/en/agent-view#what-deleting-a-session-removes) preserves a caller-created worktree and the conversation transcript.
+A refused removal fails cleanup without forcing worktree deletion.
+The guard records its shell's PID and start time and uses portable process identity checks for its assertion and trap cleanup.
+The [account-selection contract](../configuration.md#worker-account-pin-configclaude-account-configpi-account) owns raw overrides and the limits of adapter recognition; `tests/fm-worker-account.test.sh` verifies exported roots against persisted metadata.
+
+| Class axis | Covered paths and evidence | Validation handoff |
+| --- | --- | --- |
+| Task and home | All ship, scout, and local secondmate launch expressions share safeguard exports and record their exported account; remote secondmates route to their owning home | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh` |
+| Account | Pinned directory, ordinary, ambient, and literal raw overrides; quoted, empty, and final repeated assignments | `tests/fm-worker-account.test.sh`; compare the executed worker environment with persisted metadata |
+| Lifecycle | Current session, exited process, reparented work, respawned session, removal refusal, and surviving listing | Deterministic control regressions plus the live guard's respawn arm |
+| Harness and backend | Cleanup is gated to Claude; tmux and Herdr permit stop-proving verbs; other runtime backends refuse those verbs | Control capability regressions; other harnesses do not enter Claude cleanup |
+| Platform | PID/start-time assertions use `ps` on Linux and macOS | Run the live guard on both platforms and retain version, output, and process assertions |
+
+The live guard refreshes this record's dated per-platform evidence after Claude upgrades.
+The generated no-mistakes driving instructions in `bin/fm-dod-lib.sh` hand the class inventory and live-evidence gaps to that phase.
+
+The two background-exit safeguard variable names are present in the installed binary, and `--advisor <model>` is accepted there although `claude --help` does not list it (its pairing rules are in the advisor documentation, `https://code.claude.com/docs/en/advisor`; Haiku 4.5 and Haiku 5.5 both accept Opus).
+
+Verified 2026-10-29 on Linux with Claude Code 2.1.312 using an isolated authenticated `CLAUDE_CONFIG_DIR` and `DISABLE_AUTOUPDATER=1`.
+`bash tests/fm-control.test.sh` passed with real reparented processes, separate child process groups, and a vendor-removal fixture that leaves carried work alive.
+That regression also preserved a neighboring session and the same session identity under another account.
+The live command below exited 0 and printed `ok - backstop: exact-session removal ends the respawned session and its earlier carried shell` after the public exit boundary reported `background-sessions=stopped:6086c0e3`.
+macOS process inspection is implemented but was not run in this Linux validation.
+The designated validation command is:
+
+```sh
+FM_CLAUDE_BG_EXIT_LIVE_E2E=1 bash tests/fm-claude-bg-exit-live-e2e.test.sh
+```
+
+The guard submits a few Haiku prompts, so it stays opt-in; rerun it after every Claude upgrade.
+
 ## Worker account pin sign-in check
 
 `bin/fm-worker-account-lib.sh` decides whether a pinned account is signed in from vendor output: the exit status of `claude auth status`, the JSON of `pi auth check`, and the provider column of `pi --list-models`.

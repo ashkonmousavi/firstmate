@@ -364,6 +364,10 @@
 #   compact-adviser kill switch COMPACT_ADVISER_DISABLE, which the floor also
 #   pins to 1 with a literal assignment so it survives the cleared environment
 #   even on a host that never had it set.
+#   CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 and CLAUDE_CODE_DISABLE_AGENT_VIEW=1
+#   are also literal assignments at this boundary and exports before the whole
+#   launch expression, so fallbacks inherit both safeguards. Leading raw
+#   assignments that disable either switch refuse before launch.
 #   An enabled task trace also retains TRACEPARENT. Explicit Firstmate launch
 #   assignments still apply inside the filtered environment, including the
 #   FM_TASK_INBOX export every launch carries (the absolute state/<id>.inbox
@@ -418,8 +422,8 @@
 #   and its operator contract. Resolve it with bin/fm-exclude-tools-lib.sh
 #   before provisioning; __PIEXCLUDE__ below owns the Pi launch substitution.
 # Worker account pin (config/claude-account, config/pi-account):
-#   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
-#   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
+#   Opt-in. With no file, canonical Claude launches still receive this
+#   process's own CLAUDE_CONFIG_DIR when it is set, and Pi retains the
 #   destination pane's ambient account. A present file pins every launch of
 #   that runner from this home - ship, scout, local secondmate, raw Claude
 #   command, and relaunch - to the declared account root, and the spawn
@@ -2390,6 +2394,18 @@ launch_template() {
   # busy hooks share that value, in state/<id>.claude-settings.json, and the
   # file also carries feedbackDrafts and attribution so those session keys
   # stay in force.
+  # Claude Code's /exit can offer to hand off a session with background work
+  # (subagents, background shells, workflows, monitors), leaving a
+  # background session ("Moving to background... backgrounded <id>") that keeps
+  # running outside every lane and every pane
+  # (https://code.claude.com/docs/en/agent-view.md). Two switches, both in the
+  # per-launch environment so every home inherits them and the captain's global
+  # settings stay untouched: CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 makes /exit
+  # stop that background work with the process, and CLAUDE_CODE_DISABLE_AGENT_VIEW=1
+  # (the disableAgentView setting's env form) turns background agents off
+  # entirely (`claude agents`, `--bg`, /background, the daemon). Both names were
+  # confirmed in claude 2.1.312. bin/fm-control.sh exit is the verb-side
+  # backstop for sessions that predate or escape these switches.
   # __CLAUDEPERMFLAG__ is the permission flag config/claude-permission-mode
   # selects (header above): --dangerously-skip-permissions by default, or
   # --permission-mode auto for a captain who refuses bypass mode.
@@ -2663,14 +2679,9 @@ case "$ARG3" in
 *' '*) # raw launch command (unverified-adapter escape hatch)
   RAW_LAUNCH=1
   LAUNCH=$ARG3
-  HARNESS=""
-  for word in $LAUNCH; do
-    case "$word" in [A-Za-z_]*=*) continue ;; *)
-      HARNESS=$(basename "$word")
-      break
-      ;;
-    esac
-  done
+  RAW_PROFILE=$(fm_worker_account_raw_profile "$LAUNCH" "${CLAUDE_CONFIG_DIR:-}") || exit 1
+  HARNESS=${RAW_PROFILE%%$'\t'*}
+  RAW_CLAUDE_ROOT=${RAW_PROFILE#*$'\t'}
   ;;
 '')
   # No explicit harness: resolve from config. A secondmate AGENT launches on the
@@ -2886,14 +2897,22 @@ RAW_COMMAND=
 [ "$RAW_LAUNCH" = 0 ] || RAW_COMMAND=$ARG3
 WORKER_ACCOUNT_MATE=
 [ "$KIND" != secondmate ] || WORKER_ACCOUNT_MATE=$ID
-WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
+WORKER_ACCOUNT_HARNESS=$(fm_control_harness_family "$HARNESS") || WORKER_ACCOUNT_HARNESS=$HARNESS
+WORKER_ACCOUNT=$(fm_worker_account_select "$WORKER_ACCOUNT_HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
 WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
 WORKER_ACCOUNT_PROVIDER=${WORKER_ACCOUNT_ROOT#*$'\t'}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
-if [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = claude ]; then
+if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
   if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
     export CLAUDE_CONFIG_DIR=$WORKER_ACCOUNT_ROOT
+  else
+    unset CLAUDE_CONFIG_DIR
+  fi
+fi
+if [ "$RAW_LAUNCH" = 1 ] && { [ "$WORKER_ACCOUNT_HARNESS" != claude ] || [ -z "$WORKER_ACCOUNT" ]; }; then
+  if [ -n "$RAW_CLAUDE_ROOT" ]; then
+    export CLAUDE_CONFIG_DIR=$RAW_CLAUDE_ROOT
   else
     unset CLAUDE_CONFIG_DIR
   fi
@@ -5869,7 +5888,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort account account_provider claude_config_dir busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -5894,10 +5913,13 @@ preserve_relaunch_meta() {
   [ -z "$EXTERNAL_BACKUP_REMOTE" ] || echo "backup_prefix=$EXTERNAL_BACKUP_PREFIX"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"
-  # The worker account pin, only when this home declares one, so an unpinned
-  # task record stays byte-identical.
+  # account= records a declared pin; claude_config_dir= below also retains
+  # unpinned launch roots for background-session cleanup.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
+  if [ "$WORKER_ACCOUNT_HARNESS" = claude ] || [ "$RAW_LAUNCH" = 1 ]; then
+    printf 'claude_config_dir=%s\n' "${CLAUDE_CONFIG_DIR:-}"
+  fi
   [ -z "${BUSY_GEN:-}" ] || echo "busy_gen=$BUSY_GEN"
   echo "spawn_gen=$SPAWN_GEN"
   # Default-off writes no traceparent= line.
@@ -6043,6 +6065,16 @@ sq_ompcfg=$(shell_quote "${OMP_WORKER_CFG:-$FM_ROOT/.omp/fm-worker-overlay.yml}"
 sq_opinput=$(shell_quote "$FM_ROOT/bin/fm-operational-input.sh")
 sq_worktree=$(shell_quote "$WT")
 MODELFLAG=$(model_flag_for_harness "$HARNESS" "$MODEL")
+# A Haiku Claude crew or scout worker runs with an Opus advisor, the pairing
+# the advisor docs list for Haiku 4.5 and Haiku 5.5 alike
+# (https://code.claude.com/docs/en/advisor). --advisor is accepted by claude
+# 2.1.312 but absent from `claude --help`; an unaccepted pairing makes a
+# foreground launch exit, so no other model gets the flag.
+if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ]; then
+  case "$MODEL" in
+  *[Hh][Aa][Ii][Kk][Uu]*) MODELFLAG="${MODELFLAG}--advisor 'opus' " ;;
+  esac
+fi
 # A pinned Pi launch confines Pi's model lookup to the declared provider.
 [ -z "$WORKER_ACCOUNT_PROVIDER" ] || MODELFLAG="--provider $(shell_quote "$WORKER_ACCOUNT_PROVIDER") $MODELFLAG"
 EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL") || exit 1
@@ -6146,31 +6178,12 @@ claude | codex | opencode | pi | pi-signed | grok | kimi | gemini | muse | rovo 
   LAUNCH="env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI $LAUNCH"
   ;;
 esac
-# Crewmate panes are created by a long-lived tmux/herdr daemon that does not
-# inherit firstmate's current environment, so a bare `claude` in the pane falls
-# back to the default ~/.claude store even when firstmate itself runs under a
-# different CLAUDE_CONFIG_DIR (for example a work-vs-personal subscription split).
-# Forward firstmate's own resolved store onto the claude launch so the crewmate
-# uses the same credential/config firstmate is authenticated with. Only when set;
-# an unset value is the single-store default and needs no prefix.
-# A home's worker account pin replaces that forwarding: the launch names the
-# pinned root (or unsets the variable for the ordinary Claude account) and
-# sheds the environment credentials Claude ranks above the root's login.
 if [ -n "$WORKER_ACCOUNT" ]; then
-  case "$HARNESS" in
-  claude)
-    if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
-      LAUNCH="$(fm_worker_account_claude_shed) CLAUDE_CONFIG_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
-    else
-      LAUNCH="$(fm_worker_account_claude_shed) -u CLAUDE_CONFIG_DIR $LAUNCH"
-    fi
-    ;;
+  case "$WORKER_ACCOUNT_HARNESS" in
   pi | pi-signed)
     LAUNCH="PI_CODING_AGENT_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
     ;;
   esac
-elif [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-  LAUNCH="CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $LAUNCH"
 fi
 if [ "$KIND" = secondmate ]; then
   sq_home=$(shell_quote "$PROJ_ABS")
@@ -6260,7 +6273,17 @@ fi
 # kill switch below it is an export statement, so it survives a compound raw
 # launch and the launch-env-allowlist `env -i` wrapper.
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
-LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
+if [ "$WORKER_ACCOUNT_HARNESS" = claude ] || [ "$RAW_LAUNCH" = 1 ]; then
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+    LAUNCH="export CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR"); $LAUNCH"
+  else
+    LAUNCH="unset CLAUDE_CONFIG_DIR; $LAUNCH"
+  fi
+fi
+if [ "$WORKER_ACCOUNT_HARNESS" = claude ] && [ -n "$WORKER_ACCOUNT" ]; then
+  LAUNCH="unset $FM_WORKER_ACCOUNT_CLAUDE_SHED; $LAUNCH"
+fi
+LAUNCH="export COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1; $LAUNCH"
 # When the live-harness gate has exported DISABLE_AUTOUPDATER into this spawn's
 # own environment, carry it into the launch command text so Claude Code's
 # auto-updater cannot rewrite the shared binary during a live run. Embedding the
@@ -6375,7 +6398,7 @@ if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
   # Setting it here rather than relying on the assignment already carried by
   # $LAUNCH is what gives the wrapping `/bin/sh` itself the switch, not only the
   # agent command it runs.
-  LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX COMPACT_ADVISER_DISABLE=1"
+  LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1"
   if [ -n "$SPAWN_TRACEPARENT" ]; then
     # shellcheck disable=SC2016
     LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX "'${TRACEPARENT+"TRACEPARENT=$TRACEPARENT"}'

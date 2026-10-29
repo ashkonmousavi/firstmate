@@ -55,6 +55,17 @@ trap relaunch_cleanup EXIT
 make_tmux_stub() {  # <dir>
   local fb="$1/fakebin"
   mkdir -p "$fb"
+  # A relaunch of a Claude task exits it first, and fm-control then lists
+  # `claude agents --json`. This fake lists no background session, so the suite
+  # never reaches the developer's real Claude account.
+  cat > "$fb/claude" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  agents) echo '[]' ;;
+esac
+exit 0
+SH
+  chmod +x "$fb/claude"
   cat > "$fb/tmux" <<'SH'
 #!/usr/bin/env bash
 set -u
@@ -1035,6 +1046,8 @@ test_worker_account_pin_follows_the_relaunch() {
   out=$(run_control "$dir" "$id" relaunch --note "pinned account"); rc=$?
   expect_code 0 "$rc" "a relaunch under a signed-in account pin should succeed"$'\n'"$out"
   [ "$(meta_field "$dir" "$id" account)" = "$dir/work" ] || fail "the relaunched record should carry the pinned account"
+  [ "$(meta_field "$dir" "$id" claude_config_dir)" = "$dir/work" ] \
+    || fail "the replacement must record the pinned Claude config root"
   assert_contains "$(cat "$dir/fake/literal")" "CLAUDE_CONFIG_DIR='$dir/work'" \
     "the replacement should launch under the pinned root"
   rm "$dir/home/config/claude-account"
@@ -1042,6 +1055,9 @@ test_worker_account_pin_follows_the_relaunch() {
   out=$(run_control "$dir" "$id" relaunch --note "pin removed"); rc=$?
   expect_code 0 "$rc" "a relaunch after the pin is removed should succeed"$'\n'"$out"
   assert_no_grep "account=" "$dir/home/state/$id.meta" "a relaunch without a pin must drop the previous account from the record"
+  # shellcheck disable=SC2031 # The earlier subshell fixture leaves the ambient root unchanged.
+  [ "$(meta_field "$dir" "$id" claude_config_dir)" = "${CLAUDE_CONFIG_DIR:-}" ] \
+    || fail "an unpinned replacement must record its ambient Claude root for later cleanup"
   assert_not_contains "$(cat "$dir/fake/literal")" "CLAUDE_CONFIG_DIR=" \
     "an unpinned replacement must launch exactly as before"
   pass "fm-control relaunch: the replacement follows the home's current worker account pin"
@@ -2895,6 +2911,8 @@ test_herdr_reclaim_keeps_the_task_whole() {
     "the replacement must inherit the progress note"
   [ "$(journal_field "$dir" rl75 exit_result)" = endpoint-gone ] \
     || fail "the transaction should record that the endpoint was already gone"
+  [ "$(journal_field "$dir" rl75 exit_background)" = background-sessions=none ] \
+    || fail "the transaction should record the Claude background-session check beside the exit result"
   pass "reclaim: a herdr reclaim rebinds the endpoint and leaves the whole rest of the task alone"
 }
 

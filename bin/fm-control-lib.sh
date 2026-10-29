@@ -270,6 +270,35 @@ fm_control_exit_command() {  # <harness>
   esac
 }
 
+# Claude Code's /exit does not always exit: a session that still has background
+# work (subagents, background shells, workflows, monitors) can be moved to a
+# background session ("Moving to background... backgrounded <id>") and keeps
+# running outside every lane
+# (https://code.claude.com/docs/en/agent-view.md). The launch environment turns
+# that off (bin/fm-spawn.sh); this is the verb-side backstop for sessions that
+# predate it or slip past it.
+#
+# fm_control_claude_bg_ids <worktree> <agents-json>
+# Reads the `claude agents --json --all` array on the second argument and prints the
+# id of each BACKGROUND session whose cwd is exactly <worktree> (trailing
+# slashes and the physical path of the worktree are equivalent), one per line.
+# Interactive sessions, a different worktree, and a cwd merely nested under
+# this one are never printed: another task's session must never be stopped by
+# a prefix match. An id that is not a plain token is dropped rather than passed
+# to `claude rm`. Returns 1 when the JSON is not an array.
+fm_control_claude_bg_ids() {
+  local wt=${1-} json=${2-} phys
+  wt=${wt%/}
+  [ -n "$wt" ] || return 1
+  phys=$(cd "$wt" 2>/dev/null && pwd -P) || phys=$wt
+  printf '%s' "$json" | jq -r --arg a "$wt" --arg b "$phys" '
+    if type != "array" then error("not an array") else .[] end
+    | select(.kind == "background")
+    | select((.cwd // "") | sub("/+$"; "") | . == $a or . == $b)
+    | select((.id // "") | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9_-]*$"))
+    | .id' 2>/dev/null
+}
+
 # The launch argument that makes a RELAUNCH of <harness> RESUME an exact agent
 # session instead of starting a fresh one, printed only when <registered-agent>
 # is the label that session reference belongs to; nothing otherwise.

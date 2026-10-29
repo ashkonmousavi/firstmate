@@ -37,6 +37,10 @@ A recorded `harness=` is not always an exact adapter name: a task launched from 
 | `relaunch` | Replace the running agent with a new one in the same worktree - and the same endpoint whenever that endpoint still exists - on the exact recorded adapter or an explicitly chosen harness, model, and effort. | The new agent is alive on the endpoint the task's record now names, and that record names the harness that is actually running. |
 
 An exit that delivers lifecycle input but cannot prove the agent stopped fails with `exit=unconfirmed`, reports the observed agent state and any interrupt cancellation claim, and never claims that nothing changed.
+For Claude, both `exit` and the stopping stage of `relaunch` also clean up background sessions for the exact task worktree under the recorded launch account, even when the foreground agent is already stopped or its endpoint is proven gone.
+Cleanup verifies that session-owned carried work stops across respawns; a removal failure, surviving process, or surviving session listing fails the verb.
+An unreadable session listing instead leaves cleanup explicitly unverified and emits a diagnostic; foreground exit success alone therefore does not prove background work stopped.
+[`bin/fm-control.sh`](../bin/fm-control.sh) owns the output fields and account fallback for older records, and [`bin/fm-claude-bg-stop.py`](../bin/fm-claude-bg-stop.py) owns process ownership and termination checks.
 Interrupt never rewrites busy state as proof of its own success.
 Claude exposes no lifecycle acknowledgement for a manual interrupt, so delivery succeeds with `cancel=unconfirmed` and its adapter-owned busy state remains as observed.
 Devin emits no lifecycle hook for cancellation either, so after an armed interrupt the control plane invalidates the interrupted turn's busy record to `unknown` with `cancel=unconfirmed`; that invalidation is a conservative loss of knowledge, never a fabricated idle.
@@ -56,7 +60,7 @@ A stopped agent whose pane still shows the dialog text is not refused.
 [`fm_composer_blocking_dialog`](../bin/fm-composer-lib.sh) owns the recognised set, which today is only Claude's background-task exit picker; [its verification record](verification/runtime-backends.md#claude-background-task-exit-picker) lists the dialogs that are not covered.
 
 **Teardown and discard are not verbs and will not become verbs.**
-`exit` stops an agent and preserves everything else.
+`exit` preserves the endpoint, worktree, uncommitted changes, and conversation transcripts while stopping the agent and cleaning up its retained Claude background sessions.
 Removing a worktree, closing an endpoint, or discarding work stays with [`bin/fm-teardown.sh`](../bin/fm-teardown.sh), which owns the landed-work test.
 
 **`resume` is not a verb.**
