@@ -27,20 +27,18 @@
 # write; conflicting or unavailable confirmation refuses. Packet updates archive
 # the prior body, preserving ordinary prose and earlier source/correction records.
 #
-# `show` (including `view`) and `list` decode stored captain-hold reasons
+# `show` (including `view`) and `list` decode stored hold reasons
 # through bin/fm-hold-reason-lib.sh, which owns the field-only decoding contract.
 # Decoded reasons use quoted strings so embedded line breaks remain intact.
+# `show` and `view` also expose a structured hold's `hold_release_on` condition
+# and `hold_release_episode` binding as JSON strings.
 #
 # HOLD RELEASE CONDITIONS. `hold` accepts one extra flag this wrapper owns,
 # `--release-on pr:<owner>/<repo>#<n>` or `--release-on marker:<absolute-path>`:
-# the condition is encoded in the native hold reason and
-# evaluated by the watcher's check sweep, which wakes firstmate once with
-# `hold condition met: <id> <condition>` and keeps a keyed decision open in
-# OPEN DECISIONS until the hold is released or re-held
-# (bin/fm-hold-release-lib.sh owns the whole contract). A hold of kind
-# external, or with no kind, with neither --release-on nor --until is refused, so each such
-# hold always names when it clears. `unhold` drops the record and closes any
-# still-open hold-release decision. The flag never reaches tasks-axi itself,
+# bin/fm-hold-release-lib.sh owns storage, evaluation, and disposition.
+# A hold of kind external, or with no kind, with neither --release-on nor
+# --until is refused, so each such hold always names when it clears.
+# Other hold kinds remain exempt. The flag never reaches tasks-axi itself,
 # and it is refused on every other command.
 #
 # Why it exists: a bare `tasks-axi` resolves the tracked `.tasks.toml` paths

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# fm-hold-reason-lib.sh - the one reversible encoding of a captain-hold reason.
+# fm-hold-reason-lib.sh - the one reversible encoding of a hold reason.
 #
 # tasks-axi stores a hold reason as one markdown line inside a parenthesised tag,
 # so its own `hold` refuses parentheses and line breaks. A decision reason is
-# ordinary prose, so bin/fm-captain-hold.sh encodes the reason where it writes
-# it and every reader that shows it decodes it again, instead of banning the
-# characters. Stored reasons use fm-hold-v1: for base64-encoded UTF-8 text,
+# ordinary prose, so bin/fm-captain-hold.sh encodes it instead of banning those
+# characters. bin/fm-tasks-axi.sh also uses this encoding for structured holds;
+# every reader that shows the reason decodes it again.
+# Stored reasons use fm-hold-v1: for base64-encoded UTF-8 text,
 # or fm-hold-v2: for a base64-encoded JSON reason, release_on and episode.
 # Unmarked reasons are plain text. Readers decode only
 # the hold-reason field, once, and keep line breaks in quoted output strings.

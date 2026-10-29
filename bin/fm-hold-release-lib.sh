@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 # fm-hold-release-lib.sh - structured release conditions on backlog holds.
 #
-# ONE OWNER of the hold-release contract: the condition syntax, the durable
-# per-task record kept beside the hold, the "hold condition met" keyed
+# ONE OWNER of the hold-release contract: the condition syntax, the native
+# hold binding and rebuildable cache, the "hold condition met" keyed
 # decision, and the bounded evaluation the watcher's check sweep runs.
 #
-# THE PROBLEM THIS REPAIRS. A hold of kind external carried its release
-# condition as free text in the reason ("awaiting merge <url>"), and nothing
-# evaluated that text when the named event happened, so holds outlived their
-# reason: work sat queued for days on PRs that had already merged. The fix is
-# a structured condition stored beside the hold and evaluated on the existing
-# watcher check cadence - no new daemon - with a durable keyed decision that
-# must be dispositioned.
+# A structured hold must commit its own condition and episode, so interruption
+# or cross-home transfer cannot leave evaluation dependent on a stale or
+# missing home-local cache. tests/fm-hold-release.test.sh covers publication
+# recovery and transfers through moves, handoffs, and remote receipts.
 #
 # CONDITION SYNTAX (fm_hold_release_valid owns it):
 #   pr:<owner>/<repo>#<number>   a GitHub pull request; met when it is MERGED
@@ -20,6 +17,8 @@
 # forge is GitHub and the evaluation reads it through gh exactly as
 # bin/fm-pr-poll.sh does; a closed-not-merged PR is never "met" (re-examine
 # such a hold by re-holding it).
+# Marker paths are checked on the evaluating home's filesystem; transferring
+# a hold preserves the path, not the marker file.
 #
 # STORAGE. The condition and episode are part of the native encoded hold reason
 # (bin/fm-hold-reason-lib.sh), committed and transferred with the hold itself.
@@ -34,7 +33,8 @@
 # documented bypass, and bin/fm-tasks-axi.sh refuses an external or kindless hold with
 # neither --release-on nor --until precisely so the bypass is a choice.
 #
-# RECORD LIFECYCLE. The record exists exactly while its hold exists:
+# CACHE LIFECYCLE. Wrapper updates reconcile the cache immediately; the next
+# evaluation repairs an interrupted update from the authoritative hold:
 #   hold with --release-on      -> record written; a previous still-open
 #                                  hold-release decision for the task closes
 #                                  ("re-held") because that lifecycle ended
@@ -43,9 +43,11 @@
 #                                  condition")
 #   unhold                      -> record dropped; open decision closes
 #                                  ("released")
-#   task closed while held      -> the next evaluation drops the record and
+#   task closed or removed      -> the next evaluation drops the record and
 #                                  closes any open decision ("hold no longer
-#                                  active"), so no decision outlives its row
+#                                  active" or "task no longer exists")
+# Missing or mismatched cache records are rebuilt from committed held rows
+# before evaluating their current condition, never the stale cached condition.
 #
 # THE KEYED DECISION. When evaluation finds the condition met, it opens ONE
 # durable decision on the held task's own status log (state/<id>.status,
@@ -72,6 +74,8 @@
 # is UNKNOWN, never met: a failed lookup can never release a hold. Each
 # newly-met condition commits its check wake before announcing the decision,
 # then prints its wake line for the watcher to surface.
+# Sweeps rotate through task ids, bounded by both the task cap and a 30-second
+# budget, shortened to half any remaining caller deadline.
 #
 # Tunables (env):
 #   FM_HOLD_RELEASE_GH          gh replacement used for pr lookups (tests)
@@ -79,10 +83,10 @@
 #                               a tasks-axi `show` block (tests)
 #   FM_HOLD_RELEASE_NOW         fixed epoch for deterministic tests
 #   FM_HOLD_RELEASE_SHOW_BOUND  per-task show and PR bound in seconds (default 10)
-#   FM_HOLD_RELEASE_MAX_RECORDS records per evaluation sweep (default 25)
+#   FM_HOLD_RELEASE_MAX_RECORDS task ids per evaluation sweep (default 25)
 #
 # Sourced by bin/fm-tasks-axi.sh, bin/fm-captain-hold.sh,
-# bin/fm-backlog-transition-lib.sh, bin/fm-watch.sh, and tests.
+# bin/fm-watch.sh, and tests.
 # No side effects on source. set -u / set -e safe.
 
 _FM_HOLD_RELEASE_LIB_DIR="$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd 2>/dev/null)" || _FM_HOLD_RELEASE_LIB_DIR="."
@@ -421,7 +425,7 @@ _fm_hold_release_show() {  # <task-id>
   return 0
 }
 
-# One evaluation sweep over the records. Prints one
+# One evaluation sweep over held rows and cached task ids. Prints one
 #   hold condition met: <task-id> <condition>
 # line per newly-met condition after its check wake is durably queued.
 # Diagnostics go to stderr. Returns 0 unless the sweep itself could not run.
