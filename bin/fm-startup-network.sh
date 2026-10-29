@@ -17,13 +17,17 @@
 # be just as slow; that scan publishes its own findings to the durable wake queue.
 #
 # WHAT IS PRESERVED. Nothing is dropped. bin/fm-bootstrap.sh remains the single
-# owner of every network sweep and still runs all of them, unchanged, via its
-# FM_BOOTSTRAP_NETWORK=only phase. bin/fm-inactive-reconcile.sh remains the
+# owner of every sweep in this stage and still runs all of them via its
+# FM_BOOTSTRAP_NETWORK=only phase, including dead-crewmate relaunch
+# (bin/fm-crew-recovery-lib.sh) for a ship or scout in this home whose endpoint
+# is dead or missing and whose recorded copy still holds unlanded work.
+# bin/fm-inactive-reconcile.sh remains the
 # owner of the startup scan and its separate watcher cadence. Deferral changes
 # WHEN they run, not WHETHER, and three properties make the later run safe:
 #   - The work is idempotent detection. A run whose report is lost (killed
 #     worker, truncated digest, crashed session) loses no finding: the next run
-#     re-derives the same inactive terminal child, dead secondmate, stuck clone,
+#     re-derives the same inactive terminal child, dead secondmate, dead
+#     crewmate with unlanded work, stuck clone,
 #     or undelivered handoff. There is no once-only signal to miss.
 #   - Results are durable and always surface. Network sweep output lands in
 #     state/.startup-network.report and reaches the agent either inline in the
@@ -224,7 +228,7 @@ worker_alive() {
 phase_label() {  # <phases>
   case "$1" in
     probe) printf 'GitHub authentication' ;;
-    probe,sweeps) printf 'GitHub authentication, dead-secondmate relaunch, secondmate convergence, pending handoff delivery, project clone refresh with its drift reporting, and inactive terminal-outcome reconciliation' ;;
+    probe,sweeps) printf 'GitHub authentication, dead-secondmate relaunch, dead-crewmate relaunch, secondmate convergence, pending handoff delivery, project clone refresh with its drift reporting, and inactive terminal-outcome reconciliation' ;;
     *) printf 'the deferred network checks' ;;
   esac
 }
@@ -592,7 +596,7 @@ EOF
   fm_timing_record stage network-checks "$stage_started" "$phases"
 
   if [ "$downgraded" -eq 1 ]; then
-    printf 'NETWORK_CHECKS: the recorded fleet lock holder changed after these were requested, so dead-secondmate relaunch, secondmate convergence, pending handoff delivery, and project clone refresh were skipped; they belong to whichever session holds the lock now\n' >> "$out"
+    printf 'NETWORK_CHECKS: the recorded fleet lock holder changed after these were requested, so dead-secondmate relaunch, dead-crewmate relaunch, secondmate convergence, pending handoff delivery, and project clone refresh were skipped; they belong to whichever session holds the lock now\n' >> "$out"
   fi
   case "$rc" in
     0) publish "$generation" 'done' "$phases" "$sweep_locked" "$started" "$rc" "$out" "$timings" ;;
