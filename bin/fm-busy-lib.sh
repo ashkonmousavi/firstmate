@@ -314,6 +314,83 @@ fm_busy_record_read() {  # <state-dir> <id>
   printf '%s %s %s %s' "$r_state" "$r_source" "$r_event" "$r_seq"
 }
 
+# Submit-signal contract (tmux Claude workers): snapshot the current generation,
+# lifecycle sequence, and hash of the exact text BEFORE typing or retrying an
+# existing draft. Confirmation requires a receipt for that hash in the same
+# generation with a sequence newer than the snapshot. Unrelated prompt events
+# and turn closes cannot confirm the sender's draft; a matching receipt survives
+# later lifecycle events. Hashing removes only U+2063, preserving all other bytes.
+# bin/fm-busy-event.sh --help owns the receipt format and writer mechanics.
+fm_busy_prompt_hash() {
+  python3 -c '
+import hashlib, json, sys
+try:
+    if sys.argv[1] == "hook":
+        prompt = json.load(sys.stdin).get("prompt")
+        if not isinstance(prompt, str):
+            sys.exit(1)
+        data = prompt.encode("utf-8")
+    else:
+        data = sys.stdin.buffer.read()
+    data = data.replace(chr(0x2063).encode("utf-8"), b"")
+    print(hashlib.sha256(data).hexdigest())
+except (ValueError, AttributeError, UnicodeError):
+    sys.exit(1)
+' "${1:-}"
+}
+
+fm_busy_submit_signal_harness() {
+  case "${1:-}" in
+    claude*) printf 'claude-hook user-prompt-submit' ;;
+    *) return 1 ;;
+  esac
+}
+
+fm_busy_submit_baseline() {
+  local gen rec r_source r_seq hash
+  fm_busy_submit_signal_harness "${3:-}" >/dev/null || return 1
+  gen=$(fm_busy_current_gen "$1" "$2") || return 1
+  rec=$(fm_busy_record_read "$1" "$2") || return 1
+  read -r _ r_source _ r_seq <<< "$rec"
+  fm_busy_source_trusted "$3" "$r_source" || return 1
+  hash=$(printf '%s' "$4" | fm_busy_prompt_hash) || return 1
+  printf '%s %s %s' "$gen" "$r_seq" "$hash"
+}
+
+fm_busy_submit_confirmed() {
+  local b_gen b_seq hash gen r_gen r_seq extra
+  read -r b_gen b_seq hash extra <<< "$4"
+  [ -z "$extra" ] && [ "${#hash}" = 64 ] || return 1
+  case "$hash" in *[!0-9a-f]*) return 1 ;; esac
+  fm_busy_submit_signal_harness "${3:-}" >/dev/null || return 1
+  gen=$(fm_busy_current_gen "$1" "$2") || return 1
+  [ "$gen" = "$b_gen" ] || return 1
+  read -r r_gen r_seq extra 2>/dev/null < "$1/$2.submit-state/$hash" || return 1
+  [ -z "$extra" ] && [ "$r_gen" = "$gen" ] || return 1
+  case "$r_seq:$b_seq" in *[!0-9:]*|:*|*:) return 1 ;; esac
+  [ "$(fm_busy_current_gen "$1" "$2")" = "$gen" ] || return 1
+  [ "$r_seq" -gt "$b_seq" ]
+}
+
+fm_busy_submit_wait() {  # <seconds>
+  local secs=$1 n i
+  if [ -z "${FM_SUBMIT_SIGNAL_BASELINE:-}" ]; then
+    sleep "$secs"
+    return 1
+  fi
+  n=$(awk -v s="$secs" 'BEGIN { n = int(s / 0.2 + 0.999); print (n < 1 ? 1 : n) }')
+  i=0
+  while [ "$i" -lt "$n" ]; do
+    sleep 0.2
+    if fm_busy_submit_confirmed "${FM_SUBMIT_SIGNAL_STATE:-}" "${FM_SUBMIT_SIGNAL_ID:-}" \
+         "${FM_SUBMIT_SIGNAL_HARNESS:-}" "$FM_SUBMIT_SIGNAL_BASELINE"; then
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  return 1
+}
+
 # ---------------------------------------------------------------------------
 # muse session-log busy source
 #
