@@ -320,12 +320,28 @@ case "${1:-}" in
     if [ "$literal" = 1 ]; then
       printf '%s' "$1" >> "$FM_FAKE_COMPOSER"
     elif [ "${1:-}" = Enter ]; then
+      [ -z "${FM_FAKE_ENTER_LOG:-}" ] || printf 'Enter\n' >> "$FM_FAKE_ENTER_LOG"
       drops=$(cat "$FM_FAKE_DROP_ENTERS" 2>/dev/null || echo 0)
       if [ "$drops" -gt 0 ]; then
         echo $((drops - 1)) > "$FM_FAKE_DROP_ENTERS"
+        if [ "${FM_FAKE_AUTOMATIC_WAKE:-0}" = 1 ]; then
+          printf '%s\n' '{"prompt":"unrelated automatic wake"}' | \
+            "$FM_FAKE_HOOK_WRITER" apply "$FM_FAKE_HOOK_STATE" "$FM_FAKE_HOOK_ID" busy \
+              --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null 2>&1 || true
+          "$FM_FAKE_HOOK_WRITER" apply "$FM_FAKE_HOOK_STATE" "$FM_FAKE_HOOK_ID" idle \
+            --current-gen --source claude-hook --event stop >/dev/null 2>&1 || true
+        fi
       elif [ -s "$FM_FAKE_COMPOSER" ]; then
         printf 'SUBMIT: %s\n' "$(cat "$FM_FAKE_COMPOSER")" >> "$FM_SEND_LOG"
-        : > "$FM_FAKE_COMPOSER"
+        # The harness hook: an accepted prompt opens the busy record, exactly
+        # as fm-spawn's UserPromptSubmit wiring does for a Claude worker.
+        if [ -n "${FM_FAKE_HOOK_STATE:-}" ]; then
+          jq -Rs '{prompt:.}' < "$FM_FAKE_COMPOSER" | \
+            "$FM_FAKE_HOOK_WRITER" apply "$FM_FAKE_HOOK_STATE" "$FM_FAKE_HOOK_ID" busy \
+              --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null 2>&1 || true
+        fi
+        # A composer that keeps rendering text after an accepted submit.
+        [ "${FM_FAKE_KEEP_TEXT:-0}" = 1 ] || : > "$FM_FAKE_COMPOSER"
       fi
     fi
     exit 0 ;;
@@ -343,6 +359,12 @@ case "${1:-}" in
     esac
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    if [ -s "${FM_FAKE_ENTER_LOG:-/dev/null}" ]; then
+      case "${FM_FAKE_CAPTURE_AFTER_ENTER:-}" in
+        fail) exit 1 ;;
+        unknown) printf 'unrecognized harness screen\n'; exit 0 ;;
+      esac
+    fi
     if [ "${FM_FAKE_COMPOSER_SHAPE:-}" = cursor ]; then
       printf ' ▄▄▄▄▄▄▄▄\n'
       if [ -s "$FM_FAKE_COMPOSER" ]; then
@@ -495,6 +517,206 @@ test_mate_ring_submits_own_doorbell_and_skips_foreign_text() {
   [ ! -s "$log" ] || fail "foreign mate text was submitted:"$'\n'"$(cat "$log")"
   [ "$(cat "$composer")" = 'a half-typed draft' ] || fail "foreign mate text was changed"
   pass "mate: our own doorbell is submitted with one Enter; foreign pending text is not"
+}
+
+# Arm a task's busy record the way fm-spawn does for a Claude worker and mark
+# it idle, so the ring sees a submit signal. Echoes nothing.
+arm_idle_worker() {  # <state> <task> <harness>
+  local state=$1 task=$2 harness=$3
+  fm_write_meta "$state/$task.meta" "window=sess:fm-$task" "kind=ship" "harness=$harness" "backend=tmux"
+  "$ROOT/bin/fm-busy-event.sh" arm "$state" "$task" >/dev/null || fail "could not arm $task"
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" "$task" idle --current-gen \
+    --source claude-hook --event stop >/dev/null || fail "could not mark $task idle"
+}
+
+test_busy_submit_signal_semantics() {
+  local state="$TMP_ROOT/signal/state" base prompt=$'résumé ✓\nsecond line\n\n' other_base marked normalized
+  mkdir -p "$state"
+  arm_idle_worker "$state" t1 claude
+  confirmed() { bash -c '. "$1"; fm_busy_submit_confirmed "$2" t1 "$3" "$4"' _ "$ROOT/bin/fm-busy-lib.sh" "$state" "$1" "$base"; }
+  baseline() { bash -c '. "$1"; fm_busy_submit_baseline "$2" t1 claude "$3"' _ "$ROOT/bin/fm-busy-lib.sh" "$state" "$1"; }
+  event() { "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 "$1" --current-gen --source "$2" --event "$3" >/dev/null || fail "event $3 refused"; }
+  prompt_event() {
+    printf '%s' "$1" | jq -Rs '{prompt:.}' | "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy \
+      --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null \
+      || fail "prompt-submit refused"
+  }
+  base=$(baseline "$prompt") || fail "an idle armed Claude worker should yield a submit baseline"
+  confirmed claude && fail "no event since the baseline must not confirm"
+  event idle claude-hook stop
+  confirmed claude && fail "a lone turn-end after the baseline must not confirm"
+  prompt_event 'unrelated automatic wake'
+  confirmed claude && fail "an unrelated automatic wake must not confirm our draft"
+  event idle claude-hook stop
+  confirmed claude && fail "an unrelated completed turn must not confirm our draft"
+  prompt_event "${prompt%$'\n\n'}"
+  confirmed claude && fail "a prompt without our trailing newlines must not confirm"
+  prompt_event "$prompt"
+  confirmed claude || fail "the exact Unicode multiline prompt should confirm"
+  confirmed codex && fail "a harness without a submit signal must never confirm"
+  event idle claude-hook stop
+  confirmed claude || fail "Stop must preserve a matching prompt receipt"
+  prompt_event 'another unrelated automatic wake'
+  event idle claude-hook stop-failure
+  confirmed claude || fail "a later unrelated turn must preserve our matching receipt"
+  base=$(baseline "$prompt") || fail "second baseline"
+  confirmed claude && fail "a matching receipt before the baseline must not confirm"
+  event busy fm-recovery user-prompt-submit
+  confirmed claude && fail "an event from a source other than the adapter's writer must not confirm"
+  base=$(baseline "$prompt") || fail "a trusted busy worker should yield a baseline"
+  prompt_event "$prompt"
+  confirmed claude || fail "a matching submit must confirm from a busy baseline"
+  event unknown claude-hook interrupted
+  base=$(baseline "$prompt") || fail "a trusted unknown worker should yield a baseline"
+  prompt_event "$prompt"
+  confirmed claude || fail "a matching submit must confirm from an unknown baseline"
+  base=$(baseline "$prompt") || fail "missing-prompt baseline"
+  printf '%s' '{"prompt":null}' | "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy \
+    --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null \
+    || fail "a missing prompt must not discard the busy event"
+  confirmed claude && fail "missing prompt text must not create a receipt"
+  printf '%s' 'malformed hook JSON' | "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy \
+    --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null \
+    || fail "malformed hook input must not discard the busy event"
+  confirmed claude && fail "malformed hook input must not create a receipt"
+  normalized=$'[fm-from-firstmate]corr=typed-submit résumé ✓\nsecond line\n\n'
+  marked=$'\u2063'"$normalized"
+  base=$(baseline "$marked") || fail "marked prompt baseline"
+  prompt_event '[fm-from-firstmate]corr=another-request résumé ✓'
+  confirmed claude && fail "invisible-marker normalization must not match another request"
+  prompt_event "$normalized changed"
+  confirmed claude && fail "invisible-marker normalization must not match changed payload text"
+  prompt_event $'\u2062'"$normalized"
+  confirmed claude && fail "normalization must preserve Unicode characters other than U+2063"
+  prompt_event "${normalized%$'\n\n'}"
+  confirmed claude && fail "invisible-marker normalization must preserve trailing newlines"
+  prompt_event "$normalized"
+  confirmed claude || fail "Claude's removal of U+2063 must preserve confirmation of the marked prompt"
+  base=$(baseline "$normalized") || fail "sanitized prompt baseline"
+  prompt_event "$marked"
+  confirmed claude || fail "hook prompts containing U+2063 must use the same confirmation identity"
+  other_base=$(baseline abc) || fail "known hash baseline"
+  [ "${other_base##* }" = ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad ] \
+    || fail "the receipt digest must use the published SHA-256 abc test vector"
+  "$ROOT/bin/fm-busy-event.sh" arm "$state" t1 >/dev/null
+  confirmed claude && fail "a re-armed incarnation must not confirm against an old baseline"
+  base=$(baseline "$prompt") || fail "a newly armed busy worker should yield a baseline"
+  confirmed claude && fail "re-arming must discard the old prompt receipt"
+  "$ROOT/bin/fm-busy-event.sh" retire "$state" t1 --current-gen >/dev/null || fail "retirement failed"
+  confirmed claude && fail "a retired worker must not confirm"
+  baseline "$prompt" >/dev/null && fail "an unarmed worker must yield no baseline"
+  arm_idle_worker "$state" t2 codex
+  bash -c '. "$1"; fm_busy_submit_baseline "$2" t2 codex "$3"' _ "$ROOT/bin/fm-busy-lib.sh" "$state" "$prompt" >/dev/null \
+    && fail "a harness without a submit signal must yield no baseline"
+  pass "inbox: receipts confirm only the exact new prompt in the same incarnation across lifecycle events"
+}
+
+test_ring_confirms_submit_from_the_harness_hook() {
+  local dir state rec doorbell log composer drops enters rc capture_mode automatic sleeps mode
+  dir="$TMP_ROOT/ring-confirm"
+  state="$dir/state"
+  mkdir -p "$state"
+  make_composer_stub "$dir"
+  cat > "$dir/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+[ -z "${FM_FAKE_SLEEP_LOG:-}" ] || printf '%s\n' "$1" >> "$FM_FAKE_SLEEP_LOG"
+SH
+  chmod +x "$dir/fakebin/sleep"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
+  log="$dir/send.log"; composer="$dir/composer"; drops="$dir/drops"; enters="$dir/enters"; sleeps="$dir/sleeps"
+  ring() {
+    PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
+      FM_FAKE_DROP_ENTERS="$drops" FM_FAKE_ENTER_LOG="$enters" FM_FAKE_KEEP_TEXT="${1:-0}" \
+      FM_FAKE_HOOK_STATE="$state" FM_FAKE_HOOK_ID=t1 FM_FAKE_HOOK_WRITER="$ROOT/bin/fm-busy-event.sh" \
+      FM_FAKE_CAPTURE_AFTER_ENTER="$capture_mode" FM_FAKE_AUTOMATIC_WAKE="$automatic" FM_FAKE_SLEEP_LOG="$sleeps" \
+      inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1
+  }
+  reset() {
+    : > "$log"; : > "$enters"; : > "$composer"; : > "$sleeps"
+    echo "$1" > "$drops"; arm_idle_worker "$state" t1 "$2"
+    capture_mode=; automatic=0
+  }
+  count() { wc -l < "$enters" | tr -d ' '; }
+  exhausted() {
+    [ "$rc" = 4 ] || fail "an unconfirmed doorbell should return 4, got $rc"
+    [ "$(count)" = 5 ] || fail "the fixed retry budget should send five Enters, pressed $(count)"
+    awk '{s += $1} END {exit !(s >= 9.99 && s <= 10.31)}' "$sleeps" \
+      || fail "the fixed retry budget should wait ten seconds: $(cat "$sleeps")"
+    [ "$(cat "$composer")" = "$doorbell" ] || fail "the unconfirmed doorbell was retyped or changed"
+    [ -f "$rec" ] || fail "an unconfirmed ring must preserve the durable record"
+  }
+
+  reset 1 claude
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a swallowed first Enter that the retry submits should ring clean, got $rc"
+  [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "the retry should submit the doorbell once: $(cat "$log")"
+  [ "$(count)" = 2 ] || fail "swallowed then submitted should take exactly two Enters, took $(count)"
+
+  reset 99 claude
+  rc=0; ring || rc=$?
+  exhausted
+  [ ! -s "$log" ] || fail "an unaccepted doorbell was submitted: $(cat "$log")"
+
+  reset 1 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a stuck doorbell whose first Enter is swallowed should be submitted, got $rc"
+  [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "the stuck doorbell should be submitted once: $(cat "$log")"
+  [ "$(count)" = 2 ] || fail "stuck doorbell: expected two Enters, pressed $(count)"
+  reset 99 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  exhausted
+
+  reset 0 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring 1 || rc=$?
+  [ "$rc" = 0 ] || fail "a hook-confirmed submit should ring clean even if the composer still renders text, got $rc"
+  [ "$(count)" = 1 ] || fail "a hook-confirmed submit must not be pressed again, pressed $(count)"
+  reset 0 claude
+  rc=0; ring 1 || rc=$?
+  [ "$rc" = 0 ] || fail "a fresh hook-confirmed doorbell should ring clean, got $rc"
+  [ "$(count)" = 1 ] || fail "a fresh hook-confirmed doorbell must be pressed once, pressed $(count)"
+
+  reset 99 codex
+  rc=0; ring || rc=$?
+  exhausted
+  reset 99 codex; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  exhausted
+  reset 99 claude
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy --current-gen --source claude-hook --event user-prompt-submit >/dev/null
+  rc=0; ring || rc=$?
+  exhausted
+  reset 99 claude; automatic=1
+  rc=0; ring || rc=$?
+  exhausted
+  reset 99 claude; automatic=1; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  exhausted
+
+  reset 99 claude
+  "$ROOT/bin/fm-busy-event.sh" retire "$state" t1 --current-gen >/dev/null || fail "unarmed fixture retirement failed"
+  rc=0; ring || rc=$?
+  exhausted
+  reset 0 claude
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy --current-gen --source claude-hook --event user-prompt-submit >/dev/null
+  rc=0; ring 1 || rc=$?
+  [ "$rc" = 0 ] && [ "$(count)" = 1 ] || fail "a busy worker's matching receipt should confirm one Enter"
+  reset 0 codex
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] && [ "$(count)" = 1 ] || fail "a signal-less harness must confirm a genuinely cleared composer"
+
+  for mode in unknown fail; do
+    reset 99 claude; capture_mode=$mode
+    rc=0; ring || rc=$?
+    [ "$rc" = 4 ] || fail "a fresh $mode capture must report not-delivered, got $rc"
+    [ -f "$rec" ] || fail "a fresh $mode capture lost the durable record"
+    reset 99 claude; capture_mode=$mode; printf '%s' "$doorbell" > "$composer"
+    rc=0; ring || rc=$?
+    [ "$rc" = 4 ] || fail "an existing draft with $mode capture must report not-delivered, got $rc"
+    [ "$(cat "$composer")" = "$doorbell" ] || fail "a $mode capture changed the existing draft"
+    [ -f "$rec" ] || fail "a $mode capture lost the durable record"
+  done
+  pass "inbox: exact prompt receipts, fixed Enter budgets, and unreadable captures preserve delivery proof"
 }
 
 test_idempotent_write_dedups_exact_body() {
@@ -1335,6 +1557,8 @@ test_ring_skips_dead_agent
 test_ring_submits_its_own_stuck_doorbell
 test_ring_submits_own_doorbell_on_a_cursor_composer
 test_mate_ring_submits_own_doorbell_and_skips_foreign_text
+test_busy_submit_signal_semantics
+test_ring_confirms_submit_from_the_harness_hook
 test_idempotent_write_dedups_exact_body
 test_idempotent_write_follows_concurrent_ack
 test_handled_mv_dedups_by_sequence
