@@ -187,8 +187,8 @@ test_fast_tier_shares_one_short_tripwire() {
   pass "fast tier jobs share one $fast minute tripwire"
 }
 
-# Normal tier: every test or lint lane shares ONE fixed 30-minute budget,
-# above the fast tier. That budget is a hang tripwire, not a packing estimate.
+# Normal tier: the jobs listed in NORMAL_TIER_JOBS share the budget owned by
+# docs/fm-test-portable-shards.md "Timeouts".
 test_normal_tier_shares_one_budget() {
   local fast normal
   # shellcheck disable=SC2086

@@ -127,10 +127,9 @@ The workflow retains per-PR supersession without cancelling main pushes or chang
 
 ## Timeouts
 
-CI job timeouts follow one three-tier policy, so the workflow reads as a policy rather than as a collection of per-job numbers.
-Every tier is a hang tripwire with headroom above the healthy duration, never a packing estimate or a runtime target.
-A lane that reaches its tier bound needs investigation and a distribution or runtime fix, not a larger timeout to fit the same work.
-The 45-minute portable serial shard cap is the one approved exception, because the slowest shard needs about 29 minutes by construction; a further raise is still not the fix.
+CI job timeouts follow three tiers plus one approved portable serial exception, so the workflow reads as a policy rather than as a collection of per-job numbers.
+Every bound is a hang tripwire with headroom above the healthy duration, never a packing estimate or a runtime target.
+A lane that reaches its bound needs investigation and a distribution or runtime fix, not a further timeout increase to fit the same work.
 
 | Tier | Jobs | Bound | Rationale |
 |---|---|---|---|
@@ -139,6 +138,6 @@ The 45-minute portable serial shard cap is the one approved exception, because t
 | Serial exception | portable serial shards | 45 minutes | The serial shards are the 45-minute exception: the slowest shard needs about 29 minutes by construction, so a 30-minute cap sat at the limit and cancelled on slow runners. |
 | Heavy | Herdr | family-run step 20 minutes under a 75-minute job-level last-resort backstop | Healthy runs finish in about 7-10 minutes, so the step tripwire fails a wedged suite while the `always()` cleanup and timing upload still run, and the job cap only catches a hang outside that step. |
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) holds the executable values and names each job's tier beside its `timeout-minutes`.
-[`tests/fm-ci-workflow.test.sh`](../tests/fm-ci-workflow.test.sh) holds the policy against the parsed workflow: every job belongs to exactly one tier, the workflow carries exactly four distinct job-level values, the fast tier stays within 5-10 minutes, the normal jobs share one 30-minute budget, the serial shards carry the 45-minute exception, and the Herdr family-run step is the 20-minute tripwire below its job backstop with an `always()` teardown after it.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) holds the executable values and names each job's tier or exception beside its `timeout-minutes`.
+[`tests/fm-ci-workflow.test.sh`](../tests/fm-ci-workflow.test.sh) guards this policy against the parsed workflow, including complete job membership, shared tier bounds, the serial exception, and Herdr's step tripwire and `always()` teardown ordering.
 A passing coverage guard does not establish a healthy job duration; refresh the healthy figures above from the lanes' uploaded timing artifacts.
