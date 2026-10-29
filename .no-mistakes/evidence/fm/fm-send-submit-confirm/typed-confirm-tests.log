@@ -1,0 +1,8 @@
+ok - agy typed send uses the fixed five-press two-second budget
+ok - agy typed send refuses to confirm text still pending after ten seconds
+ok - claude typed send uses the fixed five-press two-second budget
+ok - claude typed send refuses to confirm text still pending after ten seconds
+ok - codex typed send uses the fixed five-press two-second budget
+ok - codex typed send refuses to confirm text still pending after ten seconds
+ok - typed send rejects unknown-busy without claiming submission
+ok - typed send rejects capture-failure without claiming submission

@@ -1,0 +1,7 @@
+ok - claude (2.1.312 (Claude Code)): typed submit checked real lifecycle hooks with 4 Enter presses
+ok - claude (2.1.312 (Claude Code)): fresh submit checked real lifecycle hooks with 3 Enter presses
+ok - claude (2.1.312 (Claude Code)): blocked submit checked real lifecycle hooks with 5 Enter presses
+ok - claude (2.1.312 (Claude Code)): capture-failed submit checked real lifecycle hooks with 1 Enter presses
+ok - claude (2.1.312 (Claude Code)): unrelated submit checked real lifecycle hooks with 5 Enter presses
+ok - claude (2.1.312 (Claude Code)): pending submit checked real lifecycle hooks with 3 Enter presses
+ok - live steering-inbox doorbell guard: 6 cases honored the doorbell contract

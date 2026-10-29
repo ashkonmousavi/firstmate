@@ -1,0 +1,3 @@
+composer before send=empty
+notice: doorbell NOT delivered: typed into fm-remote:w1:p1 but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M63R443T82ZMZXQEE1THNFZV/.test-phase-tmp/remote.9g43Pk/home/state/parent-route/rsm.inbox/001.msg
+remote host-local send retained its record and reported NOT delivered with exit 0

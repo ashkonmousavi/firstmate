@@ -1,0 +1,74 @@
+harness=2.1.312 (Claude Code)
+mode=capture-failed
+Enter presses=1
+literal text writes=1
+fm-send output:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell NOT delivered: it was typed into inboxlive:claude-capture-failed and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M63R443T82ZMZXQEE1THNFZV/.test-phase-tmp/fm-inbox-live.kPfmQh/claude-capture-failed-home/state/live-claude.inbox/001.msg and the watcher will re-ring. Do not resend.
+acted=no
+acknowledged=no
+harness state:
+v1 gen=g1793278500.686378.31068 seq=1 state=idle source=fm-recovery event=ready ts=1793278500
+
+submit receipts:
+
+Enter timestamps:
+8132.649118529
+
+terminal:
+
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Sonnet 5.5 · Claude API
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M63R443T82ZMZXQEE1THNFZV
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                                                                                                        ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'live-claude.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

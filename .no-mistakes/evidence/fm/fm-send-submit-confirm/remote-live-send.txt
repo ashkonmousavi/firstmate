@@ -1,0 +1,51 @@
+notice: doorbell NOT delivered: typed into fm-remote:w1:p1 but the harness never confirmed the submit; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M63R443T82ZMZXQEE1THNFZV/.test-phase-tmp/remote.9g43Pk/home/state/parent-route/rsm.inbox/001.msg
+exit=0
+durable record:
+schema=fm-task-inbox.v1
+at=2026-10-29T12:57:07Z
+--
+Reply with REMOTE_RECORD_OK.
+intercepted keys:
+pane send-keys w1:p1 enter
+
+real Herdr terminal:
+
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Sonnet 5.5 · Claude API
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M63R443T82ZMZXQEE1THNFZV
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                   ◐ medium · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'rsm.inbox' steering inbox, read and act on
+  each in numeric order, then mv each into its handled/.
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

@@ -1,0 +1,12 @@
+ok - claude (2.1.312 (Claude Code)): typed submit checked real lifecycle hooks with 4 Enter presses
+ok - claude (2.1.312 (Claude Code)): fresh submit checked real lifecycle hooks with 3 Enter presses
+ok - claude (2.1.312 (Claude Code)): blocked submit checked real lifecycle hooks with 5 Enter presses
+ok - claude (2.1.312 (Claude Code)): pending submit checked real lifecycle hooks with 3 Enter presses
+fm-send output:
+<direct inbox ring>
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 436: acted: unbound variable
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 436: handled: unbound variable
+acted=
+acknowledged=
+harness state:
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 438: home: unbound variable
