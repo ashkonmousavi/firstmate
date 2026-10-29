@@ -10,6 +10,8 @@
 # another task's line that echoes or quotes the token. Summary-classified
 # one-way notices are the exception: fm_pending_reply_oneway_expired below
 # owns their expiry rule, which does not prove delivery or acknowledgement.
+# Explicit operator retirement of a stale superseded record is owned by
+# fm_pending_reply_retire_stale below. That path keeps the record file.
 #
 # Safety property (captain direction 2026-07-22): a secondmate agent may ignore
 # the marker and answer only in its visible conversation. The parent must notice
@@ -21,6 +23,8 @@
 # report. Never loop, never repeatedly inject, never silently expire unresolved
 # reply-bearing records outside the one-way exception, and never treat
 # wrong-home or structured-home heuristics as acknowledgement.
+# The operator command fm-pending-reply-retire-stale.sh is not that expiry:
+# it resolves only a stale superseded record and keeps the file.
 # A same-basename restatement-copy of the mate home's
 # state/<task_id>.status onto the parent channel is a repair of the
 # FM_HOME-relative mixup, not acknowledgement of an arbitrary mate-home file.
@@ -65,7 +69,13 @@
 #                           escalation was closed again (see the escalation
 #                           lifecycle note below); empty until then
 #   resolved_epoch=
-#   resolved_via=           status | document | helper | expired-one-way | empty
+#   resolved_via=           status | document | helper | expired-one-way |
+#                           retired-stale | empty
+#                           retired-stale is the operator stale retirement
+#                           (fm_pending_reply_retire_stale); the record is
+#                           kept and retired_reason= says why
+#   retired_reason=         task-gone | task-closed | superseded-by-<corr>
+#                           empty unless resolved_via=retired-stale
 #   wrong_home_hits=        count of corr sightings under the secondmate home
 #   wrong_home_first_sighting= encoded path:line identity of the first sighting
 #   wrong_home_sightings=   comma-separated encoded path:line identities
@@ -109,8 +119,9 @@
 # (bin/fm-backlog-handoff.sh's receiver wake) stayed refused forever once the
 # watcher escalated between the lost transport and the next resume.
 #
-# Sourced by bin/fm-send.sh, bin/fm-watch.sh, bin/fm-secondmate-report.sh, and
-# tests. No side effects on source. set -u / set -e safe.
+# Sourced by bin/fm-send.sh, bin/fm-watch.sh, bin/fm-secondmate-report.sh,
+# bin/fm-pending-reply-retire-stale.sh, and tests. No side effects on source.
+# set -u / set -e safe.
 #
 # Tunables (env):
 #   FM_PENDING_REPLY_GRACE_SECS   default 120; counted from the request turn's
@@ -145,6 +156,9 @@ _FM_PENDING_REPLY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/n
 FM_PENDING_REPLY_SCHEMA='fm-pending-reply.v1'
 FM_PENDING_REPLY_CORR_RE='corr=[A-Fa-f0-9]{16}'
 FM_PENDING_REPLY_GRACE_DEFAULT=120
+# Default age for fm-pending-reply-retire-stale.sh when --max-age is omitted.
+# A record is eligible only when strictly older than this many seconds.
+FM_PENDING_REPLY_STALE_MAX_AGE_DEFAULT=86400
 
 fm_pending_reply_now() {
   if [ -n "${FM_PENDING_REPLY_NOW:-}" ]; then
@@ -1233,7 +1247,7 @@ fm_pending_reply_close_escalation() {  # <state-dir> <corr_id>
 
 _fm_pending_reply_close_escalation_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec escalated closed parent_status escalation key note
-  local open_line open_key open_note now close_line close_rc _task _via
+  local open_line open_key open_note now close_line close_rc _task _via _extra
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
   [ "$(fm_pending_reply_get "$rec" phase)" = resolved ] || return 0
@@ -1261,7 +1275,11 @@ _fm_pending_reply_close_escalation_locked() {  # <state-dir> <corr_id>
       # OPEN above stays a plain append because a new blocker must wake.
       _task=$(fm_pending_reply_get "$rec" task_id)
       _via=$(fm_pending_reply_get "$rec" resolved_via)
-      close_line="resolved [key=${key}]: $(fm_pending_reply_resolved_note "$_task" "$corr" "$_via")"
+      _extra=
+      case "$_via" in
+        retired-stale) _extra=$(fm_pending_reply_get "$rec" retired_reason) ;;
+      esac
+      close_line="resolved [key=${key}]: $(fm_pending_reply_resolved_note "$_task" "$corr" "$_via" "$_extra")"
       close_rc=0
       fm_wake_status_append_self_announced "${parent_status%/*}" "$parent_status" "$close_line" \
         2>/dev/null || close_rc=$?
@@ -1718,4 +1736,274 @@ fm_pending_reply_task_has_open() {  # <state-dir> <task_id>
     return 0
   done
   return 1
+}
+
+# 0 when <task-id> is safe to use as a single status-file path segment.
+fm_pending_reply_task_id_safe() {  # <task_id>
+  case "$1" in ''|*[!A-Za-z0-9._-]*|.*) return 1 ;; esac
+  return 0
+}
+
+# 0 when <record> is a regular pending-reply file bound to <home>'s state.
+fm_pending_reply_record_bound() {  # <home> <state-dir> <record> <corr_id>
+  local home=$1 state=$2 rec=$3 corr=$4 task_id
+  [ -f "$rec" ] && [ ! -L "$rec" ] || return 1
+  [ "$(basename "$rec")" = "$corr" ] || return 1
+  fm_pending_reply_task_id_safe "$(fm_pending_reply_get "$rec" task_id)" || return 1
+  task_id=$(fm_pending_reply_get "$rec" task_id)
+  [ "$(fm_pending_reply_get "$rec" schema)" = "$FM_PENDING_REPLY_SCHEMA" ] || return 1
+  [ "$(fm_pending_reply_get "$rec" corr_id)" = "$corr" ] || return 1
+  [ "$(fm_pending_reply_get "$rec" parent_home)" = "$home" ] || return 1
+  [ "$(fm_pending_reply_get "$rec" parent_status)" = "$state/$task_id.status" ] || return 1
+  return 0
+}
+
+# gone when the task metadata file is absent.
+# closed when an explicit ship or scout metadata record's latest complete
+# status event is done or failed.
+# open for a live secondmate, an unfinished ship or scout, or any unsafe shape.
+# Prints one of those words. Never treats a symlink as a missing task.
+fm_pending_reply_task_disposition() {  # <state-dir> <task_id>
+  local state=$1 task_id=$2 meta kind status last verb endmark
+  if ! fm_pending_reply_task_id_safe "$task_id"; then
+    printf open
+    return 0
+  fi
+  meta="$state/$task_id.meta"
+  if [ ! -e "$meta" ] && [ ! -L "$meta" ]; then
+    printf gone
+    return 0
+  fi
+  if [ -L "$meta" ] || [ ! -f "$meta" ]; then
+    printf open
+    return 0
+  fi
+  kind=$(fm_meta_get "$meta" kind) || true
+  case "$kind" in
+    ship|scout) ;;
+    *) printf open; return 0 ;;
+  esac
+  status="$state/$task_id.status"
+  [ -f "$status" ] && [ ! -L "$status" ] && [ -s "$status" ] || { printf open; return 0; }
+  # Command substitution drops trailing newlines, so the marker keeps a
+  # final newline visible as the byte before x.
+  endmark=$(tail -c 1 "$status" 2>/dev/null; printf x)
+  [ "$endmark" = $'\n'x ] || { printf open; return 0; }
+  last=$(last_status_line "$status")
+  status_line_verb "$last" verb
+  case "$verb" in
+    done|failed) printf closed ;;
+    *) printf open ;;
+  esac
+}
+
+# Corr id of the newest later record for the same task, or empty.
+# Later means a strictly greater created_epoch. Equal epochs break ties by
+# the greater correlation id so the cited successor is stable.
+fm_pending_reply_later_corr() {  # <state-dir> <task_id> <created_epoch> <self_corr>
+  local state=$1 task_id=$2 created=$3 self=$4 dir rec corr cepoch best='' best_epoch=''
+  dir=$(fm_pending_reply_dir "$state")
+  [ -d "$dir" ] || return 0
+  for rec in "$dir"/*; do
+    [ -f "$rec" ] && [ ! -L "$rec" ] || continue
+    corr=$(basename "$rec")
+    case "$corr" in
+      [a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]) ;;
+      *) continue ;;
+    esac
+    [ "$corr" = "$self" ] && continue
+    [ "$(fm_pending_reply_get "$rec" schema)" = "$FM_PENDING_REPLY_SCHEMA" ] || continue
+    [ "$(fm_pending_reply_get "$rec" corr_id)" = "$corr" ] || continue
+    [ "$(fm_pending_reply_get "$rec" task_id)" = "$task_id" ] || continue
+    cepoch=$(fm_pending_reply_get "$rec" created_epoch)
+    case "$cepoch" in ''|*[!0-9]*) continue ;; esac
+    [ "$cepoch" -gt "$created" ] || continue
+    if [ -z "$best" ] || [ "$cepoch" -gt "$best_epoch" ]; then
+      best=$corr
+      best_epoch=$cepoch
+      continue
+    fi
+    if [ "$cepoch" -eq "$best_epoch" ]; then
+      best=$(printf '%s\n%s\n' "$best" "$corr" | LC_ALL=C sort | tail -n 1)
+    fi
+  done
+  printf '%s' "$best"
+}
+
+# 0 and prints "<age> <reason>" when <record> is an unresolved record strictly
+# older than <max-age> and superseded. Reason is task-gone, task-closed, or
+# superseded-by-<corr>. A live task's newest unanswered record is not eligible.
+fm_pending_reply_stale_reason() {  # <state-dir> <record> <now> <max-age>
+  local state=$1 rec=$2 now=$3 max_age=$4
+  local created phase age task_id corr disposition later
+  [ -f "$rec" ] && [ ! -L "$rec" ] || return 1
+  phase=$(fm_pending_reply_get "$rec" phase)
+  [ "$phase" != resolved ] || return 1
+  created=$(fm_pending_reply_get "$rec" created_epoch)
+  case "$created" in ''|*[!0-9]*) return 1 ;; esac
+  case "$now" in ''|*[!0-9]*) return 1 ;; esac
+  case "$max_age" in ''|*[!0-9]*) return 1 ;; esac
+  age=$((now - created))
+  [ "$age" -gt "$max_age" ] || return 1
+  task_id=$(fm_pending_reply_get "$rec" task_id)
+  corr=$(fm_pending_reply_get "$rec" corr_id)
+  [ -n "$task_id" ] && [ -n "$corr" ] || return 1
+  disposition=$(fm_pending_reply_task_disposition "$state" "$task_id")
+  case "$disposition" in
+    gone)
+      printf '%s %s\n' "$age" task-gone
+      return 0
+      ;;
+    closed)
+      printf '%s %s\n' "$age" task-closed
+      return 0
+      ;;
+  esac
+  later=$(fm_pending_reply_later_corr "$state" "$task_id" "$created" "$corr")
+  [ -n "$later" ] || return 1
+  printf '%s %s\n' "$age" "superseded-by-$later"
+}
+
+# 0 when <reason> is one of the tokens this retirement writes into a record.
+fm_pending_reply_stale_reason_safe() {  # <reason>
+  case "$1" in
+    task-gone|task-closed|superseded-by-[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9])
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+# Mark one eligible record resolved in place. Keeps the file.
+# Writes retired_reason=, a status note when that task's status file already
+# exists, and the ordinary escalation close when one is open.
+# Returns 0 retired, 2 no longer eligible, 1 on a failed write.
+fm_pending_reply_retire_stale_one() {  # <home> <state-dir> <corr_id> <now> <max-age>
+  local home=$1 state=$2 corr=$3 now=$4 max_age=$5
+  local rec task_id status lock eligibility age reason note note_rc=0 rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  rec=$(fm_pending_reply_path "$state" "$corr")
+  fm_pending_reply_record_bound "$home" "$state" "$rec" "$corr" || return 1
+  lock="$state/.pending-reply-$corr.lock"
+  # Deliberately undirected: bin/fm-wake-lib.sh is expanded once at the
+  # fm_pending_reply_try_resolve site; each directed site would re-expand its
+  # whole transitive graph under ShellCheck's external-source traversal.
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  eligibility=$(fm_pending_reply_stale_reason "$state" "$rec" "$now" "$max_age") || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fm_lock_release "$lock"
+    return 2
+  fi
+  age=${eligibility%% *}
+  reason=${eligibility#* }
+  if ! fm_pending_reply_stale_reason_safe "$reason"; then
+    echo "error: refusing unsafe stale-retirement reason for $corr" >&2
+    fm_lock_release "$lock"
+    return 1
+  fi
+  case "$age" in ''|*[!0-9]*) fm_lock_release "$lock"; return 1 ;; esac
+  task_id=$(fm_pending_reply_get "$rec" task_id)
+  status="$state/$task_id.status"
+  if [ -L "$status" ]; then
+    echo "error: refusing to write a stale-retirement note through a status symlink for $corr" >&2
+    fm_lock_release "$lock"
+    return 1
+  fi
+  fm_pending_reply_set "$rec" retired_reason "$reason" &&
+    fm_pending_reply_set "$rec" resolved_via retired-stale &&
+    fm_pending_reply_set "$rec" resolved_epoch "$now" &&
+    fm_pending_reply_set "$rec" phase resolved || rc=1
+  if [ "$rc" -eq 0 ] && [ -f "$status" ]; then
+    note="note: pending-reply-retired-stale: task=${task_id} pending-reply-id=${corr} reason=${reason} age=${age}"
+    fm_wake_status_append_self_announced "$state" "$status" "$note" 2>/dev/null || note_rc=$?
+    [ "$note_rc" -ne 2 ] || rc=1
+  fi
+  if [ "$rc" -eq 0 ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || rc=1
+  elif [ "$(fm_pending_reply_get "$rec" phase)" = resolved ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
+  fi
+  fm_lock_release "$lock"
+  if [ "$(fm_pending_reply_get "$rec" phase)" = resolved ] &&
+     [ "$(fm_pending_reply_get "$rec" resolved_via)" = retired-stale ]; then
+    printf 'retired task=%s corr=%s age=%s reason=%s\n' "$task_id" "$corr" "$age" "$reason"
+  fi
+  [ "$rc" -eq 0 ]
+}
+
+# List or retire stale superseded pending-reply records under <home>.
+# <mode> is dry-run or apply. <max-age> is seconds; a record must be strictly
+# older than that. Prints one line per eligible record. Does not delete files
+# and does not retire an unresolved record that is not superseded.
+# The command header of bin/fm-pending-reply-retire-stale.sh is the operator
+# statement of this rule.
+fm_pending_reply_retire_stale() {  # <home> <max-age> <mode>
+  local home=$1 max_age=$2 mode=$3 state dir rec corr now
+  local matched=0 kept=0 errors=0 one_rc eligibility age reason task_id
+  local list='' sorted
+  case "$mode" in dry-run|apply) ;; *) echo "error: stale retirement mode must be dry-run or apply" >&2; return 2 ;; esac
+  case "$max_age" in ''|*[!0-9]*) echo "error: stale retirement age must be a non-negative integer" >&2; return 2 ;; esac
+  state="$home/state"
+  [ -d "$state" ] || { echo "error: parent state directory missing" >&2; return 1; }
+  now=$(fm_pending_reply_now)
+  case "$now" in ''|*[!0-9]*) echo "error: pending-reply clock is not an epoch" >&2; return 1 ;; esac
+  dir=$(fm_pending_reply_dir "$state")
+  if [ -d "$dir" ]; then
+    for rec in "$dir"/*; do
+      [ -e "$rec" ] || [ -L "$rec" ] || continue
+      if [ -L "$rec" ] || [ ! -f "$rec" ]; then
+        echo "error: skipping unsafe pending record $rec" >&2
+        errors=$((errors + 1))
+        continue
+      fi
+      corr=$(basename "$rec")
+      case "$corr" in
+        [a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]) ;;
+        *)
+          echo "error: skipping pending record with an unexpected name: $corr" >&2
+          errors=$((errors + 1))
+          continue
+          ;;
+      esac
+      list="${list}${corr}"$'\n'
+    done
+  fi
+  sorted=$(printf '%s' "$list" | LC_ALL=C sort)
+  while IFS= read -r corr <&3; do
+    [ -n "$corr" ] || continue
+    rec=$(fm_pending_reply_path "$state" "$corr")
+    if ! fm_pending_reply_record_bound "$home" "$state" "$rec" "$corr"; then
+      echo "error: pending record $corr is not bound to this home" >&2
+      errors=$((errors + 1))
+      continue
+    fi
+    if [ "$(fm_pending_reply_get "$rec" phase)" = resolved ]; then
+      continue
+    fi
+    eligibility=$(fm_pending_reply_stale_reason "$state" "$rec" "$now" "$max_age") || {
+      kept=$((kept + 1))
+      continue
+    }
+    age=${eligibility%% *}
+    reason=${eligibility#* }
+    task_id=$(fm_pending_reply_get "$rec" task_id)
+    if [ "$mode" = dry-run ]; then
+      printf 'would-retire task=%s corr=%s age=%s reason=%s\n' "$task_id" "$corr" "$age" "$reason"
+      matched=$((matched + 1))
+      continue
+    fi
+    one_rc=0
+    fm_pending_reply_retire_stale_one "$home" "$state" "$corr" "$now" "$max_age" || one_rc=$?
+    case "$one_rc" in
+      0) matched=$((matched + 1)) ;;
+      2) kept=$((kept + 1)) ;;
+      *) errors=$((errors + 1)) ;;
+    esac
+  done 3<<EOF
+$sorted
+EOF
+  printf 'retire-stale: mode=%s matched=%s kept=%s errors=%s\n' "$mode" "$matched" "$kept" "$errors" >&2
+  [ "$errors" -eq 0 ]
 }
