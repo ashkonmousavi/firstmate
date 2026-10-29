@@ -17,24 +17,17 @@
 # task record, and never removes a worktree.
 #
 # A task is relaunched only when every one of these is true:
-#   - the meta basename is a path-safe task id of at most 64 characters, the
-#     same acceptance as fm_task_id_creation_valid in bin/fm-pr-lib.sh (that
-#     library is not sourced here);
+#   - the meta basename passes fm_task_id_creation_valid (bin/fm-pr-lib.sh);
 #   - kind is ship or scout (a secondmate is out of scope);
 #   - a recorded endpoint target exists (fm_backend_target_of_meta);
 #   - fm_backend_agent_state prints dead or missing (alive, ambiguous,
 #     unreadable, and unverified are left untouched);
-#   - the latest status event is not done, failed, captain-held, or the
-#     literal verb paused-by-captain;
+#   - the task is not captain-held and fm-crew-state.sh attributes no run;
 #   - the recorded worktree positively shows unlanded work.
 # An absent status file does not block. A status symlink, or any status path
 # that is not a readable regular file, blocks: the record cannot be trusted.
-# Worker paused, needs-decision, blocked, and working stay eligible.
-# `failed` is not an in-flight record: a dead failed task whose tree is
-# still dirty would otherwise be relaunched on every startup.
-# captain-held is the durable hold record. The literal verb
-# paused-by-captain is honored as well. There is no status verb spelled
-# paused-by-captain in bin/fm-classify-lib.sh.
+# A status event alone does not establish run ownership. Attributed active,
+# parked, terminal, or unreadable runs stay with their existing lifecycle.
 #
 # Unlanded work is local and positive. It is shown when `git status
 # --porcelain` is nonempty, or when HEAD is not an ancestor of any available
@@ -48,9 +41,10 @@
 # ask the forge. A scout report outside the worktree is not unlanded work.
 # The complete landed-work test stays in bin/fm-teardown.sh and is not called.
 #
-# Task attempts overlap, and the sweep waits for its own children and returns
-# 0. Control exit 75 is reported as deferred; exit 3 silently skips a task
-# that no longer qualifies. Silence means
+# Task attempts are serial. Spawn reads capacity afresh for each launch. The
+# first failure or capacity deferral stops the sweep, leaving later tasks for
+# the next pass. The sweep returns 0. Control exit 75 is reported as deferred;
+# exit 3 silently skips a task that no longer qualifies. Silence means
 # nothing qualified. A real attempt prints one CREW_RECOVERY line.
 #
 # Output:
@@ -66,15 +60,10 @@ if ! command -v fm_backend_agent_state >/dev/null 2>&1; then
   . "$FM_CREW_RECOVERY_LIB_DIR/fm-backend.sh"
 fi
 
-# Same acceptance as bin/fm-pr-lib.sh fm_task_id_creation_valid.
-fm_crew_recovery_id_ok() {  # <id>
-  local id=$1
-  local LC_ALL=C
-  case "$id" in
-    ''|.*|*[!A-Za-z0-9._-]*) return 1 ;;
-  esac
-  [ "${#id}" -le 64 ]
-}
+if ! command -v fm_task_id_creation_valid >/dev/null 2>&1; then
+  # shellcheck source=bin/fm-pr-lib.sh disable=SC1091
+  . "$FM_CREW_RECOVERY_LIB_DIR/fm-pr-lib.sh"
+fi
 
 fm_crew_recovery_need_classify() {
   command -v last_status_line >/dev/null 2>&1 && return 0
@@ -84,22 +73,25 @@ fm_crew_recovery_need_classify() {
 
 # 0 when the latest record blocks relaunch, including an unreadable record.
 # 1 when the task stays eligible (including no status file).
-fm_crew_recovery_record_blocks() {  # <status-path>
-  local status=$1 line verb
+fm_crew_recovery_record_blocks() {  # <state-dir> <id>
+  local state=$1 id=$2 status line reconciled
+  status="$state/$id.status"
   if [ -L "$status" ]; then
     return 0
   fi
-  if [ ! -e "$status" ]; then
-    return 1
+  if [ -e "$status" ]; then
+    [ -f "$status" ] && [ -r "$status" ] || return 0
+    fm_crew_recovery_need_classify || return 0
+    line=$(last_status_line "$status") || return 0
+    [ "$(status_line_verb "$line")" != captain-held ] || return 0
   fi
-  if [ ! -f "$status" ] || [ ! -r "$status" ]; then
-    return 0
-  fi
-  fm_crew_recovery_need_classify || return 0
-  line=$(last_status_line "$status") || return 0
-  verb=$(status_line_verb "$line")
-  case "$verb" in
-    done|failed|captain-held|paused-by-captain) return 0 ;;
+  reconciled=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$state" \
+    FM_CREW_STATE_KEEP_RUN=1 FM_CREW_STATE_NO_FORGE=1 \
+    "$FM_CREW_RECOVERY_LIB_DIR/fm-crew-state.sh" "$id") || return 0
+  case "$reconciled" in
+    'state: '*' · source: run-step'*) return 0 ;;
+    'state: '*' · source: '*) ;;
+    *) return 0 ;;
   esac
   return 1
 }
@@ -187,7 +179,7 @@ fm_crew_recovery_one() {  # <id> <agent-state>
   if [ ! -x "$control" ]; then
     printf 'CREW_RECOVERY: %s: relaunch failed after %s: control program is not executable\n' \
       "$id" "$agent_state"
-    return 0
+    return 1
   fi
   note="Startup recovery relaunched this task because its agent was dead (endpoint state: ${agent_state}) and the recorded local copy still holds unlanded work. Continue from that copy. Nothing was torn down or discarded."
   out=$(FM_HOME="$FM_HOME" "$control" "$id" relaunch --note "$note" --if-recoverable 2>&1) && rc=0 || rc=$?
@@ -202,7 +194,7 @@ fm_crew_recovery_one() {  # <id> <agent-state>
       printf 'CREW_RECOVERY: %s: relaunch failed after %s: %s\n' "$id" "$agent_state" "$detail"
     fi
   fi
-  return 0
+  return "$rc"
 }
 
 fm_crew_recovery_agent_state() {
@@ -223,7 +215,7 @@ fm_crew_recovery_agent_state() {
     dead|missing) ;;
     *) return 1 ;;
   esac
-  fm_crew_recovery_record_blocks "$state/$id.status" && return 1
+  fm_crew_recovery_record_blocks "$state" "$id" && return 1
   wt=$(fm_meta_get "$meta" worktree)
   base_name=$(fm_meta_get "$meta" base_branch)
   fm_crew_recovery_unlanded_proven "$wt" "$base_name" || return 1
@@ -231,8 +223,7 @@ fm_crew_recovery_agent_state() {
 }
 
 fm_crew_recovery_sweep() {
-  local home state meta id agent_state pid
-  local -a pids=()
+  local home state meta id agent_state
   home=${FM_HOME:-}
   [ -n "$home" ] || return 0
   state=${FM_STATE_OVERRIDE:-$home/state}
@@ -243,13 +234,9 @@ fm_crew_recovery_sweep() {
     [ -f "$meta" ] || continue
     [ -L "$meta" ] && continue
     id=$(basename -- "$meta" .meta)
-    fm_crew_recovery_id_ok "$id" || continue
+    fm_task_id_creation_valid "$id" || continue
     agent_state=$(fm_crew_recovery_agent_state "$state" "$id") || continue
-    fm_crew_recovery_one "$id" "$agent_state" &
-    pids+=("$!")
-  done
-  for pid in "${pids[@]}"; do
-    wait "$pid" || true
+    fm_crew_recovery_one "$id" "$agent_state" || break
   done
   return 0
 }

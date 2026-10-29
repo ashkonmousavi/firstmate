@@ -71,8 +71,8 @@ When any diagnostic needs captain attention, report the plain consequence and re
 - `SECONDMATE_LIVENESS: secondmate <id>: skipped: <reason>|respawn failed after <cause>: <reason>` - the session-start liveness sweep could not guarantee that the registered secondmate is running a real agent process.
   Investigate the reason because that secondmate is not guaranteed live.
 - `CREW_RECOVERY: relaunched <id> after <state>` - startup recovery started a replacement for a ship or scout in this home whose endpoint was dead or missing and whose recorded copy still holds unlanded work, and nothing was torn down.
-- `CREW_RECOVERY: <id>: relaunch failed after <state>: <detail>` - the same sweep could not start that replacement, so follow `stuck-crewmate-recovery` for the ordinary direct report and do not discard the recorded copy.
-- `CREW_RECOVERY: <id>: relaunch deferred after <state>: <detail>` - capacity or another lifecycle action deferred the replacement, and the task stays eligible for the next startup recovery pass.
+- `CREW_RECOVERY: <id>: relaunch failed after <state>: <detail>` - the serial sweep stopped at this failure and left later tasks for the next pass; follow `stuck-crewmate-recovery` and preserve the recorded copy.
+- `CREW_RECOVERY: <id>: relaunch deferred after <state>: <detail>` - capacity or another lifecycle action stopped the serial sweep; this task and later tasks stay eligible for the next startup recovery pass.
 - `SECONDMATE_HANDOFF: secondmate <id>: pending delivery: <n> item(s)` - a remote handoff outbox is still waiting for receipt or cleanup; [`bin/fm-backlog-handoff.sh`](../../../bin/fm-backlog-handoff.sh) owns source retention, recovery, and release.
   Preserve that outbox and rerun `bin/fm-backlog-handoff.sh --resume-pending` after the route, receipt, or cleanup problem is resolved; never re-add or dispatch the pending items from the source backlog.
   An unsafe-outbox variant requires path and file-type inspection before any retry.

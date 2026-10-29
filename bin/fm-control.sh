@@ -47,10 +47,8 @@
 #              preserves did not survive; a pane that turns out to be there and
 #              idle is the ordinary `already-stopped`; one whose agent is back
 #              takes the ordinary interrupt-then-exit path. A tmux `missing`
-#              always REFUSES: a task record carries no socket identity for its
-#              endpoint, so this verb cannot tell a destroyed window from one on
-#              a tmux server it cannot address, and it will not claim a stop it
-#              cannot see.
+#              requires the recorded spawn generation to predate the OS boot;
+#              otherwise absence remains unproven and the action refuses.
 #   relaunch   Transactionally replace the running agent with a new one, in the
 #              SAME worktree - and the same endpoint whenever that endpoint
 #              still exists - on the same or a newly chosen
@@ -61,9 +59,8 @@
 #              names, and the task's record rebinds to it; that is how a task
 #              whose terminal was destroyed is reclaimed by the home that owns
 #              it, rather than being stranded with a parked approval nobody can
-#              answer. Reclaim is HERDR-ONLY for the reason `exit` gives above:
-#              a tmux `missing` cannot be proven absent from a task record, so
-#              it refuses.
+#              answer. A tmux incarnation proven to predate reboot is reclaimed
+#              in its recorded session and worktree by the same launch owner.
 #              An explicit `default` model or effort clears that
 #              axis for the replacement. With no explicit axis, a secondmate
 #              re-resolves its durable config/secondmate-harness pin (harness
@@ -691,7 +688,7 @@ do_exit() {
       # "destroyed" with "unreachable from this seat". Route it through the
       # control plane's one absence proof - the same one the relaunch gate uses
       # - and report what that proof actually established, never more.
-      absence=$(fm_control_endpoint_absence_verdict "$BACKEND" "$T")
+      absence=$(fm_control_endpoint_absence_verdict "$BACKEND" "$T" "$META")
       case "${absence%%$'\t'*}" in
         gone)
           # Proven gone, so the agent that lived in it went with it: exit's

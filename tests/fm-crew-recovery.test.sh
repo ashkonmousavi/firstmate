@@ -24,17 +24,6 @@ cat > "$CONTROL" <<'SH'
 set -u
 log=${FM_CREW_RECOVERY_LOG:?}
 printf '%s\n%s\n%s\n%s\n\n' "$1" "$2" "$3" "${4-}" >> "$log"
-if [ -n "${FM_CREW_RECOVERY_BARRIER:-}" ]; then
-  : > "$FM_CREW_RECOVERY_BARRIER/$1"
-  if [ "$1" != ship-ok ]; then
-    i=0
-    while [ ! -f "$FM_CREW_RECOVERY_BARRIER/ship-ok" ] && [ "$i" -lt 300 ]; do
-      sleep 0.01
-      i=$((i + 1))
-    done
-    [ -f "$FM_CREW_RECOVERY_BARRIER/ship-ok" ] || : > "$FM_CREW_RECOVERY_BARRIER/serial-$1"
-  fi
-fi
 if [ -n "${FM_CREW_RECOVERY_WAIT_TIMING:-}" ]; then
   i=0
   while ! grep -q 'secondmate-liveness' "$FM_TIMING_LOG" && [ "$i" -lt 300 ]; do
@@ -331,26 +320,26 @@ test_base_ref_containment_controls_clean_recovery() {
   pass "clean recovery checks both base refs and still recovers work ahead of both"
 }
 
-test_terminal_records_are_not_relaunched() {
-  local home fakebin id verb
+test_only_captain_hold_blocks_unowned_work() {
+  local home fakebin id
   home=$(new_home terminal-records)
   plant_copy dirty "$TMP_ROOT/terminal-records/wt"
   fakebin=$(make_tmux "$TMP_ROOT/terminal-records" dead)
-  for id in ship-done ship-failed ship-held ship-captain-pause; do
+  for id in ship-done ship-failed ship-held; do
     write_task "$home/state/$id.meta" ship "$TMP_ROOT/terminal-records/wt/wt"
   done
   printf '%s\n' 'done [at=1]: finished' > "$home/state/ship-done.status"
   printf '%s\n' 'failed [at=1]: stopped' > "$home/state/ship-failed.status"
   printf '%s\n' 'captain-held [at=1]: waiting on a decision' > "$home/state/ship-held.status"
-  printf '%s\n' 'paused-by-captain [at=1]: held' > "$home/state/ship-captain-pause.status"
   reset_log
   run_sweep "$home" "$fakebin" >/dev/null
-  for id in ship-done ship-failed ship-held ship-captain-pause; do
-    assert_not_called "$id" "$id was relaunched despite its terminal record"
+  for id in ship-done ship-failed; do
+    assert_called "$id" "$id was excluded by a status event without an attributed run"
   done
+  assert_not_called ship-held "the captain-held task was relaunched"
   # The dirty file path is wt/wt because plant_copy writes dir/wt.
   [ -f "$TMP_ROOT/terminal-records/wt/wt/unlanded.txt" ] || fail "a refused relaunch removed the dirty file"
-  pass "done, failed, and captain-held records are not relaunched"
+  pass "unowned done and failed work recover while captain-held work stays held"
 }
 
 test_in_flight_records_are_relaunched() {
@@ -437,36 +426,31 @@ test_foreign_and_unreadable_records_are_not_relaunched() {
   pass "recovery stays inside this home and ignores records it cannot trust"
 }
 
-test_one_failure_does_not_stop_the_next_task() {
-  local home fakebin out
+test_first_failure_stops_serial_recovery() {
+  local home fakebin out rc detail
   home=$(new_home one-failure)
   plant_copy dirty "$TMP_ROOT/one-failure/wt"
-  write_task "$home/state/ship-fail.meta" ship "$TMP_ROOT/one-failure/wt/wt"
-  write_task "$home/state/ship-ok.meta" ship "$TMP_ROOT/one-failure/wt/wt"
-  write_task "$home/state/ship-defer.meta" ship "$TMP_ROOT/one-failure/wt/wt"
+  write_task "$home/state/a-first.meta" ship "$TMP_ROOT/one-failure/wt/wt"
+  write_task "$home/state/b-next.meta" ship "$TMP_ROOT/one-failure/wt/wt"
+  write_task "$home/state/c-last.meta" scout "$TMP_ROOT/one-failure/wt/wt"
   fakebin=$(make_tmux "$TMP_ROOT/one-failure" dead)
+  for rc in 1 75; do
+    reset_log
+    export FM_CREW_RECOVERY_STUB_RC="a-first=$rc"
+    out=$(run_sweep "$home" "$fakebin")
+    unset FM_CREW_RECOVERY_STUB_RC
+    if [ "$rc" = 75 ]; then detail=deferred; else detail=failed; fi
+    assert_contains "$out" "CREW_RECOVERY: a-first: relaunch $detail after dead:" "the launch outcome was not reported"
+    assert_called a-first "the first task was not attempted"
+    assert_not_called b-next "recovery continued after a failed launch"
+    assert_not_called c-last "recovery continued after a failed launch"
+  done
   reset_log
-  export FM_CREW_RECOVERY_STUB_RC='ship-fail=1,ship-defer=75'
-  export FM_CREW_RECOVERY_BARRIER="$TMP_ROOT/one-failure/barrier"
-  mkdir -p "$FM_CREW_RECOVERY_BARRIER"
   out=$(run_sweep "$home" "$fakebin")
-  [ ! -f "$FM_CREW_RECOVERY_BARRIER/serial-ship-fail" ] || fail "the failed launch blocked the later task"
-  [ ! -f "$FM_CREW_RECOVERY_BARRIER/serial-ship-defer" ] || fail "the deferred launch blocked the later task"
-  unset FM_CREW_RECOVERY_STUB_RC FM_CREW_RECOVERY_BARRIER
-  assert_contains "$out" "CREW_RECOVERY: ship-fail: relaunch failed after dead:" \
-    "a control failure was not reported"
-  assert_contains "$out" "CREW_RECOVERY: relaunched ship-ok after dead" \
-    "a later eligible task was skipped after one failure"
-  assert_contains "$out" "CREW_RECOVERY: ship-defer: relaunch deferred after dead:" \
-    "a capacity defer was reported as a hard failure"
-  assert_not_contains "$out" "CREW_RECOVERY: relaunched ship-defer" \
-    "a deferred relaunch was reported as relaunched"
-  assert_called ship-fail "the failing task was not attempted"
-  assert_called ship-ok "the following task was not attempted"
-  assert_called ship-defer "the deferred task was not attempted"
-  [ -f "$home/state/ship-fail.meta" ] || fail "a failed relaunch removed the record"
+  [ "$(awk 'NR % 5 == 1' "$LOG")" = $'a-first\nb-next\nc-last' ] || fail "the next pass did not recover remaining tasks in order: $out"
+  [ -f "$home/state/a-first.meta" ] || fail "a failed relaunch removed the record"
   [ -f "$TMP_ROOT/one-failure/wt/wt/unlanded.txt" ] || fail "a failed relaunch removed the dirty file"
-  pass "one relaunch failure does not stop the sweep or discard the copy"
+  pass "serial recovery stops at failure or deferral and leaves work for the next pass"
 }
 
 test_bootstrap_network_phase_runs_the_sweep() {
@@ -545,9 +529,9 @@ test_dead_unlanded_ship_and_scout_are_relaunched
 test_missing_endpoint_with_unlanded_work_is_relaunched
 test_no_unlanded_work_is_not_relaunched
 test_base_ref_containment_controls_clean_recovery
-test_terminal_records_are_not_relaunched
+test_only_captain_hold_blocks_unowned_work
 test_in_flight_records_are_relaunched
 test_inconclusive_endpoints_are_not_relaunched
 test_foreign_and_unreadable_records_are_not_relaunched
-test_one_failure_does_not_stop_the_next_task
+test_first_failure_stops_serial_recovery
 test_bootstrap_network_phase_runs_the_sweep
