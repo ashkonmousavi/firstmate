@@ -1075,7 +1075,10 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 ## Worker account pin (config/claude-account, config/pi-account)
 
 A home that mixes accounts for one runner, such as a work login and a personal one, can pin the account its own Claude and Pi workers launch on.
-The pin is opt-in: without a home-wide or per-secondmate pin, every launch is unchanged, and Claude workers keep receiving firstmate's own `CLAUDE_CONFIG_DIR` when it is set.
+The pin is opt-in: without a home-wide or per-secondmate pin, account selection stays ambient, and canonical Claude workers keep receiving firstmate's own `CLAUDE_CONFIG_DIR` when it is set.
+An unpinned raw launch may override that root through a leading `CLAUDE_CONFIG_DIR` assignment containing a literal absolute path or an empty value; quoted paths with spaces are supported, while dynamic or relative overrides refuse before launch.
+Firstmate exports the selected Claude root across the complete launch expression, including fallback commands, and retains it for lifecycle cleanup.
+Raw expressions retain their leading executable's identity: an opaque expression such as `cd directory && claude` does not select the Claude adapter or its account pin.
 
 Both files are local and gitignored.
 
@@ -1201,7 +1204,7 @@ SSH_AUTH_SOCK
 
 ### Variables retained and where values come from
 
-Firstmate retains basic home, executable search, terminal, locale, temporary-directory, and backend routing variables, plus its explicit launch assignments, its ship and scout task marker, the compact-adviser kill switch described below, and enabled task trace.
+Firstmate retains basic home, executable search, terminal, locale, temporary-directory, and backend routing variables, plus its explicit launch assignments, its ship and scout task marker, the compact-adviser kill switch described below, the [Claude background-exit safeguards](../.agents/skills/harness-adapters/references/harness/claude.md#background-exit), and enabled task trace.
 [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns the exact retained names and parsing mechanics.
 
 Other ambient names must be listed explicitly, including custom credential-store locations, proxy settings, and certificate overrides when required by the selected tools.

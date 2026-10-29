@@ -366,6 +366,10 @@
 #   compact-adviser kill switch COMPACT_ADVISER_DISABLE, which the floor also
 #   pins to 1 with a literal assignment so it survives the cleared environment
 #   even on a host that never had it set.
+#   CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 and CLAUDE_CODE_DISABLE_AGENT_VIEW=1
+#   are also literal assignments at this boundary and exports before the whole
+#   launch expression, so fallbacks inherit both safeguards. Leading raw
+#   assignments that disable either switch refuse before launch.
 #   An enabled task trace also retains TRACEPARENT. Explicit Firstmate launch
 #   assignments still apply inside the filtered environment, including the
 #   FM_TASK_INBOX export every launch carries (the absolute state/<id>.inbox
@@ -420,8 +424,8 @@
 #   and its operator contract. Resolve it with bin/fm-exclude-tools-lib.sh
 #   before provisioning; __PIEXCLUDE__ below owns the Pi launch substitution.
 # Worker account pin (config/claude-account, config/pi-account):
-#   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
-#   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
+#   Opt-in. With no file, canonical Claude launches still receive this
+#   process's own CLAUDE_CONFIG_DIR when it is set, and Pi retains the
 #   destination pane's ambient account. A present file pins every launch of
 #   that runner from this home - ship, scout, local secondmate, raw Claude
 #   command, and relaunch - to the declared account root, and the spawn
@@ -2402,8 +2406,8 @@ launch_template() {
   # busy hooks share that value, in state/<id>.claude-settings.json, and the
   # file also carries feedbackDrafts and attribution so those session keys
   # stay in force.
-  # Claude Code's /exit does not exit a session that still has background work
-  # (subagents, background shells, workflows, monitors): it MOVES it to a
+  # Claude Code's /exit can offer to hand off a session with background work
+  # (subagents, background shells, workflows, monitors), leaving a
   # background session ("Moving to background... backgrounded <id>") that keeps
   # running outside every lane and every pane
   # (https://code.claude.com/docs/en/agent-view.md). Two switches, both in the
@@ -5916,8 +5920,8 @@ preserve_relaunch_meta() {
   [ -z "$EXTERNAL_BACKUP_REMOTE" ] || echo "backup_prefix=$EXTERNAL_BACKUP_PREFIX"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"
-  # The worker account pin, only when this home declares one, so an unpinned
-  # task record stays byte-identical.
+  # account= records a declared pin; claude_config_dir= below also retains
+  # unpinned launch roots for background-session cleanup.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
   if [ "$WORKER_ACCOUNT_HARNESS" = claude ] || [ "$RAW_LAUNCH" = 1 ]; then

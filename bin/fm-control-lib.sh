@@ -271,7 +271,7 @@ fm_control_exit_command() {  # <harness>
 }
 
 # Claude Code's /exit does not always exit: a session that still has background
-# work (subagents, background shells, workflows, monitors) is MOVED to a
+# work (subagents, background shells, workflows, monitors) can be moved to a
 # background session ("Moving to background... backgrounded <id>") and keeps
 # running outside every lane
 # (https://code.claude.com/docs/en/agent-view.md). The launch environment turns

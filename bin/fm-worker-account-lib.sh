@@ -12,8 +12,8 @@
 #   claude          CLAUDE_CONFIG_DIR     config/claude-account
 #   pi, pi-signed   PI_CODING_AGENT_DIR   config/pi-account
 #
-# The pin is opt-in: an absent file is no pin, and the launch keeps today's
-# ambient behavior byte for byte. A present file must resolve, or the launch
+# The pin is opt-in: an absent file is no pin, so it does not replace the
+# selected ambient or raw-command account. A present file must resolve, or the launch
 # refuses; nothing falls back to an ambient or vendor-default login once a
 # home has declared one. `ordinary` selects the vendor default: for Claude
 # that is CLAUDE_CONFIG_DIR unset, because Claude reads $CLAUDE_CONFIG_DIR/
@@ -262,8 +262,8 @@ fm_worker_account_raw_profile() {
 }
 
 # fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<secondmate-id>]
-# The whole launch-time decision. Prints nothing for an unpinned runner, so
-# the caller keeps today's launch unchanged. For a pinned one prints
+# The pin selection decision. Prints nothing for an unpinned runner, so
+# the caller retains its unpinned account selection. For a pinned one prints
 # "declared<TAB>root<TAB>provider", where provider is the Pi launch model's
 # own (empty for Claude), after the model guard and the sign-in check pass. On
 # refusal prints one error and returns 1. bin/fm-spawn.sh runs it before any

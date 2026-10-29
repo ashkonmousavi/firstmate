@@ -51,15 +51,17 @@
 #              endpoint, so this verb cannot tell a destroyed window from one on
 #              a tmux server it cannot address, and it will not claim a stop it
 #              cannot see.
-#              A Claude exit has one more postcondition. Claude Code moves a
-#              session with background work into a background session instead
+#              A Claude exit has one more postcondition. Claude Code can hand a
+#              session with background work to a background session instead
 #              of exiting, so afterwards `claude agents --json --all` is read under
 #              the worker's account (agent view enabled), and any background
 #              session whose cwd is exactly this worktree is ended with
 #              `claude rm <id>`. The line ends `background-sessions=none`,
 #              `=stopped:<ids>`, or `=unverified` (the listing failed, with a
-#              ❌ on stderr); a session that survives `claude rm` fails the
-#              verb. This holds for `already-stopped` and `endpoint-gone` too,
+#              ❌ on stderr); a session or its carried processes surviving
+#              cleanup fails the verb. Process ownership across respawns is
+#              defined by bin/fm-claude-bg-stop.py. This holds for
+#              `already-stopped` and `endpoint-gone` too,
 #              because a handed-off session outlives its pane. Another
 #              worktree's session is never touched.
 #   relaunch   Transactionally replace the running agent with a new one, in the
@@ -143,7 +145,7 @@
 #   FM_CONTROL_EXIT_WAIT         alive->dead wait after the exit command (30)
 #   FM_CONTROL_LAUNCH_WAIT       dead->alive wait after a relaunch (90)
 #   FM_CONTROL_EXIT_RETRIES      Enter retries for the exit command (3)
-#   FM_CONTROL_BG_TIMEOUT        bound for each claude agents/stop call after a
+#   FM_CONTROL_BG_TIMEOUT        bound for each Claude listing/cleanup call after a
 #                                Claude exit (30)
 #   FM_CONTROL_BG_TRIES          polls for a stopped background session to leave
 #                                the listing (10, FM_CONTROL_POLL apart)
@@ -680,8 +682,8 @@ retire_busy_incarnation() {
 #
 # fm_control_claude_bg_ids (bin/fm-control-lib.sh) owns the matching rule; this
 # half runs `claude` the way the worker did. Background sessions are scoped to
-# the Claude config root, so the listing uses the worker's pinned account (or
-# the ambient one when the home has no pin, which is what fm-spawn forwards),
+# the Claude config root, so the listing uses the retained launch root, falling
+# back to the pin or ambient root only for records that predate that field,
 # and clears the agent-view and exit-handoff switches the workers launch with,
 # because CLAUDE_CODE_DISABLE_AGENT_VIEW also disables `claude agents`.
 

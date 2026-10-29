@@ -629,10 +629,7 @@ None of these three runs ever answered its dialog (Escape only, never Enter), so
 
 Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
 Choosing the handoff leaves a background session that `claude agents --json --all` lists with `kind: background` and the session's cwd, outside every lane.
-`bin/fm-spawn.sh` exports `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1` before every complete launch expression for workers and secondmates.
-Both switches reach every fallback and directory-changing branch, including when a launch environment allowlist clears the destination environment.
-Raw assignments cannot disable either safeguard, and inherited values are overridden.
-`bin/fm-control.sh exit` lists sessions with `claude agents --json --all` and removes any background session whose cwd is exactly the task worktree with `claude rm <id>`, including stopped and completed records that may retain carried work.
+The [Claude adapter](../../.agents/skills/harness-adapters/references/harness/claude.md#background-exit) owns the universal launch safeguards; the [control-plane contract](../agent-control.md#verbs) owns cleanup after exit and before relaunch.
 `tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
 The control arm, with no switch, is offered `Move to background and exit`, takes it, and must find a background session for its folder, so the guard fails rather than passing vacuously.
 The switched arm, with the launch environment, must not be offered the handoff, must end the process, and must leave no background session.
@@ -644,10 +641,7 @@ The vendor's [supervisor lifecycle contract](https://code.claude.com/docs/en/age
 Firstmate creates the matched worktree itself; the vendor's [deletion contract](https://code.claude.com/docs/en/agent-view#what-deleting-a-session-removes) preserves a caller-created worktree and the conversation transcript.
 A refused removal fails cleanup without forcing worktree deletion.
 The guard records its shell's PID and start time and uses portable process identity checks for its assertion and trap cleanup.
-Canonical Claude and all raw launch records retain the same Claude config root exported before their complete expression, including literal leading overrides with spaces.
-Recognized Claude launches select the applicable account pin and shed overriding credentials across the complete expression.
-An arbitrary raw expression retains its leading executable identity; environment exports cannot infer a Claude identity or a Claude-specific pin from an opaque shell body such as `cd directory && claude`.
-An unpinned raw command must use a literal absolute `CLAUDE_CONFIG_DIR` or an empty value; a dynamic root refuses before launch because it cannot be retained reliably for cleanup.
+The [account-selection contract](../configuration.md#worker-account-pin-configclaude-account-configpi-account) owns raw overrides and the limits of adapter recognition; `tests/fm-worker-account.test.sh` verifies exported roots against persisted metadata.
 
 | Class axis | Covered paths and evidence | Validation handoff |
 | --- | --- | --- |
@@ -660,7 +654,7 @@ An unpinned raw command must use a literal absolute `CLAUDE_CONFIG_DIR` or an em
 The live guard refreshes this record's dated per-platform evidence after Claude upgrades.
 The generated no-mistakes driving instructions in `bin/fm-dod-lib.sh` hand the class inventory and live-evidence gaps to that phase.
 
-Both variable names are present in the installed binary, and `--advisor <model>` is accepted there although `claude --help` does not list it (its pairing rules are in the advisor documentation, `https://code.claude.com/docs/en/advisor`; Haiku 4.5 and Haiku 5.5 both accept Opus).
+The two background-exit safeguard variable names are present in the installed binary, and `--advisor <model>` is accepted there although `claude --help` does not list it (its pairing rules are in the advisor documentation, `https://code.claude.com/docs/en/advisor`; Haiku 4.5 and Haiku 5.5 both accept Opus).
 
 Verified 2026-10-29 on Linux with Claude Code 2.1.312 using an isolated authenticated `CLAUDE_CONFIG_DIR` and `DISABLE_AUTOUPDATER=1`.
 `bash tests/fm-control.test.sh` passed with real reparented processes, separate child process groups, and a vendor-removal fixture that leaves carried work alive.
