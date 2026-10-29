@@ -1074,13 +1074,18 @@ row_state() { # <home> <id>
   (cd "$1" && tasks-axi show "$2" --file data/backlog.md 2>&1) | sed -n 's/^  state: *//p' | head -1
 }
 
-make_gh() { # <world>  (reads FM_GH_STATES: "<number> <STATE|ERROR>" lines)
+make_gh() { # <world> (FM_GH_STATES: "<number> <STATE|ERROR> [mergedAt closedAt]"; none means null)
   cat > "$1/fakebin/gh" <<'SH'
 #!/usr/bin/env bash
 number=$3
 printf 'gh pr view %s\n' "$number" >> "${FM_GH_LOG:?}"
-state=$(awk -v n="$number" '$1 == n { print $2 }' "${FM_GH_STATES:?}")
-case "$state" in MERGED|CLOSED|OPEN) printf '%s\n' "$state" ;; *) exit 1 ;; esac
+read -r state merged closed <<< "$(awk -v n="$number" '$1 == n { print $2, $3, $4; exit }' "${FM_GH_STATES:?}")"
+case "$merged" in none) merged=null ;; '') merged='"2026-10-28T17:42:00Z"' ;; *) merged="\"$merged\"" ;; esac
+case "$closed" in none) closed=null ;; '') closed='"2026-10-28T18:03:00Z"' ;; *) closed="\"$closed\"" ;; esac
+case "$state" in
+  MERGED|CLOSED|OPEN) printf '{"state":"%s","mergedAt":%s,"closedAt":%s}\n' "$state" "$merged" "$closed" ;;
+  *) exit 1 ;;
+esac
 SH
   chmod +x "$1/fakebin/gh"
   : > "$1/gh.log"
@@ -1161,7 +1166,7 @@ import json, sys
 doc = json.load(open(sys.argv[1]))
 mine = [x for x in doc["items"] if x["source"] == "inactive-reconcile"]
 assert [(x["id"], x["finding"]) for x in mine] == [("t-stuck", "fix")], doc
-assert mine[0]["detail"].startswith("closed:"), mine
+assert mine[0]["detail"] == "closed: PR 60 merged 2026-10-28T17:42:00Z", mine
 assert [x["id"] for x in doc["items"] if x["source"] != "inactive-reconcile"] == ["keep"], doc
 PY
   run_reconcile "$MAIN" --startup
@@ -1194,14 +1199,17 @@ test_backlog_pr_pass_recovers_interrupted_close() {
   [ "$(row_state "$MAIN" t-cut)" = "done" ] || fail "close did not land"
   receipt=$(find "$MAIN/state/terminal-outcomes" -name 'backlog-pr-*.closed' | head -1)
   grep -Fxq 'status=closing' "$receipt" || fail "receipt was marked closed before its evidence was published"
+  printf '70 ERROR\n' > "$WORLD/gh.states"
   printf '{"schema":"x-reconcile.v1","written_at":7,"items":[]}\n' > "$json"
   run_reconcile "$MAIN" --startup
   grep -Fxq 'status=closed' "$receipt" || fail "later scan did not mark the receipt closed"
   python3 -I - "$json" <<'PY' || fail "later scan did not publish the missing evidence"
 import json, sys
 doc = json.load(open(sys.argv[1]))
-assert [(x["id"], x["finding"]) for x in doc["items"]] == [("t-cut", "fix")], doc
+assert [(x["id"], x["finding"], x["detail"]) for x in doc["items"]] == [("t-cut", "fix", "closed: PR 70 merged 2026-10-28T17:42:00Z")], doc
 PY
+  [ "$(wc -l < "$WORLD/gh.log" | tr -d ' ')" = 1 ] || fail "dated receipt recovery depended on a second forge read"
+  printf '70 MERGED\n' > "$WORLD/gh.states"
   (cd "$MAIN" && tasks-axi reopen t-cut --file data/backlog.md >/dev/null \
     && tasks-axi start t-cut --file data/backlog.md >/dev/null) || fail "reopen failed"
   run_reconcile "$MAIN" --startup
@@ -1221,7 +1229,7 @@ test_backlog_pr_pass_rotates_across_short_sessions() {
 #!/usr/bin/env bash
 printf 'gh pr view %s\n' "$3" >> "${FM_GH_LOG:?}"
 sleep 2
-printf 'OPEN\n'
+printf '{"state":"OPEN","mergedAt":null,"closedAt":null}\n'
 SH
   FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
   FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
@@ -1274,7 +1282,7 @@ case "$FM_RACE_KIND" in
 esac
 fm_lock_release "$meta"
 fm_lock_release "$control"
-printf 'MERGED\n'
+printf '{"state":"MERGED","mergedAt":"2026-10-28T17:42:00Z","closedAt":"2026-10-28T18:03:00Z"}\n'
 SH
     FM_RACE_ROOT="$ROOT" FM_RACE_KIND="$kind" FM_FAKE_CREW_STATE=done run_reconcile "$MAIN" --startup
     [ "$(row_state "$MAIN" t-race)" != done ] || fail "$kind committed after the first read but the stale task was closed"
@@ -1389,7 +1397,7 @@ import json, sys
 items = json.load(open(sys.argv[1]))["items"]
 assert not any(x["id"] == "t-a" and x["home"] == "main" for x in items), items
 assert any(x["id"] == "t-a" and x["home"] == "server" for x in items), items
-assert any(x["id"] == "t-b" and x["detail"].startswith("closed:") for x in items), items
+assert any(x["id"] == "t-b" and x["detail"] == "closed: PR 97 merged 2026-10-28T17:42:00Z" for x in items), items
 PYJSON
   pass "partial scans preserve unexamined findings and retire only reevaluated items"
 }
@@ -1397,6 +1405,7 @@ PYJSON
 test_backlog_pr_pass_recovery_requires_done() {
   local receipt
   make_world backlog-recovery-state; make_gh "$WORLD"
+  printf '98 MERGED\n' > "$WORLD/gh.states"
   add_flight_row "$MAIN" t-queued 'https://github.com/o/r/pull/98'
   (cd "$MAIN" && tasks-axi reopen t-queued --file data/backlog.md >/dev/null) || fail "could not queue the failed close"
   mkdir -p "$MAIN/state/terminal-outcomes"
@@ -1416,7 +1425,7 @@ PYJSON
   python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "confirmed Done lost its recovered evidence"
 import json, sys
 items = json.load(open(sys.argv[1]))["items"]
-assert any(x["id"] == "t-queued" and x["detail"].startswith("closed:") for x in items), items
+assert any(x["id"] == "t-queued" and x["detail"] == "closed: PR 98 merged 2026-10-28T17:42:00Z" for x in items), items
 PYJSON
   pass "interrupted receipt recovery requires an authoritative Done state"
 }
@@ -1545,7 +1554,7 @@ SH
   cat > "$WORLD/fakebin/gh" <<'SH'
 #!/usr/bin/env bash
 [ "$3" != 99 ] || printf '1001\n' > "$FM_CURSOR_WORLD/clock"
-printf 'MERGED\n'
+printf '{"state":"MERGED","mergedAt":"2026-10-28T17:42:00Z","closedAt":"2026-10-28T18:03:00Z"}\n'
 SH
   chmod +x "$WORLD/fakebin/date"
   FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE=done FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
@@ -1555,24 +1564,32 @@ SH
   pass "successful reads crossing the deadline advance the durable cursor"
 }
 
-if [ "${1:-}" = --backlog ]; then
-  test_backlog_pr_pass_closes_finished_records_once
-  test_backlog_pr_pass_spares_live_worker_and_closes_finished_one
-  test_backlog_pr_pass_writes_fix_items_in_main_only
-  test_backlog_pr_pass_recovers_interrupted_close
-  test_backlog_pr_pass_rotates_across_short_sessions
-  test_backlog_pr_pass_reads_complete_references
-  test_backlog_pr_pass_rechecks_racing_eligibility
-  test_backlog_pr_pass_holds_both_locks_through_close
-  test_backlog_pr_pass_bounds_every_backend_operation
-  test_backlog_pr_pass_preserves_unexamined_findings
-  test_backlog_pr_pass_recovery_requires_done
-  test_backlog_pr_pass_rotates_receipt_recovery_with_candidates
-  test_backlog_pr_pass_resumes_receipt_inspection
-  test_backlog_pr_pass_rechecks_evidence_without_receipts
-  test_backlog_pr_pass_advances_after_success_at_deadline
-  exit 0
-fi
+
+
+test_backlog_pr_pass_dates_merged_closed_and_cached_evidence() {
+  local receipt
+  make_world backlog-dates; make_gh "$WORLD"
+  printf '110 MERGED 2026-10-27T11:22:33Z 2026-10-28T18:03:00Z\n111 CLOSED 2020-01-01T00:00:00Z 2026-10-28T12:34:56Z\n112 MERGED none none\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-dated 'https://github.com/o/r/pull/110 https://github.com/o/r/pull/111'
+  add_flight_row "$MAIN" t-single 'https://github.com/o/r/pull/110'
+  add_flight_row "$MAIN" t-missing 'https://github.com/o/r/pull/112'
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-dated)" = done ] || fail "multiple finished PRs with dates were not closed"
+  [ "$(row_state "$MAIN" t-single)" = done ] || fail "a cached merged PR lost its date"
+  [ "$(row_state "$MAIN" t-missing)" = in_flight ] || fail "a PR without a merge timestamp was closed"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "dated evidence did not follow the PR's terminal state"
+import json, sys
+items = {x["id"]: x for x in json.load(open(sys.argv[1]))["items"]}
+assert items["t-dated"]["detail"] == "closed: PR 110 merged 2026-10-27T11:22:33Z; PR 111 closed 2026-10-28T12:34:56Z", items
+assert items["t-single"]["detail"] == "closed: PR 110 merged 2026-10-27T11:22:33Z", items
+assert items["t-missing"]["finding"] == "unknown", items
+PYJSON
+  [ "$(grep -c 'gh pr view 110' "$WORLD/gh.log")" = 1 ] || fail "dated evidence bypassed the shared PR cache"
+  for receipt in "$MAIN/state/terminal-outcomes"/backlog-pr-*.closed; do
+    grep -q '^detail=closed: PR 110 merged 2026-10-27T11:22:33Z' "$receipt" || fail "a close receipt lost its dated evidence"
+  done
+  pass "merged, closed and cached PRs retain authoritative dates in evidence and receipts"
+}
 
 test_main_direct_terminal_presentation_receipt
 test_branch_ack_retires_inactive_outcome_receipt
@@ -1627,5 +1644,7 @@ test_backlog_pr_pass_rotates_receipt_recovery_with_candidates
 test_backlog_pr_pass_resumes_receipt_inspection
 test_backlog_pr_pass_rechecks_evidence_without_receipts
 test_backlog_pr_pass_advances_after_success_at_deadline
+
+test_backlog_pr_pass_dates_merged_closed_and_cached_evidence
 
 echo "all inactive reconciliation tests passed"
