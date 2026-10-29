@@ -33,7 +33,16 @@ SEND="$ROOT/bin/fm-send.sh"
 TMP_ROOT=$(fm_test_tmproot fm-control)
 mkdir -p "$TMP_ROOT"
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd)
-trap 'rm -rf "$TMP_ROOT"' EXIT
+control_test_cleanup() {
+  local pid
+  if [ -f "$TMP_ROOT/background-pids" ]; then
+    while read -r pid; do
+      kill "$pid" 2>/dev/null || true
+    done < "$TMP_ROOT/background-pids"
+  fi
+  rm -rf "$TMP_ROOT"
+}
+trap control_test_cleanup EXIT
 
 VERIFIED_HARNESSES="claude codex opencode pi pi-signed grok kimi cursor muse omp devin commandcode"
 
@@ -316,8 +325,14 @@ keys_sent() {  # <case-dir>
 
 # bg_session <id> <cwd> [kind]: one `claude agents --json` row.
 bg_session() {
-  jq -n --arg id "$1" --arg cwd "$2" --arg kind "${3:-background}" \
-    '{id: $id, cwd: $cwd, kind: $kind, sessionId: ($id + "-session"), state: "idle"}'
+  local pid=${4:-}
+  if [ -z "$pid" ]; then
+    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+    pid=$!
+    printf '%s\n' "$pid" >> "$TMP_ROOT/background-pids"
+  fi
+  jq -n --arg id "$1" --arg cwd "$2" --arg kind "${3:-background}" --argjson pid "$pid" \
+    '{id: $id, cwd: $cwd, kind: $kind, pid: $pid, sessionId: ($id + "-session"), state: "idle"}'
 }
 
 # set_agents <case-dir> <row>...: the fake claude's `agents --json` output.
@@ -402,24 +417,92 @@ test_claude_already_stopped_exit_still_checks_background_sessions() {
 }
 
 test_claude_exit_lists_under_the_worker_account_and_with_agent_view_on() {
-  local dir out rc root
-  dir=$(new_case bg-account)
+  local dir out rc root kind field
+  for kind in ship scout secondmate; do
+    for field in account claude_config_dir; do
+      dir=$(new_case "bg-account-$kind-$field")
+      add_task "$dir" t1 claude "$kind"
+      root="$dir/launch-root"
+      mkdir -p "$root" "$dir/new-root"
+      printf '%s=%s\n' "$field" "$root" >> "$dir/home/state/t1.meta"
+      printf '%s\n' "$dir/new-root" > "$dir/home/config/claude-account"
+      mkdir -p "$dir/home/config/secondmate-accounts/t1"
+      printf 'ordinary\n' > "$dir/home/config/secondmate-accounts/t1/claude-account"
+      set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")")"
+      out=$(CLAUDE_CODE_DISABLE_AGENT_VIEW=1 CLAUDE_CONFIG_DIR=/ambient run_control "$dir" t1 exit); rc=$?
+      expect_code 0 "$rc" "cleanup must use the launch account after a pin changes"$'\n'"$out"
+      assert_contains "$out" "background-sessions=stopped:aaaa1111" "cleanup must stop the launch account's session"
+      if grep -v "CLAUDE_CONFIG_DIR=$root" "$dir/fake/claude-calls" | grep -q .; then
+        fail "listing and stop must use the recorded launch root: $(cat "$dir/fake/claude-calls")"
+      fi
+      grep -q 'AGENT_VIEW=<unset>' "$dir/fake/claude-calls" || fail "agent view must be enabled for cleanup"
+    done
+  done
+  for field in account claude_config_dir; do
+    dir=$(new_case "bg-ordinary-$field")
+    add_task "$dir" t1 claude
+    if [ "$field" = account ]; then
+      printf 'account=ordinary\n' >> "$dir/home/state/t1.meta"
+    else
+      printf 'account=/old-root\nclaude_config_dir=\n' >> "$dir/home/state/t1.meta"
+    fi
+    printf '/new-root\n' > "$dir/home/config/claude-account"
+    out=$(CLAUDE_CONFIG_DIR=/ambient run_control "$dir" t1 exit); rc=$?
+    expect_code 0 "$rc" "ordinary launch-account cleanup should succeed"$'\n'"$out"
+    grep -q 'CLAUDE_CONFIG_DIR=<unset>' "$dir/fake/claude-calls" || fail "ordinary launch must unset the ambient root"
+  done
+  pass "fm-control exit (claude): listing and stop retain each kind's launch account after pin changes"
+}
+
+test_claude_exit_stops_carried_processes_after_reparenting() {
+  local dir out rc root child leaf unrelated i
+  dir=$(new_case bg-carried)
   add_task "$dir" t1 claude
-  alive_as "$dir" claude
-  root="$dir/claude-root"
-  mkdir -p "$root"
-  printf '%s\n' "$root" > "$dir/home/config/claude-account"
-  out=$(CLAUDE_CODE_DISABLE_AGENT_VIEW=1 CLAUDE_CONFIG_DIR=/ambient run_control "$dir" t1 exit); rc=$?
-  expect_code 0 "$rc" "pinned exit should succeed"$'\n'"$out"
-  grep -q "^agents --json	CLAUDE_CONFIG_DIR=$root	AGENT_VIEW=<unset>$" "$dir/fake/claude-calls" \
-    || fail "the listing must run under the pinned account root with agent view enabled, got: $(cat "$dir/fake/claude-calls")"
-  printf 'ordinary\n' > "$dir/home/config/claude-account"
-  alive_as "$dir" claude
-  out=$(CLAUDE_CONFIG_DIR=/ambient run_control "$dir" t1 exit); rc=$?
-  expect_code 0 "$rc" "ordinary-pinned exit should succeed"$'\n'"$out"
-  tail -n 1 "$dir/fake/claude-calls" | grep -q "CLAUDE_CONFIG_DIR=<unset>" \
-    || fail "an ordinary pin lists with CLAUDE_CONFIG_DIR unset, got: $(tail -n 1 "$dir/fake/claude-calls")"
-  pass "fm-control exit (claude): the listing runs under the worker's account with agent view on"
+  mkdir -p "$dir/outside"
+  cat > "$dir/outside/child.sh" <<'SH'
+cd "$1" || exit 1
+trap "" TERM
+/bin/sleep 600 &
+echo $! > "$1/leaf"
+echo "$BASHPID" > "$1/child"
+wait
+SH
+  bash -c 'bash "$1/child.sh" "$1" & wait' _ "$dir/outside" >/dev/null 2>&1 </dev/null &
+  root=$!
+  printf '%s\n' "$root" >> "$TMP_ROOT/background-pids"
+  for ((i=0; i<100; i++)); do
+    [ ! -f "$dir/outside/child" ] || break
+    /bin/sleep 0.02
+  done
+  child=$(cat "$dir/outside/child")
+  leaf=$(cat "$dir/outside/leaf")
+  printf '%s\n' "$child" "$leaf" >> "$TMP_ROOT/background-pids"
+  /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+  unrelated=$!
+  printf '%s\n' "$unrelated" >> "$TMP_ROOT/background-pids"
+  set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" background "$root")"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exit must stop the carried process tree"$'\n'"$out"
+  for root in "$root" "$child" "$leaf"; do
+    case "$(ps -p "$root" -o stat= 2>/dev/null)" in
+      ''|*Z*) : ;;
+      *) fail "session-owned process $root survived cleanup: $out" ;;
+    esac
+  done
+  kill -0 "$unrelated" 2>/dev/null || fail "cleanup killed an unrelated process"
+  assert_contains "$out" 'background-sessions=stopped:aaaa1111' "success must follow session and process termination"
+  pass "fm-control exit (claude): reparented TERM-resistant descendants stop and unrelated work survives"
+}
+
+test_claude_exit_refuses_unverifiable_process_ownership() {
+  local dir out rc
+  dir=$(new_case bg-no-pid)
+  add_task "$dir" t1 claude
+  set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" | jq 'del(.pid)')"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "exit cannot claim carried work stopped without process ownership"$'\n'"$out"
+  assert_contains "$out" 'could not be stopped with its carried work' "failure must explain the incomplete postcondition"
+  pass "fm-control exit (claude): absent process ownership prevents cleanup success"
 }
 
 test_non_claude_exit_never_calls_claude() {
@@ -1397,6 +1480,8 @@ test_verb_allowlist_is_closed
 test_resume_is_refused_with_its_reason
 test_relaunch_only_flags_are_rejected_on_other_verbs
 test_already_stopped_exit_is_idempotent
+test_claude_exit_stops_carried_processes_after_reparenting
+test_claude_exit_refuses_unverifiable_process_ownership
 test_claude_exit_with_no_background_session_reports_none
 test_claude_exit_stops_only_the_background_session_of_its_worktree
 test_claude_exit_that_cannot_stop_the_background_session_fails

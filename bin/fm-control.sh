@@ -688,14 +688,16 @@ retire_busy_incarnation() {
 CLAUDE_BG_ENV=()
 
 claude_bg_prepare() {
-  local config=${FM_CONFIG_OVERRIDE:-$FM_HOME/config} mate='' selected selection root
+  local root
   CLAUDE_BG_ENV=(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF)
-  [ "$KIND" != secondmate ] || mate=$ID
-  selected=$(fm_worker_account_config claude "$config" "$mate") || return 1
-  selection=$(fm_worker_account_resolve claude "$selected" "$selected/claude-account") || return 1
-  [ -n "$selection" ] || return 0
-  root=${selection#*$'\t'}
-  root=${root%%$'\t'*}
+  root=$(fm_meta_get "$META" claude_config_dir)
+  if ! grep -q '^claude_config_dir=' "$META"; then
+    root=$(fm_meta_get "$META" account)
+    case "$root" in
+      ordinary) root= ;;
+      '') root=${CLAUDE_CONFIG_DIR:-} ;;
+    esac
+  fi
   if [ -n "$root" ]; then
     CLAUDE_BG_ENV+=("CLAUDE_CONFIG_DIR=$root")
   else
@@ -724,7 +726,8 @@ exit_background_check() {
     return 0
   fi
   for id in $ids; do
-    fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" claude stop "$id" >/dev/null 2>&1 </dev/null || true
+    "${CLAUDE_BG_ENV[@]}" python3 "$SCRIPT_DIR/fm-claude-bg-stop.py" "$id" "$BG_TIMEOUT" <<< "$json" \
+      || die "task $ID's Claude background session $id could not be stopped with its carried work"
     stopped+=("$id")
   done
   for ((i = 0; i < BG_TRIES; i++)); do

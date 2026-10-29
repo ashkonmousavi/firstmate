@@ -49,19 +49,26 @@ stop_created() {
   done
 }
 
-# `claude stop` ends the background session but not a shell it started, which
-# keeps running reparented to init. Kill, by exact pid, only the processes whose
-# working directory is inside this lab.
+lab_process_live() {
+  local folder=$1 pid started current
+  [ -f "$folder/bg.pid" ] && [ -f "$folder/bg.started" ] || return 1
+  pid=$(cat "$folder/bg.pid")
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  started=$(cat "$folder/bg.started")
+  [ -n "$started" ] || return 1
+  current=$(LC_ALL=C ps -p "$pid" -o lstart= 2>/dev/null) || return 1
+  [ "$current" = "$started" ] || return 1
+  case "$(ps -p "$pid" -o stat= 2>/dev/null)" in
+    ''|*Z*) return 1 ;;
+  esac
+}
+
 kill_lab_processes() {
-  local proc cwd pid
-  for proc in /proc/[0-9]*; do
-    cwd=$(readlink "$proc/cwd" 2>/dev/null || true)
-    case "$cwd" in
-      "$LAB"/*)
-        pid=${proc#/proc/}
-        kill "$pid" 2>/dev/null || true
-        ;;
-    esac
+  local folder
+  for folder in "$LAB"/*; do
+    if lab_process_live "$folder"; then
+      kill "$(cat "$folder/bg.pid")" 2>/dev/null || true
+    fi
   done
 }
 
@@ -80,7 +87,7 @@ unset_inherited() {
   local name
   while IFS= read -r name; do
     printf -- '-u %s ' "$name"
-  done < <(env | grep -E '^(CLAUDECODE|CLAUDE_CODE_[A-Z_]+|CLAUDE_CONFIG_DIR)=' | cut -d= -f1 | sort -u)
+  done < <(env | grep -E '^(CLAUDECODE|CLAUDE_CODE_[A-Z_]+)=' | cut -d= -f1 | sort -u)
 }
 
 screen() {
@@ -169,7 +176,10 @@ run_arm() {
     "env $(unset_inherited) $switches CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --model haiku --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\"}'; printf '\nCLAUDE_EXIT=%s\n' \"\$?\"; sleep 60"
   wait_screen '❯' 'the composer prompt'
   sleep 1
-  send 'Use the Bash tool with run_in_background set to true to run: sleep 600   Then reply with the single word done.'
+  send "$(cat <<'PROMPT'
+Use the Bash tool with run_in_background set to true to run: sh -c 'echo $$ > bg.pid; LC_ALL=C ps -p $$ -o lstart= > bg.started; exec sleep 600'   Then reply with the single word done.
+PROMPT
+)"
   sleep 2
   enter
   # An Enter typed before the composer settles can be dropped: while the typed
@@ -190,6 +200,7 @@ run_arm() {
     i=$((i + 1))
   done
   [ "$i" -lt 600 ] || fail "Claude Code $CLAUDE_VERSION never showed the background shell to be running: $(screen)"
+  lab_process_live "$PROJECT" || fail "the background shell did not record a live process for $name"
   i=0
   send '/exit'
   sleep 1
@@ -244,13 +255,18 @@ case "$ARM_SCREEN" in
 esac
 [ -z "$SWITCHED_IDS" ] \
   || fail "switched arm: Claude Code $CLAUDE_VERSION left background session(s) $SWITCHED_IDS despite CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1"
+if lab_process_live "$PROJECT"; then
+  fail "switched arm: Claude Code $CLAUDE_VERSION left its background shell running"
+fi
 pass "switched: Claude Code $CLAUDE_VERSION /exit with background work ends the process and leaves no background session"
 
 # --- 3. the verb backstop stops the control run's leftover session ------------
 
+CONTROL_JSON=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json)
 for id in $CONTROL_IDS; do
-  env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude stop "$id" >/dev/null 2>&1 \
-    || fail "claude stop $id failed on Claude Code $CLAUDE_VERSION"
+  env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF \
+    python3 "$ROOT/bin/fm-claude-bg-stop.py" "$id" 30 <<< "$CONTROL_JSON" \
+    || fail "background cleanup of $id failed on Claude Code $CLAUDE_VERSION"
 done
 i=0
 while [ "$i" -lt 40 ] && [ -n "$(bg_ids "$CONTROL_PROJECT")" ]; do
@@ -259,4 +275,7 @@ while [ "$i" -lt 40 ] && [ -n "$(bg_ids "$CONTROL_PROJECT")" ]; do
 done
 [ -z "$(bg_ids "$CONTROL_PROJECT")" ] \
   || fail "claude stop did not end background session(s) $CONTROL_IDS on Claude Code $CLAUDE_VERSION"
-pass "backstop: claude stop ends the control run's background session found by exact cwd"
+if lab_process_live "$CONTROL_PROJECT"; then
+  fail "background cleanup left the control arm's shell running on Claude Code $CLAUDE_VERSION"
+fi
+pass "backstop: background cleanup ends the control run's session and shell"

@@ -633,10 +633,15 @@ Choosing the handoff leaves a background session that `claude agents --json` lis
 `tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
 The control arm, with no switch, is offered `Move to background and exit`, takes it, and must find a background session for its folder, so the guard fails rather than passing vacuously.
 The switched arm, with the launch environment, must not be offered the handoff, must end the process, and must leave no background session.
-The backstop arm stops the control arm's session by exact id and waits for it to leave the listing.
-`claude stop` ends the session but not a shell it started, which keeps running reparented to init, so the guard kills only processes whose cwd is inside its own lab.
+The backstop arm uses `bin/fm-claude-bg-stop.py` to capture the session process tree before termination, stop it by exact id, and verify its captured processes have exited, including children reparented during termination.
+The guard records its shell's PID and start time, checks that shell stopped as well as the session leaving the listing, and uses the same portable identity evidence for trap cleanup.
+Launch records retain the Claude config root so exit and relaunch cleanup use the launch account even after a pin changes.
+A session without a live PID cannot prove process ownership and refuses cleanup success.
+The vendor documents session PIDs in [List sessions as JSON](https://code.claude.com/docs/en/agent-view#list-sessions-as-json).
 
 Both variable names are present in the installed binary, and `--advisor <model>` is accepted there although `claude --help` does not list it (its pairing rules are in the advisor documentation, `https://code.claude.com/docs/en/advisor`; Haiku 4.5 and Haiku 5.5 both accept Opus).
+
+The recorded run below predates the carried-process assertion; rerun the live guard to refresh that evidence.
 
 Verified 2026-10-29 on Claude Code 2.1.312 on Linux.
 
