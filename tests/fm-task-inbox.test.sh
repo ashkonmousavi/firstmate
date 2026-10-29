@@ -449,6 +449,122 @@ SH
   chmod +x "$1/fakebin/tmux"
 }
 
+test_existing_doorbell_confirmation_reasons() {
+  local dir state rec got mode want presses
+  dir="$TMP_ROOT/existing-doorbell-reasons"; state="$dir/state"; mkdir -p "$state"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  cp "$rec" "$dir/before"
+  while IFS='|' read -r mode want presses; do
+    : > "$dir/keys"
+    rm -f "$dir/reads"
+    got=$(FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1/bin/fm-task-inbox-lib.sh"
+      . "$1/bin/fm-composer-lib.sh"
+      rec=$2 mode=$3 dir=$4
+      own=$(fm_task_inbox_doorbell_line "$rec")
+      fm_backend_source() { :; }
+      fm_backend_agent_state() { printf idle; }
+      fm_task_inbox_signal_prepare() { :; }
+      fm_backend_composer_state() {
+        local reads
+        reads=$(cat "$dir/reads" 2>/dev/null || printf 0)
+        reads=$((reads + 1)); printf "%s" "$reads" > "$dir/reads"
+        if [ "$reads" = 1 ]; then printf pending; return 0; fi
+        case "$mode" in
+          unreadable) return 1 ;;
+          unknown) printf unknown ;;
+          cleared) printf empty ;;
+          *) printf pending ;;
+        esac
+      }
+      fm_backend_herdr_composer_content() {
+        [ "$mode" != initial-unreadable ] || return 1
+        if [ "$(cat "$dir/reads")" -gt 1 ]; then
+          [ "$mode" != content-unreadable ] || return 1
+          if [ "$mode" = foreign ]; then printf "human draft"; return 0; fi
+        fi
+        printf "%s" "$own"
+      }
+      fm_busy_submit_wait() { [ "$mode" = receipt ]; }
+      fm_backend_send_key() {
+        printf "%s\n" "$3" >> "$dir/keys"
+        [ "$mode" != send-failed ]
+      }
+      fm_backend_send_text_submit() { printf literal >> "$dir/keys"; return 1; }
+      rc=0
+      fm_task_inbox_ring herdr session:w:p "$rec" fm-t1 || rc=$?
+      printf "%s %s" "$rc" "$FM_TASK_INBOX_RING_REASON"
+    ' _ "$ROOT" "$rec" "$mode" "$dir")
+    [ "$got" = "$want" ] || fail "$mode existing doorbell: expected '$want', got '$got'"
+    [ "$(wc -l < "$dir/keys")" -eq "$presses" ] || fail "$mode used the wrong number of Enters"
+    if [ "$presses" -gt 0 ]; then
+      [ "$(sort -u "$dir/keys")" = Enter ] || fail "$mode typed a fresh doorbell instead of Enter"
+    fi
+    [ "$(cat "${rec%.msg}.ring-reason")" = "rc=${want%% *} token=${want#* }" ] \
+      || fail "$mode did not persist its confirmation reason"
+    cmp -s "$rec" "$dir/before" || fail "$mode changed the instruction bytes"
+  done <<'CASES'
+initial-unreadable|1 composer-unreadable|0
+content-unreadable|4 composer-unreadable|1
+unreadable|4 post-enter-unreadable|1
+unknown|4 post-enter-unreadable|1
+foreign|4 post-enter-foreign-draft|1
+exhausted|4 enter-retries-exhausted|5
+send-failed|2 enter-send-failed|1
+cleared|0 ok|1
+receipt|0 ok|1
+CASES
+  pass "inbox: existing doorbells distinguish failed reads, foreign drafts and exhausted retries while preserving successful delivery"
+}
+
+test_ring_preflight_failure_reasons() {
+  local dir state rec backend mode want got
+  dir="$TMP_ROOT/preflight-reasons"; state="$dir/state"; mkdir -p "$state/tmp"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  cp "$rec" "$dir/before"
+  for backend in tmux herdr zellij orca cmux paseo; do
+    for mode in dialog sink; do
+      case "$mode" in
+        dialog) want=preflight-dialog ;;
+        sink) want=dialog-sink-failed ;;
+      esac
+      got=$(FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" bash -c '
+        . "$1/bin/fm-task-inbox-lib.sh"
+        . "$1/bin/fm-composer-lib.sh"
+        rec=$2 backend=$3 mode=$4 dir=$5
+        fm_backend_source() { :; }
+        fm_backend_agent_state() { printf idle; }
+        fm_task_inbox_signal_prepare() { :; }
+        fm_backend_composer_state() {
+          fm_composer_note_blocking_dialog "$(printf "Background work is running\n❯ 1. Exit and stop tasks\nEnter to confirm · Esc to cancel\n")" || true
+          printf unknown
+        }
+        eval "fm_backend_${backend}_send_text_submit() { printf typed >> \"\$dir/typed\"; printf empty; }"
+        if [ "$mode" = sink ]; then
+          FM_COMPOSER_DIALOG_SINK="$dir/missing/dialog"
+        else
+          FM_COMPOSER_DIALOG_SINK=
+        fi
+        FM_RING_REASON_SINK="$dir/direct-reason"
+        : > "$FM_RING_REASON_SINK"
+        rc=0
+        out=$(fm_backend_send_text_submit "$backend" target doorbell 5 2 0.3 label 2>/dev/null) || rc=$?
+        printf "%s|%s|%s\n" "$rc" "$out" "$(cat "$FM_RING_REASON_SINK")"
+        FM_RING_REASON_SINK=
+        rc=0
+        out=$(fm_task_inbox_ring "$backend" target "$rec" label) || rc=$?
+        printf "%s|%s|%s" "$rc" "$out" "$(cat "${rec%.msg}.ring-reason")"
+      ' _ "$ROOT" "$rec" "$backend" "$mode" "$dir")
+      [ "$got" = "1||$want"$'\n'"2||rc=2 token=$want" ] \
+        || fail "$backend $mode preflight lost its reason or changed stdout/return codes: $got"
+      [ ! -e "$dir/typed" ] || fail "$backend $mode typed despite a preflight refusal"
+      cmp -s "$rec" "$dir/before" || fail "$backend $mode changed the instruction bytes"
+    done
+  done
+  ! compgen -G "$state/tmp/fm-*" >/dev/null || fail "preflight refusal leaked a diagnostic sink"
+  pass "inbox: every backend distinguishes a preflight dialog from a failed dialog sink without typing"
+}
+
 # The stuck-doorbell deadlock: a doorbell whose Enter never landed sits in the
 # composer, and a ring that skipped every pending composer blocked all later
 # rings. Our own exact doorbell is submitted instead; any other pending text
@@ -1615,6 +1731,8 @@ test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
 test_ring_records_the_failing_step_without_changing_codes
+test_existing_doorbell_confirmation_reasons
+test_ring_preflight_failure_reasons
 test_ring_submits_its_own_stuck_doorbell
 test_ring_submits_own_doorbell_on_a_cursor_composer
 test_mate_ring_submits_own_doorbell_and_skips_foreign_text

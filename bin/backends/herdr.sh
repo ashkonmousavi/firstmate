@@ -3553,7 +3553,7 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
       case "$verdict" in
         empty) printf 'empty'; return 0 ;;
         pending|pending-unproven) ;;
-        *) printf '%s' "$verdict"; return 0 ;;
+        *) fm_backend_herdr_note_reason post-enter-unreadable; printf '%s' "$verdict"; return 0 ;;
       esac
     else
       sleep "$sleep_s"
@@ -3571,7 +3571,7 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
       case "$verdict" in
         busy) printf 'empty'; return 0 ;;
         empty) printf 'empty'; return 0 ;;
-        unknown) printf 'unknown'; return 0 ;;
+        unknown) fm_backend_herdr_note_reason post-enter-unreadable; printf 'unknown'; return 0 ;;
       esac
     fi
     i=$((i + 1))
@@ -3580,8 +3580,10 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
         fm_backend_herdr_note_reason enter-send-failed
         printf 'send-failed'
       else
-        fm_composer_queued_enter_verdict "$verdict" \
-          "$(fm_backend_herdr_queued_enter_busy "$target" "$allow_rendered" "$busy_harness")"
+        verdict=$(fm_composer_queued_enter_verdict "$verdict" \
+          "$(fm_backend_herdr_queued_enter_busy "$target" "$allow_rendered" "$busy_harness")")
+        [ "$verdict" = empty ] || fm_backend_herdr_note_reason enter-retries-exhausted
+        printf '%s' "$verdict"
       fi
       return 0
     fi

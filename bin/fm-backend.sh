@@ -863,6 +863,7 @@ fm_backend_send_text_submit() {  # <backend> <target> <text> <retries> <enter-sl
   # Every Enter loop below reads the dialog sink, so it must exist before
   # any adapter types: a sink that fails here leaves the composer untouched.
   fm_composer_dialog_sink_prepare || {
+    [ -z "${FM_RING_REASON_SINK:-}" ] || { printf '%s\n' dialog-sink-failed > "$FM_RING_REASON_SINK"; } 2>/dev/null || true
     echo "error: the dialog check for a $backend submit could not be recorded" >&2
     return 1
   }
@@ -875,6 +876,7 @@ fm_backend_send_text_submit() {  # <backend> <target> <text> <retries> <enter-sl
     fm_backend_composer_state "$backend" "$target" >/dev/null || true
   fi
   if dialog=$(fm_composer_blocking_dialog_noted); then
+    [ -z "${FM_RING_REASON_SINK:-}" ] || { printf '%s\n' preflight-dialog > "$FM_RING_REASON_SINK"; } 2>/dev/null || true
     fm_composer_dialog_sink_release
     echo "error: blocked on a prompt: $dialog" >&2
     return 1

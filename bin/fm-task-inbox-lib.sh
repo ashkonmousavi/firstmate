@@ -85,14 +85,9 @@
 # inbox, and the parent watcher (remote_inbox_tick in bin/fm-watch.sh) drives
 # this same ladder there through bin/fm-remote-secondmate-control.sh's inbox
 # verb: due action and ring run on the remote host, the ladder state stays
-# beside the records, and the parent queues the escalation wake. A provably
-# busy mate defers the ring like the local ladder does: the deferral spends no
-# ladder attempt, advances the same FM_TASK_INBOX_BUSY_MAX budget, and at that
-# bound the parent queues the one stuck-busy wake without typing. A later idle
-# check rings through the ordinary due action, once per grace, and an idle
-# failure still counts. The enqueue ring still rings a busy mate, and no
-# fire-and-forget retry is owed there. Unknown is not busy, and the escalation
-# marker is never cleared when the mate later goes idle.
+# beside the records, and the parent queues the escalation wake. It rings a
+# busy mate as the remote enqueue ring does, so it keeps no busy budget, and
+# no fire-and-forget retry is owed there.
 # The parent passes its effective grace and ring maximum to each remote due
 # check; individual hops have a fixed 30-second bound, and ordinary supervision
 # runs the pass detached from its cycle, so a slow host never delays the
@@ -410,7 +405,8 @@ fm_task_inbox_signal_prepare() {
 fm_task_inbox_confirmed_enter() {
   local backend=$1 target=$2 line=$3 label=${4:-} i=0 cstate
   while [ "$i" -lt 5 ]; do
-    fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
+    fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 \
+      || { FM_TASK_INBOX_RING_REASON=enter-send-failed; return 2; }
     i=$((i + 1))
     if FM_SUBMIT_SIGNAL_STATE=$FM_TASK_INBOX_SIGNAL_STATE FM_SUBMIT_SIGNAL_ID=$FM_TASK_INBOX_SIGNAL_ID \
          FM_SUBMIT_SIGNAL_HARNESS=$FM_TASK_INBOX_SIGNAL_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$FM_TASK_INBOX_SIGNAL_BASELINE \
@@ -420,10 +416,12 @@ fm_task_inbox_confirmed_enter() {
     cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
     case "$cstate" in
       empty) return 0 ;;
-      pending) fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 4 ;;
-      *) return 4 ;;
+      pending) fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
+        || { : "${FM_TASK_INBOX_RING_REASON:=post-enter-foreign-draft}"; return 4; } ;;
+      *) FM_TASK_INBOX_RING_REASON=post-enter-unreadable; return 4 ;;
     esac
   done
+  FM_TASK_INBOX_RING_REASON=enter-retries-exhausted
   return 4
 }
 
@@ -460,12 +458,11 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
 # A backend adapter only offers a finer token through the sink file named by
 # FM_RING_REASON_SINK (fm_backend_herdr_note_reason), because it runs in a
 # command substitution and cannot set a variable here. Tokens: ok, agent-dead,
-# foreign-pending-draft, doorbell-rejected, submit-refused (backend refused
-# before typing, such as a blocking dialog), backend-send-failed, and
-# submit-unconfirmed; herdr adds composer-unreadable, composer-nonempty,
-# literal-send-failed, payload-not-shown, clear-unverified, enter-send-failed,
-# status-unknown and blocking-dialog; the remote busy deferral adds
-# busy-deferred and stuck-busy.
+# foreign-pending-draft, doorbell-rejected, submit-refused, backend-send-failed,
+# submit-unconfirmed, preflight-dialog, dialog-sink-failed, enter-send-failed,
+# post-enter-unreadable, post-enter-foreign-draft, composer-unreadable and
+# enter-retries-exhausted; herdr adds composer-nonempty, literal-send-failed,
+# payload-not-shown, clear-unverified, status-unknown and blocking-dialog.
 _fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label]
   local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict rc sink
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
@@ -476,29 +473,25 @@ _fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
   if [ "$cstate" = pending ]; then
     fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
-      || { FM_TASK_INBOX_RING_REASON=foreign-pending-draft; return 1; }
+      || { : "${FM_TASK_INBOX_RING_REASON:=foreign-pending-draft}"; return 1; }
     rc=0
     fm_task_inbox_confirmed_enter "$backend" "$target" "$line" "$label" || rc=$?
-    case "$rc" in
-      0) FM_TASK_INBOX_RING_REASON=ok ;;
-      2) FM_TASK_INBOX_RING_REASON=enter-send-failed ;;
-      *) FM_TASK_INBOX_RING_REASON=submit-unconfirmed ;;
-    esac
+    [ "$rc" -ne 0 ] || FM_TASK_INBOX_RING_REASON=ok
     return "$rc"
   fi
   sink=$(mktemp "${TMPDIR:-/tmp}/fm-ring-reason.XXXXXX" 2>/dev/null) || sink=
   FM_RING_REASON_SINK=$sink
-  if ! verdict=$(FM_SUBMIT_SIGNAL_STATE=$FM_TASK_INBOX_SIGNAL_STATE FM_SUBMIT_SIGNAL_ID=$FM_TASK_INBOX_SIGNAL_ID \
+  rc=0
+  verdict=$(FM_SUBMIT_SIGNAL_STATE=$FM_TASK_INBOX_SIGNAL_STATE FM_SUBMIT_SIGNAL_ID=$FM_TASK_INBOX_SIGNAL_ID \
        FM_SUBMIT_SIGNAL_HARNESS=$FM_TASK_INBOX_SIGNAL_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$FM_TASK_INBOX_SIGNAL_BASELINE \
-       fm_backend_send_text_submit "$backend" "$target" "$line" 5 2 0.3 "$label" 2>/dev/null); then
-    FM_TASK_INBOX_RING_REASON=submit-refused
-    FM_RING_REASON_SINK=
-    [ -z "$sink" ] || rm -f "$sink"
-    return 2
-  fi
+       fm_backend_send_text_submit "$backend" "$target" "$line" 5 2 0.3 "$label" 2>/dev/null) || rc=$?
   FM_TASK_INBOX_RING_REASON=$(head -1 "$sink" 2>/dev/null || true)
   FM_RING_REASON_SINK=
   [ -z "$sink" ] || rm -f "$sink"
+  if [ "$rc" -ne 0 ]; then
+    : "${FM_TASK_INBOX_RING_REASON:=submit-refused}"
+    return 2
+  fi
   case "$verdict" in
     empty) FM_TASK_INBOX_RING_REASON=ok; return 0 ;;
     send-failed) : "${FM_TASK_INBOX_RING_REASON:=backend-send-failed}"; return 2 ;;
@@ -535,19 +528,19 @@ fm_task_inbox_last_reason() {  # <record-path>
 # tail. fm_composer_text_is_own_doorbell ignores Cursor's same-row stop hint.
 fm_task_inbox_composer_holds() {  # <backend> <target> <line> [expected-label]
   local backend=$1 target=$2 line=$3 label=${4:-} cap held caps
-  fm_backend_source "$backend" || return 1
+  fm_backend_source "$backend" || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
   case "$backend" in
     tmux)
-      cap=$(fm_tmux_composer_capture "$target") || return 1
+      cap=$(fm_tmux_composer_capture "$target") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       caps=$(fm_tmux_composer_caps)
-      held=$(fm_composer_extract_selected_content "$caps" "$cap") || return 1
+      held=$(fm_composer_extract_selected_content "$caps" "$cap") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
     herdr)
-      held=$(fm_backend_herdr_composer_content "$target") || return 1
+      held=$(fm_backend_herdr_composer_content "$target") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
     *)
-      cap=$(fm_backend_capture "$backend" "$target" "$FM_COMPOSER_CAPTURE_LINES" "$label" 2>/dev/null) || return 1
-      held=$(fm_composer_extract_selected_content styled=0 "$cap") || return 1
+      cap=$(fm_backend_capture "$backend" "$target" "$FM_COMPOSER_CAPTURE_LINES" "$label" 2>/dev/null) || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
+      held=$(fm_composer_extract_selected_content styled=0 "$cap") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
   esac
   fm_composer_text_is_own_doorbell "$held" "$line"

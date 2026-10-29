@@ -1237,10 +1237,6 @@ EOF
         fi
         if [ "$out" = unavailable ]; then
           reason="stale: $w (unread firstmate instruction: remote record $rec is unhandled and the secondmate's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the secondmate)"
-        elif [ "${out%% *}" = stuck-busy ]; then
-          reason="stale: $w (unread firstmate instruction: stuck-busy after ${out#* } consecutive busy-deferred due doorbells; remote record $rec stays unhandled and no doorbell was typed; inspect the secondmate)"
-        elif [ "${out%% *}" = deferred ]; then
-          triage_log "remote steer-inbox delivery deferred: $id $rec the secondmate is busy; no attempt spent (reason=busy-deferred)"
         elif [ "$out" = bookkeeping-failed ]; then
           reason="stale: $w (remote steering-inbox ladder bookkeeping unwritable: .ring-state cannot be written while remote record $rec stays unhandled; inspect the inbox directory)"
         else

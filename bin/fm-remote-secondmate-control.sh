@@ -318,15 +318,14 @@ cmd_send() {
 # (bin/fm-task-inbox-lib.sh owns the ladder; "Remote leg" there). Each action
 # prints one line:
 #   due <grace> <max> quiet | ring <record> | escalate <record> <count> [reason=<token>]
-#   ring <record>    rang <ring-status> [reason=<token>] | deferred <record> |
-#                    stuck-busy <count> | handled | unavailable | bookkeeping-failed
+#   ring <record>    rang <ring-status> [reason=<token>] | handled | unavailable | bookkeeping-failed
 #   escalated <rec>  escalated
 # <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
 # re-checks that the record is still unhandled, rings once, and spends one
 # ladder attempt; `escalated` writes the marker after the parent has queued its
 # wake.
 cmd_inbox() {
-  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 last_reason busy_verdict busy_count tail40
+  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 last_reason
   validate_id "$id"
   validate_home "$id"
   remote_endpoint_require "$id"
@@ -370,29 +369,6 @@ cmd_inbox() {
     printf 'handled\n'
     return 0
   fi
-  # A provably busy mate defers the ring (bin/fm-task-inbox-lib.sh, "Remote
-  # leg"): no ladder attempt is spent, the consecutive-deferral budget advances,
-  # and at its bound the parent escalates stuck-busy without typing.
-  tail40=$(fm_backend_capture "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 40 "fm-$id" 2>/dev/null || true)
-  busy_verdict=$(fm_busy_classify_meta "$REMOTE_ENDPOINT_META" "$id" "$CONTROL_STATE" "$tail40" 2>/dev/null || true)
-  if [ "${busy_verdict%% *}" = busy ]; then
-    if ! busy_count=$(fm_task_inbox_record_busy "$CONTROL_STATE" "$id" "$rec"); then
-      [ -f "$rec" ] || { printf 'handled\n'; return 0; }
-      printf 'bookkeeping-failed\n'
-      return 0
-    fi
-    if [ "$busy_count" -ge "$(fm_task_inbox_busy_max)" ]; then
-      fm_task_inbox_note_reason "$rec" - stuck-busy
-      printf 'stuck-busy %s\n' "$busy_count"
-    else
-      fm_task_inbox_note_reason "$rec" - busy-deferred
-      printf 'deferred %s\n' "$rec_name"
-    fi
-    return 0
-  fi
-  # A reset that fails leaves a stale count that the next deferral or due check
-  # overwrites; the remote leg has no wake of its own to surface it.
-  fm_task_inbox_clear_busy "$CONTROL_STATE" "$id" || true
   fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" || ring_rc=$?
   if [ "$ring_rc" -eq 3 ]; then
     printf 'unavailable\n'
