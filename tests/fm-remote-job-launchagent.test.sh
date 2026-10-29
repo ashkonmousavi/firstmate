@@ -195,6 +195,46 @@ tracked() { cat "$FM_TEST_TRACKED" 2>/dev/null; }
 lock_owner() { cat "$STATE_ROOT/worker.lock/pid" 2>/dev/null; }
 launch_count() { grep -c "^$1 " "$LAUNCH_LOG" 2>/dev/null || true; }
 
+# A failed readlink is an earlier observation, not proof that the path now
+# contains a non-symlink. The repair mutex must wait for the current holder.
+test_reload_lock_publication_race() (
+  race="$TMP_ROOT/readlink-race"
+  mkdir "$race"
+  (
+    fm_remote_job_reload_lock_acquire "$race/repair" || exit 1
+    : > "$race/held"
+    deadline=$((SECONDS + FM_TEST_STUB_MAX_BLOCK_SECONDS))
+    while [ ! -f "$race/release" ] && [ "$SECONDS" -lt "$deadline" ]; do sleep 0.02; done
+    fm_remote_job_reload_lock_release "$race/repair"
+  ) &
+  holder=$!
+  deadline=$((SECONDS + FM_TEST_STUB_MAX_BLOCK_SECONDS))
+  while [ ! -f "$race/held" ] && [ "$SECONDS" -lt "$deadline" ]; do sleep 0.02; done
+  [ -f "$race/held" ] || { wait "$holder"; fail 'race fixture did not acquire the repair mutex'; }
+  real_readlink=$(command -v readlink)
+  readlink() {
+    if [ "$1" = "$race/repair" ]; then
+      if [ ! -f "$race/observed" ]; then
+        : > "$race/observed"
+        # Inject ENOENT from the release gap, returned after a new holder
+        # has published. Later reads use the real filesystem boundary.
+        return 1
+      fi
+      : > "$race/release"
+    fi
+    "$real_readlink" "$@"
+  }
+  rc=0
+  fm_remote_job_reload_lock_acquire "$race/repair" || rc=$?
+  : > "$race/release"
+  wait "$holder" || fail 'race fixture did not release the repair mutex'
+  [ "$rc" -eq 0 ] || fail 'repair mutex rejected a symlink published after a failed readlink'
+  fm_remote_job_reload_lock_release "$race/repair" || fail 'race contender did not own the repair mutex'
+  [ ! -e "$race/repair" ] && [ ! -L "$race/repair" ] || fail 'race contender left the mutex behind'
+  pass 'repair mutex tolerates publication after a failed readlink'
+)
+test_reload_lock_publication_race || exit 1
+
 # --- a crashed predecessor's fresh heartbeat cannot ready its replacement ----
 
 fm_remote_job_prepare_state "$ACCOUNT_HOME" || fail 'could not prepare remote job state'
