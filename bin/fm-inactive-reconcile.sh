@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fm-inactive-reconcile.sh - bounded reconciliation of suspicious inactive terminal outcomes.
+# fm-inactive-reconcile.sh - bounded reconciliation of inactive outcomes and finished backlog PRs.
 #
 # Usage:
 #   fm-inactive-reconcile.sh scan [--startup]
@@ -7,7 +7,7 @@
 #   fm-inactive-reconcile.sh acknowledge <fingerprint>
 #
 # This is an adjunct to the existing watcher poll loop and session-start path,
-# not a watcher, daemon, PR poll, or forge client of its own.
+# not a separate watcher or daemon.
 # In a secondmate home every `scan` invocation, which is every watcher poll,
 # first runs the LEDGER-FIRST parent delivery: a direct child whose status
 # ledger ends in a whole `done:` or `failed:` line has stated its own outcome,
@@ -84,8 +84,39 @@
 # main-home acknowledgement. The atomic epoch/cursor marker's mtime gates scans,
 # and its cursor records the last child visited within the aggregate budget.
 #
-# The scan reads only durable local state and fm-crew-state.sh; it never invokes
-# gh, gh-axi, curl, fm-pr-check.sh, fm-pr-poll.sh, or a state *.check.sh.
+# The child scan above reads only durable local state and fm-crew-state.sh; it
+# never invokes gh, gh-axi, curl, fm-pr-check.sh, fm-pr-poll.sh, or a state
+# *.check.sh. The one forge read in this script is the backlog pass below.
+#
+# BACKLOG PASS. After the cadence gate and before the child scan, each scan also
+# closes in-flight backlog records whose pull request has already finished, so
+# merged work cannot sit parked as In flight. It lists this home's in-flight rows
+# and collects every https://github.com/<owner>/<repo>/pull/<n>
+# reference from `show --full` plus a worker meta's pr=, and reads each distinct
+# PR with one bounded `gh pr view --json state,mergedAt,closedAt`. An unreadable
+# PR or missing terminal timestamp leaves an unknown finding; a PR that is
+# still OPEN leaves the record alone. A record whose refs are
+# ALL MERGED or CLOSED, that is not held, and that has no live worker (a meta whose
+# fm-crew-state.sh state is not done or failed) is closed through
+# fm_backlog_done in bin/fm-backlog-transition-lib.sh, the owner teardown uses.
+# A receipt state/terminal-outcomes/backlog-pr-<fingerprint>.closed, keyed by
+# task id plus each PR and its state, makes that close happen once: it is written
+# first as an intent (status=closing) with the dated close detail, the record is closed, and the receipt is
+# marked closed once the evidence is published. A later scan that finds a closing
+# receipt whose task is confirmed Done publishes the missing evidence and
+# marks it closed, so an interruption never closes a record twice; a record
+# someone reopens is not closed again for the same PR states.
+# The pass owns half of FM_INACTIVE_RECONCILE_BUDGET_SECS (at least 1 second) and
+# visits rows, outstanding findings, and receipt inspection in rotation from a cursor saved after each visit
+# (state/backlog-pr-cursor), so every row is reached across short sessions.
+# In the main home only, the pass upserts into data/x-reconcile.json items with
+# source "inactive-reconcile": finding "fix" for a record it closed (detail
+# "closed: PR <number> merged <UTC timestamp>" or the corresponding closed date)
+# or found closable but could not close, and finding "unknown"
+# for a record whose PR state it could not read in time, under flock on
+# data/x-reconcile.json.lock; it updates only authoritatively examined items and
+# leaves written_at to the file's other writer. Server and laptop homes close
+# their own records and write no JSON.
 set -u
 export LC_ALL=C
 
@@ -107,6 +138,10 @@ CREW_STATE_BIN="${FM_INACTIVE_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}"
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-dod-lib.sh
 . "$SCRIPT_DIR/fm-dod-lib.sh"
+# shellcheck source=bin/fm-tasks-axi-lib.sh
+. "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+# shellcheck source=bin/fm-backlog-transition-lib.sh
+. "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
 
 FM_INACTIVE_RECONCILE_SECS=${FM_INACTIVE_RECONCILE_SECS:-900}
 case "$FM_INACTIVE_RECONCILE_SECS" in
@@ -604,8 +639,361 @@ scan_pass() { # <cursor> <after|through> <deadline> <secondmate-id-or-empty>
   done
 }
 
+# One PR's state and terminal UTC timestamp as tab-separated fields through a
+# bounded read; an unreadable state or missing terminal timestamp prints nothing.
+backlog_pr_state() { # <url>
+  local url=$1 out
+  fm_pr_url_parse "$url" && [ "$FM_PR_PROVIDER" = github ] || return 1
+  out=$(gh pr view "$FM_PR_NUMBER" -R "$FM_PR_OWNER/$FM_PR_REPO" --json state,mergedAt,closedAt 2>/dev/null) || return 1
+  printf '%s' "$out" | python3 -I -c '
+import datetime, json, sys
+try:
+    doc = json.load(sys.stdin)
+    state = doc["state"]
+    if state == "OPEN":
+        print("OPEN\t")
+    elif state in ("MERGED", "CLOSED"):
+        value = doc["mergedAt" if state == "MERGED" else "closedAt"]
+        stamp = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if stamp.tzinfo is None:
+            sys.exit(1)
+        finished = stamp.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+        print(state + "\t" + finished)
+    else:
+        sys.exit(1)
+except (KeyError, TypeError, ValueError, AttributeError):
+    sys.exit(1)
+'
+}
+
+backlog_pr_evidence() {
+  local signature=$1 item ref expected info state finished verb detail=''
+  while IFS= read -r item; do
+    ref=${item%=*}
+    expected=${item##*=}
+    info=$(printf '%s\n' "$cache" | awk -F'\t' -v u="$ref" '$1 == u { print $2 "\t" $3; exit }')
+    [ -n "$info" ] || info=$(backlog_pr_state "$ref") || return 1
+    state=${info%%$'\t'*}
+    finished=${info#*$'\t'}
+    [ "$state" = "$expected" ] && [ -n "$finished" ] || return 1
+    case "$state" in MERGED) verb=merged ;; CLOSED) verb=closed ;; *) return 1 ;; esac
+    fm_pr_url_parse "$ref" || return 1
+    detail="${detail:+$detail; }PR $FM_PR_NUMBER $verb $finished"
+  done <<EOF
+$(printf '%s' "$signature" | tr ',' '\n')
+EOF
+  [ -n "$detail" ] || return 1
+  printf 'closed: %s\n' "$detail"
+}
+
+backlog_pr_refs() { # reads text on stdin
+  grep -oE 'https://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/pull/[1-9][0-9]*' 2>/dev/null || true
+}
+
+# Upsert examined items in data/x-reconcile.json from tab-separated
+# "<id>\t<finding>\t<detail>" lines; an empty finding retires that item.
+# Unexamined items, other sources, and unparseable files are left untouched.
+x_reconcile_upsert() { # <timeout> <json-path> <home-label> <observed-epoch>
+  local timeout=$1
+  shift
+  fm_run_timed "$timeout" python3 -I -c '
+import fcntl, json, os, sys, tempfile
+path, home, observed = sys.argv[1], sys.argv[2], int(sys.argv[3])
+items = []
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if line:
+        item_id, finding, detail = (line.split("\t", 2) + ["", ""])[:3]
+        items.append({"id": item_id, "home": home, "finding": finding,
+                      "observed_at": observed, "detail": detail,
+                      "source": "inactive-reconcile"})
+with open(path + ".lock", "a") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    exists = os.path.exists(path)
+    doc = {"schema": "x-reconcile.v1", "written_at": observed, "items": []}
+    if exists:
+        with open(path) as f:
+            doc = json.load(f)
+        if not isinstance(doc, dict) or not isinstance(doc.get("items"), list):
+            sys.exit(3)
+    elif not items:
+        sys.exit(0)
+    updates = {x["id"]: x for x in items}
+    merged = [x for x in doc["items"]
+              if not (isinstance(x, dict) and x.get("source") == "inactive-reconcile"
+                      and x.get("home") == home and x.get("id") in updates)]
+    merged += [x for x in updates.values() if x["finding"]]
+    if exists and merged == doc["items"]:
+        sys.exit(0)
+    doc["items"] = merged
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".x-reconcile.")
+    with os.fdopen(fd, "w") as f:
+        json.dump(doc, f, indent=1)
+        f.write("\n")
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)
+' "$@"
+}
+
+backlog_pr_receipt_write() { # <receipt> <task> <signature> <closing|closed> <detail>
+  local receipt=$1 task=$2 signature=$3 status=$4 detail=$5 tmp
+  tmp=$(mktemp "$OUTCOME_DIR/.record.XXXXXX") || return 1
+  {
+    printf 'schema=fm-backlog-pr-close.v1\n'
+    printf 'task_id=%s\n' "$task"
+    printf 'prs=%s\n' "$signature"
+    printf 'status=%s\n' "$status"
+    printf 'detail=%s\n' "$detail"
+    printf 'written_epoch=%s\n' "$(reconcile_now)"
+  } > "$tmp" || { rm -f "$tmp"; return 1; }
+  chmod 600 "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$receipt" || { rm -f "$tmp"; return 1; }
+}
+
+backlog_pr_receipt_status() { # <receipt>; prints closing, closed or nothing
+  [ -f "$1" ] || return 0
+  case "$(sed -n 's/^status=//p' "$1" 2>/dev/null | sed -n '1p')" in
+    closing) printf 'closing\n' ;;
+    *) printf 'closed\n' ;;
+  esac
+}
+
+backlog_pr_with_locks() {
+  local id=$1 control lock rc=1
+  shift
+  control="$STATE/.control-$id.lock"
+  lock=$(fm_meta_lock_path "$STATE/$id.meta") || return 1
+  fm_lock_try_acquire "$control" || return 1
+  if fm_lock_try_acquire "$lock"; then
+    "$@"
+    rc=$?
+    fm_lock_release "$lock"
+  fi
+  fm_lock_release "$control"
+  return "$rc"
+}
+
+backlog_pr_close() {
+  local data=$1 id=$2 receipt=$3 signature=$4 first_ref=$5 refs=$6 deadline=$7 incarnation=$8 detail=$9
+  local remaining full current_refs meta="$STATE/$id.meta" state_line
+  remaining=$((deadline - $(date +%s)))
+  [ "$remaining" -ge 1 ] || return 3
+  full=$(FM_BACKLOG_ROW_TIMEOUT_SECS=$remaining fm_backlog_row_show "$data" "$id" --full 2>/dev/null) || return 3
+  [ "$(printf '%s\n' "$full" | sed -n 's/^  state: *//p' | head -1)" = in_flight ] || return 2
+  [ "$(printf '%s\n' "$full" | sed -n 's/^  held: *//p' | head -1)" = no ] || return 2
+  case "$(printf '%s\n' "$full" | sed -n 's/^  hold_kind: *//p' | head -1)" in
+    -|'"-"') ;; *) return 2 ;;
+  esac
+  current_refs=$(printf '%s\n' "$full" | backlog_pr_refs)
+  [ ! -L "$meta" ] || return 2
+  if [ -f "$meta" ]; then
+    [ "$(meta_incarnation "$meta")" = "$incarnation" ] || return 2
+    current_refs=$(printf '%s\n%s\n' "$current_refs" "$(meta_field "$meta" pr)" | backlog_pr_refs)
+    state_line=$(env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CREW_STATE_NO_FORGE=1 \
+      "$CREW_STATE_BIN" "$id" 2>/dev/null) || return 3
+    case "$state_line" in 'state: done '*|'state: failed '*) ;; *) return 2 ;; esac
+    status_line_verb "$(last_status_line "$STATE/$id.status")" | grep -Fx captain-held >/dev/null 2>&1 && return 2
+  else
+    [ -z "$incarnation" ] || return 2
+  fi
+  current_refs=$(printf '%s\n' "$current_refs" | sort -u | sed '/^$/d')
+  [ "$current_refs" = "$refs" ] || return 2
+  [ "$(date +%s)" -lt "$deadline" ] || return 3
+  backlog_pr_receipt_write "$receipt" "$id" "$signature" closing "$detail" \
+    && fm_backlog_done "$data" "$id" --pr "$first_ref" \
+      --note "closed by inactive reconcile: pull request finished ($signature)" >/dev/null 2>&1
+}
+
+backlog_pr_publish() {
+  [ "$main" -eq 1 ] && [ -n "$out" ] || return 0
+  printf '%s' "$out" | x_reconcile_upsert 1 "$data/x-reconcile.json" main "$(reconcile_now)" 2>/dev/null
+}
+
+backlog_pr_recover() {
+  local receipt=$1 id=$2 remaining full signature detail
+  [ -z "$receipt" ] || [ "$(backlog_pr_receipt_status "$receipt")" = closing ] || return 0
+  remaining=$((deadline - $(date +%s)))
+  [ "$remaining" -ge 1 ] || return 1
+  full=$(FM_BACKLOG_ROW_TIMEOUT_SECS=$remaining fm_backlog_row_show "$data" "$id" --full 2>/dev/null) || return 1
+  [ "$(printf '%s\n' "$full" | sed -n 's/^  state: *//p' | head -1)" = 'done' ] || return 0
+  if [ -n "$receipt" ]; then
+    signature=$(sed -n 's/^prs=//p' "$receipt" | sed -n '1p')
+    detail=$(record_value "$receipt" detail)
+    [ -n "$detail" ] || detail=$(backlog_pr_evidence "$signature") || return 1
+    out="$out$id"$'\t'"fix"$'\t'"$detail"$'\n'
+    backlog_pr_publish && backlog_pr_receipt_write "$receipt" "$id" "$signature" closed "$detail"
+  else
+    printf '%s' "$out" | awk -F'\t' -v id="$id" '$1 == id && $2 == "fix" && $3 ~ /^closed:/ { found=1 } END { exit !found }' && return 0
+    out="$out$id"$'\t\t\n'
+    backlog_pr_publish
+  fi
+}
+
+backlog_pr_cursor_file() { printf '%s/backlog-pr-cursor\n' "$STATE"; }
+
+backlog_pr_rows() {
+  python3 -I -c '
+import json, os, re, sys
+path, main, outcomes = sys.argv[1:]
+seen = set()
+for row in sys.stdin:
+    row = row.rstrip("\n")
+    if row:
+        print(row)
+        seen.add(row.lstrip().split(",", 1)[0])
+items = []
+if main == "1":
+    try:
+        with open(path) as f:
+            doc = json.load(f)
+        if isinstance(doc, dict) and isinstance(doc.get("items"), list):
+            items = doc["items"]
+    except (OSError, ValueError):
+        pass
+for item in items:
+    if not isinstance(item, dict) or item.get("source") != "inactive-reconcile" or item.get("home") != "main":
+        continue
+    item_id = item.get("id")
+    if not isinstance(item_id, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", item_id) or item_id in seen:
+        continue
+    seen.add(item_id)
+    print("  -,evidence," + item_id)
+with os.scandir(outcomes) as entries:
+    receipts = sorted(entry.path for entry in entries
+                      if re.fullmatch(r"backlog-pr-[A-Za-z0-9._-]+[.]closed", entry.name))
+for receipt in receipts:
+    print("  -,receipt," + receipt)
+' "$1/x-reconcile.json" "$2" "$OUTCOME_DIR"
+}
+
+backlog_pr_pass() { # <deadline> <main-home: 0|1>
+  local deadline=$1 main=$2 config data rows row id refs ref meta state signature fingerprint receipt remaining
+  local all_finished unreadable first_ref full out='' marks='' cache='' total start k idx cursor_file rstatus incarnation close_rc info detail
+  config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+  data="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
+  command -v gh >/dev/null 2>&1 && command -v tasks-axi >/dev/null 2>&1 || return 0
+  fm_backlog_transition_applies "$config" "$data" ship >/dev/null 2>&1 || return 0
+  remaining=$((deadline - $(date +%s)))
+  [ "$remaining" -ge 1 ] || return 0
+  rows=$(fm_backlog_row_list "$data" --state in_flight) || return 0
+  rows=$(printf '%s\n' "$rows" | grep -E '^  [^,]+,in_flight,' || true)
+  rows=$(printf '%s\n' "$rows" | backlog_pr_rows "$data" "$main" 2>/dev/null) || return 0
+  total=$(printf '%s\n' "$rows" | sed '/^$/d' | wc -l | tr -d ' ')
+  cursor_file=$(backlog_pr_cursor_file)
+  start=$(sed -n '1p' "$cursor_file" 2>/dev/null || true)
+  case "$start" in ''|*[!0-9]*) start=0 ;; esac
+  [ "$total" -gt 0 ] || start=0
+  k=0
+  while [ "$k" -lt "$total" ]; do
+    idx=$(( (start + k) % total ))
+    k=$((k + 1))
+    row=$(printf '%s\n' "$rows" | sed -n "$((idx + 1))p")
+    id=${row#  }
+    id=${id%%,*}
+    valid_id "$id" || { printf '%s\n' $(( (idx + 1) % total )) > "$cursor_file" 2>/dev/null || true; continue; }
+    remaining=$((deadline - $(date +%s)))
+    [ "$remaining" -ge 1 ] || break
+    printf '%s\n' $(( (idx + 1) % total )) > "$cursor_file" 2>/dev/null || true
+    case "${row#*,}" in
+      receipt,*)
+        receipt=${row#*,receipt,}
+        [ -f "$receipt" ] && [ ! -L "$receipt" ] || continue
+        id=$(sed -n 's/^task_id=//p' "$receipt" | sed -n '1p')
+        valid_id "$id" || continue
+        backlog_pr_with_locks "$id" backlog_pr_recover "$receipt" "$id" || true
+        continue
+        ;;
+      evidence,*)
+        id=${row#*,evidence,}
+        valid_id "$id" || continue
+        backlog_pr_with_locks "$id" backlog_pr_recover '' "$id" || true
+        continue
+        ;;
+    esac
+    out="$out$id"$'\t'"unknown"$'\t'"in-flight record could not be examined before the time budget ran out"$'\n'
+    backlog_pr_publish || true
+    full=$(FM_BACKLOG_ROW_TIMEOUT_SECS=$remaining fm_backlog_row_show "$data" "$id" --full 2>/dev/null) || continue
+    case "$(printf '%s\n' "$full" | sed -n 's/^  state: *//p' | head -1):$(printf '%s\n' "$full" | sed -n 's/^  held: *//p' | head -1):$(printf '%s\n' "$full" | sed -n 's/^  hold_kind: *//p' | head -1)" in
+      'in_flight:no:-'|'in_flight:no:"-"') ;;
+      *) out="$out$id"$'\t\t\n'; continue ;;
+    esac
+    meta="$STATE/$id.meta"
+    [ -f "$meta" ] && [ ! -L "$meta" ] || meta=''
+    incarnation=''
+    refs=$(printf '%s\n' "$full" | backlog_pr_refs)
+    if [ -n "$meta" ]; then
+      incarnation=$(meta_incarnation "$meta")
+      refs=$(printf '%s\n%s\n' "$refs" "$(meta_field "$meta" pr)" | backlog_pr_refs)
+    fi
+    refs=$(printf '%s\n' "$refs" | sort -u | sed '/^$/d')
+    if [ -z "$refs" ]; then
+      out="$out$id"$'\t\t\n'
+      continue
+    fi
+    all_finished=1
+    unreadable=0
+    signature=''
+    while IFS= read -r ref; do
+      remaining=$((deadline - $(date +%s)))
+      if [ "$remaining" -lt 1 ]; then all_finished=0; unreadable=1; break; fi
+      info=$(printf '%s\n' "$cache" | awk -F'\t' -v u="$ref" '$1 == u { print $2 "\t" $3; exit }')
+      if [ -z "$info" ]; then
+        info=$(backlog_pr_state "$ref") || info=''
+        [ -z "$info" ] || cache="$cache$ref"$'\t'"$info"$'\n'
+      fi
+      state=${info%%$'\t'*}
+      case "$state" in
+        MERGED|CLOSED) signature="${signature:+$signature,}$ref=$state" ;;
+        '') all_finished=0; unreadable=1; break ;;
+        *) all_finished=0; break ;;
+      esac
+    done <<EOF
+$refs
+EOF
+    if [ "$unreadable" -eq 1 ]; then
+      out="$out$id"$'\t'"unknown"$'\t'"pull request state could not be read in time"$'\n'
+      [ "$(( deadline - $(date +%s) ))" -ge 1 ] || break
+      continue
+    fi
+    if [ "$all_finished" -eq 1 ]; then
+      fingerprint=$(sha256_text "$id|$signature")
+      receipt="$OUTCOME_DIR/backlog-pr-$fingerprint.closed"
+      rstatus=$(backlog_pr_receipt_status "$receipt")
+      first_ref=$(printf '%s\n' "$refs" | sed -n '1p')
+      # A closed receipt means this PR state was already closed once; a closing
+      # receipt on a still-open record means the close never landed, so it is
+      # retried under the same receipt.
+      if [ "$rstatus" != closed ]; then
+        detail=$(backlog_pr_evidence "$signature") || continue
+        close_rc=0
+        backlog_pr_with_locks "$id" backlog_pr_close "$data" "$id" "$receipt" "$signature" "$first_ref" "$refs" "$deadline" "$incarnation" "$detail" || close_rc=$?
+        if [ "$close_rc" -eq 0 ]; then
+          out="$out$id"$'\t'"fix"$'\t'"$detail"$'\n'
+          marks="$marks$receipt"$'\t'"$id"$'\t'"$signature"$'\t'"$detail"$'\n'
+        elif [ "$close_rc" -eq 2 ]; then
+          out="$out$id"$'\t\t\n'
+        elif [ "$close_rc" -ne 3 ]; then
+          out="$out$id"$'\t'"fix"$'\t'"pull request finished but the record is still in flight: $signature"$'\n'
+        fi
+      else
+        out="$out$id"$'\t\t\n'
+      fi
+    else
+      out="$out$id"$'\t\t\n'
+    fi
+    backlog_pr_publish || true
+  done
+  backlog_pr_publish || return 0
+  while IFS=$'\t' read -r receipt id signature detail; do
+    [ -n "$receipt" ] || continue
+    backlog_pr_receipt_write "$receipt" "$id" "$signature" closed "$detail" || true
+  done <<EOF
+$marks
+EOF
+}
+
 scan() {
-  local startup=${1:-0} self='' cursor deadline rc=0 marker_rc=0
+  local startup=${1:-0} self='' cursor deadline rc=0 marker_rc=0 main_home share
   mkdir -p "$STATE" "$OUTCOME_DIR" || return 1
   [ ! -L "$OUTCOME_DIR" ] || return 1
   if self=$(home_secondmate_id); then
@@ -627,6 +1015,11 @@ scan() {
     return 0
   fi
   deadline=$(( $(date +%s) + FM_INACTIVE_RECONCILE_BUDGET_SECS ))
+  main_home=0
+  [ -n "$self" ] || main_home=1
+  share=$(( FM_INACTIVE_RECONCILE_BUDGET_SECS / 2 ))
+  [ "$share" -ge 1 ] || share=1
+  fm_run_timed "$share" "$0" _backlog-pr-pass $(( $(date +%s) + share )) "$main_home" || true
   SCAN_FIRST_VISIT_PENDING=1
   scan_pass "$cursor" after "$deadline" "$self" || rc=$?
   if [ "$rc" -eq 0 ] && [ -n "$cursor" ]; then
@@ -678,6 +1071,11 @@ case "$mode" in
     elif [ "$?" -ne 124 ]; then
       exit 1
     fi
+    ;;
+  _backlog-pr-pass)
+    [ "$#" -eq 3 ] || exit 2
+    unset FM_TASKS_AXI_TIMEOUT
+    backlog_pr_pass "$2" "$3"
     ;;
   _scan-locked)
     [ "$#" -eq 2 ] || exit 2

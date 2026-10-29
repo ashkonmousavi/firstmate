@@ -697,7 +697,7 @@ Cursor is one such harness:
 That fallback alone reported every delivered steer as unconfirmed.
 So it is paired with a rendered-footer transition.
 The pane's verified busy footer is read once before the first Enter, and an idle-to-busy transition across that Enter confirms the submit.
-It is the same semantic signal the native path uses and the same one the tmux submit core reads.
+It is the same semantic signal the native path uses; tmux follows its separate [submission acknowledgement contract](tmux-backend.md#composer-busy-state-and-delivery).
 
 A pane already mid-turn cannot borrow a rendered-footer transition as proof of this delivery.
 After retries, only proven pending text plus native `working` can establish that its Enter was accepted and queued.

@@ -54,6 +54,11 @@
 # the composer visibly holds pending text the ring is skipped with a notice and
 # the watcher re-rings an ordinary record later; no composer verdict is
 # delivery proof on this plane, and a failed ring never fails the send.
+# The ring requires a positive submit verdict under bin/fm-task-inbox-lib.sh's
+# confirmation contract, including prompt-matched receipts for tmux Claude
+# workers. An unconfirmed doorbell prints a loud "NOT delivered" notice, but the exit stays 0
+# because the steer itself is durably recorded and a nonzero here would invite
+# a duplicate enqueue.
 #
 # TYPED - the LOCAL text that must reach the terminal itself: a harness-native
 # invocation (a leading "/", or a leading "$" to a codex target) must reach
@@ -63,7 +68,11 @@
 # type the literal
 # text through the target backend's verified submit core: typed ONCE, then
 # Enter retried (never retyped) until the backend confirms a submit or reports
-# an inconclusive send. Typed-plane exit contract: 0 = submit confirmed;
+# an inconclusive send. The fixed budget is five Enter presses with two-second
+# confirmation windows (up to ten seconds); an unsafe or unreadable verdict
+# can end it early. A matching tmux Claude prompt receipt can end a window
+# early under bin/fm-busy-lib.sh's submit-signal contract.
+# Typed-plane exit contract: 0 = submit confirmed;
 # 3 = the text was typed into the live endpoint and
 # Enter was sent, but the submit read-back stayed unconfirmed (verify the pane
 # before any resend, and never re-type blindly; a marked request's
@@ -71,9 +80,7 @@
 # failure); any other nonzero = the send failed and nothing may be assumed
 # delivered. Submission dispatches through the target's recorded backend; the
 # tmux adapter shares its composer/submit core with the away-mode daemon via
-# bin/fm-tmux-lib.sh. Tune with FM_SEND_RETRIES (default 3; agy typed targets
-# default to 20 for agy's late busy render) / FM_SEND_SLEEP (0.4). Slash
-# commands, and codex `$...` skill invocations resolved through harness meta,
+# bin/fm-tmux-lib.sh. Slash commands, and codex `$...` skill invocations resolved through harness meta,
 # get a longer pre-Enter settle so completion popups do not swallow Enter.
 # A remote secondmate target has no typed text plane at all:
 # every remote text steer rides the inbox (a marked secondmate request already
@@ -529,6 +536,7 @@ MARK_FROM_FIRSTMATE=0
 PENDING_REPLY_CORR=
 PENDING_REPLY_CREATED=0
 TARGET_TASK_ID=
+[ -z "$TARGET_META" ] || TARGET_TASK_ID=$(fm_send_id_from_meta "$TARGET_META")
 fm_send_known_undelivered_cleanup() {
   [ -n "$PENDING_REPLY_CORR" ] || return 0
   if [ "$PENDING_REPLY_CREATED" = 1 ]; then
@@ -539,7 +547,6 @@ fm_send_known_undelivered_cleanup() {
 }
 if [ -n "$TARGET_SELECTOR" ] && [ -n "$TARGET_META" ] && [ "$(fm_meta_get "$TARGET_META" kind)" = secondmate ]; then
   MARK_FROM_FIRSTMATE=1
-  TARGET_TASK_ID=$(fm_send_id_from_meta "$TARGET_META")
 fi
 
 # Validate the answerer-closes request before any durable mutation or send: the
@@ -1086,7 +1093,7 @@ else
     if [ -n "$FIRE_AND_FORGET_ID" ] \
       && [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/wait-no-turns" ]; then
       case "$ring_rc" in
-      1|2)
+      1|2|4)
         if fm_task_inbox_mark_retry "$STATE" "$INBOX_TASK_ID" "$INBOX_RECORD"; then
           ring_retry="the watcher will ring it once more"
         else
@@ -1097,7 +1104,8 @@ else
     fi
     case "$ring_rc" in
     1) echo "fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
-    2) echo "fm-send: doorbell did not reach $T; the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
+    2) echo "fm-send: doorbell did not reach $T; the steer is durably recorded at $INBOX_RECORD and $ring_retry${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}" >&2 ;;
+    4) echo "fm-send: doorbell NOT delivered: it was typed into $T and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at $INBOX_RECORD and $ring_retry. Do not resend.${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}" >&2 ;;
     3) echo "fm-send: doorbell not typed because the agent in $T has exited; the steer is durably recorded at $INBOX_RECORD for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane" >&2 ;;
     esac
     exit 0
@@ -1117,28 +1125,14 @@ else
     ;;
   *) settle=0.3 ;;
   esac
-  # Per-harness submit-confirm budget. agy's bare `>` composer verdict is
-  # `unknown`, so a landed submit is acknowledged only by the idle-to-busy
-  # transition poll, and agy renders its verified busy footer well after the
-  # shared budget expires: ~1.5s after Enter for a short steer, ~4-5s for a
-  # realistic longer brief (live-measured, agy 1.2.1), against the shared
-  # default's 3 x 0.4s. With the shared default a typed steer to an agy
-  # endpoint was reported exit-1 non-delivery for a message that landed and
-  # ran, inviting a duplicate resend. agy typed targets get a longer default
-  # budget (~8s at the default cadence, twice the worst measured render); an
-  # explicit FM_SEND_RETRIES still wins, and every other harness keeps the
-  # shared 3-retry default untouched.
-  case "$TARGET_HARNESS" in
-    agy) retries=${FM_SEND_RETRIES:-20} ;;
-    *) retries=${FM_SEND_RETRIES:-3} ;;
-  esac
-  sleep_s=${FM_SEND_SLEEP:-0.4}
-  # Type once, submit, verify. Only exact empty confirms delivery; every other
-  # verdict preserves the loud refusal boundary. Only LOCAL targets reach this
-  # block: remote text rides the inbox leg above, and remote --key exits
-  # earlier.
   send_rc=0
-  if verdict=$(fm_backend_send_text_submit "$TARGET_BACKEND" "$T" "$MESSAGE" "$retries" "$sleep_s" "$settle" "$EXPECTED_LABEL"); then
+  submit_baseline=
+  if [ "$TARGET_BACKEND" = tmux ] && [ -n "$TARGET_TASK_ID" ]; then
+    submit_baseline=$(fm_busy_submit_baseline "$STATE" "$TARGET_TASK_ID" "$TARGET_HARNESS" "$MESSAGE" 2>/dev/null) || submit_baseline=
+  fi
+  if verdict=$(FM_SUBMIT_SIGNAL_STATE=$STATE FM_SUBMIT_SIGNAL_ID=$TARGET_TASK_ID \
+      FM_SUBMIT_SIGNAL_HARNESS=$TARGET_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$submit_baseline \
+      fm_backend_send_text_submit "$TARGET_BACKEND" "$T" "$MESSAGE" 5 2 "$settle" "$EXPECTED_LABEL"); then
     :
   else
     send_rc=$?

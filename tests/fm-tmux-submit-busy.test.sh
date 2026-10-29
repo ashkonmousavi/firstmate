@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# tests/fm-tmux-submit-busy.test.sh - regression: busy pane + pending composer
-# after Enter retries must return "empty" (message queued), not "pending".
+# tests/fm-tmux-submit-busy.test.sh - submit confirmation regression tests.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -31,15 +30,6 @@ case "${1:-}" in
     done
     exit 0 ;;
   capture-pane)
-    if [ -n "${FM_FAKE_CAPTURE_COUNT:-}" ]; then
-      count=0
-      [ ! -f "$FM_FAKE_CAPTURE_COUNT" ] || count=$(cat "$FM_FAKE_CAPTURE_COUNT")
-      count=$((count + 1))
-      printf '%s\n' "$count" > "$FM_FAKE_CAPTURE_COUNT"
-      if [ "${FM_FAKE_FAIL_FIRST_CAPTURE:-0}" = 1 ] && [ "$count" -eq 1 ]; then
-        exit 1
-      fi
-    fi
     cat "$COMPOSER" 2>/dev/null; exit 0 ;;
   send-keys)
     shift; is_enter=0
@@ -71,7 +61,7 @@ SH
   printf '%s\n' "$fakebin"
 }
 
-test_busy_pane_pending_returns_empty() {
+test_busy_pane_pending_stays_pending() {
   local dir fakebin composer sent vfile
   dir="$TMP_ROOT/busy-accepted"
   fakebin=$(make_submit_mock "$dir")
@@ -88,10 +78,10 @@ test_busy_pane_pending_returns_empty() {
   PATH="$fakebin:$PATH" FM_FAKE_COMPOSER="$composer" FM_FAKE_SENT="$sent" \
     FM_FAKE_SWALLOW="$dir/.swallow" FM_FAKE_PERSIST_SWALLOW=1 FM_FAKE_PANE_BUSY=1 \
     fm_tmux_submit_enter_core "win" 3 0.05 > "$vfile" 2>/dev/null
-  [ "$(cat "$vfile")" = empty ] || fail "busy-pane pending should return empty, got '$(cat "$vfile")'"
+  [ "$(cat "$vfile")" = pending ] || fail "a busy pane cannot prove pending input was accepted, got '$(cat "$vfile")'"
   [ "$(grep -c '^Enter$' "$sent" 2>/dev/null || true)" -eq 3 ] \
     || fail "proven pending should consume the configured Enter retry budget"
-  pass "fm_tmux_submit_enter_core: busy pane + pending composer returns empty (message queued)"
+  pass "fm_tmux_submit_enter_core: unrelated busy state never confirms a pending composer"
 }
 
 test_idle_pane_pending_returns_pending() {
@@ -194,10 +184,10 @@ test_busy_pane_unknown_stays_unknown() {
     fm_tmux_submit_enter_core "win" 3 0.05 > "$vfile" 2>/dev/null
   [ "$(cat "$vfile")" = unknown ] \
     || fail "a busy pane must not convert an unsafe composer to empty, got '$(cat "$vfile")'"
-  pass "fm_tmux_submit_enter_core: busy conversion is limited to proven pending input"
+  pass "fm_tmux_submit_enter_core: busy state does not confirm unknown composer content"
 }
 
-test_failed_baseline_capture_keeps_busy_unknown_unconfirmed() {
+test_busy_transition_keeps_unknown_unconfirmed() {
   local dir fakebin composer vfile
   dir="$TMP_ROOT/failed-baseline"
   fakebin=$(make_submit_mock "$dir")
@@ -206,14 +196,13 @@ test_failed_baseline_capture_keeps_busy_unknown_unconfirmed() {
   printf '│ > unbounded\n' > "$composer"
   touch "$dir/.swallow"
   PATH="$fakebin:$PATH" FM_FAKE_COMPOSER="$composer" \
-    FM_FAKE_CAPTURE_COUNT="$dir/captures" FM_FAKE_FAIL_FIRST_CAPTURE=1 \
     FM_FAKE_SWALLOW="$dir/.swallow" FM_FAKE_PERSIST_SWALLOW=1 FM_FAKE_APPEND_BUSY=1 \
     fm_tmux_submit_core "win" "fix" 3 0.05 0.05 > "$vfile" 2>/dev/null
   [ "$(cat "$vfile")" = unknown ] \
-    || fail "a failed idle-baseline capture must not let a later busy footer confirm delivery, got '$(cat "$vfile")'"
+    || fail "a later busy footer must not confirm an unreadable composer, got '$(cat "$vfile")'"
   grep -q 'Working' "$composer" \
-    || fail "failed-baseline regression did not render the post-Enter busy footer"
-  pass "fm_tmux_submit_core: failed baseline capture disables busy unknown conversion"
+    || fail "busy-transition regression did not render the post-Enter busy footer"
+  pass "fm_tmux_submit_core: a busy transition does not confirm an unreadable composer"
 }
 
 test_busy_pane_ambiguous_pending_retries_without_conversion() {
@@ -255,8 +244,8 @@ test_unrecognized_state_skips_busy_conversion() {
     PATH="$fakebin:$PATH" FM_FAKE_COMPOSER="$composer" \
       fm_tmux_submit_enter_core "win" 3 0.05 > "$vfile" 2>/dev/null
   ) || fail "unrecognized-state submit check failed"
-  [ "$(cat "$vfile")" = future-state ] \
-    || fail "unrecognized state should be preserved, got '$(cat "$vfile")'"
+  [ "$(cat "$vfile")" = unknown ] \
+    || fail "an unrecognized composer verdict must stay unconfirmed, got '$(cat "$vfile")'"
   [ ! -e "$busy_called" ] \
     || fail "unrecognized state must not trigger busy conversion"
   pass "fm_tmux_submit_enter_core: unrecognized states skip busy conversion"
@@ -349,7 +338,7 @@ test_claude_busy_signature_uses_real_capture_shapes() {
   pass "fm_pane_is_busy: Claude spinner is scoped, multi-frame, and backward-compatible"
 }
 
-test_busy_pane_pending_returns_empty
+test_busy_pane_pending_stays_pending
 test_idle_pane_pending_returns_pending
 
 test_exit_picker_refuses_confirming_enter() {
@@ -417,7 +406,7 @@ test_placeholder_like_bare_input_retries_swallowed_enter
 test_busy_pane_composer_clears_first_try
 test_idle_pane_composer_clears_first_try
 test_busy_pane_unknown_stays_unknown
-test_failed_baseline_capture_keeps_busy_unknown_unconfirmed
+test_busy_transition_keeps_unknown_unconfirmed
 test_busy_pane_ambiguous_pending_retries_without_conversion
 test_unrecognized_state_skips_busy_conversion
 test_claude_busy_signature_uses_real_capture_shapes

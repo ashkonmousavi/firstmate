@@ -617,6 +617,18 @@ test_external_review_done_with_backup_needs_the_copy() {
   pass "external review done with a backup: refused until HEAD is under refs/remotes/backup/backup/, then accepted"
 }
 
+test_validation_handoff_names_class_inventory_and_live_evidence() {
+  local forge out
+  for forge in github gerrit; do
+    out=$(fm_nm_driving_block "$forge")
+    assert_contains "$out" 'hand off a class inventory listing each affected call path, task kind, harness, backend, platform, account selection, and lifecycle transition' \
+      "the generated driving instructions must hand the complete class inventory to validation"
+    assert_contains "$out" 'the validation phase must run those guards and refresh the dated version and output in the verification record before claiming live proof' \
+      "the generated driving instructions must assign live evidence to validation"
+  done
+  pass "generated validation handoff includes the class inventory and current live evidence contract on both forges"
+}
+
 test_nm_handoff_ids_keep_only_the_asked_head() {
   local log other current out
   log=$TMP_ROOT/handoff-ids.status
@@ -640,5 +652,6 @@ test_external_review_done_with_backup_needs_the_copy
 
 test_worker_role_names_skill_and_fallback_file
 test_nm_handoff_ids_keep_only_the_asked_head
+test_validation_handoff_names_class_inventory_and_live_evidence
 
 echo "all fm-dod-lib tests passed"

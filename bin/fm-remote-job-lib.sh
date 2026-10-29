@@ -1285,7 +1285,7 @@ fm_remote_job_reload_lock_acquire() { # <lock-link>
   while [ "$SECONDS" -lt "$deadline" ]; do
     ln -sn "$name" "$lock" 2>/dev/null && break
     if ! target=$(readlink "$lock" 2>/dev/null); then
-      [ -e "$lock" ] && break
+      sleep 0.1
       continue
     fi
     case "$target" in */*) break ;; "${lock##*/}".owner.*) ;; *) break ;; esac

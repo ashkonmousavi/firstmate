@@ -82,6 +82,19 @@ SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/fm-control-herdr.XXXXXX")
 SCRATCH=$(cd "$SCRATCH" && pwd)
 HOME_DIR="$SCRATCH/home"
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/data/hsmoke" "$HOME_DIR/config"
+# Only Herdr is real here. Keep the post-exit Claude query independent of the
+# installed harness and the developer's account, as in fm-control.test.sh.
+FAKEBIN="$SCRATCH/fakebin"
+mkdir -p "$FAKEBIN"
+cat > "$FAKEBIN/claude" <<'EOF'
+#!/usr/bin/env bash
+if [ "$*" = 'agents --json --all' ]; then
+  printf '[]\n'
+else
+  exit 1
+fi
+EOF
+chmod +x "$FAKEBIN/claude"
 printf '999999 0\n' > "$HOME_DIR/config/lane-capacity"
 fm_test_machine_policy "$HOME_DIR/config"
 cat > "$HOME_DIR/data/hsmoke/brief.md" <<'EOF'
@@ -139,7 +152,7 @@ EOF
 } > "$HOME_DIR/state/hsmoke.meta"
 
 run_control() {
-  env FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \
+  env PATH="$FAKEBIN:$PATH" FM_HOME="$HOME_DIR" HERDR_SESSION="$SESSION" FM_SPAWN_NO_GUARD=1 \
     FM_CONTROL_POLL=0.2 FM_CONTROL_EXIT_WAIT=2 \
     "$ROOT/bin/fm-control.sh" "$@" 2>&1
 }
@@ -151,6 +164,7 @@ case "$OUT" in
   "already-stopped hsmoke"*) : ;;
   *) fail "an agent-free herdr pane should report already-stopped, got: $OUT" ;;
 esac
+assert_contains "$OUT" 'background-sessions=none' "an agent-free exit should verify the empty background-session listing"
 pass "real herdr: exit on a pane with no registered agent is idempotent success"
 
 # --- the recovery-grade read, against the real binary ------------------------
@@ -191,8 +205,6 @@ STATE=$(fm_backend_agent_state herdr "$SESSION:$PANE_ID")
   || version_fail "a malformed endpoint target does not stay unreadable"
 pass "real herdr $HERDR_VERSION: a gone session reads recoverable while a live pane and a malformed target do not"
 
-FAKEBIN="$SCRATCH/fakebin"
-mkdir -p "$FAKEBIN"
 cat > "$FAKEBIN/codex" <<EOF
 #!/usr/bin/env bash
 : > "$SCRATCH/codex-launched"
@@ -322,6 +334,7 @@ case "$OUT" in
   "already-stopped hsmoke"*) : ;;
   *) fail "a stale-registration pane should report already-stopped, got: $OUT" ;;
 esac
+assert_contains "$OUT" 'background-sessions=none' "a stale-registration exit should verify the empty background-session listing"
 pass "real herdr: exit on a pane with a stale registration is idempotent success"
 
 rm -f "$SCRATCH/codex-launched"

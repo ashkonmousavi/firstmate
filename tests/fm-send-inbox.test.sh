@@ -71,11 +71,17 @@ case "${1:-}" in
     for a in "$@"; do case "$a" in *cursor_y*) printf '1\n'; exit 0 ;; esac; done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
-    if [ "${FM_FAKE_TMUX_COMPOSER:-}" = pending ]; then
-      printf '╭──────────────╮\n│ leftover txt │\n╰──────────────╯\n'
-    else
-      printf '╭────╮\n│    │\n╰────╯\n'
-    fi
+    case "${FM_FAKE_TMUX_COMPOSER:-}" in
+      pending) printf '╭──────────────╮\n│ leftover txt │\n╰──────────────╯\n' ;;
+      unknown|capture-failure)
+        if [ -s "$FM_SEND_LOG" ]; then
+          [ "$FM_FAKE_TMUX_COMPOSER" != capture-failure ] || exit 1
+          printf 'unreadable composer\n'
+        else
+          printf '╭────╮\n│    │\n╰────╯\n'
+        fi ;;
+      *) printf '╭────╮\n│    │\n╰────╯\n' ;;
+    esac
     exit 0 ;;
   list-windows) printf 'fm-t1\nwin\n'; exit 0 ;;
 esac
@@ -239,7 +245,29 @@ test_failed_ring_is_still_sent() {
   [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "the steer was not recorded"
   assert_contains "$(cat "$err")" "watcher will re-ring" \
     "the failed-ring notice should point at the re-ring"
+  assert_contains "$(cat "$err")" "doorbell did not reach" "the failed-ring notice keeps its existing text"
+  assert_contains "$(cat "$err")" " reason=" "the failed-ring notice must name the ring step that failed"
   pass "fm-send inbox: a failed doorbell is still a durably sent steer"
+}
+
+test_unreadable_ring_is_reported_without_failing_enqueue() {
+  local mode dir err rc body
+  for mode in unknown capture-failure; do
+    dir=$(setup_case "ring-$mode")
+    err="$dir/send.err"
+    run_send "$dir" "$err" "FM_FAKE_TMUX_COMPOSER=$mode" -- t1 "preserve this durable steer"
+    rc=$?
+    expect_code 0 "$rc" "an unreadable doorbell outcome must preserve successful enqueue"
+    body=$(record_body _ "$dir/home/state/t1.inbox/001.msg")
+    [ "$body" = 'preserve this durable steer' ] || fail "an unreadable ring lost its durable payload"
+    assert_contains "$(cat "$err")" 'doorbell NOT delivered' "an unreadable ring must report non-delivery"
+    assert_contains "$(cat "$err")" 'durably recorded' "the ring notice must distinguish durable enqueue"
+    assert_contains "$(cat "$err")" 'watcher will re-ring' "the ring notice must preserve recovery"
+    assert_contains "$(cat "$err")" ' reason=' "an unconfirmed ring must name its step"
+    [ "$(wc -l < "$dir/send.log")" -eq 1 ] || fail "a failed confirmation must never retype its doorbell"
+    assert_not_contains "$(cat "$dir/send.log")" 'preserve this durable steer' "an unreadable ring must not type its payload"
+    pass "fm-send inbox: $mode reports non-delivery while preserving durable enqueue"
+  done
 }
 
 # Contract: a fire-and-forget record stays outside the re-ring ladder, so a
@@ -510,6 +538,7 @@ test_multiline_steer_is_legal
 test_resend_enqueues_new_sequence
 test_pending_composer_skips_ring_advisorily
 test_failed_ring_is_still_sent
+test_unreadable_ring_is_reported_without_failing_enqueue
 test_fire_and_forget_unlanded_ring_owes_one_retry
 test_fire_and_forget_retry_stays_off_without_the_flag
 test_harness_invocations_stay_typed

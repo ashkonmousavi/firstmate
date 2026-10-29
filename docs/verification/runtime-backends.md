@@ -625,6 +625,50 @@ The real pane renders this inside a bordered box, omitted here for readability; 
 That capture demonstrated why each signature function matches the FULL captured tail rather than the Grok/Rovo/AGY busy-footer convention of the last 12 non-blank lines: a bordered dialog box renders many short lines of pure border and padding (`│  ...  │`) that are NOT whitespace-only, so the 12-line reduction pushed this exact heading text out of the window and silently defeated the match on the first attempt.
 None of these three runs ever answered its dialog (Escape only, never Enter), so no credential store was written to and no model tokens were spent.
 
+## Claude background exit
+
+Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
+Choosing the handoff leaves a background session that `claude agents --json --all` lists with `kind: background` and the session's cwd, outside every lane.
+The [Claude adapter](../../.agents/skills/harness-adapters/references/harness/claude.md#background-exit) owns the universal launch safeguards; the [control-plane contract](../agent-control.md#verbs) owns cleanup after exit and before relaunch.
+`tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
+The control arm, with no switch, is offered `Move to background and exit`, takes it, and must find a background session for its folder, so the guard fails rather than passing vacuously.
+The switched arm, with the launch environment, must not be offered the handoff, must end the process, and must leave no background session.
+The backstop arm respawns the control session, proves the session PID changed while its original shell survived, stops the session, and confirms its stopped record remains in `agents --json --all` while the shell survives.
+It then invokes `fm-control.sh exit` and checks both listing disappearance and shell termination.
+`bin/fm-claude-bg-stop.py` captures session-owned process identities before removal, including earlier incarnations linked by transcript handoffs, and terminates and verifies captured survivors afterward.
+Ownership requires the inherited session identity and recorded account, while captured descendants may clear their environment or change process groups.
+The vendor's [supervisor lifecycle contract](https://code.claude.com/docs/en/agent-view#the-supervisor-process) defines deletion as the boundary that stops carried work; Firstmate verifies process termination independently of the listing.
+Firstmate creates the matched worktree itself; the vendor's [deletion contract](https://code.claude.com/docs/en/agent-view#what-deleting-a-session-removes) preserves a caller-created worktree and the conversation transcript.
+A refused removal fails cleanup without forcing worktree deletion.
+The guard records its shell's PID and start time and uses portable process identity checks for its assertion and trap cleanup.
+The [account-selection contract](../configuration.md#worker-account-pin-configclaude-account-configpi-account) owns raw overrides and the limits of adapter recognition; `tests/fm-worker-account.test.sh` verifies exported roots against persisted metadata.
+
+| Class axis | Covered paths and evidence | Validation handoff |
+| --- | --- | --- |
+| Task and home | All ship, scout, and local secondmate launch expressions share safeguard exports and record their exported account; remote secondmates route to their owning home | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh` |
+| Account | Pinned directory, ordinary, ambient, and literal raw overrides; quoted, empty, and final repeated assignments | `tests/fm-worker-account.test.sh`; compare the executed worker environment with persisted metadata |
+| Lifecycle | Current session, exited process, reparented work, respawned session, removal refusal, and surviving listing | Deterministic control regressions plus the live guard's respawn arm |
+| Harness and backend | Cleanup is gated to Claude; tmux and Herdr permit stop-proving verbs; other runtime backends refuse those verbs | Control capability regressions; other harnesses do not enter Claude cleanup |
+| Platform | PID/start-time assertions use `ps` on Linux and macOS | Run the live guard on both platforms and retain version, output, and process assertions |
+
+The live guard refreshes this record's dated per-platform evidence after Claude upgrades.
+The generated no-mistakes driving instructions in `bin/fm-dod-lib.sh` hand the class inventory and live-evidence gaps to that phase.
+
+The two background-exit safeguard variable names are present in the installed binary, and `--advisor <model>` is accepted there although `claude --help` does not list it (its pairing rules are in the advisor documentation, `https://code.claude.com/docs/en/advisor`; Haiku 4.5 and Haiku 5.5 both accept Opus).
+
+Verified 2026-10-29 on Linux with Claude Code 2.1.312 using an isolated authenticated `CLAUDE_CONFIG_DIR` and `DISABLE_AUTOUPDATER=1`.
+`bash tests/fm-control.test.sh` passed with real reparented processes, separate child process groups, and a vendor-removal fixture that leaves carried work alive.
+That regression also preserved a neighboring session and the same session identity under another account.
+The live command below exited 0 and printed `ok - backstop: exact-session removal ends the respawned session and its earlier carried shell` after the public exit boundary reported `background-sessions=stopped:6086c0e3`.
+macOS process inspection is implemented but was not run in this Linux validation.
+The designated validation command is:
+
+```sh
+FM_CLAUDE_BG_EXIT_LIVE_E2E=1 bash tests/fm-claude-bg-exit-live-e2e.test.sh
+```
+
+The guard submits a few Haiku prompts, so it stays opt-in; rerun it after every Claude upgrade.
+
 ## Worker account pin sign-in check
 
 `bin/fm-worker-account-lib.sh` decides whether a pinned account is signed in from vendor output: the exit status of `claude auth status`, the JSON of `pi auth check`, and the provider column of `pi --list-models`.
@@ -1000,7 +1044,38 @@ The steering channel's one behavioral assumption - a real worker agent follows t
 FM_SEND_INBOX_LIVE_E2E=1 tests/fm-send-inbox-doorbell-live-e2e.test.sh
 ```
 
-Observed output (combined across the full run and the grok rerun after the advisory-skip narrowing landed):
+The Claude cases arm a real busy-state generation and install lifecycle hooks invoking the production `bin/fm-busy-event.sh` writer with the vendor's JSON prompt input.
+They exercise a fresh doorbell through `fm-send`, an existing own-doorbell draft through `fm_task_inbox_ring`, and a marked secondmate typed send through `fm-send`.
+The test boundary swallows the first two Enter presses, then makes pane capture unavailable only after the real submit hook successfully writes its production busy event and a test receipt, so the real harness hook must confirm submission without a composer fallback or a later watcher re-ring.
+The independent oracles are the sender's bounded-retry contract, Claude's [documented `UserPromptSubmit` event](https://code.claude.com/docs/en/hooks#userpromptsubmit), and the requested worker action and inbox acknowledgement.
+The successful Claude cases require three to five Enter presses, no retyping, a generation-matching receipt for the accepted prompt, and the requested action; a separate exhausted-budget case requires five swallowed presses, a non-delivery notice, no receipt, and the durable record remaining unhandled.
+The guard also checks the two-second minimum between retries, refuses an unreadable capture after a swallowed Enter, and rejects an unrelated real prompt receipt while the target draft remains unsubmitted.
+Receipt hashing removes only Firstmate's U+2063 separator, matching Claude's [documented prompt cleanup](https://code.claude.com/docs/en/interactive-mode#invisible-characters-in-prompts); other Unicode and trailing newlines remain significant.
+The typed send uses the production retry budget.
+Other harnesses retain the action-and-acknowledgement cases and now use the same fixed retry budget, with a positive backend submit verdict required when no prompt receipt is available.
+The portable regressions in `tests/fm-task-inbox.test.sh` also drive a different prompt followed by Stop and a matching prompt followed by unrelated turns, so advancing a lifecycle sequence alone cannot satisfy confirmation.
+
+The four-case run below was verified on 2026-10-29 with Claude Code 2.1.312 and tmux 3.4 on Linux, before the capture-failure and unrelated-prompt cases were added.
+The worktree-local configuration below was seeded from the existing Claude credentials, onboarding store, and recorded bypass acceptance; no original user settings or credential files were changed.
+
+```sh
+HOME="$PWD/.review-submit-live/user-home" \
+CLAUDE_CONFIG_DIR="$PWD/.review-submit-live/claude-config" \
+TMPDIR="$PWD/.review-submit-live/tmp" \
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=claude \
+FM_SEND_INBOX_LIVE_TIMEOUT=90 \
+bash tests/fm-send-inbox-doorbell-live-e2e.test.sh > .review-submit-live/result.log 2>&1
+```
+
+```text
+ok - claude (2.1.312 (Claude Code)): typed submit checked real lifecycle hooks with 4 Enter presses
+ok - claude (2.1.312 (Claude Code)): fresh submit checked real lifecycle hooks with 3 Enter presses
+ok - claude (2.1.312 (Claude Code)): blocked submit checked real lifecycle hooks with 5 Enter presses
+ok - claude (2.1.312 (Claude Code)): pending submit checked real lifecycle hooks with 3 Enter presses
+ok - live steering-inbox doorbell guard: 4 cases honored the doorbell contract
+```
+
+Earlier action-and-acknowledgement output (combined across the full run and the grok rerun after the advisory-skip narrowing landed):
 
 ```text
 ok - claude (2.1.241 (Claude Code)): the doorbell reached a real worker, which acted and acked with the mv
@@ -2521,9 +2596,11 @@ The rest of the lifecycle was driven end to end on that worker:
 Other harnesses on Herdr are unaffected by the edge-detector change.
 All seven live panes of the running default session - one Pi, four Claude, two plain shells - classified identically under the pre-fix and current classifiers.
 
-**Typed-submit confirmation is verified on tmux and Herdr only.**
-Zellij, cmux, Orca, and Paseo share a submit core that never consults the busy footer, so a typed-plane Cursor send there lands but `fm-send` reports delivery unconfirmed and exits non-zero; ordinary text steers ride the durable inbox and exit 0 at enqueue.
-Teaching that shared core the same transition is deliberately separate work, because it changes the submit path for every harness on those four backends and needs its own live validation on each.
+**The rendered-footer typed-submit confirmation above remains available on Herdr only.**
+Tmux now requires the [submission acknowledgement contract](../tmux-backend.md#composer-busy-state-and-delivery), so these earlier footer observations no longer prove tmux typed-submit confirmation.
+Zellij, cmux, Orca, and Paseo share a submit core that never consults the busy footer.
+A Cursor typed send on those backends or tmux can therefore land while `fm-send` reports submission unconfirmed and exits non-zero; ordinary text steers remain durably enqueued even when their doorbell is unconfirmed.
+Changes to the other backends' confirmation signals require separate live validation on each.
 
 The portable regression is `tests/fm-cursor-harness.test.sh`, the composer captures are pinned in `tests/fm-composer-lib.test.sh`, and the Herdr submit and footer behavior is pinned in `tests/fm-backend-herdr.test.sh`.
 Refresh this harness-dependent proof before accepting a cursor upgrade:
