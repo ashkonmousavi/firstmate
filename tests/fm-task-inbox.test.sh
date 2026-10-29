@@ -564,15 +564,12 @@ test_ring_confirms_submit_from_the_harness_hook() {
   rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
   doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
   log="$dir/send.log"; composer="$dir/composer"; drops="$dir/drops"; enters="$dir/enters"
-  ring() {  # [VAR=value...]
-    (
-      export PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
-        FM_FAKE_DROP_ENTERS="$drops" FM_FAKE_ENTER_LOG="$enters" \
-        FM_FAKE_HOOK_STATE="$state" FM_FAKE_HOOK_ID=t1 FM_FAKE_HOOK_WRITER="$ROOT/bin/fm-busy-event.sh" \
-        FM_TASK_INBOX_CONFIRM_RETRIES=3 FM_TASK_INBOX_CONFIRM_INTERVAL=0.2
-      [ "$#" -eq 0 ] || export "$@"
+  ring() {  # [keep-text: 1 for a composer that keeps rendering an accepted submit]
+    PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
+      FM_FAKE_DROP_ENTERS="$drops" FM_FAKE_ENTER_LOG="$enters" FM_FAKE_KEEP_TEXT="${1:-0}" \
+      FM_FAKE_HOOK_STATE="$state" FM_FAKE_HOOK_ID=t1 FM_FAKE_HOOK_WRITER="$ROOT/bin/fm-busy-event.sh" \
+      FM_TASK_INBOX_CONFIRM_RETRIES=3 FM_TASK_INBOX_CONFIRM_INTERVAL=0.2 \
       inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1
-    )
   }
   reset() { : > "$log"; : > "$enters"; : > "$composer"; echo "$1" > "$drops"; arm_idle_worker "$state" t1 "$2"; }
   count() { wc -l < "$enters" | tr -d ' '; }
@@ -608,11 +605,11 @@ test_ring_confirms_submit_from_the_harness_hook() {
   # The hook, not the composer, ends the loop: a composer that keeps rendering
   # text after an accepted submit reads pending, yet one Enter is enough.
   reset 0 claude; printf '%s' "$doorbell" > "$composer"
-  rc=0; ring FM_FAKE_KEEP_TEXT=1 || rc=$?
+  rc=0; ring 1 || rc=$?
   [ "$rc" = 0 ] || fail "a hook-confirmed submit should ring clean even if the composer still renders text, got $rc"
   [ "$(count)" = 1 ] || fail "a hook-confirmed submit must not be pressed again, pressed $(count)"
   reset 0 claude
-  rc=0; ring FM_FAKE_KEEP_TEXT=1 || rc=$?
+  rc=0; ring 1 || rc=$?
   [ "$rc" = 0 ] || fail "a fresh hook-confirmed doorbell should ring clean, got $rc"
   [ "$(count)" = 1 ] || fail "a fresh hook-confirmed doorbell must be pressed once, pressed $(count)"
 
