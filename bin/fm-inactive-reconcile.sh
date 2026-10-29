@@ -84,8 +84,31 @@
 # main-home acknowledgement. The atomic epoch/cursor marker's mtime gates scans,
 # and its cursor records the last child visited within the aggregate budget.
 #
-# The scan reads only durable local state and fm-crew-state.sh; it never invokes
-# gh, gh-axi, curl, fm-pr-check.sh, fm-pr-poll.sh, or a state *.check.sh.
+# The child scan above reads only durable local state and fm-crew-state.sh; it
+# never invokes gh, gh-axi, curl, fm-pr-check.sh, fm-pr-poll.sh, or a state
+# *.check.sh. The one forge read in this script is the backlog pass below.
+#
+# BACKLOG PASS. After the cadence gate and before the child scan, each scan also
+# closes in-flight backlog records whose pull request has already finished, so
+# merged work cannot sit parked as In flight. It lists this home's in-flight rows
+# (links and body), collects every https://github.com/<owner>/<repo>/pull/<n>
+# reference (plus a worker meta's pr=; a row with none and a meta is re-read with
+# `show --full`, because the list truncates the body), and reads each distinct
+# PR with one bounded `gh pr view --json state`. An unreadable PR, a PR that is
+# still OPEN, or any mixed set leaves the record alone; a record whose refs are
+# ALL MERGED or CLOSED and that has no live worker (a meta whose
+# fm-crew-state.sh state is not done or failed) is closed through
+# fm_backlog_done in bin/fm-backlog-transition-lib.sh, the owner teardown uses.
+# A receipt state/terminal-outcomes/backlog-pr-<fingerprint>.closed, keyed by
+# task id plus each PR and its state, makes that close happen once: a record
+# someone reopens is not closed again for the same PR states. The pass owns
+# a share (half, from 2 seconds up) of FM_INACTIVE_RECONCILE_BUDGET_SECS.
+# In the main home only, the records the pass found closable but could not close
+# are upserted into data/x-reconcile.json as items with source
+# "inactive-reconcile" and finding "fix", under flock on
+# data/x-reconcile.json.lock; the pass replaces only its own source's items and
+# leaves written_at to the file's other writer. Server and laptop homes close
+# their own records and write no JSON.
 set -u
 export LC_ALL=C
 
@@ -107,6 +130,10 @@ CREW_STATE_BIN="${FM_INACTIVE_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}"
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-dod-lib.sh
 . "$SCRIPT_DIR/fm-dod-lib.sh"
+# shellcheck source=bin/fm-tasks-axi-lib.sh
+. "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+# shellcheck source=bin/fm-backlog-transition-lib.sh
+. "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
 
 FM_INACTIVE_RECONCILE_SECS=${FM_INACTIVE_RECONCILE_SECS:-900}
 case "$FM_INACTIVE_RECONCILE_SECS" in
@@ -604,8 +631,160 @@ scan_pass() { # <cursor> <after|through> <deadline> <secondmate-id-or-empty>
   done
 }
 
+# One PR's state as MERGED, CLOSED or OPEN, through a single bounded read; any
+# other outcome (not a GitHub PR, gh absent, timeout, error) prints nothing.
+backlog_pr_state() { # <url> <timeout>
+  local url=$1 timeout=$2 out
+  fm_pr_url_parse "$url" && [ "$FM_PR_PROVIDER" = github ] || return 1
+  out=$(fm_run_timed "$timeout" gh pr view "$FM_PR_NUMBER" -R "$FM_PR_OWNER/$FM_PR_REPO" --json state -q .state 2>/dev/null) || return 1
+  case "$out" in MERGED|CLOSED|OPEN) printf '%s\n' "$out" ;; *) return 1 ;; esac
+}
+
+backlog_pr_refs() { # reads text on stdin
+  grep -oE 'https://github\.com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/pull/[1-9][0-9]*' 2>/dev/null || true
+}
+
+# Replace this pass's own items in data/x-reconcile.json with the tab-separated
+# "<id>\t<detail>" lines on stdin. Any other source's items, and the file itself
+# when it cannot be parsed, are left untouched.
+x_reconcile_upsert() { # <timeout> <json-path> <home-label> <observed-epoch>
+  local timeout=$1
+  shift
+  fm_run_timed "$timeout" python3 -I -c '
+import fcntl, json, os, sys, tempfile
+path, home, observed = sys.argv[1], sys.argv[2], int(sys.argv[3])
+items = []
+for line in sys.stdin:
+    line = line.rstrip("\n")
+    if line:
+        item_id, _, detail = line.partition("\t")
+        items.append({"id": item_id, "home": home, "finding": "fix",
+                      "observed_at": observed, "detail": detail,
+                      "source": "inactive-reconcile"})
+with open(path + ".lock", "a") as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    exists = os.path.exists(path)
+    doc = {"schema": "x-reconcile.v1", "written_at": observed, "items": []}
+    if exists:
+        with open(path) as f:
+            doc = json.load(f)
+        if not isinstance(doc, dict) or not isinstance(doc.get("items"), list):
+            sys.exit(3)
+    elif not items:
+        sys.exit(0)
+    merged = [x for x in doc["items"]
+              if not (isinstance(x, dict) and x.get("source") == "inactive-reconcile")] + items
+    if exists and merged == doc["items"]:
+        sys.exit(0)
+    doc["items"] = merged
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".x-reconcile.")
+    with os.fdopen(fd, "w") as f:
+        json.dump(doc, f, indent=1)
+        f.write("\n")
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)
+' "$@"
+}
+
+backlog_pr_receipt_write() { # <receipt> <task> <signature>
+  local receipt=$1 task=$2 signature=$3 tmp
+  tmp=$(mktemp "$OUTCOME_DIR/.record.XXXXXX") || return 1
+  {
+    printf 'schema=fm-backlog-pr-close.v1\n'
+    printf 'task_id=%s\n' "$task"
+    printf 'prs=%s\n' "$signature"
+    printf 'closed_epoch=%s\n' "$(reconcile_now)"
+  } > "$tmp" || { rm -f "$tmp"; return 1; }
+  chmod 600 "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$receipt" || { rm -f "$tmp"; return 1; }
+}
+
+# Close one record whose PRs all finished: under the worker's meta lock when a
+# meta exists, once per receipt. Returns 0 when closed, 1 when it stays open.
+backlog_pr_close() { # <data> <id> <receipt> <signature> <first-ref> <meta-or-empty>
+  local data=$1 id=$2 receipt=$3 signature=$4 first_ref=$5 meta=${6:-} lock='' rc=1
+  if [ -n "$meta" ]; then
+    lock=$(fm_meta_lock_path "$meta") || return 1
+    fm_lock_try_acquire "$lock" || return 1
+  fi
+  if fm_backlog_done "$data" "$id" --pr "$first_ref" \
+      --note "closed by inactive reconcile: pull request finished ($signature)" >/dev/null 2>&1 \
+    && backlog_pr_receipt_write "$receipt" "$id" "$signature"; then
+    rc=0
+  fi
+  [ -z "$lock" ] || fm_lock_release "$lock"
+  return "$rc"
+}
+
+backlog_pr_pass() { # <deadline> <secondmate-id-or-empty> <main-home: 0|1>
+  local deadline=$1 main=${3:-0} config data rows row id refs ref meta state signature fingerprint receipt remaining
+  local all_finished state_line first_ref full fixes='' cache=''
+  config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+  data="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
+  command -v gh >/dev/null 2>&1 && command -v tasks-axi >/dev/null 2>&1 || return 0
+  fm_backlog_transition_applies "$config" "$data" ship >/dev/null 2>&1 || return 0
+  remaining=$((deadline - $(date +%s)))
+  [ "$remaining" -ge 1 ] || return 0
+  rows=$(FM_TASKS_AXI_TIMEOUT=$remaining fm_backlog_row_list "$data" --state in_flight --fields links,body) || return 0
+  while IFS= read -r row; do
+    case "$row" in '  '*,in_flight,*) ;; *) continue ;; esac
+    id=${row#  }
+    id=${id%%,*}
+    valid_id "$id" || continue
+    meta="$STATE/$id.meta"
+    [ -f "$meta" ] && [ ! -L "$meta" ] || meta=''
+    refs=$(printf '%s\n' "$row" | backlog_pr_refs)
+    if [ -n "$meta" ]; then
+      refs=$(printf '%s\n%s\n' "$refs" "$(meta_field "$meta" pr)" | backlog_pr_refs)
+      if [ -z "$refs" ]; then
+        full=$(fm_backlog_row_show "$data" "$id" --full 2>/dev/null) || full=''
+        refs=$(printf '%s\n' "$full" | backlog_pr_refs)
+      fi
+    fi
+    refs=$(printf '%s\n' "$refs" | sort -u | sed '/^$/d')
+    [ -n "$refs" ] || continue
+    all_finished=1
+    signature=''
+    while IFS= read -r ref; do
+      remaining=$((deadline - $(date +%s)))
+      [ "$remaining" -ge 1 ] || break 2
+      state=$(printf '%s\n' "$cache" | awk -F'\t' -v u="$ref" '$1 == u { print $2; exit }')
+      if [ -z "$state" ]; then
+        state=$(backlog_pr_state "$ref" "$remaining") || state=''
+        [ -z "$state" ] || cache="$cache$ref"$'\t'"$state"$'\n'
+      fi
+      case "$state" in
+        MERGED|CLOSED) signature="${signature:+$signature,}$ref=$state" ;;
+        *) all_finished=0; break ;;
+      esac
+    done <<EOF
+$refs
+EOF
+    [ "$all_finished" -eq 1 ] || continue
+    if [ -n "$meta" ]; then
+      remaining=$((deadline - $(date +%s)))
+      [ "$remaining" -ge 1 ] || break
+      state_line=$(fm_run_timed "$remaining" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CREW_STATE_NO_FORGE=1 \
+        "$CREW_STATE_BIN" "$id" 2>/dev/null) || state_line=''
+      case "$state_line" in 'state: done '*|'state: failed '*) ;; *) continue ;; esac
+    fi
+    fingerprint=$(sha256_text "$id|$signature")
+    receipt="$OUTCOME_DIR/backlog-pr-$fingerprint.closed"
+    [ ! -e "$receipt" ] || continue
+    first_ref=$(printf '%s\n' "$refs" | sed -n '1p')
+    backlog_pr_close "$data" "$id" "$receipt" "$signature" "$first_ref" "$meta" && continue
+    fixes="$fixes$id"$'\t'"pull request finished but the record is still in flight: $signature"$'\n'
+  done <<EOF
+$rows
+EOF
+  [ "$main" -eq 1 ] || return 0
+  remaining=$((deadline - $(date +%s)))
+  [ "$remaining" -ge 1 ] || remaining=1
+  printf '%s' "$fixes" | x_reconcile_upsert "$remaining" "$data/x-reconcile.json" main "$(reconcile_now)" || true
+}
+
 scan() {
-  local startup=${1:-0} self='' cursor deadline rc=0 marker_rc=0
+  local startup=${1:-0} self='' cursor deadline rc=0 marker_rc=0 main_home
   mkdir -p "$STATE" "$OUTCOME_DIR" || return 1
   [ ! -L "$OUTCOME_DIR" ] || return 1
   if self=$(home_secondmate_id); then
@@ -627,6 +806,11 @@ scan() {
     return 0
   fi
   deadline=$(( $(date +%s) + FM_INACTIVE_RECONCILE_BUDGET_SECS ))
+  if [ "$FM_INACTIVE_RECONCILE_BUDGET_SECS" -ge 2 ]; then
+    main_home=0
+    [ -n "$self" ] || main_home=1
+    backlog_pr_pass $(( $(date +%s) + FM_INACTIVE_RECONCILE_BUDGET_SECS / 2 )) "$self" "$main_home" || true
+  fi
   SCAN_FIRST_VISIT_PENDING=1
   scan_pass "$cursor" after "$deadline" "$self" || rc=$?
   if [ "$rc" -eq 0 ] && [ -n "$cursor" ]; then

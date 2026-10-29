@@ -1061,6 +1061,110 @@ SH
   pass "reconciliation state reads set no-forge mode"
 }
 
+# Backlog pass: a finished pull request closes its in-flight record once.
+add_flight_row() { # <home> <id> <body>
+  local home=$1 id=$2 body=$3
+  (cd "$home" && tasks-axi add "$id" "task $id" --start --file data/backlog.md >/dev/null \
+    && tasks-axi update "$id" --body "$body" --file data/backlog.md >/dev/null) || fail "could not add backlog row $id"
+}
+
+row_state() { # <home> <id>
+  (cd "$1" && tasks-axi show "$2" --file data/backlog.md 2>&1) | sed -n 's/^  state: *//p' | head -1
+}
+
+make_gh() { # <world>  (reads FM_GH_STATES: "<number> <STATE|ERROR>" lines)
+  cat > "$1/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+number=$3
+printf 'gh pr view %s\n' "$number" >> "${FM_GH_LOG:?}"
+state=$(awk -v n="$number" '$1 == n { print $2 }' "${FM_GH_STATES:?}")
+case "$state" in MERGED|CLOSED|OPEN) printf '%s\n' "$state" ;; *) exit 1 ;; esac
+SH
+  chmod +x "$1/fakebin/gh"
+  : > "$1/gh.log"
+  export FM_GH_LOG="$1/gh.log" FM_GH_STATES="$1/gh.states"
+}
+
+test_backlog_pr_pass_closes_finished_records_once() {
+  make_world backlog-pr; make_gh "$WORLD"
+  printf '42 MERGED\n43 CLOSED\n44 OPEN\n45 ERROR\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-merged 'shipped https://github.com/o/r/pull/42'
+  add_flight_row "$MAIN" t-closed 'abandoned https://github.com/o/r/pull/43'
+  add_flight_row "$MAIN" t-open 'review https://github.com/o/r/pull/44'
+  add_flight_row "$MAIN" t-unreadable 'waiting https://github.com/o/r/pull/45'
+  add_flight_row "$MAIN" t-mixed 'two https://github.com/o/r/pull/42 and https://github.com/o/r/pull/44'
+  add_flight_row "$MAIN" t-none 'no pull request yet'
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-merged)" = "done" ] || fail "merged PR did not close its record"
+  [ "$(row_state "$MAIN" t-closed)" = "done" ] || fail "closed PR did not close its record"
+  [ "$(row_state "$MAIN" t-open)" = in_flight ] || fail "open PR record was closed"
+  [ "$(row_state "$MAIN" t-unreadable)" = in_flight ] || fail "unreadable PR record was closed"
+  [ "$(row_state "$MAIN" t-mixed)" = in_flight ] || fail "mixed PR refs closed the record"
+  [ "$(row_state "$MAIN" t-none)" = in_flight ] || fail "record with no PR was closed"
+  [ "$(outcome_count "$MAIN" closed)" = 2 ] || fail "closed records did not leave one receipt each"
+  # Once: reopening a closed record for the same PR state is not closed again.
+  (cd "$MAIN" && tasks-axi reopen t-merged --file data/backlog.md >/dev/null \
+    && tasks-axi start t-merged --file data/backlog.md >/dev/null) || fail "reopen failed"
+  [ "$(row_state "$MAIN" t-merged)" = in_flight ] || fail "reopened record is not in flight"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-merged)" = in_flight ] || fail "a receipted record was closed a second time"
+  [ "$(outcome_count "$MAIN" closed)" = 2 ] || fail "rescan changed the receipts"
+  pass "backlog pass closes finished records once and leaves open, unreadable and mixed ones"
+}
+
+test_backlog_pr_pass_spares_live_worker_and_closes_finished_one() {
+  make_world backlog-worker; make_gh "$WORLD"
+  printf '50 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-live 'pr https://github.com/o/r/pull/50'
+  write_child "$MAIN" t-live 'working: still going'
+  FM_FAKE_CREW_STATE=working run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-live)" = in_flight ] || fail "record with a live worker was closed"
+  FM_FAKE_CREW_STATE="done" run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-live)" = "done" ] || fail "record whose worker finished was not closed"
+  pass "backlog pass leaves a live worker's record and closes a finished one"
+}
+
+test_backlog_pr_pass_writes_fix_items_in_main_only() {
+  local json
+  make_world backlog-json; make_gh "$WORLD"
+  printf '60 MERGED\n61 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-stuck 'pr https://github.com/o/r/pull/60'
+  json="$MAIN/data/x-reconcile.json"
+  printf '{"schema":"x-reconcile.v1","written_at":7,"items":[{"id":"keep","home":"server","finding":"place","observed_at":7,"source":"stage-age"}]}\n' > "$json"
+  # A close that cannot land leaves the record flagged as a fix.
+  cat > "$WORLD/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+[ "\$1" != done ] || { echo 'error: refused'; exit 1; }
+PATH=\${PATH#$WORLD/fakebin:} exec tasks-axi "\$@"
+SH
+  chmod +x "$WORLD/fakebin/tasks-axi"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-stuck)" = in_flight ] || fail "refused close still changed the record"
+  python3 -I - "$json" <<'PY' || fail "x-reconcile.json lacks the fix item or lost the other source"
+import json, sys
+doc = json.load(open(sys.argv[1]))
+mine = [x for x in doc["items"] if x["source"] == "inactive-reconcile"]
+assert [(x["id"], x["home"], x["finding"]) for x in mine] == [("t-stuck", "main", "fix")], mine
+assert doc["written_at"] == 7
+assert any(x["id"] == "keep" and x["source"] == "stage-age" for x in doc["items"])
+PY
+  rm -f "$WORLD/fakebin/tasks-axi"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-stuck)" = "done" ] || fail "close did not land once tasks-axi accepted it"
+  python3 -I - "$json" <<'PY' || fail "closed record stayed in x-reconcile.json"
+import json, sys
+doc = json.load(open(sys.argv[1]))
+assert [x["id"] for x in doc["items"]] == ["keep"], doc
+PY
+  # A secondmate home closes its own record and never writes the JSON.
+  bind_secondmate local
+  add_flight_row "$MATE" t-mate 'pr https://github.com/o/r/pull/61'
+  run_reconcile "$MATE" --startup
+  [ "$(row_state "$MATE" t-mate)" = "done" ] || fail "secondmate home did not close its record"
+  [ ! -e "$MATE/data/x-reconcile.json" ] || fail "secondmate home wrote x-reconcile.json"
+  pass "backlog pass flags fixes in the main file only, preserving other sources"
+}
+
 test_main_direct_terminal_presentation_receipt
 test_branch_ack_retires_inactive_outcome_receipt
 test_unpushed_ci_ready_done_is_not_published
@@ -1099,5 +1203,8 @@ test_notice_recovery_does_not_duplicate_wake
 test_missing_parent_binding_names_itself
 test_reconciliation_never_calls_forge
 test_reconciliation_sets_no_forge_mode_for_state_read
+test_backlog_pr_pass_closes_finished_records_once
+test_backlog_pr_pass_spares_live_worker_and_closes_finished_one
+test_backlog_pr_pass_writes_fix_items_in_main_only
 
 echo "all inactive reconciliation tests passed"
