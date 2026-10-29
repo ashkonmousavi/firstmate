@@ -83,9 +83,14 @@
 # inbox, and the parent watcher (remote_inbox_tick in bin/fm-watch.sh) drives
 # this same ladder there through bin/fm-remote-secondmate-control.sh's inbox
 # verb: due action and ring run on the remote host, the ladder state stays
-# beside the records, and the parent queues the escalation wake. It rings a
-# busy mate as the remote enqueue ring does, so it keeps no busy budget, and
-# no fire-and-forget retry is owed there.
+# beside the records, and the parent queues the escalation wake. A provably
+# busy mate defers the ring like the local ladder does: the deferral spends no
+# ladder attempt, advances the same FM_TASK_INBOX_BUSY_MAX budget, and at that
+# bound the parent queues the one stuck-busy wake without typing. A later idle
+# check rings through the ordinary due action, once per grace, and an idle
+# failure still counts. The enqueue ring still rings a busy mate, and no
+# fire-and-forget retry is owed there. Unknown is not busy, and the escalation
+# marker is never cleared when the mate later goes idle.
 # The parent passes its effective grace and ring maximum to each remote due
 # check; individual hops have a fixed 30-second bound, and ordinary supervision
 # runs the pass detached from its cycle, so a slow host never delays the
@@ -437,28 +442,89 @@ fm_task_inbox_confirmed_enter() {
 # exit between the liveness check and typing; the ': ' prefix protects complete
 # shell lines only, not suffixes typed after such an exit.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
-  local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict rc
+  local rc=0
+  FM_TASK_INBOX_RING_REASON=
+  _fm_task_inbox_ring_step "$@" || rc=$?
+  fm_task_inbox_note_reason "$3" "$rc" "$FM_TASK_INBOX_RING_REASON"
+  return "$rc"
+}
+
+# Reason for the last ring result, so the next failure names its step. The
+# stdout verdicts and the 0-4 return codes above are unchanged: this is
+# logging only. fm_task_inbox_ring owns the token: it leaves it in
+# FM_TASK_INBOX_RING_REASON (read it right after the call) and records it in
+# the sibling <inbox>/<seq>.ring-reason as one line, "rc=<n> token=<token>",
+# replaced on every attempt for that record; the .msg bytes are never touched.
+# A backend adapter only offers a finer token through the sink file named by
+# FM_RING_REASON_SINK (fm_backend_herdr_note_reason), because it runs in a
+# command substitution and cannot set a variable here. Tokens: ok, agent-dead,
+# foreign-pending-draft, doorbell-rejected, submit-refused (backend refused
+# before typing, such as a blocking dialog), backend-send-failed, and
+# submit-unconfirmed; herdr adds composer-unreadable, composer-nonempty,
+# literal-send-failed, payload-not-shown, clear-unverified, enter-send-failed,
+# status-unknown and blocking-dialog; the remote busy deferral adds
+# busy-deferred and stuck-busy.
+_fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label]
+  local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict rc sink
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
-    dead|missing) return 3 ;;
+    dead|missing) FM_TASK_INBOX_RING_REASON=agent-dead; return 3 ;;
   esac
-  line=$(fm_task_inbox_doorbell_line "$rec") || return 2
+  line=$(fm_task_inbox_doorbell_line "$rec") || { FM_TASK_INBOX_RING_REASON=doorbell-rejected; return 2; }
   fm_task_inbox_signal_prepare "$backend" "$rec" "$line" || true
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
   if [ "$cstate" = pending ]; then
-    fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 1
+    fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
+      || { FM_TASK_INBOX_RING_REASON=foreign-pending-draft; return 1; }
     rc=0
     fm_task_inbox_confirmed_enter "$backend" "$target" "$line" "$label" || rc=$?
+    case "$rc" in
+      0) FM_TASK_INBOX_RING_REASON=ok ;;
+      2) FM_TASK_INBOX_RING_REASON=enter-send-failed ;;
+      *) FM_TASK_INBOX_RING_REASON=submit-unconfirmed ;;
+    esac
     return "$rc"
   fi
+  sink=$(mktemp "${TMPDIR:-/tmp}/fm-ring-reason.XXXXXX" 2>/dev/null) || sink=
+  FM_RING_REASON_SINK=$sink
   if ! verdict=$(FM_SUBMIT_SIGNAL_STATE=$FM_TASK_INBOX_SIGNAL_STATE FM_SUBMIT_SIGNAL_ID=$FM_TASK_INBOX_SIGNAL_ID \
        FM_SUBMIT_SIGNAL_HARNESS=$FM_TASK_INBOX_SIGNAL_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$FM_TASK_INBOX_SIGNAL_BASELINE \
        fm_backend_send_text_submit "$backend" "$target" "$line" 5 2 0.3 "$label" 2>/dev/null); then
+    FM_TASK_INBOX_RING_REASON=submit-refused
+    FM_RING_REASON_SINK=
+    [ -z "$sink" ] || rm -f "$sink"
     return 2
   fi
+  FM_TASK_INBOX_RING_REASON=$(head -1 "$sink" 2>/dev/null || true)
+  FM_RING_REASON_SINK=
+  [ -z "$sink" ] || rm -f "$sink"
   case "$verdict" in
-    empty) return 0 ;;
-    send-failed) return 2 ;;
-    *) return 4 ;;
+    empty) FM_TASK_INBOX_RING_REASON=ok; return 0 ;;
+    send-failed) : "${FM_TASK_INBOX_RING_REASON:=backend-send-failed}"; return 2 ;;
+    *) : "${FM_TASK_INBOX_RING_REASON:=submit-unconfirmed}"; return 4 ;;
+  esac
+}
+
+# The sibling reason file of one record (see the ring header above).
+fm_task_inbox_reason_file() {  # <record-path>
+  printf '%s.ring-reason' "${1%.msg}"
+}
+
+# Replace the record's reason line. Best-effort: a missing inbox or an
+# unwritable sibling never changes a ring result.
+fm_task_inbox_note_reason() {  # <record-path> <rc> <token>
+  local f
+  [ -n "${3:-}" ] || return 0
+  f=$(fm_task_inbox_reason_file "$1")
+  [ -d "${f%/*}" ] || return 0
+  { printf 'rc=%s token=%s\n' "$2" "$3" > "$f"; } 2>/dev/null || true
+}
+
+# Token of the last recorded attempt for one record, or nothing.
+fm_task_inbox_last_reason() {  # <record-path>
+  local line
+  line=$(head -1 "$(fm_task_inbox_reason_file "$1")" 2>/dev/null || true)
+  case "$line" in
+    *' token='*) printf '%s' "${line##* token=}" ;;
   esac
 }
 

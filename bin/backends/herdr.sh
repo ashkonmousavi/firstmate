@@ -3275,6 +3275,16 @@ fm_backend_herdr_rendered_busy_state() {  # <target> [harness] -> busy|idle|unkn
   fi
 }
 
+# Offer the submit's failure step to fm_task_inbox_ring (logging only). The
+# submit runs inside a command substitution, so the token travels through the
+# sink file named by FM_RING_REASON_SINK; with no sink it is a no-op. The first
+# token written wins. Tokens are listed at fm_task_inbox_ring.
+fm_backend_herdr_note_reason() {  # <token>
+  [ -n "${FM_RING_REASON_SINK:-}" ] || return 0
+  [ -s "$FM_RING_REASON_SINK" ] && return 0
+  { printf '%s\n' "$1" > "$FM_RING_REASON_SINK"; } 2>/dev/null || true
+}
+
 # fm_backend_herdr_send_text_submit: type <text> into <target> once (raw,
 # unsubmitted, via send_literal), then submit with a named Enter key, retried
 # (Enter only, never retyped) until native agent-state, a cleared composer, or
@@ -3481,17 +3491,21 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
   if [ "${identity%%$'\t'*}" = claude ]; then
     proof=1
     content=$(fm_backend_herdr_composer_content "$target") \
-      || { printf 'send-failed'; return 0; }
-    [ -z "${content//[$' \t\r\n\v\f']/}" ] || { printf 'send-failed'; return 0; }
+      || { fm_backend_herdr_note_reason composer-unreadable; printf 'send-failed'; return 0; }
+    [ -z "${content//[$' \t\r\n\v\f']/}" ] \
+      || { fm_backend_herdr_note_reason composer-nonempty; printf 'send-failed'; return 0; }
   fi
-  fm_backend_herdr_send_literal "$target" "$text" || { printf 'send-failed'; return 0; }
+  fm_backend_herdr_send_literal "$target" "$text" \
+    || { fm_backend_herdr_note_reason literal-send-failed; printf 'send-failed'; return 0; }
   sleep "$settle"
   if [ "$proof" = 1 ]; then
     if ! content=$(fm_backend_herdr_composer_content "$target") \
       || ! fm_backend_herdr_composer_payload_shown "$text" "$content"; then
       if fm_backend_herdr_composer_clear "$target" "$text"; then
+        fm_backend_herdr_note_reason payload-not-shown
         printf 'send-failed'
       else
+        fm_backend_herdr_note_reason clear-unverified
         printf 'unknown'
       fi
       return 0
@@ -3513,6 +3527,7 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
     elif [ "$enter_sent" -eq 0 ]; then
       i=$((i + 1))
       if [ "$i" -ge "$retries" ]; then
+        fm_backend_herdr_note_reason enter-send-failed
         printf 'send-failed'
         return 0
       fi
@@ -3524,13 +3539,14 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
         "$confirm_sleep" "$FM_BACKEND_HERDR_SUBMIT_POLLS")
       case "$verdict" in
         busy) printf 'empty'; return 0 ;;
-        unknown) printf 'unknown'; return 0 ;;
+        unknown) fm_backend_herdr_note_reason status-unknown; printf 'unknown'; return 0 ;;
       esac
       # Native stayed idle. Composer empty is positive delivery (a landed
       # Claude turn that never flipped agent_status). Proven pending retries.
       # A picker that classifies pending must not receive that retry.
       verdict=$(fm_backend_herdr_composer_state "$target")
       if fm_composer_blocking_dialog_noted >/dev/null; then
+        fm_backend_herdr_note_reason blocking-dialog
         printf 'unknown'
         return 0
       fi
@@ -3543,6 +3559,7 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
       sleep "$sleep_s"
       verdict=$(fm_backend_herdr_composer_state "$target")
       if fm_composer_blocking_dialog_noted >/dev/null; then
+        fm_backend_herdr_note_reason blocking-dialog
         printf 'unknown'
         return 0
       fi
@@ -3560,6 +3577,7 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
     i=$((i + 1))
     if [ "$i" -ge "$retries" ]; then
       if [ "$enter_sent" -eq 0 ]; then
+        fm_backend_herdr_note_reason enter-send-failed
         printf 'send-failed'
       else
         fm_composer_queued_enter_verdict "$verdict" \

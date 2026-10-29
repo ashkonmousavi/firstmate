@@ -314,6 +314,7 @@ test_remote_unreadable_ring_preserves_durable_enqueue() {
     assert_contains "$(cat "$rec")" 'preserve this remote steer' "the remote inbox must retain its payload"
     assert_contains "$err" 'doorbell NOT delivered' "the remote leg must report an unreadable ring as not delivered"
     assert_contains "$err" 'durably recorded' "the remote notice must preserve enqueue semantics"
+    assert_contains "$err" ' reason=' "the remote notice must name the ring step that failed"
     [ "$(wc -l < "$dir/herdr.log.typed")" -eq 1 ] || fail "the remote leg must type its doorbell only once"
     assert_not_contains "$(cat "$dir/herdr.log.typed")" 'preserve this remote steer' "the remote payload must never be typed"
     pend=$(pending_record "$home")
@@ -943,6 +944,109 @@ test_remote_inbox_ladder_quiet_after_acknowledgement() {
   pass "watcher remote inbox: an acknowledged remote record is never re-rung"
 }
 
+# Mark the remote mate's harness busy or idle through the semantic busy record
+# the remote inbox verb classifies (bin/fm-busy-lib.sh).
+remote_mate_set_busy() {  # <remote-home> busy|idle
+  local cs="$1/state/parent-route"
+  if [ "$2" = busy ]; then
+    "$ROOT/bin/fm-busy-event.sh" arm "$cs" rsm --state busy --source claude-hook --event user-prompt-submit >/dev/null \
+      || fail "could not arm the remote mate busy record"
+  else
+    "$ROOT/bin/fm-busy-event.sh" arm "$cs" rsm --state idle --source claude-hook --event stop >/dev/null \
+      || fail "could not mark the remote mate idle"
+  fi
+}
+
+test_remote_inbox_busy_mate_defers_without_spending_a_ring_attempt() {
+  local dir fb ssh_log home rhome rec cs out
+  dir="$TMP_ROOT/remote-busy-defer"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-busy-defer)
+  home=$(setup_remote_parent_home remote-busy-defer "$rhome")
+  cs="$rhome/state/parent-route/rsm.inbox"
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+  remote_mate_set_busy "$rhome" busy
+
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) \
+    || fail "a busy deferral must not fail the watcher: $out"
+  [ ! -e "$cs/.ring-state" ] || fail "a busy deferral must not spend a ring attempt: $(cat "$cs/.ring-state")"
+  [ "$(cut -f2 "$cs/.busy-state")" = 1 ] || fail "a busy deferral must advance the busy budget: $(cat "$cs/.busy-state" 2>/dev/null)"
+  [ "$(cat "$cs/001.ring-reason")" = 'rc=- token=busy-deferred' ] \
+    || fail "a deferral must record the busy-deferred token, got: $(cat "$cs/001.ring-reason" 2>/dev/null)"
+  assert_grep 'delivery deferred: rsm 001.msg' "$home/state/.watch-triage.log" "the deferral must be visible in the triage log"
+  [ ! -s "$dir/herdr.log.typed" ] || fail "a busy mate must not be typed into: $(cat "$dir/herdr.log.typed")"
+  [ ! -s "$home/state/.wake-queue" ] || fail "a deferral within the busy budget queued a wake: $(cat "$home/state/.wake-queue")"
+
+  # Going idle triggers the ring, which spends one attempt and clears the busy budget.
+  remote_mate_set_busy "$rhome" idle
+  rm -f "$home/state/.remote-inbox-tick"
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_UNCONFIRMED=unknown FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) \
+    || fail "the idle ring must not fail the watcher: $out"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "the idle ring must spend exactly one attempt"
+  [ ! -e "$cs/.busy-state" ] || fail "an idle ring must reset the busy budget"
+  assert_grep "rc=4 token=" "$cs/001.ring-reason" "the idle ring must replace the deferral token with its own result"
+  [ -s "$dir/herdr.log.typed" ] || fail "the idle mate must be rung once it goes idle"
+  [ ! -s "$home/state/.wake-queue" ] || fail "deferral then ring queued a wake"
+  pass "watcher remote inbox: a busy mate defers without spending an attempt and rings once idle"
+}
+
+test_remote_inbox_busy_mate_escalates_stuck_busy_once() {
+  local dir fb ssh_log home rhome rec cs out wakes
+  dir="$TMP_ROOT/remote-busy-stuck"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-busy-stuck)
+  home=$(setup_remote_parent_home remote-busy-stuck "$rhome")
+  cs="$rhome/state/parent-route/rsm.inbox"
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+  remote_mate_set_busy "$rhome" busy
+
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" >/dev/null 2>&1 \
+    || fail "the first deferral failed"
+  [ ! -s "$home/state/.wake-queue" ] || fail "the first deferral queued a wake"
+  rm -f "$home/state/.remote-inbox-tick"
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) \
+    || fail "the stuck-busy tick must wake cleanly: $out"
+  assert_contains "$out" 'stuck-busy after 2 consecutive busy-deferred due doorbells' "the bound must raise the stuck-busy wake"
+  assert_grep 'stale' "$home/state/.wake-queue" "the bound must queue a stale wake"
+  [ ! -e "$cs/.ring-state" ] || fail "stuck-busy must not spend a ring attempt"
+  [ ! -s "$dir/herdr.log.typed" ] || fail "stuck-busy must never type"
+  [ "$(cat "$cs/.escalated")" = 001.msg ] || fail "the stuck-busy escalation marker must name the record"
+  wakes=$(wc -l < "$home/state/.wake-queue")
+
+  # The marker is never cleared by a later idle: the escalated record stays quiet.
+  remote_mate_set_busy "$rhome" idle
+  rm -f "$home/state/.remote-inbox-tick"
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" >/dev/null 2>&1 \
+    || fail "a tick after stuck-busy failed"
+  [ "$(wc -l < "$home/state/.wake-queue")" = "$wakes" ] || fail "an escalated stuck-busy record queued a second wake"
+  [ "$(cat "$cs/.escalated")" = 001.msg ] || fail "going idle cleared the escalation marker"
+  pass "watcher remote inbox: the remote host busy budget escalates stuck-busy once, without typing, and stays escalated"
+}
+
+test_remote_inbox_idle_failure_still_spends_an_attempt_with_its_reason() {
+  local dir fb ssh_log home rhome rec cs out
+  dir="$TMP_ROOT/remote-idle-fail"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-idle-fail)
+  home=$(setup_remote_parent_home remote-idle-fail "$rhome")
+  cs="$rhome/state/parent-route/rsm.inbox"
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+  remote_mate_set_busy "$rhome" idle
+
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_UNCONFIRMED=unknown FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) \
+    || fail "an idle failed ring must not fail the watcher: $out"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "an idle failed ring must still spend one attempt"
+  assert_grep 'result=rang 4 reason=' "$home/state/.watch-triage.log" "the failed attempt must carry its reason in the triage log"
+  assert_grep 'rc=4 token=' "$cs/001.ring-reason" "the failed attempt must record rc and token beside the record"
+  pass "watcher remote inbox: an idle failed ring still spends an attempt and names its step"
+}
+
 test_remote_inbox_ladder_escalates_after_ring_max() {
   local dir fb ssh_log home rhome rec out rc wakes
   dir="$TMP_ROOT/remote-rering-max"; mkdir -p "$dir"
@@ -1177,6 +1281,9 @@ test_local_pending_does_not_close_resolve_key
 test_local_secondmate_pending_keeps_expectation_armed
 test_remote_inbox_ladder_rerings_unacknowledged_record
 test_remote_inbox_ladder_quiet_after_acknowledgement
+test_remote_inbox_busy_mate_defers_without_spending_a_ring_attempt
+test_remote_inbox_busy_mate_escalates_stuck_busy_once
+test_remote_inbox_idle_failure_still_spends_an_attempt_with_its_reason
 test_remote_inbox_ladder_escalates_after_ring_max
 test_remote_inbox_detached_pass_never_holds_the_cycle
 test_remote_inbox_pass_never_overlaps_an_inflight_pass
