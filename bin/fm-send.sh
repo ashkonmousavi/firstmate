@@ -54,6 +54,13 @@
 # the composer visibly holds pending text the ring is skipped with a notice and
 # the watcher re-rings an ordinary record later; no composer verdict is
 # delivery proof on this plane, and a failed ring never fails the send.
+# For a harness that posts an accepted-prompt event (Claude today; see
+# bin/fm-busy-lib.sh fm_busy_submit_signal_harness) the ring confirms its Enter
+# from that event and retries it a bounded number of times
+# (bin/fm-task-inbox-lib.sh fm_task_inbox_ring); a doorbell still unconfirmed
+# after that budget prints a loud "NOT delivered" notice, but the exit stays 0
+# because the steer itself is durably recorded and a nonzero here would invite
+# a duplicate enqueue.
 #
 # TYPED - the LOCAL text that must reach the terminal itself: a harness-native
 # invocation (a leading "/", or a leading "$" to a codex target) must reach
@@ -63,7 +70,8 @@
 # type the literal
 # text through the target backend's verified submit core: typed ONCE, then
 # Enter retried (never retyped) until the backend confirms a submit or reports
-# an inconclusive send. Typed-plane exit contract: 0 = submit confirmed;
+# an inconclusive send; for a harness with an accepted-prompt event (Claude
+# today) each Enter pause also ends the moment that event lands. Typed-plane exit contract: 0 = submit confirmed;
 # 3 = the text was typed into the live endpoint and
 # Enter was sent, but the submit read-back stayed unconfirmed (verify the pane
 # before any resend, and never re-type blindly; a marked request's
@@ -1086,7 +1094,7 @@ else
     if [ -n "$FIRE_AND_FORGET_ID" ] \
       && [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/wait-no-turns" ]; then
       case "$ring_rc" in
-      1|2)
+      1|2|4)
         if fm_task_inbox_mark_retry "$STATE" "$INBOX_TASK_ID" "$INBOX_RECORD"; then
           ring_retry="the watcher will ring it once more"
         else
@@ -1098,6 +1106,7 @@ else
     case "$ring_rc" in
     1) echo "fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
     2) echo "fm-send: doorbell did not reach $T; the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
+    4) echo "fm-send: doorbell NOT delivered: it was typed into $T and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at $INBOX_RECORD and $ring_retry. Do not resend." >&2 ;;
     3) echo "fm-send: doorbell not typed because the agent in $T has exited; the steer is durably recorded at $INBOX_RECORD for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane" >&2 ;;
     esac
     exit 0
@@ -1138,7 +1147,16 @@ else
   # block: remote text rides the inbox leg above, and remote --key exits
   # earlier.
   send_rc=0
-  if verdict=$(fm_backend_send_text_submit "$TARGET_BACKEND" "$T" "$MESSAGE" "$retries" "$sleep_s" "$settle" "$EXPECTED_LABEL"); then
+  # A harness that posts an accepted-prompt event (fm_busy_submit_signal_harness)
+  # lets each Enter pause end the moment the harness confirms the submit; a
+  # pause with no event falls back to the composer read exactly as before.
+  submit_baseline=
+  if [ "$TARGET_BACKEND" = tmux ] && [ -n "$TARGET_TASK_ID" ]; then
+    submit_baseline=$(fm_busy_submit_baseline "$STATE" "$TARGET_TASK_ID" "$TARGET_HARNESS" 2>/dev/null) || submit_baseline=
+  fi
+  if verdict=$(FM_SUBMIT_SIGNAL_STATE=$STATE FM_SUBMIT_SIGNAL_ID=$TARGET_TASK_ID \
+      FM_SUBMIT_SIGNAL_HARNESS=$TARGET_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$submit_baseline \
+      fm_backend_send_text_submit "$TARGET_BACKEND" "$T" "$MESSAGE" "$retries" "$sleep_s" "$settle" "$EXPECTED_LABEL"); then
     :
   else
     send_rc=$?

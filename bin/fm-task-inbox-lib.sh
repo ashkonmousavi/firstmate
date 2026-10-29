@@ -70,7 +70,7 @@
 # Retry ring (fm_task_inbox_mark_retry): only while config/wait-no-turns is
 # present. A fire-and-forget record never enters the ladder, but when
 # fm-send's ring at enqueue did not land
-# (fm_task_inbox_ring returned 1 or 2) it marks the record, and one grace later
+# (fm_task_inbox_ring returned 1, 2 or 4) it marks the record, and one grace later
 # the due action is `retry`: once the worker has no open decision of its own,
 # the watcher rings once more and spends the mark
 # whatever the result, so the record never rings a third time and never
@@ -122,6 +122,10 @@ _FM_TASK_INBOX_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_FM_TASK_INBOX_LIB_DIR/fm-wake-lib.sh"
 # shellcheck source=/dev/null
 . "$_FM_TASK_INBOX_LIB_DIR/fm-backend.sh"
+# The submit-signal reads below need the busy record contract even when no
+# tmux backend has been sourced yet.
+# shellcheck source=/dev/null
+. "$_FM_TASK_INBOX_LIB_DIR/fm-busy-lib.sh"
 
 FM_TASK_INBOX_SCHEMA='fm-task-inbox.v1'
 FM_TASK_INBOX_GRACE_DEFAULT=90
@@ -367,14 +371,90 @@ fm_task_inbox_doorbell_line() {  # <record-path>
     "$quoted"
 }
 
+# The submit signal for a ring: when the rung task's harness posts an
+# accepted-prompt event (bin/fm-busy-lib.sh fm_busy_submit_signal_harness), the
+# ring confirms its Enter from that event instead of pressing a blind second
+# Enter later. Sets FM_TASK_INBOX_SIGNAL_STATE/ID/HARNESS/BASELINE for the
+# record's task and fails, leaving them empty, when there is no signal: a
+# non-tmux backend (the confirming Enter loop lives in the tmux core), a task
+# without metadata, a harness without a signal writer, or a record that is not
+# idle. The caller then keeps the signal-less behaviour untouched.
+FM_TASK_INBOX_SIGNAL_STATE=
+FM_TASK_INBOX_SIGNAL_ID=
+FM_TASK_INBOX_SIGNAL_HARNESS=
+FM_TASK_INBOX_SIGNAL_BASELINE=
+fm_task_inbox_signal_prepare() {  # <backend> <record-path>
+  local dir=${2%/*} abs name state meta harness baseline
+  FM_TASK_INBOX_SIGNAL_STATE=
+  FM_TASK_INBOX_SIGNAL_ID=
+  FM_TASK_INBOX_SIGNAL_HARNESS=
+  FM_TASK_INBOX_SIGNAL_BASELINE=
+  [ "$1" = tmux ] || return 1
+  abs=$(cd "$dir" 2>/dev/null && pwd) || return 1
+  abs=${abs%/handled}
+  name=${abs##*/}
+  state=${abs%/*}
+  case "$name" in
+    *.inbox) name=${name%.inbox} ;;
+    *) return 1 ;;
+  esac
+  meta="$state/$name.meta"
+  [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
+  harness=$(fm_meta_get "$meta" harness)
+  baseline=$(fm_busy_submit_baseline "$state" "$name" "$harness") || return 1
+  FM_TASK_INBOX_SIGNAL_STATE=$state
+  FM_TASK_INBOX_SIGNAL_ID=$name
+  FM_TASK_INBOX_SIGNAL_HARNESS=$harness
+  FM_TASK_INBOX_SIGNAL_BASELINE=$baseline
+}
+
+# Bounded Enter budget for a confirmed submit: FM_TASK_INBOX_CONFIRM_RETRIES
+# presses (default 5) FM_TASK_INBOX_CONFIRM_INTERVAL seconds apart (default 2,
+# so a doorbell that never submits stops after about 10 seconds).
+fm_task_inbox_confirm_retries() {
+  local n=${FM_TASK_INBOX_CONFIRM_RETRIES:-5}
+  case "$n" in ''|*[!0-9]*|0) n=5 ;; esac
+  printf '%s' "$n"
+}
+
+fm_task_inbox_confirm_interval() {
+  local s=${FM_TASK_INBOX_CONFIRM_INTERVAL:-2}
+  case "$s" in ''|.|*[!0-9.]*|*.*.*) s=2 ;; esac
+  printf '%s' "$s"
+}
+
+# Submit a doorbell that is already typed and sitting in the composer, with a
+# bounded, signal-confirmed Enter loop: press Enter, wait for the harness's
+# accepted-prompt event (or for the composer to stop holding the doorbell), and
+# press again only when neither happened. Never retypes. 0 confirmed, 2 the
+# send-key failed, 4 still unconfirmed when the budget ran out.
+fm_task_inbox_confirmed_enter() {  # <backend> <target> <line> [expected-label]
+  local backend=$1 target=$2 line=$3 label=${4:-} i=0 max
+  max=$(fm_task_inbox_confirm_retries)
+  while [ "$i" -lt "$max" ]; do
+    fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
+    i=$((i + 1))
+    if FM_SUBMIT_SIGNAL_STATE=$FM_TASK_INBOX_SIGNAL_STATE FM_SUBMIT_SIGNAL_ID=$FM_TASK_INBOX_SIGNAL_ID \
+         FM_SUBMIT_SIGNAL_HARNESS=$FM_TASK_INBOX_SIGNAL_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$FM_TASK_INBOX_SIGNAL_BASELINE \
+         fm_tmux_submit_wait "$(fm_task_inbox_confirm_interval)"; then
+      return 0
+    fi
+    fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 0
+  done
+  return 4
+}
+
 # Ring the doorbell, best-effort: one endpoint-liveness pre-check, one advisory
 # composer pre-check, then the backend's submit machinery with a minimal retry
-# budget, verdict discarded.
+# budget.
 # Returns 0 rang, 1 skipped because the composer PROVENLY holds pending text
 # other than our own doorbell (the watcher re-rings later), 2 the backend send
 # failed, 3 skipped because the endpoint is positively dead or missing (nothing
-# typed; recovery owns the record). No return value is delivery proof; the
-# acknowledgement move is the only delivery signal.
+# typed; recovery owns the record), 4 the doorbell was typed and Enter sent but
+# the harness never confirmed the submit within the bounded Enter retries (the
+# record stays durable; the watcher re-rings). Only a harness with a submit
+# signal (fm_task_inbox_signal_prepare) can return 4. Otherwise no return value
+# is delivery proof; the acknowledgement move is the only delivery signal.
 # The skip is deliberately narrow: only an exact `pending` verdict can defer,
 # because there our Enter could submit someone's real half-typed content.
 # `pending-unproven` and `unknown` still ring - the worst outcome is a garbled
@@ -384,19 +464,28 @@ fm_task_inbox_doorbell_line() {  # <record-path>
 # A pending composer holding exactly our own doorbell line is a previous ring
 # whose Enter never landed, so it is submitted rather than skipped, including
 # when the agent is reported busy; skipping it would block every later ring.
-# On both paths a lost first Enter gets one confirmed retry.
+# A harness with a submit signal confirms that Enter and retries it in a
+# bounded loop (fm_task_inbox_confirmed_enter), which retires the blind second
+# Enter for that harness; a harness without one (every adapter but claude
+# today) keeps the unconfirmed late Enter and its single holds-checked retry.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
-  local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict
+  local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict signalled=0 rc
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;
   esac
   if ! line=$(fm_task_inbox_doorbell_line "$rec"); then
     return 2
   fi
+  fm_task_inbox_signal_prepare "$backend" "$rec" && signalled=1
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
   case "$cstate" in
     pending)
       fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 1
+      if [ "$signalled" = 1 ]; then
+        rc=0
+        fm_task_inbox_confirmed_enter "$backend" "$target" "$line" "$label" || rc=$?
+        return "$rc"
+      fi
       fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
       sleep 0.3
       fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 0
@@ -408,6 +497,21 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
   # steps, so an agent exiting after the liveness check could leave a bare
   # shell only a suffix; the `: ` prefix protects complete lines only. Do not
   # add process-bound atomic delivery here unless an incident reopens this.
+  if [ "$signalled" = 1 ]; then
+    if ! verdict=$(FM_SUBMIT_SIGNAL_STATE=$FM_TASK_INBOX_SIGNAL_STATE FM_SUBMIT_SIGNAL_ID=$FM_TASK_INBOX_SIGNAL_ID \
+         FM_SUBMIT_SIGNAL_HARNESS=$FM_TASK_INBOX_SIGNAL_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$FM_TASK_INBOX_SIGNAL_BASELINE \
+         fm_backend_send_text_submit "$backend" "$target" "$line" "$(fm_task_inbox_confirm_retries)" \
+           "$(fm_task_inbox_confirm_interval)" 0.3 "$label" 2>/dev/null); then
+      return 2
+    fi
+    [ "$verdict" != send-failed ] || return 2
+    # Only a composer that still proves our unsubmitted doorbell after the
+    # whole budget is an unconfirmed ring; every other verdict (the
+    # composer cleared, the agent busy and queueing it, an unreadable
+    # composer) is read as accepted exactly as the signal-less path does.
+    [ "$verdict" != pending ] || return 4
+    return 0
+  fi
   if ! verdict=$(fm_backend_send_text_submit "$backend" "$target" "$line" 2 0.4 0.3 "$label" 2>/dev/null); then
     return 2
   fi

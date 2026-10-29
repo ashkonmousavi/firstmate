@@ -320,12 +320,20 @@ case "${1:-}" in
     if [ "$literal" = 1 ]; then
       printf '%s' "$1" >> "$FM_FAKE_COMPOSER"
     elif [ "${1:-}" = Enter ]; then
+      [ -z "${FM_FAKE_ENTER_LOG:-}" ] || printf 'Enter\n' >> "$FM_FAKE_ENTER_LOG"
       drops=$(cat "$FM_FAKE_DROP_ENTERS" 2>/dev/null || echo 0)
       if [ "$drops" -gt 0 ]; then
         echo $((drops - 1)) > "$FM_FAKE_DROP_ENTERS"
       elif [ -s "$FM_FAKE_COMPOSER" ]; then
         printf 'SUBMIT: %s\n' "$(cat "$FM_FAKE_COMPOSER")" >> "$FM_SEND_LOG"
-        : > "$FM_FAKE_COMPOSER"
+        # The harness hook: an accepted prompt opens the busy record, exactly
+        # as fm-spawn's UserPromptSubmit wiring does for a Claude worker.
+        if [ -n "${FM_FAKE_HOOK_STATE:-}" ]; then
+          "$FM_FAKE_HOOK_WRITER" apply "$FM_FAKE_HOOK_STATE" "$FM_FAKE_HOOK_ID" busy \
+            --current-gen --source claude-hook --event user-prompt-submit >/dev/null 2>&1 || true
+        fi
+        # A composer that keeps rendering text after an accepted submit.
+        [ "${FM_FAKE_KEEP_TEXT:-0}" = 1 ] || : > "$FM_FAKE_COMPOSER"
       fi
     fi
     exit 0 ;;
@@ -495,6 +503,134 @@ test_mate_ring_submits_own_doorbell_and_skips_foreign_text() {
   [ ! -s "$log" ] || fail "foreign mate text was submitted:"$'\n'"$(cat "$log")"
   [ "$(cat "$composer")" = 'a half-typed draft' ] || fail "foreign mate text was changed"
   pass "mate: our own doorbell is submitted with one Enter; foreign pending text is not"
+}
+
+# Arm a task's busy record the way fm-spawn does for a Claude worker and mark
+# it idle, so the ring sees a submit signal. Echoes nothing.
+arm_idle_worker() {  # <state> <task> <harness>
+  local state=$1 task=$2 harness=$3
+  fm_write_meta "$state/$task.meta" "window=sess:fm-$task" "kind=ship" "harness=$harness" "backend=tmux"
+  "$ROOT/bin/fm-busy-event.sh" arm "$state" "$task" >/dev/null || fail "could not arm $task"
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" "$task" idle --current-gen \
+    --source claude-hook --event stop >/dev/null || fail "could not mark $task idle"
+}
+
+# The submit signal is the busy record's seq, read before the text is typed.
+# Confirmation needs the same incarnation, the adapter's own writer, and a
+# prompt-submit event (or a finished turn two steps on); a lone turn-end, a
+# re-armed incarnation, or a busy baseline confirms nothing.
+test_busy_submit_signal_semantics() {
+  local state="$TMP_ROOT/signal/state" base
+  mkdir -p "$state"
+  arm_idle_worker "$state" t1 claude
+  confirmed() { bash -c '. "$1"; fm_busy_submit_confirmed "$2" t1 "$3" "$4"' _ "$ROOT/bin/fm-busy-lib.sh" "$state" "$1" "$base"; }
+  event() { "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 "$1" --current-gen --source "$2" --event "$3" >/dev/null || fail "event $3 refused"; }
+  base=$(bash -c '. "$1"; fm_busy_submit_baseline "$2" t1 claude' _ "$ROOT/bin/fm-busy-lib.sh" "$state") \
+    || fail "an idle armed Claude worker should yield a submit baseline"
+  confirmed claude && fail "no event since the baseline must not confirm"
+  event idle claude-hook stop
+  confirmed claude && fail "a lone turn-end after the baseline must not confirm"
+  event busy claude-hook user-prompt-submit
+  confirmed claude || fail "a prompt-submit event after the baseline should confirm"
+  confirmed codex && fail "a harness without a submit signal must never confirm"
+  event idle claude-hook stop
+  confirmed claude || fail "a submit whose turn already ended (seq two steps on) should confirm"
+  base=$(bash -c '. "$1"; fm_busy_submit_baseline "$2" t1 claude' _ "$ROOT/bin/fm-busy-lib.sh" "$state") || fail "second baseline"
+  event busy fm-recovery user-prompt-submit
+  confirmed claude && fail "an event from a source other than the adapter's writer must not confirm"
+  event idle claude-hook stop
+  base=$(bash -c '. "$1"; fm_busy_submit_baseline "$2" t1 claude' _ "$ROOT/bin/fm-busy-lib.sh" "$state") || fail "third baseline"
+  "$ROOT/bin/fm-busy-event.sh" arm "$state" t1 >/dev/null
+  confirmed claude && fail "a re-armed incarnation must not confirm against an old baseline"
+  bash -c '. "$1"; fm_busy_submit_baseline "$2" t1 claude' _ "$ROOT/bin/fm-busy-lib.sh" "$state" >/dev/null \
+    && fail "a busy record must yield no baseline (Enter would queue)"
+  arm_idle_worker "$state" t2 codex
+  bash -c '. "$1"; fm_busy_submit_baseline "$2" t2 codex' _ "$ROOT/bin/fm-busy-lib.sh" "$state" >/dev/null \
+    && fail "a harness without a submit signal must yield no baseline"
+  pass "inbox: the submit signal confirms only a new prompt-submit from the adapter's writer in the same incarnation"
+}
+
+# The doorbell Enter is confirmed from the harness hook and retried a bounded
+# number of times. Swallowed first Enter: the retry submits once. Never
+# confirmed: the ring reports 4 after exactly the budget, types nothing more,
+# and leaves the durable record. A harness without a signal keeps the old
+# behaviour, including the unconfirmed late Enter.
+test_ring_confirms_submit_from_the_harness_hook() {
+  local dir state rec doorbell log composer drops enters rc
+  dir="$TMP_ROOT/ring-confirm"
+  state="$dir/state"
+  mkdir -p "$state"
+  make_composer_stub "$dir"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
+  log="$dir/send.log"; composer="$dir/composer"; drops="$dir/drops"; enters="$dir/enters"
+  ring() {  # [VAR=value...]
+    (
+      export PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
+        FM_FAKE_DROP_ENTERS="$drops" FM_FAKE_ENTER_LOG="$enters" \
+        FM_FAKE_HOOK_STATE="$state" FM_FAKE_HOOK_ID=t1 FM_FAKE_HOOK_WRITER="$ROOT/bin/fm-busy-event.sh" \
+        FM_TASK_INBOX_CONFIRM_RETRIES=3 FM_TASK_INBOX_CONFIRM_INTERVAL=0.2
+      [ "$#" -eq 0 ] || export "$@"
+      inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1
+    )
+  }
+  reset() { : > "$log"; : > "$enters"; : > "$composer"; echo "$1" > "$drops"; arm_idle_worker "$state" t1 "$2"; }
+  count() { wc -l < "$enters" | tr -d ' '; }
+
+  # Typed fresh, first Enter swallowed by the harness: retried once, submitted once.
+  reset 1 claude
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a swallowed first Enter that the retry submits should ring clean, got $rc"
+  [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "the retry should submit the doorbell once:"$'\n'"$(cat "$log")"
+  [ "$(count)" = 2 ] || fail "swallowed then submitted should take exactly two Enters, took $(count)"
+
+  # Typed fresh, never accepted: reported unconfirmed after exactly the budget.
+  reset 99 claude
+  rc=0; ring || rc=$?
+  [ "$rc" = 4 ] || fail "a doorbell the harness never accepts should return 4, got $rc"
+  [ ! -s "$log" ] || fail "an unaccepted doorbell was submitted:"$'\n'"$(cat "$log")"
+  [ "$(count)" = 3 ] || fail "the unconfirmed ring should stop after the 3-Enter budget, pressed $(count)"
+  [ "$(cat "$composer")" = "$doorbell" ] || fail "the unconfirmed doorbell should stay in the composer, unretyped"
+  [ -f "$rec" ] || fail "an unconfirmed ring must leave the durable record in place"
+
+  # Stuck doorbell found later: the same confirmed loop replaces the blind Enter.
+  reset 1 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a stuck doorbell whose first Enter is swallowed should be submitted, got $rc"
+  [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "the stuck doorbell should be submitted once:"$'\n'"$(cat "$log")"
+  [ "$(count)" = 2 ] || fail "stuck doorbell: expected two Enters, pressed $(count)"
+  reset 99 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  [ "$rc" = 4 ] || fail "a stuck doorbell that never submits should return 4, got $rc"
+  [ "$(count)" = 3 ] || fail "stuck doorbell: expected the 3-Enter budget, pressed $(count)"
+  [ "$(cat "$composer")" = "$doorbell" ] || fail "the stuck doorbell was retyped or changed"
+
+  # The hook, not the composer, ends the loop: a composer that keeps rendering
+  # text after an accepted submit reads pending, yet one Enter is enough.
+  reset 0 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring FM_FAKE_KEEP_TEXT=1 || rc=$?
+  [ "$rc" = 0 ] || fail "a hook-confirmed submit should ring clean even if the composer still renders text, got $rc"
+  [ "$(count)" = 1 ] || fail "a hook-confirmed submit must not be pressed again, pressed $(count)"
+  reset 0 claude
+  rc=0; ring FM_FAKE_KEEP_TEXT=1 || rc=$?
+  [ "$rc" = 0 ] || fail "a fresh hook-confirmed doorbell should ring clean, got $rc"
+  [ "$(count)" = 1 ] || fail "a fresh hook-confirmed doorbell must be pressed once, pressed $(count)"
+
+  # No signal (codex) or a busy baseline: today's behaviour, byte for byte.
+  reset 99 codex
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a signal-less harness keeps ignoring the verdict, got $rc"
+  [ "$(count)" = 2 ] || fail "a signal-less typed ring keeps its 2-Enter budget, pressed $(count)"
+  reset 99 codex; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a signal-less stuck doorbell keeps its unconfirmed late Enter, got $rc"
+  [ "$(count)" = 2 ] || fail "a signal-less stuck doorbell keeps its two blind Enters, pressed $(count)"
+  reset 99 claude
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy --current-gen --source claude-hook --event user-prompt-submit >/dev/null
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a busy worker has no signal baseline and keeps the old ring, got $rc"
+  [ "$(count)" = 2 ] || fail "a busy worker keeps the 2-Enter ring budget, pressed $(count)"
+  pass "inbox: a signalled harness confirms the doorbell from its hook, retries Enter within the budget, and reports 4 when unconfirmed; signal-less harnesses are unchanged"
 }
 
 test_idempotent_write_dedups_exact_body() {
@@ -1335,6 +1471,8 @@ test_ring_skips_dead_agent
 test_ring_submits_its_own_stuck_doorbell
 test_ring_submits_own_doorbell_on_a_cursor_composer
 test_mate_ring_submits_own_doorbell_and_skips_foreign_text
+test_busy_submit_signal_semantics
+test_ring_confirms_submit_from_the_harness_hook
 test_idempotent_write_dedups_exact_body
 test_idempotent_write_follows_concurrent_ack
 test_handled_mv_dedups_by_sequence

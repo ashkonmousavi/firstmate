@@ -49,6 +49,8 @@ _FM_TMUX_LIB_DIR=${BASH_SOURCE[0]%/*}
 . "${_FM_TMUX_LIB_DIR:-/}/fm-composer-lib.sh"
 # shellcheck source=bin/fm-cursor-lib.sh
 . "${_FM_TMUX_LIB_DIR:-/}/fm-cursor-lib.sh"
+# shellcheck source=bin/fm-busy-lib.sh
+. "${_FM_TMUX_LIB_DIR:-/}/fm-busy-lib.sh"
 unset _FM_TMUX_LIB_DIR
 
 
@@ -244,6 +246,33 @@ fm_pane_is_busy() {  # <target> [harness]
   [ "$(fm_pane_busy_state "$1" "${2:-}")" = busy ]
 }
 
+# fm_tmux_submit_wait: the pause after each Enter. Without a submit signal it
+# is a plain sleep and fails. A caller whose harness has one (bin/fm-busy-lib.sh
+# fm_busy_submit_signal_harness) exports FM_SUBMIT_SIGNAL_STATE,
+# FM_SUBMIT_SIGNAL_ID, FM_SUBMIT_SIGNAL_HARNESS and FM_SUBMIT_SIGNAL_BASELINE
+# for the call; the pause then polls the harness's own accepted-prompt event
+# and returns 0 as soon as it lands, which the Enter loop reports as a
+# confirmed submit without reading the composer. A pause that ends with no
+# event fails, and the composer read decides as before.
+fm_tmux_submit_wait() {  # <seconds>
+  local secs=$1 n i
+  if [ -z "${FM_SUBMIT_SIGNAL_BASELINE:-}" ]; then
+    sleep "$secs"
+    return 1
+  fi
+  n=$(awk -v s="$secs" 'BEGIN { n = int(s / 0.2 + 0.999); print (n < 1 ? 1 : n) }')
+  i=0
+  while [ "$i" -lt "$n" ]; do
+    sleep 0.2
+    if fm_busy_submit_confirmed "${FM_SUBMIT_SIGNAL_STATE:-}" "${FM_SUBMIT_SIGNAL_ID:-}" \
+         "${FM_SUBMIT_SIGNAL_HARNESS:-}" "$FM_SUBMIT_SIGNAL_BASELINE"; then
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  return 1
+}
+
 # fm_tmux_submit_core: type <text> into <target> ONCE, then submit with Enter,
 # verifying the composer cleared. Retries Enter ONLY — never retypes, because a
 # swallowed Enter leaves our text in the composer and retyping would duplicate
@@ -276,7 +305,10 @@ fm_tmux_submit_enter_core() {  # <target> <retries> <enter-sleep> [baseline-idle
   local target=$1 retries=$2 sleep_s=$3 baseline_idle=${4:-} busy_harness=${5:-} i=0 j state busy_state
   while :; do
     tmux send-keys -t "$target" Enter 2>/dev/null || true
-    sleep "$sleep_s"
+    if fm_tmux_submit_wait "$sleep_s"; then
+      printf 'empty'
+      return 0
+    fi
     state=$(fm_tmux_composer_state "$target")
     # The first Enter can open a picker. A later Enter would confirm it.
     if fm_composer_blocking_dialog_noted >/dev/null; then

@@ -314,6 +314,64 @@ fm_busy_record_read() {  # <state-dir> <id>
   printf '%s %s %s %s' "$r_state" "$r_source" "$r_event" "$r_seq"
 }
 
+# Submit signal: the sender-side proof that a typed message was ACCEPTED by
+# the harness, read from the same busy record the adapter's push writer keeps.
+# Typing text and pressing Enter are separate steps, and a harness can swallow
+# the Enter (Claude Code's paste handler folds an Enter inside its quiet window
+# into the paste), leaving the text in the composer. A writer that opens the
+# record on prompt submit makes "accepted" observable without rendered text:
+# the record's seq advances past the value read before the text was typed.
+# fm_busy_submit_signal_harness owns which harnesses have such a writer and
+# the event it posts; every other harness has no signal and the sender keeps
+# its composer-read behaviour untouched. The baseline is taken only from an
+# IDLE record, because Enter on a busy harness queues the message and the
+# open event then arrives only when the running turn ends.
+# Prints "<trusted-source> <submit-event>" for a signalled harness.
+fm_busy_submit_signal_harness() {  # <harness>
+  case "${1:-}" in
+    claude*) printf 'claude-hook user-prompt-submit' ;;
+    *) return 1 ;;
+  esac
+}
+
+# fm_busy_submit_baseline: print "<gen> <seq>" when <harness> has a submit
+# signal and the task's record is valid, gen-matching, trusted, and idle.
+# Anything else (no signal, no armed record, busy, unknown) fails, which makes
+# the caller fall back to its signal-less behaviour.
+fm_busy_submit_baseline() {  # <state-dir> <id> <harness>
+  local gen rec r_state r_source r_seq
+  fm_busy_submit_signal_harness "${3:-}" >/dev/null || return 1
+  gen=$(fm_busy_current_gen "$1" "$2") || return 1
+  rec=$(fm_busy_record_read "$1" "$2") || return 1
+  read -r r_state r_source _ r_seq <<< "$rec"
+  [ "$r_state" = idle ] || return 1
+  fm_busy_source_trusted "$3" "$r_source" || return 1
+  printf '%s %s' "$gen" "$r_seq"
+}
+
+# fm_busy_submit_confirmed: 0 iff a turn was opened since <baseline>, as
+# printed by fm_busy_submit_baseline. The incarnation must be unchanged, the
+# record valid and written by the adapter's own writer, and seq must have
+# advanced with the submit event, or with a turn-end event at least two steps
+# on (the submit and a turn that already finished). A lone turn-end event
+# one step on is not a submit.
+fm_busy_submit_confirmed() {  # <state-dir> <id> <harness> <baseline>
+  local sig b_gen=${4%% *} b_seq=${4##* } gen rec r_source r_event r_seq
+  sig=$(fm_busy_submit_signal_harness "${3:-}") || return 1
+  gen=$(fm_busy_current_gen "$1" "$2") || return 1
+  [ "$gen" = "$b_gen" ] || return 1
+  rec=$(fm_busy_record_read "$1" "$2") || return 1
+  read -r _ r_source r_event r_seq <<< "$rec"
+  [ "$r_source" = "${sig%% *}" ] || return 1
+  case "$r_seq$b_seq" in *[!0-9]*|'') return 1 ;; esac
+  [ "$r_seq" -gt "$b_seq" ] || return 1
+  case "$r_event" in
+    "${sig##* }") return 0 ;;
+    stop|stop-failure) [ $((r_seq - b_seq)) -ge 2 ] ;;
+    *) return 1 ;;
+  esac
+}
+
 # ---------------------------------------------------------------------------
 # muse session-log busy source
 #
