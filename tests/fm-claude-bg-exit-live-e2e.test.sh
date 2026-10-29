@@ -164,12 +164,10 @@ bg_ids() {  # <folder>
 # running" dialog: "Exit and stop tasks" (the default), "Move to background and
 # exit" (offered only while the handoff is enabled), and "Stay". The control arm
 # must be offered the handoff and takes it; the switched arm must not be offered
-# it and takes the default. Leaves the pane text in ARM_SCREEN and the dialog
-# text in ARM_DIALOG.
+# it and takes the default. Leaves the pane text in ARM_SCREEN.
 run_arm() {
   local name=$1 switches=$2 mode=$3 i=0 shot
   PROJECT="$LAB/$name"
-  ARM_DIALOG=''
   mkdir -p "$PROJECT"
   tmux -L "$SOCKET" kill-session -t "$SESSION" 2>/dev/null || true
   tmux -L "$SOCKET" new-session -d -s "$SESSION" -x 160 -y 44 -c "$PROJECT" \
@@ -210,7 +208,6 @@ PROMPT
     case "$shot" in
       *'CLAUDE_EXIT='*) break ;;
       *'Background work is running'*)
-        ARM_DIALOG=$shot
         if [ "$mode" = control ]; then
           case "$shot" in
             *'Move to background and exit'*) : ;;
