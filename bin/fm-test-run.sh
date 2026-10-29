@@ -431,7 +431,8 @@ family_for_basename() {
     fm-dispatch-resolve.test.sh|\
     fm-extension-binding.test.sh|fm-gitignore-config.test.sh|\
     fm-no-mistakes-required.test.sh|fm-peek-remote.test.sh|\
-    fm-pending-reply.test.sh|fm-pi-branch-extension.test.sh|\
+    fm-pending-reply-ack-handled.test.sh|fm-pending-reply.test.sh|\
+    fm-pi-branch-extension.test.sh|\
     fm-procevent-quota.test.sh|fm-procevent-when.test.sh|fm-procevent.test.sh|\
     fm-live-gate.test.sh|fm-main-backstop.test.sh|\
     fm-project-origin.test.sh|fm-public-followup.test.sh|fm-quota-choose.test.sh|\
@@ -801,6 +802,7 @@ tests/fm-on.test.sh 11473
 tests/fm-opencode-primary-live-e2e.test.sh 47
 tests/fm-operational-input.test.sh 2404
 tests/fm-peek-remote.test.sh 1082
+tests/fm-pending-reply-ack-handled.test.sh 1500
 tests/fm-pending-reply.test.sh 41090
 tests/fm-pi-branch-extension.test.sh 77218
 tests/fm-pi-branch-live-e2e.test.sh 48
