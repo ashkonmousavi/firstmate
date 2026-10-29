@@ -1,0 +1,33 @@
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   /tmp/fm-claude-bg-exit-live.SMAwh8/switched
+
+⚠ 1 MCP server needs authentication · run /mcp
+
+❯ Use the Bash tool with run_in_background set to true to run: sh -c 'echo $$ > bg.pid; LC_ALL=C ps -p $$ -o lstart= > bg.started; exec sleep 600'   Then reply
+  with the single word done.
+
+● Bash(sh -c 'echo $$ > bg.pid; LC_ALL=C ps -p $$ -o lstart= > bg.started; exec sleep 600')
+  ⎿  Running in the background (↓ to manage)
+
+● done
+
+✻ Worked for 3s · done 10:15 AM · 1 shell still running
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Background work is running
+  The following will stop when you exit:
+
+  shell · sh -c 'echo $$ > bg.pid; LC_ALL=C ps -p $$ -o lst…
+
+  ❯ 1. Exit and stop tasks
+    2. Stay
+
+  Enter to confirm · Esc to cancel
+
+Resume this session with:
+claude --resume 0ff1d05b-a4bb-48bc-9b6e-c00d2e8596de
+
+CLAUDE_EXIT=0

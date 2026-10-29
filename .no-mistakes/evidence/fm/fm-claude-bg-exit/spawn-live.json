@@ -1,0 +1,50 @@
+[
+  {
+    "scenario": "canonical",
+    "pid": 4003524,
+    "environment": {
+      "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF": "1",
+      "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1",
+      "CLAUDE_CONFIG_DIR": "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces"
+    },
+    "recorded_account": "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces",
+    "command": "claude --dangerously-skip-permissions --add-dir ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/parent/state/canonical.inbox --settings ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/parent/state/canonical.claude-settings.json --model haiku : Firstmate operational input waiting: read '~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/canonical/state/operational-inbox/1793295930-f009cf652c0c133b.msg' and handle its contents as Firstmate operational input. ",
+    "spawn_output": "spawned canonical harness=claude kind=secondmate mode=secondmate yolo=off window=primary:fm-canonical worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/canonical\n"
+  },
+  {
+    "scenario": "fallback",
+    "pid": 4008958,
+    "environment": {
+      "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF": "1",
+      "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1",
+      "CLAUDE_CONFIG_DIR": "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces"
+    },
+    "recorded_account": "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces",
+    "command": "claude --model haiku ",
+    "spawn_output": "spawned fallback harness=claude kind=secondmate mode=secondmate yolo=off window=primary:fm-fallback worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/fallback\n"
+  },
+  {
+    "scenario": "changed-directory",
+    "pid": 4016283,
+    "environment": {
+      "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF": "1",
+      "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1",
+      "CLAUDE_CONFIG_DIR": "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces"
+    },
+    "recorded_account": "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces",
+    "command": "claude --model haiku ",
+    "spawn_output": "spawned changed-directory harness=cd kind=secondmate mode=secondmate yolo=off window=primary:fm-changed-directory worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/changed-directory\n"
+  },
+  {
+    "scenario": "quoted-account",
+    "pid": 4024878,
+    "environment": {
+      "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF": "1",
+      "CLAUDE_CODE_DISABLE_AGENT_VIEW": "1",
+      "CLAUDE_CONFIG_DIR": "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces"
+    },
+    "recorded_account": "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces",
+    "command": "claude --model haiku ",
+    "spawn_output": "spawned quoted-account harness=claude kind=secondmate mode=secondmate yolo=off window=primary:fm-quoted-account worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/quoted-account\n"
+  }
+]

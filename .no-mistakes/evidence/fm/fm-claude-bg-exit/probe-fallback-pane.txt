@@ -1,0 +1,44 @@
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:/tmp/fm-lab.zRhSvk/wt$ cd -- '/tmp/fm-lab.zRhSvk/wt'
+tegris@Pulse:/tmp/fm-lab.zRhSvk/wt$ export GOTMPDIR=/tmp/fm-probe-fallback/gotmp
+tegris@Pulse:/tmp/fm-lab.zRhSvk/wt$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:/tmp/fm-lab.zRhSvk/wt$ export FM_TASK_ID=probe-fallback
+tegris@Pulse:/tmp/fm-lab.zRhSvk/wt$ . '/tmp/fm-probe-fallback+d5d8aa1196fae751c6fad34e1ad5c0bbfe3d2dce84412e75b6a2df4d735793c9/launch.s1793294124.1987689.2385.s
+h'
+error: unknown option '--definitely-invalid-option'
+2.1.312 (Claude Code)
+tegris@Pulse:/tmp/fm-lab.zRhSvk/wt$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,44 @@
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ cd -- '~/.no-mistakes/worktree
+s/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ export GOTMPDIR=/tmp/fm-probe-ship-fallba
+ck/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ export FM_TASK_ID=probe-ship-fallback
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ . '/tmp/fm-probe-ship-fallback+b75935be2e
+3435de01b8da1ea4c291abbc0a9d9bebc0817b1d9f53dbb0e6bc49/launch.s1793295980.4054428.12018.sh'
+error: unknown option '--definitely-invalid-option'
+2.1.312 (Claude Code)
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

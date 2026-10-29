@@ -1,0 +1,18 @@
+{
+  "fm-lab-bg-validate": "no running server",
+  "fm-lab-bg-scope": "no running server",
+  "fm-lab-spawn-validate": "no running server",
+  "fm-lab-spawn-matrix": "no running server",
+  "recorded_session_processes_and_shells": "all exited or zombie; no running work",
+  "commands": {
+    "live_guard": 0,
+    "live_guard_with_neighbor": 0,
+    "real_secondmate_process_launches": 0,
+    "ship_scout_secondmate_launch_matrix": 0,
+    "control_regression": 0,
+    "isolated_account_regression": 0,
+    "focused_dispatch_regression": 0,
+    "real_haiku_crew_scout_launches": 0
+  },
+  "fm-lab-haiku-canonical": "no running server"
+}

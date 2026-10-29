@@ -1,0 +1,2 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-claude-bg-exit-live.eFxuBF/control-home
+already-stopped bgtest harness=claude backend=tmux endpoint=primary:fm-bgtest worktree=/tmp/fm-claude-bg-exit-live.eFxuBF/control background-sessions=stopped:e88a40a3

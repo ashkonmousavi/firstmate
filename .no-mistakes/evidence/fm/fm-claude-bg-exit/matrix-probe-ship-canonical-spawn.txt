@@ -1,0 +1,11 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.kJGRc5/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 0s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.kJGRc5/home/data/probe-ship-canonical/launch-brief.md records no ship branch; defaulting to legacy branch fm/probe-ship-canonical
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.kJGRc5/home/data/probe-ship-canonical/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+spawned probe-ship-canonical harness=claude kind=ship mode=no-mistakes yolo=off window=lab:fm-probe-ship-canonical worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.kJGRc5/wt

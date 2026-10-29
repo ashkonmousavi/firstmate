@@ -1,0 +1,23 @@
+{
+  "removed_owned_test_directories": [
+    "/tmp/fm-probe-fallback",
+    "/tmp/fm-probe-fallback+c34af2cc224f511833a5d26249514188846f0c4a134e6f8f51a5f7a38c69c87d",
+    "/tmp/fm-probe-fallback+d5d8aa1196fae751c6fad34e1ad5c0bbfe3d2dce84412e75b6a2df4d735793c9",
+    "/tmp/fm-probe-changed-directory",
+    "/tmp/fm-probe-changed-directory+c34af2cc224f511833a5d26249514188846f0c4a134e6f8f51a5f7a38c69c87d",
+    "/tmp/fm-probe-changed-directory+d5d8aa1196fae751c6fad34e1ad5c0bbfe3d2dce84412e75b6a2df4d735793c9",
+    "/tmp/fm-probe-ship-fallback",
+    "/tmp/fm-probe-ship-fallback+1418600dab847cb24a442aa2a764b8f06dd44b606ac8cee8758b942703b33422",
+    "/tmp/fm-probe-ship-changed-directory",
+    "/tmp/fm-probe-ship-changed-directory+1418600dab847cb24a442aa2a764b8f06dd44b606ac8cee8758b942703b33422",
+    "/tmp/fm-probe-scout-fallback",
+    "/tmp/fm-probe-scout-fallback+1418600dab847cb24a442aa2a764b8f06dd44b606ac8cee8758b942703b33422",
+    "/tmp/fm-probe-scout-changed-directory",
+    "/tmp/fm-probe-scout-changed-directory+1418600dab847cb24a442aa2a764b8f06dd44b606ac8cee8758b942703b33422",
+    "/tmp/fm-probe-secondmate-fallback",
+    "/tmp/fm-probe-secondmate-fallback+1418600dab847cb24a442aa2a764b8f06dd44b606ac8cee8758b942703b33422",
+    "/tmp/fm-probe-secondmate-changed-directory",
+    "/tmp/fm-probe-secondmate-changed-directory+1418600dab847cb24a442aa2a764b8f06dd44b606ac8cee8758b942703b33422"
+  ],
+  "source_changes": false
+}

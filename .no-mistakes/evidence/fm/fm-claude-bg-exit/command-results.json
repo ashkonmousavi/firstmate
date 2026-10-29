@@ -1,0 +1,14 @@
+{
+  "claude_version": "2.1.312",
+  "targeted_commands": {
+    "bash tests/fm-worker-account.test.sh": 0,
+    "bash tests/fm-control.test.sh": 0,
+    "bash tests/fm-spawn-dispatch-profile.test.sh": 0,
+    "bash tests/fm-backend-orca.test.sh": 0,
+    "bash tests/fm-control-relaunch.test.sh": 0,
+    "bash spawn-live.sh (evidence driver)": 0,
+    "bash live-driver.sh (evidence driver)": 1,
+    "bash respawn-confirm.sh (evidence driver, ten-second settle)": 1,
+    "FM_CLAUDE_BG_EXIT_LIVE_E2E=1 bash tests/fm-claude-bg-exit-live-e2e.test.sh": 1
+  }
+}

@@ -1,0 +1,12 @@
+ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) e88a40a3
+session=e88a40a3 original-pid=2209622
+session=e88a40a3 replacement-pid=2229668 carried-shell=2202530
+/tmp/fm-claude-bg-exit-live.eFxuBF/control-home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-claude-bg-exit-live.eFxuBF/control-home
+already-stopped bgtest harness=claude backend=tmux endpoint=primary:fm-bgtest worktree=/tmp/fm-claude-bg-exit-live.eFxuBF/control background-sessions=stopped:e88a40a3
+After 10s deletion settle: exact session ids=
+Carried shell identity after cleanup:
+2202530 2202529 2202530 2202529 S    Thu Oct 29 10:17:10 2026 sleep 600
+Expected original identity: Thu Oct 29 10:17:10 2026
+Neighbor session 9a030454 and shell 2222468 remain alive.
+not ok - background cleanup left the control arm's shell running on Claude Code 2.1.312 (Claude Code)

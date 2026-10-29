@@ -1,0 +1,8 @@
+ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) 42316c4c
+ok - switched: Claude Code 2.1.312 (Claude Code) /exit with background work ends the process and leaves no background session
+session=42316c4c original-pid=2024338
+session=42316c4c replacement-pid=2061290 carried-shell=2013061
+/tmp/fm-claude-bg-exit-live.SMAwh8/control-home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-claude-bg-exit-live.SMAwh8/control-home
+already-stopped bgtest harness=claude backend=tmux endpoint=primary:fm-bgtest worktree=/tmp/fm-claude-bg-exit-live.SMAwh8/control background-sessions=stopped:42316c4c
+not ok - background cleanup left the control arm's shell running on Claude Code 2.1.312 (Claude Code)

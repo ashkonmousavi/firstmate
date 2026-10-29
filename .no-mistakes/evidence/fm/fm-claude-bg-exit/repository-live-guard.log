@@ -1,0 +1,3 @@
+ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) 25675bd1
+ok - switched: Claude Code 2.1.312 (Claude Code) /exit with background work ends the process and leaves no background session
+not ok - background cleanup left the control arm's shell running on Claude Code 2.1.312 (Claude Code)

@@ -1,0 +1,27 @@
+canonical 0 spawned canonical harness=claude kind=secondmate mode=secondmate yolo=off window=primary:fm-canonical worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/canonical
+ fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/parent
+
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-live.py", line 55, in <module>
+    if raw is None: assert '--advisor opus' in cmd,cmd
+                           ^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: claude --dangerously-skip-permissions --add-dir ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/parent/state/canonical.inbox --settings ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/parent/state/canonical.claude-settings.json --model haiku : Firstmate operational input waiting: read '~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/canonical/state/operational-inbox/1793295847-9cfdaf468206cf4b.msg' and handle its contents as Firstmate operational input. 
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-live.py", line 64, in <module>
+    shutil.rmtree(lab)
+  File "/usr/lib/python3.12/shutil.py", line 785, in rmtree
+    _rmtree_safe_fd(fd, path, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 686, in _rmtree_safe_fd
+    _rmtree_safe_fd(dirfd, fullname, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 686, in _rmtree_safe_fd
+    _rmtree_safe_fd(dirfd, fullname, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 686, in _rmtree_safe_fd
+    _rmtree_safe_fd(dirfd, fullname, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 717, in _rmtree_safe_fd
+    onexc(os.unlink, fullname, err)
+  File "/usr/lib/python3.12/shutil.py", line 715, in _rmtree_safe_fd
+    os.unlink(entry.name, dir_fd=topfd)
+PermissionError: [Errno 13] Permission denied: 'pre-auto-gc'

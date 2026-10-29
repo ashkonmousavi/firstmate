@@ -1,0 +1,12 @@
+control session ids=e0a8756d
+    PID    PPID STAT                  STARTED COMMAND
+3799252 3799248 S    Thu Oct 29 10:42:22 2026 sleep 600
+ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) e0a8756d
+ok - switched: Claude Code 2.1.312 (Claude Code) /exit with background work ends the process and leaves no background session
+    PID    PPID STAT                  STARTED COMMAND
+3799252 3799248 S    Thu Oct 29 10:42:22 2026 sleep 600
+respawn old=3803235 new=3803233 state=stopped
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-claude-bg-exit-live.8Z7WPg/control-home
+already-stopped bgtest harness=claude backend=tmux endpoint=fm-claude-bg-exit-e2e:fm-bgtest worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-claude-bg-exit-live.8Z7WPg/control background-sessions=stopped:e0a8756d
+    PID    PPID STAT                  STARTED COMMAND
+ok - backstop: exact-session removal ends the respawned session and its earlier carried shell

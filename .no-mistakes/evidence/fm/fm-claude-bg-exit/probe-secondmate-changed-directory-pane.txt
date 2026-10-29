@@ -1,0 +1,44 @@
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:/tmp/fm-lab.2GDLh8/mate-probe-secondmate-changed-directory$ export GOTMPDIR=/tmp/fm-probe-secondmate-changed-directory/gotmp
+tegris@Pulse:/tmp/fm-lab.2GDLh8/mate-probe-secondmate-changed-directory$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:/tmp/fm-lab.2GDLh8/mate-probe-secondmate-changed-directory$ . '/tmp/fm-probe-secondmate-changed-directory+1418600dab847cb24a442aa2a764b8f06dd44b606
+ac8cee8758b942703b33422/launch.s1793294199.2138658.7813.sh'
+2.1.312 (Claude Code)
+tegris@Pulse:/tmp/fm-lab.2GDLh8/mate-probe-secondmate-changed-directory$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,6 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/home
+WARNING: watcher still down (same stale episode; last beat: 13s ago, grace 300s) - full banner already printed this episode.
+warning: secondmate probe-secondmate-fallback sync skipped before launch: primary default-branch commit cannot be resolved
+fm-config-inherit: warning: skipped backend for ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/mate-probe-secondmate-fallback/config: destination does not allow inherited item (not gitignored or guard failed)
+fm-config-inherit: warning: skipped launch-env-allowlist for ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/mate-probe-secondmate-fallback/config: destination does not allow inherited item (not gitignored or guard failed)
+spawned probe-secondmate-fallback harness=claude kind=secondmate mode=secondmate yolo=off window=lab:fm-probe-secondmate-fallback worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/mate-probe-secondmate-fallback

@@ -1,0 +1,123 @@
+<!doctype html><meta charset="utf-8"><title>Claude background-exit live evidence</title><style>body{background:#151719;color:#ececec;font:16px system-ui;margin:32px}h1{font-size:26px}h2{font-size:20px}section{margin:32px 0}pre{background:#202326;padding:20px;overflow:auto;font:13px/1.5 monospace;border-radius:8px}</style><h1>Claude 2.1.312: live terminal evidence</h1><p>Actual tmux captures and process observations from this validation run. No terminal image reconstruction.</p><section><h2>Unprotected exit offers background handoff</h2><pre> ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-claude-bg-exit-live.4f0ljv/control
+
+⚠ 1 MCP server needs authentication · run /mcp
+
+❯ Use the Bash tool with run_in_background set to true to run: sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lstart= &gt; bg.started; exec sleep 600&#x27;   Then reply
+  with the single word done.
+
+● Bash(sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lstart= &gt; bg.started; exec sleep 600&#x27;)
+  ⎿  Running in the background (↓ to manage)
+
+● done
+
+✻ Cogitated for 3s · done 10:45 AM · 1 shell still running
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Background work is running
+  The following will stop when you exit:
+
+  shell · sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lst…
+
+  ❯ 1. Exit and stop tasks
+    2. Move to background and exit
+    3. Stay
+
+  Enter to confirm · Esc to cancel
+</pre></section><section><h2>Protected exit offers stop or stay</h2><pre> ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-claude-bg-exit-live.4f0ljv/switched
+
+⚠ 1 MCP server needs authentication · run /mcp
+
+❯ Use the Bash tool with run_in_background set to true to run: sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lstart= &gt; bg.started; exec sleep 600&#x27;   Then reply
+  with the single word done.
+
+● Bash(sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lstart= &gt; bg.started; exec sleep 600&#x27;)
+  ⎿  Running in the background (↓ to manage)
+
+● done
+
+✻ Churned for 3s · done 10:45 AM · 1 shell still running
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Background work is running
+  The following will stop when you exit:
+
+  shell · sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lst…
+
+  ❯ 1. Exit and stop tasks
+    2. Stay
+
+  Enter to confirm · Esc to cancel
+</pre></section><section><h2>Restarted-session cleanup retains unrelated work</h2><pre>control session ids=fada15cb
+    PID    PPID STAT                  STARTED COMMAND
+3986186 3986182 S    Thu Oct 29 10:45:10 2026 sleep 600
+ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) fada15cb
+neighbor session ids=0aa99bd1
+ok - switched: Claude Code 2.1.312 (Claude Code) /exit with background work ends the process and leaves no background session
+    PID    PPID STAT                  STARTED COMMAND
+3986186 3986182 S    Thu Oct 29 10:45:10 2026 sleep 600
+respawn old=3989094 new=3995091 state=stopped
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-claude-bg-exit-live.4f0ljv/control-home
+already-stopped bgtest harness=claude backend=tmux endpoint=fm-claude-bg-exit-e2e:fm-bgtest worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-claude-bg-exit-live.4f0ljv/control background-sessions=stopped:fada15cb
+    PID    PPID STAT                  STARTED COMMAND
+    PID    PPID STAT                  STARTED COMMAND
+3993925 3993924 S    Thu Oct 29 10:45:22 2026 sleep 600
+exact-scope cleanup retained neighbor session=0aa99bd1 and its carried shell
+ok - backstop: exact-session removal ends the respawned session and its earlier carried shell
+</pre></section><section><h2>Real Claude processes inherit the launch contract</h2><pre>[
+  {
+    &quot;scenario&quot;: &quot;canonical&quot;,
+    &quot;pid&quot;: 4003524,
+    &quot;environment&quot;: {
+      &quot;CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF&quot;: &quot;1&quot;,
+      &quot;CLAUDE_CODE_DISABLE_AGENT_VIEW&quot;: &quot;1&quot;,
+      &quot;CLAUDE_CONFIG_DIR&quot;: &quot;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces&quot;
+    },
+    &quot;recorded_account&quot;: &quot;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces&quot;,
+    &quot;command&quot;: &quot;claude --dangerously-skip-permissions --add-dir ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/parent/state/canonical.inbox --settings ~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/parent/state/canonical.claude-settings.json --model haiku : Firstmate operational input waiting: read &#x27;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/canonical/state/operational-inbox/1793295930-f009cf652c0c133b.msg&#x27; and handle its contents as Firstmate operational input. &quot;,
+    &quot;spawn_output&quot;: &quot;spawned canonical harness=claude kind=secondmate mode=secondmate yolo=off window=primary:fm-canonical worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/canonical\n&quot;
+  },
+  {
+    &quot;scenario&quot;: &quot;fallback&quot;,
+    &quot;pid&quot;: 4008958,
+    &quot;environment&quot;: {
+      &quot;CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF&quot;: &quot;1&quot;,
+      &quot;CLAUDE_CODE_DISABLE_AGENT_VIEW&quot;: &quot;1&quot;,
+      &quot;CLAUDE_CONFIG_DIR&quot;: &quot;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces&quot;
+    },
+    &quot;recorded_account&quot;: &quot;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces&quot;,
+    &quot;command&quot;: &quot;claude --model haiku &quot;,
+    &quot;spawn_output&quot;: &quot;spawned fallback harness=claude kind=secondmate mode=secondmate yolo=off window=primary:fm-fallback worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/fallback\n&quot;
+  },
+  {
+    &quot;scenario&quot;: &quot;changed-directory&quot;,
+    &quot;pid&quot;: 4016283,
+    &quot;environment&quot;: {
+      &quot;CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF&quot;: &quot;1&quot;,
+      &quot;CLAUDE_CODE_DISABLE_AGENT_VIEW&quot;: &quot;1&quot;,
+      &quot;CLAUDE_CONFIG_DIR&quot;: &quot;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces&quot;
+    },
+    &quot;recorded_account&quot;: &quot;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces&quot;,
+    &quot;command&quot;: &quot;claude --model haiku &quot;,
+    &quot;spawn_output&quot;: &quot;spawned changed-directory harness=cd kind=secondmate mode=secondmate yolo=off window=primary:fm-changed-directory worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/changed-directory\n&quot;
+  },
+  {
+    &quot;scenario&quot;: &quot;quoted-account&quot;,
+    &quot;pid&quot;: 4024878,
+    &quot;environment&quot;: {
+      &quot;CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF&quot;: &quot;1&quot;,
+      &quot;CLAUDE_CODE_DISABLE_AGENT_VIEW&quot;: &quot;1&quot;,
+      &quot;CLAUDE_CONFIG_DIR&quot;: &quot;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces&quot;
+    },
+    &quot;recorded_account&quot;: &quot;~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/account with spaces&quot;,
+    &quot;command&quot;: &quot;claude --model haiku &quot;,
+    &quot;spawn_output&quot;: &quot;spawned quoted-account harness=claude kind=secondmate mode=secondmate yolo=off window=primary:fm-quoted-account worktree=~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/spawn-lab/quoted-account\n&quot;
+  }
+]</pre></section>

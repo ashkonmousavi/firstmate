@@ -1,0 +1,44 @@
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:/tmp/fm-lab.2GDLh8/mate-probe-secondmate-fallback$ export GOTMPDIR=/tmp/fm-probe-secondmate-fallback/gotmp
+tegris@Pulse:/tmp/fm-lab.2GDLh8/mate-probe-secondmate-fallback$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:/tmp/fm-lab.2GDLh8/mate-probe-secondmate-fallback$ . '/tmp/fm-probe-secondmate-fallback+1418600dab847cb24a442aa2a764b8f06dd44b606ac8cee8758b942703b
+33422/launch.s1793294196.2132071.19546.sh'
+error: unknown option '--definitely-invalid-option'
+2.1.312 (Claude Code)
+tegris@Pulse:/tmp/fm-lab.2GDLh8/mate-probe-secondmate-fallback$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

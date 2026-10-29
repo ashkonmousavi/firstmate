@@ -1,0 +1,77 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Claude background exit: live terminal captures</title><style>body{background:#101318;color:#e3e9ef;font:15px system-ui;margin:32px}h1{font-size:24px}h2{font-size:18px}section{margin:32px 0}pre{background:#1c222b;padding:20px;border:1px solid #465362;overflow-x:auto;font:13px/1.5 monospace;white-space:pre}</style><h1>Claude Code 2.1.312 — live terminal captures</h1><p>Captured from real 160 × 44 tmux sessions. The final section records the unchanged repository guard failing the same process-lifetime assertion.</p><section><h2>Control: background handoff offered</h2><pre> ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   /tmp/fm-claude-bg-exit-live.eFxuBF/control
+
+
+❯ Use the Bash tool with run_in_background set to true to run: sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lstart= &gt; bg.started; exec sleep 600&#x27;   Then reply
+  with the single word done.
+
+● Bash(sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lstart= &gt; bg.started; exec sleep 600&#x27;)
+  ⎿  Running in the background (↓ to manage)
+
+● done
+
+✻ Worked for 5s · done 10:17 AM · 1 shell still running
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Background work is running
+  The following will stop when you exit:
+
+  shell · sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lst…
+
+  ❯ 1. Exit and stop tasks
+    2. Move to background and exit
+    3. Stay
+
+  Enter to confirm · Esc to cancel
+</pre></section><section><h2>Protected: handoff absent and exit succeeds</h2><pre> ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   /tmp/fm-claude-bg-exit-live.SMAwh8/switched
+
+⚠ 1 MCP server needs authentication · run /mcp
+
+❯ Use the Bash tool with run_in_background set to true to run: sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lstart= &gt; bg.started; exec sleep 600&#x27;   Then reply
+  with the single word done.
+
+● Bash(sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lstart= &gt; bg.started; exec sleep 600&#x27;)
+  ⎿  Running in the background (↓ to manage)
+
+● done
+
+✻ Worked for 3s · done 10:15 AM · 1 shell still running
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Background work is running
+  The following will stop when you exit:
+
+  shell · sh -c &#x27;echo $$ &gt; bg.pid; LC_ALL=C ps -p $$ -o lst…
+
+  ❯ 1. Exit and stop tasks
+    2. Stay
+
+  Enter to confirm · Esc to cancel
+
+Resume this session with:
+claude --resume 0ff1d05b-a4bb-48bc-9b6e-c00d2e8596de
+
+CLAUDE_EXIT=0
+</pre></section><section><h2>Cleanup failure after restart and ten-second wait</h2><pre>ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) e88a40a3
+session=e88a40a3 original-pid=2209622
+session=e88a40a3 replacement-pid=2229668 carried-shell=2202530
+/tmp/fm-claude-bg-exit-live.eFxuBF/control-home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-claude-bg-exit-live.eFxuBF/control-home
+already-stopped bgtest harness=claude backend=tmux endpoint=primary:fm-bgtest worktree=/tmp/fm-claude-bg-exit-live.eFxuBF/control background-sessions=stopped:e88a40a3
+After 10s deletion settle: exact session ids=
+Carried shell identity after cleanup:
+2202530 2202529 2202530 2202529 S    Thu Oct 29 10:17:10 2026 sleep 600
+Expected original identity: Thu Oct 29 10:17:10 2026
+Neighbor session 9a030454 and shell 2222468 remain alive.
+not ok - background cleanup left the control arm&#x27;s shell running on Claude Code 2.1.312 (Claude Code)
+</pre></section><section><h2>Unmodified repository live guard</h2><pre>ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) 25675bd1
+ok - switched: Claude Code 2.1.312 (Claude Code) /exit with background work ends the process and leaves no background session
+not ok - background cleanup left the control arm&#x27;s shell running on Claude Code 2.1.312 (Claude Code)
+</pre></section></html>

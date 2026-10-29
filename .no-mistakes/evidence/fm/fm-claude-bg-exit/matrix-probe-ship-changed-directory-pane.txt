@@ -1,0 +1,44 @@
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ cd -- '~/.no-mistakes/worktree
+s/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ export GOTMPDIR=/tmp/fm-probe-ship-change
+d-directory/gotmp
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ export FM_TASK_ID=probe-ship-changed-dire
+ctory
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$ . '/tmp/fm-probe-ship-changed-directory+b
+75935be2e3435de01b8da1ea4c291abbc0a9d9bebc0817b1d9f53dbb0e6bc49/launch.s1793295982.4058798.26377.sh'
+2.1.312 (Claude Code)
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M644V5T0RZ7AA08H11AYG9KM/.validation/fm-lab.IFtvcO/wt$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,24 @@
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   /tmp/fm-claude-bg-exit-live.eFxuBF/neighbor
+
+
+❯ Use the Bash tool with run_in_background set to true to run: sh -c 'echo $$ > bg.pid; LC_ALL=C ps -p $$ -o lstart= > bg.started; exec sleep 600'   Then reply
+  with the single word done.
+
+● Bash(sh -c 'echo $$ > bg.pid; LC_ALL=C ps -p $$ -o lstart= > bg.started; exec sleep 600')
+  ⎿  Running in the background (↓ to manage)
+
+● done
+
+✻ Sautéed for 4s · done 10:17 AM · 1 shell still running
+
+❯ /exit
+Moving to background…
+backgrounded · 9a030454
+  claude agents             list sessions
+  claude attach 9a030454    open in this terminal
+  claude logs 9a030454      show recent output
+  claude stop 9a030454      stop this session
+
+CLAUDE_EXIT=0
