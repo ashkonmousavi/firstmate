@@ -64,6 +64,10 @@ mkdir -p "$SHIM_DIR"
 REAL_TMUX=$(command -v tmux)
 cat > "$SHIM_DIR/tmux" <<SH
 #!/usr/bin/env bash
+if [ "\${1:-}" = send-keys ] && [ -n "\${FM_CURSOR_LIVE_SEND_LOG:-}" ]; then
+  printf '%q ' "\$@" >> "\$FM_CURSOR_LIVE_SEND_LOG"
+  printf '\\n' >> "\$FM_CURSOR_LIVE_SEND_LOG"
+fi
 exec "$REAL_TMUX" -L "$SOCKET" "\$@"
 SH
 chmod +x "$SHIM_DIR/tmux"
@@ -72,6 +76,8 @@ PATH="$SHIM_DIR:$PATH"
 . "$ROOT/bin/fm-tmux-lib.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-task-inbox-lib.sh"
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-cursor-lib.sh"
 
 tmux -L "$SOCKET" new-session -d -s "$SESSION" -x 220 -y 50 -c "$ROOT"
 
@@ -90,6 +96,7 @@ launch_cmd() {  # <name>
     pi|pi-signed) printf '%s' "$1" ;;
     grok) printf '%s' 'grok --always-approve' ;;
     kimi) printf '%s' 'kimi --auto' ;;
+    rovo) printf '%s' 'rovo run --yolo' ;;
     muse) printf '%s' 'MUSE_EXPERIMENTAL_FOREIGN_PERSONAL_CONTEXT_KILL=on muse --yolo' ;;
     *) return 1 ;;
   esac
@@ -125,15 +132,157 @@ wait_ready() {  # <window>
   return 2
 }
 
+check_busy_doorbell() {
+  local win=$1 home=$2 task=$3 version=$4 name=$5 started release finished acted handled i command
+  started="$LAB/$name-tool-started"
+  release="$LAB/$name-tool-release"
+  finished="$LAB/$name-tool-finished"
+  acted="$LAB/acted-busy-$name"
+  handled="$home/state/$task.inbox/handled/003.msg"
+  command="touch $(printf '%q' "$started"); while [ ! -e $(printf '%q' "$release") ] && [ \"\$SECONDS\" -lt $TIMEOUT ]; do sleep 1; done; test -e $(printf '%q' "$release") && touch $(printf '%q' "$finished")"
+  if ! FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" --one-way \
+    "First move this record into handled/. Then run the following exact shell command in a foreground shell tool call with a timeout of at least $TIMEOUT seconds, without backgrounding it, and wait for it to return before finishing your response:
+$command" \
+    > "$LAB/$name-busy-start.log" 2>&1; then
+    printf 'not ok - %s (%s): could not send the blocking-tool instruction\n' "$name" "$version" >&2
+    return 1
+  fi
+  i=0
+  while [ "$i" -lt "$TIMEOUT" ]; do
+    if [ -e "$started" ] && [ ! -e "$finished" ] && fm_pane_is_busy "$SESSION:$win" "$name"; then
+      break
+    fi
+    sleep 1
+    i=$((i + 1))
+  done
+  if [ "$i" -eq "$TIMEOUT" ]; then
+    printf 'not ok - %s (%s): never observed the real foreground tool running beside a busy pane\n' "$name" "$version" >&2
+    return 1
+  fi
+  if ! FM_HOME="$home" FM_ROOT_OVERRIDE="$home" "$ROOT/bin/fm-send.sh" "$task" --one-way \
+    "After running the following exact shell command, move this record into handled/:
+touch $(printf '%q' "$acted")" \
+    > "$LAB/$name-busy-send.log" 2>&1; then
+    printf 'not ok - %s (%s): fm-send refused the busy steer\n' "$name" "$version" >&2
+    return 1
+  fi
+  if [ -e "$finished" ]; then
+    printf 'not ok - %s (%s): the blocking tool finished before the busy steer was submitted\n' "$name" "$version" >&2
+    return 1
+  fi
+  : > "$release"
+  i=0
+  while [ "$i" -lt "$TIMEOUT" ]; do
+    [ -e "$finished" ] && [ -e "$acted" ] && [ -f "$handled" ] && break
+    sleep 1
+    i=$((i + 1))
+  done
+  if [ ! -e "$finished" ] || [ ! -e "$acted" ] || [ ! -f "$handled" ]; then
+    printf 'not ok - %s (%s): busy doorbell not acted on and acknowledged without an idle re-ring\n' "$name" "$version" >&2
+    return 1
+  fi
+  pass "$name ($version): a doorbell submitted during a real foreground tool was acted on and acked without an idle re-ring"
+}
+
+check_exhausted_cursor_doorbell() {
+  local binary=$1 mode=$2 version home win="fm-live-cursor-$2" task="live-cursor-$2" rec i rc cmd out composer input line
+  local probe='Reply OK only. Do not run tools.'
+  version=$(harness_version "$binary")
+  home="$LAB/cursor-$mode-home"
+  mkdir -p "$home/state" "$home/workspace"
+  cmd="$(printf '%q' "$binary") --disable-auto-update --trust --yolo --workspace $(printf '%q' "$home/workspace")"
+  if [ -n "${FM_SEND_INBOX_LIVE_CURSOR_MODEL:-}" ]; then
+    cmd="$cmd --model $(printf '%q' "$FM_SEND_INBOX_LIVE_CURSOR_MODEL")"
+  fi
+  tmux new-window -d -t "$SESSION:" -n "$win" -c "$home/workspace" \
+    env FM_HOME="$home" FM_ROOT_OVERRIDE="$home" bash --noprofile --norc \
+    || fail "cursor ($version): launch failed"
+  tmux resize-window -t "$SESSION:$win" -x 220 -y 50 \
+    || fail "cursor ($version): could not set the initial viewport"
+  tmux send-keys -t "$SESSION:$win" -l "$cmd $(printf '%q' "$probe")"
+  tmux send-keys -t "$SESSION:$win" Enter
+  i=0
+  while [ "$i" -lt "$TIMEOUT" ]; do
+    fm_task_inbox_usage_exhausted tmux "$SESSION:$win" cursor-agent && break
+    sleep 1
+    i=$((i + 1))
+  done
+  if [ "$i" -eq "$TIMEOUT" ]; then
+    tmux capture-pane -p -t "$SESSION:$win" 2>/dev/null | tail -20 >&2
+    fail "cursor ($version): no real exhaustion banner appeared; an exhausted account/model is required"
+  fi
+  [ "$(fm_backend_agent_state tmux "$SESSION:$win")" = alive ] \
+    || fail "cursor ($version): the exhausted agent is not positively alive"
+  printf 'window=%s:%s\nkind=ship\nharness=cursor-agent\nbackend=tmux\nendpoint_task_id=%s\nworktree=%s\nproject=%s\n' \
+    "$SESSION" "$win" "$task" "$home/workspace" "$ROOT" > "$home/state/$task.meta"
+  composer=$(fm_tmux_composer_state "$SESSION:$win")
+  note "cursor ($version): exhausted composer initially $composer"
+  if [ "$composer" = pending ]; then
+    tmux send-keys -t "$SESSION:$win" End
+    tmux send-keys -t "$SESSION:$win" -N "${#probe}" BSpace
+    sleep 0.3
+    composer=$(fm_tmux_composer_state "$SESSION:$win")
+  fi
+  [ "$composer" = empty ] || fail "cursor ($version): test-owned launch probe left composer $composer"
+  rec=$(fm_task_inbox_write "$home/state" "$task" "please continue") \
+    || fail "cursor ($version): could not seed the inbox"
+  case "$mode" in
+    unknown)
+      tmux resize-window -t "$SESSION:$win" -y 8 \
+        || fail "cursor ($version): could not reduce the viewport"
+      sleep 0.3
+      composer=$(fm_tmux_composer_state "$SESSION:$win")
+      if [ "$composer" != unknown ]; then
+        tmux capture-pane -p -t "$SESSION:$win" 2>/dev/null | tail -20 >&2
+        fail "cursor ($version): reduced viewport reads $composer, so unknown-composer recovery is unverified"
+      fi
+      ;;
+    residue)
+      line=$(fm_task_inbox_doorbell_line "$rec")
+      tmux send-keys -t "$SESSION:$win" -l "$line$line"
+      sleep 0.3
+      fm_task_inbox_composer_doorbells tmux "$SESSION:$win" "$home/state" "$task" \
+        || fail "cursor ($version): real composer did not retain recognizable concatenated doorbells"
+      composer=$(fm_tmux_composer_state "$SESSION:$win")
+      ;;
+    *) fail "invalid Cursor live scenario: $mode" ;;
+  esac
+  fm_task_inbox_usage_exhausted tmux "$SESSION:$win" cursor-agent \
+    || fail "cursor ($version): exhaustion banner disappeared before the ring check"
+  export FM_CURSOR_LIVE_SEND_LOG="$LAB/cursor-input.log"
+  : > "$FM_CURSOR_LIVE_SEND_LOG"
+  rc=0
+  fm_task_inbox_ring tmux "$SESSION:$win" "$rec" '' cursor-agent || rc=$?
+  [ "$rc" = 4 ] || fail "cursor ($version): exhausted ring returned $rc instead of 4"
+  [ ! -s "$FM_CURSOR_LIVE_SEND_LOG" ] || fail "cursor ($version): the exhausted pane received ring input"
+  out=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$home" FM_SUPERVISION_ACTOR=main \
+    "$ROOT/bin/fm-send.sh" "$task" --one-way "status only" 2>&1) \
+    || fail "cursor ($version): fm-send failed: $out"
+  [ "$(fm_backend_agent_state tmux "$SESSION:$win")" = dead ] \
+    || fail "cursor ($version): fm-control did not stop the exhausted agent: $out"
+  [ -f "$home/state/$task.inbox/002.msg" ] || fail "cursor ($version): shutdown lost the durable steer"
+  while IFS= read -r input; do
+    case "$input" in
+      "send-keys -t $SESSION:$win Escape ") ;;
+      *) fail "cursor ($version): shutdown sent unexpected terminal input: $input" ;;
+    esac
+  done < "$FM_CURSOR_LIVE_SEND_LOG"
+  [ -s "$FM_CURSOR_LIVE_SEND_LOG" ] || fail "cursor ($version): shutdown produced no control input"
+  unset FM_CURSOR_LIVE_SEND_LOG
+  pass "cursor ($version): $mode exhaustion suppresses ringing and fm-control stops the agent without typing (composer=$composer)"
+  tmux kill-window -t "$SESSION:$win" 2>/dev/null || true
+}
+
 check_harness_doorbell() {  # <name>
-  local name=$1 version cmd win="hx-$1" home task acted rec handled i ready_rc
+  local name=$1 version cmd win="hx-$1" home task acted rec handled i ready_rc launch_cwd=$ROOT
   version=$(harness_version "$name")
   cmd=$(launch_cmd "$name") || { note "no launch recipe for $name"; return 0; }
   home="$LAB/$name-home"
   mkdir -p "$home/state"
   task="live-$name"
   acted="$LAB/acted-$name"
-  tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$ROOT" \
+  [ "$name" != rovo ] || launch_cwd=$LAB
+  tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$launch_cwd" \
     -- bash -lc "export FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" \
     || { FAILED=1; printf 'not ok - %s (%s): could not launch in the isolated tmux server\n' "$name" "$version" >&2; return 0; }
   wait_ready "$win"; ready_rc=$?
@@ -178,6 +327,9 @@ check_harness_doorbell() {  # <name>
   if [ -f "$handled" ] && [ -e "$acted" ]; then
     CHECKED=$((CHECKED + 1))
     pass "$name ($version): the doorbell reached a real worker, which acted and acked with the mv"
+    case "$name" in
+      claude|opencode) check_busy_doorbell "$win" "$home" "$task" "$version" "$name" || FAILED=1 ;;
+    esac
   else
     FAILED=1
     printf 'not ok - %s (%s): doorbell not honored within %ss (acted=%s acked=%s)\n' \
@@ -188,8 +340,24 @@ check_harness_doorbell() {  # <name>
   tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
 }
 
-HARNESSES=${FM_SEND_INBOX_LIVE_HARNESSES:-'claude codex opencode pi grok kimi muse'}
+HARNESSES=${FM_SEND_INBOX_LIVE_HARNESSES:-'claude codex opencode pi grok kimi cursor muse rovo'}
 for h in $HARNESSES; do
+  if [ "$h" = cursor ]; then
+    cursor_binary=$(command -v cursor-agent || command -v agent || true)
+    if [ -n "$cursor_binary" ] && fm_cursor_verify_executable "$cursor_binary"; then
+      cursor_ok=1
+      for cursor_mode in unknown residue; do
+        if ! (trap - EXIT; check_exhausted_cursor_doorbell "$cursor_binary" "$cursor_mode"); then
+          cursor_ok=0
+          FAILED=1
+        fi
+      done
+      [ "$cursor_ok" != 1 ] || CHECKED=$((CHECKED + 1))
+    else
+      note "harness absent, not verified here: cursor"
+    fi
+    continue
+  fi
   if command -v "$h" >/dev/null 2>&1; then
     check_harness_doorbell "$h"
   else

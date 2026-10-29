@@ -198,6 +198,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
+# shellcheck source=bin/fm-task-inbox-lib.sh
+. "$SCRIPT_DIR/fm-task-inbox-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
@@ -778,18 +780,25 @@ do_exit() {
     dialog=$(cat "$FM_COMPOSER_DIALOG_SINK")
     refuse_blocking_prompt "$dialog"
   fi
+  # A visible quota report permits a non-typing stop for an unknown composer,
+  # or for content proven to contain only repetitions of this task's doorbell.
+  # Unrelated and foreign-task pending drafts retain the ordinary refusal.
+  if quota_exhausted_shown && {
+    [ "$composer_state" = unknown ] ||
+      fm_task_inbox_composer_doorbells "$BACKEND" "$T" "$STATE" "$ID"
+  }; then
+    stop_quota_exhausted
+    retire_busy_incarnation
+    printf 'stopped'
+    return 0
+  fi
   case "$composer_state" in
     empty) ;;
     pending)
       die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
       ;;
     *)
-      { [ "$composer_state" = unknown ] && quota_exhausted_shown; } \
-        || die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
-      stop_quota_exhausted
-      retire_busy_incarnation
-      printf 'stopped'
-      return 0
+      die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       ;;
   esac
   # The submit verdict is NOT the postcondition here: a successful exit command

@@ -194,21 +194,48 @@ fm_control_interrupt_hazard_signal() {  # <harness>
 }
 
 # The rendered row, as one ERE, by which a harness reports that its usage or
-# quota is exhausted. While that report is visible the runtime is out of
-# credits and is being replaced anyway, and its composer cannot be proven
-# empty: an open usage picker replaces it, and a dismissed one leaves it
-# reading unknown. Grok's weekly-limit notice
+# quota is exhausted. The exit safety contract is owned by bin/fm-control.sh
+# do_exit; the report alone does not authorize discarding a pending draft.
+# Grok's weekly-limit notice
 # (tests/captures/grok-weekly-limit-picker.txt) heads its picker, so it is
 # recognised while the picker is open and, while the notice is still visible,
-# after the picker is dismissed. The notice must open its row,
+# after the picker is dismissed. Cursor's report is the row the fleet read
+# on an exhausted pane, "You're out of usage", plus the documented
+# "You've hit your <word> limit". The notice must open its row,
 # after nothing but decoration, so prose that merely quotes the limit does not
 # qualify. Prints nothing for a harness with no recorded quota report.
+# The doorbell path reads this same pattern and does not type while it matches
+# (bin/fm-task-inbox-lib.sh). No vendor CLI is consulted.
 fm_control_quota_exhausted_signal() {  # <harness>
-  case "${1-}" in
+  local harness
+  harness=$(fm_control_harness_family "${1-}") || return 1
+  case "$harness" in
     grok) printf '%s' '^[^[:alnum:]]*You hit your [[:alpha:]]+ limit' ;;
-    claude|codex|opencode|pi|pi-signed|omp|kimi|cursor|gemini|muse|rovo|agy|devin) ;;
+    cursor)
+      # $'\u2019' is the right single quotation mark some banners use for You're.
+      local apos=$'\u2019'
+      printf '%s' "^[^[:alnum:]]*(You['${apos}]re out of usage|You['${apos}]ve hit your [[:alpha:]]+ limit)"
+      ;;
+    claude|codex|opencode|pi|pi-signed|omp|kimi|gemini|muse|rovo|agy|devin) ;;
     *) return 1 ;;
   esac
+}
+
+# 0 when <harness> accepts a user message submitted while a turn is running
+# and keeps it for delivery. Claude Code queues that submit and delivers it
+# within the turn, once the in-flight tool calls finish, or at the end of the
+# turn (https://code.claude.com/docs/en/interactive-mode, "Queue messages
+# while Claude works"). OpenCode's Busy-queued Enter is the same class.
+# Pi queued continuations and Codex queued notifications are not a user
+# submit queue. The doorbell path (bin/fm-task-inbox-lib.sh) submits while
+# busy only for the harnesses this function accepts.
+fm_control_submit_queue() {  # <harness>
+  local harness
+  harness=$(fm_control_harness_family "${1-}") || return 1
+  case "$harness" in
+    claude|opencode) return 0 ;;
+  esac
+  return 1
 }
 
 # The key that must follow the interrupt key to leave the composer empty, or

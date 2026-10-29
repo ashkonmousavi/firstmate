@@ -18,7 +18,9 @@
 #      picker open or dismissed, lets relaunch stop the agent without typing
 #      (interrupt key, then SIGTERM) and switch runtime; pending and
 #      pending-unproven text and an unknown composer with no notice still
-#      refuse.
+#      refuse. Cursor's usage-exhausted row, beside an unknown composer, lets
+#      exit stop the agent the same way; a quoted mention and pending text
+#      still refuse.
 #   6. Marker non-regression: a control command to a kind=secondmate task
 #      carries NO from-firstmate marker and opens no pending-reply expectation,
 #      while fm-send's marking of the same task is untouched.
@@ -30,6 +32,8 @@ set -u
 . "$ROOT/bin/fm-control-lib.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-marker-lib.sh"
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-timeout-lib.sh"
 
 CONTROL="$ROOT/bin/fm-control.sh"
 SEND="$ROOT/bin/fm-send.sh"
@@ -1301,6 +1305,199 @@ test_grok_usage_picker_refuses_when_agent_cannot_be_stopped() {
   pass "fm-control relaunch: a grok usage picker agent with nothing to signal refuses and keeps the prior record"
 }
 
+# start_cursor_process <case-dir>: a real process standing in for cursor-agent.
+# The fake ps reports it while the pane command is cursor-agent, and SIGTERM
+# is what moves the pane to a shell. Escape alone must not stop it.
+start_cursor_process() {
+  local dir=$1 real_ps
+  real_ps=$(command -v ps)
+  bash -c 'trap '"'"'printf zsh > "$1/command"; : > "$1/terminated"; exit 0'"'"' TERM
+    while :; do /bin/sleep 0.05; done' _ "$dir/fake" &
+  printf '%s' "$!" > "$dir/fake/agent-pid"
+  cat > "$dir/fakebin/ps" <<SH
+#!/usr/bin/env bash
+D=\$FM_FAKE_DIR
+pid=\$(cat "\$D/agent-pid")
+if [ "\$(cat "\$D/command")" = cursor-agent ]; then
+  case " \$* " in
+    *" -t "*) printf '%s %s %s cursor-agent\\n' "\$pid" "\$pid" "\$pid"; exit 0 ;;
+    *" -p \$pid "*) printf 'cursor-agent\\n'; exit 0 ;;
+  esac
+fi
+case " \$* " in *" -t "*) exit 0 ;; esac
+exec "$real_ps" "\$@"
+SH
+  chmod +x "$dir/fakebin/ps"
+}
+
+# run_cursor_exit <case-dir> <args...>: exit with enough time for SIGTERM.
+run_cursor_exit() {
+  local dir=$1; shift
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+    FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
+    FM_CONTROL_EXIT_WAIT=1 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    "$CONTROL" "$@" 2>&1
+}
+
+cursor_exhausted_case() {  # <name> <screen> [harness] -> echoes the case dir
+  local dir
+  dir=$(new_case "$1")
+  add_task "$dir" t1 "${3:-cursor}"
+  alive_as "$dir" cursor-agent
+  printf '%s\n' "$2" > "$dir/fake/pane"
+  printf '%s\n' "$dir"
+}
+
+assert_cursor_stopped_without_exit_command() {  # <dir> <out> <label>
+  local dir=$1 out=$2 label=$3
+  assert_contains "$out" "stopped t1 harness=cursor" "$label: exit should report the stop"
+  [ -e "$dir/fake/terminated" ] || fail "$label: the cursor agent should have received SIGTERM"
+  [ "$(keys_sent "$dir")" = "Escape" ] || fail "$label: cursor should get Escape before SIGTERM, got: $(keys_sent "$dir")"
+  if [ -f "$dir/fake/literal" ] && grep -Fqx /exit "$dir/fake/literal"; then
+    fail "$label: no exit command may be typed into the exhausted pane"
+  fi
+  [ "$(cat "$dir/fake/command")" = zsh ] || fail "$label: the pane should be a shell after the stop"
+}
+
+test_cursor_usage_exhausted_exit_stops_unknown_composer() (
+  local dir out rc name banner
+  for name in out-of-usage hit-limit; do
+    case "$name" in
+      out-of-usage)
+        banner="You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue."
+        ;;
+      hit-limit) banner="You've hit your usage limit" ;;
+    esac
+    dir=$(cursor_exhausted_case "cursor-$name" "$banner")
+    [ "$(composer_state_of "$dir")" = unknown ] || fail "$name: the exhausted composer should read unknown, got: $(composer_state_of "$dir")"
+    start_cursor_process "$dir"
+    out=$(run_cursor_exit "$dir" t1 exit); rc=$?
+    stop_grok_process "$dir"
+    expect_code 0 "$rc" "$name: exit beside the usage row should stop the agent"$'\n'"$out"
+    assert_cursor_stopped_without_exit_command "$dir" "$out" "$name"
+  done
+  pass "fm-control exit: an unknown cursor composer beside a usage-exhausted row stops without typing an exit command"
+)
+
+test_send_releases_exhausted_cursor_with_lease_guard() (
+  local dir out rc harness=${1:-cursor}
+  dir=$(cursor_exhausted_case "send-guarded-$harness" "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue." "$harness")
+  start_cursor_process "$dir"
+  trap 'stop_grok_process "$dir"' EXIT
+  out=$(fm_run_timed 10 env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+    FM_SUPERVISION_ACTOR=main FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
+    FM_CONTROL_EXIT_WAIT=1 "$SEND" t1 --one-way "please continue" 2>&1); rc=$?
+  expect_code 0 "$rc" "a guarded send must finish lifecycle control without deadlocking"$'\n'"$out"
+  assert_cursor_stopped_without_exit_command "$dir" "$out" "guarded send"
+  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "the guarded send lost its durable steer"
+  [ ! -s "$dir/fake/literal" ] || fail "the exhausted pane received text"
+  pass "fm-send: a guarded exhausted $harness handoff stops the agent without deadlocking"
+)
+
+test_recorded_harness_capabilities() {
+  local harness signal
+  for harness in claude claude-latest opencode opencode-dev; do
+    fm_control_submit_queue "$harness" || fail "$harness must accept busy submission"
+  done
+  for harness in rovo rovo-preview cursor cursor-agent codex codex-dev pi pi-signed grok grok-dev kimi gemini muse omp agy devin unknown ''; do
+    fm_control_submit_queue "$harness" && fail "$harness must not claim a busy submit queue"
+  done
+  for harness in cursor cursor-agent; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
+    printf '%s\n' "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue." \
+      | grep -Eq -- "$signal" || fail "$harness missed Cursor's usage banner"
+    printf '%s\n' "The log quoted You're out of usage in a sentence." \
+      | grep -Eq -- "$signal" && fail "$harness mistook a quotation for exhaustion"
+  done
+  for harness in grok grok-dev; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
+    printf '%s\n' 'You hit your weekly limit' | grep -Eq -- "$signal" || fail "$harness missed Grok's usage banner"
+  done
+  for harness in claude-latest codex-dev opencode-dev pi pi-signed rovo-preview kimi gemini muse omp agy devin; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness was not recognized"
+    [ -z "$signal" ] || fail "$harness invented an exhaustion signal"
+  done
+  fm_control_quota_exhausted_signal unknown >/dev/null && fail "an unknown harness must be refused"
+  pass "recorded harness capabilities normalize aliases and refuse unsupported capabilities"
+}
+
+test_cursor_quoted_usage_row_still_refuses_exit() {
+  local dir out rc
+  dir=$(cursor_exhausted_case quoted "The log quoted You're out of usage in a sentence.")
+  [ "$(composer_state_of "$dir")" = unknown ] || fail "fixture: a quoted usage sentence should still read unknown"
+  out=$(run_cursor_exit "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a quoted usage sentence must still refuse"$'\n'"$out"
+  assert_contains "$out" "not proven empty" "the refusal should name the unproven composer"
+  [ "$(cat "$dir/fake/command")" = cursor-agent ] || fail "the refusal must leave cursor-agent running"
+  [ -z "$(keys_sent "$dir")" ] || fail "a quoted usage sentence must receive no keys"
+  if [ -f "$dir/fake/literal" ] && [ -s "$dir/fake/literal" ]; then
+    fail "a quoted usage sentence must not be typed into"
+  fi
+  pass "fm-control exit: an unknown cursor composer that only quotes the usage row still refuses"
+}
+
+test_cursor_exhausted_doorbell_residue() (
+  local dir line out rc suffix border banner
+  for suffix in clean draft foreign no-banner; do
+    dir=$(cursor_exhausted_case "doorbell-$suffix" '')
+    mkdir -p "$dir/home/state/t1.inbox"
+    line=$(FM_STATE_OVERRIDE="$dir/home/state" bash -c '. "$1"; fm_task_inbox_doorbell_line "$2"' \
+      _ "$ROOT/bin/fm-task-inbox-lib.sh" "$dir/home/state/t1.inbox/001.msg")
+    case "$suffix" in
+      clean|no-banner) ;;
+      draft) line="${line} unrelated draft" ;;
+      foreign) line=${line//t1.inbox/other.inbox} ;;
+    esac
+    printf -v border '%*s' "$(( ${#line} * 2 + 2 ))" ''
+    border=${border// /─}
+    banner="You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue."
+    [ "$suffix" != no-banner ] || banner=''
+    printf '%s\n╭%s╮\n│ %s%s │\n╰%s╯\n' "$banner" "$border" "$line" "$line" "$border" > "$dir/fake/pane"
+    printf '2\n' > "$dir/fake/cursor"
+    [ "$(composer_state_of "$dir")" = pending ] || fail "$suffix fixture did not preserve pending text"
+    start_cursor_process "$dir"
+    trap 'stop_grok_process "$dir"' EXIT
+    out=$(run_cursor_exit "$dir" t1 exit); rc=$?
+    if [ "$suffix" = clean ]; then
+      expect_code 0 "$rc" "exact concatenated task doorbells beside exhaustion must release the seat: $out"
+      assert_cursor_stopped_without_exit_command "$dir" "$out" "doorbell residue"
+    else
+      expect_code 1 "$rc" "$suffix pending text must survive exhaustion: $out"
+      [ ! -e "$dir/fake/terminated" ] || fail "$suffix draft's agent was terminated"
+      [ ! -s "$dir/fake/literal" ] || fail "$suffix draft received typed text"
+    fi
+    stop_grok_process "$dir"
+    trap - EXIT
+  done
+  pass "exhausted cursor releases exact repeated doorbells and preserves unrelated or foreign drafts"
+)
+
+test_cursor_pending_text_refuses_exit_beside_usage_row() {
+  local dir out rc
+  dir=$(cursor_exhausted_case pending $'You\'re out of usage. Switch to Auto, or ask your admin to increase your limit to continue.\n\n╭────╮\n│ hi │\n╰────╯\n')
+  printf '3\n' > "$dir/fake/cursor"
+  [ "$(composer_state_of "$dir")" = pending ] || fail "fixture: typed text beside the usage row should read pending, got: $(composer_state_of "$dir")"
+  out=$(run_cursor_exit "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "pending text must refuse even beside the usage row"$'\n'"$out"
+  assert_contains "$out" "composer visibly holds pending text" "the refusal should name the pending text"
+  [ "$(cat "$dir/fake/command")" = cursor-agent ] || fail "a pending-text refusal must leave cursor-agent running"
+  [ -z "$(keys_sent "$dir")" ] || fail "pending text must receive no keys"
+  if [ -f "$dir/fake/literal" ] && grep -Fqx /exit "$dir/fake/literal"; then
+    fail "no exit command may be typed onto pending text"
+  fi
+  pass "fm-control exit: cursor pending text refuses even with the usage row visible"
+}
+
+test_exhausted_release_failure_is_reported() {
+  local dir out rc
+  dir=$(new_case release-failed)
+  out=$(FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" bash -c \
+    '. "$1"; fm_task_inbox_release_exhausted missing' _ "$ROOT/bin/fm-task-inbox-lib.sh" 2>&1); rc=$?
+  [ "$rc" -ne 0 ] || fail "a failed lifecycle release claimed success"
+  assert_contains "$out" 'exhausted task missing seat release failed' "release failure must be reported"
+  pass "exhausted seat release failures propagate and report lifecycle failure"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1434,5 +1631,13 @@ test_grok_pending_text_refuses_relaunch_beside_usage_limit
 test_grok_pending_unproven_refuses_relaunch_beside_usage_limit || exit 1
 test_grok_unknown_composer_without_usage_limit_refuses_relaunch
 test_grok_usage_picker_refuses_when_agent_cannot_be_stopped
+test_cursor_usage_exhausted_exit_stops_unknown_composer || exit 1
+test_send_releases_exhausted_cursor_with_lease_guard || exit 1
+test_send_releases_exhausted_cursor_with_lease_guard cursor-agent || exit 1
+test_recorded_harness_capabilities
+test_cursor_quoted_usage_row_still_refuses_exit
+test_cursor_exhausted_doorbell_residue || exit 1
+test_cursor_pending_text_refuses_exit_beside_usage_row
+test_exhausted_release_failure_is_reported
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task

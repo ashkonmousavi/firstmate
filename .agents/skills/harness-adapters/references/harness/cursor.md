@@ -26,6 +26,13 @@ Managed ship/scout global-rule delivery is owned by the launch-overlay contract 
 
 The slash popup consumes the first Enter; that Enter closes it and a genuine second Enter submits through the shared retry.
 
+## Usage exhausted
+
+An exhausted Cursor pane shows a row that opens with `You're out of usage` or `You've hit your <word> limit`, after nothing but decoration.
+`fm_control_quota_exhausted_signal` in `../../../bin/fm-control-lib.sh` owns that pattern.
+The doorbell path does not type while the row is visible, and `fm-control` exit stops the agent without typing an exit command when the composer reads unknown beside it.
+Pending text is discarded only when it consists entirely of exact repetitions of this task's steering doorbell beside the exhaustion banner; unrelated or foreign-task drafts keep the ordinary refusal.
+
 ## Detection
 
 Cursor does not clear inherited `CLAUDECODE`, so a Cursor worker under Claude carries both markers.

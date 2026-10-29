@@ -1178,7 +1178,7 @@ test_codex_client_resolves_current_pane_instead_of_daemon_snapshot() {
   local dir log resp fb out status client birth real_ps
   dir="$TMP_ROOT/launcher-codex-client"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
   fb=$(make_herdr_fakebin "$dir")
-  cp /bin/sleep "$dir/codex"
+  ln -s "$(fm_agent_standin "$dir/native-client")" "$dir/codex" || fail 'could not create Codex fixture'
   "$dir/codex" 60 & client=$!
   HERDR_TEST_CODEX_CLIENT=$client
   birth=$(bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_pid_birth "$2"' _ "$ROOT" "$client") || fail 'could not read Codex fixture birth'

@@ -862,6 +862,8 @@ It uses an isolated Grok home with a copy of the managed authentication file and
 On Linux with `grok 1.0.62 (1474f9cbdd91) [stable]`, the real idle composer rendered `Grok 4.7 (high) · always-approve` without `Weekly limit left:`.
 The guard therefore failed rather than claiming coverage of the weekly-limit surface.
 Live verification of that surface remains outstanding; the portable regression is not a substitute.
+A later idle pane drew the same model line with no weekly-limit prefix, `Grok 4.7 (high) · always-approve`, and the classifier read the box unknown because the middle dot is not ASCII.
+`test_matrix_grok_always_approve_border_from_capture` pins that captured screen: empty when the only content row is the prompt glyph, pending when that row holds a draft, and unknown when the model title is not the known shape or a border is clipped.
 `test_matrix_grok_weekly_limit_border` in `tests/fm-composer-lib.test.sh` pins empty, typed, and malformed-title verdicts across the shared capture capability profiles.
 
 ```sh
@@ -998,6 +1000,55 @@ The verification machine runs its fleet on Herdr and has no tmux installed, so o
 The guard also notes whether the starfield and the placeholder were actually drawn during its read, because codex need not animate them under every model or mode; a refresh on a tmux host should record that note beside the verdict rather than assume the starfield was exercised.
 
 ## Steering-inbox doorbell
+
+The live guard submits Claude and OpenCode doorbells while a real foreground tool is blocked, then separately requires each instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
+The portable busy-Claude and OpenCode regressions verify literal input followed by Enter; they do not claim model consumption.
+Rovo retains busy deferral and re-ring on idle because its footer has no retained queued-consumption proof; portable regressions cover both fresh and pending-doorbell deferral.
+
+The same guard includes Cursor in its default installed-harness refresh; `FM_SEND_INBOX_LIVE_HARNESSES=cursor` selects its genuinely exhausted-account checks in separately identified unknown-composer and concatenated-doorbell scenarios.
+It requires the real usage banner, observes that the ring sends no terminal input, then requires fm-send to release the agent through fm-control without typing an exit command.
+After clearing its own rejected launch probe, the unknown-composer scenario reduces the real terminal viewport to eight rows and requires the usage banner to remain visible while the actual classifier reports unknown; the residue scenario seeds exact repeated doorbells and requires their recognition in the real composer.
+Ordinary empty-composer exit cannot satisfy either scenario.
+Run with `FM_SEND_INBOX_LIVE_E2E=1`; optional `FM_SEND_INBOX_LIVE_CURSOR_MODEL` selects the exhausted model.
+It fails rather than claiming coverage if the installed Cursor account/model does not produce the exhaustion surface.
+Recorded harness aliases use the shared family normalization for both exhaustion and busy-submit capabilities; the portable regressions cover `cursor-agent`, `claude-latest`, OpenCode aliases, and the negative Rovo capability.
+
+On 2026-10-28, Cursor Agent 2026.10.19-6bbf2c4 with Grok 4.7 256K High passed both scenarios on Linux with tmux 3.4.
+The eight-row viewport kept the native usage banner visible while the real composer classifier reported unknown; the independent concatenated-doorbell scenario classified pending.
+Both suppressed ring input and stopped the agent through fm-control without typing or submitting an exit command.
+The run used isolated configuration and credentials inside the verification worktree, with `CURSOR_CONFIG_DIR`, `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`, `TMPDIR`, `FM_HOME`, and `FM_ROOT_OVERRIDE` directed there.
+
+```sh
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=cursor \
+  FM_SEND_INBOX_LIVE_TIMEOUT=90 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+```text
+# cursor (2026.10.19-6bbf2c4): exhausted composer initially pending
+ok - cursor (2026.10.19-6bbf2c4): unknown exhaustion suppresses ringing and fm-control stops the agent without typing (composer=unknown)
+# cursor (2026.10.19-6bbf2c4): exhausted composer initially pending
+ok - cursor (2026.10.19-6bbf2c4): residue exhaustion suppresses ringing and fm-control stops the agent without typing (composer=pending)
+ok - live steering-inbox doorbell guard: 1 harness(es) honored the doorbell contract
+```
+
+OpenCode was absent from PATH on the same date, so its busy guard could not refresh the existing 1.18.4 busy-queue verification recorded in its harness reference.
+Refresh it with `FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=opencode bash tests/fm-send-inbox-doorbell-live-e2e.test.sh` on a host with that executable and authentication.
+
+On 2026-10-28, Claude Code 2.1.312 on Linux with tmux 3.4 passed both the idle and busy checks, using an isolated authenticated config with hooks disabled and the bypass-mode acknowledgement set.
+`CLAUDE_CONFIG_DIR`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`, `TMPDIR`, `FM_HOME`, and `FM_ROOT_OVERRIDE` pointed inside the verification worktree.
+The focused invocation was:
+
+```sh
+CLAUDE_CODE_SAFE_MODE=1 FM_SEND_INBOX_LIVE_E2E=1 \
+  FM_SEND_INBOX_LIVE_HARNESSES=claude FM_SEND_INBOX_LIVE_TIMEOUT=90 \
+  bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+```text
+ok - claude (2.1.312 (Claude Code)): the doorbell reached a real worker, which acted and acked with the mv
+ok - claude (2.1.312 (Claude Code)): a doorbell submitted during a real foreground tool was acted on and acked without an idle re-ring
+ok - live steering-inbox doorbell guard: 1 harness(es) honored the doorbell contract
+```
 
 The steering channel's one behavioral assumption - a real worker agent follows the constant self-describing doorbell line (list the inbox, read and act on its records in numeric order, then `mv` each into `handled/`) - was verified on 2026-08-23 against every installed verified harness, on tmux 3.6a, macOS arm64, on an isolated private socket, driving the REAL `bin/fm-send.sh` end to end (durable record plus doorbell, with one mid-wait re-ring playing the watcher's role).
 
@@ -2845,20 +2896,10 @@ grok --trust -p "$PROMPT" --permission-mode bypassPermissions --output-format pl
 
 ## Busy inbox escalation
 
-Verified at `2026-10-03T19:20:07Z` on commit `23b0232908a5adc7fbf7339ef48c34a091a7a799` with Claude Code `2.1.288 (Claude Code)` on Herdr `0.9.1`, protocol `22`, in a named isolated lab session through `bin/fm-herdr-lab.sh`.
-`bin/fm-task-inbox-lib.sh` owns the durable busy-deferral budget.
-
-A real Claude worker opened an `AskUserQuestion` panel, and Firstmate's `UserPromptSubmit` hook reported busy.
-Four due inbox checks using the original `origin/main` watcher at `1f3e769616fdf9f31f85f4c3e6a9f71606634238` against that live pane each read `busy=yes` and added zero wakes.
-With `FM_TASK_INBOX_GRACE_SECS=0 FM_TASK_INBOX_BUSY_MAX=2`, two distinct processes sourcing the fixed watcher and calling `inbox_steer_check` against the same pane produced one wake containing `stuck-busy after 2 consecutive busy-deferred due doorbells`.
-A third check left exactly one wake total; the question panel remained open and the instruction remained unhandled.
-Lab teardown completed with exit `0`, including the default-session tripwire.
-The zero grace accelerates only the experiment; the normal grace remains unchanged.
-Without Firstmate's hooks, Herdr reported the question panel as `blocked`, which did not classify as busy; that is a different path and does not establish this regression.
-
-This live proof covers the watcher and queue boundary; it does not establish live daemon-consumer delivery.
-`bin/fm-test-run.sh tests/fm-daemon.test.sh` exercises that consumer routing separately with portable regressions for busy escalation and busy-bookkeeping failures in away and quiet mode.
-Repeat the hooked-worker check above before publication if watcher or task-inbox busy code changes; `bin/fm-test-run.sh tests/fm-task-inbox.test.sh` refreshes the portable ladder regressions.
+[`fm-task-inbox-lib.sh`](../../bin/fm-task-inbox-lib.sh) owns the durable busy-deferral budget and idle follow-up contract.
+`tests/fm-task-inbox.test.sh` covers non-queue busy escalation and the owed idle ring surviving deadline and checkpoint-admission deferrals, including after escalation.
+`tests/fm-daemon.test.sh` covers consumer routing for busy escalation and busy-bookkeeping failures in away and quiet mode.
+The current Claude live proof is in [Steering-inbox doorbell](#steering-inbox-doorbell); Claude now exercises busy submission rather than the non-queue escalation path.
 
 ## Main backstop discovery guard, 2026-10-20
 
