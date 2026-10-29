@@ -1,0 +1,2 @@
+ok - recipient acknowledgement closes only the named correlation as handled, no reply needed
+ok - acknowledgement preserves creation identities across logical homes and configured state roots

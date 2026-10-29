@@ -1,0 +1,50 @@
+/tmp/fm-lab.JuGVsh
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+schema=fm-task-inbox.v1
+at=2026-10-29T09:50:56Z
+request-id=0123456789abcdef0123456789abcdef
+--
+[fm-from-firstmate]⁣Review the next delivery report; no reply needed.fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: steer not sent to mate: its inbox record could not be written under /tmp/fm-lab.JuGVsh/state/mate.inbox
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --one-way cannot accompany --fire-and-forget
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --one-way cannot accompany --key
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --one-way cannot accompany --resolve-key
+
+One-way retry identity retained after acknowledgement; an intentional repeat created 002.msg; conflicting reuse and incompatible flags refused.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.JuGVsh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+handled, no reply needed: mate d2e7f96605e49384
+handled, no reply needed: mate d2e7f96605e49384
+error: exact pending record or parent status missing
+error: unsafe correlation id
+
+Parent status after exact closure:
+blocked [key=pending-reply-d2e7f96605e49384]: pending-reply-missed: task=mate pending-reply-id=d2e7f96605e49384 request=Please report readiness.
+blocked [key=pending-reply-ed38cadb9665ed1b]: pending-reply-missed: task=mate pending-reply-id=ed38cadb9665ed1b request=Please report the final result.
+resolved [key=pending-reply-d2e7f96605e49384] [at=1793267503]: pending-reply-resolved: task=mate pending-reply-id=d2e7f96605e49384 via=handled handled, no reply needed
+
+Remaining open decisions:
+pending-reply-ed38cadb9665ed1b	blocked	pending-reply-missed: task=mate pending-reply-id=ed38cadb9665ed1b request=Please report the final result.
+Resolved correlation persisted as handled; unrelated correlation remains escalated.

@@ -1,0 +1,22 @@
+{
+  "focused_tests": {
+    "fm-curated-delivery-check": 0,
+    "fm-send-inbox": 0,
+    "fm-pending-reply-ack-handled": 0,
+    "fm-send-remote-delivery": 0,
+    "fm-task-inbox": 0,
+    "fm-composer-lib": 0,
+    "fm-control": 0
+  },
+  "live_checks": {
+    "audit_before": 0,
+    "audit_live_three_stage": 0,
+    "audit_missing_homes": 0,
+    "steering_retry_and_ack": 0,
+    "grok_composer": 0,
+    "claude_original_driver": 1,
+    "codex_original_driver": 1,
+    "codex_pending_pinned_environment": 0,
+    "remote_lab_name_guard_expected_refusal": 1
+  }
+}

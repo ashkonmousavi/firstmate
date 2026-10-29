@@ -1,0 +1,112 @@
+curated-delivery: merged PRs not on curated: 2 3 4 5 7 8 9 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 91 92 93 95 96 97 100 103 104 105 106 107 108 109 111 112 113 115 116 117 118 119 120 122; open PRs to m [truncated]
+merged PR not on curated: #2 Rebuild on author c191eacd with only the needed custom work https://github.com/ashkonmousavi/firstmate/pull/2
+merged PR not on curated: #3 Reset this fork to the author's current version https://github.com/ashkonmousavi/firstmate/pull/3
+merged PR not on curated: #4 docs: add navigator consultation guidance https://github.com/ashkonmousavi/firstmate/pull/4
+merged PR not on curated: #5 fix: restore Codex supervisor wake delivery https://github.com/ashkonmousavi/firstmate/pull/5
+merged PR not on curated: #7 fix(bin): require post-merge verification before reporting a task landed https://github.com/ashkonmousavi/firstmate/pull/7
+merged PR not on curated: #8 fix(bin): ring the worker before escalating a parked no-mistakes gate https://github.com/ashkonmousavi/firstmate/pull/8
+merged PR not on curated: #9 test: bound fixture reap cleanup against TERM-resistant children https://github.com/ashkonmousavi/firstmate/pull/9
+merged PR not on curated: #12 fix(ci): exempt fm/ops-* branches from the no-mistakes gate https://github.com/ashkonmousavi/firstmate/pull/12
+merged PR not on curated: #13 Land local main commits: restored skills and findings-record wording https://github.com/ashkonmousavi/firstmate/pull/13
+merged PR not on curated: #14 fix(bin): brief workers to call the advisor, stop after two review rounds, and use the right tool https://github.com/ashkonmousavi/firstmate/pull/14
+merged PR not on curated: #15 fix(bin): trust and return sibling-clone Treehouse pool slots https://github.com/ashkonmousavi/firstmate/pull/15
+merged PR not on curated: #16 Gate ship spawns on a tiered task preparation record https://github.com/ashkonmousavi/firstmate/pull/16
+merged PR not on curated: #17 docs: anchor the frame-first, one-lane-per-area work order https://github.com/ashkonmousavi/firstmate/pull/17
+merged PR not on curated: #18 fix(bin): install filled secondmate nav-preps where ship spawn reads prep https://github.com/ashkonmousavi/firstmate/pull/18
+merged PR not on curated: #19 feat(bin): gate V4 destination preps on traveling-layer answers and kit demo receipt https://github.com/ashkonmousavi/firstmate/pull/19
+merged PR not on curated: #20 fix(bin): resolve crew dispatch profiles in configured order https://github.com/ashkonmousavi/firstmate/pull/20
+merged PR not on curated: #21 feat(bin): merge config/claude-worker-settings.json into Claude worker launches https://github.com/ashkonmousavi/firstmate/pull/21
+merged PR not on curated: #22 fix(bin): defer board "later" answers instead of closing held items https://github.com/ashkonmousavi/firstmate/pull/22
+merged PR not on curated: #23 fix(bin): stop opening a new bearings board tab on every rebuild https://github.com/ashkonmousavi/firstmate/pull/23
+merged PR not on curated: #24 fix(bin): only tell eligible Claude workers to call the Opus advisor https://github.com/ashkonmousavi/firstmate/pull/24
+merged PR not on curated: #25 feat(bin): merge upstream Firstmate into the fork https://github.com/ashkonmousavi/firstmate/pull/25
+merged PR not on curated: #26 fix(bin): close finished herdr task tabs when only sidebar panes remain https://github.com/ashkonmousavi/firstmate/pull/26
+merged PR not on curated: #27 feat(bin): route file-free tasks to a named Grok Bot through crew dispatch https://github.com/ashkonmousavi/firstmate/pull/27
+merged PR not on curated: #29 fix(bin): restore reliable away supervision and wake on idle writing lanes https://github.com/ashkonmousavi/firstmate/pull/29
+merged PR not on curated: #30 feat(bin): add Vercel AI Gateway fallback for typed dispatch resolution https://github.com/ashkonmousavi/firstmate/pull/30
+merged PR not on curated: #31 fix(bin): merge upstream firstmate through 72b63eee https://github.com/ashkonmousavi/firstmate/pull/31
+merged PR not on curated: #32 fix(bin): refuse off-table crew spawns and settle missed-reply closes https://github.com/ashkonmousavi/firstmate/pull/32
+merged PR not on curated: #33 fix(bin): let exit/relaunch stop quota-exhausted and just-exited agents https://github.com/ashkonmousavi/firstmate/pull/33
+merged PR not on curated: #34 feat(skills): add agent-only journey-walk supervisor skill https://github.com/ashkonmousavi/firstmate/pull/34
+merged PR not on curated: #35 feat(skills): add cross-harness push skill for one bounded fleet pass https://github.com/ashkonmousavi/firstmate/pull/35
+merged PR not on curated: #36 fix(bin): bind Codex supervision and home lock to the live primary client https://github.com/ashkonmousavi/firstmate/pull/36
+merged PR not on curated: #37 feat(bin): merge upstream Firstmate through 1b82b77a https://github.com/ashkonmousavi/firstmate/pull/37
+merged PR not on curated: #38 fix(bin): surface failed state checks and refuse empty contribution input https://github.com/ashkonmousavi/firstmate/pull/38
+merged PR not on curated: #39 fix(skills): make shared skills project-neutral https://github.com/ashkonmousavi/firstmate/pull/39
+merged PR not on curated: #40 fix(pi): match Pi 0.99 stock rendering for branch tools and export DOM https://github.com/ashkonmousavi/firstmate/pull/40
+merged PR not on curated: #41 fix(bin): make task prep template project-neutral https://github.com/ashkonmousavi/firstmate/pull/41
+merged PR not on curated: #42 fix(bearings): show decision details and keep note-only answers from closing holds https://github.com/ashkonmousavi/firstmate/pull/42
+merged PR not on curated: #43 feat(bin): require a separate prep review before ship spawn and pass its spec to --intent https://github.com/ashkonmousavi/firstmate/pull/43
+merged PR not on curated: #44 fix(bin): wake firstmate on waiting prompts through pauses and keep herdr push alive past gone panes https://github.com/ashkonmousavi/firstmate/pull/44
+merged PR not on curated: #45 fix(bin): unblock teardown of finished workers sharing a pool slot https://github.com/ashkonmousavi/firstmate/pull/45
+merged PR not on curated: #46 feat(bin): let all-no preps skip review, batch prep approvals and finish PR lanes only at green checks https://github.com/ashkonmousavi/firstmate/pull/46
+merged PR not on curated: #47 feat(bin): add surgical prep certificate and stop-set review triage https://github.com/ashkonmousavi/firstmate/pull/47
+merged PR not on curated: #48 fix(bin): bound remote secondmate probes so a busy host cannot stall supervision https://github.com/ashkonmousavi/firstmate/pull/48
+merged PR not on curated: #50 chore: catch up Firstmate fork through upstream d719ef3d https://github.com/ashkonmousavi/firstmate/pull/50
+merged PR not on curated: #51 fix(bin): stabilize remote worker identity with procfs start ticks https://github.com/ashkonmousavi/firstmate/pull/51
+merged PR not on curated: #52 fix: replace mandatory prep review with stronger preparation checks https://github.com/ashkonmousavi/firstmate/pull/52
+merged PR not on curated: #53 test: fix Pi export lookup and stop completed supervision fixtures https://github.com/ashkonmousavi/firstmate/pull/53
+merged PR not on curated: #54 test: stabilize contribution check budget assertions https://github.com/ashkonmousavi/firstmate/pull/54
+merged PR not on curated: #55 feat: add no-mistakes config staleness alerts https://github.com/ashkonmousavi/firstmate/pull/55
+merged PR not on curated: #56 feat(bin): add portable Q plan pre-merge check https://github.com/ashkonmousavi/firstmate/pull/56
+merged PR not on curated: #57 fix: require current preparation checks and journey evidence https://github.com/ashkonmousavi/firstmate/pull/57
+merged PR not on curated: #58 fix(push): verify fleet movement and open PR ownership https://github.com/ashkonmousavi/firstmate/pull/58
+merged PR not on curated: #59 fix: honor recorded standing merge waivers and repeated check waivers https://github.com/ashkonmousavi/firstmate/pull/59
+merged PR not on curated: #60 fix: enforce authored delivery depth before ship admission https://github.com/ashkonmousavi/firstmate/pull/60
+merged PR not on curated: #61 fix: assign CI waivers and landing order to Firstmate https://github.com/ashkonmousavi/firstmate/pull/61
+merged PR not on curated: #62 Select ship delivery depth by risk https://github.com/ashkonmousavi/firstmate/pull/62
+merged PR not on curated: #63 Revert red main through isolated source and verified-head guard https://github.com/ashkonmousavi/firstmate/pull/63
+merged PR not on curated: #64 feat(skills): rewrite push as a takeover pass and add retro https://github.com/ashkonmousavi/firstmate/pull/64
+merged PR not on curated: #65 feat: dispatch the walker re-check once per served commit without asking https://github.com/ashkonmousavi/firstmate/pull/65
+merged PR not on curated: #66 fix(tests): re-check reply listener ownership while awaiting a capture https://github.com/ashkonmousavi/firstmate/pull/66
+merged PR not on curated: #67 fix: shorten worker briefs with contract pointers https://github.com/ashkonmousavi/firstmate/pull/67
+merged PR not on curated: #68 fix: make fleet supervision event-driven beyond crewmates https://github.com/ashkonmousavi/firstmate/pull/68
+merged PR not on curated: #69 fix: reserve shipshape replies for captain requests https://github.com/ashkonmousavi/firstmate/pull/69
+merged PR not on curated: #70 fix: remove Firstmate's helper-agent block https://github.com/ashkonmousavi/firstmate/pull/70
+merged PR not on curated: #71 fix: allow scout cleanup without a decision attestation https://github.com/ashkonmousavi/firstmate/pull/71
+merged PR not on curated: #72 fix: remove startup memory budget while preserving archival https://github.com/ashkonmousavi/firstmate/pull/72
+merged PR not on curated: #73 fix: limit the directory-change guard to project folders https://github.com/ashkonmousavi/firstmate/pull/73
+merged PR not on curated: #74 fix: make the third review finding list terminal https://github.com/ashkonmousavi/firstmate/pull/74
+merged PR not on curated: #75 fix: require planner and Q bug-list inputs before work sequencing https://github.com/ashkonmousavi/firstmate/pull/75
+merged PR not on curated: #76 fix: require batch triage and class fixes for journey walks https://github.com/ashkonmousavi/firstmate/pull/76
+merged PR not on curated: #77 fix: require same-turn fix lanes for fleet-wide walk blockers https://github.com/ashkonmousavi/firstmate/pull/77
+merged PR not on curated: #78 fix: recognize working Codex workers through Herdr native activity https://github.com/ashkonmousavi/firstmate/pull/78
+merged PR not on curated: #79 fix: publish and safely release Q walk restart-protection leases https://github.com/ashkonmousavi/firstmate/pull/79
+merged PR not on curated: #80 fix: include canonical rules in managed Kimi and Cursor launches https://github.com/ashkonmousavi/firstmate/pull/80
+merged PR not on curated: #81 fix(bin): bound watcher checkpoints and preserve deferred wakes https://github.com/ashkonmousavi/firstmate/pull/81
+merged PR not on curated: #82 docs: clarify main CI run cancellation policy https://github.com/ashkonmousavi/firstmate/pull/82
+merged PR not on curated: #83 fix(bin): prevent lock failures and lease contention from stalling supervision https://github.com/ashkonmousavi/firstmate/pull/83
+merged PR not on curated: #84 feat: gate new feature starts on unowned project failures https://github.com/ashkonmousavi/firstmate/pull/84
+merged PR not on curated: #85 feat: adopt upstream Firstmate updates and surface blocked secondmates https://github.com/ashkonmousavi/firstmate/pull/85
+merged PR not on curated: #86 chore: update pull request https://github.com/ashkonmousavi/firstmate/pull/86
+merged PR not on curated: #87 feat: add validation and release backpressure to lane notices https://github.com/ashkonmousavi/firstmate/pull/87
+merged PR not on curated: #88 docs: require record reads before reporting outcomes https://github.com/ashkonmousavi/firstmate/pull/88
+merged PR not on curated: #91 fix: read scrolled Herdr composers from pane bottom and narrow Pi events https://github.com/ashkonmousavi/firstmate/pull/91
+merged PR not on curated: #92 feat(bin): add Forgejo support and improve fleet supervision https://github.com/ashkonmousavi/firstmate/pull/92
+merged PR not on curated: #93 fix: prevent watcher checks from starving later checks https://github.com/ashkonmousavi/firstmate/pull/93
+merged PR not on curated: #95 fix: reclaim stale locks when holder PIDs become thread IDs https://github.com/ashkonmousavi/firstmate/pull/95
+merged PR not on curated: #96 docs: refresh planning buffers and bound walk freezes https://github.com/ashkonmousavi/firstmate/pull/96
+merged PR not on curated: #97 fix: acknowledge routine Claude wakes without a handling turn https://github.com/ashkonmousavi/firstmate/pull/97
+merged PR not on curated: #100 feat: continue workers on the next signed-in account https://github.com/ashkonmousavi/firstmate/pull/100
+merged PR not on curated: #103 fix(bin): re-ring unacknowledged remote secondmate inbox records https://github.com/ashkonmousavi/firstmate/pull/103
+merged PR not on curated: #104 fix: keep reply runners listening while the session lives and bound per-cycle status reads https://github.com/ashkonmousavi/firstmate/pull/104
+merged PR not on curated: #105 ci: refresh serial test timings and expand to 12 shards https://github.com/ashkonmousavi/firstmate/pull/105
+merged PR not on curated: #106 fix: reduce Firstmate startup context with on-demand instructions https://github.com/ashkonmousavi/firstmate/pull/106
+merged PR not on curated: #107 test: prevent remote worker races during fixture teardown https://github.com/ashkonmousavi/firstmate/pull/107
+merged PR not on curated: #108 fix: stop supervision host children reliably during launch https://github.com/ashkonmousavi/firstmate/pull/108
+merged PR not on curated: #109 fix: recover stale locks after PID reuse and bound lifecycle waits https://github.com/ashkonmousavi/firstmate/pull/109
+merged PR not on curated: #111 test: prevent cleanup from masking Grok relaunch assertion failures https://github.com/ashkonmousavi/firstmate/pull/111
+merged PR not on curated: #112 fix: prevent shell evaluation in worker status reports https://github.com/ashkonmousavi/firstmate/pull/112
+merged PR not on curated: #113 fix(bin): run the remote inbox ladder off the watcher cycle (follow-up to #103) https://github.com/ashkonmousavi/firstmate/pull/113
+merged PR not on curated: #115 fix: report Codex worker state from global lifecycle hooks https://github.com/ashkonmousavi/firstmate/pull/115
+merged PR not on curated: #116 fix: populate watcher sweep freshness log https://github.com/ashkonmousavi/firstmate/pull/116
+merged PR not on curated: #117 feat: enforce machine lane ceilings and memory-aware admission https://github.com/ashkonmousavi/firstmate/pull/117
+merged PR not on curated: #118 fix: prevent teardown from completing unmerged PR work https://github.com/ashkonmousavi/firstmate/pull/118
+merged PR not on curated: #119 test: make checkpoint publication bounds robust under load https://github.com/ashkonmousavi/firstmate/pull/119
+merged PR not on curated: #120 fix: count live workers for machine capacity admission https://github.com/ashkonmousavi/firstmate/pull/120
+merged PR not on curated: #122 fix: use cgroup memory headroom for capacity admission https://github.com/ashkonmousavi/firstmate/pull/122
+open PR targets main without base-main-ok: #89 test: reap owned fixture children before removing test roots https://github.com/ashkonmousavi/firstmate/pull/89
+open PR targets main without base-main-ok: #90 fix: honor ship-light delivery for checkpoint-tested fixes https://github.com/ashkonmousavi/firstmate/pull/90
+open PR targets main without base-main-ok: #94 ci: route fork Linux jobs to shared self-hosted runners https://github.com/ashkonmousavi/firstmate/pull/94
+open PR targets main without base-main-ok: #145 feat: evaluate hold release conditions and relay walk requests https://github.com/ashkonmousavi/firstmate/pull/145
+incomplete: cannot read homes configuration ~/.no-mistakes/worktrees/049a88734b0e/01M63G7WF3X155CM0Z0SN1J1EQ/.gate-live/nonexistent-homes

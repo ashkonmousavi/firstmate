@@ -1,0 +1,12 @@
+ok - curated-delivery: a main-only merged PR is listed
+ok - curated-delivery: nothing delivered-missing prints nothing
+ok - curated-delivery: a cherry-pick trailer is an equivalent re-landing
+ok - curated-delivery: exceptions need evidence and a re-landing that is on curated
+ok - curated-delivery: every merged PR requires delivery evidence regardless of number
+ok - curated-delivery: open PRs on main need the exemption label
+ok - curated-delivery: lagging homes are listed and ssh is bounded
+ok - curated-delivery: a failed gh call is reported as incomplete
+ok - curated-delivery: every merged page and late re-landing are considered; timeout is incomplete
+ok - curated-delivery: a failed refresh never presents stale ancestry as current
+ok - curated-delivery: local and remote PR identities include every equivalent carrier and clear after delivery
+ok - curated-delivery: private targets and explicit overrides work; missing targets are incomplete
