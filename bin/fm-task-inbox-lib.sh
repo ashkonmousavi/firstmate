@@ -493,6 +493,8 @@ _fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label
        FM_SUBMIT_SIGNAL_HARNESS=$FM_TASK_INBOX_SIGNAL_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$FM_TASK_INBOX_SIGNAL_BASELINE \
        fm_backend_send_text_submit "$backend" "$target" "$line" 5 2 0.3 "$label" 2>/dev/null) || rc=$?
   FM_TASK_INBOX_RING_REASON=$(head -1 "$sink" 2>/dev/null || true)
+  # Read by backend adapters behind this library's source-analysis boundary.
+  # shellcheck disable=SC2034
   FM_RING_REASON_SINK=
   [ -z "$sink" ] || rm -f "$sink"
   if [ "$rc" -ne 0 ]; then
