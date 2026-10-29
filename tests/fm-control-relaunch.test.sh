@@ -272,6 +272,7 @@ run_lifecycle_fixture() {
 
 run_recovery() {
   local dir=$1
+  # shellcheck disable=SC2016 # Expand $1 in the child shell.
   FM_CREW_RECOVERY_CONTROL="$ROOT/bin/fm-control.sh" run_lifecycle_fixture "$dir" \
     bash -c '. "$1"; fm_crew_recovery_sweep' _ "$ROOT/bin/fm-crew-recovery-lib.sh"
 }
@@ -3067,7 +3068,8 @@ test_recovery_rechecks_eligibility_after_manual_relaunch() {
   add_ship_task "$dir" t1
   printf 'unlanded\n' > "$dir/wt/unlanded.txt"
   printf zsh > "$dir/fake/command"
-  out=$(PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" FM_HOME="$dir/home" \
+  # shellcheck disable=SC2016 # Expand positional parameters in the child shell.
+  out=$(run_lifecycle_fixture "$dir" \
     bash -c '. "$1"; fm_crew_recovery_agent_state "$2" t1' _ \
     "$ROOT/bin/fm-crew-recovery-lib.sh" "$dir/home/state")
   [ "$out" = dead ] || fail "startup did not discover the dead task: $out"
