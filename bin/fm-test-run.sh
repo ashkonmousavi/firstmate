@@ -301,7 +301,7 @@ family_for_basename() {
     fm-send-popup-settle.test.sh|fm-send-settle.test.sh|\
     fm-subagent-pretool-check.test.sh|\
     fm-supervision-instructions.test.sh|fm-task-delivery.test.sh|\
-    fm-timeout-lib.test.sh|\
+    fm-timeout-lib.test.sh|fm-curated-delivery-check.test.sh|\
     fm-tmux-submit-busy.test.sh|fm-trace-context-lib.test.sh|\
     fm-transition-lib.test.sh|\
     fm-test-run.test.sh|fm-test-isolation-proof.test.sh)
@@ -747,6 +747,7 @@ tests/fm-control.test.sh 72794
 tests/fm-cursor-harness.test.sh 30088
 tests/fm-cursor-primary-live-e2e.test.sh 75
 tests/fm-cursor-primary.test.sh 69845
+tests/fm-curated-delivery-check.test.sh 9000
 tests/fm-daemon.test.sh 33606
 tests/fm-devin-harness.test.sh 3725
 tests/fm-devin-signals-live-e2e.test.sh 49

@@ -1315,6 +1315,13 @@ The placement command names the eligible machine with the most free lanes, break
 Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
 Advice never reserves a lane, and spawn always rereads live facts before launch.
 
+## Curated delivery exceptions (config/curated-delivery-exceptions)
+
+The optional local, gitignored `config/curated-delivery-exceptions` records merged fork PRs that are deliberately not on `curated`, for `bin/fm-curated-delivery-check.sh`.
+A line `<original-pr> <relanding-pr> <evidence>` excuses the original only when evidence is present and the re-landing PR is itself merged onto `curated`.
+A line `since <pr> <evidence>` ignores merged PRs numbered below `<pr>`.
+[`bin/fm-curated-delivery-check.sh`](../bin/fm-curated-delivery-check.sh) owns the remaining detail and the home list.
+
 ## Project capacity (config/project-capacity)
 
 The optional local, gitignored `config/project-capacity` tells Firstmate how many workers a project can run at once on this machine, for a project whose machine-local resource - a heavy test suite, a local editor stack, a device - only serves a few workers at a time.
