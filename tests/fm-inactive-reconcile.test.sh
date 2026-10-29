@@ -1230,6 +1230,276 @@ SH
   pass "backlog pass rotates through rows across short sessions"
 }
 
+
+test_backlog_pr_pass_reads_complete_references() {
+  local padding
+  make_world backlog-full; make_gh "$WORLD"
+  printf '90 MERGED\n91 OPEN\n' > "$WORLD/gh.states"
+  padding=$(python3 -I -c 'print("background " * 500)')
+  add_flight_row "$MAIN" t-hidden "$padding https://github.com/o/r/pull/90"
+  add_flight_row "$MAIN" t-mixed-full "https://github.com/o/r/pull/90 $padding https://github.com/o/r/pull/91"
+  add_flight_row "$MAIN" t-worker-full "https://github.com/o/r/pull/90 $padding https://github.com/o/r/pull/91"
+  write_child "$MAIN" t-worker-full 'done: finished'
+  add_flight_row "$MAIN" t-meta-ref 'https://github.com/o/r/pull/90'
+  write_child "$MAIN" t-meta-ref 'done: finished'
+  sed 's|^pr=.*|pr=https://github.com/o/r/pull/91|' "$MAIN/state/t-meta-ref.meta" > "$WORLD/meta"
+  mv "$WORLD/meta" "$MAIN/state/t-meta-ref.meta"
+  FM_FAKE_CREW_STATE=done run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-hidden)" = done ] || fail "a metadata-free PR beyond list truncation was forgotten"
+  [ "$(row_state "$MAIN" t-mixed-full)" = in_flight ] || fail "a truncated OPEN reference was ignored"
+  [ "$(row_state "$MAIN" t-worker-full)" = in_flight ] || fail "a worker row's truncated OPEN reference was ignored"
+  [ "$(row_state "$MAIN" t-meta-ref)" = in_flight ] || fail "an OPEN metadata reference was ignored"
+  pass "complete task bodies and metadata jointly determine the PR set"
+}
+
+test_backlog_pr_pass_rechecks_racing_eligibility() {
+  local kind
+  for kind in hold body queued relaunch appearing; do
+    make_world "backlog-race-$kind"; make_gh "$WORLD"
+    add_flight_row "$MAIN" t-race 'https://github.com/o/r/pull/92'
+    [ "$kind" != relaunch ] || write_child "$MAIN" t-race 'done: old worker' old-generation
+    cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+. "$FM_RACE_ROOT/bin/fm-wake-lib.sh"
+control="$FM_HOME/state/.control-t-race.lock"
+meta="$FM_HOME/state/.meta-t-race.lock"
+fm_lock_acquire_wait "$control" || exit 1
+fm_lock_acquire_wait "$meta" || exit 1
+case "$FM_RACE_KIND" in
+  hold) tasks-axi hold t-race --reason decision --kind captain --file "$FM_HOME/data/backlog.md" >/dev/null ;;
+  body) tasks-axi update t-race --body 'https://github.com/o/r/pull/93' --file "$FM_HOME/data/backlog.md" >/dev/null ;;
+  queued) tasks-axi reopen t-race --file "$FM_HOME/data/backlog.md" >/dev/null ;;
+  relaunch) sed 's/^spawn_gen=.*/spawn_gen=new-generation/' "$FM_HOME/state/t-race.meta" > "$FM_HOME/state/new-meta"; mv "$FM_HOME/state/new-meta" "$FM_HOME/state/t-race.meta" ;;
+  appearing) printf 'spawn_gen=new-generation\nkind=ship\n' > "$FM_HOME/state/t-race.meta" ;;
+esac
+fm_lock_release "$meta"
+fm_lock_release "$control"
+printf 'MERGED\n'
+SH
+    FM_RACE_ROOT="$ROOT" FM_RACE_KIND="$kind" FM_FAKE_CREW_STATE=done run_reconcile "$MAIN" --startup
+    [ "$(row_state "$MAIN" t-race)" != done ] || fail "$kind committed after the first read but the stale task was closed"
+    [ "$(outcome_count "$MAIN" closed)" = 0 ] || fail "$kind wrote a close receipt for an ineligible task"
+  done
+  pass "closeout rechecks holds, body, state and worker incarnation after forge reads"
+}
+
+test_backlog_pr_pass_holds_both_locks_through_close() {
+  make_world backlog-close-locks; make_gh "$WORLD"
+  printf '94 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-lock 'https://github.com/o/r/pull/94'
+  write_child "$MAIN" t-lock 'done: finished'
+  cat > "$WORLD/fakebin/fm-crew-state.sh" <<'SH'
+#!/usr/bin/env bash
+. "$FM_LOCK_ROOT/bin/fm-wake-lib.sh"
+for axis in control meta; do
+  lock="$FM_HOME/state/.$axis-t-lock.lock"
+  if fm_lock_try_acquire "$lock"; then
+    printf '%s free\n' "$axis" >> "$FM_LOCK_LOG"
+    fm_lock_release "$lock"
+  else
+    printf '%s busy\n' "$axis" >> "$FM_LOCK_LOG"
+  fi
+done
+printf 'state: done · source: fake\n'
+SH
+  cat > "$WORLD/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = done ]; then
+  . "$FM_LOCK_ROOT/bin/fm-wake-lib.sh"
+  for axis in control meta; do
+    lock="$FM_HOME/state/.$axis-t-lock.lock"
+    if fm_lock_try_acquire "$lock"; then
+      printf '%s free\n' "$axis" >> "$FM_DONE_LOCK_LOG"
+      fm_lock_release "$lock"
+    else
+      printf '%s busy\n' "$axis" >> "$FM_DONE_LOCK_LOG"
+    fi
+  done
+fi
+PATH=${PATH#*:} exec tasks-axi "$@"
+SH
+  chmod +x "$WORLD/fakebin/tasks-axi"
+  FM_LOCK_ROOT="$ROOT" FM_LOCK_LOG="$WORLD/locks" FM_DONE_LOCK_LOG="$WORLD/done-locks" run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-lock)" = done ] || fail "eligible worker task was not closed under lifecycle locks"
+  [ "$(head -2 "$WORLD/locks")" = $'control busy\nmeta busy' ] || fail "worker eligibility was read without both lifecycle locks"
+  [ "$(cat "$WORLD/done-locks")" = $'control busy\nmeta busy' ] || fail "closure released a lifecycle lock before mutation"
+  pass "worker eligibility and backlog mutation hold both existing lifecycle locks"
+}
+
+test_backlog_pr_pass_bounds_every_backend_operation() {
+  local phase
+  for phase in probe list read close; do
+    make_world "backlog-bound-$phase"; make_gh "$WORLD"
+    printf '95 MERGED\n' > "$WORLD/gh.states"
+    add_flight_row "$MAIN" t-slow 'https://github.com/o/r/pull/95'
+    write_child "$MAIN" child 'working: quiet since'
+    cat > "$WORLD/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+case "$FM_SLOW_PHASE:$1" in
+  probe:--version|list:list|read:show|close:done)
+    trap '' TERM
+    sleep 20
+    exit 1
+    ;;
+esac
+PATH=${PATH#*:} exec tasks-axi "$@"
+SH
+    chmod +x "$WORLD/fakebin/tasks-axi"
+    FM_SLOW_PHASE="$phase" FM_FAKE_CREW_STATE=failed FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
+    [ "$(wake_count "$MAIN" 'inactive-outcome:')" = 1 ] || fail "stalled $phase prevented the child scan"
+    [ "$(row_state "$MAIN" t-slow)" = in_flight ] || fail "stalled $phase closed the task"
+    case "$phase" in
+      read|close)
+        python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "stalled backend left no unknown finding"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-slow" and x["finding"] == "unknown" for x in items), items
+PYJSON
+        ;;
+    esac
+  done
+  pass "stalled compatibility, list, full read and close leave time for child supervision"
+}
+
+test_backlog_pr_pass_preserves_unexamined_findings() {
+  make_world backlog-partial; make_gh "$WORLD"
+  printf '96 OPEN\n97 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-b 'https://github.com/o/r/pull/97'
+  add_flight_row "$MAIN" t-a 'https://github.com/o/r/pull/96'
+  printf '{"schema":"x-reconcile.v1","written_at":7,"items":[{"id":"t-a","home":"main","source":"inactive-reconcile","finding":"fix","detail":"prior failure","observed_at":7},{"id":"t-a","home":"server","source":"inactive-reconcile","finding":"fix","observed_at":7}]}\n' > "$MAIN/data/x-reconcile.json"
+  printf '1\n' > "$MAIN/state/backlog-pr-cursor"
+  cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$3" >> "${FM_GH_LOG:?}"
+sleep 20
+SH
+  FM_INACTIVE_RECONCILE_BUDGET_SECS=6 run_reconcile "$MAIN" --startup
+  grep -Fxq 97 "$WORLD/gh.log" || fail "partial-scan fixture did not reach its slow second row"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "partial scan discarded an unexamined finding"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-a" and x["home"] == "main" and x["detail"] == "prior failure" and x["observed_at"] == 7 for x in items), items
+assert any(x["id"] == "t-b" and x["finding"] == "unknown" for x in items), items
+assert any(x["id"] == "t-a" and x["home"] == "server" for x in items), items
+PYJSON
+  make_gh "$WORLD"
+  run_reconcile "$MAIN" --startup
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "authoritative reevaluation did not retire the resolved finding"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert not any(x["id"] == "t-a" and x["home"] == "main" for x in items), items
+assert any(x["id"] == "t-a" and x["home"] == "server" for x in items), items
+assert any(x["id"] == "t-b" and x["detail"].startswith("closed:") for x in items), items
+PYJSON
+  pass "partial scans preserve unexamined findings and retire only reevaluated items"
+}
+
+test_backlog_pr_pass_recovery_requires_done() {
+  local receipt
+  make_world backlog-recovery-state; make_gh "$WORLD"
+  add_flight_row "$MAIN" t-queued 'https://github.com/o/r/pull/98'
+  (cd "$MAIN" && tasks-axi reopen t-queued --file data/backlog.md >/dev/null) || fail "could not queue the failed close"
+  mkdir -p "$MAIN/state/terminal-outcomes"
+  receipt="$MAIN/state/terminal-outcomes/backlog-pr-recovery.closed"
+  printf 'schema=fm-backlog-pr-close.v1\ntask_id=t-queued\nprs=https://github.com/o/r/pull/98=MERGED\nstatus=closing\n' > "$receipt"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-queued)" = queued ] || fail "recovery changed a queued record"
+  grep -Fxq 'status=closing' "$receipt" || fail "absence from the in-flight list was accepted as a successful close"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "queued task received false closed evidence"
+import json, os, sys
+items = json.load(open(sys.argv[1]))["items"] if os.path.exists(sys.argv[1]) else []
+assert not any(x["id"] == "t-queued" and x.get("detail", "").startswith("closed:") for x in items), items
+PYJSON
+  (cd "$MAIN" && tasks-axi done t-queued --file data/backlog.md >/dev/null) || fail "manual completion failed"
+  run_reconcile "$MAIN" --startup
+  grep -Fxq 'status=closed' "$receipt" || fail "confirmed Done did not finalize recovery"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "confirmed Done lost its recovered evidence"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-queued" and x["detail"].startswith("closed:") for x in items), items
+PYJSON
+  pass "interrupted receipt recovery requires an authoritative Done state"
+}
+
+test_backlog_pr_pass_rotates_receipt_recovery_with_candidates() {
+  local evidence
+  for evidence in absent present; do
+    make_world "backlog-history-$evidence"; make_gh "$WORLD"
+    printf '101 MERGED\n' > "$WORLD/gh.states"
+    add_flight_row "$MAIN" t-current 'https://github.com/o/r/pull/101'
+    mkdir -p "$MAIN/state/terminal-outcomes"
+    printf 'schema=fm-backlog-pr-close.v1\ntask_id=t-historical\nprs=https://github.com/o/r/pull/1=MERGED\nstatus=closed\n' > "$MAIN/state/terminal-outcomes/backlog-pr-000.closed"
+    if [ "$evidence" = present ]; then
+      printf '{"schema":"x-reconcile.v1","items":[{"id":"t-historical","home":"main","source":"inactive-reconcile","finding":"fix","detail":"closed: previous PR","observed_at":7}]}\n' > "$MAIN/data/x-reconcile.json"
+      printf '1\n' > "$MAIN/state/backlog-pr-cursor"
+    fi
+    cat > "$WORLD/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = show ] && [ "$2" = t-historical ]; then
+  printf 'historical read\n' >> "$FM_HISTORY_LOG"
+  sleep 20
+  exit 1
+fi
+PATH=${PATH#*:} exec tasks-axi "$@"
+SH
+    chmod +x "$WORLD/fakebin/tasks-axi"
+    FM_HISTORY_LOG="$WORLD/history.log" FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
+    if [ "$evidence" = present ]; then
+      [ -s "$WORLD/history.log" ] || fail "receipt recovery fixture did not reach its slow read"
+      FM_HISTORY_LOG="$WORLD/history.log" FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
+    else
+      [ ! -e "$WORLD/history.log" ] || fail "a closed receipt without an outstanding finding was reread"
+    fi
+    [ "$(row_state "$MAIN" t-current)" = done ] || fail "historical receipt reads starved current work"
+  done
+  pass "receipt recovery shares candidate rotation and skips retired history"
+}
+
+test_backlog_pr_pass_advances_after_success_at_deadline() {
+  make_world backlog-deadline-cursor; make_gh "$WORLD"
+  printf '99 MERGED\n100 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-b 'https://github.com/o/r/pull/100'
+  add_flight_row "$MAIN" t-a 'https://github.com/o/r/pull/99'
+  write_child "$MAIN" t-a 'done: old worker'
+  printf '1000\n' > "$WORLD/clock"
+  cat > "$WORLD/fakebin/date" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = +%s ]; then
+  cat "$FM_CURSOR_WORLD/clock"
+else
+  PATH=${PATH#*:} exec date "$@"
+fi
+SH
+  cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+[ "$3" != 99 ] || printf '1001\n' > "$FM_CURSOR_WORLD/clock"
+printf 'MERGED\n'
+SH
+  chmod +x "$WORLD/fakebin/date"
+  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE=done FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  [ "$(cat "$MAIN/state/backlog-pr-cursor")" = 1 ] || fail "successful forge read at the deadline failed to save its visit"
+  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE=done FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-b)" = done ] || fail "deadline-crossing first row starved the later merged record"
+  pass "successful reads crossing the deadline advance the durable cursor"
+}
+
+if [ "${1:-}" = --backlog ]; then
+  test_backlog_pr_pass_closes_finished_records_once
+  test_backlog_pr_pass_spares_live_worker_and_closes_finished_one
+  test_backlog_pr_pass_writes_fix_items_in_main_only
+  test_backlog_pr_pass_recovers_interrupted_close
+  test_backlog_pr_pass_rotates_across_short_sessions
+  test_backlog_pr_pass_reads_complete_references
+  test_backlog_pr_pass_rechecks_racing_eligibility
+  test_backlog_pr_pass_holds_both_locks_through_close
+  test_backlog_pr_pass_bounds_every_backend_operation
+  test_backlog_pr_pass_preserves_unexamined_findings
+  test_backlog_pr_pass_recovery_requires_done
+  test_backlog_pr_pass_rotates_receipt_recovery_with_candidates
+  test_backlog_pr_pass_advances_after_success_at_deadline
+  exit 0
+fi
+
 test_main_direct_terminal_presentation_receipt
 test_branch_ack_retires_inactive_outcome_receipt
 test_unpushed_ci_ready_done_is_not_published
@@ -1273,5 +1543,13 @@ test_backlog_pr_pass_spares_live_worker_and_closes_finished_one
 test_backlog_pr_pass_writes_fix_items_in_main_only
 test_backlog_pr_pass_recovers_interrupted_close
 test_backlog_pr_pass_rotates_across_short_sessions
+test_backlog_pr_pass_reads_complete_references
+test_backlog_pr_pass_rechecks_racing_eligibility
+test_backlog_pr_pass_holds_both_locks_through_close
+test_backlog_pr_pass_bounds_every_backend_operation
+test_backlog_pr_pass_preserves_unexamined_findings
+test_backlog_pr_pass_recovery_requires_done
+test_backlog_pr_pass_rotates_receipt_recovery_with_candidates
+test_backlog_pr_pass_advances_after_success_at_deadline
 
 echo "all inactive reconciliation tests passed"
