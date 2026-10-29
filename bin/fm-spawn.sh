@@ -2687,14 +2687,9 @@ case "$ARG3" in
 *' '*) # raw launch command (unverified-adapter escape hatch)
   RAW_LAUNCH=1
   LAUNCH=$ARG3
-  HARNESS=""
-  for word in $LAUNCH; do
-    case "$word" in [A-Za-z_]*=*) continue ;; *)
-      HARNESS=$(basename "$word")
-      break
-      ;;
-    esac
-  done
+  RAW_PROFILE=$(fm_worker_account_raw_profile "$LAUNCH" "${CLAUDE_CONFIG_DIR:-}") || exit 1
+  HARNESS=${RAW_PROFILE%%$'\t'*}
+  RAW_CLAUDE_ROOT=${RAW_PROFILE#*$'\t'}
   ;;
 '')
   # No explicit harness: resolve from config. A secondmate AGENT launches on the
@@ -2923,8 +2918,7 @@ if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
     unset CLAUDE_CONFIG_DIR
   fi
 fi
-if [ "$WORKER_ACCOUNT_HARNESS" = claude ] && [ "$RAW_LAUNCH" = 1 ]; then
-  RAW_CLAUDE_ROOT=$(fm_worker_account_claude_raw_root "$RAW_COMMAND" "${CLAUDE_CONFIG_DIR:-}") || exit 1
+if [ "$RAW_LAUNCH" = 1 ] && { [ "$WORKER_ACCOUNT_HARNESS" != claude ] || [ -z "$WORKER_ACCOUNT" ]; }; then
   if [ -n "$RAW_CLAUDE_ROOT" ]; then
     export CLAUDE_CONFIG_DIR=$RAW_CLAUDE_ROOT
   else
@@ -5926,7 +5920,9 @@ preserve_relaunch_meta() {
   # task record stays byte-identical.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
-  [ "$WORKER_ACCOUNT_HARNESS" != claude ] || printf 'claude_config_dir=%s\n' "${CLAUDE_CONFIG_DIR:-}"
+  if [ "$WORKER_ACCOUNT_HARNESS" = claude ] || [ "$RAW_LAUNCH" = 1 ]; then
+    printf 'claude_config_dir=%s\n' "${CLAUDE_CONFIG_DIR:-}"
+  fi
   [ -z "${BUSY_GEN:-}" ] || echo "busy_gen=$BUSY_GEN"
   echo "spawn_gen=$SPAWN_GEN"
   # Default-off writes no traceparent= line.
@@ -6180,43 +6176,17 @@ case "$LAUNCH" in
   LAUNCH=${LAUNCH//__CLAUDEADDDIRS__/$CLAUDE_ADD_DIRS}
   ;;
 esac
-if [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
-  LAUNCH="CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1 $LAUNCH"
-fi
 case "$HARNESS" in
 claude | codex | opencode | pi | pi-signed | grok | kimi | gemini | muse | rovo | agy | devin | commandcode)
   LAUNCH="env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI $LAUNCH"
   ;;
 esac
-# Crewmate panes are created by a long-lived tmux/herdr daemon that does not
-# inherit firstmate's current environment, so a bare `claude` in the pane falls
-# back to the default ~/.claude store even when firstmate itself runs under a
-# different CLAUDE_CONFIG_DIR (for example a work-vs-personal subscription split).
-# Forward firstmate's own resolved store onto the claude launch so the crewmate
-# uses the same credential/config firstmate is authenticated with. Only when set;
-# an unset value is the single-store default and needs no prefix.
-# A home's worker account pin replaces that forwarding: the launch names the
-# pinned root (or unsets the variable for the ordinary Claude account) and
-# sheds the environment credentials Claude ranks above the root's login.
 if [ -n "$WORKER_ACCOUNT" ]; then
   case "$WORKER_ACCOUNT_HARNESS" in
-  claude)
-    if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
-      LAUNCH="$(fm_worker_account_claude_shed) CLAUDE_CONFIG_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
-    else
-      LAUNCH="$(fm_worker_account_claude_shed) -u CLAUDE_CONFIG_DIR $LAUNCH"
-    fi
-    ;;
   pi | pi-signed)
     LAUNCH="PI_CODING_AGENT_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
     ;;
   esac
-elif [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
-  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-    LAUNCH="CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $LAUNCH"
-  else
-    LAUNCH="env -u CLAUDE_CONFIG_DIR $LAUNCH"
-  fi
 fi
 if [ "$KIND" = secondmate ]; then
   sq_home=$(shell_quote "$PROJ_ABS")
@@ -6306,7 +6276,17 @@ fi
 # kill switch below it is an export statement, so it survives a compound raw
 # launch and the launch-env-allowlist `env -i` wrapper.
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
-LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
+if [ "$WORKER_ACCOUNT_HARNESS" = claude ] || [ "$RAW_LAUNCH" = 1 ]; then
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+    LAUNCH="export CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR"); $LAUNCH"
+  else
+    LAUNCH="unset CLAUDE_CONFIG_DIR; $LAUNCH"
+  fi
+fi
+if [ "$WORKER_ACCOUNT_HARNESS" = claude ] && [ -n "$WORKER_ACCOUNT" ]; then
+  LAUNCH="unset $FM_WORKER_ACCOUNT_CLAUDE_SHED; $LAUNCH"
+fi
+LAUNCH="export COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1; $LAUNCH"
 # When the live-harness gate has exported DISABLE_AUTOUPDATER into this spawn's
 # own environment, carry it into the launch command text so Claude Code's
 # auto-updater cannot rewrite the shared binary during a live run. Embedding the
@@ -6421,7 +6401,7 @@ if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
   # Setting it here rather than relying on the assignment already carried by
   # $LAUNCH is what gives the wrapping `/bin/sh` itself the switch, not only the
   # agent command it runs.
-  LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX COMPACT_ADVISER_DISABLE=1"
+  LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1"
   if [ -n "$SPAWN_TRACEPARENT" ]; then
     # shellcheck disable=SC2016
     LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX "'${TRACEPARENT+"TRACEPARENT=$TRACEPARENT"}'

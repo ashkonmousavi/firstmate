@@ -239,14 +239,15 @@ fm_worker_account_check() {
   return 0
 }
 
-fm_worker_account_claude_raw_root() {
-  perl -MText::ParseWords=shellwords -e '
+fm_worker_account_raw_profile() {
+  perl -MText::ParseWords=shellwords -MFile::Basename=basename -e '
     my ($raw, $root) = @ARGV;
     my @words = shellwords($raw);
     @words or die "error: raw Claude launch has invalid shell quoting\n";
     my $overridden = 0;
+    my $harness = "";
     for my $word (@words) {
-      last unless $word =~ /^[A-Za-z_][A-Za-z0-9_]*=/;
+      if ($word !~ /^[A-Za-z_][A-Za-z0-9_]*=/) { $harness = basename($word); last; }
       my ($name, $value) = split /=/, $word, 2;
       if (($name eq "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF" || $name eq "CLAUDE_CODE_DISABLE_AGENT_VIEW") && $value ne "1") {
         die "error: managed Claude launches require $name=1\n";
@@ -256,7 +257,7 @@ fm_worker_account_claude_raw_root() {
     if ($overridden && (($root ne "" && $root !~ m{^/}) || $root =~ /[\$\x60;&|<>()*?\[\]\n\r\t]/)) {
       die "error: raw Claude launch: CLAUDE_CONFIG_DIR must be a literal absolute path or empty so cleanup can retain the launch account\n";
     }
-    print "$root\n";
+    print "$harness\t$root\n";
   ' -- "$1" "$2"
 }
 
@@ -317,16 +318,4 @@ fm_worker_account_select() {
   fi
   fm_worker_account_check "$harness" "$declared" "$root" "$executable" "$provider" "$setting" || return 1
   printf '%s\t%s\t%s\n' "$declared" "$root" "$provider"
-}
-
-# fm_worker_account_claude_shed
-# Prints the `env` launch prefix that unsets the environment credentials Claude
-# ranks above a pinned root's stored login. The caller appends the root
-# assignment, or -u CLAUDE_CONFIG_DIR for the ordinary account.
-fm_worker_account_claude_shed() {
-  local var prefix=env
-  for var in $FM_WORKER_ACCOUNT_CLAUDE_SHED; do
-    prefix="$prefix -u $var"
-  done
-  printf '%s\n' "$prefix"
 }

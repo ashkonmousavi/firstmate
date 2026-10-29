@@ -629,7 +629,8 @@ None of these three runs ever answered its dialog (Escape only, never Enter), so
 
 Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
 Choosing the handoff leaves a background session that `claude agents --json --all` lists with `kind: background` and the session's cwd, outside every lane.
-`bin/fm-spawn.sh` applies `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1` at the shared environment boundary for canonical and raw Claude worker and secondmate launches.
+`bin/fm-spawn.sh` exports `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1` before every complete launch expression for workers and secondmates.
+Both switches reach every fallback and directory-changing branch, including when a launch environment allowlist clears the destination environment.
 Raw assignments cannot disable either safeguard, and inherited values are overridden.
 `bin/fm-control.sh exit` lists sessions with `claude agents --json --all` and removes any background session whose cwd is exactly the task worktree with `claude rm <id>`, including stopped and completed records that may retain carried work.
 `tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
@@ -641,12 +642,14 @@ The vendor's [supervisor lifecycle contract](https://code.claude.com/docs/en/age
 Firstmate creates the matched worktree itself; the vendor's [deletion contract](https://code.claude.com/docs/en/agent-view#what-deleting-a-session-removes) preserves a caller-created worktree and the conversation transcript.
 A refused removal fails cleanup without forcing worktree deletion.
 The guard records its shell's PID and start time and uses portable process identity checks for its assertion and trap cleanup.
-Launch records retain the effective Claude config root, including literal raw-command overrides, so exit and relaunch use the launch account after a pin changes.
+Canonical Claude and all raw launch records retain the same Claude config root exported before their complete expression, including literal leading overrides with spaces.
+Recognized Claude launches select the applicable account pin and shed overriding credentials across the complete expression.
+An arbitrary raw expression retains its leading executable identity; environment exports cannot infer a Claude identity or a Claude-specific pin from an opaque shell body such as `cd directory && claude`.
 An unpinned raw command must use a literal absolute `CLAUDE_CONFIG_DIR` or an empty value; a dynamic root refuses before launch because it cannot be retained reliably for cleanup.
 
 | Class axis | Covered paths and evidence | Validation handoff |
 | --- | --- | --- |
-| Task and home | Canonical and raw ship, scout, and local secondmate launches share prevention; their records use the same exit/relaunch boundary; remote secondmates route to their owning home | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh` |
+| Task and home | All ship, scout, and local secondmate launch expressions share safeguard exports and record their exported account; remote secondmates route to their owning home | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh` |
 | Account | Pinned directory, ordinary, ambient, and literal raw overrides; quoted, empty, and final repeated assignments | `tests/fm-worker-account.test.sh`; compare the executed worker environment with persisted metadata |
 | Lifecycle | Current session, exited process, reparented work, respawned session, removal refusal, and surviving listing | Deterministic control regressions plus the live guard's respawn arm |
 | Harness and backend | Cleanup is gated to Claude; tmux and Herdr permit stop-proving verbs; other runtime backends refuse those verbs | Control capability regressions; other harnesses do not enter Claude cleanup |
