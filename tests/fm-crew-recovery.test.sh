@@ -454,7 +454,7 @@ test_first_failure_stops_serial_recovery() {
 }
 
 test_bootstrap_network_phase_runs_the_sweep() {
-  local home fakebin fake_root out log timing
+  local home fakebin fake_root out timing
   home=$(new_home compose)
   fake_root="$TMP_ROOT/compose/root"
   mkdir -p "$fake_root/bin" "$home/projects"

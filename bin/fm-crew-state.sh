@@ -232,7 +232,7 @@ SEP=' · '
 emit() {  # <state> <source> [detail]
   local source=$2 line
   if [ "${FM_CREW_STATE_KEEP_RUN:-0}" = 1 ] && [ "${HAVE_RUN:-0}" = 1 ]; then
-    source=run-step
+    source="run-step"
   fi
   line="state: $1${SEP}source: $source"
   [ -n "${3:-}" ] && line="$line${SEP}$3"

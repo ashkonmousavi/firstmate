@@ -3094,6 +3094,7 @@ test_recovery_eligibility_holds_the_lifecycle_lock() {
   FM_FAKE_RECOVERY_PROBE_READY="$dir/probe-ready" \
     FM_FAKE_RECOVERY_PROBE_RELEASE="$dir/probe-release" \
     run_control "$dir" t1 relaunch --note recovery --if-recoverable > "$dir/recovery.out" &
+  # shellcheck disable=SC2031 # $! is set by the background launch in this shell.
   worker=$!
   i=0
   while [ ! -e "$dir/probe-ready" ] && [ "$i" -lt 300 ]; do
