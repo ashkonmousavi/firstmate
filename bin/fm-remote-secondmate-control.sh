@@ -390,6 +390,8 @@ cmd_inbox() {
     fi
     return 0
   fi
+  # A reset that fails leaves a stale count that the next deferral or due check
+  # overwrites; the remote leg has no wake of its own to surface it.
   fm_task_inbox_clear_busy "$CONTROL_STATE" "$id" || true
   fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" || ring_rc=$?
   if [ "$ring_rc" -eq 3 ]; then
