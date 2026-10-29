@@ -356,8 +356,39 @@ test_raw_claude_account_override_is_kept_without_a_pin() {
   assert_not_contains "$out" "account=" "an unpinned raw spawn must not report an account"
   run_pane
   assert_grep "CLAUDE_CONFIG_DIR=$CASE/other" "$CASE/claude-worker" "an unpinned raw override should keep its own root"
+  grep -Fxq "claude_config_dir=$CASE/other" "$HOME_DIR/state/$id.meta" \
+    || fail "cleanup metadata must retain the worker's raw account override"
   assert_grep "ANTHROPIC_API_KEY=override-key" "$CASE/claude-worker" "an unpinned raw override should keep its own key"
   pass "an unpinned home keeps a raw Claude account override"
+}
+
+test_raw_claude_account_metadata_matches_the_executed_environment() {
+  local variant id raw expected out rc executable
+  for variant in quoted empty last prefixed; do
+    id="acct-raw-$variant"
+    new_case "raw-root-$variant" claude
+    case "$variant" in
+      quoted) raw="CLAUDE_CONFIG_DIR='$CASE/selected'"; expected="$CASE/selected" ;;
+      empty) raw='CLAUDE_CONFIG_DIR='; expected= ;;
+      last) raw="CLAUDE_CONFIG_DIR=$CASE/first CLAUDE_CONFIG_DIR=$CASE/last"; expected="$CASE/last" ;;
+      prefixed) raw="CLAUDE_CONFIG_DIR=$CASE/selected"; expected="$CASE/selected" ;;
+    esac
+    executable=claude
+    if [ "$variant" = prefixed ]; then
+      executable=claude-custom
+      cp "$FAKEBIN/claude" "$FAKEBIN/$executable"
+    fi
+    out=$(spawn_ship "$id" --harness "$raw $executable --print raw"); rc=$?
+    expect_code 0 "$rc" "the supported raw root must launch: $out"
+    run_pane
+    grep -Fxq "CLAUDE_CONFIG_DIR=$expected" "$CASE/claude-worker" || fail "the raw worker must receive the selected root"
+    grep -Fxq "claude_config_dir=$expected" "$HOME_DIR/state/$id.meta" || fail "cleanup must retain the effective root"
+  done
+  new_case raw-dynamic claude
+  out=$(spawn_ship acct-raw-dynamic --harness 'CLAUDE_CONFIG_DIR=$HOME/other claude --print raw'); rc=$?
+  expect_code 1 "$rc" "an unresolved raw account must refuse before launch"
+  assert_refused_before_launch acct-raw-dynamic "$out" 'CLAUDE_CONFIG_DIR must be a literal absolute path or empty'
+  pass "raw Claude account metadata matches quoted, empty, and final assignments and refuses unresolved roots"
 }
 
 test_local_secondmate_reads_the_launching_home_pin() {
@@ -500,6 +531,7 @@ test_a_pin_governs_only_its_own_runner
 test_raw_claude_command_receives_the_pin
 test_raw_claude_account_override_refuses_under_a_pin
 test_raw_claude_account_override_is_kept_without_a_pin
+test_raw_claude_account_metadata_matches_the_executed_environment
 test_local_secondmate_reads_the_launching_home_pin
 
 echo "# all fm-worker-account tests passed"

@@ -221,7 +221,7 @@ SH
   # A fake `claude` models only the background-session surface fm-control
   # touches after a Claude exit: `agents --json` prints $FM_FAKE_DIR/agents.json
   # (default `[]`), `stop <id>` logs the id and drops it from that file unless
-  # FM_FAKE_CLAUDE_STOP_KEEPS is set, and FM_FAKE_CLAUDE_AGENTS_FAIL makes the
+  # FM_FAKE_CLAUDE_REMOVE_KEEPS is set, and FM_FAKE_CLAUDE_AGENTS_FAIL makes the
   # listing fail. Every call logs its arguments and the account/agent-view
   # environment it ran under, so the tests can assert both.
   cat > "$fb/claude" <<'SH'
@@ -233,9 +233,15 @@ case "${1:-}" in
     [ -z "${FM_FAKE_CLAUDE_AGENTS_FAIL:-}" ] || { echo "claude agents: simulated failure" >&2; exit 1; }
     if [ -f "$D/agents.json" ]; then cat "$D/agents.json"; else echo '[]'; fi
     exit 0 ;;
-  stop)
+  stop|rm)
     printf '%s\n' "${2:-}" >> "$D/claude-stops"
-    [ -z "${FM_FAKE_CLAUDE_STOP_KEEPS:-}" ] || exit 0
+    [ -z "${FM_FAKE_CLAUDE_REMOVE_FAIL:-}" ] || exit 1
+    [ -z "${FM_FAKE_CLAUDE_REMOVE_KEEPS:-}" ] || exit 0
+    if [ "$1" = rm ] && [ -f "$D/carried-${2:-}" ]; then
+      while read -r pid; do
+        kill -KILL "$pid" 2>/dev/null || true
+      done < "$D/carried-${2:-}"
+    fi
     jq --arg id "${2:-}" 'map(select(.id != $id))' "$D/agents.json" > "$D/agents.json.new" \
       && mv "$D/agents.json.new" "$D/agents.json"
     exit 0 ;;
@@ -325,13 +331,7 @@ keys_sent() {  # <case-dir>
 
 # bg_session <id> <cwd> [kind]: one `claude agents --json` row.
 bg_session() {
-  local pid=${4:-}
-  if [ -z "$pid" ]; then
-    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
-    pid=$!
-    printf '%s\n' "$pid" >> "$TMP_ROOT/background-pids"
-  fi
-  jq -n --arg id "$1" --arg cwd "$2" --arg kind "${3:-background}" --argjson pid "$pid" \
+  jq -n --arg id "$1" --arg cwd "$2" --arg kind "${3:-background}" --argjson pid "${4:-null}" \
     '{id: $id, cwd: $cwd, kind: $kind, pid: $pid, sessionId: ($id + "-session"), state: "idle"}'
 }
 
@@ -385,8 +385,8 @@ test_claude_exit_that_cannot_stop_the_background_session_fails() {
   alive_as "$dir" claude
   wt=$(cat "$dir/fake/cwd")
   set_agents "$dir" "$(bg_session aaaa1111 "$wt")"
-  out=$(FM_FAKE_CLAUDE_STOP_KEEPS=1 run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "a background session that survives claude stop must fail the exit"$'\n'"$out"
+  out=$(FM_FAKE_CLAUDE_REMOVE_KEEPS=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a background session that survives claude rm must fail the exit"$'\n'"$out"
   assert_contains "$out" "aaaa1111" "the failure should name the surviving session"
   pass "fm-control exit (claude): a surviving background session fails the exit naming it"
 }
@@ -454,14 +454,13 @@ test_claude_exit_lists_under_the_worker_account_and_with_agent_view_on() {
   pass "fm-control exit (claude): listing and stop retain each kind's launch account after pin changes"
 }
 
-test_claude_exit_stops_carried_processes_after_reparenting() {
-  local dir out rc root child leaf unrelated i
+test_claude_exit_removes_carried_work_from_previous_incarnations() {
+  local dir out rc root child leaf unrelated replacement i
   dir=$(new_case bg-carried)
   add_task "$dir" t1 claude
   mkdir -p "$dir/outside"
   cat > "$dir/outside/child.sh" <<'SH'
 cd "$1" || exit 1
-trap "" TERM
 /bin/sleep 600 &
 echo $! > "$1/leaf"
 echo "$BASHPID" > "$1/child"
@@ -480,10 +479,18 @@ SH
   /bin/sleep 600 >/dev/null 2>&1 </dev/null &
   unrelated=$!
   printf '%s\n' "$unrelated" >> "$TMP_ROOT/background-pids"
-  set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" background "$root")"
+  kill -TERM "$root"
+  wait "$root" 2>/dev/null || true
+  kill -0 "$child" 2>/dev/null || fail "the earlier incarnation's carried shell did not survive"
+  [ "$(ps -p "$child" -o ppid= | tr -d ' ')" != "$root" ] || fail "the carried shell was not reparented"
+  /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+  replacement=$!
+  printf '%s\n' "$replacement" >> "$TMP_ROOT/background-pids"
+  printf '%s\n' "$child" "$leaf" "$replacement" > "$dir/fake/carried-aaaa1111"
+  set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" background "$replacement")"
   out=$(run_control "$dir" t1 exit); rc=$?
   expect_code 0 "$rc" "exit must stop the carried process tree"$'\n'"$out"
-  for root in "$root" "$child" "$leaf"; do
+  for root in "$root" "$child" "$leaf" "$replacement"; do
     case "$(ps -p "$root" -o stat= 2>/dev/null)" in
       ''|*Z*) : ;;
       *) fail "session-owned process $root survived cleanup: $out" ;;
@@ -491,18 +498,29 @@ SH
   done
   kill -0 "$unrelated" 2>/dev/null || fail "cleanup killed an unrelated process"
   assert_contains "$out" 'background-sessions=stopped:aaaa1111' "success must follow session and process termination"
-  pass "fm-control exit (claude): reparented TERM-resistant descendants stop and unrelated work survives"
+  pass "fm-control exit (claude): exact-session removal stops earlier incarnations and preserves unrelated work"
 }
 
-test_claude_exit_refuses_unverifiable_process_ownership() {
+test_claude_exit_removes_a_session_without_a_live_pid() {
   local dir out rc
   dir=$(new_case bg-no-pid)
   add_task "$dir" t1 claude
   set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" | jq 'del(.pid)')"
   out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "exit cannot claim carried work stopped without process ownership"$'\n'"$out"
+  expect_code 0 "$rc" "exact-session removal must cover carried work without a live session process"$'\n'"$out"
+  assert_contains "$out" 'background-sessions=stopped:aaaa1111' "removal must use the durable session id"
+  pass "fm-control exit (claude): session removal does not depend on a current process PID"
+}
+
+test_claude_exit_refuses_a_failed_session_removal() {
+  local dir out rc
+  dir=$(new_case bg-rm-failed)
+  add_task "$dir" t1 claude
+  set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")")"
+  out=$(FM_FAKE_CLAUDE_REMOVE_FAIL=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a vendor refusal must not claim carried work stopped"$'\n'"$out"
   assert_contains "$out" 'could not be stopped with its carried work' "failure must explain the incomplete postcondition"
-  pass "fm-control exit (claude): absent process ownership prevents cleanup success"
+  pass "fm-control exit (claude): failed removal prevents cleanup success"
 }
 
 test_non_claude_exit_never_calls_claude() {
@@ -1480,8 +1498,9 @@ test_verb_allowlist_is_closed
 test_resume_is_refused_with_its_reason
 test_relaunch_only_flags_are_rejected_on_other_verbs
 test_already_stopped_exit_is_idempotent
-test_claude_exit_stops_carried_processes_after_reparenting
-test_claude_exit_refuses_unverifiable_process_ownership
+test_claude_exit_removes_carried_work_from_previous_incarnations
+test_claude_exit_removes_a_session_without_a_live_pid
+test_claude_exit_refuses_a_failed_session_removal
 test_claude_exit_with_no_background_session_reports_none
 test_claude_exit_stops_only_the_background_session_of_its_worktree
 test_claude_exit_that_cannot_stop_the_background_session_fails

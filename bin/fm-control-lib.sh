@@ -285,7 +285,7 @@ fm_control_exit_command() {  # <harness>
 # Interactive sessions, a different worktree, and a cwd merely nested under
 # this one are never printed: another task's session must never be stopped by
 # a prefix match. An id that is not a plain token is dropped rather than passed
-# to `claude stop`. Returns 1 when the JSON is not an array.
+# to `claude rm`. Returns 1 when the JSON is not an array.
 fm_control_claude_bg_ids() {
   local wt=${1-} json=${2-} phys
   wt=${wt%/}

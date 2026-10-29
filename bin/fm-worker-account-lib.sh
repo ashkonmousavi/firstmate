@@ -239,6 +239,24 @@ fm_worker_account_check() {
   return 0
 }
 
+fm_worker_account_claude_raw_root() {
+  perl -MText::ParseWords=shellwords -e '
+    my ($raw, $root) = @ARGV;
+    my @words = shellwords($raw);
+    @words or die "error: raw Claude launch has invalid shell quoting\n";
+    my $overridden = 0;
+    for my $word (@words) {
+      last unless $word =~ /^[A-Za-z_][A-Za-z0-9_]*=/;
+      my ($name, $value) = split /=/, $word, 2;
+      if ($name eq "CLAUDE_CONFIG_DIR") { $root = $value; $overridden = 1; }
+    }
+    if ($overridden && (($root ne "" && $root !~ m{^/}) || $root =~ /[\$\x60;&|<>()*?\[\]\n\r\t]/)) {
+      die "error: raw Claude launch: CLAUDE_CONFIG_DIR must be a literal absolute path or empty so cleanup can retain the launch account\n";
+    }
+    print "$root\n";
+  ' -- "$1" "$2"
+}
+
 # fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<secondmate-id>]
 # The whole launch-time decision. Prints nothing for an unpinned runner, so
 # the caller keeps today's launch unchanged. For a pinned one prints

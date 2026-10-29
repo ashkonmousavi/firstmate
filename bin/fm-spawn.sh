@@ -2910,14 +2910,22 @@ RAW_COMMAND=
 [ "$RAW_LAUNCH" = 0 ] || RAW_COMMAND=$ARG3
 WORKER_ACCOUNT_MATE=
 [ "$KIND" != secondmate ] || WORKER_ACCOUNT_MATE=$ID
-WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
+WORKER_ACCOUNT_HARNESS=$(fm_control_harness_family "$HARNESS") || WORKER_ACCOUNT_HARNESS=$HARNESS
+WORKER_ACCOUNT=$(fm_worker_account_select "$WORKER_ACCOUNT_HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
 WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
 WORKER_ACCOUNT_PROVIDER=${WORKER_ACCOUNT_ROOT#*$'\t'}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
-if [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = claude ]; then
+if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
   if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
     export CLAUDE_CONFIG_DIR=$WORKER_ACCOUNT_ROOT
+  else
+    unset CLAUDE_CONFIG_DIR
+  fi
+elif [ "$WORKER_ACCOUNT_HARNESS" = claude ] && [ "$RAW_LAUNCH" = 1 ]; then
+  RAW_CLAUDE_ROOT=$(fm_worker_account_claude_raw_root "$RAW_COMMAND" "${CLAUDE_CONFIG_DIR:-}") || exit 1
+  if [ -n "$RAW_CLAUDE_ROOT" ]; then
+    export CLAUDE_CONFIG_DIR=$RAW_CLAUDE_ROOT
   else
     unset CLAUDE_CONFIG_DIR
   fi
@@ -5917,7 +5925,7 @@ preserve_relaunch_meta() {
   # task record stays byte-identical.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
-  [ "$HARNESS" != claude ] || printf 'claude_config_dir=%s\n' "${CLAUDE_CONFIG_DIR:-}"
+  [ "$WORKER_ACCOUNT_HARNESS" != claude ] || printf 'claude_config_dir=%s\n' "${CLAUDE_CONFIG_DIR:-}"
   [ -z "${BUSY_GEN:-}" ] || echo "busy_gen=$BUSY_GEN"
   echo "spawn_gen=$SPAWN_GEN"
   # Default-off writes no traceparent= line.
@@ -6187,7 +6195,7 @@ esac
 # pinned root (or unsets the variable for the ordinary Claude account) and
 # sheds the environment credentials Claude ranks above the root's login.
 if [ -n "$WORKER_ACCOUNT" ]; then
-  case "$HARNESS" in
+  case "$WORKER_ACCOUNT_HARNESS" in
   claude)
     if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
       LAUNCH="$(fm_worker_account_claude_shed) CLAUDE_CONFIG_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
@@ -6199,7 +6207,7 @@ if [ -n "$WORKER_ACCOUNT" ]; then
     LAUNCH="PI_CODING_AGENT_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
     ;;
   esac
-elif [ "$HARNESS" = claude ]; then
+elif [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
   if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
     LAUNCH="CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $LAUNCH"
   else

@@ -629,30 +629,36 @@ None of these three runs ever answered its dialog (Escape only, never Enter), so
 
 Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
 Choosing the handoff leaves a background session that `claude agents --json` lists with `kind: background` and the session's cwd, outside every lane.
-`bin/fm-spawn.sh` launches every Claude worker and secondmate with `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1`, and `bin/fm-control.sh exit` afterwards stops any background session whose cwd is exactly the task worktree with `claude stop <id>`.
+`bin/fm-spawn.sh` launches every Claude worker and secondmate with `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1`, and `bin/fm-control.sh exit` afterwards stops any background session whose cwd is exactly the task worktree with `claude rm <id>`.
 `tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
 The control arm, with no switch, is offered `Move to background and exit`, takes it, and must find a background session for its folder, so the guard fails rather than passing vacuously.
 The switched arm, with the launch environment, must not be offered the handoff, must end the process, and must leave no background session.
-The backstop arm uses `bin/fm-claude-bg-stop.py` to capture the session process tree before termination, stop it by exact id, and verify its captured processes have exited, including children reparented during termination.
-The guard records its shell's PID and start time, checks that shell stopped as well as the session leaving the listing, and uses the same portable identity evidence for trap cleanup.
-Launch records retain the Claude config root so exit and relaunch cleanup use the launch account even after a pin changes.
-A session without a live PID cannot prove process ownership and refuses cleanup success.
-The vendor documents session PIDs in [List sessions as JSON](https://code.claude.com/docs/en/agent-view#list-sessions-as-json).
+The backstop arm respawns the control session, proves the session PID changed while its original shell survived, removes that exact session with `claude rm`, and checks both listing disappearance and shell termination.
+The vendor's [supervisor lifecycle contract](https://code.claude.com/docs/en/agent-view#the-supervisor-process) makes session deletion the boundary that stops carried work from earlier process incarnations.
+Firstmate creates the matched worktree itself; the vendor's [deletion contract](https://code.claude.com/docs/en/agent-view#what-deleting-a-session-removes) preserves a caller-created worktree and the conversation transcript.
+A refused removal fails cleanup without forcing worktree deletion.
+The guard records its shell's PID and start time and uses portable process identity checks for its assertion and trap cleanup.
+Launch records retain the effective Claude config root, including literal raw-command overrides, so exit and relaunch use the launch account after a pin changes.
+An unpinned raw command must use a literal absolute `CLAUDE_CONFIG_DIR` or an empty value; a dynamic root refuses before launch because it cannot be retained reliably for cleanup.
+
+| Class axis | Covered paths and evidence | Validation handoff |
+| --- | --- | --- |
+| Task and home | Ship, scout, and local secondmate records use the same exit/relaunch boundary; remote secondmates route to their owning home | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh` |
+| Account | Pinned directory, ordinary, ambient, and literal raw overrides; quoted, empty, and final repeated assignments | `tests/fm-worker-account.test.sh`; compare the executed worker environment with persisted metadata |
+| Lifecycle | Current session, exited process, reparented work, respawned session, removal refusal, and surviving listing | Deterministic control regressions plus the live guard's respawn arm |
+| Harness and backend | Cleanup is gated to Claude; tmux and Herdr permit stop-proving verbs; other runtime backends refuse those verbs | Control capability regressions; other harnesses do not enter Claude cleanup |
+| Platform | PID/start-time assertions use `ps` on Linux and macOS | Run the live guard on both platforms and retain version, output, and process assertions |
+
+The designated validation phase owns the pending real-Claude runs and must refresh this record with their dated versions and exact output before claiming live proof.
+The generated no-mistakes driving instructions in `bin/fm-dod-lib.sh` hand the class inventory and live-evidence gaps to that phase.
 
 Both variable names are present in the installed binary, and `--advisor <model>` is accepted there although `claude --help` does not list it (its pairing rules are in the advisor documentation, `https://code.claude.com/docs/en/advisor`; Haiku 4.5 and Haiku 5.5 both accept Opus).
 
-The recorded run below predates the carried-process assertion; rerun the live guard to refresh that evidence.
-
-Verified 2026-10-29 on Claude Code 2.1.312 on Linux.
+No current live result is recorded for the respawn-and-removal assertion.
+The designated validation command is:
 
 ```sh
 FM_CLAUDE_BG_EXIT_LIVE_E2E=1 bash tests/fm-claude-bg-exit-live-e2e.test.sh
-```
-
-```
-ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) 1a26bcb3
-ok - switched: Claude Code 2.1.312 (Claude Code) /exit with background work ends the process and leaves no background session
-ok - backstop: claude stop ends the control run's background session found by exact cwd
 ```
 
 The guard submits a few Haiku prompts, so it stays opt-in; rerun it after every Claude upgrade.

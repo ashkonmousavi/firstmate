@@ -412,6 +412,8 @@ The \`--intent\` string you pass must be self-sufficient: that string plus the c
 When the captain's intent refers to a report, decision, or PR ("do items 1, 2, 3, and 7 of the report"), write the substance of the referenced items into \`--intent\` in the captain's terms, not only the pointer; that substance is the captain's ask by reference, while Firstmate's build instructions and your own decisions still stay out.
 This replaces the no-mistakes skill's advice to enrich \`--intent\` with decisions and tradeoffs; that advice does not apply to Firstmate-dispatched work.
 Do not hand-edit, commit, or fix findings yourself while a run is active - the pipeline applies every fix.
+Before the designated validation phase, hand off a class inventory listing each affected call path, task kind, harness, backend, platform, account selection, and lifecycle transition, with its executable regression or inspected reason it is unaffected.
+Include the real-harness guards and the current evidence gaps in that handoff; the validation phase must run those guards and refresh the dated version and output in the verification record before claiming live proof.
 
 $drive_block
 A killed or timed-out call is never evidence the daemon died: the daemon accepts your response immediately and runs the round in the background, so the call was only ever waiting for a read while the run kept working.

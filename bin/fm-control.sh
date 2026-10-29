@@ -56,9 +56,9 @@
 #              of exiting, so afterwards `claude agents --json` is read under
 #              the worker's account (agent view enabled), and any background
 #              session whose cwd is exactly this worktree is ended with
-#              `claude stop <id>`. The line ends `background-sessions=none`,
+#              `claude rm <id>`. The line ends `background-sessions=none`,
 #              `=stopped:<ids>`, or `=unverified` (the listing failed, with a
-#              ❌ on stderr); a session that survives `claude stop` fails the
+#              ❌ on stderr); a session that survives `claude rm` fails the
 #              verb. This holds for `already-stopped` and `endpoint-gone` too,
 #              because a handed-off session outlives its pane. Another
 #              worktree's session is never touched.
@@ -711,11 +711,11 @@ claude_bg_list() {
 
 # exit_background_check: after a Claude exit, end any background session of this
 # worktree. Prints `background-sessions=none|stopped:<ids>|unverified`, nothing
-# for another harness. Dies when a session survives `claude stop`.
+# for another harness. Dies when a session survives `claude rm`.
 exit_background_check() {
   local json ids remaining id stopped=() i unverified
   [ "$HARNESS" = claude ] || return 0
-  unverified="❌ task $ID: the Claude background-session check failed (claude agents --json), so a background session running in $WT cannot be ruled out; list it with 'claude agents --json --cwd $WT' and stop it with 'claude stop <id>'"
+  unverified="❌ task $ID: the Claude background-session check failed (claude agents --json), so a background session running in $WT cannot be ruled out; list it with 'claude agents --json --cwd $WT' and stop it with 'claude rm <id>'"
   if ! claude_bg_prepare || ! json=$(claude_bg_list) || ! ids=$(fm_control_claude_bg_ids "$WT" "$json"); then
     echo "$unverified" >&2
     printf 'background-sessions=unverified'
@@ -726,7 +726,7 @@ exit_background_check() {
     return 0
   fi
   for id in $ids; do
-    "${CLAUDE_BG_ENV[@]}" python3 "$SCRIPT_DIR/fm-claude-bg-stop.py" "$id" "$BG_TIMEOUT" <<< "$json" \
+    fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" claude rm "$id" >/dev/null 2>&1 </dev/null \
       || die "task $ID's Claude background session $id could not be stopped with its carried work"
     stopped+=("$id")
   done
@@ -740,7 +740,7 @@ exit_background_check() {
     sleep "$POLL"
   done
   [ -z "$remaining" ] \
-    || die "task $ID's Claude exit left background session(s) running in $WT after 'claude stop': ${remaining//$'\n'/ } - they keep running outside every lane; stop them with 'claude stop <id>' and check 'claude agents --json --cwd $WT'"
+    || die "task $ID's Claude exit left background session(s) running in $WT after 'claude rm': ${remaining//$'\n'/ } - they keep running outside every lane; remove them with 'claude rm <id>' and check 'claude agents --json --cwd $WT'"
   printf 'background-sessions=stopped:%s' "$(IFS=,; printf '%s' "${stopped[*]}")"
 }
 

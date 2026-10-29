@@ -18,7 +18,7 @@
 #      folder.
 #   3. VERB BACKSTOP: bin/fm-control.sh's session check (the same listing and
 #      matching it uses after an exit) finds the control run's leftover session
-#      by its exact cwd and `claude stop` ends it.
+#      by its exact cwd and `claude rm` ends it.
 # The project is isolated; Claude keeps using its existing managed
 # authentication. A few Haiku turns are submitted and any background session
 # this test creates is stopped by exact id before it exits.
@@ -45,7 +45,7 @@ CREATED_IDS=''
 stop_created() {
   local id
   for id in $CREATED_IDS; do
-    env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude stop "$id" >/dev/null 2>&1 || true
+    env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude rm "$id" >/dev/null 2>&1 || true
   done
 }
 
@@ -262,10 +262,21 @@ pass "switched: Claude Code $CLAUDE_VERSION /exit with background work ends the 
 
 # --- 3. the verb backstop stops the control run's leftover session ------------
 
-CONTROL_JSON=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json)
 for id in $CONTROL_IDS; do
-  env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF \
-    python3 "$ROOT/bin/fm-claude-bg-stop.py" "$id" 30 <<< "$CONTROL_JSON" \
+  old_pid=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json | jq -r --arg id "$id" '.[] | select(.id == $id) | .pid')
+  env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude respawn "$id" >/dev/null 2>&1 \
+    || fail "claude respawn $id failed on Claude Code $CLAUDE_VERSION"
+  new_pid=$old_pid
+  for ((i=0; i<80; i++)); do
+    new_pid=$(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW claude agents --json | jq -r --arg id "$id" '.[] | select(.id == $id) | .pid // empty')
+    [ -z "$new_pid" ] || [ "$new_pid" = "$old_pid" ] || break
+    sleep 0.25
+  done
+  [ -n "$new_pid" ] && [ "$new_pid" != "$old_pid" ] \
+    || fail "claude respawn did not replace the session process on Claude Code $CLAUDE_VERSION"
+  lab_process_live "$CONTROL_PROJECT" \
+    || fail "the carried shell did not survive Claude session respawn on Claude Code $CLAUDE_VERSION"
+  env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF claude rm "$id" >/dev/null 2>&1 \
     || fail "background cleanup of $id failed on Claude Code $CLAUDE_VERSION"
 done
 i=0
@@ -274,8 +285,8 @@ while [ "$i" -lt 40 ] && [ -n "$(bg_ids "$CONTROL_PROJECT")" ]; do
   i=$((i + 1))
 done
 [ -z "$(bg_ids "$CONTROL_PROJECT")" ] \
-  || fail "claude stop did not end background session(s) $CONTROL_IDS on Claude Code $CLAUDE_VERSION"
+  || fail "claude rm did not end background session(s) $CONTROL_IDS on Claude Code $CLAUDE_VERSION"
 if lab_process_live "$CONTROL_PROJECT"; then
   fail "background cleanup left the control arm's shell running on Claude Code $CLAUDE_VERSION"
 fi
-pass "backstop: background cleanup ends the control run's session and shell"
+pass "backstop: exact-session removal ends the respawned session and its earlier carried shell"
