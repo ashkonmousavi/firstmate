@@ -1319,6 +1319,7 @@ Advice never reserves a lane, and spawn always rereads live facts before launch.
 
 The optional local, gitignored `config/curated-delivery-exceptions` records merged fork PRs that are deliberately not on `curated`, for `bin/fm-curated-delivery-check.sh`.
 A line `<original-pr> <relanding-pr> <evidence>` excuses the original only when evidence is present and the re-landing PR is itself merged onto `curated`.
+A re-landing written `base:<sha>` names a commit that is an ancestor of `curated` and not a fork PR, such as the upstream base `curated` was cut from.
 A line `since <pr> <evidence>` ignores merged PRs numbered below `<pr>`.
 [`bin/fm-curated-delivery-check.sh`](../bin/fm-curated-delivery-check.sh) owns the remaining detail and the home list.
 

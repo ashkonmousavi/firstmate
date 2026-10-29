@@ -24,7 +24,10 @@
 # overrides the path), one entry per line, `#` comments allowed:
 #   <original-pr> <relanding-pr> <evidence text...>
 # An entry without evidence text, or whose re-landing PR is not on curated,
-# is ignored, so the original is still listed.
+# is ignored, so the original is still listed. A re-landing written
+# `base:<sha>` names a commit on curated that is not a fork PR, such as the
+# upstream base curated was cut from; it qualifies when <sha> is an ancestor of
+# curated.
 #
 # Baseline: PRs merged before curated was cut cannot be delivered by the check.
 # `since <pr> <evidence text...>` in the exceptions file (or FM_CURATED_SINCE_PR)
@@ -149,7 +152,14 @@ exception_valid() {  # <orig> -> 0 when an evidenced entry's re-landing is on cu
     shift 2 2>/dev/null || continue
     ev=$*
     [ -n "$ev" ] || continue
-    grep -Fxq -- "$r" "$FINDINGS/curated-prs" 2>/dev/null && return 0
+    case "$r" in
+      base:*)
+        # The carrier is a non-PR commit already on curated, such as the
+        # upstream base curated was cut from.
+        git -C "$CODE" merge-base --is-ancestor "${r#base:}" "$TIP" 2>/dev/null && return 0
+        ;;
+      *) grep -Fxq -- "$r" "$FINDINGS/curated-prs" 2>/dev/null && return 0 ;;
+    esac
   done < "$EXCEPTIONS"
   return 1
 }

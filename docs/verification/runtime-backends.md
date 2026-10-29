@@ -770,6 +770,8 @@ It uses an isolated Grok home with a copy of the managed authentication file and
 On Linux with `grok 1.0.62 (1474f9cbdd91) [stable]`, the real idle composer rendered `Grok 4.7 (high) · always-approve` without `Weekly limit left:`.
 The guard therefore failed rather than claiming coverage of the weekly-limit surface.
 Live verification of that surface remains outstanding; the portable regression is not a substitute.
+A later idle pane drew the same model line with no weekly-limit prefix, `Grok 4.7 (high) · always-approve`, and the classifier read the box unknown because the middle dot is not ASCII.
+`test_matrix_grok_always_approve_border_from_capture` pins that captured screen: empty when the only content row is the prompt glyph, pending when that row holds a draft, and unknown when the model title is not the known shape or a border is clipped.
 `test_matrix_grok_weekly_limit_border` in `tests/fm-composer-lib.test.sh` pins empty, typed, and malformed-title verdicts across the shared capture capability profiles.
 
 ```sh
@@ -993,6 +995,10 @@ not ok - mid-turn absolute cwd rail read 'pending', want empty
 The cursorless backends still defer: on a cursorless read (Herdr and Zellij) a full-pane capture of this version answers `unknown` because the status rail below the composer floor row is contiguous non-blank content the selector refuses to outrank, which is the strict posture and not this defect; and very narrow panes where the cwd rail starts in the left half of the row defer the same way.
 
 ## Steering-inbox doorbell
+
+The live guard submits Claude and OpenCode doorbells while a real foreground tool is blocked, then separately requires each instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
+The portable busy-Claude and OpenCode regressions verify literal input followed by Enter; they do not claim model consumption.
+Rovo retains busy deferral and re-ring on idle because its footer has no retained queued-consumption proof; portable regressions cover both fresh and pending-doorbell deferral.
 
 The steering channel's one behavioral assumption - a real worker agent follows the constant self-describing doorbell line (list the inbox, read and act on its records in numeric order, then `mv` each into `handled/`) - was verified on 2026-08-23 against every installed verified harness, on tmux 3.6a, macOS arm64, on an isolated private socket, driving the REAL `bin/fm-send.sh` end to end (durable record plus doorbell, with one mid-wait re-ring playing the watcher's role).
 

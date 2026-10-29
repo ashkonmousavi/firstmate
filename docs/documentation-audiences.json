@@ -578,6 +578,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "tests/captures/grok-idle-always-approve.txt",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": ".agents/skills/agent-skill-trigger-index/SKILL.md",
       "audience": "agent-runtime"
     },

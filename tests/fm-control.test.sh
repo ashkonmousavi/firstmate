@@ -1133,6 +1133,45 @@ test_grok_idle_footer_does_not_confirm_cancellation() {
   pass "fm-control interrupt: grok's idle footer does not confirm cancellation"
 }
 
+# --- recorded harness capabilities and exhausted-seat release ----------------
+
+test_recorded_harness_capabilities() {
+  local harness signal
+  for harness in claude claude-latest opencode opencode-dev; do
+    fm_control_submit_queue "$harness" || fail "$harness must accept busy submission"
+  done
+  for harness in rovo rovo-preview cursor cursor-agent codex codex-dev pi pi-signed grok grok-dev kimi gemini muse omp agy devin unknown ''; do
+    fm_control_submit_queue "$harness" && fail "$harness must not claim a busy submit queue"
+  done
+  for harness in cursor cursor-agent; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
+    printf '%s\n' "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue." \
+      | grep -Eq -- "$signal" || fail "$harness missed Cursor's usage banner"
+    printf '%s\n' "The log quoted You're out of usage in a sentence." \
+      | grep -Eq -- "$signal" && fail "$harness mistook a quotation for exhaustion"
+  done
+  for harness in grok grok-dev; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
+    printf '%s\n' 'You hit your weekly limit' | grep -Eq -- "$signal" || fail "$harness missed Grok's usage banner"
+  done
+  for harness in claude-latest codex-dev opencode-dev pi pi-signed rovo-preview kimi gemini muse omp agy devin; do
+    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness was not recognized"
+    [ -z "$signal" ] || fail "$harness invented an exhaustion signal"
+  done
+  fm_control_quota_exhausted_signal unknown >/dev/null && fail "an unknown harness must be refused"
+  pass "recorded harness capabilities normalize aliases and refuse unsupported capabilities"
+}
+
+test_exhausted_release_failure_is_reported() {
+  local dir out rc
+  dir=$(new_case release-failed)
+  out=$(FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" bash -c \
+    '. "$1"; fm_task_inbox_release_exhausted missing' _ "$ROOT/bin/fm-task-inbox-lib.sh" 2>&1); rc=$?
+  [ "$rc" -ne 0 ] || fail "a failed lifecycle release claimed success"
+  assert_contains "$out" 'exhausted task missing seat release failed' "release failure must be reported"
+  pass "exhausted seat release failures propagate and report lifecycle failure"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1260,5 +1299,7 @@ test_exit_accepts_agent_stopped_by_busy_interrupt
 test_agent_that_does_not_stop_fails_closed
 test_grok_interrupt_without_acknowledgement_reports_unconfirmed
 test_grok_idle_footer_does_not_confirm_cancellation
+test_recorded_harness_capabilities
+test_exhausted_release_failure_is_reported
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task

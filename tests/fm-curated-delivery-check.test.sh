@@ -115,6 +115,13 @@ test_exception_needs_evidence_and_a_landed_relanding() {
   printf '[{"number":141,"mergeCommit":{"oid":"%s"},"title":"relanded","url":"https://example.test/pull/141"}]\n' "$CURATED_TIP" > "$FIX/merged-curated.json"
   run_check "$TMP_ROOT/o6"
   [ ! -s "$TMP_ROOT/o6" ] || fail "evidenced exception with landed re-landing must clear: $(cat "$TMP_ROOT/o6")"
+  printf '144 base:%s carried by the base commit\n' "$CURATED_TIP" > "$ex"
+  rm -f "$FIX/merged-curated.json"
+  run_check "$TMP_ROOT/o6b"
+  [ ! -s "$TMP_ROOT/o6b" ] || fail "an evidenced base: re-landing on curated must clear: $(cat "$TMP_ROOT/o6b")"
+  printf '144 base:%s carried by a commit not on curated\n' "$MAIN_SHA" > "$ex"
+  run_check "$TMP_ROOT/o6c"
+  assert_grep "merged PRs not on curated: 144" "$TMP_ROOT/o6c" "a base: commit that is not on curated keeps 144 listed"
   rm -f "$ex" "$FIX/merged-curated.json"
   pass "curated-delivery: exceptions need evidence and a re-landing that is on curated"
 }

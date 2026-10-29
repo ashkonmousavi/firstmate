@@ -30,6 +30,7 @@ Without a cursor anchor a full-pane capture of this version still defers as `unk
 ## Busy-queued Enter
 
 While OpenCode 1.18.4 is mid-turn, its composer accepts Enter as a "send when the turn ends" keystroke but does not clear the typed text until the turn finishes.
+The steering doorbell uses that same class: `fm_control_submit_queue` in `../../../bin/fm-control-lib.sh` accepts opencode, so the watcher submits the doorbell while the pane is busy, and the typed text stays until the turn ends.
 Without a conversion, every typed-plane send to a busy OpenCode pane falsely reports "Enter swallowed", and a daemon escalation that lands while the primary is mid-turn appears wedged.
 
 Tmux and Herdr delegate this exception to the one `fm_composer_queued_enter_verdict` policy in `../../../bin/fm-composer-lib.sh`.

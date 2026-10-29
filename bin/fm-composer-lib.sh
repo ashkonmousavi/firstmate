@@ -1132,7 +1132,7 @@ EOF
 # inner (corners already stripped) still starts and ends with the family's own
 # rule glyph, so the title is embedded IN the rule rather than replacing it.
 _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
-  local family=$1 inner=$2 expected=$3 dash spaces title effort model limit
+  local family=$1 inner=$2 expected=$3 dash spaces title effort model limit status
   fm_composer_normalize_trim_var inner
   case "$family" in
     rounded|light) dash='─' ;;
@@ -1148,8 +1148,10 @@ _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
   title=${inner//"$dash"/}
   fm_composer_normalize_trim_var title
   spaces=${inner//"$dash"/ }
-  # Grok also embeds quota and approval status around the model title.
-  # Admit its middle-dot separators only in that known status shape.
+  # Grok embeds quota and approval status around the model title.
+  # Admit its middle-dot separators only in those known status shapes.
+  # The dot is not ASCII, so leaving it would fail the width proof and a
+  # visibly empty composer would read unknown.
   case "$title" in
     'Weekly limit left: '*'% · Grok '*' · always-approve')
       limit=${title#Weekly limit left: }
@@ -1157,6 +1159,22 @@ _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
       case "$limit" in 0|[1-9]|[1-9][0-9]|100) ;; *) return 1 ;; esac
       title=${title#*% · }
       title=${title% · always-approve}
+      spaces=${spaces//·/ }
+      ;;
+    'Grok '*' · always-approve')
+      # Observed with no weekly-limit prefix: "Grok 4.7 (high) · always-approve".
+      status=${title% · always-approve}
+      case "$status" in
+        'Grok '*\ \(low\)) effort=low ;;
+        'Grok '*\ \(medium\)) effort=medium ;;
+        'Grok '*\ \(high\)) effort=high ;;
+        'Grok '*\ \(xhigh\)) effort=xhigh ;;
+        *) return 1 ;;
+      esac
+      model=${status#Grok }
+      model=${model%" ($effort)"}
+      [ -n "$model" ] || return 1
+      case "$model" in *[!A-Za-z0-9._-]*) return 1 ;; esac
       spaces=${spaces//·/ }
       ;;
   esac

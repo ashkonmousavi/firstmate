@@ -45,6 +45,12 @@ Inspect the pane to identify which dialog is on screen, and report it rather tha
 A launch under `config/claude-permission-mode=auto` never meets the bypass confirmation, because it does not request bypass mode: on 2.1.269 `claude --permission-mode auto` reached the composer directly with the footer `⏵⏵ auto mode on (shift+tab to cycle)`, so a captain who refuses the bypass dialog selects `auto` there instead of accepting it.
 The workspace-trust dialog is unaffected by the permission mode and still needs the pre-registration above.
 
+## Submit queue
+
+Claude Code queues a message submitted while a turn is running and delivers it within that turn, once the in-flight tool calls finish, or at the end of the turn.
+The official description is "Queue messages while Claude works" at https://code.claude.com/docs/en/interactive-mode.
+The doorbell path submits while the pane is busy for every harness `fm_control_submit_queue` in `../../../bin/fm-control-lib.sh` accepts, Claude included.
+
 ## Composer ghost
 
 Completed turns can render dim predicted text inside an empty composer, indistinguishable in plain `tmux capture-pane`.
