@@ -107,7 +107,8 @@ Hosted timing uploads and aggregation follow the optional evidence policy in [CO
 
 ## Lint partitions and end-to-end latency
 
-`bin/fm-lint.sh` owns two canonical CI partitions, each attempting full source-aware ShellCheck analysis and running workflow validation and backend-purity checks.
+`bin/fm-lint.sh` owns the supported canonical partition forms, analysis modes, and checks (see its header and `--help`).
+Byte balance does not establish analysis cost or timeout headroom; measure completed hosted-runner partitions before claiming a runtime reduction.
 CI requires its per-root bounds, so an unenforceable deadline or address-space limit refuses lint rather than running uncapped; the script header owns the envelope, per-root execution contract, and memory fallback.
 Its `--list-files` interface exposes partition membership; `tests/fm-lint.test.sh` verifies complete/disjoint executed roots, initial analysis flags, and fallback reporting.
 Each partition's quiet telemetry and per-root lifecycle sidecar distinguish analysis cost, memory use, and host contention; uploads follow the [hosted evidence policy](../CONTRIBUTING.md#development).
@@ -115,7 +116,7 @@ No fast mode, path skips, or paid runner provisioning is part of this layout.
 
 The longer-term performance objective remains a complete green run under fifteen minutes including start delay, but the current watch-triage floor alone exceeds that objective.
 The immediate packing target is the runner's modeled script budget, not a claim that more shards alone can make an indivisible script faster.
-The layout uses fourteen long-lived Linux jobs (nine serial, two parallel, Herdr, two lint), plus short checks and macOS; insufficient shared account capacity can erase the packing gain.
+The job layout and matrix counts are owned by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml); insufficient shared account capacity can erase the packing gain.
 Compare complete before/after runs, preserve cancelled and partial-run evidence, and measure a representative normal-run sample before claiming a P95 improvement.
 The workflow retains per-PR supersession without cancelling main pushes or changing the compliance workflow's event semantics.
 
