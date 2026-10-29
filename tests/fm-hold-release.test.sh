@@ -13,6 +13,8 @@ set -u
 # shellcheck source=tests/lib.sh
 # shellcheck disable=SC1091
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/secondmate-helpers.sh disable=SC1091
+. "$(dirname "${BASH_SOURCE[0]}")/secondmate-helpers.sh"
 
 command -v tasks-axi >/dev/null 2>&1 || { echo "skip: tasks-axi not found"; exit 0; }
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
@@ -21,6 +23,7 @@ TMP_ROOT=$(fm_test_tmproot fm-hold-release)
 WRAPPER="$ROOT/bin/fm-tasks-axi.sh"
 CAPTAIN="$ROOT/bin/fm-captain-hold.sh"
 LIB="$ROOT/bin/fm-hold-release-lib.sh"
+export FM_TEST_HOLD_WRAPPER="$WRAPPER"
 
 make_home() {  # <name>
   local home="$TMP_ROOT/$1"
@@ -41,6 +44,12 @@ run_axi() {  # <home> <args...>
   shift
   FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     "$WRAPPER" "$@"
+}
+
+seed_hold() {
+  local home=$1 id=$2 condition=$3
+  run_axi "$home" add "$id" "$id" --repo demo >/dev/null \
+    && run_axi "$home" hold "$id" --reason waiting --kind external --release-on "$condition" >/dev/null
 }
 
 # run_lib <home> <function> [args...]: run one evaluator call in a subshell
@@ -122,7 +131,7 @@ test_hold_with_release_on_records_the_condition() {
     --release-on "marker:$TMP_ROOT/record.flag" >/dev/null \
     || fail "hold with --release-on must succeed"
   run_axi "$home" show t1 | grep -q '^  held: yes$' || fail "row must be held"
-  run_axi "$home" show t1 | grep -q '^  hold_reason: awaiting activation$' \
+  [ "$(run_axi "$home" show t1 | sed -n 's/^  hold_reason: //p' | jq -r .)" = 'awaiting activation' ] \
     || fail "the condition must not leak into the hold reason"
   assert_grep "condition=marker:$TMP_ROOT/record.flag" "$home/state/hold-releases/t1" \
     "the record stores the structured condition beside the hold"
@@ -280,9 +289,10 @@ test_show_override_distinguishes_missing_from_unreadable() {
 case "$(cat "$FM_HOME/show-mode")" in
   held)
     printf 'backend warning\n' >&2
-    printf '  state: queued\n  held: yes\n'
+    "$FM_TEST_HOLD_WRAPPER" show "$1"
     ;;
   unknown) printf 'code: BACKEND_UNAVAILABLE\n' >&2; exit 1 ;;
+  malformed) printf '  state: queued\n  held: yes\n  hold_release_on: {}\n  hold_release_episode: "bad"\n' ;;
   stdout) printf 'code: NOT_FOUND\n'; exit 1 ;;
   stderr) printf 'code: NOT_FOUND\n' >&2; exit 1 ;;
 esac
@@ -294,7 +304,7 @@ SH
       || fail "a successful show with a stderr warning must be readable"
     [ "$out" = "hold condition met: t1 marker:$home/met" ] \
       || fail "a readable held task must publish its met condition: $out"
-    for mode in unknown held; do
+    for mode in unknown malformed held; do
       printf '%s\n' "$mode" > "$home/show-mode"
       out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
         run_lib "$home" fm_hold_release_evaluate "$home/state") \
@@ -436,29 +446,20 @@ test_captain_answer_and_rehold_close_the_decision() {
   pass "hold-release: answering or re-holding a captain hold ends its release decision"
 }
 
-fake_held_show() {
-  cat > "$1" <<'SH'
-#!/usr/bin/env bash
-printf '  state: queued\n  held: yes\n'
-SH
-  chmod +x "$1"
-}
-
 test_bounded_sweeps_visit_every_hold() {
   local home n id out first second
   home=$(make_home fair)
-  fake_held_show "$home/show"
   : > "$home/met"
   for n in {1..26}; do
     printf -v id 't%02d' "$n"
-    run_lib "$home" fm_hold_release_record_write "$home/state" "$id" "marker:$home/met" \
+    seed_hold "$home" "$id" "marker:$home/met" \
       || fail "release record $id must be written"
   done
-  first=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" run_lib "$home" fm_hold_release_evaluate "$home/state") \
+  first=$(run_lib "$home" fm_hold_release_evaluate "$home/state") \
     || fail "the first bounded sweep must succeed"
   [ "$(printf '%s\n' "$first" | wc -l)" -eq 25 ] || fail "the first sweep must respect its 25-record cap"
   assert_not_contains "$first" 'hold condition met: t26' "the last hold must lie beyond the first sweep"
-  second=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" run_lib "$home" fm_hold_release_evaluate "$home/state") \
+  second=$(run_lib "$home" fm_hold_release_evaluate "$home/state") \
     || fail "the second bounded sweep must succeed"
   assert_contains "$second" 'hold condition met: t26' "the next sweep must visit the deferred hold"
   [ "$(printf '%s\n' "$second" | wc -l)" -eq 1 ] || fail "already-open conditions must never wake twice"
@@ -469,7 +470,6 @@ test_bounded_sweeps_visit_every_hold() {
 test_external_reads_respect_the_checkpoint_budget() {
   local home out rc deadline started elapsed n
   home=$(make_home budget)
-  fake_held_show "$home/show"
   cat > "$home/gh" <<SH
 #!/usr/bin/env bash
 printf 'lookup\n' >> '$home/lookups'
@@ -478,13 +478,13 @@ echo MERGED
 SH
   chmod +x "$home/gh"
   for n in 1 2 3; do
-    run_lib "$home" fm_hold_release_record_write "$home/state" "t$n" 'pr:owner/repo#42'
+    seed_hold "$home" "t$n" 'pr:owner/repo#42'
   done
   : > "$home/lookups"
   started=$SECONDS
   deadline=$(( $(date +%s) + 2 ))
   rc=0
-  out=$(FM_HOLD_RELEASE_GH="$home/gh" FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+  out=$(FM_HOLD_RELEASE_GH="$home/gh" FM_HOLD_RELEASE_MAX_RECORDS=1 \
     FM_CHECKPOINT_DEADLINE="$deadline" FM_HOLD_RELEASE_SHOW_BOUND=10 \
     run_lib "$home" fm_hold_release_evaluate "$home/state") || rc=$?
   elapsed=$((SECONDS - started))
@@ -499,11 +499,12 @@ printf 'show\n' >> '$home/shows'
 sleep 10
 printf '  state: queued\n  held: yes\n'
 SH
+  chmod +x "$home/show"
   : > "$home/shows"
   started=$SECONDS
   deadline=$(( $(date +%s) + 2 ))
   rc=0
-  out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" FM_CHECKPOINT_DEADLINE="$deadline" \
+  out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" FM_HOLD_RELEASE_MAX_RECORDS=1 FM_CHECKPOINT_DEADLINE="$deadline" \
     FM_HOLD_RELEASE_SHOW_BOUND=10 run_lib "$home" fm_hold_release_evaluate "$home/state") || rc=$?
   expect_code 124 "$rc" "task reads must also stop at the checkpoint deadline"
   [ "$((SECONDS - started))" -lt 5 ] || fail "task reads must use the remaining checkpoint budget"
@@ -526,6 +527,193 @@ run_captain() {
   shift
   FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" "$CAPTAIN" "$@"
+}
+
+hold_with_writer() {
+  local home=$1 writer=$2
+  shift 2
+  if [ "$writer" = captain ]; then
+    run_captain "$home" hold t1 --reason 'awaiting (activation)' "$@"
+  else
+    run_axi "$home" hold t1 --reason 'awaiting activation' --kind external "$@"
+  fi
+}
+
+test_committed_holds_recover_without_cache_publication() {
+  local home writer mode fakebin real_axi out rc command phase condition
+  real_axi=$(command -v tasks-axi)
+  for writer in tasks captain; do
+    for mode in initial rehold same dated unhold refused; do
+      home=$(make_home "interrupted-$writer-$mode")
+      fakebin=$(fm_fakebin "$home")
+      fm_fake_exit0 "$fakebin" tmux treehouse no-mistakes gh gh-axi
+      run_axi "$home" add t1 one --repo demo >/dev/null
+      if [ "$mode" != initial ]; then
+        PATH="$fakebin:$PATH" hold_with_writer "$home" "$writer" --release-on "marker:$home/old" >/dev/null \
+          || fail "the original $writer hold must commit"
+        : > "$home/old"
+        run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
+        open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+          || fail "the old episode must have an open decision"
+      fi
+      cat > "$fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  [ "$arg" != --help ] || exec "$FM_TEST_REAL_TASKS_AXI" "$@"
+done
+if [ "${1:-}" = "${FM_TEST_COMMIT_COMMAND:-}" ] && [ "${FM_TEST_COMMIT_PHASE:-}" = before ]; then
+  exit 99
+fi
+"$FM_TEST_REAL_TASKS_AXI" "$@" || exit $?
+[ "${1:-}" != "${FM_TEST_COMMIT_COMMAND:-}" ] || exit 99
+SH
+      chmod +x "$fakebin/tasks-axi"
+      command=hold
+      phase=after
+      condition="marker:$home/new"
+      rc=0
+      case "$mode" in
+        dated)
+          PATH="$fakebin:$PATH" FM_TEST_REAL_TASKS_AXI="$real_axi" FM_TEST_COMMIT_COMMAND="$command" \
+            hold_with_writer "$home" "$writer" --until 2099-01-01 > "$home/write.out" 2>&1 || rc=$?
+          ;;
+        unhold)
+          command=unhold
+          printf 'resume\n' > "$home/answer"
+          if [ "$writer" = captain ]; then
+            PATH="$fakebin:$PATH" FM_TEST_REAL_TASKS_AXI="$real_axi" FM_TEST_COMMIT_COMMAND="$command" \
+              run_captain "$home" answer t1 --release --decision-file "$home/answer" > "$home/write.out" 2>&1 || rc=$?
+          else
+            PATH="$fakebin:$PATH" FM_TEST_REAL_TASKS_AXI="$real_axi" FM_TEST_COMMIT_COMMAND="$command" \
+              run_axi "$home" unhold t1 > "$home/write.out" 2>&1 || rc=$?
+          fi
+          ;;
+        *)
+          [ "$mode" != same ] || condition="marker:$home/old"
+          [ "$mode" != refused ] || phase=before
+          PATH="$fakebin:$PATH" FM_TEST_REAL_TASKS_AXI="$real_axi" FM_TEST_COMMIT_COMMAND="$command" FM_TEST_COMMIT_PHASE="$phase" \
+            hold_with_writer "$home" "$writer" --release-on "$condition" > "$home/write.out" 2>&1 || rc=$?
+          ;;
+      esac
+      [ "$rc" -ne 0 ] || fail "the $writer $mode writer must stop before cache publication"
+      if [ "$mode" = initial ]; then
+        [ ! -e "$home/state/hold-releases/t1" ] || fail "the interrupted initial hold must lack its cache"
+      fi
+      out=$(run_lib "$home" fm_hold_release_evaluate "$home/state") \
+        || fail "the $writer $mode episode must reconcile"
+      case "$mode" in
+        refused)
+          [ -z "$out" ] || fail "a refused write must not start an episode"
+          open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+            || fail "a refused write must preserve the old decision"
+          ;;
+        same)
+          [ "$out" = "hold condition met: t1 $condition" ] \
+            || fail "a committed re-hold of the same condition must publish its new episode: $out"
+          ;;
+        *)
+          [ -z "$out" ] || fail "the old met condition must not wake after $writer $mode: $out"
+          open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+            && fail "the old decision must close after $writer $mode"
+          case "$mode" in
+            initial|rehold)
+              : > "$home/new"
+              out=$(run_lib "$home" fm_hold_release_evaluate "$home/state")
+              [ "$out" = "hold condition met: t1 $condition" ] \
+                || fail "the committed condition must remain discoverable after $writer $mode: $out"
+              ;;
+            *)
+              [ ! -e "$home/state/hold-releases/t1" ] || fail "$writer $mode must retire the stale cache"
+              ;;
+          esac
+          ;;
+      esac
+      out=$(run_lib "$home" fm_hold_release_evaluate "$home/state")
+      [ -z "$out" ] || fail "recovery must not repeat the $writer $mode wake: $out"
+    done
+  done
+  pass "hold-release: committed episodes recover after interrupted publication and refused writes preserve the prior hold"
+}
+
+test_hold_conditions_travel_with_task_transfers() {
+  local source dest route out fakebin bytes hash
+  for route in move peer registered receipt; do
+    source=$(make_home "transfer-$route-source")
+    dest=$(make_home "transfer-$route-dest")
+    seed_secondmate_home_marker "$dest" mate
+    seed_hold "$source" t1 'pr:owner/repo#42' || fail "the source hold must commit"
+    case "$route" in
+      move)
+        run_axi "$source" mv t1 --to "$dest/data/backlog.md" >/dev/null \
+          || fail "the held task must move through the wrapper"
+        ;;
+      peer)
+        FM_HOME="$source" "$ROOT/bin/fm-backlog-handoff.sh" --to "$dest" t1 > "$source/handoff.out" 2>&1 \
+          || fail "the held task must transfer to a local peer: $(cat "$source/handoff.out")"
+        ;;
+      registered)
+        printf -- '- mate - delegated work (home: %s; scope: demo; projects: demo; added 2026-10-29)\n' "$dest" > "$source/data/secondmates.md"
+        printf 'window=firstmate:fm-mate\nkind=secondmate\nharness=claude\nbackend=tmux\nhome=%s\nworktree=%s\n' "$dest" "$dest" > "$source/state/mate.meta"
+        fakebin=$(make_fake_tmux "$source/fake")
+        PATH="$fakebin:$PATH" FM_HOME="$source" FM_FAKE_TMUX_WINDOW=firstmate:fm-mate \
+          FM_FAKE_TMUX_LOG="$source/tmux.log" FM_FAKE_TMUX_CAPTURE="$source/fake/pane.txt" \
+          FM_SEND_SETTLE=0 FM_SEND_SLEEP=0 FM_SEND_RETRIES=1 \
+          "$ROOT/bin/fm-backlog-handoff.sh" mate t1 > "$source/handoff.out" 2>&1 \
+          || fail "the held task must transfer to its registered mate: $(cat "$source/handoff.out")"
+        ;;
+      receipt)
+        mkdir -p "$dest/state/handoff"
+        run_axi "$source" mv t1 --to "$source/outbox.md" >/dev/null \
+          || fail "the held task must stage in an outbox"
+        bytes=$(wc -c < "$source/outbox.md" | tr -d '[:space:]')
+        hash=$(perl -MDigest::SHA=sha256_hex -0777 -ne 'print sha256_hex($_)' "$source/outbox.md")
+        FM_HOME="$dest" "$ROOT/bin/fm-remote-file.sh" put state/handoff/sender.outbox.md 1048576 "$bytes" "$hash" 1 < "$source/outbox.md" > "$source/upload.out" 2>&1 \
+          || fail "the outbox upload must commit its payload: $(cat "$source/upload.out")"
+        FM_HOME="$dest" "$ROOT/bin/fm-backlog-receive.sh" state/handoff/sender.outbox.md "$bytes" "$hash" 1 > "$source/receipt.out" 2>&1 \
+          || fail "the held task must survive outbox receipt: $(cat "$source/receipt.out")"
+        ;;
+    esac
+    [ ! -e "$dest/state/hold-releases/t1" ] || fail "transfer must not rely on a copied home-local cache"
+    printf '#!/usr/bin/env bash\nprintf "MERGED\\n"\n' > "$dest/gh"
+    chmod +x "$dest/gh"
+    out=$(FM_HOLD_RELEASE_GH="$dest/gh" run_lib "$dest" fm_hold_release_evaluate "$dest/state") \
+      || fail "the destination must discover the transferred hold after $route"
+    [ "$out" = 'hold condition met: t1 pr:owner/repo#42' ] \
+      || fail "$route must preserve the committed release condition: $out"
+    open_decisions "$dest" t1 | grep -q '^hold-release-t1' \
+      || fail "$route must leave a durable decision in the destination"
+    out=$(FM_HOLD_RELEASE_GH="$dest/gh" run_lib "$dest" fm_hold_release_evaluate "$dest/state")
+    [ -z "$out" ] || fail "$route must not repeat the destination wake"
+  done
+  pass "hold-release: raw moves, local peers, registered mates and remote receipts preserve conditions"
+}
+
+test_structured_reason_round_trips_across_readers() {
+  local home reason condition shown listed quoted raw encoded snapshot rendered
+  home=$(make_home structured-reason)
+  reason=$'Wait for "north" (activation)\nThen resume café'
+  condition="marker:$home/activation (north)"
+  run_axi "$home" add t1 one --repo demo >/dev/null
+  run_axi "$home" hold t1 --reason "$reason" --release-on "$condition" >/dev/null \
+    || fail "structured holds must retain ordinary prose"
+  quoted=$(jq -cn --arg value "$reason" '$value')
+  shown=$(run_axi "$home" show t1)
+  [ "$(printf '%s\n' "$shown" | sed -n 's/^  hold_reason: //p' | jq -r .)" = "$reason" ] \
+    || fail "show must decode the human reason exactly once"
+  [ "$(printf '%s\n' "$shown" | sed -n 's/^  hold_release_on: //p' | jq -r .)" = "$condition" ] \
+    || fail "show must expose the committed release field independently of prose"
+  listed=$(run_axi "$home" list --state held --fields hold_reason)
+  assert_contains "$listed" "$quoted" "list must preserve the quoted human reason"
+  raw=$(tasks-axi show t1 --file "$home/data/backlog.md" --backend markdown)
+  encoded=$(printf '%s\n' "$raw" | sed -n 's/^  hold_reason: //p')
+  case "$encoded" in \"*) encoded=$(printf '%s' "$encoded" | jq -r .) ;; esac
+  snapshot=$(jq -cn --arg reason "$encoded" '{records:[{hold_reason:$reason}]}')
+  rendered=$(printf '%s' "$snapshot" | bash -c '. "$1"; fm_hold_reason_decode_stream json' _ "$ROOT/bin/fm-hold-reason-lib.sh")
+  [ "$(printf '%s' "$rendered" | jq -r '.records[0].hold_reason')" = "$reason" ] \
+    || fail "snapshot decoding must preserve the human reason"
+  rendered=$(bash -c '. "$1"; fm_hold_reason_decode_stream markdown' _ "$ROOT/bin/fm-hold-reason-lib.sh" < "$home/data/backlog.md")
+  assert_contains "$rendered" "$quoted" "markdown decoding must preserve the quoted human reason"
+  pass "hold-release: structured reasons round-trip through show, list, snapshots and markdown"
 }
 
 race_hold_mutation() {
@@ -596,11 +784,10 @@ SH
 test_met_wake_is_durable_before_later_reads_expire() {
   local home deadline out rc keys
   home=$(make_home durable-wake)
-  fake_held_show "$home/show"
   : > "$home/met"
-  run_lib "$home" fm_hold_release_record_write "$home/state" t1 "marker:$home/met"
-  run_lib "$home" fm_hold_release_record_write "$home/state" t2 'pr:owner/repo#42'
-  run_lib "$home" fm_hold_release_record_write "$home/state" t3 "marker:$home/unmet"
+  seed_hold "$home" t1 "marker:$home/met"
+  seed_hold "$home" t2 'pr:owner/repo#42'
+  seed_hold "$home" t3 "marker:$home/unmet"
   cat > "$home/gh" <<'SH'
 #!/usr/bin/env bash
 sleep 10
@@ -609,7 +796,7 @@ SH
   chmod +x "$home/gh"
   deadline=$(( $(date +%s) + 2 ))
   rc=0
-  out=$(FM_CHECKPOINT_DEADLINE="$deadline" FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+  out=$(FM_CHECKPOINT_DEADLINE="$deadline" \
     FM_HOLD_RELEASE_GH="$home/gh" run_lib "$home" fm_hold_release_evaluate "$home/state") || rc=$?
   expect_code 124 "$rc" "a later read must exhaust the checkpoint budget"
   assert_contains "$out" 'hold condition met: t1' "the first hold must have been evaluated"
@@ -617,7 +804,7 @@ SH
     '. "$1"; fm_wake_queued_keys check' _ "$ROOT/bin/fm-wake-lib.sh")
   assert_contains "$keys" 'hold-release:t1' "the first hold must already have a durable check wake"
   open_decisions "$home" t1 | grep -q '^hold-release-t1' || fail "the announced hold must retain its decision"
-  FM_HOLD_RELEASE_MAX_RECORDS=2 FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+  FM_HOLD_RELEASE_MAX_RECORDS=2 \
     run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
   [ "$(awk -F '\t' '$3 == "check" && $4 == "hold-release:t1" {n++} END {print n+0}' "$home/state/.wake-queue")" -eq 1 ] \
     || fail "a later sweep must not duplicate the committed wake"
@@ -627,14 +814,13 @@ SH
 test_uncommitted_wake_does_not_suppress_publication() {
   local home out
   home=$(make_home rejected-wake)
-  fake_held_show "$home/show"
   : > "$home/met"
-  run_lib "$home" fm_hold_release_record_write "$home/state" t1 "marker:$home/met"
+  seed_hold "$home" t1 "marker:$home/met"
   mkdir "$home/state/.wake-queue"
-  FM_HOLD_RELEASE_SHOW_CMD="$home/show" run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null 2>&1 || true
+  run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null 2>&1 || true
   open_decisions "$home" t1 | grep -q '^hold-release-t1' && fail "a failed wake commit must not announce the decision"
   rmdir "$home/state/.wake-queue"
-  out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" run_lib "$home" fm_hold_release_evaluate "$home/state")
+  out=$(run_lib "$home" fm_hold_release_evaluate "$home/state")
   assert_contains "$out" 'hold condition met: t1' "publication must resume when the queue can accept the wake"
   pass "hold-release: failed wake commits leave publication retryable"
 }
@@ -668,20 +854,19 @@ test_wrapper_spellings_and_captain_exemption() {
 test_hold_reads_reserve_time_for_registered_checks() {
   local home
   home=$(make_home reserved-check)
-  fake_held_show "$home/show"
   cat > "$home/gh" <<'SH'
 #!/usr/bin/env bash
 sleep 10
 echo OPEN
 SH
   chmod +x "$home/gh"
-  run_lib "$home" fm_hold_release_record_write "$home/state" t1 'pr:owner/repo#42'
-  run_lib "$home" fm_hold_release_record_write "$home/state" t2 'pr:owner/repo#43'
+  seed_hold "$home" t1 'pr:owner/repo#42'
+  seed_hold "$home" t2 'pr:owner/repo#43'
   (
     # shellcheck source=bin/fm-hold-release-lib.sh disable=SC1091
     . "$LIB"
     # shellcheck disable=SC2031  # these exports assign fresh values for this subshell
-    export FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_HOLD_RELEASE_SHOW_CMD="$home/show" FM_HOLD_RELEASE_GH="$home/gh"
+    export FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_HOLD_RELEASE_GH="$home/gh"
     FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 4 ))
     fm_hold_release_evaluate "$home/state" >/dev/null || true
     remaining=$(fm_checkpoint_budget 10) || fail "hold reads must leave time for later registered checks"
@@ -703,6 +888,9 @@ test_rehold_after_met_opens_a_new_episode
 test_closed_task_reconciles_its_record_away
 test_removed_task_reconciles_its_record_away
 test_show_override_distinguishes_missing_from_unreadable
+test_committed_holds_recover_without_cache_publication
+test_hold_conditions_travel_with_task_transfers
+test_structured_reason_round_trips_across_readers
 test_pr_condition_reads_merge_state_through_gh
 test_captain_hold_carries_a_release_condition
 test_captain_answer_and_rehold_close_the_decision

@@ -33,7 +33,7 @@
 #
 # HOLD RELEASE CONDITIONS. `hold` accepts one extra flag this wrapper owns,
 # `--release-on pr:<owner>/<repo>#<n>` or `--release-on marker:<absolute-path>`:
-# the condition is recorded beside the hold (state/hold-releases/<id>) and
+# the condition is encoded in the native hold reason and
 # evaluated by the watcher's check sweep, which wakes firstmate once with
 # `hold condition met: <id> <condition>` and keeps a keyed decision open in
 # OPEN DECISIONS until the hold is released or re-held
@@ -136,6 +136,8 @@ first_positional=
 hold_kind=
 hold_until=
 hold_release_on=
+hold_reason=
+hold_stored_reason=
 prescan_next=
 help_requested=0
 prescan_skip=1
@@ -149,6 +151,7 @@ for arg in "$@"; do
       kind) hold_kind=$arg ;;
       until) hold_until=$arg ;;
       release-on) hold_release_on=$arg ;;
+      reason) hold_reason=$arg ;;
     esac
     prescan_next=
     continue
@@ -156,6 +159,7 @@ for arg in "$@"; do
   case "$arg" in
     -h|--help) help_requested=1 ;;
     --reason) prescan_next=reason ;;
+    --reason=*) hold_reason=${arg#--reason=} ;;
     --kind) prescan_next=kind ;;
     --until) prescan_next=until ;;
     --release-on)
@@ -418,6 +422,20 @@ case "$subcommand" in
     if [ -n "$hold_release_on" ]; then
       fm_hold_release_valid "$hold_release_on" >/dev/null \
         || fail "--release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: $hold_release_on"
+      [ -n "$hold_reason" ] || fail "a hold needs a nonempty --reason"
+      hold_stored_reason=$(fm_hold_reason_encode "$hold_reason" "$hold_release_on") \
+        || fail "could not encode the hold release condition"
+      REWRITTEN=()
+      skip=0
+      for arg in "${ARGS[@]}"; do
+        if [ "$skip" = 1 ]; then skip=0; continue; fi
+        case "$arg" in
+          --reason) skip=1 ;;
+          --reason=*) ;;
+          *) REWRITTEN+=("$arg") ;;
+        esac
+      done
+      ARGS=("${REWRITTEN[@]}" --reason "$hold_stored_reason")
     fi
     ;;
 esac
@@ -431,7 +449,7 @@ case "$subcommand" in
       case "$subcommand" in
         hold)
           if [ -n "$hold_release_on" ]; then
-            fm_hold_release_record_write "$HOLD_STATE" "$first_positional" "$hold_release_on" \
+            fm_hold_release_record_write "$HOLD_STATE" "$first_positional" "$hold_release_on" "$hold_stored_reason" \
               || fail "the hold was recorded but its release condition could not be stored; re-run the same hold to retry"
           elif [ -e "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ] \
             || [ -L "$(fm_hold_release_record_path "$HOLD_STATE" "$first_positional")" ]; then

@@ -989,7 +989,6 @@ command_hold_locked() {
   done
   [ -n "$reason" ] || fail "reason must not be empty"
   # bin/fm-hold-reason-lib.sh owns the storage constraint and reversible encoding.
-  stored_reason=$(fm_hold_reason_encode "$reason") || fail "could not encode the hold reason"
   if [ -n "$origin" ]; then
     validate_slug origin-id "$origin"
   fi
@@ -1011,6 +1010,7 @@ command_hold_locked() {
     release_on=$(fm_hold_release_valid "$release_on") \
       || fail "--release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: $release_on"
   fi
+  stored_reason=$(fm_hold_reason_encode "$reason" "$release_on") || fail "could not encode the hold reason"
   hold_set=${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
   case "$hold_set" in
     [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) : ;;
@@ -1093,11 +1093,7 @@ command_hold_locked() {
   hold_kind=$(show_field_value "$show" hold_kind)
   [ "$hold_kind" = captain ] || fail "task $id did not retain its captain hold"
   if [ -n "$release_on" ]; then
-    # Stored after the hold itself: the record names when the question's
-    # premise clears, and a failed store is reported rather than silently
-    # dropping the evaluation. The next evaluation sweep reconciles any
-    # record left behind by an interrupted hold.
-    fm_hold_release_record_write "$STATE" "$id" "$release_on" \
+    fm_hold_release_record_write "$STATE" "$id" "$release_on" "$stored_reason" \
       || fail "the captain hold was recorded but its release condition could not be stored; re-run the same hold to retry"
   elif [ -e "$(fm_hold_release_record_path "$STATE" "$id")" ] \
     || [ -L "$(fm_hold_release_record_path "$STATE" "$id")" ]; then

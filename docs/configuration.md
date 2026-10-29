@@ -361,7 +361,7 @@ The hold wrappers accept a structured release condition.
 A kindless hold or a hold of kind `external` with neither `--release-on` nor `--until <date>` is refused, so those holds always name when they clear; captain holds remain exempt and retain optional date deferral; a bare `tasks-axi hold` writes no condition and is the documented bypass, never evaluated.
 
 The watcher's check sweep evaluates the conditions - no new daemon - and wakes firstmate when one is met, leaving it visible in OPEN DECISIONS for disposition rather than automatically releasing the hold.
-[`bin/fm-hold-release-lib.sh`](../bin/fm-hold-release-lib.sh) owns the condition syntax, the per-task record under `state/hold-releases/`, the evaluation, and the decision lifecycle; its header documents the tunables (`FM_HOLD_RELEASE_GH` for tests among them).
+[`bin/fm-hold-release-lib.sh`](../bin/fm-hold-release-lib.sh) owns the condition syntax, its native hold-field storage, the local disposition cache under `state/hold-releases/`, the evaluation, and the decision lifecycle; its header documents the tunables (`FM_HOLD_RELEASE_GH` for tests among them).
 A pull-request lookup that fails is never met: the condition simply retries on the next sweep.
 
 ### Dispatch, acceptance and cleanup
