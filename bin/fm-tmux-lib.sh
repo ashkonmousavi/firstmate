@@ -8,24 +8,21 @@
 #
 # Composer shapes and verdicts are owned by bin/fm-composer-lib.sh.
 # This file owns only tmux's styled capture, cursor and Pi identity primitives,
-# delivery busy read, and submit conversions that consume the shared verdict.
+# delivery busy read, and submit confirmation that consumes the shared verdict.
 # Styled captures remain internal; fm-peek and every human-facing capture stay
 # plain.
 #
-# OpenCode's busy-queued Enter conversion accepts only structurally proven
-# pending text after retries, while the separate turn-started conversion accepts
-# an unknown post-Enter composer only after this submit observed an idle baseline
-# become busy.
-# The queued-Enter policy itself lives in fm_composer_queued_enter_verdict
-# (bin/fm-composer-lib.sh); this file supplies tmux's pane-busy primitive.
+# Submit confirmation requires a cleared composer or a matching prompt receipt
+# under bin/fm-busy-lib.sh's submit-signal contract. Busy state alone cannot
+# distinguish an accepted prompt from an unrelated turn with an unsent draft.
 #
 # FM_COMPOSER_IDLE_RE is interpreted by the shared classifier with its structural
 # and styling safety gates.
 # FM_BUSY_REGEX overrides the rendered delivery-busy matching used here.
 #
 # NOT a task-state source: task busy state is owned by bin/fm-busy-lib.sh's
-# semantic contract. The matching below serves only delivery guards: the submit
-# acknowledgement and the away-mode supervisor-pane busy guard. Both ask about
+# semantic contract. The matching below serves composer identity and the
+# away-mode supervisor-pane busy guard, not submit acknowledgement. Both ask about
 # the pane receiving input, not the state of a recorded worker task. Matching
 # stays harness-scoped so one harness's output cannot make another read busy.
 #

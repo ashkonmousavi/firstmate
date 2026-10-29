@@ -314,6 +314,13 @@ fm_busy_record_read() {  # <state-dir> <id>
   printf '%s %s %s %s' "$r_state" "$r_source" "$r_event" "$r_seq"
 }
 
+# Submit-signal contract (tmux Claude workers): snapshot the current generation,
+# lifecycle sequence, and hash of the exact text BEFORE typing or retrying an
+# existing draft. Confirmation requires a receipt for that hash in the same
+# generation with a sequence newer than the snapshot. Unrelated prompt events
+# and turn closes cannot confirm the sender's draft; a matching receipt survives
+# later lifecycle events. Hashing removes only U+2063, preserving all other bytes.
+# bin/fm-busy-event.sh --help owns the receipt format and writer mechanics.
 fm_busy_prompt_hash() {
   python3 -c '
 import hashlib, json, sys

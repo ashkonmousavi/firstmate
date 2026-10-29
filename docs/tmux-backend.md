@@ -84,7 +84,7 @@ A bare shell prompt is `unknown`, so away-mode escalation is never injected into
 Busy state is not read from rendered text on this backend.
 A task's busy, idle, unknown, or dead verdict comes from the semantic busy-state contract owned by `bin/fm-busy-lib.sh`; [architecture](architecture.md#busy-state-is-semantic-per-adapter) owns its boundaries.
 The isolated rendered-tail busy fallbacks that remain are harness-scoped, so one adapter's output can never classify another's task.
-The submit acknowledgement and away-mode supervisor-pane busy guard below still consult rendered output, but only to decide whether input can be delivered, never to decide recorded task state.
+Composer acknowledgement and the away-mode supervisor-pane busy guard still consult rendered output, but only to decide whether input can be delivered, never to decide recorded task state.
 The supervisor guard selects only the detected primary harness's signature rather than a global union of vendor patterns.
 
 `bin/fm-tmux-lib.sh` owns exact type-and-submit mechanics.
@@ -96,7 +96,7 @@ The verdicts above are delivery-critical only for the local typed plane - harnes
 
 Busy state alone never confirms a submission, even if the worker became busy after typing or remains busy when the retry budget ends.
 Unknown or unreadable composer state remains unconfirmed without a matching prompt receipt.
-Claude prompt receipts are bound to the accepted payload, the worker generation, and a submit after the sender's baseline; unrelated automatic turns and lifecycle closes cannot confirm a draft.
+`bin/fm-busy-lib.sh` owns the prompt-receipt correlation contract; `bin/fm-send.sh` and `bin/fm-task-inbox-lib.sh` own their respective retry budgets and failure reporting.
 `tests/fm-tmux-submit-busy.test.sh` covers busy and idle panes with proven, ambiguous, and cleared composers.
 
 ## Limits and regression entry points

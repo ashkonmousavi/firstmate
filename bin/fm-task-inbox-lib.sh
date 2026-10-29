@@ -420,7 +420,23 @@ fm_task_inbox_confirmed_enter() {
   return 4
 }
 
-fm_task_inbox_ring() {
+# Ring best-effort, protecting a proven foreign draft. An exact own-doorbell
+# draft receives Enter only; otherwise type the line once. Both paths allow
+# five Enter presses with two-second confirmation windows (up to ten seconds).
+# A fresh line uses the backend's submit verdict. An existing draft requires a
+# cleared composer or matching receipt under bin/fm-busy-lib.sh's contract;
+# an unknown or unreadable composer ends confirmation without another blind
+# Enter. Backend-specific confirmation boundaries live in docs/tmux-backend.md
+# and docs/herdr-backend.md.
+# Returns 0 submit confirmed, 1 foreign pending draft skipped, 2 backend send
+# failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed.
+# The inbox record remains durable for every ring result; only the worker's
+# move into handled/ acknowledges that the steer was acted on.
+# Ambiguous pre-checks still permit a fresh constant doorbell, so classifier
+# uncertainty cannot starve steering. Accepted residual race: the endpoint can
+# exit between the liveness check and typing; the ': ' prefix protects complete
+# shell lines only, not suffixes typed after such an exit.
+fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
   local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict rc
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;

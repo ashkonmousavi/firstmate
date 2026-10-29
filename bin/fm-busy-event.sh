@@ -14,7 +14,7 @@
 #       the old gen are rejected as stale from then on.
 #
 #   apply <state-dir> <id> <busy|idle|unknown> (--gen G | --current-gen)
-#         --source S --event E [--turn-ended]
+#         --source S --event E [--turn-ended] [--prompt-stdin]
 #       Append one lifecycle event: validate the gen against the armed
 #       sidecar, advance seq under the lock, atomically replace the record.
 #       --turn-ended also touches state/<id>.turn-ended, the watcher
@@ -26,6 +26,12 @@
 #       Claude fm-send --key Escape path (fm-interrupt) and firstmate recovery
 #       paths (fm-recovery) may pass --current-gen to bind to the incarnation
 #       armed right now.
+#       --prompt-stdin consumes Claude UserPromptSubmit JSON for a busy
+#       claude-hook/user-prompt-submit event and writes a receipt under the
+#       same lock. See --help for its format and bin/fm-busy-lib.sh for the
+#       sender's correlation rules. Invalid prompt input still permits the
+#       lifecycle update but supplies no receipt. Arm and retire clear receipts;
+#       other lifecycle updates preserve them.
 #
 #   progress <state-dir> <id> --gen G
 #       Refresh state/<id>.progress for observed native-harness activity under

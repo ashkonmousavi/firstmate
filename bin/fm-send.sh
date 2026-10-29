@@ -54,11 +54,9 @@
 # the composer visibly holds pending text the ring is skipped with a notice and
 # the watcher re-rings an ordinary record later; no composer verdict is
 # delivery proof on this plane, and a failed ring never fails the send.
-# For a harness that posts an accepted-prompt event (Claude today; see
-# bin/fm-busy-lib.sh fm_busy_submit_signal_harness) the ring confirms its Enter
-# from that event and retries it a bounded number of times
-# (bin/fm-task-inbox-lib.sh fm_task_inbox_ring); a doorbell still unconfirmed
-# after that budget prints a loud "NOT delivered" notice, but the exit stays 0
+# The ring requires a positive submit verdict under bin/fm-task-inbox-lib.sh's
+# confirmation contract, including prompt-matched receipts for tmux Claude
+# workers. An unconfirmed doorbell prints a loud "NOT delivered" notice, but the exit stays 0
 # because the steer itself is durably recorded and a nonzero here would invite
 # a duplicate enqueue.
 #
@@ -70,8 +68,11 @@
 # type the literal
 # text through the target backend's verified submit core: typed ONCE, then
 # Enter retried (never retyped) until the backend confirms a submit or reports
-# an inconclusive send; for a harness with an accepted-prompt event (Claude
-# today) each Enter pause also ends the moment that event lands. Typed-plane exit contract: 0 = submit confirmed;
+# an inconclusive send. The fixed budget is five Enter presses with two-second
+# confirmation windows (up to ten seconds); an unsafe or unreadable verdict
+# can end it early. A matching tmux Claude prompt receipt can end a window
+# early under bin/fm-busy-lib.sh's submit-signal contract.
+# Typed-plane exit contract: 0 = submit confirmed;
 # 3 = the text was typed into the live endpoint and
 # Enter was sent, but the submit read-back stayed unconfirmed (verify the pane
 # before any resend, and never re-type blindly; a marked request's
