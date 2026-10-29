@@ -855,9 +855,22 @@ case "${1:-}" in
   send-keys)
     while [ "$#" -gt 0 ]; do
       case "$1" in
-        -l) shift; [ "$#" -gt 0 ] && printf '%s\n' "$1" >> "${FM_FAKE_TMUX_SENT:-/dev/null}" ;;
+        -l)
+          shift
+          if [ "$#" -gt 0 ]; then
+            printf '%s\n' "$1" >> "${FM_FAKE_TMUX_SENT:-/dev/null}"
+            printf '%s' "$1" > "$FM_FAKE_TMUX_SENT.prompt"
+          fi
+          ;;
         Enter)
           printf '[ENTER]\n' >> "${FM_FAKE_TMUX_SENT:-/dev/null}"
+          # Model Claude accepting this prompt and completing its turn, using
+          # the real hook writer so submission remains observable after Stop.
+          jq -n --rawfile prompt "$FM_FAKE_TMUX_SENT.prompt" '{prompt:$prompt}' \
+            | "$FM_ROOT_OVERRIDE/bin/fm-busy-event.sh" apply "$FM_STATE_OVERRIDE" mate busy \
+                --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin || exit 1
+          "$FM_ROOT_OVERRIDE/bin/fm-busy-event.sh" apply "$FM_STATE_OVERRIDE" mate idle \
+            --current-gen --source claude-hook --event stop || exit 1
           if [ -n "${FM_FAKE_CHILD_WAKE_QUEUE:-}" ]; then
             : > "$FM_FAKE_CHILD_WAKE_QUEUE"
           fi

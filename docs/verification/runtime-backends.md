@@ -1000,7 +1000,38 @@ The steering channel's one behavioral assumption - a real worker agent follows t
 FM_SEND_INBOX_LIVE_E2E=1 tests/fm-send-inbox-doorbell-live-e2e.test.sh
 ```
 
-Observed output (combined across the full run and the grok rerun after the advisory-skip narrowing landed):
+The Claude cases arm a real busy-state generation and install lifecycle hooks invoking the production `bin/fm-busy-event.sh` writer with the vendor's JSON prompt input.
+They exercise a fresh doorbell through `fm-send`, an existing own-doorbell draft through `fm_task_inbox_ring`, and a marked secondmate typed send through `fm-send`.
+The test boundary swallows the first two Enter presses, then makes pane capture unavailable only after the real submit hook successfully writes its production busy event and a test receipt, so the real harness hook must confirm submission without a composer fallback or a later watcher re-ring.
+The independent oracles are the sender's bounded-retry contract, Claude's [documented `UserPromptSubmit` event](https://code.claude.com/docs/en/hooks#userpromptsubmit), and the requested worker action and inbox acknowledgement.
+The successful Claude cases require three to five Enter presses, no retyping, a generation-matching receipt for the accepted prompt, and the requested action; a separate exhausted-budget case requires five swallowed presses, a non-delivery notice, no receipt, and the durable record remaining unhandled.
+The guard also checks the two-second minimum between retries, refuses an unreadable capture after a swallowed Enter, and rejects an unrelated real prompt receipt while the target draft remains unsubmitted.
+Receipt hashing removes only Firstmate's U+2063 separator, matching Claude's [documented prompt cleanup](https://code.claude.com/docs/en/interactive-mode#invisible-characters-in-prompts); other Unicode and trailing newlines remain significant.
+The typed send uses the production retry budget.
+Other harnesses retain the action-and-acknowledgement cases and now use the same fixed retry budget, with a positive backend submit verdict required when no prompt receipt is available.
+The portable regressions in `tests/fm-task-inbox.test.sh` also drive a different prompt followed by Stop and a matching prompt followed by unrelated turns, so advancing a lifecycle sequence alone cannot satisfy confirmation.
+
+The four-case run below was verified on 2026-10-29 with Claude Code 2.1.312 and tmux 3.4 on Linux, before the capture-failure and unrelated-prompt cases were added.
+The worktree-local configuration below was seeded from the existing Claude credentials, onboarding store, and recorded bypass acceptance; no original user settings or credential files were changed.
+
+```sh
+HOME="$PWD/.review-submit-live/user-home" \
+CLAUDE_CONFIG_DIR="$PWD/.review-submit-live/claude-config" \
+TMPDIR="$PWD/.review-submit-live/tmp" \
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=claude \
+FM_SEND_INBOX_LIVE_TIMEOUT=90 \
+bash tests/fm-send-inbox-doorbell-live-e2e.test.sh > .review-submit-live/result.log 2>&1
+```
+
+```text
+ok - claude (2.1.312 (Claude Code)): typed submit checked real lifecycle hooks with 4 Enter presses
+ok - claude (2.1.312 (Claude Code)): fresh submit checked real lifecycle hooks with 3 Enter presses
+ok - claude (2.1.312 (Claude Code)): blocked submit checked real lifecycle hooks with 5 Enter presses
+ok - claude (2.1.312 (Claude Code)): pending submit checked real lifecycle hooks with 3 Enter presses
+ok - live steering-inbox doorbell guard: 4 cases honored the doorbell contract
+```
+
+Earlier action-and-acknowledgement output (combined across the full run and the grok rerun after the advisory-skip narrowing landed):
 
 ```text
 ok - claude (2.1.241 (Claude Code)): the doorbell reached a real worker, which acted and acked with the mv
@@ -2521,9 +2552,11 @@ The rest of the lifecycle was driven end to end on that worker:
 Other harnesses on Herdr are unaffected by the edge-detector change.
 All seven live panes of the running default session - one Pi, four Claude, two plain shells - classified identically under the pre-fix and current classifiers.
 
-**Typed-submit confirmation is verified on tmux and Herdr only.**
-Zellij, cmux, Orca, and Paseo share a submit core that never consults the busy footer, so a typed-plane Cursor send there lands but `fm-send` reports delivery unconfirmed and exits non-zero; ordinary text steers ride the durable inbox and exit 0 at enqueue.
-Teaching that shared core the same transition is deliberately separate work, because it changes the submit path for every harness on those four backends and needs its own live validation on each.
+**The rendered-footer typed-submit confirmation above remains available on Herdr only.**
+Tmux now requires the [submission acknowledgement contract](../tmux-backend.md#composer-busy-state-and-delivery), so these earlier footer observations no longer prove tmux typed-submit confirmation.
+Zellij, cmux, Orca, and Paseo share a submit core that never consults the busy footer.
+A Cursor typed send on those backends or tmux can therefore land while `fm-send` reports submission unconfirmed and exits non-zero; ordinary text steers remain durably enqueued even when their doorbell is unconfirmed.
+Changes to the other backends' confirmation signals require separate live validation on each.
 
 The portable regression is `tests/fm-cursor-harness.test.sh`, the composer captures are pinned in `tests/fm-composer-lib.test.sh`, and the Herdr submit and footer behavior is pinned in `tests/fm-backend-herdr.test.sh`.
 Refresh this harness-dependent proof before accepting a cursor upgrade:
