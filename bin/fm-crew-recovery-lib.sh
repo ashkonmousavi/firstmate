@@ -37,12 +37,12 @@
 # paused-by-captain in bin/fm-classify-lib.sh.
 #
 # Unlanded work is local and positive. It is shown when `git status
-# --porcelain` is nonempty, or when HEAD is not an ancestor of the resolved
-# base ref. The base ref is meta base_branch when refs/heads/<name> or
-# refs/remotes/origin/<name> exists, otherwise refs/remotes/origin/HEAD, then
-# refs/heads/main, refs/heads/master, refs/remotes/origin/main, and
-# refs/remotes/origin/master. A clean tree whose HEAD is contained in that
-# base is not unlanded. A clean tree with no resolvable base, an unborn HEAD,
+# --porcelain` is nonempty, or when HEAD is not an ancestor of any available
+# ref for the selected base branch. The branch is meta base_branch when a
+# local or origin ref exists, otherwise origin/HEAD's branch, then main or
+# master. Both refs/heads/<name> and refs/remotes/origin/<name> are checked.
+# A clean tree whose HEAD is contained in either ref is not unlanded.
+# A clean tree with no resolvable base, an unborn HEAD,
 # an unreadable worktree, a relative worktree path, or a symlink worktree is
 # not proof, so it does not relaunch. This sweep does not fetch and does not
 # ask the forge. A scout report outside the worktree is not unlanded work.
@@ -104,37 +104,44 @@ fm_crew_recovery_record_blocks() {  # <status-path>
   return 1
 }
 
-fm_crew_recovery_base_ref() {  # <worktree> <base-branch-name>
-  local wt=$1 name=$2 ref
+fm_crew_recovery_base_refs() {  # <worktree> <base-branch-name>
+  local wt=$1 name=$2 ref found=0
   case "$name" in
     ''|-*|*..*|*[[:space:]]*|*:*) name='' ;;
   esac
   if [ -n "$name" ]; then
-    if git -C "$wt" show-ref --verify --quiet "refs/heads/$name" >/dev/null 2>&1; then
-      printf '%s\n' "refs/heads/$name"
-      return 0
-    fi
-    if git -C "$wt" show-ref --verify --quiet "refs/remotes/origin/$name" >/dev/null 2>&1; then
-      printf '%s\n' "refs/remotes/origin/$name"
-      return 0
+    if ! git -C "$wt" show-ref --verify --quiet "refs/heads/$name" >/dev/null 2>&1 \
+      && ! git -C "$wt" show-ref --verify --quiet "refs/remotes/origin/$name" >/dev/null 2>&1; then
+      name=''
     fi
   fi
-  if git -C "$wt" rev-parse --verify --quiet refs/remotes/origin/HEAD >/dev/null 2>&1; then
-    printf '%s\n' refs/remotes/origin/HEAD
-    return 0
+  if [ -z "$name" ] && git -C "$wt" rev-parse --verify --quiet refs/remotes/origin/HEAD >/dev/null 2>&1; then
+    ref=$(git -C "$wt" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null) || ref=''
+    case "$ref" in
+      refs/remotes/origin/*) name=${ref#refs/remotes/origin/} ;;
+      *) printf '%s\n' refs/remotes/origin/HEAD; return 0 ;;
+    esac
   fi
-  for ref in refs/heads/main refs/heads/master refs/remotes/origin/main refs/remotes/origin/master; do
+  if [ -z "$name" ]; then
+    for name in main master; do
+      if git -C "$wt" show-ref --verify --quiet "refs/heads/$name" >/dev/null 2>&1 \
+        || git -C "$wt" show-ref --verify --quiet "refs/remotes/origin/$name" >/dev/null 2>&1; then
+        break
+      fi
+    done
+  fi
+  for ref in "refs/heads/$name" "refs/remotes/origin/$name"; do
     if git -C "$wt" show-ref --verify --quiet "$ref" >/dev/null 2>&1; then
       printf '%s\n' "$ref"
-      return 0
+      found=1
     fi
   done
-  return 1
+  [ "$found" -eq 1 ]
 }
 
 # 0 when this worktree positively shows unlanded work.
 fm_crew_recovery_unlanded_proven() {  # <worktree> <base-branch-name>
-  local wt=$1 base_name=$2 top top_p wt_p porcelain base rc
+  local wt=$1 base_name=$2 top top_p wt_p porcelain bases base rc
   case "$wt" in
     /*) ;;
     *) return 1 ;;
@@ -151,15 +158,17 @@ fm_crew_recovery_unlanded_proven() {  # <worktree> <base-branch-name>
     return 0
   fi
   git -C "$wt" rev-parse --verify --quiet HEAD >/dev/null 2>&1 || return 1
-  base=$(fm_crew_recovery_base_ref "$wt" "$base_name") || return 1
-  [ -n "$base" ] || return 1
-  rc=0
-  git -C "$wt" merge-base --is-ancestor HEAD "$base" >/dev/null 2>&1 || rc=$?
-  case "$rc" in
-    0) return 1 ;;
-    1) return 0 ;;
-    *) return 1 ;;
-  esac
+  bases=$(fm_crew_recovery_base_refs "$wt" "$base_name") || return 1
+  [ -n "$bases" ] || return 1
+  while IFS= read -r base; do
+    rc=0
+    git -C "$wt" merge-base --is-ancestor HEAD "$base" >/dev/null 2>&1 || rc=$?
+    case "$rc" in
+      1) ;;
+      *) return 1 ;;
+    esac
+  done <<< "$bases"
+  return 0
 }
 
 fm_crew_recovery_detail() {  # <output> <fallback>

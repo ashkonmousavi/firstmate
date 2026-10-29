@@ -265,6 +265,72 @@ test_no_unlanded_work_is_not_relaunched() {
   pass "unlanded work must be shown in the recorded copy itself"
 }
 
+test_base_ref_containment_controls_clean_recovery() {
+  local home fakebin mode direction kind dir wt repo base old current out id
+  home=$(new_home base-containment)
+  fakebin=$(make_tmux "$TMP_ROOT/base-containment" dead)
+  for mode in explicit default main master; do
+    case "$mode" in
+      explicit|default) base=curated ;;
+      *) base=$mode ;;
+    esac
+    for direction in remote-newer local-newer; do
+      dir="$TMP_ROOT/base-containment/$mode-$direction"
+      plant_copy clean "$dir"
+      wt="$dir/wt"
+      repo="$dir/repo"
+      old=$(git -C "$wt" rev-parse HEAD)
+      printf 'base update\n' > "$wt/base-update.txt"
+      git -C "$wt" add base-update.txt
+      git -C "$wt" commit -qm 'advance base'
+      current=$(git -C "$wt" rev-parse HEAD)
+      if [ "$base" != main ]; then
+        git -C "$repo" branch -m main "$base"
+        git -C "$repo" update-ref -d refs/remotes/origin/main
+      fi
+      case "$direction" in
+        remote-newer)
+          git -C "$repo" update-ref "refs/remotes/origin/$base" "$current"
+          git -C "$repo" update-ref "refs/heads/$base" "$old"
+          ;;
+        local-newer)
+          git -C "$repo" update-ref "refs/heads/$base" "$current"
+          git -C "$repo" update-ref "refs/remotes/origin/$base" "$old"
+          ;;
+      esac
+      if [ "$mode" = default ]; then
+        git -C "$repo" symbolic-ref refs/remotes/origin/HEAD "refs/remotes/origin/$base"
+      fi
+      for kind in ship scout; do
+        id="$mode-$direction-$kind"
+        write_task "$home/state/$id.meta" "$kind" "$wt"
+        [ "$mode" != explicit ] || printf 'base_branch=%s\n' "$base" >> "$home/state/$id.meta"
+      done
+    done
+  done
+  reset_log
+  out=$(run_sweep "$home" "$fakebin")
+  [ ! -s "$LOG" ] || fail "a clean worker contained in an available base ref was relaunched: $out"
+  for mode in explicit default main master; do
+    for direction in remote-newer local-newer; do
+      wt="$TMP_ROOT/base-containment/$mode-$direction/wt"
+      printf 'worker change\n' > "$wt/worker-change.txt"
+      git -C "$wt" add worker-change.txt
+      git -C "$wt" commit -qm 'unlanded worker change'
+    done
+  done
+  out=$(run_sweep "$home" "$fakebin")
+  for mode in explicit default main master; do
+    for direction in remote-newer local-newer; do
+      for kind in ship scout; do
+        id="$mode-$direction-$kind"
+        assert_called "$id" "a worker ahead of both available base refs was skipped: $out"
+      done
+    done
+  done
+  pass "clean recovery checks both base refs and still recovers work ahead of both"
+}
+
 test_terminal_records_are_not_relaunched() {
   local home fakebin id verb
   home=$(new_home terminal-records)
@@ -478,6 +544,7 @@ SH
 test_dead_unlanded_ship_and_scout_are_relaunched
 test_missing_endpoint_with_unlanded_work_is_relaunched
 test_no_unlanded_work_is_not_relaunched
+test_base_ref_containment_controls_clean_recovery
 test_terminal_records_are_not_relaunched
 test_in_flight_records_are_relaunched
 test_inconclusive_endpoints_are_not_relaunched
