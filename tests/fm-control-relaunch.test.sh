@@ -55,6 +55,17 @@ trap relaunch_cleanup EXIT
 make_tmux_stub() {  # <dir>
   local fb="$1/fakebin"
   mkdir -p "$fb"
+  # A relaunch of a Claude task exits it first, and fm-control then lists
+  # `claude agents --json`. This fake lists no background session, so the suite
+  # never reaches the developer's real Claude account.
+  cat > "$fb/claude" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  agents) echo '[]' ;;
+esac
+exit 0
+SH
+  chmod +x "$fb/claude"
   cat > "$fb/tmux" <<'SH'
 #!/usr/bin/env bash
 set -u
@@ -2851,6 +2862,8 @@ test_herdr_reclaim_keeps_the_task_whole() {
     "the replacement must inherit the progress note"
   [ "$(journal_field "$dir" rl75 exit_result)" = endpoint-gone ] \
     || fail "the transaction should record that the endpoint was already gone"
+  [ "$(journal_field "$dir" rl75 exit_background)" = background-sessions=none ] \
+    || fail "the transaction should record the Claude background-session check beside the exit result"
   pass "reclaim: a herdr reclaim rebinds the endpoint and leaves the whole rest of the task alone"
 }
 

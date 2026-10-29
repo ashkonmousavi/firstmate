@@ -625,6 +625,33 @@ The real pane renders this inside a bordered box, omitted here for readability; 
 That capture demonstrated why each signature function matches the FULL captured tail rather than the Grok/Rovo/AGY busy-footer convention of the last 12 non-blank lines: a bordered dialog box renders many short lines of pure border and padding (`│  ...  │`) that are NOT whitespace-only, so the 12-line reduction pushed this exact heading text out of the window and silently defeated the match on the first attempt.
 None of these three runs ever answered its dialog (Escape only, never Enter), so no credential store was written to and no model tokens were spent.
 
+## Claude background exit
+
+Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
+Choosing the handoff leaves a background session that `claude agents --json` lists with `kind: background` and the session's cwd, outside every lane.
+`bin/fm-spawn.sh` launches every Claude worker and secondmate with `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1`, and `bin/fm-control.sh exit` afterwards stops any background session whose cwd is exactly the task worktree with `claude stop <id>`.
+`tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
+The control arm, with no switch, is offered `Move to background and exit`, takes it, and must find a background session for its folder, so the guard fails rather than passing vacuously.
+The switched arm, with the launch environment, must not be offered the handoff, must end the process, and must leave no background session.
+The backstop arm stops the control arm's session by exact id and waits for it to leave the listing.
+`claude stop` ends the session but not a shell it started, which keeps running reparented to init, so the guard kills only processes whose cwd is inside its own lab.
+
+Both variable names are present in the installed binary, and `--advisor <model>` is accepted there although `claude --help` does not list it (its pairing rules are in the advisor documentation, `https://code.claude.com/docs/en/advisor`; Haiku 4.5 and Haiku 5.5 both accept Opus).
+
+Verified 2026-10-29 on Claude Code 2.1.312 on Linux.
+
+```sh
+FM_CLAUDE_BG_EXIT_LIVE_E2E=1 bash tests/fm-claude-bg-exit-live-e2e.test.sh
+```
+
+```
+ok - control: Claude Code 2.1.312 (Claude Code) /exit with background work leaves background session(s) 1a26bcb3
+ok - switched: Claude Code 2.1.312 (Claude Code) /exit with background work ends the process and leaves no background session
+ok - backstop: claude stop ends the control run's background session found by exact cwd
+```
+
+The guard submits a few Haiku prompts, so it stays opt-in; rerun it after every Claude upgrade.
+
 ## Worker account pin sign-in check
 
 `bin/fm-worker-account-lib.sh` decides whether a pinned account is signed in from vendor output: the exit status of `claude auth status`, the JSON of `pi auth check`, and the provider column of `pi --list-models`.

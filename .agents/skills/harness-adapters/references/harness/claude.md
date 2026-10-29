@@ -60,6 +60,13 @@ Styled capture stays internal to the boolean detector; `fm-peek` and model-facin
 The spawn disables Claude's `/bug` and `/feedback` model-drafted feedback flow for every Claude worker and secondmate, preventing a fleet-launched agent from queuing or submitting a bug report on the captain's behalf.
 The controls are scoped to the launched process and never modify the captain's global Claude settings; `launch_template()` in `../../../../../bin/fm-spawn.sh` owns their exact mechanics and defense-in-depth rationale.
 
+## Background exit
+
+`/exit` on a Claude session with background work offers `Move to background and exit`, which leaves a background session running outside every lane.
+The spawn launches every Claude worker and secondmate with `CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` and `CLAUDE_CODE_DISABLE_AGENT_VIEW=1`, and `fm-control.sh exit` ends any background session whose cwd is exactly the task worktree, reporting `background-sessions=none`, `stopped:<ids>`, or `unverified`.
+`../../../../../bin/fm-control.sh` and `../../../../../bin/fm-control-lib.sh` own the mechanics, and `../../../../../docs/verification/runtime-backends.md` under "Claude background exit" owns the dated live result.
+A Haiku Claude ship or scout launch also carries `--advisor 'opus'`; `launch_template()` and the `MODELFLAG` assembly in `../../../../../bin/fm-spawn.sh` own that rule.
+
 ## Task control channel
 
 A Claude task worker's launch brief and Firstmate steering-inbox messages arrive as file-shaped content that is otherwise indistinguishable from indirect prompt injection.

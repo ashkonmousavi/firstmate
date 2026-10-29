@@ -209,6 +209,31 @@ fi
 exit 0
 SH
   chmod +x "$fb/sleep"
+  # A fake `claude` models only the background-session surface fm-control
+  # touches after a Claude exit: `agents --json` prints $FM_FAKE_DIR/agents.json
+  # (default `[]`), `stop <id>` logs the id and drops it from that file unless
+  # FM_FAKE_CLAUDE_STOP_KEEPS is set, and FM_FAKE_CLAUDE_AGENTS_FAIL makes the
+  # listing fail. Every call logs its arguments and the account/agent-view
+  # environment it ran under, so the tests can assert both.
+  cat > "$fb/claude" <<'SH'
+#!/usr/bin/env bash
+D=$FM_FAKE_DIR
+printf '%s\tCLAUDE_CONFIG_DIR=%s\tAGENT_VIEW=%s\n' "$*" "${CLAUDE_CONFIG_DIR-<unset>}" "${CLAUDE_CODE_DISABLE_AGENT_VIEW-<unset>}" >> "$D/claude-calls"
+case "${1:-}" in
+  agents)
+    [ -z "${FM_FAKE_CLAUDE_AGENTS_FAIL:-}" ] || { echo "claude agents: simulated failure" >&2; exit 1; }
+    if [ -f "$D/agents.json" ]; then cat "$D/agents.json"; else echo '[]'; fi
+    exit 0 ;;
+  stop)
+    printf '%s\n' "${2:-}" >> "$D/claude-stops"
+    [ -z "${FM_FAKE_CLAUDE_STOP_KEEPS:-}" ] || exit 0
+    jq --arg id "${2:-}" 'map(select(.id != $id))' "$D/agents.json" > "$D/agents.json.new" \
+      && mv "$D/agents.json.new" "$D/agents.json"
+    exit 0 ;;
+esac
+exit 0
+SH
+  chmod +x "$fb/claude"
   printf '%s\n' "$fb"
 }
 
@@ -279,6 +304,134 @@ literals() {  # <case-dir>
 # text send rather than a control-plane key.
 keys_sent() {  # <case-dir>
   grep -v '^Enter$' "$1/fake/keys" || true
+}
+
+# --- Claude exit leaves no background session behind --------------------------
+#
+# Claude Code's /exit moves a session that still has background work into a
+# background session ("Moving to background... backgrounded <id>") instead of
+# exiting, so the process dies while its work keeps running outside any lane.
+# fm-control exit therefore lists `claude agents --json` afterwards and stops
+# any background session whose cwd is exactly the task's worktree.
+
+# bg_session <id> <cwd> [kind]: one `claude agents --json` row.
+bg_session() {
+  jq -n --arg id "$1" --arg cwd "$2" --arg kind "${3:-background}" \
+    '{id: $id, cwd: $cwd, kind: $kind, sessionId: ($id + "-session"), state: "idle"}'
+}
+
+# set_agents <case-dir> <row>...: the fake claude's `agents --json` output.
+set_agents() {
+  local dir=$1; shift
+  printf '%s\n' "$@" | jq -s '.' > "$dir/fake/agents.json"
+}
+
+claude_stops() {  # <case-dir>
+  cat "$1/fake/claude-stops" 2>/dev/null || true
+}
+
+test_claude_exit_with_no_background_session_reports_none() {
+  local dir out rc
+  dir=$(new_case bg-none)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exit with no background session should succeed"$'\n'"$out"
+  assert_contains "$out" "background-sessions=none" "a clean exit should say no background session remains"
+  [ -z "$(claude_stops "$dir")" ] || fail "nothing should be stopped, got: $(claude_stops "$dir")"
+  pass "fm-control exit (claude): no background session reports none and stops nothing"
+}
+
+test_claude_exit_stops_only_the_background_session_of_its_worktree() {
+  local dir out rc wt other
+  dir=$(new_case bg-stop)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  wt=$(cat "$dir/fake/cwd")
+  other="$dir/wt-other"
+  set_agents "$dir" \
+    "$(bg_session aaaa1111 "$wt")" \
+    "$(bg_session bbbb2222 "$other")" \
+    "$(bg_session cccc3333 "$wt/" )" \
+    "$(bg_session dddd4444 "$wt/nested")" \
+    "$(bg_session eeee5555 "$wt" interactive)"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exit should stop the leftover background session"$'\n'"$out"
+  assert_contains "$out" "background-sessions=stopped:aaaa1111,cccc3333" "exit should report exactly the sessions it stopped"
+  [ "$(claude_stops "$dir" | sort | tr '\n' ' ')" = "aaaa1111 cccc3333 " ] \
+    || fail "only sessions whose cwd is the task worktree may be stopped, got: $(claude_stops "$dir")"
+  pass "fm-control exit (claude): stops background sessions of this worktree only"
+}
+
+test_claude_exit_that_cannot_stop_the_background_session_fails() {
+  local dir out rc wt
+  dir=$(new_case bg-stuck)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  wt=$(cat "$dir/fake/cwd")
+  set_agents "$dir" "$(bg_session aaaa1111 "$wt")"
+  out=$(FM_FAKE_CLAUDE_STOP_KEEPS=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a background session that survives claude stop must fail the exit"$'\n'"$out"
+  assert_contains "$out" "aaaa1111" "the failure should name the surviving session"
+  pass "fm-control exit (claude): a surviving background session fails the exit naming it"
+}
+
+test_claude_exit_reports_unverified_when_the_listing_fails() {
+  local dir out rc
+  dir=$(new_case bg-unverified)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  out=$(FM_FAKE_CLAUDE_AGENTS_FAIL=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "the agent did stop, so an unreadable listing must not fail the exit"$'\n'"$out"
+  assert_contains "$out" "background-sessions=unverified" "an unreadable listing should be reported, never read as none"
+  assert_contains "$out" "❌" "an unreadable listing should carry the broken-tool marker"
+  pass "fm-control exit (claude): an unreadable session listing is reported unverified"
+}
+
+test_claude_already_stopped_exit_still_checks_background_sessions() {
+  local dir out rc wt
+  dir=$(new_case bg-already-stopped)
+  add_task "$dir" t1 claude
+  wt=$(cat "$dir/fake/cwd")
+  set_agents "$dir" "$(bg_session aaaa1111 "$wt")"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "already-stopped exit should succeed"$'\n'"$out"
+  assert_contains "$out" "already-stopped t1" "the agent was already gone"
+  assert_contains "$out" "background-sessions=stopped:aaaa1111" "a handed-off session outlives the pane, so it is stopped here too"
+  pass "fm-control exit (claude): an already-stopped agent's leftover background session is stopped"
+}
+
+test_claude_exit_lists_under_the_worker_account_and_with_agent_view_on() {
+  local dir out rc root
+  dir=$(new_case bg-account)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  root="$dir/claude-root"
+  mkdir -p "$root"
+  printf '%s\n' "$root" > "$dir/home/config/claude-account"
+  out=$(CLAUDE_CODE_DISABLE_AGENT_VIEW=1 CLAUDE_CONFIG_DIR=/ambient run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "pinned exit should succeed"$'\n'"$out"
+  grep -q "^agents --json	CLAUDE_CONFIG_DIR=$root	AGENT_VIEW=<unset>$" "$dir/fake/claude-calls" \
+    || fail "the listing must run under the pinned account root with agent view enabled, got: $(cat "$dir/fake/claude-calls")"
+  printf 'ordinary\n' > "$dir/home/config/claude-account"
+  alive_as "$dir" claude
+  out=$(CLAUDE_CONFIG_DIR=/ambient run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "ordinary-pinned exit should succeed"$'\n'"$out"
+  tail -n 1 "$dir/fake/claude-calls" | grep -q "CLAUDE_CONFIG_DIR=<unset>" \
+    || fail "an ordinary pin lists with CLAUDE_CONFIG_DIR unset, got: $(tail -n 1 "$dir/fake/claude-calls")"
+  pass "fm-control exit (claude): the listing runs under the worker's account with agent view on"
+}
+
+test_non_claude_exit_never_calls_claude() {
+  local dir out rc
+  dir=$(new_case bg-codex)
+  add_task "$dir" t1 codex
+  alive_as "$dir" codex
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "codex exit should succeed"$'\n'"$out"
+  [ ! -e "$dir/fake/claude-calls" ] || fail "a non-Claude exit must not call claude, got: $(cat "$dir/fake/claude-calls")"
+  case "$out" in *background-sessions*) fail "a non-Claude exit must not report background sessions: $out" ;; esac
+  pass "fm-control exit: a non-Claude harness never reaches the claude session check"
 }
 
 # --- 1. adapter contract across every verified harness -----------------------
@@ -1244,6 +1397,13 @@ test_verb_allowlist_is_closed
 test_resume_is_refused_with_its_reason
 test_relaunch_only_flags_are_rejected_on_other_verbs
 test_already_stopped_exit_is_idempotent
+test_claude_exit_with_no_background_session_reports_none
+test_claude_exit_stops_only_the_background_session_of_its_worktree
+test_claude_exit_that_cannot_stop_the_background_session_fails
+test_claude_exit_reports_unverified_when_the_listing_fails
+test_claude_already_stopped_exit_still_checks_background_sessions
+test_claude_exit_lists_under_the_worker_account_and_with_agent_view_on
+test_non_claude_exit_never_calls_claude
 test_missing_tmux_endpoint_refuses_rather_than_claiming_a_stop
 test_interrupt_refuses_when_no_agent_runs
 test_ambiguous_endpoint_refuses

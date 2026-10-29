@@ -51,6 +51,17 @@
 #              endpoint, so this verb cannot tell a destroyed window from one on
 #              a tmux server it cannot address, and it will not claim a stop it
 #              cannot see.
+#              A Claude exit has one more postcondition. Claude Code moves a
+#              session with background work into a background session instead
+#              of exiting, so afterwards `claude agents --json` is read under
+#              the worker's account (agent view enabled), and any background
+#              session whose cwd is exactly this worktree is ended with
+#              `claude stop <id>`. The line ends `background-sessions=none`,
+#              `=stopped:<ids>`, or `=unverified` (the listing failed, with a
+#              ❌ on stderr); a session that survives `claude stop` fails the
+#              verb. This holds for `already-stopped` and `endpoint-gone` too,
+#              because a handed-off session outlives its pane. Another
+#              worktree's session is never touched.
 #   relaunch   Transactionally replace the running agent with a new one, in the
 #              SAME worktree - and the same endpoint whenever that endpoint
 #              still exists - on the same or a newly chosen
@@ -132,6 +143,10 @@
 #   FM_CONTROL_EXIT_WAIT         alive->dead wait after the exit command (30)
 #   FM_CONTROL_LAUNCH_WAIT       dead->alive wait after a relaunch (90)
 #   FM_CONTROL_EXIT_RETRIES      Enter retries for the exit command (3)
+#   FM_CONTROL_BG_TIMEOUT        bound for each claude agents/stop call after a
+#                                Claude exit (30)
+#   FM_CONTROL_BG_TRIES          polls for a stopped background session to leave
+#                                the listing (10, FM_CONTROL_POLL apart)
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -190,6 +205,8 @@ ARM_WAIT=${FM_CONTROL_ARM_WAIT:-1.5}
 EXIT_WAIT=${FM_CONTROL_EXIT_WAIT:-30}
 LAUNCH_WAIT=${FM_CONTROL_LAUNCH_WAIT:-90}
 EXIT_RETRIES=${FM_CONTROL_EXIT_RETRIES:-3}
+BG_TIMEOUT=${FM_CONTROL_BG_TIMEOUT:-30}
+BG_TRIES=${FM_CONTROL_BG_TRIES:-10}
 
 die() {  # <message>
   echo "error: $1" >&2
@@ -659,6 +676,71 @@ retire_busy_incarnation() {
   fi
 }
 
+# --- Claude background sessions after exit ------------------------------------
+#
+# fm_control_claude_bg_ids (bin/fm-control-lib.sh) owns the matching rule; this
+# half runs `claude` the way the worker did. Background sessions are scoped to
+# the Claude config root, so the listing uses the worker's pinned account (or
+# the ambient one when the home has no pin, which is what fm-spawn forwards),
+# and clears the agent-view and exit-handoff switches the workers launch with,
+# because CLAUDE_CODE_DISABLE_AGENT_VIEW also disables `claude agents`.
+
+CLAUDE_BG_ENV=()
+
+claude_bg_prepare() {
+  local config=${FM_CONFIG_OVERRIDE:-$FM_HOME/config} mate='' selected selection root
+  CLAUDE_BG_ENV=(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF)
+  [ "$KIND" != secondmate ] || mate=$ID
+  selected=$(fm_worker_account_config claude "$config" "$mate") || return 1
+  selection=$(fm_worker_account_resolve claude "$selected" "$selected/claude-account") || return 1
+  [ -n "$selection" ] || return 0
+  root=${selection#*$'\t'}
+  root=${root%%$'\t'*}
+  if [ -n "$root" ]; then
+    CLAUDE_BG_ENV+=("CLAUDE_CONFIG_DIR=$root")
+  else
+    CLAUDE_BG_ENV+=(-u CLAUDE_CONFIG_DIR)
+  fi
+}
+
+claude_bg_list() {
+  fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" claude agents --json </dev/null 2>/dev/null
+}
+
+# exit_background_check: after a Claude exit, end any background session of this
+# worktree. Prints `background-sessions=none|stopped:<ids>|unverified`, nothing
+# for another harness. Dies when a session survives `claude stop`.
+exit_background_check() {
+  local json ids remaining id stopped=() i unverified
+  [ "$HARNESS" = claude ] || return 0
+  unverified="❌ task $ID: the Claude background-session check failed (claude agents --json), so a background session running in $WT cannot be ruled out; list it with 'claude agents --json --cwd $WT' and stop it with 'claude stop <id>'"
+  if ! claude_bg_prepare || ! json=$(claude_bg_list) || ! ids=$(fm_control_claude_bg_ids "$WT" "$json"); then
+    echo "$unverified" >&2
+    printf 'background-sessions=unverified'
+    return 0
+  fi
+  if [ -z "$ids" ]; then
+    printf 'background-sessions=none'
+    return 0
+  fi
+  for id in $ids; do
+    fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" claude stop "$id" >/dev/null 2>&1 </dev/null || true
+    stopped+=("$id")
+  done
+  for ((i = 0; i < BG_TRIES; i++)); do
+    if ! json=$(claude_bg_list) || ! remaining=$(fm_control_claude_bg_ids "$WT" "$json"); then
+      echo "$unverified" >&2
+      printf 'background-sessions=unverified'
+      return 0
+    fi
+    [ -n "$remaining" ] || break
+    sleep "$POLL"
+  done
+  [ -z "$remaining" ] \
+    || die "task $ID's Claude exit left background session(s) running in $WT after 'claude stop': ${remaining//$'\n'/ } - they keep running outside every lane; stop them with 'claude stop <id>' and check 'claude agents --json --cwd $WT'"
+  printf 'background-sessions=stopped:%s' "$(IFS=,; printf '%s' "${stopped[*]}")"
+}
+
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
@@ -1120,7 +1202,7 @@ record_note() {
 }
 
 do_relaunch() {
-  local exit_result state note_line spawn_status
+  local exit_result exit_bg state note_line spawn_status
   local -a spawn_args
 
   require_state_verified_backend relaunch
@@ -1159,7 +1241,8 @@ do_relaunch() {
 
   journal_write stopping "${CHECKPOINT_LINES[@]}" "$note_line"
   exit_result=$(do_exit)
-  journal_write exited "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result"
+  exit_bg=$(exit_background_check)
+  journal_write exited "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result" "exit_background=${exit_bg:-not-applicable}"
 
   # The launch owner (fm-spawn --relaunch) clears the previous incarnation's
   # per-task harness wiring before arming the new one, so nothing to do here.
@@ -1201,7 +1284,7 @@ do_relaunch() {
   }
   RELAUNCH_AGENT_CONFIRMED=1
 
-  journal_write complete "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result"
+  journal_write complete "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result" "exit_background=${exit_bg:-not-applicable}"
   RELAUNCH_ACTIVE=0
   echo "relaunched $ID harness=$TARGET_HARNESS from=$PRIOR_RECORDED_HARNESS model=$TARGET_MODEL effort=$TARGET_EFFORT backend=$BACKEND endpoint=$T worktree=$WT"
 }
@@ -1227,7 +1310,8 @@ case "$VERB" in
     ;;
   exit)
     result=$(do_exit)
-    echo "$result $ID harness=$HARNESS backend=$BACKEND endpoint=$T worktree=$WT"
+    bg=$(exit_background_check)
+    echo "$result $ID harness=$HARNESS backend=$BACKEND endpoint=$T worktree=$WT${bg:+ $bg}"
     ;;
   relaunch)
     do_relaunch
