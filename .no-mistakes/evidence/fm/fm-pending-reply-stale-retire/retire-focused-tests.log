@@ -1,0 +1,64 @@
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=1 errors=0
+retire-stale: mode=apply matched=0 kept=1 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=1 kept=2 errors=0
+retire-stale: mode=apply matched=1 kept=2 errors=0
+ok - only a retained confirmed-delivery successor supersedes an unanswered request
+retire-stale: mode=dry-run matched=1 kept=1 errors=0
+retire-stale: mode=apply matched=1 kept=1 errors=0
+retire-stale: mode=apply matched=0 kept=1 errors=0
+ok - stale retirement resolves only the superseded record and keeps it
+retire-stale: mode=dry-run matched=0 kept=1 errors=0
+retire-stale: mode=apply matched=0 kept=1 errors=0
+ok - an unsuperseded unanswered record stays open
+retire-stale: mode=dry-run matched=0 kept=3 errors=0
+retire-stale: mode=dry-run matched=1 kept=3 errors=0
+retire-stale: mode=apply matched=1 kept=3 errors=0
+ok - dry-run and apply require records strictly older than 24 hours
+retire-stale: mode=dry-run matched=2 kept=0 errors=0
+retire-stale: mode=apply matched=2 kept=0 errors=0
+ok - a gone task retires its old records and keeps the files
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
+retire-stale: mode=apply matched=0 kept=2 errors=0
+ok - task status completion never supersedes an unanswered request
+retire-stale: mode=dry-run matched=0 kept=1 errors=0
+retire-stale: mode=apply matched=0 kept=1 errors=0
+ok - an answered record stays on its own resolution path
+retire-stale: mode=dry-run matched=1 kept=1 errors=0
+ok - the fixed age is 24 hours
+ok - stale retirement refuses a bad invocation
+ok - retirement remains terminal alongside finish-confirmed
+ok - retirement remains terminal alongside finish-failed
+ok - retirement remains terminal alongside reconcile-confirmed
+ok - retirement remains terminal alongside reconcile-failed
+ok - retirement remains terminal alongside reconcile-unknown
+ok - retirement remains terminal alongside reconcile-dead
+ok - retirement remains terminal alongside reconcile-awaiting-unknown
+ok - retirement remains terminal alongside reconcile-awaiting-dead
+ok - retirement remains terminal alongside delivery-unknown
+ok - retirement remains terminal alongside delivered
+ok - retirement remains terminal alongside delivered-unknown
+ok - retirement remains terminal alongside busy
+ok - retirement remains terminal alongside idle
+ok - retirement remains terminal alongside completed-request
+ok - retirement remains terminal alongside completed-recovery
+ok - retirement remains terminal alongside wrong-home

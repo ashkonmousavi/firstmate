@@ -1,0 +1,287 @@
+Oracle: owner intent and recorded decisions: retain unanswered records, retire only strictly older than 24h and superseded by retained confirmed delivery or task-gone; durable reason; only matching escalation closes.
+SCENARIO 1: preview, apply, preserve newest request, close only old escalation, idempotent retry
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+would-retire task=mate corr=8aad0b12d0382a4a age=90000 reason=superseded-by-3e1887ba79e534b6
+retire-stale: mode=dry-run matched=1 kept=1 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retired task=mate corr=8aad0b12d0382a4a age=90000 reason=superseded-by-3e1887ba79e534b6
+retire-stale: mode=apply matched=1 kept=1 errors=0
+--- persisted record 8aad0b12d0382a4a
+schema=fm-pending-reply.v1
+corr_id=8aad0b12d0382a4a
+task_id=mate
+parent_home=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq
+parent_status=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq/state/mate.status
+parent_status_scan_signature=
+request_summary=original unanswered request
+created_epoch=1799910000
+delivered_epoch=
+turn_seen_busy=0
+request_turn_completed_epoch=
+recovery_attempted_epoch=
+recovery_sender_pid=
+recovery_sender_identity=
+recovery_sent_epoch=
+recovery_delivery_outcome=
+recovery_turn_seen_busy=0
+recovery_turn_completed_epoch=
+wrong_home_hits=0
+wrong_home_first_sighting=
+wrong_home_sightings=
+wrong_home_scan_signature=
+grace_secs=120
+escalated_epoch=1800000000
+retired_reason=superseded-by-3e1887ba79e534b6
+resolved_via=retired-stale
+resolved_epoch=1800000000
+phase=resolved
+escalation_closed_epoch=1800000000
+--- task status log
+blocked [key=pending-reply-8aad0b12d0382a4a] [at=1793279393]: pending-reply-delivery-unknown: task=mate pending-reply-id=8aad0b12d0382a4a request=original unanswered request
+blocked [key=independent-decision]: waiting for separate decision
+note [at=1793279394]: pending-reply-retired-stale: task=mate pending-reply-id=8aad0b12d0382a4a reason=superseded-by-3e1887ba79e534b6 age=90000
+resolved [key=pending-reply-8aad0b12d0382a4a] [at=1793279394]: pending-reply-resolved: task=mate pending-reply-id=8aad0b12d0382a4a via=retired-stale superseded-by-3e1887ba79e534b6
+--- open decisions
+independent-decision	blocked	waiting for separate decisionindependent-decision	blocked	waiting for separate decision
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retire-stale: mode=apply matched=0 kept=1 errors=0
+RESULT scenario 1: pass
+SCENARIO 2: reject transient replacements until delivery is durably reconciled
+--- replacement stage=created
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+retire-stale: mode=dry-run matched=0 kept=3 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retire-stale: mode=apply matched=0 kept=3 errors=0
+original phase=awaiting_report reason=
+--- replacement stage=attempted
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+retire-stale: mode=dry-run matched=0 kept=3 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retire-stale: mode=apply matched=0 kept=3 errors=0
+original phase=awaiting_report reason=
+--- replacement stage=unknown
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+retire-stale: mode=dry-run matched=0 kept=3 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retire-stale: mode=apply matched=0 kept=3 errors=0
+original phase=awaiting_report reason=
+--- replacement stage=discarded
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+retire-stale: mode=dry-run matched=0 kept=2 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retire-stale: mode=apply matched=0 kept=2 errors=0
+original phase=awaiting_report reason=
+--- replacement stage=marker-only
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+retire-stale: mode=dry-run matched=0 kept=3 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retire-stale: mode=apply matched=0 kept=3 errors=0
+original phase=awaiting_report reason=
+--- replacement stage=reconciled
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+would-retire task=transport corr=f12be4dc5986833a age=95000 reason=superseded-by-dad3c0443e4c5ceb
+retire-stale: mode=dry-run matched=1 kept=2 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retired task=transport corr=f12be4dc5986833a age=95000 reason=superseded-by-dad3c0443e4c5ceb
+retire-stale: mode=apply matched=1 kept=2 errors=0
+original phase=resolved reason=superseded-by-dad3c0443e4c5ceb
+--- persisted record f12be4dc5986833a
+schema=fm-pending-reply.v1
+corr_id=f12be4dc5986833a
+task_id=transport
+parent_home=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq
+parent_status=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq/state/transport.status
+parent_status_scan_signature=
+request_summary=only real unanswered request
+created_epoch=1799905000
+turn_seen_busy=0
+request_turn_completed_epoch=
+recovery_attempted_epoch=
+recovery_sender_pid=
+recovery_sender_identity=
+recovery_sent_epoch=
+recovery_delivery_outcome=
+recovery_turn_seen_busy=0
+recovery_turn_completed_epoch=
+escalated_epoch=
+wrong_home_hits=0
+wrong_home_first_sighting=
+wrong_home_sightings=
+wrong_home_scan_signature=
+grace_secs=120
+delivered_epoch=1800000000
+retired_reason=superseded-by-dad3c0443e4c5ceb
+resolved_via=retired-stale
+resolved_epoch=1800000000
+phase=resolved
+RESULT scenario 2: pass
+SCENARIO 3: preserve unsuperseded requests and exactly-24h records; retire at 24h+1s
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+would-retire task=boundary corr=d625bb707430f283 age=86401 reason=superseded-by-0a640775d2e89ca8
+retire-stale: mode=dry-run matched=1 kept=8 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retired task=boundary corr=d625bb707430f283 age=86401 reason=superseded-by-0a640775d2e89ca8
+retire-stale: mode=apply matched=1 kept=8 errors=0
+kept corr=e7121ef08b5d9ecc created=1799913600 phase=awaiting_report request=exactly twenty four hours old
+kept corr=36ef86ccc90b9972 created=1799999999 phase=awaiting_report request=seconds old
+kept corr=0a640775d2e89ca8 created=1800000000 phase=awaiting_report request=latest delivered request
+kept corr=293977b0e7bd5ce9 created=1799901000 phase=awaiting_report request=no successor exists
+kept corr=a5667447c8482a8a created=1799901000 phase=awaiting_report request=unanswered despite completed task status
+kept corr=47e6bb3b16368615 created=1799901000 phase=awaiting_report request=unanswered despite completed task status
+--- persisted record d625bb707430f283
+schema=fm-pending-reply.v1
+corr_id=d625bb707430f283
+task_id=boundary
+parent_home=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq
+parent_status=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq/state/boundary.status
+parent_status_scan_signature=
+request_summary=one second beyond twenty four hours
+created_epoch=1799913599
+delivered_epoch=
+turn_seen_busy=0
+request_turn_completed_epoch=
+recovery_attempted_epoch=
+recovery_sender_pid=
+recovery_sender_identity=
+recovery_sent_epoch=
+recovery_delivery_outcome=
+recovery_turn_seen_busy=0
+recovery_turn_completed_epoch=
+escalated_epoch=
+wrong_home_hits=0
+wrong_home_first_sighting=
+wrong_home_sightings=
+wrong_home_scan_signature=
+grace_secs=120
+retired_reason=superseded-by-0a640775d2e89ca8
+resolved_via=retired-stale
+resolved_epoch=1800000000
+phase=resolved
+RESULT scenario 3: pass
+SCENARIO 4: gone task keeps every retired record and creates no phantom status log
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --dry-run
+would-retire task=vanished corr=20a5458409464c38 age=96000 reason=task-gone
+would-retire task=vanished corr=54309d89df1eb66d age=97000 reason=task-gone
+retire-stale: mode=dry-run matched=2 kept=8 errors=0
++ FM_HOME=<disposable-home> bash bin/fm-pending-reply-retire-stale.sh --apply
+retired task=vanished corr=20a5458409464c38 age=96000 reason=task-gone
+retired task=vanished corr=54309d89df1eb66d age=97000 reason=task-gone
+retire-stale: mode=apply matched=2 kept=8 errors=0
+--- persisted record 54309d89df1eb66d
+schema=fm-pending-reply.v1
+corr_id=54309d89df1eb66d
+task_id=vanished
+parent_home=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq
+parent_status=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq/state/vanished.status
+parent_status_scan_signature=
+request_summary=first missing task request
+created_epoch=1799903000
+delivered_epoch=
+turn_seen_busy=0
+request_turn_completed_epoch=
+recovery_attempted_epoch=
+recovery_sender_pid=
+recovery_sender_identity=
+recovery_sent_epoch=
+recovery_delivery_outcome=
+recovery_turn_seen_busy=0
+recovery_turn_completed_epoch=
+escalated_epoch=
+wrong_home_hits=0
+wrong_home_first_sighting=
+wrong_home_sightings=
+wrong_home_scan_signature=
+grace_secs=120
+retired_reason=task-gone
+resolved_via=retired-stale
+resolved_epoch=1800000000
+phase=resolved
+--- persisted record 20a5458409464c38
+schema=fm-pending-reply.v1
+corr_id=20a5458409464c38
+task_id=vanished
+parent_home=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq
+parent_status=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq/state/vanished.status
+parent_status_scan_signature=
+request_summary=newest missing task request
+created_epoch=1799904000
+delivered_epoch=
+turn_seen_busy=0
+request_turn_completed_epoch=
+recovery_attempted_epoch=
+recovery_sender_pid=
+recovery_sender_identity=
+recovery_sent_epoch=
+recovery_delivery_outcome=
+recovery_turn_seen_busy=0
+recovery_turn_completed_epoch=
+escalated_epoch=
+wrong_home_hits=0
+wrong_home_first_sighting=
+wrong_home_sightings=
+wrong_home_scan_signature=
+grace_secs=120
+retired_reason=task-gone
+resolved_via=retired-stale
+resolved_epoch=1800000000
+phase=resolved
+No vanished.status created; both original record files retained.
+RESULT scenario 4: pass
+SCENARIO 5: require explicit home and mode; reject removed age override without mutation
+usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply)
+--dry-run FM_HOME=unset exit=2
+usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply)
+--dry-run FM_HOME=empty exit=2
+usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply)
+--dry-run --max-age 0 exit=2
+usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply)
+--apply FM_HOME=unset exit=2
+usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply)
+--apply FM_HOME=empty exit=2
+usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply)
+--apply --max-age 0 exit=2
+usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply)
+args='' exit=2
+usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply)
+args='--dry-run --apply' exit=2
+RESULT scenario 5: pass
+SCENARIO 6: concurrent and late callbacks cannot reopen retired records
+retired task=racing corr=1e0ba0e7738afea1 age=98000 reason=superseded-by-accc34e60c39eadf
+retire-stale: mode=apply matched=1 kept=9 errors=0
+late callback=fm_pending_reply_reconcile_recovery exit=1 phase=resolved
+late callback=fm_pending_reply_mark_delivery_unknown exit=1 phase=resolved
+late callback=fm_pending_reply_mark_delivered exit=0 phase=resolved
+late recovery=confirmed exit=1 phase=resolved
+late recovery=failed exit=1 phase=resolved
+late discard exit=1 retained=yes
+--- persisted record 1e0ba0e7738afea1
+schema=fm-pending-reply.v1
+corr_id=1e0ba0e7738afea1
+task_id=racing
+parent_home=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq
+parent_status=~/.no-mistakes/worktrees/049a88734b0e/01M63T5F6P41J1YAJ9818FNK97/.test-retire-tmp/manual.mHbFtq/state/racing.status
+parent_status_scan_signature=
+request_summary=request being recovered during retirement
+created_epoch=1799902000
+turn_seen_busy=0
+request_turn_completed_epoch=
+recovery_sender_pid=
+recovery_sender_identity=
+escalated_epoch=
+wrong_home_hits=0
+wrong_home_first_sighting=
+wrong_home_sightings=
+wrong_home_scan_signature=
+grace_secs=120
+recovery_attempted_epoch=1799999700
+recovery_delivery_outcome=confirmed
+recovery_sent_epoch=1800000000
+recovery_turn_seen_busy=0
+recovery_turn_completed_epoch=
+retired_reason=superseded-by-accc34e60c39eadf
+resolved_via=retired-stale
+resolved_epoch=1800000000
+phase=resolved
+delivered_epoch=1800000000
+RESULT scenario 6: pass
+All CLI scenarios complete; disposable home removed by EXIT trap.
