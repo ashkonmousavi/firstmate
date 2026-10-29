@@ -1,0 +1,22 @@
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301663,
+ "items": [
+  {
+   "id": "b-merged",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301670,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "a-unreadable",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301670,
+   "detail": "pull request state could not be read in time",
+   "source": "inactive-reconcile"
+  }
+ ]
+}

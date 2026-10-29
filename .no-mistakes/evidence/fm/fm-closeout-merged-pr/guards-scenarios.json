@@ -1,0 +1,16 @@
+[
+  {
+    "name": "An unknown worker state prevents closeout; removing its metadata permits closure",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-guards.log",
+    "reason": ""
+  },
+  {
+    "name": "Held control and metadata locks independently prevent closure; releasing each permits closure",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-guards.log",
+    "reason": ""
+  }
+]

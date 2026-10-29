@@ -1,0 +1,30 @@
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301659,
+ "items": [
+  {
+   "id": "unreadable",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301662,
+   "detail": "pull request state could not be read in time",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "hidden",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301662,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "closed",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301662,
+   "detail": "closed: PR 14867 closed 2026-10-29T16:15:32Z",
+   "source": "inactive-reconcile"
+  }
+ ]
+}

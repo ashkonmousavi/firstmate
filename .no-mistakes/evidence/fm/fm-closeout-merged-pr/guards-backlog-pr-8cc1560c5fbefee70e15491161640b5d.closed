@@ -1,0 +1,6 @@
+schema=fm-backlog-pr-close.v1
+task_id=closed
+prs=https://github.com/cli/cli/pull/14867=CLOSED
+status=closed
+detail=closed: PR 14867 closed 2026-10-29T16:15:32Z
+written_epoch=1793301662

@@ -1,0 +1,14 @@
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301711,
+ "items": [
+  {
+   "id": "kill-cut",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301711,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  }
+ ]
+}

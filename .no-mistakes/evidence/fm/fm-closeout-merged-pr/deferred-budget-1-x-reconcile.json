@@ -1,0 +1,22 @@
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301663,
+ "items": [
+  {
+   "id": "b-merged",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301668,
+   "detail": "in-flight record could not be examined before the time budget ran out",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "a-unreadable",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301669,
+   "detail": "pull request state could not be read in time",
+   "source": "inactive-reconcile"
+  }
+ ]
+}

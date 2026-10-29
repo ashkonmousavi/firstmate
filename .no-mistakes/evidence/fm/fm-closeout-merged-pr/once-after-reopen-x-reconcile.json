@@ -1,0 +1,13 @@
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 7,
+ "items": [
+  {
+   "id": "preserve",
+   "home": "server",
+   "finding": "place",
+   "source": "stage-age",
+   "observed_at": 7
+  }
+ ]
+}

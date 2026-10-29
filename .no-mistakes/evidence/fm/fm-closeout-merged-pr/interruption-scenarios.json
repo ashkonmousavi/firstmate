@@ -1,0 +1,9 @@
+[
+  {
+    "name": "Killing the backlog pass after Done commits leaves a closing intent; next scan recovers dated board evidence",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-interruption.log",
+    "reason": ""
+  }
+]

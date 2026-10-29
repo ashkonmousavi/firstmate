@@ -1,0 +1,58 @@
+[
+  {
+    "name": "Four merged records close with dated MAIN board evidence; a reopened receipted task stays open",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  },
+  {
+    "name": "Closed PRs close, complete long bodies retain OPEN references, and held or unreadable tasks remain in flight",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  },
+  {
+    "name": "Budgets 1 and 2 save visit progress and unknown findings; deferred merged work closes with sufficient time",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  },
+  {
+    "name": "Publication blocked by the board lock leaves a closing intent; next scan recovers dated evidence",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  },
+  {
+    "name": "A secondmate closes its own merged task without writing a board JSON file",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  },
+  {
+    "name": "Killing the backlog pass after Done commits leaves a closing intent; next scan recovers dated board evidence",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-interruption.log",
+    "reason": ""
+  },
+  {
+    "name": "An unknown worker state prevents closeout; removing its metadata permits closure",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-guards.log",
+    "reason": ""
+  },
+  {
+    "name": "Held control and metadata locks independently prevent closure; releasing each permits closure",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-guards.log",
+    "reason": ""
+  }
+]

@@ -1,0 +1,1762 @@
+$ gh pr view 1 -R cli/cli --json state,mergedAt,closedAt,url
+{"closedAt":"2019-10-04T16:01:04Z","mergedAt":"2019-10-04T16:01:04Z","state":"MERGED","url":"https://github.com/cli/cli/pull/1"}
+exit=0
+$ gh pr view 14867 -R cli/cli --json state,mergedAt,closedAt,url
+{"closedAt":"2026-10-29T16:15:32Z","mergedAt":null,"state":"CLOSED","url":"https://github.com/cli/cli/pull/14867"}
+exit=0
+$ gh pr view 14846 -R cli/cli --json state,mergedAt,closedAt,url
+{"closedAt":null,"mergedAt":null,"state":"OPEN","url":"https://github.com/cli/cli/pull/14846"}
+exit=0
+
+SCENARIO Four merged records close with dated MAIN board evidence; a reopened receipted task stays open
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/four-merged
+~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/four-merged
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add merged-0 Validation merged-0 --body https://github.com/cli/cli/pull/1
+ok: added merged-0 -> Queued
+task:
+  id: merged-0
+  title: Validation merged-0
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start merged-0` to move it to in flight
+  - Run `tasks-axi block merged-0 --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start merged-0
+ok: start merged-0 -> In flight
+help[1]:
+  - Run `tasks-axi done merged-0 --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add merged-1 Validation merged-1 --body https://github.com/cli/cli/pull/1
+ok: added merged-1 -> Queued
+task:
+  id: merged-1
+  title: Validation merged-1
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start merged-1` to move it to in flight
+  - Run `tasks-axi block merged-1 --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start merged-1
+ok: start merged-1 -> In flight
+help[1]:
+  - Run `tasks-axi done merged-1 --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add merged-2 Validation merged-2 --body https://github.com/cli/cli/pull/1
+ok: added merged-2 -> Queued
+task:
+  id: merged-2
+  title: Validation merged-2
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start merged-2` to move it to in flight
+  - Run `tasks-axi block merged-2 --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start merged-2
+ok: start merged-2 -> In flight
+help[1]:
+  - Run `tasks-axi done merged-2 --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add merged-3 Validation merged-3 --body https://github.com/cli/cli/pull/1
+ok: added merged-3 -> Queued
+task:
+  id: merged-3
+  title: Validation merged-3
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start merged-3` to move it to in flight
+  - Run `tasks-axi block merged-3 --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start merged-3
+ok: start merged-3 -> In flight
+help[1]:
+  - Run `tasks-axi done merged-3 --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=2.013
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show merged-0 --full
+task:
+  id: merged-0
+  title: "Validation merged-0 https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show merged-1 --full
+task:
+  id: merged-1
+  title: "Validation merged-1 https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show merged-2 --full
+task:
+  id: merged-2
+  title: "Validation merged-2 https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show merged-3 --full
+task:
+  id: merged-3
+  title: "Validation merged-3 https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+## Queued
+## Done
+- [x] merged-0 - Validation merged-0 https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+- [x] merged-1 - Validation merged-1 https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+- [x] merged-2 - Validation merged-2 https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+- [x] merged-3 - Validation merged-3 https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+
+PERSISTED data/x-reconcile.json
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 7,
+ "items": [
+  {
+   "id": "preserve",
+   "home": "server",
+   "finding": "place",
+   "source": "stage-age",
+   "observed_at": 7
+  },
+  {
+   "id": "merged-3",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301655,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "merged-2",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301655,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "merged-1",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301655,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "merged-0",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301655,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  }
+ ]
+}
+
+PERSISTED state/backlog-pr-cursor
+0
+
+PERSISTED state/terminal-outcomes/backlog-pr-2cd8131c8379b368912d1055da5104ba.closed
+schema=fm-backlog-pr-close.v1
+task_id=merged-2
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301655
+
+PERSISTED state/terminal-outcomes/backlog-pr-2e7f7adea6ae5992da37e84eb25b3cd8.closed
+schema=fm-backlog-pr-close.v1
+task_id=merged-1
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301655
+
+PERSISTED state/terminal-outcomes/backlog-pr-35302ff17a8c6f288b1adc10e8f118d3.closed
+schema=fm-backlog-pr-close.v1
+task_id=merged-0
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301655
+
+PERSISTED state/terminal-outcomes/backlog-pr-3a8f29013f2dc6d4beb1e8cb20aa6496.closed
+schema=fm-backlog-pr-close.v1
+task_id=merged-3
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301655
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh reopen merged-0
+ok: reopen merged-0 -> Queued
+help[1]:
+  - Run `tasks-axi start merged-0` to move it to in flight
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start merged-0
+ok: start merged-0 -> In flight
+help[1]:
+  - Run `tasks-axi done merged-0 --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.313
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show merged-0 --full
+task:
+  id: merged-0
+  title: "Validation merged-0 https://github.com/cli/cli/pull/1"
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+- [ ] merged-0 - Validation merged-0 https://github.com/cli/cli/pull/1 (since 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+## Queued
+## Done
+- [x] merged-1 - Validation merged-1 https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+- [x] merged-2 - Validation merged-2 https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+- [x] merged-3 - Validation merged-3 https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+
+PERSISTED data/x-reconcile.json
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 7,
+ "items": [
+  {
+   "id": "preserve",
+   "home": "server",
+   "finding": "place",
+   "source": "stage-age",
+   "observed_at": 7
+  }
+ ]
+}
+
+PERSISTED state/backlog-pr-cursor
+0
+
+PERSISTED state/terminal-outcomes/backlog-pr-2cd8131c8379b368912d1055da5104ba.closed
+schema=fm-backlog-pr-close.v1
+task_id=merged-2
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301655
+
+PERSISTED state/terminal-outcomes/backlog-pr-2e7f7adea6ae5992da37e84eb25b3cd8.closed
+schema=fm-backlog-pr-close.v1
+task_id=merged-1
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301655
+
+PERSISTED state/terminal-outcomes/backlog-pr-35302ff17a8c6f288b1adc10e8f118d3.closed
+schema=fm-backlog-pr-close.v1
+task_id=merged-0
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301655
+
+PERSISTED state/terminal-outcomes/backlog-pr-3a8f29013f2dc6d4beb1e8cb20aa6496.closed
+schema=fm-backlog-pr-close.v1
+task_id=merged-3
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301655
+
+
+SCENARIO Closed PRs close, complete long bodies retain OPEN references, and held or unreadable tasks remain in flight
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/guards
+~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/guards
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add closed Validation closed --body https://github.com/cli/cli/pull/14867
+ok: added closed -> Queued
+task:
+  id: closed
+  title: Validation closed
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/14867"
+help[2]:
+  - Run `tasks-axi start closed` to move it to in flight
+  - Run `tasks-axi block closed --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start closed
+ok: start closed -> In flight
+help[1]:
+  - Run `tasks-axi done closed --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add open Validation open --body https://github.com/cli/cli/pull/14846
+ok: added open -> Queued
+task:
+  id: open
+  title: Validation open
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/14846"
+help[2]:
+  - Run `tasks-axi start open` to move it to in flight
+  - Run `tasks-axi block open --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start open
+ok: start open -> In flight
+help[1]:
+  - Run `tasks-axi done open --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add mixed Validation mixed --body https://github.com/cli/cli/pull/1 background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background https://github.com/cli/cli/pull/14846
+ok: added mixed -> Queued
+task:
+  id: mixed
+  title: Validation mixed
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1 background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background back\n... (truncated, 5571 chars total - use show mixed --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start mixed` to move it to in flight
+  - Run `tasks-axi block mixed --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start mixed
+ok: start mixed -> In flight
+help[1]:
+  - Run `tasks-axi done mixed --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add hidden Validation hidden --body background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background https://github.com/cli/cli/pull/1
+ok: added hidden -> Queued
+task:
+  id: hidden
+  title: Validation hidden
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background backg\n... (truncated, 5533 chars total - use show hidden --full to see complete text)"
+help[2]:
+  - Run `tasks-axi start hidden` to move it to in flight
+  - Run `tasks-axi block hidden --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start hidden
+ok: start hidden -> In flight
+help[1]:
+  - Run `tasks-axi done hidden --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add none Validation none --body No PR yet
+ok: added none -> Queued
+task:
+  id: none
+  title: Validation none
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: No PR yet
+help[2]:
+  - Run `tasks-axi start none` to move it to in flight
+  - Run `tasks-axi block none --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start none
+ok: start none -> In flight
+help[1]:
+  - Run `tasks-axi done none --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add held Validation held --body https://github.com/cli/cli/pull/1
+ok: added held -> Queued
+task:
+  id: held
+  title: Validation held
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start held` to move it to in flight
+  - Run `tasks-axi block held --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start held
+ok: start held -> In flight
+help[1]:
+  - Run `tasks-axi done held --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add unreadable Validation unreadable --body https://github.com/cli/cli/pull/999999999
+ok: added unreadable -> Queued
+task:
+  id: unreadable
+  title: Validation unreadable
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/999999999"
+help[2]:
+  - Run `tasks-axi start unreadable` to move it to in flight
+  - Run `tasks-axi block unreadable --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start unreadable
+ok: start unreadable -> In flight
+help[1]:
+  - Run `tasks-axi done unreadable --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh hold held --reason validation captain call --kind captain
+ok: hold held -> held (captain)
+task:
+  id: held
+  title: Validation held
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: validation captain call
+  hold_kind: captain
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi unhold held` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=3.353
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show closed --full
+task:
+  id: closed
+  title: "Validation closed https://github.com/cli/cli/pull/14867"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/14867"
+  body: "https://github.com/cli/cli/pull/14867\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/14867=CLOSED)"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show hidden --full
+task:
+  id: hidden
+  title: "Validation hidden https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show open --full
+task:
+  id: open
+  title: Validation open
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/14846"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show mixed --full
+task:
+  id: mixed
+  title: Validation mixed
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1 background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background https://github.com/cli/cli/pull/14846"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show none --full
+task:
+  id: none
+  title: Validation none
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: No PR yet
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show held --full
+task:
+  id: held
+  title: Validation held
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: validation captain call
+  hold_kind: captain
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show unreadable --full
+task:
+  id: unreadable
+  title: Validation unreadable
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/999999999"
+exit=0
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+- [ ] unreadable - Validation unreadable (since 2026-10-29)
+  https://github.com/cli/cli/pull/999999999
+- [ ] held - Validation held (since 2026-10-29) (hold: validation captain call) (hold-kind: captain)
+  https://github.com/cli/cli/pull/1
+- [ ] none - Validation none (since 2026-10-29)
+  No PR yet
+- [ ] mixed - Validation mixed (since 2026-10-29)
+  https://github.com/cli/cli/pull/1 background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background https://github.com/cli/cli/pull/14846
+- [ ] open - Validation open (since 2026-10-29)
+  https://github.com/cli/cli/pull/14846
+## Queued
+## Done
+- [x] closed - Validation closed https://github.com/cli/cli/pull/14867 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/14867
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/14867=CLOSED)
+- [x] hidden - Validation hidden https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background background https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+
+PERSISTED data/x-reconcile.json
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301659,
+ "items": [
+  {
+   "id": "unreadable",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301662,
+   "detail": "pull request state could not be read in time",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "hidden",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301662,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "closed",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301662,
+   "detail": "closed: PR 14867 closed 2026-10-29T16:15:32Z",
+   "source": "inactive-reconcile"
+  }
+ ]
+}
+
+PERSISTED state/backlog-pr-cursor
+0
+
+PERSISTED state/terminal-outcomes/backlog-pr-8cc1560c5fbefee70e15491161640b5d.closed
+schema=fm-backlog-pr-close.v1
+task_id=closed
+prs=https://github.com/cli/cli/pull/14867=CLOSED
+status=closed
+detail=closed: PR 14867 closed 2026-10-29T16:15:32Z
+written_epoch=1793301662
+
+PERSISTED state/terminal-outcomes/backlog-pr-ff848cbc428dfb0c1321433a3fbcba8d.closed
+schema=fm-backlog-pr-close.v1
+task_id=hidden
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301662
+
+
+SCENARIO Budgets 1 and 2 save visit progress and unknown findings; deferred merged work closes with sufficient time
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/budget-1
+~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/budget-1
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add a-unreadable Validation a-unreadable --body https://github.com/cli/cli/pull/999999999
+ok: added a-unreadable -> Queued
+task:
+  id: a-unreadable
+  title: Validation a-unreadable
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/999999999"
+help[2]:
+  - Run `tasks-axi start a-unreadable` to move it to in flight
+  - Run `tasks-axi block a-unreadable --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start a-unreadable
+ok: start a-unreadable -> In flight
+help[1]:
+  - Run `tasks-axi done a-unreadable --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add b-merged Validation b-merged --body https://github.com/cli/cli/pull/1
+ok: added b-merged -> Queued
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start b-merged` to move it to in flight
+  - Run `tasks-axi block b-merged --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start b-merged
+ok: start b-merged -> In flight
+help[1]:
+  - Run `tasks-axi done b-merged --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.089
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=0.903
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.044
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=0.9
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=0.967
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=0.894
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+- [ ] b-merged - Validation b-merged (since 2026-10-29)
+  https://github.com/cli/cli/pull/1
+- [ ] a-unreadable - Validation a-unreadable (since 2026-10-29)
+  https://github.com/cli/cli/pull/999999999
+## Queued
+## Done
+
+PERSISTED data/x-reconcile.json
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301663,
+ "items": [
+  {
+   "id": "b-merged",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301668,
+   "detail": "in-flight record could not be examined before the time budget ran out",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "a-unreadable",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301669,
+   "detail": "pull request state could not be read in time",
+   "source": "inactive-reconcile"
+  }
+ ]
+}
+
+PERSISTED state/backlog-pr-cursor
+0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.662
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: "Validation b-merged https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show a-unreadable --full
+task:
+  id: a-unreadable
+  title: Validation a-unreadable
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/999999999"
+exit=0
+saved cursor sequence ["1", "0", "1", "0", "1", "0"]
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+- [ ] a-unreadable - Validation a-unreadable (since 2026-10-29)
+  https://github.com/cli/cli/pull/999999999
+## Queued
+## Done
+- [x] b-merged - Validation b-merged https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+
+PERSISTED data/x-reconcile.json
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301663,
+ "items": [
+  {
+   "id": "b-merged",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301670,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "a-unreadable",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301670,
+   "detail": "pull request state could not be read in time",
+   "source": "inactive-reconcile"
+  }
+ ]
+}
+
+PERSISTED state/backlog-pr-cursor
+0
+
+PERSISTED state/terminal-outcomes/backlog-pr-c8d05ccf0756312e7796ceccfd28d99b.closed
+schema=fm-backlog-pr-close.v1
+task_id=b-merged
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301671
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/budget-2
+~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/budget-2
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add a-unreadable Validation a-unreadable --body https://github.com/cli/cli/pull/999999999
+ok: added a-unreadable -> Queued
+task:
+  id: a-unreadable
+  title: Validation a-unreadable
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/999999999"
+help[2]:
+  - Run `tasks-axi start a-unreadable` to move it to in flight
+  - Run `tasks-axi block a-unreadable --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start a-unreadable
+ok: start a-unreadable -> In flight
+help[1]:
+  - Run `tasks-axi done a-unreadable --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add b-merged Validation b-merged --body https://github.com/cli/cli/pull/1
+ok: added b-merged -> Queued
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start b-merged` to move it to in flight
+  - Run `tasks-axi block b-merged --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start b-merged
+ok: start b-merged -> In flight
+help[1]:
+  - Run `tasks-axi done b-merged --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=0.992
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.091
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=0.259
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.012
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=0.88
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.066
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: Validation b-merged
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+exit=0
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+- [ ] b-merged - Validation b-merged (since 2026-10-29)
+  https://github.com/cli/cli/pull/1
+- [ ] a-unreadable - Validation a-unreadable (since 2026-10-29)
+  https://github.com/cli/cli/pull/999999999
+## Queued
+## Done
+
+PERSISTED data/x-reconcile.json
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301671,
+ "items": [
+  {
+   "id": "a-unreadable",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301676,
+   "detail": "pull request state could not be read in time",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "b-merged",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301677,
+   "detail": "in-flight record could not be examined before the time budget ran out",
+   "source": "inactive-reconcile"
+  }
+ ]
+}
+
+PERSISTED state/backlog-pr-cursor
+1
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.751
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show b-merged --full
+task:
+  id: b-merged
+  title: "Validation b-merged https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show a-unreadable --full
+task:
+  id: a-unreadable
+  title: Validation a-unreadable
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/999999999"
+exit=0
+saved cursor sequence ["1", "0", "0", "1", "0", "1"]
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+- [ ] a-unreadable - Validation a-unreadable (since 2026-10-29)
+  https://github.com/cli/cli/pull/999999999
+## Queued
+## Done
+- [x] b-merged - Validation b-merged https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+
+PERSISTED data/x-reconcile.json
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301671,
+ "items": [
+  {
+   "id": "a-unreadable",
+   "home": "main",
+   "finding": "unknown",
+   "observed_at": 1793301679,
+   "detail": "pull request state could not be read in time",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "b-merged",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301679,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  }
+ ]
+}
+
+PERSISTED state/backlog-pr-cursor
+1
+
+PERSISTED state/terminal-outcomes/backlog-pr-c8d05ccf0756312e7796ceccfd28d99b.closed
+schema=fm-backlog-pr-close.v1
+task_id=b-merged
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301679
+
+
+SCENARIO Publication blocked by the board lock leaves a closing intent; next scan recovers dated evidence
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/recovery
+~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/recovery
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add interrupted Validation interrupted --body https://github.com/cli/cli/pull/1
+ok: added interrupted -> Queued
+task:
+  id: interrupted
+  title: Validation interrupted
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start interrupted` to move it to in flight
+  - Run `tasks-axi block interrupted --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start interrupted
+ok: start interrupted -> In flight
+help[1]:
+  - Run `tasks-axi done interrupted --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.126
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show interrupted --full
+task:
+  id: interrupted
+  title: "Validation interrupted https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+## Queued
+## Done
+- [x] interrupted - Validation interrupted https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+
+PERSISTED state/backlog-pr-cursor
+0
+
+PERSISTED state/terminal-outcomes/backlog-pr-7bcf22aaa811e7f21d26a369a8298676.closed
+schema=fm-backlog-pr-close.v1
+task_id=interrupted
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closing
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301680
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=0.441
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+## Queued
+## Done
+- [x] interrupted - Validation interrupted https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+
+PERSISTED data/x-reconcile.json
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301680,
+ "items": [
+  {
+   "id": "interrupted",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301680,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  }
+ ]
+}
+
+PERSISTED state/backlog-pr-cursor
+0
+
+PERSISTED state/terminal-outcomes/backlog-pr-7bcf22aaa811e7f21d26a369a8298676.closed
+schema=fm-backlog-pr-close.v1
+task_id=interrupted
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301680
+
+
+SCENARIO A secondmate closes its own merged task without writing a board JSON file
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/parent
+~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/parent
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/mate
+~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/.closeout-live/mate
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh add mate-merged Validation mate-merged --body https://github.com/cli/cli/pull/1
+ok: added mate-merged -> Queued
+task:
+  id: mate-merged
+  title: Validation mate-merged
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "https://github.com/cli/cli/pull/1"
+help[2]:
+  - Run `tasks-axi start mate-merged` to move it to in flight
+  - Run `tasks-axi block mate-merged --by <other>` to record a dependency
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh start mate-merged
+ok: start mate-merged -> In flight
+help[1]:
+  - Run `tasks-axi done mate-merged --pr <url>` when it ships
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-inactive-reconcile.sh scan --startup
+exit=0
+elapsed_seconds=1.058
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M64E68ZHNYGVBAFEHRS8HAMS/bin/fm-tasks-axi.sh show mate-merged --full
+task:
+  id: mate-merged
+  title: "Validation mate-merged https://github.com/cli/cli/pull/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-29
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/1"
+  body: "https://github.com/cli/cli/pull/1\nclosed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)"
+exit=0
+PERSISTED data/backlog.md
+# Backlog
+
+## In flight
+## Queued
+## Done
+- [x] mate-merged - Validation mate-merged https://github.com/cli/cli/pull/1 (merged 2026-10-29)
+  https://github.com/cli/cli/pull/1
+  closed by inactive reconcile: pull request finished (https://github.com/cli/cli/pull/1=MERGED)
+
+PERSISTED state/backlog-pr-cursor
+0
+
+PERSISTED state/terminal-outcomes/backlog-pr-80489cb2edc85f11316e899067861531.closed
+schema=fm-backlog-pr-close.v1
+task_id=mate-merged
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301682
+

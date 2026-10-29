@@ -1,0 +1,45 @@
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 7,
+ "items": [
+  {
+   "id": "preserve",
+   "home": "server",
+   "finding": "place",
+   "source": "stage-age",
+   "observed_at": 7
+  },
+  {
+   "id": "merged-3",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301655,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "merged-2",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301655,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "merged-1",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301655,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  },
+  {
+   "id": "merged-0",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301655,
+   "detail": "closed: PR 1 merged 2019-10-04T16:01:04Z",
+   "source": "inactive-reconcile"
+  }
+ ]
+}

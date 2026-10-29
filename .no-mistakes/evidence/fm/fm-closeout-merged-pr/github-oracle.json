@@ -1,0 +1,20 @@
+{
+  "1": {
+    "closedAt": "2019-10-04T16:01:04Z",
+    "mergedAt": "2019-10-04T16:01:04Z",
+    "state": "MERGED",
+    "url": "https://github.com/cli/cli/pull/1"
+  },
+  "14867": {
+    "closedAt": "2026-10-29T16:15:32Z",
+    "mergedAt": null,
+    "state": "CLOSED",
+    "url": "https://github.com/cli/cli/pull/14867"
+  },
+  "14846": {
+    "closedAt": null,
+    "mergedAt": null,
+    "state": "OPEN",
+    "url": "https://github.com/cli/cli/pull/14846"
+  }
+}

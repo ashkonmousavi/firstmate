@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Four merged records close with dated MAIN board evidence; a reopened receipted task stays open",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  },
+  {
+    "name": "Closed PRs close, complete long bodies retain OPEN references, and held or unreadable tasks remain in flight",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  },
+  {
+    "name": "Budgets 1 and 2 visit an unreadable prefix and eventually close the later merged task",
+    "result": "fail",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": "('budget', 1, 'cursor', ['absent', '1', '0', '1', '0', '1', '0', '1', '0', '1'])"
+  },
+  {
+    "name": "Publication blocked by the board lock leaves a closing intent; next scan recovers dated evidence",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  },
+  {
+    "name": "A secondmate closes its own merged task without writing a board JSON file",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-closeout.log",
+    "reason": ""
+  }
+]

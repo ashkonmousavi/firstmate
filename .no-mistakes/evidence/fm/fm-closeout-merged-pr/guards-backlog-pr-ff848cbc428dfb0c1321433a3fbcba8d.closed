@@ -1,0 +1,6 @@
+schema=fm-backlog-pr-close.v1
+task_id=hidden
+prs=https://github.com/cli/cli/pull/1=MERGED
+status=closed
+detail=closed: PR 1 merged 2019-10-04T16:01:04Z
+written_epoch=1793301662

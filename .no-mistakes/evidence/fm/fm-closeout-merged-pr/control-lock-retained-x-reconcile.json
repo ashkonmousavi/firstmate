@@ -1,0 +1,14 @@
+{
+ "schema": "x-reconcile.v1",
+ "written_at": 1793301748,
+ "items": [
+  {
+   "id": "locked-control",
+   "home": "main",
+   "finding": "fix",
+   "observed_at": 1793301752,
+   "detail": "pull request finished but the record is still in flight: https://github.com/cli/cli/pull/1=MERGED",
+   "source": "inactive-reconcile"
+  }
+ ]
+}
