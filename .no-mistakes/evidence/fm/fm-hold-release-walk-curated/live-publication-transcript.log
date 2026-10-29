@@ -1,0 +1,247 @@
+
+SCENARIO Both hold writers recover real cache-publication failures after initial commit and re-hold, then close decisions on release
+$ bin/fm-lab-home.sh create /tmp/fm-lab.aw2_heki
+/tmp/fm-lab.aw2_heki
+
+exit=0
+$ bin/fm-tasks-axi.sh add t1 disposable task --repo demo
+FM_HOME=/tmp/fm-lab.aw2_heki
+ok: added t1 (repo demo) -> Queued
+task:
+  id: t1
+  title: disposable task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start t1` to move it to in flight
+  - Run `tasks-axi block t1 --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold t1 --reason disposable publication failure --kind external --release-on marker:/tmp/fm-lab.aw2_heki/ready-a
+FM_HOME=/tmp/fm-lab.aw2_heki
+ok: hold t1 -> held (external)
+task:
+  id: t1
+  title: disposable task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjM5OC05MzY0NS05MzE4MDM2OTI0MzgiLCJyZWFzb24iOiJkaXNwb3NhYmxlIHB1YmxpY2F0aW9uIGZhaWx1cmUiLCJyZWxlYXNlX29uIjoibWFya2VyOi90bXAvZm0tbGFiLmF3Ml9oZWtpL3JlYWR5LWEifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold t1` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+mkdir: cannot create directory ‘/tmp/fm-lab.aw2_heki/state/hold-releases’: File exists
+fm-tasks-axi: the hold was recorded but its release condition could not be stored; re-run the same hold to retry
+
+exit=2
+$ bin/fm-tasks-axi.sh show t1
+FM_HOME=/tmp/fm-lab.aw2_heki
+task:
+  id: t1
+  title: disposable task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "disposable publication failure"
+  hold_release_on: "marker:/tmp/fm-lab.aw2_heki/ready-a"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjM5OC05MzY0NS05MzE4MDM2OTI0MzgiLCJyZWFzb24iOiJkaXNwb3NhYmxlIHB1YmxpY2F0aW9uIGZhaWx1cmUiLCJyZWxlYXNlX29uIjoibWFya2VyOi90bXAvZm0tbGFiLmF3Ml9oZWtpL3JlYWR5LWEifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.aw2_heki
+hold condition met: t1 marker:/tmp/fm-lab.aw2_heki/ready-a
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ t1
+FM_HOME=/tmp/fm-lab.aw2_heki
+hold-release-t1	blocked	hold-release-met: marker:/tmp/fm-lab.aw2_heki/ready-a
+exit=0
+$ bin/fm-tasks-axi.sh hold t1 --reason disposable publication failure --kind external --release-on marker:/tmp/fm-lab.aw2_heki/ready-b
+FM_HOME=/tmp/fm-lab.aw2_heki
+ok: hold t1 -> held (external)
+task:
+  id: t1
+  title: disposable task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjQwNC05NTQ2MS0xMzU0ODk5MjYyODEiLCJyZWFzb24iOiJkaXNwb3NhYmxlIHB1YmxpY2F0aW9uIGZhaWx1cmUiLCJyZWxlYXNlX29uIjoibWFya2VyOi90bXAvZm0tbGFiLmF3Ml9oZWtpL3JlYWR5LWIifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold t1` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+mkdir: cannot create directory ‘/tmp/fm-lab.aw2_heki/state/hold-releases’: File exists
+fm-tasks-axi: the hold was recorded but its release condition could not be stored; re-run the same hold to retry
+
+exit=2
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.aw2_heki
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ t1
+FM_HOME=/tmp/fm-lab.aw2_heki
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.aw2_heki
+hold condition met: t1 marker:/tmp/fm-lab.aw2_heki/ready-b
+
+exit=0
+$ bin/fm-tasks-axi.sh unhold t1
+FM_HOME=/tmp/fm-lab.aw2_heki
+ok: unhold t1 -> cleared
+task:
+  id: t1
+  title: disposable task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ t1
+FM_HOME=/tmp/fm-lab.aw2_heki
+
+exit=0
+PERSISTED /tmp/fm-lab.aw2_heki/state/t1.status
+blocked [key=hold-release-t1] [at=1793266404]: hold-release-met: marker:/tmp/fm-lab.aw2_heki/ready-a
+resolved [key=hold-release-t1] [at=1793266405]: hold-release-closed: re-held with release condition marker:/tmp/fm-lab.aw2_heki/ready-b
+blocked [key=hold-release-t1] [at=1793266406]: hold-release-met: marker:/tmp/fm-lab.aw2_heki/ready-b
+resolved [key=hold-release-t1] [at=1793266406]: hold-release-closed: released
+
+$ bin/fm-lab-home.sh create /tmp/fm-lab.ta84wozd
+/tmp/fm-lab.ta84wozd
+
+exit=0
+$ bin/fm-captain-hold.sh hold t1 --title disposable test question --reason disposable publication failure --repo demo --release-on marker:/tmp/fm-lab.ta84wozd/ready-a
+FM_HOME=/tmp/fm-lab.ta84wozd
+mkdir: cannot create directory ‘/tmp/fm-lab.ta84wozd/state/hold-releases’: File exists
+fm-captain-hold: the captain hold was recorded but its release condition could not be stored; re-run the same hold to retry
+
+exit=1
+$ bin/fm-tasks-axi.sh show t1
+FM_HOME=/tmp/fm-lab.ta84wozd
+task:
+  id: t1
+  title: disposable test question
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "disposable publication failure"
+  hold_release_on: "marker:/tmp/fm-lab.ta84wozd/ready-a"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjQwNi05Nzg3MC05Njc0NjM2OTA2MjgiLCJyZWFzb24iOiJkaXNwb3NhYmxlIHB1YmxpY2F0aW9uIGZhaWx1cmUiLCJyZWxlYXNlX29uIjoibWFya2VyOi90bXAvZm0tbGFiLnRhODR3b3pkL3JlYWR5LWEifQ=="
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-29T09:33:26Z"
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.ta84wozd
+hold condition met: t1 marker:/tmp/fm-lab.ta84wozd/ready-a
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ t1
+FM_HOME=/tmp/fm-lab.ta84wozd
+hold-release-t1	blocked	hold-release-met: marker:/tmp/fm-lab.ta84wozd/ready-a
+exit=0
+$ bin/fm-captain-hold.sh hold t1 --title disposable test question --reason disposable publication failure --repo demo --release-on marker:/tmp/fm-lab.ta84wozd/ready-b
+FM_HOME=/tmp/fm-lab.ta84wozd
+mkdir: cannot create directory ‘/tmp/fm-lab.ta84wozd/state/hold-releases’: File exists
+fm-captain-hold: the captain hold was recorded but its release condition could not be stored; re-run the same hold to retry
+
+exit=1
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.ta84wozd
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ t1
+FM_HOME=/tmp/fm-lab.ta84wozd
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.ta84wozd
+hold condition met: t1 marker:/tmp/fm-lab.ta84wozd/ready-b
+
+exit=0
+$ bin/fm-captain-hold.sh answer t1 --release --decision-file /tmp/fm-lab.ta84wozd/synthetic-answer.txt
+FM_HOME=/tmp/fm-lab.ta84wozd
+released: t1
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ t1
+FM_HOME=/tmp/fm-lab.ta84wozd
+
+exit=0
+PERSISTED /tmp/fm-lab.ta84wozd/state/t1.status
+blocked [key=hold-release-t1] [at=1793266407]: hold-release-met: marker:/tmp/fm-lab.ta84wozd/ready-a
+resolved [key=hold-release-t1] [at=1793266408]: hold-release-closed: re-held with release condition marker:/tmp/fm-lab.ta84wozd/ready-b
+blocked [key=hold-release-t1] [at=1793266409]: hold-release-met: marker:/tmp/fm-lab.ta84wozd/ready-b
+resolved [key=hold-release-t1] [at=1793266409]: hold-release-closed: captain call settled
+
+CLEANUP: all disposable lab homes removed.

@@ -1,0 +1,6 @@
+[
+  {
+    "name": "Both hold writers recover real cache-publication failures after initial commit and re-hold, then close decisions on release",
+    "result": "pass"
+  }
+]

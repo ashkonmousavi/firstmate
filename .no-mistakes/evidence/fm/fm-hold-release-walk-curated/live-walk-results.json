@@ -1,0 +1,14 @@
+[
+  {
+    "name": "The walk carrier refuses relative and private briefs without publishing a request",
+    "result": "pass"
+  },
+  {
+    "name": "A mate request reaches the registered check and a missing-dispatcher outcome returns once through the real steering inbox",
+    "result": "pass"
+  },
+  {
+    "name": "A maximum 64 KiB remote brief crosses the real delta reader intact; oversized briefs refuse without publishing",
+    "result": "pass"
+  }
+]

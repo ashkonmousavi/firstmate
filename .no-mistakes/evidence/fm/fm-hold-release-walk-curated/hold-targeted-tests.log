@@ -1,0 +1,25 @@
+ok - hold-release: condition syntax accepts exactly the two documented forms
+ok - hold-release: kind-external hold without --release-on/--until is refused
+ok - hold-release: --release-on stores the condition without touching the reason
+ok - hold-release: kindless and external holds require an event or date
+ok - hold-release: re-hold and unhold keep the record exactly as long as the hold
+ok - hold-release: one wake per met condition, decision stays open
+ok - hold-release: unhold closes the decision; foreign notes cannot
+ok - hold-release: a re-held condition starts a fresh episode
+ok - hold-release: a closed row reconciles record and decision away
+ok - hold-release: a removed row reconciles record and decision away
+ok - hold-release: show overrides preserve unknown reads and reconcile missing tasks
+ok - hold-release: committed episodes recover after interrupted publication and refused writes preserve the prior hold
+ok - hold-release: raw moves, local peers, registered mates and remote receipts preserve conditions
+ok - hold-release: structured reasons round-trip through show, list, snapshots and markdown
+ok - hold-release: pr condition is met only on MERGED, never on failure
+ok - hold-release: captain holds accept --release-on and answering drops it
+ok - hold-release: answering or re-holding a captain hold ends its release decision
+ok - hold-release: bounded sweeps eventually disposition all 26 met holds
+ok - hold-release: PR and task reads respect the remaining sweep budget
+ok - hold-release: all hold mutations serialize with evaluation and close stale decisions
+ok - hold-release: an announced decision always has a durable wake before budget expiry
+ok - hold-release: failed wake commits leave publication retryable
+ok - hold-release: all wrapper spellings require a condition while captain holds stay exempt
+ok - hold-release: stalled lookups reserve processing time for later registered checks
+# fm-hold-release.test.sh: all assertions passed

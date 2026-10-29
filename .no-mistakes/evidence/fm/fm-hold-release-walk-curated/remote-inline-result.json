@@ -1,0 +1,18 @@
+{
+  "brief_bytes": 65536,
+  "channel_bytes": 87529,
+  "remote_delta": {
+    "schema": "fm-remote-delta.v1",
+    "status": "delta",
+    "path": "state/parent-replies.status",
+    "from_offset": "0",
+    "to_offset": "87529",
+    "from_prefix_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "to_prefix_sha256": "4536adb718e9107373bbca4048e49a3d43679d87e634579c9c23cde85574a4f4",
+    "payload_sha256": "4536adb718e9107373bbca4048e49a3d43679d87e634579c9c23cde85574a4f4",
+    "payload_bytes": "87529",
+    "reason": ""
+  },
+  "exact_payload_match": true,
+  "oversize_refused_without_append": true
+}

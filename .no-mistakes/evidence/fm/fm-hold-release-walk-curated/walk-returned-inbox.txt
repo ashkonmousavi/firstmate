@@ -1,0 +1,5 @@
+schema=fm-task-inbox.v1
+at=2026-10-29T09:32:02Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=8b3a8d1df4a5d548 walk request@0dc10300c6ac2abcadefc8f9661c91f63650528a (corr=f899ab14ebda5386) outcome: refused: MAIN has no walker dispatcher at /tmp/fm-lab.cbkb2x42/data/bin/fm-grok-bot-dispatch.sh; the walk was not dispatched

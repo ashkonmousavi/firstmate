@@ -1,0 +1,949 @@
+$ bin/fm-lab-home.sh create /tmp/fm-lab.9db6jwn0
+/tmp/fm-lab.9db6jwn0
+
+exit=0
+
+SCENARIO Undated external and malformed conditions refuse before mutation; dated and parked exemptions work
+$ bin/fm-tasks-axi.sh add guard guarded task --repo demo
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: added guard (repo demo) -> Queued
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start guard` to move it to in flight
+  - Run `tasks-axi block guard --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold guard --reason waiting
+FM_HOME=/tmp/fm-lab.9db6jwn0
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+
+exit=2
+$ bin/fm-tasks-axi.sh show guard
+FM_HOME=/tmp/fm-lab.9db6jwn0
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+exit=0
+$ bin/fm-tasks-axi.sh hold guard --reason waiting --kind external
+FM_HOME=/tmp/fm-lab.9db6jwn0
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+
+exit=2
+$ bin/fm-tasks-axi.sh show guard
+FM_HOME=/tmp/fm-lab.9db6jwn0
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+exit=0
+$ bin/fm-tasks-axi.sh hold guard --reason waiting --release-on marker:relative
+FM_HOME=/tmp/fm-lab.9db6jwn0
+fm-tasks-axi: --release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: marker:relative
+
+exit=2
+$ bin/fm-tasks-axi.sh show guard
+FM_HOME=/tmp/fm-lab.9db6jwn0
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+exit=0
+$ bin/fm-tasks-axi.sh hold guard --reason waiting --release-on pr:cli/cli#0
+FM_HOME=/tmp/fm-lab.9db6jwn0
+fm-tasks-axi: --release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: pr:cli/cli#0
+
+exit=2
+$ bin/fm-tasks-axi.sh show guard
+FM_HOME=/tmp/fm-lab.9db6jwn0
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+exit=0
+$ bin/fm-tasks-axi.sh hold guard --reason dated --kind external --until 2099-01-01
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold guard -> held (external, until 2099-01-01)
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: dated
+  hold_kind: external
+  hold_until: 2099-01-01
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold guard` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bin/fm-tasks-axi.sh unhold guard
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: unhold guard -> cleared
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+
+exit=0
+$ bin/fm-tasks-axi.sh hold guard --reason parked --kind parked
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold guard -> held (parked)
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: parked
+  hold_kind: parked
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold guard` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bin/fm-tasks-axi.sh unhold guard
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: unhold guard -> cleared
+task:
+  id: guard
+  title: guarded task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+
+exit=0
+
+SCENARIO A PR merged over 24 hours ago opens one persistent decision; open and missing PRs stay waiting
+$ gh-axi pr view 1 -R cli/cli
+pull_request:
+  number: 1
+  title: interactive pr list
+  state: merged
+  author: vilmibm
+  draft: no
+  merged: "2019-10-04T16:01:04Z"
+  checks: "0 passed, 0 failed, no check results reported for the PR head commit"
+  body: "this PR implements the interactive PR list we had in the original `cli-test` repo.\r\n\r\ncaveats:\r\n- doesn't visually split out PRs\r\n- doesn't explain what the contents of the list are\r\n- doesn't support closing because i need to remember how to do mutations with graphql\r\n\r\nit's not  ideal but it's something"
+  comment_count: 2 — use --comments to see full comments
+  review_count: 0 — use --reviews to see full reviews
+
+exit=0
+$ bin/fm-tasks-axi.sh add merged merged public PR condition --repo demo
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: added merged (repo demo) -> Queued
+task:
+  id: merged
+  title: merged public PR condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start merged` to move it to in flight
+  - Run `tasks-axi block merged --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold merged --reason waiting for public PR --kind external --release-on pr:cli/cli#1
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold merged -> held (external)
+task:
+  id: merged
+  title: merged public PR condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI0Ni05OTQyLTgyNTQwMjY5MzQzMCIsInJlYXNvbiI6IndhaXRpbmcgZm9yIHB1YmxpYyBQUiIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzEifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold merged` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bin/fm-tasks-axi.sh add open open public PR condition --repo demo
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: added open (repo demo) -> Queued
+task:
+  id: open
+  title: open public PR condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start open` to move it to in flight
+  - Run `tasks-axi block open --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold open --reason waiting for public PR --kind external --release-on pr:cli/cli#14858
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold open -> held (external)
+task:
+  id: open
+  title: open public PR condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI0Ny0xMDcxMy04OTY5MTkxMTczODIiLCJyZWFzb24iOiJ3YWl0aW5nIGZvciBwdWJsaWMgUFIiLCJyZWxlYXNlX29uIjoicHI6Y2xpL2NsaSMxNDg1OCJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold open` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bin/fm-tasks-axi.sh add unknown unknown public PR condition --repo demo
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: added unknown (repo demo) -> Queued
+task:
+  id: unknown
+  title: unknown public PR condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start unknown` to move it to in flight
+  - Run `tasks-axi block unknown --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold unknown --reason waiting for public PR --kind external --release-on pr:cli/cli#2147483647
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold unknown -> held (external)
+task:
+  id: unknown
+  title: unknown public PR condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI0Ny0xMTY4Mi03OTk5MzQxMjA0NTYiLCJyZWFzb24iOiJ3YWl0aW5nIGZvciBwdWJsaWMgUFIiLCJyZWxlYXNlX29uIjoicHI6Y2xpL2NsaSMyMTQ3NDgzNjQ3In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold unknown` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+hold condition met: merged pr:cli/cli#1
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ merged
+FM_HOME=/tmp/fm-lab.9db6jwn0
+hold-release-merged	blocked	hold-release-met: pr:cli/cli#1
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ open
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ unknown
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bin/fm-tasks-axi.sh show merged
+FM_HOME=/tmp/fm-lab.9db6jwn0
+task:
+  id: merged
+  title: merged public PR condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting for public PR"
+  hold_release_on: "pr:cli/cli#1"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI0Ni05OTQyLTgyNTQwMjY5MzQzMCIsInJlYXNvbiI6IndhaXRpbmcgZm9yIHB1YmxpYyBQUiIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzEifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ merged
+FM_HOME=/tmp/fm-lab.9db6jwn0
+hold-release-merged	blocked	hold-release-met: pr:cli/cli#1
+exit=0
+PERSISTED /tmp/fm-lab.9db6jwn0/state/.wake-queue
+1793266248	1	check	hold-release:merged	check: hold-release: hold condition met: merged pr:cli/cli#1
+
+PERSISTED /tmp/fm-lab.9db6jwn0/state/merged.status
+blocked [key=hold-release-merged] [at=1793266248]: hold-release-met: pr:cli/cli#1
+
+
+SCENARIO Marker activation, re-hold cache recovery, release, and deleted-task reconciliation preserve decision lifecycle
+$ bin/fm-tasks-axi.sh add marker activation condition --repo demo
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: added marker (repo demo) -> Queued
+task:
+  id: marker
+  title: activation condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start marker` to move it to in flight
+  - Run `tasks-axi block marker --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold marker --reason awaiting activation --kind external --release-on marker:/tmp/fm-lab.9db6jwn0/activated-a
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold marker -> held (external)
+task:
+  id: marker
+  title: activation condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI0OS0yNTM5MC00MzA5MzIxMjA5NTkiLCJyZWFzb24iOiJhd2FpdGluZyBhY3RpdmF0aW9uIiwicmVsZWFzZV9vbiI6Im1hcmtlcjovdG1wL2ZtLWxhYi45ZGI2anduMC9hY3RpdmF0ZWQtYSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+hold condition met: marker marker:/tmp/fm-lab.9db6jwn0/activated-a
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bin/fm-tasks-axi.sh hold marker --reason new activation --kind external --release-on marker:/tmp/fm-lab.9db6jwn0/activated-b
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold marker -> held (external)
+task:
+  id: marker
+  title: activation condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI1OC00MDMxNi0xMjIyMTU5OTI2MTEiLCJyZWFzb24iOiJuZXcgYWN0aXZhdGlvbiIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIuOWRiNmp3bjAvYWN0aXZhdGVkLWIifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ marker
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+hold condition met: marker marker:/tmp/fm-lab.9db6jwn0/activated-b
+
+exit=0
+$ bin/fm-tasks-axi.sh unhold marker
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: unhold marker -> cleared
+task:
+  id: marker
+  title: activation condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ marker
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bin/fm-tasks-axi.sh hold marker --reason remove after ready --release-on marker:/tmp/fm-lab.9db6jwn0/activated-b
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold marker -> held
+task:
+  id: marker
+  title: activation condition
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI2NC00Njc3My03NTg3NDkxMDI3ODEiLCJyZWFzb24iOiJyZW1vdmUgYWZ0ZXIgcmVhZHkiLCJyZWxlYXNlX29uIjoibWFya2VyOi90bXAvZm0tbGFiLjlkYjZqd24wL2FjdGl2YXRlZC1iIn0="
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold marker` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+hold condition met: marker marker:/tmp/fm-lab.9db6jwn0/activated-b
+
+exit=0
+$ bin/fm-tasks-axi.sh rm marker
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: removed marker
+help[1]:
+  - Run `tasks-axi list` to see remaining tasks
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ marker
+FM_HOME=/tmp/fm-lab.9db6jwn0
+
+exit=0
+PERSISTED /tmp/fm-lab.9db6jwn0/state/marker.status
+blocked [key=hold-release-marker] [at=1793266253]: hold-release-met: marker:/tmp/fm-lab.9db6jwn0/activated-a
+resolved [key=hold-release-marker] [at=1793266258]: hold-release-closed: re-held with release condition marker:/tmp/fm-lab.9db6jwn0/activated-b
+blocked [key=hold-release-marker] [at=1793266261]: hold-release-met: marker:/tmp/fm-lab.9db6jwn0/activated-b
+resolved [key=hold-release-marker] [at=1793266264]: hold-release-closed: released
+blocked [key=hold-release-marker] [at=1793266265]: hold-release-met: marker:/tmp/fm-lab.9db6jwn0/activated-b
+resolved [key=hold-release-marker] [at=1793266267]: hold-release-closed: task no longer exists
+
+
+SCENARIO Moving a held task to another home preserves its PR condition and destination decision
+$ bin/fm-lab-home.sh create /tmp/fm-lab.hq_4t6st
+/tmp/fm-lab.hq_4t6st
+
+exit=0
+$ bin/fm-tasks-axi.sh add travel transferred hold --repo demo
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: added travel (repo demo) -> Queued
+task:
+  id: travel
+  title: transferred hold
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start travel` to move it to in flight
+  - Run `tasks-axi block travel --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold travel --reason waiting merge --kind external --release-on pr:cli/cli#1
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: hold travel -> held (external)
+task:
+  id: travel
+  title: transferred hold
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI2OS01MjYwNS05ODU2MzE1MDg1OTMiLCJyZWFzb24iOiJ3YWl0aW5nIG1lcmdlIiwicmVsZWFzZV9vbiI6InByOmNsaS9jbGkjMSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold travel` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bin/fm-tasks-axi.sh mv travel --to /tmp/fm-lab.hq_4t6st/data/backlog.md
+FM_HOME=/tmp/fm-lab.9db6jwn0
+ok: mv travel -> /tmp/fm-lab.hq_4t6st/data/backlog.md
+help[1]:
+  - Run `tasks-axi list` to see remaining tasks
+
+exit=0
+$ bin/fm-tasks-axi.sh show travel
+FM_HOME=/tmp/fm-lab.hq_4t6st
+task:
+  id: travel
+  title: transferred hold
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting merge"
+  hold_release_on: "pr:cli/cli#1"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI2OS01MjYwNS05ODU2MzE1MDg1OTMiLCJyZWFzb24iOiJ3YWl0aW5nIG1lcmdlIiwicmVsZWFzZV9vbiI6InByOmNsaS9jbGkjMSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.hq_4t6st
+hold condition met: travel pr:cli/cli#1
+
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ travel
+FM_HOME=/tmp/fm-lab.hq_4t6st
+hold-release-travel	blocked	hold-release-met: pr:cli/cli#1
+exit=0
+$ bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+FM_HOME=/tmp/fm-lab.hq_4t6st
+
+exit=0
+PERSISTED /tmp/fm-lab.hq_4t6st/state/travel.status
+blocked [key=hold-release-travel] [at=1793266270]: hold-release-met: pr:cli/cli#1
+
+
+SCENARIO The real watcher evaluates merged PR and activation conditions and queues both wakes
+$ bin/fm-lab-home.sh create /tmp/fm-lab.3o6rdezf
+/tmp/fm-lab.3o6rdezf
+
+exit=0
+$ bin/fm-tasks-axi.sh add watch-marker watch-marker --repo demo
+FM_HOME=/tmp/fm-lab.3o6rdezf
+ok: added watch-marker (repo demo) -> Queued
+task:
+  id: watch-marker
+  title: watch-marker
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start watch-marker` to move it to in flight
+  - Run `tasks-axi block watch-marker --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold watch-marker --reason ready event --kind external --release-on marker:/tmp/fm-lab.3o6rdezf/activated
+FM_HOME=/tmp/fm-lab.3o6rdezf
+ok: hold watch-marker -> held (external)
+task:
+  id: watch-marker
+  title: watch-marker
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI3MS01NTI0Mi0zMzI5OTgxMjU2NTQiLCJyZWFzb24iOiJyZWFkeSBldmVudCIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIuM282cmRlemYvYWN0aXZhdGVkIn0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold watch-marker` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bin/fm-tasks-axi.sh add watch-pr watch-pr --repo demo
+FM_HOME=/tmp/fm-lab.3o6rdezf
+ok: added watch-pr (repo demo) -> Queued
+task:
+  id: watch-pr
+  title: watch-pr
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start watch-pr` to move it to in flight
+  - Run `tasks-axi block watch-pr --by <other>` to record a dependency
+
+exit=0
+$ bin/fm-tasks-axi.sh hold watch-pr --reason ready event --kind external --release-on pr:cli/cli#1
+FM_HOME=/tmp/fm-lab.3o6rdezf
+ok: hold watch-pr -> held (external)
+task:
+  id: watch-pr
+  title: watch-pr
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzI2NjI3Mi01NTQ5MS0xNDczMTM2MDkzMjciLCJyZWFzb24iOiJyZWFkeSBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzEifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold watch-pr` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+exit=0
+$ bin/fm-watch.sh
+FM_HOME=/tmp/fm-lab.3o6rdezf
+check: hold-release: hold condition met: watch-marker marker:/tmp/fm-lab.3o6rdezf/activated
+
+exit=0
+PERSISTED /tmp/fm-lab.3o6rdezf/state/.wake-queue
+1793266273	1	check	hold-release:watch-marker	check: hold-release: hold condition met: watch-marker marker:/tmp/fm-lab.3o6rdezf/activated
+1793266274	2	check	hold-release:watch-pr	check: hold-release: hold condition met: watch-pr pr:cli/cli#1
+
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ watch-pr
+FM_HOME=/tmp/fm-lab.3o6rdezf
+hold-release-watch-pr	blocked	hold-release-met: pr:cli/cli#1
+exit=0
+$ bash -c . bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status" _ watch-marker
+FM_HOME=/tmp/fm-lab.3o6rdezf
+hold-release-watch-marker	blocked	hold-release-met: marker:/tmp/fm-lab.3o6rdezf/activated
+exit=0
+$ bin/fm-lab-home.sh create /tmp/fm-lab.v4exjbnq
+/tmp/fm-lab.v4exjbnq
+
+exit=0
+$ bin/fm-lab-home.sh create /tmp/fm-lab.brzmpgtu
+/tmp/fm-lab.brzmpgtu
+
+exit=0
+$ tmux -L fm-lab -f /dev/null new-session -d -s fm-lab-walk -n fm-mate -x 100 -y 30 -c ~/.no-mistakes/worktrees/049a88734b0e/01M63C7BBG117KTXSCWYQZZ9EG
+FM_HOME=/tmp/fm-lab.v4exjbnq
+
+exit=0
+
+SCENARIO The walk carrier refuses relative and private briefs without publishing a request
+$ bin/fm-walk-request.sh --brief relative.md --release 0dc10300c6ac2abcadefc8f9661c91f63650528a --walks live-walk
+FM_HOME=/tmp/fm-lab.brzmpgtu
+fm-walk-request: --brief must be an absolute path: relative.md
+
+exit=2
+$ bin/fm-walk-request.sh --brief /tmp/fm-lab.v4exjbnq/config/forbidden.md --release 0dc10300c6ac2abcadefc8f9661c91f63650528a --walks live-walk
+FM_HOME=/tmp/fm-lab.brzmpgtu
+walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+
+exit=2
+
+SCENARIO A mate request reaches the registered check and a missing-dispatcher outcome returns once through the real steering inbox
+$ bin/fm-walk-request.sh --brief /tmp/fm-lab.brzmpgtu/data/walk-briefs/brief.md --release 0dc10300c6ac2abcadefc8f9661c91f63650528a --walks live-walk --bot LabWalker
+FM_HOME=/tmp/fm-lab.brzmpgtu
+corr=119d196c4bba9136
+once-key=live-walk@0dc10300c6ac2abcadefc8f9661c91f63650528a
+
+exit=0
+PERSISTED /tmp/fm-lab.v4exjbnq/state/mate.status
+note [corr=119d196c4bba9136] [at=1793266275]: walk-request: walks=live-walk brief=/tmp/fm-lab.brzmpgtu/data/walk-briefs/brief.md release=0dc10300c6ac2abcadefc8f9661c91f63650528a bot=LabWalker
+
+$ bin/fm-walk-request-check.sh arm
+FM_HOME=/tmp/fm-lab.v4exjbnq
+registered: state/walk-request.check.sh
+armed: state/walk-request.check.sh
+
+exit=0
+$ bin/fm-walk-request-check.sh check
+FM_HOME=/tmp/fm-lab.v4exjbnq
+walk-request: dispatcher absent at /tmp/fm-lab.v4exjbnq/data/bin/fm-grok-bot-dispatch.sh; install the home's walker dispatcher or disarm this check
+
+exit=0
+RETURNED INBOX RECORD
+schema=fm-task-inbox.v1
+at=2026-10-29T09:31:17Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=90f7e4888009d7c1 walk request@0dc10300c6ac2abcadefc8f9661c91f63650528a (corr=119d196c4bba9136) outcome: refused: MAIN has no walker dispatcher at /tmp/fm-lab.v4exjbnq/data/bin/fm-grok-bot-dispatch.sh; the walk was not dispatched
+FAIL AssertionError('schema=fm-task-inbox.v1\nat=2026-10-29T09:31:17Z\ndelivery=fire-and-forget\n--\n[fm-from-firstmate]\u2063delivery=90f7e4888009d7c1 walk request@0dc10300c6ac2abcadefc8f9661c91f63650528a (corr=119d196c4bba9136) outcome: refused: MAIN has no walker dispatcher at /tmp/fm-lab.v4exjbnq/data/bin/fm-grok-bot-dispatch.sh; the walk was not dispatched')
+$ tmux -L fm-lab kill-server
+FM_HOME=/tmp/fm-lab.v4exjbnq
+
+exit=0
+CLEANUP: all disposable lab homes removed; private tmux server stopped.

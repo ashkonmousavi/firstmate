@@ -1,0 +1,31 @@
+[
+  {
+    "name": "Undated external and malformed conditions refuse before mutation; dated and parked exemptions work",
+    "result": "pass"
+  },
+  {
+    "name": "A PR merged over 24 hours ago opens one persistent decision; open and missing PRs stay waiting",
+    "result": "pass"
+  },
+  {
+    "name": "Marker activation, re-hold cache recovery, release, and deleted-task reconciliation preserve decision lifecycle",
+    "result": "pass"
+  },
+  {
+    "name": "Moving a held task to another home preserves its PR condition and destination decision",
+    "result": "pass"
+  },
+  {
+    "name": "The real watcher evaluates merged PR and activation conditions and queues both wakes",
+    "result": "pass"
+  },
+  {
+    "name": "The walk carrier refuses relative and private briefs without publishing a request",
+    "result": "pass"
+  },
+  {
+    "name": "A mate request reaches the registered check and a missing-dispatcher outcome returns once through the real steering inbox",
+    "result": "fail",
+    "error": "AssertionError('schema=fm-task-inbox.v1\\nat=2026-10-29T09:31:17Z\\ndelivery=fire-and-forget\\n--\\n[fm-from-firstmate]\\u2063delivery=90f7e4888009d7c1 walk request@0dc10300c6ac2abcadefc8f9661c91f63650528a (corr=119d196c4bba9136) outcome: refused: MAIN has no walker dispatcher at /tmp/fm-lab.v4exjbnq/data/bin/fm-grok-bot-dispatch.sh; the walk was not dispatched')"
+  }
+]

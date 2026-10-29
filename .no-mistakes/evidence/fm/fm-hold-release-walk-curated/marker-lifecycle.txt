@@ -1,0 +1,6 @@
+blocked [key=hold-release-marker] [at=1793266253]: hold-release-met: marker:/tmp/fm-lab.9db6jwn0/activated-a
+resolved [key=hold-release-marker] [at=1793266258]: hold-release-closed: re-held with release condition marker:/tmp/fm-lab.9db6jwn0/activated-b
+blocked [key=hold-release-marker] [at=1793266261]: hold-release-met: marker:/tmp/fm-lab.9db6jwn0/activated-b
+resolved [key=hold-release-marker] [at=1793266264]: hold-release-closed: released
+blocked [key=hold-release-marker] [at=1793266265]: hold-release-met: marker:/tmp/fm-lab.9db6jwn0/activated-b
+resolved [key=hold-release-marker] [at=1793266267]: hold-release-closed: task no longer exists

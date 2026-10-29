@@ -1,0 +1,4 @@
+blocked [key=hold-release-t1] [at=1793266407]: hold-release-met: marker:/tmp/fm-lab.ta84wozd/ready-a
+resolved [key=hold-release-t1] [at=1793266408]: hold-release-closed: re-held with release condition marker:/tmp/fm-lab.ta84wozd/ready-b
+blocked [key=hold-release-t1] [at=1793266409]: hold-release-met: marker:/tmp/fm-lab.ta84wozd/ready-b
+resolved [key=hold-release-t1] [at=1793266409]: hold-release-closed: captain call settled

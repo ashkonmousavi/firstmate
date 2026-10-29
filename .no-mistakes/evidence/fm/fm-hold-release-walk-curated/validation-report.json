@@ -1,0 +1,80 @@
+{
+  "verdict": "inconclusive",
+  "scenarios": [
+    {
+      "name": "Undated external and malformed conditions refuse before mutation; dated and parked exemptions work",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "A PR merged over 24 hours ago opens one persistent decision; open and missing PRs stay waiting",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "Marker activation, re-hold cache recovery, release, and deleted-task reconciliation preserve decision lifecycle",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "Moving a held task to another home preserves its PR condition and destination decision",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "The real watcher evaluates merged PR and activation conditions and queues both wakes",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "Both hold writers recover real cache-publication failures after initial commit and re-hold, then close decisions on release",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-publication-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "The walk carrier refuses relative and private briefs without publishing a request",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-walk-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "A mate request reaches the registered check and a missing-dispatcher outcome returns once through the real steering inbox",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-walk-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "A maximum 64 KiB remote brief crosses the real delta reader intact; oversized briefs refuse without publishing",
+      "result": "pass",
+      "live": true,
+      "evidence": "live-walk-transcript.log",
+      "reason": ""
+    },
+    {
+      "name": "A mate walk reaches the real private dispatcher with its once-key and a successful Grok result returns without moving sign-in",
+      "result": "untested",
+      "live": false,
+      "evidence": "walk-returned-inbox.txt; walk-targeted-tests.log",
+      "reason": "Created marked disposable MAIN/mate homes and drove the real carrier, registered check, and steering inbox; MAIN returned that it has no walker dispatcher. fm-grok-bot-dispatch.sh is absent from PATH and the repository, and documented as operator-private under MAIN data/bin. Using operator-private configuration/services or relocating sign-in is forbidden. The available grok CLI is not this bridge; the targeted suite uses a simulated dispatcher and cannot establish live dispatch. Provide an authorized disposable MAIN instance containing the real dispatcher and access to its existing signed-in bridge, with an isolated walk target, then rerun."
+    }
+  ],
+  "notes": [
+    "Both focused suites completed with exit 0. Initial runs with TMPDIR inside the hidden gate path were rejected by isolation guards; using their standard temporary fixture location resolved those setup failures.",
+    "The first manual walk check expected different wording for the correctly returned missing-dispatcher refusal. Its assertion was corrected and the walk-only rerun completed with exit 0. The original transcript is retained.",
+    "No source changes, linters, full-suite run, publication, pipeline control, credential mutation, or real-fleet lifecycle calls. All disposable lab homes and private tmux server were removed."
+  ]
+}
