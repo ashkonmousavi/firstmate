@@ -1156,7 +1156,16 @@ PY
   rm -f "$WORLD/fakebin/tasks-axi"
   run_reconcile "$MAIN" --startup
   [ "$(row_state "$MAIN" t-stuck)" = "done" ] || fail "close did not land once tasks-axi accepted it"
-  python3 -I - "$json" <<'PY' || fail "closed record stayed in x-reconcile.json"
+  python3 -I - "$json" <<'PY' || fail "closed record left no evidence in x-reconcile.json"
+import json, sys
+doc = json.load(open(sys.argv[1]))
+mine = [x for x in doc["items"] if x["source"] == "inactive-reconcile"]
+assert [(x["id"], x["finding"]) for x in mine] == [("t-stuck", "fix")], doc
+assert mine[0]["detail"].startswith("closed:"), mine
+assert [x["id"] for x in doc["items"] if x["source"] != "inactive-reconcile"] == ["keep"], doc
+PY
+  run_reconcile "$MAIN" --startup
+  python3 -I - "$json" <<'PY' || fail "evidence outlived the scan that published it"
 import json, sys
 doc = json.load(open(sys.argv[1]))
 assert [x["id"] for x in doc["items"]] == ["keep"], doc
@@ -1168,6 +1177,57 @@ PY
   [ "$(row_state "$MATE" t-mate)" = "done" ] || fail "secondmate home did not close its record"
   [ ! -e "$MATE/data/x-reconcile.json" ] || fail "secondmate home wrote x-reconcile.json"
   pass "backlog pass flags fixes in the main file only, preserving other sources"
+}
+
+# An interruption between the close and the evidence leaves a closing receipt:
+# the next scan publishes the evidence and marks it closed, and never closes the
+# reopened record a second time.
+test_backlog_pr_pass_recovers_interrupted_close() {
+  local json receipt
+  make_world backlog-interrupt; make_gh "$WORLD"
+  printf '70 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-cut 'pr https://github.com/o/r/pull/70'
+  json="$MAIN/data/x-reconcile.json"
+  # The evidence write fails (unparseable file), so the receipt stays closing.
+  printf 'not json\n' > "$json"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-cut)" = "done" ] || fail "close did not land"
+  receipt=$(find "$MAIN/state/terminal-outcomes" -name 'backlog-pr-*.closed' | head -1)
+  grep -Fxq 'status=closing' "$receipt" || fail "receipt was marked closed before its evidence was published"
+  printf '{"schema":"x-reconcile.v1","written_at":7,"items":[]}\n' > "$json"
+  run_reconcile "$MAIN" --startup
+  grep -Fxq 'status=closed' "$receipt" || fail "later scan did not mark the receipt closed"
+  python3 -I - "$json" <<'PY' || fail "later scan did not publish the missing evidence"
+import json, sys
+doc = json.load(open(sys.argv[1]))
+assert [(x["id"], x["finding"]) for x in doc["items"]] == [("t-cut", "fix")], doc
+PY
+  (cd "$MAIN" && tasks-axi reopen t-cut --file data/backlog.md >/dev/null \
+    && tasks-axi start t-cut --file data/backlog.md >/dev/null) || fail "reopen failed"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-cut)" = in_flight ] || fail "a receipted record was closed a second time"
+  pass "backlog pass finishes an interrupted close without closing twice"
+}
+
+# A short session that cannot read every record resumes where it stopped.
+test_backlog_pr_pass_rotates_across_short_sessions() {
+  make_world backlog-rotate; make_gh "$WORLD"
+  printf '80 OPEN\n81 OPEN\n82 OPEN\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-a 'pr https://github.com/o/r/pull/80'
+  add_flight_row "$MAIN" t-b 'pr https://github.com/o/r/pull/81'
+  add_flight_row "$MAIN" t-c 'pr https://github.com/o/r/pull/82'
+  # Each forge read takes longer than the pass's share of the budget.
+  cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+printf 'gh pr view %s\n' "$3" >> "${FM_GH_LOG:?}"
+sleep 2
+printf 'OPEN\n'
+SH
+  FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  [ "$(sort -u "$WORLD/gh.log" | wc -l | tr -d ' ')" -ge 2 ] || fail "short sessions kept re-reading the same record: $(cat "$WORLD/gh.log")"
+  pass "backlog pass rotates through rows across short sessions"
 }
 
 test_main_direct_terminal_presentation_receipt
@@ -1211,5 +1271,7 @@ test_reconciliation_sets_no_forge_mode_for_state_read
 test_backlog_pr_pass_closes_finished_records_once
 test_backlog_pr_pass_spares_live_worker_and_closes_finished_one
 test_backlog_pr_pass_writes_fix_items_in_main_only
+test_backlog_pr_pass_recovers_interrupted_close
+test_backlog_pr_pass_rotates_across_short_sessions
 
 echo "all inactive reconciliation tests passed"
