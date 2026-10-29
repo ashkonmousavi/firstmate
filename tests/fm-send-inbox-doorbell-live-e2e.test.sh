@@ -346,7 +346,7 @@ check_claude_submit() {
   wait_ready "$win" || fail "claude ($version): submit guard never reached an empty composer"
   printf 'window=%s:%s\nkind=%s\nharness=claude\n' "$SESSION" "$win" \
     "$([ "$mode" = typed ] && printf secondmate || printf ship)" > "$home/state/$task.meta"
-  printf -v line 'Run exactly this shell command now: `touch %s`. Then follow the mv instruction if you were given one. Reply with one short line.' "$acted"
+  printf -v line "Run exactly this shell command now: \`touch %s\`. Then follow the mv instruction if you were given one. Reply with one short line." "$acted"
   expected=$line
   [ "$mode" = typed ] || expected=$(fm_task_inbox_doorbell_line "$rec")
   baseline=$(fm_busy_submit_baseline "$home/state" "$task" claude "$expected") \
@@ -372,9 +372,10 @@ check_claude_submit() {
     tmux -L "$SOCKET" send-keys -t "$SESSION:$win" -l -- "$line" \
       || fail "claude ($version): could not type the pending doorbell"
     sleep 1
-    [ "$(fm_tmux_composer_state "$SESSION:$win")" = pending ] \
-      && fm_task_inbox_composer_holds tmux "$SESSION:$win" "$line" \
-      || fail "claude ($version): pending doorbell was not proven in the composer"
+    if ! { [ "$(fm_tmux_composer_state "$SESSION:$win")" = pending ] \
+      && fm_task_inbox_composer_holds tmux "$SESSION:$win" "$line"; }; then
+      fail "claude ($version): pending doorbell was not proven in the composer"
+    fi
     [ ! -e "$acted" ] && [ ! -e "$handled" ] \
       || fail "claude ($version): pending doorbell acted before submission"
     fm_busy_submit_confirmed "$home/state" "$task" claude "$baseline" \
@@ -435,8 +436,9 @@ PY
       sleep 1
       i=$((i + 1))
     done
-    [ -e "$acted" ] && { [ "$mode" = typed ] || [ -e "$handled" ]; } \
-      || fail "claude ($version): $mode submit was not acted on and acknowledged within ${TIMEOUT}s"
+    if ! { [ -e "$acted" ] && { [ "$mode" = typed ] || [ -e "$handled" ]; }; }; then
+      fail "claude ($version): $mode submit was not acted on and acknowledged within ${TIMEOUT}s"
+    fi
     [ -e "$fault/accepted" ] || fail "claude ($version): $mode submit left no real hook receipt"
   fi
   CHECKED=$((CHECKED + 1))
