@@ -23,8 +23,7 @@ The target window's harness is recorded as `harness=` in `state/<id>.meta`.
 
 This procedure covers ordinary `kind=ship` and `kind=scout` direct reports.
 Load `secondmate-provisioning` instead for `kind=secondmate` recovery.
-Startup recovery already relaunches a dead ship or scout in this home when its recorded copy still holds unlanded work (`bin/fm-crew-recovery-lib.sh`, composed by the deferred startup pass).
-This playbook handles what that sweep leaves: no proven unlanded work, a captain hold, an attributed validation run, unproven endpoint absence, or tasks left after the sweep's first failed or deferred launch.
+[`bin/fm-crew-recovery-lib.sh`](../../../bin/fm-crew-recovery-lib.sh) owns automatic startup eligibility and sweep behavior; this playbook handles tasks the deferred pass leaves unresolved.
 
 For a REMOTE secondmate, `fm-crew-state` and `fm-peek` read the actual remote endpoint over `fm-on.sh`, and `fm-send` reports a delivered-with-pending-confirmation steer as delivered (their headers own the contracts); an `unknown-remote` read or unreachable-host failure means the remote state could not be read, never that the mate is dead or the send failed.
 Recover a genuinely stuck remote mate only through `bin/fm-spawn.sh <id> --secondmate`, never raw herdr pane close/kill surgery, which strands the endpoint binding.

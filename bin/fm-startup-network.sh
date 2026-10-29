@@ -24,11 +24,13 @@
 # bin/fm-inactive-reconcile.sh remains the
 # owner of the startup scan and its separate watcher cadence. Deferral changes
 # WHEN they run, not WHETHER, and three properties make the later run safe:
-#   - The work is idempotent detection. A run whose report is lost (killed
+#   - Repeated sweeps converge safely. A run whose report is lost (killed
 #     worker, truncated digest, crashed session) loses no finding: the next run
 #     re-derives the same inactive terminal child, dead secondmate, dead
 #     crewmate with unlanded work, stuck clone,
 #     or undelivered handoff. There is no once-only signal to miss.
+#     Crew eligibility is rechecked under the lifecycle lock, so a healthy
+#     replacement is skipped even when its earlier relaunch report was lost.
 #   - Results are durable and always surface. Network sweep output lands in
 #     state/.startup-network.report and reaches the agent either inline in the
 #     digest or, when it finishes too late for the digest to inline it, as a

@@ -114,14 +114,14 @@ Untracked files and directories whose names begin with `scratchpad` are also git
 
 - `bin/fm-session-start.sh`'s header is the single owner of session-start ordering, composed commands, digest contents, and the digest's startup mechanism.
 
-- `bin/fm-startup-network.sh`'s header owns the deferred startup stage that keeps every external-network call and the potentially slow inactive-outcome scan off that digest's blocking path, including its state files and the safety argument for running them later.
+- `bin/fm-startup-network.sh`'s header owns the deferred startup stage for network checks, dead-crewmate recovery, and the inactive-outcome scan, including its state files and the safety argument for running them later.
 
 - `docs/sessionstart-nudge.md` owns the native session-open adapter tiers that run or nudge the digest command, and the source routing between them.
 
 - `AGENTS.md` retains the run-once and read-once operator rules, lock-refusal safety, and direct-report recovery boundaries because those facts apply at every session start.
 - [Bootstrap diagnostics](../.agents/skills/bootstrap-diagnostics/SKILL.md) owns installation decisions and manual-step escalation.
 
-- Ordinary dead-direct-report recovery is owned by `stuck-crewmate-recovery`, while persistent-secondmate recovery is owned by `secondmate-provisioning`.
+- [`bin/fm-crew-recovery-lib.sh`](../bin/fm-crew-recovery-lib.sh) owns automatic ship and scout recovery; `stuck-crewmate-recovery` owns supervisor reconciliation, while persistent-secondmate recovery is owned by `secondmate-provisioning`.
 
 ## Orchestrator behavior (AGENTS.md)
 

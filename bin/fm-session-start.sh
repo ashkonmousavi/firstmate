@@ -36,8 +36,8 @@
 #                       (same-home backlog reconciliation, dead-crewmate relaunch,
 #                       secondmate convergence, secondmate liveness, pending remote
 #                       handoff retry, X-mode artifact writes, fleet sync) also run only when
-#                       locked; the five network sweeps run in the deferred
-#                       stage rather than this synchronous bootstrap section.
+#                       locked; bin/fm-bootstrap.sh owns phase selection, with
+#                       deferred sweeps running off this section's blocking path.
 #   3. wake-drain     - presents durable wakes and advances recovery handling
 #                       state, so it only runs when locked. The local bounded
 #                       inactive-outcome startup scan runs in the deferred worker.
