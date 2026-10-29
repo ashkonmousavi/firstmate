@@ -246,6 +246,78 @@ test_closed_task_reconciles_its_record_away() {
   pass "hold-release: a closed row reconciles record and decision away"
 }
 
+test_removed_task_reconciles_its_record_away() {
+  local home out
+  home=$(make_home removed)
+  run_axi "$home" add t1 "one" --repo demo >/dev/null
+  run_axi "$home" hold t1 --reason "awaiting activation" --kind external \
+    --release-on "marker:$home/met" >/dev/null
+  : > "$home/met"
+  run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
+  open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+    || fail "the met hold must open a decision before removal"
+  run_axi "$home" rm t1 >/dev/null || fail "removing the held row must work"
+  out=$(run_lib "$home" fm_hold_release_evaluate "$home/state") \
+    || fail "reconciling a removed task must succeed"
+  [ -z "$out" ] || fail "a removed task must not wake again: $out"
+  [ ! -e "$home/state/hold-releases/t1" ] \
+    || fail "a removed task must reconcile its record away"
+  open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+    && fail "the decision must close when the row is removed"
+  pass "hold-release: a removed row reconciles record and decision away"
+}
+
+test_show_override_distinguishes_missing_from_unreadable() {
+  local home channel mode out
+  for channel in stdout stderr; do
+    home=$(make_home "show-$channel")
+    run_axi "$home" add t1 "one" --repo demo >/dev/null
+    run_axi "$home" hold t1 --reason "awaiting activation" --kind external \
+      --release-on "marker:$home/met" >/dev/null
+    : > "$home/met"
+    cat > "$home/show" <<'SH'
+#!/usr/bin/env bash
+case "$(cat "$FM_HOME/show-mode")" in
+  held)
+    printf 'backend warning\n' >&2
+    printf '  state: queued\n  held: yes\n'
+    ;;
+  unknown) printf 'code: BACKEND_UNAVAILABLE\n' >&2; exit 1 ;;
+  stdout) printf 'code: NOT_FOUND\n'; exit 1 ;;
+  stderr) printf 'code: NOT_FOUND\n' >&2; exit 1 ;;
+esac
+SH
+    chmod +x "$home/show"
+    printf 'held\n' > "$home/show-mode"
+    out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+      run_lib "$home" fm_hold_release_evaluate "$home/state") \
+      || fail "a successful show with a stderr warning must be readable"
+    [ "$out" = "hold condition met: t1 marker:$home/met" ] \
+      || fail "a readable held task must publish its met condition: $out"
+    for mode in unknown held; do
+      printf '%s\n' "$mode" > "$home/show-mode"
+      out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+        run_lib "$home" fm_hold_release_evaluate "$home/state") \
+        || fail "a $mode read must leave reconciliation retryable"
+      [ -z "$out" ] || fail "a $mode read must not repeat the wake: $out"
+      [ -e "$home/state/hold-releases/t1" ] \
+        || fail "a $mode read must preserve the release record"
+      open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+        || fail "a $mode read must preserve the open decision"
+    done
+    printf '%s\n' "$channel" > "$home/show-mode"
+    out=$(FM_HOLD_RELEASE_SHOW_CMD="$home/show" \
+      run_lib "$home" fm_hold_release_evaluate "$home/state") \
+      || fail "NOT_FOUND on $channel must reconcile successfully"
+    [ -z "$out" ] || fail "a missing task must not wake again: $out"
+    [ ! -e "$home/state/hold-releases/t1" ] \
+      || fail "NOT_FOUND on $channel must drop the release record"
+    open_decisions "$home" t1 | grep -q '^hold-release-t1' \
+      && fail "NOT_FOUND on $channel must close the decision"
+  done
+  pass "hold-release: show overrides preserve unknown reads and reconcile missing tasks"
+}
+
 test_pr_condition_reads_merge_state_through_gh() {
   local home fakebin out state
   home=$(make_home prcond)
@@ -629,6 +701,8 @@ test_evaluation_wakes_once_and_keeps_the_decision_open
 test_release_and_rehold_close_the_decision
 test_rehold_after_met_opens_a_new_episode
 test_closed_task_reconciles_its_record_away
+test_removed_task_reconciles_its_record_away
+test_show_override_distinguishes_missing_from_unreadable
 test_pr_condition_reads_merge_state_through_gh
 test_captain_hold_carries_a_release_condition
 test_captain_answer_and_rehold_close_the_decision

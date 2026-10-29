@@ -388,9 +388,9 @@ _fm_hold_release_show() {  # <task-id>
   bound=$(fm_checkpoint_budget "$bound") || return 2
   if [ -n "${FM_HOLD_RELEASE_SHOW_CMD:-}" ]; then
     # shellcheck disable=SC2086  # a test-supplied prefix command
-    out=$(fm_run_timed "$bound" $FM_HOLD_RELEASE_SHOW_CMD "$id" 2>/dev/null) || rc=$?
+    out=$(fm_run_timed "$bound" $FM_HOLD_RELEASE_SHOW_CMD "$id" 2>&1) || rc=$?
   else
-    out=$(fm_run_timed "$bound" "$_FM_HOLD_RELEASE_LIB_DIR/fm-tasks-axi.sh" show "$id" 2>/dev/null) || rc=$?
+    out=$(fm_run_timed "$bound" "$_FM_HOLD_RELEASE_LIB_DIR/fm-tasks-axi.sh" show "$id" 2>&1) || rc=$?
   fi
   case "${rc:-0}" in
     0) ;;
