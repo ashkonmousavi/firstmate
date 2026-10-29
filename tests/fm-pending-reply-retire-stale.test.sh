@@ -196,7 +196,7 @@ printf '%s\n' "$applied" | grep -F "reason=task-gone" >/dev/null || fail "apply 
 pass "a gone task retires its old records and keeps the files"
 
 for kind in ship scout secondmate; do
-  for verb in done failed; do
+  for verb in 'done' 'failed'; do
     home=$(fm_test_tmproot "fm-retire-status-$kind-$verb")
     seed_task "$home" task "$kind"
     first=$(open_reply "$home" task 'older unanswered request' $((NOW - 90000)))
