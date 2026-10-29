@@ -1,0 +1,26 @@
+{
+  "oracle": "Author-approved colon no-op and unchanged curated hosted CI coverage",
+  "commands": {
+    "lint": ":"
+  },
+  "shell": {
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ :\n"
+  },
+  "workflow_semantics_unchanged_from": "9ff4e445eade0e08fe9e88501e2a575a4ad65041",
+  "pull_request_target": "curated",
+  "lint_contexts": [
+    "Lint 1",
+    "Lint 2",
+    "Lint 3",
+    "Lint 4"
+  ],
+  "lint_failures_propagate": true,
+  "pr_lint_and_pi_lane_enabled_with_push_opt_out": true,
+  "pi_typecheck": {
+    "check": "Behavior portable parallel 1",
+    "selected_by_real_lane_consumer": true
+  },
+  "load_under_20": "Not measured; owed to the first no-mistakes run after landing because commands.lint is read from the default branch."
+}
