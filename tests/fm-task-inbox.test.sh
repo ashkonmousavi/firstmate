@@ -32,8 +32,7 @@
 #   8. A submit-queue harness receives literal input followed by Enter while
 #      busy. A harness without a submit queue is
 #      rung on the next idle observation, including inside grace and after
-#      stuck-busy. A cursor usage-exhausted pane is not typed into, and the
-#      seat-release hook runs.
+#      stuck-busy.
 set -u
 
 # shellcheck source=tests/wake-helpers.sh
@@ -109,13 +108,6 @@ case "${1:-}" in
     done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
-    visible=0
-    for a in "$@"; do
-      [ "$a" != -0 ] || visible=1
-    done
-    if [ "$visible" = 0 ] && [ -n "${FM_FAKE_TMUX_HISTORY:-}" ]; then
-      cat "$FM_FAKE_TMUX_HISTORY"
-    fi
     if [ -n "${FM_FAKE_TMUX_CAPTURE:-}" ] && [ -f "$FM_FAKE_TMUX_CAPTURE" ]; then
       cat "$FM_FAKE_TMUX_CAPTURE"
     else
@@ -1586,55 +1578,6 @@ test_watcher_rerings_nonqueue_inside_grace_after_busy() {
   pass "watcher: a non-queue runtime deferred while busy is re-rung on idle inside grace"
 }
 
-test_cursor_exhaustion_uses_visible_viewport() {
-  local dir state harness=${1:-cursor} surface=${2:-visible} capture history='' status=0
-  dir=$(setup_watch_case "$harness-exhausted-$surface")
-  state="$dir/state"
-  set_watch_harness "$dir" "$harness"
-  inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue" >/dev/null
-  age_path "$state/t1.inbox/001.msg"
-  : > "$dir/send.log"
-  printf '%s\n' "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue." \
-    > "$dir/banner.capture"
-  capture="$dir/banner.capture"
-  if [ "$surface" = history ]; then
-    capture=$(idle_capture "$dir")
-    history="$dir/banner.capture"
-  fi
-  PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$dir/send.log" \
-    FM_FAKE_TMUX_CAPTURE="$capture" FM_FAKE_TMUX_HISTORY="$history" \
-    inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$state/t1.inbox/001.msg" fm-t1 "$harness" \
-    || status=$?
-  if [ "$surface" = visible ]; then
-    [ "$status" = 4 ] || fail "visible exhaustion did not stop the ring: $status"
-    [ ! -s "$dir/send.log" ] || fail "the exhausted pane received a ring"
-  else
-    [ "$status" = 0 ] || fail "historical exhaustion blocked the recovered pane: $status"
-    grep -qF 'Firstmate instruction waiting' "$dir/send.log" || fail "the recovered pane received no doorbell"
-    grep -qxF 'key:Enter' "$dir/send.log" || fail "the recovered pane received no submission"
-  fi
-  : > "$dir/send.log"
-  PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_HOME="$dir" \
-    FM_SEND_LOG="$dir/send.log" FM_FAKE_TMUX_CAPTURE="$capture" FM_FAKE_TMUX_HISTORY="$history" \
-    FM_TASK_INBOX_GRACE_SECS=0 FM_CONTROL_EXIT_WAIT=0.05 \
-    bash -c '
-      . "$1"
-      released=$2
-      fm_task_inbox_release_exhausted() { printf "%s\n" "$1" > "$released"; }
-      inbox_steer_check sess:fm-t1 t1
-    ' _ "$WATCH" "$dir/released" > "$dir/check.out" 2>&1
-  if [ "$surface" = visible ]; then
-    [ ! -s "$dir/send.log" ] || fail "an exhausted cursor pane was typed into:"$'\n'"$(cat "$dir/send.log")"
-    [ "$(cat "$dir/released" 2>/dev/null)" = t1 ] || fail "the exhausted pane's seat was not released"
-  else
-    grep -qF 'Firstmate instruction waiting' "$dir/send.log" || fail "the watcher did not ring the recovered pane"
-    grep -qxF 'key:Enter' "$dir/send.log" || fail "the watcher did not submit to the recovered pane"
-    [ ! -e "$dir/released" ] || fail "historical exhaustion released a recovered pane's seat"
-  fi
-  [ -f "$state/t1.inbox/001.msg" ] || fail "the durable steer was removed"
-  [ ! -s "$state/.wake-queue" ] || fail "skipping an exhausted pane woke firstmate:"$'\n'"$(cat "$state/.wake-queue")"
-  pass "watcher: $harness exhaustion in $surface controls ringing and seat release"
-}
 
 test_write_is_durable_and_exact
 test_doorbell_is_a_shell_noop
@@ -1698,7 +1641,3 @@ test_watcher_defers_busy_rovo_until_idle rovo fire-and-forget
 test_watcher_defers_busy_rovo_until_idle rovo-preview fire-and-forget
 test_watcher_rerings_nonqueue_on_idle_after_escalation
 test_watcher_rerings_nonqueue_inside_grace_after_busy
-test_cursor_exhaustion_uses_visible_viewport
-test_cursor_exhaustion_uses_visible_viewport cursor-agent
-test_cursor_exhaustion_uses_visible_viewport cursor history
-test_cursor_exhaustion_uses_visible_viewport cursor-agent history

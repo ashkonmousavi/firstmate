@@ -225,33 +225,6 @@ fm_control_interrupt_hazard_signal() {  # <harness>
   esac
 }
 
-# The rendered row, as one ERE, by which a harness reports that its usage or
-# quota is exhausted. The exit safety contract is owned by bin/fm-control.sh
-# do_exit; the report alone does not authorize discarding a pending draft.
-# Grok's weekly-limit notice
-# (tests/captures/grok-weekly-limit-picker.txt) heads its picker, so it is
-# recognised while the picker is open and, while the notice is still visible,
-# after the picker is dismissed. Cursor's report is the row the fleet read
-# on an exhausted pane, "You're out of usage", plus the documented
-# "You've hit your <word> limit". The notice must open its row,
-# after nothing but decoration, so prose that merely quotes the limit does not
-# qualify. Prints nothing for a harness with no recorded quota report.
-# The doorbell path reads this same pattern and does not type while it matches
-# (bin/fm-task-inbox-lib.sh). No vendor CLI is consulted.
-fm_control_quota_exhausted_signal() {  # <harness>
-  local harness
-  harness=$(fm_control_harness_family "${1-}") || return 1
-  case "$harness" in
-    grok) printf '%s' '^[^[:alnum:]]*You hit your [[:alpha:]]+ limit' ;;
-    cursor)
-      local apos=$'\342\200\231'
-      printf '%s' "^[^[:alnum:]]*(You('|${apos})re out of usage|You('|${apos})ve hit your [[:alpha:]]+ limit)"
-      ;;
-    claude|codex|opencode|pi|pi-signed|omp|kimi|gemini|muse|rovo|agy|devin) ;;
-    *) return 1 ;;
-  esac
-}
-
 # 0 when <harness> accepts a user message submitted while a turn is running
 # and keeps it for delivery. Claude Code queues that submit and delivers it
 # within the turn, once the in-flight tool calls finish, or at the end of the

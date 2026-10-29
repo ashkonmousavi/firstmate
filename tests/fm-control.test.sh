@@ -137,9 +137,6 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
-      if [ "$payload" = C-u ] && [ -f "$D/clear-to" ]; then
-        cp "$D/clear-to" "$D/pane"
-      fi
       printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
       if [ "$payload" = Escape ] && [ -f "$D/devin" ]; then
         case "$(cat "$D/devin")" in
@@ -167,9 +164,7 @@ case "${1:-}" in
       case "$a" in
         *cursor_y*)
           # A modelled Devin screen parks the cursor on its composer row.
-          if [ -f "$D/cursor-y" ]; then
-            cat "$D/cursor-y"
-          elif [ -f "$D/devin" ]; then
+          if [ -f "$D/devin" ]; then
             devin_screen "$(cat "$D/devin")" | awk '/^❭ /{ print NR - 1; exit }'
           else
             printf '1\n'
@@ -1138,150 +1133,15 @@ test_grok_idle_footer_does_not_confirm_cancellation() {
   pass "fm-control interrupt: grok's idle footer does not confirm cancellation"
 }
 
-# --- recorded harness capabilities and exhausted-seat release ----------------
-
 test_recorded_harness_capabilities() {
-  local harness signal
+  local harness
   for harness in claude claude-latest opencode opencode-dev; do
     fm_control_submit_queue "$harness" || fail "$harness must accept busy submission"
   done
   for harness in rovo rovo-preview cursor cursor-agent codex codex-dev pi pi-signed grok grok-dev kimi gemini muse omp agy devin unknown ''; do
     fm_control_submit_queue "$harness" && fail "$harness must not claim a busy submit queue"
   done
-  for harness in cursor cursor-agent; do
-    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
-    printf '%s\n' "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue." \
-      | grep -Eq -- "$signal" || fail "$harness missed Cursor's usage banner"
-    local banner
-    for banner in "You’re out of usage" "You’ve hit your weekly limit" "You've hit your weekly limit"; do
-      LC_ALL=C grep -Eq -- "$signal" <<< "$banner" || fail "$harness missed $banner in the C locale"
-    done
-    for banner in $'You\342re out of usage' $'You\200ve hit your weekly limit' "Youâre out of usage"; do
-      LC_ALL=C grep -Eq -- "$signal" <<< "$banner" && fail "$harness accepted a partial UTF-8 apostrophe"
-    done
-    printf '%s\n' "The log quoted You're out of usage in a sentence." \
-      | grep -Eq -- "$signal" && fail "$harness mistook a quotation for exhaustion"
-  done
-  for harness in grok grok-dev; do
-    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness lacks its exhaustion capability"
-    printf '%s\n' 'You hit your weekly limit' | grep -Eq -- "$signal" || fail "$harness missed Grok's usage banner"
-  done
-  for harness in claude-latest codex-dev opencode-dev pi pi-signed rovo-preview kimi gemini muse omp agy devin; do
-    signal=$(fm_control_quota_exhausted_signal "$harness") || fail "$harness was not recognized"
-    [ -z "$signal" ] || fail "$harness invented an exhaustion signal"
-  done
-  fm_control_quota_exhausted_signal unknown >/dev/null && fail "an unknown harness must be refused"
-  pass "recorded harness capabilities normalize aliases and refuse unsupported capabilities"
-}
-
-test_exhausted_release_failure_is_reported() {
-  local dir out rc
-  dir=$(new_case release-failed)
-  out=$(FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" bash -c \
-    '. "$1"; fm_task_inbox_release_exhausted missing' _ "$ROOT/bin/fm-task-inbox-lib.sh" 2>&1); rc=$?
-  [ "$rc" -ne 0 ] || fail "a failed lifecycle release claimed success"
-  assert_contains "$out" 'exhausted task missing seat release failed' "release failure must be reported"
-  pass "exhausted seat release failures propagate and report lifecycle failure"
-}
-
-test_exhausted_release_revalidates_incarnation_and_banner() {
-  local dir mode out rc rec
-  for mode in exhausted replaced recovered unrecorded; do
-    dir=$(new_case "release-$mode")
-    add_task "$dir" t1 cursor
-    alive_as "$dir" cursor-agent
-    printf 'spawn_gen=observed\n' >> "$dir/home/state/t1.meta"
-    mkdir -p "$dir/home/state/t1.inbox"
-    rec="$dir/home/state/t1.inbox/001.msg"
-    printf 'retain this instruction\n' > "$rec"
-    printf "You're out of usage\n╭────╮\n│    │\n╰────╯\n" > "$dir/fake/pane"
-    printf '2\n' > "$dir/fake/cursor-y"
-    out=$(PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
-      FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 bash -c '
-        . "$1/bin/fm-task-inbox-lib.sh"
-        fm_task_inbox_ring tmux fmses:fm-t1 "$2/home/state/t1.inbox/001.msg" fm-t1 cursor
-        [ "$?" = 4 ] || exit 90
-        case "$3" in
-          replaced) sed "s/spawn_gen=observed/spawn_gen=replacement/" "$2/home/state/t1.meta" > "$2/new.meta"; mv "$2/new.meta" "$2/home/state/t1.meta" ;;
-          recovered) printf "╭────╮\n│    │\n╰────╯\n" > "$2/fake/pane"; printf "1\n" > "$2/fake/cursor-y" ;;
-          unrecorded) FM_TASK_INBOX_EXHAUSTED_GEN= ;;
-        esac
-        fm_task_inbox_release_exhausted t1
-      ' _ "$ROOT" "$dir" "$mode" 2>&1); rc=$?
-    [ -f "$rec" ] || fail "release lost the durable instruction"
-    case "$mode" in
-      exhausted)
-        expect_code 0 "$rc" "same exhausted incarnation must stop: $out"
-        [ "$(literals "$dir")" = /exit ] || fail "exhausted release did not use the exit command"
-        [ "$(cat "$dir/fake/command")" = zsh ] || fail "exhausted agent stayed alive"
-        ;;
-      *)
-        [ ! -s "$dir/fake/literal" ] && [ ! -s "$dir/fake/keys" ] || fail "$mode recovery typed into an unqualified worker"
-        [ "$(cat "$dir/fake/command")" = cursor-agent ] || fail "$mode recovery stopped a healthy or unobserved worker"
-        if [ "$mode" = unrecorded ]; then [ "$rc" -ne 0 ] || fail "missing incarnation must refuse"; else expect_code 0 "$rc" "$mode recovery is a no-op: $out"; fi
-        ;;
-    esac
-  done
-  pass "exhausted release stops only the observed, still-exhausted incarnation and preserves its inbox"
-}
-
-test_exhausted_composer_recovery_preserves_other_drafts() {
-  local dir harness mode line held out rc banner width rule
-  for harness in cursor cursor-agent grok; do
-    for mode in pending unknown empty-unknown unrelated unrelated-unknown unreadable lower-draft foreign ordinary failed-clear; do
-      dir=$(new_case "exhausted-$harness-$mode")
-      add_task "$dir" t1 "$harness"
-      case "$harness" in grok) alive_as "$dir" grok; banner='You hit your weekly limit' ;; *) alive_as "$dir" cursor-agent; banner="You're out of usage" ;; esac
-      printf 'spawn_gen=observed\n' >> "$dir/home/state/t1.meta"
-      mkdir -p "$dir/home/state/t1.inbox"
-      printf 'retain instruction\n' > "$dir/home/state/t1.inbox/001.msg"
-      line=$(bash -c '. "$1/bin/fm-task-inbox-lib.sh"; fm_task_inbox_doorbell_line "$2/home/state/t1.inbox/001.msg"' _ "$ROOT" "$dir")
-      held="$line $line"
-      case "$mode" in
-        empty-unknown) held= ;;
-        unrelated|unrelated-unknown|unreadable|lower-draft) held='keep this unrelated draft' ;;
-        foreign) held=$(bash -c '. "$1/bin/fm-task-inbox-lib.sh"; fm_task_inbox_doorbell_line "$2/home/state/other.inbox/001.msg"' _ "$ROOT" "$dir") ;;
-      esac
-      width=$((${#held} + 2))
-      [ "$width" -ge 24 ] || width=24
-      rule=$(printf '%*s' "$width" '')
-      rule=${rule// /─}
-      printf '%s\n╭%s╮\n│ %-*s │\n╰%s╯\n' "$banner" "$rule" "$((width - 2))" "$held" "$rule" > "$dir/fake/pane"
-      case "$mode" in
-        unreadable) printf '%s\n%s\n' "$banner" "$held" > "$dir/fake/pane" ;;
-        lower-draft) printf '%s\n╭────────────────────────╮\n│                        │\n╰────────────────────────╯\n$ %s\n' "$banner" "$held" > "$dir/fake/pane" ;;
-      esac
-      case "$mode" in unknown|empty-unknown|unrelated-unknown|unreadable|lower-draft) printf '0\n' ;; *) printf '2\n' ;; esac > "$dir/fake/cursor-y"
-      printf '%s\n╭%s╮\n│%*s│\n╰%s╯\n' "$banner" "$rule" "$width" '' "$rule" > "$dir/fake/clear-to"
-      [ "$mode" != failed-clear ] || cp "$dir/fake/pane" "$dir/fake/clear-to"
-      if [ "$mode" = ordinary ]; then
-        out=$(run_control "$dir" t1 exit); rc=$?
-      else
-        out=$(run_control "$dir" t1 exit --if-exhausted observed); rc=$?
-      fi
-      case "$mode" in
-        pending|unknown|empty-unknown)
-          expect_code 0 "$rc" "$harness $mode recovery failed: $out"
-          [ "$(keys_sent "$dir")" = C-u ] || fail "$harness $mode recovery did not use the sanctioned clear"
-          [ "$(literals "$dir")" = /exit ] || fail "$harness $mode recovery did not stop through lifecycle exit"
-          [ "$(cat "$dir/fake/command")" = zsh ] || fail "$harness $mode agent remains alive"
-          ;;
-        *)
-          [ "$rc" -ne 0 ] || fail "$harness $mode must refuse"
-          [ ! -s "$dir/fake/literal" ] || fail "$harness $mode submitted a command"
-          if [ "$mode" = failed-clear ]; then
-            [ "$(keys_sent "$dir")" = C-u ] || fail "failed clear did not reach the composer"
-            assert_not_contains "$(cat "$dir/fake/keys")" Enter 'failed clear must not submit'
-          else
-            [ ! -s "$dir/fake/keys" ] || fail "$harness $mode modified a protected draft"
-            assert_contains "$(cat "$dir/fake/pane")" "$held" 'protected draft changed'
-          fi
-          ;;
-      esac
-      [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "recovery removed the inbox"
-    done
-  done
-  pass "exhausted composer recovery clears only own residue or proven emptiness and preserves unrelated drafts"
+  pass "recorded harness capabilities normalize aliases and refuse unsupported submit queues"
 }
 
 # --- 6. marker non-regression -----------------------------------------------
@@ -1412,8 +1272,5 @@ test_agent_that_does_not_stop_fails_closed
 test_grok_interrupt_without_acknowledgement_reports_unconfirmed
 test_grok_idle_footer_does_not_confirm_cancellation
 test_recorded_harness_capabilities
-test_exhausted_release_failure_is_reported
-test_exhausted_release_revalidates_incarnation_and_banner
-test_exhausted_composer_recovery_preserves_other_drafts
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task

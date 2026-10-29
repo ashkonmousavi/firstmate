@@ -994,22 +994,6 @@ not ok - mid-turn absolute cwd rail read 'pending', want empty
 
 The cursorless backends still defer: on a cursorless read (Herdr and Zellij) a full-pane capture of this version answers `unknown` because the status rail below the composer floor row is contiguous non-blank content the selector refuses to outrank, which is the strict posture and not this defect; and very narrow panes where the cwd rail starts in the left half of the row defer the same way.
 
-## Exhausted inbox seat release
-
-Refresh real Grok and Cursor exhaustion evidence with `FM_INBOX_EXHAUSTION_LIVE=1 bash tests/fm-inbox-exhaustion-live-e2e.test.sh`.
-This opt-in guard requests one short reply on an already-exhausted account/model, requires a real vendor banner, checks that ringing returns exhaustion, and drives production lifecycle release to a stopped-agent postcondition while retaining the inbox.
-It uses private writable homes, accepts Cursor authentication through the documented `CURSOR_API_KEY` environment variable, and never logs in or drains an account to manufacture exhaustion.
-`FM_INBOX_EXHAUSTION_CURSOR_MODEL` selects the Cursor model when the exhausted allocation is model-specific.
-Version, before/after pane captures, lifecycle output, and per-harness results are retained under `data/review-evidence/inbox-exhaustion/` by default; `FM_INBOX_EXHAUSTION_EVIDENCE` selects another evidence directory.
-An absent harness is named, an installed harness without exhaustion proof fails, and a run verifying nothing fails.
-
-The 2026-10-29 review ran `FM_INBOX_EXHAUSTION_LIVE=1 FM_INBOX_EXHAUSTION_TIMEOUT=30 bash tests/fm-inbox-exhaustion-live-e2e.test.sh` on Linux with isolated writable homes.
-Grok 1.0.70 (`f50904eaee6c`) answered `OK`, so that account was healthy and real exhaustion/release remains unverified.
-Cursor 2026.10.19-6bbf2c4 displayed `Press any key to log in...`, so isolated authentication was unavailable and real exhaustion/release remains unverified.
-The guard now refuses an isolated Cursor run without the documented API-key environment variable before submitting a prompt.
-These are failed proof attempts, not passing live evidence.
-The portable regression in `tests/fm-control.test.sh` separately exercises unchanged, replaced, recovered, and unrecorded worker generations through the ring and lifecycle interfaces, including straight/curly apostrophe banners in the C locale.
-
 ## Steering-inbox doorbell
 
 The live guard submits Claude and OpenCode doorbells while a real foreground tool is blocked, then separately requires each instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.

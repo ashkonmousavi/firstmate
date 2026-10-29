@@ -271,12 +271,6 @@ cmd_relaunch() {
   print_route "$id"
 }
 
-remote_release_exhausted() {
-  HERDR_SESSION="$REMOTE_HERDR_SESSION" FM_HOME="$FM_ROOT" FM_ROOT_OVERRIDE="$FM_ROOT" \
-    FM_STATE_OVERRIDE="$CONTROL_STATE" FM_DATA_OVERRIDE="$CONTROL_DATA" \
-    FM_CONFIG_OVERRIDE="$TARGET_HOME/config" fm_task_inbox_release_exhausted "$1" >/dev/null
-}
-
 cmd_send() {
   local id=$1 message=$2 delivery_mode=${3:-} request_id=${4:-} rec ring_rc=0 meta meta_lock harness
   validate_id "$id"
@@ -318,10 +312,6 @@ cmd_send() {
     1) printf 'notice: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at %s\n' "$rec" >&2 ;;
     2) printf 'notice: doorbell did not reach %s; the steer is durably recorded at %s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
     3) printf 'notice: doorbell not typed because the agent in %s has exited; the steer is durably recorded at %s for recovery\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
-    4)
-      printf 'notice: doorbell not typed because %s reports usage exhausted; the steer is durably recorded at %s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2
-      remote_release_exhausted "$id" || printf 'warning: remote exhausted seat release remains unconfirmed for %s\n' "$id" >&2
-      ;;
   esac
 }
 
@@ -330,7 +320,7 @@ cmd_send() {
 # (bin/fm-task-inbox-lib.sh owns the ladder; "Remote leg" there). Each action
 # prints one line:
 #   due <grace> <max> quiet | ring <record> | escalate <record> <count>
-#   ring <record>    rang <ring-status> | handled | unavailable | exhausted | bookkeeping-failed
+#   ring <record>    rang <ring-status> | handled | unavailable | bookkeeping-failed
 #   escalated <rec>  escalated
 # <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
 # re-checks that the record is still unhandled, rings once, and spends one
@@ -382,11 +372,6 @@ cmd_inbox() {
   fi
   harness=$(fm_meta_get "$REMOTE_ENDPOINT_META" harness)
   fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" || ring_rc=$?
-  if [ "$ring_rc" -eq 4 ]; then
-    remote_release_exhausted "$id" || return 1
-    printf 'exhausted\n'
-    return 0
-  fi
   if [ "$ring_rc" -eq 3 ]; then
     printf 'unavailable\n'
     return 0

@@ -3,7 +3,7 @@
 # lifecycle verbs addressed to an exact task id.
 #
 # Usage: fm-control.sh <task-id> interrupt
-#        fm-control.sh <task-id> exit [--if-exhausted <spawn-gen>]
+#        fm-control.sh <task-id> exit
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
 #                                         [--effort <level>]
 #                                         (--note <text> | --note-file <path>)
@@ -173,8 +173,6 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
-# shellcheck source=bin/fm-task-inbox-lib.sh
-. "$SCRIPT_DIR/fm-task-inbox-lib.sh"
 # shellcheck source=bin/fm-polytoken-lib.sh
 . "$SCRIPT_DIR/fm-polytoken-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
@@ -252,8 +250,6 @@ MODEL_SET=0
 EFFORT_SET=0
 NOTE=
 NOTE_SET=0
-EXHAUSTED_GEN=
-EXHAUSTED_SET=0
 control_want_value=
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
@@ -265,7 +261,6 @@ for control_arg in "$@"; do
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
-      if_exhausted) EXHAUSTED_GEN=$control_arg; EXHAUSTED_SET=1 ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
         NOTE=$(cat "$control_arg")
@@ -276,7 +271,6 @@ for control_arg in "$@"; do
     continue
   fi
   case "$control_arg" in
-    --if-exhausted) control_want_value=if_exhausted ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
@@ -297,11 +291,6 @@ done
 if [ -n "$control_want_value" ]; then
   [ "$control_want_value" = note_file ] && die "--note-file requires a value"
   die "--$control_want_value requires a value"
-fi
-
-if [ "$EXHAUSTED_SET" = 1 ]; then
-  [ "$VERB" = exit ] || die "--if-exhausted applies to exit only"
-  [ -n "$EXHAUSTED_GEN" ] || die "--if-exhausted requires the observed spawn generation"
 fi
 
 if [ "$VERB" != relaunch ]; then
@@ -673,21 +662,7 @@ retire_busy_incarnation() {
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
-  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog residue
-  if [ "$EXHAUSTED_SET" = 1 ]; then
-    if [ "$(fm_meta_get "$META" spawn_gen)" != "$EXHAUSTED_GEN" ]; then
-      printf 'exhaustion-release-skipped'
-      return 0
-    fi
-    local signal cap
-    signal=$(fm_control_quota_exhausted_signal "$HARNESS") || return 1
-    [ -n "$signal" ] || { printf 'exhaustion-release-skipped'; return 0; }
-    cap=$(fm_backend_visible_capture "$BACKEND" "$T" "$LABEL") || return 1
-    if ! printf '%s\n' "$cap" | grep -Eq -- "$signal"; then
-      printf 'exhaustion-release-skipped'
-      return 0
-    fi
-  fi
+  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -763,16 +738,6 @@ do_exit() {
   if [ -s "${FM_COMPOSER_DIALOG_SINK:-}" ]; then
     dialog=$(cat "$FM_COMPOSER_DIALOG_SINK")
     refuse_blocking_prompt "$dialog"
-  fi
-  if [ "$EXHAUSTED_SET" = 1 ] && [ "$composer_state" != empty ]; then
-    if residue=$(fm_task_inbox_composer_doorbells "$BACKEND" "$T" "$STATE" "$ID"); then
-      fm_control_backend_supports_key "$BACKEND" C-u || die "backend $BACKEND cannot clear the exhausted composer"
-      fm_backend_send_key "$BACKEND" "$T" C-u "$LABEL" || die "exhausted composer clear failed for task $ID"
-      residue=$(fm_task_inbox_composer_doorbells "$BACKEND" "$T" "$STATE" "$ID") \
-        || die "task $ID's exhausted composer could not be verified after clearing"
-      [ -z "$residue" ] || die "task $ID's exhausted composer still holds doorbell residue"
-      composer_state=empty
-    fi
   fi
   case "$composer_state" in
     empty) ;;

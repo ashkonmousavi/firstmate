@@ -1115,63 +1115,6 @@ test_remote_enqueue_dedup_compares_same_size_records() {
   pass "remote enqueue dedup: only same-size records are compared and exact matches still dedup"
 }
 
-test_remote_exhaustion_uses_host_local_control() {
-  local dir code rhome action out rc
-  dir="$TMP_ROOT/remote-exhaustion"; mkdir -p "$dir"
-  code="$dir/code"
-  mkdir -p "$code/bin"
-  cp -R "$ROOT/bin/." "$code/bin/"
-  rhome=$(setup_remote_secondmate_home remote-exhaustion)
-  sed 's/^harness=claude$/harness=cursor/' "$rhome/state/parent-route/rsm.meta" > "$dir/meta"
-  mv "$dir/meta" "$rhome/state/parent-route/rsm.meta"
-  printf 'spawn_gen=observed-remote-worker\n' >> "$rhome/state/parent-route/rsm.meta"
-  cat > "$code/bin/herdr" <<'SH'
-#!/usr/bin/env bash
-case "$1 $2" in
-  'status --json') printf '{"client":{"version":"0.9.0","protocol":22},"server":{"running":true,"protocol":22,"compatible":true}}\n' ;;
-  'pane get') printf '{"result":{"pane":{"pane_id":"p1","workspace_id":"w1","tab_id":"t1"}}}\n' ;;
-  'agent get') printf '{"result":{"agent":{"agent":"cursor","agent_status":"idle"}}}\n' ;;
-  'pane process-info') printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"p1","shell_pid":4242,"foreground_process_group_id":4243,"foreground_processes":[{"pid":4243,"name":"cursor-agent","argv0":"cursor-agent","argv":["cursor-agent"],"cmdline":"cursor-agent"}]}}}\n' ;;
-  'pane read') printf "You're out of usage. Switch to Auto, or ask your admin to increase your limit to continue.\n" ;;
-  *) exit 1 ;;
-esac
-SH
-  cat > "$code/bin/fm-control.sh" <<SH
-#!/usr/bin/env bash
-printf '%s\\n' "\$*" "\$FM_HOME" "\$FM_STATE_OVERRIDE" "\$FM_DATA_OVERRIDE" "\$FM_CONFIG_OVERRIDE" "\$HERDR_SESSION" >> '$dir/control.log'
-[ ! -f '$dir/refuse' ]
-SH
-  chmod +x "$code/bin/herdr" "$code/bin/fm-control.sh"
-  for action in send inbox; do
-    : > "$dir/control.log"
-    if [ "$action" = send ]; then
-      out=$(PATH="$code/bin:$PATH" FM_HOME="$rhome" FM_ROOT_OVERRIDE="$code" \
-        "$code/bin/fm-remote-secondmate-control.sh" send rsm 'continue' 2>&1); rc=$?
-    else
-      out=$(PATH="$code/bin:$PATH" FM_HOME="$rhome" FM_ROOT_OVERRIDE="$code" \
-        "$code/bin/fm-remote-secondmate-control.sh" inbox rsm ring 001.msg 2>&1); rc=$?
-    fi
-    expect_code 0 "$rc" "remote $action exhaustion should delegate control: $out"
-    [ "$(sed -n '1p' "$dir/control.log")" = 'rsm exit --if-exhausted observed-remote-worker' ] || fail "$action did not guard lifecycle exit with the observed generation"
-    [ "$(sed -n '2p' "$dir/control.log")" = "$code" ] || fail "$action used the wrong code home"
-    [ "$(sed -n '3p' "$dir/control.log")" = "$rhome/state/parent-route" ] || fail "$action lost endpoint state context"
-    [ "$(sed -n '4p' "$dir/control.log")" = "$rhome/data/.parent-route" ] || fail "$action lost endpoint data context"
-    [ "$(sed -n '5p' "$dir/control.log")" = "$rhome/config" ] || fail "$action lost runtime config context"
-    [ "$(sed -n '6p' "$dir/control.log")" = fm-remote ] || fail "$action used the wrong Herdr session"
-  done
-  : > "$dir/refuse"
-  out=$(PATH="$code/bin:$PATH" FM_HOME="$rhome" FM_ROOT_OVERRIDE="$code" \
-    "$code/bin/fm-remote-secondmate-control.sh" inbox rsm ring 001.msg 2>&1); rc=$?
-  [ "$rc" -ne 0 ] || fail "remote inbox hid a release failure"
-  assert_contains "$out" 'seat release failed' "remote lifecycle refusal must reach the caller"
-  out=$(PATH="$code/bin:$PATH" FM_HOME="$rhome" FM_ROOT_OVERRIDE="$code" \
-    "$code/bin/fm-remote-secondmate-control.sh" send rsm 'next instruction' 2>&1); rc=$?
-  expect_code 0 "$rc" "a durably recorded remote send must not become retryable after release failure"
-  assert_contains "$out" 'seat release failed' "remote initial-send release failure must be reported"
-  [ -f "$rhome/state/parent-route/rsm.inbox/002.msg" ] || fail "release failure lost the durable send"
-  pass "remote send and inbox exhaustion delegate host-local lifecycle control with failure reporting"
-}
-
 test_remote_one_way_request_identity() {
   local dir fb ssh_log rhome home count id id2 retry_id
   dir="$TMP_ROOT/remote-oneway"; mkdir -p "$dir"
@@ -1230,6 +1173,5 @@ test_remote_inbox_ladder_escalates_bookkeeping_failure
 test_remote_inbox_marker_retry_preserves_wake_identity
 test_remote_enqueue_dedup_compares_same_size_records
 test_remote_one_way_request_identity
-test_remote_exhaustion_uses_host_local_control
 
 echo "all fm-send-remote-delivery tests passed"

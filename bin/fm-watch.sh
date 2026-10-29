@@ -539,7 +539,7 @@ inbox_steer_escalate_unavailable() {  # <window> <task> <record>
 # missing worker. A harness fm_control_submit_queue accepts is rung while
 # busy. Any other harness keeps the busy deferral and is rung on the next
 # idle observation, including inside grace and after stuck-busy. The ring
-# helper protects pending composer text and skips a usage-exhausted pane.
+# helper protects pending composer text.
 # Normal retries keep the watcher blocking rather than waking firstmate.
 # Runs for secondmates too: their pane-staleness exemption is about quiet panes
 # being healthy, while an unacknowledged instruction can still be a stuck steer.
@@ -621,11 +621,6 @@ inbox_steer_check() {  # <window> <task>
     ring)
       ring_rc=0
       fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
-      if [ "$ring_rc" -eq 4 ]; then
-        fm_task_inbox_release_exhausted "$task" || triage_log "steer-inbox seat release failed: $task"
-        triage_log "steer-inbox usage exhausted: $task ${rec##*/}"
-        return 0
-      fi
       if [ "$ring_rc" -eq 3 ]; then
         inbox_steer_escalate_unavailable "$w" "$task" "$rec"
         return 0
@@ -646,12 +641,6 @@ inbox_steer_check() {  # <window> <task>
     retry)
       ring_rc=0
       fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
-      if [ "$ring_rc" -eq 4 ]; then
-        fm_task_inbox_release_exhausted "$task" || triage_log "steer-inbox seat release failed: $task"
-        fm_task_inbox_clear_retry "$STATE" "$task" "$rec" || true
-        triage_log "steer-inbox usage exhausted: $task ${rec##*/}"
-        return 0
-      fi
       if ! fm_task_inbox_clear_retry "$STATE" "$task" "$rec" && [ -f "$rec" ]; then
         reason="stale: $w (steering-inbox retry mark unremovable: ${rec%/*}/.retry-ring cannot be removed, so $rec would ring on every poll - inspect the inbox directory)"
         fm_wake_append stale "$w" "$reason" || exit 1
@@ -991,7 +980,7 @@ secondmate_idle_ring_safe() {  # <window>
 # wake queue; this parent never rewrites that foreign queue. 0 iff the ring
 # call returned 0.
 secondmate_ring_to_drain() {  # <task> <window>
-  local task=$1 w=$2 rec backend delivery_id harness ring_rc=0
+  local task=$1 w=$2 rec backend delivery_id harness
   backend=$(window_backend "$w")
   delivery_id=$(LC_ALL=C od -An -v -tx1 -N 8 /dev/urandom 2>/dev/null | tr -d ' \n') || return 1
   case "$delivery_id" in ''|*[!0-9a-f]*) return 1 ;; esac
@@ -1000,12 +989,7 @@ secondmate_ring_to_drain() {  # <task> <window>
     "${FM_FROMFIRST_MARK}delivery=${delivery_id} Drain pending rows in this home's wake queue, then resume idle supervision." \
     fire-and-forget) || return 1
   harness=$(window_harness "$w")
-  fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
-  if [ "$ring_rc" -eq 4 ]; then
-    fm_task_inbox_release_exhausted "$task" || triage_log "steer-inbox seat release failed: $task"
-    return 1
-  fi
-  [ "$ring_rc" -eq 0 ]
+  fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness"
 }
 
 # Surface one durable parent check when the foreign queue's drain position has

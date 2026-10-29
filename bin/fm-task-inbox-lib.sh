@@ -93,7 +93,6 @@
 # beside the records, and the parent queues the escalation wake. It rings a
 # busy mate as the remote enqueue ring does, so it keeps no busy budget, and
 # no fire-and-forget retry is owed there.
-# A usage-exhausted report prints exhausted and spends no ladder attempt.
 # The parent passes its effective grace and ring maximum to each remote due
 # check; individual hops have a fixed 30-second bound, and ordinary supervision
 # runs the pass detached from its cycle, so a slow host never delays the
@@ -408,63 +407,6 @@ fm_task_inbox_doorbell_line() {  # <record-path>
     "$quoted"
 }
 
-# Ring the doorbell, best-effort: one endpoint-liveness pre-check, one advisory
-# composer pre-check, then the backend's submit machinery with a minimal retry
-# budget, verdict discarded.
-# Returns 0 rang, 1 skipped because the composer PROVENLY holds pending text
-# other than our own doorbell (the watcher re-rings later), 2 the backend send
-# failed, 3 skipped because the endpoint is positively dead or missing (nothing
-# typed; recovery owns the record), 4 skipped because the pane shows that
-# harness's usage-exhausted report (nothing typed; the caller releases the
-# seat with fm_task_inbox_release_exhausted). No return value is delivery
-# proof; the acknowledgement move is the only delivery signal.
-# The skip is deliberately narrow: only an exact `pending` verdict can defer,
-# because there our Enter could submit someone's real half-typed content.
-# `pending-unproven` and `unknown` still ring - the worst outcome is a garbled
-# CONSTANT line the worker recovers semantically, while skipping on ambiguous
-# verdicts would starve a harness whose idle screen the classifier cannot
-# positively identify (that classifier is advisory here by design).
-# A pending composer holding exactly our own doorbell line is a previous ring
-# whose Enter never landed, so on an agent not reported busy it is submitted
-# rather than skipped; skipping it would block every later ring. A submit-queue
-# harness submits that same Enter while busy. On both paths
-# a lost first Enter gets one confirmed retry.
-# Optional <harness> selects the usage-exhausted report and the submit queue.
-# Callers that omit it keep the previous ring behavior.
-fm_task_inbox_usage_exhausted() {  # <backend> <target> <harness> [expected-label]
-  local signal cap
-  [ -n "${3:-}" ] || return 1
-  signal=$(fm_control_quota_exhausted_signal "$3" 2>/dev/null) || return 1
-  [ -n "$signal" ] || return 1
-  cap=$(fm_backend_visible_capture "$1" "$2" "${4:-}" 2>/dev/null) || return 1
-  printf '%s\n' "$cap" | grep -Eq -- "$signal"
-}
-
-# Stop the task whose pane reported usage exhaustion through fm-control's exit
-# contract (bin/fm-control.sh do_exit), preserving the inbox for recovery.
-fm_task_inbox_release_exhausted() {  # <task-id>
-  local status=0
-  "$_FM_TASK_INBOX_LIB_DIR/fm-control.sh" "$1" exit --if-exhausted "${FM_TASK_INBOX_EXHAUSTED_GEN:-}" || status=$?
-  [ "$status" -eq 0 ] || printf 'warning: exhausted task %s seat release failed (fm-control exit %s)\n' "$1" "$status" >&2
-  return "$status"
-}
-
-fm_task_inbox_composer_doorbells() {
-  local cap held line rest
-  fm_backend_source "$1" || return 1
-  cap=$(fm_backend_visible_capture "$1" "$2" "fm-$4" 2>/dev/null) || return 1
-  held=$(fm_composer_extract_selected_content styled=0 "$cap") || return 1
-  line=$(fm_task_inbox_doorbell_line "$3/$4.inbox/001.msg") || return 1
-  held=$(printf '%s' "$held" | tr -d '[:space:]')
-  line=$(printf '%s' "$line" | tr -d '[:space:]')
-  [ -n "$line" ] || return 1
-  rest=$held
-  while [ -n "$rest" ]; do
-    case "$rest" in "$line"*) rest=${rest#"$line"} ;; *) return 1 ;; esac
-  done
-  printf '%s' "$held"
-}
-
 # 0 when a non-queue harness still owes a doorbell that was deferred while
 # busy, so the next idle observation rings even when the ladder would be quiet.
 # The owed doorbell is the record named in .busy-state. An escalation marker
@@ -480,21 +422,32 @@ fm_task_inbox_idle_followup() {  # <state-dir> <task-id> <harness>
   [ "$named" = "$base" ]
 }
 
+# Ring the doorbell, best-effort: one endpoint-liveness pre-check, one advisory
+# composer pre-check, then the backend's submit machinery with a minimal retry
+# budget, verdict discarded.
+# Returns 0 rang, 1 skipped because the composer PROVENLY holds pending text
+# other than our own doorbell (the watcher re-rings later), 2 the backend send
+# failed, 3 skipped because the endpoint is positively dead or missing (nothing
+# typed; recovery owns the record). No return value is delivery proof; the
+# acknowledgement move is the only delivery signal.
+# The skip is deliberately narrow: only an exact `pending` verdict can defer,
+# because there our Enter could submit someone's real half-typed content.
+# `pending-unproven` and `unknown` still ring - the worst outcome is a garbled
+# CONSTANT line the worker recovers semantically, while skipping on ambiguous
+# verdicts would starve a harness whose idle screen the classifier cannot
+# positively identify (that classifier is advisory here by design).
+# A pending composer holding exactly our own doorbell line is a previous ring
+# whose Enter never landed, so on an agent not reported busy it is submitted
+# rather than skipped; skipping it would block every later ring. A submit-queue
+# harness submits that same Enter while busy. On both paths
+# a lost first Enter gets one confirmed retry.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness]
-  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict inbox task meta observed_gen
-  FM_TASK_INBOX_EXHAUSTED_GEN=
-  meta=${rec%/*}
-  meta=${meta%.inbox}.meta
-  observed_gen=$(fm_meta_get "$meta" spawn_gen 2>/dev/null) || observed_gen=
+  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict inbox task
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) return 3 ;;
   esac
   if ! line=$(fm_task_inbox_doorbell_line "$rec"); then
     return 2
-  fi
-  if fm_task_inbox_usage_exhausted "$backend" "$target" "$harness" "$label"; then
-    FM_TASK_INBOX_EXHAUSTED_GEN=$observed_gen
-    return 4
   fi
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
   case "$cstate" in
