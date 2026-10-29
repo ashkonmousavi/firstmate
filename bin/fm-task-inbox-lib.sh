@@ -29,6 +29,7 @@
 #                              (the session and the away daemon)
 #   <task>.inbox/.ring-state   watcher re-ring ladder: "<msg>\t<count>\t<epoch>"
 #   <task>.inbox/.busy-state   consecutive busy deferrals: "<msg>\t<count>"
+#   <task>.inbox/NNN.ring-reason   last ring result (fm_task_inbox_ring owns the format)
 #   <task>.inbox/.escalated    oldest-message name already surfaced as stale,
 #                              so later polls suppress another escalation
 #   <task>.inbox/.retry-ring   name of a fire-and-forget record still owed its
@@ -76,7 +77,7 @@
 # Retry ring (fm_task_inbox_mark_retry): only while config/wait-no-turns is
 # present. A fire-and-forget record never enters the ladder, but when
 # fm-send's ring at enqueue did not land
-# (fm_task_inbox_ring returned 1 or 2) it marks the record, and one grace later
+# (fm_task_inbox_ring returned 1, 2 or 4) it marks the record, and one grace later
 # the due action is `retry`: once the worker has no open decision of its own,
 # the watcher rings once more and spends the mark
 # whatever the result, so the record never rings a third time and never
@@ -130,6 +131,8 @@ _FM_TASK_INBOX_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_FM_TASK_INBOX_LIB_DIR/fm-backend.sh"
 # shellcheck source=/dev/null
 . "$_FM_TASK_INBOX_LIB_DIR/fm-control-lib.sh"
+# The submit-signal reads below need the busy record contract even when no
+# tmux backend has been sourced yet.
 # shellcheck source=/dev/null
 . "$_FM_TASK_INBOX_LIB_DIR/fm-busy-lib.sh"
 
@@ -421,66 +424,175 @@ fm_task_inbox_idle_followup() {  # <state-dir> <task-id> <harness>
   [ "$named" = "$base" ]
 }
 
-# Ring the doorbell, best-effort: one endpoint-liveness pre-check, one advisory
-# composer pre-check, then the backend's submit machinery with a minimal retry
-# budget, verdict discarded.
-# Returns 0 rang, 1 skipped because the composer PROVENLY holds pending text
-# other than our own doorbell (the watcher re-rings later), 2 the backend send
-# failed, 3 skipped because the endpoint is positively dead or missing (nothing
-# typed; recovery owns the record). No return value is delivery proof; the
-# acknowledgement move is the only delivery signal.
-# The skip is deliberately narrow: only an exact `pending` verdict can defer,
-# because there our Enter could submit someone's real half-typed content.
-# `pending-unproven` and `unknown` still ring - the worst outcome is a garbled
-# CONSTANT line the worker recovers semantically, while skipping on ambiguous
-# verdicts would starve a harness whose idle screen the classifier cannot
-# positively identify (that classifier is advisory here by design).
-# A pending composer holding exactly our own doorbell line is a previous ring
-# whose Enter never landed, so on an agent not reported busy it is submitted
-# rather than skipped; skipping it would block every later ring. A submit-queue
-# harness submits that same Enter while busy. On both paths
-# a lost first Enter gets one confirmed retry.
+FM_TASK_INBOX_SIGNAL_STATE=
+FM_TASK_INBOX_SIGNAL_ID=
+FM_TASK_INBOX_SIGNAL_HARNESS=
+FM_TASK_INBOX_SIGNAL_BASELINE=
+fm_task_inbox_signal_prepare() {
+  local dir=${2%/*} abs name state meta harness baseline
+  FM_TASK_INBOX_SIGNAL_STATE=
+  FM_TASK_INBOX_SIGNAL_ID=
+  FM_TASK_INBOX_SIGNAL_HARNESS=
+  FM_TASK_INBOX_SIGNAL_BASELINE=
+  [ "$1" = tmux ] || return 1
+  abs=$(cd "$dir" 2>/dev/null && pwd) || return 1
+  abs=${abs%/handled}
+  name=${abs##*/}
+  state=${abs%/*}
+  case "$name" in
+    *.inbox) name=${name%.inbox} ;;
+    *) return 1 ;;
+  esac
+  meta="$state/$name.meta"
+  [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
+  harness=$(fm_meta_get "$meta" harness)
+  baseline=$(fm_busy_submit_baseline "$state" "$name" "$harness" "$3") || return 1
+  FM_TASK_INBOX_SIGNAL_STATE=$state
+  FM_TASK_INBOX_SIGNAL_ID=$name
+  FM_TASK_INBOX_SIGNAL_HARNESS=$harness
+  FM_TASK_INBOX_SIGNAL_BASELINE=$baseline
+}
+
+fm_task_inbox_confirmed_enter() {
+  local backend=$1 target=$2 line=$3 label=${4:-} i=0 cstate
+  while [ "$i" -lt 5 ]; do
+    fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 \
+      || { FM_TASK_INBOX_RING_REASON=enter-send-failed; return 2; }
+    i=$((i + 1))
+    if FM_SUBMIT_SIGNAL_STATE=$FM_TASK_INBOX_SIGNAL_STATE FM_SUBMIT_SIGNAL_ID=$FM_TASK_INBOX_SIGNAL_ID \
+         FM_SUBMIT_SIGNAL_HARNESS=$FM_TASK_INBOX_SIGNAL_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$FM_TASK_INBOX_SIGNAL_BASELINE \
+         fm_busy_submit_wait 2; then
+      return 0
+    fi
+    cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
+    case "$cstate" in
+      empty) return 0 ;;
+      pending) fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
+        || { : "${FM_TASK_INBOX_RING_REASON:=post-enter-foreign-draft}"; return 4; } ;;
+      *) FM_TASK_INBOX_RING_REASON=post-enter-unreadable; return 4 ;;
+    esac
+  done
+  FM_TASK_INBOX_RING_REASON=enter-retries-exhausted
+  return 4
+}
+
+# Ring best-effort, protecting a proven foreign draft. An exact own-doorbell
+# draft receives Enter only; otherwise type the line once. A busy harness
+# without a submit queue defers its own pending doorbell until idle. Both paths allow
+# five Enter presses with two-second confirmation windows (up to ten seconds).
+# A fresh line uses the backend's submit verdict. An existing draft requires a
+# cleared composer or matching receipt under bin/fm-busy-lib.sh's contract;
+# an unknown or unreadable composer ends confirmation without another blind
+# Enter. Backend-specific confirmation boundaries live in docs/tmux-backend.md
+# and docs/herdr-backend.md.
+# Returns 0 submit confirmed, 1 foreign or busy non-queue draft skipped, 2 backend send
+# failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed.
+# The inbox record remains durable for every ring result; only the worker's
+# move into handled/ acknowledges that the steer was acted on.
+# Ambiguous pre-checks still permit a fresh constant doorbell, so classifier
+# uncertainty cannot starve steering. Accepted residual race: the endpoint can
+# exit between the liveness check and typing; the ': ' prefix protects complete
+# shell lines only, not suffixes typed after such an exit.
+#
+# Reason for the last ring result, so the next failure names its step. The
+# stdout verdicts and the 0-4 return codes above are unchanged: this is
+# logging only. fm_task_inbox_ring owns the token: it leaves it in
+# FM_TASK_INBOX_RING_REASON (read it right after the call) and attempts to write
+# the sibling <inbox>/<seq>.ring-reason as one line, "rc=<n> token=<token>".
+# Each attempt replaces that record's diagnostic when writable; the .msg bytes
+# are never touched, and a failed diagnostic write cannot change the ring result.
+# A backend adapter only offers a finer token through the sink file named by
+# FM_RING_REASON_SINK (fm_backend_herdr_note_reason), because it runs in a
+# command substitution and cannot set a variable here. Tokens: ok, agent-dead,
+# foreign-pending-draft, busy-pending-doorbell, doorbell-rejected, submit-refused, backend-send-failed,
+# submit-unconfirmed, preflight-dialog, dialog-sink-failed, enter-send-failed,
+# post-enter-unreadable, post-enter-foreign-draft, composer-unreadable and
+# enter-retries-exhausted; herdr adds composer-nonempty, literal-send-failed,
+# payload-not-shown, clear-unverified, status-unknown and blocking-dialog.
+# Without a finer backend token, submit-refused, backend-send-failed and
+# submit-unconfirmed identify only the dispatch result, not an underlying cause.
+# Failed or unconfirmed send notices and watcher attempt logs include reason=;
+# spent-budget stale wakes include the last persisted token when available.
+# A later attempt replaces the diagnostic even if it succeeds: ok confirms
+# submission, not that the worker acted on or acknowledged the record.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness]
-  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict inbox task
+  local rc=0
+  FM_TASK_INBOX_RING_REASON=
+  _fm_task_inbox_ring_step "$@" || rc=$?
+  fm_task_inbox_note_reason "$3" "$rc" "$FM_TASK_INBOX_RING_REASON"
+  return "$rc"
+}
+
+_fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label] [harness]
+  local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict rc sink inbox task
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
-    dead|missing) return 3 ;;
+    dead|missing) FM_TASK_INBOX_RING_REASON=agent-dead; return 3 ;;
   esac
-  if ! line=$(fm_task_inbox_doorbell_line "$rec"); then
-    return 2
-  fi
+  line=$(fm_task_inbox_doorbell_line "$rec") || { FM_TASK_INBOX_RING_REASON=doorbell-rejected; return 2; }
+  fm_task_inbox_signal_prepare "$backend" "$rec" "$line" || true
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
-  case "$cstate" in
-    pending)
-      if fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label"; then
-        if ! fm_control_submit_queue "$harness"; then
-          inbox=${rec%/*}
-          task=${inbox##*/}
-          task=${task%.inbox}
-          if [ "$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)" = busy ] \
-            || fm_busy_is_busy "$backend" "$target" "$harness" "$task" "${inbox%/*}"; then
-            return 1
-          fi
-        fi
-        fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
-        sleep 0.3
-        fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" || return 0
-        fm_backend_send_key "$backend" "$target" Enter "$label" >/dev/null 2>&1 || return 2
-        return 0
+  if [ "$cstate" = pending ]; then
+    fm_task_inbox_composer_holds "$backend" "$target" "$line" "$label" \
+      || { : "${FM_TASK_INBOX_RING_REASON:=foreign-pending-draft}"; return 1; }
+    if ! fm_control_submit_queue "$harness"; then
+      inbox=${rec%/*}
+      task=${inbox##*/}
+      task=${task%.inbox}
+      if [ "$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)" = busy ] \
+        || fm_busy_is_busy "$backend" "$target" "$harness" "$task" "${inbox%/*}"; then
+        FM_TASK_INBOX_RING_REASON=busy-pending-doorbell
+        return 1
       fi
-      return 1
-      ;;
-  esac
-  # Accepted residual race: terminal input and Enter are separate delivery
-  # steps, so an agent exiting after the liveness check could leave a bare
-  # shell only a suffix; the `: ` prefix protects complete lines only. Do not
-  # add process-bound atomic delivery here unless an incident reopens this.
-  if ! verdict=$(fm_backend_send_text_submit "$backend" "$target" "$line" 2 0.4 0.3 "$label" 2>/dev/null); then
+    fi
+    rc=0
+    fm_task_inbox_confirmed_enter "$backend" "$target" "$line" "$label" || rc=$?
+    [ "$rc" -ne 0 ] || FM_TASK_INBOX_RING_REASON=ok
+    return "$rc"
+  fi
+  sink=$(mktemp "${TMPDIR:-/tmp}/fm-ring-reason.XXXXXX" 2>/dev/null) || sink=
+  FM_RING_REASON_SINK=$sink
+  rc=0
+  verdict=$(FM_SUBMIT_SIGNAL_STATE=$FM_TASK_INBOX_SIGNAL_STATE FM_SUBMIT_SIGNAL_ID=$FM_TASK_INBOX_SIGNAL_ID \
+       FM_SUBMIT_SIGNAL_HARNESS=$FM_TASK_INBOX_SIGNAL_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$FM_TASK_INBOX_SIGNAL_BASELINE \
+       fm_backend_send_text_submit "$backend" "$target" "$line" 5 2 0.3 "$label" 2>/dev/null) || rc=$?
+  FM_TASK_INBOX_RING_REASON=$(head -1 "$sink" 2>/dev/null || true)
+  # Read by backend adapters behind this library's source-analysis boundary.
+  # shellcheck disable=SC2034
+  FM_RING_REASON_SINK=
+  [ -z "$sink" ] || rm -f "$sink"
+  if [ "$rc" -ne 0 ]; then
+    : "${FM_TASK_INBOX_RING_REASON:=submit-refused}"
     return 2
   fi
-  # The verdict is read only to report a failed keystroke; every other value
-  # (empty, pending, unknown, ...) is deliberately ignored, never proof.
-  [ "$verdict" != send-failed ] || return 2
-  return 0
+  case "$verdict" in
+    empty) FM_TASK_INBOX_RING_REASON=ok; return 0 ;;
+    send-failed) : "${FM_TASK_INBOX_RING_REASON:=backend-send-failed}"; return 2 ;;
+    *) : "${FM_TASK_INBOX_RING_REASON:=submit-unconfirmed}"; return 4 ;;
+  esac
+}
+
+# The sibling reason file of one record (see the ring header above).
+fm_task_inbox_reason_file() {  # <record-path>
+  printf '%s.ring-reason' "${1%.msg}"
+}
+
+# Replace the record's reason line. Best-effort: a missing inbox or an
+# unwritable sibling never changes a ring result.
+fm_task_inbox_note_reason() {  # <record-path> <rc> <token>
+  local f
+  [ -n "${3:-}" ] || return 0
+  f=$(fm_task_inbox_reason_file "$1")
+  [ -d "${f%/*}" ] || return 0
+  { printf 'rc=%s token=%s\n' "$2" "$3" > "$f"; } 2>/dev/null || true
+}
+
+# Token of the last recorded attempt for one record, or nothing.
+fm_task_inbox_last_reason() {  # <record-path>
+  local line
+  line=$(head -1 "$(fm_task_inbox_reason_file "$1")" 2>/dev/null || true)
+  case "$line" in
+    *' token='*) printf '%s' "${line##* token=}" ;;
+  esac
 }
 
 # Whether the composer's content is exactly <line>.
@@ -488,19 +600,19 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [har
 # tail. fm_composer_text_is_own_doorbell ignores Cursor's same-row stop hint.
 fm_task_inbox_composer_holds() {  # <backend> <target> <line> [expected-label]
   local backend=$1 target=$2 line=$3 label=${4:-} cap held caps
-  fm_backend_source "$backend" || return 1
+  fm_backend_source "$backend" || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
   case "$backend" in
     tmux)
-      cap=$(fm_tmux_composer_capture "$target") || return 1
+      cap=$(fm_tmux_composer_capture "$target") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       caps=$(fm_tmux_composer_caps)
-      held=$(fm_composer_extract_selected_content "$caps" "$cap") || return 1
+      held=$(fm_composer_extract_selected_content "$caps" "$cap") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
     herdr)
-      held=$(fm_backend_herdr_composer_content "$target") || return 1
+      held=$(fm_backend_herdr_composer_content "$target") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
     *)
-      cap=$(fm_backend_capture "$backend" "$target" "$FM_COMPOSER_CAPTURE_LINES" "$label" 2>/dev/null) || return 1
-      held=$(fm_composer_extract_selected_content styled=0 "$cap") || return 1
+      cap=$(fm_backend_capture "$backend" "$target" "$FM_COMPOSER_CAPTURE_LINES" "$label" 2>/dev/null) || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
+      held=$(fm_composer_extract_selected_content styled=0 "$cap") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
   esac
   fm_composer_text_is_own_doorbell "$held" "$line"

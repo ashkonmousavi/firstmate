@@ -27,6 +27,8 @@
 # FM_SEND_INBOX_LIVE_HARNESSES="claude codex ..." when needed, and tune the
 # per-harness wait with FM_SEND_INBOX_LIVE_TIMEOUT (seconds, default 240).
 # Set FM_SEND_INBOX_LIVE_PENDING_ONLY=1 to run only pending-draft recovery.
+# FM_SEND_INBOX_LIVE_CLAUDE_MODES selects individual Claude cases; optional
+# FM_SEND_INBOX_LIVE_EVIDENCE_DIR retains CLI output and terminal captures.
 # Record the dated per-harness result in
 # docs/verification/runtime-backends.md ("Steering-inbox doorbell").
 #
@@ -37,7 +39,7 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-fm_live_gate opt-in FM_SEND_INBOX_LIVE_E2E tmux
+fm_live_gate opt-in FM_SEND_INBOX_LIVE_E2E tmux jq
 
 unset NO_MISTAKES_GATE
 
@@ -65,6 +67,31 @@ mkdir -p "$SHIM_DIR"
 REAL_TMUX=$(command -v tmux)
 cat > "$SHIM_DIR/tmux" <<SH
 #!/usr/bin/env bash
+if [ -n "\${FM_SEND_INBOX_LIVE_FAULT_DIR:-}" ]; then
+  fault=\$FM_SEND_INBOX_LIVE_FAULT_DIR
+  case "\${1:-}" in
+    send-keys)
+      if [ "\${!#}" = Enter ]; then
+        n=0
+        [ ! -f "\$fault/enters" ] || read -r n < "\$fault/enters"
+        n=\$((n + 1))
+        printf '%s\\n' "\$n" > "\$fault/enters"
+        python3 -c 'import time; print(time.monotonic())' >> "\$fault/enter-times"
+        if [ "\$n" = 1 ] && [ -f "\$fault/unrelated-window" ]; then
+          "$REAL_TMUX" -L "$SOCKET" send-keys -t "\$(cat "\$fault/unrelated-window")" Enter || exit 1
+        fi
+        [ "\$n" -gt "\$(cat "\$fault/swallow")" ] || exit 0
+      else
+        printf 'typed\\n' >> "\$fault/types"
+        printf '%s' "\${!#}" > "\$fault/payload"
+      fi
+      ;;
+    capture-pane)
+      [ ! -e "\$fault/accepted" ] || [ -e "\$fault/unrelated-window" ] || exit 1
+      if [ -e "\$fault/fail-capture" ] && [ -e "\$fault/types" ]; then exit 1; fi
+      ;;
+  esac
+fi
 exec "$REAL_TMUX" -L "$SOCKET" "\$@"
 SH
 chmod +x "$SHIM_DIR/tmux"
@@ -87,8 +114,11 @@ harness_version() {  # <binary>
 launch_cmd() {  # <name> <home> <binary>
   local home=${2:-} binary=${3:-} config
   case "$1" in
-    claude) printf '%s' 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '\''{"feedbackDrafts":"off"}'\''' ;;
-    codex) printf '%s' 'codex -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox --disable hooks' ;;
+    codex)
+      printf 'codex -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox --disable hooks -c %q -c %q' \
+        "shell_environment_policy.set.FM_HOME=\"$home\"" \
+        "shell_environment_policy.set.FM_TASK_INBOX=\"$home/state/live-codex.inbox\""
+      ;;
     opencode) printf '%s' "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"}}' opencode" ;;
     pi|pi-signed) printf '%s' "$1" ;;
     grok) printf '%s' 'grok --always-approve' ;;
@@ -144,11 +174,16 @@ esac
 # classifier cannot positively identify still gets its doorbell (the composer
 # matrix guard, not this one, owns re-proving the classifier per release).
 wait_ready() {  # <window>
-  local win=$1 i=0 budget=60 verdict dismissed=0 screen
+  local win=$1 i=0 budget=60 verdict dismissed=0 screen trusted=0
   while [ "$i" -lt "$budget" ]; do
     verdict=$(fm_tmux_composer_state "$SESSION:$win")
     [ "$verdict" = empty ] && return 0
     i=$((i + 1))
+    screen=$(tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$win" 2>/dev/null || true)
+    if [ "$trusted" = 0 ] && [[ "$screen" == *'Yes, I trust this folder'* ]]; then
+      tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Down Enter || return 1
+      trusted=1
+    fi
     # Dismiss one non-trust startup modal (update prompts), as the composer
     # matrix guard does; never Enter, which could accept an upgrade.
     if [ "$dismissed" -eq 0 ] && [ "$i" -ge $((budget / 3)) ]; then
@@ -319,6 +354,15 @@ check_harness_doorbell() {  # <name> <mode> <binary>
         claude|opencode) check_busy_doorbell "$win" "$home" "$task" "$version" "$name" || FAILED=1 ;;
       esac
     fi
+    if [ -n "${FM_SEND_INBOX_LIVE_EVIDENCE_DIR:-}" ]; then
+      mkdir -p "$FM_SEND_INBOX_LIVE_EVIDENCE_DIR" || fail 'could not create live evidence directory'
+      {
+        printf 'harness=%s\nmode=%s\nacted=yes\nacknowledged=yes\ninbox record:\n' "$version" "$mode"
+        cat "$handled"
+        printf '\nterminal:\n'
+        tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$win" -S -50
+      } > "$FM_SEND_INBOX_LIVE_EVIDENCE_DIR/$name-$mode.txt" || fail 'could not retain live evidence'
+    fi
   else
     FAILED=1
     printf 'not ok - %s (%s): doorbell not honored within %ss (acted=%s acked=%s)\n' \
@@ -329,6 +373,159 @@ check_harness_doorbell() {  # <name> <mode> <binary>
   tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
 }
 
+check_claude_submit() {
+  local mode=$1 binary=$2 version home task=live-claude win="claude-$1" gen prefix receipt
+  local acted rec handled baseline line output expected b_gen b_seq hash rc=0 i=0 fault types=1 actual_types=0 min_enters=3 enters donor
+  version=$(harness_version "$binary")
+  home="$LAB/claude-$mode-home"
+  fault="$home/fault"
+  acted="$home/acted"
+  rec="$home/state/$task.inbox/001.msg"
+  handled="$home/state/$task.inbox/handled/001.msg"
+  mkdir -p "$home/state" "$home/config" "$home/data" "$fault"
+  gen=$(bash "$ROOT/bin/fm-busy-event.sh" arm "$home/state" "$task" --state idle --source fm-recovery --event ready) \
+    || fail "claude ($version): could not arm the live submit record"
+  printf -v prefix '%q apply %q %q' "$ROOT/bin/fm-busy-event.sh" "$home/state" "$task"
+  printf -v receipt '%q' "$fault/accepted"
+  jq -n --arg prefix "$prefix" --arg gen "$gen" --arg receipt "$receipt" '
+    def hook($state; $event): [{hooks:[{type:"command",command:
+      ($prefix + " " + $state + " --gen " + $gen + " --source claude-hook --event " + $event
+        + (if $event == "user-prompt-submit" then " --prompt-stdin" else "" end) + " 2>/dev/null"
+        + (if $event == "user-prompt-submit" then " && touch " + $receipt else "" end) + " || true")}]}];
+    {feedbackDrafts:"off",hooks:{UserPromptSubmit:hook("busy";"user-prompt-submit"),
+      Stop:hook("idle";"stop"),StopFailure:hook("idle";"stop-failure"),SessionEnd:hook("idle";"session-end")}}
+  ' > "$home/settings.json" || fail "claude ($version): could not prepare lifecycle settings"
+  tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$ROOT" \
+    -- env -u CLAUDECODE -u GROK_AGENT -u GROK_HOOK_EVENT FM_HOME="$home" FM_TASK_INBOX="$home/state/$task.inbox" \
+    CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 \
+    "$binary" --dangerously-skip-permissions --setting-sources user --settings "$home/settings.json" \
+    || fail "claude ($version): could not launch the submit guard"
+  wait_ready "$win" || fail "claude ($version): submit guard never reached an empty composer"
+  printf 'window=%s:%s\nkind=%s\nharness=claude\n' "$SESSION" "$win" \
+    "$([ "$mode" = typed ] && printf secondmate || printf ship)" > "$home/state/$task.meta"
+  printf -v line "Run exactly this shell command now: \`touch %s\`. Then follow the mv instruction if you were given one. Reply with one short line." "$acted"
+  expected=$line
+  [ "$mode" = typed ] || expected=$(fm_task_inbox_doorbell_line "$rec")
+  baseline=$(fm_busy_submit_baseline "$home/state" "$task" claude "$expected") \
+    || fail "claude ($version): live submit baseline unavailable"
+  printf '2\n' > "$fault/swallow"
+  if [ "$mode" = unrelated ]; then
+    donor="$win-donor"
+    tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$donor" -c "$ROOT" \
+      -- env -u CLAUDECODE FM_HOME="$home" CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false \
+      "$binary" --dangerously-skip-permissions --setting-sources user --settings "$home/settings.json" \
+      || fail 'could not launch the unrelated-submit source'
+    wait_ready "$donor" || fail 'unrelated-submit source never reached a composer'
+    tmux -L "$SOCKET" send-keys -t "$SESSION:$donor" -l -- 'Reply with exactly UNRELATED_SUBMIT and do not use tools.' \
+      || fail 'could not prepare the unrelated prompt'
+    sleep 1
+    printf '%s\n' "$SESSION:$donor" > "$fault/unrelated-window"
+  fi
+  if [ "$mode" = pending ]; then
+    types=0
+    fm_task_inbox_write "$home/state" "$task" "$line" >/dev/null \
+      || fail "claude ($version): could not prepare pending record"
+    line=$(fm_task_inbox_doorbell_line "$rec") || fail "claude ($version): could not prepare pending doorbell"
+    tmux -L "$SOCKET" send-keys -t "$SESSION:$win" -l -- "$line" \
+      || fail "claude ($version): could not type the pending doorbell"
+    sleep 1
+    if ! { [ "$(fm_tmux_composer_state "$SESSION:$win")" = pending ] \
+      && fm_task_inbox_composer_holds tmux "$SESSION:$win" "$line"; }; then
+      fail "claude ($version): pending doorbell was not proven in the composer"
+    fi
+    [ ! -e "$acted" ] && [ ! -e "$handled" ] \
+      || fail "claude ($version): pending doorbell acted before submission"
+    fm_busy_submit_confirmed "$home/state" "$task" claude "$baseline" \
+      && fail "claude ($version): unsubmitted draft advanced the hook signal"
+    FM_SEND_INBOX_LIVE_FAULT_DIR="$fault" fm_task_inbox_ring tmux "$SESSION:$win" "$rec" || rc=$?
+  else
+    if [ "$mode" = blocked ] || [ "$mode" = unrelated ] || [ "$mode" = capture-failed ]; then
+      printf '99\n' > "$fault/swallow"
+      min_enters=5
+    fi
+    if [ "$mode" = capture-failed ]; then
+      touch "$fault/fail-capture"
+      min_enters=1
+    fi
+    [ "$mode" != typed ] || line="/$line"
+    output=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$home" FM_SEND_INBOX_LIVE_FAULT_DIR="$fault" \
+      bash "$ROOT/bin/fm-send.sh" "$task" "$line" 2>&1) || rc=$?
+  fi
+  if [ "$rc" -ne 0 ]; then
+    cat "$home/state/$task.busy-state" >&2
+    tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$win" -S -30 >&2
+    fail "claude ($version): $mode submit refused (exit $rc): ${output:-}"
+  fi
+  enters=$(cat "$fault/enters" 2>/dev/null)
+  case "$enters" in ''|*[!0-9]*) fail "claude ($version): $mode submit left no Enter count" ;; esac
+  [ "$enters" -ge "$min_enters" ] && [ "$enters" -le 5 ] \
+    || fail "claude ($version): $mode submit used $enters Enter presses, expected $min_enters to 5"
+  python3 - "$fault/enter-times" <<'PY' || fail 'Enter retries were closer than the required two seconds'
+import pathlib, sys
+times = [float(t) for t in pathlib.Path(sys.argv[1]).read_text().splitlines()]
+assert all(b - a >= 2 for a, b in zip(times, times[1:]))
+PY
+  [ ! -e "$fault/types" ] || actual_types=$(wc -l < "$fault/types")
+  [ "$actual_types" -eq "$types" ] \
+    || fail "claude ($version): $mode submit retyped text"
+  if [ "$mode" = typed ]; then
+    read -r b_gen b_seq _ <<< "$baseline"
+    hash=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read().replace(chr(0x2063).encode("utf-8"), b"")).hexdigest())' < "$fault/payload")
+    baseline="$b_gen $b_seq $hash"
+  fi
+  if [ "$mode" = blocked ] || [ "$mode" = unrelated ] || [ "$mode" = capture-failed ]; then
+    case "$output" in *'doorbell NOT delivered:'*) ;; *) fail "claude ($version): exhausted confirmation was not reported" ;; esac
+    [ -f "$rec" ] && [ ! -e "$handled" ] && [ ! -e "$acted" ] \
+      || fail "claude ($version): exhausted confirmation lost or acted on its durable record"
+    if [ "$mode" = unrelated ]; then
+      [ -e "$fault/accepted" ] || fail 'the unrelated real prompt did not emit a hook receipt'
+      [ "$(fm_busy_current_gen "$home/state" "$task")" = "$gen" ] || fail 'unrelated submit changed the incarnation'
+    else
+      [ ! -e "$fault/accepted" ] || fail "claude ($version): swallowed Enters emitted a submit receipt"
+    fi
+    fm_busy_submit_confirmed "$home/state" "$task" claude "$baseline" \
+      && fail "claude ($version): swallowed Enters advanced the hook signal"
+  else
+    fm_busy_submit_confirmed "$home/state" "$task" claude "$baseline" \
+      || fail "claude ($version): $mode submit had no real harness confirmation"
+    while [ "$i" -lt "$TIMEOUT" ]; do
+      if [ -e "$acted" ] && { [ "$mode" = typed ] || [ -e "$handled" ]; }; then break; fi
+      sleep 1
+      i=$((i + 1))
+    done
+    if ! { [ -e "$acted" ] && { [ "$mode" = typed ] || [ -e "$handled" ]; }; }; then
+      fail "claude ($version): $mode submit was not acted on and acknowledged within ${TIMEOUT}s"
+    fi
+    [ -e "$fault/accepted" ] || fail "claude ($version): $mode submit left no real hook receipt"
+  fi
+  CHECKED=$((CHECKED + 1))
+  if [ -n "${FM_SEND_INBOX_LIVE_EVIDENCE_DIR:-}" ]; then
+    mkdir -p "$FM_SEND_INBOX_LIVE_EVIDENCE_DIR" || fail 'could not create live evidence directory'
+    {
+      printf 'harness=%s\nmode=%s\nEnter presses=%s\nliteral text writes=%s\n' "$version" "$mode" "$enters" "$actual_types"
+      printf 'fm-send output:\n%s\n' "${output:-<direct inbox ring>}"
+      printf 'acted=%s\nacknowledged=%s\n' "$([ -e "$acted" ] && echo yes || echo no)" "$([ -e "$handled" ] && echo yes || echo no)"
+      printf 'harness state:\n'
+      cat "$home/state/$task.busy-state"
+      printf '\nsubmit receipts:\n'
+      for hash in "$home/state/$task.submit-state/"*; do
+        [ ! -f "$hash" ] || { printf '%s: ' "${hash##*/}"; cat "$hash"; }
+      done
+      printf '\nEnter timestamps:\n'
+      cat "$fault/enter-times"
+      printf '\nterminal:\n'
+      tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$win" -S -50
+      if [ -n "${donor:-}" ]; then
+        printf '\nunrelated source terminal:\n'
+        tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$donor" -S -50
+      fi
+    } > "$FM_SEND_INBOX_LIVE_EVIDENCE_DIR/claude-$mode.txt" || fail 'could not retain live evidence'
+  fi
+  pass "claude ($version): $mode submit checked real lifecycle hooks with $enters Enter presses"
+  [ -z "${donor:-}" ] || tmux -L "$SOCKET" kill-window -t "$SESSION:$donor" 2>/dev/null || true
+  tmux -L "$SOCKET" kill-window -t "$SESSION:$win" 2>/dev/null || true
+}
+
 HARNESSES=${FM_SEND_INBOX_LIVE_HARNESSES:-'cursor claude codex opencode pi pi-signed grok kimi muse omp gemini rovo agy devin commandcode polytoken'}
 for h in $HARNESSES; do
   case "$h" in
@@ -336,6 +533,21 @@ for h in $HARNESSES; do
     *) binary=$(command -v "$h" 2>/dev/null) || binary= ;;
   esac
   if [ -n "$binary" ]; then
+    if [ "$h" = claude ]; then
+      if [ -n "${FM_SEND_INBOX_LIVE_CLAUDE_MODES:-}" ]; then
+        for mode in $FM_SEND_INBOX_LIVE_CLAUDE_MODES; do check_claude_submit "$mode" "$binary"; done
+        continue
+      fi
+      if [ "${FM_SEND_INBOX_LIVE_PENDING_ONLY:-0}" != 1 ]; then
+        check_claude_submit typed "$binary"
+        check_claude_submit fresh "$binary"
+        check_claude_submit blocked "$binary"
+        check_claude_submit capture-failed "$binary"
+        check_claude_submit unrelated "$binary"
+      fi
+      check_claude_submit pending "$binary"
+      continue
+    fi
     if [ "${FM_SEND_INBOX_LIVE_PENDING_ONLY:-0}" != 1 ]; then
       check_harness_doorbell "$h" fresh "$binary"
     fi

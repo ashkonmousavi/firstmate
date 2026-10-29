@@ -310,8 +310,9 @@ cmd_send() {
   fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" || ring_rc=$?
   case "$ring_rc" in
     1) printf 'notice: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at %s\n' "$rec" >&2 ;;
-    2) printf 'notice: doorbell did not reach %s; the steer is durably recorded at %s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
+    2) printf 'notice: doorbell did not reach %s; the steer is durably recorded at %s%s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" "${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}" >&2 ;;
     3) printf 'notice: doorbell not typed because the agent in %s has exited; the steer is durably recorded at %s for recovery\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
+    4) printf 'notice: doorbell NOT delivered: typed into %s but the harness never confirmed the submit; the steer is durably recorded at %s%s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" "${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}" >&2 ;;
   esac
 }
 
@@ -319,15 +320,15 @@ cmd_send() {
 # host-local inbox, driven by the parent watcher's remote_inbox_tick
 # (bin/fm-task-inbox-lib.sh owns the ladder; "Remote leg" there). Each action
 # prints one line:
-#   due <grace> <max> quiet | ring <record> | escalate <record> <count>
-#   ring <record>    rang <ring-status> | handled | unavailable | bookkeeping-failed
+#   due <grace> <max> quiet | ring <record> | escalate <record> <count> [reason=<token>]
+#   ring <record>    rang <ring-status> [reason=<token>] | handled | unavailable | bookkeeping-failed
 #   escalated <rec>  escalated
 # <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
 # re-checks that the record is still unhandled, rings once, and spends one
 # ladder attempt; `escalated` writes the marker after the parent has queued its
 # wake.
 cmd_inbox() {
-  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 harness
+  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 harness last_reason
   validate_id "$id"
   validate_home "$id"
   remote_endpoint_require "$id"
@@ -347,7 +348,8 @@ cmd_inbox() {
           ;;
         escalate)
           rec=${due#* }
-          printf 'escalate %s %s\n' "$(basename "${rec% *}")" "${rec##* }"
+          last_reason=$(fm_task_inbox_last_reason "$dir/$(basename "${rec% *}")")
+          printf 'escalate %s %s%s\n' "$(basename "${rec% *}")" "${rec##* }" "${last_reason:+ reason=$last_reason}"
           ;;
         # A retry mark is a local-plane fire-and-forget debt; nothing on this
         # leg writes one, so anything else is quiet.
@@ -381,7 +383,7 @@ cmd_inbox() {
     printf 'bookkeeping-failed\n'
     return 0
   fi
-  printf 'rang %s\n' "$ring_rc"
+  printf 'rang %s%s\n' "$ring_rc" "${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}"
 }
 
 cmd_key() {

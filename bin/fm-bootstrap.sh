@@ -22,6 +22,9 @@
 #                 "BOOTSTRAP_INFO: nudged fm-<id> with '<message>'",
 #                 "SECONDMATE_LIVENESS: secondmate <id>: skipped: <reason>|respawn failed after <cause>: <reason>",
 #                 "SECONDMATE_HANDOFF: secondmate <id>: pending delivery: <n> item(s)",
+#                 "CREW_RECOVERY: relaunched <id> after <state>",
+#                 "CREW_RECOVERY: <id>: relaunch failed after <state>: <detail>",
+#                 "CREW_RECOVERY: <id>: relaunch deferred after <state>: <detail>",
 #                 "FMX: X mode on ..." or "FMX: X mode off ...".
 #          When a RUNNING secondmate home is fast-forwarded, its target is
 #          firstmate's own current default-branch commit. A local worktree uses
@@ -50,6 +53,10 @@
 #          failed names whether the endpoint was missing or agent-less.
 #          Already-live and successfully relaunched secondmates are silent
 #          unless FM_BOOTSTRAP_VERBOSE_FACTS=1 requests BOOTSTRAP_INFO facts.
+#          CREW_RECOVERY lines report a ship or scout in this home whose
+#          endpoint is dead or missing and whose recorded copy still holds
+#          unlanded work. bin/fm-crew-recovery-lib.sh owns that decision.
+#          Silence means nothing qualified. The sweep never tears a task down.
 #          A TANGLE line means the firstmate primary checkout (FM_ROOT) is stranded
 #          on a feature branch instead of its default branch - a crewmate's work
 #          landed in the primary instead of its own worktree; restore it per the line.
@@ -101,8 +108,8 @@
 #          The `code-root <file>` variant is a detect-only local check that runs
 #          even in a read-only session; detect_code_root_backlog_fork owns what
 #          it reports.
-#          Set FM_BOOTSTRAP_DETECT_ONLY=1 to skip the six MUTATING sweeps
-#          (backlog_record_reconcile, secondmate_sync,
+#          Set FM_BOOTSTRAP_DETECT_ONLY=1 to skip the seven MUTATING sweeps
+#          (backlog_record_reconcile, fm_crew_recovery_sweep, secondmate_sync,
 #          secondmate_liveness_sweep, secondmate_handoff_resume, x_mode_setup,
 #          fleet_sync) while still
 #          printing every read-only detect line
@@ -111,17 +118,22 @@
 #          fm-session-start.sh's read-only path when another live session holds
 #          the fleet lock, so a second concurrent session never race-mutates
 #          secondmate homes, pending handoff outboxes and receiver wakes,
-#          X-mode artifacts, project clones, or repair instructions.
-#          Unset/0 (the default) runs all six sweeps - this flag is purely
+#          X-mode artifacts, project clones, in-flight crew recovery, or repair
+#          instructions.
+#          Unset/0 (the default) runs all seven sweeps - this flag is purely
 #          additive.
 #          Set FM_BOOTSTRAP_NETWORK to split this run by whether a step talks to
 #          the network, so a session start can print its digest from local reads
-#          alone and run the network half off the digest's blocking path:
+#          alone and run the network half off the digest's blocking path.
+#          Dead-crewmate relaunch does not itself talk to the network. It sits
+#          in this half because that is the deferred startup pass, off the
+#          blocking digest:
 #            all  (default, and any unrecognized value) - every local and network
 #                 step. Unrecognized values fall back here on purpose: a typo
 #                 must never silently skip a safety sweep.
 #            skip - every LOCAL step, and none of the network ones. Skips
-#                 `gh auth status`, secondmate_liveness_sweep, secondmate_sync,
+#                 `gh auth status`, fm_crew_recovery_sweep,
+#                 secondmate_liveness_sweep, secondmate_sync,
 #                 secondmate_handoff_resume, and fleet_sync.
 #            only - ONLY those network steps and nothing else. No tool detection,
 #                 no version floors, no tangle check, no backlog
@@ -141,9 +153,11 @@
 #          directory selects the sequential fallback. Remote tracked-file sync
 #          and inheritance share a per-mate FM_SECONDMATE_CONVERGENCE_TIMEOUT
 #          budget (secondmate_sync_remote_one owns it).
+#          Dead-crewmate relaunch overlaps secondmate recovery and convergence.
 #          A relaunch that the liveness sweep performs during an `only` run is
 #          always reported, because a digest composed before that run already
-#          printed the superseded endpoint record.
+#          printed the superseded endpoint record. A crewmate relaunch is
+#          always reported as CREW_RECOVERY for the same reason.
 #          Set FM_BOOTSTRAP_LOCKED=1 alongside it when the sweeps are skipped
 #          because THIS session already ran them while holding the fleet lock,
 #          rather than because it has no lock at all. The two cases differ in
@@ -210,6 +224,10 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 # from identical evidence through an identical path.
 # shellcheck source=/dev/null # Analyzed separately as a canonical lint root.
 . "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
+# Dead ship and scout recovery for this home. bin/fm-crew-recovery-lib.sh owns
+# the decision; this file only chooses when the sweep runs.
+# shellcheck source=/dev/null # Analyzed separately as a canonical lint root.
+. "$SCRIPT_DIR/fm-crew-recovery-lib.sh"
 # fm-timing-lib.sh is inert unless FM_TIMING_LOG names a file, which only the
 # deferred network stage sets, so an ordinary bootstrap run records nothing.
 # shellcheck source=bin/fm-timing-lib.sh disable=SC1091
@@ -1622,6 +1640,7 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ]; then
   # depend on them, so it starts in the background and overlaps their wall clock.
   fleet_sync_pid=
   fleet_sync_out=
+  crew_recovery_pid=
   if network_phase && network_sweep_authorized 'project clone refresh'; then
     fleet_sync_out=$(mktemp "${TMPDIR:-/tmp}/fm-bootstrap-fleet.XXXXXX") || fleet_sync_out=
     if [ -n "$fleet_sync_out" ]; then
@@ -1638,6 +1657,14 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ]; then
     fi
   fi
   if network_phase; then
+    if network_sweep_authorized 'dead-crewmate relaunch'; then
+      (
+        __fm_timing_stamp=$(fm_timing_now_ms)
+        fm_crew_recovery_sweep
+        fm_timing_record phase crew-recovery "$__fm_timing_stamp"
+      ) &
+      crew_recovery_pid=$!
+    fi
     if network_sweep_authorized 'dead-secondmate relaunch'; then
       __fm_timing_stamp=$(fm_timing_now_ms)
       secondmate_liveness_sweep
@@ -1662,6 +1689,9 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ]; then
     && [ -d "$DATA" ] && [ -x "$SCRIPT_DIR/fm-contributions.sh" ]; then
     "$SCRIPT_DIR/fm-contributions.sh" arm --if-owned >/dev/null \
       || echo "MISSING: contribution observation could not be armed; coverage is unconfirmed"
+  fi
+  if [ -n "$crew_recovery_pid" ]; then
+    wait "$crew_recovery_pid" || true
   fi
   if [ -n "$fleet_sync_pid" ]; then
     wait "$fleet_sync_pid" || true

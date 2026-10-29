@@ -33,7 +33,16 @@ SEND="$ROOT/bin/fm-send.sh"
 TMP_ROOT=$(fm_test_tmproot fm-control)
 mkdir -p "$TMP_ROOT"
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd)
-trap 'rm -rf "$TMP_ROOT"' EXIT
+control_test_cleanup() {
+  local pid
+  if [ -f "$TMP_ROOT/background-pids" ]; then
+    while read -r pid; do
+      kill "$pid" 2>/dev/null || true
+    done < "$TMP_ROOT/background-pids"
+  fi
+  rm -rf "$TMP_ROOT"
+}
+trap control_test_cleanup EXIT
 
 VERIFIED_HARNESSES="claude codex opencode pi pi-signed grok kimi cursor muse omp devin commandcode"
 
@@ -209,6 +218,41 @@ fi
 exit 0
 SH
   chmod +x "$fb/sleep"
+  # A fake `claude` models only the background-session surface fm-control
+  # touches after a Claude exit: `agents --json` prints $FM_FAKE_DIR/agents.json
+  # (default `[]`), `stop <id>` logs the id and drops it from that file unless
+  # FM_FAKE_CLAUDE_REMOVE_KEEPS is set, and FM_FAKE_CLAUDE_AGENTS_FAIL makes the
+  # listing fail. Every call logs its arguments and the account/agent-view
+  # environment it ran under, so the tests can assert both.
+  cat > "$fb/claude" <<'SH'
+#!/usr/bin/env bash
+D=$FM_FAKE_DIR
+printf '%s\tCLAUDE_CONFIG_DIR=%s\tAGENT_VIEW=%s\n' "$*" "${CLAUDE_CONFIG_DIR-<unset>}" "${CLAUDE_CODE_DISABLE_AGENT_VIEW-<unset>}" >> "$D/claude-calls"
+case "${1:-}" in
+  agents)
+    [ -z "${FM_FAKE_CLAUDE_AGENTS_FAIL:-}" ] || { echo "claude agents: simulated failure" >&2; exit 1; }
+    if [ ! -f "$D/agents.json" ]; then echo '[]'; exit 0; fi
+    case " $* " in
+      *' --all '*) cat "$D/agents.json" ;;
+      *) jq 'map(select(.state != "done" and .state != "failed" and .state != "stopped"))' "$D/agents.json" ;;
+    esac
+    exit 0 ;;
+  stop|rm)
+    printf '%s\n' "${2:-}" >> "$D/claude-stops"
+    [ -z "${FM_FAKE_CLAUDE_REMOVE_FAIL:-}" ] || exit 1
+    [ -z "${FM_FAKE_CLAUDE_REMOVE_KEEPS:-}" ] || exit 0
+    if [ "$1" = rm ] && [ -z "${FM_FAKE_CLAUDE_REMOVE_ORPHANS:-}" ] && [ -f "$D/carried-${2:-}" ]; then
+      while read -r pid; do
+        kill -KILL "$pid" 2>/dev/null || true
+      done < "$D/carried-${2:-}"
+    fi
+    jq --arg id "${2:-}" 'map(select(.id != $id))' "$D/agents.json" > "$D/agents.json.new" \
+      && mv "$D/agents.json.new" "$D/agents.json"
+    exit 0 ;;
+esac
+exit 0
+SH
+  chmod +x "$fb/claude"
   printf '%s\n' "$fb"
 }
 
@@ -279,6 +323,262 @@ literals() {  # <case-dir>
 # text send rather than a control-plane key.
 keys_sent() {  # <case-dir>
   grep -v '^Enter$' "$1/fake/keys" || true
+}
+
+# --- Claude exit leaves no background session behind --------------------------
+#
+# Claude Code's /exit moves a session that still has background work into a
+# background session ("Moving to background... backgrounded <id>") instead of
+# exiting, so the process dies while its work keeps running outside any lane.
+# fm-control exit therefore lists `claude agents --json` afterwards and stops
+# any background session whose cwd is exactly the task's worktree.
+
+# bg_session <id> <cwd> [kind]: one `claude agents --json` row.
+bg_session() {
+  jq -n --arg id "$1" --arg cwd "$2" --arg kind "${3:-background}" --argjson pid "${4:-null}" \
+    '{id: $id, cwd: $cwd, kind: $kind, pid: $pid, sessionId: ($id + "-session"), state: "idle"}'
+}
+
+# set_agents <case-dir> <row>...: the fake claude's `agents --json` output.
+set_agents() {
+  local dir=$1; shift
+  printf '%s\n' "$@" | jq -s '.' > "$dir/fake/agents.json"
+}
+
+claude_stops() {  # <case-dir>
+  cat "$1/fake/claude-stops" 2>/dev/null || true
+}
+
+test_claude_exit_with_no_background_session_reports_none() {
+  local dir out rc
+  dir=$(new_case bg-none)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exit with no background session should succeed"$'\n'"$out"
+  assert_contains "$out" "background-sessions=none" "a clean exit should say no background session remains"
+  [ -z "$(claude_stops "$dir")" ] || fail "nothing should be stopped, got: $(claude_stops "$dir")"
+  pass "fm-control exit (claude): no background session reports none and stops nothing"
+}
+
+test_claude_exit_stops_only_the_background_session_of_its_worktree() {
+  local dir out rc wt other
+  dir=$(new_case bg-stop)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  wt=$(cat "$dir/fake/cwd")
+  other="$dir/wt-other"
+  set_agents "$dir" \
+    "$(bg_session aaaa1111 "$wt")" \
+    "$(bg_session bbbb2222 "$other")" \
+    "$(bg_session cccc3333 "$wt/" )" \
+    "$(bg_session dddd4444 "$wt/nested")" \
+    "$(bg_session eeee5555 "$wt" interactive)"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exit should stop the leftover background session"$'\n'"$out"
+  assert_contains "$out" "background-sessions=stopped:aaaa1111,cccc3333" "exit should report exactly the sessions it stopped"
+  [ "$(claude_stops "$dir" | sort | tr '\n' ' ')" = "aaaa1111 cccc3333 " ] \
+    || fail "only sessions whose cwd is the task worktree may be stopped, got: $(claude_stops "$dir")"
+  pass "fm-control exit (claude): stops background sessions of this worktree only"
+}
+
+test_claude_exit_that_cannot_stop_the_background_session_fails() {
+  local dir out rc wt
+  dir=$(new_case bg-stuck)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  wt=$(cat "$dir/fake/cwd")
+  set_agents "$dir" "$(bg_session aaaa1111 "$wt")"
+  out=$(FM_FAKE_CLAUDE_REMOVE_KEEPS=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a background session that survives claude rm must fail the exit"$'\n'"$out"
+  assert_contains "$out" "aaaa1111" "the failure should name the surviving session"
+  pass "fm-control exit (claude): a surviving background session fails the exit naming it"
+}
+
+test_claude_exit_reports_unverified_when_the_listing_fails() {
+  local dir out rc
+  dir=$(new_case bg-unverified)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  out=$(FM_FAKE_CLAUDE_AGENTS_FAIL=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "the agent did stop, so an unreadable listing must not fail the exit"$'\n'"$out"
+  assert_contains "$out" "background-sessions=unverified" "an unreadable listing should be reported, never read as none"
+  assert_contains "$out" "❌" "an unreadable listing should carry the broken-tool marker"
+  pass "fm-control exit (claude): an unreadable session listing is reported unverified"
+}
+
+test_claude_already_stopped_exit_still_checks_background_sessions() {
+  local dir out rc wt
+  dir=$(new_case bg-already-stopped)
+  add_task "$dir" t1 claude
+  wt=$(cat "$dir/fake/cwd")
+  set_agents "$dir" "$(bg_session aaaa1111 "$wt")"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "already-stopped exit should succeed"$'\n'"$out"
+  assert_contains "$out" "already-stopped t1" "the agent was already gone"
+  assert_contains "$out" "background-sessions=stopped:aaaa1111" "a handed-off session outlives the pane, so it is stopped here too"
+  pass "fm-control exit (claude): an already-stopped agent's leftover background session is stopped"
+}
+
+test_claude_exit_lists_under_the_worker_account_and_with_agent_view_on() {
+  local dir out rc root kind field
+  for kind in ship scout secondmate; do
+    for field in account claude_config_dir; do
+      dir=$(new_case "bg-account-$kind-$field")
+      add_task "$dir" t1 claude "$kind"
+      root="$dir/launch-root"
+      mkdir -p "$root" "$dir/new-root"
+      printf '%s=%s\n' "$field" "$root" >> "$dir/home/state/t1.meta"
+      printf '%s\n' "$dir/new-root" > "$dir/home/config/claude-account"
+      mkdir -p "$dir/home/config/secondmate-accounts/t1"
+      printf 'ordinary\n' > "$dir/home/config/secondmate-accounts/t1/claude-account"
+      set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")")"
+      out=$(CLAUDE_CODE_DISABLE_AGENT_VIEW=1 CLAUDE_CONFIG_DIR=/ambient run_control "$dir" t1 exit); rc=$?
+      expect_code 0 "$rc" "cleanup must use the launch account after a pin changes"$'\n'"$out"
+      assert_contains "$out" "background-sessions=stopped:aaaa1111" "cleanup must stop the launch account's session"
+      if grep -v "CLAUDE_CONFIG_DIR=$root" "$dir/fake/claude-calls" | grep -q .; then
+        fail "listing and stop must use the recorded launch root: $(cat "$dir/fake/claude-calls")"
+      fi
+      grep -q 'AGENT_VIEW=<unset>' "$dir/fake/claude-calls" || fail "agent view must be enabled for cleanup"
+    done
+  done
+  for field in account claude_config_dir; do
+    dir=$(new_case "bg-ordinary-$field")
+    add_task "$dir" t1 claude
+    if [ "$field" = account ]; then
+      printf 'account=ordinary\n' >> "$dir/home/state/t1.meta"
+    else
+      printf 'account=/old-root\nclaude_config_dir=\n' >> "$dir/home/state/t1.meta"
+    fi
+    printf '/new-root\n' > "$dir/home/config/claude-account"
+    out=$(CLAUDE_CONFIG_DIR=/ambient run_control "$dir" t1 exit); rc=$?
+    expect_code 0 "$rc" "ordinary launch-account cleanup should succeed"$'\n'"$out"
+    grep -q 'CLAUDE_CONFIG_DIR=<unset>' "$dir/fake/claude-calls" || fail "ordinary launch must unset the ambient root"
+  done
+  pass "fm-control exit (claude): listing and stop retain each kind's launch account after pin changes"
+}
+
+test_claude_exit_removes_carried_work_from_previous_incarnations() {
+  local dir out rc root child leaf late unrelated replacement i account transcript other_account
+  dir=$(new_case bg-carried)
+  add_task "$dir" t1 claude
+  account="$dir/launch account"
+  printf 'claude_config_dir=%s\n' "$account" >> "$dir/home/state/t1.meta"
+  transcript="$account/projects/$(printf '%s' "$(cat "$dir/fake/cwd")" | sed 's/[^a-zA-Z0-9]/-/g')"
+  mkdir -p "$transcript"
+  # Vendor transcript lineage connects the original interactive session to its
+  # background fork. The process retains the original session environment.
+  printf '%s\n' '{"type":"continued-in","sessionId":"previous-session","continuedInSessionId":"aaaa1111-session"}' > "$transcript/previous-session.jsonl"
+  mkdir -p "$dir/outside"
+  cat > "$dir/outside/child.sh" <<'SH'
+cd "$1" || exit 1
+set -m
+trap '/bin/sleep 600 & echo $! > "$1/late"; exit 0' TERM
+env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CONFIG_DIR /bin/sleep 600 &
+echo $! > "$1/leaf"
+echo "$BASHPID" > "$1/child"
+wait
+SH
+  # shellcheck disable=SC2016 # The child shell expands its own positional parameter.
+  env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=previous-session \
+    bash -c 'bash "$1/child.sh" "$1" & wait' _ "$dir/outside" >/dev/null 2>&1 </dev/null &
+  root=$!
+  printf '%s\n' "$root" >> "$TMP_ROOT/background-pids"
+  for ((i=0; i<100; i++)); do
+    [ ! -f "$dir/outside/child" ] || break
+    /bin/sleep 0.02
+  done
+  child=$(cat "$dir/outside/child")
+  leaf=$(cat "$dir/outside/leaf")
+  printf '%s\n' "$child" "$leaf" >> "$TMP_ROOT/background-pids"
+  [ "$(ps -p "$child" -o pgid=)" != "$(ps -p "$leaf" -o pgid=)" ] \
+    || fail "the carried child did not create a separate process group"
+  env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=neighbor-session \
+    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+  unrelated=$!
+  printf '%s\n' "$unrelated" >> "$TMP_ROOT/background-pids"
+  kill -TERM "$root"
+  wait "$root" 2>/dev/null || true
+  kill -0 "$child" 2>/dev/null || fail "the earlier incarnation's carried shell did not survive"
+  [ "$(ps -p "$child" -o ppid= | tr -d ' ')" != "$root" ] || fail "the carried shell was not reparented"
+  env CLAUDE_CONFIG_DIR="$dir/other account" CLAUDE_CODE_SESSION_ID=previous-session \
+    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+  other_account=$!
+  printf '%s\n' "$other_account" >> "$TMP_ROOT/background-pids"
+  env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=aaaa1111-session \
+    /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+  replacement=$!
+  printf '%s\n' "$replacement" >> "$TMP_ROOT/background-pids"
+  printf '%s\n' "$child" "$leaf" "$replacement" > "$dir/fake/carried-aaaa1111"
+  set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" background "$replacement")"
+  # Oracle: cleanup ends the original PID/start-time identities, even when the
+  # vendor drops its record without killing them (the reported live failure).
+  out=$(FM_FAKE_CLAUDE_REMOVE_ORPHANS=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exit must stop the carried process tree"$'\n'"$out"
+  [ -f "$dir/outside/late" ] || fail "the carried shell did not spawn work during termination"
+  late=$(cat "$dir/outside/late")
+  printf '%s\n' "$late" >> "$TMP_ROOT/background-pids"
+  for root in "$root" "$child" "$leaf" "$late" "$replacement"; do
+    case "$(ps -p "$root" -o stat= 2>/dev/null)" in
+      ''|*Z*) : ;;
+      *) fail "session-owned process $root survived cleanup: $out" ;;
+    esac
+  done
+  kill -0 "$unrelated" 2>/dev/null || fail "cleanup killed an unrelated process"
+  kill -0 "$other_account" 2>/dev/null || fail "cleanup crossed the recorded account boundary"
+  assert_contains "$out" 'background-sessions=stopped:aaaa1111' "success must follow session and process termination"
+  pass "fm-control exit (claude): exact-session removal stops earlier incarnations and preserves unrelated work"
+}
+
+test_claude_exit_removes_a_session_without_a_live_pid() {
+  local dir out rc state hidden carried account
+  for state in stopped 'done' failed; do
+    dir=$(new_case "bg-no-pid-$state")
+    add_task "$dir" t1 claude
+    account="$dir/launch account"
+    printf 'claude_config_dir=%s\n' "$account" >> "$dir/home/state/t1.meta"
+    env CLAUDE_CONFIG_DIR="$account" CLAUDE_CODE_SESSION_ID=aaaa1111-session \
+      /bin/sleep 600 >/dev/null 2>&1 </dev/null &
+    carried=$!
+    printf '%s\n' "$carried" >> "$TMP_ROOT/background-pids"
+    printf '%s\n' "$carried" > "$dir/fake/carried-aaaa1111"
+    set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")" | jq --arg state "$state" 'del(.pid) | .state = $state')"
+    hidden=$(FM_FAKE_DIR="$dir/fake" "$dir/fakebin/claude" agents --json)
+    [ "$hidden" = '[]' ] || fail "the vendor's default listing must omit $state sessions"
+    out=$(FM_FAKE_CLAUDE_REMOVE_ORPHANS=1 run_control "$dir" t1 exit); rc=$?
+    expect_code 0 "$rc" "exact-session removal must cover $state sessions without a live process"$'\n'"$out"
+    assert_contains "$out" 'background-sessions=stopped:aaaa1111' "removal must enumerate retained session records"
+    [ "$(cat "$dir/fake/agents.json")" = '[]' ] || fail "the retained $state session was not removed"
+    case "$(ps -p "$carried" -o stat= 2>/dev/null)" in
+      ''|*Z*) : ;;
+      *) fail "the $state session's carried process survived cleanup" ;;
+    esac
+    wait "$carried" 2>/dev/null || true
+  done
+  pass "fm-control exit (claude): cleanup includes stopped, completed, and failed records omitted by the default listing"
+}
+
+test_claude_exit_refuses_a_failed_session_removal() {
+  local dir out rc
+  dir=$(new_case bg-rm-failed)
+  add_task "$dir" t1 claude
+  set_agents "$dir" "$(bg_session aaaa1111 "$(cat "$dir/fake/cwd")")"
+  out=$(FM_FAKE_CLAUDE_REMOVE_FAIL=1 run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "a vendor refusal must not claim carried work stopped"$'\n'"$out"
+  assert_contains "$out" 'could not be stopped with its carried work' "failure must explain the incomplete postcondition"
+  pass "fm-control exit (claude): failed removal prevents cleanup success"
+}
+
+test_non_claude_exit_never_calls_claude() {
+  local dir out rc
+  dir=$(new_case bg-codex)
+  add_task "$dir" t1 codex
+  alive_as "$dir" codex
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "codex exit should succeed"$'\n'"$out"
+  [ ! -e "$dir/fake/claude-calls" ] || fail "a non-Claude exit must not call claude, got: $(cat "$dir/fake/claude-calls")"
+  case "$out" in *background-sessions*) fail "a non-Claude exit must not report background sessions: $out" ;; esac
+  pass "fm-control exit: a non-Claude harness never reaches the claude session check"
 }
 
 # --- 1. adapter contract across every verified harness -----------------------
@@ -1255,6 +1555,16 @@ test_verb_allowlist_is_closed
 test_resume_is_refused_with_its_reason
 test_relaunch_only_flags_are_rejected_on_other_verbs
 test_already_stopped_exit_is_idempotent
+test_claude_exit_removes_carried_work_from_previous_incarnations
+test_claude_exit_removes_a_session_without_a_live_pid
+test_claude_exit_refuses_a_failed_session_removal
+test_claude_exit_with_no_background_session_reports_none
+test_claude_exit_stops_only_the_background_session_of_its_worktree
+test_claude_exit_that_cannot_stop_the_background_session_fails
+test_claude_exit_reports_unverified_when_the_listing_fails
+test_claude_already_stopped_exit_still_checks_background_sessions
+test_claude_exit_lists_under_the_worker_account_and_with_agent_view_on
+test_non_claude_exit_never_calls_claude
 test_missing_tmux_endpoint_refuses_rather_than_claiming_a_stop
 test_interrupt_refuses_when_no_agent_runs
 test_ambiguous_endpoint_refuses

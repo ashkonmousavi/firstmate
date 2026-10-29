@@ -22,9 +22,9 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Timeout policy: docs/fm-test-portable-shards.md "Timeouts" owns the three
-# tiers and their rationale; tests/fm-ci-workflow.test.sh guards this workflow.
-# Each job comment identifies the tier implemented by its executable value.
+# Timeout policy: docs/fm-test-portable-shards.md "Timeouts" owns the tiers,
+# serial exception, and rationale; tests/fm-ci-workflow.test.sh guards this workflow.
+# Each job comment identifies the tier or exception implemented by its value.
 
 # Fork opt-out: a fork sets the repository variable FM_CI_SKIP_PUSH to 1 to
 # skip the push run, and FM_CI_SKIP_MACOS to 1 to skip the macOS job, without
@@ -59,9 +59,9 @@ jobs:
           bin/fm-install-actionlint.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       # Single owner of the lint definition (shell file set, config, version,
-      # and GitHub workflow lint). Do not re-spell the checks here; keep CI
-      # and the pre-push gate on this script so a self-broken ci.yml still
-      # fails locally before merge.
+      # and GitHub workflow lint). Do not re-spell the checks here; the same
+      # script remains directly runnable to check workflow edits locally,
+      # because a self-broken ci.yml cannot report its own breakage.
       - name: Lint canonical partition
         env:
           # Fail closed rather than lint uncapped when a configured per-root
@@ -196,8 +196,9 @@ jobs:
     name: Behavior portable serial ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     if: ${{ !(github.event_name == 'push' && vars.FM_CI_SKIP_PUSH == '1') }}
-    # Normal tier (see the timeout policy above).
-    timeout-minutes: 30
+    # Serial exception (see the timeout policy above): shard 1 needs about 29
+    # minutes by construction, so this one job keeps a 45-minute hang tripwire.
+    timeout-minutes: 45
     strategy:
       # Every shard reports so one failure never hides another shard's result.
       fail-fast: false

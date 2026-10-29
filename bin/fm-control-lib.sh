@@ -287,6 +287,35 @@ fm_control_exit_command() {  # <harness>
   esac
 }
 
+# Claude Code's /exit does not always exit: a session that still has background
+# work (subagents, background shells, workflows, monitors) can be moved to a
+# background session ("Moving to background... backgrounded <id>") and keeps
+# running outside every lane
+# (https://code.claude.com/docs/en/agent-view.md). The launch environment turns
+# that off (bin/fm-spawn.sh); this is the verb-side backstop for sessions that
+# predate it or slip past it.
+#
+# fm_control_claude_bg_ids <worktree> <agents-json>
+# Reads the `claude agents --json --all` array on the second argument and prints the
+# id of each BACKGROUND session whose cwd is exactly <worktree> (trailing
+# slashes and the physical path of the worktree are equivalent), one per line.
+# Interactive sessions, a different worktree, and a cwd merely nested under
+# this one are never printed: another task's session must never be stopped by
+# a prefix match. An id that is not a plain token is dropped rather than passed
+# to `claude rm`. Returns 1 when the JSON is not an array.
+fm_control_claude_bg_ids() {
+  local wt=${1-} json=${2-} phys
+  wt=${wt%/}
+  [ -n "$wt" ] || return 1
+  phys=$(cd "$wt" 2>/dev/null && pwd -P) || phys=$wt
+  printf '%s' "$json" | jq -r --arg a "$wt" --arg b "$phys" '
+    if type != "array" then error("not an array") else .[] end
+    | select(.kind == "background")
+    | select((.cwd // "") | sub("/+$"; "") | . == $a or . == $b)
+    | select((.id // "") | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9_-]*$"))
+    | .id' 2>/dev/null
+}
+
 # The launch argument that makes a RELAUNCH of <harness> RESUME an exact agent
 # session instead of starting a fresh one, printed only when <registered-agent>
 # is the label that session reference belongs to; nothing otherwise.
@@ -383,22 +412,39 @@ fm_control_backend_state_verified() {  # <backend>
 #     passes `--session <session>`, so the recheck starts and reads the session
 #     the RECORD names, through that session's own socket. The answer is about
 #     the task's endpoint and nothing else.
-#   tmux CANNOT. `list-windows -a` describes only the server the CURRENT
-#     process addresses (its TMUX_TMPDIR/socket), and a task's record does not
-#     carry the endpoint's socket identity - so a different but running server
-#     would answer "not anywhere" about a window it was never able to see.
-#     There is no read available here that closes that gap, so tmux always
-#     returns `unproven` and both verbs refuse. tmux is left exactly as
-#     deadlocked as it was before this change - no worse - but deliberately.
+#   tmux needs a recorded spawn_gen predating the current OS boot. The
+#     generation timestamp is emitted by fm-spawn.sh; a process from that
+#     incarnation cannot survive reboot, regardless of socket selection.
+#     A missing, malformed, or current-boot generation remains unproven.
 #
 # Both control-plane callers share this one implementation so the proof cannot
 # drift into two answers for the same endpoint.
-fm_control_endpoint_absence_verdict() {  # <backend> <target>
-  local backend=${1-} target=${2-}
+fm_control_endpoint_absence_verdict() {  # <backend> <target> [meta]
+  local backend=${1-} target=${2-} meta=${3-} gen spawned boot=''
   fm_backend_source "$backend" \
     || { printf 'unproven\tbackend %s could not be loaded to prove anything about that endpoint' "'$backend'"; return 0; }
   case "$backend" in
     tmux)
+      if [ -f "$meta" ] && [ ! -L "$meta" ] \
+        && [ "$(fm_backend_target_of_meta "$meta")" = "$target" ] \
+        && [ "$(fm_backend_of_meta "$meta")" = tmux ]; then
+        gen=$(fm_meta_get "$meta" spawn_gen)
+        if [[ "$gen" =~ ^s([0-9]{1,12})\.[0-9]+\.[0-9]+$ ]]; then
+          spawned=${BASH_REMATCH[1]}
+          case "$(uname -s)" in
+            Linux) boot=$(awk '$1 == "btime" && NF == 2 { print $2; exit }' /proc/stat 2>/dev/null) || boot='' ;;
+            Darwin) boot=$(sysctl -n kern.boottime 2>/dev/null | sed -n 's/^{ sec = \([0-9][0-9]*\),.*$/\1/p') || boot='' ;;
+          esac
+          if [[ "$boot" =~ ^[0-9]{1,12}$ ]] \
+            && [ "$((10#$spawned))" -gt 0 ] && [ "$((10#$spawned))" -lt "$((10#$boot))" ]; then
+            case "$(fm_backend_agent_state tmux "$target")" in
+              missing) printf 'gone\t'; return 0 ;;
+              dead) printf 'dead\t'; return 0 ;;
+              alive) printf 'alive\t'; return 0 ;;
+            esac
+          fi
+        fi
+      fi
       printf 'unproven\ttmux absence cannot be proven from a task record: the record does not carry the endpoint'"'"'s socket identity, and a server-wide window inventory only describes the tmux server this process addresses, so a window absent from it may still be alive on another'
       ;;
     herdr)

@@ -43,6 +43,7 @@ The remote reply adapter already mirrors every channel line into the parent home
 A missed-reply escalation includes the complete first sighting path and line number in readable shell-escaped form.
 For no-reply steers, [`fm-send.sh`](../bin/fm-send.sh) owns the choice between `--one-way` and fire-and-forget delivery.
 An existing correlation is closed by the recipient with [`fm-pending-reply-ack-handled.sh`](../bin/fm-pending-reply-ack-handled.sh).
+Stale superseded records use [`fm-pending-reply-retire-stale.sh`](../bin/fm-pending-reply-retire-stale.sh); that script's header owns the age and superseded rules.
 
 ## What is deliberately not built
 
@@ -59,6 +60,7 @@ An existing correlation is closed by the recipient with [`fm-pending-reply-ack-h
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
 `tests/fm-pending-reply-ack-handled.test.sh` covers the recipient acknowledgement closing one correlation while another stays open.
+`tests/fm-pending-reply-retire-stale.test.sh` covers retirement strictly after 24 hours for records superseded by a confirmed-delivery successor or a gone task, retained records and retirement notes, and the refusal to retire unsuperseded unanswered records.
 `tests/fm-pending-reply.test.sh` covers helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
 `tests/fm-parent-channel-scan-exclusion.test.sh` covers the home-shape-aware scan exclusion against real remote, main-home, and local-mate fixtures: the watcher signal scan, both heartbeat backstops, the fleet-wide folds, and the real `fm-wake-drain.sh` end to end.
 

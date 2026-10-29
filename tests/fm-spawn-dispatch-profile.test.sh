@@ -578,7 +578,7 @@ test_active_dispatch_profile_allows_raw_launch_command() {
   # The unverified-adapter escape hatch is still an agent this fleet launched,
   # so it carries the compact-adviser floor and the AI-trailer strip; nothing
   # else may rewrite the captain's own command.
-  [ "$launch" = "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$HOME_DIR" "$id")$(fm_test_launch_git_prefix "$launch")custom-agent --flag" ] || fail "raw launch command changed"$'\n'"actual: $launch"
+  [ "$launch" = "export COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1; unset CLAUDE_CONFIG_DIR; $(task_inbox_export "$HOME_DIR" "$id")$(fm_test_launch_git_prefix "$launch")custom-agent --flag" ] || fail "raw launch command changed"$'\n'"actual: $launch"
   pass "active crew-dispatch profile allows the raw launch-command escape hatch"
 }
 
@@ -620,6 +620,111 @@ test_claude_threads_model_and_effort() {
     "claude launch did not thread model and effort flags"
   assert_not_contains "$launch" "--tui-mode" "non-Pi launches must not receive Pi's TUI mode override"
   pass "claude receives --model and --effort profile flags"
+}
+
+# Claude Code's /exit moves a session that still has background work into a
+# background session instead of exiting, and agent view runs those sessions
+# outside every lane. Every Claude launch (ship, scout, secondmate) therefore
+# carries both documented switches in its environment prefix
+# (https://code.claude.com/docs/en/agent-view.md, env-vars.md).
+test_claude_launches_disable_background_exit_handoff_and_agent_view() {
+  local rec id out status launch sm kind form executable
+  local -a harness_args
+  for form in canonical raw prefixed fallback changed-directory; do
+    for kind in ship scout secondmate; do
+      id="bgexit-$form-$kind-z31"
+      rec=$(make_spawn_case "bgexit-$form-$kind" claude "$id")
+      read_case_record "$rec"
+      executable=claude
+      harness_args=()
+      if [ "$form" = fallback ]; then
+        printf 'FM_BG_ENV_LOG\n' > "$HOME_DIR/config/launch-env-allowlist"
+      fi
+      case "$form" in
+        raw) harness_args=(--harness 'claude --model haiku') ;;
+        prefixed) executable=claude-custom; harness_args=(--harness 'claude-custom --model haiku') ;;
+        fallback) harness_args=(--harness 'claude --resume missing || claude --model haiku') ;;
+        changed-directory) harness_args=(--harness "cd '$WT_DIR' && claude --model haiku") ;;
+      esac
+      case "$kind" in
+        ship) out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" "${harness_args[@]}") ;;
+        scout) out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout "${harness_args[@]}") ;;
+        secondmate)
+          sm="$CASE_DIR/secondmate-home"
+          make_seeded_secondmate_home "$sm" "$id"
+          out=$(FM_TEST_CLAUDE_CONFIG_DIR="$CASE_DIR/claude-work" \
+            run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate "${harness_args[@]}")
+          ;;
+      esac
+      status=$?
+      expect_code 0 "$status" "claude $form $kind spawn should succeed"$'\n'"$out"
+      launch=$(cat "$LAUNCH_LOG")
+      cat > "$FAKEBIN_DIR/$executable" <<'SH'
+#!/usr/bin/env bash
+printf 'handoff=%s\nview=%s\n' "${CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF-unset}" "${CLAUDE_CODE_DISABLE_AGENT_VIEW-unset}" >> "$FM_BG_ENV_LOG"
+[ "${1:-}" != --resume ]
+SH
+      chmod +x "$FAKEBIN_DIR/$executable"
+      env -i HOME="$CASE_DIR" PATH="$FAKEBIN_DIR:$PATH" TERM=xterm FM_BG_ENV_LOG="$CASE_DIR/worker-env" \
+        CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=0 CLAUDE_CODE_DISABLE_AGENT_VIEW=0 \
+        bash -c "$launch" || fail "the emitted $form $kind launch could not execute"
+      grep -Fxq 'handoff=1' "$CASE_DIR/worker-env" || fail "$form $kind did not disable exit handoff"
+      grep -Fxq 'view=1' "$CASE_DIR/worker-env" || fail "$form $kind did not disable agent view"
+      if grep -Ev '^(handoff|view)=1$' "$CASE_DIR/worker-env" | grep -q .; then
+        fail "a command in the $form $kind expression missed the safeguards"
+      fi
+      if [ "$form" = fallback ]; then
+        [ "$(wc -l < "$CASE_DIR/worker-env" | tr -d ' ')" = 4 ] || fail "both fallback commands must execute"
+      fi
+    done
+  done
+  pass "executed canonical and raw Claude launches receive both safeguards for every task kind"
+}
+
+# A Haiku worker runs with an Opus advisor (https://code.claude.com/docs/en/advisor:
+# Haiku 4.5 and Haiku 5.5 both accept Opus). --advisor is real but absent from
+# `claude --help`; any other model gets no flag, because an unaccepted pairing
+# makes a foreground launch exit.
+test_claude_haiku_launch_gets_an_opus_advisor() {
+  local rec id out status launch model kind n=0
+  for model in claude-haiku-5-5 haiku Haiku; do
+    for kind in ship scout; do
+      n=$((n + 1))
+      id="advisor-$kind-z32-$n"
+      rec=$(make_spawn_case "advisor-$kind-$n" claude "$id")
+      read_case_record "$rec"
+      if [ "$kind" = scout ]; then
+        out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout --model "$model")
+      else
+        out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --model "$model")
+      fi
+      status=$?
+      expect_code 0 "$status" "claude $kind spawn on $model should succeed"$'\n'"$out"
+      launch=$(cat "$LAUNCH_LOG")
+      assert_contains "$launch" "--model '$model' --advisor 'opus' " "$kind launch on $model must pair an Opus advisor"
+    done
+  done
+  pass "a Haiku claude ship or scout launch carries --advisor opus"
+}
+
+test_claude_non_haiku_launch_gets_no_advisor() {
+  local rec id out status launch model n=0
+  for model in sonnet claude-sonnet-5-5 opus claude-opus-5-5 fable; do
+    n=$((n + 1))
+    id="noadvisor-z33-$n"
+    rec=$(make_spawn_case "noadvisor-$n" claude "$id")
+    read_case_record "$rec"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --model "$model")
+    status=$?
+    expect_code 0 "$status" "claude spawn on $model should succeed"$'\n'"$out"
+    assert_not_contains "$(cat "$LAUNCH_LOG")" "--advisor" "$model must not receive an advisor flag"
+  done
+  id=noadvisor-default-z34
+  rec=$(make_spawn_case noadvisor-default claude "$id")
+  read_case_record "$rec"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  assert_not_contains "$(cat "$LAUNCH_LOG")" "--advisor" "a launch with no resolved model must not receive an advisor flag"
+  pass "no advisor flag for a non-Haiku or unspecified claude model"
 }
 
 test_codex_threads_model_and_effort() {
@@ -1541,8 +1646,8 @@ test_claude_forwards_firstmate_config_dir_when_set() {
   status=$?
   expect_code 0 "$status" "claude spawn with CLAUDE_CONFIG_DIR set should succeed"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work' env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions $(claude_worker_add_dirs "$HOME_DIR" "$id")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}'" \
-    "claude launch did not forward firstmate's CLAUDE_CONFIG_DIR to the crewmate pane"
+  assert_contains "$launch" "export CLAUDE_CONFIG_DIR='$CASE_DIR/claude-work';" \
+    "claude launch must export firstmate's root for the whole expression"
   pass "claude forwards firstmate's CLAUDE_CONFIG_DIR so the crewmate uses the same credential store"
 }
 
@@ -2118,33 +2223,30 @@ EOF
 # config/claude-permission-mode (bin/fm-spawn.sh header): absent and `bypass`
 # must both produce today's launch byte-for-byte, `auto` swaps only the
 # permission flag, and any other token refuses before endpoint or metadata.
-claude_settings_json_arg() {  # <launch>
-  local command
-  command=$(fm_test_launch_command "$1")
-  eval "set -- $command"
-  while [ "$#" -gt 0 ]; do
-    if [ "$1" = --settings ]; then
-      shift
-      # Claude Code's --settings takes inline JSON or a file path; a
-      # secondmate launch passes the path form.
-      case "$1" in
-      \{*) printf '%s' "$1" ;;
-      *) cat "$1" ;;
-      esac
-      return 0
-    fi
-    shift
-  done
-  return 1
+claude_launch_args() {
+  local capture_bin="$CASE_DIR/argv-bin" captured="$CASE_DIR/argv.nul"
+  mkdir -p "$capture_bin" "$CASE_DIR/argv-home"
+  {
+    printf '%s\n' '#!/usr/bin/env bash'
+    printf 'printf '\''%%s\\0'\'' "$@" > %q\n' "$captured"
+  } > "$capture_bin/claude"
+  chmod +x "$capture_bin/claude"
+  env -i HOME="$CASE_DIR/argv-home" PATH="$capture_bin:$FAKEBIN_DIR:$PATH" TERM=xterm \
+    bash -c "$1" >/dev/null || return 1
+  jq -Rs 'split("\u0000")[:-1]' "$captured"
 }
 
-claude_launch_brief_arg() {  # <launch>
-  local command
-  command=$(fm_test_launch_command "$1")
-  (
-    eval "set -- $command"
-    eval "printf '%s' \"\${$#}\""
-  )
+claude_settings_json_arg() {
+  local value
+  value=$(claude_launch_args "$1" | jq -er '. as $args | index("--settings") as $i | if $i == null then error("no settings") else $args[$i+1] end') || return 1
+  case "$value" in
+    \{*) printf '%s' "$value" ;;
+    *) cat "$value" ;;
+  esac
+}
+
+claude_launch_brief_arg() {
+  claude_launch_args "$1" | jq -r '.[-1]'
 }
 
 # The --add-dir segment every Claude worker launch now carries between the
@@ -2165,7 +2267,7 @@ claude_expected_launch() {  # <launch> <home> <id> <permission-flag>
   [ "$(printf '%s' "$doorbell" | "$ROOT/bin/fm-operational-input.sh" doorbell-kind)" = launch-brief ] \
     || doorbell="not a launch-brief doorbell"
   quoted="'$(printf '%s' "$doorbell" | sed "s/'/'\\\\''/g")'"
-  printf '%s' "export COMPACT_ADVISER_DISABLE=1; $(task_inbox_export "$2" "$3")$(fm_test_launch_git_prefix "$1")env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
+  printf '%s' "export COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1; unset CLAUDE_CONFIG_DIR; $(task_inbox_export "$2" "$3")$(fm_test_launch_git_prefix "$1")env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude $4 $(claude_worker_add_dirs "$2" "$3")--settings '{\"feedbackDrafts\":\"off\",\"attribution\":{\"commit\":\"\",\"pr\":\"\",\"sessionUrl\":false}}' $CLAUDE_CONTROL_CHANNEL_FLAG $quoted"
 }
 
 test_claude_permission_mode_bypass_matches_absent_launch() {
@@ -2358,6 +2460,9 @@ test_non_claude_harness_ignores_claude_permission_mode
 test_non_claude_harness_ignores_config_dir
 test_claude_task_launch_carries_control_channel_authority
 test_claude_secondmate_launch_omits_task_control_channel_authority
+test_claude_launches_disable_background_exit_handoff_and_agent_view
+test_claude_haiku_launch_gets_an_opus_advisor
+test_claude_non_haiku_launch_gets_no_advisor
 test_claude_long_launch_is_delivered_intact
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_keep_ai_trailers_omits_attribution_settings_and_strip_hooks

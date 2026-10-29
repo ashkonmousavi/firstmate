@@ -109,7 +109,22 @@ SH
   cat > "$fb/herdr" <<'SH'
 #!/usr/bin/env bash
 [ -z "${FM_FAKE_HERDR_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_HERDR_LOG"
-exit 1
+[ -n "${FM_FAKE_HERDR_UNCONFIRMED:-}" ] || exit 1
+case "${1:-} ${2:-}" in
+  'status --json') printf '%s\n' '{"server":{"running":true,"compatible":true},"client":{"protocol":22,"version":"fixture"}}' ;;
+  'pane get') printf '%s\n' '{"error":{"code":"unavailable"}}' ;;
+  'agent get') printf '%s\n' '{"result":{"agent":{"agent":"pi","agent_status":"unavailable"}}}' ;;
+  'pane send-text') printf '%s\n' "$4" >> "$FM_FAKE_HERDR_LOG.typed" ;;
+  'pane send-keys') printf '%s\n' "$4" >> "$FM_FAKE_HERDR_LOG.keys" ;;
+  'pane read')
+    if [ -s "$FM_FAKE_HERDR_LOG.typed" ]; then
+      [ "$FM_FAKE_HERDR_UNCONFIRMED" != capture-failure ] || exit 1
+      printf 'unreadable composer\n'
+    else
+      printf '╭────╮\n│    │\n╰────╯\n'
+    fi ;;
+  *) exit 1 ;;
+esac
 SH
   chmod +x "$fb/herdr"
   cat > "$fb/fake-ssh" <<'SH'
@@ -152,6 +167,7 @@ fi
 [ "${FM_FAKE_SSH_DELAY:-0}" -eq 0 ] || /bin/sleep "$FM_FAKE_SSH_DELAY"
 rc=0
 env -i PATH="$PATH" HOME="$HOME" FM_FAKE_HERDR_LOG="${FM_FAKE_HERDR_LOG:-}" \
+  FM_FAKE_HERDR_UNCONFIRMED="${FM_FAKE_HERDR_UNCONFIRMED:-}" \
   FM_HOME="$remote_home" FM_ROOT_OVERRIDE="$FM_REMOTE_CODE_ROOT" \
   "$FM_REMOTE_CODE_ROOT/bin/$cmd" "${rargs[@]:1}" || rc=$?
 if [ "${FM_FAKE_SSH_AMBIGUOUS:-0}" = 1 ] \
@@ -278,6 +294,34 @@ test_remote_steer_lands_in_remote_inbox() {
   [ "$(grep '^phase=' "$pend" | tail -1 | cut -d= -f2-)" = awaiting_report ] \
     || fail "the delivered expectation must await its report: $(cat "$pend")"
   pass "fm-send remote: a text steer lands as a durable remote inbox record and exits 0 at enqueue"
+}
+
+test_remote_unreadable_ring_preserves_durable_enqueue() {
+  local mode dir fb ssh_log home rhome rc err rec pend
+  for mode in unknown capture-failure; do
+    dir="$TMP_ROOT/remote-ring-$mode"; mkdir -p "$dir"
+    fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+    rhome=$(setup_remote_secondmate_home "remote-ring-$mode")
+    home=$(setup_remote_parent_home "remote-ring-$mode" "$rhome")
+    rc=0
+    send_env "$fb" "$home" "$ssh_log" \
+      env FM_FAKE_HERDR_UNCONFIRMED="$mode" FM_FAKE_HERDR_LOG="$dir/herdr.log" \
+      "$SEND" rsm "preserve this remote steer" > "$dir/out" 2> "$dir/err" || rc=$?
+    err=$(cat "$dir/err")
+    expect_code 0 "$rc" "an unreadable remote ring must not fail durable enqueue: $err"
+    rec=$(remote_inbox_records "$rhome")
+    [ -n "$rec" ] && [ "$(printf '%s\n' "$rec" | wc -l)" -eq 1 ] || fail "the remote ring must preserve exactly one record"
+    assert_contains "$(cat "$rec")" 'preserve this remote steer' "the remote inbox must retain its payload"
+    assert_contains "$err" 'doorbell NOT delivered' "the remote leg must report an unreadable ring as not delivered"
+    assert_contains "$err" 'durably recorded' "the remote notice must preserve enqueue semantics"
+    assert_contains "$err" ' reason=' "the remote notice must name the ring step that failed"
+    [ "$(wc -l < "$dir/herdr.log.typed")" -eq 1 ] || fail "the remote leg must type its doorbell only once"
+    assert_not_contains "$(cat "$dir/herdr.log.typed")" 'preserve this remote steer' "the remote payload must never be typed"
+    pend=$(pending_record "$home")
+    [ -n "$pend" ] || fail "a remote ring failure must preserve its reply expectation"
+    [ "$(grep '^phase=' "$pend" | tail -1 | cut -d= -f2-)" = awaiting_report ] || fail "durable enqueue must commit reply delivery despite an unreadable ring"
+    pass "fm-send remote: $mode reports ring non-delivery and preserves durable enqueue"
+  done
 }
 
 test_remote_rerun_is_idempotent() {
@@ -900,6 +944,25 @@ test_remote_inbox_ladder_quiet_after_acknowledgement() {
   pass "watcher remote inbox: an acknowledged remote record is never re-rung"
 }
 
+test_remote_inbox_idle_failure_still_spends_an_attempt_with_its_reason() {
+  local dir fb ssh_log home rhome rec cs out
+  dir="$TMP_ROOT/remote-idle-fail"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-idle-fail)
+  home=$(setup_remote_parent_home remote-idle-fail "$rhome")
+  cs="$rhome/state/parent-route/rsm.inbox"
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_UNCONFIRMED=unknown FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) \
+    || fail "an idle failed ring must not fail the watcher: $out"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "an idle failed ring must still spend one attempt"
+  assert_grep 'result=rang 4 reason=' "$home/state/.watch-triage.log" "the failed attempt must carry its reason in the triage log"
+  assert_grep 'rc=4 token=' "$cs/001.ring-reason" "the failed attempt must record rc and token beside the record"
+  pass "watcher remote inbox: an idle failed ring still spends an attempt and names its step"
+}
+
 test_remote_inbox_ladder_escalates_after_ring_max() {
   local dir fb ssh_log home rhome rec out rc wakes
   dir="$TMP_ROOT/remote-rering-max"; mkdir -p "$dir"
@@ -1149,6 +1212,7 @@ test_remote_one_way_request_identity() {
 }
 
 test_remote_steer_lands_in_remote_inbox
+test_remote_unreadable_ring_preserves_durable_enqueue
 test_remote_rerun_is_idempotent
 test_remote_retry_failure_preserves_ambiguous_expectation
 test_remote_fire_and_forget_never_arms_reply_recovery
@@ -1166,6 +1230,7 @@ test_local_pending_does_not_close_resolve_key
 test_local_secondmate_pending_keeps_expectation_armed
 test_remote_inbox_ladder_rerings_unacknowledged_record
 test_remote_inbox_ladder_quiet_after_acknowledgement
+test_remote_inbox_idle_failure_still_spends_an_attempt_with_its_reason
 test_remote_inbox_ladder_escalates_after_ring_max
 test_remote_inbox_detached_pass_never_holds_the_cycle
 test_remote_inbox_pass_never_overlaps_an_inflight_pass

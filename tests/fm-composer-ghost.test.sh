@@ -386,14 +386,6 @@ test_bordered_busy_signatures_are_pending() {
 }
 
 test_non_bordered_busy_footer_is_unknown_strict() {
-  # STRICT divergence (captain decision blank-row-injection-posture): a bare
-  # busy-footer row under the cursor is not a composer container, so it no
-  # longer reads `empty` the way the old allow-busy compatibility fallback
-  # did. Its one load-bearing consumer - submit confirmation on a harness
-  # whose mid-turn screen hides the composer (pi) - moved to the submit
-  # core's baseline-idle turn-started conversion (fm_tmux_submit_core), which
-  # requires an idle-to-busy transition across our own Enter instead of
-  # trusting any busy-looking row.
   local dir fb capture out
   dir="$TMP_ROOT/non-bordered-busy"; mkdir -p "$dir"
   fb=$(make_fake_tmux "$dir")

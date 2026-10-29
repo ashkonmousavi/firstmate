@@ -1039,6 +1039,8 @@ test_notice_recovery_does_not_duplicate_wake() {
 
 # Forge command shims fail loudly. A successful scan proves this path never uses
 # them while reconciling a local terminal outcome.
+# The child scan never calls the forge; the backlog pass only runs where a
+# backlog with in-flight pull request references exists, which this world lacks.
 test_reconciliation_never_calls_forge() {
   make_world forge; write_child "$MAIN" child 'done: green'
   FM_FAKE_CREW_STATE='done' run_reconcile "$MAIN" --startup
@@ -1059,6 +1061,545 @@ SH
   unset FM_NO_FORGE_LOG
   assert_grep '1' "$WORLD/no-forge.log" "inactive reconciliation did not set crew-state no-forge mode"
   pass "reconciliation state reads set no-forge mode"
+}
+
+# Backlog pass: a finished pull request closes its in-flight record once.
+add_flight_row() { # <home> <id> <body>
+  local home=$1 id=$2 body=$3
+  (cd "$home" && tasks-axi add "$id" "task $id" --start --file data/backlog.md >/dev/null \
+    && tasks-axi update "$id" --body "$body" --file data/backlog.md >/dev/null) || fail "could not add backlog row $id"
+}
+
+row_state() { # <home> <id>
+  (cd "$1" && tasks-axi show "$2" --file data/backlog.md 2>&1) | sed -n 's/^  state: *//p' | head -1
+}
+
+make_gh() { # <world> (FM_GH_STATES: "<number> <STATE|ERROR> [mergedAt closedAt]"; none means null)
+  cat > "$1/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+number=$3
+printf 'gh pr view %s\n' "$number" >> "${FM_GH_LOG:?}"
+read -r state merged closed <<< "$(awk -v n="$number" '$1 == n { print $2, $3, $4; exit }' "${FM_GH_STATES:?}")"
+case "$merged" in none) merged=null ;; '') merged='"2026-10-28T17:42:00Z"' ;; *) merged="\"$merged\"" ;; esac
+case "$closed" in none) closed=null ;; '') closed='"2026-10-28T18:03:00Z"' ;; *) closed="\"$closed\"" ;; esac
+case "$state" in
+  MERGED|CLOSED|OPEN) printf '{"state":"%s","mergedAt":%s,"closedAt":%s}\n' "$state" "$merged" "$closed" ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$1/fakebin/gh"
+  : > "$1/gh.log"
+  export FM_GH_LOG="$1/gh.log" FM_GH_STATES="$1/gh.states"
+}
+
+test_backlog_pr_pass_closes_finished_records_once() {
+  make_world backlog-pr; make_gh "$WORLD"
+  printf '42 MERGED\n43 CLOSED\n44 OPEN\n45 ERROR\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-merged 'shipped https://github.com/o/r/pull/42'
+  add_flight_row "$MAIN" t-closed 'abandoned https://github.com/o/r/pull/43'
+  add_flight_row "$MAIN" t-open 'review https://github.com/o/r/pull/44'
+  add_flight_row "$MAIN" t-unreadable 'waiting https://github.com/o/r/pull/45'
+  add_flight_row "$MAIN" t-mixed 'two https://github.com/o/r/pull/42 and https://github.com/o/r/pull/44'
+  add_flight_row "$MAIN" t-none 'no pull request yet'
+  add_flight_row "$MAIN" t-held 'question https://github.com/o/r/pull/42'
+  (cd "$MAIN" && tasks-axi hold t-held --reason 'captain decision' --kind captain --file data/backlog.md >/dev/null) || fail "hold failed"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-merged)" = "done" ] || fail "merged PR did not close its record"
+  [ "$(row_state "$MAIN" t-closed)" = "done" ] || fail "closed PR did not close its record"
+  [ "$(row_state "$MAIN" t-open)" = in_flight ] || fail "open PR record was closed"
+  [ "$(row_state "$MAIN" t-unreadable)" = in_flight ] || fail "unreadable PR record was closed"
+  [ "$(row_state "$MAIN" t-mixed)" = in_flight ] || fail "mixed PR refs closed the record"
+  [ "$(row_state "$MAIN" t-none)" = in_flight ] || fail "record with no PR was closed"
+  [ "$(row_state "$MAIN" t-held)" = in_flight ] || fail "a held record was closed"
+  [ "$(outcome_count "$MAIN" closed)" = 2 ] || fail "closed records did not leave one receipt each"
+  # Once: reopening a closed record for the same PR state is not closed again.
+  (cd "$MAIN" && tasks-axi reopen t-merged --file data/backlog.md >/dev/null \
+    && tasks-axi start t-merged --file data/backlog.md >/dev/null) || fail "reopen failed"
+  [ "$(row_state "$MAIN" t-merged)" = in_flight ] || fail "reopened record is not in flight"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-merged)" = in_flight ] || fail "a receipted record was closed a second time"
+  [ "$(outcome_count "$MAIN" closed)" = 2 ] || fail "rescan changed the receipts"
+  pass "backlog pass closes finished records once and leaves open, unreadable and mixed ones"
+}
+
+test_backlog_pr_pass_spares_live_worker_and_closes_finished_one() {
+  make_world backlog-worker; make_gh "$WORLD"
+  printf '50 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-live 'pr https://github.com/o/r/pull/50'
+  write_child "$MAIN" t-live 'working: still going'
+  FM_FAKE_CREW_STATE=working run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-live)" = in_flight ] || fail "record with a live worker was closed"
+  FM_FAKE_CREW_STATE="done" run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-live)" = "done" ] || fail "record whose worker finished was not closed"
+  pass "backlog pass leaves a live worker's record and closes a finished one"
+}
+
+test_backlog_pr_pass_writes_fix_items_in_main_only() {
+  local json
+  make_world backlog-json; make_gh "$WORLD"
+  printf '60 MERGED\n61 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-stuck 'pr https://github.com/o/r/pull/60'
+  json="$MAIN/data/x-reconcile.json"
+  printf '{"schema":"x-reconcile.v1","written_at":7,"items":[{"id":"keep","home":"server","finding":"place","observed_at":7,"source":"stage-age"}]}\n' > "$json"
+  # A close that cannot land leaves the record flagged as a fix.
+  cat > "$WORLD/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+[ "\$1" != done ] || { echo 'error: refused'; exit 1; }
+PATH=\${PATH#$WORLD/fakebin:} exec tasks-axi "\$@"
+SH
+  chmod +x "$WORLD/fakebin/tasks-axi"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-stuck)" = in_flight ] || fail "refused close still changed the record"
+  python3 -I - "$json" <<'PY' || fail "x-reconcile.json lacks the fix item or lost the other source"
+import json, sys
+doc = json.load(open(sys.argv[1]))
+mine = [x for x in doc["items"] if x["source"] == "inactive-reconcile"]
+assert [(x["id"], x["home"], x["finding"]) for x in mine] == [("t-stuck", "main", "fix")], mine
+assert doc["written_at"] == 7
+assert any(x["id"] == "keep" and x["source"] == "stage-age" for x in doc["items"])
+PY
+  rm -f "$WORLD/fakebin/tasks-axi"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-stuck)" = "done" ] || fail "close did not land once tasks-axi accepted it"
+  python3 -I - "$json" <<'PY' || fail "closed record left no evidence in x-reconcile.json"
+import json, sys
+doc = json.load(open(sys.argv[1]))
+mine = [x for x in doc["items"] if x["source"] == "inactive-reconcile"]
+assert [(x["id"], x["finding"]) for x in mine] == [("t-stuck", "fix")], doc
+assert mine[0]["detail"] == "closed: PR 60 merged 2026-10-28T17:42:00Z", mine
+assert [x["id"] for x in doc["items"] if x["source"] != "inactive-reconcile"] == ["keep"], doc
+PY
+  run_reconcile "$MAIN" --startup
+  python3 -I - "$json" <<'PY' || fail "evidence outlived the scan that published it"
+import json, sys
+doc = json.load(open(sys.argv[1]))
+assert [x["id"] for x in doc["items"]] == ["keep"], doc
+PY
+  # A secondmate home closes its own record and never writes the JSON.
+  bind_secondmate local
+  add_flight_row "$MATE" t-mate 'pr https://github.com/o/r/pull/61'
+  run_reconcile "$MATE" --startup
+  [ "$(row_state "$MATE" t-mate)" = "done" ] || fail "secondmate home did not close its record"
+  [ ! -e "$MATE/data/x-reconcile.json" ] || fail "secondmate home wrote x-reconcile.json"
+  pass "backlog pass flags fixes in the main file only, preserving other sources"
+}
+
+# An interruption between the close and the evidence leaves a closing receipt:
+# the next scan publishes the evidence and marks it closed, and never closes the
+# reopened record a second time.
+test_backlog_pr_pass_recovers_interrupted_close() {
+  local json receipt
+  make_world backlog-interrupt; make_gh "$WORLD"
+  printf '70 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-cut 'pr https://github.com/o/r/pull/70'
+  json="$MAIN/data/x-reconcile.json"
+  # The evidence write fails (unparseable file), so the receipt stays closing.
+  printf 'not json\n' > "$json"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-cut)" = "done" ] || fail "close did not land"
+  receipt=$(find "$MAIN/state/terminal-outcomes" -name 'backlog-pr-*.closed' | head -1)
+  grep -Fxq 'status=closing' "$receipt" || fail "receipt was marked closed before its evidence was published"
+  printf '70 ERROR\n' > "$WORLD/gh.states"
+  printf '{"schema":"x-reconcile.v1","written_at":7,"items":[]}\n' > "$json"
+  run_reconcile "$MAIN" --startup
+  grep -Fxq 'status=closed' "$receipt" || fail "later scan did not mark the receipt closed"
+  python3 -I - "$json" <<'PY' || fail "later scan did not publish the missing evidence"
+import json, sys
+doc = json.load(open(sys.argv[1]))
+assert [(x["id"], x["finding"], x["detail"]) for x in doc["items"]] == [("t-cut", "fix", "closed: PR 70 merged 2026-10-28T17:42:00Z")], doc
+PY
+  [ "$(wc -l < "$WORLD/gh.log" | tr -d ' ')" = 1 ] || fail "dated receipt recovery depended on a second forge read"
+  printf '70 MERGED\n' > "$WORLD/gh.states"
+  (cd "$MAIN" && tasks-axi reopen t-cut --file data/backlog.md >/dev/null \
+    && tasks-axi start t-cut --file data/backlog.md >/dev/null) || fail "reopen failed"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-cut)" = in_flight ] || fail "a receipted record was closed a second time"
+  pass "backlog pass finishes an interrupted close without closing twice"
+}
+
+# A short session that cannot read every record resumes where it stopped.
+test_backlog_pr_pass_rotates_across_short_sessions() {
+  make_world backlog-rotate; make_gh "$WORLD"
+  add_flight_row "$MAIN" t-a 'pr https://github.com/o/r/pull/80'
+  add_flight_row "$MAIN" t-b 'pr https://github.com/o/r/pull/81'
+  add_flight_row "$MAIN" t-c 'pr https://github.com/o/r/pull/82'
+  # Expire the five-second pass at each unreadable forge response without
+  # making setup race a one-second wall-clock watchdog on a busy CI runner.
+  printf '1000\n' > "$WORLD/clock"
+  cat > "$WORLD/fakebin/date" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = +%s ]; then
+  cat "$FM_CURSOR_WORLD/clock"
+else
+  PATH=${PATH#*:} exec date "$@"
+fi
+SH
+  cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+printf 'gh pr view %s\n' "$3" >> "${FM_GH_LOG:?}"
+now=$(cat "$FM_CURSOR_WORLD/clock")
+printf '%s\n' "$((now + 5))" > "$FM_CURSOR_WORLD/clock"
+exit 1
+SH
+  chmod +x "$WORLD/fakebin/date"
+  FM_CURSOR_WORLD="$WORLD" FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
+  FM_CURSOR_WORLD="$WORLD" FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
+  FM_CURSOR_WORLD="$WORLD" FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
+  [ "$(sort "$WORLD/gh.log")" = $'gh pr view 80\ngh pr view 81\ngh pr view 82' ] || fail "short sessions did not visit every record once: $(cat "$WORLD/gh.log")"
+  pass "backlog pass rotates through rows across short sessions"
+}
+
+
+test_backlog_pr_pass_reads_complete_references() {
+  local padding
+  make_world backlog-full; make_gh "$WORLD"
+  printf '90 MERGED\n91 OPEN\n' > "$WORLD/gh.states"
+  padding=$(python3 -I -c 'print("background " * 500)')
+  add_flight_row "$MAIN" t-hidden "$padding https://github.com/o/r/pull/90"
+  add_flight_row "$MAIN" t-mixed-full "https://github.com/o/r/pull/90 $padding https://github.com/o/r/pull/91"
+  add_flight_row "$MAIN" t-worker-full "https://github.com/o/r/pull/90 $padding https://github.com/o/r/pull/91"
+  write_child "$MAIN" t-worker-full 'done: finished'
+  add_flight_row "$MAIN" t-meta-ref 'https://github.com/o/r/pull/90'
+  write_child "$MAIN" t-meta-ref 'done: finished'
+  sed 's|^pr=.*|pr=https://github.com/o/r/pull/91|' "$MAIN/state/t-meta-ref.meta" > "$WORLD/meta"
+  mv "$WORLD/meta" "$MAIN/state/t-meta-ref.meta"
+  FM_FAKE_CREW_STATE='done' run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-hidden)" = 'done' ] || fail "a metadata-free PR beyond list truncation was forgotten"
+  [ "$(row_state "$MAIN" t-mixed-full)" = in_flight ] || fail "a truncated OPEN reference was ignored"
+  [ "$(row_state "$MAIN" t-worker-full)" = in_flight ] || fail "a worker row's truncated OPEN reference was ignored"
+  [ "$(row_state "$MAIN" t-meta-ref)" = in_flight ] || fail "an OPEN metadata reference was ignored"
+  pass "complete task bodies and metadata jointly determine the PR set"
+}
+
+test_backlog_pr_pass_rechecks_racing_eligibility() {
+  local kind
+  for kind in hold body queued relaunch appearing; do
+    make_world "backlog-race-$kind"; make_gh "$WORLD"
+    add_flight_row "$MAIN" t-race 'https://github.com/o/r/pull/92'
+    [ "$kind" != relaunch ] || write_child "$MAIN" t-race 'done: old worker' old-generation
+    cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+. "$FM_RACE_ROOT/bin/fm-wake-lib.sh"
+control="$FM_HOME/state/.control-t-race.lock"
+meta="$FM_HOME/state/.meta-t-race.lock"
+fm_lock_acquire_wait "$control" || exit 1
+fm_lock_acquire_wait "$meta" || exit 1
+case "$FM_RACE_KIND" in
+  hold) tasks-axi hold t-race --reason decision --kind captain --file "$FM_HOME/data/backlog.md" >/dev/null ;;
+  body) tasks-axi update t-race --body 'https://github.com/o/r/pull/93' --file "$FM_HOME/data/backlog.md" >/dev/null ;;
+  queued) tasks-axi reopen t-race --file "$FM_HOME/data/backlog.md" >/dev/null ;;
+  relaunch) sed 's/^spawn_gen=.*/spawn_gen=new-generation/' "$FM_HOME/state/t-race.meta" > "$FM_HOME/state/new-meta"; mv "$FM_HOME/state/new-meta" "$FM_HOME/state/t-race.meta" ;;
+  appearing) printf 'spawn_gen=new-generation\nkind=ship\n' > "$FM_HOME/state/t-race.meta" ;;
+esac
+fm_lock_release "$meta"
+fm_lock_release "$control"
+printf '{"state":"MERGED","mergedAt":"2026-10-28T17:42:00Z","closedAt":"2026-10-28T18:03:00Z"}\n'
+SH
+    FM_RACE_ROOT="$ROOT" FM_RACE_KIND="$kind" FM_FAKE_CREW_STATE='done' run_reconcile "$MAIN" --startup
+    [ "$(row_state "$MAIN" t-race)" != 'done' ] || fail "$kind committed after the first read but the stale task was closed"
+    [ "$(outcome_count "$MAIN" closed)" = 0 ] || fail "$kind wrote a close receipt for an ineligible task"
+  done
+  pass "closeout rechecks holds, body, state and worker incarnation after forge reads"
+}
+
+test_backlog_pr_pass_holds_both_locks_through_close() {
+  make_world backlog-close-locks; make_gh "$WORLD"
+  printf '94 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-lock 'https://github.com/o/r/pull/94'
+  write_child "$MAIN" t-lock 'done: finished'
+  cat > "$WORLD/fakebin/fm-crew-state.sh" <<'SH'
+#!/usr/bin/env bash
+. "$FM_LOCK_ROOT/bin/fm-wake-lib.sh"
+for axis in control meta; do
+  lock="$FM_HOME/state/.$axis-t-lock.lock"
+  if fm_lock_try_acquire "$lock"; then
+    printf '%s free\n' "$axis" >> "$FM_LOCK_LOG"
+    fm_lock_release "$lock"
+  else
+    printf '%s busy\n' "$axis" >> "$FM_LOCK_LOG"
+  fi
+done
+printf 'state: done · source: fake\n'
+SH
+  cat > "$WORLD/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = done ]; then
+  . "$FM_LOCK_ROOT/bin/fm-wake-lib.sh"
+  for axis in control meta; do
+    lock="$FM_HOME/state/.$axis-t-lock.lock"
+    if fm_lock_try_acquire "$lock"; then
+      printf '%s free\n' "$axis" >> "$FM_DONE_LOCK_LOG"
+      fm_lock_release "$lock"
+    else
+      printf '%s busy\n' "$axis" >> "$FM_DONE_LOCK_LOG"
+    fi
+  done
+fi
+PATH=${PATH#*:} exec tasks-axi "$@"
+SH
+  chmod +x "$WORLD/fakebin/tasks-axi"
+  FM_LOCK_ROOT="$ROOT" FM_LOCK_LOG="$WORLD/locks" FM_DONE_LOCK_LOG="$WORLD/done-locks" run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-lock)" = 'done' ] || fail "eligible worker task was not closed under lifecycle locks"
+  [ "$(head -2 "$WORLD/locks")" = $'control busy\nmeta busy' ] || fail "worker eligibility was read without both lifecycle locks"
+  [ "$(cat "$WORLD/done-locks")" = $'control busy\nmeta busy' ] || fail "closure released a lifecycle lock before mutation"
+  pass "worker eligibility and backlog mutation hold both existing lifecycle locks"
+}
+
+test_backlog_pr_pass_bounds_every_backend_operation() {
+  local phase
+  for phase in probe list read close; do
+    make_world "backlog-bound-$phase"; make_gh "$WORLD"
+    printf '95 MERGED\n' > "$WORLD/gh.states"
+    add_flight_row "$MAIN" t-slow 'https://github.com/o/r/pull/95'
+    write_child "$MAIN" child 'working: quiet since'
+    cat > "$WORLD/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+case "$FM_SLOW_PHASE:$1" in
+  probe:--version|list:list|read:show|close:done)
+    trap '' TERM
+    sleep 20
+    exit 1
+    ;;
+esac
+PATH=${PATH#*:} exec tasks-axi "$@"
+SH
+    chmod +x "$WORLD/fakebin/tasks-axi"
+    FM_SLOW_PHASE="$phase" FM_FAKE_CREW_STATE=failed FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
+    [ "$(wake_count "$MAIN" 'inactive-outcome:')" = 1 ] || fail "stalled $phase prevented the child scan"
+    [ "$(row_state "$MAIN" t-slow)" = in_flight ] || fail "stalled $phase closed the task"
+    case "$phase" in
+      read|close)
+        python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "stalled backend left no unknown finding"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-slow" and x["finding"] == "unknown" for x in items), items
+PYJSON
+        ;;
+    esac
+  done
+  pass "stalled compatibility, list, full read and close leave time for child supervision"
+}
+
+test_backlog_pr_pass_preserves_unexamined_findings() {
+  make_world backlog-partial; make_gh "$WORLD"
+  printf '96 OPEN\n97 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-b 'https://github.com/o/r/pull/97'
+  add_flight_row "$MAIN" t-a 'https://github.com/o/r/pull/96'
+  printf '{"schema":"x-reconcile.v1","written_at":7,"items":[{"id":"t-a","home":"main","source":"inactive-reconcile","finding":"fix","detail":"prior failure","observed_at":7},{"id":"t-a","home":"server","source":"inactive-reconcile","finding":"fix","observed_at":7}]}\n' > "$MAIN/data/x-reconcile.json"
+  printf '1\n' > "$MAIN/state/backlog-pr-cursor"
+  cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$3" >> "${FM_GH_LOG:?}"
+sleep 20
+SH
+  FM_INACTIVE_RECONCILE_BUDGET_SECS=6 run_reconcile "$MAIN" --startup
+  grep -Fxq 97 "$WORLD/gh.log" || fail "partial-scan fixture did not reach its slow second row"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "partial scan discarded an unexamined finding"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-a" and x["home"] == "main" and x["detail"] == "prior failure" and x["observed_at"] == 7 for x in items), items
+assert any(x["id"] == "t-b" and x["finding"] == "unknown" for x in items), items
+assert any(x["id"] == "t-a" and x["home"] == "server" for x in items), items
+PYJSON
+  make_gh "$WORLD"
+  run_reconcile "$MAIN" --startup
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "authoritative reevaluation did not retire the resolved finding"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert not any(x["id"] == "t-a" and x["home"] == "main" for x in items), items
+assert any(x["id"] == "t-a" and x["home"] == "server" for x in items), items
+assert any(x["id"] == "t-b" and x["detail"] == "closed: PR 97 merged 2026-10-28T17:42:00Z" for x in items), items
+PYJSON
+  pass "partial scans preserve unexamined findings and retire only reevaluated items"
+}
+
+test_backlog_pr_pass_recovery_requires_done() {
+  local receipt
+  make_world backlog-recovery-state; make_gh "$WORLD"
+  printf '98 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-queued 'https://github.com/o/r/pull/98'
+  (cd "$MAIN" && tasks-axi reopen t-queued --file data/backlog.md >/dev/null) || fail "could not queue the failed close"
+  mkdir -p "$MAIN/state/terminal-outcomes"
+  receipt="$MAIN/state/terminal-outcomes/backlog-pr-recovery.closed"
+  printf 'schema=fm-backlog-pr-close.v1\ntask_id=t-queued\nprs=https://github.com/o/r/pull/98=MERGED\nstatus=closing\n' > "$receipt"
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-queued)" = queued ] || fail "recovery changed a queued record"
+  grep -Fxq 'status=closing' "$receipt" || fail "absence from the in-flight list was accepted as a successful close"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "queued task received false closed evidence"
+import json, os, sys
+items = json.load(open(sys.argv[1]))["items"] if os.path.exists(sys.argv[1]) else []
+assert not any(x["id"] == "t-queued" and x.get("detail", "").startswith("closed:") for x in items), items
+PYJSON
+  (cd "$MAIN" && tasks-axi 'done' t-queued --file data/backlog.md >/dev/null) || fail "manual completion failed"
+  run_reconcile "$MAIN" --startup
+  grep -Fxq 'status=closed' "$receipt" || fail "confirmed Done did not finalize recovery"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "confirmed Done lost its recovered evidence"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-queued" and x["detail"] == "closed: PR 98 merged 2026-10-28T17:42:00Z" for x in items), items
+PYJSON
+  pass "interrupted receipt recovery requires an authoritative Done state"
+}
+
+test_backlog_pr_pass_rotates_receipt_recovery_with_candidates() {
+  local evidence
+  for evidence in absent present; do
+    make_world "backlog-history-$evidence"; make_gh "$WORLD"
+    printf '101 MERGED\n' > "$WORLD/gh.states"
+    add_flight_row "$MAIN" t-current 'https://github.com/o/r/pull/101'
+    mkdir -p "$MAIN/state/terminal-outcomes"
+    printf 'schema=fm-backlog-pr-close.v1\ntask_id=t-historical\nprs=https://github.com/o/r/pull/1=MERGED\nstatus=closed\n' > "$MAIN/state/terminal-outcomes/backlog-pr-000.closed"
+    if [ "$evidence" = present ]; then
+      printf '{"schema":"x-reconcile.v1","items":[{"id":"t-historical","home":"main","source":"inactive-reconcile","finding":"fix","detail":"closed: previous PR","observed_at":7}]}\n' > "$MAIN/data/x-reconcile.json"
+      printf '1\n' > "$MAIN/state/backlog-pr-cursor"
+    fi
+    cat > "$WORLD/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = show ] && [ "$2" = t-historical ]; then
+  printf 'historical read\n' >> "$FM_HISTORY_LOG"
+  sleep 20
+  exit 1
+fi
+PATH=${PATH#*:} exec tasks-axi "$@"
+SH
+    chmod +x "$WORLD/fakebin/tasks-axi"
+    FM_HISTORY_LOG="$WORLD/history.log" FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
+    if [ "$evidence" = present ]; then
+      [ -s "$WORLD/history.log" ] || fail "receipt recovery fixture did not reach its slow read"
+      FM_HISTORY_LOG="$WORLD/history.log" FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
+    else
+      [ ! -e "$WORLD/history.log" ] || fail "a closed receipt without an outstanding finding was reread"
+    fi
+    [ "$(row_state "$MAIN" t-current)" = 'done' ] || fail "historical receipt reads starved current work"
+  done
+  pass "receipt recovery shares candidate rotation and skips retired history"
+}
+
+test_backlog_pr_pass_resumes_receipt_inspection() {
+  local n
+  make_world backlog-discovery; make_gh "$WORLD"
+  printf '102 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-current 'https://github.com/o/r/pull/102'
+  mkdir -p "$MAIN/state/terminal-outcomes"
+  for n in a b c; do
+    printf 'schema=fm-backlog-pr-close.v1\ntask_id=t-retired-%s\nstatus=closed\n' "$n" > "$MAIN/state/terminal-outcomes/backlog-pr-$n.closed"
+  done
+  printf '1\n' > "$MAIN/state/backlog-pr-cursor"
+  cat > "$WORLD/fakebin/sed" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = -n ] && [ "${2:-}" = 's/^task_id=//p' ]; then
+  case "${3:-}" in
+    */backlog-pr-*.closed)
+      printf '%s\n' "$3" >> "$FM_DISCOVERY_LOG"
+      sleep 10
+      ;;
+  esac
+fi
+PATH=${PATH#*:} exec sed "$@"
+SH
+  chmod +x "$WORLD/fakebin/sed"
+  for n in 1 2 3 4; do
+    FM_DISCOVERY_LOG="$WORLD/discovery.log" FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
+  done
+  [ "$(sort -u "$WORLD/discovery.log" | wc -l | tr -d ' ')" = 3 ] || fail "receipt inspection restarted at the same permanent history"
+  [ "$(row_state "$MAIN" t-current)" = 'done' ] || fail "receipt discovery starved the merged task across scans"
+  pass "receipt inspection saves progress before reading permanent history"
+}
+
+test_backlog_pr_pass_rechecks_evidence_without_receipts() {
+  local json
+  make_world backlog-evidence-only; make_gh "$WORLD"
+  printf '103 ERROR\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-external 'https://github.com/o/r/pull/103'
+  run_reconcile "$MAIN" --startup
+  json="$MAIN/data/x-reconcile.json"
+  python3 -I - "$json" <<'PYJSON' || fail "unreadable PR did not establish the evidence-only fixture"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-external" and x["finding"] == "unknown" for x in items), items
+PYJSON
+  [ "$(outcome_count "$MAIN" closed)" = 0 ] || fail "unreadable PR created a close receipt"
+  (cd "$MAIN" && tasks-axi 'done' t-external --file data/backlog.md >/dev/null) || fail "external completion failed"
+  cat > "$WORLD/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = show ] && [ "$2" = t-external ]; then
+  printf 'error: temporarily unavailable\n'
+  exit 1
+fi
+PATH=${PATH#*:} exec tasks-axi "$@"
+SH
+  chmod +x "$WORLD/fakebin/tasks-axi"
+  run_reconcile "$MAIN" --startup
+  python3 -I - "$json" <<'PYJSON' || fail "unreadable authoritative state discarded evidence"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-external" and x["finding"] == "unknown" for x in items), items
+PYJSON
+  rm -f "$WORLD/fakebin/tasks-axi"
+  run_reconcile "$MAIN" --startup
+  python3 -I - "$json" <<'PYJSON' || fail "confirmed Done left stale evidence without a receipt"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert not any(x["id"] == "t-external" and x["source"] == "inactive-reconcile" for x in items), items
+PYJSON
+  [ "$(outcome_count "$MAIN" closed)" = 0 ] || fail "evidence-only cleanup fabricated a close receipt"
+  [ "$(wc -l < "$WORLD/gh.log" | tr -d ' ')" = 1 ] || fail "Done-state evidence cleanup reread the forge"
+  pass "evidence-only tasks retain unreadable state and retire after confirmed Done"
+}
+
+test_backlog_pr_pass_advances_after_success_at_deadline() {
+  make_world backlog-deadline-cursor; make_gh "$WORLD"
+  printf '99 MERGED\n100 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-b 'https://github.com/o/r/pull/100'
+  add_flight_row "$MAIN" t-a 'https://github.com/o/r/pull/99'
+  write_child "$MAIN" t-a 'done: old worker'
+  printf '1000\n' > "$WORLD/clock"
+  cat > "$WORLD/fakebin/date" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = +%s ]; then
+  cat "$FM_CURSOR_WORLD/clock"
+else
+  PATH=${PATH#*:} exec date "$@"
+fi
+SH
+  cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+[ "$3" != 99 ] || printf '1005\n' > "$FM_CURSOR_WORLD/clock"
+printf '{"state":"MERGED","mergedAt":"2026-10-28T17:42:00Z","closedAt":"2026-10-28T18:03:00Z"}\n'
+SH
+  chmod +x "$WORLD/fakebin/date"
+  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE='done' FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
+  [ "$(cat "$MAIN/state/backlog-pr-cursor")" = 1 ] || fail "successful forge read at the deadline failed to save its visit"
+  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE='done' FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-b)" = 'done' ] || fail "deadline-crossing first row starved the later merged record"
+  pass "successful reads crossing the deadline advance the durable cursor"
+}
+
+
+
+test_backlog_pr_pass_dates_merged_closed_and_cached_evidence() {
+  local receipt
+  make_world backlog-dates; make_gh "$WORLD"
+  printf '110 MERGED 2026-10-27T11:22:33Z 2026-10-28T18:03:00Z\n111 CLOSED 2020-01-01T00:00:00Z 2026-10-28T12:34:56Z\n112 MERGED none none\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-dated 'https://github.com/o/r/pull/110 https://github.com/o/r/pull/111'
+  add_flight_row "$MAIN" t-single 'https://github.com/o/r/pull/110'
+  add_flight_row "$MAIN" t-missing 'https://github.com/o/r/pull/112'
+  run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-dated)" = 'done' ] || fail "multiple finished PRs with dates were not closed"
+  [ "$(row_state "$MAIN" t-single)" = 'done' ] || fail "a cached merged PR lost its date"
+  [ "$(row_state "$MAIN" t-missing)" = in_flight ] || fail "a PR without a merge timestamp was closed"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "dated evidence did not follow the PR's terminal state"
+import json, sys
+items = {x["id"]: x for x in json.load(open(sys.argv[1]))["items"]}
+assert items["t-dated"]["detail"] == "closed: PR 110 merged 2026-10-27T11:22:33Z; PR 111 closed 2026-10-28T12:34:56Z", items
+assert items["t-single"]["detail"] == "closed: PR 110 merged 2026-10-27T11:22:33Z", items
+assert items["t-missing"]["finding"] == "unknown", items
+PYJSON
+  [ "$(grep -c 'gh pr view 110' "$WORLD/gh.log")" = 1 ] || fail "dated evidence bypassed the shared PR cache"
+  for receipt in "$MAIN/state/terminal-outcomes"/backlog-pr-*.closed; do
+    grep -q '^detail=closed: PR 110 merged 2026-10-27T11:22:33Z' "$receipt" || fail "a close receipt lost its dated evidence"
+  done
+  pass "merged, closed and cached PRs retain authoritative dates in evidence and receipts"
 }
 
 test_main_direct_terminal_presentation_receipt
@@ -1099,5 +1640,22 @@ test_notice_recovery_does_not_duplicate_wake
 test_missing_parent_binding_names_itself
 test_reconciliation_never_calls_forge
 test_reconciliation_sets_no_forge_mode_for_state_read
+test_backlog_pr_pass_closes_finished_records_once
+test_backlog_pr_pass_spares_live_worker_and_closes_finished_one
+test_backlog_pr_pass_writes_fix_items_in_main_only
+test_backlog_pr_pass_recovers_interrupted_close
+test_backlog_pr_pass_rotates_across_short_sessions
+test_backlog_pr_pass_reads_complete_references
+test_backlog_pr_pass_rechecks_racing_eligibility
+test_backlog_pr_pass_holds_both_locks_through_close
+test_backlog_pr_pass_bounds_every_backend_operation
+test_backlog_pr_pass_preserves_unexamined_findings
+test_backlog_pr_pass_recovery_requires_done
+test_backlog_pr_pass_rotates_receipt_recovery_with_candidates
+test_backlog_pr_pass_resumes_receipt_inspection
+test_backlog_pr_pass_rechecks_evidence_without_receipts
+test_backlog_pr_pass_advances_after_success_at_deadline
+
+test_backlog_pr_pass_dates_merged_closed_and_cached_evidence
 
 echo "all inactive reconciliation tests passed"
