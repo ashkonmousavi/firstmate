@@ -24,16 +24,25 @@ document:
 
 # Pin lint to the same owner CI invokes instead of leaving it to no-mistakes'
 # default handling, which does not invoke the repository's canonical lint gate.
-# `bin/fm-lint.sh` owns the context-sensitive ShellCheck modes and GitHub
-# workflow lint via pinned actionlint in `bin/fm-lint-workflows.sh`.
-# Invocation wiring is asserted by `tests/fm-lint.test.sh` and
-# `tests/fm-lint-workflows.test.sh`.
+# The lint step cannot be turned off per repository. An empty commands.lint
+# folds lint into the document agent's housekeeping pass rather than skipping
+# it, and that pass is not this gate.
+# https://kunchenguid.github.io/no-mistakes/reference/repo-config/
+# https://kunchenguid.github.io/no-mistakes/concepts/pipeline/
+# Hosted CI already runs bin/fm-lint.sh as the required checks Lint 1,
+# Lint 2, Lint 3, and Lint 4 (.github/workflows/ci.yml jobs.lint). The local
+# command therefore stays on that owner, at niceness 19, with the script's
+# two-worker cap, so a full ShellCheck pass yields the CPU.
+# tests/fm-pi-primary-types.test.sh is not part of this command. Hosted CI
+# already runs it inside the required Behavior portable parallel 1 check.
+# `bin/fm-lint.sh` owns the ShellCheck modes and GitHub workflow lint via
+# pinned actionlint in `bin/fm-lint-workflows.sh`.
+# `tests/fm-lint.test.sh` and `tests/fm-lint-workflows.test.sh` cover that
+# owner. They do not assert this command string.
 #
-# Strict dual-SDK compilation belongs to this compiler-owning phase, not Test.
-# The existing type-regression owner also runs in the required portable CI lane.
 # Keep commands.test absent; the firstmate-coding-guidelines skill owns this policy.
 commands:
-  lint: 'bin/fm-lint.sh && bash tests/fm-pi-primary-types.test.sh'
+  lint: 'nice -n 19 bin/fm-lint.sh --jobs 2'
 
 # Publish each run's test evidence to the orphan no-mistakes/evidence branch linked from the PR.
 # The evidence is not committed to the feature or default branch.
