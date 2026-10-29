@@ -1220,21 +1220,32 @@ PY
 # A short session that cannot read every record resumes where it stopped.
 test_backlog_pr_pass_rotates_across_short_sessions() {
   make_world backlog-rotate; make_gh "$WORLD"
-  printf '80 OPEN\n81 OPEN\n82 OPEN\n' > "$WORLD/gh.states"
   add_flight_row "$MAIN" t-a 'pr https://github.com/o/r/pull/80'
   add_flight_row "$MAIN" t-b 'pr https://github.com/o/r/pull/81'
   add_flight_row "$MAIN" t-c 'pr https://github.com/o/r/pull/82'
-  # Each forge read takes longer than the pass's share of the budget.
+  # Expire the five-second pass at each unreadable forge response without
+  # making setup race a one-second wall-clock watchdog on a busy CI runner.
+  printf '1000\n' > "$WORLD/clock"
+  cat > "$WORLD/fakebin/date" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = +%s ]; then
+  cat "$FM_CURSOR_WORLD/clock"
+else
+  PATH=${PATH#*:} exec date "$@"
+fi
+SH
   cat > "$WORLD/fakebin/gh" <<'SH'
 #!/usr/bin/env bash
 printf 'gh pr view %s\n' "$3" >> "${FM_GH_LOG:?}"
-sleep 2
-printf '{"state":"OPEN","mergedAt":null,"closedAt":null}\n'
+now=$(cat "$FM_CURSOR_WORLD/clock")
+printf '%s\n' "$((now + 5))" > "$FM_CURSOR_WORLD/clock"
+exit 1
 SH
-  FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
-  FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
-  FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
-  [ "$(sort -u "$WORLD/gh.log" | wc -l | tr -d ' ')" -ge 2 ] || fail "short sessions kept re-reading the same record: $(cat "$WORLD/gh.log")"
+  chmod +x "$WORLD/fakebin/date"
+  FM_CURSOR_WORLD="$WORLD" FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
+  FM_CURSOR_WORLD="$WORLD" FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
+  FM_CURSOR_WORLD="$WORLD" FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
+  [ "$(sort "$WORLD/gh.log")" = $'gh pr view 80\ngh pr view 81\ngh pr view 82' ] || fail "short sessions did not visit every record once: $(cat "$WORLD/gh.log")"
   pass "backlog pass rotates through rows across short sessions"
 }
 
@@ -1553,13 +1564,13 @@ fi
 SH
   cat > "$WORLD/fakebin/gh" <<'SH'
 #!/usr/bin/env bash
-[ "$3" != 99 ] || printf '1001\n' > "$FM_CURSOR_WORLD/clock"
+[ "$3" != 99 ] || printf '1005\n' > "$FM_CURSOR_WORLD/clock"
 printf '{"state":"MERGED","mergedAt":"2026-10-28T17:42:00Z","closedAt":"2026-10-28T18:03:00Z"}\n'
 SH
   chmod +x "$WORLD/fakebin/date"
-  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE='done' FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE='done' FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
   [ "$(cat "$MAIN/state/backlog-pr-cursor")" = 1 ] || fail "successful forge read at the deadline failed to save its visit"
-  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE='done' FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE='done' FM_INACTIVE_RECONCILE_BUDGET_SECS=10 run_reconcile "$MAIN" --startup
   [ "$(row_state "$MAIN" t-b)" = 'done' ] || fail "deadline-crossing first row starved the later merged record"
   pass "successful reads crossing the deadline advance the durable cursor"
 }
