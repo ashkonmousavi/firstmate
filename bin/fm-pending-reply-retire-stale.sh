@@ -5,8 +5,8 @@
 #
 # --max-age defaults to 86400 (24 hours). A record is eligible only when it
 # is strictly older than that age and it is superseded: a later record for
-# the same task exists, its task metadata is gone, or that task is a ship
-# or scout whose latest complete status event is done or failed.
+# the same task has confirmed delivery, its task metadata is gone, or that
+# task is a ship or scout whose latest complete status event is done or failed.
 # An unanswered record that is not superseded stays open.
 # --dry-run lists eligible records and changes nothing.
 # --apply marks each one resolved with resolved_via=retired-stale, keeps the
@@ -17,9 +17,6 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=bin/fm-pending-reply-lib.sh
-. "$SCRIPT_DIR/fm-pending-reply-lib.sh"
-
 usage() {
   echo "usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply) [--max-age <seconds>]" >&2
   exit 2
@@ -39,10 +36,8 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --help|-h)
-      echo "usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply) [--max-age <seconds>]"
-      echo "default max-age: ${FM_PENDING_REPLY_STALE_MAX_AGE_DEFAULT} (24 hours)"
-      echo "eligible records are strictly older than max-age and superseded; the record file is kept"
-      exit 0
+      mode=help
+      break
       ;;
     *) usage ;;
   esac
@@ -50,7 +45,15 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$mode" ] || usage
-[ -n "${FM_HOME:-}" ] || usage
+[ "$mode" = help ] || [ -n "${FM_HOME:-}" ] || usage
+# shellcheck source=bin/fm-pending-reply-lib.sh
+. "$SCRIPT_DIR/fm-pending-reply-lib.sh"
+if [ "$mode" = help ]; then
+  echo "usage: FM_HOME=<parent-home> fm-pending-reply-retire-stale.sh (--dry-run|--apply) [--max-age <seconds>]"
+  echo "default max-age: ${FM_PENDING_REPLY_STALE_MAX_AGE_DEFAULT} (24 hours)"
+  echo "eligible records are strictly older than max-age and superseded; the record file is kept"
+  exit 0
+fi
 if [ -z "$max_age" ]; then
   max_age=$FM_PENDING_REPLY_STALE_MAX_AGE_DEFAULT
 fi

@@ -1898,7 +1898,7 @@ fm_pending_reply_task_disposition() {  # <state-dir> <task_id>
 # Later means a strictly greater created_epoch. Equal epochs break ties by
 # the greater correlation id so the cited successor is stable.
 fm_pending_reply_later_corr() {  # <state-dir> <task_id> <created_epoch> <self_corr>
-  local state=$1 task_id=$2 created=$3 self=$4 dir rec corr cepoch best='' best_epoch=''
+  local state=$1 task_id=$2 created=$3 self=$4 dir rec corr cepoch delivered best='' best_epoch=''
   dir=$(fm_pending_reply_dir "$state")
   [ -d "$dir" ] || return 0
   for rec in "$dir"/*; do
@@ -1912,6 +1912,8 @@ fm_pending_reply_later_corr() {  # <state-dir> <task_id> <created_epoch> <self_c
     [ "$(fm_pending_reply_get "$rec" schema)" = "$FM_PENDING_REPLY_SCHEMA" ] || continue
     [ "$(fm_pending_reply_get "$rec" corr_id)" = "$corr" ] || continue
     [ "$(fm_pending_reply_get "$rec" task_id)" = "$task_id" ] || continue
+    delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
+    case "$delivered" in ''|*[!0-9]*) continue ;; esac
     cepoch=$(fm_pending_reply_get "$rec" created_epoch)
     case "$cepoch" in ''|*[!0-9]*) continue ;; esac
     [ "$cepoch" -gt "$created" ] || continue

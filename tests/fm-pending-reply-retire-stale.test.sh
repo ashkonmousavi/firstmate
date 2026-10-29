@@ -35,11 +35,60 @@ open_reply() {  # <home> <task> <summary> <created_epoch>
   printf '%s' "$corr"
 }
 
+home=$(fm_test_tmproot fm-retire-stale-transient)
+seed_task "$home" mate secondmate
+original=$(open_reply "$home" mate 'only delivered unanswered request' $((NOW - 500)))
+original_rec=$(fm_pending_reply_path "$home/state" "$original")
+fm_pending_reply_mark_delivered "$home/state" "$original" || fail "could not deliver the original request"
+replacement=$(open_reply "$home" mate 'replacement awaiting delivery' $((NOW - 50)))
+for delivery_state in created attempted unknown escalated discarded marker-confirmed; do
+  case "$delivery_state" in
+    attempted) fm_pending_reply_prepare_delivery "$home/state" "$replacement" || fail "could not prepare replacement delivery" ;;
+    unknown) fm_pending_reply_mark_delivery_unknown "$home/state" "$replacement" || fail "could not mark replacement delivery unknown" ;;
+    escalated) fm_pending_reply_maybe_escalate "$home/state" "$replacement" || fail "could not escalate the undelivered replacement" ;;
+    discarded)
+      fm_pending_reply_discard_undelivered "$home/state" "$replacement" || fail "could not discard the failed replacement"
+      [ ! -f "$(fm_pending_reply_path "$home/state" "$replacement")" ] || fail "failed replacement remained"
+      ;;
+    marker-confirmed)
+      replacement=$(open_reply "$home" mate 'replacement awaiting delivery reconciliation' $((NOW - 40)))
+      fm_pending_reply_write_delivery_confirmation "$home/state" "$replacement" confirmed "$NOW" || fail "could not record delivery confirmation"
+      ;;
+  esac
+  dry=$(run_retire "$home" --dry-run 100) || fail "dry-run failed with $delivery_state replacement"
+  [ -z "$dry" ] || fail "$delivery_state replacement incorrectly superseded the original request"
+  applied=$(run_retire "$home" --apply 100) || fail "apply failed with $delivery_state replacement"
+  [ -z "$applied" ] || fail "apply retired against a $delivery_state replacement"
+  [ "$(fm_pending_reply_get "$original_rec" phase)" = awaiting_report ] || fail "$delivery_state replacement retired the original request"
+  [ -z "$(fm_pending_reply_get "$original_rec" retired_reason)" ] || fail "$delivery_state replacement left a retirement reason"
+  if grep -F "pending-reply-retired-stale:" "$home/state/mate.status" >/dev/null; then
+    fail "$delivery_state replacement published a retirement note"
+  fi
+done
+fm_pending_reply_reconcile_delivery "$home/state" "$replacement" || fail "could not reconcile confirmed replacement delivery"
+transient=$(open_reply "$home" mate 'newest replacement still in transport' "$NOW")
+dry=$(run_retire "$home" --dry-run 100) || fail "dry-run failed after confirmed replacement delivery"
+printf '%s\n' "$dry" | grep -F "corr=$original age=500 reason=superseded-by-$replacement" >/dev/null ||
+  fail "the confirmed replacement was not chosen over a newer transient record"
+applied=$(run_retire "$home" --apply 100) || fail "apply failed after confirmed replacement delivery"
+printf '%s\n' "$applied" | grep -F "corr=$original age=500 reason=superseded-by-$replacement" >/dev/null ||
+  fail "apply did not cite the confirmed replacement"
+fm_pending_reply_discard_undelivered "$home/state" "$transient" || fail "could not discard the newer transient replacement"
+if fm_pending_reply_discard_undelivered "$home/state" "$replacement"; then
+  fail "confirmed replacement could still be discarded"
+fi
+[ "$(fm_pending_reply_get "$original_rec" phase)" = resolved ] || fail "confirmed replacement did not retire the original request"
+[ "$(fm_pending_reply_get "$original_rec" retired_reason)" = "superseded-by-$replacement" ] || fail "retirement cited a disposable successor"
+[ -f "$(fm_pending_reply_path "$home/state" "$replacement")" ] || fail "the cited successor disappeared"
+[ "$(fm_pending_reply_get "$original_rec" request_summary)" = 'only delivered unanswered request' ] || fail "retirement lost the original unanswered request"
+pass "only a retained confirmed-delivery successor supersedes an unanswered request"
+
 # A later request supersedes only the older record. The newest stays open.
 home=$(fm_test_tmproot fm-retire-stale-super)
 seed_task "$home" mate secondmate
 older=$(open_reply "$home" mate 'first unanswered ask' $((NOW - 500)))
 newer=$(open_reply "$home" mate 'later ask still waiting' $((NOW - 50)))
+fm_pending_reply_mark_delivered "$home/state" "$newer" || fail "could not confirm the successor delivery"
 older_rec=$(fm_pending_reply_path "$home/state" "$older")
 newer_rec=$(fm_pending_reply_path "$home/state" "$newer")
 summary=$(fm_pending_reply_get "$older_rec" request_summary)
@@ -104,6 +153,7 @@ home=$(fm_test_tmproot fm-retire-stale-young)
 seed_task "$home" mate secondmate
 young=$(open_reply "$home" mate 'just asked' $((NOW - 100)))
 follow=$(open_reply "$home" mate 'asked again' "$NOW")
+fm_pending_reply_mark_delivered "$home/state" "$follow" || fail "could not confirm the successor delivery"
 young_rec=$(fm_pending_reply_path "$home/state" "$young")
 dry=$(run_retire "$home" --dry-run 100) || fail "dry-run failed at the age boundary"
 [ -z "$dry" ] || fail "a record exactly at the age was listed: $dry"
@@ -187,6 +237,7 @@ home=$(fm_test_tmproot fm-retire-stale-answered)
 seed_task "$home" mate secondmate
 answered=$(open_reply "$home" mate 'already reported' $((NOW - 800)))
 later=$(open_reply "$home" mate 'follow up' "$NOW")
+fm_pending_reply_mark_delivered "$home/state" "$later" || fail "could not confirm the successor delivery"
 answered_rec=$(fm_pending_reply_path "$home/state" "$answered")
 fm_pending_reply_set "$answered_rec" resolved_via status
 fm_pending_reply_set "$answered_rec" phase resolved
@@ -213,16 +264,26 @@ pass "the default age is 24 hours"
 if FM_HOME="$home" "$RETIRE" --dry-run --apply >/dev/null 2>&1; then
   fail "both modes were accepted"
 fi
-if env -u FM_HOME "$RETIRE" --dry-run >/dev/null 2>&1; then
-  fail "a missing home was accepted"
-fi
+for mode in --dry-run --apply; do
+  for supplied_home in unset empty; do
+    rc=0
+    if [ "$supplied_home" = unset ]; then
+      env -u FM_HOME FM_ROOT_OVERRIDE="$home" "$RETIRE" "$mode" >/dev/null 2>&1 || rc=$?
+    else
+      FM_HOME='' FM_ROOT_OVERRIDE="$home" "$RETIRE" "$mode" >/dev/null 2>&1 || rc=$?
+    fi
+    [ "$rc" -eq 2 ] || fail "$mode accepted an $supplied_home home or failed for an unrelated reason"
+    old_rec=$(fm_pending_reply_path "$home/state" "$old")
+    [ "$(fm_pending_reply_get "$old_rec" phase)" = awaiting_report ] || fail "$mode mutated the fallback home"
+  done
+done
 if FM_HOME="$home" "$RETIRE" --dry-run --max-age -1 >/dev/null 2>&1; then
   fail "a negative age was accepted"
 fi
 if FM_HOME="$home" "$RETIRE" >/dev/null 2>&1; then
   fail "a run with no mode was accepted"
 fi
-help=$(FM_HOME="$home" "$RETIRE" --help) || fail "help failed"
+help=$(env -u FM_HOME "$RETIRE" --help) || fail "help without a home failed"
 printf '%s\n' "$help" | grep -F '86400' >/dev/null || fail "help did not show the 24 hour default"
 pass "stale retirement refuses a bad invocation"
 
@@ -264,6 +325,7 @@ for action in finish-confirmed finish-failed reconcile-confirmed reconcile-faile
       corr=$(open_reply "$home" mate 'superseded unanswered request' $((NOW - 500)))
       rec=$(fm_pending_reply_path "$home/state" "$corr")
       later=$(open_reply "$home" mate 'newest unanswered request' "$NOW")
+      fm_pending_reply_mark_delivered "$home/state" "$later" || fail "could not confirm the successor delivery"
       fm_pending_reply_set "$rec" delivered_epoch "$((NOW - 450))"
       expected=awaiting_report
       field=delivered_epoch
