@@ -1318,11 +1318,8 @@ Advice never reserves a lane, and spawn always rereads live facts before launch.
 ## Curated delivery exceptions (config/curated-delivery-exceptions)
 
 The optional local, gitignored `config/curated-delivery-exceptions` records merged fork PRs that are deliberately not on `curated`, for `bin/fm-curated-delivery-check.sh`.
-A line `<original-pr> <relanding-pr> <evidence>` excuses the original only when evidence is present and the re-landing PR is itself merged onto `curated`.
-A re-landing written `base:<sha>` names a commit that is an ancestor of `curated` and not a fork PR, such as the upstream base `curated` was cut from.
-The private `config/curated-delivery-repo` selects the GitHub `owner/repository`, and `config/curated-delivery-homes` lists `label|code-root|ssh-host` rows for this fleet.
-`FM_CURATED_REPO` and `FM_CURATED_HOMES_FILE` override those inputs; absent configuration is reported as incomplete.
-[`bin/fm-curated-delivery-check.sh`](../bin/fm-curated-delivery-check.sh) owns the remaining detail.
+The private `config/curated-delivery-repo` and `config/curated-delivery-homes` select the repository and fleet homes to audit.
+The [`fm-curated-delivery-check.sh` header](../bin/fm-curated-delivery-check.sh) owns input formats, overrides, evidence requirements for equivalent re-landings, and incomplete-check reporting.
 
 ## Project capacity (config/project-capacity)
 

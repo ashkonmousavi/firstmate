@@ -54,16 +54,15 @@
 # attempt may ring or be skipped to protect another draft in a proven pending
 # composer; an unsubmitted copy of this doorbell is retried. After
 # FM_TASK_INBOX_RING_MAX attempts without an acknowledgement it escalates. The
-# caller owns the busy and recovery-grade endpoint checks: due actions deferred
+# caller owns the busy and recovery-grade endpoint checks: local watcher actions deferred
 # by a busy pane consume a separate durable consecutive-poll budget,
 # FM_TASK_INBOX_BUSY_MAX, except a harness whose submit queue
 # fm_control_submit_queue accepts (bin/fm-control-lib.sh), which is rung while
 # busy. Any other harness keeps that deferral, and the next poll that sees the
 # pane idle rings immediately, including inside grace and after the stuck-busy
 # escalation. At the busy bound the same escalation path surfaces a
-# stuck-busy reason without typing. An owed idle follow-up keeps its .busy-state
-# marker through deadline and checkpoint-admission deferrals, consuming it only
-# when delivery is admitted for an attempt; acknowledgement also resets the budget.
+# stuck-busy reason without typing. A non-busy, non-retry due check clears .busy-state
+# before attempting delivery; acknowledgement also resets the budget.
 # Fire-and-forget retries remain outside escalation. A positively
 # dead or missing endpoint skips delivery and the ladder and escalates directly.
 # This library owns the schedule, durable budgets, and escalation marker.
@@ -90,9 +89,9 @@
 # inbox, and the parent watcher (remote_inbox_tick in bin/fm-watch.sh) drives
 # this same ladder there through bin/fm-remote-secondmate-control.sh's inbox
 # verb: due action and ring run on the remote host, the ladder state stays
-# beside the records, and the parent queues the escalation wake. It rings a
-# busy mate as the remote enqueue ring does, so it keeps no busy budget, and
-# no fire-and-forget retry is owed there.
+# beside the records, and the parent queues the escalation wake. The remote
+# ladder keeps no busy budget or owed idle follow-up; each ring uses the shared
+# ring helper's composer pre-check. No fire-and-forget retry is owed there.
 # The parent passes its effective grace and ring maximum to each remote due
 # check; individual hops have a fixed 30-second bound, and ordinary supervision
 # runs the pass detached from its cycle, so a slow host never delays the

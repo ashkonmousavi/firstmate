@@ -5,7 +5,7 @@
 #   fm-curated-delivery-check.sh [--list]
 #   fm-curated-delivery-check.sh --help
 #
-# Silent when everything is delivered. Otherwise prints one `curated-delivery:`
+# Silent when there are no findings or incomplete checks. Otherwise prints one `curated-delivery:`
 # line that names what is missing, so the line is a usable watcher check
 # result; --list adds one detail line per finding after it. Exit status is 0
 # either way (a finding is output, not a failure); a usage error exits 2.
@@ -15,7 +15,7 @@
 #     ancestor of origin/curated and has no equivalent re-landing. A re-landing
 #     is either a curated commit that records the merge commit in a
 #     `cherry picked from commit <sha>` trailer, or an exception entry below
-#     whose re-landing PR is itself merged onto curated.
+#     whose merged re-landing commit is an ancestor of curated.
 #   * an OPEN fork PR whose base is main and that lacks the label
 #     FM_CURATED_BASE_OK_LABEL (default base-main-ok).
 #   * per home, merged PRs and curated commits missing from its code-root HEAD.
@@ -23,7 +23,7 @@
 # Exceptions: <FM_HOME>/config/curated-delivery-exceptions (FM_CURATED_EXCEPTIONS
 # overrides the path), one entry per line, `#` comments allowed:
 #   <original-pr> <relanding-pr> <evidence text...>
-# An entry without evidence text, or whose re-landing PR is not on curated,
+# An entry without evidence text, or whose merged re-landing commit is not on curated,
 # is ignored, so the original is still listed. A re-landing written
 # `base:<sha>` names a commit on curated that is not a fork PR, such as the
 # upstream base curated was cut from; it qualifies when <sha> is an ancestor of

@@ -2858,7 +2858,7 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 [`fm-task-inbox-lib.sh`](../../bin/fm-task-inbox-lib.sh) owns the durable busy-deferral budget and idle follow-up contract.
 `tests/fm-task-inbox.test.sh` covers non-queue busy escalation and the owed idle ring surviving stuck-busy escalation.
 `tests/fm-daemon.test.sh` covers consumer routing for busy escalation and busy-bookkeeping failures in away and quiet mode.
-The current Claude live proof is in [Steering-inbox doorbell](#steering-inbox-doorbell); Claude now exercises busy submission rather than the non-queue escalation path.
+The [Steering-inbox doorbell](#steering-inbox-doorbell) live guard now exercises Claude busy submission rather than the non-queue escalation path; the dated idle-doorbell results there do not establish busy queued consumption.
 
 ## Main backstop discovery guard, 2026-10-20
 
