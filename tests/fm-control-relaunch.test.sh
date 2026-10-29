@@ -105,7 +105,12 @@ case "${1:-}" in
     for a in "$@"; do
       case "$a" in
         *cursor_y*) printf '1\n'; exit 0 ;;
-        *pane_current_command*) cat "$D/command"; printf '\n'; exit 0 ;;
+        *pane_current_command*)
+          if [ -n "${FM_FAKE_RECOVERY_PROBE_READY:-}" ] && [ ! -e "$FM_FAKE_RECOVERY_PROBE_RELEASE" ]; then
+            : > "$FM_FAKE_RECOVERY_PROBE_READY"
+            while [ ! -e "$FM_FAKE_RECOVERY_PROBE_RELEASE" ]; do /bin/sleep 0.01; done
+          fi
+          cat "$D/command"; printf '\n'; exit 0 ;;
         *pane_current_path*)
           if [ -n "${FM_FAKE_CWD_RACE_READY:-}" ]; then
             : > "$FM_FAKE_CWD_RACE_READY"
@@ -3018,8 +3023,91 @@ SH
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
 
+test_recovery_rechecks_eligibility_after_manual_relaunch() {
+  local dir out rc before
+  dir=$(new_case recovery-recheck)
+  add_ship_task "$dir" t1
+  printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+  printf zsh > "$dir/fake/command"
+  out=$(PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" \
+    bash -c '. "$1"; fm_crew_recovery_agent_state "$2" t1' _ \
+    "$ROOT/bin/fm-crew-recovery-lib.sh" "$dir/home/state")
+  [ "$out" = dead ] || fail "startup did not discover the dead task: $out"
+  out=$(run_control "$dir" t1 relaunch --note manual)
+  expect_code 0 "$?" "manual relaunch failed: $out"
+  printf 'pending\n' > "$dir/home/state/t1.composer-dialog"
+  before=$(cat "$dir/home/state/t1.meta" "$dir/home/data/t1/brief.md" "$dir/fake/literal")
+  out=$(run_control "$dir" t1 relaunch --note recovery --if-recoverable); rc=$?
+  expect_code 3 "$rc" "recovery must skip the healthy replacement: $out"
+  [ "$before" = "$(cat "$dir/home/state/t1.meta" "$dir/home/data/t1/brief.md" "$dir/fake/literal")" ] \
+    || fail "recovery modified the healthy replacement"
+  [ "$(cat "$dir/home/state/t1.composer-dialog")" = pending ] || fail "skipped recovery removed the dialog record"
+  pass "recovery skips a task relaunched since startup discovery"
+}
+
+test_recovery_eligibility_holds_the_lifecycle_lock() {
+  local dir worker out rc i deferred deferred_rc
+  dir=$(new_case recovery-lock)
+  add_ship_task "$dir" t1
+  printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+  printf zsh > "$dir/fake/command"
+  FM_FAKE_RECOVERY_PROBE_READY="$dir/probe-ready" \
+    FM_FAKE_RECOVERY_PROBE_RELEASE="$dir/probe-release" \
+    run_control "$dir" t1 relaunch --note recovery --if-recoverable > "$dir/recovery.out" &
+  worker=$!
+  i=0
+  while [ ! -e "$dir/probe-ready" ] && [ "$i" -lt 300 ]; do
+    /bin/sleep 0.01
+    i=$((i + 1))
+  done
+  if [ ! -e "$dir/probe-ready" ]; then
+    : > "$dir/probe-release"
+    wait "$worker" || true
+    fail "recovery did not reach the eligibility probe: $(cat "$dir/recovery.out")"
+  fi
+  out=$(run_control "$dir" t1 relaunch --note manual); rc=$?
+  deferred=$(run_control "$dir" t1 relaunch --note recovery --if-recoverable); deferred_rc=$?
+  : > "$dir/probe-release"
+  wait "$worker"; i=$?
+  expect_code 1 "$rc" "manual relaunch must not interrupt recovery eligibility: $out"
+  assert_contains "$out" 'another lifecycle action' 'manual relaunch bypassed the recovery lock'
+  expect_code 75 "$deferred_rc" "overlapping recovery must defer to the lifecycle owner: $deferred"
+  expect_code 0 "$i" "recovery failed after releasing the probe: $(cat "$dir/recovery.out")"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "recovery did not start the replacement"
+  out=$(run_control "$dir" t1 relaunch --note manual)
+  expect_code 0 "$?" "manual relaunch failed after recovery released its lock: $out"
+  pass "recovery locks eligibility through replacement and releases the lifecycle lock"
+}
+
+test_recovery_rechecks_task_records_and_work() {
+  local dir out rc mutation
+  for mutation in held clean secondmate; do
+    dir=$(new_case "recovery-$mutation")
+    add_ship_task "$dir" t1
+    printf zsh > "$dir/fake/command"
+    printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+    case "$mutation" in
+      held) printf 'captain-held [at=1]: waiting\n' > "$dir/home/state/t1.status" ;;
+      clean)
+        git -C "$dir/wt" add unlanded.txt
+        git -C "$dir/wt" -c user.name=fmtest -c user.email=fmtest@example.invalid commit -qm landed
+        git -C "$dir/proj" merge -q --ff-only task-t1
+        ;;
+      secondmate) printf 'kind=secondmate\n' >> "$dir/home/state/t1.meta" ;;
+    esac
+    out=$(run_control "$dir" t1 relaunch --note recovery --if-recoverable); rc=$?
+    expect_code 3 "$rc" "recovery must recheck $mutation eligibility: $out"
+    [ ! -s "$dir/fake/literal" ] || fail "recovery sent input to an ineligible $mutation task"
+  done
+  pass "conditional recovery rechecks the task kind, record, and unlanded work"
+}
+
 # Reuse these hermetic fixtures in the pending-proof lifecycle regression.
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
+
+test_recovery_rechecks_eligibility_after_manual_relaunch
+test_recovery_eligibility_holds_the_lifecycle_lock
+test_recovery_rechecks_task_records_and_work
 
 test_relaunch_off_opencode_removes_tracked_wiring
 test_exit_and_relaunch_remove_the_dialog_file

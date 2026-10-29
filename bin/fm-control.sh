@@ -5,7 +5,7 @@
 # Usage: fm-control.sh <task-id> interrupt
 #        fm-control.sh <task-id> exit
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
-#                                         [--effort <level>]
+#                                         [--effort <level>] [--if-recoverable]
 #                                         (--note <text> | --note-file <path>)
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
@@ -89,6 +89,9 @@
 #              the prior durable record in place and reports the concrete
 #              state; it never leaves a half-transitioned task claiming to be
 #              running.
+#              --if-recoverable applies the startup eligibility decision from
+#              bin/fm-crew-recovery-lib.sh under the lifecycle lock. Exit 3
+#              means no recovery was needed; exit 75 defers a busy task.
 #
 # Teardown and discard are NOT verbs here and never will be. `exit` stops an
 # agent and preserves everything else; removing a worktree, killing an
@@ -250,6 +253,7 @@ MODEL_SET=0
 EFFORT_SET=0
 NOTE=
 NOTE_SET=0
+RECOVER_ONLY=0
 control_want_value=
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
@@ -271,6 +275,7 @@ for control_arg in "$@"; do
     continue
   fi
   case "$control_arg" in
+    --if-recoverable) RECOVER_ONLY=1 ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
@@ -294,8 +299,8 @@ if [ -n "$control_want_value" ]; then
 fi
 
 if [ "$VERB" != relaunch ]; then
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] \
-    || die "--harness, --model, --effort, and --note apply to 'relaunch' only"
+  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] \
+    || die "--harness, --model, --effort, --note, and --if-recoverable apply to 'relaunch' only"
 fi
 [ "$HARNESS_SET" = 0 ] || [ -n "$NEW_HARNESS" ] || die "--harness requires a non-empty value"
 [ "$MODEL_SET" = 0 ] || [ -n "$NEW_MODEL" ] || die "--model requires a non-empty value"
@@ -322,15 +327,25 @@ ID=$RAW_ID
 fm_lease_guard "$ID" "lifecycle control (fm-control)"
 CONTROL_LOCK="$STATE/.control-$ID.lock"
 trap control_cleanup EXIT
-fm_lock_try_acquire "$CONTROL_LOCK" \
-  || die "another lifecycle action is already running for task $ID"
+if ! fm_lock_try_acquire "$CONTROL_LOCK"; then
+  if [ "$RECOVER_ONLY" = 1 ]; then
+    echo "another lifecycle action is already running for task $ID" >&2
+    exit 75
+  fi
+  die "another lifecycle action is already running for task $ID"
+fi
 CONTROL_LOCK_HELD=1
 # do_exit runs in a command substitution. That subshell does not run this
 # EXIT trap, so the parent has to hold the path the trap removes. Set it
 # only once the lock is held: a process that loses the lock runs the same
 # trap, and would remove the file the lock holder is reading.
-FM_COMPOSER_DIALOG_SINK=$STATE/$ID.composer-dialog
 META="$STATE/$ID.meta"
+if [ "$RECOVER_ONLY" = 1 ]; then
+  # shellcheck source=bin/fm-crew-recovery-lib.sh
+  . "$SCRIPT_DIR/fm-crew-recovery-lib.sh"
+  fm_crew_recovery_agent_state "$STATE" "$ID" >/dev/null || exit 3
+fi
+FM_COMPOSER_DIALOG_SINK=$STATE/$ID.composer-dialog
 if [ ! -f "$META" ]; then
   case "$RAW_ID" in
     fm-*)

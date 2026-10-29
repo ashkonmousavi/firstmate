@@ -25,7 +25,6 @@
 #                 "CREW_RECOVERY: relaunched <id> after <state>",
 #                 "CREW_RECOVERY: <id>: relaunch failed after <state>: <detail>",
 #                 "CREW_RECOVERY: <id>: relaunch deferred after <state>: <detail>",
-#                 "CREW_RECOVERY: <id>: skipped: another recovery already holds this task",
 #                 "FMX: X mode on ..." or "FMX: X mode off ...".
 #          When a RUNNING secondmate home is fast-forwarded, its target is
 #          firstmate's own current default-branch commit. A local worktree uses
@@ -154,9 +153,7 @@
 #          directory selects the sequential fallback. Remote tracked-file sync
 #          and inheritance share a per-mate FM_SECONDMATE_CONVERGENCE_TIMEOUT
 #          budget (secondmate_sync_remote_one owns it).
-#          Dead-crewmate relaunch runs before secondmate liveness. One control
-#          relaunch can consume most of the deferred stage budget, and
-#          secondmate recovery already has its own sweep.
+#          Dead-crewmate relaunch overlaps secondmate recovery and convergence.
 #          A relaunch that the liveness sweep performs during an `only` run is
 #          always reported, because a digest composed before that run already
 #          printed the superseded endpoint record. A crewmate relaunch is
@@ -1643,6 +1640,7 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ]; then
   # depend on them, so it starts in the background and overlaps their wall clock.
   fleet_sync_pid=
   fleet_sync_out=
+  crew_recovery_pid=
   if network_phase && network_sweep_authorized 'project clone refresh'; then
     fleet_sync_out=$(mktemp "${TMPDIR:-/tmp}/fm-bootstrap-fleet.XXXXXX") || fleet_sync_out=
     if [ -n "$fleet_sync_out" ]; then
@@ -1659,11 +1657,13 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ]; then
     fi
   fi
   if network_phase; then
-    # Before secondmate liveness: one relaunch can consume most of the stage budget.
     if network_sweep_authorized 'dead-crewmate relaunch'; then
-      __fm_timing_stamp=$(fm_timing_now_ms)
-      fm_crew_recovery_sweep
-      fm_timing_record phase crew-recovery "$__fm_timing_stamp"
+      (
+        __fm_timing_stamp=$(fm_timing_now_ms)
+        fm_crew_recovery_sweep
+        fm_timing_record phase crew-recovery "$__fm_timing_stamp"
+      ) &
+      crew_recovery_pid=$!
     fi
     if network_sweep_authorized 'dead-secondmate relaunch'; then
       __fm_timing_stamp=$(fm_timing_now_ms)
@@ -1689,6 +1689,9 @@ if [ "${FM_BOOTSTRAP_DETECT_ONLY:-0}" != 1 ]; then
     && [ -d "$DATA" ] && [ -x "$SCRIPT_DIR/fm-contributions.sh" ]; then
     "$SCRIPT_DIR/fm-contributions.sh" arm --if-owned >/dev/null \
       || echo "MISSING: contribution observation could not be armed; coverage is unconfirmed"
+  fi
+  if [ -n "$crew_recovery_pid" ]; then
+    wait "$crew_recovery_pid" || true
   fi
   if [ -n "$fleet_sync_pid" ]; then
     wait "$fleet_sync_pid" || true

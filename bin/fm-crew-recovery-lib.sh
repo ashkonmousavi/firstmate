@@ -12,7 +12,8 @@
 # that state path is not scanned. Meta symlinks are not read. Control is
 # invoked with the same FM_HOME, through
 # ${FM_CREW_RECOVERY_CONTROL:-<this-dir>/fm-control.sh} as
-# `relaunch --note <text>`. The sweep never calls teardown, never deletes a
+# `relaunch --note <text> --if-recoverable`. Control rechecks eligibility under
+# its lifecycle lock. The sweep never calls teardown, never deletes a
 # task record, and never removes a worktree.
 #
 # A task is relaunched only when every one of these is true:
@@ -47,16 +48,15 @@
 # ask the forge. A scout report outside the worktree is not unlanded work.
 # The complete landed-work test stays in bin/fm-teardown.sh and is not called.
 #
-# One task failure does not stop the next task, and the sweep itself returns
-# 0. Control exit 75 is reported as deferred. A busy per-task lock
-# (state/.crew-recovery-<id>.lock) skips that task with a line. Silence means
+# Task attempts overlap, and the sweep waits for its own children and returns
+# 0. Control exit 75 is reported as deferred; exit 3 silently skips a task
+# that no longer qualifies. Silence means
 # nothing qualified. A real attempt prints one CREW_RECOVERY line.
 #
 # Output:
 #   CREW_RECOVERY: relaunched <id> after <dead|missing>
 #   CREW_RECOVERY: <id>: relaunch failed after <state>: <first line>
 #   CREW_RECOVERY: <id>: relaunch deferred after <state>: <first line>
-#   CREW_RECOVERY: <id>: skipped: another recovery already holds this task
 
 # shellcheck disable=SC2034
 FM_CREW_RECOVERY_LIB_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -80,12 +80,6 @@ fm_crew_recovery_need_classify() {
   command -v last_status_line >/dev/null 2>&1 && return 0
   # shellcheck source=bin/fm-classify-lib.sh disable=SC1091
   . "$FM_CREW_RECOVERY_LIB_DIR/fm-classify-lib.sh"
-}
-
-fm_crew_recovery_need_locks() {
-  command -v fm_lock_try_acquire >/dev/null 2>&1 && return 0
-  # shellcheck source=bin/fm-wake-lib.sh disable=SC1091
-  . "$FM_CREW_RECOVERY_LIB_DIR/fm-wake-lib.sh"
 }
 
 # 0 when the latest record blocks relaunch, including an unreadable record.
@@ -178,27 +172,17 @@ fm_crew_recovery_detail() {  # <output> <fallback>
   printf '%s' "$line"
 }
 
-fm_crew_recovery_one() {  # <state-dir> <id> <agent-state>
-  local state=$1 id=$2 agent_state=$3 control lock note out rc detail
-  lock="$state/.crew-recovery-$id.lock"
-  fm_crew_recovery_need_locks || {
-    printf 'CREW_RECOVERY: %s: relaunch failed after %s: recovery lock helpers are unavailable\n' \
-      "$id" "$agent_state"
-    return 0
-  }
-  if ! fm_lock_try_acquire "$lock"; then
-    printf 'CREW_RECOVERY: %s: skipped: another recovery already holds this task\n' "$id"
-    return 0
-  fi
+fm_crew_recovery_one() {  # <id> <agent-state>
+  local id=$1 agent_state=$2 control note out rc detail
   control=${FM_CREW_RECOVERY_CONTROL:-$FM_CREW_RECOVERY_LIB_DIR/fm-control.sh}
   if [ ! -x "$control" ]; then
     printf 'CREW_RECOVERY: %s: relaunch failed after %s: control program is not executable\n' \
       "$id" "$agent_state"
-    fm_lock_release "$lock" 2>/dev/null || true
     return 0
   fi
   note="Startup recovery relaunched this task because its agent was dead (endpoint state: ${agent_state}) and the recorded local copy still holds unlanded work. Continue from that copy. Nothing was torn down or discarded."
-  out=$(FM_HOME="$FM_HOME" "$control" "$id" relaunch --note "$note" 2>&1) && rc=0 || rc=$?
+  out=$(FM_HOME="$FM_HOME" "$control" "$id" relaunch --note "$note" --if-recoverable 2>&1) && rc=0 || rc=$?
+  [ "$rc" -ne 3 ] || return 0
   if [ "$rc" -eq 0 ]; then
     printf 'CREW_RECOVERY: relaunched %s after %s\n' "$id" "$agent_state"
   else
@@ -209,12 +193,37 @@ fm_crew_recovery_one() {  # <state-dir> <id> <agent-state>
       printf 'CREW_RECOVERY: %s: relaunch failed after %s: %s\n' "$id" "$agent_state" "$detail"
     fi
   fi
-  fm_lock_release "$lock" 2>/dev/null || true
   return 0
 }
 
+fm_crew_recovery_agent_state() {
+  local state=$1 id=$2 meta kind target backend agent_state wt base_name
+  [ ! -L "$state" ] && [ -d "$state" ] || return 1
+  meta="$state/$id.meta"
+  [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
+  kind=$(fm_meta_get "$meta" kind)
+  case "$kind" in
+    ship|scout) ;;
+    *) return 1 ;;
+  esac
+  target=$(fm_backend_target_of_meta "$meta")
+  [ -n "$target" ] || return 1
+  backend=$(fm_backend_of_meta "$meta")
+  agent_state=$(fm_backend_agent_state "$backend" "$target") || agent_state=unreadable
+  case "$agent_state" in
+    dead|missing) ;;
+    *) return 1 ;;
+  esac
+  fm_crew_recovery_record_blocks "$state/$id.status" && return 1
+  wt=$(fm_meta_get "$meta" worktree)
+  base_name=$(fm_meta_get "$meta" base_branch)
+  fm_crew_recovery_unlanded_proven "$wt" "$base_name" || return 1
+  printf '%s\n' "$agent_state"
+}
+
 fm_crew_recovery_sweep() {
-  local home state meta id kind target backend agent_state wt base_name
+  local home state meta id agent_state pid
+  local -a pids=()
   home=${FM_HOME:-}
   [ -n "$home" ] || return 0
   state=${FM_STATE_OVERRIDE:-$home/state}
@@ -226,24 +235,12 @@ fm_crew_recovery_sweep() {
     [ -L "$meta" ] && continue
     id=$(basename -- "$meta" .meta)
     fm_crew_recovery_id_ok "$id" || continue
-    kind=$(fm_meta_get "$meta" kind)
-    case "$kind" in
-      ship|scout) ;;
-      *) continue ;;
-    esac
-    target=$(fm_backend_target_of_meta "$meta")
-    [ -n "$target" ] || continue
-    backend=$(fm_backend_of_meta "$meta")
-    agent_state=$(fm_backend_agent_state "$backend" "$target") || agent_state=unreadable
-    case "$agent_state" in
-      dead|missing) ;;
-      *) continue ;;
-    esac
-    fm_crew_recovery_record_blocks "$state/$id.status" && continue
-    wt=$(fm_meta_get "$meta" worktree)
-    base_name=$(fm_meta_get "$meta" base_branch)
-    fm_crew_recovery_unlanded_proven "$wt" "$base_name" || continue
-    fm_crew_recovery_one "$state" "$id" "$agent_state"
+    agent_state=$(fm_crew_recovery_agent_state "$state" "$id") || continue
+    fm_crew_recovery_one "$id" "$agent_state" &
+    pids+=("$!")
+  done
+  for pid in "${pids[@]}"; do
+    wait "$pid" || true
   done
   return 0
 }

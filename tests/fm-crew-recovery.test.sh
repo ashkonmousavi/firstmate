@@ -23,13 +23,26 @@ cat > "$CONTROL" <<'SH'
 #!/usr/bin/env bash
 set -u
 log=${FM_CREW_RECOVERY_LOG:?}
-{
-  printf '%s\n' "$1"
-  printf '%s\n' "$2"
-  printf '%s\n' "$3"
-  printf '%s\n' "${4-}"
-  printf '\n'
-} >> "$log"
+printf '%s\n%s\n%s\n%s\n\n' "$1" "$2" "$3" "${4-}" >> "$log"
+if [ -n "${FM_CREW_RECOVERY_BARRIER:-}" ]; then
+  : > "$FM_CREW_RECOVERY_BARRIER/$1"
+  if [ "$1" != ship-ok ]; then
+    i=0
+    while [ ! -f "$FM_CREW_RECOVERY_BARRIER/ship-ok" ] && [ "$i" -lt 300 ]; do
+      sleep 0.01
+      i=$((i + 1))
+    done
+    [ -f "$FM_CREW_RECOVERY_BARRIER/ship-ok" ] || : > "$FM_CREW_RECOVERY_BARRIER/serial-$1"
+  fi
+fi
+if [ -n "${FM_CREW_RECOVERY_WAIT_TIMING:-}" ]; then
+  i=0
+  while ! grep -q 'secondmate-liveness' "$FM_TIMING_LOG" && [ "$i" -lt 300 ]; do
+    sleep 0.01
+    i=$((i + 1))
+  done
+  grep -q 'secondmate-liveness' "$FM_TIMING_LOG" || exit 1
+fi
 rc=0
 spec=${FM_CREW_RECOVERY_STUB_RC:-}
 case ",$spec," in
@@ -368,8 +381,12 @@ test_one_failure_does_not_stop_the_next_task() {
   fakebin=$(make_tmux "$TMP_ROOT/one-failure" dead)
   reset_log
   export FM_CREW_RECOVERY_STUB_RC='ship-fail=1,ship-defer=75'
+  export FM_CREW_RECOVERY_BARRIER="$TMP_ROOT/one-failure/barrier"
+  mkdir -p "$FM_CREW_RECOVERY_BARRIER"
   out=$(run_sweep "$home" "$fakebin")
-  unset FM_CREW_RECOVERY_STUB_RC
+  [ ! -f "$FM_CREW_RECOVERY_BARRIER/serial-ship-fail" ] || fail "the failed launch blocked the later task"
+  [ ! -f "$FM_CREW_RECOVERY_BARRIER/serial-ship-defer" ] || fail "the deferred launch blocked the later task"
+  unset FM_CREW_RECOVERY_STUB_RC FM_CREW_RECOVERY_BARRIER
   assert_contains "$out" "CREW_RECOVERY: ship-fail: relaunch failed after dead:" \
     "a control failure was not reported"
   assert_contains "$out" "CREW_RECOVERY: relaunched ship-ok after dead" \
@@ -384,41 +401,6 @@ test_one_failure_does_not_stop_the_next_task() {
   [ -f "$home/state/ship-fail.meta" ] || fail "a failed relaunch removed the record"
   [ -f "$TMP_ROOT/one-failure/wt/wt/unlanded.txt" ] || fail "a failed relaunch removed the dirty file"
   pass "one relaunch failure does not stop the sweep or discard the copy"
-}
-
-test_a_busy_recovery_lock_skips_that_task() {
-  local home fakebin holder out i lock
-  home=$(new_home busy-lock)
-  plant_copy dirty "$TMP_ROOT/busy-lock/wt"
-  write_task "$home/state/ship-busy.meta" ship "$TMP_ROOT/busy-lock/wt/wt"
-  fakebin=$(make_tmux "$TMP_ROOT/busy-lock" dead)
-  lock="$home/state/.crew-recovery-ship-busy.lock"
-  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
-    bash -c 'set -u; . "$1"; fm_lock_try_acquire "$2" || exit 1; exec sleep 60' _ \
-    "$ROOT/bin/fm-wake-lib.sh" "$lock" &
-  holder=$!
-  i=0
-  while [ "$i" -lt 50 ]; do
-    if [ -e "$lock" ] || [ -L "$lock" ]; then
-      break
-    fi
-    sleep 0.1
-    i=$((i + 1))
-  done
-  if [ ! -e "$lock" ] && [ ! -L "$lock" ]; then
-    kill "$holder" 2>/dev/null || true
-    wait "$holder" 2>/dev/null || true
-    fail "the recovery lock was never taken"
-  fi
-  reset_log
-  out=$(run_sweep "$home" "$fakebin")
-  kill "$holder" 2>/dev/null || true
-  wait "$holder" 2>/dev/null || true
-  assert_contains "$out" "CREW_RECOVERY: ship-busy: skipped: another recovery already holds this task" \
-    "a busy recovery lock was treated as a relaunch"
-  assert_not_called ship-busy "control ran while another recovery held the task"
-  [ -f "$TMP_ROOT/busy-lock/wt/wt/unlanded.txt" ] || fail "a skipped task lost its dirty file"
-  pass "a busy recovery lock skips that task"
 }
 
 test_bootstrap_network_phase_runs_the_sweep() {
@@ -447,12 +429,15 @@ SH
   [ ! -s "$LOG" ] || fail "an empty home called control: $(cat "$LOG")"
 
   write_task "$home/state/ship-compose.meta" ship "$TMP_ROOT/compose/wt/wt"
+  : > "$timing"
+  export FM_CREW_RECOVERY_WAIT_TIMING=1
   out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$fake_root" \
     FM_STATE_OVERRIDE="$home/state" FM_BOOTSTRAP_NETWORK=only \
     FM_BOOTSTRAP_NETWORK_LOCK_PID=4242 \
     FM_CREW_RECOVERY_CONTROL="$CONTROL" FM_CREW_RECOVERY_LOG="$LOG" \
     FM_TIMING_LOG="$timing" FM_TIMING_EPOCH_MS=0 \
     "$ROOT/bin/fm-bootstrap.sh")
+  unset FM_CREW_RECOVERY_WAIT_TIMING
   assert_contains "$out" "CREW_RECOVERY: relaunched ship-compose after dead" \
     "the deferred bootstrap phase did not relaunch the dead ship"
   assert_called ship-compose "bootstrap did not invoke control relaunch"
@@ -498,5 +483,4 @@ test_in_flight_records_are_relaunched
 test_inconclusive_endpoints_are_not_relaunched
 test_foreign_and_unreadable_records_are_not_relaunched
 test_one_failure_does_not_stop_the_next_task
-test_a_busy_recovery_lock_skips_that_task
 test_bootstrap_network_phase_runs_the_sweep
