@@ -383,6 +383,8 @@ for action in finish-confirmed finish-failed reconcile-confirmed reconcile-faile
       callback_pid=$!
       wait_for_file "$entered"
       (
+        # Invoked indirectly by fm_lock_acquire_wait during retirement.
+        # shellcheck disable=SC2329
         sleep() {
           : > "$release"
           command sleep "$@"
