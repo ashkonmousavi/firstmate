@@ -210,7 +210,7 @@ fi
 # ---- homes -------------------------------------------------------------------
 home_comparison() {
   local root=$1 tip=$2 rc n num proofs missing=
-  case "$root" in '~/'*) root="$HOME/${root#\~/}" ;; esac
+  case "$root" in \~/*) root="$HOME/${root#\~/}" ;; esac
   if ! git -C "$root" rev-parse --verify HEAD >/dev/null 2>&1; then
     printf 'home code root %s is not readable\n' "$root"
     return 0
