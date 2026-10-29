@@ -1,0 +1,22 @@
+{
+  "contract": "Parsed GitHub Actions job timeout and matrix configuration; not a hosted execution",
+  "oracle": "Author intent reports fm-watch-triage.test.sh taking up to 1.79 Ms; timeout must leave headroom",
+  "before_timeout_minutes": 30,
+  "after_timeout_minutes": 45,
+  "before_headroom_above_reported_test_ms": 10000,
+  "after_headroom_above_reported_test_ms": 910000,
+  "serial_shards": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "serial_steps_and_matrix_unchanged": true,
+  "unrelated_jobs_unchanged": true,
+  "limitations": "Reported test duration excludes other shard work and setup. Actual slow-runner job completion requires hosted CI."
+}
