@@ -297,6 +297,64 @@ test_ring_skips_dead_agent() {
   pass "inbox: the ring skips dead or missing endpoints and still rings live or unclassifiable endpoints"
 }
 
+# fm_task_inbox_ring names the step that produced each result: the return
+# code and the stdout verdicts stay as they were, the token lands in the
+# sibling <seq>.ring-reason, and the .msg bytes are never touched. The backend
+# boundary is faked with functions, so no harness runs.
+ring_reason_case() {  # <state> <rec> <setup-snippet>; prints "<rc> <token-var>"
+  local state=$1 rec=$2 snippet=$3
+  FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" bash -c '
+    . "$1"
+    fm_backend_agent_state() { printf "idle"; }
+    fm_backend_composer_state() { printf "empty"; }
+    fm_task_inbox_signal_prepare() { :; }
+    fm_backend_send_text_submit() { printf "empty"; }
+    eval "$3"
+    rc=0
+    fm_task_inbox_ring herdr w:p "$2" fm-t1 || rc=$?
+    printf "%s %s" "$rc" "$FM_TASK_INBOX_RING_REASON"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$rec" "$snippet"
+}
+
+test_ring_records_the_failing_step_without_changing_codes() {
+  local dir state rec before got want label snippet
+  dir="$TMP_ROOT/ring-reason"; state="$dir/state"; mkdir -p "$state/tmp"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  before=$(cat "$rec")
+  while IFS='|' read -r label want snippet; do
+    got=$(ring_reason_case "$state" "$rec" "$snippet")
+    [ "$got" = "$want" ] || fail "$label: expected '$want', got '$got'"
+  done <<'CASES'
+agent dead|3 agent-dead|fm_backend_agent_state() { printf dead; }
+agent missing|3 agent-dead|fm_backend_agent_state() { printf missing; }
+foreign pending draft|1 foreign-pending-draft|fm_backend_composer_state() { printf pending; }; fm_task_inbox_composer_holds() { return 1; }
+backend refused before typing|2 submit-refused|fm_backend_send_text_submit() { return 1; }
+send-failed with no finer step|2 backend-send-failed|fm_backend_send_text_submit() { printf send-failed; }
+send-failed names the literal send|2 literal-send-failed|fm_backend_send_text_submit() { printf "literal-send-failed\n" > "$FM_RING_REASON_SINK"; printf send-failed; }
+send-failed names the Enter send|2 enter-send-failed|fm_backend_send_text_submit() { printf "enter-send-failed\n" > "$FM_RING_REASON_SINK"; printf send-failed; }
+unknown verdict with no finer step|4 submit-unconfirmed|fm_backend_send_text_submit() { printf unknown; }
+pending verdict with no finer step|4 submit-unconfirmed|fm_backend_send_text_submit() { printf pending; }
+unknown verdict names the dialog|4 blocking-dialog|fm_backend_send_text_submit() { printf "blocking-dialog\n" > "$FM_RING_REASON_SINK"; printf unknown; }
+confirmed submit|0 ok|:
+CASES
+  got=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_backend_agent_state() { printf "idle"; }
+    fm_task_inbox_doorbell_line() { return 1; }
+    rc=0
+    fm_task_inbox_ring herdr w:p "$2" fm-t1 || rc=$?
+    printf "%s %s" "$rc" "$FM_TASK_INBOX_RING_REASON"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$rec")
+  [ "$got" = "2 doorbell-rejected" ] || fail "a rejected doorbell line should name doorbell-rejected, got '$got'"
+  [ "$(cat "$state/t1.inbox/001.ring-reason")" = 'rc=2 token=doorbell-rejected' ] \
+    || fail "the sibling file must hold the last attempt only, got: $(cat "$state/t1.inbox/001.ring-reason")"
+  [ "$(cat "$rec")" = "$before" ] || fail "recording the ring reason changed the steering record bytes"
+  [ "$(inbox_lib "$state" fm_task_inbox_last_reason "$rec")" = doorbell-rejected ] \
+    || fail "the last reason must be readable by later surfaces"
+  ! compgen -G "$state/tmp/fm-ring-reason.*" >/dev/null || fail "the ring left its reason sink behind"
+  pass "inbox: the ring names the step behind each result, keeps every code, and never rewrites the record"
+}
+
 # A fake tmux whose pane is a Claude-style composer that keeps its content in
 # FM_FAKE_COMPOSER: literal input appends to it, capture renders it wrapped
 # between rules, and Enter submits it (logged as SUBMIT) unless
@@ -389,6 +447,122 @@ esac
 exit 0
 SH
   chmod +x "$1/fakebin/tmux"
+}
+
+test_existing_doorbell_confirmation_reasons() {
+  local dir state rec got mode want presses
+  dir="$TMP_ROOT/existing-doorbell-reasons"; state="$dir/state"; mkdir -p "$state"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  cp "$rec" "$dir/before"
+  while IFS='|' read -r mode want presses; do
+    : > "$dir/keys"
+    rm -f "$dir/reads"
+    got=$(FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1/bin/fm-task-inbox-lib.sh"
+      . "$1/bin/fm-composer-lib.sh"
+      rec=$2 mode=$3 dir=$4
+      own=$(fm_task_inbox_doorbell_line "$rec")
+      fm_backend_source() { :; }
+      fm_backend_agent_state() { printf idle; }
+      fm_task_inbox_signal_prepare() { :; }
+      fm_backend_composer_state() {
+        local reads
+        reads=$(cat "$dir/reads" 2>/dev/null || printf 0)
+        reads=$((reads + 1)); printf "%s" "$reads" > "$dir/reads"
+        if [ "$reads" = 1 ]; then printf pending; return 0; fi
+        case "$mode" in
+          unreadable) return 1 ;;
+          unknown) printf unknown ;;
+          cleared) printf empty ;;
+          *) printf pending ;;
+        esac
+      }
+      fm_backend_herdr_composer_content() {
+        [ "$mode" != initial-unreadable ] || return 1
+        if [ "$(cat "$dir/reads")" -gt 1 ]; then
+          [ "$mode" != content-unreadable ] || return 1
+          if [ "$mode" = foreign ]; then printf "human draft"; return 0; fi
+        fi
+        printf "%s" "$own"
+      }
+      fm_busy_submit_wait() { [ "$mode" = receipt ]; }
+      fm_backend_send_key() {
+        printf "%s\n" "$3" >> "$dir/keys"
+        [ "$mode" != send-failed ]
+      }
+      fm_backend_send_text_submit() { printf literal >> "$dir/keys"; return 1; }
+      rc=0
+      fm_task_inbox_ring herdr session:w:p "$rec" fm-t1 || rc=$?
+      printf "%s %s" "$rc" "$FM_TASK_INBOX_RING_REASON"
+    ' _ "$ROOT" "$rec" "$mode" "$dir")
+    [ "$got" = "$want" ] || fail "$mode existing doorbell: expected '$want', got '$got'"
+    [ "$(wc -l < "$dir/keys")" -eq "$presses" ] || fail "$mode used the wrong number of Enters"
+    if [ "$presses" -gt 0 ]; then
+      [ "$(sort -u "$dir/keys")" = Enter ] || fail "$mode typed a fresh doorbell instead of Enter"
+    fi
+    [ "$(cat "${rec%.msg}.ring-reason")" = "rc=${want%% *} token=${want#* }" ] \
+      || fail "$mode did not persist its confirmation reason"
+    cmp -s "$rec" "$dir/before" || fail "$mode changed the instruction bytes"
+  done <<'CASES'
+initial-unreadable|1 composer-unreadable|0
+content-unreadable|4 composer-unreadable|1
+unreadable|4 post-enter-unreadable|1
+unknown|4 post-enter-unreadable|1
+foreign|4 post-enter-foreign-draft|1
+exhausted|4 enter-retries-exhausted|5
+send-failed|2 enter-send-failed|1
+cleared|0 ok|1
+receipt|0 ok|1
+CASES
+  pass "inbox: existing doorbells distinguish failed reads, foreign drafts and exhausted retries while preserving successful delivery"
+}
+
+test_ring_preflight_failure_reasons() {
+  local dir state rec backend mode want got
+  dir="$TMP_ROOT/preflight-reasons"; state="$dir/state"; mkdir -p "$state/tmp"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  cp "$rec" "$dir/before"
+  for backend in tmux herdr zellij orca cmux paseo; do
+    for mode in dialog sink; do
+      case "$mode" in
+        dialog) want=preflight-dialog ;;
+        sink) want=dialog-sink-failed ;;
+      esac
+      got=$(FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" bash -c '
+        . "$1/bin/fm-task-inbox-lib.sh"
+        . "$1/bin/fm-composer-lib.sh"
+        rec=$2 backend=$3 mode=$4 dir=$5
+        fm_backend_source() { :; }
+        fm_backend_agent_state() { printf idle; }
+        fm_task_inbox_signal_prepare() { :; }
+        fm_backend_composer_state() {
+          fm_composer_note_blocking_dialog "$(printf "Background work is running\n❯ 1. Exit and stop tasks\nEnter to confirm · Esc to cancel\n")" || true
+          printf unknown
+        }
+        eval "fm_backend_${backend}_send_text_submit() { printf typed >> \"\$dir/typed\"; printf empty; }"
+        if [ "$mode" = sink ]; then
+          FM_COMPOSER_DIALOG_SINK="$dir/missing/dialog"
+        else
+          FM_COMPOSER_DIALOG_SINK=
+        fi
+        FM_RING_REASON_SINK="$dir/direct-reason"
+        : > "$FM_RING_REASON_SINK"
+        rc=0
+        out=$(fm_backend_send_text_submit "$backend" target doorbell 5 2 0.3 label 2>/dev/null) || rc=$?
+        printf "%s|%s|%s\n" "$rc" "$out" "$(cat "$FM_RING_REASON_SINK")"
+        FM_RING_REASON_SINK=
+        rc=0
+        out=$(fm_task_inbox_ring "$backend" target "$rec" label) || rc=$?
+        printf "%s|%s|%s" "$rc" "$out" "$(cat "${rec%.msg}.ring-reason")"
+      ' _ "$ROOT" "$rec" "$backend" "$mode" "$dir")
+      [ "$got" = "1||$want"$'\n'"2||rc=2 token=$want" ] \
+        || fail "$backend $mode preflight lost its reason or changed stdout/return codes: $got"
+      [ ! -e "$dir/typed" ] || fail "$backend $mode typed despite a preflight refusal"
+      cmp -s "$rec" "$dir/before" || fail "$backend $mode changed the instruction bytes"
+    done
+  done
+  ! compgen -G "$state/tmp/fm-*" >/dev/null || fail "preflight refusal leaked a diagnostic sink"
+  pass "inbox: every backend distinguishes a preflight dialog from a failed dialog sink without typing"
 }
 
 # The stuck-doorbell deadlock: a doorbell whose Enter never landed sits in the
@@ -1448,6 +1622,8 @@ test_watcher_escalates_once_after_budget() {
   [ "$(grep -cF 'unread firstmate instruction' "$state/.wake-queue")" = 1 ] \
     || fail "the escalation must fire exactly once:"$'\n'"$(cat "$state/.wake-queue")"
   grep -qF 'stale:' "$out" || fail "the watcher should exit through the ordinary stale wake:"$'\n'"$(cat "$out")"
+  grep -qF '(last ring reason=ok)' "$state/.wake-queue" \
+    || fail "the stale wake should carry the last ring's reason:"$'\n'"$(cat "$state/.wake-queue")"
   pass "watcher: a spent ring budget emits exactly one ordinary stale wake for recovery"
 }
 
@@ -1554,6 +1730,9 @@ test_write_is_durable_and_exact
 test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
+test_ring_records_the_failing_step_without_changing_codes
+test_existing_doorbell_confirmation_reasons
+test_ring_preflight_failure_reasons
 test_ring_submits_its_own_stuck_doorbell
 test_ring_submits_own_doorbell_on_a_cursor_composer
 test_mate_ring_submits_own_doorbell_and_skips_foreign_text

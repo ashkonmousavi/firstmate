@@ -541,7 +541,7 @@ inbox_steer_escalate_unavailable() {  # <window> <task> <record>
 # Runs for secondmates too: their pane-staleness exemption is about quiet panes
 # being healthy, while an unacknowledged instruction can still be a stuck steer.
 inbox_steer_check() {  # <window> <task>
-  local w=$1 task=$2 action verb rec count tail40 reason='' ring_rc backend agent_state
+  local w=$1 task=$2 action verb rec count tail40 reason='' ring_rc backend agent_state last_reason
   action=$(fm_task_inbox_due_action "$STATE" "$task") || return 0
   verb=${action%% *}
   [ "$verb" != quiet ] || return 0
@@ -604,7 +604,7 @@ inbox_steer_check() {  # <window> <task>
           wake "$reason"
         fi
       fi
-      triage_log "steer-inbox delivery attempt: $task ${rec##*/} result=$ring_rc"
+      triage_log "steer-inbox delivery attempt: $task ${rec##*/} result=$ring_rc${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}"
       ;;
     retry)
       ring_rc=0
@@ -614,10 +614,11 @@ inbox_steer_check() {  # <window> <task>
         fm_wake_append stale "$w" "$reason" || exit 1
         wake "$reason"
       fi
-      triage_log "steer-inbox retry ring: $task ${rec##*/} result=$ring_rc"
+      triage_log "steer-inbox retry ring: $task ${rec##*/} result=$ring_rc${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}"
       ;;
     escalate)
-      reason=${reason:-"stale: $w (unread firstmate instruction: $rec still unhandled after $count doorbell delivery attempts with an idle pane; inspect the worker)"}
+      last_reason=$(fm_task_inbox_last_reason "$rec")
+      reason=${reason:-"stale: $w (unread firstmate instruction: $rec still unhandled after $count doorbell delivery attempts with an idle pane${last_reason:+ (last ring reason=$last_reason)}; inspect the worker)"}
       if [ ! -d "${rec%/*}" ] || [ ! -f "$rec" ]; then
         fm_task_inbox_due_action "$STATE" "$task" >/dev/null || true
         return 0
@@ -1208,7 +1209,7 @@ remote_inbox_tick() {
 }
 
 remote_inbox_pass() {
-  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason notify_key appended first_reason=''
+  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count last_reason out reason notify_key appended first_reason=''
   touch "$tick_marker" || return 1
   for meta in "$STATE"/*.meta; do
     [ -e "$meta" ] || continue
@@ -1225,7 +1226,7 @@ remote_inbox_pass() {
       continue
     fi
     reason=''
-    read -r verb rec count <<EOF
+    read -r verb rec count last_reason <<EOF
 $due
 EOF
     case "$verb" in
@@ -1243,7 +1244,7 @@ EOF
         fi
         ;;
       escalate)
-        reason="stale: $w (unread firstmate instruction: remote record $rec still unhandled after $count doorbell delivery attempts; inspect the secondmate)"
+        reason="stale: $w (unread firstmate instruction: remote record $rec still unhandled after $count doorbell delivery attempts${last_reason:+ (last ring $last_reason)}; inspect the secondmate)"
         ;;
       *) continue ;;
     esac

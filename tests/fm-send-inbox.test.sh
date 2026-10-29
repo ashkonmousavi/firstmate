@@ -245,6 +245,8 @@ test_failed_ring_is_still_sent() {
   [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "the steer was not recorded"
   assert_contains "$(cat "$err")" "watcher will re-ring" \
     "the failed-ring notice should point at the re-ring"
+  assert_contains "$(cat "$err")" "doorbell did not reach" "the failed-ring notice keeps its existing text"
+  assert_contains "$(cat "$err")" " reason=" "the failed-ring notice must name the ring step that failed"
   pass "fm-send inbox: a failed doorbell is still a durably sent steer"
 }
 
@@ -261,6 +263,7 @@ test_unreadable_ring_is_reported_without_failing_enqueue() {
     assert_contains "$(cat "$err")" 'doorbell NOT delivered' "an unreadable ring must report non-delivery"
     assert_contains "$(cat "$err")" 'durably recorded' "the ring notice must distinguish durable enqueue"
     assert_contains "$(cat "$err")" 'watcher will re-ring' "the ring notice must preserve recovery"
+    assert_contains "$(cat "$err")" ' reason=' "an unconfirmed ring must name its step"
     [ "$(wc -l < "$dir/send.log")" -eq 1 ] || fail "a failed confirmation must never retype its doorbell"
     assert_not_contains "$(cat "$dir/send.log")" 'preserve this durable steer' "an unreadable ring must not type its payload"
     pass "fm-send inbox: $mode reports non-delivery while preserving durable enqueue"

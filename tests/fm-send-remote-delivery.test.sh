@@ -314,6 +314,7 @@ test_remote_unreadable_ring_preserves_durable_enqueue() {
     assert_contains "$(cat "$rec")" 'preserve this remote steer' "the remote inbox must retain its payload"
     assert_contains "$err" 'doorbell NOT delivered' "the remote leg must report an unreadable ring as not delivered"
     assert_contains "$err" 'durably recorded' "the remote notice must preserve enqueue semantics"
+    assert_contains "$err" ' reason=' "the remote notice must name the ring step that failed"
     [ "$(wc -l < "$dir/herdr.log.typed")" -eq 1 ] || fail "the remote leg must type its doorbell only once"
     assert_not_contains "$(cat "$dir/herdr.log.typed")" 'preserve this remote steer' "the remote payload must never be typed"
     pend=$(pending_record "$home")
@@ -943,6 +944,25 @@ test_remote_inbox_ladder_quiet_after_acknowledgement() {
   pass "watcher remote inbox: an acknowledged remote record is never re-rung"
 }
 
+test_remote_inbox_idle_failure_still_spends_an_attempt_with_its_reason() {
+  local dir fb ssh_log home rhome rec cs out
+  dir="$TMP_ROOT/remote-idle-fail"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-idle-fail)
+  home=$(setup_remote_parent_home remote-idle-fail "$rhome")
+  cs="$rhome/state/parent-route/rsm.inbox"
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_UNCONFIRMED=unknown FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) \
+    || fail "an idle failed ring must not fail the watcher: $out"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "an idle failed ring must still spend one attempt"
+  assert_grep 'result=rang 4 reason=' "$home/state/.watch-triage.log" "the failed attempt must carry its reason in the triage log"
+  assert_grep 'rc=4 token=' "$cs/001.ring-reason" "the failed attempt must record rc and token beside the record"
+  pass "watcher remote inbox: an idle failed ring still spends an attempt and names its step"
+}
+
 test_remote_inbox_ladder_escalates_after_ring_max() {
   local dir fb ssh_log home rhome rec out rc wakes
   dir="$TMP_ROOT/remote-rering-max"; mkdir -p "$dir"
@@ -1177,6 +1197,7 @@ test_local_pending_does_not_close_resolve_key
 test_local_secondmate_pending_keeps_expectation_armed
 test_remote_inbox_ladder_rerings_unacknowledged_record
 test_remote_inbox_ladder_quiet_after_acknowledgement
+test_remote_inbox_idle_failure_still_spends_an_attempt_with_its_reason
 test_remote_inbox_ladder_escalates_after_ring_max
 test_remote_inbox_detached_pass_never_holds_the_cycle
 test_remote_inbox_pass_never_overlaps_an_inflight_pass
