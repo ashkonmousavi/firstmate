@@ -29,8 +29,7 @@
 #                              (the session and the away daemon)
 #   <task>.inbox/.ring-state   watcher re-ring ladder: "<msg>\t<count>\t<epoch>"
 #   <task>.inbox/.busy-state   consecutive busy deferrals: "<msg>\t<count>"
-#   <task>.inbox/NNN.ring-reason   last ring result for that record: "rc=<n> token=<token>"
-#                              (fm_task_inbox_ring owns the tokens; never part of the .msg)
+#   <task>.inbox/NNN.ring-reason   last ring result (fm_task_inbox_ring owns the format)
 #   <task>.inbox/.escalated    oldest-message name already surfaced as stale,
 #                              so later polls suppress another escalation
 #   <task>.inbox/.retry-ring   name of a fire-and-forget record still owed its
@@ -441,20 +440,14 @@ fm_task_inbox_confirmed_enter() {
 # uncertainty cannot starve steering. Accepted residual race: the endpoint can
 # exit between the liveness check and typing; the ': ' prefix protects complete
 # shell lines only, not suffixes typed after such an exit.
-fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
-  local rc=0
-  FM_TASK_INBOX_RING_REASON=
-  _fm_task_inbox_ring_step "$@" || rc=$?
-  fm_task_inbox_note_reason "$3" "$rc" "$FM_TASK_INBOX_RING_REASON"
-  return "$rc"
-}
-
+#
 # Reason for the last ring result, so the next failure names its step. The
 # stdout verdicts and the 0-4 return codes above are unchanged: this is
 # logging only. fm_task_inbox_ring owns the token: it leaves it in
-# FM_TASK_INBOX_RING_REASON (read it right after the call) and records it in
-# the sibling <inbox>/<seq>.ring-reason as one line, "rc=<n> token=<token>",
-# replaced on every attempt for that record; the .msg bytes are never touched.
+# FM_TASK_INBOX_RING_REASON (read it right after the call) and attempts to write
+# the sibling <inbox>/<seq>.ring-reason as one line, "rc=<n> token=<token>".
+# Each attempt replaces that record's diagnostic when writable; the .msg bytes
+# are never touched, and a failed diagnostic write cannot change the ring result.
 # A backend adapter only offers a finer token through the sink file named by
 # FM_RING_REASON_SINK (fm_backend_herdr_note_reason), because it runs in a
 # command substitution and cannot set a variable here. Tokens: ok, agent-dead,
@@ -463,6 +456,20 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
 # post-enter-unreadable, post-enter-foreign-draft, composer-unreadable and
 # enter-retries-exhausted; herdr adds composer-nonempty, literal-send-failed,
 # payload-not-shown, clear-unverified, status-unknown and blocking-dialog.
+# Without a finer backend token, submit-refused, backend-send-failed and
+# submit-unconfirmed identify only the dispatch result, not an underlying cause.
+# Failed or unconfirmed send notices and watcher attempt logs include reason=;
+# spent-budget stale wakes include the last persisted token when available.
+# A later attempt replaces the diagnostic even if it succeeds: ok confirms
+# submission, not that the worker acted on or acknowledged the record.
+fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
+  local rc=0
+  FM_TASK_INBOX_RING_REASON=
+  _fm_task_inbox_ring_step "$@" || rc=$?
+  fm_task_inbox_note_reason "$3" "$rc" "$FM_TASK_INBOX_RING_REASON"
+  return "$rc"
+}
+
 _fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label]
   local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict rc sink
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
