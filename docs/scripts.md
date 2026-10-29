@@ -12,7 +12,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-sessionstart-run.sh` | Route a native session-open hook to the full digest, a context re-emit, or the nudge |
 | `fm-operational-input.sh` | Construct and parse the canonical cross-language operational-input protocol |
 | `fm-bootstrap.sh`        | Detect toolchain and fleet problems, run the locked session-start sweeps, and install tools under the [bootstrap diagnostics policy](../.agents/skills/bootstrap-diagnostics/SKILL.md) |
-| `fm-startup-network.sh`  | Run session start's network checks and inactive-outcome scan off its blocking path, retaining reports and durable findings |
+| `fm-startup-network.sh`  | Run deferred startup recovery, network checks, and the inactive-outcome scan, retaining reports and durable findings |
+| [`fm-crew-recovery-lib.sh`](../bin/fm-crew-recovery-lib.sh) | Own automatic startup recovery eligibility and serial relaunch for this home's dead ship and scout workers |
 | `fm-fleet-sync.sh`       | Refresh project clones with safe fast-forwards, self-heals, `STUCK:` reports, branch pruning, and bounded recovery from an orphaned `.git/packed-refs.lock` |
 | `fm-fleet-snapshot.sh`   | Print structured fleet snapshot JSON and refresh only its parent-side remote-ledger cache (schema `fm-fleet-snapshot.v1`) |
 | `fm-home-summary-refresh.sh` | Atomically publish this home's structured summary ledger                         |
