@@ -1,0 +1,36 @@
+{
+  "lint_jobs": [
+    {
+      "name": "Lint 1",
+      "partition": "1of4",
+      "timeout_minutes": 30,
+      "runs_on": "ubuntu-24.04"
+    },
+    {
+      "name": "Lint 2",
+      "partition": "2of4",
+      "timeout_minutes": 30,
+      "runs_on": "ubuntu-24.04"
+    },
+    {
+      "name": "Lint 3",
+      "partition": "3of4",
+      "timeout_minutes": 30,
+      "runs_on": "ubuntu-24.04"
+    },
+    {
+      "name": "Lint 4",
+      "partition": "4of4",
+      "timeout_minutes": 30,
+      "runs_on": "ubuntu-24.04"
+    }
+  ],
+  "fail_fast": false,
+  "canonical_step_environment": {
+    "FM_LINT_REQUIRE_BOUNDS": "1",
+    "FM_LINT_JOBS": "1"
+  },
+  "canonical_step_run": "set -eu\nmkdir -p \"$RUNNER_TEMP/fm-lint\"\nbin/fm-lint.sh --partition \"${{ matrix.partition }}of${{ strategy.job-total }}\" \\\n  --telemetry \"$RUNNER_TEMP/fm-lint/partition-${{ matrix.partition }}.tsv\"\n",
+  "live": false,
+  "limitation": "Normalized configuration inspection only; GitHub has not executed these jobs in this test phase."
+}

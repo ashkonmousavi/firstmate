@@ -1,0 +1,11 @@
+Canonical CLI inventory: 504 shell roots.
+1of4: 126 roots, 4586067 bytes
+2of4: 126 roots, 4585883 bytes
+3of4: 126 roots, 4585871 bytes
+4of4: 126 roots, 4585862 bytes
+1of2: 252 roots, 9171849 bytes
+2of2: 252 roots, 9171834 bytes
+Both partition layouts are complete and disjoint; both argument forms and local/CI selection agree.
+All valid partitions reject --fast and explicit subsets with exit 2.
+Missing, empty, out-of-range and unsupported partitions are rejected with exit 2.
+No linters, formatters or static analysis tools were executed. File-byte totals are not runtime evidence.
