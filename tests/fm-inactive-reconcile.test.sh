@@ -1455,6 +1455,78 @@ SH
   pass "receipt recovery shares candidate rotation and skips retired history"
 }
 
+test_backlog_pr_pass_resumes_receipt_inspection() {
+  local n
+  make_world backlog-discovery; make_gh "$WORLD"
+  printf '102 MERGED\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-current 'https://github.com/o/r/pull/102'
+  mkdir -p "$MAIN/state/terminal-outcomes"
+  for n in a b c; do
+    printf 'schema=fm-backlog-pr-close.v1\ntask_id=t-retired-%s\nstatus=closed\n' "$n" > "$MAIN/state/terminal-outcomes/backlog-pr-$n.closed"
+  done
+  printf '1\n' > "$MAIN/state/backlog-pr-cursor"
+  cat > "$WORLD/fakebin/sed" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = -n ] && [ "${2:-}" = 's/^task_id=//p' ]; then
+  case "${3:-}" in
+    */backlog-pr-*.closed)
+      printf '%s\n' "$3" >> "$FM_DISCOVERY_LOG"
+      sleep 10
+      ;;
+  esac
+fi
+PATH=${PATH#*:} exec sed "$@"
+SH
+  chmod +x "$WORLD/fakebin/sed"
+  for n in 1 2 3 4; do
+    FM_DISCOVERY_LOG="$WORLD/discovery.log" FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
+  done
+  [ "$(sort -u "$WORLD/discovery.log" | wc -l | tr -d ' ')" = 3 ] || fail "receipt inspection restarted at the same permanent history"
+  [ "$(row_state "$MAIN" t-current)" = done ] || fail "receipt discovery starved the merged task across scans"
+  pass "receipt inspection saves progress before reading permanent history"
+}
+
+test_backlog_pr_pass_rechecks_evidence_without_receipts() {
+  local json
+  make_world backlog-evidence-only; make_gh "$WORLD"
+  printf '103 ERROR\n' > "$WORLD/gh.states"
+  add_flight_row "$MAIN" t-external 'https://github.com/o/r/pull/103'
+  run_reconcile "$MAIN" --startup
+  json="$MAIN/data/x-reconcile.json"
+  python3 -I - "$json" <<'PYJSON' || fail "unreadable PR did not establish the evidence-only fixture"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-external" and x["finding"] == "unknown" for x in items), items
+PYJSON
+  [ "$(outcome_count "$MAIN" closed)" = 0 ] || fail "unreadable PR created a close receipt"
+  (cd "$MAIN" && tasks-axi done t-external --file data/backlog.md >/dev/null) || fail "external completion failed"
+  cat > "$WORLD/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = show ] && [ "$2" = t-external ]; then
+  printf 'error: temporarily unavailable\n'
+  exit 1
+fi
+PATH=${PATH#*:} exec tasks-axi "$@"
+SH
+  chmod +x "$WORLD/fakebin/tasks-axi"
+  run_reconcile "$MAIN" --startup
+  python3 -I - "$json" <<'PYJSON' || fail "unreadable authoritative state discarded evidence"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert any(x["id"] == "t-external" and x["finding"] == "unknown" for x in items), items
+PYJSON
+  rm -f "$WORLD/fakebin/tasks-axi"
+  run_reconcile "$MAIN" --startup
+  python3 -I - "$json" <<'PYJSON' || fail "confirmed Done left stale evidence without a receipt"
+import json, sys
+items = json.load(open(sys.argv[1]))["items"]
+assert not any(x["id"] == "t-external" and x["source"] == "inactive-reconcile" for x in items), items
+PYJSON
+  [ "$(outcome_count "$MAIN" closed)" = 0 ] || fail "evidence-only cleanup fabricated a close receipt"
+  [ "$(wc -l < "$WORLD/gh.log" | tr -d ' ')" = 1 ] || fail "Done-state evidence cleanup reread the forge"
+  pass "evidence-only tasks retain unreadable state and retire after confirmed Done"
+}
+
 test_backlog_pr_pass_advances_after_success_at_deadline() {
   make_world backlog-deadline-cursor; make_gh "$WORLD"
   printf '99 MERGED\n100 MERGED\n' > "$WORLD/gh.states"
@@ -1496,6 +1568,8 @@ if [ "${1:-}" = --backlog ]; then
   test_backlog_pr_pass_preserves_unexamined_findings
   test_backlog_pr_pass_recovery_requires_done
   test_backlog_pr_pass_rotates_receipt_recovery_with_candidates
+  test_backlog_pr_pass_resumes_receipt_inspection
+  test_backlog_pr_pass_rechecks_evidence_without_receipts
   test_backlog_pr_pass_advances_after_success_at_deadline
   exit 0
 fi
@@ -1550,6 +1624,8 @@ test_backlog_pr_pass_bounds_every_backend_operation
 test_backlog_pr_pass_preserves_unexamined_findings
 test_backlog_pr_pass_recovery_requires_done
 test_backlog_pr_pass_rotates_receipt_recovery_with_candidates
+test_backlog_pr_pass_resumes_receipt_inspection
+test_backlog_pr_pass_rechecks_evidence_without_receipts
 test_backlog_pr_pass_advances_after_success_at_deadline
 
 echo "all inactive reconciliation tests passed"

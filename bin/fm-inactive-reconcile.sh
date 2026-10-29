@@ -106,7 +106,7 @@
 # marks it closed, so an interruption never closes a record twice; a record
 # someone reopens is not closed again for the same PR states.
 # The pass owns half of FM_INACTIVE_RECONCILE_BUDGET_SECS (at least 1 second) and
-# visits rows and outstanding receipt recovery in rotation from a cursor saved after each visit
+# visits rows, outstanding findings, and receipt inspection in rotation from a cursor saved after each visit
 # (state/backlog-pr-cursor), so every row is reached across short sessions.
 # In the main home only, the pass upserts into data/x-reconcile.json items with
 # source "inactive-reconcile": finding "fix" for a record it closed (detail
@@ -770,15 +770,17 @@ backlog_pr_publish() {
 
 backlog_pr_recover() {
   local receipt=$1 id=$2 remaining full signature
+  [ -z "$receipt" ] || [ "$(backlog_pr_receipt_status "$receipt")" = closing ] || return 0
   remaining=$((deadline - $(date +%s)))
   [ "$remaining" -ge 1 ] || return 1
   full=$(FM_BACKLOG_ROW_TIMEOUT_SECS=$remaining fm_backlog_row_show "$data" "$id" --full 2>/dev/null) || return 1
   [ "$(printf '%s\n' "$full" | sed -n 's/^  state: *//p' | head -1)" = done ] || return 0
-  if [ "$(backlog_pr_receipt_status "$receipt")" = closing ]; then
+  if [ -n "$receipt" ]; then
     signature=$(sed -n 's/^prs=//p' "$receipt" | sed -n '1p')
     out="$out$id"$'\t'"fix"$'\t'"closed: pull request finished ($signature)"$'\n'
     backlog_pr_publish && backlog_pr_receipt_write "$receipt" "$id" "$signature" closed
   else
+    printf '%s' "$out" | awk -F'\t' -v id="$id" '$1 == id && $2 == "fix" && $3 ~ /^closed:/ { found=1 } END { exit !found }' && return 0
     out="$out$id"$'\t\t\n'
     backlog_pr_publish
   fi
@@ -786,9 +788,44 @@ backlog_pr_recover() {
 
 backlog_pr_cursor_file() { printf '%s/backlog-pr-cursor\n' "$STATE"; }
 
+backlog_pr_rows() {
+  python3 -I -c '
+import json, os, re, sys
+path, main, outcomes = sys.argv[1:]
+seen = set()
+for row in sys.stdin:
+    row = row.rstrip("\n")
+    if row:
+        print(row)
+        seen.add(row.lstrip().split(",", 1)[0])
+items = []
+if main == "1":
+    try:
+        with open(path) as f:
+            doc = json.load(f)
+        if isinstance(doc, dict) and isinstance(doc.get("items"), list):
+            items = doc["items"]
+    except (OSError, ValueError):
+        pass
+for item in items:
+    if not isinstance(item, dict) or item.get("source") != "inactive-reconcile" or item.get("home") != "main":
+        continue
+    item_id = item.get("id")
+    if not isinstance(item_id, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", item_id) or item_id in seen:
+        continue
+    seen.add(item_id)
+    print("  -,evidence," + item_id)
+with os.scandir(outcomes) as entries:
+    receipts = sorted(entry.path for entry in entries
+                      if re.fullmatch(r"backlog-pr-[A-Za-z0-9._-]+[.]closed", entry.name))
+for receipt in receipts:
+    print("  -,receipt," + receipt)
+' "$1/x-reconcile.json" "$2" "$OUTCOME_DIR"
+}
+
 backlog_pr_pass() { # <deadline> <main-home: 0|1>
   local deadline=$1 main=$2 config data rows row id refs ref meta state signature fingerprint receipt remaining
-  local all_finished unreadable first_ref full out='' marks='' cache='' total start k idx cursor_file rstatus incarnation close_rc evidence_ids
+  local all_finished unreadable first_ref full out='' marks='' cache='' total start k idx cursor_file rstatus incarnation close_rc
   config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
   data="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
   command -v gh >/dev/null 2>&1 && command -v tasks-axi >/dev/null 2>&1 || return 0
@@ -797,28 +834,7 @@ backlog_pr_pass() { # <deadline> <main-home: 0|1>
   [ "$remaining" -ge 1 ] || return 0
   rows=$(fm_backlog_row_list "$data" --state in_flight) || return 0
   rows=$(printf '%s\n' "$rows" | grep -E '^  [^,]+,in_flight,' || true)
-  evidence_ids=''
-  if [ "$main" -eq 1 ] && [ -f "$data/x-reconcile.json" ]; then
-    evidence_ids=$(python3 -I - "$data/x-reconcile.json" 2>/dev/null <<'PYIDS'
-import json, sys
-with open(sys.argv[1]) as f:
-    doc = json.load(f)
-for item in doc["items"]:
-    if isinstance(item, dict) and item.get("source") == "inactive-reconcile" and item.get("home") == "main":
-        print(item["id"])
-PYIDS
-    ) || evidence_ids=''
-  fi
-  for receipt in "$OUTCOME_DIR"/backlog-pr-*.closed; do
-    [ -f "$receipt" ] && [ ! -L "$receipt" ] || continue
-    id=$(sed -n 's/^task_id=//p' "$receipt" | sed -n '1p')
-    valid_id "$id" || continue
-    if [ "$(backlog_pr_receipt_status "$receipt")" != closing ]; then
-      printf '%s\n' "$evidence_ids" | grep -Fxq -- "$id" || continue
-    fi
-    printf '%s\n' "$rows" | awk -F, -v id="$id" '$1 == "  " id { found=1 } END { exit !found }' && continue
-    rows="${rows:+$rows$'\n'}  $id,recovery,$receipt"
-  done
+  rows=$(printf '%s\n' "$rows" | backlog_pr_rows "$data" "$main" 2>/dev/null) || return 0
   total=$(printf '%s\n' "$rows" | sed '/^$/d' | wc -l | tr -d ' ')
   cursor_file=$(backlog_pr_cursor_file)
   start=$(sed -n '1p' "$cursor_file" 2>/dev/null || true)
@@ -836,9 +852,18 @@ PYIDS
     [ "$remaining" -ge 1 ] || break
     printf '%s\n' $(( (idx + 1) % total )) > "$cursor_file" 2>/dev/null || true
     case "${row#*,}" in
-      recovery,*)
-        receipt=${row#*,recovery,}
+      receipt,*)
+        receipt=${row#*,receipt,}
+        [ -f "$receipt" ] && [ ! -L "$receipt" ] || continue
+        id=$(sed -n 's/^task_id=//p' "$receipt" | sed -n '1p')
+        valid_id "$id" || continue
         backlog_pr_with_locks "$id" backlog_pr_recover "$receipt" "$id" || true
+        continue
+        ;;
+      evidence,*)
+        id=${row#*,evidence,}
+        valid_id "$id" || continue
+        backlog_pr_with_locks "$id" backlog_pr_recover '' "$id" || true
         continue
         ;;
     esac
