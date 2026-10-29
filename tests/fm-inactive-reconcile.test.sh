@@ -1252,8 +1252,8 @@ test_backlog_pr_pass_reads_complete_references() {
   write_child "$MAIN" t-meta-ref 'done: finished'
   sed 's|^pr=.*|pr=https://github.com/o/r/pull/91|' "$MAIN/state/t-meta-ref.meta" > "$WORLD/meta"
   mv "$WORLD/meta" "$MAIN/state/t-meta-ref.meta"
-  FM_FAKE_CREW_STATE=done run_reconcile "$MAIN" --startup
-  [ "$(row_state "$MAIN" t-hidden)" = done ] || fail "a metadata-free PR beyond list truncation was forgotten"
+  FM_FAKE_CREW_STATE='done' run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-hidden)" = 'done' ] || fail "a metadata-free PR beyond list truncation was forgotten"
   [ "$(row_state "$MAIN" t-mixed-full)" = in_flight ] || fail "a truncated OPEN reference was ignored"
   [ "$(row_state "$MAIN" t-worker-full)" = in_flight ] || fail "a worker row's truncated OPEN reference was ignored"
   [ "$(row_state "$MAIN" t-meta-ref)" = in_flight ] || fail "an OPEN metadata reference was ignored"
@@ -1284,8 +1284,8 @@ fm_lock_release "$meta"
 fm_lock_release "$control"
 printf '{"state":"MERGED","mergedAt":"2026-10-28T17:42:00Z","closedAt":"2026-10-28T18:03:00Z"}\n'
 SH
-    FM_RACE_ROOT="$ROOT" FM_RACE_KIND="$kind" FM_FAKE_CREW_STATE=done run_reconcile "$MAIN" --startup
-    [ "$(row_state "$MAIN" t-race)" != done ] || fail "$kind committed after the first read but the stale task was closed"
+    FM_RACE_ROOT="$ROOT" FM_RACE_KIND="$kind" FM_FAKE_CREW_STATE='done' run_reconcile "$MAIN" --startup
+    [ "$(row_state "$MAIN" t-race)" != 'done' ] || fail "$kind committed after the first read but the stale task was closed"
     [ "$(outcome_count "$MAIN" closed)" = 0 ] || fail "$kind wrote a close receipt for an ineligible task"
   done
   pass "closeout rechecks holds, body, state and worker incarnation after forge reads"
@@ -1328,7 +1328,7 @@ PATH=${PATH#*:} exec tasks-axi "$@"
 SH
   chmod +x "$WORLD/fakebin/tasks-axi"
   FM_LOCK_ROOT="$ROOT" FM_LOCK_LOG="$WORLD/locks" FM_DONE_LOCK_LOG="$WORLD/done-locks" run_reconcile "$MAIN" --startup
-  [ "$(row_state "$MAIN" t-lock)" = done ] || fail "eligible worker task was not closed under lifecycle locks"
+  [ "$(row_state "$MAIN" t-lock)" = 'done' ] || fail "eligible worker task was not closed under lifecycle locks"
   [ "$(head -2 "$WORLD/locks")" = $'control busy\nmeta busy' ] || fail "worker eligibility was read without both lifecycle locks"
   [ "$(cat "$WORLD/done-locks")" = $'control busy\nmeta busy' ] || fail "closure released a lifecycle lock before mutation"
   pass "worker eligibility and backlog mutation hold both existing lifecycle locks"
@@ -1419,7 +1419,7 @@ import json, os, sys
 items = json.load(open(sys.argv[1]))["items"] if os.path.exists(sys.argv[1]) else []
 assert not any(x["id"] == "t-queued" and x.get("detail", "").startswith("closed:") for x in items), items
 PYJSON
-  (cd "$MAIN" && tasks-axi done t-queued --file data/backlog.md >/dev/null) || fail "manual completion failed"
+  (cd "$MAIN" && tasks-axi 'done' t-queued --file data/backlog.md >/dev/null) || fail "manual completion failed"
   run_reconcile "$MAIN" --startup
   grep -Fxq 'status=closed' "$receipt" || fail "confirmed Done did not finalize recovery"
   python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "confirmed Done lost its recovered evidence"
@@ -1459,7 +1459,7 @@ SH
     else
       [ ! -e "$WORLD/history.log" ] || fail "a closed receipt without an outstanding finding was reread"
     fi
-    [ "$(row_state "$MAIN" t-current)" = done ] || fail "historical receipt reads starved current work"
+    [ "$(row_state "$MAIN" t-current)" = 'done' ] || fail "historical receipt reads starved current work"
   done
   pass "receipt recovery shares candidate rotation and skips retired history"
 }
@@ -1491,7 +1491,7 @@ SH
     FM_DISCOVERY_LOG="$WORLD/discovery.log" FM_INACTIVE_RECONCILE_BUDGET_SECS=4 run_reconcile "$MAIN" --startup
   done
   [ "$(sort -u "$WORLD/discovery.log" | wc -l | tr -d ' ')" = 3 ] || fail "receipt inspection restarted at the same permanent history"
-  [ "$(row_state "$MAIN" t-current)" = done ] || fail "receipt discovery starved the merged task across scans"
+  [ "$(row_state "$MAIN" t-current)" = 'done' ] || fail "receipt discovery starved the merged task across scans"
   pass "receipt inspection saves progress before reading permanent history"
 }
 
@@ -1508,7 +1508,7 @@ items = json.load(open(sys.argv[1]))["items"]
 assert any(x["id"] == "t-external" and x["finding"] == "unknown" for x in items), items
 PYJSON
   [ "$(outcome_count "$MAIN" closed)" = 0 ] || fail "unreadable PR created a close receipt"
-  (cd "$MAIN" && tasks-axi done t-external --file data/backlog.md >/dev/null) || fail "external completion failed"
+  (cd "$MAIN" && tasks-axi 'done' t-external --file data/backlog.md >/dev/null) || fail "external completion failed"
   cat > "$WORLD/fakebin/tasks-axi" <<'SH'
 #!/usr/bin/env bash
 if [ "$1" = show ] && [ "$2" = t-external ]; then
@@ -1557,10 +1557,10 @@ SH
 printf '{"state":"MERGED","mergedAt":"2026-10-28T17:42:00Z","closedAt":"2026-10-28T18:03:00Z"}\n'
 SH
   chmod +x "$WORLD/fakebin/date"
-  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE=done FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE='done' FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
   [ "$(cat "$MAIN/state/backlog-pr-cursor")" = 1 ] || fail "successful forge read at the deadline failed to save its visit"
-  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE=done FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
-  [ "$(row_state "$MAIN" t-b)" = done ] || fail "deadline-crossing first row starved the later merged record"
+  FM_CURSOR_WORLD="$WORLD" FM_FAKE_CREW_STATE='done' FM_INACTIVE_RECONCILE_BUDGET_SECS=2 run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-b)" = 'done' ] || fail "deadline-crossing first row starved the later merged record"
   pass "successful reads crossing the deadline advance the durable cursor"
 }
 
@@ -1574,8 +1574,8 @@ test_backlog_pr_pass_dates_merged_closed_and_cached_evidence() {
   add_flight_row "$MAIN" t-single 'https://github.com/o/r/pull/110'
   add_flight_row "$MAIN" t-missing 'https://github.com/o/r/pull/112'
   run_reconcile "$MAIN" --startup
-  [ "$(row_state "$MAIN" t-dated)" = done ] || fail "multiple finished PRs with dates were not closed"
-  [ "$(row_state "$MAIN" t-single)" = done ] || fail "a cached merged PR lost its date"
+  [ "$(row_state "$MAIN" t-dated)" = 'done' ] || fail "multiple finished PRs with dates were not closed"
+  [ "$(row_state "$MAIN" t-single)" = 'done' ] || fail "a cached merged PR lost its date"
   [ "$(row_state "$MAIN" t-missing)" = in_flight ] || fail "a PR without a merge timestamp was closed"
   python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "dated evidence did not follow the PR's terminal state"
 import json, sys

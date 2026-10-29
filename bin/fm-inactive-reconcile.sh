@@ -815,7 +815,7 @@ backlog_pr_recover() {
   remaining=$((deadline - $(date +%s)))
   [ "$remaining" -ge 1 ] || return 1
   full=$(FM_BACKLOG_ROW_TIMEOUT_SECS=$remaining fm_backlog_row_show "$data" "$id" --full 2>/dev/null) || return 1
-  [ "$(printf '%s\n' "$full" | sed -n 's/^  state: *//p' | head -1)" = done ] || return 0
+  [ "$(printf '%s\n' "$full" | sed -n 's/^  state: *//p' | head -1)" = 'done' ] || return 0
   if [ -n "$receipt" ]; then
     signature=$(sed -n 's/^prs=//p' "$receipt" | sed -n '1p')
     detail=$(record_value "$receipt" detail)
