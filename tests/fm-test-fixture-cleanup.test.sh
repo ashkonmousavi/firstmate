@@ -219,7 +219,7 @@ test_stop_remote_job_worker_waits_for_shutdown_writes() {
   state="$root/remote-jobs"
   mkdir -p "$state"
   # shellcheck disable=SC2016 # the trap body expands in the child, not here
-  ( setsid bash -c '
+  ( bash -c '
       trap "sleep 1; mkdir -p \"$1/late\"; echo done > \"$1/late/shutdown\"; exit 0" TERM
       : > "$1/ready"
       while :; do sleep 0.1; done
