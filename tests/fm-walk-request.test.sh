@@ -22,8 +22,8 @@ CHECK="$ROOT/bin/fm-walk-request-check.sh"
 RELEASE=0123456789abcdef0123456789abcdef01234567
 
 # make_mate <name>: a local-route secondmate home reporting into <parent>.
-make_mate() {  # <name> <parent-home>
-  local mate="$TMP_ROOT/$1" parent=$2
+make_mate() {  # <name> <parent-home> [<home-dir-under-TMP_ROOT>]
+  local mate="$TMP_ROOT/${3:-$1}" parent=$2
   mkdir -p "$mate/state" "$mate/data/walk-briefs" "$parent/state"
   printf 'walk brief\n' > "$mate/data/walk-briefs/brief.md"
   printf '%s\n' "$1" > "$mate/.fm-secondmate-home"
@@ -621,6 +621,33 @@ SH
   pass "walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks"
 }
 
+test_dot_named_home_ancestors_are_accepted() {
+  local parent mate rc out outside bad
+  parent=$(make_parent dot-main)
+  mate=$(make_mate dot-mate "$parent" .treehouse/mate-home)
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks dot --bot Walker) \
+    || fail "a home under a dot-named directory must accept its own walk brief"
+  printf '%s\n' "$out" | grep -q '^corr=' || fail "the dot-named home request must publish"
+  mkdir -p "$mate/data/walk-briefs/.private" "$mate/data/walk-briefs/config" "$mate/data/walk-briefs/state"
+  outside="$TMP_ROOT/dot-outside.md"
+  printf 'outside\n' > "$outside"
+  printf 'x\n' > "$mate/data/walk-briefs/.hidden.md"
+  printf 'x\n' > "$mate/data/walk-briefs/.private/brief.md"
+  printf 'x\n' > "$mate/data/walk-briefs/config/brief.md"
+  printf 'x\n' > "$mate/data/walk-briefs/state/brief.md"
+  ln -s "$outside" "$mate/data/walk-briefs/escape.md"
+  ln -s "$mate/data/walk-briefs/.hidden.md" "$mate/data/walk-briefs/dotlink.md"
+  ln -s "$mate/data/walk-briefs/config/brief.md" "$mate/data/walk-briefs/cfglink.md"
+  for bad in "$mate/data/walk-briefs/.hidden.md" "$mate/data/walk-briefs/.private/brief.md" \
+    "$mate/data/walk-briefs/config/brief.md" "$mate/data/walk-briefs/state/brief.md" \
+    "$mate/data/walk-briefs/escape.md" "$mate/data/walk-briefs/dotlink.md" "$mate/data/walk-briefs/cfglink.md"; do
+    rc=0
+    run_carrier "$mate" --brief "$bad" --release "$RELEASE" --walks dot --bot Walker >/dev/null 2>&1 || rc=$?
+    expect_code 2 "$rc" "private or escaping briefs below a dot-named home must stay refused: $bad"
+  done
+  pass "walk-request: dot-named home ancestors are accepted while private parts below the home stay refused"
+}
+
 test_brief_disclosure_boundaries() {
   local parent mate other dispatch send bad n=0 rc before alias out real_python fakebin corr
   parent=$(make_parent private-main)
@@ -1027,6 +1054,7 @@ test_lost_dispatches_and_delivery_recover_independently
 test_launch_progress_survives_interruption
 test_launch_is_portable_and_failures_return
 test_slow_deliveries_are_bounded_and_fair
+test_dot_named_home_ancestors_are_accepted
 test_brief_disclosure_boundaries
 test_complete_reports_survive_recovery_and_return_with_pointers
 test_historical_discovery_reserves_processing_and_advances
