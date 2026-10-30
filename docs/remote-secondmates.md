@@ -490,9 +490,7 @@ The `fm-send.sh` header owns the setting's default and validation contract.
 
 Either outcome preserves this ordinary reply-bearing request's pending-reply expectation for the record that may have landed.
 
-If delivery remains unconfirmed, only the exact `FM_PENDING_REPLY_EXISTING_CORR=<id>` resend command printed by `fm-send` is safe to run later.
-That command preserves the request body and lets the remote enqueue deduplicate onto the same record.
-A plain rerun mints a different correlation and is not idempotent.
+If delivery remains unconfirmed, follow the retry guidance printed by `fm-send`; its [header](../bin/fm-send.sh) owns reply-bearing, one-way, and fire-and-forget retry identities.
 When deduplication finds that the worker already moved the matching record into `handled/`, the resend exits successfully without ringing the doorbell again.
 
 ### Swallowed doorbells
@@ -602,11 +600,11 @@ A line written before that position was recorded does not match, so the next bre
 ### SSH exit 255 and unavailable homes
 
 An SSH exit status of 255 always means transport failure or unknown remote completion.
-The underlying `fm-on` transport never retries automatically, but `fm-send` retries its correlation-preserving steering-inbox leg exactly once.
+The underlying `fm-on` transport never retries automatically; `fm-send` owns the bounded steering-inbox retry described [above](#retries-and-safe-resends).
 Semantic callers preserve the route or pending request:
 
 - An operation that is not idempotent requires same-host reconciliation rather than a blind resend.
-- An unconfirmed steer may be retried only through the correlation-preserving command described above.
+- An unconfirmed steer uses the safe-resend guidance [above](#retries-and-safe-resends).
 
 An unavailable remote home is projected as unknown and is never replaced by a local second mate.
 

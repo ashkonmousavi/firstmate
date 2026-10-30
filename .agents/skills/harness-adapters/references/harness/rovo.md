@@ -22,6 +22,8 @@ Not verified, and not naturally verifiable, as a secondmate or primary: rovo has
 | Composer | The existing bordered `box` shape family (`╭─╮ │ │ ╰─╯`) `../../../bin/fm-composer-lib.sh` already reads, with an empty composer showing de-emphasized suggestion chips and a `? for shortcuts.` hint, and a busy footer reading `Enter to queue, Ctrl+Enter to steer`. |
 | Effort | `agent.efficiencyLevel`, accepted `low\|medium\|high\|max` (default `medium`, no CLI `--effort` flag), set live through rovo's single `--config-override` flag - folded into the SAME JSON object as the mandatory `allowedExternalPaths` grant, never emitted as a standalone override, because `--config-override` is single-value (see `../../../../docs/verification/rovo.md`) - with an `xhigh` request recorded in task metadata but omitted from that object per `../../../references/common/model-and-effort.md`'s record-and-omit contract because rovo has no `xhigh`. |
 
+The busy footer alone does not establish queued-message consumption; [`fm_control_submit_queue`](../../../../../bin/fm-control-lib.sh) owns Rovo's busy-submit capability and the [`fm-task-inbox-lib.sh` header](../../../../../bin/fm-task-inbox-lib.sh) owns busy deferral and idle follow-up.
+
 ## Detection
 
 `../../../bin/fm-harness.sh` checks `ATLASSIAN_AGENT_TYPE=rovo` and `ROVODEV_CLI=1` before the `CLAUDECODE` line, then falls back to ancestry (`rovo)` case, beside `kimi)`).

@@ -1433,6 +1433,17 @@ test_grok_idle_footer_does_not_confirm_cancellation() {
   pass "fm-control interrupt: grok's idle footer does not confirm cancellation"
 }
 
+test_recorded_harness_capabilities() {
+  local harness
+  for harness in claude claude-latest opencode opencode-dev; do
+    fm_control_submit_queue "$harness" || fail "$harness must accept busy submission"
+  done
+  for harness in rovo rovo-preview cursor cursor-agent codex codex-dev pi pi-signed grok grok-dev kimi gemini muse omp agy devin unknown ''; do
+    fm_control_submit_queue "$harness" && fail "$harness must not claim a busy submit queue"
+  done
+  pass "recorded harness capabilities normalize aliases and refuse unsupported submit queues"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1570,5 +1581,6 @@ test_exit_accepts_agent_stopped_by_busy_interrupt
 test_agent_that_does_not_stop_fails_closed
 test_grok_interrupt_without_acknowledgement_reports_unconfirmed
 test_grok_idle_footer_does_not_confirm_cancellation
+test_recorded_harness_capabilities
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task

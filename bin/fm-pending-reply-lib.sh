@@ -4,12 +4,14 @@
 # When the main firstmate delivers a reply-bearing marked from-firstmate request
 # to a secondmate, this library records a durable parent-owned pending-reply
 # expectation BEFORE delivery, embeds a privacy-safe correlation id in the
-# outbound message, and later resolves that expectation only from a correlated
+# outbound message, and later automatically resolves that expectation from a correlated
 # line in the asked task's own parent status log, or a document it points to -
 # never from transport success, chat content, unrelated status activity, or
 # another task's line that echoes or quotes the token. Summary-classified
 # one-way notices are the exception: fm_pending_reply_oneway_expired below
 # owns their expiry rule, which does not prove delivery or acknowledgement.
+# Explicit no-reply resolution is owned by fm_pending_reply_ack_handled below;
+# delivery acknowledgement alone never closes it.
 # Explicit operator retirement is separate from acknowledgement; its contract
 # is owned by bin/fm-pending-reply-retire-stale.sh's header.
 #
@@ -68,7 +70,11 @@
 #                           lifecycle note below); empty until then
 #   resolved_epoch=
 #   resolved_via=           status | document | helper | expired-one-way |
-#                           retired-stale | empty
+#                           handled | retired-stale | empty
+#                           handled is the recipient's acknowledgement that
+#                           this exact request needs no reply
+#                           (fm_pending_reply_ack_handled); its close note
+#                           carries the words "handled, no reply needed"
 #                           retired-stale is the operator stale retirement
 #                           (fm_pending_reply_retire_stale); the record is
 #                           kept and retired_reason= says why
@@ -119,8 +125,8 @@
 # watcher escalated between the lost transport and the next resume.
 #
 # Sourced by bin/fm-send.sh, bin/fm-watch.sh, bin/fm-secondmate-report.sh,
-# bin/fm-pending-reply-retire-stale.sh, and tests. No side effects on source.
-# set -u / set -e safe.
+# bin/fm-pending-reply-ack-handled.sh, bin/fm-pending-reply-retire-stale.sh,
+# and tests. No side effects on source. set -u / set -e safe.
 #
 # Tunables (env):
 #   FM_PENDING_REPLY_GRACE_SECS   default 120; counted from the request turn's
@@ -1329,6 +1335,63 @@ fm_pending_reply_close_escalation() {  # <state-dir> <corr_id>
   return "$rc"
 }
 
+# Close one exact correlation the recipient names as needing no reply.
+# Same identity checks and escalation close as notice retirement, with
+# resolved_via=handled. Nothing here infers the correlation from text, and
+# moving an inbox record to handled/ does not call this. Idempotent for a
+# record already closed this way; refuses a record resolved through any
+# other path.
+fm_pending_reply_ack_handled() {  # <parent-home> <task-id> <corr_id>
+  local home=$1 task_id=$2 corr=$3 state rec status lock rc=0 now
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  [ -d "$home" ] || return 1
+  state="${FM_STATE_OVERRIDE:-$home/state}"
+  case "$home" in
+    /*) ;;
+    *) home=$(cd "$home" && pwd) || return 1 ;;
+  esac
+  case "$state" in
+    /*) ;;
+    *) state=$(cd "$state" && pwd) || return 1 ;;
+  esac
+  STATE=$state
+  rec=$(fm_pending_reply_path "$state" "$corr")
+  status="$state/$task_id.status"
+  if [ ! -f "$rec" ] || [ -L "$rec" ] || [ ! -f "$status" ] || [ -L "$status" ]; then
+    echo "error: exact pending record or parent status missing" >&2
+    return 1
+  fi
+  lock="$state/.pending-reply-$corr.lock"
+  # Deliberately undirected: bin/fm-wake-lib.sh is expanded once at the
+  # fm_pending_reply_try_resolve site; each directed site would re-expand its
+  # whole transitive graph under ShellCheck's external-source traversal.
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  if [ "$(fm_pending_reply_get "$rec" schema)" != "$FM_PENDING_REPLY_SCHEMA" ] ||
+     [ "$(fm_pending_reply_get "$rec" corr_id)" != "$corr" ] ||
+     [ "$(fm_pending_reply_get "$rec" task_id)" != "$task_id" ] ||
+     [ "$(fm_pending_reply_get "$rec" parent_home)" != "$home" ] ||
+     [ "$(fm_pending_reply_get "$rec" parent_status)" != "$status" ]; then
+    echo "error: pending record identity mismatch" >&2
+    rc=1
+  elif [ "$(fm_pending_reply_get "$rec" phase)" = resolved ]; then
+    if [ "$(fm_pending_reply_get "$rec" resolved_via)" != handled ]; then
+      echo "error: correlation already resolved through another path" >&2
+      rc=1
+    fi
+  else
+    now=$(fm_pending_reply_now)
+    fm_pending_reply_set "$rec" resolved_via handled &&
+      fm_pending_reply_set "$rec" resolved_epoch "$now" &&
+      fm_pending_reply_set "$rec" phase resolved || rc=1
+  fi
+  if [ "$rc" -eq 0 ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || rc=1
+  fi
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
 _fm_pending_reply_close_escalation_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec escalated closed parent_status escalation key note
   local open_line open_key open_note now close_line close_rc _task _via _extra
@@ -1361,6 +1424,7 @@ _fm_pending_reply_close_escalation_locked() {  # <state-dir> <corr_id>
       _via=$(fm_pending_reply_get "$rec" resolved_via)
       _extra=
       case "$_via" in
+        handled) _extra='handled, no reply needed' ;;
         retired-stale) _extra=$(fm_pending_reply_get "$rec" retired_reason) ;;
       esac
       close_line="resolved [key=${key}]: $(fm_pending_reply_resolved_note "$_task" "$corr" "$_via" "$_extra")"
