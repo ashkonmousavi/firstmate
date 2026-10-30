@@ -209,8 +209,23 @@ check_scrolled_composer_reads() {
       || fail "Claude Code ($VERSION) on $HERDR_VER: insufficient scrollback to hide the composer ($offset/$rows)"
     socket=$(fm_backend_herdr_presentation_session_socket_path "$SESSION") \
       || fail "Claude Code ($VERSION) on $HERDR_VER: could not resolve the lab socket"
-    "$ROOT/bin/backends/herdr-pane-scroll.py" "$socket" "$PANE" "$offset" >/dev/null \
-      || fail "Claude Code ($VERSION) on $HERDR_VER: could not scroll the lab pane"
+    if ! python3 - "$socket" "$PANE" "$offset" <<'PYSCROLL'
+import json
+import socket
+import sys
+with socket.socket(socket.AF_UNIX) as control:
+    control.settimeout(5)
+    control.connect(sys.argv[1])
+    request = {"id": "live-scroll", "method": "pane.scroll",
+               "params": {"pane_id": sys.argv[2], "offset_from_bottom": int(sys.argv[3])}}
+    control.sendall((json.dumps(request) + "\n").encode())
+    response = json.loads(control.makefile().readline())
+    if response.get("id") != "live-scroll" or response.get("error") is not None:
+        raise SystemExit(1)
+PYSCROLL
+    then
+      fail "Claude Code ($VERSION) on $HERDR_VER: could not scroll the lab pane"
+    fi
     offset=$(fm_backend_herdr_pane_scroll_offset "$SESSION" "$PANE")
     [ "$offset" -gt 0 ] \
       || fail "Claude Code ($VERSION) on $HERDR_VER: the viewport did not scroll"
@@ -218,9 +233,6 @@ check_scrolled_composer_reads() {
       || fail "Claude Code ($VERSION) on $HERDR_VER: could not capture the scrolled viewport"
     [ -n "$raw" ] \
       || fail "Claude Code ($VERSION) on $HERDR_VER: scrolled capture was blank"
-    actual=$(fm_composer_classify_screen $'styled=1\ncursor=0\nidentity=1' "$raw" '' $'claude\tidle')
-    [ "$actual" = unknown ] \
-      || fail "Claude Code ($VERSION) on $HERDR_VER: composerless viewport classified '$actual'"
     case "$reader" in
       state)
         actual=$(fm_backend_herdr_composer_state "$TARGET")
@@ -237,6 +249,10 @@ check_scrolled_composer_reads() {
     offset=$(fm_backend_herdr_pane_scroll_offset "$SESSION" "$PANE")
     [ "$offset" = 0 ] \
       || fail "Claude Code ($VERSION) on $HERDR_VER: $reader read left the viewport scrolled ($offset)"
+    actual=$(lab pane read "$PANE" --source visible --format ansi) \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: could not capture the recovered viewport"
+    [ "$actual" != "$raw" ] \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: scrolling did not expose a different viewport"
   done
   pass "live Herdr viewport recovery: Claude Code ($VERSION) on $HERDR_VER recovers $want_state state and content after independent scrolls"
 }

@@ -34,6 +34,7 @@ TMP_ROOT=$(fm_test_tmproot fm-backend-herdr-tests)
 mkdir -p "$TMP_ROOT/ambient-home"
 export FM_HOME="$TMP_ROOT/ambient-home"
 export FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0
+export FM_HERDR_SCRIPT_PANE_GET=1
 
 # make_herdr_fakebin: a `herdr` stub that logs every invocation (one line,
 # unit-separated args, to $FM_HERDR_LOG) and returns the canned response for
@@ -65,6 +66,18 @@ if [ "${1:-}" = terminal ] && [ "${2:-}" = title ] && [ "${3:-}" = clear ]; then
   reason=${FM_FAKE_HERDR_FOREGROUND_REASON:-no_foreground_client}
   printf '{"result":{"reason":"%s"}}\n' "$reason"
   exit 0
+fi
+if [ "${FM_HERDR_SCRIPT_PANE_GET:-0}" != 1 ]; then
+  offset=$(cat "$RESP/scroll.offset" 2>/dev/null || printf 0)
+  if [ "${1:-} ${2:-}" = 'pane get' ]; then
+    if [ -f "$RESP/pane-get.exit" ]; then exit "$(cat "$RESP/pane-get.exit")"; fi
+    printf '{"result":{"pane":{"pane_id":"%s","scroll":{"max_offset_from_bottom":205,"offset_from_bottom":%s,"viewport_rows":64}}}}\n' "$3" "$offset"
+    exit 0
+  fi
+  if [ "${1:-} ${2:-}" = 'pane read' ] && [ -f "$RESP/scroll.offset" ]; then
+    printf 'READ_OFFSET=%s\n' "$offset" >> "$LOG"
+    if [ "$offset" -gt 0 ]; then cat "$RESP/scrolled.out"; exit 0; fi
+  fi
 fi
 n=$next
 echo "$n" > "$COUNT_FILE"
@@ -5449,87 +5462,159 @@ test_send_text_submit_non_claude_skips_the_payload_proof() {
 
 # --- composer_state: scrolled viewport ---------------------------------------
 
-# herdr_scrolled_fixture <dir>: the canned sequence for a composer read whose
-# first capture is old output (viewport scrolled to the top, offset 205), then
-# `pane get`, `session list`, the socket pane.scroll (a fake scroller that logs
-# its arguments), `pane get` again, and the recapture. $2 is the offset the
-# second `pane get` reports; $3 the recapture screen.
-herdr_scrolled_fixture() {  # <dir> <offset-after-reset> <recapture-file>
-  local dir=$1 after=$2 recap=$3 resp="$1/responses" i
+herdr_scrolled_fixture() {
+  local dir=$1 after=$2 recap=$3 gap=${4:-blank} rows=${5:-40} resp="$1/responses" i
   mkdir -p "$resp"; : > "$dir/log"; : > "$dir/scroll.log"
+  printf '205\n' > "$resp/scroll.offset"
+  printf '%s\n' "$after" > "$resp/scroll.after"
   {
-    printf '❯ please fix the login bug\n\n'
-    for i in $(seq 1 40); do printf '  ⎿  tool output line %s\n' "$i"; done
-  } > "$resp/1.out"
-  printf '{"result":{"pane":{"pane_id":"w1:p2","scroll":{"max_offset_from_bottom":205,"offset_from_bottom":205,"viewport_rows":64}}}}\n' > "$resp/2.out"
-  printf '{"sessions":[{"name":"default","running":true,"socket_path":"/tmp/fm-herdr-scroll-test.sock"}]}\n' > "$resp/3.out"
-  printf '{"result":{"pane":{"pane_id":"w1:p2","scroll":{"max_offset_from_bottom":205,"offset_from_bottom":%s,"viewport_rows":64}}}}\n' "$after" > "$resp/4.out"
-  cp "$recap" "$resp/5.out"
+    printf '❯ please fix the login bug\n'
+    [ "$gap" != blank ] || printf '\n'
+    for i in $(seq 1 "$rows"); do printf '  ⎿  tool output line %s\n' "$i"; done
+    [ "$gap" != rejected ] || printf '\n$\n'
+  } > "$resp/scrolled.out"
+  printf '{"sessions":[{"name":"default","running":true,"socket_path":"/tmp/fm-herdr-scroll-test.sock"}]}\n' > "$resp/1.out"
+  cp "$recap" "$resp/2.out"
   cat > "$dir/scroller" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$(dirname "$0")/scroll.log"
+cp "$(dirname "$0")/responses/scroll.after" "$(dirname "$0")/responses/scroll.offset"
 SH
   chmod +x "$dir/scroller"
 }
 
 test_composer_state_scrolled_viewport_resets_and_recaptures() {
-  local dir fb out
-  dir="$TMP_ROOT/composer-scrolled"; mkdir -p "$dir"
-  printf '  ╭────────────────────────╮\n  │ ❯                      │\n  ╰──────── Composer ──────╯\n\n  Shift+Tab:mode\n' > "$dir/bottom.txt"
-  herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt"
-  fb=$(make_herdr_fakebin "$dir")
-  out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
-    FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
-    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
-  [ "$out" = empty ] || fail "a scrolled viewport must be reset and recaptured to the bottom composer (empty), got '$out'"
-  [ "$(cat "$dir/scroll.log")" = "/tmp/fm-herdr-scroll-test.sock w1:p2 0" ] \
-    || fail "the viewport must be reset through the socket scroll helper, got '$(cat "$dir/scroll.log")'"
-  grep -q $'\x1f''pane'$'\x1f''get'$'\x1f''w1:p2' "$dir/log" || fail "the scroll offset must be read with pane get"
-  if grep -q 'send-keys' "$dir/log"; then fail "scrolling must never type keys into the pane"; fi
-  [ ! -s "$dir/reason" ] || fail "a recovered read names no refusal reason, got '$(cat "$dir/reason")'"
-  pass "fm_backend_herdr_composer_state: a viewport scrolled off the bottom is reset through the socket and recaptured"
+  local dir fb out gap rows want
+  for gap in contiguous blank rejected; do
+    for rows in 20 40; do
+      for want in empty pending; do
+        dir="$TMP_ROOT/composer-scrolled-$gap-$rows-$want"; mkdir -p "$dir"
+        if [ "$want" = empty ]; then
+          printf '────────────────────────\n❯\n────────────────────────\n' > "$dir/bottom.txt"
+        else
+          printf '────────────────────────\n❯ live draft\n────────────────────────\n' > "$dir/bottom.txt"
+        fi
+        herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt" "$gap" "$rows"
+        fb=$(make_herdr_fakebin "$dir")
+        out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+          FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+          bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
+        [ "$out" = "$want" ] || fail "$gap $rows-row transcript must recover $want, got '$out'"
+        [ "$(cat "$dir/scroll.log")" = '/tmp/fm-herdr-scroll-test.sock w1:p2' ] \
+          || fail "the viewport must be reset once through the socket scroll helper"
+        if grep -q 'READ_OFFSET=205\|send-keys' "$dir/log"; then
+          fail "a composer read must reset the viewport before capturing, without typing"
+        fi
+        [ ! -s "$dir/reason" ] || fail "a recovered read must name no refusal reason"
+      done
+    done
+  done
+  pass "fm_backend_herdr_composer_state: resets short, long, contiguous, separated and rejected stale transcripts before reading"
 }
 
 test_composer_state_scroll_reset_not_taking_is_unknown() {
-  local dir fb out
-  dir="$TMP_ROOT/composer-scroll-stuck"; mkdir -p "$dir"
-  printf '  ╭────────────────────────╮\n  │ ❯                      │\n  ╰──────── Composer ──────╯\n' > "$dir/bottom.txt"
-  herdr_scrolled_fixture "$dir" 205 "$dir/bottom.txt"
-  fb=$(make_herdr_fakebin "$dir")
-  out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
-    FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
-    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
-  [ "$out" = unknown ] || fail "a reset that does not take must read unknown, got '$out'"
-  assert_ring_reason "$dir/reason" viewport-not-bottom
-  pass "fm_backend_herdr_composer_state: a scroll reset that does not take reports unknown and names viewport-not-bottom"
+  local dir fb out reader rc gap
+  for reader in state content; do
+    for gap in contiguous blank; do
+      dir="$TMP_ROOT/composer-scroll-stuck-$reader-$gap"; mkdir -p "$dir"
+      printf '❯ live draft\n' > "$dir/bottom.txt"
+      herdr_scrolled_fixture "$dir" 205 "$dir/bottom.txt" "$gap" 20
+      fb=$(make_herdr_fakebin "$dir")
+      rc=0
+      out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+        FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+        bash -c '. "$0/bin/backends/herdr.sh"; "fm_backend_herdr_composer_$1" default:w1:p2' "$ROOT" "$reader" ) || rc=$?
+      if [ "$reader" = state ]; then
+        [ "$out" = unknown ] && [ "$rc" -eq 0 ] || fail "a failed reset must yield unknown state"
+      else
+        [ -z "$out" ] && [ "$rc" -ne 0 ] || fail "a failed reset must refuse stale content"
+      fi
+      assert_ring_reason "$dir/reason" viewport-not-bottom
+      if grep -q 'READ_OFFSET=' "$dir/log"; then fail "a failed reset must prevent capture"; fi
+    done
+  done
+  pass "Herdr composer reads refuse both stale transcript shapes when the scroll reset does not take"
 }
 
 test_composer_state_composerless_at_bottom_is_unknown() {
-  local dir fb out
-  dir="$TMP_ROOT/composer-composerless"; mkdir -p "$dir"
-  printf '  nothing but output\n' > "$dir/bottom.txt"
-  herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt"
-  fb=$(make_herdr_fakebin "$dir")
-  out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
-    FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
-    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
-  [ "$out" = unknown ] || fail "a recapture with no composer must read unknown, got '$out'"
-  assert_ring_reason "$dir/reason" composer-not-located
-  pass "fm_backend_herdr_composer_state: a bottom capture that still shows no composer is unknown and names composer-not-located"
+  local dir fb out initial reader rc
+  for initial in 0 205; do
+    for reader in state content; do
+      dir="$TMP_ROOT/composer-composerless-$initial-$reader"; mkdir -p "$dir"
+      printf '  nothing but output\n' > "$dir/bottom.txt"
+      herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt"
+      printf '%s\n' "$initial" > "$dir/responses/scroll.offset"
+      if [ "$initial" = 0 ]; then cp "$dir/bottom.txt" "$dir/responses/1.out"; fi
+      fb=$(make_herdr_fakebin "$dir")
+      rc=0
+      out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+        FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+        bash -c '. "$0/bin/backends/herdr.sh"; "fm_backend_herdr_composer_$1" default:w1:p2' "$ROOT" "$reader" ) || rc=$?
+      if [ "$reader" = state ]; then
+        [ "$out" = unknown ] && [ "$rc" -eq 0 ] || fail "a bottom capture with no composer must read unknown"
+        assert_ring_reason "$dir/reason" composer-not-located
+      else
+        [ -z "$out" ] && [ "$rc" -ne 0 ] || fail "a bottom capture with no composer must refuse extraction"
+      fi
+      if [ "$initial" = 0 ] && [ -s "$dir/scroll.log" ]; then fail "an at-bottom read must not reset scrolling"; fi
+    done
+  done
+  pass "Herdr composer reads refuse a composerless bottom capture, with and without a scroll reset"
 }
 
 test_composer_content_scrolled_viewport_resets_and_recaptures() {
-  local dir fb out
-  dir="$TMP_ROOT/content-scrolled"; mkdir -p "$dir"
-  printf '  ╭────────────────────────╮\n  │ ❯ half typed           │\n  ╰──────── Composer ──────╯\n' > "$dir/bottom.txt"
-  herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt"
-  fb=$(make_herdr_fakebin "$dir")
-  out=$( FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
-    FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
-    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_content default:w1:p2' "$ROOT" )
-  [ "$out" = "half typed" ] || fail "the composer content must come from the recapture at the bottom, got '$out'"
-  [ -s "$dir/scroll.log" ] || fail "the content read must reset the scrolled viewport"
-  pass "fm_backend_herdr_composer_content: a scrolled viewport is reset and recaptured before the draft is read"
+  local dir fb out gap rows
+  for gap in contiguous blank rejected; do
+    for rows in 20 40; do
+      dir="$TMP_ROOT/content-scrolled-$gap-$rows"; mkdir -p "$dir"
+      printf '────────────────────────\n❯ half typed\n────────────────────────\n' > "$dir/bottom.txt"
+      herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt" "$gap" "$rows"
+      fb=$(make_herdr_fakebin "$dir")
+      out=$( FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+        FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+        bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_content default:w1:p2' "$ROOT" )
+      [ "$out" = 'half typed' ] || fail "$gap $rows-row transcript must yield only the live draft, got '$out'"
+      [ -s "$dir/scroll.log" ] || fail "the content read must reset the scrolled viewport"
+      if grep -q 'READ_OFFSET=205' "$dir/log"; then fail "content must not be captured before the reset"; fi
+    done
+  done
+  pass "fm_backend_herdr_composer_content: resets both stale transcript shapes before extracting the live draft"
+}
+
+test_composer_scrolled_plain_fallback_and_unreadable_position() {
+  local dir fb out reader rc
+  for reader in state content; do
+    dir="$TMP_ROOT/composer-plain-scroll-$reader"; mkdir -p "$dir"
+    printf '────────────────────────\n❯ live draft\n────────────────────────\n' > "$dir/bottom.txt"
+    herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt" contiguous 20
+    mv "$dir/responses/2.out" "$dir/responses/3.out"
+    printf '1\n' > "$dir/responses/2.exit"
+    fb=$(make_herdr_fakebin "$dir")
+    out=$( FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+      FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+      bash -c '. "$0/bin/backends/herdr.sh"; "fm_backend_herdr_composer_$1" default:w1:p2' "$ROOT" "$reader" )
+    if [ "$reader" = state ]; then
+      [ "$out" = unknown ] || fail "a plain Claude draft must retain its unproven state"
+    else
+      [ "$out" = 'live draft' ] || fail "a plain capture must extract the recovered live draft"
+    fi
+    [ "$(cat "$dir/responses/scroll.offset")" = 0 ] || fail "plain fallback must follow a viewport reset"
+    if grep -q 'READ_OFFSET=205' "$dir/log"; then fail "plain fallback must not read stale output"; fi
+    : > "$dir/log"
+    printf '1\n' > "$dir/responses/pane-get.exit"
+    rc=0
+    out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" \
+      FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+      bash -c '. "$0/bin/backends/herdr.sh"; "fm_backend_herdr_composer_$1" default:w1:p2' "$ROOT" "$reader" ) || rc=$?
+    if [ "$reader" = state ]; then
+      [ "$out" = unknown ] && [ "$rc" -eq 0 ] || fail "unreadable scrolling must yield unknown state"
+    else
+      [ -z "$out" ] && [ "$rc" -ne 0 ] || fail "unreadable scrolling must refuse content"
+    fi
+    assert_ring_reason "$dir/reason" viewport-not-bottom
+    if grep -q 'READ_OFFSET=' "$dir/log"; then fail "unreadable scrolling must prevent capture"; fi
+  done
+  pass "Herdr composer reads check scrolling before plain fallback and refuse unreadable viewport position"
 }
 
 test_pane_scroll_helper_sends_only_pane_scroll() {
@@ -5546,14 +5631,14 @@ def serve():
     got.append(json.loads(conn.makefile().readline()))
     conn.sendall((json.dumps({"id": got[0]["id"], "result": {"type": "ok"}}) + "\n").encode())
 t = threading.Thread(target=serve); t.start()
-rc = subprocess.run([helper, path, "w1:p2", "0"], capture_output=True).returncode
+rc = subprocess.run([helper, path, "w1:p2"], capture_output=True).returncode
 t.join()
-bad = subprocess.run([helper, path, "w1:p2", "-1"], capture_output=True).returncode
+bad = subprocess.run([helper, path, "w1:p2", "205"], capture_output=True).returncode
 print(rc, bad, got[0]["method"], got[0]["params"]["pane_id"], got[0]["params"]["offset_from_bottom"])
 PY
   )
-  [ "$out" = "0 2 pane.scroll w1:p2 0" ] || fail "the scroll helper must send one pane.scroll and refuse a negative offset, got '$out'"
-  pass "herdr-pane-scroll.py: sends exactly one pane.scroll request for the exact pane and refuses a negative offset"
+  [ "$out" = "0 2 pane.scroll w1:p2 0" ] || fail "the scroll helper must send one pane.scroll and refuse an offset argument, got '$out'"
+  pass "herdr-pane-scroll.py: sends exactly one pane.scroll request for the exact pane and refuses an offset argument"
 }
 
 test_dispatch_routes_herdr_backend() {
@@ -6297,6 +6382,7 @@ test_current_path_reads_cwd
 test_busy_state_working_maps_to_busy
 test_busy_state_done_and_blocked_map_to_idle
 test_busy_state_unknown_on_no_agent
+unset FM_HERDR_SCRIPT_PANE_GET
 test_composer_state_bare_prompt_is_empty
 test_composer_state_styled_placeholder_draft_is_pending
 test_composer_state_real_text_is_pending
@@ -6397,4 +6483,5 @@ test_composer_state_scrolled_viewport_resets_and_recaptures
 test_composer_state_scroll_reset_not_taking_is_unknown
 test_composer_state_composerless_at_bottom_is_unknown
 test_composer_content_scrolled_viewport_resets_and_recaptures
+test_composer_scrolled_plain_fallback_and_unreadable_position
 test_pane_scroll_helper_sends_only_pane_scroll

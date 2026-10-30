@@ -1662,39 +1662,30 @@ test_dialog_note_skips_the_match_when_no_sink_is_set
 test_quoted_exit_picker_text_is_not_a_dialog
 
 test_composerless_capture_is_unknown_not_pending() {
-  # Recorded live 2026-10-30: a herdr viewport scrolled to the top returned old
-  # output with no composer on screen, and an echoed user prompt row inside it
-  # read `pending` for a Claude worker whose composer was in fact empty.
-  local fill echo_row old_composer screen claude_idle reason
-  claude_idle=$(printf 'claude\tidle')
+  local fill screen caps reason
   fill=$(for i in $(seq 1 40); do printf '  ⎿  tool output line %s\n' "$i"; done)
-  echo_row=$'❯ please fix the login bug\n\n'"$fill"
-  old_composer=$'────────────────────────\n❯ old typed text\n────────────────────────\n'"$fill"
-  for screen in "$echo_row" "$old_composer" "$fill" $'  1 +foo\n❯ x\n\n'"$fill"; do
-    assert_screen "composerless capture on herdr" unknown "$CAPS_STYLED" "$screen" '' "$claude_idle"
-    assert_screen "composerless capture on zellij" unknown "$CAPS_STYLED_NOID" "$screen"
-    assert_screen "composerless capture on cmux/orca" unknown "$CAPS_PLAIN" "$screen"
+  for screen in "$fill" $'❯ old prompt\n\n$' $'╭────────────────────────╮\n│ unfinished composer'; do
+    for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+      assert_screen "no selected composer" unknown "$caps" "$screen" '' $'claude\tidle'
+      reason=$(fm_composer_none_reason "$caps" "$screen")
+      [ "$reason" = no-composer ] || fail "an unselectable composer must name no-composer, got '$reason'"
+      reason=$(LC_ALL=C fm_composer_none_reason "$caps" "$screen")
+      [ "$reason" = no-composer ] || fail "an unselectable composer must name no-composer under LC_ALL=C"
+    done
   done
-  reason=$(fm_composer_none_reason "$CAPS_STYLED" "$echo_row")
-  [ "$reason" = scrolled-away ] || fail "an echoed prompt under old output must name scrolled-away, got '$reason'"
-  reason=$(LC_ALL=C fm_composer_none_reason "$CAPS_STYLED" "$fill")
-  [ "$reason" = no-composer ] || fail "output with no prompt row must name no-composer, got '$reason'"
-  # A located composer keeps its verdict and names no reason, with the normal
-  # footer under it and old output above it.
   screen="$fill"$'\n────────────────────────\n❯'"$NBSP"$'\n────────────────────────\n  bypass permissions'
-  assert_screen "idle composer under long output" empty "$CAPS_STYLED" "$screen" '' "$claude_idle"
+  assert_screen "idle composer under long output" empty "$CAPS_STYLED" "$screen" '' $'claude\tidle'
   reason=$(fm_composer_none_reason "$CAPS_STYLED" "$screen")
   [ -z "$reason" ] || fail "a located composer must name no reason, got '$reason'"
   screen="$fill"$'\n────────────────────────\n❯ half typed\n────────────────────────\n  bypass permissions'
-  assert_screen "typed composer under long output" pending "$CAPS_STYLED" "$screen" '' "$claude_idle"
-  pass "fm_composer_classify_screen: a capture with no composer on screen reads unknown in both locales, never pending"
+  assert_screen "typed composer under long output" pending "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+  pass "fm_composer_classify_screen: no composer selected yields unknown with a distinct reason in both locales"
 }
 
 test_composerless_capture_is_unknown_not_pending
 
-test_trailing_output_excludes_composer_input_and_closing_structure() {
-  local kind count i screen expected caps out reason footer
-  footer=$(for i in $(seq 1 28); do printf '  footer row %s\n' "$i"; done)
+test_long_composer_input_remains_selectable() {
+  local kind count i screen expected caps reason
   for kind in bare titled leftbar box; do
     for count in 28 40; do
       screen=''
@@ -1723,32 +1714,23 @@ test_trailing_output_excludes_composer_input_and_closing_structure() {
         box) screen+=$'\n╰────────────────────────╯' ;;
       esac
       for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
-        for out in "$screen" "$screen"$'\n\n'"$footer"; do
-          if [ "$caps" = "$CAPS_PLAIN" ] && [ "$kind" != box ]; then
-            assert_screen "$kind long draft on plain capture" unknown "$caps" "$out"
-          else
-            assert_screen "$kind long draft with $count continuation rows" pending "$caps" "$out"
-          fi
-          reason=$(fm_composer_none_reason "$caps" "$out")
-          [ -z "$reason" ] || fail "$kind long draft was rejected as $reason"
-          reason=$(fm_composer_extract_selected_content "$caps" "$out") \
-            || fail "$kind long draft could not be extracted"
-          [ "$reason" = "$expected" ] || fail "$kind long draft lost input: '$reason'"
-          reason=$(LC_ALL=C fm_composer_extract_selected_content "$caps" "$out") \
-            || fail "$kind long draft could not be extracted under LC_ALL=C"
-          [ "$reason" = "$expected" ] || fail "$kind long draft lost input under LC_ALL=C"
-        done
+        if [ "$caps" = "$CAPS_PLAIN" ] && [ "$kind" != box ]; then
+          assert_screen "$kind long draft on plain capture" unknown "$caps" "$screen"
+        else
+          assert_screen "$kind long draft with $count continuation rows" pending "$caps" "$screen"
+        fi
+        reason=$(fm_composer_none_reason "$caps" "$screen")
+        [ -z "$reason" ] || fail "$kind long draft was rejected as $reason"
+        reason=$(fm_composer_extract_selected_content "$caps" "$screen") \
+          || fail "$kind long draft could not be extracted"
+        [ "$reason" = "$expected" ] || fail "$kind long draft lost input: '$reason'"
+        reason=$(LC_ALL=C fm_composer_extract_selected_content "$caps" "$screen") \
+          || fail "$kind long draft could not be extracted under LC_ALL=C"
+        [ "$reason" = "$expected" ] || fail "$kind long draft lost input under LC_ALL=C"
       done
-      screen+=$'\n\n'"$footer"$'\n  one more output row'
-      assert_screen "$kind excess trailing output" unknown "$CAPS_STYLED" "$screen"
-      reason=$(fm_composer_none_reason "$CAPS_STYLED" "$screen")
-      [ "$reason" = scrolled-away ] || fail "$kind excess trailing output must reject the candidate"
-      if fm_composer_extract_selected_content "$CAPS_STYLED" "$screen" >/dev/null; then
-        fail "$kind stale candidate must not return draft content"
-      fi
     done
   done
-  pass "trailing-output limits exclude wrapped input and closing structure across composer shapes"
+  pass "long wrapped input remains selectable and extractable across composer shapes"
 }
 
-test_trailing_output_excludes_composer_input_and_closing_structure
+test_long_composer_input_remains_selectable

@@ -1628,10 +1628,9 @@ ok - live Herdr submit confirm: Claude Code (2.1.236 (Claude Code)) on herdr 0.8
 
 ### Composer viewport recovery
 
-The trailing-output limit excludes the selected composer's input rows, closing rule or floor, and proven footer zone.
 The [Herdr socket API](https://herdr.dev/docs/socket-api/) defines `scroll.offset_from_bottom == 0` as the at-bottom state used by the recovery assertions.
-`tests/fm-composer-lib.test.sh` exercises long bare, titled, left-bar, and boxed drafts through state classification and content extraction, including the trailing-output limit on either side of its boundary.
-The Herdr submit-confirmation guard also creates transcript scrollback with real Claude output, scrolls each public composer read independently, and requires an unknown raw viewport to recover the empty or pending draft at offset zero.
+`tests/fm-composer-lib.test.sh` exercises composerless captures and long bare, titled, left-bar, and boxed drafts through state classification and content extraction.
+The Herdr submit-confirmation guard also creates transcript scrollback with real Claude output, scrolls each public composer read independently, and requires both reads to recover the empty or pending draft at offset zero from a visibly different viewport.
 These scroll-and-recover scenarios have no live verification result recorded yet; the earlier submit-confirmation evidence does not cover them.
 Refresh this record during validation with the platform, Claude and Herdr versions, and exact output from:
 

@@ -4,16 +4,16 @@
 The herdr CLI has no scroll subcommand, so Firstmate's composer reads use this
 helper to put a pane's viewport back at the bottom (offset 0) before trusting a
 visible capture. It sends only the ``pane.scroll`` method for an exact pane id
-and a non-negative offset; it never types into the pane.
+at offset zero; it never types into the pane.
 
 Schema verified against Herdr 0.9.5 (``herdr api schema --json``,
 PaneScrollParams: required pane_id and offset_from_bottom, a uint64):
 
   request:  {"id":"fm-pane-scroll","method":"pane.scroll",
-             "params":{"pane_id":P,"offset_from_bottom":N}}\n
+             "params":{"pane_id":P,"offset_from_bottom":0}}\n
   response: {"id":"fm-pane-scroll","result":{...}}\n
 
-Usage: herdr-pane-scroll.py <socket_path> <pane_id> <offset_from_bottom>
+Usage: herdr-pane-scroll.py <socket_path> <pane_id>
 
 Exit status:
   0  the server answered the matching request without an error;
@@ -55,20 +55,13 @@ def _read_line(sock, deadline):
 
 
 def main(argv):
-    if len(argv) != 4:
+    if len(argv) != 3:
         return 2
-    socket_path, pane_id, raw_offset = argv[1:]
+    socket_path, pane_id = argv[1:]
     if not socket_path.startswith("/") or not pane_id:
         return 2
     if any(char in pane_id for char in "\t\r\n"):
         return 2
-    try:
-        offset = int(raw_offset)
-    except ValueError:
-        return 2
-    if offset < 0 or str(offset) != raw_offset:
-        return 2
-
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(CONNECT_TIMEOUT)
@@ -79,7 +72,7 @@ def main(argv):
     request = {
         "id": REQUEST_ID,
         "method": "pane.scroll",
-        "params": {"pane_id": pane_id, "offset_from_bottom": offset},
+        "params": {"pane_id": pane_id, "offset_from_bottom": 0},
     }
     try:
         sock.sendall(
