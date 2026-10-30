@@ -398,9 +398,11 @@ test_run_timed_passes_a_natural_exit_through_a_fired_bound() {
 # correction without changing the host clock. The oracle is the one-second
 # deadline: after sleep, no further work may receive a budget.
 test_checkpoint_deadline_survives_clock_rewind() (
+  local FM_CHECKPOINT_CLOCK_OFFSET FM_CHECKPOINT_NOW FM_CHECKPOINT_DEADLINE SECONDS=0
   . "$ROOT/bin/fm-timeout-lib.sh"
   unset FM_CHECKPOINT_CLOCK_OFFSET
   fm_checkpoint_clock
+  # shellcheck disable=SC2030 # Sourced helpers consume this test's local deadline inside the same subshell.
   FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + 1))
   SECONDS=$((SECONDS - 60))
   sleep 1.1
@@ -415,6 +417,7 @@ test_checkpoint_deadline_survives_clock_rewind
 
 test_checkpoint_deadlines_ignore_wall_clock_changes() {
   (
+    local FM_CHECKPOINT_CLOCK_OFFSET FM_CHECKPOINT_NOW FM_CHECKPOINT_DEADLINE SECONDS=0
     . "$ROOT/bin/fm-timeout-lib.sh"
     fm_checkpoint_clock
     # Callers may supply an epoch deadline, rather than using this clock.
