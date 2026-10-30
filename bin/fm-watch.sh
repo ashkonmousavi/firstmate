@@ -3486,10 +3486,15 @@ EOF
           esac
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
+          custom_check_started=$(date +%s)
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
+          # A killed or failing run must not vanish: it wakes naming the check,
+          # its exit code and its duration. Exit 0 keeps the printed output.
           if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
             out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+          elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
+            out="exited $FM_CHECK_EXIT_STATUS after $(( $(date +%s) - custom_check_started ))s${out:+: $out}"
           fi
           fm_custom_check_snapshot_cleanup
         else
