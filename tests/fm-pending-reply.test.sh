@@ -2154,11 +2154,25 @@ test_notice_body_is_not_reply_bearing() {
   export FM_PENDING_REPLY_NOW=3000
   pad=$(printf 'detail %.0s' $(seq 1 30))
   for text in \
-    "Walk results are in: $pad No reply needed." \
-    "Heads up, $pad no action needed on your side." \
-    "Walk results are in: $pad No reply is needed." \
-    "Heads up, $pad no action is needed on your side." \
+    "Walk results are in: $pad. No reply needed." \
+    "Heads up, $pad. No action needed on your side." \
+    "Walk results are in: $pad. No reply is needed." \
+    "Heads up, $pad. No action is needed on your side." \
+    'No reply needed. The walk results are attached.' \
+    'No reply needed. The report is attached.' \
+    'No action needed. The walk results are attached.' \
+    'The walk finished. No reply is needed. The results are attached.' \
+    'The walk finished. No action is needed. The results are attached.' \
+    $'The walk finished\nNo reply needed\nThe results are attached.' \
+    $'The walk finished\r\nNo action needed.\r\nThe results are attached.' \
+    $'No reply\nis needed.\nThe results are attached.' \
+    "${FM_FROMFIRST_MARK}corr=0123456789abcdef No reply needed. The results are attached." \
     "walk end: checkpoint walk finished, $pad" \
+    'Walk dispatched to the checkpoint.' \
+    'Copied: checkpoint results are attached.' \
+    'Carried: checkpoint results are attached.' \
+    $'\n\nWalk end: the report is attached.' \
+    $'Firstmate\nupdated to 8c66de01. Re-read AGENTS.md now.' \
     "Firstmate updated to 8c66de01. Re-read AGENTS.md now."; do
     for route in ordinary override delivery_unknown recovery_failed recovery_unknown; do
       corr=$(fm_pending_reply_create "$home" "$state" "hibit" "$text")
@@ -2183,12 +2197,17 @@ test_notice_body_is_not_reply_bearing() {
   fi
   [ "$(phase_of "$state" "$corr")" = awaiting_report ] || fail "real question lost its expectation"
   for waiver in 'No reply needed' 'no action needed' 'no reply is needed' 'no action is needed'; do
-    for prefix in '' 'walk end: ' 'Firstmate updated to abcdef. '; do
+    for prefix in '' 'walk end: ' 'Walk dispatched. ' 'Copied: ' 'Carried: ' 'Firstmate updated to abcdef. '; do
       for text in \
         "${prefix}Please investigate why \"$waiver\" notices open blockers and report the result." \
         "${prefix}Please report why $waiver notices open blockers." \
         "${prefix}Please reply with the result. $waiver." \
-        "${prefix}Please report the text '$waiver'."; do
+        "${prefix}Please report the text '$waiver'." \
+        "${prefix}checkpoint finished. Can you report the failures?" \
+        "${prefix}$waiver. Reply with the failures." \
+        "${prefix}$waiver. Send me the result." \
+        "${prefix}$waiver. Could you report failures" \
+        "${prefix}$waiver. Are the results attached?"; do
         corr=$(fm_pending_reply_create "$home" "$state" hibit "$text")
         [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" one_way)" ] \
           || fail "reporting request was classified as a notice: $text"
@@ -2202,13 +2221,15 @@ test_notice_body_is_not_reply_bearing() {
         fm_pending_reply_try_resolve "$state" "$corr" || fail "correlated report did not resolve the reporting request"
       done
     done
-    corr=$(fm_pending_reply_create "$home" "$state" hibit "The diagnostic text is \"$waiver\".")
-    [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" one_way)" ] \
-      || fail "quoted diagnostic text was classified as a waiver: $waiver"
-    fm_pending_reply_mark_delivered "$state" "$corr"
-    if fm_pending_reply_try_resolve "$state" "$corr"; then
-      fail "quoted diagnostic text silently waived the reply"
-    fi
+    for text in "The diagnostic text is \"$waiver\"." "The diagnostic label says $waiver."; do
+      corr=$(fm_pending_reply_create "$home" "$state" hibit "$text")
+      [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" one_way)" ] \
+        || fail "diagnostic text was classified as a waiver: $text"
+      fm_pending_reply_mark_delivered "$state" "$corr"
+      if fm_pending_reply_try_resolve "$state" "$corr"; then
+        fail "diagnostic text silently waived the reply"
+      fi
+    done
   done
   unset FM_PENDING_REPLY_REMOTE_PROBE_HOOK
   pass "notice bodies are resolved as one-way, real requests are not"

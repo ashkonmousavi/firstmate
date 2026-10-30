@@ -692,13 +692,15 @@ fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
 FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited config changed|(MAIN[:,]? )?(FYI|fyi)\b|MAIN fyi|Done by MAIN|Applied:|Agreed:|Correction to )'
 # The body counterpart of the prefix list above, read from the whole request
 # text rather than the 120-character summary.
-FM_PENDING_REPLY_NOTICE_BODY_RE='(^|[[:space:]])no (reply|action)( is)? needed([[:space:]]+on your side)?[.!]?[[:space:]]*$'
-FM_PENDING_REPLY_NOTICE_OPEN_RE='^(walk end:|walk dispatched|copied:|carried:|firstmate updated to )'
-FM_PENDING_REPLY_NOTICE_REQUEST_RE='(^|[.!?:;][[:space:]]+)(please[[:space:]]+)?(investigate|report|reply|respond)[[:space:]]|(^|[[:space:]])(please|and|then)[[:space:]]+(report|reply|respond)[[:space:]]'
+FM_PENDING_REPLY_NOTICE_BODY_RE=$'(^|[.!:;][[:space:]]+|\n[[:space:]]*)no[[:space:]]+(reply|action)([[:space:]]+is)?[[:space:]]+needed([[:space:]]+on[[:space:]]+your[[:space:]]+side)?[[:space:]]*([.!]([[:space:]]|$)|\n|$)'
+FM_PENDING_REPLY_NOTICE_OPEN_RE='^(walk[[:space:]]+end:|walk[[:space:]]+dispatched|copied:|carried:|firstmate[[:space:]]+updated[[:space:]]+to[[:space:]])'
+FM_PENDING_REPLY_NOTICE_REQUEST_RE=$'(^|[.!:;][[:space:]]+|\n[[:space:]]*)(please[[:space:]]+)?(investigate|report|reply|respond)[[:space:]]|(^|[[:space:]])((please|and|then)[[:space:]]+(report|reply|respond)|(can|could|would|will)[[:space:]]+you[[:space:]]+(please[[:space:]]+)?(report|reply|respond)|reply[[:space:]]+with|send[[:space:]]+me)[[:space:]]'
 fm_pending_reply_text_is_notice() {  # <request-text>
   local text=$1
   text=${text#"$FM_FROMFIRST_MARK"}
-  text=$(printf '%s' "$text" | tr '\t\r\n' '   ' | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]*(corr=[a-f0-9]{16})?[[:space:]]*//')
+  text=$(printf '%s' "$text" | tr '\t\r' '  ' | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]*(corr=[a-f0-9]{16})?[[:space:]]*//')
+  text=${text#"${text%%[![:space:]]*}"}
+  [[ $text == *'?'* ]] && return 1
   [[ $text =~ $FM_PENDING_REPLY_NOTICE_REQUEST_RE ]] && return 1
   [[ $text =~ $FM_PENDING_REPLY_NOTICE_OPEN_RE ]] && return 0
   [[ $text =~ $FM_PENDING_REPLY_NOTICE_BODY_RE ]]
@@ -1091,8 +1093,8 @@ fm_pending_reply_recovery_message() {  # <record-path>
 # 0 when the mate holds an open decision of its own that does not predate
 # <since-epoch>, the request's creation: only that decision can be the reason a
 # reply is outstanding. A decision opened earlier is a standing question the
-# request did not wait behind. A decision with no readable [at=] stamp counts as
-# newer, which keeps the gate's old behaviour for it.
+# request did not wait behind. E amendment: equal or unreadable timestamps still
+# block the re-ask because the gate cannot prove the decision is old.
 fm_pending_reply_mate_decision_newer_than() {  # <status-file> <since-epoch>
   local status_file=$1 since=$2 open key line at event opening folded verb kind resolve held
   open=$(status_own_open_decisions "$status_file")
