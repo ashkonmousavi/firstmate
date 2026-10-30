@@ -318,9 +318,8 @@ fm_test_stop_remote_job_worker() {  # <state-dir>
   pid=$(cat "$1/worker.pid" 2>/dev/null) || return 0
   [ -n "$pid" ] || return 0
   (
-    # shellcheck source=bin/fm-remote-job-lib.sh
+    # shellcheck source=/dev/null
     . "$ROOT/bin/fm-remote-job-lib.sh" || exit 1
-    FM_REMOTE_JOB_STATE=$1
     fm_remote_job_stop_worker_tree "$pid"
   ) 2>/dev/null || true
 }
