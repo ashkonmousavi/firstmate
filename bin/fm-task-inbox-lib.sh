@@ -512,7 +512,8 @@ fm_task_inbox_confirmed_enter() {
 # Enter. Backend-specific confirmation boundaries live in docs/tmux-backend.md
 # and docs/herdr-backend.md.
 # Returns 0 submit confirmed, 1 foreign or busy non-queue draft skipped, 2 backend send
-# failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed.
+# failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed,
+# 5 optional clear-busy reset failed before delivery.
 # The inbox record remains durable for every ring result; only the worker's
 # move into handled/ acknowledges that the steer was acted on.
 # Ambiguous pre-checks still permit a fresh constant doorbell, so classifier
@@ -521,7 +522,7 @@ fm_task_inbox_confirmed_enter() {
 # shell lines only, not suffixes typed after such an exit.
 #
 # Reason for the last ring result, so the next failure names its step. The
-# stdout verdicts and the 0-4 return codes above are unchanged: this is
+# stdout verdicts and the return codes above are delivery results: this is
 # logging only. fm_task_inbox_ring owns the token: it leaves it in
 # FM_TASK_INBOX_RING_REASON (read it right after the call) and attempts to write
 # the sibling <inbox>/<seq>.ring-reason as one line, "rc=<n> token=<token>".
@@ -529,7 +530,7 @@ fm_task_inbox_confirmed_enter() {
 # are never touched, and a failed diagnostic write cannot change the ring result.
 # A backend adapter only offers a finer token through the sink file named by
 # FM_RING_REASON_SINK (fm_backend_herdr_note_reason), because it runs in a
-# command substitution and cannot set a variable here. Tokens: ok, agent-dead,
+# command substitution and cannot set a variable here. Tokens: ok, agent-dead, busy-reset-failed,
 # foreign-pending-draft, busy-pending-doorbell, doorbell-rejected, submit-refused, backend-send-failed,
 # submit-unconfirmed, preflight-dialog, dialog-sink-failed, enter-send-failed,
 # post-enter-unreadable, post-enter-foreign-draft, composer-unreadable and
@@ -541,7 +542,7 @@ fm_task_inbox_confirmed_enter() {
 # spent-budget stale wakes include the last persisted token when available.
 # A later attempt replaces the diagnostic even if it succeeds: ok confirms
 # submission, not that the worker acted on or acknowledged the record.
-fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness]
+fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness] [clear-busy]
   local rc=0
   FM_TASK_INBOX_RING_REASON=
   _fm_task_inbox_ring_step "$@" || rc=$?
@@ -549,11 +550,19 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [har
   return "$rc"
 }
 
-_fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label] [harness]
+_fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label] [harness] [clear-busy]
   local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict rc sink inbox task
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) FM_TASK_INBOX_RING_REASON=agent-dead; return 3 ;;
   esac
+  if [ "${6:-}" = clear-busy ]; then
+    inbox=${rec%/*}
+    task=${inbox##*/}
+    if ! fm_task_inbox_clear_busy "${inbox%/*}" "${task%.inbox}"; then
+      FM_TASK_INBOX_RING_REASON=busy-reset-failed
+      return 5
+    fi
+  fi
   line=$(fm_task_inbox_doorbell_line "$rec") || { FM_TASK_INBOX_RING_REASON=doorbell-rejected; return 2; }
   fm_task_inbox_signal_prepare "$backend" "$rec" "$line" || true
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown

@@ -335,7 +335,7 @@ cmd_send() {
 # owes the idle follow-up after the stuck-busy escalation. A parent that omits
 # it gets the ring-while-busy behavior it always had.
 cmd_inbox() {
-  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 harness last_reason busy_max='' count escalated_rec
+  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 harness last_reason busy_max='' count escalated_rec idle_followup=0
   validate_id "$id"
   validate_home "$id"
   remote_endpoint_require "$id"
@@ -423,32 +423,36 @@ cmd_inbox() {
     fi
     return 0
   fi
-  case "$(fm_backend_agent_state "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null || true)" in
-    dead|missing)
-      if [ -n "$busy_max" ] && fm_task_inbox_idle_followup "$CONTROL_STATE" "$id" "$harness"; then
+  if [ -n "$busy_max" ] && fm_task_inbox_idle_followup "$CONTROL_STATE" "$id" "$harness"; then
+    idle_followup=1
+  fi
+  escalated_rec=$(cat "$dir/.escalated" 2>/dev/null || true)
+  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" "${busy_max:+clear-busy}" || ring_rc=$?
+  case "$ring_rc" in
+    3)
+      if [ "$idle_followup" = 1 ]; then
         printf 'quiet\n'
       else
         printf 'unavailable\n'
       fi
       return 0
       ;;
+    5)
+      if [ "$escalated_rec" = "$rec_name" ]; then
+        printf 'quiet\n'
+      else
+        printf 'bookkeeping-failed\n'
+      fi
+      return 0
+      ;;
   esac
-  if [ -n "$busy_max" ] && ! fm_task_inbox_clear_busy "$CONTROL_STATE" "$id"; then
-    if [ "$(cat "$dir/.escalated" 2>/dev/null || true)" = "$rec_name" ]; then
+  if ! fm_task_inbox_record_ring "$CONTROL_STATE" "$id" "$rec"; then
+    [ -f "$rec" ] || { printf 'handled\n'; return 0; }
+    if [ "$idle_followup" = 1 ] && [ "$escalated_rec" = "$rec_name" ]; then
       printf 'quiet\n'
     else
       printf 'bookkeeping-failed\n'
     fi
-    return 0
-  fi
-  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" || ring_rc=$?
-  if [ "$ring_rc" -eq 3 ]; then
-    printf 'unavailable\n'
-    return 0
-  fi
-  if ! fm_task_inbox_record_ring "$CONTROL_STATE" "$id" "$rec"; then
-    [ -f "$rec" ] || { printf 'handled\n'; return 0; }
-    printf 'bookkeeping-failed\n'
     return 0
   fi
   printf 'rang %s%s\n' "$ring_rc" "${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}"
