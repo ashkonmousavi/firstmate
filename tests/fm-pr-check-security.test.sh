@@ -1400,7 +1400,7 @@ SH
 }
 
 test_each_timed_out_custom_check_run_wakes() {
-  local backend dir state fakebin force_fallback rc
+  local backend dir state fakebin force_fallback rc expected
   for backend in installed-timeout fallback-timeout; do
     dir=$(make_case "timed-out-custom-$backend")
     state="$dir/home/state"
@@ -1422,53 +1422,92 @@ SH
       rm -f "$state/.last-check"
       FM_TEST_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK="$force_fallback" \
         run_watcher_bounded "$dir/home" "$fakebin" > "$1" 2> "$dir/watch.err" || return 1
+      awk -F '\t' '$3 == "check" { print $5 }' "$state/.wake-queue" > "$1.queue" || return 1
       ack_watcher_cycle "$state" || return 1
     }
 
+    expected="check: $state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)"
     rc=0
     sweep "$dir/watch1.out" || rc=$?
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the first sweep (rc=$rc): $(cat "$dir/watch.err")"
-    grep -qxF "check: $state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)" "$dir/watch1.out" \
+    [ "$(cat "$dir/watch1.out")" = "$expected" ] \
       || fail "$backend watcher did not wake for a check killed at the bound: $(cat "$dir/watch1.out")"
+    [ "$(cat "$dir/watch1.out.queue")" = "$expected" ] \
+      || fail "$backend watcher did not queue exactly one timeout wake: $(cat "$dir/watch1.out.queue")"
 
     rc=0
     sweep "$dir/watch2.out" || rc=$?
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the repeat sweep (rc=$rc)"
-    grep -qxF "check: $state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)" "$dir/watch2.out" \
+    [ "$(cat "$dir/watch2.out")" = "$expected" ] \
       || fail "$backend watcher did not wake for the consecutive timed-out run: $(cat "$dir/watch2.out")"
+    [ "$(cat "$dir/watch2.out.queue")" = "$expected" ] \
+      || fail "$backend watcher did not queue exactly one consecutive timeout wake: $(cat "$dir/watch2.out.queue")"
   done
   pass "each timed-out custom check run wakes on installed and fallback paths"
 }
 
 test_failing_custom_check_wakes_and_quiet_success_stays_silent() {
-  local dir state fakebin rc
-  dir=$(make_case failing-custom-check)
-  state="$dir/home/state"
-  fakebin="$dir/fakebin"
-  cat > "$state/failing.check.sh" <<'SH'
+  local backend outcome dir state fakebin rc force_fallback expected_code check output_file
+  for backend in installed-timeout fallback-timeout; do
+    force_fallback=0
+    [ "$backend" != fallback-timeout ] || force_fallback=1
+    for outcome in exit-one signal-term signal-kill; do
+      dir=$(make_case "failing-custom-check-$backend-$outcome")
+      state="$dir/home/state"
+      fakebin="$dir/fakebin"
+      case "$outcome" in
+        exit-one)
+          cat > "$state/failing.check.sh" <<'SH'
 #!/usr/bin/env bash
 exit 1
 SH
-  cat > "$state/quiet.check.sh" <<'SH'
+          expected_code=1
+          ;;
+        signal-term)
+          cat > "$state/failing.check.sh" <<'SH'
+#!/usr/bin/env bash
+exec perl -e 'kill "TERM", $$'
+SH
+          expected_code=143
+          ;;
+        signal-kill)
+          cat > "$state/failing.check.sh" <<'SH'
+#!/usr/bin/env bash
+exec perl -e 'kill "KILL", $$'
+SH
+          expected_code=137
+          ;;
+      esac
+      cat > "$state/quiet.check.sh" <<'SH'
 #!/usr/bin/env bash
 exit 0
 SH
-  # Runs after the two above in the same sweep and ends the watcher with its wake.
-  cat > "$state/z-witness.check.sh" <<'SH'
+      cat > "$state/z-witness.check.sh" <<'SH'
 #!/usr/bin/env bash
 printf 'sweep finished\n'
 SH
-  for check in failing quiet z-witness; do
-    chmod 0700 "$state/$check.check.sh"
-    FM_HOME="$dir/home" "$REGISTER" "$check" >/dev/null || fail "could not register $check check"
+      for check in failing quiet z-witness; do
+        chmod 0700 "$state/$check.check.sh"
+        FM_HOME="$dir/home" "$REGISTER" "$check" >/dev/null || fail "could not register $check check"
+      done
+      rc=0
+      FM_TEST_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK="$force_fallback" \
+        run_watcher_bounded "$dir/home" "$fakebin" > "$dir/watch.out" 2> "$dir/watch.err" || rc=$?
+      [ "$rc" -eq 0 ] || fail "watcher did not stop on the sweep (rc=$rc): $(cat "$dir/watch.err")"
+      awk -F '\t' '$3 == "check" { print $5 }' "$state/.wake-queue" > "$dir/check-wakes.out" \
+        || fail "could not read queued check wakes"
+      for output_file in "$dir/watch.out" "$dir/check-wakes.out"; do
+        [ "$(grep -c "^check: $state/failing.check.sh: exited $expected_code after [0-9][0-9]*s$" "$output_file")" -eq 1 ] \
+          || fail "$backend $outcome did not produce exactly one failure wake in $output_file: $(cat "$output_file")"
+      done
+      grep -qxF "check: $state/z-witness.check.sh: sweep finished" "$dir/check-wakes.out" \
+        || fail "$backend $outcome did not preserve successful check output"
+      ! grep -q "quiet.check.sh" "$dir/check-wakes.out" || fail "watcher queued a wake for a check that exited 0 with no output"
+      [ "$(wc -l < "$dir/check-wakes.out")" -eq 2 ] \
+        || fail "$backend $outcome queued unexpected check wakes: $(cat "$dir/check-wakes.out")"
+    done
   done
-  rc=0
-  FM_TEST_CHECK_TIMEOUT=10 run_watcher_bounded "$dir/home" "$fakebin" > "$dir/watch.out" 2> "$dir/watch.err" || rc=$?
-  [ "$rc" -eq 0 ] || fail "watcher did not stop on the sweep (rc=$rc): $(cat "$dir/watch.err")"
-  [ "$(grep -c "^check: $state/failing.check.sh: exited 1 after [0-9][0-9]*s$" "$dir/watch.out")" -eq 1 ] \
-    || fail "watcher did not wake exactly once naming the failing check and its exit code: $(cat "$dir/watch.out")"
-  ! grep -q "quiet.check.sh" "$dir/watch.out" || fail "watcher woke for a check that exited 0 with no output"
-  pass "a failing custom check wakes once with its exit code and a quiet exit-0 check stays silent"
+  pass "failed and signal-killed checks wake once while quiet successful checks stay silent"
 }
 
 test_returned_custom_check_descendants_are_drained() {
