@@ -1358,13 +1358,19 @@ test_watcher_waits_on_busy_pane() {
   dir=$(busy_case busywait)
   busy_steer_check "$dir"
   [ ! -s "$dir/state/.wake-queue" ] || fail "first busy deferral must wait"
+  grep -q 'steer-inbox busy deferral: t1 001.msg count=1/2$' "$dir/state/.watch-triage.log" \
+    || fail "a below-bound busy deferral left no triage line"
   busy_steer_check "$dir"
   grep -q 'stuck-busy' "$dir/state/.wake-queue" \
     || fail "consecutive busy deferrals did not escalate across watcher restart"
+  [ "$(grep -c 'steer-inbox busy deferral' "$dir/state/.watch-triage.log")" = 1 ] \
+    || fail "the stuck-busy bound added a second busy deferral line"
   [ ! -s "$dir/send.log" ] || fail "busy escalation typed into the pane"
   wakes=$(wc -l < "$dir/state/.wake-queue")
   busy_steer_check "$dir"
   [ "$(wc -l < "$dir/state/.wake-queue")" = "$wakes" ] || fail "busy escalation repeated"
+  [ "$(grep -c 'steer-inbox busy deferral' "$dir/state/.watch-triage.log")" = 1 ] \
+    || fail "a post-escalation busy poll logged another deferral"
   [ -f "$dir/state/t1.inbox/001.msg" ] || fail "busy escalation lost the steer"
   pass "watcher: busy deferrals survive restart, escalate once at the bound, and never type"
 }

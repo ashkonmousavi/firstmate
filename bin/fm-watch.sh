@@ -614,6 +614,7 @@ inbox_steer_check() {  # <window> <task>
       elif [ "$count" -ge "$(fm_task_inbox_busy_max)" ]; then
         reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; $rec stays unhandled and no doorbell was typed; inspect the worker)"
       else
+        triage_log "steer-inbox busy deferral: $task ${rec##*/} count=$count/$(fm_task_inbox_busy_max)"
         return 0
       fi
       verb=escalate
