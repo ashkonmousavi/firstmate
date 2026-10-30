@@ -225,6 +225,23 @@ fm_control_interrupt_hazard_signal() {  # <harness>
   esac
 }
 
+# 0 when <harness> accepts a user message submitted while a turn is running
+# and keeps it for delivery. Claude Code queues that submit and delivers it
+# within the turn, once the in-flight tool calls finish, or at the end of the
+# turn (https://code.claude.com/docs/en/interactive-mode, "Queue messages
+# while Claude works"). OpenCode's Busy-queued Enter is the same class.
+# Pi queued continuations and Codex queued notifications are not a user
+# submit queue. The doorbell path (bin/fm-task-inbox-lib.sh) submits while
+# busy only for the harnesses this function accepts.
+fm_control_submit_queue() {  # <harness>
+  local harness
+  harness=$(fm_control_harness_family "${1-}") || return 1
+  case "$harness" in
+    claude|opencode) return 0 ;;
+  esac
+  return 1
+}
+
 # The key that must follow the interrupt key to leave the composer empty, or
 # nothing when the adapter needs none. muse is the one verified adapter that
 # RESTORES the cancelled prompt into its composer as real bright text, so an

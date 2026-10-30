@@ -45,6 +45,10 @@ Inspect the pane to identify which dialog is on screen, and report it rather tha
 A launch under `config/claude-permission-mode=auto` never meets the bypass confirmation, because it does not request bypass mode: on 2.1.269 `claude --permission-mode auto` reached the composer directly with the footer `⏵⏵ auto mode on (shift+tab to cycle)`, so a captain who refuses the bypass dialog selects `auto` there instead of accepting it.
 The workspace-trust dialog is unaffected by the permission mode and still needs the pre-registration above.
 
+## Submit queue
+
+[`fm_control_submit_queue`](../../../../../bin/fm-control-lib.sh) owns Claude's busy-submit capability and vendor reference; [steering-inbox verification](../../../../../docs/verification/runtime-backends.md#steering-inbox-doorbell) owns the live guard and retained results.
+
 ## Composer ghost
 
 Completed turns can render dim predicted text inside an empty composer, indistinguishable in plain `tmux capture-pane`.

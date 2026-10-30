@@ -87,6 +87,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-marker-lib.sh`       | Compatibility entry point for the from-firstmate carrier owned by `fm-operational-input.sh` |
 | `fm-task-inbox-lib.sh`   | Single owner of durable steering-inbox records, acknowledgement, doorbells, and the delivery-attempt ladder |
 | `fm-pending-reply-lib.sh` | Parent-owned secondmate pending-reply expectations, recovery, and keyed escalation lifecycle |
+| `fm-pending-reply-ack-handled.sh` | Recipient acknowledgement that closes one exact pending-reply correlation as handled with no reply needed |
 | `fm-pending-reply-retire-stale.sh` | Operator retirement of stale superseded pending-reply records, keeping each record and its reason |
 | `fm-status-append.sh` | Append one status line from stdin so report text is data, never shell |
 | `fm-secondmate-report.sh` | Optional helper that resolves the parent channel itself and appends a correlated status or document-pointer report |
@@ -130,7 +131,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-path-lib.sh`         | Fork-free `dirname`/`basename` equivalents with no source-time side effects             |
 | `fm-classify-lib.sh`     | Shared wake classification, durable keyed-decision folds and scans, unread status selection, home-owned status-append ranges, and bounded latest-event snapshots |
 | [`fm-nm-handoff-lib.sh`](../bin/fm-nm-handoff-lib.sh) | Shared stopped-before-validation handoff policy; its header owns automatic steering, escalation, and receipt handling |
-| `fm-send.sh`             | Steer a task via a durable inbox record plus doorbell, or send a supported key or typed harness invocation through the recorded backend |
+| `fm-send.sh`             | Steer a task via a durable inbox record plus doorbell, including `--one-way` with no pending-reply correlation, or send a supported key or typed harness invocation through the recorded backend |
 | `fm-branch-prompt.sh`    | Emit the shared supervision branch's byte-stable system prompt ([pi-supervision-branch.md](pi-supervision-branch.md), [supervision-host.md](supervision-host.md)) |
 | `fm-branch-outcome.sh`   | Own the supervision branch's append-only outcome store, cursors, bounded status-coverage indexes, and session-start replay |
 | `fm-lease.sh`            | Claim, release, inspect, and sweep per-task supervision leases                       |
@@ -145,6 +146,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-check-unregister.sh` | Retire a custom watcher check and its trust binding by validated task id            |
 | `fm-check-lib.sh`        | Validate custom-check registrations and prepare private execution snapshots          |
 | `fm-tool-update-check.sh` | Report watched tooling with an update available, and updates installed but left inert by PATH order |
+| `fm-curated-delivery-check.sh` | Report merged fork PRs missing from curated or a configured home's HEAD, homes lagging curated, and open PRs targeting main without the exemption label |
 | `fm-startup-growth-check.sh` | Daily metadata-only growth check for startup memory and tracked startup/instruction surfaces |
 | `fm-pr-lib.sh`           | Own canonical task and PR validation plus private atomic PR-poll publication, merge-notification identity, retirement, and the conflict-episode marker |
 | `fm-pr-poll.sh`          | Provide the byte-static watcher program for validated pull-request, merge-request, and Gerrit-change poll sidecars, including a GitHub conflict-label observation |

@@ -30,7 +30,8 @@ Without a cursor anchor a full-pane capture of this version still defers as `unk
 ## Busy-queued Enter
 
 While OpenCode 1.18.4 is mid-turn, its composer accepts Enter as a "send when the turn ends" keystroke but does not clear the typed text until the turn finishes.
-Backend-specific confirmation rules are owned by [tmux](../../../../../docs/tmux-backend.md#composer-busy-state-and-delivery) and [Herdr](../../../../../docs/herdr-backend.md#submit-confirmation); only Herdr retains the busy-queue exception.
+[`fm_control_submit_queue`](../../../../../bin/fm-control-lib.sh) owns OpenCode's busy-submit capability for steering doorbells.
+Backend-specific confirmation rules are owned by [tmux](../../../../../docs/tmux-backend.md#composer-busy-state-and-delivery) and [Herdr](../../../../../docs/herdr-backend.md#submit-confirmation); only Herdr retains the busy-queue exception through `fm_composer_queued_enter_verdict` in `../../../bin/fm-composer-lib.sh`.
 Regression coverage is `../../../tests/fm-tmux-submit-busy.test.sh`, `../../../tests/fm-composer-lib.test.sh`, and `../../../tests/fm-backend-herdr.test.sh`.
 The live Herdr guard is `FM_HERDR_SUBMIT_CONFIRM_LIVE=1 ../../../tests/fm-herdr-submit-confirm-live-e2e.test.sh`.
 

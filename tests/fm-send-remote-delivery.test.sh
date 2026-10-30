@@ -1178,6 +1178,39 @@ test_remote_enqueue_dedup_compares_same_size_records() {
   pass "remote enqueue dedup: only same-size records are compared and exact matches still dedup"
 }
 
+test_remote_one_way_request_identity() {
+  local dir fb ssh_log rhome home count id id2 retry_id
+  dir="$TMP_ROOT/remote-oneway"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-oneway)
+  home=$(setup_remote_parent_home remote-oneway "$rhome")
+  send_env "$fb" "$home" "$ssh_log" "$SEND" rsm --one-way 'continue supervision' >"$dir/out" 2>"$dir/err" || fail "first one-way send failed"
+  id=$(fm_task_inbox_request_id "$rhome/state/parent-route/rsm.inbox/001.msg")
+  fm_task_inbox_request_id_valid "$id" || fail "one-way request has no durable identity"
+  send_env "$fb" "$home" "$ssh_log" "$SEND" rsm --one-way 'continue supervision' >"$dir/out" 2>"$dir/err" || fail "second outstanding one-way send failed"
+  id2=$(fm_task_inbox_request_id "$rhome/state/parent-route/rsm.inbox/002.msg")
+  [ "$id" != "$id2" ] || fail "distinct requests shared their identity"
+  mv "$rhome/state/parent-route/rsm.inbox/001.msg" "$rhome/state/parent-route/rsm.inbox/handled/"
+  send_env "$fb" "$home" "$ssh_log" "$SEND" rsm --one-way 'continue supervision' >"$dir/out" 2>"$dir/err" || fail "repeat after handling failed"
+  [ -f "$rhome/state/parent-route/rsm.inbox/003.msg" ] || fail "a handled request swallowed a distinct send"
+  send_env "$fb" "$home" "$ssh_log" "FM_SEND_REQUEST_ID=$id" "$SEND" rsm --one-way 'continue supervision' >"$dir/out" 2>"$dir/err" || fail "handled request retry failed"
+  [ ! -f "$rhome/state/parent-route/rsm.inbox/004.msg" ] || fail "handled retry duplicated its request"
+  send_env "$fb" "$home" "$ssh_log" FM_FAKE_SSH_AMBIGUOUS=1 "$SEND" rsm --one-way 'ambiguous request' >"$dir/out" 2>"$dir/err" && fail "lost transport claimed success"
+  [ -f "$rhome/state/parent-route/rsm.inbox/004.msg" ] && [ ! -f "$rhome/state/parent-route/rsm.inbox/005.msg" ] || fail "transport retry did not deduplicate"
+  assert_contains "$(cat "$dir/err")" 'FM_SEND_REQUEST_ID=' "ambiguous send must preserve the request id"
+  assert_not_contains "$(cat "$dir/err")" 'FM_PENDING_REPLY_EXISTING_CORR=' "one-way retry must not advertise an empty correlation"
+  send_env "$fb" "$home" "$ssh_log" FM_FAKE_SSH_HANG=60 FM_SEND_REMOTE_BUDGET=1 "$SEND" rsm --one-way 'timed request' >"$dir/out" 2>"$dir/err" && fail "timed-out transport claimed success"
+  retry_id=$(sed -n 's/.*FM_SEND_REQUEST_ID=\([0-9a-f]*\).*/\1/p' "$dir/err")
+  fm_task_inbox_request_id_valid "$retry_id" || fail "timeout guidance lost its durable request id"
+  assert_not_contains "$(cat "$dir/err")" 'FM_PENDING_REPLY_EXISTING_CORR=' "timeout must not advertise an empty correlation"
+  send_env "$fb" "$home" "$ssh_log" "FM_SEND_REQUEST_ID=$retry_id" "$SEND" rsm --one-way 'timed request' >"$dir/out" 2>"$dir/err" || fail "timeout-guided retry failed"
+  [ "$(fm_task_inbox_request_id "$rhome/state/parent-route/rsm.inbox/005.msg")" = "$retry_id" ] || fail "timeout retry used a different request identity"
+  [ -z "$(pending_record "$home")" ] || fail "one-way requests created reply debt"
+  count=$(remote_inbox_records "$rhome" | wc -l | tr -d ' ')
+  [ "$count" = 4 ] || fail "unexpected one-way request count: $count"
+  pass "remote one-way requests distinguish repetition from handled, outstanding, and transport retries"
+}
+
 test_remote_steer_lands_in_remote_inbox
 test_remote_unreadable_ring_preserves_durable_enqueue
 test_remote_rerun_is_idempotent
@@ -1204,5 +1237,6 @@ test_remote_inbox_pass_never_overlaps_an_inflight_pass
 test_remote_inbox_ladder_escalates_bookkeeping_failure
 test_remote_inbox_marker_retry_preserves_wake_identity
 test_remote_enqueue_dedup_compares_same_size_records
+test_remote_one_way_request_identity
 
 echo "all fm-send-remote-delivery tests passed"
