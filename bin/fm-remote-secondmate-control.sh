@@ -8,6 +8,7 @@
 #   fm-remote-secondmate-control.sh route <id>
 #   fm-remote-secondmate-control.sh send <id> <message> [delivery-mode] [request-id]
 #   fm-remote-secondmate-control.sh inbox <id> due <grace-secs> <ring-max>|ring <record>|escalated <record>
+#   fm-remote-secondmate-control.sh probe <id> <corr-id>
 #   fm-remote-secondmate-control.sh key <id> <key>
 #   fm-remote-secondmate-control.sh capture <id> [lines]
 #   fm-remote-secondmate-control.sh observe <id>
@@ -386,6 +387,23 @@ cmd_inbox() {
   printf 'rang %s%s\n' "$ring_rc" "${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}"
 }
 
+# Read-only: prints landed when any unread or handled steering record of <id>
+# carries corr=<corr-id>, else absent. The parent asks this before it calls a
+# delivery-unknown steer lost (bin/fm-pending-reply-lib.sh).
+cmd_probe() {
+  local id=$1 corr=$2 dir
+  validate_id "$id"
+  validate_home "$id"
+  case "$corr" in *[!0-9a-f]*|'') die "invalid correlation id" ;; esac
+  [ "${#corr}" -eq 16 ] || die "invalid correlation id"
+  dir=$(fm_task_inbox_dir "$CONTROL_STATE" "$id")
+  if grep -qaF -- "corr=$corr" "$dir"/*.msg "$dir"/handled/*.msg 2>/dev/null; then
+    printf 'landed\n'
+  else
+    printf 'absent\n'
+  fi
+}
+
 cmd_key() {
   local id=$1 key=$2
   validate_id "$id"
@@ -516,6 +534,7 @@ case "${1:-}" in
   route) shift; [ "$#" -eq 1 ] || usage; cmd_route "$1" ;;
   send) shift; [ "$#" -ge 2 ] && [ "$#" -le 4 ] || usage; cmd_send "$@" ;;
   inbox) shift; [ "$#" -ge 2 ] && [ "$#" -le 4 ] || usage; cmd_inbox "$@" ;;
+  probe) shift; [ "$#" -eq 2 ] || usage; cmd_probe "$@" ;;
   key) shift; [ "$#" -eq 2 ] || usage; cmd_key "$@" ;;
   capture) shift; [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage; cmd_capture "$@" ;;
   observe) shift; [ "$#" -eq 1 ] || usage; cmd_observe "$@" ;;

@@ -914,6 +914,34 @@ SH
   pass "inbox: exact prompt receipts, fixed Enter budgets, and unreadable captures preserve delivery proof"
 }
 
+# An enqueue killed mid-scan leaves no .dedup.* scratch file in the inbox.
+test_idempotent_write_leaves_no_scratch_when_killed() {
+  local state fb leftovers
+  state="$TMP_ROOT/idem-kill/state"; mkdir -p "$state/t1.inbox/handled"
+  fb="$TMP_ROOT/idem-kill/fakebin"; mkdir -p "$fb"
+  # A wc that kills the enqueue, its scan subshell and all, once the scratch
+  # files exist: the shape of a remote enqueue cut off by its budget.
+  cat > "$fb/wc" <<'SH'
+#!/usr/bin/env bash
+pkill -TERM -P "$FM_TEST_KILL_PID" 2>/dev/null
+kill -TERM "$FM_TEST_KILL_PID" 2>/dev/null
+exit 0
+SH
+  chmod +x "$fb/wc"
+  FM_STATE_OVERRIDE="$state" PATH="$fb:$PATH" bash -c '
+    . "$1"
+    FM_TEST_KILL_PID=$$ fm_task_inbox_write_idempotent "$2" t1 "killed steer"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" >/dev/null 2>&1 || true
+  # The killed scan subshell finishes its trap a moment after the enqueue dies.
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    leftovers=$(find "$state/t1.inbox" -maxdepth 1 -name '.dedup.*' | wc -l | tr -d ' ')
+    [ "$leftovers" = 0 ] && break
+    sleep 0.1
+  done
+  [ "$leftovers" = 0 ] || fail "a killed enqueue left $leftovers .dedup.* scratch files in the inbox"
+  pass "inbox: an enqueue killed mid-scan removes its dedup scratch files"
+}
+
 test_idempotent_write_dedups_exact_body() {
   local state r1 r2 r3 r4 count text
   state="$TMP_ROOT/idem/state"; mkdir -p "$state"
@@ -2000,6 +2028,7 @@ test_mate_ring_submits_own_doorbell_and_skips_foreign_text
 test_busy_submit_signal_semantics
 test_ring_confirms_submit_from_the_harness_hook
 test_idempotent_write_dedups_exact_body
+test_idempotent_write_leaves_no_scratch_when_killed
 test_one_way_dedup_bulk_selects_request_ids
 test_one_way_dedup_follows_ack_before_header_open
 test_idempotent_write_follows_concurrent_ack
