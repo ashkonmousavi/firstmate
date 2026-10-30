@@ -1809,19 +1809,33 @@ _fm_composer_locate_footer_zone() {  # <plain>
 
 # _fm_composer_bare_rule_sandwich: 0 when bare agent-glyph <row> sits in its
 # own titled composer: a titled rule directly above it and the screen's only
-# unmatched separator directly below it, which is that composer's closing rule.
+# unmatched separator directly below its wrap region, which is that composer's
+# closing rule.
 #
 # The cursorless staleness rule reads an unmatched separator BELOW a candidate
 # as proof the candidate is scrollback. A titled top rule never opens the
 # separator pair, so the composer's own closing rule becomes that unmatched
 # separator and a genuinely idle composer read `unknown`. Adjacency on BOTH
 # edges keeps the staleness rule intact everywhere else: a glyph stranded in
-# scrollback has transcript rows, not its own rules, around it.
+# scrollback has transcript rows, not its own rules, around it. The wrap
+# region is the contiguous run of non-blank, edge-free rows under the glyph
+# row, so a next-prompt suggestion that wraps onto a second row still sits in
+# its own composer.
 _fm_composer_bare_rule_sandwich() {  # <plain-screen> <row>
-  local plain=$1 row=$2 above below
+  local plain=$1 row=$2 above below last trimmed
   [ "$row" -ge 1 ] || return 1
-  [ "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" -eq "$((row + 1))" ] || return 1
-  below=$(_fm_composer_screen_row "$((row + 1))" "$plain")
+  last=$row
+  while :; do
+    trimmed=$(_fm_composer_screen_row "$((last + 1))" "$plain")
+    fm_composer_normalize_trim_var trimmed
+    [ -n "$trimmed" ] || break
+    fm_composer_row_has_edge "$trimmed" && break
+    _fm_composer_row_is_omp_status "$trimmed" && break
+    _fm_composer_row_is_braille_furniture "$trimmed" && break
+    last=$((last + 1))
+  done
+  [ "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" -eq "$((last + 1))" ] || return 1
+  below=$(_fm_composer_screen_row "$((last + 1))" "$plain")
   fm_composer_normalize_trim_var below
   _fm_composer_pi_separator_row "$below" || return 1
   above=$(_fm_composer_screen_row "$((row - 1))" "$plain")
