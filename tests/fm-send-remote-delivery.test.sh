@@ -1029,8 +1029,10 @@ test_remote_inbox_ladder_escalates_after_ring_max() {
 # with a trusted semantic source, claude is a queue harness.
 remote_set_busy() {  # <remote-home> <harness> <busy|idle>
   local rh=$1 harness=$2 verdict=$3 meta="$1/state/parent-route/rsm.meta" gen source
-  sed "s/^harness=.*/harness=$harness/" "$meta" > "$meta.tmp" \
-    && mv "$meta.tmp" "$meta" || fail "could not update the remote harness metadata"
+  if ! { sed "s/^harness=.*/harness=$harness/" "$meta" > "$meta.tmp" \
+    && mv "$meta.tmp" "$meta"; }; then
+    fail "could not update the remote harness metadata"
+  fi
   [ "$(fm_meta_get "$meta" harness)" = "$harness" ] || fail "remote harness metadata did not select $harness"
   case "$harness" in pi) source=pi-ext ;; *) source=claude-hook ;; esac
   if [ ! -f "$rh/state/rsm.busy-gen" ]; then
