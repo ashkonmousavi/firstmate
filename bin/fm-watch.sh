@@ -2529,22 +2529,6 @@ run_check_process() {
   fi
 }
 
-# check_timeout_episode <check> <exit-status>: a check the bound killed (exit
-# 124 from timeout, gtimeout or the perl fallback) would otherwise vanish
-# without a trace. Returns 0 only on the first timeout of an episode, so the
-# caller wakes once; the marker stays until that check next finishes inside the
-# bound, so a permanently slow check does not wake every sweep.
-check_timeout_episode() {
-  local marker
-  marker="$STATE/.check-timed-out.$(basename "$1")"
-  if [ "$2" -ne 124 ]; then
-    rm -f -- "$marker"
-    return 1
-  fi
-  [ ! -e "$marker" ] || return 1
-  : > "$marker"
-}
-
 run_check() {
   ( run_check_process "$@" ) 2>/dev/null || true
 }
@@ -3504,7 +3488,9 @@ EOF
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
-          check_timeout_episode "$c" "$FM_CHECK_EXIT_STATUS" && out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+          if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
+            out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+          fi
           fm_custom_check_snapshot_cleanup
         else
           fm_custom_check_snapshot_cleanup

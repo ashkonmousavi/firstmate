@@ -1399,37 +1399,28 @@ SH
   pass "watcher signals promptly stop custom checks and clean private state"
 }
 
-test_timed_out_custom_check_wakes_once_per_episode() {
+test_each_timed_out_custom_check_run_wakes() {
   local backend dir state fakebin force_fallback rc
   for backend in installed-timeout fallback-timeout; do
     dir=$(make_case "timed-out-custom-$backend")
     state="$dir/home/state"
     fakebin="$dir/fakebin"
-    # Sleeps past the bound while the flag exists, finishes inside it once the flag is gone.
     cat > "$state/slow.check.sh" <<'SH'
 #!/usr/bin/env bash
-[ ! -e "$FM_TEST_SLOW_FLAG" ] || sleep 30
+sleep 30
 SH
-    # Runs after slow in the same sweep and stops the watcher with its wake.
-    cat > "$state/z-witness.check.sh" <<'SH'
-#!/usr/bin/env bash
-printf 'sweep finished\n'
-SH
-    for check in slow z-witness; do
-      chmod 0700 "$state/$check.check.sh"
-      FM_HOME="$dir/home" "$REGISTER" "$check" >/dev/null \
-        || fail "could not register $backend $check check"
-    done
+    chmod 0700 "$state/slow.check.sh"
+    FM_HOME="$dir/home" "$REGISTER" slow >/dev/null \
+      || fail "could not register $backend slow check"
     if [ "$backend" = installed-timeout ]; then
       force_fallback=0
     else
       rm -f "$fakebin/timeout" "$fakebin/gtimeout"
       force_fallback=1
     fi
-    : > "$dir/slow.flag"
     sweep() {  # <out-file>
       rm -f "$state/.last-check"
-      FM_TEST_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK="$force_fallback" FM_TEST_SLOW_FLAG="$dir/slow.flag" \
+      FM_TEST_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK="$force_fallback" \
         run_watcher_bounded "$dir/home" "$fakebin" > "$1" 2> "$dir/watch.err" || return 1
       ack_watcher_cycle "$state" || return 1
     }
@@ -1443,25 +1434,10 @@ SH
     rc=0
     sweep "$dir/watch2.out" || rc=$?
     [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the repeat sweep (rc=$rc)"
-    ! grep -q 'timed out' "$dir/watch2.out" \
-      || fail "$backend watcher woke again for the same timeout episode: $(cat "$dir/watch2.out")"
-    grep -qxF "check: $state/z-witness.check.sh: sweep finished" "$dir/watch2.out" \
-      || fail "$backend repeat sweep did not reach the next check: $(cat "$dir/watch2.out")"
-
-    rm -f "$dir/slow.flag"
-    rc=0
-    sweep "$dir/watch3.out" || rc=$?
-    [ "$rc" -eq 0 ] || fail "$backend watcher did not stop once the check finished in time (rc=$rc)"
-    ! grep -q 'timed out' "$dir/watch3.out" || fail "$backend watcher reported a timeout for a check that finished in time"
-
-    : > "$dir/slow.flag"
-    rc=0
-    sweep "$dir/watch4.out" || rc=$?
-    [ "$rc" -eq 0 ] || fail "$backend watcher did not stop on the new episode (rc=$rc)"
-    grep -qxF "check: $state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)" "$dir/watch4.out" \
-      || fail "$backend watcher did not wake for a new timeout episode: $(cat "$dir/watch4.out")"
+    grep -qxF "check: $state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)" "$dir/watch2.out" \
+      || fail "$backend watcher did not wake for the consecutive timed-out run: $(cat "$dir/watch2.out")"
   done
-  pass "a custom check killed at the bound wakes once per timeout episode on installed and fallback paths"
+  pass "each timed-out custom check run wakes on installed and fallback paths"
 }
 
 test_returned_custom_check_descendants_are_drained() {
@@ -3724,5 +3700,5 @@ test_postrename_poll_validation_revokes_and_retries
 test_bootstrap_leaves_unauthenticated_checks
 test_custom_snapshot_cleanup_on_signal
 test_returned_custom_check_descendants_are_drained
-test_timed_out_custom_check_wakes_once_per_episode
+test_each_timed_out_custom_check_run_wakes
 test_teardown_removes_poll_artifacts
