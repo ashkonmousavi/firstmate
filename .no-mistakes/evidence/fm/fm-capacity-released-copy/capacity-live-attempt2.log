@@ -1,0 +1,7 @@
+Real tmux inventory: 0 fm-live node 120x40
+Endpoint primary:fm-live: alive
+Endpoint primary:empty: dead
+Endpoint primary:gone: missing
+
+Private lab tmux kill-server exit=0
+Disposable lab and baseline copy removed.

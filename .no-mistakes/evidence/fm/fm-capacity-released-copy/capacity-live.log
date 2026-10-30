@@ -1,0 +1,103 @@
+Real tmux inventory: @0 0 fm-live node 120x40
+Endpoint primary:fm-live: alive
+Endpoint primary:empty: dead
+Endpoint primary:gone: missing
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=11 target=5; no free machine lane
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=11 target=5; no free machine lane
+
+Before fix: eleven retained records refuse admission
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322390,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=11 target=5; no free machine lane","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":11,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":9122332,"reserve_kb":0,"headroom_kb":9122332,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9122332,"memory_full_avg60":0.0,"disk_free_min_kb":462820664}
+--admit exit=75
+capacity: free_lanes=0 reason=full lanes=11 target=5 secondmates=0 load1=2.04 cores=12 mem_free_pct=37 disk_free_mb=451973 mem_available_kb=9113888 reserve_kb=0 headroom_kb=9113888
+Lanes: 11 of 5; 0 open. Memory headroom: 9113888 kB.
+Host: load 2.04 on 12 cores, memory free 37%, disk free 451973 MB.
+
+Fixed: eleven cleanup-completed missing endpoints free all five lanes across local homes
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322391,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":9141592,"reserve_kb":0,"headroom_kb":9141592,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9142096,"memory_full_avg60":0.0,"disk_free_min_kb":462821228}
+--admit exit=0
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 load1=2.04 cores=12 mem_free_pct=37 disk_free_mb=451973 mem_available_kb=9128000 reserve_kb=0 headroom_kb=9128000
+Lanes: 0 of 5; 5 open. Memory headroom: 9128000 kB.
+Host: load 2.04 on 12 cores, memory free 37%, disk free 451973 MB.
+
+Shell-only dead endpoint with cleanup sentinel also frees its lane
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322391,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":9120672,"reserve_kb":0,"headroom_kb":9120672,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9120976,"memory_full_avg60":0.0,"disk_free_min_kb":462821216}
+--admit exit=0
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 load1=2.04 cores=12 mem_free_pct=37 disk_free_mb=451973 mem_available_kb=9114620 reserve_kb=0 headroom_kb=9114620
+Lanes: 0 of 5; 5 open. Memory headroom: 9114620 kB.
+Host: load 2.04 on 12 cores, memory free 37%, disk free 451973 MB.
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+
+Real live Codex agent with released-copy sentinel still fills a one-lane machine
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322392,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":1,"target":1,"free_lanes":0,"secondmates":0,"mem_available_kb":9141472,"reserve_kb":0,"headroom_kb":9141472,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9141472,"memory_full_avg60":0.0,"disk_free_min_kb":462821212}
+--admit exit=75
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=2.04 cores=12 mem_free_pct=37 disk_free_mb=451973 mem_available_kb=9126040 reserve_kb=0 headroom_kb=9126040
+Lanes: 1 of 1; 0 open. Memory headroom: 9126040 kB.
+Host: load 2.04 on 12 cores, memory free 37%, disk free 451973 MB.
+
+Removing live task record restores admission despite retained cleanup records
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322393,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":0,"target":1,"free_lanes":1,"secondmates":0,"mem_available_kb":9118524,"reserve_kb":0,"headroom_kb":9118524,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9118524,"memory_full_avg60":0.0,"disk_free_min_kb":462821212}
+--admit exit=0
+capacity: free_lanes=1 reason=ok lanes=0 target=1 secondmates=0 load1=2.04 cores=12 mem_free_pct=37 disk_free_mb=451973 mem_available_kb=9110732 reserve_kb=0 headroom_kb=9110732
+Lanes: 0 of 1; 1 open. Memory headroom: 9110732 kB.
+Host: load 2.04 on 12 cores, memory free 37%, disk free 451973 MB.
+Endpoint malformed-target: unreadable
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+
+Unprovable endpoint liveness retains a cleanup-sentinel lane
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322393,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":1,"target":1,"free_lanes":0,"secondmates":0,"mem_available_kb":9126436,"reserve_kb":0,"headroom_kb":9126436,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9126936,"memory_full_avg60":0.0,"disk_free_min_kb":462821212}
+--admit exit=75
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=1.96 cores=12 mem_free_pct=37 disk_free_mb=451973 mem_available_kb=9116372 reserve_kb=0 headroom_kb=9116372
+Lanes: 1 of 1; 0 open. Memory headroom: 9116372 kB.
+Host: load 1.96 on 12 cores, memory free 37%, disk free 451973 MB.
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+
+Unreleased/incorrect sentinel ordinary retains a lane despite missing endpoint
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322394,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":1,"target":1,"free_lanes":0,"secondmates":0,"mem_available_kb":9107804,"reserve_kb":0,"headroom_kb":9107804,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9108308,"memory_full_avg60":0.0,"disk_free_min_kb":462821208}
+--admit exit=75
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=1.96 cores=12 mem_free_pct=36 disk_free_mb=451973 mem_available_kb=9102292 reserve_kb=0 headroom_kb=9102292
+Lanes: 1 of 1; 0 open. Memory headroom: 9102292 kB.
+Host: load 1.96 on 12 cores, memory free 36%, disk free 451973 MB.
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+
+Unreleased/incorrect sentinel wrong-id retains a lane despite missing endpoint
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322395,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":1,"target":1,"free_lanes":0,"secondmates":0,"mem_available_kb":9096432,"reserve_kb":0,"headroom_kb":9096432,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9096432,"memory_full_avg60":0.0,"disk_free_min_kb":462821188}
+--admit exit=75
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=1.96 cores=12 mem_free_pct=37 disk_free_mb=451973 mem_available_kb=9111820 reserve_kb=0 headroom_kb=9111820
+Lanes: 1 of 1; 0 open. Memory headroom: 9111820 kB.
+Host: load 1.96 on 12 cores, memory free 37%, disk free 451973 MB.
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+
+Unreleased/incorrect sentinel wrong-dir retains a lane despite missing endpoint
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322395,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":1,"target":1,"free_lanes":0,"secondmates":0,"mem_available_kb":9119860,"reserve_kb":0,"headroom_kb":9119860,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9120364,"memory_full_avg60":0.0,"disk_free_min_kb":462821188}
+--admit exit=75
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=1.96 cores=12 mem_free_pct=36 disk_free_mb=451973 mem_available_kb=9108488 reserve_kb=0 headroom_kb=9108488
+Lanes: 1 of 1; 0 open. Memory headroom: 9108488 kB.
+Host: load 1.96 on 12 cores, memory free 36%, disk free 451973 MB.
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+stderr: fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane
+
+Unreleased/incorrect sentinel suffix retains a lane despite missing endpoint
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322396,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity: lanes=1 target=1; no free machine lane","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":1,"target":1,"free_lanes":0,"secondmates":0,"mem_available_kb":9086584,"reserve_kb":0,"headroom_kb":9086584,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9086584,"memory_full_avg60":0.0,"disk_free_min_kb":462821184}
+--admit exit=75
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=1.96 cores=12 mem_free_pct=36 disk_free_mb=451973 mem_available_kb=9102424 reserve_kb=0 headroom_kb=9102424
+Lanes: 1 of 1; 0 open. Memory headroom: 9102424 kB.
+Host: load 1.96 on 12 cores, memory free 36%, disk free 451973 MB.
+
+Final clean admission with all eleven retained records still present
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322397,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":0,"target":1,"free_lanes":1,"secondmates":0,"mem_available_kb":9089336,"reserve_kb":0,"headroom_kb":9089336,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9089336,"memory_full_avg60":0.0,"disk_free_min_kb":462821184}
+--admit exit=0
+capacity: free_lanes=1 reason=ok lanes=0 target=1 secondmates=0 load1=1.96 cores=12 mem_free_pct=36 disk_free_mb=451973 mem_available_kb=9096392 reserve_kb=0 headroom_kb=9096392
+Lanes: 0 of 1; 1 open. Memory headroom: 9096392 kB.
+Host: load 1.96 on 12 cores, memory free 36%, disk free 451973 MB.
+
+Published placement facts:
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793322397,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/049a88734b0e/01M6555Y7KDGCNQEKYSHPK5NFS/.v/config/lane-capacity","lanes":0,"target":1,"free_lanes":1,"secondmates":0,"mem_available_kb":9099996,"reserve_kb":0,"headroom_kb":9099996,"resource_policy_sha256":"08f581076c32b3b2b6eeb8a651b667626665e9fcd5137e181fef6344760842eb","memory_floor_kb":0,"effective_available_kb":9100500,"memory_full_avg60":0.0,"disk_free_min_kb":462821184}
+
+Private lab tmux kill-server exit=0
+stderr: server exited unexpectedly
+Disposable lab and baseline copy removed.

@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Before fix: eleven retained records refuse admission",
+    "lanes": 11,
+    "free_lanes": 0,
+    "admit_exit": 75
+  },
+  {
+    "name": "Fixed: eleven cleanup-completed missing endpoints free all five lanes across local homes",
+    "lanes": 0,
+    "free_lanes": 5,
+    "admit_exit": 0
+  },
+  {
+    "name": "Shell-only dead endpoint with cleanup sentinel also frees its lane",
+    "lanes": 0,
+    "free_lanes": 5,
+    "admit_exit": 0
+  },
+  {
+    "name": "Real live Codex agent with released-copy sentinel still fills a one-lane machine",
+    "lanes": 1,
+    "free_lanes": 0,
+    "admit_exit": 75
+  },
+  {
+    "name": "Removing live task record restores admission despite retained cleanup records",
+    "lanes": 0,
+    "free_lanes": 1,
+    "admit_exit": 0
+  },
+  {
+    "name": "Unprovable endpoint liveness retains a cleanup-sentinel lane",
+    "lanes": 1,
+    "free_lanes": 0,
+    "admit_exit": 75
+  },
+  {
+    "name": "Unreleased/incorrect sentinel ordinary retains a lane despite missing endpoint",
+    "lanes": 1,
+    "free_lanes": 0,
+    "admit_exit": 75
+  },
+  {
+    "name": "Unreleased/incorrect sentinel wrong-id retains a lane despite missing endpoint",
+    "lanes": 1,
+    "free_lanes": 0,
+    "admit_exit": 75
+  },
+  {
+    "name": "Unreleased/incorrect sentinel wrong-dir retains a lane despite missing endpoint",
+    "lanes": 1,
+    "free_lanes": 0,
+    "admit_exit": 75
+  },
+  {
+    "name": "Unreleased/incorrect sentinel suffix retains a lane despite missing endpoint",
+    "lanes": 1,
+    "free_lanes": 0,
+    "admit_exit": 75
+  },
+  {
+    "name": "Final clean admission with all eleven retained records still present",
+    "lanes": 0,
+    "free_lanes": 1,
+    "admit_exit": 0
+  }
+]
