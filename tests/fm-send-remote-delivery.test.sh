@@ -109,6 +109,18 @@ SH
   cat > "$fb/herdr" <<'SH'
 #!/usr/bin/env bash
 [ -z "${FM_FAKE_HERDR_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_HERDR_LOG"
+if [ -n "${FM_FAKE_HERDR_ENDPOINT_STATE:-}" ]; then
+  case "${1:-} ${2:-}" in
+    'pane get')
+      if [ "$FM_FAKE_HERDR_ENDPOINT_STATE" = missing ]; then
+        printf '%s\n' '{"error":{"code":"pane_not_found"}}'
+      else
+        printf '%s\n' '{"result":{"pane":{"pane_id":"p1"}}}'
+      fi
+      exit 0 ;;
+    'agent get') printf '%s\n' '{"error":{"code":"agent_not_found"}}'; exit 0 ;;
+  esac
+fi
 [ -n "${FM_FAKE_HERDR_UNCONFIRMED:-}" ] || exit 1
 case "${1:-} ${2:-}" in
   'status --json') printf '%s\n' '{"server":{"running":true,"compatible":true},"client":{"protocol":22,"version":"fixture"}}' ;;
@@ -168,6 +180,7 @@ fi
 rc=0
 env -i PATH="$PATH" HOME="$HOME" FM_FAKE_HERDR_LOG="${FM_FAKE_HERDR_LOG:-}" \
   FM_FAKE_HERDR_UNCONFIRMED="${FM_FAKE_HERDR_UNCONFIRMED:-}" \
+  FM_FAKE_HERDR_ENDPOINT_STATE="${FM_FAKE_HERDR_ENDPOINT_STATE:-}" \
   FM_HOME="$remote_home" FM_ROOT_OVERRIDE="$FM_REMOTE_CODE_ROOT" \
   "$FM_REMOTE_CODE_ROOT/bin/$cmd" "${rargs[@]:1}" || rc=$?
 if [ "${FM_FAKE_SSH_AMBIGUOUS:-0}" = 1 ] \
@@ -1001,7 +1014,9 @@ test_remote_inbox_ladder_escalates_after_ring_max() {
 # with a trusted semantic source, claude is a queue harness.
 remote_set_busy() {  # <remote-home> <harness> <busy|idle>
   local rh=$1 harness=$2 verdict=$3 meta="$1/state/parent-route/rsm.meta" gen source
-  sed -i "s/^harness=.*/harness=$harness/" "$meta"
+  sed "s/^harness=.*/harness=$harness/" "$meta" > "$meta.tmp" \
+    && mv "$meta.tmp" "$meta" || fail "could not update the remote harness metadata"
+  [ "$(fm_meta_get "$meta" harness)" = "$harness" ] || fail "remote harness metadata did not select $harness"
   case "$harness" in pi) source=pi-ext ;; *) source=claude-hook ;; esac
   if [ ! -f "$rh/state/rsm.busy-gen" ]; then
     "$ROOT/bin/fm-busy-event.sh" arm "$rh/state" rsm >/dev/null || fail "could not arm the remote busy record"
@@ -1066,6 +1081,99 @@ test_remote_inbox_stuck_busy_wakes_once_then_rings_when_idle() {
     || fail "a tick after the follow-up failed"
   [ ! -s "$dir/herdr.log" ] || fail "the idle follow-up rang more than once"
   pass "watcher remote inbox: one stuck-busy wake at the bound, then one idle ring without a second wake"
+}
+
+test_remote_inbox_idle_followup_waits_for_busy_reset() {
+  local dir fb ssh_log home rhome rec out real_rm poll
+  remote_busy_case remote-busy-reset-failure pi busy
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_BUSY_MAX=1 >/dev/null 2>&1 \
+    || fail "the stuck-busy escalation failed"
+  [ "$(cat "${rec%/*}/.escalated")" = "${rec##*/}" ] || fail "the busy bound did not mark the record escalated"
+  : > "$home/state/.wake-queue"
+  remote_set_busy "$rhome" pi idle
+  real_rm=$(command -v rm)
+  cat > "$fb/rm" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  case "\$arg" in */rsm.inbox/.busy-state) exit 1 ;; esac
+done
+exec "$real_rm" "\$@"
+SH
+  chmod +x "$fb/rm"
+  for poll in 1 2; do
+    out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=1 2>&1) \
+      || fail "an idle follow-up with a blocked busy reset failed: $out"
+    [ "$(remote_ring_count "$rhome")" = 0 ] || fail "a blocked busy reset spent a ring attempt on poll $poll"
+    [ -s "${rec%/*}/.busy-state" ] || fail "a blocked busy reset lost the owed doorbell"
+    [ ! -s "$home/state/.wake-queue" ] || fail "a blocked busy reset queued a second wake"
+    if grep -q '^pane send-' "$dir/herdr.log"; then
+      fail "a blocked busy reset typed a doorbell on poll $poll"
+    fi
+  done
+  "$real_rm" "$fb/rm"
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_BUSY_MAX=1 >/dev/null 2>&1 \
+    || fail "the idle follow-up failed after busy reset recovery"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "busy reset recovery did not spend exactly one ring"
+  [ ! -e "${rec%/*}/.busy-state" ] || fail "busy reset recovery left the owed doorbell behind"
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_BUSY_MAX=1 >/dev/null 2>&1 \
+    || fail "the tick after busy reset recovery failed"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "busy reset recovery rang more than once"
+  [ ! -s "$home/state/.wake-queue" ] || fail "busy reset recovery queued a second wake"
+  [ "$(cat "${rec%/*}/.escalated")" = "${rec##*/}" ] || fail "busy reset recovery cleared the escalation marker"
+  pass "watcher remote inbox: an escalated idle follow-up waits until busy debt can be cleared"
+}
+
+test_remote_inbox_idle_followup_preserves_debt_when_unavailable() {
+  local endpoint=$1 dir fb ssh_log home rhome rec out poll
+  remote_busy_case "remote-busy-followup-$endpoint" pi busy
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_BUSY_MAX=1 >/dev/null 2>&1 \
+    || fail "the stuck-busy escalation failed"
+  [ "$(cat "${rec%/*}/.escalated")" = "${rec##*/}" ] || fail "the busy bound did not mark the record escalated"
+  : > "$home/state/.wake-queue"
+  remote_set_busy "$rhome" pi idle
+  out=$(send_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_ENDPOINT_STATE="$endpoint" \
+    "$ROOT/bin/fm-on.sh" rsm fm-remote-secondmate-control.sh state rsm 2>&1) \
+    || fail "the $endpoint endpoint state could not be read: $out"
+  [ "$out" = "$endpoint" ] || fail "the endpoint fixture did not report $endpoint: $out"
+  for poll in 1 2; do
+    out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" \
+      FM_FAKE_HERDR_ENDPOINT_STATE="$endpoint" FM_TASK_INBOX_BUSY_MAX=1 2>&1) \
+      || fail "an idle follow-up against a $endpoint endpoint failed: $out"
+    [ -s "${rec%/*}/.busy-state" ] || fail "the $endpoint endpoint lost its owed doorbell on poll $poll"
+    [ "$(remote_ring_count "$rhome")" = 0 ] || fail "the $endpoint endpoint spent a ring attempt"
+    [ ! -s "$home/state/.wake-queue" ] || fail "the $endpoint endpoint queued a second wake"
+    if grep -q '^pane send-' "$dir/herdr.log"; then
+      fail "the $endpoint endpoint was typed into"
+    fi
+  done
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_BUSY_MAX=1 >/dev/null 2>&1 \
+    || fail "the idle follow-up failed after $endpoint endpoint recovery"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "$endpoint endpoint recovery lost the owed ring"
+  [ ! -e "${rec%/*}/.busy-state" ] || fail "$endpoint endpoint recovery retained the owed doorbell"
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_BUSY_MAX=1 >/dev/null 2>&1 \
+    || fail "the tick after $endpoint endpoint recovery failed"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "$endpoint endpoint recovery rang more than once"
+  [ ! -s "$home/state/.wake-queue" ] || fail "$endpoint endpoint recovery queued a second wake"
+  [ "$(cat "${rec%/*}/.escalated")" = "${rec##*/}" ] || fail "$endpoint endpoint recovery cleared the escalation marker"
+  pass "watcher remote inbox: a $endpoint endpoint preserves idle follow-up debt without a second wake"
+}
+
+test_remote_inbox_unavailable_without_busy_debt() {
+  local endpoint=$1 dir fb ssh_log home rhome rec out
+  remote_busy_case "remote-unavailable-$endpoint" pi idle
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" \
+    FM_FAKE_HERDR_ENDPOINT_STATE="$endpoint" FM_TASK_INBOX_BUSY_MAX=1 2>&1) \
+    || fail "the $endpoint endpoint escalation failed: $out"
+  assert_contains "$out" "the secondmate's agent has exited or its endpoint is missing" \
+    "an unavailable endpoint without busy debt must still escalate"
+  [ "$(grep -c stale "$home/state/.wake-queue")" = 1 ] || fail "the $endpoint endpoint did not queue exactly one wake"
+  [ "$(remote_ring_count "$rhome")" = 0 ] || fail "the $endpoint endpoint spent a ring attempt"
+  [ "$(cat "${rec%/*}/.escalated")" = "${rec##*/}" ] || fail "the $endpoint endpoint was not marked escalated"
+  : > "$home/state/.wake-queue"
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_ENDPOINT_STATE="$endpoint" \
+    FM_TASK_INBOX_BUSY_MAX=1 >/dev/null 2>&1 || fail "the tick after $endpoint endpoint escalation failed"
+  [ ! -s "$home/state/.wake-queue" ] || fail "the $endpoint endpoint queued a duplicate wake"
+  pass "watcher remote inbox: a $endpoint endpoint without busy debt still escalates once"
 }
 
 test_remote_inbox_idle_before_bound_rings_once() {
@@ -1473,6 +1581,11 @@ test_remote_inbox_idle_failure_still_spends_an_attempt_with_its_reason
 test_remote_inbox_ladder_escalates_after_ring_max
 test_remote_inbox_busy_deferral_below_bound
 test_remote_inbox_stuck_busy_wakes_once_then_rings_when_idle
+test_remote_inbox_idle_followup_waits_for_busy_reset
+test_remote_inbox_idle_followup_preserves_debt_when_unavailable dead
+test_remote_inbox_idle_followup_preserves_debt_when_unavailable missing
+test_remote_inbox_unavailable_without_busy_debt dead
+test_remote_inbox_unavailable_without_busy_debt missing
 test_remote_inbox_idle_before_bound_rings_once
 test_remote_inbox_queue_harness_is_rung_while_busy
 test_remote_inbox_old_parent_rings_while_busy

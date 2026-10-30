@@ -323,7 +323,7 @@ cmd_send() {
 # prints one line:
 #   due <grace> <max> [<busy-max>]   quiet | ring <record> | escalate <record> <count> [reason=<token>]
 #   ring <record> [<busy-max>]       rang <ring-status> [reason=<token>] | handled | unavailable | bookkeeping-failed
-#                                    | deferred <count> | stuck-busy <count>
+#                                    | deferred <count> | stuck-busy <count> | quiet
 #   escalated <rec>                  escalated
 # <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
 # re-checks that the record is still unhandled, rings once, and spends one
@@ -423,10 +423,23 @@ cmd_inbox() {
     fi
     return 0
   fi
+  case "$(fm_backend_agent_state "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null || true)" in
+    dead|missing)
+      if [ -n "$busy_max" ] && fm_task_inbox_idle_followup "$CONTROL_STATE" "$id" "$harness"; then
+        printf 'quiet\n'
+      else
+        printf 'unavailable\n'
+      fi
+      return 0
+      ;;
+  esac
   if [ -n "$busy_max" ] && ! fm_task_inbox_clear_busy "$CONTROL_STATE" "$id"; then
-    # A follow-up of a record already escalated must not re-raise bookkeeping
-    # failure on every later idle poll.
-    [ "$(cat "$dir/.escalated" 2>/dev/null || true)" = "$rec_name" ] || { printf 'bookkeeping-failed\n'; return 0; }
+    if [ "$(cat "$dir/.escalated" 2>/dev/null || true)" = "$rec_name" ]; then
+      printf 'quiet\n'
+    else
+      printf 'bookkeeping-failed\n'
+    fi
+    return 0
   fi
   fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" || ring_rc=$?
   if [ "$ring_rc" -eq 3 ]; then
