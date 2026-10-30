@@ -22,7 +22,8 @@
 # Usage:
 #   fm-captain-hold.sh hold <task-id> --reason <reason> \
 #     [--title <title>] [--repo <repo>] [--origin <origin-id>] \
-#     [--origin-kind <owner-request|finding|pipeline-outcome>] [--until YYYY-MM-DD]
+#     [--origin-kind <owner-request|finding|pipeline-outcome>] [--until YYYY-MM-DD] \
+#     [--release-on pr:<owner>/<repo>#<n> | --release-on marker:<absolute-path>]
 #   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release]
 #   fm-captain-hold.sh answers [<legacy-origin> | --any-origin] --source <provenance>   (keyed answers on stdin)
 #   fm-captain-hold.sh reconcile-requests --source-id <source-id> --source <provenance>   (task ids on stdin)
@@ -242,6 +243,9 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 # shellcheck source=bin/fm-hold-reason-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-hold-reason-lib.sh"
+# shellcheck source=bin/fm-hold-release-lib.sh
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/fm-hold-release-lib.sh"
 # shellcheck source=bin/fm-parent-channel-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-parent-channel-lib.sh"
@@ -960,9 +964,15 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
 }
 
 command_hold() {
-  local id=${1:-} title='' reason='' repo='' origin='' origin_kind='' until='' show state existing_title body='' hold_kind hold_set occurrence
-  local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' previous_origin_kind='' hold_status=0
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
+  validate_slug task-id "${1:-}"
+  acquire_task_control_lock "$1"
+  fm_hold_release_with_lock "$STATE" "$1" command_hold_locked "$@"
+}
+
+command_hold_locked() {
+  local id=${1:-} title='' reason='' repo='' origin='' origin_kind='' until='' release_on='' show state existing_title body='' hold_kind hold_set occurrence
+  local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' previous_origin_kind='' hold_status=0
   shift
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -972,14 +982,13 @@ command_hold() {
       --origin) shift; origin=${1:-} ;;
       --origin-kind) shift; origin_kind=${1:-} ;;
       --until) shift; until=${1:-} ;;
+      --release-on) shift; release_on=${1:-} ;;
       *) usage >&2; exit 2 ;;
     esac
     shift
   done
-  validate_slug task-id "$id"
   [ -n "$reason" ] || fail "reason must not be empty"
   # bin/fm-hold-reason-lib.sh owns the storage constraint and reversible encoding.
-  stored_reason=$(fm_hold_reason_encode "$reason") || fail "could not encode the hold reason"
   if [ -n "$origin" ]; then
     validate_slug origin-id "$origin"
   fi
@@ -993,12 +1002,20 @@ command_hold() {
       *) fail "--until must be a YYYY-MM-DD date: $until" ;;
     esac
   fi
+  # A captain hold may also name the external event that makes the question
+  # moot (the PR whose merge answers it, or an activation marker); the watcher
+  # evaluates it and wakes once when it is met. bin/fm-hold-release-lib.sh
+  # owns the condition syntax, the record, and the keyed decision.
+  if [ -n "$release_on" ]; then
+    release_on=$(fm_hold_release_valid "$release_on") \
+      || fail "--release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: $release_on"
+  fi
+  stored_reason=$(fm_hold_reason_encode "$reason" "$release_on") || fail "could not encode the hold reason"
   hold_set=${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
   case "$hold_set" in
     [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) : ;;
     *) fail "FM_CAPTAIN_HOLD_NOW must be a UTC YYYY-MM-DDTHH:MM:SSZ timestamp" ;;
   esac
-  acquire_task_control_lock "$id"
   require_tasks_axi
   if task_show "$id"; then
     show=$TASK_SHOW_OUTPUT
@@ -1075,6 +1092,19 @@ command_hold() {
   show=$TASK_SHOW_OUTPUT
   hold_kind=$(show_field_value "$show" hold_kind)
   [ "$hold_kind" = captain ] || fail "task $id did not retain its captain hold"
+  if [ -n "$release_on" ]; then
+    fm_hold_release_record_write "$STATE" "$id" "$release_on" "$stored_reason" \
+      || fail "the captain hold was recorded but its release condition could not be stored; re-run the same hold to retry"
+  elif [ -e "$(fm_hold_release_record_path "$STATE" "$id")" ] \
+    || [ -L "$(fm_hold_release_record_path "$STATE" "$id")" ]; then
+    # A re-hold that no longer names a structured condition ends that
+    # lifecycle, the same way bin/fm-tasks-axi.sh does. The hold itself
+    # already succeeded, so a drop that fails is reported and the next
+    # evaluation sweep reconciles the leftover record.
+    fm_hold_release_record_drop "$STATE" "$id" \
+      "re-held without a structured release condition" \
+      || printf 'fm-captain-hold: warning: the hold was re-held but its stale release record could not be dropped\n' >&2
+  fi
   occurrence=$(( $(resolution_record_count "$(show_field "$show" body)") + 1 ))
   [ -n "$(body_hold_set_timestamp "$(show_field_value "$show" body)")" ] \
     || fail "task $id lost its hold-set stamp while being held"
@@ -1143,12 +1173,31 @@ apply_pending_retained_artifact() {  # <task-id>
   esac
 }
 
-close_answered() {  # <task-id> <release-0-or-1>
+close_answered() {
+  fm_hold_release_with_lock "$STATE" "$1" close_answered_locked "$@"
+}
+
+close_answered_locked() {
+  local close_rc=0
   if [ "$2" = 1 ]; then
-    tasks_axi unhold "$1" >/dev/null
+    # The close status must be carried explicitly: this function runs inside
+    # an `if !` caller, where errexit is disabled and a trailing block would
+    # otherwise mask a failed close.
+    tasks_axi unhold "$1" >/dev/null || close_rc=$?
   else
     apply_pending_retained_artifact "$1" || return 1
-    tasks_axi "done" "$1" "${RETAINED_CLOSE_ARGS[@]+"${RETAINED_CLOSE_ARGS[@]}"}" >/dev/null
+    tasks_axi "done" "$1" "${RETAINED_CLOSE_ARGS[@]+"${RETAINED_CLOSE_ARGS[@]}"}" >/dev/null \
+      || close_rc=$?
+  fi
+  [ "$close_rc" -eq 0 ] || return "$close_rc"
+  # Either close ends the hold lifecycle, so a release condition recorded for
+  # it ends too: drop the record and close any still-open hold-release
+  # decision now rather than at the next evaluation sweep. Best effort - the
+  # sweep reconciles a drop that failed - because the captain's answer itself
+  # already succeeded here.
+  if [ -e "$(fm_hold_release_record_path "$STATE" "$1")" ] \
+    || [ -L "$(fm_hold_release_record_path "$STATE" "$1")" ]; then
+    fm_hold_release_record_drop "$STATE" "$1" "captain call settled" || true
   fi
 }
 

@@ -1320,6 +1320,14 @@ _fm_lock_acquire_wait_handoff() {  # <lockdir> <caller-pid>
   trap - TERM INT
 }
 
+fm_checkpoint_lock() {
+  local budget
+  if [ -z "${FM_CHECKPOINT_DEADLINE:-}" ]; then fm_lock_acquire_wait "$1"; return; fi
+  _fm_wake_require_timeout || return 1
+  budget=$(fm_checkpoint_budget 2147483647) || return 124
+  fm_lock_acquire_wait_bounded "$1" "$budget"
+}
+
 # fm_lock_acquire_wait_bounded <lockdir> <positive-seconds>
 #
 # Bounded acquire variant. It preserves the ordinary wait/reclaim behavior
