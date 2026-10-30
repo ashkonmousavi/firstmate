@@ -7,9 +7,9 @@
 # outbound message, and later automatically resolves that expectation from a correlated
 # line in the asked task's own parent status log, or a document it points to -
 # never from transport success, chat content, unrelated status activity, or
-# another task's line that echoes or quotes the token. Summary-classified
-# one-way notices are the exception: fm_pending_reply_oneway_expired below
-# owns their expiry rule, which does not prove delivery or acknowledgement.
+# another task's line that echoes or quotes the token. Notice exceptions are
+# owned by fm_pending_reply_text_is_notice and fm_pending_reply_oneway_expired
+# below; their resolution does not prove delivery or acknowledgement.
 # Explicit no-reply resolution is owned by fm_pending_reply_ack_handled below;
 # delivery acknowledgement alone never closes it.
 # Explicit operator retirement is separate from acknowledgement; its contract
@@ -19,8 +19,8 @@
 # the marker and answer only in its visible conversation. The parent must notice
 # the missing correlated report without scraping that conversation, send exactly
 # one automatic recovery request asking for a repost through the parent channel
-# (held back, when config/wait-no-turns is present, while the mate waits on its
-# own open decision or blocker), and
+# (subject, when config/wait-no-turns is present, to the decision-age gate in
+# fm_pending_reply_mate_decision_newer_than below), and
 # escalate once if the recovery turn also completes without a correlated
 # report. Never loop, never repeatedly inject, never silently expire unresolved
 # reply-bearing records outside the one-way exception, and never treat
@@ -69,8 +69,13 @@
 #                           escalation was closed again (see the escalation
 #                           lifecycle note below); empty until then
 #   resolved_epoch=
+#   one_way=                1 only when the full request body is a notice that
+#                           asks for no reply (fm_pending_reply_text_is_notice);
+#                           absent otherwise
 #   resolved_via=           status | document | helper | expired-one-way |
-#                           handled | retired-stale | empty
+#                           one-way-notice | handled | retired-stale | empty
+#                           one-way-notice is a one_way=1 record closed at its
+#                           first resolve attempt, since nothing was asked
 #                           handled is the recipient's acknowledgement that
 #                           this exact request needs no reply
 #                           (fm_pending_reply_ack_handled); its close note
@@ -398,6 +403,9 @@ grace_secs=$(fm_pending_reply_grace_secs)
 EOF
   chmod 600 "$tmp" 2>/dev/null || true
   mv -f "$tmp" "$rec" || return 1
+  if fm_pending_reply_text_is_notice "$request_text"; then
+    fm_pending_reply_set "$rec" one_way 1 || return 1
+  fi
   printf '%s' "$corr"
 }
 
@@ -682,6 +690,27 @@ fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
 # whether delivered or not. Resolution records expired-one-way and closes any
 # escalation; it does not establish delivery or a correlated reply.
 FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited config changed|(MAIN[:,]? )?(FYI|fyi)\b|MAIN fyi|Done by MAIN|Applied:|Agreed:|Correction to )'
+# Full-body notice classification, separate from the summary expiry above:
+# standalone no-reply/no-action waiver sentences may appear anywhere; walk
+# end/dispatched, copied/carried, and Firstmate-updated openings also qualify.
+# A question mark or an explicit reporting/investigation directive takes
+# precedence, including after an introductory clause. A report filename or
+# noun alone is not a directive. Classification sets one_way=1 at creation;
+# the record schema above owns its resolution semantics.
+FM_PENDING_REPLY_NOTICE_BODY_RE=$'(^|[.!:;][[:space:]]+|\n[[:space:]]*)no[[:space:]]+(reply|action)([[:space:]]+is)?[[:space:]]+needed([[:space:]]+on[[:space:]]+your[[:space:]]+side)?[[:space:]]*([.!]([[:space:]]|$)|\n|$)'
+FM_PENDING_REPLY_NOTICE_OPEN_RE='^(walk[[:space:]]+end:|walk[[:space:]]+dispatched|copied:|carried:|firstmate[[:space:]]+updated[[:space:]]+to[[:space:]])'
+FM_PENDING_REPLY_NOTICE_REQUEST_RE=$'(^|[[:punct:]][[:space:]]*|\n[[:space:]]*)(please[[:space:]]+)?(investigate|report|reply|respond)[[:space:]]|(^|[^[:alnum:]_])((please|and|then)[[:space:]]+(report|reply|respond)|(can|could|would|will)[[:space:]]+you[[:space:]]+(please[[:space:]]+)?(report|reply|respond)|(when[[:space:]]+ready|you[[:space:]]+should|after[[:space:]]+the[[:space:]]+check)[[:space:]]+report|report[[:space:]]+back|reply[[:space:]]+with|send[[:space:]]+me)([[:space:][:punct:]]|$)'
+fm_pending_reply_text_is_notice() {  # <request-text>
+  local text=$1
+  text=${text#"$FM_FROMFIRST_MARK"}
+  text=$(printf '%s' "$text" | tr '\t\r' '  ' | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]*(corr=[a-f0-9]{16})?[[:space:]]*//')
+  text=${text#"${text%%[![:space:]]*}"}
+  [[ $text == *'?'* ]] && return 1
+  [[ $text =~ $FM_PENDING_REPLY_NOTICE_REQUEST_RE ]] && return 1
+  [[ $text =~ $FM_PENDING_REPLY_NOTICE_OPEN_RE ]] && return 0
+  [[ $text =~ $FM_PENDING_REPLY_NOTICE_BODY_RE ]]
+}
+
 fm_pending_reply_oneway_expired() {  # <record-path>
   local rec=$1 summary created now
   summary=$(fm_pending_reply_get "$rec" request_summary)
@@ -762,11 +791,16 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
     _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
     return 0
   fi
-  if [ -z "$status_override" ] && fm_pending_reply_oneway_expired "$rec"; then
+  if [ "$(fm_pending_reply_get "$rec" one_way)" = 1 ] \
+    || { [ -z "$status_override" ] && fm_pending_reply_oneway_expired "$rec"; }; then
     now=$(fm_pending_reply_now)
     fm_pending_reply_set "$rec" phase resolved || return 1
     fm_pending_reply_set "$rec" resolved_epoch "$now" || return 1
-    fm_pending_reply_set "$rec" resolved_via expired-one-way || return 1
+    if [ "$(fm_pending_reply_get "$rec" one_way)" = 1 ]; then
+      fm_pending_reply_set "$rec" resolved_via one-way-notice || return 1
+    else
+      fm_pending_reply_set "$rec" resolved_via expired-one-way || return 1
+    fi
     _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
     return 0
   fi
@@ -1057,6 +1091,38 @@ fm_pending_reply_recovery_message() {  # <record-path>
   printf '%s' "$msg"
 }
 
+# 0 when the mate holds an open decision of its own that does not predate
+# <since-epoch>, the request's creation: only that decision can be the reason a
+# reply is outstanding. A decision opened earlier is a standing question the
+# request did not wait behind. E amendment: equal or unreadable timestamps still
+# block the re-ask because the gate cannot prove the decision is old.
+fm_pending_reply_mate_decision_newer_than() {  # <status-file> <since-epoch>
+  local status_file=$1 since=$2 open key line at event opening folded verb kind resolve held
+  open=$(status_own_open_decisions "$status_file")
+  [ -n "$open" ] || return 1
+  kind=$(_fm_status_kind "$status_file")
+  resolve=${FM_CLASSIFY_RESOLVE_VERB:-$FM_CLASSIFY_RESOLVE_VERB_DEFAULT}
+  held=${FM_CLASSIFY_CAPTAIN_HELD_VERB:-$FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT}
+  while IFS= read -r line; do
+    key=${line%%$'\t'*}
+    [ -n "$key" ] || continue
+    opening=''
+    while IFS= read -r event || [ -n "$event" ]; do
+      status_line_verb "$event" verb
+      case "$verb" in needs-decision|blocked) ;; *) continue ;; esac
+      folded=$(_fm_decision_fold_line '' "$event" "$resolve" "$held" "$kind")
+      case "$folded" in "$key"$'\t'*) opening=$event ;; esac
+    done < "$status_file"
+    at=$(status_line_at_epoch "$opening") || at=''
+    [ -n "$at" ] && [ -n "$since" ] || return 0
+    case "$at$since" in *[!0-9]*) return 0 ;; esac
+    [ "$at" -ge "$since" ] && return 0
+  done <<EOF
+$open
+EOF
+  return 1
+}
+
 # Deliver the recovery message once. Caller must hold phase awaiting_report with
 # turn completed and grace elapsed. Uses FM_PENDING_REPLY_SEND_HOOK when set
 # (tests), otherwise invokes fm-send with FM_PENDING_REPLY_EXISTING_CORR so a
@@ -1090,10 +1156,11 @@ fm_pending_reply_send_recovery() {  # <state-dir> <corr_id>
   task_id=$(fm_pending_reply_get "$rec" task_id)
   # A remote mate's report may exist and simply not have been mirrored yet.
   fm_pending_reply_missing_report_is_evidence "$state" "$task_id" "$completed" || return 1
-  # config/wait-no-turns: a mate waiting on its own open decision or blocker
-  # is never poked. The recovery stays unattempted until the answer lands.
+  # config/wait-no-turns uses the decision-age contract owned by
+  # fm_pending_reply_mate_decision_newer_than above.
   if [ -e "${FM_CONFIG_OVERRIDE:-${FM_HOME:-}/config}/wait-no-turns" ]; then
-    [ -z "$(status_own_open_decisions "$state/$task_id.status")" ] || return 1
+    ! fm_pending_reply_mate_decision_newer_than "$state/$task_id.status" \
+      "$(fm_pending_reply_get "$rec" created_epoch)" || return 1
   fi
   status_file=$(fm_pending_reply_get "$rec" parent_status)
   parent_home=$(fm_pending_reply_get "$rec" parent_home)
@@ -1465,6 +1532,58 @@ fm_pending_reply_maybe_escalate() {  # <state-dir> <corr_id>
   return "$rc"
 }
 
+# 0 when the remote mate's own inbox holds a message carrying corr=<id>, unread
+# or handled: the read-only answer to "did the enqueue land?" that a
+# delivery-unknown record otherwise leaves to a human. Anything but a clear
+# "landed" (absent, ssh down, timeout) is 1, so the record still escalates.
+# The production transport has a fixed 20-second bound.
+# FM_PENDING_REPLY_REMOTE_PROBE_HOOK replaces the transport; it receives
+# task_id and corr_id and prints landed or absent.
+fm_pending_reply_remote_inbox_has_corr() {  # <state-dir> <corr_id>
+  local state=$1 corr=$2 task_id answer
+  task_id=$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" task_id)
+  fm_pending_reply_target_is_remote "$state" "$task_id" || return 1
+  if [ -n "${FM_PENDING_REPLY_REMOTE_PROBE_HOOK:-}" ]; then
+    # shellcheck disable=SC2086
+    answer=$(eval "$FM_PENDING_REPLY_REMOTE_PROBE_HOOK" "$(printf '%q' "$task_id")" "$(printf '%q' "$corr")" 2>/dev/null) || return 1
+  else
+    # shellcheck source=bin/fm-timeout-lib.sh
+    . "$_FM_PENDING_REPLY_LIB_DIR/fm-timeout-lib.sh"
+    answer=$(fm_run_timed 20 "$_FM_PENDING_REPLY_LIB_DIR/fm-on.sh" "$task_id" \
+      fm-remote-secondmate-control.sh probe "$task_id" "$corr" < /dev/null 2>/dev/null) || return 1
+  fi
+  [ "$answer" = landed ]
+}
+
+# Run after the delivery ladder in fm-watch.sh's detached remote-inbox pass,
+# outside the watcher cycle and under the existing per-correlation locks.
+# Spend at most one delivery-unknown probe per pass, while still checking
+# already-escalated records for late replies throughout the backlog.
+fm_pending_reply_remote_inbox_tick() {
+  local state=$1 rec corr task_id phase probed=0
+  for rec in "$(fm_pending_reply_dir "$state")"/*; do
+    [ -f "$rec" ] || continue
+    case "${rec##*/}" in .*) continue ;; esac
+    [ "$(fm_pending_reply_get "$rec" phase)" != resolved ] || continue
+    [ -z "$(fm_pending_reply_get "$rec" delivered_epoch)" ] || continue
+    task_id=$(fm_pending_reply_get "$rec" task_id)
+    fm_pending_reply_target_is_remote "$state" "$task_id" || continue
+    corr=$(fm_pending_reply_get "$rec" corr_id)
+    [ -n "$corr" ] || corr=${rec##*/}
+    fm_pending_reply_reconcile_delivery "$state" "$corr" || true
+    phase=$(fm_pending_reply_get "$rec" phase)
+    case "$phase" in
+      delivery_unknown)
+        [ "$probed" = 0 ] || continue
+        fm_pending_reply_maybe_escalate "$state" "$corr" || true
+        probed=1
+        ;;
+      escalated) fm_pending_reply_try_resolve "$state" "$corr" >/dev/null 2>&1 || true ;;
+    esac
+  done
+  return 0
+}
+
 _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2
   local rec phase completed now payload parent_status line kind first display
@@ -1476,6 +1595,13 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
     _fm_pending_reply_reconcile_delivery_locked "$state" "$corr" || true
     phase=$(fm_pending_reply_get "$rec" phase)
     [ "$phase" = delivery_unknown ] || return 0
+  fi
+  # The enqueue may have landed with only its confirmation lost: ask the
+  # remote inbox before calling it lost.
+  if [ "$phase" = delivery_unknown ] && fm_pending_reply_remote_inbox_has_corr "$state" "$corr"; then
+    _fm_pending_reply_mark_delivered_locked "$state" "$corr" || return 1
+    rm -f "$(fm_pending_reply_delivery_confirmation_path "$state" "$corr")" 2>/dev/null || true
+    return 0
   fi
   case "$phase" in
     recovery_sent)
@@ -1788,6 +1914,10 @@ fm_pending_reply_tick() {  # <state-dir>
       # Cheap no-op unless an escalation for this record is still open; this is
       # the retry that makes the close converge after a transient write failure.
       fm_pending_reply_close_escalation "$state" "$corr" || true
+      continue
+    fi
+    delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
+    if [ -z "$delivered" ] && fm_pending_reply_target_is_remote "$state" "$task_id"; then
       continue
     fi
     fm_pending_reply_reconcile_delivery "$state" "$corr" || true

@@ -2103,6 +2103,232 @@ test_same_kind_escalation_reopens_after_operator_close() {
 
 # --- run --------------------------------------------------------------------
 
+# A delivery-unknown steer to a remote mate is looked up in the mate's inbox
+# before it is called lost: a landed message resumes the wait, a missing one
+# still escalates.
+test_delivery_unknown_probes_the_remote_inbox() {
+  local home state landed lost
+  home=$(setup_parent probe-remote)
+  state="$home/state"
+  : > "$state/ios.status"
+  FM_PENDING_REPLY_NOW=6000
+  export FM_PENDING_REPLY_NOW
+  fm_write_meta "$state/ios.meta" \
+    "window=fm-remote:w1:p1" "harness=claude" "kind=secondmate" "mode=secondmate" \
+    "remote_host=remote-mac" "remote_root=/remote/root" "remote_backend=herdr"
+  landed=$(fm_pending_reply_create "$home" "$state" "ios" "status of the iOS build")
+  lost=$(fm_pending_reply_create "$home" "$state" "ios" "status of the android build")
+  fm_pending_reply_mark_delivery_unknown "$state" "$landed" || fail "could not mark landed record unknown"
+  fm_pending_reply_mark_delivery_unknown "$state" "$lost" || fail "could not mark lost record unknown"
+  # Invoked indirectly through FM_PENDING_REPLY_REMOTE_PROBE_HOOK.
+  # shellcheck disable=SC2329
+  probe_hook() { if [ "$2" = "$LANDED_CORR" ]; then printf 'landed\n'; else printf 'absent\n'; fi; }
+  export -f probe_hook
+  export LANDED_CORR=$landed
+  export FM_PENDING_REPLY_REMOTE_PROBE_HOOK=probe_hook
+
+  fm_pending_reply_maybe_escalate "$state" "$landed" || true
+  [ "$(phase_of "$state" "$landed")" = awaiting_report ] \
+    || fail "a steer found in the remote inbox must resume as delivered, got $(phase_of "$state" "$landed")"
+  [ -n "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$landed")" delivered_epoch)" ] \
+    || fail "a landed steer must be stamped delivered"
+  fm_pending_reply_maybe_escalate "$state" "$lost" || fail "a steer absent from the remote inbox must escalate"
+  [ "$(phase_of "$state" "$lost")" = escalated ] || fail "absent steer did not escalate"
+  case "$(cat "$state/ios.status")" in
+    *"$landed"*) fail "the landed steer was escalated as delivery-unknown" ;;
+  esac
+  unset FM_PENDING_REPLY_REMOTE_PROBE_HOOK LANDED_CORR
+  (
+    mkdir -p "$home/fakebin"
+    cat > "$home/fakebin/timeout" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$3" > "$FM_PROBE_BOUND_LOG"
+printf 'landed\n'
+SH
+    chmod +x "$home/fakebin/timeout"
+    export PATH="$home/fakebin:$PATH"
+    export FM_PROBE_BOUND_LOG="$home/probe-bound"
+    export FM_PENDING_REPLY_PROBE_BUDGET=1
+    fm_pending_reply_remote_inbox_has_corr "$state" "$landed" \
+      || fail "bounded transport should accept a landed probe"
+    [ "$(cat "$FM_PROBE_BOUND_LOG")" = 20 ] \
+      || fail "remote inbox probes must keep the fixed 20-second bound"
+  ) || fail "remote probe bound changed"
+  pass "a delivery-unknown remote steer is probed in the remote inbox before it escalates"
+}
+
+# A notice whose body says no reply is wanted never waits for a token nobody
+# was asked to send, wherever in the body the phrase sits.
+test_notice_body_is_not_reply_bearing() {
+  local home state corr text pad route waiver prefix
+  home=$(setup_parent notice-body)
+  state="$home/state"
+  : > "$state/hibit.status"
+  fm_write_meta "$state/hibit.meta" "kind=secondmate" "remote_host=remote-mac"
+  printf '#!/usr/bin/env bash\nprintf "absent\\n"\n' > "$home/probe"
+  chmod +x "$home/probe"
+  export FM_PENDING_REPLY_REMOTE_PROBE_HOOK="$home/probe"
+  export FM_PENDING_REPLY_NOW=3000
+  pad=$(printf 'detail %.0s' $(seq 1 30))
+  for text in \
+    "Walk results are in: $pad. No reply needed." \
+    "Heads up, $pad. No action needed on your side." \
+    "Walk results are in: $pad. No reply is needed." \
+    "Heads up, $pad. No action is needed on your side." \
+    'No reply needed. The walk results are attached.' \
+    'No reply needed. Results are in data/report.md.' \
+    'No reply needed. The report is attached.' \
+    'No reply needed. The walk report is attached.' \
+    $'No reply needed. The walk report\nis attached.' \
+    'No reply needed. Your report has been archived.' \
+    'No action needed. The walk results are attached.' \
+    'The walk finished. No reply is needed. The results are attached.' \
+    'The walk finished. No action is needed. The results are attached.' \
+    $'The walk finished\nNo reply needed\nThe results are attached.' \
+    $'The walk finished\r\nNo action needed.\r\nThe results are attached.' \
+    $'No reply\nis needed.\nThe results are attached.' \
+    "${FM_FROMFIRST_MARK}corr=0123456789abcdef No reply needed. The results are attached." \
+    "walk end: checkpoint walk finished, $pad" \
+    'walk end: finished. Results are in data/report.md.' \
+    'Walk dispatched to the checkpoint.' \
+    'Copied: checkpoint results are attached.' \
+    'Carried: checkpoint results are attached.' \
+    $'\n\nWalk end: the report is attached.' \
+    $'Firstmate\nupdated to 8c66de01. Re-read AGENTS.md now.' \
+    "Firstmate updated to 8c66de01. Re-read AGENTS.md now."; do
+    for route in ordinary override delivery_unknown recovery_failed recovery_unknown; do
+      corr=$(fm_pending_reply_create "$home" "$state" "hibit" "$text")
+      case "$route" in
+        ordinary) fm_pending_reply_try_resolve "$state" "$corr" || fail "notice stayed reply-bearing" ;;
+        override) fm_pending_reply_try_resolve "$state" "$corr" "$state/hibit.status" || fail "notice override stayed reply-bearing" ;;
+        *)
+          [ "$route" = delivery_unknown ] || fm_pending_reply_mark_delivered "$state" "$corr"
+          fm_pending_reply_set "$(fm_pending_reply_path "$state" "$corr")" phase "$route"
+          fm_pending_reply_tick_one "$state" "$corr" unknown || fail "notice tick failed"
+          ;;
+      esac
+      [ "$(phase_of "$state" "$corr")" = resolved ] || fail "$route notice not resolved: ${text:0:40}"
+      [ "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" resolved_via)" = one-way-notice ] \
+        || fail "notice resolved_via should be one-way-notice"
+      [ -z "$(status_open_decisions "$state/hibit.status")" ] || fail "notice opened a reply blocker"
+    done
+  done
+  corr=$(fm_pending_reply_create "$home" "$state" "hibit" "Please report whether you saw the walk end: markers and ignore nothing.")
+  if fm_pending_reply_try_resolve "$state" "$corr"; then
+    fail "a real question mentioning a notice phrase mid-text must stay reply-bearing"
+  fi
+  [ "$(phase_of "$state" "$corr")" = awaiting_report ] || fail "real question lost its expectation"
+  for waiver in 'No reply needed' 'no action needed' 'no reply is needed' 'no action is needed'; do
+    for prefix in '' 'walk end: ' 'Walk dispatched. ' 'Copied: ' 'Carried: ' 'Firstmate updated to abcdef. '; do
+      for text in \
+        "${prefix}Please investigate why \"$waiver\" notices open blockers and report the result." \
+        "${prefix}Please report why $waiver notices open blockers." \
+        "${prefix}Please reply with the result. $waiver." \
+        "${prefix}Please report the text '$waiver'." \
+        "${prefix}checkpoint finished. Can you report the failures?" \
+        "${prefix}finished. Can you report the failures?" \
+        "${prefix}$waiver. Please report back with the failures." \
+        "${prefix}$waiver. Reply with the failures." \
+        "${prefix}$waiver. Send me the result." \
+        "${prefix}$waiver. Could you report failures" \
+        "${prefix}$waiver. Are the results attached?" \
+        "${prefix}checkpoint finished. When ready, report the failures." \
+        "${prefix}$waiver. After checking the build,report failures." \
+        "${prefix}$waiver. When ready report the failures." \
+        "${prefix}$waiver. You should report failures." \
+        "${prefix}$waiver. After the check report failures." \
+        "${prefix}$waiver. The report is attached; report the failures." \
+        "${prefix}$waiver. When ready,reply with the failures." \
+        "${prefix}$waiver. When ready,send me the failures." \
+        "${prefix}$waiver. When ready:report failures." \
+        "${prefix}$waiver. When ready — report failures." \
+        "${prefix}$waiver. When ready (report failures)." \
+        "${prefix}$waiver. When ready,"$'\nreport failures.'; do
+        corr=$(fm_pending_reply_create "$home" "$state" hibit "$text")
+        [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" one_way)" ] \
+          || fail "reporting request was classified as a notice: $text"
+        fm_pending_reply_mark_delivered "$state" "$corr"
+        if fm_pending_reply_try_resolve "$state" "$corr" \
+          || fm_pending_reply_try_resolve "$state" "$corr" "$state/hibit.status"; then
+          fail "reporting request silently resolved: $text"
+        fi
+        [ "$(phase_of "$state" "$corr")" = awaiting_report ] || fail "reporting request lost its expectation"
+        printf 'working: investigated corr=%s\n' "$corr" >> "$state/hibit.status"
+        fm_pending_reply_try_resolve "$state" "$corr" || fail "correlated report did not resolve the reporting request"
+      done
+    done
+    for text in "The diagnostic text is \"$waiver\"." "The diagnostic label says $waiver."; do
+      corr=$(fm_pending_reply_create "$home" "$state" hibit "$text")
+      [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" one_way)" ] \
+        || fail "diagnostic text was classified as a waiver: $text"
+      fm_pending_reply_mark_delivered "$state" "$corr"
+      if fm_pending_reply_try_resolve "$state" "$corr"; then
+        fail "diagnostic text silently waived the reply"
+      fi
+    done
+  done
+  unset FM_PENDING_REPLY_REMOTE_PROBE_HOOK
+  pass "notice bodies are resolved as one-way, real requests are not"
+}
+
+# The wait-no-turns gate holds a re-ask only for a decision the mate opened
+# after the request; an older standing decision never blocks it.
+test_recovery_gate_ignores_decisions_older_than_the_request() {
+  local home state corr hook_log scenario declaration expected rc count=0
+  home=$(setup_parent decision-older)
+  state="$home/state"
+  hook_log="$TMP_ROOT/decision-older-hook.log"
+  : > "$hook_log"
+  mkdir -p "$home/config"
+  : > "$home/config/wait-no-turns"
+  FM_CONFIG_OVERRIDE="$home/config"
+  export FM_PENDING_REPLY_NOW=2500
+  # shellcheck disable=SC2329
+  decision_older_hook() { printf '%s\n' "$1" >> "$hook_log"; }
+  export -f decision_older_hook
+  export FM_PENDING_REPLY_SEND_HOOK=decision_older_hook
+  for scenario in old-key old-default old-blocked note-key working prose note-time new-key new-default new-blocked reopened resolved held invalid-time reserved; do
+    expected=send
+    case "$scenario" in
+      old-key) declaration='needs-decision [at=1000] [key=old]: choose' ;;
+      old-default) declaration='needs-decision [at=1000]: choose' ;;
+      old-blocked) declaration='blocked [at=1000]: waiting' ;;
+      note-key) declaration='needs-decision [at=1000]: [key=old] choose' ;;
+      working) declaration=$'needs-decision [at=1000] [key=old]: choose\nworking [at=2600] [key=old]: progress' ;;
+      prose) declaration=$'needs-decision [at=1000] [key=old]: choose\nworking [at=2600]: mentions [key=old]\nneeds-decision mentions [key=old] [at=2700]' ;;
+      note-time) declaration='needs-decision [at=1000] [key=old]: choose, quoted [at=2600]' ;;
+      new-key) declaration='needs-decision [at=2600] [key=new]: choose'; expected=block ;;
+      new-default) declaration='needs-decision [at=2600]: choose'; expected=block ;;
+      new-blocked) declaration='blocked [at=2600]: waiting'; expected=block ;;
+      reopened) declaration=$'needs-decision [at=1000] [key=old]: choose\nresolved [at=2000] [key=old]: answered\nblocked [at=2600] [key=old]: waiting'; expected=block ;;
+      resolved) declaration=$'needs-decision [at=2600]: choose\nresolved [at=2700]: answered' ;;
+      held) declaration=$'needs-decision [at=2600]: choose\ncaptain-held [at=2700]: transferred' ;;
+      invalid-time) declaration='needs-decision [at=bad] [key=unknown]: choose, quoted [at=1000]'; expected=block ;;
+      reserved) declaration='blocked [at=2600] [key=pending-reply-0123456789abcdef]: pending-reply-missed: another request' ;;
+    esac
+    printf '%s\n' "$declaration" > "$state/hibit.status"
+    corr=$(fm_pending_reply_create "$home" "$state" "hibit" "status of $scenario")
+    fm_pending_reply_mark_delivered "$state" "$corr"
+    fm_pending_reply_observe_busy "$state" "$corr" busy
+    fm_pending_reply_observe_busy "$state" "$corr" idle
+    rc=0
+    fm_pending_reply_send_recovery "$state" "$corr" 2>/dev/null || rc=$?
+    if [ "$expected" = send ]; then
+      [ "$rc" = 0 ] || fail "$scenario must allow the re-ask"
+      count=$((count + 1))
+    else
+      [ "$rc" != 0 ] || fail "$scenario must block the re-ask"
+      [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" recovery_attempted_epoch)" ] \
+        || fail "$scenario recorded a forbidden re-ask"
+    fi
+    [ "$(wc -l < "$hook_log" | tr -d ' ')" = "$count" ] || fail "$scenario sent an unexpected number of re-asks"
+  done
+  unset FM_PENDING_REPLY_SEND_HOOK
+  unset FM_CONFIG_OVERRIDE
+  pass "wait-no-turns holds a re-ask only for a decision newer than the request"
+}
+
+
 test_normal_correlated_reply_resolves_once
 test_completed_turn_no_report_triggers_one_recovery
 test_recovery_waits_while_the_mate_has_an_open_decision
@@ -2151,5 +2377,8 @@ test_remote_parent_replies_is_not_wrong_home
 test_local_parent_replies_is_wrong_home_evidence
 test_escalated_undelivered_correlation_stays_retryable
 test_same_kind_escalation_reopens_after_operator_close
+test_notice_body_is_not_reply_bearing
+test_delivery_unknown_probes_the_remote_inbox
+test_recovery_gate_ignores_decisions_older_than_the_request
 
 printf 'ok - all pending-reply tests passed\n'

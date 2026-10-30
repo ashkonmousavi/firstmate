@@ -277,23 +277,18 @@ fm_task_inbox_request_id() {
   awk '$0 == "--" { exit } /^request-id=/ { sub(/^request-id=/, ""); print; exit }' "$1"
 }
 
-# Re-enqueue onto an existing unhandled or handled record with matching delivery
-# mode, request identity, and exact body. Without a request id, only records with
-# no request-id header and the expected byte size are candidates; reply-bearing
-# bodies carry their own correlation, and fire-and-forget bodies their delivery id.
-# With a request id, a different body is a conflict, even when its size differs.
-# One bulk header parse selects candidates before body comparisons: spawning a
-# parser per retained record under .seq.lock can exceed remote delivery budgets.
-# Follow a concurrent acknowledgement into handled/ rather than enqueue twice.
-fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mode] [request-id]
-  local state=$1 task=$2 text=$3 delivery_mode=${4:-} request_id=${5:-} dir lock want have f size rec='' status=0
-  local -a candidates=() size_filter=()
-  [ -z "$request_id" ] || { [ -z "$delivery_mode" ] && fm_task_inbox_request_id_valid "$request_id"; } || return 1
-  dir=$(fm_task_inbox_dir "$state" "$task")
-  mkdir -p "$dir/handled" || return 1
-  lock="$dir/.seq.lock"
-  fm_task_inbox_lock_acquire "$lock" || return 1
-  if want=$(mktemp "$dir/.dedup.XXXXXX") && have=$(mktemp "$dir/.dedup.XXXXXX"); then
+# The dedup scan, run in its own subshell so its scratch files are removed on
+# normal exit and on TERM, HUP, or INT mid-scan (an orphaned .dedup.* file
+# otherwise sits in the inbox forever), without touching the caller's traps.
+# Prints the matching record path, or nothing when none matches; returns 1 on a
+# conflicting request id or any failure.
+_fm_task_inbox_dedup_find() {  # <dir> <text> <delivery-mode> <request-id>
+  (
+    local dir=$1 text=$2 delivery_mode=$3 request_id=$4 want='' have='' f size rec='' status=0
+    local -a candidates=() size_filter=()
+    trap 'rm -f "$want" "$have"' EXIT
+    trap 'exit 143' TERM HUP INT
+    want=$(mktemp "$dir/.dedup.XXXXXX") && have=$(mktemp "$dir/.dedup.XXXXXX") || exit 1
     if printf '%s' "$text" > "$want" && size=$(wc -c < "$want"); then
       size=$((size + ${#FM_TASK_INBOX_SCHEMA} + 35))
       [ "$delivery_mode" != fire-and-forget ] || size=$((size + 25))
@@ -356,11 +351,27 @@ fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mod
     else
       status=1
     fi
-    rm -f "$want" "$have"
-  else
-    rm -f "${want:-}" 2>/dev/null || true
-    status=1
-  fi
+    [ "$status" -eq 0 ] || exit 1
+    printf '%s' "$rec"
+  )
+}
+
+# Re-enqueue onto an existing unhandled or handled record with matching delivery
+# mode, request identity, and exact body. Without a request id, only records with
+# no request-id header and the expected byte size are candidates; reply-bearing
+# bodies carry their own correlation, and fire-and-forget bodies their delivery id.
+# With a request id, a different body is a conflict, even when its size differs.
+# One bulk header parse selects candidates before body comparisons: spawning a
+# parser per retained record under .seq.lock can exceed remote delivery budgets.
+# Follow a concurrent acknowledgement into handled/ rather than enqueue twice.
+fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mode] [request-id]
+  local state=$1 task=$2 text=$3 delivery_mode=${4:-} request_id=${5:-} dir lock rec='' status=0
+  [ -z "$request_id" ] || { [ -z "$delivery_mode" ] && fm_task_inbox_request_id_valid "$request_id"; } || return 1
+  dir=$(fm_task_inbox_dir "$state" "$task")
+  mkdir -p "$dir/handled" || return 1
+  lock="$dir/.seq.lock"
+  fm_task_inbox_lock_acquire "$lock" || return 1
+  rec=$(_fm_task_inbox_dedup_find "$dir" "$text" "$delivery_mode" "$request_id") || status=1
   if [ "$status" -eq 0 ] && [ -z "$rec" ]; then
     rec=$(_fm_task_inbox_write_record_locked "$dir" "$text" "$delivery_mode" "$request_id") || status=1
   fi

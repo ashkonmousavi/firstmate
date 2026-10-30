@@ -134,8 +134,8 @@
 # FM_SEND_REQUEST_ID=<32 lowercase hex digits> reuses an uncertain request.
 # It is not fire-and-forget and it does not set
 # delivery=. It cannot accompany --fire-and-forget, --resolve-key, or --key.
-# A correlation that already exists is closed by the recipient, not by this
-# flag and not by moving the inbox record to handled/:
+# This flag does not close an existing correlation, nor does moving the inbox
+# record to handled/. For recipient acknowledgement of an existing correlation:
 # FM_HOME=<parent-home> bin/fm-pending-reply-ack-handled.sh <task-id> <corr-id>
 # (bin/fm-pending-reply-lib.sh owns that resolved_via=handled transition).
 #

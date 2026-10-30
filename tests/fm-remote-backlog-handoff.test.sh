@@ -89,6 +89,11 @@ argv_b64=$4
 command_name=$(perl -MMIME::Base64=decode_base64 -e '$d=decode_base64($ARGV[0]); ($c)=split(/\0/, $d); print $c' "$argv_b64")
 case "${FM_FAKE_SSH_MODE:-normal}:$command_name" in
   *:fm-remote-secondmate-control.sh)
+    action=$(perl -MMIME::Base64=decode_base64 -e '$d=decode_base64($ARGV[0]); (undef,$a)=split(/\0/, $d); print $a' "$argv_b64")
+    if [ "$action" = probe ]; then
+      printf 'absent\n'
+      exit 0
+    fi
     printf '%s\n' "$command_name" >> "$FM_FAKE_REMOTE_WAKE_LOG"
     [ "${FM_FAKE_REMOTE_WAKE_RC:-0}" -eq 0 ] || printf 'remote receiver wake failed\n' >&2
     exit "${FM_FAKE_REMOTE_WAKE_RC:-0}"
@@ -391,9 +396,9 @@ pass "remote handoff releases durable work and separately retries its receiver w
 
 # The receiver wake is a best-effort live nudge sent AFTER the backlog receipt
 # is durable. A wake whose remote transport is lost leaves its correlation
-# undelivered with delivery unknown, and the watcher's very next pending-reply
-# tick escalates that correlation. That escalated-but-undelivered wake must
-# stay retryable: the outbox otherwise jams every later handoff to this mate
+# undelivered with delivery unknown, and the watcher's detached remote-inbox
+# pass probes the inbox before escalating it. That escalated-but-undelivered
+# wake must stay retryable: the outbox otherwise jams every later handoff to this mate
 # behind a correlation the resume refuses to resend forever.
 write_backlog '- [ ] wake-escalated - escalated undelivered wake stays retryable (repo: alpha)'
 wakes_before=$(grep -cF fm-remote-secondmate-control.sh "$WAKE_LOG")
@@ -411,12 +416,13 @@ escalated_rec="$PARENT/state/pending-replies/$escalated_corr"
 [ -f "$escalated_rec" ] || fail "lost wake transport left no pending-reply record for $escalated_corr"
 [ "$(grep '^phase=' "$escalated_rec" | cut -d= -f2-)" = delivery_unknown ] \
   || fail "lost wake transport did not record delivery unknown"
-# The watcher's pending-reply tick (bin/fm-watch.sh -> fm_pending_reply_tick)
-# escalates an undelivered delivery-unknown correlation before any resume runs.
-bash -c '. "$1"; fm_pending_reply_tick "$2"' _ "$ROOT/bin/fm-pending-reply-lib.sh" "$PARENT/state" \
-  || fail "pending-reply tick failed on the undelivered wake"
+# The detached pass (bin/fm-watch.sh -> fm_pending_reply_remote_inbox_tick)
+# escalates after the remote inbox confirms absence, before any resume runs.
+# shellcheck disable=SC2016 # Positional parameters expand in the child shell.
+handoff_env bash -c '. "$1"; fm_pending_reply_remote_inbox_tick "$2"' _ "$ROOT/bin/fm-pending-reply-lib.sh" "$PARENT/state" \
+  || fail "remote-inbox pending-reply pass failed on the undelivered wake"
 [ "$(grep '^phase=' "$escalated_rec" | cut -d= -f2-)" = escalated ] \
-  || fail "watcher tick did not escalate the undelivered wake, got $(grep '^phase=' "$escalated_rec")"
+  || fail "remote-inbox pass did not escalate the undelivered wake, got $(grep '^phase=' "$escalated_rec")"
 [ -z "$(grep '^delivered_epoch=' "$escalated_rec" | cut -d= -f2-)" ] \
   || fail "escalation must not invent a delivery for the undelivered wake"
 [ "$(grep -cF "blocked [key=pending-reply-$escalated_corr]" "$PARENT/state/ios.status")" -eq 1 ] \

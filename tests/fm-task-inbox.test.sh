@@ -914,6 +914,49 @@ SH
   pass "inbox: exact prompt receipts, fixed Enter budgets, and unreadable captures preserve delivery proof"
 }
 
+# An enqueue killed mid-scan leaves no .dedup.* scratch file in the inbox.
+test_idempotent_write_leaves_no_scratch_when_killed() {
+  local state fb
+  state="$TMP_ROOT/idem-kill/state"; mkdir -p "$state/t1.inbox/handled"
+  fb="$TMP_ROOT/idem-kill/fakebin"; mkdir -p "$fb"
+  cat > "$fb/wc" <<'SH'
+#!/usr/bin/env bash
+: > "$FM_TEST_KILL_READY"
+while :; do sleep 1; done
+SH
+  chmod +x "$fb/wc"
+  (
+    set -m
+    FM_STATE_OVERRIDE="$state" PATH="$fb:$PATH" FM_TEST_KILL_READY="$state/ready" bash -c '
+      . "$1"
+      fm_task_inbox_write_idempotent "$2" t1 "killed steer"
+    ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" >/dev/null 2>&1 &
+    enqueue=$!
+    trap 'kill -TERM -- "-$enqueue" 2>/dev/null || true; wait "$enqueue" 2>/dev/null || true' EXIT
+    for ((i = 0; i < 100; i++)); do
+      [ ! -e "$state/ready" ] || break
+      sleep 0.05
+    done
+    [ -e "$state/ready" ] || fail "enqueue never reached the dedup scan"
+    scratch=("$state/t1.inbox"/.dedup.*)
+    [ "${#scratch[@]}" = 2 ] && [ -f "${scratch[0]}" ] && [ -f "${scratch[1]}" ] \
+      || fail "dedup scan did not create both scratch files before termination"
+    kill -TERM -- "-$enqueue" || fail "could not terminate the enqueue process group"
+    rc=0
+    wait "$enqueue" 2>/dev/null || rc=$?
+    [ "$rc" = 143 ] || fail "enqueue must terminate by SIGTERM, got $rc"
+    for ((i = 0; i < 100; i++)); do
+      leftovers=$(find "$state/t1.inbox" -maxdepth 1 -name '.dedup.*' | wc -l | tr -d ' ')
+      [ "$leftovers" != 0 ] || break
+      sleep 0.05
+    done
+    [ "$leftovers" = 0 ] || fail "a killed enqueue left $leftovers .dedup.* scratch files in the inbox"
+    [ ! -e "$state/t1.inbox/001.msg" ] || fail "terminated enqueue unexpectedly committed a record"
+    trap - EXIT
+  ) || fail "interrupted enqueue cleanup failed"
+  pass "inbox: an enqueue killed mid-scan removes its dedup scratch files"
+}
+
 test_idempotent_write_dedups_exact_body() {
   local state r1 r2 r3 r4 count text
   state="$TMP_ROOT/idem/state"; mkdir -p "$state"
@@ -2000,6 +2043,7 @@ test_mate_ring_submits_own_doorbell_and_skips_foreign_text
 test_busy_submit_signal_semantics
 test_ring_confirms_submit_from_the_harness_hook
 test_idempotent_write_dedups_exact_body
+test_idempotent_write_leaves_no_scratch_when_killed
 test_one_way_dedup_bulk_selects_request_ids
 test_one_way_dedup_follows_ack_before_header_open
 test_idempotent_write_follows_concurrent_ack

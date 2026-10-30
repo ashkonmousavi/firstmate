@@ -1307,6 +1307,7 @@ EOF
     out=$(remote_inbox_hop "$id" escalated "$rec") \
       || triage_log "remote steer-inbox: $id escalation marker for $rec was not written ($out); the next tick retries the marker"
   done
+  fm_pending_reply_remote_inbox_tick "$STATE" || return 1
   REMOTE_INBOX_REASON=$first_reason
   return 0
 }
