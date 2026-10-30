@@ -391,13 +391,19 @@ cmd_inbox() {
 # carries corr=<corr-id>, else absent. The parent asks this before it calls a
 # delivery-unknown steer lost (bin/fm-pending-reply-lib.sh).
 cmd_probe() {
-  local id=$1 corr=$2 dir
+  local id=$1 corr=$2 dir record
   validate_id "$id"
   validate_home "$id"
   case "$corr" in *[!0-9a-f]*|'') die "invalid correlation id" ;; esac
   [ "${#corr}" -eq 16 ] || die "invalid correlation id"
   dir=$(fm_task_inbox_dir "$CONTROL_STATE" "$id")
-  if grep -qaF -- "corr=$corr" "$dir"/*.msg "$dir"/handled/*.msg 2>/dev/null; then
+  for record in "$dir"/*.msg; do
+    if grep -qaF -- "corr=$corr" "$record" "$dir/handled/${record##*/}" 2>/dev/null; then
+      printf 'landed\n'
+      return 0
+    fi
+  done
+  if grep -qaF -- "corr=$corr" "$dir"/handled/*.msg 2>/dev/null; then
     printf 'landed\n'
   else
     printf 'absent\n'

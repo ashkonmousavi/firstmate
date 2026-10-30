@@ -1244,6 +1244,7 @@ remote_inbox_tick() {
 remote_inbox_pass() {
   local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count last_reason out reason notify_key appended first_reason=''
   touch "$tick_marker" || return 1
+  fm_pending_reply_remote_inbox_tick "$STATE" || return 1
   for meta in "$STATE"/*.meta; do
     [ -e "$meta" ] || continue
     kind=$(fm_meta_get "$meta" kind 2>/dev/null || true)

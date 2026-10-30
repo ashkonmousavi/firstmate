@@ -2143,10 +2143,14 @@ test_delivery_unknown_probes_the_remote_inbox() {
 # A notice whose body says no reply is wanted never waits for a token nobody
 # was asked to send, wherever in the body the phrase sits.
 test_notice_body_is_not_reply_bearing() {
-  local home state corr text pad
+  local home state corr text pad route
   home=$(setup_parent notice-body)
   state="$home/state"
   : > "$state/hibit.status"
+  fm_write_meta "$state/hibit.meta" "kind=secondmate" "remote_host=remote-mac"
+  printf '#!/usr/bin/env bash\nprintf "absent\\n"\n' > "$home/probe"
+  chmod +x "$home/probe"
+  export FM_PENDING_REPLY_REMOTE_PROBE_HOOK="$home/probe"
   export FM_PENDING_REPLY_NOW=3000
   pad=$(printf 'detail %.0s' $(seq 1 30))
   for text in \
@@ -2154,24 +2158,36 @@ test_notice_body_is_not_reply_bearing() {
     "Heads up, $pad no action needed on your side." \
     "walk end: checkpoint walk finished, $pad" \
     "Firstmate updated to 8c66de01. Re-read AGENTS.md now."; do
-    corr=$(fm_pending_reply_create "$home" "$state" "hibit" "$text")
-    fm_pending_reply_try_resolve "$state" "$corr" || fail "notice stayed reply-bearing: ${text:0:40}"
-    [ "$(phase_of "$state" "$corr")" = resolved ] || fail "notice not resolved: ${text:0:40}"
-    [ "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" resolved_via)" = one-way-notice ] \
-      || fail "notice resolved_via should be one-way-notice"
+    for route in ordinary override delivery_unknown recovery_failed recovery_unknown; do
+      corr=$(fm_pending_reply_create "$home" "$state" "hibit" "$text")
+      case "$route" in
+        ordinary) fm_pending_reply_try_resolve "$state" "$corr" || fail "notice stayed reply-bearing" ;;
+        override) fm_pending_reply_try_resolve "$state" "$corr" "$state/hibit.status" || fail "notice override stayed reply-bearing" ;;
+        *)
+          [ "$route" = delivery_unknown ] || fm_pending_reply_mark_delivered "$state" "$corr"
+          fm_pending_reply_set "$(fm_pending_reply_path "$state" "$corr")" phase "$route"
+          fm_pending_reply_tick_one "$state" "$corr" unknown || fail "notice tick failed"
+          ;;
+      esac
+      [ "$(phase_of "$state" "$corr")" = resolved ] || fail "$route notice not resolved: ${text:0:40}"
+      [ "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" resolved_via)" = one-way-notice ] \
+        || fail "notice resolved_via should be one-way-notice"
+      [ -z "$(status_open_decisions "$state/hibit.status")" ] || fail "notice opened a reply blocker"
+    done
   done
   corr=$(fm_pending_reply_create "$home" "$state" "hibit" "Please report whether you saw the walk end: markers and ignore nothing.")
   if fm_pending_reply_try_resolve "$state" "$corr"; then
     fail "a real question mentioning a notice phrase mid-text must stay reply-bearing"
   fi
   [ "$(phase_of "$state" "$corr")" = awaiting_report ] || fail "real question lost its expectation"
+  unset FM_PENDING_REPLY_REMOTE_PROBE_HOOK
   pass "notice bodies are resolved as one-way, real requests are not"
 }
 
 # The wait-no-turns gate holds a re-ask only for a decision the mate opened
 # after the request; an older standing decision never blocks it.
 test_recovery_gate_ignores_decisions_older_than_the_request() {
-  local home state corr hook_log
+  local home state corr hook_log scenario declaration expected rc count=0
   home=$(setup_parent decision-older)
   state="$home/state"
   hook_log="$TMP_ROOT/decision-older-hook.log"
@@ -2184,22 +2200,42 @@ test_recovery_gate_ignores_decisions_older_than_the_request() {
   decision_older_hook() { printf '%s\n' "$1" >> "$hook_log"; }
   export -f decision_older_hook
   export FM_PENDING_REPLY_SEND_HOOK=decision_older_hook
-  printf 'needs-decision [at=1000] [key=old]: standing question from before\n' > "$state/hibit.status"
-  corr=$(fm_pending_reply_create "$home" "$state" "hibit" "status of phase 8")
-  fm_pending_reply_mark_delivered "$state" "$corr"
-  fm_pending_reply_observe_busy "$state" "$corr" busy
-  fm_pending_reply_observe_busy "$state" "$corr" idle
-  fm_pending_reply_send_recovery "$state" "$corr" || fail "an older decision must not block the re-ask"
-  [ "$(wc -l < "$hook_log" | tr -d ' ')" = 1 ] || fail "expected the re-ask to send once"
-
-  corr=$(fm_pending_reply_create "$home" "$state" "hibit" "status of phase 9")
-  fm_pending_reply_mark_delivered "$state" "$corr"
-  fm_pending_reply_observe_busy "$state" "$corr" busy
-  fm_pending_reply_observe_busy "$state" "$corr" idle
-  printf 'needs-decision [at=2600] [key=new]: opened after the request\n' >> "$state/hibit.status"
-  if fm_pending_reply_send_recovery "$state" "$corr" 2>/dev/null; then
-    fail "a decision newer than the request must still hold the re-ask"
-  fi
+  for scenario in old-key old-default old-blocked note-key working prose note-time new-key new-default new-blocked reopened resolved held invalid-time reserved; do
+    expected=send
+    case "$scenario" in
+      old-key) declaration='needs-decision [at=1000] [key=old]: choose' ;;
+      old-default) declaration='needs-decision [at=1000]: choose' ;;
+      old-blocked) declaration='blocked [at=1000]: waiting' ;;
+      note-key) declaration='needs-decision [at=1000]: [key=old] choose' ;;
+      working) declaration=$'needs-decision [at=1000] [key=old]: choose\nworking [at=2600] [key=old]: progress' ;;
+      prose) declaration=$'needs-decision [at=1000] [key=old]: choose\nworking [at=2600]: mentions [key=old]\nneeds-decision mentions [key=old] [at=2700]' ;;
+      note-time) declaration='needs-decision [at=1000] [key=old]: choose, quoted [at=2600]' ;;
+      new-key) declaration='needs-decision [at=2600] [key=new]: choose'; expected=block ;;
+      new-default) declaration='needs-decision [at=2600]: choose'; expected=block ;;
+      new-blocked) declaration='blocked [at=2600]: waiting'; expected=block ;;
+      reopened) declaration=$'needs-decision [at=1000] [key=old]: choose\nresolved [at=2000] [key=old]: answered\nblocked [at=2600] [key=old]: waiting'; expected=block ;;
+      resolved) declaration=$'needs-decision [at=2600]: choose\nresolved [at=2700]: answered' ;;
+      held) declaration=$'needs-decision [at=2600]: choose\ncaptain-held [at=2700]: transferred' ;;
+      invalid-time) declaration='needs-decision [at=bad] [key=unknown]: choose, quoted [at=1000]'; expected=block ;;
+      reserved) declaration='blocked [at=2600] [key=pending-reply-0123456789abcdef]: pending-reply-missed: another request' ;;
+    esac
+    printf '%s\n' "$declaration" > "$state/hibit.status"
+    corr=$(fm_pending_reply_create "$home" "$state" "hibit" "status of $scenario")
+    fm_pending_reply_mark_delivered "$state" "$corr"
+    fm_pending_reply_observe_busy "$state" "$corr" busy
+    fm_pending_reply_observe_busy "$state" "$corr" idle
+    rc=0
+    fm_pending_reply_send_recovery "$state" "$corr" 2>/dev/null || rc=$?
+    if [ "$expected" = send ]; then
+      [ "$rc" = 0 ] || fail "$scenario must allow the re-ask"
+      count=$((count + 1))
+    else
+      [ "$rc" != 0 ] || fail "$scenario must block the re-ask"
+      [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" recovery_attempted_epoch)" ] \
+        || fail "$scenario recorded a forbidden re-ask"
+    fi
+    [ "$(wc -l < "$hook_log" | tr -d ' ')" = "$count" ] || fail "$scenario sent an unexpected number of re-asks"
+  done
   unset FM_PENDING_REPLY_SEND_HOOK
   unset FM_CONFIG_OVERRIDE
   pass "wait-no-turns holds a re-ask only for a decision newer than the request"

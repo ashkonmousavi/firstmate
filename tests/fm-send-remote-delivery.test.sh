@@ -1211,6 +1211,81 @@ test_remote_one_way_request_identity() {
   pass "remote one-way requests distinguish repetition from handled, outstanding, and transport retries"
 }
 
+test_remote_probe_follows_acknowledgement() {
+  local dir fb rhome rec corr=0123456789abcdef out real_grep
+  dir="$TMP_ROOT/remote-probe-ack"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir")
+  rhome=$(setup_remote_secondmate_home remote-probe-ack)
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "corr=$corr report the build") \
+    || fail "could not seed the probe record"
+  real_grep=$(command -v grep)
+  cat > "$fb/grep" <<'SH'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [ "$arg" = "$FM_PROBE_RECORD" ] && [ -f "$FM_PROBE_RECORD" ]; then
+    mv "$FM_PROBE_RECORD" "${FM_PROBE_RECORD%/*}/handled/${FM_PROBE_RECORD##*/}" || exit 2
+    break
+  fi
+done
+exec "$FM_REAL_GREP" "$@"
+SH
+  chmod +x "$fb/grep"
+  out=$(FM_HOME="$rhome" PATH="$fb:$PATH" FM_REAL_GREP="$real_grep" FM_PROBE_RECORD="$rec" \
+    "$ROOT/bin/fm-remote-secondmate-control.sh" probe rsm "$corr") || fail "probe failed during acknowledgement"
+  [ ! -e "$rec" ] && [ -f "${rec%/*}/handled/${rec##*/}" ] || fail "acknowledgement race was not exercised"
+  [ "$out" = landed ] || fail "acknowledgement during probe hid a delivered message: $out"
+  out=$(FM_HOME="$rhome" "$ROOT/bin/fm-remote-secondmate-control.sh" probe rsm "$corr")
+  [ "$out" = landed ] || fail "handled message was not found"
+  out=$(FM_HOME="$rhome" "$ROOT/bin/fm-remote-secondmate-control.sh" probe rsm fedcba9876543210)
+  [ "$out" = absent ] || fail "missing correlation was reported as delivered"
+  pass "remote probe follows an acknowledgement into handled storage"
+}
+
+test_remote_pending_probe_never_holds_the_cycle() {
+  local dir fb ssh_log home rhome landed lost out
+  dir="$TMP_ROOT/remote-pending-detached"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-pending-detached)
+  home=$(setup_remote_parent_home remote-pending-detached "$rhome")
+  landed=$(FM_PENDING_REPLY_GRACE_SECS=0 fm_pending_reply_create "$home" "$home/state" rsm 'report the first build')
+  lost=$(FM_PENDING_REPLY_GRACE_SECS=0 fm_pending_reply_create "$home" "$home/state" rsm 'report the second build')
+  fm_pending_reply_mark_delivery_unknown "$home/state" "$landed"
+  fm_pending_reply_prepare_delivery "$home/state" "$lost"
+  cat > "$dir/probe" <<'SH'
+#!/usr/bin/env bash
+: > "$FM_PROBE_DIR/started"
+while [ ! -e "$FM_PROBE_DIR/release" ]; do /bin/sleep 0.05; done
+if [ "$2" = "$FM_LANDED_CORR" ]; then printf 'landed\n'; else printf 'absent\n'; fi
+SH
+  chmod +x "$dir/probe"
+  out=$(remote_inbox_detached_env "$fb" "$home" "$ssh_log" '
+    ( /bin/sleep 10; touch "$FM_PROBE_DIR/release" ) </dev/null >/dev/null 2>&1 &
+    watchdog=$!
+    trap '\''touch "$FM_PROBE_DIR/release"; kill "$watchdog" 2>/dev/null || true; wait "$watchdog" 2>/dev/null || true'\'' EXIT
+    remote_inbox_detached
+    fm_pending_reply_tick "$STATE"
+    for ((i = 0; i < 100; i++)); do
+      [ ! -e "$FM_PROBE_DIR/started" ] || break
+      /bin/sleep 0.05
+    done
+    [ -e "$FM_PROBE_DIR/started" ] || { echo "detached probe never started"; exit 1; }
+    fm_pending_reply_tick "$STATE"
+    [ ! -e "$FM_PROBE_DIR/release" ] || { echo "probe or its lock held the cycle"; exit 1; }
+    touch "$FM_PROBE_DIR/release"
+    wait "$REMOTE_INBOX_PID" || exit 1
+    echo responsive
+  ' FM_PENDING_REPLY_REMOTE_PROBE_HOOK="$dir/probe" FM_PROBE_DIR="$dir" FM_LANDED_CORR="$landed" \
+    2>&1) || fail "remote pending probe stalled supervision: $out"
+  [ "$out" = responsive ] || fail "unexpected detached probe result: $out"
+  [ "$(fm_pending_reply_get "$(fm_pending_reply_path "$home/state" "$landed")" phase)" = awaiting_report ] \
+    || fail "landed steer was not reconciled by the detached pass"
+  [ "$(fm_pending_reply_get "$(fm_pending_reply_path "$home/state" "$lost")" phase)" = escalated ] \
+    || fail "missing steer was not reconciled and escalated by the detached pass"
+  pass "remote pending probes and their correlation locks never hold the watcher cycle"
+}
+
+test_remote_probe_follows_acknowledgement
+test_remote_pending_probe_never_holds_the_cycle
 test_remote_steer_lands_in_remote_inbox
 test_remote_unreadable_ring_preserves_durable_enqueue
 test_remote_rerun_is_idempotent

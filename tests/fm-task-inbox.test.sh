@@ -916,29 +916,44 @@ SH
 
 # An enqueue killed mid-scan leaves no .dedup.* scratch file in the inbox.
 test_idempotent_write_leaves_no_scratch_when_killed() {
-  local state fb leftovers
+  local state fb
   state="$TMP_ROOT/idem-kill/state"; mkdir -p "$state/t1.inbox/handled"
   fb="$TMP_ROOT/idem-kill/fakebin"; mkdir -p "$fb"
-  # A wc that kills the enqueue, its scan subshell and all, once the scratch
-  # files exist: the shape of a remote enqueue cut off by its budget.
   cat > "$fb/wc" <<'SH'
 #!/usr/bin/env bash
-pkill -TERM -P "$FM_TEST_KILL_PID" 2>/dev/null
-kill -TERM "$FM_TEST_KILL_PID" 2>/dev/null
-exit 0
+: > "$FM_TEST_KILL_READY"
+while :; do sleep 1; done
 SH
   chmod +x "$fb/wc"
-  FM_STATE_OVERRIDE="$state" PATH="$fb:$PATH" bash -c '
-    . "$1"
-    FM_TEST_KILL_PID=$$ fm_task_inbox_write_idempotent "$2" t1 "killed steer"
-  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" >/dev/null 2>&1 || true
-  # The killed scan subshell finishes its trap a moment after the enqueue dies.
-  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-    leftovers=$(find "$state/t1.inbox" -maxdepth 1 -name '.dedup.*' | wc -l | tr -d ' ')
-    [ "$leftovers" = 0 ] && break
-    sleep 0.1
-  done
-  [ "$leftovers" = 0 ] || fail "a killed enqueue left $leftovers .dedup.* scratch files in the inbox"
+  (
+    set -m
+    FM_STATE_OVERRIDE="$state" PATH="$fb:$PATH" FM_TEST_KILL_READY="$state/ready" bash -c '
+      . "$1"
+      fm_task_inbox_write_idempotent "$2" t1 "killed steer"
+    ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" >/dev/null 2>&1 &
+    enqueue=$!
+    trap 'kill -TERM -- "-$enqueue" 2>/dev/null || true; wait "$enqueue" 2>/dev/null || true' EXIT
+    for ((i = 0; i < 100; i++)); do
+      [ ! -e "$state/ready" ] || break
+      sleep 0.05
+    done
+    [ -e "$state/ready" ] || fail "enqueue never reached the dedup scan"
+    scratch=("$state/t1.inbox"/.dedup.*)
+    [ "${#scratch[@]}" = 2 ] && [ -f "${scratch[0]}" ] && [ -f "${scratch[1]}" ] \
+      || fail "dedup scan did not create both scratch files before termination"
+    kill -TERM -- "-$enqueue" || fail "could not terminate the enqueue process group"
+    rc=0
+    wait "$enqueue" 2>/dev/null || rc=$?
+    [ "$rc" = 143 ] || fail "enqueue must terminate by SIGTERM, got $rc"
+    for ((i = 0; i < 100; i++)); do
+      leftovers=$(find "$state/t1.inbox" -maxdepth 1 -name '.dedup.*' | wc -l | tr -d ' ')
+      [ "$leftovers" != 0 ] || break
+      sleep 0.05
+    done
+    [ "$leftovers" = 0 ] || fail "a killed enqueue left $leftovers .dedup.* scratch files in the inbox"
+    [ ! -e "$state/t1.inbox/001.msg" ] || fail "terminated enqueue unexpectedly committed a record"
+    trap - EXIT
+  ) || fail "interrupted enqueue cleanup failed"
   pass "inbox: an enqueue killed mid-scan removes its dedup scratch files"
 }
 

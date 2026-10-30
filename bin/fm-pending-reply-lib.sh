@@ -785,8 +785,8 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
     _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
     return 0
   fi
-  if [ -z "$status_override" ] && { [ "$(fm_pending_reply_get "$rec" one_way)" = 1 ] \
-    || fm_pending_reply_oneway_expired "$rec"; }; then
+  if [ "$(fm_pending_reply_get "$rec" one_way)" = 1 ] \
+    || { [ -z "$status_override" ] && fm_pending_reply_oneway_expired "$rec"; }; then
     now=$(fm_pending_reply_now)
     fm_pending_reply_set "$rec" phase resolved || return 1
     fm_pending_reply_set "$rec" resolved_epoch "$now" || return 1
@@ -1095,14 +1095,23 @@ fm_pending_reply_recovery_message() {  # <record-path>
 # request did not wait behind. A decision with no readable [at=] stamp counts as
 # newer, which keeps the gate's old behaviour for it.
 fm_pending_reply_mate_decision_newer_than() {  # <status-file> <since-epoch>
-  local status_file=$1 since=$2 open key line at
+  local status_file=$1 since=$2 open key line at event opening folded verb kind resolve held
   open=$(status_own_open_decisions "$status_file")
   [ -n "$open" ] || return 1
+  kind=$(_fm_status_kind "$status_file")
+  resolve=${FM_CLASSIFY_RESOLVE_VERB:-$FM_CLASSIFY_RESOLVE_VERB_DEFAULT}
+  held=${FM_CLASSIFY_CAPTAIN_HELD_VERB:-$FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT}
   while IFS= read -r line; do
     key=${line%%$'\t'*}
     [ -n "$key" ] || continue
-    at=$(LC_ALL=C grep -aF -- "[key=$key]" "$status_file" 2>/dev/null | tail -n 1 |
-      sed -nE 's/.*\[at=([0-9]+)\].*/\1/p')
+    opening=''
+    while IFS= read -r event || [ -n "$event" ]; do
+      status_line_verb "$event" verb
+      case "$verb" in needs-decision|blocked) ;; *) continue ;; esac
+      folded=$(_fm_decision_fold_line '' "$event" "$resolve" "$held" "$kind")
+      case "$folded" in "$key"$'\t'*) opening=$event ;; esac
+    done < "$status_file"
+    at=$(status_line_at_epoch "$opening") || at=''
     [ -n "$at" ] && [ -n "$since" ] || return 0
     case "$at$since" in *[!0-9]*) return 0 ;; esac
     [ "$at" -ge "$since" ] && return 0
@@ -1539,6 +1548,22 @@ fm_pending_reply_remote_inbox_has_corr() {  # <state-dir> <corr_id>
   [ "$answer" = landed ]
 }
 
+fm_pending_reply_remote_inbox_tick() {
+  local state=$1 rec corr task_id
+  for rec in "$(fm_pending_reply_dir "$state")"/*; do
+    [ -f "$rec" ] || continue
+    case "${rec##*/}" in .*) continue ;; esac
+    [ "$(fm_pending_reply_get "$rec" phase)" != resolved ] || continue
+    [ -z "$(fm_pending_reply_get "$rec" delivered_epoch)" ] || continue
+    task_id=$(fm_pending_reply_get "$rec" task_id)
+    fm_pending_reply_target_is_remote "$state" "$task_id" || continue
+    corr=$(fm_pending_reply_get "$rec" corr_id)
+    [ -n "$corr" ] || corr=${rec##*/}
+    fm_pending_reply_tick_one "$state" "$corr" unknown "" || true
+  done
+  return 0
+}
+
 _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2
   local rec phase completed now payload parent_status line kind first display
@@ -1869,6 +1894,10 @@ fm_pending_reply_tick() {  # <state-dir>
       # Cheap no-op unless an escalation for this record is still open; this is
       # the retry that makes the close converge after a transient write failure.
       fm_pending_reply_close_escalation "$state" "$corr" || true
+      continue
+    fi
+    delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
+    if [ -z "$delivered" ] && fm_pending_reply_target_is_remote "$state" "$task_id"; then
       continue
     fi
     fm_pending_reply_reconcile_delivery "$state" "$corr" || true
