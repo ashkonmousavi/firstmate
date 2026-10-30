@@ -98,7 +98,9 @@
 #   stale: <window> (steering-inbox busy bookkeeping unwritable: ...)
 #                          steering-inbox recovery; bin/fm-task-inbox-lib.sh owns
 #                          delivery-attempt, busy-deferral, and unavailable-endpoint policy
-#   check: <script>: <out> authenticated check output, always actionable
+#   check: <script>: <out> authenticated check result, always actionable;
+#                          docs/configuration.md's FM_CHECK_TIMEOUT default
+#                          owns custom-check failure and timeout wake formats
 #   check: hold-release: hold condition met: <task-id> <condition>
 #                          a held row's structured release condition (its
 #                          --release-on pr:/marker:) was found met by this
@@ -2525,7 +2527,7 @@ run_check_process() {
     exec gtimeout "$CHECK_TIMEOUT" bash "$c" "$@"
   else
     # shellcheck disable=SC2016  # single quotes are deliberate: Perl expands its own variables.
-    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = $stop; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit($? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
+    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = sub { if (length $ENV{FM_CHECK_TIMEOUT_MARK}) { open my $m, ">", $ENV{FM_CHECK_TIMEOUT_MARK}; close $m } $stop->() }; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit(($? & 127) ? 128 + ($? & 127) : $? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
   fi
 }
 
@@ -2540,7 +2542,7 @@ FM_CHECK_RESULT=
 FM_CHECK_SIGNAL_PENDING=
 
 fm_check_output_cleanup() {
-  [ -z "$FM_CHECK_OUTPUT" ] || rm -f -- "$FM_CHECK_OUTPUT"
+  [ -z "$FM_CHECK_OUTPUT" ] || rm -f -- "$FM_CHECK_OUTPUT" "$FM_CHECK_OUTPUT.timeout"
   FM_CHECK_OUTPUT=
 }
 
@@ -2598,7 +2600,7 @@ run_check_capture() {
   # can drop a trap that is pending when one is parsed (watcher_stop_signals).
   trap 'FM_CHECK_SIGNAL_PENDING=1' HUP INT TERM
   set -m
-  ( FM_CHECK_OWNED_GROUP=1 run_check_process "$@" ) > "$FM_CHECK_OUTPUT" 2>/dev/null &
+  ( FM_CHECK_OWNED_GROUP=1 FM_CHECK_TIMEOUT_MARK="$FM_CHECK_OUTPUT.timeout" run_check_process "$@" ) > "$FM_CHECK_OUTPUT" 2>/dev/null &
   FM_ACTIVE_CHECK_PID=$!
   FM_ACTIVE_CHECK_PGID=$FM_ACTIVE_CHECK_PID
   set +m
@@ -2613,6 +2615,9 @@ run_check_capture() {
   wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || FM_CHECK_EXIT_STATUS=$?
   FM_ACTIVE_CHECK_PID=
   fm_active_check_stop || return 1
+  # The perl fallback kills its own owned group, so the bound can reach the
+  # watcher as SIGKILL; its marker file says the alarm, not something else, did it.
+  [ ! -e "$FM_CHECK_OUTPUT.timeout" ] || FM_CHECK_EXIT_STATUS=124
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
   fm_check_output_cleanup
 }
@@ -3483,8 +3488,16 @@ EOF
           esac
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
+          custom_check_started=$(date +%s)
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
+          # A killed or failing run must not vanish: it wakes naming the check,
+          # its exit code and its duration. Exit 0 keeps the printed output.
+          if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
+            out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+          elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
+            out="exited $FM_CHECK_EXIT_STATUS after $(( $(date +%s) - custom_check_started ))s${out:+: $out}"
+          fi
           fm_custom_check_snapshot_cleanup
         else
           fm_custom_check_snapshot_cleanup
