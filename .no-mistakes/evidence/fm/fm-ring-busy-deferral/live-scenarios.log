@@ -1,0 +1,28 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M66PJH65TPTKBMW5T925A2ZZ/.gate-live-lab/remote
+~/.no-mistakes/worktrees/049a88734b0e/01M66PJH65TPTKBMW5T925A2ZZ/.gate-live-lab/parent
+
+SCENARIO busy below bound then one stuck-busy wake then idle ring
+remote/state/parent-route/rsm.inbox/.busy-state: 001.msg	1
+parent/state/.watch-triage.log: [2026-10-30T09:01:28-0700] remote steer-inbox busy deferral: rsm 001.msg count=1/2
+remote/state/parent-route/rsm.inbox/.busy-state: 001.msg	2
+remote/state/parent-route/rsm.inbox/.escalated: 001.msg
+parent/state/.watch-triage.log: [2026-10-30T09:01:28-0700] remote steer-inbox busy deferral: rsm 001.msg count=1/2
+parent/state/.wake-queue: 1793376088	1	stale	remote-inbox:rsm:001.msg	stale: fm-remote:w3:p1 (unread firstmate instruction: stuck-busy after 2 consecutive busy-deferred due doorbells; remote record 001.msg stays unhandled and no doorbell was typed; inspect the secondmate)
+remote/state/parent-route/rsm.inbox/.ring-state: 001.msg	1	1793376091
+remote/state/parent-route/rsm.inbox/.escalated: 001.msg
+parent/state/.watch-triage.log: [2026-10-30T09:01:28-0700] remote steer-inbox busy deferral: rsm 001.msg count=1/2
+[2026-10-30T09:01:29-0700] remote steer-inbox busy deferral: rsm 001.msg count=0/2
+[2026-10-30T09:01:31-0700] remote steer-inbox delivery attempt: rsm 001.msg result=rang 0 reason=ok
+parent/state/.wake-queue: 1793376088	1	stale	remote-inbox:rsm:001.msg	stale: fm-remote:w3:p1 (unread firstmate instruction: stuck-busy after 2 consecutive busy-deferred due doorbells; remote record 001.msg stays unhandled and no doorbell was typed; inspect the secondmate)
+PASS busy deferral, own-home classification, single wake, busy follow-up, single idle ring
+
+SCENARIO idle before busy bound rings once
+remote/state/parent-route/rsm.inbox/.ring-state: 001.msg	1	1793376094
+parent/state/.watch-triage.log: [2026-10-30T09:01:32-0700] remote steer-inbox busy deferral: rsm 001.msg count=1/2
+[2026-10-30T09:01:34-0700] remote steer-inbox delivery attempt: rsm 001.msg result=rang 0 reason=ok
+PASS idle before busy bound
+
+SCENARIO old parent omits capability and still rings busy worker
+rang 4 reason=post-enter-unreadable
+remote/state/parent-route/rsm.inbox/.ring-state: 001.msg	1	1793376097
+PASS old parent rings busy worker

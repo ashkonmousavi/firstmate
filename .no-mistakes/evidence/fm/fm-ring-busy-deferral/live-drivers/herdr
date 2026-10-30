@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -eu
+args=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --session) case "$2" in fm-remote|fm-lab-ring-gate) ;; *) exit 91 ;; esac; shift 2 ;;
+    --session=*) exit 92 ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+printf '%q ' "${args[@]}" >> "$LAB_EVIDENCE/herdr-calls.log"
+printf '\n' >> "$LAB_EVIDENCE/herdr-calls.log"
+PATH="$LAB_ORIGINAL_PATH" exec "$LAB_ROOT/bin/fm-herdr-lab.sh" run fm-lab-ring-gate "${args[@]}"

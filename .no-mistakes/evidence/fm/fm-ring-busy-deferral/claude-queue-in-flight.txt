@@ -1,0 +1,40 @@
+  95. queue acceptance test
+  96. queue acceptance test
+  97. queue acceptance test
+  98. queue acceptance test
+  99. queue acceptance test
+  100. queue acceptance test
+  101. queue acceptance test
+  102. queue acceptance test
+  103. queue acceptance test
+  104. queue acceptance test
+  105. queue acceptance test
+  106. queue acceptance test
+  107. queue acceptance test
+  108. queue acceptance test
+  109. queue acceptance test
+  110. queue acceptance test
+  111. queue acceptance test
+  112. queue acceptance test
+  113. queue acceptance test
+  114. queue acceptance test
+  115. queue acceptance test
+  116. queue acceptance test
+  117. queue acceptance test
+  118. queue acceptance test
+  119. queue acceptance test
+  120. queue acceptance test
+
+✻ Baked for 6s · done 9:03 AM
+
+❯ : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'rsm.inbox' steering inbox, read and act on
+  each in numeric order, then mv each into its handled/.
+
+* Brewing…
+  ⎿  Tip: Run /ultrareview for a cloud-based multi-agent review that finds and verifies bugs in your branch — 3 free
+     reviews left
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← 3 agents

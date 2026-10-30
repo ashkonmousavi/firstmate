@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+import os, sys, base64
+args = sys.argv[1:]
+while args[0] != '--':
+    assert args[0] == '-o'
+    args = args[2:]
+args = args[1:]
+assert args[0] == 'disposable-lab'
+assert args[1] == 'fm-remote-entrypoint.sh'
+home = base64.b64decode(args[4]).decode()
+argv = [s.decode() for s in base64.b64decode(args[5]).split(b'\0') if s]
+assert argv[0] == 'fm-remote-secondmate-control.sh'
+with open(os.environ['LAB_EVIDENCE'] + '/remote-calls.log', 'a') as f:
+    f.write(repr(argv) + '\n')
+env = dict(os.environ)
+env['FM_HOME'] = home
+for key in ['FM_STATE_OVERRIDE', 'FM_DATA_OVERRIDE', 'FM_CONFIG_OVERRIDE', 'FM_PROJECTS_OVERRIDE']:
+    env.pop(key, None)
+os.execve(os.environ.get('LAB_REMOTE_CONTROL', os.environ['LAB_ROOT'] + '/bin/' + argv[0]), argv, env)

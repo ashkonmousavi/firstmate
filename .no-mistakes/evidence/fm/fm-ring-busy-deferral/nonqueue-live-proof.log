@@ -1,0 +1,15 @@
+{"error":{"code":"agent_not_found","message":"agent target w4:p1 not found"},"id":"cli:agent:get"}
+{"error":{"code":"agent_not_found","message":"agent target w4:p1 not found"},"id":"cli:agent:get"}
+{"error":{"code":"agent_not_found","message":"agent target w4:p1 not found"},"id":"cli:agent:get"}
+Native Pi state before busy deferral: working
+001.msg	1
+1793376309	2	stale	remote-inbox:rsm:001.msg	stale: fm-remote:w3:p1 (unread firstmate instruction: stuck-busy after 2 consecutive busy-deferred due doorbells; remote record 001.msg stays unhandled and no doorbell was typed; inspect the secondmate)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 234572.1793376088.836fqZ
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.

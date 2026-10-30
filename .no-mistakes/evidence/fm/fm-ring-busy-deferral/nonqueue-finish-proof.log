@@ -1,0 +1,4 @@
+Native Pi state before follow-up: done
+001.msg	1	1793376398
+ RECEIVED
+PASS real busy-to-idle turn: no busy typing, one stuck-busy wake acknowledged, one idle doorbell received, no second wake

@@ -1,0 +1,5 @@
+Real Claude native lifecycle before delivery: working
+Remote ring result: rang 0 reason=ok
+❯ : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'rsm.inbox' steering inbox, read and act on
+● RECEIVED
+PASS a genuinely working Claude turn accepts the queued doorbell; ring budget=1, no busy debt
