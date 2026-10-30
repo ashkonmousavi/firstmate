@@ -1,0 +1,5 @@
+before SIGTERM: [".dedup.ivmFd1", ".dedup.iuT5Ti"]
+enqueue exit= -15 stdout=  stderr= 
+after SIGTERM: [] unread_records= 0
+normal rerun exit= 0 existing record= ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/dedup/state/task.inbox/handled/00001.msg
+PASS: interrupted real dedup scan removes both scratch files, preserves handled data and remains retryable.

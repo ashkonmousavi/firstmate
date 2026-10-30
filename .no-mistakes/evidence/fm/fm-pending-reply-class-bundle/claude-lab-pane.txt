@@ -1,0 +1,40 @@
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Sonnet 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE
+
+⚠ 1 MCP server needs authentication · run /mcp
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "how does fm-control.sh work?"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:01M65B69RB6KVB3GE3TW... · sonnet/medium · default · -- · 5h1%/7d45% · $0.00                   /rc
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 3 agents
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

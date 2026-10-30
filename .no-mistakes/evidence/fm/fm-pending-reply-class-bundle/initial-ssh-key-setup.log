@@ -1,0 +1,37 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/p
+~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/r
+
+SCENARIO A2: full-body notices versus reporting requests
+notice body=No\ reply\ needed.\ The\ walk\ results\ are\ attached. corr=d9cb57bd4c5d5281 one_way=1
+notice body=No\ reply\ needed.\ Results\ are\ in\ data/report.md. corr=af8b849d302390dc one_way=1
+notice body=No\ action\ needed.\ Results\ are\ in\ data/report.md. corr=0ec463afffa85c87 one_way=1
+notice body=walk\ end:\ checkpoint\ finished. corr=2c3073cb75004747 one_way=1
+notice body=Firstmate\ updated\ to\ v-test. corr=be53913c853ea212 one_way=1
+notice body=A\ long\ message\ body\ preceding\ the\ waiver\ deliberately\ extends\ beyond\ the\ stored\ summary\ size\,\ by\ including\ enough\ unrelated\ informational\ words\ for\ this\ verification.\ No\ reply\ needed.\ Results\ attached. corr=be531e872d475b1b one_way=1
+request body=walk\ end:\ checkpoint\ finished.\ Can\ you\ report\ the\ failures\? corr=f1cbbea1e2a0ba67 one_way=
+request body=walk\ end:\ checkpoint\ finished.\ When\ ready\,\ report\ the\ failures. corr=3a4e9c9f34451c92 one_way=
+request body=No\ reply\ needed.\ Please\ report\ back\ after\ the\ check. corr=eab3aa4ec8b5c02a one_way=
+request body=No\ reply\ needed.\ When\ ready\,\ reply\ with\ the\ failures. corr=657f5f9c9be6b06f one_way=
+request body=Please\ investigate\ why\ \"No\ reply\ needed\"\ notices\ open\ blockers\ and\ report\ the\ result. corr=a229b5f24a2b5bf8 one_way=
+notice corr=d9cb57bd4c5d5281 phase=resolved resolved_via=one-way-notice
+notice corr=af8b849d302390dc phase=resolved resolved_via=one-way-notice
+notice corr=0ec463afffa85c87 phase=resolved resolved_via=one-way-notice
+notice corr=2c3073cb75004747 phase=resolved resolved_via=one-way-notice
+notice corr=be53913c853ea212 phase=resolved resolved_via=one-way-notice
+notice corr=be531e872d475b1b phase=resolved resolved_via=one-way-notice
+request corr=f1cbbea1e2a0ba67 phase=awaiting_report
+request corr=3a4e9c9f34451c92 phase=awaiting_report
+request corr=eab3aa4ec8b5c02a phase=awaiting_report
+request corr=657f5f9c9be6b06f phase=awaiting_report
+request corr=a229b5f24a2b5bf8 phase=awaiting_report
+watcher exit=143 (0=wake,143=deliberate test stop)
+
+SCENARIO D1: real SSH probe, unread then handled then absent
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@         WARNING: UNPROTECTED PRIVATE KEY FILE!          @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Permissions 0664 for '~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/client-key' are too open.
+It is required that your private key files are NOT accessible by others.
+This private key will be ignored.
+Load key "~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/client-key": bad permissions
+lab@127.0.0.1: Permission denied (publickey).

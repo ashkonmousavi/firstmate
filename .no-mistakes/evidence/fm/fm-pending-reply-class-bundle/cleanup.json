@@ -1,0 +1,8 @@
+{
+  "owned_lab_processes_remaining": [],
+  "removed_worktree_directories": [
+    ".lv",
+    ".live-validation"
+  ],
+  "production_or_fleet_state_changed": false
+}

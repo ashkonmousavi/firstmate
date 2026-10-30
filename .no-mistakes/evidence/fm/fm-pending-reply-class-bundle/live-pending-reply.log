@@ -1,0 +1,41 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/p
+~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/r
+
+SCENARIO A2: full-body notices versus reporting requests
+notice body=No\ reply\ needed.\ The\ walk\ results\ are\ attached. corr=4d69fa00d12a2222 one_way=1
+notice body=No\ reply\ needed.\ Results\ are\ in\ data/report.md. corr=fa825d92dde3de97 one_way=1
+notice body=No\ action\ needed.\ Results\ are\ in\ data/report.md. corr=7676deaa99e95c63 one_way=1
+notice body=walk\ end:\ checkpoint\ finished. corr=b40afc4367da8579 one_way=1
+notice body=Firstmate\ updated\ to\ v-test. corr=15223e9e027e1c6d one_way=1
+notice body=A\ long\ message\ body\ preceding\ the\ waiver\ deliberately\ extends\ beyond\ the\ stored\ summary\ size\,\ by\ including\ enough\ unrelated\ informational\ words\ for\ this\ verification.\ No\ reply\ needed.\ Results\ attached. corr=cdc018f1ab9ca07d one_way=1
+request body=walk\ end:\ checkpoint\ finished.\ Can\ you\ report\ the\ failures\? corr=c514209242e3f2ae one_way=
+request body=walk\ end:\ checkpoint\ finished.\ When\ ready\,\ report\ the\ failures. corr=8de4df76e9118ac0 one_way=
+request body=No\ reply\ needed.\ Please\ report\ back\ after\ the\ check. corr=19c682c99b8f053b one_way=
+request body=No\ reply\ needed.\ When\ ready\,\ reply\ with\ the\ failures. corr=492110349fcc2049 one_way=
+request body=Please\ investigate\ why\ \"No\ reply\ needed\"\ notices\ open\ blockers\ and\ report\ the\ result. corr=66ea16135c970641 one_way=
+notice corr=4d69fa00d12a2222 phase=resolved resolved_via=one-way-notice
+notice corr=fa825d92dde3de97 phase=resolved resolved_via=one-way-notice
+notice corr=7676deaa99e95c63 phase=resolved resolved_via=one-way-notice
+notice corr=b40afc4367da8579 phase=resolved resolved_via=one-way-notice
+notice corr=15223e9e027e1c6d phase=resolved resolved_via=one-way-notice
+notice corr=cdc018f1ab9ca07d phase=resolved resolved_via=one-way-notice
+request corr=c514209242e3f2ae phase=awaiting_report
+request corr=8de4df76e9118ac0 phase=awaiting_report
+request corr=19c682c99b8f053b phase=awaiting_report
+request corr=492110349fcc2049 phase=awaiting_report
+request corr=66ea16135c970641 phase=awaiting_report
+watcher exit=143 (0=wake,143=deliberate test stop)
+
+SCENARIO D1: real SSH probe, unread then handled then absent
+unread probe corr=fb3c93531313a01c answer=landed
+handled probe corr=fb3c93531313a01c answer=landed
+absent probe corr=7b9f8166f59e5d75 answer=absent
+watcher exit=0 (0=wake,143=deliberate test stop)
+found remote corr=fb3c93531313a01c phase=awaiting_report delivered_epoch=1793329743
+missing remote corr=7b9f8166f59e5d75 phase=escalated
+blocked [key=pending-reply-7b9f8166f59e5d75] [at=1793329742]: pending-reply-delivery-unknown: task=rsm pending-reply-id=7b9f8166f59e5d75 request=report the missing build
+watcher exit=0 (0=wake,143=deliberate test stop)
+
+SCENARIO R5: a slow real SSH probe cannot block watcher beacons; fixed 20-second timeout
+probe in flight corr=635cf801e475f53f beacon_before=1793329745 beacon_after=1793329745 phase=delivery_unknown
+watcher exit=0 (0=wake,143=deliberate test stop)

@@ -1,0 +1,27 @@
+
+SCENARIO E: real recovery enqueue with old decision; newer/equal/unknown decisions hold
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/007.msg and the watcher will re-ring
+case=old-default corr=5a22f9e8707bd2d5 request_epoch=1793329862 decision=needs-decision\ \[at=1793329742\]:\ choose expected=send recovery_exit=0 phase=recovery_sent attempted=1793329862
+actual enqueued recovery record=~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/007.msg
+[fm-from-firstmate]⁣corr=5a22f9e8707bd2d5 REPOST REQUIRED: previous marked request had no correlated parent report. Reply on the parent status channel including corr=5a22f9e8707bd2d5. Original request: Report only a one-line verification response for scenario old-default; do not use tools.
+case=new-default corr=9712b42660eeba62 request_epoch=1793329863 decision=needs-decision\ \[at=1793329983\]:\ choose expected=hold recovery_exit=1 phase=awaiting_report attempted=
+case=equal corr=582a682beb454889 request_epoch=1793329863 decision=needs-decision\ \[at=1793329863\]:\ choose expected=hold recovery_exit=1 phase=awaiting_report attempted=
+case=unknown corr=04490933f6f78959 request_epoch=1793329863 decision=needs-decision\ \[at=bad\]:\ choose expected=hold recovery_exit=1 phase=awaiting_report attempted=
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/008.msg and the watcher will re-ring
+case=old-key-prose corr=fec2d0d32132a311 request_epoch=1793329863 decision=needs-decision\ \[at=1793329743\]\ \[key=choice\]:\ choose expected=send recovery_exit=0 phase=recovery_sent attempted=1793329863
+actual enqueued recovery record=~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/008.msg
+[fm-from-firstmate]⁣corr=fec2d0d32132a311 REPOST REQUIRED: previous marked request had no correlated parent report. Reply on the parent status channel including corr=fec2d0d32132a311. Original request: Report only a one-line verification response for scenario old-key-prose; do not use tools.
+
+SCENARIO A2 delivery CLI: full body notice persists through fm-send
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/009.msg and the watcher will re-ring
+fm-send notice corr=cae44c63a44fcfc4 phase=resolved via=one-way-notice
+fm-send notice corr=db7c76dffa99dd9f phase=resolved via=one-way-notice
+fm-send notice corr=f2ce515d9fdc1b62 phase=resolved via=one-way-notice
+
+All real Claude local delivery and recovery scenarios passed.

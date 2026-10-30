@@ -1,0 +1,6 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/q2
+real watcher pid=4105194 real SSH corr=0000000000000001 unresolved_records=16
+beacon_before=1793329871 beacon_after=1793329875 slow_phase=delivery_unknown
+probe elapsed=18s phase=escalated; configured fixed bound=20s
+watcher exit=143
+PASS: detached slow probe preserves live supervision and honors the fixed 20-second bound.

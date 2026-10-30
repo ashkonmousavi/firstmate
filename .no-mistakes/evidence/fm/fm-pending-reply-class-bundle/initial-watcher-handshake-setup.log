@@ -1,0 +1,89 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/p
+~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/r
+
+SCENARIO A2: full-body notices versus reporting requests
+notice body=No\ reply\ needed.\ The\ walk\ results\ are\ attached. corr=4477c3d3c86094a8 one_way=1
+notice body=No\ reply\ needed.\ Results\ are\ in\ data/report.md. corr=7fc3fa2e07ad27f6 one_way=1
+notice body=No\ action\ needed.\ Results\ are\ in\ data/report.md. corr=e6ac883969c2d729 one_way=1
+notice body=walk\ end:\ checkpoint\ finished. corr=0b2ef5d85b81bea5 one_way=1
+notice body=Firstmate\ updated\ to\ v-test. corr=0fa622a82b9a9018 one_way=1
+notice body=A\ long\ message\ body\ preceding\ the\ waiver\ deliberately\ extends\ beyond\ the\ stored\ summary\ size\,\ by\ including\ enough\ unrelated\ informational\ words\ for\ this\ verification.\ No\ reply\ needed.\ Results\ attached. corr=6160c1d59435c16c one_way=1
+request body=walk\ end:\ checkpoint\ finished.\ Can\ you\ report\ the\ failures\? corr=ffd78f586e67de58 one_way=
+request body=walk\ end:\ checkpoint\ finished.\ When\ ready\,\ report\ the\ failures. corr=433e2b35af963d89 one_way=
+request body=No\ reply\ needed.\ Please\ report\ back\ after\ the\ check. corr=f72bb879e951745b one_way=
+request body=No\ reply\ needed.\ When\ ready\,\ reply\ with\ the\ failures. corr=6afebe1918a99044 one_way=
+request body=Please\ investigate\ why\ \"No\ reply\ needed\"\ notices\ open\ blockers\ and\ report\ the\ result. corr=e99f0e70efb928a7 one_way=
+notice corr=4477c3d3c86094a8 phase=resolved resolved_via=one-way-notice
+notice corr=7fc3fa2e07ad27f6 phase=resolved resolved_via=one-way-notice
+notice corr=e6ac883969c2d729 phase=resolved resolved_via=one-way-notice
+notice corr=0b2ef5d85b81bea5 phase=resolved resolved_via=one-way-notice
+notice corr=0fa622a82b9a9018 phase=resolved resolved_via=one-way-notice
+notice corr=6160c1d59435c16c phase=resolved resolved_via=one-way-notice
+request corr=ffd78f586e67de58 phase=awaiting_report
+request corr=433e2b35af963d89 phase=awaiting_report
+request corr=f72bb879e951745b phase=awaiting_report
+request corr=6afebe1918a99044 phase=awaiting_report
+request corr=e99f0e70efb928a7 phase=awaiting_report
+watcher exit=143 (0=wake,143=deliberate test stop)
+
+SCENARIO D1: real SSH probe, unread then handled then absent
+unread probe corr=8df4dd8afa10a1e0 answer=landed
+handled probe corr=8df4dd8afa10a1e0 answer=landed
+absent probe corr=06c937d1a0af41b3 answer=absent
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+watcher exit=0 (0=wake,143=deliberate test stop)
+FAILED expected 8df4dd8afa10a1e0 phase=awaiting_report actual=delivery_unknown
+watcher exit=0 (0=wake,143=deliberate test stop)

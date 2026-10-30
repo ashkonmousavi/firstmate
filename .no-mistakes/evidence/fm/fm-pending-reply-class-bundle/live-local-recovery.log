@@ -1,0 +1,26 @@
+
+SCENARIO E: real recovery enqueue with old decision; newer/equal/unknown decisions hold
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:fm-mate has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/004.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+case=old-default corr=9515de9207f9c644 request_epoch=1793329833 decision=needs-decision\ \[at=1793329713\]:\ choose expected=send recovery_exit=0 phase=recovery_sent attempted=1793329833
+actual enqueued recovery record=~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/004.msg
+[fm-from-firstmate]⁣corr=9515de9207f9c644 REPOST REQUIRED: previous marked request had no correlated parent report. Reply on the parent status channel including corr=9515de9207f9c644. Original request: Report only a one-line verification response for scenario old-default; do not use tools.
+case=new-default corr=67a1f89cb4c912f8 request_epoch=1793329833 decision=needs-decision\ \[at=1793329953\]:\ choose expected=hold recovery_exit=1 phase=awaiting_report attempted=
+case=equal corr=c556048d9f3ce195 request_epoch=1793329833 decision=needs-decision\ \[at=1793329833\]:\ choose expected=hold recovery_exit=1 phase=awaiting_report attempted=
+case=unknown corr=bc4efd1acfd0b393 request_epoch=1793329834 decision=needs-decision\ \[at=bad\]:\ choose expected=hold recovery_exit=1 phase=awaiting_report attempted=
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:fm-mate has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/005.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+case=old-key-prose corr=4749ad1cdf1f6431 request_epoch=1793329834 decision=needs-decision\ \[at=1793329714\]\ \[key=choice\]:\ choose expected=send recovery_exit=0 phase=recovery_sent attempted=1793329834
+actual enqueued recovery record=~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/005.msg
+[fm-from-firstmate]⁣corr=4749ad1cdf1f6431 REPOST REQUIRED: previous marked request had no correlated parent report. Reply on the parent status channel including corr=4749ad1cdf1f6431. Original request: Report only a one-line verification response for scenario old-key-prose; do not use tools.
+
+SCENARIO A2 delivery CLI: full body notice persists through fm-send
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:fm-mate has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M65B69RB6KVB3GE3TWHGKXGE/.lv/l/state/mate.inbox/006.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+fm-send notice corr=cae44c63a44fcfc4 phase=resolved via=one-way-notice
+fm-send notice corr=db7c76dffa99dd9f phase=resolved via=one-way-notice
+
+All real Claude local delivery and recovery scenarios passed.
