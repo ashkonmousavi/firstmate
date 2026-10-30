@@ -26,12 +26,10 @@
 #        fm-grok-bot-dispatch.sh <brief> --bot <bot> --walk <walk-id>
 #          --walk-owner <mate-id> --timeout <sec> --once-key <walk>@<sha>
 #          [--project <name> --target <name>]
-#      The project/target pair is the request's project= and target= fields,
-#      else the FM_WALK_REQUEST_PROJECT/FM_WALK_REQUEST_TARGET pair, else
-#      omitted (a dispatcher that needs neither keeps working). The pair is
-#      one space-free token each; the dispatcher validates its values, so a
-#      request cannot name anything it does not accept. A request carrying
-#      only one field, or a field of the wrong shape, is refused.
+#      FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET supply the optional
+#      dispatcher pair; set both or neither. Each must start with a letter or
+#      digit and contain only letters, digits, dots, underscores, or hyphens.
+#      Invalid environment values are usage errors (exit 2).
 #      The once-key is the dispatcher's own at-most-once claim, so a re-spawn
 #      after an interrupted sweep converges instead of duplicating a send.
 #      The bridge and its sign-in stay private to that home: this check only
@@ -73,8 +71,8 @@
 #                                $FM_HOME/data/bin/fm-grok-bot-dispatch.sh)
 #   FM_WALK_REQUEST_SEND         fm-send path (tests; default sibling script)
 #   FM_WALK_REQUEST_BOT          default bot name for requests that omit one
-#   FM_WALK_REQUEST_PROJECT      default dispatcher --project for requests with
-#   FM_WALK_REQUEST_TARGET       no project/target fields; set both or neither
+#   FM_WALK_REQUEST_PROJECT      dispatcher --project
+#   FM_WALK_REQUEST_TARGET       dispatcher --target; set both or neither
 #                                (one alone is a usage error, exit 2)
 #   FM_WALK_REQUEST_TIMEOUT      per-walk dispatcher --timeout (default 1800)
 #   FM_WALK_REQUEST_SEND_BOUND   bounded seconds for one fm-send (default 25)
@@ -232,7 +230,7 @@ deliver_outcome() {  # <mate> <corr> <walk> <release> <text>
 # One line from a mate channel becomes one record. Returns 0 when a record was
 # written (valid or failed), 1 when the line yields nothing new.
 intake_line() {  # <mate> <line>
-  local mate=$1 line=$2 corr payload walks brief brief64 brief_format release bot project target rest token key value
+  local mate=$1 line=$2 corr payload walks brief brief64 brief_format release bot rest token key value
   case "$line" in
     *"$TYPED_MARKER"*) ;;
     *) return 1 ;;
@@ -247,8 +245,6 @@ intake_line() {  # <mate> <line>
   brief_format=''
   release=''
   bot=''
-  project=''
-  target=''
   rest=$payload
   while :; do
     token=${rest%% *}
@@ -261,8 +257,6 @@ intake_line() {  # <mate> <line>
       brief64) brief64=$value; brief_format=inline ;;
       release) release=$value ;;
       bot) bot=$value ;;
-      project) project=$value ;;
-      target) target=$value ;;
     esac
     case "$rest" in
       *' '*) rest=${rest#* } ;;
@@ -279,8 +273,6 @@ intake_line() {  # <mate> <line>
     "brief_format=$brief_format" \
     "release=$release" \
     "bot=$bot" \
-    "project=$project" \
-    "target=$target" \
     "created_epoch=$(walk_request_now)" \
     "phase=new" \
     "reason=" \
@@ -397,28 +389,20 @@ prepare_brief() {
   python3 "$SCRIPT_DIR/fm-walk-request-path.py" stage "$FM_HOME" "$corr" "$mode" "$source" "$home"
 }
 
-# project_target_resolve <record>: prints "<project> <target>" (or nothing when
-# no pair is known). Returns 1 for a request pair that is half-set or has a
-# token outside the carrier's class.
-project_target_resolve() {
-  local rec=$1 project target
-  project=$(record_get "$rec" project)
-  target=$(record_get "$rec" target)
-  if [ -n "$project$target" ]; then
-    [ -n "$project" ] && [ -n "$target" ] || return 1
-    case "$project$target" in *[!A-Za-z0-9._-]*) return 1 ;; esac
-    case "$project" in [!A-Za-z0-9]*) return 1 ;; esac
-    case "$target" in [!A-Za-z0-9]*) return 1 ;; esac
-  else
-    project=${FM_WALK_REQUEST_PROJECT:-}
-    target=${FM_WALK_REQUEST_TARGET:-}
-    [ -n "$project" ] || return 0
-  fi
-  printf '%s %s' "$project" "$target"
+validate_project_target() {
+  local project=${FM_WALK_REQUEST_PROJECT:-} target=${FM_WALK_REQUEST_TARGET:-}
+  [ -n "$project$target" ] || return 0
+  [ -n "$project" ] && [ -n "$target" ] \
+    || die_usage "FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together"
+  case "$project$target" in
+    *[!A-Za-z0-9._-]*) die_usage "FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name" ;;
+  esac
+  case "$project" in [!A-Za-z0-9]*) die_usage "FM_WALK_REQUEST_PROJECT must start with a letter or digit" ;; esac
+  case "$target" in [!A-Za-z0-9]*) die_usage "FM_WALK_REQUEST_TARGET must start with a letter or digit" ;; esac
 }
 
 dispatch_one() {  # <corr> <walk>
-  local corr=${1:-} walk=${2:-} rec walk bot mate brief release log dispatch rc pt
+  local corr=${1:-} walk=${2:-} rec walk bot mate brief release log dispatch rc
   local -a pt_args=()
   [ -n "$corr" ] && [ -n "$walk" ] || exit 2
   rec=$(record_path "$corr")
@@ -433,9 +417,8 @@ dispatch_one() {  # <corr> <walk>
     printf 'refused: brief snapshot is private or unavailable\n__FM_WALK_DISPATCH_EXIT__=2\n' >> "$log"
     exit 0
   fi
-  pt=$(project_target_resolve "$rec") || pt=''
-  # shellcheck disable=SC2206  # deliberate split: two validated tokens
-  [ -z "$pt" ] || pt_args=(--project ${pt% *} --target ${pt#* })
+  [ -z "${FM_WALK_REQUEST_PROJECT:-}" ] \
+    || pt_args=(--project "$FM_WALK_REQUEST_PROJECT" --target "$FM_WALK_REQUEST_TARGET")
   "$dispatch" "$brief" --bot "$bot" --walk "$walk" --walk-owner "$mate" \
     --timeout "${FM_WALK_REQUEST_TIMEOUT:-1800}" \
     --once-key "$walk@$release" "${pt_args[@]}" >> "$log" 2>&1
@@ -530,11 +513,6 @@ process_record() {
       if [ ! -x "$(dispatcher_path)" ]; then
         record_refused "$rec" "dispatcher absent at $(dispatcher_path); install the home's walker dispatcher or disarm this check" \
           "refused: MAIN has no walker dispatcher at $(dispatcher_path); the walk was not dispatched"
-        return 0
-      fi
-      if ! project_target_resolve "$rec" >/dev/null; then
-        record_refused "$rec" "request $corr carries an incomplete or malformed project/target pair; nothing dispatched" \
-          "refused: the project and target fields must be given together, each one plain name; re-send with both"
         return 0
       fi
       [ -n "$bot" ] || bot=${FM_WALK_REQUEST_BOT:-}
@@ -750,13 +728,10 @@ case "${1:-check}" in
     exit 0
     ;;
   check)
-    if [ -n "${FM_WALK_REQUEST_PROJECT:-}" ] || [ -n "${FM_WALK_REQUEST_TARGET:-}" ]; then
-      [ -n "${FM_WALK_REQUEST_PROJECT:-}" ] && [ -n "${FM_WALK_REQUEST_TARGET:-}" ] \
-        || die_usage "FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together"
-    fi
+    validate_project_target
     action_check
     ;;
-  dispatch-one) dispatch_one "$2" "$3" ;;
+  dispatch-one) validate_project_target; dispatch_one "$2" "$3" ;;
   arm) action_arm ;;
   disarm) action_disarm ;;
   *)

@@ -3,8 +3,7 @@
 #
 # Usage:
 #   fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
-#     --walks <walk-id>[,<walk-id>...] [--bot <bot-name>] \
-#     [--project <name> --target <name>]
+#     --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
 #   fm-walk-request.sh --help
 #
 # WHY. The walker dispatcher (fm-grok-bot-dispatch.sh) and its Grok Bot bridge
@@ -21,17 +20,12 @@
 # THE TYPED LINE, owned here and read by MAIN's walk-request check
 # (bin/fm-walk-request-check.sh):
 #   note [corr=<16hex>] [at=<epoch>]: walk-request: walks=<ids>
-#   brief64=<base64-UTF-8> release=<sha> [bot=<name>] [project=<name>
-#   target=<name>]
+#   brief64=<base64-UTF-8> release=<sha> [bot=<name>]
 # Local requests may use brief=<absolute-path> instead of brief64.
 # The corr token is the request's receipt identity. The bot field may be
 # omitted by the caller only when MAIN's default names one
 # (FM_WALK_REQUEST_BOT there); the check reports a request with no resolvable
-# bot plainly rather than guessing. The project and target fields come as a
-# pair and are passed to MAIN's dispatcher as --project/--target, overriding
-# MAIN's FM_WALK_REQUEST_PROJECT/FM_WALK_REQUEST_TARGET pair; omitted, MAIN's
-# pair or none applies (bin/fm-walk-request-check.sh). Each is one space-free
-# token; the dispatcher validates the pair itself. Briefs are UTF-8 text, at most 64 KiB,
+# bot plainly rather than guessing. Briefs are UTF-8 text, at most 64 KiB,
 # with binary control bytes refused. Remote requests carry their content inline;
 # local paths are confined and copied by MAIN before dispatch.
 #
@@ -59,8 +53,7 @@ usage() {
   cat <<'EOF'
 Usage:
   fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
-    --walks <walk-id>[,<walk-id>...] [--bot <bot-name>] \
-    [--project <name> --target <name>]
+    --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
   fm-walk-request.sh --help
 
 Writes one typed walk request on this secondmate home's parent channel so
@@ -98,16 +91,12 @@ BRIEF=
 RELEASE=
 WALKS=
 BOT=
-PROJECT=
-TARGET=
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --brief) shift; BRIEF=${1:-} ;;
     --release) shift; RELEASE=${1:-} ;;
     --walks) shift; WALKS=${1:-} ;;
     --bot) shift; BOT=${1:-} ;;
-    --project) shift; PROJECT=${1:-} ;;
-    --target) shift; TARGET=${1:-} ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
   esac
@@ -159,15 +148,6 @@ if [ -n "$BOT" ]; then
     ''|*[!A-Za-z0-9._-]*) fail "--bot must be one space-free bot name: $BOT" ;;
   esac
 fi
-# project and target travel as a pair of single tokens, like the bot name.
-if [ -n "$PROJECT$TARGET" ]; then
-  [ -n "$PROJECT" ] && [ -n "$TARGET" ] || fail "--project and --target must be given together"
-  case "$PROJECT$TARGET" in
-    *[!A-Za-z0-9._-]*) fail "--project and --target must each be one space-free name" ;;
-  esac
-  case "$PROJECT" in [!A-Za-z0-9]*) fail "--project must start with a letter or digit" ;; esac
-  case "$TARGET" in [!A-Za-z0-9]*) fail "--target must start with a letter or digit" ;; esac
-fi
 
 destination=$(fm_parent_channel_destination "$FM_HOME" "$STATE") || rc=$?
 case "${rc:-0}" in
@@ -190,7 +170,6 @@ corr=$(walk_request_new_corr)
 [ -n "$corr" ] || fail "could not mint a correlation id"
 line="note [corr=$corr]: walk-request: walks=$WALKS $brief_field=$BRIEF release=$RELEASE"
 [ -z "$BOT" ] || line="$line bot=$BOT"
-[ -z "$PROJECT" ] || line="$line project=$PROJECT target=$TARGET"
 fm_parent_channel_append_once "$destination" "$(status_stamp_line "$line")" || {
   printf 'fm-walk-request: could not append the request to the parent channel at %s\n' "$destination" >&2
   exit 4

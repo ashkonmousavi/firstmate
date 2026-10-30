@@ -20,6 +20,7 @@ TMP_ROOT=$(fm_test_tmproot fm-walk-request)
 CARRIER="$ROOT/bin/fm-walk-request.sh"
 CHECK="$ROOT/bin/fm-walk-request-check.sh"
 RELEASE=0123456789abcdef0123456789abcdef01234567
+unset FM_WALK_REQUEST_PROJECT FM_WALK_REQUEST_TARGET
 
 # make_mate <name>: a local-route secondmate home reporting into <parent>.
 make_mate() {  # <name> <parent-home>
@@ -1033,102 +1034,90 @@ test_historical_discovery_reserves_processing_and_advances
 
 # --- project and target pass-through to the dispatcher ----------------------
 
-# project_target_dispatch <label> <carrier-args> <env assignments...>: one
+# project_target_dispatch <label> <env assignments...>: one
 # request through carrier and check; prints the single recorded dispatcher
 # argument line.
 project_target_dispatch() {
-  local label=$1 carrier_extra=$2 parent mate dispatch send
-  shift 2
+  local label=$1 parent mate dispatch send
+  shift
   parent=$(make_parent "pt-$label-main")
   mate=$(make_mate "pt-$label-mate" "$parent")
   dispatch="$parent/fake-dispatch"
   send="$parent/fake-send"
   fake_dispatcher "$dispatch"
   fake_send "$send"
-  # shellcheck disable=SC2086  # deliberate word split of the optional flags
   run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" \
-    --walks desk-step --bot J01Walker $carrier_extra >/dev/null \
+    --walks desk-step --bot J01Walker >/dev/null \
     || fail "the carrier must accept the request ($label)"
-  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" "$@" >/dev/null
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" "$@" >/dev/null \
+    || fail "the environment-routed sweep must succeed ($label)"
   wait_for "$dispatch.calls" 'args=' || fail "the dispatcher must be invoked ($label)"
   cat "$dispatch.calls"
 }
 
-test_project_target_from_request_fields() {
-  local calls
-  calls=$(project_target_dispatch fields "--project x --target production")
-  assert_contains "$calls" "--project x --target production" "request fields reach the dispatcher"
-  pass "walk-request: request project and target fields reach the dispatcher"
-}
-
 test_project_target_from_environment() {
   local calls
-  calls=$(project_target_dispatch env "" FM_WALK_REQUEST_PROJECT=x FM_WALK_REQUEST_TARGET=staging)
+  calls=$(project_target_dispatch env FM_WALK_REQUEST_PROJECT=x FM_WALK_REQUEST_TARGET=staging)
   assert_contains "$calls" "--project x --target staging" "the environment pair reaches the dispatcher"
-  pass "walk-request: the environment pair is the project and target fallback"
-}
-
-test_project_target_request_fields_win_over_environment() {
-  local calls
-  calls=$(project_target_dispatch wins "--project reqp --target reqt" \
-    FM_WALK_REQUEST_PROJECT=envp FM_WALK_REQUEST_TARGET=envt)
-  assert_contains "$calls" "--project reqp --target reqt" "request fields win"
-  case "$calls" in *envp*|*envt*) fail "the environment pair must not mix into a request pair" ;; esac
-  pass "walk-request: request project and target win over the environment"
+  pass "walk-request: the environment pair controls project and target"
 }
 
 test_project_target_absent_when_unset() {
   local calls
-  calls=$(project_target_dispatch none "")
+  calls=$(project_target_dispatch none)
   case "$calls" in *--project*|*--target*) fail "no project or target flag without a source: $calls" ;; esac
   assert_contains "$calls" "--bot J01Walker" "the rest of the call is unchanged"
   pass "walk-request: no project or target flag without a source"
 }
 
 test_project_target_validation() {
-  local parent mate out
+  local parent mate dispatch send out corr action invalid rc
   parent=$(make_parent pt-val-main)
   mate=$(make_mate pt-val-mate "$parent")
-  local brief="$parent/data/from-main/walk-lists/brief.md"
-  run_carrier "$mate" --brief "$brief" --release "$RELEASE" --walks desk-step --project x 2>/dev/null \
-    && fail "the carrier must refuse a project without a target"
-  run_carrier "$mate" --brief "$brief" --release "$RELEASE" --walks desk-step --target production 2>/dev/null \
-    && fail "the carrier must refuse a target without a project"
-  run_carrier "$mate" --brief "$brief" --release "$RELEASE" --walks desk-step --project 'a b' --target t 2>/dev/null \
-    && fail "the carrier must refuse a project with whitespace"
-  run_carrier "$mate" --brief "$brief" --release "$RELEASE" --walks desk-step --project x --target '-t;x' 2>/dev/null \
-    && fail "the carrier must refuse a target outside the token class"
-  [ ! -s "$parent/state/pt-val-mate.status" ] || fail "a refused request writes nothing"
-  out=$(run_check "$parent" FM_WALK_REQUEST_PROJECT=x 2>&1 >/dev/null) \
-    && fail "the check must treat a lone environment project as a usage error"
-  assert_contains "$out" "FM_WALK_REQUEST_PROJECT" "the usage error names the pair"
-  run_check "$parent" FM_WALK_REQUEST_TARGET=x >/dev/null 2>&1 \
-    && fail "the check must treat a lone environment target as a usage error"
-  pass "walk-request: project and target are validated as a pair of space-free tokens"
-}
-
-test_project_target_hand_written_fields_are_confined() {
-  local parent mate dispatch send out
-  parent=$(make_parent pt-hand-main)
-  mate=$(make_mate pt-hand-mate "$parent")
   dispatch="$parent/fake-dispatch"
   send="$parent/fake-send"
   fake_dispatcher "$dispatch"
   fake_send "$send"
-  printf '%s\n' \
-    "note [corr=0123456789abcdef] [at=1793200000]: walk-request: walks=desk-step brief=$parent/data/from-main/walk-lists/brief.md release=$RELEASE bot=J01Walker project=--evil target=production" \
-    >> "$parent/state/pt-hand-mate.status"
-  out=$(run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send")
-  assert_contains "$out" "project" "a malformed project field is reported"
-  [ ! -s "$dispatch.calls" ] || fail "a malformed project field must never reach the dispatcher"
-  pass "walk-request: hand-written project and target fields cannot smuggle options"
+  out=$(run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" \
+    --release "$RELEASE" --walks desk-step --bot J01Walker) \
+    || fail "the environment validation request must publish"
+  corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+    FM_WALK_REQUEST_PROJECT=x FM_WALK_REQUEST_TARGET=production >/dev/null \
+    || fail "the environment-routed sweep must succeed"
+  wait_for "$parent/state/walk-requests/$corr.desk-step.log" '__FM_WALK_DISPATCH_EXIT__=0' \
+    || fail "the environment-routed dispatch must finish"
+  rm -f "$dispatch.calls"
+  for action in check dispatch-one; do
+    for invalid in project-only target-only project-space target-space project-option target-option project-punctuation target-punctuation project-tab target-newline; do
+      local project=x target=production
+      case "$invalid" in
+        project-only) target='' ;;
+        target-only) project='' ;;
+        project-space) project='a b' ;;
+        target-space) target='a b' ;;
+        project-option) project='-x' ;;
+        target-option) target='-production' ;;
+        project-punctuation) project='x;y' ;;
+        target-punctuation) target='production;y' ;;
+        project-tab) project=$'x\ty' ;;
+        target-newline) target=$'production\ny' ;;
+      esac
+      rc=0
+      out=$(env FM_HOME="$parent" FM_STATE_OVERRIDE="$parent/state" \
+        FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
+        FM_WALK_REQUEST_PROJECT="$project" FM_WALK_REQUEST_TARGET="$target" \
+        "$CHECK" "$action" "$corr" desk-step 2>&1) || rc=$?
+      expect_code 2 "$rc" "$action must reject $invalid environment routing"
+      assert_contains "$out" "FM_WALK_REQUEST_" "the usage error names the environment configuration"
+      [ ! -e "$dispatch.calls" ] || fail "invalid environment routing must not dispatch ($action $invalid)"
+    done
+  done
+  pass "walk-request: sweep and dispatch reject incomplete or malformed environment routing"
 }
 
-test_project_target_from_request_fields
 test_project_target_from_environment
-test_project_target_request_fields_win_over_environment
 test_project_target_absent_when_unset
 test_project_target_validation
-test_project_target_hand_written_fields_are_confined
 
 echo "# fm-walk-request.test.sh: all assertions passed"
