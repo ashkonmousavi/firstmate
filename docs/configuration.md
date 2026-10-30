@@ -1281,8 +1281,7 @@ Per-machine Cursor `cli-config.json` attribution-off is not this contract: it do
 
 Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch or relaunch.
 For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunch when the observed occupancy reaches five lanes and reserves three GiB of available memory.
-Seats count live workers, including non-shell processes in their worktrees; a proven-dead endpoint with no such process holds no seat, while unknown liveness retains its seat.
-[`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, exemptions and refusal rules.
+[`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy (including task records retained after cleanup), exemptions and refusal rules.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
 The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
