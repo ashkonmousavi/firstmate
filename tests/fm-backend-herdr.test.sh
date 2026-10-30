@@ -5343,6 +5343,8 @@ test_send_text_submit_claude_popup_below_composer_is_proven_and_submitted() {
     printf '\x1b[0m\x1b[38;2;61;90;128m%s\x1b[0m\n' "$rule"
     printf '  \x1b[0m\x1b[38;2;94;179;246m\xe2\x9d\xaf /\x1b[0m\x1b[1m\x1b[38;2;94;179;246mexit\x1b[0m\x1b[38;2;94;179;246m                    \x1b[0m\x1b[1m\x1b[38;2;94;179;246mExit\x1b[0m\x1b[38;2;94;179;246m the CLI\x1b[0m\n'
     printf '  \x1b[0m\x1b[38;2;123;135;156m  /context                 Visualize current context usage as a colored grid\x1b[0m\n'
+    printf '    /higgsfield:reset-credits (MCP)              Open the Credit Reset offer. Does not claim credits or change the\n'
+    printf '                                                 subscription.\n'
     printf '  \x1b[0m\x1b[38;2;123;135;156m  /usage-credits           Configure usage credits or request them from your admin when you\x1b[0m\n'
     printf '  \x1b[0m\x1b[38;2;123;135;156m                           hit a limit\x1b[0m\n'
   } > "$resp/4.out"

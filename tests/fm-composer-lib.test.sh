@@ -335,6 +335,11 @@ test_composer_footer_zone_claude_slash_popup() {
   composer=$'transcript line\n\n'"$rule"$'\n❯'"$NBSP"$'/exit\n'"$rule"
   popup=$'\n  ❯ /exit                    Exit the CLI'
   popup+=$'\n    /context                 Visualize current context usage as a colored grid'
+  # Claude 2.1.314's recorded /exit popup includes a single-space MCP label.
+  # Extraction must still return only the typed command, including when the
+  # annotated entry's description wraps at its own (wider) column.
+  popup+=$'\n    /higgsfield:reset-credits (MCP)              Open the Credit Reset offer. Does not claim credits or change the'
+  popup+=$'\n                                                 subscription.'
   popup+=$'\n    /usage-credits           Configure usage credits or request them from your admin when you'
   popup+=$'\n                             hit a limit'
   popup+=$'\n    /quiet                   Enter quiet supervision mode when the captain invokes /quiet or'
@@ -356,6 +361,10 @@ test_composer_footer_zone_claude_slash_popup() {
   screen="$composer"$'\n❯ /fix the  login bug'
   out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
   [ "$out" != /exit ] || fail "a live composer below the envelope must keep winning, got '$out'"
+  # The MCP annotation does not permit arbitrary single-space descriptions.
+  screen="$composer"$'\n  ❯ /exit Exit the CLI'
+  out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
+  [ "$out" != /exit ] || fail "a single-space description must not count as popup furniture, got '$out'"
   # A wrapped description is accepted only at the description column.
   screen="$composer"$'\n  ❯ /exit                    Exit the CLI\n                          hit a limit'
   out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
