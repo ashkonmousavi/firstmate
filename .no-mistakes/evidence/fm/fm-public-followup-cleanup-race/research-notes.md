@@ -1,0 +1,13 @@
+# Cleanup race validation
+
+Acceptance oracle: fixture deletion must happen after the remote worker has finished shutdown writes. Source: the author's reported CI failure and the helper's executable cleanup contract. A plausible wrong implementation sends TERM and immediately removes the fixture; the controlled counterfactual rejects it because the worker recreates the removed directory.
+
+Trigger: suite exit sends TERM to the remote worker. Masking condition: worker shutdown timing relative to recursive deletion. Symptom: fixture removal can race writes (reported CI `Directory not empty`). The controlled probe reproduces fixture resurrection rather than claiming to reproduce that exact nondeterministic rm diagnostic.
+
+Research: the project research-book index and fleet-test-runs entry were read. Exa found the Bash reference manual's Signals section; direct GNU-site fetch timed out, and the same primary manual text was successfully read at its INRIA mirror: [Bash 5.2.37 Signals](https://people.bordeaux.inria.fr/lcourtes/tmp/doc/bash/5.2.37/en/html_node/Signals.html). Bash defers a trapped signal while waiting for a foreground command. Therefore TERM delivery alone does not establish shutdown completion. Local controlled execution confirms this timing boundary. No shared research-book writes were made because this test phase confines intentional writes to the worktree and its evidence directory.
+
+Initial setup refusal: putting TMPDIR under the repository made secondmate provisioning reject its fixture home. This is an isolation setup error, not a regression. The suite observer was corrected to use a private disposable system temporary directory created by the test toolchain, and cleans it up after recording the result.
+
+The real public-followup executable and real remote job worker run in isolated generated homes. SSH and relay boundaries remain the repository suite's local substitutes; no fleet service or real public posting is used. The observer records worker commands/PIDs, suite exit status, remaining fixture processes, and filesystem absence. The delayed-writer probe is a controlled process regression, not evidence of a real remote worker by itself. This is a shell/test-infrastructure surface; there is no rendered UI requiring screenshots.
+
+Final live observations: normal suite exit 0 after 282.74 seconds; interrupted suite exit 143 after 92.98 seconds. Both workers were gone, fixtures removed, and no remaining process referenced either fixture. All observers and the auxiliary waiter completed successfully. The normal observer was briefly suspended while its suite continued to avoid an arbitrary observation deadline, then resumed to collect the actual exit status and cleanup state. No source changes were necessary.

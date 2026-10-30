@@ -1,0 +1,9 @@
+{
+  "mode": "normal",
+  "exit_code": 1,
+  "term_sent": false,
+  "elapsed_seconds": 17.66,
+  "workers": [],
+  "remaining_fixture_processes": [],
+  "ok": false
+}

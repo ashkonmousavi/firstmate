@@ -1,0 +1,17 @@
+{
+  "mode": "term",
+  "exit_code": 143,
+  "term_sent": true,
+  "elapsed_seconds": 92.98,
+  "workers": [
+    {
+      "pid": 14526,
+      "command": "/bin/bash /tmp/fm-followup-validation-r3y2kne7/fm-public-followup.88GxUo/remote-root/bin/fm-remote-job-worker.sh --serve",
+      "fixture": "/tmp/fm-followup-validation-r3y2kne7/fm-public-followup.88GxUo",
+      "status_after_exit": "gone",
+      "fixture_removed": true
+    }
+  ],
+  "remaining_fixture_processes": [],
+  "ok": true
+}

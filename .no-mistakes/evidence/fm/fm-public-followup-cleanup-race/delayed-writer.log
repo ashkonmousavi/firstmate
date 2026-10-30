@@ -1,0 +1,3 @@
+bare-signal: worker recreated the removed fixture during delayed shutdown (race reproduced)
+wait-helper: shutdown write present before removal
+wait-helper: worker exited and fixture remained absent after removal
