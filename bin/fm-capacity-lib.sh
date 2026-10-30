@@ -171,6 +171,9 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
       case "$(fm_backend_agent_state "${backend:-tmux}" "$target")" in
         dead|missing)
           worktree=$(printf '%s\n' "$raw" | sed -n 's/^worktree=//p' | tail -1)
+          # A teardown-completed record names the <id>.released-copy sentinel, which is
+          # never a real directory, so with no live agent it holds no seat.
+          [ "$worktree" != "$dir/$(basename "$meta" .meta).released-copy" ] || continue
           # Use teardown's bounded cwd scan, never a recursive file-tree walk.
           # Missing or unreadable worktree/process evidence retains the seat.
           if [[ "$worktree" = /* ]] && [ -d "$worktree" ] && [ -r "$worktree" ] && [ -x "$worktree" ] \
