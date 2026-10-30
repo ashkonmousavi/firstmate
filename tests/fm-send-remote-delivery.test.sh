@@ -996,6 +996,119 @@ test_remote_inbox_ladder_escalates_after_ring_max() {
   pass "watcher remote inbox: a spent ring budget queues exactly one stale wake"
 }
 
+# Seed the remote mate's own semantic busy record (<state>/rsm.busy-state, not
+# the parent-route state) under the given harness: pi is a non-queue harness
+# with a trusted semantic source, claude is a queue harness.
+remote_set_busy() {  # <remote-home> <harness> <busy|idle>
+  local rh=$1 harness=$2 verdict=$3 meta="$1/state/parent-route/rsm.meta" gen source
+  sed -i "s/^harness=.*/harness=$harness/" "$meta"
+  case "$harness" in pi) source=pi-ext ;; *) source=claude-hook ;; esac
+  if [ ! -f "$rh/state/rsm.busy-gen" ]; then
+    "$ROOT/bin/fm-busy-event.sh" arm "$rh/state" rsm >/dev/null || fail "could not arm the remote busy record"
+  fi
+  gen=$(cat "$rh/state/rsm.busy-gen")
+  "$ROOT/bin/fm-busy-event.sh" apply "$rh/state" rsm "$verdict" --gen "$gen" --source "$source" --event test \
+    || fail "could not seed the remote busy record"
+}
+
+remote_busy_case() {  # <name> <harness> <busy|idle> -> sets $dir $fb $ssh_log $home $rhome $rec
+  dir="$TMP_ROOT/$1"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home "$1")
+  home=$(setup_remote_parent_home "$1" "$rhome")
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+  remote_set_busy "$rhome" "$2" "$3"
+}
+
+test_remote_inbox_busy_deferral_below_bound() {
+  local dir fb ssh_log home rhome rec out
+  remote_busy_case remote-busy-defer pi busy
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=3 2>&1) \
+    || fail "a busy deferral must not fail or wake the watcher: $out"
+  [ ! -e "$rhome/state/parent-route/rsm.inbox/.ring-state" ] || fail "a busy deferral spent a ring attempt"
+  [ ! -s "$dir/herdr.log" ] || fail "a busy non-queue pane was rung: $(cat "$dir/herdr.log")"
+  assert_grep 'remote steer-inbox busy deferral: rsm 001.msg count=1/3' "$home/state/.watch-triage.log" \
+    "the busy deferral must be recorded in the triage log"
+  [ ! -s "$home/state/.wake-queue" ] || fail "a below-bound busy deferral queued a wake"
+  pass "watcher remote inbox: a busy non-queue remote pane defers without spending a ring attempt"
+}
+
+test_remote_inbox_stuck_busy_wakes_once_then_rings_when_idle() {
+  local dir fb ssh_log home rhome rec out wakes
+  remote_busy_case remote-busy-stuck pi busy
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=2 >/dev/null 2>&1 \
+    || fail "the first busy deferral failed"
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=2 2>&1) \
+    || fail "the stuck-busy tick must wake cleanly: $out"
+  assert_contains "$out" "stuck-busy after 2 consecutive busy-deferred due doorbells" \
+    "the bound must wake firstmate with the stuck-busy wording"
+  assert_grep 'stale' "$home/state/.wake-queue" "the busy bound must queue a stale wake"
+  [ "$(cat "$rhome/state/parent-route/rsm.inbox/.escalated" 2>/dev/null)" = 001.msg ] \
+    || fail "the stuck-busy wake must write the escalation marker"
+  [ ! -s "$dir/herdr.log" ] || fail "the stuck-busy bound typed into the pane"
+  wakes=$(wc -l < "$home/state/.wake-queue")
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=2 2>&1) \
+    || fail "a still-busy tick after the bound failed: $out"
+  [ "$(wc -l < "$home/state/.wake-queue")" = "$wakes" ] || fail "a still-busy pane queued a second wake"
+  [ ! -s "$dir/herdr.log" ] || fail "a still-busy escalated pane was rung"
+
+  remote_set_busy "$rhome" pi idle
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=2 2>&1) \
+    || fail "the idle follow-up tick failed: $out"
+  [ -s "$dir/herdr.log" ] || fail "an idle pane after the stuck-busy wake was never rung"
+  [ "$(wc -l < "$home/state/.wake-queue")" = "$wakes" ] || fail "the idle follow-up queued another wake"
+  [ "$(cat "$rhome/state/parent-route/rsm.inbox/.escalated" 2>/dev/null)" = 001.msg ] \
+    || fail "the idle follow-up cleared the escalation marker"
+  : > "$dir/herdr.log"
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=2 >/dev/null 2>&1 \
+    || fail "a tick after the follow-up failed"
+  [ ! -s "$dir/herdr.log" ] || fail "the idle follow-up rang more than once"
+  pass "watcher remote inbox: one stuck-busy wake at the bound, then one idle ring without a second wake"
+}
+
+test_remote_inbox_idle_before_bound_rings_once() {
+  local dir fb ssh_log home rhome rec out
+  remote_busy_case remote-busy-idle pi busy
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=3 >/dev/null 2>&1 \
+    || fail "the busy deferral failed"
+  remote_set_busy "$rhome" pi idle
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=3 2>&1) \
+    || fail "the idle tick failed: $out"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "an idle pane before the bound must spend exactly one ring"
+  [ -s "$dir/herdr.log" ] || fail "an idle pane before the bound was not rung"
+  [ ! -e "$rhome/state/rsm.inbox/.busy-state" ] && [ ! -e "$rhome/state/parent-route/rsm.inbox/.busy-state" ] \
+    || fail "a delivered ring left the busy budget behind"
+  [ ! -s "$home/state/.wake-queue" ] || fail "an in-budget idle ring queued a wake"
+  pass "watcher remote inbox: a pane that goes idle before the busy bound is rung once"
+}
+
+test_remote_inbox_queue_harness_is_rung_while_busy() {
+  local dir fb ssh_log home rhome rec out
+  remote_busy_case remote-busy-queue claude busy
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" FM_TASK_INBOX_BUSY_MAX=3 2>&1) \
+    || fail "a queue-harness ring failed: $out"
+  [ -s "$dir/herdr.log" ] || fail "a busy queue harness (claude) must still be rung"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "a busy queue harness must spend its ring attempt"
+  pass "watcher remote inbox: a queue-accepting harness is rung while busy"
+}
+
+test_remote_inbox_old_parent_rings_while_busy() {
+  local dir fb ssh_log home rhome rec out
+  remote_busy_case remote-busy-oldparent pi busy
+  out=$(send_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" \
+    "$ROOT/bin/fm-on.sh" rsm fm-remote-secondmate-control.sh inbox rsm due 1 3 2>&1) \
+    || fail "an old-style due check failed: $out"
+  assert_contains "$out" "ring 001.msg" "an old-style due check must still name the record"
+  out=$(send_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" \
+    "$ROOT/bin/fm-on.sh" rsm fm-remote-secondmate-control.sh inbox rsm ring 001.msg 2>&1) \
+    || fail "an old-style ring failed: $out"
+  assert_contains "$out" "rang" "a parent that passes no busy maximum must keep ringing a busy pane"
+  [ -s "$dir/herdr.log" ] || fail "an old-style parent's ring did not reach the pane"
+  pass "remote inbox verb: a parent that passes no busy maximum keeps ring-while-busy"
+}
+
 # The watcher cycle runs the ladder detached: launching a pass against a slow
 # host returns at once, and the pass's escalation is delivered by whichever
 # watcher next finds its handoff, even after the launching watcher has exited.
@@ -1358,6 +1471,11 @@ test_remote_inbox_ladder_rerings_unacknowledged_record
 test_remote_inbox_ladder_quiet_after_acknowledgement
 test_remote_inbox_idle_failure_still_spends_an_attempt_with_its_reason
 test_remote_inbox_ladder_escalates_after_ring_max
+test_remote_inbox_busy_deferral_below_bound
+test_remote_inbox_stuck_busy_wakes_once_then_rings_when_idle
+test_remote_inbox_idle_before_bound_rings_once
+test_remote_inbox_queue_harness_is_rung_while_busy
+test_remote_inbox_old_parent_rings_while_busy
 test_remote_inbox_detached_pass_never_holds_the_cycle
 test_remote_inbox_pass_never_overlaps_an_inflight_pass
 test_remote_inbox_ladder_escalates_bookkeeping_failure

@@ -55,7 +55,8 @@
 # attempt may ring or be skipped to protect another draft in a proven pending
 # composer; an unsubmitted copy of this doorbell is retried. After
 # FM_TASK_INBOX_RING_MAX attempts without an acknowledgement it escalates. The
-# caller owns the busy and recovery-grade endpoint checks: local watcher actions deferred
+# caller owns the busy and recovery-grade endpoint checks: watcher actions (local, and
+# remote when the parent passes the busy maximum, see "Remote leg") deferred
 # by a busy pane consume a separate durable consecutive-poll budget,
 # FM_TASK_INBOX_BUSY_MAX, except a harness whose submit queue
 # fm_control_submit_queue accepts (bin/fm-control-lib.sh), which is rung while
@@ -91,8 +92,21 @@
 # this same ladder there through bin/fm-remote-secondmate-control.sh's inbox
 # verb: due action and ring run on the remote host, the ladder state stays
 # beside the records, and the parent queues the escalation wake. The remote
-# ladder keeps no busy budget or owed idle follow-up; each ring uses the shared
-# ring helper's composer pre-check. No fire-and-forget retry is owed there.
+# ladder defers a busy non-queue pane on the same busy budget and owes the same
+# idle follow-up after the stuck-busy escalation as the local one; each ring uses
+# the shared ring helper's composer pre-check. No fire-and-forget retry is owed
+# there. The busy classifier is fm_busy_is_busy on the mate's own home state
+# (not the parent-route state the ladder uses), and a queue harness is rung
+# while busy.
+# Skew safety: the parent passes its busy maximum as an optional last argument
+# to the inbox verb's due and ring actions (bin/fm-remote-secondmate-control.sh).
+# Only then does the remote defer, answer `deferred <count>` or, at the bound,
+# `stuck-busy <count>` (which the parent turns into the stuck-busy stale wake
+# under the usual remote-inbox key before the escalation marker is written),
+# and owe the idle follow-up once the marker makes `due` quiet. A remote copy
+# that predates the argument refuses it, so the parent retries the due check
+# without it; a parent that predates it never sends it, so a newer remote keeps
+# ringing a busy pane and a stuck mate never goes silent in either direction.
 # The parent passes its effective grace and ring maximum to each remote due
 # check; individual hops have a fixed 30-second bound, and ordinary supervision
 # runs the pass detached from its cycle, so a slow host never delays the
@@ -120,6 +134,7 @@
 #   FM_TASK_INBOX_GRACE_SECS   default 90; delivery-attempt grace and spacing
 #   FM_TASK_INBOX_RING_MAX     default 3; delivery attempts before escalation
 #   FM_TASK_INBOX_BUSY_MAX     default 2; consecutive busy-deferred due polls before escalation
+#                              (local watcher, and the remote leg via the parent's argument)
 
 _FM_TASK_INBOX_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Dependencies are canonical lint roots in their own right. Keep them as
