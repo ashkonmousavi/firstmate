@@ -1,0 +1,18 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98/.phase-lab/herdrhome
+viewer attached to fm-lab-ghost-final (pid 1087156)
+Warmup submission=empty
+Warmup submission=empty
+Herdr suggestion classification=empty
+Herdr suggestion plain capture classification=unknown
+Herdr wrapped draft=pending
+Herdr exit with draft exit=1
+Doorbell marker=HERDR_DOORBELL_OK
+001.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98/.phase-lab/herdrhome
+stopped ring harness=claude backend=herdr endpoint=fm-lab-ghost-final:w2:p1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98 background-sessions=none
+fm-herdr-lab: lab viewer for 'fm-lab-ghost-final' did not detach within 5 seconds (last reason: cleared)
+fm-herdr-lab: lab viewer for 'fm-lab-ghost-final' did not detach within 5 seconds (last reason: cleared)
+fm-herdr-lab: refusing teardown of 'fm-lab-ghost-final' while this lab's viewer is still attached
+fm-herdr-lab: lab viewer for 'fm-lab-ghost-final' did not detach within 5 seconds (last reason: cleared)
+fm-herdr-lab: refusing teardown of 'fm-lab-ghost-final' while this lab's viewer is still attached
+Herdr cleanup exit=1

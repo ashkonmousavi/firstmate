@@ -1,0 +1,39 @@
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Sonnet 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98 · /rc
+
+
+❯ Explain in one sentence why terminal width matters for multiline composer detection. Next
+  I will ask you to outline a detailed regression test plan for wrapped suggestions and
+  multiline drafts.
+
+● Terminal width determines where the terminal soft-wraps long lines, so a single logical
+  line (a wrapped suggestion or draft) can appear as several visual rows, and detection that
+  reads the screen row by row can mistake those wrapped continuation rows for a multiline
+  draft (or a real multiline draft for a wrapped suggestion) unless it accounts for the
+  current width.
+
+  Ready for the regression test plan whenever you are.
+
+✻ Baked for 4s · done 12:35 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                         
+────────────────────────────────────────────────────────────────────────────── fm-wrap-live ─
+❯ 
+─────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE_CODE_SKIP_PROMPT_HISTORY is set · --resume will not …
+  ⏸ manual mode on · ? for shortcuts

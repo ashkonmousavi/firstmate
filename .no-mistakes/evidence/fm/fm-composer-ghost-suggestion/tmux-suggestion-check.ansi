@@ -1,0 +1,40 @@
+  narrow-terminal wrapped-suggestion
+  regression test plan.
+
+● 1. Wrapped suggestion reads as empty:
+     In a titled composer at a narrow
+     width (e.g., 40 cols), show a
+     Claude next-prompt suggestion long
+     enough to wrap across 2+ rows.
+     Assert the guard treats the
+     composer as empty, so nothing is
+     mistaken for user-typed draft text.
+  2. Multiline draft is not mistaken for
+     a suggestion: Type a real draft
+     that wraps (and one with explicit
+     newlines) at the same narrow width.
+     Assert the composer reads as
+     non-empty and the full draft text
+     is preserved, with no truncation at
+     wrap boundaries.
+  3. Width resize keeps classification
+     stable: Render the same wrapped
+     suggestion and the same draft, then
+     resize the terminal from wide to
+     narrow and back. Assert the empty
+     vs. non-empty result is identical
+     at every width, with no flips
+     caused by rewrapping.
+
+✻ Cogitated for 12s · done 12:36 PM
+
+───────────────────────── fm-wrap-live ─
+❯ Write detailed implementation steps f…
+────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE…
+  ⏸ manual mode on · ? for shortcuts
+
+
+
+
+

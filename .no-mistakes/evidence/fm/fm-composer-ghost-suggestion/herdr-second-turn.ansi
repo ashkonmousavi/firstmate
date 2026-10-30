@@ -1,0 +1,39 @@
+
+❯ Explain in one sentence why terminal width matters for multiline composer detection. Next
+  I will ask you to outline a detailed regression test plan for wrapped suggestions and
+  multiline drafts.
+
+● Terminal width determines where the terminal soft-wraps long lines, so a single logical
+  line (a wrapped suggestion or draft) can appear as several visual rows, and detection that
+  reads the screen row by row can mistake those wrapped continuation rows for a multiline
+  draft (or a real multiline draft for a wrapped suggestion) unless it accounts for the
+  current width.
+ 
+  Ready for the regression test plan whenever you are.
+
+✻ Baked for 4s · done 12:35 PM
+
+❯ List three short regression cases now; after that I will ask you to write detailed
+  implementation steps for the test plan.
+
+● Three regression cases:
+
+  1. Wrapped suggestion reads as empty: At a narrow width (e.g. 40 columns), a Claude
+     next-prompt suggestion long enough to wrap onto 2+ rows in a titled composer should be
+     detected as an empty draft, not as user-typed text.
+  2. Real multiline draft is preserved: A draft containing explicit newlines (typed with
+     Shift+Enter) should be detected as non-empty and multiline, and this should hold at both
+     narrow and wide widths so wrapping doesn't change the verdict.
+  3. Width change mid-session: Resizing the terminal while a wrapped suggestion or multiline
+     draft is displayed (narrow to wide and back) should not flip the classification, so a
+     suggestion stays empty and a draft stays non-empty after reflow.
+
+  Ready for the implementation steps whenever you are.
+
+✻ Cooked for 4s · done 12:35 PM
+
+────────────────────────────────────────────────────────────────────────────── fm-wrap-live ─
+❯ Write detailed implementation steps for the test plan
+─────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE_CODE_SKIP_PROMPT_HISTORY is set · --resume will not …
+  ⏸ manual mode on · ? for shortcuts

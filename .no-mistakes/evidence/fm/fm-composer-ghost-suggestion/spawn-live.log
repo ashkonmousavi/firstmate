@@ -1,0 +1,3 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98/.phase-lab/spawnhome
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98/.phase-lab/spawnhome
+spawned suppress harness=claude kind=scout window=primary:fm-suppress worktree=~/.treehouse/proj-d302ec/1/proj

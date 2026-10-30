@@ -1,0 +1,40 @@
+▎ permission mode.
+▎ Auto mode lets Claude handle
+▎ permission prompts automatically.
+▎ Claude checks each tool call for risky
+▎ actions and prompt injection before
+▎ executing, runs the ones it assesses
+▎ as lower-risk, and blocks the rest.
+▎ ]8;id=awvmy8;https://code.claude.com/docs/en/permission-modes\https://code.claude.com/docs/en/permis]8;;\
+▎ ]8;id=awvmy8;https://code.claude.com/docs/en/permission-modes\sion-modes]8;;\
+
+❯ I want to add a narrow-terminal
+  regression check for wrapped prompt
+  suggestions and multiline drafts.
+  First, explain in one sentence why
+  terminal width matters. I will ask
+  you to outline the regression cases
+  next.
+
+● Terminal width matters because a
+  narrow terminal forces long prompt
+  suggestions and multiline drafts to
+  soft-wrap across several rows, so any
+  logic that reads the composer's
+  contents by screen line (rather than
+  by logical text) can misjudge a
+  wrapped suggestion as real typed
+  input, or a wrapped draft as empty or
+  partial.
+
+  Ready for the regression cases
+  whenever you are.
+
+✻ Crunched for 2s · done 12:33 PM
+
+───────────────────────── fm-wrap-live ─
+❯ 
+────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE…
+  ⏵⏵ auto mode on (shift+tab to cycle)
+

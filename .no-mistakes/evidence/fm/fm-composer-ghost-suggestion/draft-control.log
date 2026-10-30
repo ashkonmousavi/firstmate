@@ -1,0 +1,6 @@
+Exit with real unsent draft returned 1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98/.phase-lab/home
+error: task draft's composer visibly holds pending text; refusing to type the /exit exit command because it would concatenate onto that text. Clear or submit the pending text, then retry 'exit'
+newline caps=styled=1,cursor=1,identity=1 cursor=34 verdict=pending
+newline caps=styled=1,cursor=0,identity=0 cursor=34 verdict=pending
+newline caps=styled=1,cursor=0,identity=1 cursor=34 verdict=pending

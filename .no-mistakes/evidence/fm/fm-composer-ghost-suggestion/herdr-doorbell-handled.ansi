@@ -1,0 +1,37 @@
+     title or border. The border
+     and title rows should not
+     count as draft content, and
+     the result should match the
+     untitled case.
+
+[0m[38;2;153;153;153m✻[0m [0m[38;2;153;153;153mBaked for 2s · done 12:40 PM[0m
+     
+[0m[38;2;153;153;153m[48;2;55;55;55m❯ [0m[38;2;255;255;255m[48;2;55;55;55m: Firstmate instruction waiting:[0m[48;2;55;55;55m [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55mlist "$FM_TASK_INBOX"/*.msg in [0m[48;2;55;55;55m  [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55myour 'ring.inbox' steering [0m[48;2;55;55;55m      [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55minbox, read and act on each in [0m[48;2;55;55;55m  [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55mnumeric order, then mv each into[0m[48;2;55;55;55m [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55mits handled/.[0m[48;2;55;55;55m                    [0m
+
+[0m[38;2;153;153;153m  [0mWriting proof file and moving
+  message to handled
+[0m[38;2;153;153;153m  ⎿  $ printf 'HERDR_DOORBELL_OK' >[0m
+     [0m[38;2;153;153;153m.phase-lab/doorbell-proof.txt[0m
+     [0m[38;2;153;153;153m&& mv [0m
+     [0m[38;2;153;153;153m"$FM_TASK_INBOX"/001.msg [0m
+     [0m[38;2;153;153;153m"$FM_TASK_INBOX"/handled/ && [0m
+     [0m[38;2;153;153;153mcat [0m
+     [0m[38;2;153;153;153m.phase-lab/doorbell-proof.txt [0m
+     [0m[38;2;153;153;153m&& ls "$FM_TASK_INBOX" [0m
+     [0m[38;2;153;153;153m"$FM_TASK_INBOX"/handled[0m
+
+[0m[38;2;215;119;87m✽[0m [0m[38;2;228;144;112mProofing…[0m[38;2;215;119;87m [0m[38;2;153;153;153m(thought for 2s)[0m
+[0m[38;2;153;153;153m  ⎿  Tip: Share Claude Code and [0m
+     [0m[38;2;153;153;153mearn [0m[38;2;215;119;87mCA$15[0m[38;2;153;153;153m in usage credits · [0m
+     [0m[38;2;215;119;87m/passes[0m
+  
+[0m[38;2;136;136;136m──────────────────── fm-wrap-live ─[0m
+[0m[38;2;153;153;153m❯ [0m
+[0m[38;2;136;136;136m───────────────────────────────────[0m
+  [0m[38;2;255;193;7m⚠ Transcript saving is off — C…[0m
+  [0m[38;2;153;153;153m⏸ manual mode on · esc to inte…[0m

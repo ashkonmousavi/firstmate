@@ -1,0 +1,33 @@
+           Claude Code v2.1.251
+ ▐▛███▛█   Opus 5 (1M context)
+▝▜██████▀  Claude Max
+  ▝▝ ▝▝    …/01M673MNWZ5DED50AB7RTV…
+
+  Get to finished work sooner with Opus
+  5.5. Update Claude Code to try it.
+
+❯ Explain terminal width in one
+  sentence. Next I will ask you to
+  outline a detailed regression test
+  plan for wrapped suggestions and
+  multiline drafts.
+
+● Terminal width is the number of
+  character columns a terminal (or tmux
+  pane) can display on one line, so any
+  composer text longer than that gets
+  hard-wrapped into additional visual
+  rows — which is why a single logical
+  prompt can appear as multiple lines
+  when captured.
+
+  Ready for the regression test plan
+  whenever you are.
+
+✻ Cooked for 3s · done 12:42 PM
+
+───────────────────────── fm-wrap-live ─
+❯ outline a detailed regression test pl…
+────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE…
+  ⏸ manual mode on · ? for shortcuts

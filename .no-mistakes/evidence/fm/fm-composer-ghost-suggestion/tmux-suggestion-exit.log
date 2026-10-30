@@ -1,0 +1,2 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98/.phase-lab/home
+error: exit-delivered suggestion interrupt=not-needed exit-command=delivered agent-state=missing exit=unconfirmed; the agent did not stop within 30s

@@ -1,0 +1,40 @@
+  regression test plan for wrapped
+  suggestions and multiline drafts.
+
+● Terminal width matters because it
+  determines where text soft-wraps, so a
+  suggestion or multiline draft that
+  fits on one line at one width splits
+  across several rows at another,
+  changing how the composer's content is
+  rendered, read back, and detected as
+  empty or non-empty.
+
+  Ready for the regression test plan
+  whenever you are.
+
+✻ Cogitated for 4s · done 12:36 PM
+
+❯ Give three brief regression cases
+  now. Next I will ask you to write
+  detailed implementation steps for the
+  narrow-terminal wrapped-suggestion
+  regression test plan.
+
+● 1. Wrapped suggestion reads as empty:
+     In a titled composer at a narrow
+     width (e.g., 40 cols), show a
+     Claude next-prompt suggestion long
+
+· Pouncing… (11s · ↓ 3 tokens)
+  ⎿  Tip: Try the new fullscreen
+     renderer — flicker-free output,
+     mouse support, auto-copy on select
+     · /tui fullscreen
+
+───────────────────────── fm-wrap-live ─
+❯ 
+────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE…
+  ⏸ manual mode on · esc to interrupt
+

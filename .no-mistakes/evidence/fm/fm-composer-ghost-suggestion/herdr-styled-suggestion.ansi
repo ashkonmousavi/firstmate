@@ -1,0 +1,37 @@
+[0m[38;2;153;153;153m[48;2;55;55;55m❯ [0m[38;2;255;255;255m[48;2;55;55;55mGive three brief regression [0m[48;2;55;55;55m     [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55mcases. Next I will ask for [0m[48;2;55;55;55m      [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55mdetailed implementation steps [0m[48;2;55;55;55m   [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55mfor the narrow-terminal [0m[48;2;55;55;55m         [0m
+[0m[48;2;55;55;55m  [0m[38;2;255;255;255m[48;2;55;55;55mregression tests.[0m[48;2;55;55;55m                [0m
+     
+[0m[38;2;255;255;255m●[0m 1. [0m[1mWrapped suggestion reads as [0m
+     [0m[1mempty:[0m In a narrow terminal,
+     show a Claude next-prompt
+     suggestion long enough to wrap
+     onto several rows. The
+     composer should still count as
+     empty, with no suggestion
+     text mistaken for a draft.
+  2. [0m[1mMultiline draft is preserved:[0m
+     Type a real draft that spans
+     several explicit lines, then
+     narrow the width. The guard
+     should see it as non-empty and
+     must not steer or overwrite
+     it.
+  3. [0m[1mTitled composer with wrapping:[0m
+     Put a wrapped suggestion
+     inside a composer that has a
+     title or border. The border
+     and title rows should not
+     count as draft content, and
+     the result should match the
+     untitled case.
+     
+[0m[38;2;153;153;153m✻ Baked for 2s · done 12:40 PM[0m
+
+[0m[38;2;136;136;136m──────────────────── fm-wrap-live ─[0m
+❯ [0m[2mGive detailed implementation ste…[0m
+[0m[38;2;136;136;136m───────────────────────────────────[0m
+  [0m[38;2;255;193;7m⚠ Transcript saving is off — C…[0m
+  [0m[38;2;153;153;153m⏸ manual mode on · ? for short…[0m

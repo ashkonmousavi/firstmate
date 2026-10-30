@@ -1,0 +1,5 @@
+ghost caps=styled=1,cursor=1,identity=1 cursor=32 verdict=empty
+ghost caps=styled=1,cursor=0,identity=0 cursor=32 verdict=empty
+ghost caps=styled=1,cursor=0,identity=1 cursor=32 verdict=empty
+ghost caps=styled=0,cursor=1,identity=1 verdict=unknown
+ghost caps=styled=0,cursor=0,identity=1 verdict=unknown

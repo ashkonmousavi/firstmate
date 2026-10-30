@@ -1,0 +1,38 @@
+  wrapped suggestion and newline draft
+  classifier regression checks.
+
+● 1. Wrapped suggestion in a narrow
+     terminal: A Claude next-prompt
+     suggestion long enough to wrap
+     across multiple rows should still
+     be classified as an empty composer
+     (a suggestion, not a draft), even
+     when the wrapped continuation rows
+     look like typed text.
+  2. Wrapped suggestion in a titled
+     composer: The same wrapped
+     suggestion inside a composer with a
+     title or border line should still
+     read as empty, so the title row and
+     wrapped rows aren't mistaken for
+     user content.
+  3. Multiline draft with explicit
+     newlines: A real draft containing
+     newline characters, rendered at a
+     narrow width where individual lines
+     also soft-wrap, should be
+     classified as a non-empty draft, so
+     a live guard never overwrites or
+     interrupts what the user is typing.
+
+✻ Brewed for 5s · done 12:34 PM
+
+───────────────────────── fm-wrap-live ─
+❯ 
+  Unsent draft spanning several
+  terminal rows to prove real input
+  remains pending in a narrow composer
+────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE…
+  ⏵⏵ auto mode on (shift+tab to cycle)
+                 ctrl+g to edit in Vim

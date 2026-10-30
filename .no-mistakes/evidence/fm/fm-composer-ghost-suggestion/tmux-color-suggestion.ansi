@@ -1,0 +1,40 @@
+  I'm ready for the regression test plan
+  whenever you are.
+
+[38;5;246m✻[39m [38;5;246mCrunched for 1s · done 12:37 PM[39m
+
+[38;5;246m[48;5;237m❯ [38;5;231mList three brief regression cases [39m
+  [38;5;231mnow; next I will ask you to write [39m
+  [38;5;231mdetailed implementation steps for the[39m
+  [38;5;231mnarrow-terminal wrapped suggestion [39m
+  [38;5;231mand multiline draft test plan.[39m
+[49m
+[38;5;231m●[39m 1. [1mWrapped suggestion in an empty [0m
+     [1mcomposer:[0m at a narrow width, a
+     next-prompt suggestion that wraps
+     across multiple lines is still read
+     as an empty draft, so it isn't
+     submitted or treated as user input.
+  2. [1mMultiline draft with a wrapped [0m
+     [1mline:[0m a real multiline draft,
+     including a line that wraps
+     visually, is read as non-empty and
+     preserved intact, with no false
+     join or split at wrap points.
+  3. [1mTitled composer plus resize:[0m a
+     wrapped suggestion in a composer
+     with a title border is still
+     classified correctly, and the
+     classification stays stable when
+     the width changes mid-session.
+
+[38;5;246m✻[39m [38;5;246mSautéed for 11s ·[39m [38;5;246mdone 12:37 PM[39m
+
+[38;5;244m───────────────────────── fm-wrap-live ─
+[39m❯ 
+[38;5;244m────────────────────────────────────────
+[39m  [38;5;220m⚠ Transcript saving is off — CLAUDE…[39m
+  [38;5;246m⏸ manual mode on · ? for shortcuts[39m
+
+
+

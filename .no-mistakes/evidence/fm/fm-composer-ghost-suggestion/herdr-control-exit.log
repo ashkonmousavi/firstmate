@@ -1,0 +1,2 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98/.phase-lab/herdrhome
+stopped ring harness=claude backend=herdr endpoint=fm-lab-ghost-final:w2:p1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M673MNWZ5DED50AB7RTVNT98 background-sessions=none

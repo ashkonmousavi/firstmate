@@ -1,0 +1,180 @@
+<!doctype html><meta charset="utf-8"><title>Live terminal validation</title><style>body{background:#101317;color:#ddd;font:16px system-ui;padding:28px}main{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}section{max-width:720px}pre{background:#191c20;border:1px solid #46505a;border-radius:10px;padding:20px;font:15px/1.4 monospace;white-space:pre}.dim{opacity:.45}h2{font-size:17px}p{color:#abb5bd}</style><h1>Live terminal captures</h1><p>Captured from real Claude terminals. Suggestions in the available versions truncate to one row; no wrapped ghost is claimed.</p><main><section><h2>Dim next-prompt suggestion, Claude 2.1.251</h2><pre>           Claude Code v2.1.251
+ ▐▛███▛█   Opus 5 (1M context)
+▝▜██████▀  Claude Max
+  ▝▝ ▝▝    …/01M673MNWZ5DED50AB7RTV…
+
+  Get to finished work sooner with Opus
+  5.5. Update Claude Code to try it.
+
+❯ Explain terminal width in one 
+  sentence. Next I will ask you to 
+  outline a detailed regression test 
+  plan for wrapped suggestions and 
+  multiline drafts.
+
+● Terminal width is the number of
+  character columns a terminal (or tmux
+  pane) can display on one line, so any
+  composer text longer than that gets
+  hard-wrapped into additional visual
+  rows — which is why a single logical
+  prompt can appear as multiple lines
+  when captured.
+
+  Ready for the regression test plan
+  whenever you are.
+
+✻ Cooked for 3s · done 12:42 PM
+
+───────────────────────── fm-wrap-live ─
+❯ <span class="dim">outline a detailed regression test pl…
+</span>────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE…
+  ⏸ manual mode on · ? for shortcuts
+</pre></section><section><h2>Newline-leading unsent draft</h2><pre>  wrapped suggestion and newline draft
+  classifier regression checks.
+
+● 1. Wrapped suggestion in a narrow
+     terminal: A Claude next-prompt
+     suggestion long enough to wrap
+     across multiple rows should still
+     be classified as an empty composer
+     (a suggestion, not a draft), even
+     when the wrapped continuation rows
+     look like typed text.
+  2. Wrapped suggestion in a titled
+     composer: The same wrapped
+     suggestion inside a composer with a
+     title or border line should still
+     read as empty, so the title row and
+     wrapped rows aren&#x27;t mistaken for
+     user content.
+  3. Multiline draft with explicit
+     newlines: A real draft containing
+     newline characters, rendered at a
+     narrow width where individual lines
+     also soft-wrap, should be
+     classified as a non-empty draft, so
+     a live guard never overwrites or
+     interrupts what the user is typing.
+
+✻ Brewed for 5s · done 12:34 PM
+
+───────────────────────── fm-wrap-live ─
+❯ 
+  Unsent draft spanning several
+  terminal rows to prove real input
+  remains pending in a narrow composer
+────────────────────────────────────────
+  ⚠ Transcript saving is off — CLAUDE…
+  ⏵⏵ auto mode on (shift+tab to cycle)
+                 ctrl+g to edit in Vim
+</pre></section><section><h2>Herdr dim suggestion</h2><pre>❯ Give three brief regression      
+  cases. Next I will ask for       
+  detailed implementation steps    
+  for the narrow-terminal          
+  regression tests.                
+     
+● 1. Wrapped suggestion reads as 
+     empty: In a narrow terminal,
+     show a Claude next-prompt
+     suggestion long enough to wrap
+     onto several rows. The
+     composer should still count as
+     empty, with no suggestion
+     text mistaken for a draft.
+  2. Multiline draft is preserved:
+     Type a real draft that spans
+     several explicit lines, then
+     narrow the width. The guard
+     should see it as non-empty and
+     must not steer or overwrite
+     it.
+  3. Titled composer with wrapping:
+     Put a wrapped suggestion
+     inside a composer that has a
+     title or border. The border
+     and title rows should not
+     count as draft content, and
+     the result should match the
+     untitled case.
+     
+✻ Baked for 2s · done 12:40 PM
+
+──────────────────── fm-wrap-live ─
+❯ <span class="dim">Give detailed implementation ste…</span>
+───────────────────────────────────
+  ⚠ Transcript saving is off — C…
+  ⏸ manual mode on · ? for short…</pre></section><section><h2>Herdr unsent wrapped draft</h2><pre>  for the narrow-terminal          
+  regression tests.                
+
+● 1. Wrapped suggestion reads as 
+     empty: In a narrow terminal,
+     show a Claude next-prompt
+     suggestion long enough to wrap
+     onto several rows. The
+     composer should still count as
+     empty, with no suggestion 
+     text mistaken for a draft.
+  2. Multiline draft is preserved:
+     Type a real draft that spans
+     several explicit lines, then
+     narrow the width. The guard
+     should see it as non-empty and
+     must not steer or overwrite
+     it.
+  3. Titled composer with wrapping:
+     Put a wrapped suggestion
+     inside a composer that has a
+     title or border. The border
+     and title rows should not
+     count as draft content, and
+     the result should match the
+     untitled case.
+     
+✻ Baked for 2s · done 12:40 PM
+     
+──────────────────── fm-wrap-live ─
+❯ Unsent draft spanning several
+  terminal rows to prove real
+  input remains pending in a
+  narrow composer
+───────────────────────────────────
+  ⚠ Transcript saving is off — C…
+  ⏸ manual mode on</pre></section><section><h2>Herdr instruction acted on and acknowledged</h2><pre>     title or border. The border
+     and title rows should not
+     count as draft content, and
+     the result should match the
+     untitled case.
+
+✻ Baked for 2s · done 12:40 PM
+     
+❯ : Firstmate instruction waiting: 
+  list &quot;$FM_TASK_INBOX&quot;/*.msg in   
+  your &#x27;ring.inbox&#x27; steering       
+  inbox, read and act on each in   
+  numeric order, then mv each into 
+  its handled/.                    
+
+  Writing proof file and moving
+  message to handled
+  ⎿  $ printf &#x27;HERDR_DOORBELL_OK&#x27; &gt;
+     .phase-lab/doorbell-proof.txt
+     &amp;&amp; mv 
+     &quot;$FM_TASK_INBOX&quot;/001.msg 
+     &quot;$FM_TASK_INBOX&quot;/handled/ &amp;&amp; 
+     cat 
+     .phase-lab/doorbell-proof.txt 
+     &amp;&amp; ls &quot;$FM_TASK_INBOX&quot; 
+     &quot;$FM_TASK_INBOX&quot;/handled
+
+✽ Proofing… (thought for 2s)
+  ⎿  Tip: Share Claude Code and 
+     earn CA$15 in usage credits · 
+     /passes
+  
+──────────────────── fm-wrap-live ─
+❯ 
+───────────────────────────────────
+  ⚠ Transcript saving is off — C…
+  ⏸ manual mode on · esc to inte…</pre></section></main>

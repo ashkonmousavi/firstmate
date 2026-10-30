@@ -1,0 +1,39 @@
+viewer attached to fm-lab-ghost-integration (pid 760063)
+Split a pane
+
+Usage: herdr pane split [OPTIONS] [PANE_ID]
+
+Arguments:
+  [PANE_ID]
+          
+
+Options:
+      --pane <ID>
+          
+
+      --current
+          
+
+      --direction <DIRECTION>
+          [possible values: right, down]
+
+      --ratio <FLOAT>
+          
+
+      --cwd <PATH>
+          
+
+      --env <KEY=VALUE>
+          Set an environment variable for the launched process
+
+      --right-click <TARGET>
+          [possible values: herdr, pane]
+
+      --focus
+          
+
+      --no-focus
+
+READY pane=w2:p1
+fm-herdr-lab: lab viewer for 'fm-lab-ghost-integration' did not detach within 5 seconds (last reason: cleared)
+fm-herdr-lab: refusing teardown of 'fm-lab-ghost-integration' while this lab's viewer is still attached

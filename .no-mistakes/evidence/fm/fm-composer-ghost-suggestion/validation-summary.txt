@@ -1,0 +1,19 @@
+Targeted baseline commands completed with exit 0:
+bash tests/fm-composer-lib.test.sh
+bash tests/fm-composer-ghost.test.sh
+bash tests/fm-control.test.sh
+bash tests/fm-control-relaunch.test.sh
+bash tests/fm-backend-herdr.test.sh
+bash tests/fm-send-inbox.test.sh
+bash tests/fm-spawn-dispatch-profile.test.sh
+
+Actual product evidence:
+wrapped-verdicts.log: real wrapped draft pending for cursor and cursorless profiles.
+newline-verdicts.log + tmux-newline.txt: verified blank first row and exact known draft below; pending for all profiles.
+styled-suggestion-verdicts.log and v251-suggestion-verdicts.log: actual dim suggestions empty, unstyled unknown.
+v251-control-exit.log: real single-row suggestion exit completed, persistent shell retained.
+herdr-final.log + herdr-rering.log: pending-draft refusal, recorded instruction later delivered; real worker marker and handled acknowledgement; real Herdr exit stopped.
+launch-environment.log: real spawned Claude process inherited suppression=false despite parent=true, using a disposable unauthenticated account directory.
+cleanup-status.log: all named lab servers stopped. Private tmux killed. Workspace clean.
+
+Inconclusive: no multirow ghost rendered on three actual CLI versions; live authenticated relaunch unavailable within global-config boundary. See research-and-limits.md, including the external disposable Treehouse fixture still requiring cleanup.
