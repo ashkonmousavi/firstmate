@@ -27,13 +27,22 @@
 #          --walk-owner <mate-id> --timeout <sec> --once-key <walk>@<sha>
 #          [--project <name> --target <name>]
 #      FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET supply the optional
-#      dispatcher pair; set both or neither. They come from the environment
-#      or, when both are unset there, from config/watch.env read at dispatch
-#      time (parsed, never sourced: `[export] NAME=value` lines, last
-#      assignment wins, other lines and variables ignored; the environment
-#      wins, and an absent or unreadable file means no pair). Each must start with a letter or
-#      digit and contain only letters, digits, dots, underscores, or hyphens.
-#      Invalid environment values are usage errors (exit 2).
+#      dispatcher pair; set both to nonempty values or leave both unset or empty.
+#      If either environment value is nonempty, only the environment is used;
+#      a missing counterpart is not filled from the file. Otherwise each
+#      check and detached dispatch reads config/watch.env under FM_HOME
+#      (or watch.env under FM_CONFIG_OVERRIDE when nonempty), so a watcher armed
+#      before the configuration edit can use the current pair.
+#      The file is parsed, never sourced: lines may begin with `export`
+#      followed by whitespace-separated NAME=value assignments, or with the
+#      assignments directly. Matching single or double quotes around a value
+#      are removed; shell expansions and escapes are never evaluated.
+#      The last assignment to each routing name wins; other variable names
+#      are ignored, and parsing a line stops at a word beginning with `#`
+#      or the first non-assignment word. Missing or unreadable files mean no
+#      pair. Each name must start with a letter or digit and contain only
+#      letters, digits, dots, underscores, or hyphens. Invalid or incomplete
+#      pairs from either source are usage errors (exit 2).
 #      The once-key is the dispatcher's own at-most-once claim, so a re-spawn
 #      after an interrupted sweep converges instead of duplicating a send.
 #      The bridge and its sign-in stay private to that home: this check only
@@ -393,10 +402,8 @@ prepare_brief() {
   python3 "$SCRIPT_DIR/fm-walk-request-path.py" stage "$FM_HOME" "$corr" "$mode" "$source" "$home"
 }
 
-# A watcher keeps the environment it was armed with, so when neither name is
-# set read them from the config/watch.env the arm script sources. The file is
-# parsed, never sourced: only leading `[export] NAME=value ...` lines count,
-# up to a `#` comment word, and the last assignment of each name wins.
+# A watcher keeps the environment it was armed with. Read current routing
+# without executing the home-local shell configuration; parsing is owned above.
 load_project_target_from_watch_env() {
   local file="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/watch.env" line word value first project='' target=''
   [ -r "$file" ] || return 0
