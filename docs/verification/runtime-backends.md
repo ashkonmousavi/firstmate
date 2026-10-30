@@ -1626,6 +1626,19 @@ Observed 2026-08-19:
 ok - live Herdr submit confirm: Claude Code (2.1.236 (Claude Code)) on herdr 0.8.0 reports empty for a landed idle steer
 ```
 
+### Composer viewport recovery
+
+The trailing-output limit excludes the selected composer's input rows, closing rule or floor, and proven footer zone.
+The [Herdr socket API](https://herdr.dev/docs/socket-api/) defines `scroll.offset_from_bottom == 0` as the at-bottom state used by the recovery assertions.
+`tests/fm-composer-lib.test.sh` exercises long bare, titled, left-bar, and boxed drafts through state classification and content extraction, including the trailing-output limit on either side of its boundary.
+The Herdr submit-confirmation guard also creates transcript scrollback with real Claude output, scrolls each public composer read independently, and requires an unknown raw viewport to recover the empty or pending draft at offset zero.
+These scroll-and-recover scenarios have no live verification result recorded yet; the earlier submit-confirmation evidence does not cover them.
+Refresh this record during validation with the platform, Claude and Herdr versions, and exact output from:
+
+```sh
+FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash tests/fm-herdr-submit-confirm-live-e2e.test.sh
+```
+
 ### Claude exit behind the slash-command popup
 
 Measured 2026-09-26 against Herdr 0.9.0 and Claude Code 2.1.283 in an isolated `fm-lab-` session.

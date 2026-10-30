@@ -5458,7 +5458,7 @@ herdr_scrolled_fixture() {  # <dir> <offset-after-reset> <recapture-file>
   local dir=$1 after=$2 recap=$3 resp="$1/responses" i
   mkdir -p "$resp"; : > "$dir/log"; : > "$dir/scroll.log"
   {
-    printf '❯ please fix the login bug\n'
+    printf '❯ please fix the login bug\n\n'
     for i in $(seq 1 40); do printf '  ⎿  tool output line %s\n' "$i"; done
   } > "$resp/1.out"
   printf '{"result":{"pane":{"pane_id":"w1:p2","scroll":{"max_offset_from_bottom":205,"offset_from_bottom":205,"viewport_rows":64}}}}\n' > "$resp/2.out"

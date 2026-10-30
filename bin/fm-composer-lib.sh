@@ -599,9 +599,6 @@ fm_composer_strip_braille() {
 # also uses this value as the minimum Ctrl+U clear budget after a refused proof.
 FM_COMPOSER_CAPTURE_LINES=${FM_COMPOSER_CAPTURE_LINES:-20}
 
-# Most non-blank rows a live composer may have under it: its wrapped input
-# rows, an open slash popup (about 19 rows) and the footer. More means the
-# candidate is old output, not a composer.
 FM_COMPOSER_TRAILING_MAX_ROWS=${FM_COMPOSER_TRAILING_MAX_ROWS:-28}
 
 # Pi allows a multi-line composer between its horizontal separators. Bound the
@@ -1931,9 +1928,9 @@ _fm_composer_select_cursorless() {
       next=$((next + 1))
     done
   fi
+  boundary=$FM_COMPOSER_SELECTED_LAST
   if [ "$FM_COMPOSER_SELECTED_KIND" = box ] \
      || [ "$FM_COMPOSER_SELECTED_KIND" = leftbar ]; then
-    boundary=$FM_COMPOSER_SELECTED_LAST
     if [ "$FM_COMPOSER_SELECTED_KIND" = box ]; then
       boundary=$FM_COMPOSER_SCAN_BOX_BOTTOM
     else
@@ -1966,9 +1963,13 @@ _fm_composer_select_cursorless() {
   # prompt echo or composer fragment inside old output - the screen of a
   # viewport scrolled away from the live composer - so no composer is located.
   case "$FM_COMPOSER_SELECTED_KIND" in
-    box) boundary=$FM_COMPOSER_SCAN_BOX_BOTTOM ;;
     pi) boundary=$FM_COMPOSER_SCAN_PI_CLOSE ;;
-    *) boundary=$((FM_COMPOSER_SELECTED_FIRST - 1)) ;;
+    bare)
+      next=$((boundary + 1))
+      trimmed=$(_fm_composer_screen_row "$next" "$plain")
+      fm_composer_normalize_trim_var trimmed
+      if _fm_composer_pi_separator_row "$trimmed"; then boundary=$next; fi
+      ;;
   esac
   if [ "$footer" = 1 ] && [ "$FM_COMPOSER_FOOTER_AFTER" = "$boundary" ]; then
     boundary=$FM_COMPOSER_FOOTER_LAST

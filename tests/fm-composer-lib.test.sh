@@ -1668,9 +1668,9 @@ test_composerless_capture_is_unknown_not_pending() {
   local fill echo_row old_composer screen claude_idle reason
   claude_idle=$(printf 'claude\tidle')
   fill=$(for i in $(seq 1 40); do printf '  ⎿  tool output line %s\n' "$i"; done)
-  echo_row=$'❯ please fix the login bug\n'"$fill"
+  echo_row=$'❯ please fix the login bug\n\n'"$fill"
   old_composer=$'────────────────────────\n❯ old typed text\n────────────────────────\n'"$fill"
-  for screen in "$echo_row" "$old_composer" "$fill" $'  1 +foo\n❯ x\n'"$fill"; do
+  for screen in "$echo_row" "$old_composer" "$fill" $'  1 +foo\n❯ x\n\n'"$fill"; do
     assert_screen "composerless capture on herdr" unknown "$CAPS_STYLED" "$screen" '' "$claude_idle"
     assert_screen "composerless capture on zellij" unknown "$CAPS_STYLED_NOID" "$screen"
     assert_screen "composerless capture on cmux/orca" unknown "$CAPS_PLAIN" "$screen"
@@ -1691,3 +1691,64 @@ test_composerless_capture_is_unknown_not_pending() {
 }
 
 test_composerless_capture_is_unknown_not_pending
+
+test_trailing_output_excludes_composer_input_and_closing_structure() {
+  local kind count i screen expected caps out reason footer
+  footer=$(for i in $(seq 1 28); do printf '  footer row %s\n' "$i"; done)
+  for kind in bare titled leftbar box; do
+    for count in 28 40; do
+      screen=''
+      expected=''
+      case "$kind" in
+        bare) screen='❯ draft' ;;
+        titled) screen=$'──────── Claude ────────\n❯ draft' ;;
+        leftbar) screen='┃ draft' ;;
+        box) screen=$'╭────────────────────────╮\n│ ❯ draft                │' ;;
+      esac
+      expected=draft
+      for i in $(seq 1 "$count"); do
+        case "$kind" in
+          bare|titled) screen+=$'\n'"  continuation $i" ;;
+          leftbar) screen+=$'\n'"┃ continuation $i" ;;
+          box) screen+=$'\n'"│ continuation $(printf '%02d' "$i")        │" ;;
+        esac
+        case "$kind" in
+          box) expected+=" continuation $(printf '%02d' "$i")" ;;
+          *) expected+=" continuation $i" ;;
+        esac
+      done
+      case "$kind" in
+        titled) screen+=$'\n────────────────────────' ;;
+        leftbar) screen+=$'\n╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀' ;;
+        box) screen+=$'\n╰────────────────────────╯' ;;
+      esac
+      for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+        for out in "$screen" "$screen"$'\n\n'"$footer"; do
+          if [ "$caps" = "$CAPS_PLAIN" ] && [ "$kind" != box ]; then
+            assert_screen "$kind long draft on plain capture" unknown "$caps" "$out"
+          else
+            assert_screen "$kind long draft with $count continuation rows" pending "$caps" "$out"
+          fi
+          reason=$(fm_composer_none_reason "$caps" "$out")
+          [ -z "$reason" ] || fail "$kind long draft was rejected as $reason"
+          reason=$(fm_composer_extract_selected_content "$caps" "$out") \
+            || fail "$kind long draft could not be extracted"
+          [ "$reason" = "$expected" ] || fail "$kind long draft lost input: '$reason'"
+          reason=$(LC_ALL=C fm_composer_extract_selected_content "$caps" "$out") \
+            || fail "$kind long draft could not be extracted under LC_ALL=C"
+          [ "$reason" = "$expected" ] || fail "$kind long draft lost input under LC_ALL=C"
+        done
+      done
+      screen+=$'\n\n'"$footer"$'\n  one more output row'
+      assert_screen "$kind excess trailing output" unknown "$CAPS_STYLED" "$screen"
+      reason=$(fm_composer_none_reason "$CAPS_STYLED" "$screen")
+      [ "$reason" = scrolled-away ] || fail "$kind excess trailing output must reject the candidate"
+      if fm_composer_extract_selected_content "$CAPS_STYLED" "$screen" >/dev/null; then
+        fail "$kind stale candidate must not return draft content"
+      fi
+    done
+  done
+  pass "trailing-output limits exclude wrapped input and closing structure across composer shapes"
+}
+
+test_trailing_output_excludes_composer_input_and_closing_structure
