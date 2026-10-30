@@ -45,19 +45,14 @@
 #   - has no recorded PR handoff: the pr= line bin/fm-pr-check.sh records when a
 #     worker's PR is ready, after which the worker waits on review or merge and
 #     no longer uses local resources, and
-#   - is not a teardown-completed record with no live agent: its worktree= line
-#     is the <state-dir>/<id>.released-copy sentinel (bin/fm-teardown.sh) and
-#     its agent state is dead or missing, the rule bin/fm-capacity-lib.sh applies
-#     to lanes. A sentinel record whose agent is alive or of unknown liveness
-#     keeps its place.
-# A place therefore frees at a ready-PR handoff, record removal, or completed
-# teardown with a retained sentinel record whose agent is dead or missing.
+#   - holds a seat under fm_task_record_holds_seat below, the shared owner of
+#     the live-process rule also used by bin/fm-capacity-lib.sh's lane count.
 # A failed fresh spawn keeps its
 # record, and the place, until the endpoint is proven gone (rollback contract:
 # bin/fm-spawn.sh). That retained record counts against a retry of its own id
 # too; only a proven-gone endpoint lets admission skip that id's record.
-# A local-only ship
-# and a scout have no recorded handoff and hold their place until cleanup.
+# A local-only ship and a scout have no recorded handoff, so their retained
+# records count only while they hold a seat under that shared rule.
 # A worker that is steered back into work after its PR handoff is not counted again.
 # The declaration is matched by the spawning clone's directory name, so clones
 # of one origin share the cap only when they use that same directory name. A
@@ -78,6 +73,7 @@
 # the count.
 #
 # Requires bin/fm-wake-lib.sh (root home, local homes, project lock path),
+# bin/fm-agent-process-lib.sh (fm_agent_process_classify),
 # bin/fm-secondmate-registry-lib.sh (which the local-homes walk reads), and
 # bin/fm-backend.sh (fm_meta_get, fm_backend_of_meta, fm_backend_agent_state,
 # fm_task_record_endpoint_confirmed_gone) to be
@@ -173,6 +169,66 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
   return 0
 }
 
+# Does one task record hold a seat? The single owner of the rule shared by the
+# lane count (bin/fm-capacity-lib.sh) and the project count above. Returns 0
+# when the record holds a seat and 1 when it holds none. <raw> is the record's
+# text, <meta> its path, and <state-dir> the state directory that holds it.
+# Only an agent proven dead or missing can free a seat, and then only when the
+# record names bin/fm-teardown.sh's <state-dir>/<id>.released-copy sentinel or
+# its worktree is an absolute, readable, searchable directory that resolves to
+# a physical path with no non-shell process working in it or its descendants.
+# Use teardown's bounded cwd scan, never a recursive file-tree walk.
+# A live agent, unknown liveness, a missing or unreadable worktree, or missing,
+# unreadable or malformed process evidence keeps the seat.
+fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
+  local meta=$1 raw=$2 dir=$3 backend target worktree processes line pid path
+  local holds name args argv0
+  backend=$(printf '%s\n' "$raw" | sed -n 's/^backend=//p' | tail -1)
+  target=$(printf '%s\n' "$raw" | sed -n 's/^window=//p' | tail -1)
+  case "$(fm_backend_agent_state "${backend:-tmux}" "$target")" in
+    dead|missing) ;;
+    *) return 0 ;;
+  esac
+  worktree=$(printf '%s\n' "$raw" | sed -n 's/^worktree=//p' | tail -1)
+  # A teardown-completed record names the <id>.released-copy sentinel, which is
+  # never a real directory, so with no live agent it holds no seat.
+  [ "$worktree" != "$dir/$(basename "$meta" .meta).released-copy" ] || return 1
+  if [[ "$worktree" = /* ]] && [ -d "$worktree" ] && [ -r "$worktree" ] && [ -x "$worktree" ] \
+     && worktree=$(cd "$worktree" && pwd -P) \
+     && processes=$(lsof -a -d cwd -Fpn 2>/dev/null); then
+    holds=0 pid=
+    while IFS= read -r line; do
+      case "$line" in
+        p*)
+          pid=${line#p}
+          case "$pid" in ''|*[!0-9]*) holds=1; break ;; esac
+          ;;
+        fcwd) [ -n "$pid" ] || { holds=1; break; } ;;
+        n*)
+          [ -n "$pid" ] || { holds=1; break; }
+          path=${line#n}
+          case "$path" in
+            "$worktree"|"$worktree"/*)
+              [ "$pid" != "$$" ] || continue
+              name=$(ps -p "$pid" -o comm= 2>/dev/null) || { holds=1; break; }
+              args=$(ps -p "$pid" -o args= 2>/dev/null) || { holds=1; break; }
+              [ -n "$name" ] && [ -n "$args" ] || { holds=1; break; }
+              read -r argv0 _ <<< "$args"
+              if [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" != shell ]; then
+                holds=1; break
+              fi
+              ;;
+          esac
+          ;;
+        '') ;;
+        *) holds=1; break ;;
+      esac
+    done <<< "$processes"
+    [ "$holds" -ne 0 ] || return 1
+  fi
+  return 0
+}
+
 # Count the task records holding a place in one project's capacity.
 # <project-lock> is fm_treehouse_project_lock_path for the project being
 # admitted, and <project-dir> is that project's own directory, which matches
@@ -216,14 +272,7 @@ fm_project_capacity_occupants() {  # <project-lock> <project-dir> <first-state> 
       kind=$(fm_meta_get "$meta" kind)
       [ "$kind" != secondmate ] || continue
       [ -z "$(fm_meta_get "$meta" pr)" ] || continue
-      # A teardown-completed record names the <id>.released-copy sentinel; with
-      # no live agent it holds no place, the rule bin/fm-capacity-lib.sh applies
-      # to lanes. Unknown liveness keeps the place.
-      if [ "$(fm_meta_get "$meta" worktree)" = "$state/$(basename "$meta" .meta).released-copy" ]; then
-        case "$(fm_backend_agent_state "$(fm_backend_of_meta "$meta")" "$(fm_meta_get "$meta" window)")" in
-          dead|missing) continue ;;
-        esac
-      fi
+      fm_task_record_holds_seat "$meta" "$(cat -- "$meta")" "$state" || continue
       project=$(fm_meta_get "$meta" project)
       [ -n "$project" ] || continue
       lock=

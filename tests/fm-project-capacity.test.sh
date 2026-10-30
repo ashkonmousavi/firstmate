@@ -560,6 +560,63 @@ test_released_copy_without_live_agent_holds_no_place() {
   pass "a released-copy record holds a place only while its agent is alive"
 }
 
+# A dead or missing agent frees its place when its worktree is a readable
+# directory with no non-shell process in it, the rule bin/fm-capacity-lib.sh
+# applies to lanes. A non-shell process inside the worktree, a live agent, and
+# unknown evidence (a missing worktree) each keep the place.
+test_exited_record_with_idle_worktree_holds_no_place() {
+  local case_dir home out rc=0 n holder
+  case_dir=$(make_case exited task-c task-d)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 2"
+  for n in 1 2; do
+    mkdir -p "$case_dir/idle-$n"
+    write_live "$home" idle-$n "$case_dir/project" "worktree=$case_dir/idle-$n"
+  done
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code 0 "$rc" "dead records with idle worktrees held places: $out"
+
+  mkdir -p "$case_dir/busy"
+  write_live "$home" busy "$case_dir/project" "worktree=$case_dir/busy"
+  ( cd "$case_dir/busy" && exec sleep 60 ) &
+  holder=$!
+  sleep 0.3
+  rc=0
+  out=$(spawn_ship "$case_dir" task-d "$case_dir/unused") || rc=$?
+  kill "$holder" 2>/dev/null
+  wait "$holder" 2>/dev/null
+  expect_code "$DEFER_EXIT" "$rc" "a record with a process in its worktree freed its place: $out"
+  assert_contains "$out" "2 already hold a place (busy, task-c)" \
+    "occupancy counted the wrong exited records"
+  pass "an exited record frees its place unless a process still works in its worktree"
+}
+
+test_exited_record_with_unknown_evidence_keeps_its_place() {
+  local case_dir home out rc=0
+  case_dir=$(make_case unknown task-c)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 1"
+  write_live "$home" gone "$case_dir/project" "worktree=$case_dir/never-created"
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "a record with a missing worktree freed its place: $out"
+  assert_contains "$out" "1 already hold a place (gone)" "the unknown-evidence record was not counted"
+  pass "a dead record with a missing worktree keeps its place"
+}
+
+test_live_agent_with_idle_worktree_keeps_its_place() {
+  local case_dir home out rc=0
+  case_dir=$(make_case live-idle task-c)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 1"
+  mkdir -p "$case_dir/idle"
+  write_live "$home" alive "$case_dir/project" "worktree=$case_dir/idle"
+  printf '%s\n' "fm-alive" >> "$case_dir/calls.log.window"
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "a live agent freed its place: $out"
+  assert_contains "$out" "1 already hold a place (alive)" "the live agent was not counted"
+  pass "a live agent keeps its place"
+}
+
 # Capacity belongs to the machine: a local secondmate home's workers on a
 # separate clone of the same origin count, the declaration comes from the root
 # home even when the secondmate spawns, and a remote home's workers never count.
@@ -1122,6 +1179,9 @@ test_release_frees_a_place
 test_restart_does_not_count_its_own_record
 test_occupancy_counts_only_this_projects_workers
 test_released_copy_without_live_agent_holds_no_place
+test_exited_record_with_idle_worktree_holds_no_place
+test_exited_record_with_unknown_evidence_keeps_its_place
+test_live_agent_with_idle_worktree_keeps_its_place
 test_capacity_is_shared_by_every_local_home
 test_unreadable_holders_refuse_admission
 test_concurrent_spawns_cannot_both_take_the_last_place
