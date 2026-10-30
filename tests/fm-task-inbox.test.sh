@@ -1627,6 +1627,16 @@ test_watcher_pays_fire_and_forget_retry_once() {
     sleep 0.1
     i=$((i + 1))
   done
+  # Literal input precedes submission confirmation and retry bookkeeping.
+  # Observe the spent retry before timing the no-second-ring window.
+  i=0
+  while [ "$i" -lt 150 ] && [ -e "$state/t1.inbox/.retry-ring" ]; do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.1
+    i=$((i + 1))
+  done
+  [ ! -e "$state/t1.inbox/.retry-ring" ] \
+    || { kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; fail "the watcher did not complete retry bookkeeping:"$'\n'"$(cat "$out")"; }
   sleep 3
   kill -0 "$pid" 2>/dev/null \
     || fail "a fire-and-forget retry must not wake firstmate (watcher exited):"$'\n'"$(cat "$out")"

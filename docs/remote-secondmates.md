@@ -490,7 +490,7 @@ The `fm-send.sh` header owns the setting's default and validation contract.
 
 Either outcome preserves this ordinary reply-bearing request's pending-reply expectation for the record that may have landed.
 
-If delivery remains unconfirmed, use the exact resend command printed by `fm-send`; its [header](../bin/fm-send.sh) owns reply-bearing, one-way, and fire-and-forget retry identities.
+If delivery remains unconfirmed, follow the retry guidance printed by `fm-send`; its [header](../bin/fm-send.sh) owns reply-bearing, one-way, and fire-and-forget retry identities.
 When deduplication finds that the worker already moved the matching record into `handled/`, the resend exits successfully without ringing the doorbell again.
 
 ### Swallowed doorbells
@@ -600,7 +600,7 @@ A line written before that position was recorded does not match, so the next bre
 ### SSH exit 255 and unavailable homes
 
 An SSH exit status of 255 always means transport failure or unknown remote completion.
-The underlying `fm-on` transport never retries automatically, but `fm-send` retries its identity-preserving steering-inbox leg exactly once.
+The underlying `fm-on` transport never retries automatically; `fm-send` owns the bounded steering-inbox retry described [above](#retries-and-safe-resends).
 Semantic callers preserve the route or pending request:
 
 - An operation that is not idempotent requires same-host reconciliation rather than a blind resend.

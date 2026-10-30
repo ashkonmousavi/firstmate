@@ -159,7 +159,7 @@
 # hit is completion-unknown and exits through this same unconfirmed contract
 # instead of waiting out a busy remote queue.
 # A swallowed remote doorbell is re-rung by the parent watcher's remote inbox
-# ladder (bin/fm-task-inbox-lib.sh "Remote leg"), and a marked request's
+# ladder (bin/fm-task-inbox-lib.sh "Remote leg"), and a reply-bearing marked request's
 # pending-reply recovery re-rings it again when its recovery request is
 # enqueued; fire-and-forget records stay outside both. Internal
 # semantic callers may set FM_SEND_EXPECTED_SPAWN_GEN or
