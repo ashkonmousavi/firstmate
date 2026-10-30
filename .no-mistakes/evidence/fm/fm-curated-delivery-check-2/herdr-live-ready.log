@@ -1,0 +1,9 @@
+Ready composer=empty
+First and retry path: ~/.no-mistakes/worktrees/049a88734b0e/01M6516DGGA228B9AYMG5Z2CK3/.validation-lab/herdr-home-ready/state/mate.inbox/001.msg
+Real Herdr ring exit=0 reason=ok
+Post-ack retry path: ~/.no-mistakes/worktrees/049a88734b0e/01M6516DGGA228B9AYMG5Z2CK3/.validation-lab/herdr-home-ready/state/mate.inbox/handled/001.msg
+schema=fm-task-inbox.v1
+at=2026-10-30T00:08:21Z
+request-id=0123456789abcdef0123456789abcdef
+--
+Run exactly this shell command: touch '~/.no-mistakes/worktrees/049a88734b0e/01M6516DGGA228B9AYMG5Z2CK3/.validation-lab/herdr-home-ready/acted'. Then move this message into handled/.HERDR_LIVE_SUCCESS: one request record, worker acted and handled, conflicting reuse refused.

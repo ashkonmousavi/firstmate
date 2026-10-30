@@ -1,0 +1,5 @@
+curated-delivery: open PRs to main without base-main-ok: 89 90 94 145
+open PR targets main without base-main-ok: #89 test: reap owned fixture children before removing test roots https://github.com/ashkonmousavi/firstmate/pull/89
+open PR targets main without base-main-ok: #90 fix: honor ship-light delivery for checkpoint-tested fixes https://github.com/ashkonmousavi/firstmate/pull/90
+open PR targets main without base-main-ok: #94 ci: route fork Linux jobs to shared self-hosted runners https://github.com/ashkonmousavi/firstmate/pull/94
+open PR targets main without base-main-ok: #145 feat: evaluate hold release conditions and relay walk requests https://github.com/ashkonmousavi/firstmate/pull/145

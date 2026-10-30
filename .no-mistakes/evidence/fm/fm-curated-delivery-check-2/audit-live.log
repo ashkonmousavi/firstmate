@@ -1,0 +1,75 @@
+Note: switching to '9b6f74c2adb156813f34ecae5614c5ef118d0f6c'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+BEFORE: isolated curated and three home HEADs at 6be965824a45a1b08efca91a876ed281b9ce7904
+curated-delivery: merged PRs not on curated: 121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149 151 152 153 154 155 156 157 158 159; open PRs to main without base-main-ok: 89 90 94 145; homes behind: laptop pc server; missing home PRs: pc=121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149  [truncated]
+merged PR not on curated: #121 feat: curate stage 1 delivery and supervision fixes https://github.com/ashkonmousavi/firstmate/pull/121
+merged PR not on curated: #123 fix: stabilize composer detection and remote supervision https://github.com/ashkonmousavi/firstmate/pull/123
+merged PR not on curated: #124 feat: add machine lane ceilings and memory-aware admission https://github.com/ashkonmousavi/firstmate/pull/124
+merged PR not on curated: #125 test: clean up supervision host processes between cases https://github.com/ashkonmousavi/firstmate/pull/125
+merged PR not on curated: #126 fix: guard teardown against unmerged PRs and dependent items https://github.com/ashkonmousavi/firstmate/pull/126
+merged PR not on curated: #127 fix: reduce unnecessary owner escalations https://github.com/ashkonmousavi/firstmate/pull/127
+merged PR not on curated: #128 fix: preserve remote jobs when the readiness heartbeat dies https://github.com/ashkonmousavi/firstmate/pull/128
+merged PR not on curated: #129 fix: retain spawn capacity until endpoint absence is confirmed https://github.com/ashkonmousavi/firstmate/pull/129
+merged PR not on curated: #130 fix: keep unvalidated no-mistakes handoffs actionable https://github.com/ashkonmousavi/firstmate/pull/130
+merged PR not on curated: #131 fix: submit stranded inbox doorbells and surface exited agents https://github.com/ashkonmousavi/firstmate/pull/131
+merged PR not on curated: #132 feat: automatically recover conflicted PRs and flag dispatch overlaps https://github.com/ashkonmousavi/firstmate/pull/132
+merged PR not on curated: #133 fix: confirm cross-home backlog delivery before closing source items https://github.com/ashkonmousavi/firstmate/pull/133
+merged PR not on curated: #134 fix: preserve open PR tasks and merge watches during cleanup https://github.com/ashkonmousavi/firstmate/pull/134
+merged PR not on curated: #135 fix: steer and escalate ships stopped before validation https://github.com/ashkonmousavi/firstmate/pull/135
+merged PR not on curated: #136 fix: preserve request acceptance and enforce delivery proof https://github.com/ashkonmousavi/firstmate/pull/136
+merged PR not on curated: #138 feat: add guarded proof transitions and MAIN backstop send control https://github.com/ashkonmousavi/firstmate/pull/138
+merged PR not on curated: #139 fix: handle multi-line backstop replies and legacy state https://github.com/ashkonmousavi/firstmate/pull/139
+merged PR not on curated: #140 fix: retry preempted remote reply reads https://github.com/ashkonmousavi/firstmate/pull/140
+merged PR not on curated: #141 fix: prevent watcher checks from starving later checks https://github.com/ashkonmousavi/firstmate/pull/141
+merged PR not on curated: #142 fix: preserve backstop cursors and avoid false resync alarms https://github.com/ashkonmousavi/firstmate/pull/142
+merged PR not on curated: #143 fix: distinguish owner requests from agent decisions https://github.com/ashkonmousavi/firstmate/pull/143
+merged PR not on curated: #144 feat: add one-way steers and improve doorbell delivery https://github.com/ashkonmousavi/firstmate/pull/144
+merged PR not on curated: #146 fix: deduplicate unread conflict steers and recover unavailable workers https://github.com/ashkonmousavi/firstmate/pull/146
+merged PR not on curated: #148 ci: split canonical lint across four jobs https://github.com/ashkonmousavi/firstmate/pull/148
+merged PR not on curated: #149 docs: require pointing hand prefix for captain questions https://github.com/ashkonmousavi/firstmate/pull/149
+merged PR not on curated: #151 fix: skip duplicate local lint in no-mistakes https://github.com/ashkonmousavi/firstmate/pull/151
+merged PR not on curated: #152 fix: align captain-facing language with the home glossary https://github.com/ashkonmousavi/firstmate/pull/152
+merged PR not on curated: #153 fix: confirm fm-send submissions with bounded Enter retries https://github.com/ashkonmousavi/firstmate/pull/153
+merged PR not on curated: #154 feat: add safe retirement for stale pending replies https://github.com/ashkonmousavi/firstmate/pull/154
+merged PR not on curated: #155 fix: recover dead crewmates with unlanded work after reboot https://github.com/ashkonmousavi/firstmate/pull/155
+merged PR not on curated: #156 ci: give portable serial shards timeout headroom https://github.com/ashkonmousavi/firstmate/pull/156
+merged PR not on curated: #157 fix: prevent Claude workers from surviving exit https://github.com/ashkonmousavi/firstmate/pull/157
+merged PR not on curated: #158 fix: close stale in-flight records for finished PRs https://github.com/ashkonmousavi/firstmate/pull/158
+merged PR not on curated: #159 fix: report failure steps for inbox doorbell rings https://github.com/ashkonmousavi/firstmate/pull/159
+open PR targets main without base-main-ok: #89 test: reap owned fixture children before removing test roots https://github.com/ashkonmousavi/firstmate/pull/89
+open PR targets main without base-main-ok: #90 fix: honor ship-light delivery for checkpoint-tested fixes https://github.com/ashkonmousavi/firstmate/pull/90
+open PR targets main without base-main-ok: #94 ci: route fork Linux jobs to shared self-hosted runners https://github.com/ashkonmousavi/firstmate/pull/94
+open PR targets main without base-main-ok: #145 feat: evaluate hold release conditions and relay walk requests https://github.com/ashkonmousavi/firstmate/pull/145
+home pc: HEAD lacks merged PRs: 121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149 151 152 153 154 155 156 157 158 159
+home server: HEAD lacks merged PRs: 121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149 151 152 153 154 155 156 157 158 159
+home laptop: HEAD lacks merged PRs: 121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149 151 152 153 154 155 156 157 158 159
+error: duplicate parent 6be965824a45a1b08efca91a876ed281b9ce7904 ignored
+AFTER: isolated curated and all three homes at adf78cbf83a5ea648dfb7d869764e7d0d73b457e; audit output bytes=703
+curated-delivery: open PRs to main without base-main-ok: 89 90 94 145
+open PR targets main without base-main-ok: #89 test: reap owned fixture children before removing test roots https://github.com/ashkonmousavi/firstmate/pull/89
+open PR targets main without base-main-ok: #90 fix: honor ship-light delivery for checkpoint-tested fixes https://github.com/ashkonmousavi/firstmate/pull/90
+open PR targets main without base-main-ok: #94 ci: route fork Linux jobs to shared self-hosted runners https://github.com/ashkonmousavi/firstmate/pull/94
+open PR targets main without base-main-ok: #145 feat: evaluate hold release conditions and relay walk requests https://github.com/ashkonmousavi/firstmate/pull/145
+curated-delivery: open PRs to main without base-main-ok: 89 90 94 145; homes behind: server; missing home PRs: server=121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149 151 152 153 154 155 156 157 158 159
+open PR targets main without base-main-ok: #89 test: reap owned fixture children before removing test roots https://github.com/ashkonmousavi/firstmate/pull/89
+open PR targets main without base-main-ok: #90 fix: honor ship-light delivery for checkpoint-tested fixes https://github.com/ashkonmousavi/firstmate/pull/90
+open PR targets main without base-main-ok: #94 ci: route fork Linux jobs to shared self-hosted runners https://github.com/ashkonmousavi/firstmate/pull/94
+open PR targets main without base-main-ok: #145 feat: evaluate hold release conditions and relay walk requests https://github.com/ashkonmousavi/firstmate/pull/145
+home server: HEAD lacks 141 curated commit(s) (tip adf78cbf)
+home server: HEAD lacks merged PRs: 121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149 151 152 153 154 155 156 157 158 159
+LIVE_AUDIT_SUCCESS

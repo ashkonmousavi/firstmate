@@ -1,0 +1,3 @@
+ok - watcher: a fire-and-forget record's owed retry rings exactly once and never escalates
+ok - watcher: a fire-and-forget retry waits out the worker's own decision, then rings once
+ok - watcher: spending a retry keeps a newer record's mark written during its ring

@@ -1,0 +1,39 @@
+AFTER INBOX ACK ONLY: phase=escalated
+handled, no reply needed: mate 07de368038ae969b
+handled, no reply needed: mate 07de368038ae969b
+WRONG TASK ATTEMPT:
+error: exact pending record or parent status missing
+ACKNOWLEDGED RECORD:
+schema=fm-pending-reply.v1
+corr_id=07de368038ae969b
+task_id=mate
+parent_home=~/.no-mistakes/worktrees/049a88734b0e/01M6516DGGA228B9AYMG5Z2CK3/.validation-lab/ack-home
+parent_status=~/.no-mistakes/worktrees/049a88734b0e/01M6516DGGA228B9AYMG5Z2CK3/.validation-lab/ack-home/state/mate.status
+parent_status_scan_signature=
+request_summary=status only
+created_epoch=1793318711
+delivered_epoch=
+turn_seen_busy=0
+request_turn_completed_epoch=
+recovery_attempted_epoch=
+recovery_sender_pid=
+recovery_sender_identity=
+recovery_sent_epoch=
+recovery_delivery_outcome=
+recovery_turn_seen_busy=0
+recovery_turn_completed_epoch=
+wrong_home_hits=0
+wrong_home_first_sighting=
+wrong_home_sightings=
+wrong_home_scan_signature=
+grace_secs=120
+escalated_epoch=123
+resolved_via=handled
+resolved_epoch=1793318711
+phase=resolved
+escalation_closed_epoch=1793318712
+UNRELATED RECORD STILL OPEN: phase=escalated
+PARENT STATUS:
+blocked [key=pending-reply-07de368038ae969b]: pending-reply-missed: task=mate pending-reply-id=07de368038ae969b request=status only
+blocked [key=pending-reply-e0adb668716788e2]: pending-reply-missed: task=mate pending-reply-id=e0adb668716788e2 request=report completion
+resolved [key=pending-reply-07de368038ae969b] [at=1793318711]: pending-reply-resolved: task=mate pending-reply-id=07de368038ae969b via=handled handled, no reply needed

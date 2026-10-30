@@ -26,6 +26,16 @@ ok - fm-control: the verb list is closed - no raw keys, arbitrary text, or clear
 ok - fm-control: resume is refused with the determinism reason and the alternative
 ok - fm-control: profile and note flags belong to relaunch only
 ok - fm-control exit: an already-stopped agent is idempotent success with no bytes sent
+ok - fm-control exit (claude): exact-session removal stops earlier incarnations and preserves unrelated work
+ok - fm-control exit (claude): cleanup includes stopped, completed, and failed records omitted by the default listing
+ok - fm-control exit (claude): failed removal prevents cleanup success
+ok - fm-control exit (claude): no background session reports none and stops nothing
+ok - fm-control exit (claude): stops background sessions of this worktree only
+ok - fm-control exit (claude): a surviving background session fails the exit naming it
+ok - fm-control exit (claude): an unreadable session listing is reported unverified
+ok - fm-control exit (claude): an already-stopped agent's leftover background session is stopped
+ok - fm-control exit (claude): listing and stop retain each kind's launch account after pin changes
+ok - fm-control exit: a non-Claude harness never reaches the claude session check
 ok - fm-control exit: an unprovable tmux endpoint refuses instead of claiming the agent stopped
 ok - fm-control interrupt: refuses when no agent is running rather than keying a shell
 ok - fm-control exit: an endpoint whose process cannot be attributed refuses

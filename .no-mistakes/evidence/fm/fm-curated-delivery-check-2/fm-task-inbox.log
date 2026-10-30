@@ -2,9 +2,14 @@ ok - inbox: a steer is written durably and round-trips byte-exact with a self-de
 ok - inbox: a hostile-name doorbell executes as a no-op in bare shells
 ok - inbox: terminal-control inbox names are rejected without typing
 ok - inbox: the ring skips dead or missing endpoints and still rings live or unclassifiable endpoints
+ok - inbox: the ring names the step behind each result, keeps every code, and never rewrites the record
+ok - inbox: existing doorbells distinguish failed reads, foreign drafts and exhausted retries while preserving successful delivery
+ok - inbox: every backend distinguishes a preflight dialog from a failed dialog sink without typing
 ok - inbox: the ring submits its own stuck doorbell, skips other pending text, and retries a lost Enter once on both paths
 ok - inbox: a Cursor composer holding our doorbell gets one Enter; foreign text is left alone
 ok - mate: our own doorbell is submitted with one Enter; foreign pending text is not
+ok - inbox: receipts confirm only the exact new prompt in the same incarnation across lifecycle events
+ok - inbox: exact prompt receipts, fixed Enter budgets, and unreadable captures preserve delivery proof
 ok - inbox: the idempotent enqueue dedups an exact re-run onto the same record, handled or not
 ok - inbox: one bulk header parse selects only matching one-way requests across retained history
 ok - inbox: bulk header selection follows an acknowledgement before opening the record
@@ -44,19 +49,4 @@ ok - watcher: a non-busy failed delivery breaks the busy streak and preserves th
 ok - watcher: a healthy or empty inbox stays completely silent
 ok - watcher: acknowledgement silences an unwritable ladder without a stale wake
 ok - watcher: unwritable ladder bookkeeping surfaces a stale wake after the doorbell
-ok - watcher: a fire-and-forget record's owed retry rings exactly once and never escalates
-ok - watcher: a fire-and-forget retry waits out the worker's own decision, then rings once
-ok - watcher: spending a retry keeps a newer record's mark written during its ring
-ok - watcher: a spent ring budget emits exactly one ordinary stale wake for recovery
-ok - watcher: a ring budget spent only on skips escalates once and never submits the draft
-ok - watcher: a pane that shows a shell and no agent is reported once and not re-rung
-ok - watcher: dead-pane recovery overrides stale busy state
-ok - watcher: a busy claude pane receives the doorbell followed by Enter
-ok - watcher: a busy claude-latest pane receives the doorbell followed by Enter
-ok - watcher: a busy opencode pane receives the doorbell followed by Enter
-ok - watcher: rovo defers while busy and submits the doorbell once on idle
-ok - watcher: rovo-preview defers while busy and submits the doorbell once on idle
-ok - watcher: rovo defers while busy and submits the doorbell once on idle
-ok - watcher: rovo-preview defers while busy and submits the doorbell once on idle
-ok - watcher: a non-queue runtime is re-rung on the next idle observation after stuck-busy
-ok - watcher: a non-queue runtime deferred while busy is re-rung on idle inside grace
+not ok - the watcher did not spend the retry mark

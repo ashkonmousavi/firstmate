@@ -1,0 +1,7 @@
+curated-delivery: open PRs to main without base-main-ok: 89 90 94 145; homes behind: server; missing home PRs: server=121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149 151 152 153 154 155 156 157 158 159
+open PR targets main without base-main-ok: #89 test: reap owned fixture children before removing test roots https://github.com/ashkonmousavi/firstmate/pull/89
+open PR targets main without base-main-ok: #90 fix: honor ship-light delivery for checkpoint-tested fixes https://github.com/ashkonmousavi/firstmate/pull/90
+open PR targets main without base-main-ok: #94 ci: route fork Linux jobs to shared self-hosted runners https://github.com/ashkonmousavi/firstmate/pull/94
+open PR targets main without base-main-ok: #145 feat: evaluate hold release conditions and relay walk requests https://github.com/ashkonmousavi/firstmate/pull/145
+home server: HEAD lacks 141 curated commit(s) (tip adf78cbf)
+home server: HEAD lacks merged PRs: 121 123 124 125 126 127 128 129 130 131 132 133 134 135 136 138 139 140 141 142 143 144 146 148 149 151 152 153 154 155 156 157 158 159
