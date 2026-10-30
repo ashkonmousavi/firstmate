@@ -54,9 +54,9 @@
 # FM_TOOL_UPDATE_PROBE_SECS (default 5, valid 1..30) and a whole sweep by
 # FM_TOOL_UPDATE_BUDGET_SECS (default 20, valid 1..120).
 #
-# The sweep has to finish inside the watcher's own per check bound, because a run
-# the watcher kills prints nothing and writes no record, so it would repeat that
-# silence on every poll. That coupling is enforced rather than assumed: a budget
+# The sweep must finish inside the watcher's per-check bound to publish its
+# report and record. See docs/configuration.md's FM_CHECK_TIMEOUT default for
+# watcher timeout behavior. That coupling is enforced rather than assumed: a budget
 # larger than FM_CHECK_TIMEOUT (default 30, read from this check's own
 # environment because the watcher runs it as a direct child) allows is cut down
 # to what fits, and the cut is reported in the report line so the operator sees
