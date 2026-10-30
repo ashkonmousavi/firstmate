@@ -23,8 +23,8 @@ RELEASE=0123456789abcdef0123456789abcdef01234567
 unset FM_WALK_REQUEST_PROJECT FM_WALK_REQUEST_TARGET
 
 # make_mate <name>: a local-route secondmate home reporting into <parent>.
-make_mate() {  # <name> <parent-home>
-  local mate="$TMP_ROOT/$1" parent=$2
+make_mate() {  # <name> <parent-home> [<home-dir-under-TMP_ROOT>]
+  local mate="$TMP_ROOT/${3:-$1}" parent=$2
   mkdir -p "$mate/state" "$mate/data/walk-briefs" "$parent/state"
   printf 'walk brief\n' > "$mate/data/walk-briefs/brief.md"
   printf '%s\n' "$1" > "$mate/.fm-secondmate-home"
@@ -576,7 +576,7 @@ SH
 }
 
 test_slow_deliveries_are_bounded_and_fair() {
-  local parent mate dispatch send n corr walks out
+  local parent mate dispatch send n corr walks out rc all_attempted
   parent=$(make_parent fair-main)
   dispatch="$parent/fake-dispatch"
   send="$parent/fake-send"
@@ -604,11 +604,22 @@ SH
     fi
   done
   . "$ROOT/bin/fm-timeout-lib.sh"
-  for n in {1..8}; do
+  # A bounded sweep may visit only one record. Wait for observable attempts
+  # across records and siblings instead of assuming eight sweeps suffice.
+  for n in {1..20}; do
+    rc=0
     FM_HOME="$parent" FM_STATE_OVERRIDE="$parent/state" FM_CHECK_TIMEOUT=4 \
       FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
-      FM_WALK_REQUEST_SEND_BOUND=25 fm_run_timed 4 "$CHECK" check > "$parent/check-output" \
-      || fail "a sweep must yield inside the registered check's bound"
+      FM_WALK_REQUEST_SEND_BOUND=25 fm_run_timed 4 "$CHECK" check > "$parent/check-output" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      cat "$parent/check-output" >&2
+      fail "sweep $n must yield inside the registered check's bound (rc=$rc)"
+    fi
+    all_attempted=1
+    for walks in first middle last other request; do
+      grep -q "walk $walks@" "$send.attempts" 2>/dev/null || all_attempted=0
+    done
+    [ "$all_attempted" -eq 0 ] || break
   done
   for walks in first middle last other request; do
     assert_grep "walk $walks@" "$send.attempts" "pending outcome $walks must get a turn despite stalled transports"
@@ -620,6 +631,86 @@ SH
   [ -z "$out" ] || fail "fully delivered records must be quiet"
   [ "$(wc -l < "$send.calls")" -eq 5 ] || fail "completed records must not resend"
   pass "walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks"
+}
+
+test_dot_named_home_ancestors_are_accepted() {
+  local parent mate rc out outside bad
+  parent=$(make_parent dot-main)
+  mate=$(make_mate dot-mate "$parent" .treehouse/mate-home)
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks dot --bot Walker) \
+    || fail "a home under a dot-named directory must accept its own walk brief"
+  printf '%s\n' "$out" | grep -q '^corr=' || fail "the dot-named home request must publish"
+  mkdir -p "$mate/data/walk-briefs/.private" "$mate/data/walk-briefs/config" "$mate/data/walk-briefs/state"
+  outside="$TMP_ROOT/dot-outside.md"
+  printf 'outside\n' > "$outside"
+  printf 'x\n' > "$mate/data/walk-briefs/.hidden.md"
+  printf 'x\n' > "$mate/data/walk-briefs/.private/brief.md"
+  printf 'x\n' > "$mate/data/walk-briefs/config/brief.md"
+  printf 'x\n' > "$mate/data/walk-briefs/state/brief.md"
+  ln -s "$outside" "$mate/data/walk-briefs/escape.md"
+  ln -s "$mate/data/walk-briefs/.hidden.md" "$mate/data/walk-briefs/dotlink.md"
+  ln -s "$mate/data/walk-briefs/config/brief.md" "$mate/data/walk-briefs/cfglink.md"
+  for bad in "$mate/data/walk-briefs/.hidden.md" "$mate/data/walk-briefs/.private/brief.md" \
+    "$mate/data/walk-briefs/config/brief.md" "$mate/data/walk-briefs/state/brief.md" \
+    "$mate/data/walk-briefs/escape.md" "$mate/data/walk-briefs/dotlink.md" "$mate/data/walk-briefs/cfglink.md"; do
+    rc=0
+    run_carrier "$mate" --brief "$bad" --release "$RELEASE" --walks dot --bot Walker >/dev/null 2>&1 || rc=$?
+    expect_code 2 "$rc" "private or escaping briefs below a dot-named home must stay refused: $bad"
+  done
+  pass "walk-request: dot-named home ancestors are accepted while private parts below the home stay refused"
+}
+
+test_cross_home_symlink_literal_boundaries() {
+  local parent mate mate_alias parent_alias source source_alias target literal part action rc out corr n=0
+  local -a args
+  parent=$(make_parent cross-main)
+  mate=$(make_mate cross-mate "$parent" .treehouse/cross-mate)
+  mate_alias="$TMP_ROOT/cross-mate-alias"
+  parent_alias="$TMP_ROOT/cross-main-alias"
+  ln -s "$mate" "$mate_alias"
+  ln -s "$parent" "$parent_alias"
+  for source in "$mate/data/walk-briefs" "$parent/data/from-main/walk-lists"; do
+    if [ "$source" = "$mate/data/walk-briefs" ]; then
+      source_alias="$mate_alias/data/walk-briefs"
+      target="$parent/data/from-main/walk-lists/brief.md"
+    else
+      source_alias="$parent_alias/data/from-main/walk-lists"
+      target="$mate/data/walk-briefs/brief.md"
+    fi
+    for part in approved.md .hidden.md .private/brief.md config/brief.md state/brief.md Config/brief.md State/brief.md; do
+      mkdir -p "$(dirname "$source/$part")"
+      ln -s "$target" "$source/$part"
+      for literal in "$source/$part" "$source_alias/$part"; do
+        for action in path encode stage; do
+          n=$((n + 1))
+          printf -v corr '%016x' "$n"
+          if [ "$action" = stage ]; then
+            args=(stage "$parent_alias" "$corr" local "$literal" "$mate_alias")
+          else
+            args=("$action" "$literal" "$mate_alias" "$parent_alias")
+          fi
+          rc=0
+          out=$(python3 "$ROOT/bin/fm-walk-request-path.py" "${args[@]}" 2>&1) || rc=$?
+          if [ "$part" = approved.md ]; then
+            expect_code 0 "$rc" "a public cross-home link must remain accepted by $action: $literal"
+            case "$action" in
+              path) [ "$out" = "$target" ] || fail "path must return the resolved cross-home brief" ;;
+              encode) [ "$out" = "$(base64 < "$target" | tr -d '\n')" ] || fail "encode must return the cross-home brief bytes" ;;
+              stage) cmp -s "$out" "$target" || fail "stage must snapshot the cross-home brief bytes" ;;
+            esac
+          else
+            expect_code 2 "$rc" "$action must refuse private literal parts across homes: $literal"
+            assert_contains "$out" 'brief path contains a private or relative component' "the literal path must cause the refusal"
+          fi
+        done
+      done
+    done
+  done
+  ln -s "$mate/data/walk-briefs/brief.md" "$TMP_ROOT/cross-outside.md"
+  rc=0
+  python3 "$ROOT/bin/fm-walk-request-path.py" path "$TMP_ROOT/cross-outside.md" "$mate_alias" "$parent_alias" >/dev/null 2>&1 || rc=$?
+  expect_code 2 "$rc" "a literal path outside both homes must be refused even with an approved target"
+  pass "walk-request: literal privacy holds across homes and home aliases for path, encode, and stage"
 }
 
 test_brief_disclosure_boundaries() {
@@ -1028,6 +1119,8 @@ test_lost_dispatches_and_delivery_recover_independently
 test_launch_progress_survives_interruption
 test_launch_is_portable_and_failures_return
 test_slow_deliveries_are_bounded_and_fair
+test_dot_named_home_ancestors_are_accepted
+test_cross_home_symlink_literal_boundaries
 test_brief_disclosure_boundaries
 test_complete_reports_survive_recovery_and_return_with_pointers
 test_historical_discovery_reserves_processing_and_advances

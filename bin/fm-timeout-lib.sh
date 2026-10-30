@@ -286,6 +286,7 @@ fm_exec_timed() {  # <seconds> <grace-seconds> <command...>
 
 fm_checkpoint_clock() {
   local monotonic
+  # SECONDS follows wall-clock corrections, which must not extend a sweep.
   # Preserve epoch deadlines while measuring elapsed time independently of
   # wall-clock corrections. Uptime avoids a subprocess on Linux; macOS uses
   # the same portable monotonic clock as the process-event owner lease.

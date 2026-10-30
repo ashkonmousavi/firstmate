@@ -9,19 +9,50 @@ import tempfile
 MAX_BYTES = 65536
 
 
+def private_part(part):
+    return part.startswith('.') or part.casefold() in ('config', 'state')
+
+
+def below(path, base):
+    try:
+        return path.relative_to(base).parts
+    except ValueError:
+        return None
+
+
 def approved_path(raw, mate_home, main_home):
     path = Path(raw)
-    if not path.is_absolute() or any(part.startswith('.') or part.casefold() in ('config', 'state') for part in path.parts):
+    if not path.is_absolute() or '..' in path.parts:
         raise ValueError('brief path contains a private or relative component')
     resolved = path.resolve(strict=True)
-    if any(part.startswith('.') or part.casefold() in ('config', 'state') for part in resolved.parts):
-        raise ValueError('brief resolves to a private path')
+    # Each approved root is a (home, subdirectory) pair; the private-part check
+    # applies only below the home, never to the home's own ancestors.
     roots = []
     if mate_home:
-        roots.append(Path(mate_home).resolve() / 'data' / 'walk-briefs')
+        roots.append((Path(mate_home), ('data', 'walk-briefs')))
     if main_home:
-        roots.append(Path(main_home).resolve() / 'data' / 'from-main' / 'walk-lists')
-    if not any(root in resolved.parents for root in roots):
+        roots.append((Path(main_home), ('data', 'from-main', 'walk-lists')))
+    for home, _ in roots:
+        literal = below(path, home)
+        if literal is None:
+            literal = below(path, home.resolve())
+        if literal is not None:
+            if any(private_part(part) for part in literal):
+                raise ValueError('brief path contains a private or relative component')
+            break
+    else:
+        raise ValueError('brief is outside the requesting mate walk-briefs and MAIN walk-lists directories')
+    for home, sub in roots:
+        real_home = home.resolve()
+        under = below(resolved, real_home)
+        if under is None or under[:len(sub)] != sub or len(under) <= len(sub):
+            continue
+        if any(private_part(part) for part in under):
+            raise ValueError('brief resolves to a private path')
+        break
+    else:
+        if any(private_part(part) for part in path.parts + resolved.parts):
+            raise ValueError('brief path contains a private or relative component')
         raise ValueError('brief is outside the requesting mate walk-briefs and MAIN walk-lists directories')
     if not resolved.is_file() or not os.access(resolved, os.R_OK):
         raise ValueError('brief must be a readable regular file')
