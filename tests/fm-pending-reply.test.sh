@@ -2137,6 +2137,22 @@ test_delivery_unknown_probes_the_remote_inbox() {
     *"$landed"*) fail "the landed steer was escalated as delivery-unknown" ;;
   esac
   unset FM_PENDING_REPLY_REMOTE_PROBE_HOOK LANDED_CORR
+  (
+    mkdir -p "$home/fakebin"
+    cat > "$home/fakebin/timeout" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$3" > "$FM_PROBE_BOUND_LOG"
+printf 'landed\n'
+SH
+    chmod +x "$home/fakebin/timeout"
+    export PATH="$home/fakebin:$PATH"
+    export FM_PROBE_BOUND_LOG="$home/probe-bound"
+    export FM_PENDING_REPLY_PROBE_BUDGET=1
+    fm_pending_reply_remote_inbox_has_corr "$state" "$landed" \
+      || fail "bounded transport should accept a landed probe"
+    [ "$(cat "$FM_PROBE_BOUND_LOG")" = 20 ] \
+      || fail "remote inbox probes must keep the fixed 20-second bound"
+  ) || fail "remote probe bound changed"
   pass "a delivery-unknown remote steer is probed in the remote inbox before it escalates"
 }
 
@@ -2159,6 +2175,7 @@ test_notice_body_is_not_reply_bearing() {
     "Walk results are in: $pad. No reply is needed." \
     "Heads up, $pad. No action is needed on your side." \
     'No reply needed. The walk results are attached.' \
+    'No reply needed. Results are in data/report.md.' \
     'No reply needed. The report is attached.' \
     'No reply needed. The walk report is attached.' \
     $'No reply needed. The walk report\nis attached.' \
@@ -2171,6 +2188,7 @@ test_notice_body_is_not_reply_bearing() {
     $'No reply\nis needed.\nThe results are attached.' \
     "${FM_FROMFIRST_MARK}corr=0123456789abcdef No reply needed. The results are attached." \
     "walk end: checkpoint walk finished, $pad" \
+    'walk end: finished. Results are in data/report.md.' \
     'Walk dispatched to the checkpoint.' \
     'Copied: checkpoint results are attached.' \
     'Carried: checkpoint results are attached.' \
@@ -2207,6 +2225,8 @@ test_notice_body_is_not_reply_bearing() {
         "${prefix}Please reply with the result. $waiver." \
         "${prefix}Please report the text '$waiver'." \
         "${prefix}checkpoint finished. Can you report the failures?" \
+        "${prefix}finished. Can you report the failures?" \
+        "${prefix}$waiver. Please report back with the failures." \
         "${prefix}$waiver. Reply with the failures." \
         "${prefix}$waiver. Send me the result." \
         "${prefix}$waiver. Could you report failures" \

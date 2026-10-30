@@ -694,20 +694,14 @@ FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited
 # text rather than the 120-character summary.
 FM_PENDING_REPLY_NOTICE_BODY_RE=$'(^|[.!:;][[:space:]]+|\n[[:space:]]*)no[[:space:]]+(reply|action)([[:space:]]+is)?[[:space:]]+needed([[:space:]]+on[[:space:]]+your[[:space:]]+side)?[[:space:]]*([.!]([[:space:]]|$)|\n|$)'
 FM_PENDING_REPLY_NOTICE_OPEN_RE='^(walk[[:space:]]+end:|walk[[:space:]]+dispatched|copied:|carried:|firstmate[[:space:]]+updated[[:space:]]+to[[:space:]])'
-FM_PENDING_REPLY_NOTICE_REQUEST_RE=$'(^|[[:punct:]][[:space:]]*|\n[[:space:]]*)(please[[:space:]]+)?(investigate|reply|respond)[[:space:]]|(^|[^[:alnum:]_])((please|and|then)[[:space:]]+(reply|respond)|(can|could|would|will)[[:space:]]+you[[:space:]]+(please[[:space:]]+)?(reply|respond)|reply[[:space:]]+with|send[[:space:]]+me)([[:space:][:punct:]]|$)'
-FM_PENDING_REPLY_NOTICE_REPORT_RE='(^|[^[:alnum:]_])report([[:space:][:punct:]]|$)'
+FM_PENDING_REPLY_NOTICE_REQUEST_RE=$'(^|[[:punct:]][[:space:]]*|\n[[:space:]]*)(please[[:space:]]+)?(investigate|report|reply|respond)[[:space:]]|(^|[^[:alnum:]_])((please|and|then)[[:space:]]+(report|reply|respond)|(can|could|would|will)[[:space:]]+you[[:space:]]+(please[[:space:]]+)?(report|reply|respond)|(when[[:space:]]+ready|you[[:space:]]+should|after[[:space:]]+the[[:space:]]+check)[[:space:]]+report|report[[:space:]]+back|reply[[:space:]]+with|send[[:space:]]+me)([[:space:][:punct:]]|$)'
 fm_pending_reply_text_is_notice() {  # <request-text>
-  local text=$1 request_text
+  local text=$1
   text=${text#"$FM_FROMFIRST_MARK"}
   text=$(printf '%s' "$text" | tr '\t\r' '  ' | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]*(corr=[a-f0-9]{16})?[[:space:]]*//')
   text=${text#"${text%%[![:space:]]*}"}
   [[ $text == *'?'* ]] && return 1
   [[ $text =~ $FM_PENDING_REPLY_NOTICE_REQUEST_RE ]] && return 1
-  request_text=$(printf '%s' "$text" | tr '\n' ' ' | sed -E '
-    s/(^|[^[:alnum:]_])(the|a|an|this|that|these|those|my|your|our|their|his|her|its)[[:space:]]+report([^[:alnum:]_]|$)/\1\2 notice\3/g
-    s/(^|[^[:alnum:]_])report([[:space:]]+(is|are|was|were|has|have|had)([^[:alnum:]_]|$))/\1notice\2/g
-  ')
-  [[ $request_text =~ $FM_PENDING_REPLY_NOTICE_REPORT_RE ]] && return 1
   [[ $text =~ $FM_PENDING_REPLY_NOTICE_OPEN_RE ]] && return 0
   [[ $text =~ $FM_PENDING_REPLY_NOTICE_BODY_RE ]]
 }
@@ -1549,7 +1543,7 @@ fm_pending_reply_remote_inbox_has_corr() {  # <state-dir> <corr_id>
   else
     # shellcheck source=bin/fm-timeout-lib.sh
     . "$_FM_PENDING_REPLY_LIB_DIR/fm-timeout-lib.sh"
-    answer=$(fm_run_timed "${FM_PENDING_REPLY_PROBE_BUDGET:-20}" "$_FM_PENDING_REPLY_LIB_DIR/fm-on.sh" "$task_id" \
+    answer=$(fm_run_timed 20 "$_FM_PENDING_REPLY_LIB_DIR/fm-on.sh" "$task_id" \
       fm-remote-secondmate-control.sh probe "$task_id" "$corr" < /dev/null 2>/dev/null) || return 1
   fi
   [ "$answer" = landed ]
