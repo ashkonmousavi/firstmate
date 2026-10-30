@@ -1,14 +1,11 @@
-# Timeout wake validation oracle
+# Timeout reference and existing diagnosis
 
-The owner's supplied intent and accepted R1 decision define the contract: every custom check run killed at its configured bound must surface `check: <original path>: timed out after <N>s (FM_CHECK_TIMEOUT)`. Consecutive timeouts must each wake. The fallback timeout marker is temporary evidence of its alarm, not an episode-suppression marker.
+Read the project research-book entries `watcher-check-timeout-silent.md` and `github-ubuntu-2604-uutils.md` before validation. The former records the exact silent-timeout and ignored-nonzero failures covered here; the latter distinguishes GNU and uutils timeout behavior.
 
-Prior project evidence read: the research-book index and its `watcher-check-timeout-silent.md` entry describe the 31/32/51-second silent failures and the temporary 90-second operator workaround. No operator home was changed during validation.
+Exa search located timeout exit-status documentation. The web fetch of the official GNU page timed out; curl fetched that same page successfully, retained as `timeout-reference.html`.
 
-Primary outside sources checked via Exa:
+Primary reference: https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html
 
-- [GNU coreutils timeout source](https://github.com/coreutils/coreutils/blob/master/src/timeout.c): documents exit status 124 for expiration, and 137 when SIGKILL also kills the monitor. This independently supports testing the installed timeout and alternate executable-name route with the real GNU coreutils 9.4 binary.
-- [Perl alarm documentation](https://perldoc.perl.org/functions/alarm): specifies delivery of SIGALRM after the configured wall-clock seconds. The real Perl fallback was exercised with the product's `FM_CHECK_FORCE_FALLBACK=1` selection.
+Installed executable: GNU coreutils timeout 9.4. The independent acceptance oracle is the supplied intent; live observations in `check-wakes-results.json` confirm timeout notifications, preserved failure statuses including signals, actual elapsed seconds, repeat wakes without suppression, quiet success, and unchanged printed success for the native and Perl paths.
 
-Live evidence uses the actual registration, watcher, and wake-drain executables against disposable marked lab homes. No harness CLI or backend is replaced. The gtimeout route is tested by exposing the installed GNU binary under that alternate name in a private PATH without a timeout executable; this tests command selection on this Linux host, without claiming a macOS run.
-
-The two Python drivers are retained beside their transcripts and can be run from the gate worktree to repeat the checks. Both remove their disposable data and code copies. Research findings are retained here because the task confines intentional writes to the worktree and this evidence directory.
+No shared research-book mutation was made because this gate permits intentional writes only within the worktree and its evidence directory. This evidence note is available for the outer record owner.

@@ -1,0 +1,545 @@
+$ bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj
+~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj
+[exit 0]
+$ bin/fm-check-register.sh slow
+registered: state/slow.check.sh
+[exit 0]
+
+GNU timeout first timeout: FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK=0
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+stderr:
+exit=0; wall=1.722s
+DURABLE QUEUE:
+1793364419	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ bin/fm-wake-drain.sh 
+1793364419	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 343758.1793364419.1UR0Qz
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no live watcher process holds this home lock (last beat: 2s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 343758.1793364419.1UR0Qz
+[exit 0]
+
+GNU timeout consecutive timeout: FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK=0
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+stderr:
+exit=0; wall=1.875s
+DURABLE QUEUE:
+1793364422	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ bin/fm-wake-drain.sh 
+1793364422	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 348004.1793364422.5kDbv0
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 348004.1793364422.5kDbv0
+[exit 0]
+$ bin/fm-check-unregister.sh slow
+unregistered: state/slow.check.sh
+[exit 0]
+$ bin/fm-check-register.sh slow
+registered: state/slow.check.sh
+[exit 0]
+
+GNU timeout re-registered timeout: FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK=0
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+stderr:
+exit=0; wall=1.822s
+DURABLE QUEUE:
+1793364424	3	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ bin/fm-wake-drain.sh 
+1793364424	3	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 352622.1793364424.qhI5YB
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 352622.1793364424.qhI5YB
+[exit 0]
+$ bin/fm-check-unregister.sh slow
+unregistered: state/slow.check.sh
+[exit 0]
+$ bin/fm-check-register.sh exit-one
+registered: state/exit-one.check.sh
+[exit 0]
+
+GNU timeout exit-one: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=0
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+stderr:
+exit=0; wall=2.806s
+DURABLE QUEUE:
+1793364428	4	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+
+$ bin/fm-wake-drain.sh 
+1793364428	4	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 4 --recovery-generation 355938.1793364428.Pn8gmZ
+WARNING: watcher still down (same stale episode; last beat: 7s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 4 --recovery-generation 355938.1793364428.Pn8gmZ
+[exit 0]
+$ bin/fm-check-unregister.sh exit-one
+unregistered: state/exit-one.check.sh
+[exit 0]
+$ bin/fm-check-register.sh output-failure
+registered: state/output-failure.check.sh
+[exit 0]
+
+GNU timeout output-failure: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=0
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+stderr:
+exit=0; wall=0.817s
+DURABLE QUEUE:
+1793364434	5	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+
+$ bin/fm-wake-drain.sh 
+1793364434	5	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 5 --recovery-generation 368805.1793364434.O5muHz
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 5 --recovery-generation 368805.1793364434.O5muHz
+[exit 0]
+$ bin/fm-check-unregister.sh output-failure
+unregistered: state/output-failure.check.sh
+[exit 0]
+$ bin/fm-check-register.sh term
+registered: state/term.check.sh
+[exit 0]
+
+GNU timeout term: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=0
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+stderr:
+exit=0; wall=0.804s
+DURABLE QUEUE:
+1793364435	6	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+
+$ bin/fm-wake-drain.sh 
+1793364435	6	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation 372066.1793364435.rb1Rah
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 6 --recovery-generation 372066.1793364435.rb1Rah
+[exit 0]
+$ bin/fm-check-unregister.sh term
+unregistered: state/term.check.sh
+[exit 0]
+$ bin/fm-check-register.sh kill
+registered: state/kill.check.sh
+[exit 0]
+
+GNU timeout kill: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=0
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+stderr:
+exit=0; wall=0.767s
+DURABLE QUEUE:
+1793364434	7	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+
+$ bin/fm-wake-drain.sh 
+1793364434	7	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 374546.1793364434.Lpu7c7
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no watcher has a fresh beacon (last beat: -2s ago, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 374546.1793364434.Lpu7c7
+[exit 0]
+$ bin/fm-check-unregister.sh kill
+unregistered: state/kill.check.sh
+[exit 0]
+$ bin/fm-check-register.sh quiet
+registered: state/quiet.check.sh
+[exit 0]
+$ bin/fm-check-register.sh z-success
+registered: state/z-success.check.sh
+[exit 0]
+
+GNU timeout quiet-success and printed-success: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=0
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line
+second line
+stderr:
+exit=0; wall=0.876s
+DURABLE QUEUE:
+1793364436	8	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+
+$ bin/fm-wake-drain.sh 
+1793364436	8	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 8 --recovery-generation 377994.1793364436.Ic2E2F
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  2 registered custom check(s), but no live watcher process holds this home lock (last beat: 0s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 8 --recovery-generation 377994.1793364436.Ic2E2F
+[exit 0]
+$ bin/fm-check-unregister.sh quiet
+unregistered: state/quiet.check.sh
+[exit 0]
+$ bin/fm-check-unregister.sh z-success
+unregistered: state/z-success.check.sh
+[exit 0]
+$ bin/fm-check-register.sh slow
+registered: state/slow.check.sh
+[exit 0]
+
+Perl fallback first timeout: FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK=1
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+stderr:
+exit=0; wall=1.944s
+DURABLE QUEUE:
+1793364439	9	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+383622	linux-starttime=9929340 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ bin/fm-wake-drain.sh 
+1793364439	9	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 383622.1793364439.49KUVL
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 383622.1793364439.49KUVL
+[exit 0]
+
+Perl fallback consecutive timeout: FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK=1
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+stderr:
+exit=0; wall=1.857s
+DURABLE QUEUE:
+1793364442	10	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+383622	linux-starttime=9929340 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+387400	linux-starttime=9929591 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ bin/fm-wake-drain.sh 
+1793364442	10	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 10 --recovery-generation 387400.1793364442.6g8AO7
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 10 --recovery-generation 387400.1793364442.6g8AO7
+[exit 0]
+$ bin/fm-check-unregister.sh slow
+unregistered: state/slow.check.sh
+[exit 0]
+$ bin/fm-check-register.sh slow
+registered: state/slow.check.sh
+[exit 0]
+
+Perl fallback re-registered timeout: FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK=1
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+stderr:
+exit=0; wall=1.850s
+DURABLE QUEUE:
+1793364444	11	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+383622	linux-starttime=9929340 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+387400	linux-starttime=9929591 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+390608	linux-starttime=9929842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ bin/fm-wake-drain.sh 
+1793364444	11	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 390608.1793364444.veDJC1
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 390608.1793364444.veDJC1
+[exit 0]
+$ bin/fm-check-unregister.sh slow
+unregistered: state/slow.check.sh
+[exit 0]
+$ bin/fm-check-register.sh exit-one
+registered: state/exit-one.check.sh
+[exit 0]
+
+Perl fallback exit-one: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=1
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+stderr:
+exit=0; wall=2.658s
+DURABLE QUEUE:
+1793364448	12	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+383622	linux-starttime=9929340 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+387400	linux-starttime=9929591 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+390608	linux-starttime=9929842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+392509	linux-starttime=9930103 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+
+$ bin/fm-wake-drain.sh 
+1793364448	12	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 12 --recovery-generation 392509.1793364448.d5pRvf
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 12 --recovery-generation 392509.1793364448.d5pRvf
+[exit 0]
+$ bin/fm-check-unregister.sh exit-one
+unregistered: state/exit-one.check.sh
+[exit 0]
+$ bin/fm-check-register.sh output-failure
+registered: state/output-failure.check.sh
+[exit 0]
+
+Perl fallback output-failure: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=1
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+stderr:
+exit=0; wall=0.648s
+DURABLE QUEUE:
+1793364449	13	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+383622	linux-starttime=9929340 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+387400	linux-starttime=9929591 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+390608	linux-starttime=9929842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+392509	linux-starttime=9930103 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+395512	linux-starttime=9930432 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+
+$ bin/fm-wake-drain.sh 
+1793364449	13	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 13 --recovery-generation 395512.1793364449.mZVSxj
+WARNING: watcher still down (same stale episode; last beat: 0s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 13 --recovery-generation 395512.1793364449.mZVSxj
+[exit 0]
+$ bin/fm-check-unregister.sh output-failure
+unregistered: state/output-failure.check.sh
+[exit 0]
+$ bin/fm-check-register.sh term
+registered: state/term.check.sh
+[exit 0]
+
+Perl fallback term: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=1
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+stderr:
+exit=0; wall=0.673s
+DURABLE QUEUE:
+1793364450	14	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+383622	linux-starttime=9929340 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+387400	linux-starttime=9929591 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+390608	linux-starttime=9929842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+392509	linux-starttime=9930103 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+395512	linux-starttime=9930432 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+396699	linux-starttime=9930561 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+
+$ bin/fm-wake-drain.sh 
+1793364450	14	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 14 --recovery-generation 396699.1793364450.sl8dc7
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 14 --recovery-generation 396699.1793364450.sl8dc7
+[exit 0]
+$ bin/fm-check-unregister.sh term
+unregistered: state/term.check.sh
+[exit 0]
+$ bin/fm-check-register.sh kill
+registered: state/kill.check.sh
+[exit 0]
+
+Perl fallback kill: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=1
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 1s
+stderr:
+exit=0; wall=0.648s
+DURABLE QUEUE:
+1793364452	15	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 1s
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+383622	linux-starttime=9929340 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+387400	linux-starttime=9929591 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+390608	linux-starttime=9929842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+392509	linux-starttime=9930103 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+395512	linux-starttime=9930432 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+396699	linux-starttime=9930561 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+398093	linux-starttime=9930696 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 1s
+
+$ bin/fm-wake-drain.sh 
+1793364452	15	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 1s
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 15 --recovery-generation 398093.1793364452.6WqmHr
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 15 --recovery-generation 398093.1793364452.6WqmHr
+[exit 0]
+$ bin/fm-check-unregister.sh kill
+unregistered: state/kill.check.sh
+[exit 0]
+$ bin/fm-check-register.sh quiet
+registered: state/quiet.check.sh
+[exit 0]
+$ bin/fm-check-register.sh z-success
+registered: state/z-success.check.sh
+[exit 0]
+
+Perl fallback quiet-success and printed-success: FM_CHECK_TIMEOUT=10 FM_CHECK_FORCE_FALLBACK=1
+stdout:
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line
+second line
+stderr:
+exit=0; wall=0.745s
+DURABLE QUEUE:
+1793364453	16	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+DELIVERY LOG:
+343758	linux-starttime=9927052 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+348004	linux-starttime=9927314 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+352622	linux-starttime=9927581 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+355938	linux-starttime=9927842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+368805	linux-starttime=9928609 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+372066	linux-starttime=9928766 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+374546	linux-starttime=9928931 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 0s
+377994	linux-starttime=9929121 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+383622	linux-starttime=9929340 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+387400	linux-starttime=9929591 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+390608	linux-starttime=9929842 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+392509	linux-starttime=9930103 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/exit-one.check.sh: exited 1 after 2s
+395512	linux-starttime=9930432 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/output-failure.check.sh: exited 7 after 0s: diagnostic detail
+396699	linux-starttime=9930561 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/term.check.sh: exited 143 after 0s
+398093	linux-starttime=9930696 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/kill.check.sh: exited 137 after 1s
+399664	linux-starttime=9930832 cmdline-hex=62617368002f686f6d652f7465677269732f2e6e6f2d6d697374616b65732f776f726b74726565732f3034396138383733346230652f30314d3636435850395a34464e38474b545447395048594432562f62696e2f666d2d77617463682e736800	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+
+$ bin/fm-wake-drain.sh 
+1793364453	16	check	~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M66CXP9Z4FN8GKTTG9PHYD2V/.live-check-lab-cded1vqj/state/z-success.check.sh: first line second line
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 16 --recovery-generation 399664.1793364453.3ljXYO
+WARNING: watcher still down (same stale episode; last beat: 0s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+[exit 0]
+$ bin/fm-wake-drain.sh --ack-through 16 --recovery-generation 399664.1793364453.3ljXYO
+[exit 0]
+$ bin/fm-check-unregister.sh quiet
+unregistered: state/quiet.check.sh
+[exit 0]
+$ bin/fm-check-unregister.sh z-success
+unregistered: state/z-success.check.sh
+[exit 0]
+All live checks passed.
+Disposable lab removed.
