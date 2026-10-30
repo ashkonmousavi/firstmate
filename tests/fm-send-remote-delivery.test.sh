@@ -1273,6 +1273,8 @@ SH
     [ ! -e "$FM_PROBE_DIR/release" ] || { echo "probe or its lock held the cycle"; exit 1; }
     touch "$FM_PROBE_DIR/release"
     wait "$REMOTE_INBOX_PID" || exit 1
+    rm -f "$STATE/.remote-inbox-tick"
+    remote_inbox_tick || exit 1
     echo responsive
   ' FM_PENDING_REPLY_REMOTE_PROBE_HOOK="$dir/probe" FM_PROBE_DIR="$dir" FM_LANDED_CORR="$landed" \
     2>&1) || fail "remote pending probe stalled supervision: $out"
@@ -1284,6 +1286,53 @@ SH
   pass "remote pending probes and their correlation locks never hold the watcher cycle"
 }
 
+test_remote_pending_backlog_preserves_delivery_progress() {
+  local dir fb ssh_log home rhome rec corr late i pass_no out
+  dir="$TMP_ROOT/remote-probe-backlog"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-probe-backlog)
+  home=$(setup_remote_parent_home remote-probe-backlog "$rhome")
+  fm_write_meta "$home/state/stranded.meta" "kind=secondmate" "remote_host=unreachable"
+  for ((i = 0; i < 16; i++)); do
+    corr=$(FM_PENDING_REPLY_GRACE_SECS=0 fm_pending_reply_create "$home" "$home/state" stranded "report build $i")
+    if [ "$((i % 2))" = 0 ]; then
+      fm_pending_reply_mark_delivery_unknown "$home/state" "$corr"
+    else
+      fm_pending_reply_prepare_delivery "$home/state" "$corr"
+    fi
+  done
+  late=$(FM_PENDING_REPLY_GRACE_SECS=0 fm_pending_reply_create "$home" "$home/state" stranded 'report the late build')
+  fm_pending_reply_prepare_delivery "$home/state" "$late"
+  fm_pending_reply_set "$(fm_pending_reply_path "$home/state" "$late")" phase escalated
+  printf 'working: completed corr=%s\n' "$late" > "$home/state/stranded.status"
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm 'please rename the metric')
+  touch -t 202001010000 "$rec"
+  cat > "$dir/probe" <<'SH'
+#!/usr/bin/env bash
+if [ -s "$FM_PROBE_DIR/herdr.log" ]; then
+  printf '%s\n' "$2" >> "$FM_PROBE_DIR/probes"
+else
+  printf 'probe-before-doorbell\n' >> "$FM_PROBE_DIR/probes"
+fi
+exit 255
+SH
+  chmod +x "$dir/probe"
+  for pass_no in 1 2 3; do
+    out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_PENDING_REPLY_REMOTE_PROBE_HOOK="$dir/probe" \
+      FM_PROBE_DIR="$dir" FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) || fail "backlog pass failed: $out"
+    [ "$(wc -l < "$dir/probes" | tr -d ' ')" = "$pass_no" ] || fail "a pass spent more than one pending probe"
+    [ "$(sort -u "$dir/probes" | wc -l | tr -d ' ')" = "$pass_no" ] || fail "pending probes did not advance through the backlog"
+  done
+  if grep -Fx probe-before-doorbell "$dir/probes" >/dev/null; then
+    fail "pending probes delayed the healthy mate's doorbell"
+  fi
+  [ "$(remote_ring_count "$rhome")" -ge 1 ] || fail "the delivery ladder did not ring the healthy mate"
+  [ "$(fm_pending_reply_get "$(fm_pending_reply_path "$home/state" "$late")" phase)" = resolved ] \
+    || fail "the probe budget starved late-reply resolution"
+  pass "a pending-probe backlog spends one probe per pass after remote delivery and still resolves late replies"
+}
+
+test_remote_pending_backlog_preserves_delivery_progress
 test_remote_probe_follows_acknowledgement
 test_remote_pending_probe_never_holds_the_cycle
 test_remote_steer_lands_in_remote_inbox

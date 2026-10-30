@@ -2143,7 +2143,7 @@ test_delivery_unknown_probes_the_remote_inbox() {
 # A notice whose body says no reply is wanted never waits for a token nobody
 # was asked to send, wherever in the body the phrase sits.
 test_notice_body_is_not_reply_bearing() {
-  local home state corr text pad route
+  local home state corr text pad route waiver prefix
   home=$(setup_parent notice-body)
   state="$home/state"
   : > "$state/hibit.status"
@@ -2156,6 +2156,8 @@ test_notice_body_is_not_reply_bearing() {
   for text in \
     "Walk results are in: $pad No reply needed." \
     "Heads up, $pad no action needed on your side." \
+    "Walk results are in: $pad No reply is needed." \
+    "Heads up, $pad no action is needed on your side." \
     "walk end: checkpoint walk finished, $pad" \
     "Firstmate updated to 8c66de01. Re-read AGENTS.md now."; do
     for route in ordinary override delivery_unknown recovery_failed recovery_unknown; do
@@ -2180,6 +2182,34 @@ test_notice_body_is_not_reply_bearing() {
     fail "a real question mentioning a notice phrase mid-text must stay reply-bearing"
   fi
   [ "$(phase_of "$state" "$corr")" = awaiting_report ] || fail "real question lost its expectation"
+  for waiver in 'No reply needed' 'no action needed' 'no reply is needed' 'no action is needed'; do
+    for prefix in '' 'walk end: ' 'Firstmate updated to abcdef. '; do
+      for text in \
+        "${prefix}Please investigate why \"$waiver\" notices open blockers and report the result." \
+        "${prefix}Please report why $waiver notices open blockers." \
+        "${prefix}Please reply with the result. $waiver." \
+        "${prefix}Please report the text '$waiver'."; do
+        corr=$(fm_pending_reply_create "$home" "$state" hibit "$text")
+        [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" one_way)" ] \
+          || fail "reporting request was classified as a notice: $text"
+        fm_pending_reply_mark_delivered "$state" "$corr"
+        if fm_pending_reply_try_resolve "$state" "$corr" \
+          || fm_pending_reply_try_resolve "$state" "$corr" "$state/hibit.status"; then
+          fail "reporting request silently resolved: $text"
+        fi
+        [ "$(phase_of "$state" "$corr")" = awaiting_report ] || fail "reporting request lost its expectation"
+        printf 'working: investigated corr=%s\n' "$corr" >> "$state/hibit.status"
+        fm_pending_reply_try_resolve "$state" "$corr" || fail "correlated report did not resolve the reporting request"
+      done
+    done
+    corr=$(fm_pending_reply_create "$home" "$state" hibit "The diagnostic text is \"$waiver\".")
+    [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" one_way)" ] \
+      || fail "quoted diagnostic text was classified as a waiver: $waiver"
+    fm_pending_reply_mark_delivered "$state" "$corr"
+    if fm_pending_reply_try_resolve "$state" "$corr"; then
+      fail "quoted diagnostic text silently waived the reply"
+    fi
+  done
   unset FM_PENDING_REPLY_REMOTE_PROBE_HOOK
   pass "notice bodies are resolved as one-way, real requests are not"
 }

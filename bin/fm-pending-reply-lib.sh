@@ -691,16 +691,15 @@ fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
 # escalation; it does not establish delivery or a correlated reply.
 FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited config changed|(MAIN[:,]? )?(FYI|fyi)\b|MAIN fyi|Done by MAIN|Applied:|Agreed:|Correction to )'
 # The body counterpart of the prefix list above, read from the whole request
-# text rather than the 120-character summary: an explicit "no reply needed"
-# statement anywhere, or a notice opening such as "walk end:". Deliberately
-# narrow, so a real question that merely mentions a notice word stays
-# reply-bearing.
-FM_PENDING_REPLY_NOTICE_BODY_RE='no reply needed|no action needed|no reply is needed|no action is needed'
+# text rather than the 120-character summary.
+FM_PENDING_REPLY_NOTICE_BODY_RE='(^|[[:space:]])no (reply|action)( is)? needed([[:space:]]+on your side)?[.!]?[[:space:]]*$'
 FM_PENDING_REPLY_NOTICE_OPEN_RE='^(walk end:|walk dispatched|copied:|carried:|firstmate updated to )'
+FM_PENDING_REPLY_NOTICE_REQUEST_RE='(^|[.!?:;][[:space:]]+)(please[[:space:]]+)?(investigate|report|reply|respond)[[:space:]]|(^|[[:space:]])(please|and|then)[[:space:]]+(report|reply|respond)[[:space:]]'
 fm_pending_reply_text_is_notice() {  # <request-text>
   local text=$1
   text=${text#"$FM_FROMFIRST_MARK"}
   text=$(printf '%s' "$text" | tr '\t\r\n' '   ' | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]*(corr=[a-f0-9]{16})?[[:space:]]*//')
+  [[ $text =~ $FM_PENDING_REPLY_NOTICE_REQUEST_RE ]] && return 1
   [[ $text =~ $FM_PENDING_REPLY_NOTICE_OPEN_RE ]] && return 0
   [[ $text =~ $FM_PENDING_REPLY_NOTICE_BODY_RE ]]
 }
@@ -1549,7 +1548,7 @@ fm_pending_reply_remote_inbox_has_corr() {  # <state-dir> <corr_id>
 }
 
 fm_pending_reply_remote_inbox_tick() {
-  local state=$1 rec corr task_id
+  local state=$1 rec corr task_id phase probed=0
   for rec in "$(fm_pending_reply_dir "$state")"/*; do
     [ -f "$rec" ] || continue
     case "${rec##*/}" in .*) continue ;; esac
@@ -1559,7 +1558,16 @@ fm_pending_reply_remote_inbox_tick() {
     fm_pending_reply_target_is_remote "$state" "$task_id" || continue
     corr=$(fm_pending_reply_get "$rec" corr_id)
     [ -n "$corr" ] || corr=${rec##*/}
-    fm_pending_reply_tick_one "$state" "$corr" unknown "" || true
+    fm_pending_reply_reconcile_delivery "$state" "$corr" || true
+    phase=$(fm_pending_reply_get "$rec" phase)
+    case "$phase" in
+      delivery_unknown)
+        [ "$probed" = 0 ] || continue
+        fm_pending_reply_maybe_escalate "$state" "$corr" || true
+        probed=1
+        ;;
+      escalated) fm_pending_reply_try_resolve "$state" "$corr" >/dev/null 2>&1 || true ;;
+    esac
   done
   return 0
 }
