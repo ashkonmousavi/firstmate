@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Behavior tests for tests/lib.sh's shared fixture-tempdir helper
-# (fm_test_tmproot / fm_test_cleanup / fm_test_reap_orphans).
+# Behavior tests for tests/lib.sh's shared fixture lifecycle helpers
+# (fm_test_tmproot / fm_test_cleanup / fm_test_reap_orphans /
+# fm_test_stop_remote_job_worker).
 #
 # The near-universal call pattern across this suite is
 # `TMP_ROOT=$(fm_test_tmproot prefix)`, which forks a subshell to capture the
@@ -8,7 +9,9 @@
 # that exact pattern and assert the fixture root is actually gone once the
 # owning process's guarded teardown has run - on a normal exit and on a
 # terminating signal - plus that a stale marked fixture from a killed prior
-# run gets reaped on the next source. Nothing here inspects tests/lib.sh's
+# run gets reaped on the next source. A slow-shutdown worker also verifies
+# that fixture removal waits for its shutdown writes.
+# Nothing here inspects tests/lib.sh's
 # source text; it only observes filesystem state around the real helper.
 set -u
 
