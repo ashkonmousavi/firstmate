@@ -44,9 +44,15 @@
 #     are counted, and
 #   - has no recorded PR handoff: the pr= line bin/fm-pr-check.sh records when a
 #     worker's PR is ready, after which the worker waits on review or merge and
-#     no longer uses local resources.
-# A place therefore frees when a PR-based ship records its ready PR, or when any
-# task is cleaned up and its record removed. A failed fresh spawn keeps its
+#     no longer uses local resources, and
+#   - is not a teardown-completed record with no live agent: its worktree= line
+#     is the <state-dir>/<id>.released-copy sentinel (bin/fm-teardown.sh) and
+#     its agent state is dead or missing, the rule bin/fm-capacity-lib.sh applies
+#     to lanes. A sentinel record whose agent is alive or of unknown liveness
+#     keeps its place.
+# A place therefore frees at a ready-PR handoff, record removal, or completed
+# teardown with a retained sentinel record whose agent is dead or missing.
+# A failed fresh spawn keeps its
 # record, and the place, until the endpoint is proven gone (rollback contract:
 # bin/fm-spawn.sh). That retained record counts against a retry of its own id
 # too; only a proven-gone endpoint lets admission skip that id's record.
@@ -73,7 +79,8 @@
 #
 # Requires bin/fm-wake-lib.sh (root home, local homes, project lock path),
 # bin/fm-secondmate-registry-lib.sh (which the local-homes walk reads), and
-# bin/fm-backend.sh (fm_meta_get, fm_task_record_endpoint_confirmed_gone) to be
+# bin/fm-backend.sh (fm_meta_get, fm_backend_of_meta, fm_backend_agent_state,
+# fm_task_record_endpoint_confirmed_gone) to be
 # sourced first. No side effects on source.
 
 # Exit status of a spawn deferred because the project is at capacity: the
@@ -209,6 +216,14 @@ fm_project_capacity_occupants() {  # <project-lock> <project-dir> <first-state> 
       kind=$(fm_meta_get "$meta" kind)
       [ "$kind" != secondmate ] || continue
       [ -z "$(fm_meta_get "$meta" pr)" ] || continue
+      # A teardown-completed record names the <id>.released-copy sentinel; with
+      # no live agent it holds no place, the rule bin/fm-capacity-lib.sh applies
+      # to lanes. Unknown liveness keeps the place.
+      if [ "$(fm_meta_get "$meta" worktree)" = "$state/$(basename "$meta" .meta).released-copy" ]; then
+        case "$(fm_backend_agent_state "$(fm_backend_of_meta "$meta")" "$(fm_meta_get "$meta" window)")" in
+          dead|missing) continue ;;
+        esac
+      fi
       project=$(fm_meta_get "$meta" project)
       [ -n "$project" ] || continue
       lock=

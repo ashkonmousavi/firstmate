@@ -537,6 +537,29 @@ test_occupancy_counts_only_this_projects_workers() {
   pass "only this project's ship and scout records hold places"
 }
 
+# A teardown-completed record names the <id>.released-copy sentinel. With no
+# live agent it holds no place; one whose agent is still alive keeps its place.
+test_released_copy_without_live_agent_holds_no_place() {
+  local case_dir home out rc=0 n
+  case_dir=$(make_case released task-c task-d)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 2"
+  for n in 1 2; do
+    write_live "$home" rel-$n "$case_dir/project" "worktree=$home/state/rel-$n.released-copy"
+  done
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code 0 "$rc" "dead released-copy records held places: $out"
+
+  write_live "$home" rel-live "$case_dir/project" "worktree=$home/state/rel-live.released-copy"
+  printf '%s\n' "fm-rel-live" >> "$case_dir/calls.log.window"
+  rc=0
+  out=$(spawn_ship "$case_dir" task-d "$case_dir/unused") || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "a live released-copy record held no place: $out"
+  assert_contains "$out" "2 already hold a place (rel-live, task-c)" \
+    "occupancy counted the wrong released-copy records"
+  pass "a released-copy record holds a place only while its agent is alive"
+}
+
 # Capacity belongs to the machine: a local secondmate home's workers on a
 # separate clone of the same origin count, the declaration comes from the root
 # home even when the secondmate spawns, and a remote home's workers never count.
@@ -1098,6 +1121,7 @@ test_symlinked_home_counts_each_worker_once
 test_release_frees_a_place
 test_restart_does_not_count_its_own_record
 test_occupancy_counts_only_this_projects_workers
+test_released_copy_without_live_agent_holds_no_place
 test_capacity_is_shared_by_every_local_home
 test_unreadable_holders_refuse_admission
 test_concurrent_spawns_cannot_both_take_the_last_place
