@@ -782,22 +782,34 @@ SH
 }
 
 test_met_wake_is_durable_before_later_reads_expire() {
-  local home deadline out rc keys
+  local home held_episode out rc keys
   home=$(make_home durable-wake)
   : > "$home/met"
   seed_hold "$home" t1 "marker:$home/met"
   seed_hold "$home" t2 'pr:owner/repo#42'
   seed_hold "$home" t3 "marker:$home/unmet"
-  cat > "$home/gh" <<'SH'
-#!/usr/bin/env bash
-sleep 10
-echo OPEN
-SH
-  chmod +x "$home/gh"
-  deadline=$(( $(date +%s) + 2 ))
+  held_episode=$(run_axi "$home" show t1 | sed -n 's/^  hold_release_episode: //p' | jq -r .)
+  # Expire at the second backend read, after the first can publish regardless
+  # of runner speed. Real command timeout bounds are exercised separately.
+  # shellcheck disable=SC2329  # Invoked by run_lib through "$fn".
+  evaluate_with_expired_second_read() {
+    # shellcheck disable=SC2329,SC2034  # Backend outputs consumed by the evaluator.
+    _fm_hold_release_show() {
+      case "$1" in
+        t1)
+          FM_HOLD_RELEASE_SHOW_STATE=queued
+          FM_HOLD_RELEASE_SHOW_HELD=yes
+          FM_HOLD_RELEASE_SHOW_CONDITION="marker:$home/met"
+          FM_HOLD_RELEASE_SHOW_EPISODE=$held_episode
+          ;;
+        t2) FM_CHECKPOINT_DEADLINE=0; return 2 ;;
+        *) fail "no further task reads may start after expiry" ;;
+      esac
+    }
+    fm_hold_release_evaluate "$@"
+  }
   rc=0
-  out=$(FM_CHECKPOINT_DEADLINE="$deadline" \
-    FM_HOLD_RELEASE_GH="$home/gh" run_lib "$home" fm_hold_release_evaluate "$home/state") || rc=$?
+  out=$(run_lib "$home" evaluate_with_expired_second_read "$home/state") || rc=$?
   expect_code 124 "$rc" "a later read must exhaust the checkpoint budget"
   assert_contains "$out" 'hold condition met: t1' "the first hold must have been evaluated"
   keys=$(STATE="$home/state" FM_STATE_OVERRIDE="$home/state" bash -c \
