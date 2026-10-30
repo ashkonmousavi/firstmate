@@ -2160,6 +2160,9 @@ test_notice_body_is_not_reply_bearing() {
     "Heads up, $pad. No action is needed on your side." \
     'No reply needed. The walk results are attached.' \
     'No reply needed. The report is attached.' \
+    'No reply needed. The walk report is attached.' \
+    $'No reply needed. The walk report\nis attached.' \
+    'No reply needed. Your report has been archived.' \
     'No action needed. The walk results are attached.' \
     'The walk finished. No reply is needed. The results are attached.' \
     'The walk finished. No action is needed. The results are attached.' \
@@ -2207,7 +2210,19 @@ test_notice_body_is_not_reply_bearing() {
         "${prefix}$waiver. Reply with the failures." \
         "${prefix}$waiver. Send me the result." \
         "${prefix}$waiver. Could you report failures" \
-        "${prefix}$waiver. Are the results attached?"; do
+        "${prefix}$waiver. Are the results attached?" \
+        "${prefix}checkpoint finished. When ready, report the failures." \
+        "${prefix}$waiver. After checking the build,report failures." \
+        "${prefix}$waiver. When ready report the failures." \
+        "${prefix}$waiver. You should report failures." \
+        "${prefix}$waiver. After the check report failures." \
+        "${prefix}$waiver. The report is attached; report the failures." \
+        "${prefix}$waiver. When ready,reply with the failures." \
+        "${prefix}$waiver. When ready,send me the failures." \
+        "${prefix}$waiver. When ready:report failures." \
+        "${prefix}$waiver. When ready — report failures." \
+        "${prefix}$waiver. When ready (report failures)." \
+        "${prefix}$waiver. When ready,"$'\nreport failures.'; do
         corr=$(fm_pending_reply_create "$home" "$state" hibit "$text")
         [ -z "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" one_way)" ] \
           || fail "reporting request was classified as a notice: $text"
