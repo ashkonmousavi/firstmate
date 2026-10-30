@@ -1,0 +1,37 @@
+[
+  {
+    "name": "timeout: reproduce silent timeout on base and named wake on target",
+    "result": "pass",
+    "live": true,
+    "evidence": "baseline-default-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "perl: reproduce silent timeout on base and named wake on target",
+    "result": "pass",
+    "live": true,
+    "evidence": "baseline-default-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "An overlong check with FM_CHECK_TIMEOUT unset wakes at the default 30-second bound",
+    "result": "pass",
+    "live": true,
+    "evidence": "baseline-default-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "timeout: stopping the watcher cancels its check without a false timeout wake or leftover files",
+    "result": "pass",
+    "live": true,
+    "evidence": "baseline-default-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "perl: stopping the watcher cancels its check without a false timeout wake or leftover files",
+    "result": "pass",
+    "live": true,
+    "evidence": "baseline-default-transcript.txt",
+    "reason": ""
+  }
+]

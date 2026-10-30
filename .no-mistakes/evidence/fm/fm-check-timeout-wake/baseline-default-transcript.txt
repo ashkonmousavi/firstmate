@@ -1,0 +1,115 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-timeout
+exit=0 elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-timeout
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0 elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh z-witness
+exit=0 elapsed=0.06s
+registered: state/z-witness.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/baseline/bin/fm-watch.sh
+exit=0 elapsed=1.72s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-timeout/state/z-witness.check.sh: sweep completed
+
+base timeout persisted queue:
+1793361155	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-timeout/state/z-witness.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-timeout/state/z-witness.check.sh: sweep completed
+
+BEFORE FIX: slow check was killed silently; only the subsequent witness check woke.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-timeout
+exit=0 elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-timeout
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0 elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh z-witness
+exit=0 elapsed=0.05s
+registered: state/z-witness.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0 elapsed=1.76s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+target timeout persisted queue:
+1793361157	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-timeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+1793361157	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-timeout/state/z-witness.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-timeout/state/z-witness.check.sh: sweep completed
+
+AFTER FIX: the slow check generated its named timeout wake; the subsequent check also completed.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-perl
+exit=0 elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-perl
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0 elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh z-witness
+exit=0 elapsed=0.06s
+registered: state/z-witness.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/baseline/bin/fm-watch.sh
+exit=0 elapsed=1.94s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-perl/state/z-witness.check.sh: sweep completed
+
+base perl persisted queue:
+1793361159	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-perl/state/z-witness.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/base-perl/state/z-witness.check.sh: sweep completed
+
+BEFORE FIX: slow check was killed silently; only the subsequent witness check woke.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-perl
+exit=0 elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-perl
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0 elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh z-witness
+exit=0 elapsed=0.06s
+registered: state/z-witness.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0 elapsed=1.94s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+target perl persisted queue:
+1793361158	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-perl/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+1793361158	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-perl/state/z-witness.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/target-perl/state/z-witness.check.sh: sweep completed
+
+AFTER FIX: the slow check generated its named timeout wake; the subsequent check also completed.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/default-thirty
+exit=0 elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/default-thirty
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0 elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0 elapsed=30.64s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/default-thirty/state/slow.check.sh: timed out after 30s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/stop-timeout
+exit=0 elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/stop-timeout
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0 elapsed=0.06s
+registered: state/slow.check.sh
+
+External TERM during timeout check: exit=-15
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/stop-perl
+exit=0 elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-bound-1ofh3zs6/stop-perl
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0 elapsed=0.06s
+registered: state/slow.check.sh
+
+External TERM during perl check: exit=-15
+
+Baseline comparison, default-bound run and stop checks completed; disposable code copy and homes removed.

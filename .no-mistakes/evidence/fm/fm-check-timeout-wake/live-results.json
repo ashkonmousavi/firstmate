@@ -1,0 +1,44 @@
+[
+  {
+    "name": "timeout: consecutive timeouts wake with check path and bound, persist for supervisor drain, and clean child processes",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-timeout-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "timeout: same-ID replacement still times out visibly while silent and reporting checks retain normal behavior",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-timeout-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "perl: consecutive timeouts wake with check path and bound, persist for supervisor drain, and clean child processes",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-timeout-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "perl: same-ID replacement still times out visibly while silent and reporting checks retain normal behavior",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-timeout-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "gtimeout: consecutive timeouts wake with check path and bound, persist for supervisor drain, and clean child processes",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-timeout-transcript.txt",
+    "reason": ""
+  },
+  {
+    "name": "gtimeout: same-ID replacement still times out visibly while silent and reporting checks retain normal behavior",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-timeout-transcript.txt",
+    "reason": ""
+  }
+]

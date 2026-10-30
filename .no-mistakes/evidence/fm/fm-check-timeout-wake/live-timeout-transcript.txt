@@ -1,0 +1,207 @@
+Oracle: owner intent and accepted R1 decision require each timed-out custom run to wake with its original path and configured bound. Normal checks retain their output. Real bin/fm-watch.sh and registration/drain entrypoints are executed, with no harness or backend mocks.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout
+exit=0, elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0, elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.64s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+Persisted wake queue (timeout cycle 1):
+1793361082	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh
+exit=0, elapsed=0.61s
+1793361082	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 2351149.1793361082.r7fAE2
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 2351149.1793361082.r7fAE2
+exit=0, elapsed=0.10s
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.58s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+Persisted wake queue (timeout cycle 2):
+1793361084	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh
+exit=0, elapsed=0.43s
+1793361084	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 2352711.1793361084.UsyUai
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 2352711.1793361084.UsyUai
+exit=0, elapsed=0.10s
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh quiet
+exit=0, elapsed=0.06s
+registered: state/quiet.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh report
+exit=0, elapsed=0.06s
+registered: state/report.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0, elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.76s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/report.check.sh: normal report
+
+Persisted mixed-check wake queue (timeout):
+1793361086	3	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/report.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/report.check.sh: normal report
+1793361087	4	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/timeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl
+exit=0, elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0, elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.85s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+Persisted wake queue (perl cycle 1):
+1793361089	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh
+exit=0, elapsed=0.64s
+1793361089	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 2355074.1793361089.7xxOjb
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no live watcher process holds this home lock (last beat: 2s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 2355074.1793361089.7xxOjb
+exit=0, elapsed=0.10s
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.78s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+Persisted wake queue (perl cycle 2):
+1793361091	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh
+exit=0, elapsed=0.41s
+1793361091	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 2357175.1793361091.ArDdo5
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 2357175.1793361091.ArDdo5
+exit=0, elapsed=0.10s
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh quiet
+exit=0, elapsed=0.06s
+registered: state/quiet.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh report
+exit=0, elapsed=0.06s
+registered: state/report.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0, elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.95s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/report.check.sh: normal report
+
+Persisted mixed-check wake queue (perl):
+1793361092	3	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/report.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/report.check.sh: normal report
+1793361094	4	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/perl/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout
+exit=0, elapsed=0.01s
+~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout
+
+gtimeout route uses the real GNU coreutils timeout binary under its alternate executable name; PATH contains no timeout executable.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0, elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.70s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+Persisted wake queue (gtimeout cycle 1):
+1793361096	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh
+exit=0, elapsed=0.61s
+1793361096	1	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 2359313.1793361096.iOp97a
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no live watcher process holds this home lock (last beat: 2s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 2359313.1793361096.iOp97a
+exit=0, elapsed=0.10s
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.59s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+Persisted wake queue (gtimeout cycle 2):
+1793361098	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh
+exit=0, elapsed=0.43s
+1793361098	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 2363276.1793361098.3oS9HS
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 2363276.1793361098.3oS9HS
+exit=0, elapsed=0.10s
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh quiet
+exit=0, elapsed=0.06s
+registered: state/quiet.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh report
+exit=0, elapsed=0.06s
+registered: state/report.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-check-register.sh slow
+exit=0, elapsed=0.06s
+registered: state/slow.check.sh
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/bin/fm-watch.sh
+exit=0, elapsed=1.78s
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/report.check.sh: normal report
+
+Persisted mixed-check wake queue (gtimeout):
+1793361099	3	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/report.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/report.check.sh: normal report
+1793361100	4	check	~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M669NM1EEECFNSSZGN7B030E/.fm-timeout-live-jx66lu6_/gtimeout/state/slow.check.sh: timed out after 1s (FM_CHECK_TIMEOUT)
+
+All live scenarios completed; all disposable homes removed by final cleanup.
