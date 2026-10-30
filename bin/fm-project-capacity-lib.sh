@@ -50,8 +50,9 @@
 #     its agent state is dead or missing, the rule bin/fm-capacity-lib.sh applies
 #     to lanes. A sentinel record whose agent is alive or of unknown liveness
 #     keeps its place.
-# A place therefore frees when a PR-based ship records its ready PR, or when any
-# task is cleaned up and its record removed. A failed fresh spawn keeps its
+# A place therefore frees at a ready-PR handoff, record removal, or completed
+# teardown with a retained sentinel record whose agent is dead or missing.
+# A failed fresh spawn keeps its
 # record, and the place, until the endpoint is proven gone (rollback contract:
 # bin/fm-spawn.sh). That retained record counts against a retry of its own id
 # too; only a proven-gone endpoint lets admission skip that id's record.
