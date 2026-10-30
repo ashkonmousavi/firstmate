@@ -1,0 +1,40 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab
+Endpoint proofs: absent=missing shell=dead other=ambiguous
+Before fix, five exited released records: project_places=5 holders=[released-1, released-2, released-3, released-4, released-5]
+After fix, five exited released records: project_places=0 holders=[]
+Released records allow project admission: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  5 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: task probe has no brief at inaccessible data path ~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab/data/probe/brief.md
+An ordinary exited record retains its place: project_places=1 holders=[ordinary]
+An ordinary exited record still blocks at cap: exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab/config/project-capacity) and 1 already hold a place (ordinary); task probe was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+Ambiguous liveness retains a released record: project_places=1 holders=[released-other]
+Ambiguous liveness still blocks at cap: exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab/config/project-capacity) and 1 already hold a place (released-other); task probe was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+Unreadable liveness retains a released record: project_places=1 holders=[released-unreadable]
+Unreadable liveness still blocks at cap: exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab/config/project-capacity) and 1 already hold a place (released-unreadable); task probe was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+Real Codex endpoint: target=primary:codex-live state=alive grid=100x30
+A real live Codex retains its released record: project_places=1 holders=[released-live]
+Real live Codex still blocks at cap: exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/049a88734b0e/01M65QKF4C1ZS1D10GYE0ECCJA/.lab/config/project-capacity) and 1 already hold a place (released-live); task probe was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+Same private server endpoints after all probes:
+codex-live: node
+dead: bash
+uncertain: sleep
+All live capacity checks passed; cleanup trap kills the private server and removes the lab.
