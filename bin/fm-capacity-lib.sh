@@ -9,11 +9,9 @@
 # requires available memory minus reserve >= 0. There are no
 # per-lane estimates and CPU load never refuses admission.
 # Every local registered home is counted through fm_local_firstmate_state_dirs.
-# Task records hold a lane unless the endpoint is proven agent-free and either
-# fm-teardown.sh's released-copy sentinel marks completed cleanup or a readable
-# worktree has no non-shell process, as proved by a successful process scan.
-# Missing ordinary worktrees or unreadable process evidence retain the lane.
-# Unknown liveness counts, including ready-PR handoffs whose processes still run.
+# Task records hold a lane under fm_task_record_holds_seat, the shared seat
+# rule owned by bin/fm-project-capacity-lib.sh.
+# A ready-PR handoff alone does not exempt a record from the lane count.
 # Persistent secondmate records are exempt.
 # External bots have no local records;
 # ordinary local workers carrying walk markers still hold a lane.

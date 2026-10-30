@@ -45,20 +45,14 @@
 #   - has no recorded PR handoff: the pr= line bin/fm-pr-check.sh records when a
 #     worker's PR is ready, after which the worker waits on review or merge and
 #     no longer uses local resources, and
-#   - holds a seat by fm_task_record_holds_seat, the rule bin/fm-capacity-lib.sh
-#     also applies to lanes: a record frees its place when its agent is dead or
-#     missing and either it names the <state-dir>/<id>.released-copy sentinel
-#     (bin/fm-teardown.sh) or its worktree is a readable directory with no
-#     non-shell process working in it. A live agent, unknown liveness, a missing
-#     or unreadable worktree, or unreadable process evidence keeps the place.
-# A place therefore frees at a ready-PR handoff, record removal, or the exit of
-# the worker's agent with nothing left running in its worktree.
+#   - holds a seat under fm_task_record_holds_seat below, the shared owner of
+#     the live-process rule also used by bin/fm-capacity-lib.sh's lane count.
 # A failed fresh spawn keeps its
 # record, and the place, until the endpoint is proven gone (rollback contract:
 # bin/fm-spawn.sh). That retained record counts against a retry of its own id
 # too; only a proven-gone endpoint lets admission skip that id's record.
-# A local-only ship
-# and a scout have no recorded handoff and hold their place until cleanup.
+# A local-only ship and a scout have no recorded handoff, so their retained
+# records count only while they hold a seat under that shared rule.
 # A worker that is steered back into work after its PR handoff is not counted again.
 # The declaration is matched by the spawning clone's directory name, so clones
 # of one origin share the cap only when they use that same directory name. A
@@ -180,9 +174,12 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
 # when the record holds a seat and 1 when it holds none. <raw> is the record's
 # text, <meta> its path, and <state-dir> the state directory that holds it.
 # Only an agent proven dead or missing can free a seat, and then only when the
-# record names the teardown sentinel or its worktree, found with teardown's
-# bounded cwd scan (never a recursive tree walk), has no non-shell process.
-# Missing or unreadable worktree or process evidence keeps the seat.
+# record names bin/fm-teardown.sh's <state-dir>/<id>.released-copy sentinel or
+# its worktree is an absolute, readable, searchable directory that resolves to
+# a physical path with no non-shell process working in it or its descendants.
+# Use teardown's bounded cwd scan, never a recursive file-tree walk.
+# A live agent, unknown liveness, a missing or unreadable worktree, or missing,
+# unreadable or malformed process evidence keeps the seat.
 fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
   local meta=$1 raw=$2 dir=$3 backend target worktree processes line pid path
   local holds name args argv0
