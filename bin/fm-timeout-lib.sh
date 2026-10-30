@@ -285,9 +285,18 @@ fm_exec_timed() {  # <seconds> <grace-seconds> <command...>
 }
 
 fm_checkpoint_clock() {
-  # SECONDS follows wall-clock corrections, which must not extend a sweep.
   local monotonic
-  monotonic=$(python3 -c 'import time; print(int(time.monotonic()))') || return 1
+  # SECONDS follows wall-clock corrections, which must not extend a sweep.
+  # Preserve epoch deadlines while measuring elapsed time independently of
+  # wall-clock corrections. Uptime avoids a subprocess on Linux; macOS uses
+  # the same portable monotonic clock as the process-event owner lease.
+  if [ -r /proc/uptime ]; then
+    read -r monotonic _ < /proc/uptime || return 1
+    monotonic=${monotonic%%.*}
+  else
+    monotonic=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e \
+      'print int(clock_gettime(CLOCK_MONOTONIC))') || return 1
+  fi
   if [ -z "${FM_CHECKPOINT_CLOCK_OFFSET:-}" ]; then FM_CHECKPOINT_CLOCK_OFFSET=$(( $(date +%s) - monotonic )); fi
   FM_CHECKPOINT_NOW=$((FM_CHECKPOINT_CLOCK_OFFSET + monotonic))
 }

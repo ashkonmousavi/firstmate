@@ -9,11 +9,9 @@
 # requires available memory minus reserve >= 0. There are no
 # per-lane estimates and CPU load never refuses admission.
 # Every local registered home is counted through fm_local_firstmate_state_dirs.
-# Task records hold a lane unless the endpoint is proven agent-free and either
-# fm-teardown.sh's released-copy sentinel marks completed cleanup or a readable
-# worktree has no non-shell process, as proved by a successful process scan.
-# Missing ordinary worktrees or unreadable process evidence retain the lane.
-# Unknown liveness counts, including ready-PR handoffs whose processes still run.
+# Task records hold a lane under fm_task_record_holds_seat, the shared seat
+# rule owned by bin/fm-project-capacity-lib.sh.
+# A ready-PR handoff alone does not exempt a record from the lane count.
 # Persistent secondmate records are exempt.
 # External bots have no local records;
 # ordinary local workers carrying walk markers still hold a lane.
@@ -36,7 +34,6 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   local home=$1 config=$2 state=$3 self=${4:-} config_dir raw ceiling reserve extra
   local dir meta kind available meminfo=/proc/meminfo memory_source
   local cgroup_file=/proc/self/cgroup cgroup_root=/sys/fs/cgroup cgroup_path cgroup_dir high stats anon shmem bytes balance_kb
-  local backend target worktree processes line pid path holds name args argv0
   FM_CAPACITY_ERROR='' FM_CAPACITY_REASON=unreadable
   FM_CAPACITY_LANES=0 FM_CAPACITY_SECONDMATES=0 FM_CAPACITY_FREE=0
   FM_CAPACITY_TARGET=0 FM_CAPACITY_RESERVE_KB=0 FM_CAPACITY_AVAILABLE_KB=0 FM_CAPACITY_HEADROOM_KB=0
@@ -169,51 +166,7 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
       if [ "$kind" = secondmate ]; then
         FM_CAPACITY_SECONDMATES=$((FM_CAPACITY_SECONDMATES + 1)); continue
       fi
-      backend=$(printf '%s\n' "$raw" | sed -n 's/^backend=//p' | tail -1)
-      target=$(printf '%s\n' "$raw" | sed -n 's/^window=//p' | tail -1)
-      case "$(fm_backend_agent_state "${backend:-tmux}" "$target")" in
-        dead|missing)
-          worktree=$(printf '%s\n' "$raw" | sed -n 's/^worktree=//p' | tail -1)
-          # A teardown-completed record names the <id>.released-copy sentinel, which is
-          # never a real directory, so with no live agent it holds no seat.
-          [ "$worktree" != "$dir/$(basename "$meta" .meta).released-copy" ] || continue
-          # Use teardown's bounded cwd scan, never a recursive file-tree walk.
-          # Missing or unreadable worktree/process evidence retains the seat.
-          if [[ "$worktree" = /* ]] && [ -d "$worktree" ] && [ -r "$worktree" ] && [ -x "$worktree" ] \
-             && worktree=$(cd "$worktree" && pwd -P) \
-             && processes=$(lsof -a -d cwd -Fpn 2>/dev/null); then
-            holds=0 pid=
-            while IFS= read -r line; do
-              case "$line" in
-                p*)
-                  pid=${line#p}
-                  case "$pid" in ''|*[!0-9]*) holds=1; break ;; esac
-                  ;;
-                fcwd) [ -n "$pid" ] || { holds=1; break; } ;;
-                n*)
-                  [ -n "$pid" ] || { holds=1; break; }
-                  path=${line#n}
-                  case "$path" in
-                    "$worktree"|"$worktree"/*)
-                      [ "$pid" != "$$" ] || continue
-                      name=$(ps -p "$pid" -o comm= 2>/dev/null) || { holds=1; break; }
-                      args=$(ps -p "$pid" -o args= 2>/dev/null) || { holds=1; break; }
-                      [ -n "$name" ] && [ -n "$args" ] || { holds=1; break; }
-                      read -r argv0 _ <<< "$args"
-                      if [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" != shell ]; then
-                        holds=1; break
-                      fi
-                      ;;
-                  esac
-                  ;;
-                '') ;;
-                *) holds=1; break ;;
-              esac
-            done <<< "$processes"
-            [ "$holds" -ne 0 ] || continue
-          fi
-          ;;
-      esac
+      fm_task_record_holds_seat "$meta" "$raw" "$dir" || continue
       FM_CAPACITY_LANES=$((FM_CAPACITY_LANES + 1))
     done
   done

@@ -25,6 +25,11 @@
 #      FM_WALK_REQUEST_DISPATCH) as
 #        fm-grok-bot-dispatch.sh <brief> --bot <bot> --walk <walk-id>
 #          --walk-owner <mate-id> --timeout <sec> --once-key <walk>@<sha>
+#          [--project <name> --target <name>]
+#      FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET supply the optional
+#      dispatcher pair; set both or neither. Each must start with a letter or
+#      digit and contain only letters, digits, dots, underscores, or hyphens.
+#      Invalid environment values are usage errors (exit 2).
 #      The once-key is the dispatcher's own at-most-once claim, so a re-spawn
 #      after an interrupted sweep converges instead of duplicating a send.
 #      The bridge and its sign-in stay private to that home: this check only
@@ -66,6 +71,9 @@
 #                                $FM_HOME/data/bin/fm-grok-bot-dispatch.sh)
 #   FM_WALK_REQUEST_SEND         fm-send path (tests; default sibling script)
 #   FM_WALK_REQUEST_BOT          default bot name for requests that omit one
+#   FM_WALK_REQUEST_PROJECT      dispatcher --project
+#   FM_WALK_REQUEST_TARGET       dispatcher --target; set both or neither
+#                                (one alone is a usage error, exit 2)
 #   FM_WALK_REQUEST_TIMEOUT      per-walk dispatcher --timeout (default 1800)
 #   FM_WALK_REQUEST_SEND_BOUND   bounded seconds for one fm-send (default 25)
 #   FM_WALK_REQUEST_STALE_SECS   a dispatch log untouched this long with no
@@ -381,8 +389,21 @@ prepare_brief() {
   python3 "$SCRIPT_DIR/fm-walk-request-path.py" stage "$FM_HOME" "$corr" "$mode" "$source" "$home"
 }
 
+validate_project_target() {
+  local project=${FM_WALK_REQUEST_PROJECT:-} target=${FM_WALK_REQUEST_TARGET:-}
+  [ -n "$project$target" ] || return 0
+  [ -n "$project" ] && [ -n "$target" ] \
+    || die_usage "FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together"
+  case "$project$target" in
+    *[!A-Za-z0-9._-]*) die_usage "FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name" ;;
+  esac
+  case "$project" in [!A-Za-z0-9]*) die_usage "FM_WALK_REQUEST_PROJECT must start with a letter or digit" ;; esac
+  case "$target" in [!A-Za-z0-9]*) die_usage "FM_WALK_REQUEST_TARGET must start with a letter or digit" ;; esac
+}
+
 dispatch_one() {  # <corr> <walk>
   local corr=${1:-} walk=${2:-} rec walk bot mate brief release log dispatch rc
+  local -a pt_args=()
   [ -n "$corr" ] && [ -n "$walk" ] || exit 2
   rec=$(record_path "$corr")
   [ -f "$rec" ] || exit 2
@@ -396,9 +417,11 @@ dispatch_one() {  # <corr> <walk>
     printf 'refused: brief snapshot is private or unavailable\n__FM_WALK_DISPATCH_EXIT__=2\n' >> "$log"
     exit 0
   fi
+  [ -z "${FM_WALK_REQUEST_PROJECT:-}" ] \
+    || pt_args=(--project "$FM_WALK_REQUEST_PROJECT" --target "$FM_WALK_REQUEST_TARGET")
   "$dispatch" "$brief" --bot "$bot" --walk "$walk" --walk-owner "$mate" \
     --timeout "${FM_WALK_REQUEST_TIMEOUT:-1800}" \
-    --once-key "$walk@$release" >> "$log" 2>&1
+    --once-key "$walk@$release" "${pt_args[@]}" >> "$log" 2>&1
   rc=$?
   printf '\n__FM_WALK_DISPATCH_EXIT__=%s\n' "$rc" >> "$log"
   exit 0
@@ -704,8 +727,11 @@ case "${1:-check}" in
     usage
     exit 0
     ;;
-  check) action_check ;;
-  dispatch-one) dispatch_one "$2" "$3" ;;
+  check)
+    validate_project_target
+    action_check
+    ;;
+  dispatch-one) validate_project_target; dispatch_one "$2" "$3" ;;
   arm) action_arm ;;
   disarm) action_disarm ;;
   *)
