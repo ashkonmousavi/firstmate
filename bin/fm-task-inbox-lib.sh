@@ -278,8 +278,8 @@ fm_task_inbox_request_id() {
 }
 
 # The dedup scan, run in its own subshell so its scratch files are removed on
-# every exit, including a kill mid-scan (an orphaned .dedup.* file otherwise
-# sits in the inbox forever), without touching the caller's own traps.
+# normal exit and on TERM, HUP, or INT mid-scan (an orphaned .dedup.* file
+# otherwise sits in the inbox forever), without touching the caller's traps.
 # Prints the matching record path, or nothing when none matches; returns 1 on a
 # conflicting request id or any failure.
 _fm_task_inbox_dedup_find() {  # <dir> <text> <delivery-mode> <request-id>
