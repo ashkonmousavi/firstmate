@@ -27,9 +27,22 @@
 #          --walk-owner <mate-id> --timeout <sec> --once-key <walk>@<sha>
 #          [--project <name> --target <name>]
 #      FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET supply the optional
-#      dispatcher pair; set both or neither. Each must start with a letter or
-#      digit and contain only letters, digits, dots, underscores, or hyphens.
-#      Invalid environment values are usage errors (exit 2).
+#      dispatcher pair; set both to nonempty values or leave both unset or empty.
+#      If either environment value is nonempty, only the environment is used;
+#      a missing counterpart is not filled from the file. Otherwise each
+#      check and detached dispatch reads config/watch.env under FM_HOME
+#      (or watch.env under FM_CONFIG_OVERRIDE when nonempty), so a watcher armed
+#      before the configuration edit can use the current pair.
+#      The file is parsed, never sourced: lines may begin with `export`
+#      followed by whitespace-separated NAME=value assignments, or with the
+#      assignments directly. Matching single or double quotes around a value
+#      are removed; shell expansions and escapes are never evaluated.
+#      The last assignment to each routing name wins; other variable names
+#      are ignored, and parsing a line stops at a word beginning with `#`
+#      or the first non-assignment word. Missing or unreadable files mean no
+#      pair. Each name must start with a letter or digit and contain only
+#      letters, digits, dots, underscores, or hyphens. Invalid or incomplete
+#      pairs from either source are usage errors (exit 2).
 #      The once-key is the dispatcher's own at-most-once claim, so a re-spawn
 #      after an interrupted sweep converges instead of duplicating a send.
 #      The bridge and its sign-in stay private to that home: this check only
@@ -71,7 +84,7 @@
 #                                $FM_HOME/data/bin/fm-grok-bot-dispatch.sh)
 #   FM_WALK_REQUEST_SEND         fm-send path (tests; default sibling script)
 #   FM_WALK_REQUEST_BOT          default bot name for requests that omit one
-#   FM_WALK_REQUEST_PROJECT      dispatcher --project
+#   FM_WALK_REQUEST_PROJECT      dispatcher --project (or config/watch.env)
 #   FM_WALK_REQUEST_TARGET       dispatcher --target; set both or neither
 #                                (one alone is a usage error, exit 2)
 #   FM_WALK_REQUEST_TIMEOUT      per-walk dispatcher --timeout (default 1800)
@@ -389,7 +402,47 @@ prepare_brief() {
   python3 "$SCRIPT_DIR/fm-walk-request-path.py" stage "$FM_HOME" "$corr" "$mode" "$source" "$home"
 }
 
+# A watcher keeps the environment it was armed with. Read current routing
+# without executing the home-local shell configuration; parsing is owned above.
+load_project_target_from_watch_env() {
+  local file="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/watch.env" line word value first project='' target=''
+  [ -r "$file" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    first=1
+    # shellcheck disable=SC2086  # word splitting is the parse; globbing is off
+    set -f
+    for word in $line; do
+      if [ "$first" = 1 ]; then
+        first=0
+        [ "$word" = export ] && { first=2; continue; }
+      elif [ "$first" = 2 ]; then
+        first=0
+      fi
+      case "$word" in
+        '#'*) break ;;
+        FM_WALK_REQUEST_PROJECT=*|FM_WALK_REQUEST_TARGET=*)
+          value=${word#*=}
+          case "$value" in
+            \"*\") value=${value#\"}; value=${value%\"} ;;
+            \'*\') value=${value#\'}; value=${value%\'} ;;
+          esac
+          case "$word" in
+            FM_WALK_REQUEST_PROJECT=*) project=$value ;;
+            FM_WALK_REQUEST_TARGET=*) target=$value ;;
+          esac
+          ;;
+        [A-Za-z_]*=*) ;;
+        *) [ "$first" = 0 ] && break ;;
+      esac
+    done
+    set +f
+  done < "$file"
+  FM_WALK_REQUEST_PROJECT=$project
+  FM_WALK_REQUEST_TARGET=$target
+}
+
 validate_project_target() {
+  [ -n "${FM_WALK_REQUEST_PROJECT:-}${FM_WALK_REQUEST_TARGET:-}" ] || load_project_target_from_watch_env
   local project=${FM_WALK_REQUEST_PROJECT:-} target=${FM_WALK_REQUEST_TARGET:-}
   [ -n "$project$target" ] || return 0
   [ -n "$project" ] && [ -n "$target" ] \

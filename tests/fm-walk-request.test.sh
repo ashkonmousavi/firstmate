@@ -1213,4 +1213,88 @@ test_project_target_from_environment
 test_project_target_absent_when_unset
 test_project_target_validation
 
+# watch_env_dispatch <label> <watch.env content or -> <env assignments...>:
+# like project_target_dispatch, with config/watch.env under the scratch home.
+watch_env_dispatch() {
+  local label=$1 content=$2 parent mate dispatch send rc=0
+  shift 2
+  parent=$(make_parent "pt-$label-main")
+  mate=$(make_mate "pt-$label-mate" "$parent")
+  dispatch="$parent/fake-dispatch"
+  send="$parent/fake-send"
+  fake_dispatcher "$dispatch"
+  fake_send "$send"
+  if [ "$content" != - ]; then
+    mkdir -p "$parent/config"
+    printf '%s\n' "$content" > "$parent/config/watch.env"
+  fi
+  run_carrier "$mate" --brief "$parent/data/from-main/walk-lists/brief.md" --release "$RELEASE" \
+    --walks desk-step --bot J01Walker >/dev/null \
+    || fail "the carrier must accept the request ($label)"
+  WATCH_ENV_PARENT=$parent
+  run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" "$@" \
+    >"$parent/check.out" 2>&1 || rc=$?
+  WATCH_ENV_RC=$rc
+  if [ "$rc" = 0 ]; then
+    wait_for "$dispatch.calls" 'args=' || fail "the dispatcher must be invoked ($label)"
+    cat "$dispatch.calls"
+  fi
+}
+
+test_project_target_from_watch_env() {
+  local calls marker field style quote project target
+  calls=$(watch_env_dispatch file 'export FM_WALK_REQUEST_PROJECT=x FM_WALK_REQUEST_TARGET=production  # comment')
+  assert_contains "$calls" "--project x --target production" "watch.env pair reaches a watcher armed without it"
+
+  calls=$(watch_env_dispatch double-quoted 'export FM_WALK_REQUEST_PROJECT="x" FM_WALK_REQUEST_TARGET="production" # comment')
+  assert_contains "$calls" "--project x --target production" "double-quoted shell assignments reach the detached dispatcher"
+
+  calls=$(watch_env_dispatch single-quoted "export FM_WALK_REQUEST_PROJECT='x'
+export FM_WALK_REQUEST_TARGET='production'")
+  assert_contains "$calls" "--project x --target production" "single-quoted shell assignments reach the detached dispatcher"
+
+  calls=$(watch_env_dispatch envwins $'FM_WALK_REQUEST_PROJECT=x\nFM_WALK_REQUEST_TARGET=production' \
+    FM_WALK_REQUEST_PROJECT=y FM_WALK_REQUEST_TARGET=staging)
+  assert_contains "$calls" "--project y --target staging" "the environment wins over watch.env"
+
+  calls=$(watch_env_dispatch last $'FM_WALK_REQUEST_PROJECT=a\nexport FM_WALK_REQUEST_PROJECT=x\nFM_WALK_REQUEST_TARGET=production')
+  assert_contains "$calls" "--project x --target production" "the last assignment wins"
+
+  marker="$TMP_ROOT/pt-exec-marker"
+  rm -f "$marker"
+  calls=$(watch_env_dispatch exec "FM_CHECK_TIMEOUT=\$(touch $marker)
+OTHER=\`touch $marker\`
+touch $marker
+export FM_WALK_REQUEST_PROJECT=x FM_WALK_REQUEST_TARGET=production")
+  assert_contains "$calls" "--project x --target production" "other lines are ignored"
+  [ ! -e "$marker" ] || fail "watch.env must be parsed, never executed"
+
+  for field in project target; do
+    for style in double single; do
+      case "$style" in double) quote=\" ;; single) quote=\' ;; esac
+      project=x
+      target=production
+      case "$field" in
+        project) project="\$(touch\${IFS}$marker)" ;;
+        target) target="\$(touch\${IFS}$marker)" ;;
+      esac
+      watch_env_dispatch "quoted-substitution-$field-$style" \
+        "export FM_WALK_REQUEST_PROJECT=$quote$project$quote FM_WALK_REQUEST_TARGET=$quote$target$quote" >/dev/null
+      expect_code 2 "$WATCH_ENV_RC" "quoted substitutions in $field must be rejected as routing names"
+      [ ! -e "$WATCH_ENV_PARENT/fake-dispatch.calls" ] || fail "invalid quoted routing must not dispatch"
+      [ ! -e "$marker" ] || fail "quoted routing must never execute substitutions"
+    done
+  done
+
+  watch_env_dispatch half 'export FM_WALK_REQUEST_PROJECT=x' >/dev/null
+  expect_code 2 "$WATCH_ENV_RC" "one name only in watch.env is a usage error"
+  assert_contains "$(cat "$WATCH_ENV_PARENT/check.out")" "must be set together" "the usage error is unchanged"
+
+  calls=$(watch_env_dispatch absent -)
+  case "$calls" in *--project*|*--target*) fail "absent watch.env keeps the no-flag call: $calls" ;; esac
+  pass "walk-request: project and target fall back to config/watch.env, parsed and never executed"
+}
+
+test_project_target_from_watch_env
+
 echo "# fm-walk-request.test.sh: all assertions passed"

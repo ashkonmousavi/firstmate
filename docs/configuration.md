@@ -843,7 +843,7 @@ Home roots and their ancestors may contain those names, so homes under `.treehou
 MAIN applies the same confinement to local path requests and copies every accepted brief into `data/walk-requests/<request-id>/brief.md` before dispatching that snapshot.
 Outcomes preserve multiline report text up to the carrier's bound and include the full report's MAIN path; recovery appends to that report.
 The bridge and its sign-in stay private to that home: the check only invokes the dispatcher, and a home without the dispatcher reports that plainly rather than guessing.
-The script headers own the typed line, dispatch, recovery, delivery, disarming, and tunables (including `FM_WALK_REQUEST_BOT`, the default bot for requests that omit one, and `FM_WALK_REQUEST_PROJECT` with `FM_WALK_REQUEST_TARGET`, the optional dispatcher `--project`/`--target` pair configured in MAIN).
+The script headers own the typed line, dispatch, recovery, delivery, disarming, and tunables; see [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) for bot selection and dispatcher routing, including environment precedence and the dispatch-time `watch.env` fallback.
 
 ## Stow pass horizon (config/stow-pass-horizon)
 
