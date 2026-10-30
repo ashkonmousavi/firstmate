@@ -7,9 +7,8 @@
 #   fm-walk-request.sh --help
 #
 # WHY. The walker dispatcher (fm-grok-bot-dispatch.sh) and its Grok Bot bridge
-# are private to one home (the PC MAIN home), so a mate on another machine can
-# only ask for a checkpoint walk by blocking on a status line that waits for a
-# human hand-off. This carrier is the typed request half of the fix: it writes
+# are private to one home (the PC MAIN home). This carrier routes a mate's
+# checkpoint walk request to that home without a human hand-off: it writes
 # the request on the mate's own parent channel, which is the one pipe that
 # already reaches MAIN for every mate shape (a local route appends into the
 # parent home's state/<mate-id>.status directly; a remote route appends into

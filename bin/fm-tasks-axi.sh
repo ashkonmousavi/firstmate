@@ -6,8 +6,9 @@
 #
 # Every routine firstmate backlog read or mutation goes through this command
 # rather than a bare `tasks-axi`; `fm-tasks-axi.sh <command> --help` prints
-# tasks-axi's own help. Apart from the owner-request custody path below, arguments
-# reach tasks-axi as given, with a rewrite that preserves file arguments: a relative
+# tasks-axi's own help. Apart from the owner-request custody and hold-release
+# handling below, arguments reach tasks-axi as given, with a rewrite that
+# preserves file arguments: a relative
 # value of `--to` or any `--*-file` flag (`--body-file`, `--relation-file`, ...)
 # is made absolute against the caller's working directory, because tasks-axi
 # starts from the backlog root instead. `--report` stays as given: tasks-axi
