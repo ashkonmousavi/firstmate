@@ -209,6 +209,37 @@ test_registries_avoid_git_worktree_root() {
   pass "test registries and fixture roots stay out of a git worktree TMPDIR"
 }
 
+# The remote job worker shuts down asynchronously after TERM, still writing
+# into its state directory. A deterministic slow writer stands in for it: on TERM
+# it waits, then writes a file and exits. Removing the fixture right after a bare
+# signal races that write; the helper must return only after the writer is gone.
+test_stop_remote_job_worker_waits_for_shutdown_writes() {
+  local root state pid tries
+  root=$(fm_test_tmproot fm-test-stop-worker)
+  state="$root/remote-jobs"
+  mkdir -p "$state"
+  # shellcheck disable=SC2016 # the trap body expands in the child, not here
+  ( setsid bash -c '
+      trap "sleep 1; mkdir -p \"$1/late\"; echo done > \"$1/late/shutdown\"; exit 0" TERM
+      while :; do sleep 0.1; done
+    ' _ "$state" >/dev/null 2>&1 & echo $! > "$state/worker.pid" )
+  pid=$(cat "$state/worker.pid")
+  tries=0
+  while [ "$tries" -lt 50 ] && ! kill -0 "$pid" 2>/dev/null; do sleep 0.05; tries=$((tries + 1)); done
+  kill -0 "$pid" 2>/dev/null || fail "the slow-shutdown worker fixture never started"
+  sleep 0.3
+  fm_test_stop_remote_job_worker "$state"
+  if kill -0 "$pid" 2>/dev/null && [ "$(ps -o stat= -p "$pid" 2>/dev/null | tr -d ' ')" != Z ]; then
+    kill -KILL "$pid" 2>/dev/null || true
+    fail "fm_test_stop_remote_job_worker returned while the worker was still running"
+  fi
+  assert_present "$state/late/shutdown" \
+    "the worker's shutdown write had not landed when the stop helper returned"
+  fm_test_remove_tree "$root"
+  assert_absent "$root" "removal right after the stop helper left the fixture behind"
+  pass "stopping a remote job worker waits for its shutdown writes before the fixture is removed"
+}
+
 test_fixture_root_gone_after_normal_exit
 test_fixture_root_gone_after_sigterm
 test_cleanup_registry_resists_precreation
@@ -216,3 +247,4 @@ test_fixture_registration_failure_rolls_back_root
 test_orphan_sweep_respects_fixture_ownership
 test_orphan_sweep_reaps_read_only_package_tree
 test_registries_avoid_git_worktree_root
+test_stop_remote_job_worker_waits_for_shutdown_writes
