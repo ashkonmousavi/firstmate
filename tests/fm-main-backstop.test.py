@@ -64,6 +64,8 @@ elif a[:2]==['status','--json']:
  print(json.dumps({'server':{'running':True}}))
 elif a[:2]==['agent','get']:
  print(json.dumps({'result':{'agent':{'agent':c['agent'],'agent_status':c.get('status','idle')}}}))
+elif a[:2]==['pane','get']:
+ print(json.dumps({'result':{'pane':{'pane_id':a[2],'scroll':{'offset_from_bottom':0}}}}))
 elif a[:2]==['pane','read']:
  if c.get('unreadable'):sys.exit(1)
  glyph='❯' if c['agent']=='claude' else '›'

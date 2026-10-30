@@ -38,7 +38,7 @@ Prerequisites:
 - Herdr protocol 14 or newer, installed from [herdr.dev](https://herdr.dev).
 - `jq` for JSON responses.
 - The universal harness and toolchain requirements in [`configuration.md`](configuration.md#toolchain).
-- `python3` only for optional protocol-16 presentation-space ordering, native event subscription, and opt-in [project groups](#project-groups) agent-view transport.
+- `python3` for [composer viewport recovery](#claude-composer-proof), optional protocol-16 presentation-space ordering, native event subscription, and opt-in [project groups](#project-groups) agent-view transport.
 
 Herdr is dual-licensed AGPL-3.0-or-later or commercial.
 Firstmate invokes its CLI as a separate process.
@@ -649,9 +649,14 @@ Typed-plane text is typed once; only Enter is retried.
 When native `agent get` identity is Claude, the adapter types only into an empty composer.
 A Claude composer that already holds text, or cannot be read, before the send is refused with nothing typed.
 Before that Enter, the adapter continues only when the selected composer shows the typed payload, or only Claude paste placeholders with no literal remainder.
-Every herdr adapter composer read (`fm_backend_herdr_composer_state`, `fm_backend_herdr_composer_content`) captures the full visible viewport, never a bounded tail, while the shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend: an overlay Claude renders between the composer and the pane bottom - the slash-command popup is the verified shape - pushes the composer outside a tail window, and the composer is by definition inside the viewport.
+Every herdr adapter composer read (`fm_backend_herdr_composer_state`, `fm_backend_herdr_composer_content`) captures the full visible viewport, never a bounded tail, while the shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend: an overlay Claude renders between the composer and the pane bottom - the slash-command popup is the verified shape - can push the composer outside a tail window even at the live bottom.
+A state capture with no selectable composer reads `unknown`, never `pending`; a viewport scrolled off the live bottom can instead show old output that resembles a composer.
+Before either composer read captures the viewport, the adapter checks `pane get` `scroll.offset_from_bottom`; above 0 it resets the viewport through the socket API `pane.scroll` (`bin/backends/herdr-pane-scroll.py`, always offset 0, never typed keys) and verifies the pane is at the bottom, even when old output resembles a composer.
+For compatibility, a successful `pane get` response that omits the scroll offset allows capture without a reset.
+A failed position query, a nonnumeric reported offset, or a reset that cannot be verified at zero refuses the read with `viewport-not-bottom`.
+A nonblank state capture with no selectable composer records `composer-not-located`; a blank capture remains unreadable without that reason.
 Claude can also draw that popup directly below the composer's closing rule, with its selected row led by the composer's own `❯`; the shared classifier counts those rows as the composer's footer furniture only while the composer holds a typed `/` command, so the proof still reads the typed payload.
-Dated measurements: docs/verification/runtime-backends.md "Claude exit behind the slash-command popup" and "Claude slash-command popup below the composer".
+Verification: [composer viewport recovery](verification/runtime-backends.md#composer-viewport-recovery), [Claude exit behind the slash-command popup](verification/runtime-backends.md#claude-exit-behind-the-slash-command-popup), and [Claude slash-command popup below the composer](verification/runtime-backends.md#claude-slash-command-popup-below-the-composer).
 
 That comparison ignores whitespace and U+2063, the invisible mark that starts operational inputs and ends the from-firstmate label.
 It ignores U+2063 because Claude's Herdr read-back never shows it.

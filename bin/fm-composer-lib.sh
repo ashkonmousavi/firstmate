@@ -1687,9 +1687,10 @@ _fm_composer_row_is_composer_furniture() {  # <trimmed-row> <proof-glyph>
 # slash-command popup, which Claude 2.1.301 can draw directly below the
 # closing rule of a composer holding a typed `/` command (see THE COMPOSER
 # FOOTER ZONE in this file's header). A command row is indented, optionally
-# leads with <proof> as its selection marker, names a `/` command, and may
-# carry a description after a gap of two or more spaces; that description's
-# column is recorded in FM_COMPOSER_POPUP_DESC_COL. A wrapped description row
+# leads with <proof> as its selection marker, names a `/` command (optionally
+# followed by ` (MCP)`), and may carry a description after a gap of two or more
+# spaces; that description's column is recorded in FM_COMPOSER_POPUP_DESC_COL.
+# A wrapped description row
 # is accepted only at exactly the column <desc-col> recorded by the row above
 # (0 means no description column is open). Column 0 is never a popup row:
 # that is where a live composer row starts. The marker is replaced with one
@@ -1720,6 +1721,12 @@ _fm_composer_slash_popup_row() {  # <raw-row> <proof-glyph> <desc-col>
   esac
   cmd=${body%%[[:space:]]*}
   body=${body#"$cmd"}
+  case "$body" in
+    ' (MCP)'|' (MCP)'[[:space:]]*)
+      cmd="$cmd (MCP)"
+      body=${body#' (MCP)'}
+      ;;
+  esac
   gap=${body%%[![:space:]]*}
   body=${body#"$gap"}
   if [ -z "$body" ]; then
@@ -1955,6 +1962,15 @@ _fm_composer_select_cursorless() {
     fi
   fi
   [ -n "$FM_COMPOSER_SELECTED_KIND" ]
+}
+
+fm_composer_none_reason() {  # <caps> <screen>
+  local screen=$2 plain
+  plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
+  _fm_composer_scan_screen "$plain" ''
+  _fm_composer_select_cursorless "$plain" && return 0
+  printf 'no-composer'
+  return 0
 }
 
 fm_composer_extract_selected_content() {  # <caps> <screen>

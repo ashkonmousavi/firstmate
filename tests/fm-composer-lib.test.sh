@@ -335,6 +335,11 @@ test_composer_footer_zone_claude_slash_popup() {
   composer=$'transcript line\n\n'"$rule"$'\n❯'"$NBSP"$'/exit\n'"$rule"
   popup=$'\n  ❯ /exit                    Exit the CLI'
   popup+=$'\n    /context                 Visualize current context usage as a colored grid'
+  # Claude 2.1.314's recorded /exit popup includes a single-space MCP label.
+  # Extraction must still return only the typed command, including when the
+  # annotated entry's description wraps at its own (wider) column.
+  popup+=$'\n    /higgsfield:reset-credits (MCP)              Open the Credit Reset offer. Does not claim credits or change the'
+  popup+=$'\n                                                 subscription.'
   popup+=$'\n    /usage-credits           Configure usage credits or request them from your admin when you'
   popup+=$'\n                             hit a limit'
   popup+=$'\n    /quiet                   Enter quiet supervision mode when the captain invokes /quiet or'
@@ -356,6 +361,10 @@ test_composer_footer_zone_claude_slash_popup() {
   screen="$composer"$'\n❯ /fix the  login bug'
   out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
   [ "$out" != /exit ] || fail "a live composer below the envelope must keep winning, got '$out'"
+  # The MCP annotation does not permit arbitrary single-space descriptions.
+  screen="$composer"$'\n  ❯ /exit Exit the CLI'
+  out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
+  [ "$out" != /exit ] || fail "a single-space description must not count as popup furniture, got '$out'"
   # A wrapped description is accepted only at the description column.
   screen="$composer"$'\n  ❯ /exit                    Exit the CLI\n                          hit a limit'
   out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
@@ -1660,3 +1669,77 @@ test_background_exit_picker_stays_pending_and_blocks_retry
 test_dialog_heading_and_footer_must_be_the_recorded_lines
 test_dialog_note_skips_the_match_when_no_sink_is_set
 test_quoted_exit_picker_text_is_not_a_dialog
+
+test_composerless_capture_is_unknown_not_pending() {
+  local fill screen caps reason
+  fill=$(for i in $(seq 1 40); do printf '  ⎿  tool output line %s\n' "$i"; done)
+  for screen in "$fill" $'❯ old prompt\n\n$' $'╭────────────────────────╮\n│ unfinished composer'; do
+    for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+      assert_screen "no selected composer" unknown "$caps" "$screen" '' $'claude\tidle'
+      reason=$(fm_composer_none_reason "$caps" "$screen")
+      [ "$reason" = no-composer ] || fail "an unselectable composer must name no-composer, got '$reason'"
+      reason=$(LC_ALL=C fm_composer_none_reason "$caps" "$screen")
+      [ "$reason" = no-composer ] || fail "an unselectable composer must name no-composer under LC_ALL=C"
+    done
+  done
+  screen="$fill"$'\n────────────────────────\n❯'"$NBSP"$'\n────────────────────────\n  bypass permissions'
+  assert_screen "idle composer under long output" empty "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+  reason=$(fm_composer_none_reason "$CAPS_STYLED" "$screen")
+  [ -z "$reason" ] || fail "a located composer must name no reason, got '$reason'"
+  screen="$fill"$'\n────────────────────────\n❯ half typed\n────────────────────────\n  bypass permissions'
+  assert_screen "typed composer under long output" pending "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+  pass "fm_composer_classify_screen: no composer selected yields unknown with a distinct reason in both locales"
+}
+
+test_composerless_capture_is_unknown_not_pending
+
+test_long_composer_input_remains_selectable() {
+  local kind count i screen expected caps reason
+  for kind in bare titled leftbar box; do
+    for count in 28 40; do
+      screen=''
+      expected=''
+      case "$kind" in
+        bare) screen='❯ draft' ;;
+        titled) screen=$'──────── Claude ────────\n❯ draft' ;;
+        leftbar) screen='┃ draft' ;;
+        box) screen=$'╭────────────────────────╮\n│ ❯ draft                │' ;;
+      esac
+      expected=draft
+      for i in $(seq 1 "$count"); do
+        case "$kind" in
+          bare|titled) screen+=$'\n'"  continuation $i" ;;
+          leftbar) screen+=$'\n'"┃ continuation $i" ;;
+          box) screen+=$'\n'"│ continuation $(printf '%02d' "$i")        │" ;;
+        esac
+        case "$kind" in
+          box) expected+=" continuation $(printf '%02d' "$i")" ;;
+          *) expected+=" continuation $i" ;;
+        esac
+      done
+      case "$kind" in
+        titled) screen+=$'\n────────────────────────' ;;
+        leftbar) screen+=$'\n╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀' ;;
+        box) screen+=$'\n╰────────────────────────╯' ;;
+      esac
+      for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+        if [ "$caps" = "$CAPS_PLAIN" ] && [ "$kind" != box ]; then
+          assert_screen "$kind long draft on plain capture" unknown "$caps" "$screen"
+        else
+          assert_screen "$kind long draft with $count continuation rows" pending "$caps" "$screen"
+        fi
+        reason=$(fm_composer_none_reason "$caps" "$screen")
+        [ -z "$reason" ] || fail "$kind long draft was rejected as $reason"
+        reason=$(fm_composer_extract_selected_content "$caps" "$screen") \
+          || fail "$kind long draft could not be extracted"
+        [ "$reason" = "$expected" ] || fail "$kind long draft lost input: '$reason'"
+        reason=$(LC_ALL=C fm_composer_extract_selected_content "$caps" "$screen") \
+          || fail "$kind long draft could not be extracted under LC_ALL=C"
+        [ "$reason" = "$expected" ] || fail "$kind long draft lost input under LC_ALL=C"
+      done
+    done
+  done
+  pass "long wrapped input remains selectable and extractable across composer shapes"
+}
+
+test_long_composer_input_remains_selectable

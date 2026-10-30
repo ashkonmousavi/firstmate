@@ -28,7 +28,7 @@ LAB_HELPER=${HERDR_LAB_HELPER:-$ROOT/bin/fm-herdr-lab.sh}
 fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
 pass() { printf 'ok - %s\n' "$1"; }
 
-fm_live_gate opt-in FM_HERDR_SUBMIT_CONFIRM_LIVE herdr jq claude
+fm_live_gate opt-in FM_HERDR_SUBMIT_CONFIRM_LIVE herdr jq claude python3
 
 [ -x "$LAB_HELPER" ] || fail "FM_HERDR_SUBMIT_CONFIRM_LIVE=1 but the Herdr lab helper is not executable at $LAB_HELPER"
 
@@ -85,7 +85,9 @@ TARGET="$SESSION:$PANE"
 VERSION=$(PATH="$ORIGINAL_PATH" claude --version 2>/dev/null | head -1 || printf 'version-unknown')
 HERDR_VER=$(PATH="$ORIGINAL_PATH" herdr --version 2>/dev/null | head -1 || printf 'herdr-unknown')
 
-lab pane run "$PANE" "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\"}'" >/dev/null \
+# The viewport regression needs native terminal scrollback. Fullscreen Claude
+# uses the alternate screen buffer, whose Herdr scroll maximum stays zero.
+lab pane run "$PANE" "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\"}'" >/dev/null \
   || fail "could not launch Claude Code ($VERSION) in the isolated Herdr pane"
 
 idle=0
@@ -120,7 +122,7 @@ done
 [ "$idle" = 1 ] || fail "Claude Code ($VERSION) on $HERDR_VER never rendered an idle composer in the lab pane"
 
 TOKEN="FMHERDRPONG$$_$RANDOM"
-verdict=$(fm_backend_herdr_send_text_submit "$TARGET" "Reply with exactly $TOKEN and nothing else." 3 0.4 0.4) \
+verdict=$(fm_backend_herdr_send_text_submit "$TARGET" "Print $TOKEN on its own line, then print 120 numbered lines of plain text, one number per line, without using tools." 3 0.4 0.4) \
   || fail "send_text_submit failed to run against Claude Code ($VERSION) on $HERDR_VER"
 CHECKED=1
 [ "$verdict" = empty ] \
@@ -193,6 +195,95 @@ while [ "$i" -lt 45 ]; do
   i=$((i + 1))
   sleep 1
 done
+case "$st" in
+  idle|done) ;;
+  *) fail "Claude Code ($VERSION) on $HERDR_VER: never became idle for the viewport recovery checks" ;;
+esac
+
+check_scrolled_composer_reads() {
+  local want_state=$1 want_content=$2 reader metrics offset rows socket raw actual
+  for reader in state content; do
+    metrics=$(lab pane get "$PANE" | jq -er '.result.pane.scroll') \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: scroll metrics unavailable"
+    offset=$(printf '%s' "$metrics" | jq -er '.max_offset_from_bottom')
+    rows=$(printf '%s' "$metrics" | jq -er '.viewport_rows')
+    [ "$offset" -gt "$rows" ] \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: insufficient scrollback to hide the composer ($offset/$rows)"
+    socket=$(fm_backend_herdr_presentation_session_socket_path "$SESSION") \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: could not resolve the lab socket"
+    if ! python3 - "$socket" "$PANE" "$offset" <<'PYSCROLL'
+import json
+import socket
+import sys
+with socket.socket(socket.AF_UNIX) as control:
+    control.settimeout(5)
+    control.connect(sys.argv[1])
+    request = {"id": "live-scroll", "method": "pane.scroll",
+               "params": {"pane_id": sys.argv[2], "offset_from_bottom": int(sys.argv[3])}}
+    control.sendall((json.dumps(request) + "\n").encode())
+    response = json.loads(control.makefile().readline())
+    if response.get("id") != "live-scroll" or response.get("error") is not None:
+        raise SystemExit(1)
+PYSCROLL
+    then
+      fail "Claude Code ($VERSION) on $HERDR_VER: could not scroll the lab pane"
+    fi
+    offset=$(fm_backend_herdr_pane_scroll_offset "$SESSION" "$PANE")
+    [ "$offset" -gt 0 ] \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: the viewport did not scroll"
+    raw=$(lab pane read "$PANE" --source visible --format ansi) \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: could not capture the scrolled viewport"
+    [ -n "$raw" ] \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: scrolled capture was blank"
+    case "$reader" in
+      state)
+        actual=$(fm_backend_herdr_composer_state "$TARGET")
+        [ "$actual" = "$want_state" ] \
+          || fail "Claude Code ($VERSION) on $HERDR_VER: recovered state expected '$want_state', got '$actual'"
+        ;;
+      content)
+        actual=$(fm_backend_herdr_composer_content "$TARGET") \
+          || fail "Claude Code ($VERSION) on $HERDR_VER: content read did not recover the composer"
+        [ "$actual" = "$want_content" ] \
+          || fail "Claude Code ($VERSION) on $HERDR_VER: recovered content expected '$want_content', got '$actual'"
+        ;;
+    esac
+    offset=$(fm_backend_herdr_pane_scroll_offset "$SESSION" "$PANE")
+    [ "$offset" = 0 ] \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: $reader read left the viewport scrolled ($offset)"
+    actual=$(lab pane read "$PANE" --source visible --format ansi) \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: could not capture the recovered viewport"
+    [ "$actual" != "$raw" ] \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: scrolling did not expose a different viewport"
+  done
+  pass "live Herdr viewport recovery: Claude Code ($VERSION) on $HERDR_VER recovers $want_state state and content after independent scrolls"
+}
+
+check_scrolled_composer_reads empty ''
+SCROLL_DRAFT="Unsent viewport recovery draft $TOKEN"
+lab pane send-text "$PANE" "$SCROLL_DRAFT" >/dev/null \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: could not type the recovery draft"
+i=0
+while [ "$i" -lt 30 ]; do
+  actual=$(fm_backend_herdr_composer_content "$TARGET") || actual=''
+  [ "$actual" = "$SCROLL_DRAFT" ] && break
+  i=$((i + 1))
+  sleep 0.1
+done
+[ "$actual" = "$SCROLL_DRAFT" ] \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: recovery draft never rendered"
+check_scrolled_composer_reads pending "$SCROLL_DRAFT"
+lab pane send-keys "$PANE" ctrl+u >/dev/null \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: could not clear the recovery draft"
+i=0
+while [ "$i" -lt 30 ]; do
+  actual=$(fm_backend_herdr_composer_state "$TARGET")
+  [ "$actual" = empty ] && break
+  i=$((i + 1))
+  sleep 0.1
+done
+[ "$actual" = empty ] \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: recovery draft did not clear"
 verdict=$(fm_backend_herdr_send_text_submit "$TARGET" '/exit' 3 0.4 1.2) \
   || fail "send_text_submit failed to run the /exit submission against Claude Code ($VERSION) on $HERDR_VER"
 [ "$verdict" != send-failed ] \
