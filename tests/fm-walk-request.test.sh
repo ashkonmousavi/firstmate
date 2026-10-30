@@ -1242,9 +1242,16 @@ watch_env_dispatch() {
 }
 
 test_project_target_from_watch_env() {
-  local calls marker
+  local calls marker field style quote project target
   calls=$(watch_env_dispatch file 'export FM_WALK_REQUEST_PROJECT=x FM_WALK_REQUEST_TARGET=production  # comment')
   assert_contains "$calls" "--project x --target production" "watch.env pair reaches a watcher armed without it"
+
+  calls=$(watch_env_dispatch double-quoted 'export FM_WALK_REQUEST_PROJECT="x" FM_WALK_REQUEST_TARGET="production" # comment')
+  assert_contains "$calls" "--project x --target production" "double-quoted shell assignments reach the detached dispatcher"
+
+  calls=$(watch_env_dispatch single-quoted "export FM_WALK_REQUEST_PROJECT='x'
+export FM_WALK_REQUEST_TARGET='production'")
+  assert_contains "$calls" "--project x --target production" "single-quoted shell assignments reach the detached dispatcher"
 
   calls=$(watch_env_dispatch envwins $'FM_WALK_REQUEST_PROJECT=x\nFM_WALK_REQUEST_TARGET=production' \
     FM_WALK_REQUEST_PROJECT=y FM_WALK_REQUEST_TARGET=staging)
@@ -1261,6 +1268,23 @@ touch $marker
 export FM_WALK_REQUEST_PROJECT=x FM_WALK_REQUEST_TARGET=production")
   assert_contains "$calls" "--project x --target production" "other lines are ignored"
   [ ! -e "$marker" ] || fail "watch.env must be parsed, never executed"
+
+  for field in project target; do
+    for style in double single; do
+      case "$style" in double) quote=\" ;; single) quote=\' ;; esac
+      project=x
+      target=production
+      case "$field" in
+        project) project="\$(touch\${IFS}$marker)" ;;
+        target) target="\$(touch\${IFS}$marker)" ;;
+      esac
+      watch_env_dispatch "quoted-substitution-$field-$style" \
+        "export FM_WALK_REQUEST_PROJECT=$quote$project$quote FM_WALK_REQUEST_TARGET=$quote$target$quote" >/dev/null
+      expect_code 2 "$WATCH_ENV_RC" "quoted substitutions in $field must be rejected as routing names"
+      [ ! -e "$WATCH_ENV_PARENT/fake-dispatch.calls" ] || fail "invalid quoted routing must not dispatch"
+      [ ! -e "$marker" ] || fail "quoted routing must never execute substitutions"
+    done
+  done
 
   watch_env_dispatch half 'export FM_WALK_REQUEST_PROJECT=x' >/dev/null
   expect_code 2 "$WATCH_ENV_RC" "one name only in watch.env is a usage error"

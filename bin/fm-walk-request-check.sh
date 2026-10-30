@@ -398,7 +398,7 @@ prepare_brief() {
 # parsed, never sourced: only leading `[export] NAME=value ...` lines count,
 # up to a `#` comment word, and the last assignment of each name wins.
 load_project_target_from_watch_env() {
-  local file="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/watch.env" line word first project='' target=''
+  local file="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/watch.env" line word value first project='' target=''
   [ -r "$file" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
     first=1
@@ -413,8 +413,17 @@ load_project_target_from_watch_env() {
       fi
       case "$word" in
         '#'*) break ;;
-        FM_WALK_REQUEST_PROJECT=*) project=${word#*=} ;;
-        FM_WALK_REQUEST_TARGET=*) target=${word#*=} ;;
+        FM_WALK_REQUEST_PROJECT=*|FM_WALK_REQUEST_TARGET=*)
+          value=${word#*=}
+          case "$value" in
+            \"*\") value=${value#\"}; value=${value%\"} ;;
+            \'*\') value=${value#\'}; value=${value%\'} ;;
+          esac
+          case "$word" in
+            FM_WALK_REQUEST_PROJECT=*) project=$value ;;
+            FM_WALK_REQUEST_TARGET=*) target=$value ;;
+          esac
+          ;;
         [A-Za-z_]*=*) ;;
         *) [ "$first" = 0 ] && break ;;
       esac
