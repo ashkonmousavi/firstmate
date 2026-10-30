@@ -1258,6 +1258,8 @@ while [ ! -e "$FM_PROBE_DIR/release" ]; do /bin/sleep 0.05; done
 if [ "$2" = "$FM_LANDED_CORR" ]; then printf 'landed\n'; else printf 'absent\n'; fi
 SH
   chmod +x "$dir/probe"
+  # Expand the script variables in the child shell.
+  # shellcheck disable=SC2016
   out=$(remote_inbox_detached_env "$fb" "$home" "$ssh_log" '
     ( /bin/sleep 10; touch "$FM_PROBE_DIR/release" ) </dev/null >/dev/null 2>&1 &
     watchdog=$!

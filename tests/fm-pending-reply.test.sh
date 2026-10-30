@@ -2111,7 +2111,8 @@ test_delivery_unknown_probes_the_remote_inbox() {
   home=$(setup_parent probe-remote)
   state="$home/state"
   : > "$state/ios.status"
-  export FM_PENDING_REPLY_NOW=6000
+  FM_PENDING_REPLY_NOW=6000
+  export FM_PENDING_REPLY_NOW
   fm_write_meta "$state/ios.meta" \
     "window=fm-remote:w1:p1" "harness=claude" "kind=secondmate" "mode=secondmate" \
     "remote_host=remote-mac" "remote_root=/remote/root" "remote_backend=herdr"
