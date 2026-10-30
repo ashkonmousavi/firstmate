@@ -829,7 +829,8 @@ not ok - grok (grok 1.0.62 (1474f9cbdd91) [stable]): weekly-limit border not ren
 ## Composer classification matrix
 
 The shared composer classifier (`bin/fm-composer-lib.sh`, `fm_composer_classify_screen`) owns every composer shape fleet-wide; each backend contributes only a capture and a capability descriptor.
-The live half of that guarantee was verified on 2026-08-10 from an already-trusted checkout at the branch's final validated head, against every installed harness then covered by the empty-composer matrix on tmux 3.6a, macOS arm64, on an isolated private socket, with no prompt submitted to any harness.
+The idle-composer checks were verified on 2026-08-10 from an already-trusted checkout at the branch's final validated head, against every installed harness then covered by the empty-composer matrix on tmux 3.6a, macOS arm64, on an isolated private socket, with no prompt submitted to any harness.
+This historical idle-only result does not establish the wrapped-suggestion coverage described below.
 An earlier untrusted-worktree run left Claude, Grok, and Muse unverified because the guard treats first-launch trust dialogs as an unreadable-composer state and never confirms them; this trusted-checkout rerun supersedes those missing results.
 
 ```sh
@@ -863,6 +864,45 @@ This closes only #3436's idle-composer-misclassification symptom (Grok/Herdr com
 Cursor is deliberately outside this cursor-anchored empty-composer matrix because its terminal cursor is parked outside the composer; tmux's Cursor-specific, process-identity-gated cursorless fallback is covered by the [Cursor Agent CLI](#cursor-agent-cli) section's separate live evidence and drift guard.
 
 `zellij action dump-screen --pane-id <id> --ansi` was verified at zellij 0.44.0 to preserve ANSI styling (real Claude Code rendered inside a zellij pane dumped `ESC[m` `❯` U+00A0 for its idle composer row), which is the capability the zellij composer classifier reads.
+
+### Claude titled-composer validation inventory
+
+This inventory maps the titled-composer paths to regression coverage and outstanding live evidence.
+It is a coverage map, not a claim that the commands below have passed against the current harness versions.
+The affected implementation is `_fm_composer_bare_rule_sandwich` in `bin/fm-composer-lib.sh`; its portable regression is `test_matrix_claude_titled_wrapped_ghost_suggestion` in `tests/fm-composer-lib.test.sh`, and its real-rendering guard is `tests/fm-composer-matrix-live-e2e.test.sh`.
+The oracle combines the required empty, pending, and refusal outcomes with Claude's documented [prompt-suggestion behavior](https://code.claude.com/docs/en/interactive-mode#prompt-suggestions) and the guard's known unsent draft input.
+Accepting an ordinary empty pane without observing a wrapped dim suggestion, or discarding a real draft, must not count as proof.
+
+| Class axis | Affected paths or inspected boundary | Regression and remaining validation |
+| --- | --- | --- |
+| Cursorless classification | `fm_composer_classify_screen` selects through `_fm_composer_select_cursorless`, whose titled-rule exception calls `_fm_composer_bare_rule_sandwich` | `test_matrix_claude_titled_top_rule` and `test_matrix_claude_titled_wrapped_ghost_suggestion`; the live matrix requires the named titled shape and tests identity-capable and identity-free cursorless reads |
+| Cursor classification | `fm_tmux_composer_state` supplies the real cursor row; the glyph-row and continuation-row branches use `_fm_composer_classify_bare_row`, `_fm_composer_wrap_region_ok`, and `_fm_composer_classify_bare_wrap` | `test_bare_wrap_region_classifies` and the live matrix's cursor-capability reads; retain both prompt-row and continuation-row cursor evidence |
+| Extraction and payload proof | `fm_composer_extract_selected_content` shares cursorless selection; Herdr's `fm_backend_herdr_composer_content`, Zellij's content and observed-append functions, and `fm_task_inbox_composer_holds` consume extracted text | `test_selected_content_is_composer_scoped_and_wrap_normalized`, `tests/fm-backend-herdr.test.sh`, and `tests/fm-backend-zellij.test.sh`; exact extraction of titled wrapped ghosts and drafts still needs dedicated evidence |
+| Exit and relaunch | `fm-control.sh` requires a proven-empty composer before typing an exit command; relaunch uses the same exit boundary before replacement | `tests/fm-control.test.sh` and `tests/fm-control-relaunch.test.sh`; the matrix proves classifier verdicts, not a completed exit or relaunch from a wrapped suggestion |
+| Steering and submit | `fm-send.sh` reaches `_fm_task_inbox_ring_step` and backend submit confirmation; pending-draft recovery also compares extracted own-doorbell content | `tests/fm-send-inbox.test.sh`, `tests/fm-send-strict.test.sh`, and `tests/fm-send-inbox-doorbell-live-e2e.test.sh`; a real wrapped-suggestion Herdr doorbell remains an integration evidence gap |
+| Spawn and launch suppression | `fm-spawn.sh` launch-readiness checks use `fm_backend_composer_state`; the [Claude adapter reference](../../.agents/skills/harness-adapters/references/harness/claude.md#composer-ghost) owns launch suppression | `tests/fm-spawn-dispatch-profile.test.sh` exercises emitted launch expressions; validation must observe the executed worker environment and must not treat the suggestion-enabled matrix probe as suppression proof |
+| Task and home | Ship, scout, and local secondmate use the shared spawn and classifier paths; remote secondmates execute in their owning home; classifier input carries no task kind or home | `tests/fm-spawn-dispatch-profile.test.sh`, `tests/fm-send-secondmate-marker.test.sh`, and `tests/fm-remote-secondmate-relaunch.test.sh`; manually launched primaries still need the classifier backstop because they need not use the worker launch template |
+| Harness | Claude emits the target shape; Codex, OpenCode, Pi, pi-signed, Grok, Kimi, Cursor, Muse, Gemini, Rovo, OMP, Agy, Devin, Command Code, and Polytoken can share the generic selector because it is shape-based, not Claude-gated | `tests/fm-composer-lib.test.sh` and `tests/fm-composer-ghost.test.sh` cover sibling shapes, footer boundaries, stale candidates, and ghost stripping; the live matrix launches Claude, Codex, OpenCode, Pi, Grok, Kimi, and Muse only, so it cannot establish live coverage for the other harnesses |
+| Backend | Tmux supplies styled capture and cursor metadata; Herdr supplies styled cursorless capture with plain fallback and optional identity; Zellij supplies styled cursorless capture with plain fallback and no identity; cmux, Orca, and Paseo supply plain cursorless captures | `tests/fm-backend.test.sh` plus the corresponding `fm-backend-herdr`, `fm-backend-zellij`, `fm-backend-cmux`, `fm-backend-orca`, and `fm-backend-paseo` test scripts; matching matrix capability profiles do not prove those backends' actual captures or transport; Codex App is excluded by `FM_BACKEND_KNOWN` and has no classifier dispatch |
+| Platform and locale | The changed selector is shared Bash code with no OS branch; terminal wrapping, ANSI capture, and process or key behavior still depend on Linux or WSL2 versus macOS and on the installed tools | Run the portable composer regressions under their existing UTF-8 and `LC_ALL=C` matrix, then refresh live evidence separately on Linux and macOS with Bash, tmux, Claude, and applicable backend versions; historical idle evidence above does not prove the new wrapped surface |
+| Account and launch options | The classifier consumes no account, credential, model, or permission-mode input; spawn resolves ordinary, ambient `CLAUDE_CONFIG_DIR`, pinned, raw-command, and per-secondmate account selection before launch | `tests/fm-worker-account.test.sh` and `tests/fm-spawn-dispatch-profile.test.sh`; routing is inspected as unaffected, while executed suppression and rendered-suggestion evidence must name the selected account category without exposing credentials or assuming every raw override uses the canonical template |
+| Lifecycle and input representation | Fresh idle, completed turn with dim suggestion, narrow-pane wrap, typed wrapped draft, newline-leading draft, cleared input, missing styling, stale transcript, and lower footer or shell activity all feed the same selector or its consumers | The titled, bare-wrap, strict-blank-row, footer, and lower-candidate cases in `tests/fm-composer-lib.test.sh` plus the live matrix's ghost, wrapped, and newline arms; edge-looking continuation text such as `C++`, multiple leading blank rows, status-like or braille-like interior text, and titled extraction are not covered by the new wrapped regression |
+
+To refresh this coverage, run the portable composer regressions and the applicable consumer regressions listed above, then the opt-in live guards below using installed, authenticated harnesses.
+The matrix now submits a Claude prompt with suggestions explicitly enabled in a 40-column named pane, requires an actual multirow dim suggestion inside its titled rules, tests unsent wrapped and newline-leading drafts, and requires unstyled suggestion reads to refuse.
+A missing titled surface or suggestion is a failed coverage attempt, not a successful empty-composer check.
+The doorbell guard supplies separate real-agent delivery evidence; it does not require the wrapped-suggestion surface and cannot replace the matrix arm or the outstanding Herdr integration proof.
+Run real Herdr scenarios only through the named non-default lab session owned by `bin/fm-herdr-lab.sh` and [the Herdr backend contract](../herdr-backend.md).
+
+```sh
+bash tests/fm-composer-lib.test.sh
+bash tests/fm-composer-ghost.test.sh
+FM_COMPOSER_MATRIX_LIVE=1 bash tests/fm-composer-matrix-live-e2e.test.sh
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=claude bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+Before claiming live proof, replace the outstanding evidence with the date, platform, relevant tool and harness versions, exact command, and exact observed output in this record.
+Record absent harnesses, unavailable logins or backends, unrendered required surfaces, and untested axes explicitly; a guard covering only tmux capability profiles does not establish every backend or account combination.
 
 ### 2026-10-14 opencode 1.19.0 de-emphasised mode/footer row in the left-bar composer
 

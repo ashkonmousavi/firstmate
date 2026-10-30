@@ -1173,6 +1173,35 @@ test_matrix_claude_titled_top_rule() {
   pass "matrix: claude's titled top rule proves an idle composer empty and a draft pending (#5601, #5558)"
 }
 
+test_matrix_claude_titled_wrapped_ghost_suggestion() {
+  # Claude Code draws its next-prompt suggestion as SGR-2 ghost text in an
+  # empty composer (https://code.claude.com/docs/en/interactive-mode, "Prompt
+  # suggestions"). A suggestion longer than the pane wraps onto a second row,
+  # so the titled composer spans more than one row while nothing was typed.
+  local rule title top bottom footer claude_idle ghost1 ghost2 wrapped bright
+  claude_idle=$(printf 'claude\tidle')
+  rule='────────────────────────────────────────────────────────────'
+  title=' Firstmate operational input 1793350000 '
+  top="${rule}───${title}─"
+  bottom="${rule}────────────────────────────────────────────"
+  footer='  ⏵⏵ bypass permissions on (shift+tab to cycle)'
+  ghost1="${ESC}[2mOpen the PR for fm/x-j16-source-off-oracle once the merge line drops${ESC}[0m"
+  ghost2="${ESC}[2mbelow 8 and confirm CI is green${ESC}[0m"
+  wrapped="$top"$'\n❯'"$NBSP$ghost1"$'\n  '"$ghost2"$'\n'"$bottom"$'\n'"$footer"
+  assert_screen "titled claude wrapped ghost suggestion on herdr" empty "$CAPS_STYLED" "$wrapped" '' "$claude_idle"
+  # Without styling the ghost cannot be told from typed text: still a refusal.
+  assert_screen "titled claude wrapped ghost suggestion on plain herdr" unknown \
+    'styled=0
+cursor=0
+identity=1' "$wrapped" '' "$claude_idle"
+  # A real draft that wraps, or opens with a newline, still reads pending.
+  bright="$top"$'\n❯'"$NBSP$ghost1"$'\n  typed second line\n'"$bottom"$'\n'"$footer"
+  assert_screen "titled claude ghost row over a typed row" pending "$CAPS_STYLED" "$bright" '' "$claude_idle"
+  bright="$top"$'\n❯'"$NBSP"$'\n  draft that opened with a newline\n'"$bottom"$'\n'"$footer"
+  assert_screen "titled claude draft opening with a newline" pending "$CAPS_STYLED" "$bright" '' "$claude_idle"
+  pass "matrix: a wrapped ghost suggestion in claude's titled composer reads empty while wrapped drafts stay pending"
+}
+
 test_matrix_kimi_bordered_shell_glyph_box() {
   # Kimi's bordered `│ > │` composer - the shape fm-spawn.sh's retired
   # spawn-local regex used to own. Now the shared owner proves it everywhere,
@@ -1431,6 +1460,7 @@ test_matrix_grok_titled_bottom_border
 test_matrix_grok_weekly_limit_border
 test_matrix_grok_always_approve_border_from_capture
 test_matrix_claude_titled_top_rule
+test_matrix_claude_titled_wrapped_ghost_suggestion
 test_matrix_kimi_bordered_shell_glyph_box
 test_matrix_claude_inside_zellij_ansi_dump
 test_strict_blank_row_divergence

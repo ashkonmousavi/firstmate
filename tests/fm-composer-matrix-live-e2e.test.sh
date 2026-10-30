@@ -21,8 +21,8 @@
 #     composer must never make an idle composer read `pending`, because that
 #     verdict is what skips a steer's doorbell fleet-wide.
 #
-# Run explicitly with FM_COMPOSER_MATRIX_LIVE=1. No prompt is ever submitted
-# to any harness, so no model tokens are spent. An absent harness is reported
+# Run explicitly with FM_COMPOSER_MATRIX_LIVE=1. The Claude wrapped-composer
+# check submits a prompt and spends model tokens. An absent harness is reported
 # explicitly and skipped; a run that verified nothing fails rather than
 # passing vacuously. Refresh docs/verification/runtime-backends.md ("Composer
 # classification matrix") from this guard's output after any harness upgrade.
@@ -37,7 +37,7 @@ set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-fm_live_gate opt-in FM_COMPOSER_MATRIX_LIVE tmux
+fm_live_gate opt-in FM_COMPOSER_MATRIX_LIVE tmux python3
 
 SOCKET="fm-cmx-live-$$"
 SESSION="cmxlive"
@@ -159,6 +159,126 @@ check_harness_idle_cursorless() {  # <name> <version> <target>
   fi
 }
 
+claude_wrapped_surface() {
+  python3 -c '
+import re
+import sys
+
+mode, expected = sys.argv[1:]
+rows = [[]]
+dim = False
+for token in re.finditer(r"\x1b\[([0-9;]*)m|([^\x1b])", sys.stdin.read()):
+    if token[1] is not None:
+        codes = [int(code or 0) for code in token[1].split(";")]
+        i = 0
+        while i < len(codes):
+            code = codes[i]
+            if code == 0 or code == 22:
+                dim = False
+            elif code == 2:
+                dim = True
+            elif code in (38, 48, 58) and i + 1 < len(codes):
+                i += 4 if codes[i + 1] == 2 else 2
+            i += 1
+    elif token[2] == "\n":
+        rows.append([])
+    else:
+        rows[-1].append((token[2], dim))
+plain = ["".join(c for c, _ in row).strip() for row in rows]
+tops = [i for i, row in enumerate(plain) if row.startswith("─") and "fm-wrap-live" in row]
+if not tops:
+    sys.exit(1)
+top = tops[-1]
+bottom = next((i for i in range(top + 1, len(rows)) if re.fullmatch(r"─+", plain[i])), None)
+if bottom is None or bottom - top < 3 or not plain[top + 1].startswith("❯"):
+    sys.exit(1)
+body = rows[top + 1:bottom]
+prompt = next(i for i, (c, _) in enumerate(body[0]) if c == "❯")
+body[0] = body[0][prompt + 1:]
+text = ["".join(c for c, _ in row).strip() for row in body]
+if mode == "ghost":
+    visible = [(c, faint) for row in body for c, faint in row if not c.isspace()]
+    valid = sum(bool(line) for line in text) >= 2 and visible and all(faint for _, faint in visible)
+else:
+    valid = "".join("".join(text).split()) == "".join(expected.split())
+    if mode == "newline":
+        valid = valid and not text[0] and any(text[1:])
+    else:
+        valid = valid and sum(bool(line) for line in text) >= 2
+sys.exit(0 if valid else 1)
+' "$1" "${2:-}"
+}
+
+check_claude_wrapped() {
+  local target="$SESSION:claude-wrap" version pane='' plain cy caps actual mode draft i
+  version=$(harness_version claude)
+  tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n claude-wrap -c "$ROOT" \
+    env CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=true CLAUDE_CODE_SKIP_PROMPT_HISTORY=1 \
+    claude --name fm-wrap-live --setting-sources '' \
+    --settings '{"disableAllHooks":true,"promptSuggestionEnabled":true}' \
+    --strict-mcp-config --mcp-config '{"mcpServers":{}}' --tools '' \
+    --system-prompt 'Answer briefly in plain text. Do not use tools or change files.' \
+    || fail "claude ($version): could not launch the wrapped-composer probe"
+  tmux -L "$SOCKET" resize-window -t "$target" -x 40 -y 40 \
+    || fail "claude ($version): could not narrow the wrapped-composer pane"
+  for ((i=0; i<45; i++)); do
+    [ "$(fm_tmux_composer_state "$target")" = empty ] && break
+    sleep 1
+  done
+  [ "$i" -lt 45 ] || fail "claude ($version): wrapped-composer probe never became ready"
+  tmux -L "$SOCKET" send-keys -t "$target" -l \
+    'I want to add a narrow-terminal regression check for wrapped prompt suggestions and multiline drafts. First, explain in one sentence why terminal width matters. I will ask you to outline the regression cases next.' \
+    || fail "claude ($version): could not type the probe prompt"
+  tmux -L "$SOCKET" send-keys -t "$target" Enter \
+    || fail "claude ($version): could not submit the probe prompt"
+  draft='Unsent draft spanning several terminal rows to prove real input remains pending in a narrow composer'
+  for mode in ghost wrapped newline; do
+    case "$mode" in
+      wrapped)
+        tmux -L "$SOCKET" send-keys -t "$target" -l "$draft" \
+          || fail "claude ($version): could not type the wrapped draft"
+        ;;
+      newline)
+        tmux -L "$SOCKET" send-keys -t "$target" C-u \
+          || fail "claude ($version): could not clear the wrapped draft"
+        printf '\n%s' "$draft" | tmux -L "$SOCKET" load-buffer -b wrapped-draft - \
+          || fail "claude ($version): could not buffer the newline draft"
+        tmux -L "$SOCKET" paste-buffer -p -d -b wrapped-draft -t "$target" \
+          || fail "claude ($version): could not type the newline draft"
+        ;;
+    esac
+    for ((i=0; i<90; i++)); do
+      pane=$(fm_tmux_composer_capture "$target")
+      printf '%s\n' "$pane" | claude_wrapped_surface "$mode" "$draft" && break
+      sleep 1
+    done
+    if [ "$i" -eq 90 ]; then
+      tmux -L "$SOCKET" capture-pane -p -t "$target" >&2
+      fail "claude ($version): required titled $mode surface not rendered; live coverage unavailable"
+    fi
+    cy=$(fm_tmux_composer_cursor_row "$target")
+    for caps in "$(fm_tmux_composer_caps)" \
+      $'styled=1\ncursor=0\nidentity=0\nrows=0' $'styled=1\ncursor=0\nidentity=1\nrows=0'; do
+      actual=$(fm_composer_classify_screen "$caps" "$pane" "$cy" $'claude\tidle')
+      case "$mode:$actual" in
+        ghost:empty|wrapped:pending|newline:pending) ;;
+        *) fail "claude ($version): $mode composer classified $actual with $caps" ;;
+      esac
+    done
+    if [ "$mode" = ghost ]; then
+      plain=$(tmux -L "$SOCKET" capture-pane -p -t "$target" -S 0 -E -)
+      for caps in $'styled=0\ncursor=0\nidentity=1\nrows=0' $'styled=0\ncursor=1\nidentity=1\nrows=0'; do
+        actual=$(fm_composer_classify_screen "$caps" "$plain" "$cy" $'claude\tidle')
+        [ "$actual" = unknown ] \
+          || fail "claude ($version): unstyled wrapped suggestion classified $actual, expected unknown"
+      done
+    fi
+    CHECKED=$((CHECKED + 1))
+    pass "claude ($version): real titled $mode composer verified through cursor and cursorless reads"
+  done
+  tmux -L "$SOCKET" kill-window -t "$target" 2>/dev/null || true
+}
+
 # --- 1. Every installed verified harness must reach a proven-empty composer --
 for h in claude codex opencode pi grok kimi muse; do
   if command -v "$h" >/dev/null 2>&1; then
@@ -167,6 +287,10 @@ for h in claude codex opencode pi grok kimi muse; do
     note "harness absent, not verified here: $h"
   fi
 done
+
+if command -v claude >/dev/null 2>&1; then
+  check_claude_wrapped
+fi
 
 # --- 2. The strict blank-row posture, live ----------------------------------
 # A plain shell pane parked on a blank line between two rules (the audit's

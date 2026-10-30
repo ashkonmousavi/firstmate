@@ -745,6 +745,11 @@ Identity stays a lazy second read, consulted only when a separator pair could ch
 ANSI capture preserves de-emphasized placeholder style.
 `bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and dark truecolor placeholders while retaining bright typed input.
 
+Claude's titled composer is also recognized when its suggestion wraps onto contiguous nonblank rows before the closing rule.
+Within that recognized shape, ghost-only content reads `empty`, while real wrapped text or text after a blank prompt row reads `pending`.
+A blank continuation row or a match for structural edges or footer furniture can leave the shape unproven and the read `unknown`; the supported wrap boundary is owned by `_fm_composer_bare_rule_sandwich` in `bin/fm-composer-lib.sh`.
+The [titled-composer verification inventory](verification/runtime-backends.md#claude-titled-composer-validation-inventory) distinguishes portable regression coverage from outstanding live evidence.
+
 If the ANSI capture ever fails, the plain fallback declares itself unstyled.
 The classifier then degrades a glyph row carrying trailing text to `unknown` instead of misreading ghost suggestions as typed input.
 That safely defers injection and eventually raises the wedge alarm.
