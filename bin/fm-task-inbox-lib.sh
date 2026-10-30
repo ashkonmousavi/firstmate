@@ -121,7 +121,7 @@
 # the same stale-wake path as a spent budget. Each record uses the stable wake
 # key remote-inbox:<id>:<record>, so a failed escalation-marker hop is retried
 # without appending another wake while that key remains queued; the remote
-# escalation marker suppresses later due actions once written.
+# escalation marker suppresses repeat escalation once written.
 #
 # Inbox names containing bytes outside printable ASCII are unsupported. The
 # doorbell refuses them rather than sending terminal control bytes to a pane.
@@ -135,6 +135,7 @@
 #   FM_TASK_INBOX_RING_MAX     default 3; delivery attempts before escalation
 #   FM_TASK_INBOX_BUSY_MAX     default 2; consecutive busy-deferred due polls before escalation
 #                              (local watcher, and the remote leg via the parent's argument)
+#                              1..999999999, at most 9 decimal digits; otherwise 2
 
 _FM_TASK_INBOX_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Dependencies are canonical lint roots in their own right. Keep them as
@@ -514,6 +515,8 @@ fm_task_inbox_confirmed_enter() {
 # Returns 0 submit confirmed, 1 foreign or busy non-queue draft skipped, 2 backend send
 # failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed,
 # 5 optional clear-busy reset failed before delivery.
+# Optional clear-busy consumes the owed follow-up only after the endpoint check
+# and before delivery, so a dead/missing endpoint retains its busy debt.
 # The inbox record remains durable for every ring result; only the worker's
 # move into handled/ acknowledges that the steer was acted on.
 # Ambiguous pre-checks still permit a fresh constant doorbell, so classifier

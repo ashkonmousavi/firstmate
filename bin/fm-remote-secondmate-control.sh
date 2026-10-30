@@ -325,15 +325,12 @@ cmd_send() {
 #   ring <record> [<busy-max>]       rang <ring-status> [reason=<token>] | handled | unavailable | bookkeeping-failed
 #                                    | deferred <count> | stuck-busy <count> | quiet
 #   escalated <rec>                  escalated
-# <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
-# re-checks that the record is still unhandled, rings once, and spends one
-# ladder attempt; `escalated` writes the marker after the parent has queued its
-# wake.
-# <busy-max> is the parent's capability flag (bin/fm-task-inbox-lib.sh, "Remote
-# leg"): only a parent that passes it understands `deferred` and `stuck-busy`,
-# so only then does a busy non-queue pane defer instead of ringing, and `due`
-# owes the idle follow-up after the stuck-busy escalation. A parent that omits
-# it gets the ring-while-busy behavior it always had.
+# <record> is a bare NNN.msg name in this inbox. `due` selects the next action;
+# `ring` re-checks that the record is still unhandled and spends one ladder
+# attempt only if delivery is attempted; busy deferrals spend no ring attempt.
+# `escalated` writes the marker after the parent has queued its wake.
+# Optional <busy-max> capability and mixed-version behavior are owned by
+# bin/fm-task-inbox-lib.sh ("Remote leg").
 cmd_inbox() {
   local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 harness last_reason busy_max='' count escalated_rec idle_followup=0
   validate_id "$id"
