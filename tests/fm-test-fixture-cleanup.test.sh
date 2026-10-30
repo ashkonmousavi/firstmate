@@ -221,13 +221,16 @@ test_stop_remote_job_worker_waits_for_shutdown_writes() {
   # shellcheck disable=SC2016 # the trap body expands in the child, not here
   ( setsid bash -c '
       trap "sleep 1; mkdir -p \"$1/late\"; echo done > \"$1/late/shutdown\"; exit 0" TERM
+      : > "$1/ready"
       while :; do sleep 0.1; done
     ' _ "$state" >/dev/null 2>&1 & echo $! > "$state/worker.pid" )
   pid=$(cat "$state/worker.pid")
   tries=0
-  while [ "$tries" -lt 50 ] && ! kill -0 "$pid" 2>/dev/null; do sleep 0.05; tries=$((tries + 1)); done
-  kill -0 "$pid" 2>/dev/null || fail "the slow-shutdown worker fixture never started"
-  sleep 0.3
+  while [ "$tries" -lt 100 ] && [ ! -f "$state/ready" ]; do
+    sleep 0.05
+    tries=$((tries + 1))
+  done
+  [ -f "$state/ready" ] || fail "the slow-shutdown worker fixture never became ready"
   fm_test_stop_remote_job_worker "$state"
   if kill -0 "$pid" 2>/dev/null && [ "$(ps -o stat= -p "$pid" 2>/dev/null | tr -d ' ')" != Z ]; then
     kill -KILL "$pid" 2>/dev/null || true
