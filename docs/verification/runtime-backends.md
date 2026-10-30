@@ -1630,6 +1630,7 @@ ok - live Herdr submit confirm: Claude Code (2.1.236 (Claude Code)) on herdr 0.8
 
 The [Herdr socket API](https://herdr.dev/docs/socket-api/) defines `scroll.offset_from_bottom == 0` as the at-bottom state used by the recovery assertions.
 `tests/fm-composer-lib.test.sh` exercises composerless captures and long bare, titled, left-bar, and boxed drafts through state classification and content extraction.
+`tests/fm-backend-herdr.test.sh` covers both public composer reads against echoed-prompt transcripts with and without a blank row at offset 205, successful and ineffective resets, composerless bottom captures, plain-capture fallback, failed position queries, and the helper's zero-offset-only socket request.
 The Herdr submit-confirmation guard also creates transcript scrollback with real Claude output, scrolls each public composer read independently, and requires both reads to recover the empty or pending draft at offset zero from a visibly different viewport.
 These scroll-and-recover scenarios have no live verification result recorded yet; the earlier submit-confirmation evidence does not cover them.
 Refresh this record during validation with the platform, Claude and Herdr versions, and exact output from:
