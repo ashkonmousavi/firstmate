@@ -32,6 +32,16 @@ def approved_path(raw, mate_home, main_home):
         roots.append((Path(mate_home), ('data', 'walk-briefs')))
     if main_home:
         roots.append((Path(main_home), ('data', 'from-main', 'walk-lists')))
+    for home, _ in roots:
+        literal = below(path, home)
+        if literal is None:
+            literal = below(path, home.resolve())
+        if literal is not None:
+            if any(private_part(part) for part in literal):
+                raise ValueError('brief path contains a private or relative component')
+            break
+    else:
+        raise ValueError('brief is outside the requesting mate walk-briefs and MAIN walk-lists directories')
     for home, sub in roots:
         real_home = home.resolve()
         under = below(resolved, real_home)
@@ -39,11 +49,6 @@ def approved_path(raw, mate_home, main_home):
             continue
         if any(private_part(part) for part in under):
             raise ValueError('brief resolves to a private path')
-        literal = below(path, home)
-        if literal is None:
-            literal = below(path, real_home)
-        if literal is not None and any(private_part(part) for part in literal):
-            raise ValueError('brief path contains a private or relative component')
         break
     else:
         if any(private_part(part) for part in path.parts + resolved.parts):

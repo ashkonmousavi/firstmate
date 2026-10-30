@@ -648,6 +648,59 @@ test_dot_named_home_ancestors_are_accepted() {
   pass "walk-request: dot-named home ancestors are accepted while private parts below the home stay refused"
 }
 
+test_cross_home_symlink_literal_boundaries() {
+  local parent mate mate_alias parent_alias source source_alias target literal part action rc out corr n=0
+  local -a args
+  parent=$(make_parent cross-main)
+  mate=$(make_mate cross-mate "$parent" .treehouse/cross-mate)
+  mate_alias="$TMP_ROOT/cross-mate-alias"
+  parent_alias="$TMP_ROOT/cross-main-alias"
+  ln -s "$mate" "$mate_alias"
+  ln -s "$parent" "$parent_alias"
+  for source in "$mate/data/walk-briefs" "$parent/data/from-main/walk-lists"; do
+    if [ "$source" = "$mate/data/walk-briefs" ]; then
+      source_alias="$mate_alias/data/walk-briefs"
+      target="$parent/data/from-main/walk-lists/brief.md"
+    else
+      source_alias="$parent_alias/data/from-main/walk-lists"
+      target="$mate/data/walk-briefs/brief.md"
+    fi
+    for part in approved.md .hidden.md .private/brief.md config/brief.md state/brief.md Config/brief.md State/brief.md; do
+      mkdir -p "$(dirname "$source/$part")"
+      ln -s "$target" "$source/$part"
+      for literal in "$source/$part" "$source_alias/$part"; do
+        for action in path encode stage; do
+          n=$((n + 1))
+          printf -v corr '%016x' "$n"
+          if [ "$action" = stage ]; then
+            args=(stage "$parent_alias" "$corr" local "$literal" "$mate_alias")
+          else
+            args=("$action" "$literal" "$mate_alias" "$parent_alias")
+          fi
+          rc=0
+          out=$(python3 "$ROOT/bin/fm-walk-request-path.py" "${args[@]}" 2>&1) || rc=$?
+          if [ "$part" = approved.md ]; then
+            expect_code 0 "$rc" "a public cross-home link must remain accepted by $action: $literal"
+            case "$action" in
+              path) [ "$out" = "$target" ] || fail "path must return the resolved cross-home brief" ;;
+              encode) [ "$out" = "$(base64 < "$target" | tr -d '\n')" ] || fail "encode must return the cross-home brief bytes" ;;
+              stage) cmp -s "$out" "$target" || fail "stage must snapshot the cross-home brief bytes" ;;
+            esac
+          else
+            expect_code 2 "$rc" "$action must refuse private literal parts across homes: $literal"
+            assert_contains "$out" 'brief path contains a private or relative component' "the literal path must cause the refusal"
+          fi
+        done
+      done
+    done
+  done
+  ln -s "$mate/data/walk-briefs/brief.md" "$TMP_ROOT/cross-outside.md"
+  rc=0
+  python3 "$ROOT/bin/fm-walk-request-path.py" path "$TMP_ROOT/cross-outside.md" "$mate_alias" "$parent_alias" >/dev/null 2>&1 || rc=$?
+  expect_code 2 "$rc" "a literal path outside both homes must be refused even with an approved target"
+  pass "walk-request: literal privacy holds across homes and home aliases for path, encode, and stage"
+}
+
 test_brief_disclosure_boundaries() {
   local parent mate other dispatch send bad n=0 rc before alias out real_python fakebin corr
   parent=$(make_parent private-main)
@@ -1055,6 +1108,7 @@ test_launch_progress_survives_interruption
 test_launch_is_portable_and_failures_return
 test_slow_deliveries_are_bounded_and_fair
 test_dot_named_home_ancestors_are_accepted
+test_cross_home_symlink_literal_boundaries
 test_brief_disclosure_boundaries
 test_complete_reports_survive_recovery_and_return_with_pointers
 test_historical_discovery_reserves_processing_and_advances
