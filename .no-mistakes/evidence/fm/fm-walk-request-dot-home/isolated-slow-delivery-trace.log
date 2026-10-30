@@ -1,0 +1,537 @@
++ set -u
+++ dirname tests/.walk-request-phase.test.sh
++ . tests/lib.sh
+++ '[' -n '' ']'
+++ FM_TEST_LIB_SOURCED=1
+++ umask 022
++++ dirname tests/lib.sh
+++ . tests/git-config-helpers.sh
++++ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
++++ GIT_CONFIG_GLOBAL=/dev/null
++++ GIT_CONFIG_NOSYSTEM=1
++++ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR
+++ export FM_GATE_REFUSE_BYPASS=1
+++ FM_GATE_REFUSE_BYPASS=1
+++ export FM_TEST_SEAM=1
+++ FM_TEST_SEAM=1
+++ unset FM_TASK_ID
+++ unset TASKS_AXI_FILE TASKS_AXI_BACKEND
+++++ dirname tests/lib.sh
++++ cd tests/..
++++ pwd
+++ ROOT=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ
+++ export FM_CAPACITY_MEMINFO=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/tests/captures/capacity-meminfo
+++ FM_CAPACITY_MEMINFO=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/tests/captures/capacity-meminfo
+++ export FM_RESOURCE_CGROUP_FILE=/dev/null
+++ FM_RESOURCE_CGROUP_FILE=/dev/null
+++ export FM_CAPACITY_PRESSURE_FILE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/tests/captures/capacity-pressure
+++ FM_CAPACITY_PRESSURE_FILE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/tests/captures/capacity-pressure
++++ fm_test_tmpdir
++++ local base=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp physical
++++ base=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
++++ '[' -n ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp ']'
++++ case "$base" in
+++++ CDPATH=
+++++ cd -- ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
+++++ pwd -P
++++ physical=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
++++ base=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
++++ '[' -e ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.git ']'
++++ printf '%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
+++ FM_TEST_TMPDIR=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
+++ FM_TEST_CLEANUP_DIRS=()
++++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-cleanup.1727100.XXXXXX
+++ FM_TEST_CLEANUP_REGISTRY=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-cleanup.1727100.8FnCK9
++++ fm_test_pid_identity 1727100
++++ local pid=1727100
++++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
++++ bash -c '. "$1"; fm_pid_identity "$2"' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-wake-lib.sh 1727100
+++ FM_TEST_OWNER_IDENTITY='linux-starttime=8843750 cmdline-hex=62617368002d780074657374732f2e77616c6b2d726571756573742d70686173652e746573742e736800746573745f736c6f775f64656c697665726965735f6172655f626f756e6465645f616e645f6661697200'
++++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-procevent.1727100.XXXXXX
+++ FM_TEST_PROCEVENT_REGISTRY=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-procevent.1727100.RemYnb
++++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-watcher.1727100.XXXXXX
+++ FM_TEST_WATCHER_REGISTRY=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-watcher.1727100.taXWTp
+++ FM_TEST_STUB_MAX_BLOCK_SECONDS=120
+++ export FM_TEST_STUB_MAX_BLOCK_SECONDS
+++ trap fm_test_cleanup EXIT
+++ trap 'fm_test_cleanup; exit 130' INT
+++ trap 'fm_test_cleanup; exit 143' TERM
+++ trap 'fm_test_cleanup; exit 129' HUP
+++ trap 'fm_test_cleanup; exit 131' QUIT
+++ FM_TEST_ORPHAN_MAX_AGE_SECONDS=3600
+++ '[' 0 '!=' 1 ']'
+++ fm_test_reap_orphans
+++ local marker dir mtime now owner_pid owner_identity current_identity
++++ date +%s
+++ now=1793354570
+++ for marker in "$FM_TEST_TMPDIR"/fm-*/.fm-test-fixture
+++ '[' -e '~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-*/.fm-test-fixture' ']'
+++ continue
++ command -v jq
+++ fm_test_tmproot fm-walk-request
+++ local prefix=fm-walk-request root tmp_base
++++ fm_test_tmpdir
++++ local base=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp physical
++++ base=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
++++ '[' -n ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp ']'
++++ case "$base" in
+++++ CDPATH=
+++++ cd -- ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
+++++ pwd -P
++++ physical=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
++++ base=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
++++ '[' -e ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.git ']'
++++ printf '%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
+++ tmp_base=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
+++ tmp_base=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp
++++ mktemp -d ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.XXXXXX
+++ root=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
++++ cd -P -- ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
++++ pwd -P
+++ root=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
+++ printf '%s\n%s\n' 1727100 'linux-starttime=8843750 cmdline-hex=62617368002d780074657374732f2e77616c6b2d726571756573742d70686173652e746573742e736800746573745f736c6f775f64656c697665726965735f6172655f626f756e6465645f616e645f6661697200'
+++ printf '%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
+++ printf '%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
++ TMP_ROOT=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
++ CARRIER=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh
++ CHECK=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh
++ RELEASE=0123456789abcdef0123456789abcdef01234567
++ for selected in "$@"
++ test_slow_deliveries_are_bounded_and_fair
++ local parent mate dispatch send n corr walks out
+++ make_parent fair-main
+++ local parent=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ mkdir -p ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/data/from-main/walk-lists
+++ printf 'shared walk brief\n'
+++ printf '%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ parent=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ dispatch=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ send=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ fake_dispatcher ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ cat
++ chmod +x ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ cat
++ chmod +x ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ for n in 1 2 3
+++ make_mate fair-mate-1 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ local mate=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-1 parent=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ mkdir -p ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-1/state ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-1/data/walk-briefs ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
+++ printf 'walk brief\n'
+++ printf '%s\n' fair-mate-1
+++ printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ printf 'kind=secondmate\nhome=%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-1
+++ printf '%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-1
++ mate=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-1
++ printf -v corr %016x 1
++ case "$n" in
++ walks=first,middle,last
++ '[' 1 -eq 3 ']'
++ printf 'note [corr=%s]: walk-request: walks=%s brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/data/from-main/walk-lists/brief.md release=%s bot=Walker\n' 0000000000000001 first,middle,last 0123456789abcdef0123456789abcdef01234567
++ for n in 1 2 3
+++ make_mate fair-mate-2 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ local mate=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-2 parent=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ mkdir -p ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-2/state ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-2/data/walk-briefs ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
+++ printf 'walk brief\n'
+++ printf '%s\n' fair-mate-2
+++ printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ printf 'kind=secondmate\nhome=%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-2
+++ printf '%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-2
++ mate=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-2
++ printf -v corr %016x 2
++ case "$n" in
++ walks=other
++ '[' 2 -eq 3 ']'
++ printf 'note [corr=%s]: walk-request: walks=%s brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/data/from-main/walk-lists/brief.md release=%s bot=Walker\n' 0000000000000002 other 0123456789abcdef0123456789abcdef01234567
++ for n in 1 2 3
+++ make_mate fair-mate-3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ local mate=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-3 parent=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ mkdir -p ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-3/state ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-3/data/walk-briefs ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
+++ printf 'walk brief\n'
+++ printf '%s\n' fair-mate-3
+++ printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ printf 'kind=secondmate\nhome=%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-3
+++ printf '%s\n' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-3
++ mate=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-mate-3
++ printf -v corr %016x 3
++ case "$n" in
++ walks=refusal
++ '[' 3 -eq 3 ']'
++ printf 'note [corr=%s]: walk-request: walks=refusal\n' 0000000000000003
++ . ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-timeout-lib.sh
+++ set -u
++ for n in {1..8}
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
++ FM_CHECK_TIMEOUT=4
++ FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ FM_WALK_REQUEST_SEND_BOUND=25
++ fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local seconds=4
++ shift
++ case "$(fm_timeout_mechanism)" in
+++ fm_timeout_mechanism
+++ '[' '' = bash ']'
+++ command -v timeout
+++ printf 'timeout\n'
++ fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++ shift 2
+++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.XXXXXX
++ status_file=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.xgTVA6
++ runner_pid=1727253
++ wait 1727253
++ timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.xgTVA6 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ runner_rc=0
+++ cat ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.xgTVA6
++ command_rc=0
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.xgTVA6
++ case "$command_rc" in
++ '[' 0 -le 255 ']'
++ case "$runner_rc" in
++ return 0
++ for n in {1..8}
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
++ FM_CHECK_TIMEOUT=4
++ FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ FM_WALK_REQUEST_SEND_BOUND=25
++ fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local seconds=4
++ shift
++ case "$(fm_timeout_mechanism)" in
+++ fm_timeout_mechanism
+++ '[' '' = bash ']'
+++ command -v timeout
+++ printf 'timeout\n'
++ fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++ shift 2
+++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.XXXXXX
++ status_file=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.kvqRFl
++ runner_pid=1730347
++ wait 1730347
++ timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.kvqRFl ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ runner_rc=0
+++ cat ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.kvqRFl
++ command_rc=0
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.kvqRFl
++ case "$command_rc" in
++ '[' 0 -le 255 ']'
++ case "$runner_rc" in
++ return 0
++ for n in {1..8}
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
++ FM_CHECK_TIMEOUT=4
++ FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ FM_WALK_REQUEST_SEND_BOUND=25
++ fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local seconds=4
++ shift
++ case "$(fm_timeout_mechanism)" in
+++ fm_timeout_mechanism
+++ '[' '' = bash ']'
+++ command -v timeout
+++ printf 'timeout\n'
++ fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++ shift 2
+++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.XXXXXX
++ status_file=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.t0Aaq3
++ runner_pid=1734272
++ wait 1734272
++ timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.t0Aaq3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ runner_rc=0
+++ cat ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.t0Aaq3
++ command_rc=0
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.t0Aaq3
++ case "$command_rc" in
++ '[' 0 -le 255 ']'
++ case "$runner_rc" in
++ return 0
++ for n in {1..8}
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
++ FM_CHECK_TIMEOUT=4
++ FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ FM_WALK_REQUEST_SEND_BOUND=25
++ fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local seconds=4
++ shift
++ case "$(fm_timeout_mechanism)" in
+++ fm_timeout_mechanism
+++ '[' '' = bash ']'
+++ command -v timeout
+++ printf 'timeout\n'
++ fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++ shift 2
+++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.XXXXXX
++ status_file=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.mpxqLm
++ runner_pid=1736064
++ wait 1736064
++ timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.mpxqLm ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ runner_rc=0
+++ cat ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.mpxqLm
++ command_rc=0
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.mpxqLm
++ case "$command_rc" in
++ '[' 0 -le 255 ']'
++ case "$runner_rc" in
++ return 0
++ for n in {1..8}
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
++ FM_CHECK_TIMEOUT=4
++ FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ FM_WALK_REQUEST_SEND_BOUND=25
++ fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local seconds=4
++ shift
++ case "$(fm_timeout_mechanism)" in
+++ fm_timeout_mechanism
+++ '[' '' = bash ']'
+++ command -v timeout
+++ printf 'timeout\n'
++ fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++ shift 2
+++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.XXXXXX
++ status_file=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.E8Xthv
++ runner_pid=1737554
++ wait 1737554
++ timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.E8Xthv ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ runner_rc=0
+++ cat ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.E8Xthv
++ command_rc=0
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.E8Xthv
++ case "$command_rc" in
++ '[' 0 -le 255 ']'
++ case "$runner_rc" in
++ return 0
++ for n in {1..8}
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
++ FM_CHECK_TIMEOUT=4
++ FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ FM_WALK_REQUEST_SEND_BOUND=25
++ fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local seconds=4
++ shift
++ case "$(fm_timeout_mechanism)" in
+++ fm_timeout_mechanism
+++ '[' '' = bash ']'
+++ command -v timeout
+++ printf 'timeout\n'
++ fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++ shift 2
+++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.XXXXXX
++ status_file=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.qjB43e
++ runner_pid=1739183
++ wait 1739183
++ timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.qjB43e ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ runner_rc=0
+++ cat ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.qjB43e
++ command_rc=0
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.qjB43e
++ case "$command_rc" in
++ '[' 0 -le 255 ']'
++ case "$runner_rc" in
++ return 0
++ for n in {1..8}
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
++ FM_CHECK_TIMEOUT=4
++ FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ FM_WALK_REQUEST_SEND_BOUND=25
++ fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local seconds=4
++ shift
++ case "$(fm_timeout_mechanism)" in
+++ fm_timeout_mechanism
+++ '[' '' = bash ']'
+++ command -v timeout
+++ printf 'timeout\n'
++ fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++ shift 2
+++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.XXXXXX
++ status_file=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.qDSWV5
++ runner_pid=1742453
++ wait 1742453
++ timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.qDSWV5 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ runner_rc=0
+++ cat ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.qDSWV5
++ command_rc=0
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.qDSWV5
++ case "$command_rc" in
++ '[' 0 -le 255 ']'
++ case "$runner_rc" in
++ return 0
++ for n in {1..8}
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state
++ FM_CHECK_TIMEOUT=4
++ FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch
++ FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ FM_WALK_REQUEST_SEND_BOUND=25
++ fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local seconds=4
++ shift
++ case "$(fm_timeout_mechanism)" in
+++ fm_timeout_mechanism
+++ '[' '' = bash ']'
+++ command -v timeout
+++ printf 'timeout\n'
++ fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++ shift 2
+++ mktemp ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.XXXXXX
++ status_file=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.ZJXAVa
++ runner_pid=1747480
++ wait 1747480
++ timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.ZJXAVa ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ runner_rc=0
+++ cat ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.ZJXAVa
++ command_rc=0
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-timeout-status.ZJXAVa
++ case "$command_rc" in
++ '[' 0 -le 255 ']'
++ case "$runner_rc" in
++ return 0
++ for walks in first middle last other request
++ assert_grep 'walk first@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts 'pending outcome first must get a turn despite stalled transports'
++ grep -F -- 'walk first@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts
++ for walks in first middle last other request
++ assert_grep 'walk middle@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts 'pending outcome middle must get a turn despite stalled transports'
++ grep -F -- 'walk middle@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts
++ for walks in first middle last other request
++ assert_grep 'walk last@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts 'pending outcome last must get a turn despite stalled transports'
++ grep -F -- 'walk last@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts
++ for walks in first middle last other request
++ assert_grep 'walk other@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts 'pending outcome other must get a turn despite stalled transports'
++ grep -F -- 'walk other@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts
++ for walks in first middle last other request
++ assert_grep 'walk request@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts 'pending outcome request must get a turn despite stalled transports'
++ grep -F -- 'walk request@' ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.attempts
++ :
++ check_until_calls ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.calls 5 FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ local parent=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main calls=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.calls expected=5 n
++ shift 3
++ for n in {1..20}
++ run_check ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
++ local parent=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
++ shift
++ env FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ '[' -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send.calls ']'
+++ wc -l
++ '[' 5 -ge 5 ']'
++ return 0
+++ wc -l
++ '[' 5 -eq 5 ']'
+++ run_check ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send
+++ local parent=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main
+++ shift
+++ env FM_WALK_REQUEST_DISPATCH=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-dispatch FM_WALK_REQUEST_SEND=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/fake-send FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4/fair-main/state ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-check.sh check
++ out=
++ '[' -z '' ']'
+++ wc -l
++ '[' 5 -eq 5 ']'
++ pass 'walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks'
++ printf 'ok - %s\n' 'walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks'
+ok - walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-watcher.1727100.taXWTp ']'
++ IFS=
++ read -r state
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-watcher.1727100.taXWTp
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-procevent.1727100.RemYnb ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-procevent.1727100.RemYnb
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-cleanup.1727100.8FnCK9 ']'
++ IFS=
++ read -r d
++ '[' -n ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4 ']'
++ fm_test_remove_tree ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
++ local dir=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
++ '[' -d ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4 ']'
++ '[' '!' -L ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4 ']'
++ find ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4 -type d -exec chmod u+rwx '{}' +
++ rm -rf ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-request.qOKZe4
++ IFS=
++ read -r d
++ rm -f ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/.fm-test-cleanup.1727100.8FnCK9

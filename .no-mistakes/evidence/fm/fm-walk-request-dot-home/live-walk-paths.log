@@ -1,0 +1,965 @@
+
+SCENARIO: Homes below dot, config and state ancestors publish local mate and MAIN briefs through real or aliased home paths
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=329aca220137b980
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted parent channel: note [corr=329aca220137b980] [at=1793354529]: walk-request: walks=checkpoint brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=ff90fff246ce42da
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted parent channel: note [corr=ff90fff246ce42da] [at=1793354529]: walk-request: walks=checkpoint brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=94ddbff5464e8692
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted parent channel: note [corr=94ddbff5464e8692] [at=1793354529]: walk-request: walks=checkpoint brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=baecdb84e4e7b7fc
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted parent channel: note [corr=baecdb84e4e7b7fc] [at=1793354529]: walk-request: walks=checkpoint brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=be23ced75965e426
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted parent channel: note [corr=be23ced75965e426] [at=1793354529]: walk-request: walks=checkpoint brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=d2f0dac79ffa345a
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted parent channel: note [corr=d2f0dac79ffa345a] [at=1793354529]: walk-request: walks=checkpoint brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=5aa90465be4e05bb
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted parent channel: note [corr=5aa90465be4e05bb] [at=1793354529]: walk-request: walks=checkpoint brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=V2FsayB0aGlzIGNoZWNrcG9pbnQuCkV4cGVjdGVkOiB0aGUgc2F2ZWQgaXRlbSBhcHBlYXJzLgo=
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000003 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/walk-requests/0000000000000003/brief.md
+stderr=
+persisted snapshot bytes=b'Walk this checkpoint.\nExpected: the saved item appears.\n'
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=U2hhcmVkIGNoZWNrcG9pbnQgYnJpZWYuCg==
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000006 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/walk-requests/0000000000000006/brief.md
+stderr=
+persisted snapshot bytes=b'Shared checkpoint brief.\n'
+PASS: Homes below dot, config and state ancestors publish local mate and MAIN briefs through real or aliased home paths
+
+SCENARIO: A remote mate in a hidden home publishes exact UTF-8 brief bytes inline and refuses a hidden brief without appending
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/remote/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/remote/firstmate/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=eb41bfc90d61e512
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted remote channel: note [corr=eb41bfc90d61e512] [at=1793354529]: walk-request: walks=checkpoint brief64=UmVtb3RlIGJyaWVmOiBjYWbDqSDinJMK release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/remote/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/remote/firstmate/data/walk-briefs/.hidden.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+PASS: A remote mate in a hidden home publishes exact UTF-8 brief bytes inline and refuses a hidden brief without appending
+
+SCENARIO: Public cross-home symlinks work in both directions for publication, path resolution, encoding and snapshot staging
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=U2hhcmVkIGNoZWNrcG9pbnQgYnJpZWYuCg==
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000009 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/walk-requests/0000000000000009/brief.md
+stderr=
+persisted snapshot bytes=b'Shared checkpoint brief.\n'
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/approved.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=7371e08845f6fb86
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/brief.md
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=U2hhcmVkIGNoZWNrcG9pbnQgYnJpZWYuCg==
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000000c local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/walk-requests/000000000000000c/brief.md
+stderr=
+persisted snapshot bytes=b'Shared checkpoint brief.\n'
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/approved.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=04203522f0adb69e
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=V2FsayB0aGlzIGNoZWNrcG9pbnQuCkV4cGVjdGVkOiB0aGUgc2F2ZWQgaXRlbSBhcHBlYXJzLgo=
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000000f local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/walk-requests/000000000000000f/brief.md
+stderr=
+persisted snapshot bytes=b'Walk this checkpoint.\nExpected: the saved item appears.\n'
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/approved.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=b0f8070ef1e3c2e5
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=0
+stdout=V2FsayB0aGlzIGNoZWNrcG9pbnQuCkV4cGVjdGVkOiB0aGUgc2F2ZWQgaXRlbSBhcHBlYXJzLgo=
+stderr=
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000012 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/approved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=0
+stdout=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/walk-requests/0000000000000012/brief.md
+stderr=
+persisted snapshot bytes=b'Walk this checkpoint.\nExpected: the saved item appears.\n'
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/approved.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=26fa135a0952f8cd
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+PASS: Public cross-home symlinks work in both directions for publication, path resolution, encoding and snapshot staging
+
+SCENARIO: Private literal symlinks into the other approved home are refused in both directions through configured aliases and resolved roots
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000015 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.hidden.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000018 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/.hidden.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000001b local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.private/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000001e local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/.private/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000021 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/config/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000024 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/config/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000027 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/state/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000002a local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/state/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000002d local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/Config/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000030 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/Config/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000033 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/State/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000036 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias/data/walk-briefs/State/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000039 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/.hidden.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000003c local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/.hidden.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/.hidden.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000003f local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/.private/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000042 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/.private/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/.private/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000045 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/config/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000048 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/config/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000004b local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/state/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000004e local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/state/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/state/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000051 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/Config/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000054 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/Config/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/Config/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000057 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate/data/from-main/walk-lists/State/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000005a local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/State/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias/data/from-main/walk-lists/State/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+parent channel unchanged after every cross-home private literal refusal
+PASS: Private literal symlinks into the other approved home are refused in both directions through configured aliases and resolved roots
+
+SCENARIO: Dotfiles, hidden directories, config and state below the home are refused directly and via public symlinks
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.secret.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.secret.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 000000000000005d local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.secret.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.secret.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-9.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-9.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 0000000000000060 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-9.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-9.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.inner/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.inner/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 0000000000000063 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.inner/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/.inner/item.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-11.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-11.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 0000000000000066 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-11.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-11.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/config/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/config/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 0000000000000069 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/config/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/config/item.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-12.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-12.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 000000000000006c local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-12.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-12.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/state/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/state/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 000000000000006f local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/state/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/state/item.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-13.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-13.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 0000000000000072 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-13.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-13.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/CONFIG/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/CONFIG/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 0000000000000075 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/CONFIG/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/CONFIG/item.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-15.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-15.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 0000000000000078 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-15.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-15.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/STATE/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/STATE/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 000000000000007b local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/STATE/item.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/STATE/item.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-17.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-17.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate 000000000000007e local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-17.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/link-17.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief resolves to a private path
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+PASS: Dotfiles, hidden directories, config and state below the home are refused directly and via public symlinks
+
+SCENARIO: Outside literal aliases, escapes to another mate, unapproved directories, traversal and relative paths cannot publish or stage a brief
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/outside-link.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/outside-link.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000081 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/outside-link.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/outside-link.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/escape.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/escape.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000084 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/escape.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/escape.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/other/data/walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/other/data/walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000087 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/other/data/walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/other/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/unapproved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/unapproved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000008a local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/unapproved.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/unapproved.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/../walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/../walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 000000000000008d local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/../walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/../walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000090 local ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py path relative.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py encode relative.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request-path.py stage ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/main-alias 0000000000000093 local relative.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/mate-alias
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief relative.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=fm-walk-request: --brief must be an absolute path: relative.md
+PASS: Outside literal aliases, escapes to another mate, unapproved directories, traversal and relative paths cannot publish or stage a brief
+
+BASELINE REGRESSION REPRODUCTION
+$ ~/.local/share/whisper-venv/bin/python3 ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/baseline-validator.py path ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.treehouse/config/state/firstmate-80f9ac/9/firstmate ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-o_newrwp/.main/config/state/firstmate
+exit=2
+stdout=
+stderr=walk-request: brief path contains a private or relative component
+The identical approved hidden-home brief was refused before the fix and accepted above by the target product.
+
+All disposable fixture homes removed.

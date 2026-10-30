@@ -1,0 +1,65 @@
+SWEEP=1 attempts=request,
+0000000000000001.record phase=dispatching spawned=first,middle,last 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=2 attempts=request,first,
+0000000000000001.record phase=dispatching spawned=middle,last,first 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=3 attempts=request,first,other,
+0000000000000001.record phase=dispatching spawned=middle,last,first 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=4 attempts=request,first,other,request,
+0000000000000001.record phase=dispatching spawned=middle,last,first 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=5 attempts=request,first,other,request,middle,
+0000000000000001.record phase=dispatching spawned=last,first,middle 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=6 attempts=request,first,other,request,middle,other,
+0000000000000001.record phase=dispatching spawned=last,first,middle 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=7 attempts=request,first,other,request,middle,other,request,
+0000000000000001.record phase=dispatching spawned=last,first,middle 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=8 attempts=request,first,other,request,middle,other,request,last,
+0000000000000001.record phase=dispatching spawned=first,middle,last 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=9 attempts=request,first,other,request,middle,other,request,last,other,
+0000000000000001.record phase=dispatching spawned=first,middle,last 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=10 attempts=request,first,other,request,middle,other,request,last,other,request,
+0000000000000001.record phase=dispatching spawned=first,middle,last 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=11 attempts=request,first,other,request,middle,other,request,last,other,request,first,
+0000000000000001.record phase=dispatching spawned=middle,last,first 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=12 attempts=request,first,other,request,middle,other,request,last,other,request,first,other,
+0000000000000001.record phase=dispatching spawned=middle,last,first 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=13 attempts=request,first,other,request,middle,other,request,last,other,request,first,other,request,
+0000000000000001.record phase=dispatching spawned=middle,last,first 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=14 attempts=request,first,other,request,middle,other,request,last,other,request,first,other,request,middle,
+0000000000000001.record phase=dispatching spawned=last,first,middle 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=15 attempts=request,first,other,request,middle,other,request,last,other,request,first,other,request,middle,other,
+0000000000000001.record phase=dispatching spawned=last,first,middle 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+SWEEP=16 attempts=request,first,other,request,middle,other,request,last,other,request,first,other,request,middle,other,request,
+0000000000000001.record phase=dispatching spawned=last,first,middle 
+0000000000000002.record phase=dispatching spawned=other 
+0000000000000003.record phase=refusing spawned= 
+ok - walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks

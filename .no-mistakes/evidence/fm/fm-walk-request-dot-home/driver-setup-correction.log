@@ -1,0 +1,16 @@
+
+SCENARIO: Homes below dot, config and state ancestors publish local mate and MAIN briefs through real or aliased home paths
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-6jf600xb/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-6jf600xb/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=0
+stdout=corr=4d38ba41003c2f70
+once-key=checkpoint@0123456789abcdef0123456789abcdef01234567
+stderr=
+persisted parent channel: note [corr=4d38ba41003c2f70] [at=1793354466]: walk-request: walks=checkpoint brief=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-6jf600xb/.treehouse/config/state/firstmate-80f9ac/9/firstmate/data/walk-briefs/brief.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-6jf600xb/.treehouse/config/state/firstmate-80f9ac/9/firstmate
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/bin/fm-walk-request.sh --brief ~/.no-mistakes/worktrees/049a88734b0e/01M663DVKQEH0Z1TE94D42FTJJ/.walk-validation-tmp/fm-walk-live-6jf600xb/mate-alias/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks checkpoint --bot Walker
+exit=2
+stdout=
+stderr=walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+FAIL: AssertionError('expected exit 0, got 2: walk-request: brief is outside the requesting mate walk-briefs and MAIN walk-lists directories\nfm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB\n')

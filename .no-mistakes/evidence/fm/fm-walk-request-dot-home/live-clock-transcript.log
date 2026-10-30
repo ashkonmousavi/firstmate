@@ -1,0 +1,6 @@
+Initial epoch-compatible deadline: 1793355651
+Initial budget: 3
+Budget after shell SECONDS moves backward 60 seconds: 3
+Moving shell SECONDS forward 120 seconds did not expire the deadline.
+Budget status after actual elapsed interval: 124
+PASS: real checkpoint functions preserve elapsed-time expiry.

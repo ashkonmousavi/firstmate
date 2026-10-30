@@ -1,0 +1,2 @@
+ok - walk-request: dot-named home ancestors are accepted while private parts below the home stay refused
+ok - walk-request: literal privacy holds across homes and home aliases for path, encode, and stage

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Homes below dot, config and state ancestors publish local mate and MAIN briefs through real or aliased home paths",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A remote mate in a hidden home publishes exact UTF-8 brief bytes inline and refuses a hidden brief without appending",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Public cross-home symlinks work in both directions for publication, path resolution, encoding and snapshot staging",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Private literal symlinks into the other approved home are refused in both directions through configured aliases and resolved roots",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Dotfiles, hidden directories, config and state below the home are refused directly and via public symlinks",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Outside literal aliases, escapes to another mate, unapproved directories, traversal and relative paths cannot publish or stage a brief",
+    "result": "pass",
+    "live": true
+  }
+]
