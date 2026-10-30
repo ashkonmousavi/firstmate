@@ -614,6 +614,7 @@ inbox_steer_check() {  # <window> <task>
       elif [ "$count" -ge "$(fm_task_inbox_busy_max)" ]; then
         reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; $rec stays unhandled and no doorbell was typed; inspect the worker)"
       else
+        triage_log "steer-inbox busy deferral: $task ${rec##*/} count=$count/$(fm_task_inbox_busy_max)"
         return 0
       fi
       verb=escalate
@@ -1217,7 +1218,7 @@ secondmate_liveness_tick() {
 # prints the remote side's first stderr line (or the exit status) instead, for
 # the triage log, so a remote copy that predates the inbox verb reads
 # differently from a lost transport.
-remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
+remote_inbox_hop() {  # <id> due <grace> <ring-max> [<busy-max>] | <id> ring <record> [<busy-max>] | <id> escalated <record>
   local id=$1 out err errfile rc=0
   errfile=$(mktemp "${TMPDIR:-/tmp}/fm-remote-inbox.XXXXXX") || { printf 'no temp file'; return 1; }
   out=$(fm_run_timed 30 "$SCRIPT_DIR/fm-on.sh" "$id" \
@@ -1255,7 +1256,7 @@ remote_inbox_tick() {
 }
 
 remote_inbox_pass() {
-  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count last_reason out reason notify_key appended first_reason=''
+  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count last_reason out reason notify_key appended busy_arg first_reason=''
   touch "$tick_marker" || return 1
   for meta in "$STATE"/*.meta; do
     [ -e "$meta" ] || continue
@@ -1267,9 +1268,17 @@ remote_inbox_pass() {
     case "$id" in ''|*[!A-Za-z0-9._-]*) continue ;; esac
     w=$(fm_meta_get "$meta" window 2>/dev/null || true)
     [ -n "$w" ] || w="remote:$id"
-    if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)"); then
-      triage_log "remote steer-inbox: $id due check unreachable or failed ($due); the next tick retries"
-      continue
+    # Passing the busy maximum tells the remote this parent understands its
+    # busy verdicts. A remote copy that predates them refuses the extra
+    # argument, so one failed hop retries without it and keeps today's
+    # ring-while-busy ladder until that host is updated.
+    busy_arg=$(fm_task_inbox_busy_max)
+    if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)" "$busy_arg"); then
+      busy_arg=
+      if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)"); then
+        triage_log "remote steer-inbox: $id due check unreachable or failed ($due); the next tick retries"
+        continue
+      fi
     fi
     reason=''
     read -r verb rec count last_reason <<EOF
@@ -1277,7 +1286,7 @@ $due
 EOF
     case "$verb" in
       ring)
-        if ! out=$(remote_inbox_hop "$id" ring "$rec"); then
+        if ! out=$(remote_inbox_hop "$id" ring "$rec" ${busy_arg:+"$busy_arg"}); then
           triage_log "remote steer-inbox delivery attempt: $id $rec unreachable or failed ($out); the next tick retries"
           continue
         fi
@@ -1285,6 +1294,10 @@ EOF
           reason="stale: $w (unread firstmate instruction: remote record $rec is unhandled and the secondmate's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the secondmate)"
         elif [ "$out" = bookkeeping-failed ]; then
           reason="stale: $w (remote steering-inbox ladder bookkeeping unwritable: .ring-state cannot be written while remote record $rec stays unhandled; inspect the inbox directory)"
+        elif [ "${out%% *}" = stuck-busy ]; then
+          reason="stale: $w (unread firstmate instruction: stuck-busy after ${out#* } consecutive busy-deferred due doorbells; remote record $rec stays unhandled and no doorbell was typed; inspect the secondmate)"
+        elif [ "${out%% *}" = deferred ]; then
+          triage_log "remote steer-inbox busy deferral: $id $rec count=${out#* }/$busy_arg"
         else
           triage_log "remote steer-inbox delivery attempt: $id $rec result=$out"
         fi

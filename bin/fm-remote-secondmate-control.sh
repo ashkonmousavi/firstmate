@@ -7,7 +7,7 @@
 #   fm-remote-secondmate-control.sh state <id>
 #   fm-remote-secondmate-control.sh route <id>
 #   fm-remote-secondmate-control.sh send <id> <message> [delivery-mode] [request-id]
-#   fm-remote-secondmate-control.sh inbox <id> due <grace-secs> <ring-max>|ring <record>|escalated <record>
+#   fm-remote-secondmate-control.sh inbox <id> due <grace-secs> <ring-max> [<busy-max>]|ring <record> [<busy-max>]|escalated <record>
 #   fm-remote-secondmate-control.sh probe <id> <corr-id>
 #   fm-remote-secondmate-control.sh key <id> <key>
 #   fm-remote-secondmate-control.sh capture <id> [lines]
@@ -321,24 +321,31 @@ cmd_send() {
 # host-local inbox, driven by the parent watcher's remote_inbox_tick
 # (bin/fm-task-inbox-lib.sh owns the ladder; "Remote leg" there). Each action
 # prints one line:
-#   due <grace> <max> quiet | ring <record> | escalate <record> <count> [reason=<token>]
-#   ring <record>    rang <ring-status> [reason=<token>] | handled | unavailable | bookkeeping-failed
-#   escalated <rec>  escalated
-# <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
-# re-checks that the record is still unhandled, rings once, and spends one
-# ladder attempt; `escalated` writes the marker after the parent has queued its
-# wake.
+#   due <grace> <max> [<busy-max>]   quiet | ring <record> | escalate <record> <count> [reason=<token>]
+#   ring <record> [<busy-max>]       rang <ring-status> [reason=<token>] | handled | unavailable | bookkeeping-failed
+#                                    | deferred <count> | stuck-busy <count> | quiet
+#   escalated <rec>                  escalated
+# <record> is a bare NNN.msg name in this inbox. `due` selects the next action;
+# `ring` re-checks that the record is still unhandled and spends one ladder
+# attempt only if delivery is attempted; busy deferrals spend no ring attempt.
+# `escalated` writes the marker after the parent has queued its wake.
+# Optional <busy-max> capability and mixed-version behavior are owned by
+# bin/fm-task-inbox-lib.sh ("Remote leg").
 cmd_inbox() {
-  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 harness last_reason
+  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0 harness last_reason busy_max='' count escalated_rec idle_followup=0
   validate_id "$id"
   validate_home "$id"
   remote_endpoint_require "$id"
   dir=$(fm_task_inbox_dir "$CONTROL_STATE" "$id")
   case "$action" in
     due)
-      [ "$#" -eq 4 ] || usage
+      [ "$#" -eq 4 ] || [ "$#" -eq 5 ] || usage
       case "$3" in ''|*[!0-9]*) die "invalid inbox grace seconds: $3" ;; esac
       case "$4" in ''|*[!0-9]*) die "invalid inbox ring maximum: $4" ;; esac
+      if [ "$#" -eq 5 ]; then
+        case "$5" in ''|*[!0-9]*) die "invalid inbox busy maximum: $5" ;; esac
+        busy_max=$5
+      fi
       due=$(FM_TASK_INBOX_GRACE_SECS="$3" FM_TASK_INBOX_RING_MAX="$4" \
         fm_task_inbox_due_action "$CONTROL_STATE" "$id")
       verb=${due%% *}
@@ -353,12 +360,28 @@ cmd_inbox() {
           printf 'escalate %s %s%s\n' "$(basename "${rec% *}")" "${rec##* }" "${last_reason:+ reason=$last_reason}"
           ;;
         # A retry mark is a local-plane fire-and-forget debt; nothing on this
-        # leg writes one, so anything else is quiet.
-        *) printf 'quiet\n' ;;
+        # leg writes one, so anything else is quiet, except the doorbell a
+        # non-queue harness still owes after a busy deferral (the local
+        # inbox_steer_check follow-up) for a parent that knows `deferred`.
+        *)
+          if [ -n "$busy_max" ] \
+            && fm_task_inbox_idle_followup "$CONTROL_STATE" "$id" "$(fm_meta_get "$REMOTE_ENDPOINT_META" harness)"; then
+            rec=$(fm_task_inbox_oldest_unhandled "$CONTROL_STATE" "$id") || rec=
+            [ -z "$rec" ] || { printf 'ring %s\n' "${rec##*/}"; return 0; }
+          fi
+          printf 'quiet\n'
+          ;;
       esac
       return 0
       ;;
-    ring|escalated) [ "$#" -eq 3 ] || usage ;;
+    ring)
+      [ "$#" -eq 3 ] || [ "$#" -eq 4 ] || usage
+      if [ "$#" -eq 4 ]; then
+        case "$4" in ''|*[!0-9]*) die "invalid inbox busy maximum: $4" ;; esac
+        busy_max=$4
+      fi
+      ;;
+    escalated) [ "$#" -eq 3 ] || usage ;;
     *) usage ;;
   esac
   fm_task_inbox_seq_of "$rec_name" >/dev/null || die "invalid inbox record name: $rec_name"
@@ -374,14 +397,59 @@ cmd_inbox() {
     return 0
   fi
   harness=$(fm_meta_get "$REMOTE_ENDPOINT_META" harness)
-  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" || ring_rc=$?
-  if [ "$ring_rc" -eq 3 ]; then
-    printf 'unavailable\n'
+  # The mate's own semantic busy record lives in its home state directory, not
+  # in the parent-route state the inbox ladder uses.
+  if [ -n "$busy_max" ] && ! fm_control_submit_queue "$harness" \
+    && fm_busy_is_busy "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$harness" "$id" "$TARGET_HOME/state"; then
+    escalated_rec=$(cat "$dir/.escalated" 2>/dev/null || true)
+    if [ "$escalated_rec" = "$rec_name" ]; then
+      # An owed idle follow-up finding the pane still busy waits for a later
+      # tick; the stuck-busy wake already went out once.
+      printf 'deferred 0\n'
+      return 0
+    fi
+    if ! count=$(FM_TASK_INBOX_BUSY_MAX=$busy_max fm_task_inbox_record_busy "$CONTROL_STATE" "$id" "$rec"); then
+      [ -f "$rec" ] || { printf 'handled\n'; return 0; }
+      printf 'bookkeeping-failed\n'
+      return 0
+    fi
+    if [ "$count" -ge "$(FM_TASK_INBOX_BUSY_MAX=$busy_max fm_task_inbox_busy_max)" ]; then
+      printf 'stuck-busy %s\n' "$count"
+    else
+      printf 'deferred %s\n' "$count"
+    fi
     return 0
   fi
+  if [ -n "$busy_max" ] && fm_task_inbox_idle_followup "$CONTROL_STATE" "$id" "$harness"; then
+    idle_followup=1
+  fi
+  escalated_rec=$(cat "$dir/.escalated" 2>/dev/null || true)
+  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" "$harness" "${busy_max:+clear-busy}" || ring_rc=$?
+  case "$ring_rc" in
+    3)
+      if [ "$idle_followup" = 1 ]; then
+        printf 'quiet\n'
+      else
+        printf 'unavailable\n'
+      fi
+      return 0
+      ;;
+    5)
+      if [ "$escalated_rec" = "$rec_name" ]; then
+        printf 'quiet\n'
+      else
+        printf 'bookkeeping-failed\n'
+      fi
+      return 0
+      ;;
+  esac
   if ! fm_task_inbox_record_ring "$CONTROL_STATE" "$id" "$rec"; then
     [ -f "$rec" ] || { printf 'handled\n'; return 0; }
-    printf 'bookkeeping-failed\n'
+    if [ "$idle_followup" = 1 ] && [ "$escalated_rec" = "$rec_name" ]; then
+      printf 'quiet\n'
+    else
+      printf 'bookkeeping-failed\n'
+    fi
     return 0
   fi
   printf 'rang %s%s\n' "$ring_rc" "${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}"
@@ -539,7 +607,7 @@ case "${1:-}" in
   state) shift; [ "$#" -eq 1 ] || usage; validate_id "$1"; validate_home "$1"; state_value "$1" ;;
   route) shift; [ "$#" -eq 1 ] || usage; cmd_route "$1" ;;
   send) shift; [ "$#" -ge 2 ] && [ "$#" -le 4 ] || usage; cmd_send "$@" ;;
-  inbox) shift; [ "$#" -ge 2 ] && [ "$#" -le 4 ] || usage; cmd_inbox "$@" ;;
+  inbox) shift; [ "$#" -ge 2 ] && [ "$#" -le 5 ] || usage; cmd_inbox "$@" ;;
   probe) shift; [ "$#" -eq 2 ] || usage; cmd_probe "$@" ;;
   key) shift; [ "$#" -eq 2 ] || usage; cmd_key "$@" ;;
   capture) shift; [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage; cmd_capture "$@" ;;

@@ -55,7 +55,8 @@
 # attempt may ring or be skipped to protect another draft in a proven pending
 # composer; an unsubmitted copy of this doorbell is retried. After
 # FM_TASK_INBOX_RING_MAX attempts without an acknowledgement it escalates. The
-# caller owns the busy and recovery-grade endpoint checks: local watcher actions deferred
+# caller owns the busy and recovery-grade endpoint checks: watcher actions (local, and
+# remote when the parent passes the busy maximum, see "Remote leg") deferred
 # by a busy pane consume a separate durable consecutive-poll budget,
 # FM_TASK_INBOX_BUSY_MAX, except a harness whose submit queue
 # fm_control_submit_queue accepts (bin/fm-control-lib.sh), which is rung while
@@ -91,8 +92,21 @@
 # this same ladder there through bin/fm-remote-secondmate-control.sh's inbox
 # verb: due action and ring run on the remote host, the ladder state stays
 # beside the records, and the parent queues the escalation wake. The remote
-# ladder keeps no busy budget or owed idle follow-up; each ring uses the shared
-# ring helper's composer pre-check. No fire-and-forget retry is owed there.
+# ladder defers a busy non-queue pane on the same busy budget and owes the same
+# idle follow-up after the stuck-busy escalation as the local one; each ring uses
+# the shared ring helper's composer pre-check. No fire-and-forget retry is owed
+# there. The busy classifier is fm_busy_is_busy on the mate's own home state
+# (not the parent-route state the ladder uses), and a queue harness is rung
+# while busy.
+# Skew safety: the parent passes its busy maximum as an optional last argument
+# to the inbox verb's due and ring actions (bin/fm-remote-secondmate-control.sh).
+# Only then does the remote defer, answer `deferred <count>` or, at the bound,
+# `stuck-busy <count>` (which the parent turns into the stuck-busy stale wake
+# under the usual remote-inbox key before the escalation marker is written),
+# and owe the idle follow-up once the marker makes `due` quiet. A remote copy
+# that predates the argument refuses it, so the parent retries the due check
+# without it; a parent that predates it never sends it, so a newer remote keeps
+# ringing a busy pane and a stuck mate never goes silent in either direction.
 # The parent passes its effective grace and ring maximum to each remote due
 # check; individual hops have a fixed 30-second bound, and ordinary supervision
 # runs the pass detached from its cycle, so a slow host never delays the
@@ -107,7 +121,7 @@
 # the same stale-wake path as a spent budget. Each record uses the stable wake
 # key remote-inbox:<id>:<record>, so a failed escalation-marker hop is retried
 # without appending another wake while that key remains queued; the remote
-# escalation marker suppresses later due actions once written.
+# escalation marker suppresses repeat escalation once written.
 #
 # Inbox names containing bytes outside printable ASCII are unsupported. The
 # doorbell refuses them rather than sending terminal control bytes to a pane.
@@ -120,6 +134,8 @@
 #   FM_TASK_INBOX_GRACE_SECS   default 90; delivery-attempt grace and spacing
 #   FM_TASK_INBOX_RING_MAX     default 3; delivery attempts before escalation
 #   FM_TASK_INBOX_BUSY_MAX     default 2; consecutive busy-deferred due polls before escalation
+#                              (local watcher, and the remote leg via the parent's argument)
+#                              1..999999999, at most 9 decimal digits; otherwise 2
 
 _FM_TASK_INBOX_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Dependencies are canonical lint roots in their own right. Keep them as
@@ -497,7 +513,10 @@ fm_task_inbox_confirmed_enter() {
 # Enter. Backend-specific confirmation boundaries live in docs/tmux-backend.md
 # and docs/herdr-backend.md.
 # Returns 0 submit confirmed, 1 foreign or busy non-queue draft skipped, 2 backend send
-# failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed.
+# failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed,
+# 5 optional clear-busy reset failed before delivery.
+# Optional clear-busy consumes the owed follow-up only after the endpoint check
+# and before delivery, so a dead/missing endpoint retains its busy debt.
 # The inbox record remains durable for every ring result; only the worker's
 # move into handled/ acknowledges that the steer was acted on.
 # Ambiguous pre-checks still permit a fresh constant doorbell, so classifier
@@ -506,7 +525,7 @@ fm_task_inbox_confirmed_enter() {
 # shell lines only, not suffixes typed after such an exit.
 #
 # Reason for the last ring result, so the next failure names its step. The
-# stdout verdicts and the 0-4 return codes above are unchanged: this is
+# stdout verdicts and the return codes above are delivery results: this is
 # logging only. fm_task_inbox_ring owns the token: it leaves it in
 # FM_TASK_INBOX_RING_REASON (read it right after the call) and attempts to write
 # the sibling <inbox>/<seq>.ring-reason as one line, "rc=<n> token=<token>".
@@ -514,7 +533,7 @@ fm_task_inbox_confirmed_enter() {
 # are never touched, and a failed diagnostic write cannot change the ring result.
 # A backend adapter only offers a finer token through the sink file named by
 # FM_RING_REASON_SINK (fm_backend_herdr_note_reason), because it runs in a
-# command substitution and cannot set a variable here. Tokens: ok, agent-dead,
+# command substitution and cannot set a variable here. Tokens: ok, agent-dead, busy-reset-failed,
 # foreign-pending-draft, busy-pending-doorbell, doorbell-rejected, submit-refused, backend-send-failed,
 # submit-unconfirmed, preflight-dialog, dialog-sink-failed, enter-send-failed,
 # post-enter-unreadable, post-enter-foreign-draft, composer-unreadable and
@@ -526,7 +545,7 @@ fm_task_inbox_confirmed_enter() {
 # spent-budget stale wakes include the last persisted token when available.
 # A later attempt replaces the diagnostic even if it succeeds: ok confirms
 # submission, not that the worker acted on or acknowledged the record.
-fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness]
+fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness] [clear-busy]
   local rc=0
   FM_TASK_INBOX_RING_REASON=
   _fm_task_inbox_ring_step "$@" || rc=$?
@@ -534,11 +553,19 @@ fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [har
   return "$rc"
 }
 
-_fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label] [harness]
+_fm_task_inbox_ring_step() {  # <backend> <target> <record-path> [expected-label] [harness] [clear-busy]
   local backend=$1 target=$2 rec=$3 label=${4:-} harness=${5:-} line cstate verdict rc sink inbox task
   case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
     dead|missing) FM_TASK_INBOX_RING_REASON=agent-dead; return 3 ;;
   esac
+  if [ "${6:-}" = clear-busy ]; then
+    inbox=${rec%/*}
+    task=${inbox##*/}
+    if ! fm_task_inbox_clear_busy "${inbox%/*}" "${task%.inbox}"; then
+      FM_TASK_INBOX_RING_REASON=busy-reset-failed
+      return 5
+    fi
+  fi
   line=$(fm_task_inbox_doorbell_line "$rec") || { FM_TASK_INBOX_RING_REASON=doorbell-rejected; return 2; }
   fm_task_inbox_signal_prepare "$backend" "$rec" "$line" || true
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
