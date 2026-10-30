@@ -2525,8 +2525,24 @@ run_check_process() {
     exec gtimeout "$CHECK_TIMEOUT" bash "$c" "$@"
   else
     # shellcheck disable=SC2016  # single quotes are deliberate: Perl expands its own variables.
-    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = $stop; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit($? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
+    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = sub { if (length $ENV{FM_CHECK_TIMEOUT_MARK}) { open my $m, ">", $ENV{FM_CHECK_TIMEOUT_MARK}; close $m } $stop->() }; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit($? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
   fi
+}
+
+# check_timeout_episode <check> <exit-status>: a check the bound killed (exit
+# 124 from timeout, gtimeout or the perl fallback) would otherwise vanish
+# without a trace. Returns 0 only on the first timeout of an episode, so the
+# caller wakes once; the marker stays until that check next finishes inside the
+# bound, so a permanently slow check does not wake every sweep.
+check_timeout_episode() {
+  local marker
+  marker="$STATE/.check-timed-out.$(basename "$1")"
+  if [ "$2" -ne 124 ]; then
+    rm -f -- "$marker"
+    return 1
+  fi
+  [ ! -e "$marker" ] || return 1
+  : > "$marker"
 }
 
 run_check() {
@@ -2540,7 +2556,7 @@ FM_CHECK_RESULT=
 FM_CHECK_SIGNAL_PENDING=
 
 fm_check_output_cleanup() {
-  [ -z "$FM_CHECK_OUTPUT" ] || rm -f -- "$FM_CHECK_OUTPUT"
+  [ -z "$FM_CHECK_OUTPUT" ] || rm -f -- "$FM_CHECK_OUTPUT" "$FM_CHECK_OUTPUT.timeout"
   FM_CHECK_OUTPUT=
 }
 
@@ -2598,7 +2614,7 @@ run_check_capture() {
   # can drop a trap that is pending when one is parsed (watcher_stop_signals).
   trap 'FM_CHECK_SIGNAL_PENDING=1' HUP INT TERM
   set -m
-  ( FM_CHECK_OWNED_GROUP=1 run_check_process "$@" ) > "$FM_CHECK_OUTPUT" 2>/dev/null &
+  ( FM_CHECK_OWNED_GROUP=1 FM_CHECK_TIMEOUT_MARK="$FM_CHECK_OUTPUT.timeout" run_check_process "$@" ) > "$FM_CHECK_OUTPUT" 2>/dev/null &
   FM_ACTIVE_CHECK_PID=$!
   FM_ACTIVE_CHECK_PGID=$FM_ACTIVE_CHECK_PID
   set +m
@@ -2613,6 +2629,9 @@ run_check_capture() {
   wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || FM_CHECK_EXIT_STATUS=$?
   FM_ACTIVE_CHECK_PID=
   fm_active_check_stop || return 1
+  # The perl fallback kills its own owned group, so the bound can reach the
+  # watcher as SIGKILL; its marker file says the alarm, not something else, did it.
+  [ ! -e "$FM_CHECK_OUTPUT.timeout" ] || FM_CHECK_EXIT_STATUS=124
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
   fm_check_output_cleanup
 }
@@ -3485,6 +3504,7 @@ EOF
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
+          check_timeout_episode "$c" "$FM_CHECK_EXIT_STATUS" && out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
           fm_custom_check_snapshot_cleanup
         else
           fm_custom_check_snapshot_cleanup
