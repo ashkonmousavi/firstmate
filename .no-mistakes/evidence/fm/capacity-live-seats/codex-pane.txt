@@ -1,0 +1,30 @@
+╭─────────────────────────────────────────────────╮
+│ ✨ Update available! 0.159.3 -> 0.166.0         │
+│ Run npm install -g @openai/codex to update.     │
+│                                                 │
+│ See full release notes:                         │
+│ https://github.com/openai/codex/releases/latest │
+╰─────────────────────────────────────────────────╯
+
+
+  >_ OpenAI Codex (v0.159.3)
+     ~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3
+
+  This looks like the start of a perfectly reasonable rabbit hole.
+
+
+
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol default · ~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3
+  ? for shortcuts                                                          ⚠ 1 warning · f2 to view

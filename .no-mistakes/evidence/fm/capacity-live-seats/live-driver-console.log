@@ -1,0 +1,111 @@
+Private session dimensions: fm-lab-capacity 100x30
+BASE: exited retained record (regression reproduced): project_occupants=1 ids=[exited]
+TARGET: missing endpoint with empty worktree: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+TARGET: parked shell holds no seat: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+Live workload pid=1944945, cwd=~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/idle-other
+TARGET: same-prefix sibling workload does not consume this seat: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+PROVED: Exited or parked records free their project and machine seats; the base retained them
+Live workload pid=1946237, cwd=~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/idle/nested
+TARGET: surviving non-shell descendant retains seat: project_occupants=1 ids=[exited]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 1, "target": 30, "free_lanes": 29}
+TARGET: terminating descendant immediately frees seat: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+Live workload pid=1948209, cwd=~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/idle/nested
+TARGET: canonicalized symlink worktree retains surviving process: project_occupants=1 ids=[exited]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 1, "target": 30, "free_lanes": 29}
+PROVED: A surviving process in a nested or symlinked worktree holds a seat until it exits
+TARGET: missing worktree is uncertain evidence: project_occupants=1 ids=[unknown-worktree]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 1, "target": 30, "free_lanes": 29}
+TARGET: unreadable worktree keeps its seat: project_occupants=1 ids=[unreadable-worktree]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 1, "target": 30, "free_lanes": 29}
+TARGET: restored readability frees idle record: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+TARGET: ambiguous endpoint retains an otherwise idle worktree: project_occupants=1 ids=[ambiguous]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 1, "target": 30, "free_lanes": 29}
+TARGET: proven missing endpoint permits release: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+PROVED: Missing or unreadable worktrees and uncertain endpoint liveness retain seats
+FAULT SETUP: endpoint remains proven dead; lsof alone is unavailable
+TARGET: absent lsof retains project seat: project_occupants=1 ids=[no-scan]
+TARGET: normal process evidence restores release: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+PROVED: Unavailable process scanning fails closed and restored scanning frees the seat
+TARGET: completed-release sentinel with missing endpoint: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+TARGET: completed-release sentinel with dead shell endpoint: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+PROVED: Completed-release sentinel records still hold no seat when agents are gone
+TARGET: exited records across registered homes share no seats: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+Live workload pid=1950929, cwd=~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/idle/nested
+TARGET: both homes observe the surviving workload: project_occupants=2 ids=[root-exited, mate-exited in ~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/mate]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 2, "target": 30, "free_lanes": 28}
+TARGET: both homes release after workload exit: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+PROVED: Registered local homes and same-origin clones share the live seat rule
+AUTHENTIC HARNESS PANE:
+╭─────────────────────────────────────────────────╮
+│ ✨ Update available! 0.159.3 -> 0.166.0         │
+│ Run npm install -g @openai/codex to update.     │
+│                                                 │
+│ See full release notes:                         │
+│ https://github.com/openai/codex/releases/latest │
+╰─────────────────────────────────────────────────╯
+
+
+  >_ OpenAI Codex (v0.159.3)
+     ~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3
+
+  This looks like the start of a perfectly reasonable rabbit hole.
+
+
+
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol default · ~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3
+  ? for shortcuts                                                          ⚠ 1 warning · f2 to view
+
+TARGET: live harness holds seat even outside its empty recorded worktree: project_occupants=1 ids=[live-agent]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 1, "target": 30, "free_lanes": 29}
+TARGET: live harness cannot be hidden by a released-copy sentinel: project_occupants=1 ids=[live-agent]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 1, "target": 30, "free_lanes": 29}
+TARGET: terminated harness releases its sentinel seat: project_occupants=0 ids=[]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 0, "target": 30, "free_lanes": 30}
+PROVED: A real live Codex agent retains its seat even with an idle worktree or released-copy sentinel
+PUBLIC SPAWN candidate exit=0
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 34s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/data/candidate/launch-brief.md records no ship branch; defaulting to legacy branch fm/candidate
+notice: candidate ships mode=local-only while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned candidate harness=python3 kind=ship mode=local-only yolo=off window=fm-lab-capacity:fm-candidate worktree=~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/pool/.treehouse/project-882f96/1/project
+
+WORKLOAD STARTED: 1965006
+~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/pool/.treehouse/project-882f96/1/project
+TARGET: only launched workload occupies project: project_occupants=1 ids=[candidate]
+fm-capacity.sh --json: {"readable": true, "reason": "ok", "lanes": 1, "target": 30, "free_lanes": 29}
+PUBLIC SPAWN blocked exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab
+WARNING: watcher still down (same stale episode; last beat: 40s ago, grace 300s) - full banner already printed this episode.
+deferred: project project admits 1 worker(s) at once on this machine (~/.no-mistakes/worktrees/049a88734b0e/01M66966EP116W36A1WHXQRBG3/.test-capacity-tmp/live-lab/config/project-capacity) and 1 already hold a place (candidate); task blocked was not launched and its backlog item stays queued - dispatch it again once one of them records its ready PR or is cleaned up
+
+PROVED: A retained exited record permits a real worker launch; the live worker blocks the next launch at the project cap
+CLEANUP: private tmux server stopped; disposable lab removed

@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Exited or parked records free their project and machine seats; the base retained them",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A surviving process in a nested or symlinked worktree holds a seat until it exits",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Missing or unreadable worktrees and uncertain endpoint liveness retain seats",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Unavailable process scanning fails closed and restored scanning frees the seat",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Completed-release sentinel records still hold no seat when agents are gone",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Registered local homes and same-origin clones share the live seat rule",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A real live Codex agent retains its seat even with an idle worktree or released-copy sentinel",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A retained exited record permits a real worker launch; the live worker blocks the next launch at the project cap",
+    "result": "pass",
+    "live": true
+  }
+]

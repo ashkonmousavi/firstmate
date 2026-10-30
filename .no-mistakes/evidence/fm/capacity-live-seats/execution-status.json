@@ -1,0 +1,13 @@
+{
+  "tests/fm-project-capacity.test.sh": {
+    "exit_code": 0
+  },
+  "tests/fm-capacity.test.sh": {
+    "exit_code": 0
+  },
+  "live-capacity.py": {
+    "exit_code": 0,
+    "live_scenarios": 8
+  },
+  "cleanup": "lab removed, private server absent, workload process exited"
+}
