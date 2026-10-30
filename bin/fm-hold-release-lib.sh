@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 # fm-hold-release-lib.sh - structured release conditions on backlog holds.
 #
-# ONE OWNER of the hold-release contract: the condition syntax, the durable
-# per-task record kept beside the hold, the "hold condition met" keyed
+# ONE OWNER of the hold-release contract: the condition syntax, the native
+# hold binding and rebuildable cache, the "hold condition met" keyed
 # decision, and the bounded evaluation the watcher's check sweep runs.
 #
-# THE PROBLEM THIS REPAIRS. A hold of kind external carried its release
-# condition as free text in the reason ("awaiting merge <url>"), and nothing
-# evaluated that text when the named event happened, so holds outlived their
-# reason: work sat queued for days on PRs that had already merged. The fix is
-# a structured condition stored beside the hold and evaluated on the existing
-# watcher check cadence - no new daemon - with a durable keyed decision that
-# must be dispositioned.
+# A structured hold must commit its own condition and episode, so interruption
+# or cross-home transfer cannot leave evaluation dependent on a stale or
+# missing home-local cache. tests/fm-hold-release.test.sh covers publication
+# recovery and transfers through moves, handoffs, and remote receipts.
 #
 # CONDITION SYNTAX (fm_hold_release_valid owns it):
 #   pr:<owner>/<repo>#<number>   a GitHub pull request; met when it is MERGED
@@ -20,20 +17,24 @@
 # forge is GitHub and the evaluation reads it through gh exactly as
 # bin/fm-pr-poll.sh does; a closed-not-merged PR is never "met" (re-examine
 # such a hold by re-holding it).
+# Marker paths are checked on the evaluating home's filesystem; transferring
+# a hold preserves the path, not the marker file.
 #
-# STORAGE. tasks-axi holds have no spare structured field, so the condition is
-# recorded in this home's state at state/hold-releases/<task-id> (schema
-# fm-hold-release.v1: task_id, condition, created_epoch), written by the hold
-# wrapper paths at hold time:
+# STORAGE. The condition and episode are part of the native encoded hold reason
+# (bin/fm-hold-reason-lib.sh), committed and transferred with the hold itself.
+# state/hold-releases/<task-id> caches the current episode for disposition
+# (schema fm-hold-release.v1: task_id, condition, episode, created_epoch).
+# Hold wrapper paths:
 #   - bin/fm-tasks-axi.sh hold --release-on <condition>  (any kind)
 #   - bin/fm-captain-hold.sh hold --release-on <condition>
-# The record is advisory metadata for evaluation; the backlog row remains the
-# authority on whether a hold exists. A bare `tasks-axi hold` (bypassing the
-# wrapper) writes no record and is therefore never evaluated - that is the
+# The backlog row is authoritative; evaluation discovers held rows and rebuilds
+# missing or stale caches from their committed conditions. A bare `tasks-axi hold`
+# without an encoded condition is never evaluated - that is the
 # documented bypass, and bin/fm-tasks-axi.sh refuses an external or kindless hold with
 # neither --release-on nor --until precisely so the bypass is a choice.
 #
-# RECORD LIFECYCLE. The record exists exactly while its hold exists:
+# CACHE LIFECYCLE. Wrapper updates reconcile the cache immediately; the next
+# evaluation repairs an interrupted update from the authoritative hold:
 #   hold with --release-on      -> record written; a previous still-open
 #                                  hold-release decision for the task closes
 #                                  ("re-held") because that lifecycle ended
@@ -42,9 +43,11 @@
 #                                  condition")
 #   unhold                      -> record dropped; open decision closes
 #                                  ("released")
-#   task closed while held      -> the next evaluation drops the record and
+#   task closed or removed      -> the next evaluation drops the record and
 #                                  closes any open decision ("hold no longer
-#                                  active"), so no decision outlives its row
+#                                  active" or "task no longer exists")
+# Missing or mismatched cache records are rebuilt from committed held rows
+# before evaluating their current condition, never the stale cached condition.
 #
 # THE KEYED DECISION. When evaluation finds the condition met, it opens ONE
 # durable decision on the held task's own status log (state/<id>.status,
@@ -64,13 +67,15 @@
 # reserved namespace refuses that close on purpose, because answering a
 # message never changed a hold.
 #
-# EVALUATION (fm_hold_release_evaluate): iterates the records, reads each
+# EVALUATION (fm_hold_release_evaluate): lists held rows and cached ids, reads each
 # task's held state through bin/fm-tasks-axi.sh show (bounded, overridable
 # for tests through FM_HOLD_RELEASE_SHOW_CMD), reconciles vanished holds, and
 # evaluates conditions. A pr lookup that fails (no gh, no network, bad auth)
 # is UNKNOWN, never met: a failed lookup can never release a hold. Each
 # newly-met condition commits its check wake before announcing the decision,
 # then prints its wake line for the watcher to surface.
+# Sweeps rotate through task ids, bounded by both the task cap and a 30-second
+# budget, shortened to half any remaining caller deadline.
 #
 # Tunables (env):
 #   FM_HOLD_RELEASE_GH          gh replacement used for pr lookups (tests)
@@ -78,10 +83,10 @@
 #                               a tasks-axi `show` block (tests)
 #   FM_HOLD_RELEASE_NOW         fixed epoch for deterministic tests
 #   FM_HOLD_RELEASE_SHOW_BOUND  per-task show and PR bound in seconds (default 10)
-#   FM_HOLD_RELEASE_MAX_RECORDS records per evaluation sweep (default 25)
+#   FM_HOLD_RELEASE_MAX_RECORDS task ids per evaluation sweep (default 25)
 #
 # Sourced by bin/fm-tasks-axi.sh, bin/fm-captain-hold.sh,
-# bin/fm-backlog-transition-lib.sh, bin/fm-watch.sh, and tests.
+# bin/fm-watch.sh, and tests.
 # No side effects on source. set -u / set -e safe.
 
 _FM_HOLD_RELEASE_LIB_DIR="$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd 2>/dev/null)" || _FM_HOLD_RELEASE_LIB_DIR="."
@@ -178,11 +183,12 @@ fm_hold_release_decision_key() {  # <task-id>
 fm_hold_release_record_read() {  # <state-dir> <task-id>
   local state=$1 id=$2 rec line key value
   FM_HOLD_RELEASE_CONDITION=
+  FM_HOLD_RELEASE_EPISODE=
   FM_HOLD_RELEASE_TASK_ID=
   rec=$(fm_hold_release_record_path "$state" "$id")
   [ -e "$rec" ] || [ -L "$rec" ] || return 1
   [ -f "$rec" ] && [ ! -L "$rec" ] && [ -r "$rec" ] || return 2
-  local schema='' condition=''
+  local schema='' condition='' episode=''
   while IFS= read -r line; do
     key=${line%%=*}
     value=${line#*=}
@@ -193,12 +199,14 @@ fm_hold_release_record_read() {  # <state-dir> <task-id>
     case "$key" in
       schema) schema=$value ;;
       condition) condition=$value ;;
+      episode) episode=$value ;;
     esac
   done < "$rec"
   [ "$schema" = "$FM_HOLD_RELEASE_SCHEMA" ] || return 2
   [ -n "$condition" ] || return 2
   [ -n "$(fm_hold_release_valid "$condition")" ] || return 2
   FM_HOLD_RELEASE_CONDITION=$condition
+  FM_HOLD_RELEASE_EPISODE=$episode
   # shellcheck disable=SC2034  # Output global, read by the sourcing caller.
   FM_HOLD_RELEASE_TASK_ID=$id
   return 0
@@ -303,18 +311,19 @@ fm_hold_release_record_write() {
   fm_hold_release_with_lock "$1" "$2" _fm_hold_release_record_write "$@"
 }
 
-_fm_hold_release_record_write() {  # <state-dir> <task-id> <condition>
-  local state=$1 id=$2 condition=$3 dir rec tmp
+_fm_hold_release_record_write() {  # <state-dir> <task-id> <condition> <episode>
+  local state=$1 id=$2 condition=$3 episode=$4 dir rec tmp
   condition=$(fm_hold_release_valid "$condition") || return 1
   dir=$(fm_hold_release_dir "$state")
   rec=$(fm_hold_release_record_path "$state" "$id")
   mkdir -p "$dir" || return 1
   [ ! -L "$rec" ] || return 1
   tmp=$(umask 077; mktemp "$dir/.record.XXXXXX") || return 1
-  if ! printf '%s\n%s\n%s\n%s\n' \
+  if ! printf '%s\n%s\n%s\n%s\n%s\n' \
       "schema=$FM_HOLD_RELEASE_SCHEMA" \
       "task_id=$id" \
       "condition=$condition" \
+      "episode=$episode" \
       "created_epoch=$(fm_hold_release_now)" > "$tmp"; then
     rm -f -- "$tmp"
     return 1
@@ -379,18 +388,20 @@ fm_hold_release_condition_met() {  # <condition>
 # FM_HOLD_RELEASE_SHOW_STATE and FM_HOLD_RELEASE_SHOW_HELD; returns 0 read,
 # 1 task not found, 2 unreadable.
 _fm_hold_release_show() {  # <task-id>
-  local id=$1 out rc bound
+  local id=$1 out rc bound condition_json episode_json
   FM_HOLD_RELEASE_SHOW_STATE=
   FM_HOLD_RELEASE_SHOW_HELD=
+  FM_HOLD_RELEASE_SHOW_CONDITION=
+  FM_HOLD_RELEASE_SHOW_EPISODE=
   bound=${FM_HOLD_RELEASE_SHOW_BOUND:-10}
   case "$bound" in ''|*[!0-9]*) bound=10 ;; esac
   [ "$bound" -gt 0 ] 2>/dev/null || bound=10
   bound=$(fm_checkpoint_budget "$bound") || return 2
   if [ -n "${FM_HOLD_RELEASE_SHOW_CMD:-}" ]; then
     # shellcheck disable=SC2086  # a test-supplied prefix command
-    out=$(fm_run_timed "$bound" $FM_HOLD_RELEASE_SHOW_CMD "$id" 2>/dev/null) || rc=$?
+    out=$(fm_run_timed "$bound" $FM_HOLD_RELEASE_SHOW_CMD "$id" 2>&1) || rc=$?
   else
-    out=$(fm_run_timed "$bound" "$_FM_HOLD_RELEASE_LIB_DIR/fm-tasks-axi.sh" show "$id" 2>/dev/null) || rc=$?
+    out=$(fm_run_timed "$bound" "$_FM_HOLD_RELEASE_LIB_DIR/fm-tasks-axi.sh" show "$id" 2>&1) || rc=$?
   fi
   case "${rc:-0}" in
     0) ;;
@@ -404,15 +415,22 @@ _fm_hold_release_show() {  # <task-id>
   FM_HOLD_RELEASE_SHOW_STATE=$(printf '%s\n' "$out" | sed -n 's/^  state: //p' | head -1)
   FM_HOLD_RELEASE_SHOW_HELD=$(printf '%s\n' "$out" | sed -n 's/^  held: //p' | head -1)
   [ -n "$FM_HOLD_RELEASE_SHOW_STATE" ] || return 2
+  condition_json=$(printf '%s\n' "$out" | sed -n 's/^  hold_release_on: //p' | head -1)
+  episode_json=$(printf '%s\n' "$out" | sed -n 's/^  hold_release_episode: //p' | head -1)
+  if [ -n "$condition_json" ] || [ -n "$episode_json" ]; then
+    FM_HOLD_RELEASE_SHOW_CONDITION=$(printf '%s' "$condition_json" | jq -er 'select(type == "string")' 2>/dev/null) || return 2
+    FM_HOLD_RELEASE_SHOW_EPISODE=$(printf '%s' "$episode_json" | jq -er 'select(type == "string")' 2>/dev/null) || return 2
+    [ -n "$FM_HOLD_RELEASE_SHOW_CONDITION" ] && [ -n "$FM_HOLD_RELEASE_SHOW_EPISODE" ] || return 2
+  fi
   return 0
 }
 
-# One evaluation sweep over the records. Prints one
+# One evaluation sweep over held rows and cached task ids. Prints one
 #   hold condition met: <task-id> <condition>
 # line per newly-met condition after its check wake is durably queued.
 # Diagnostics go to stderr. Returns 0 unless the sweep itself could not run.
 fm_hold_release_evaluate() {
-  local state=$1 dir rec id rc=0 seen=0 max pass cursor='' cursor_file slice=30 remaining
+  local state=$1 dir rec id rc=0 seen=0 max pass cursor='' cursor_file slice=30 remaining bound listed ids
   local LC_ALL=C FM_CHECKPOINT_DEADLINE=${FM_CHECKPOINT_DEADLINE:-}
   fm_checkpoint_clock
   if [ -n "$FM_CHECKPOINT_DEADLINE" ]; then
@@ -426,13 +444,30 @@ fm_hold_release_evaluate() {
   max=${FM_HOLD_RELEASE_MAX_RECORDS:-25}
   case "$max" in ''|*[!0-9]*) max=25 ;; esac
   [ "$max" -gt 0 ] 2>/dev/null || max=25
-  [ -d "$dir" ] || return 0
+  bound=$(fm_checkpoint_budget 10) || return 124
+  listed=$(fm_run_timed "$bound" "$_FM_HOLD_RELEASE_LIB_DIR/fm-tasks-axi.sh" list --state held --limit 2147483647 2>&1) || {
+    rc=$?
+    printf 'fm-hold-release: could not discover held tasks: %s\n' "$listed" >&2
+    return "$rc"
+  }
+  printf '%s\n' "$listed" | grep -Eq '^count: 0$|^tasks\[[0-9]+\]\{id,' || {
+    printf 'fm-hold-release: unreadable held-task listing\n' >&2
+    return 2
+  }
+  ids=$({
+    printf '%s\n' "$listed" | sed -n 's/^  \([A-Za-z0-9._-][A-Za-z0-9._-]*\),.*/\1/p'
+    for rec in "$dir"/*; do
+      [ -f "$rec" ] && [ ! -L "$rec" ] || continue
+      printf '%s\n' "${rec##*/}"
+    done
+  } | LC_ALL=C sort -u)
+  [ -n "$ids" ] || return 0
+  mkdir -p "$state" || return 1
   [ ! -f "$cursor_file" ] || IFS= read -r cursor < "$cursor_file" || true
   for pass in after before; do
     [ "$pass" != before ] || [ -n "$cursor" ] || break
-    for rec in "$dir"/*; do
-      [ -f "$rec" ] && [ ! -L "$rec" ] || continue
-      id=${rec##*/}
+    while IFS= read -r id; do
+      case "$id" in ''|*[!A-Za-z0-9._-]*) continue ;; esac
       if [ -n "$cursor" ]; then
         if [ "$pass" = after ]; then [[ "$id" > "$cursor" ]] || continue
         else [[ "$id" > "$cursor" ]] && continue; fi
@@ -442,8 +477,9 @@ fm_hold_release_evaluate() {
       printf '%s\n' "$id" > "$cursor_file" || return 1
       seen=$((seen + 1))
       _fm_hold_release_evaluate_one "$state" "$id" || rc=$?
+      fm_checkpoint_expired && return 124
       [ "$rc" -ne 124 ] || return "$rc"
-    done
+    done <<< "$ids"
   done
   return "$rc"
 }
@@ -453,13 +489,7 @@ _fm_hold_release_evaluate_one() {
 }
 
 _fm_hold_release_evaluate_one_locked() {
-  local state=$1 id=$2 condition show_rc=0
-  fm_hold_release_record_read "$state" "$id" || {
-    printf 'fm-hold-release: unusable release record for %s, dropping it\n' "$id" >&2
-    fm_hold_release_record_drop "$state" "$id" "release record unreadable"
-    return 0
-  }
-  condition=$FM_HOLD_RELEASE_CONDITION
+  local state=$1 id=$2 condition episode show_rc=0
   _fm_hold_release_show "$id" || show_rc=$?
   case "$show_rc" in
     1)
@@ -473,6 +503,18 @@ _fm_hold_release_evaluate_one_locked() {
       "hold no longer active (task ${FM_HOLD_RELEASE_SHOW_STATE:-unknown})"
     return 0
   }
+  condition=$FM_HOLD_RELEASE_SHOW_CONDITION
+  episode=$FM_HOLD_RELEASE_SHOW_EPISODE
+  if [ -z "$condition" ]; then
+    fm_hold_release_record_drop "$state" "$id" "hold has no structured release condition"
+    return 0
+  fi
+  fm_hold_release_valid "$condition" >/dev/null && [ -n "$episode" ] || return 0
+  if ! fm_hold_release_record_read "$state" "$id" \
+    || [ "$FM_HOLD_RELEASE_CONDITION" != "$condition" ] \
+    || [ "$FM_HOLD_RELEASE_EPISODE" != "$episode" ]; then
+    fm_hold_release_record_write "$state" "$id" "$condition" "$episode" || return 1
+  fi
   if ! fm_hold_release_condition_met "$condition"; then
     return 0
   fi

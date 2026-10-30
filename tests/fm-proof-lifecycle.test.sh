@@ -17,7 +17,7 @@ case "${1:-}" in
     printf 'uncommitted preserved work\n' > "$dir/wt/pending.txt"
     tasks-axi add proof-child 'Consumes accepted parent' --file "$dir/home/data/backlog.md" >/dev/null
     tasks-axi block proof-child --by proof-parent --file "$dir/home/data/backlog.md" >/dev/null
-    FM_HOME="$dir/home" "$ROOT/bin/fm-tasks-axi.sh" hold proof-parent --kind external --reason 'awaiting deployment and journey proof; owner is this home' >/dev/null
+    FM_HOME="$dir/home" "$ROOT/bin/fm-tasks-axi.sh" hold proof-parent --kind external --release-on "marker:$dir/home/data/proof-parent/accepted" --reason 'awaiting deployment and journey proof; owner is this home' >/dev/null
     cp "$dir/home/state/proof-parent.meta" "$dir/before.meta"
     cp "$dir/home/data/backlog.md" "$dir/before.backlog"
     cp "$dir/home/data/proof-parent/proof.md" "$dir/before.proof"
