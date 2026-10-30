@@ -1,0 +1,37 @@
+[
+  {
+    "name": "absent file accepted",
+    "live": true,
+    "result": "pass"
+  },
+  {
+    "name": "environment precedence",
+    "live": true,
+    "result": "pass"
+  },
+  {
+    "name": "partial pair rejected",
+    "live": true,
+    "result": "pass"
+  },
+  {
+    "name": "non-executing parser and malformed routing rejection",
+    "live": true,
+    "result": "pass"
+  },
+  {
+    "name": "config root override",
+    "live": true,
+    "result": "pass"
+  },
+  {
+    "name": "before stale-watcher boundary probe",
+    "live": false,
+    "result": "pass"
+  },
+  {
+    "name": "after stale-watcher boundary probe",
+    "live": false,
+    "result": "pass"
+  }
+]

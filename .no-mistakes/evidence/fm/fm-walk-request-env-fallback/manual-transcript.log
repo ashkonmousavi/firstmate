@@ -1,0 +1,163 @@
+$ bin/fm-lab-home.sh create .tmp-walk-validation/manual/guards
+exit=0
+~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/guards
+
+=== LIVE: absent configuration preserves optional routing ===
+$ bin/fm-walk-request-check.sh check
+exit=0 (silent)
+
+=== LIVE: an explicit environment pair overrides an invalid file ===
+$ bin/fm-walk-request-check.sh check
+exit=0 (silent)
+$ bin/fm-walk-request-check.sh check
+exit=2
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+
+=== LIVE: a partial environment pair cannot borrow its missing half ===
+$ bin/fm-walk-request-check.sh check
+exit=2
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+
+=== LIVE: shell syntax in watch.env is never executed ===
+$ bin/fm-walk-request-check.sh check
+exit=0 (silent)
+$ bin/fm-walk-request-check.sh check
+exit=2
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+$ bin/fm-walk-request-check.sh check
+exit=2
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+No execution marker or request record was created.
+
+=== LIVE: the configured config-directory override is honored ===
+$ bin/fm-walk-request-check.sh check
+exit=2
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+
+=== NON-LIVE downstream-boundary probe: before ===
+Carrier, watcher, checker, and fm-send are real. The home-private bot dispatcher is a test double; this does not prove a live bot walk.
+$ bin/fm-lab-home.sh create .tmp-walk-validation/manual/before
+exit=0
+~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/before
+$ bin/fm-lab-home.sh create .tmp-walk-validation/manual/before-mate
+exit=0
+~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/before-mate
+$ bin/.fm-walk-request-before-validation.sh arm
+exit=0
+registered: state/walk-request.check.sh
+armed: state/walk-request.check.sh
+$ bin/fm-check-register.sh walk-request
+exit=0
+registered: state/walk-request.check.sh
+Baseline generated fixture shim explicitly invokes the base-commit checker; trust binding refreshed.
+Watcher armed pid=696950 before watch.env existed; routing values absent from launch environment.
+Wrote config/watch.env AFTER the watcher beacon, without restarting the watcher.
+$ bin/fm-walk-request.sh --brief .tmp-walk-validation/manual/before-mate/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks desk-step --bot J01Walker
+exit=0
+corr=9f3ad7e6f8d4b3e3
+once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+Configured dispatcher argv: ["~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/before/data/walk-requests/9f3ad7e6f8d4b3e3/brief.md", "--bot", "J01Walker", "--walk", "desk-step", "--walk-owner", "mate", "--timeout", "1800", "--once-key", "desk-step@0123456789abcdef0123456789abcdef01234567"]
+Dispatcher result:
+explicit supported --project and --target required
+
+__FM_WALK_DISPATCH_EXIT__=2
+
+$ bin/.fm-walk-request-before-validation.sh check
+exit=0 (silent)
+Real inbox record:
+schema=fm-task-inbox.v1
+at=2026-10-30T12:55:22Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=b82e40f9dc1a8d64 walk desk-step@0123456789abcdef0123456789abcdef01234567 (corr=9f3ad7e6f8d4b3e3) outcome: dispatch failed (exit=2): explicit supported --project and --target required
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/before/state/walk-requests/9f3ad7e6f8d4b3e3.desk-step.log
+$ bin/.fm-walk-request-before-validation.sh check
+exit=0 (silent)
+Watcher process reaped, exit=0.
+
+=== NON-LIVE downstream-boundary probe: after ===
+Carrier, watcher, checker, and fm-send are real. The home-private bot dispatcher is a test double; this does not prove a live bot walk.
+$ bin/fm-lab-home.sh create .tmp-walk-validation/manual/after
+exit=0
+~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/after
+$ bin/fm-lab-home.sh create .tmp-walk-validation/manual/after-mate
+exit=0
+~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/after-mate
+$ bin/fm-walk-request-check.sh arm
+exit=0
+registered: state/walk-request.check.sh
+armed: state/walk-request.check.sh
+Watcher armed pid=700796 before watch.env existed; routing values absent from launch environment.
+Wrote config/watch.env AFTER the watcher beacon, without restarting the watcher.
+$ bin/fm-walk-request.sh --brief .tmp-walk-validation/manual/after-mate/data/walk-briefs/brief.md --release 0123456789abcdef0123456789abcdef01234567 --walks desk-step --bot J01Walker
+exit=0
+corr=31abb8e2f2d6c733
+once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+Configured dispatcher argv: ["~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/after/data/walk-requests/31abb8e2f2d6c733/brief.md", "--bot", "J01Walker", "--walk", "desk-step", "--walk-owner", "mate", "--timeout", "1800", "--once-key", "desk-step@0123456789abcdef0123456789abcdef01234567", "--project", "x", "--target", "production"]
+Dispatcher result:
+BOUNDARY PROBE ONLY: accepted project=x target=production
+
+__FM_WALK_DISPATCH_EXIT__=0
+
+$ bin/fm-walk-request-check.sh check
+exit=0 (silent)
+Real inbox record:
+schema=fm-task-inbox.v1
+at=2026-10-30T12:55:24Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=c2a408c4a0fedc02 walk desk-step@0123456789abcdef0123456789abcdef01234567 (corr=31abb8e2f2d6c733) outcome: sent, exit=0: BOUNDARY PROBE ONLY: accepted project=x target=production
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M66DAF303ANXGAQ00SM1EXND/.tmp-walk-validation/manual/after/state/walk-requests/31abb8e2f2d6c733.desk-step.log
+$ bin/fm-walk-request-check.sh check
+exit=0 (silent)
+Watcher process reaped, exit=0.
