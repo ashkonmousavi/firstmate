@@ -394,6 +394,24 @@ test_run_timed_passes_a_natural_exit_through_a_fired_bound() {
   pass 'fm_run_timed passes a natural exit through when the bound fired after completion'
 }
 
+# SECONDS follows the system clock. Rewind it locally to reproduce a clock
+# correction without changing the host clock. The oracle is the one-second
+# deadline: after sleep, no further work may receive a budget.
+test_checkpoint_deadline_survives_clock_rewind() (
+  . "$ROOT/bin/fm-timeout-lib.sh"
+  unset FM_CHECKPOINT_CLOCK_OFFSET
+  fm_checkpoint_clock
+  FM_CHECKPOINT_DEADLINE=$((FM_CHECKPOINT_NOW + 1))
+  SECONDS=$((SECONDS - 60))
+  sleep 1.1
+  fm_checkpoint_expired || fail "clock rewind must not extend the checkpoint deadline"
+  local rc=0
+  fm_checkpoint_budget 25 >/dev/null || rc=$?
+  expect_code 124 "$rc" "expired checkpoints must not grant another command budget"
+  pass "checkpoint deadlines expire despite a backwards shell clock"
+)
+
+test_checkpoint_deadline_survives_clock_rewind
 test_passes_the_command_status_and_output_through
 test_system_bash_preserves_completion_and_signal_statuses
 test_run_timed_reports_the_bound_when_the_wrapper_records_a_signal_death
