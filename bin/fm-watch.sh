@@ -98,7 +98,9 @@
 #   stale: <window> (steering-inbox busy bookkeeping unwritable: ...)
 #                          steering-inbox recovery; bin/fm-task-inbox-lib.sh owns
 #                          delivery-attempt, busy-deferral, and unavailable-endpoint policy
-#   check: <script>: <out> authenticated check output, always actionable
+#   check: <script>: <out> authenticated check result, always actionable;
+#                          docs/configuration.md's FM_CHECK_TIMEOUT default
+#                          owns custom-check failure and timeout wake formats
 #   check: hold-release: hold condition met: <task-id> <condition>
 #                          a held row's structured release condition (its
 #                          --release-on pr:/marker:) was found met by this
