@@ -3214,6 +3214,39 @@ fm_backend_herdr_composer_identity() {  # <target> -> "<agent>\t<status>"
   fm_backend_herdr_agent_identity_raw "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE"
 }
 
+# fm_backend_herdr_viewport_to_bottom: put <target>'s viewport back at the live
+# bottom of the pane. A viewport scrolled up (by a click-scroll or a mouse
+# wheel in the pane) makes `pane read --source visible` return old output with
+# no composer on screen. `pane get` reports scroll.offset_from_bottom; above 0
+# the viewport is reset through the socket API (pane.scroll,
+# offset_from_bottom 0, via herdr-pane-scroll.py) - never by typing keys into
+# the pane - and the offset is read back. The composer reads call this only
+# when a capture shows no composer, so a healthy read pays no extra call.
+# Returns 0 when the viewport was already at the bottom (or this herdr reports
+# no scroll fact), 2 when it was scrolled and has been reset (the caller
+# recaptures), 1 when it could not be put back (the caller reports unknown).
+fm_backend_herdr_pane_scroll_offset() {  # <session> <pane> -> offset, empty when unreported
+  local out
+  out=$(fm_backend_herdr_cli "$1" pane get "$2" 2>/dev/null) || return 1
+  printf '%s' "$out" | jq -r '.result.pane.scroll.offset_from_bottom // empty' 2>/dev/null
+}
+
+fm_backend_herdr_viewport_to_bottom() {  # <target>
+  local target=$1 session pane offset socket scroller
+  fm_backend_herdr_parse_target "$target" || return 0
+  session=$FM_BACKEND_HERDR_SESSION
+  pane=$FM_BACKEND_HERDR_PANE
+  offset=$(fm_backend_herdr_pane_scroll_offset "$session" "$pane") || return 0
+  case "$offset" in ''|0) return 0 ;; *[!0-9]*) return 0 ;; esac
+  scroller=${FM_BACKEND_HERDR_PANE_SCROLLER:-$FM_BACKEND_HERDR_ROOT/bin/backends/herdr-pane-scroll.py}
+  command -v python3 >/dev/null 2>&1 || [ -n "${FM_BACKEND_HERDR_PANE_SCROLLER:-}" ] || return 1
+  socket=$(fm_backend_herdr_presentation_session_socket_path "$session") || return 1
+  "$scroller" "$socket" "$pane" 0 >/dev/null 2>&1 || return 1
+  offset=$(fm_backend_herdr_pane_scroll_offset "$session" "$pane") || return 1
+  [ "$offset" = 0 ] || return 1
+  return 2
+}
+
 # fm_backend_herdr_composer_state: thin adapter - capture plus capabilities
 # in, shared verdict out. The ANSI capture is preferred (styled=1 lets the
 # shared classifier strip ghost/placeholder text); when it fails on an older
@@ -3232,14 +3265,41 @@ fm_backend_herdr_composer_identity() {  # <target> -> "<agent>\t<status>"
 # by definition inside the viewport, and `--source visible` needs none of the
 # small-N --lines workaround.
 fm_backend_herdr_composer_state() {  # <target> -> empty|pending|pending-unproven|unknown
-  local target=$1 cap caps verdict identity
+  local target=$1 rc
   fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
+  fm_backend_herdr_composer_read "$target"
+  if [ "$FM_BACKEND_HERDR_COMPOSER_VERDICT" = unknown ] && [ -n "$FM_BACKEND_HERDR_COMPOSER_NONE" ]; then
+    # No composer on screen: the viewport may be scrolled off the live bottom.
+    # Reset it and read once more; a screen still without a composer after
+    # that, or a reset that did not take, stays unknown and says why.
+    fm_backend_herdr_viewport_to_bottom "$target" && rc=0 || rc=$?
+    if [ "$rc" = 2 ]; then
+      fm_backend_herdr_composer_read "$target"
+    fi
+    if [ "$FM_BACKEND_HERDR_COMPOSER_VERDICT" = unknown ] && [ -n "$FM_BACKEND_HERDR_COMPOSER_NONE" ]; then
+      if [ "$rc" = 1 ]; then
+        fm_backend_herdr_note_reason viewport-not-bottom
+      else
+        fm_backend_herdr_note_reason composer-not-located
+      fi
+    fi
+  fi
+  printf '%s' "$FM_BACKEND_HERDR_COMPOSER_VERDICT"
+}
+
+# fm_backend_herdr_composer_read: one visible capture and one shared verdict,
+# left in FM_BACKEND_HERDR_COMPOSER_VERDICT. FM_BACKEND_HERDR_COMPOSER_NONE is
+# the shared owner's no-composer reason (fm_composer_none_reason), empty when
+# a composer was located or the capture failed.
+fm_backend_herdr_composer_read() {  # <target>
+  local target=$1 cap caps verdict identity
+  FM_BACKEND_HERDR_COMPOSER_VERDICT=unknown
+  FM_BACKEND_HERDR_COMPOSER_NONE=
   if cap=$(fm_backend_herdr_visible_capture_ansi "$target" 2>/dev/null); then
     caps=$(printf 'styled=1\ncursor=0\nidentity=1')
   elif cap=$(fm_backend_herdr_visible_capture "$target"); then
     caps=$(printf 'styled=0\ncursor=0\nidentity=1')
   else
-    printf 'unknown'
     return 0
   fi
   verdict=$(fm_composer_classify_screen "$caps" "$cap")
@@ -3250,7 +3310,11 @@ fm_backend_herdr_composer_state() {  # <target> -> empty|pending|pending-unprove
     verdict=$(fm_composer_classify_screen "$caps" "$cap" '' "$identity")
     [ "$verdict" != need-identity ] || verdict=unknown
   fi
-  printf '%s' "$verdict"
+  FM_BACKEND_HERDR_COMPOSER_VERDICT=$verdict
+  # A blank capture is an unreadable pane, not a screen of old output.
+  if [ "$verdict" = unknown ] && [ -n "$(printf '%s' "$cap" | tr -d '[:space:]')" ]; then
+    FM_BACKEND_HERDR_COMPOSER_NONE=$(fm_composer_none_reason "$caps" "$cap")
+  fi
 }
 
 # fm_backend_herdr_rendered_busy_state: busy|idle|unknown from the pane's
@@ -3419,6 +3483,21 @@ fm_backend_herdr_proof_lines() {  # <text>
 # live), which that strip dropped, judging a typed /exit unsent. Claude's own
 # ghost suggestion is SGR-2 dim and is still stripped.
 fm_backend_herdr_composer_content() {  # <target>
+  local target=$1 rc out
+  if out=$(fm_backend_herdr_composer_content_once "$target"); then
+    printf '%s' "$out"
+    return 0
+  fi
+  # Nothing selectable: the viewport may be scrolled off the live bottom.
+  fm_backend_herdr_viewport_to_bottom "$target" && rc=0 || rc=$?
+  case "$rc" in
+    2) fm_backend_herdr_composer_content_once "$target" ;;
+    1) fm_backend_herdr_note_reason viewport-not-bottom; return 1 ;;
+    *) return 1 ;;
+  esac
+}
+
+fm_backend_herdr_composer_content_once() {  # <target>
   local target=$1 cap caps
   if cap=$(fm_backend_herdr_visible_capture_ansi "$target" 2>/dev/null) && [ -n "$cap" ]; then
     caps=$(printf 'styled=1\ncursor=0\nidentity=0')

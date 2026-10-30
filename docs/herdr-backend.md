@@ -650,6 +650,9 @@ When native `agent get` identity is Claude, the adapter types only into an empty
 A Claude composer that already holds text, or cannot be read, before the send is refused with nothing typed.
 Before that Enter, the adapter continues only when the selected composer shows the typed payload, or only Claude paste placeholders with no literal remainder.
 Every herdr adapter composer read (`fm_backend_herdr_composer_state`, `fm_backend_herdr_composer_content`) captures the full visible viewport, never a bounded tail, while the shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend: an overlay Claude renders between the composer and the pane bottom - the slash-command popup is the verified shape - pushes the composer outside a tail window, and the composer is by definition inside the viewport.
+A capture that shows no composer reads `unknown`, never `pending`, because a viewport scrolled off the live bottom returns old output.
+When a composer read finds none, the adapter reads `pane get` `scroll.offset_from_bottom`; above 0 it resets the viewport through the socket API `pane.scroll` (`bin/backends/herdr-pane-scroll.py`, never typed keys) and recaptures once.
+A reset that does not take, or a recapture that still shows no composer, stays `unknown` and records `viewport-not-bottom` or `composer-not-located` as the reason.
 Claude can also draw that popup directly below the composer's closing rule, with its selected row led by the composer's own `❯`; the shared classifier counts those rows as the composer's footer furniture only while the composer holds a typed `/` command, so the proof still reads the typed payload.
 Dated measurements: docs/verification/runtime-backends.md "Claude exit behind the slash-command popup" and "Claude slash-command popup below the composer".
 

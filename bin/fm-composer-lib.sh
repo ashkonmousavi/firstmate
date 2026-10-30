@@ -599,6 +599,11 @@ fm_composer_strip_braille() {
 # also uses this value as the minimum Ctrl+U clear budget after a refused proof.
 FM_COMPOSER_CAPTURE_LINES=${FM_COMPOSER_CAPTURE_LINES:-20}
 
+# Most non-blank rows a live composer may have under it: its wrapped input
+# rows, an open slash popup (about 19 rows) and the footer. More means the
+# candidate is old output, not a composer.
+FM_COMPOSER_TRAILING_MAX_ROWS=${FM_COMPOSER_TRAILING_MAX_ROWS:-28}
+
 # Pi allows a multi-line composer between its horizontal separators. Bound the
 # structural candidate so two unrelated transcript rules with an arbitrarily
 # large region between them can never be promoted into a composer.
@@ -1845,6 +1850,7 @@ _fm_composer_bare_rule_sandwich() {  # <plain-screen> <row>
 
 _fm_composer_select_cursorless() {
   local plain=$1 generic=-1 next boundary raw trimmed glyph bare footer=0
+  FM_COMPOSER_NONE_REASON=
   FM_COMPOSER_SELECTED_KIND=
   FM_COMPOSER_SELECTED_FIRST=-1
   FM_COMPOSER_SELECTED_LAST=-1
@@ -1954,7 +1960,54 @@ _fm_composer_select_cursorless() {
       return 1
     fi
   fi
-  [ -n "$FM_COMPOSER_SELECTED_KIND" ]
+  [ -n "$FM_COMPOSER_SELECTED_KIND" ] || return 1
+  # A composer sits at the bottom of the screen with at most a popup and a
+  # footer under it. A candidate with a long run of rows beneath it is a
+  # prompt echo or composer fragment inside old output - the screen of a
+  # viewport scrolled away from the live composer - so no composer is located.
+  case "$FM_COMPOSER_SELECTED_KIND" in
+    box) boundary=$FM_COMPOSER_SCAN_BOX_BOTTOM ;;
+    pi) boundary=$FM_COMPOSER_SCAN_PI_CLOSE ;;
+    *) boundary=$((FM_COMPOSER_SELECTED_FIRST - 1)) ;;
+  esac
+  if [ "$footer" = 1 ] && [ "$FM_COMPOSER_FOOTER_AFTER" = "$boundary" ]; then
+    boundary=$FM_COMPOSER_FOOTER_LAST
+  fi
+  if [ "$(_fm_composer_rows_below "$plain" "$boundary")" -gt "$FM_COMPOSER_TRAILING_MAX_ROWS" ]; then
+    FM_COMPOSER_SELECTED_KIND=
+    FM_COMPOSER_NONE_REASON=scrolled-away
+    return 1
+  fi
+  return 0
+}
+
+# _fm_composer_rows_below: the number of non-blank rows after zero-based <row>.
+_fm_composer_rows_below() {  # <plain-screen> <row>
+  printf '%s\n' "$1" | awk -v from="$(($2 + 1))" \
+    'NR > from && $0 ~ /[^[:space:]]/ { n++ } END { print n + 0 }'
+}
+
+# fm_composer_none_reason <caps> <screen>: prints `no-composer` when no
+# composer shape of any kind can be located on the screen (a viewport showing
+# only old output), `scrolled-away` when a candidate exists but sits under a
+# long run of unclaimed rows, and nothing otherwise. Runs the same scan and
+# selection as the classifier, in the caller's shell. A screen that prints
+# either token classifies `unknown`; the token tells a backend that a
+# recapture of the live bottom of the pane is worth taking.
+fm_composer_none_reason() {  # <caps> <screen>
+  local screen=$2 plain
+  plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
+  FM_COMPOSER_NONE_REASON=
+  _fm_composer_scan_screen "$plain" ''
+  _fm_composer_select_cursorless "$plain" && return 0
+  if [ -n "$FM_COMPOSER_NONE_REASON" ]; then
+    printf '%s' "$FM_COMPOSER_NONE_REASON"
+  elif [ "$FM_COMPOSER_SCAN_BOX_BOTTOM" -lt 0 ] && [ "$FM_COMPOSER_SCAN_BARE_ROW" -lt 0 ] \
+       && [ "$FM_COMPOSER_SCAN_LEFTBAR_END" -lt 0 ] && [ "$FM_COMPOSER_SCAN_PI_PAIR_FOUND" = 0 ] \
+       && [ "$FM_COMPOSER_SCAN_SHELL_ROW" -lt 0 ] && [ "$FM_COMPOSER_SCAN_INCOMPLETE_BOX_FROM" -lt 0 ]; then
+    printf 'no-composer'
+  fi
+  return 0
 }
 
 fm_composer_extract_selected_content() {  # <caps> <screen>

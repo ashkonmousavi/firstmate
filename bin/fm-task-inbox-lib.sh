@@ -538,7 +538,8 @@ fm_task_inbox_confirmed_enter() {
 # submit-unconfirmed, preflight-dialog, dialog-sink-failed, enter-send-failed,
 # post-enter-unreadable, post-enter-foreign-draft, composer-unreadable and
 # enter-retries-exhausted; herdr adds composer-nonempty, literal-send-failed,
-# payload-not-shown, clear-unverified, status-unknown and blocking-dialog.
+# payload-not-shown, clear-unverified, status-unknown, blocking-dialog,
+# viewport-not-bottom and composer-not-located.
 # Without a finer backend token, submit-refused, backend-send-failed and
 # submit-unconfirmed identify only the dispatch result, not an underlying cause.
 # Failed or unconfirmed send notices and watcher attempt logs include reason=;

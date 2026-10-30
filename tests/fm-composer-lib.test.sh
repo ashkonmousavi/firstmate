@@ -1660,3 +1660,34 @@ test_background_exit_picker_stays_pending_and_blocks_retry
 test_dialog_heading_and_footer_must_be_the_recorded_lines
 test_dialog_note_skips_the_match_when_no_sink_is_set
 test_quoted_exit_picker_text_is_not_a_dialog
+
+test_composerless_capture_is_unknown_not_pending() {
+  # Recorded live 2026-10-30: a herdr viewport scrolled to the top returned old
+  # output with no composer on screen, and an echoed user prompt row inside it
+  # read `pending` for a Claude worker whose composer was in fact empty.
+  local fill echo_row old_composer screen claude_idle reason
+  claude_idle=$(printf 'claude\tidle')
+  fill=$(for i in $(seq 1 40); do printf '  ⎿  tool output line %s\n' "$i"; done)
+  echo_row=$'❯ please fix the login bug\n'"$fill"
+  old_composer=$'────────────────────────\n❯ old typed text\n────────────────────────\n'"$fill"
+  for screen in "$echo_row" "$old_composer" "$fill" $'  1 +foo\n❯ x\n'"$fill"; do
+    assert_screen "composerless capture on herdr" unknown "$CAPS_STYLED" "$screen" '' "$claude_idle"
+    assert_screen "composerless capture on zellij" unknown "$CAPS_STYLED_NOID" "$screen"
+    assert_screen "composerless capture on cmux/orca" unknown "$CAPS_PLAIN" "$screen"
+  done
+  reason=$(fm_composer_none_reason "$CAPS_STYLED" "$echo_row")
+  [ "$reason" = scrolled-away ] || fail "an echoed prompt under old output must name scrolled-away, got '$reason'"
+  reason=$(LC_ALL=C fm_composer_none_reason "$CAPS_STYLED" "$fill")
+  [ "$reason" = no-composer ] || fail "output with no prompt row must name no-composer, got '$reason'"
+  # A located composer keeps its verdict and names no reason, with the normal
+  # footer under it and old output above it.
+  screen="$fill"$'\n────────────────────────\n❯'"$NBSP"$'\n────────────────────────\n  bypass permissions'
+  assert_screen "idle composer under long output" empty "$CAPS_STYLED" "$screen" '' "$claude_idle"
+  reason=$(fm_composer_none_reason "$CAPS_STYLED" "$screen")
+  [ -z "$reason" ] || fail "a located composer must name no reason, got '$reason'"
+  screen="$fill"$'\n────────────────────────\n❯ half typed\n────────────────────────\n  bypass permissions'
+  assert_screen "typed composer under long output" pending "$CAPS_STYLED" "$screen" '' "$claude_idle"
+  pass "fm_composer_classify_screen: a capture with no composer on screen reads unknown in both locales, never pending"
+}
+
+test_composerless_capture_is_unknown_not_pending
