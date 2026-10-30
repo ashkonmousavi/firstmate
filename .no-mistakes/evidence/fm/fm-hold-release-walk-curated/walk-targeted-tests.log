@@ -1,21 +1,3 @@
-ok - walk-request: interrupted initial and recovery launches leave recovery available until acknowledged
-ok - walk-request: remote UTF-8 briefs travel inline up to 64 KiB and invalid content is refused at both boundaries
-ok - walk-request: recovery refreshes attempt freshness and preserves the running walk's eventual result
-ok - walk-request: a resumed partial launch refuses only its unstarted remainder and delivers prior results
-ok - walk-request: the carrier writes one typed request on the parent channel
-ok - walk-request: invalid requests and main homes are refused before any write
-ok - walk-request: correlation generation works without openssl
-ok - walk-request: both boundaries enforce dispatcher-compatible ids
-ok - walk-request: arm writes and binds the check; disarm removes both
-ok - walk-request: the check dispatches at most once and returns the outcome
-ok - walk-request: an absent dispatcher is one plain report plus a mate outcome
-ok - walk-request: incomplete or botless requests fail loudly and never dispatch
-ok - walk-request: every refusal survives transport outages until delivered
-ok - walk-request: lost walks fail explicitly and delivery retries remain independent
-ok - walk-request: atomic launch progress survives interruption and resumes every sibling
-ok - walk-request: detachment works without setsid and launch failures return explicitly
-ok - walk-request: slow sends stay within budget and rotate across records, refusals, and sibling walks
-ok - walk-request: private files, cross-mate paths, symlink escapes, and dispatch-time swaps are refused
-ok - walk-request: whole multiline reports survive recovery and return with bounded inline text and full-file pointers
-ok - walk-request: historical discovery leaves processing time and eventually reaches new requests
-# fm-walk-request.test.sh: all assertions passed
+walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+not ok - interruption before initial or recovery launch must leave the request pending: expected exit 143, got 0

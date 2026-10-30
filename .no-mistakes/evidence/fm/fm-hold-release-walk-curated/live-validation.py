@@ -1,165 +1,243 @@
-import os, pathlib, subprocess, tempfile, shutil, json, time, signal, hashlib
+import os, subprocess, pathlib, tempfile, shutil, json, time, datetime, hashlib, base64, traceback
 ROOT=pathlib.Path.cwd()
-E=pathlib.Path('~/.no-mistakes/evidence/01M63C7BBG117KTXSCWYQZZ9EG')
-log=(E/'live-transcript.log').open('w',buffering=1)
-results=[]; labs=[]
-base={k:v for k,v in os.environ.items() if not k.startswith('FM_') and not k.startswith('TASKS_AXI_') and k not in ('TMUX','TMUX_TMPDIR')}
-base['TMPDIR']='/tmp'
-def run(args,home=None,extra=None,ok=(0,),timeout=45,stdin=None):
-    env=base.copy()
-    if home: env['FM_HOME']=str(home)
-    if extra: env.update(extra)
-    cmd=[str(x) for x in args]
-    log.write('$ '+ ' '.join(cmd)+('\nFM_HOME='+str(home) if home else '')+'\n')
-    p=subprocess.run(cmd,cwd=ROOT,env=env,input=stdin,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=timeout)
-    log.write(p.stdout+'\nexit='+str(p.returncode)+'\n')
-    if ok is not None: assert p.returncode in ok, (cmd,p.returncode,p.stdout)
+E=pathlib.Path('~/.no-mistakes/evidence/01M653CRY7NAGXTSWXGCEEE7W9')
+LOG=(E/('live-corrected-transcript.log' if os.environ.get('LIVE_RECHECK') else 'live-product-transcript.log')).open('w')
+RESULTS=[]
+LABS=[]
+BASE={k:v for k,v in os.environ.items() if not (k.startswith('FM_') or k.startswith('TASKS_AXI') or k in ('TMUX','TMUX_PANE'))}
+def log(s):
+    LOG.write(s+'\n'); LOG.flush()
+def run(args,home=None,ok=(0,),env=None,data=None,timeout=65):
+    en=BASE.copy()
+    if home:
+        en.update(FM_HOME=str(home),TMUX_TMPDIR=str(home/'tmux'),TMUX=str(home/'tmux'/'tmux-1000'/'fm-lab')+',0,0')
+    if env: en.update(env)
+    log('$ '+('FM_HOME='+str(home)+' ' if home else '')+' '.join(map(str,args)))
+    p=subprocess.run(list(map(str,args)),cwd=ROOT,env=en,text=True,input=data,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=timeout)
+    log('exit='+str(p.returncode)+'\n'+p.stdout+('STDERR:\n'+p.stderr if p.stderr else ''))
+    assert p.returncode in ok,(args,p.returncode,p.stdout,p.stderr)
     return p
 
-def home():
-    p=pathlib.Path(tempfile.mkdtemp(prefix='fm-lab.')); labs.append(p)
-    run(['bin/fm-lab-home.sh','create',p])
-    (p/'.tasks.toml').write_text('backend = "markdown"\n[markdown]\npath = "data/backlog.md"\narchive = "data/done-archive.md"\ndone_keep = 10\n')
-    (p/'data/backlog.md').write_text('## In flight\n\n## Queued\n\n## Done\n')
-    return p
+def lab(name):
+    # Disposable manual-verification fixture, following fm-lab-home's contract.
+    h=pathlib.Path(tempfile.mkdtemp(prefix='fm-lab.'+name+'.'))
+    LABS.append(h)
+    run(['bin/fm-lab-home.sh','create',h])
+    (h/'tmux').mkdir()
+    (h/'config/supervision-host-off').touch()
+    (h/'.tasks.toml').write_text('backend = "markdown"\n[markdown]\npath = "data/backlog.md"\narchive = "data/done-archive.md"\ndone_keep = 10\n')
+    (h/'data/backlog.md').write_text('## In flight\n\n## Queued\n\n## Done\n')
+    return h
 
-def axi(h,*args,**kw): return run(['bin/fm-tasks-axi.sh',*args],h,**kw)
-def evaluate(h):
-    return run(['bash','-c','. bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"'],h)
-def decisions(h,id):
-    return run(['bash','-c','. bin/fm-classify-lib.sh; status_open_decisions "$FM_HOME/state/$1.status"','_',id],h).stdout
-
-def snapshot(h,path,label):
-    data=(h/path).read_text(); log.write('PERSISTED '+str(h/path)+'\n'+data+'\n')
-    (E/label).write_text(data); return data
+def axi(h,*a,**kw):return run(['bin/fm-tasks-axi.sh',*a],h,**kw)
+def add(h,i):axi(h,'add',i,'Disposable live-validation '+i,'--repo','demo')
+def hold(h,i,condition):axi(h,'hold',i,'--reason','waiting for independently observed event','--kind','external','--release-on',condition)
+def sweep(h,**kw):return run(['bin/fm-watch-checkpoint.sh','--seconds','12'],h,ok=(0,124),env={'FM_POLL':'1','FM_CHECK_INTERVAL':'0','FM_HEARTBEAT':'999999','FM_SIGNAL_GRACE':'0',**kw},timeout=30)
+def evaluate(h):return run(['bash','-c','. bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"'],h)
+def drain(h):return run(['bin/fm-wake-drain.sh'],h,ok=(0,1)).stdout
+def decision(h,i):
+    return run(['bash','-c','. bin/fm-classify-lib.sh; status_open_decisions "$1"','_',h/'state'/f'{i}.status'],h).stdout
 
 def scenario(name,fn):
-    log.write('\nSCENARIO '+name+'\n')
+    log('\nSCENARIO: '+name)
     try:
-        fn(); results.append({'name':name,'result':'pass'})
+        fn()
+        RESULTS.append(dict(name=name,result='pass',live=True,evidence=('live-corrected-transcript.log: ' if os.environ.get('LIVE_RECHECK') else 'live-product-transcript.log: ')+name,reason=''))
+        log('OBSERVED RESULT: PASS')
     except Exception as ex:
-        log.write('FAIL '+repr(ex)+'\n'); results.append({'name':name,'result':'fail','error':repr(ex)})
+        RESULTS.append(dict(name=name,result='fail',live=True,evidence=('live-corrected-transcript.log: ' if os.environ.get('LIVE_RECHECK') else 'live-product-transcript.log: ')+name,reason=str(ex)))
+        log('OBSERVED RESULT: FAIL '+traceback.format_exc())
+    (E/('live-corrected-scenarios.json' if os.environ.get('LIVE_RECHECK') else 'live-scenarios.json')).write_text(json.dumps(RESULTS,indent=2))
+
+
+def guards():
+    h=lab('guard');add(h,'guard')
+    for opts in [[],['--kind','external'],['--kind','external','--release-on','pr:bad#0'],['--release-on','marker:relative']]:
+        axi(h,'hold','guard','--reason','unstructured wait',*opts,ok=(2,))
+        assert '  held: no' in axi(h,'show','guard').stdout
+    axi(h,'hold','guard','--reason','dated wait','--until','2099-01-01')
+    assert '  hold_until: 2099-01-01' in axi(h,'show','guard').stdout
+    axi(h,'hold','guard','--reason','accepted parked exemption','--kind','parked')
+    assert '  held: yes' in axi(h,'show','guard').stdout
+
+
+def marker():
+    h=lab('marker');add(h,'activation');hold(h,'activation','marker:'+str(h/'activated'))
+    p=sweep(h);assert 'hold condition met' not in p.stdout
+    (h/'activated').touch()
+    for attempt in range(3):
+        p=sweep(h)
+        if 'hold condition met: activation marker:' in p.stdout:break
+        assert 'check: rearm-resurface' in p.stdout,'only the documented restart recovery may precede this sweep'
+    else:raise AssertionError('hold activation never reached the actual watcher sweep')
+    assert 'hold-release-activation' in decision(h,'activation')
+    first=drain(h);assert 'OPEN DECISIONS' in first and 'hold-release-activation' in first
+    assert '  held: yes' in axi(h,'show','activation').stdout
+    status_before=(h/'state/activation.status').read_text()
+    sweep(h)
+    assert (h/'state/activation.status').read_text()==status_before,'must not open the same episode twice'
+    with (h/'state/activation.status').open('a') as f:f.write('resolved [key=hold-release-activation] [at=1]: answered: unrelated message\n')
+    assert 'hold-release-activation' in decision(h,'activation')
+    assert 'hold-release-activation' in drain(h),'draining/restarting must not disposition the hold'
+    axi(h,'unhold','activation')
+    assert not decision(h,'activation')
+    assert '  held: no' in axi(h,'show','activation').stdout
+    drain(h)
+
+MERGED='pr:cli/cli#14854'
+def merged():
+    oracle=json.loads(run(['curl','-fsSL','--max-time','20','https://api.github.com/repos/cli/cli/pulls/14854']).stdout)
+    assert oracle['merged'] is True
+    age=time.time()-datetime.datetime.fromisoformat(oracle['merged_at'].replace('Z','+00:00')).timestamp()
+    assert age>86400,age
+    (E/'public-pr-oracle.json').write_text(json.dumps({k:oracle[k] for k in ('number','state','merged','merged_at','html_url')},indent=2))
+    log('Independent GitHub REST oracle: merged '+str(round(age/3600,2))+' hours ago')
+    h=lab('merged');add(h,'oldmerge');hold(h,'oldmerge',MERGED)
+    p=sweep(h);assert 'hold condition met: oldmerge '+MERGED in p.stdout
+    assert 'hold-release-oldmerge' in drain(h)
+    assert '  held: yes' in axi(h,'show','oldmerge').stdout
+
+
+def negatives():
+    h=lab('negative')
+    for i,n,state in [('open','14846','open'),('closed','100','closed')]:
+        oracle=json.loads(run(['curl','-fsSL','--max-time','20',f'https://api.github.com/repos/cli/cli/pulls/{n}']).stdout)
+        assert oracle['state']==state and not oracle['merged']
+        add(h,i);hold(h,i,'pr:cli/cli#'+n)
+    add(h,'unavailable');hold(h,'unavailable','pr:cli/cli#999999999')
+    evaluate(h)
+    for i in ('open','closed','unavailable'):
+        assert not decision(h,i)
+        assert '  held: yes' in axi(h,'show',i).stdout
+    drain(h)
+
+
+def recover():
+    h=lab('recover');add(h,'recover')
+    old='marker:'+str(h/'old');new='marker:'+str(h/'new')
+    hold(h,'recover',old)
+    cache=h/'state/hold-releases/recover'
+    cache.unlink()
+    (h/'old').touch();evaluate(h)
+    assert 'hold-release-recover' in decision(h,'recover'),'native committed hold must rebuild a missing cache'
+    stale=cache.read_bytes()
+    hold(h,'recover',new)
+    cache.write_bytes(stale)
+    p=evaluate(h)
+    assert not p.stdout and not decision(h,'recover'),'old met A must not wake after committed B'
+    assert 'condition='+new in cache.read_text()
+    (h/'new').touch();p=evaluate(h);assert 'hold condition met: recover '+new in p.stdout
+    axi(h,'hold','recover','--reason','dated disposition','--until','2099-01-01')
+    cache.write_bytes(stale)
+    assert not evaluate(h).stdout and not decision(h,'recover')
+    assert not cache.exists(),'dated re-hold must retire stale release cache'
+
+
+def transfer():
+    for route in ('move','receipt'):
+        src=lab('source-'+route);dst=lab('destination-'+route)
+        add(src,'travels');hold(src,'travels',MERGED)
+        if route=='move':axi(src,'mv','travels','--to',dst/'data/backlog.md')
+        else:
+            (dst/'AGENTS.md').write_text('Disposable receipt fixture.\n')
+            (dst/'bin').mkdir()
+            outbox=src/'outbox.md';axi(src,'mv','travels','--to',outbox)
+            payload=outbox.read_bytes();digest=hashlib.sha256(payload).hexdigest()
+            run(['bin/fm-remote-file.sh','put','state/handoff/sender.outbox.md','1048576',str(len(payload)),digest,'1'],dst,data=payload.decode())
+            run(['bin/fm-backlog-receive.sh','state/handoff/sender.outbox.md',str(len(payload)),digest,'1'],dst)
+        assert not (dst/'state/hold-releases/travels').exists()
+        assert '  hold_release_on: "'+MERGED+'"' in axi(dst,'show','travels').stdout
+        p=evaluate(dst);assert 'hold condition met: travels '+MERGED in p.stdout
+        assert 'hold-release-travels' in drain(dst)
+        assert not evaluate(dst).stdout
+
+
+def removal():
+    h=lab('removed');add(h,'vanishes');hold(h,'vanishes','marker:'+str(h/'met'));(h/'met').touch();evaluate(h)
+    assert decision(h,'vanishes')
+    axi(h,'rm','vanishes')
+    p=axi(h,'show','vanishes',ok=(1,));assert 'code: NOT_FOUND' in p.stdout+p.stderr,'the real backend must report NOT_FOUND'
+    evaluate(h)
+    assert not (h/'state/hold-releases/vanishes').exists() and not decision(h,'vanishes')
+
+
+def captain_hold():
+    h=lab('captain')
+    run(['bin/fm-captain-hold.sh','hold','question','--title','Disposable release-condition question','--reason','await activation','--repo','demo','--release-on','marker:'+str(h/'answer-ready')],h)
+    assert '  hold_release_on: "marker:' in axi(h,'show','question').stdout
+    (h/'answer-ready').touch();sweep(h)
+    assert 'hold-release-question' in drain(h)
+    (h/'answer.txt').write_text('Resume the disposable task.\n')
+    run(['bin/fm-captain-hold.sh','answer','question','--release','--decision-file',h/'answer.txt'],h)
+    assert not decision(h,'question')
+    assert '  held: no' in axi(h,'show','question').stdout
+
+
+def walk_missing():
+    main=lab('main');mate=lab('mate')
+    (mate/'.fm-secondmate-home').write_text('mate\n')
+    (mate/'.fm-secondmate-parent').write_text('schema=fm-secondmate-parent.v1\nroute=local\nparent_home='+str(main)+'\n')
+    (main/'state/mate.meta').write_text('kind=secondmate\nbackend=tmux\nharness=claude\nwindow=fm-lab-walk:mate\nhome='+str(mate)+'\nworktree='+str(mate)+'\n')
+    (mate/'data/walk-briefs').mkdir();brief=mate/'data/walk-briefs/brief.md';brief.write_text('Exercise the disposable walk carrier.\n')
+    release='8797976169b061d3deed2b93d5e32036d52b8f1c'
+    p=run(['bin/fm-walk-request.sh','--brief',brief,'--release',release,'--walks','step','--bot','Walker'],mate)
+    corr=next(x.split('=',1)[1] for x in p.stdout.splitlines() if x.startswith('corr='))
+    run(['bin/fm-walk-request-check.sh','arm'],main)
+    p=run(['bash',main/'state/walk-request.check.sh'],main)
+    assert 'dispatcher absent at' in p.stdout,'missing private dependency must be visible'
+    inbox=list((main/'state/mate.inbox').glob('*.json')) if (main/'state/mate.inbox').exists() else []
+    # The steering inbox format is owned output; retain every actual record byte.
+    files=[x for x in (main/'state/mate.inbox').rglob('*') if x.is_file()] if (main/'state/mate.inbox').exists() else []
+    for f in files:log('PERSISTED INBOX '+str(f)+'\n'+f.read_text())
+    record=(main/'state/walk-requests'/f'{corr}.record').read_text();log('PERSISTED WALK RECORD\n'+record)
+    assert 'phase=failed' in record,'the real fm-send must durably return the refusal'
+    assert any('MAIN has no walker dispatcher' in f.read_text() for f in files)
+    before={str(f):f.read_bytes() for f in files}
+    p=run(['bash',main/'state/walk-request.check.sh'],main);assert not p.stdout
+    assert before=={str(f):f.read_bytes() for f in files},'repeat sweeps must not duplicate the returned outcome'
+    run(['bin/fm-walk-request-check.sh','disarm'],main)
+    assert not (main/'state/walk-request.check.sh').exists() and not (main/'state/walk-request.check-trust').exists()
+
+
+def remote_and_boundary():
+    h=lab('remote');(h/'.fm-secondmate-home').write_text('remote-mate\n');(h/'.fm-secondmate-parent').write_text('schema=fm-secondmate-parent.v1\nroute=remote\n')
+    (h/'data/walk-briefs').mkdir();brief=h/'data/walk-briefs/large.md';content=('A'*65535+'\n');brief.write_text(content)
+    cmd=['bin/fm-walk-request.sh','--brief',brief,'--release','8797976169b061d3deed2b93d5e32036d52b8f1c','--walks','large-step','--bot','Walker']
+    run(cmd,h)
+    channel=h/'state/parent-replies.status';line=channel.read_text();encoded=line.split(' brief64=',1)[1].split(' ',1)[0]
+    assert base64.b64decode(encoded)==content.encode() and len(line)>65536
+    p=run(['bin/fm-remote-delta-read.sh','state/parent-replies.status','0',hashlib.sha256(b'').hexdigest(),'0'],h)
+    header,payload=p.stdout.split('\n\n',1)
+    assert 'status=delta' in header and payload==line,'largest allowed brief must travel as one complete typed line'
+    log('REMOTE BYTE PROOF: brief=65536 bytes, complete typed channel='+str(len(line.encode()))+' bytes, delta payload identical')
+    before=channel.read_bytes()
+    brief.write_text('A'*65537);run(cmd,h,ok=(2,));assert channel.read_bytes()==before
+    brief.write_bytes(b'\x00secret');run(cmd,h,ok=(2,));assert channel.read_bytes()==before
+    secret=h/'config/private.txt';secret.write_text('must not leave this home')
+    symlink=h/'data/walk-briefs/escaped.md';symlink.symlink_to(secret)
+    run([*cmd[:2],symlink,*cmd[3:]],h,ok=(2,));assert channel.read_bytes()==before
+    run([*cmd[:2],secret,*cmd[3:]],h,ok=(2,));assert channel.read_bytes()==before
 
 try:
-    h=home()
-    def guard():
-        axi(h,'add','guard','guarded task','--repo','demo')
-        for opts in [[],['--kind','external'],['--release-on','marker:relative'],['--release-on','pr:cli/cli#0']]:
-            axi(h,'hold','guard','--reason','waiting',*opts,ok=(2,))
-            assert '  held: no' in axi(h,'show','guard').stdout
-        axi(h,'hold','guard','--reason','dated','--kind','external','--until','2099-01-01')
-        axi(h,'unhold','guard')
-        axi(h,'hold','guard','--reason','parked','--kind','parked')
-        axi(h,'unhold','guard')
-    scenario('Undated external and malformed conditions refuse before mutation; dated and parked exemptions work',guard)
-    def pr():
-        run(['gh-axi','pr','view','1','-R','cli/cli'])
-        for id,number in [('merged',1),('open',14858),('unknown',2147483647)]:
-            axi(h,'add',id,id+' public PR condition','--repo','demo')
-            axi(h,'hold',id,'--reason','waiting for public PR','--kind','external','--release-on',f'pr:cli/cli#{number}')
-        out=evaluate(h).stdout
-        assert out.strip()=='hold condition met: merged pr:cli/cli#1',out
-        assert 'hold-release-merged' in decisions(h,'merged')
-        assert not decisions(h,'open') and not decisions(h,'unknown')
-        assert '  held: yes' in axi(h,'show','merged').stdout
-        assert not evaluate(h).stdout.strip()
-        assert 'hold-release-merged' in decisions(h,'merged')
-        snapshot(h,'state/.wake-queue','pr-wake-queue.txt')
-        snapshot(h,'state/merged.status','pr-open-decision.txt')
-    scenario('A PR merged over 24 hours ago opens one persistent decision; open and missing PRs stay waiting',pr)
-    def markers():
-        a=h/'activated-a'; b=h/'activated-b'
-        axi(h,'add','marker','activation condition','--repo','demo')
-        axi(h,'hold','marker','--reason','awaiting activation','--kind','external','--release-on',f'marker:{a}')
-        assert 'marker ' not in evaluate(h).stdout
-        a.touch(); assert f'hold condition met: marker marker:{a}' in evaluate(h).stdout
-        assert not evaluate(h).stdout.strip()
-        axi(h,'hold','marker','--reason','new activation','--kind','external','--release-on',f'marker:{b}')
-        assert not decisions(h,'marker')
-        # Deliberately lose only the disposable derived cache; the committed native hold remains authoritative.
-        (h/'state/hold-releases/marker').unlink()
-        assert not evaluate(h).stdout.strip()
-        assert 'condition=marker:'+str(b) in (h/'state/hold-releases/marker').read_text()
-        b.touch(); assert f'hold condition met: marker marker:{b}' in evaluate(h).stdout
-        axi(h,'unhold','marker'); assert not decisions(h,'marker')
-        assert not (h/'state/hold-releases/marker').exists()
-        axi(h,'hold','marker','--reason','remove after ready','--release-on',f'marker:{b}')
-        evaluate(h); axi(h,'rm','marker'); assert not evaluate(h).stdout.strip()
-        assert not (h/'state/hold-releases/marker').exists() and not decisions(h,'marker')
-        snapshot(h,'state/marker.status','marker-lifecycle.txt')
-    scenario('Marker activation, re-hold cache recovery, release, and deleted-task reconciliation preserve decision lifecycle',markers)
-    def transfer():
-        dest=home()
-        axi(h,'add','travel','transferred hold','--repo','demo')
-        axi(h,'hold','travel','--reason','waiting merge','--kind','external','--release-on','pr:cli/cli#1')
-        axi(h,'mv','travel','--to',dest/'data/backlog.md')
-        assert not (dest/'state/hold-releases/travel').exists()
-        assert 'hold_release_on: "pr:cli/cli#1"' in axi(dest,'show','travel').stdout
-        assert evaluate(dest).stdout.strip()=='hold condition met: travel pr:cli/cli#1'
-        assert 'hold-release-travel' in decisions(dest,'travel')
-        assert not evaluate(dest).stdout.strip()
-        snapshot(dest,'state/travel.status','transferred-hold-decision.txt')
-    scenario('Moving a held task to another home preserves its PR condition and destination decision',transfer)
-    def watcher():
-        w=home(); flag=w/'activated'; flag.touch()
-        for id,cond in [('watch-marker','marker:'+str(flag)),('watch-pr','pr:cli/cli#1')]:
-            axi(w,'add',id,id,'--repo','demo')
-            axi(w,'hold',id,'--reason','ready event','--kind','external','--release-on',cond)
-        # Avoid unrelated optional summary refresh while driving the real watcher.
-        (w/'state/home-summary.json').write_text('{}\n')
-        out=run(['bin/fm-watch.sh'],w,extra={'FM_POLL':'1','FM_CHECK_INTERVAL':'1','FM_SIGNAL_GRACE':'0'},timeout=45).stdout
-        assert 'check: hold-release: hold condition met:' in out,out
-        queue=snapshot(w,'state/.wake-queue','watcher-wake-queue.txt')
-        assert 'hold condition met: watch-pr pr:cli/cli#1' in queue
-        assert 'hold condition met: watch-marker marker:' in queue
-        assert 'hold-release-watch-pr' in decisions(w,'watch-pr')
-        assert 'hold-release-watch-marker' in decisions(w,'watch-marker')
-    scenario('The real watcher evaluates merged PR and activation conditions and queues both wakes',watcher)
-    # The runbook authorizes a marked throwaway home and its private tmux socket.
-    parent=home(); mate=home()
-    socket=parent/'tmux'; socket.mkdir()
-    tenv={'TMUX_TMPDIR':str(socket),'FM_SEND_SETTLE':'0','FM_SEND_SLEEP':'0','FM_SEND_RETRIES':'1'}
-    run(['tmux','-L','fm-lab','-f','/dev/null','new-session','-d','-s','fm-lab-walk','-n','fm-mate','-x','100','-y','30','-c',ROOT],parent,tenv)
-    try:
-        (mate/'.fm-secondmate-home').write_text('mate\n')
-        (mate/'.fm-secondmate-parent').write_text(f'schema=fm-secondmate-parent.v1\nroute=local\nparent_home={parent}\n')
-        (parent/'state/mate.meta').write_text(f'kind=secondmate\nharness=claude\nbackend=tmux\nwindow=fm-lab-walk:fm-mate\nhome={mate}\nworktree={ROOT}\n')
-        briefs=mate/'data/walk-briefs'; briefs.mkdir(); brief=briefs/'brief.md'
-        brief.write_text('Exercise the disposable test checkpoint and report the observed outcome.\n')
-        release='0dc10300c6ac2abcadefc8f9661c91f63650528a'
-        def carrier_guards():
-            for bad in ['relative.md',str(parent/'config/forbidden.md')]:
-                run(['bin/fm-walk-request.sh','--brief',bad,'--release',release,'--walks','live-walk'],mate,ok=(2,))
-            assert not (parent/'state/mate.status').exists()
-        scenario('The walk carrier refuses relative and private briefs without publishing a request',carrier_guards)
-        def walk_missing():
-            out=run(['bin/fm-walk-request.sh','--brief',brief,'--release',release,'--walks','live-walk','--bot','LabWalker'],mate).stdout
-            assert 'once-key=live-walk@'+release in out
-            snapshot(parent,'state/mate.status','walk-parent-channel.txt')
-            run(['bin/fm-walk-request-check.sh','arm'],parent,tenv)
-            assert (parent/'state/walk-request.check-trust').exists()
-            assert not (parent/'data/bin/fm-grok-bot-dispatch.sh').exists()
-            for _ in range(5):
-                run(['bin/fm-walk-request-check.sh','check'],parent,tenv)
-                msgs=list((parent/'state/mate.inbox').glob('*.msg'))
-                if msgs: break
-            assert msgs,'real fm-send must return the unavailable-dispatcher outcome to the mate inbox'
-            message=msgs[0].read_text(); log.write('RETURNED INBOX RECORD\n'+message+'\n')
-            assert 'no walker dispatcher' in message and 'walk was not dispatched' in message,message
-            (E/'walk-returned-inbox.txt').write_text(message)
-            count=len(msgs)
-            for _ in range(3): run(['bin/fm-walk-request-check.sh','check'],parent,tenv)
-            assert len(list((parent/'state/mate.inbox').glob('*.msg')))==count
-            run(['tmux','-L','fm-lab','capture-pane','-p','-t','fm-lab-walk:fm-mate'],parent,tenv)
-            run(['bin/fm-walk-request-check.sh','disarm'],parent,tenv)
-        scenario('A mate request reaches the registered check and a missing-dispatcher outcome returns once through the real steering inbox',walk_missing)
-    finally:
-        run(['tmux','-L','fm-lab','kill-server'],parent,tenv,ok=None)
+    for name,fn in [
+        ('Undated external and kindless holds refuse missing or malformed conditions; dates and accepted parked exemption work',guards),
+        ('Marker activation wakes through the watcher once, persists in OPEN DECISIONS, and closes only after disposition',marker),
+        ('A real GitHub PR merged more than 24 hours ago produces a durable disposition decision',merged),
+        ('Open, closed-unmerged, and failed PR lookups leave holds waiting without false readiness',negatives),
+        ('Lost or stale caches recover from the committed hold and never reuse a previous condition',recover),
+        ('Native task moves and uploaded remote receipts preserve PR conditions without copying sidecars',transfer),
+        ('Removing a met held task reconciles the real backend NOT_FOUND and retires its decision',removal),
+        ('Captain hold wrapper evaluates a marker and its answer-release retires the disposition decision',captain_hold),
+        ('A mate request reaches the registered MAIN check; missing dispatcher refusal returns once through the real steering inbox',walk_missing),
+        ('A maximum-size remote brief survives the real delta reader while oversized, binary, and private paths are refused',remote_and_boundary)
+    ]:
+        if not os.environ.get('LIVE_RECHECK') or fn in (marker,removal):scenario(name,fn)
 finally:
-    for p in labs:
-        shutil.rmtree(p)
-    log.write('CLEANUP: all disposable lab homes removed; private tmux server stopped.\n')
-    (E/'live-results.json').write_text(json.dumps(results,indent=2)+'\n')
-    log.close()
-print(json.dumps(results,indent=2))
-raise SystemExit(1 if any(x['result']=='fail' for x in results) else 0)
+    for h in reversed(LABS):
+        # No primary/server is started by this driver; all product commands are awaited.
+        shutil.rmtree(h)
+        log('TEARDOWN removed disposable lab '+str(h))
+    log('All manual-verification subprocesses completed; no detached dispatch was launched (private dispatcher absent).')
+    LOG.close()
+print(json.dumps(RESULTS,indent=2))
+raise SystemExit(1 if any(r['result']=='fail' for r in RESULTS) else 0)

@@ -1,0 +1,79 @@
+[
+  {
+    "name": "Undated external and kindless holds refuse missing or malformed conditions; dates and accepted parked exemption work",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-transcript.log: Undated external and kindless holds refuse missing or malformed conditions; dates and accepted parked exemption work",
+    "reason": ""
+  },
+  {
+    "name": "Marker activation wakes through the watcher once, persists in OPEN DECISIONS, and closes only after disposition",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-corrected-transcript.log: Marker activation wakes through the watcher once, persists in OPEN DECISIONS, and closes only after disposition",
+    "reason": ""
+  },
+  {
+    "name": "A real GitHub PR merged more than 24 hours ago produces a durable disposition decision",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-transcript.log: A real GitHub PR merged more than 24 hours ago produces a durable disposition decision",
+    "reason": ""
+  },
+  {
+    "name": "Open, closed-unmerged, and failed PR lookups leave holds waiting without false readiness",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-transcript.log: Open, closed-unmerged, and failed PR lookups leave holds waiting without false readiness",
+    "reason": ""
+  },
+  {
+    "name": "Lost or stale caches recover from the committed hold and never reuse a previous condition",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-transcript.log: Lost or stale caches recover from the committed hold and never reuse a previous condition",
+    "reason": ""
+  },
+  {
+    "name": "Native task moves and uploaded remote receipts preserve PR conditions without copying sidecars",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-transcript.log: Native task moves and uploaded remote receipts preserve PR conditions without copying sidecars",
+    "reason": ""
+  },
+  {
+    "name": "Removing a met held task reconciles the real backend NOT_FOUND and retires its decision",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-corrected-transcript.log: Removing a met held task reconciles the real backend NOT_FOUND and retires its decision",
+    "reason": ""
+  },
+  {
+    "name": "Captain hold wrapper evaluates a marker and its answer-release retires the disposition decision",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-transcript.log: Captain hold wrapper evaluates a marker and its answer-release retires the disposition decision",
+    "reason": ""
+  },
+  {
+    "name": "A mate request reaches the registered MAIN check; missing dispatcher refusal returns once through the real steering inbox",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-transcript.log: A mate request reaches the registered MAIN check; missing dispatcher refusal returns once through the real steering inbox",
+    "reason": ""
+  },
+  {
+    "name": "A maximum-size remote brief survives the real delta reader while oversized, binary, and private paths are refused",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-transcript.log: A maximum-size remote brief survives the real delta reader while oversized, binary, and private paths are refused",
+    "reason": ""
+  },
+  {
+    "name": "A mate walk reaches the real Grok dispatcher with <walk>@<sha> and returns a successful result without moving sign-in",
+    "result": "untested",
+    "live": false,
+    "evidence": "live-product-transcript.log: registered MAIN check reports dispatcher absent; targeted walk tests use boundary fakes",
+    "reason": "Checked PATH and repository bin: fm-grok-bot-dispatch.sh is not provided. A disposable marked home exercised the real carrier, registered check, and steering inbox, but its default dispatcher path is absent. The production dispatcher and signed-in bridge are private MAIN-home data, which this phase forbids reading, copying, or using; fabricating that dispatcher or login would not be live proof. A disposable authorized real dispatcher and signed-in Grok bridge are required for this final leg. This is the previously accepted test-round-1 limitation, not a new finding."
+  }
+]

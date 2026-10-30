@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Marker activation wakes through the watcher once, persists in OPEN DECISIONS, and closes only after disposition",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-corrected-transcript.log: Marker activation wakes through the watcher once, persists in OPEN DECISIONS, and closes only after disposition",
+    "reason": ""
+  },
+  {
+    "name": "Removing a met held task reconciles the real backend NOT_FOUND and retires its decision",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-corrected-transcript.log: Removing a met held task reconciles the real backend NOT_FOUND and retires its decision",
+    "reason": ""
+  }
+]

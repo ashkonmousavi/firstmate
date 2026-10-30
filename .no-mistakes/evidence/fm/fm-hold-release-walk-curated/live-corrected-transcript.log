@@ -1,0 +1,261 @@
+
+SCENARIO: Marker activation wakes through the watcher once, persists in OPEN DECISIONS, and closes only after disposition
+$ bin/fm-lab-home.sh create /tmp/fm-lab.marker.gdt8cvb4
+exit=0
+/tmp/fm-lab.marker.gdt8cvb4
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-tasks-axi.sh add activation Disposable live-validation activation --repo demo
+exit=0
+ok: added activation (repo demo) -> Queued
+task:
+  id: activation
+  title: Disposable live-validation activation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start activation` to move it to in flight
+  - Run `tasks-axi block activation --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-tasks-axi.sh hold activation --reason waiting for independently observed event --kind external --release-on marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+exit=0
+ok: hold activation -> held (external)
+task:
+  id: activation
+  title: Disposable live-validation activation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDc4MC0yMzg5NDMtMzYxNjM1NzgwMjY4IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIubWFya2VyLmdkdDhjdmI0L2FjdGl2YXRlZCJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold activation` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-watch-checkpoint.sh --seconds 12
+exit=124
+checkpoint: no actionable wake within 12s
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-watch-checkpoint.sh --seconds 12
+exit=0
+check: rearm-resurface
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-watch-checkpoint.sh --seconds 12
+exit=0
+check: hold-release: hold condition met: activation marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.marker.gdt8cvb4/state/activation.status
+exit=0
+hold-release-activation	blocked	hold-release-met: marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-wake-drain.sh
+exit=0
+1793320791	1	check	hold-release:activation	check: hold-release: hold condition met: activation marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+activation [key=hold-release-activation] blocked: hold-release-met: marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+STDERR:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 257731.1793320791.EBx2XU
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-tasks-axi.sh show activation
+exit=0
+task:
+  id: activation
+  title: Disposable live-validation activation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting for independently observed event"
+  hold_release_on: "marker:/tmp/fm-lab.marker.gdt8cvb4/activated"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDc4MC0yMzg5NDMtMzYxNjM1NzgwMjY4IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIubWFya2VyLmdkdDhjdmI0L2FjdGl2YXRlZCJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-watch-checkpoint.sh --seconds 12
+exit=124
+checkpoint: no actionable wake within 12s
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.marker.gdt8cvb4/state/activation.status
+exit=0
+hold-release-activation	blocked	hold-release-met: marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-wake-drain.sh
+exit=0
+1793320791	1	check	hold-release:activation	check: hold-release: hold condition met: activation marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+activation [key=hold-release-activation] blocked: hold-release-met: marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+STDERR:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 257731.1793320791.EBx2XU
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-tasks-axi.sh unhold activation
+exit=0
+ok: unhold activation -> cleared
+task:
+  id: activation
+  title: Disposable live-validation activation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[1]:
+  - Run `tasks-axi ready` to see dispatchable work
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.marker.gdt8cvb4/state/activation.status
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-tasks-axi.sh show activation
+exit=0
+task:
+  id: activation
+  title: Disposable live-validation activation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.marker.gdt8cvb4 bin/fm-wake-drain.sh
+exit=0
+1793320791	1	check	hold-release:activation	check: hold-release: hold condition met: activation marker:/tmp/fm-lab.marker.gdt8cvb4/activated
+UNREAD STATUS (new since last drain, not re-printed after this presentation):
+activation resolved [key=hold-release-activation] [at=1793320805]: hold-release-closed: released
+STDERR:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 257731.1793320791.EBx2XU
+
+OBSERVED RESULT: PASS
+
+SCENARIO: Removing a met held task reconciles the real backend NOT_FOUND and retires its decision
+$ bin/fm-lab-home.sh create /tmp/fm-lab.removed.59fuqis7
+exit=0
+/tmp/fm-lab.removed.59fuqis7
+
+$ FM_HOME=/tmp/fm-lab.removed.59fuqis7 bin/fm-tasks-axi.sh add vanishes Disposable live-validation vanishes --repo demo
+exit=0
+ok: added vanishes (repo demo) -> Queued
+task:
+  id: vanishes
+  title: Disposable live-validation vanishes
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start vanishes` to move it to in flight
+  - Run `tasks-axi block vanishes --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.removed.59fuqis7 bin/fm-tasks-axi.sh hold vanishes --reason waiting for independently observed event --kind external --release-on marker:/tmp/fm-lab.removed.59fuqis7/met
+exit=0
+ok: hold vanishes -> held (external)
+task:
+  id: vanishes
+  title: Disposable live-validation vanishes
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDgwNi0yOTEwMTMtMjY0MDg2Mjk0NzYwIiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIucmVtb3ZlZC41OWZ1cWlzNy9tZXQifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold vanishes` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.removed.59fuqis7 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+hold condition met: vanishes marker:/tmp/fm-lab.removed.59fuqis7/met
+
+$ FM_HOME=/tmp/fm-lab.removed.59fuqis7 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.removed.59fuqis7/state/vanishes.status
+exit=0
+hold-release-vanishes	blocked	hold-release-met: marker:/tmp/fm-lab.removed.59fuqis7/met
+$ FM_HOME=/tmp/fm-lab.removed.59fuqis7 bin/fm-tasks-axi.sh rm vanishes
+exit=0
+ok: removed vanishes
+help[1]:
+  - Run `tasks-axi list` to see remaining tasks
+
+$ FM_HOME=/tmp/fm-lab.removed.59fuqis7 bin/fm-tasks-axi.sh show vanishes
+exit=1
+error: "Task \"vanishes\" not found in this backlog"
+code: NOT_FOUND
+help[1]: Run `tasks-axi list` to see existing tasks
+
+$ FM_HOME=/tmp/fm-lab.removed.59fuqis7 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.removed.59fuqis7 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.removed.59fuqis7/state/vanishes.status
+exit=0
+
+OBSERVED RESULT: PASS
+TEARDOWN removed disposable lab /tmp/fm-lab.removed.59fuqis7
+TEARDOWN removed disposable lab /tmp/fm-lab.marker.gdt8cvb4
+All manual-verification subprocesses completed; no detached dispatch was launched (private dispatcher absent).

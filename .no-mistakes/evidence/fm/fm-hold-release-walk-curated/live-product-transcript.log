@@ -1,0 +1,2511 @@
+
+SCENARIO: Undated external and kindless holds refuse missing or malformed conditions; dates and accepted parked exemption work
+$ bin/fm-lab-home.sh create /tmp/fm-lab.guard.its1ix5b
+exit=0
+/tmp/fm-lab.guard.its1ix5b
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh add guard Disposable live-validation guard --repo demo
+exit=0
+ok: added guard (repo demo) -> Queued
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start guard` to move it to in flight
+  - Run `tasks-axi block guard --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh hold guard --reason unstructured wait
+exit=2
+STDERR:
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh show guard
+exit=0
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh hold guard --reason unstructured wait --kind external
+exit=2
+STDERR:
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh show guard
+exit=0
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh hold guard --reason unstructured wait --kind external --release-on pr:bad#0
+exit=2
+STDERR:
+fm-tasks-axi: --release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: pr:bad#0
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh show guard
+exit=0
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh hold guard --reason unstructured wait --release-on marker:relative
+exit=2
+STDERR:
+fm-tasks-axi: --release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: marker:relative
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh show guard
+exit=0
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh hold guard --reason dated wait --until 2099-01-01
+exit=0
+ok: hold guard -> held (until 2099-01-01)
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: dated wait
+  hold_kind: "-"
+  hold_until: 2099-01-01
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold guard` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh show guard
+exit=0
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: dated wait
+  hold_kind: "-"
+  hold_until: 2099-01-01
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh hold guard --reason accepted parked exemption --kind parked
+exit=0
+ok: hold guard -> held (parked)
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: accepted parked exemption
+  hold_kind: parked
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold guard` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.guard.its1ix5b bin/fm-tasks-axi.sh show guard
+exit=0
+task:
+  id: guard
+  title: Disposable live-validation guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: accepted parked exemption
+  hold_kind: parked
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+OBSERVED RESULT: PASS
+
+SCENARIO: Marker activation wakes through the watcher once, persists in OPEN DECISIONS, and closes only after disposition
+$ bin/fm-lab-home.sh create /tmp/fm-lab.marker.6ehhks9q
+exit=0
+/tmp/fm-lab.marker.6ehhks9q
+
+$ FM_HOME=/tmp/fm-lab.marker.6ehhks9q bin/fm-tasks-axi.sh add activation Disposable live-validation activation --repo demo
+exit=0
+ok: added activation (repo demo) -> Queued
+task:
+  id: activation
+  title: Disposable live-validation activation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start activation` to move it to in flight
+  - Run `tasks-axi block activation --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.marker.6ehhks9q bin/fm-tasks-axi.sh hold activation --reason waiting for independently observed event --kind external --release-on marker:/tmp/fm-lab.marker.6ehhks9q/activated
+exit=0
+ok: hold activation -> held (external)
+task:
+  id: activation
+  title: Disposable live-validation activation
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDcxNi0xODc2MDctODgwNzQ1MTIwMTg3IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIubWFya2VyLjZlaGhrczlxL2FjdGl2YXRlZCJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold activation` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.marker.6ehhks9q bin/fm-watch-checkpoint.sh --seconds 12
+exit=124
+checkpoint: no actionable wake within 12s
+
+$ FM_HOME=/tmp/fm-lab.marker.6ehhks9q bin/fm-watch-checkpoint.sh --seconds 12
+exit=0
+check: rearm-resurface
+
+OBSERVED RESULT: FAIL Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M653CRY7NAGXTSWXGCEEE7W9/live-validation.py", line 44, in scenario
+    fn()
+  File "~/.no-mistakes/evidence/01M653CRY7NAGXTSWXGCEEE7W9/live-validation.py", line 68, in marker
+    p=sweep(h);assert 'hold condition met: activation marker:' in p.stdout
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+
+
+SCENARIO: A real GitHub PR merged more than 24 hours ago produces a durable disposition decision
+$ curl -fsSL --max-time 20 https://api.github.com/repos/cli/cli/pulls/14854
+exit=0
+{
+  "url": "https://api.github.com/repos/cli/cli/pulls/14854",
+  "id": 5045837823,
+  "node_id": "PR_kwDODKw3uc8AAAABLMFf_w",
+  "html_url": "https://github.com/cli/cli/pull/14854",
+  "diff_url": "https://github.com/cli/cli/pull/14854.diff",
+  "patch_url": "https://github.com/cli/cli/pull/14854.patch",
+  "issue_url": "https://api.github.com/repos/cli/cli/issues/14854",
+  "commits_url": "https://api.github.com/repos/cli/cli/pulls/14854/commits",
+  "review_comments_url": "https://api.github.com/repos/cli/cli/pulls/14854/comments",
+  "review_comment_url": "https://api.github.com/repos/cli/cli/pulls/comments{/number}",
+  "comments_url": "https://api.github.com/repos/cli/cli/issues/14854/comments",
+  "statuses_url": "https://api.github.com/repos/cli/cli/statuses/4a64788a49b73d793419d4ffb0e416da11e2e37b",
+  "number": 14854,
+  "state": "closed",
+  "locked": false,
+  "title": "Fix local extension install test path normalization",
+  "user": {
+    "login": "bobrik",
+    "id": 89186,
+    "node_id": "MDQ6VXNlcjg5MTg2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/89186?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/bobrik",
+    "html_url": "https://github.com/bobrik",
+    "followers_url": "https://api.github.com/users/bobrik/followers",
+    "following_url": "https://api.github.com/users/bobrik/following{/other_user}",
+    "gists_url": "https://api.github.com/users/bobrik/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/bobrik/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/bobrik/subscriptions",
+    "organizations_url": "https://api.github.com/users/bobrik/orgs",
+    "repos_url": "https://api.github.com/users/bobrik/repos",
+    "events_url": "https://api.github.com/users/bobrik/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/bobrik/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "body": "\n\n<!--\nThank you for contributing to GitHub CLI!\n\nIf you are proposing a fix for a security issue, STOP and follow .github/SECURITY.md instead.\n\nKeep the entire pull request self-contained, reviewer-facing, and diegetic: describe the\nchange, rationale, and evidence within the context of the repository and pull request. Do not\nnarrate how the pull request was produced or refer to private conversations, prior agent work,\nor other behind-the-scenes context. Omit those details unless they materially affect review;\nif they do, state the relevant fact and its significance directly.\n-->\n\n<!-- List related issues here. Use `fixes` or `closes` keywords to associate an issue number. -->\n\n### Description\n\nThis happens in nixpkgs on macos:\n\n```\n--- FAIL: TestNewCmdExtension (0.20s)\n    --- FAIL: TestNewCmdExtension/install_local_extension (0.00s)\n        command_test.go:284:\n                Error Trace:    github.com/cli/cli/v2/pkg/cmd/extension/command_test.go:284\n                                                        github.com/cli/cli/v2/pkg/cmd/extension/command_test.go:960\n                Error:          Not equal:\n                                expected: \"/private/tmp/nix-build-gh-2.103.2.drv-0/TestNewCmdExtension1802444101/001/gh-hello\"\n                                actual  : \"/tmp/nix-build-gh-2.103.2.drv-0/TestNewCmdExtension1802444101/001/gh-hello\"\n\n                                Diff:\n                                --- Expected\n                                +++ Actual\n                                @@ -1 +1 @@\n                                -/private/tmp/nix-build-gh-2.103.2.drv-0/TestNewCmdExtension1802444101/001/gh-hello\n                                +/tmp/nix-build-gh-2.103.2.drv-0/TestNewCmdExtension1802444101/001/gh-hello\n                Test:           TestNewCmdExtension/install_local_extension\nFAIL\n```\n\n<!--\nWhat's the problem? How are we addressing it?\n\nWrite for a reviewer who has not worked in this part of the codebase. Give them the\nbackground they need before the problem makes sense, and avoid jargon.\n-->\n\n### How did you test this change?\n\n<!--\nReport only actions you actually performed and results you actually observed, using factual\nfirst-person language (for example, \"I ran...\" and \"I saw...\"). Do not present planned,\nhypothetical, inferred, or merely expected scenarios as testing.\n\nAutomated test results do not belong here. Passing unit tests, `go test ./...` output, and\ncoverage numbers tell a reviewer nothing they cannot see from CI, so do not paste them.\n\nIf you did not exercise the changed behavior, write `Not tested` and explain why.\n\nUse one or more of these, whichever communicates best:\n\n1. Screenshots or GIFs of the real command running. Preferred whenever the change is visible\n   in terminal output. If output changed, show it before and after.\n2. Given/When/Then scenarios, but only when you actually executed the steps. For example:\n   Given I was in a repo with no open pull requests\n   When I ran `gh pr list`\n   Then I saw \"no open pull requests in cli/cli\"\n3. A natural language walkthrough of what you did by hand, the states you covered, and what\n   you saw, including error and edge cases.\n\nIf you leave this empty, your pull request will very likely be closed.\n-->\n\n### Key points\n\n<!--\nTradeoffs you accepted, alternatives you rejected, and anything a reviewer would otherwise have to guess at.\n-->\n\n### Notes for reviewers\n\n<!--\nWhere should review start, and what should be read next? Call out anything you are unsure about.\n\nLink related issues or prior discussion, with one sentence on why each matters.\n-->\n\n### Authorship and follow-up\n\n<!--\nREQUIRED - If you are an AI agent filling in this template, answer \"Who wrote this\" for yourself and answer honestly. For \"Who answers review comments,\" use only a choice the human has explicitly made in the conversation. If no choice has already been established, pause and ask the human to choose one of the three options before creating or updating the pull request. Do not infer the choice from repository ownership, authorship, assignees, prior interactions, or the current operator. After the human answers, check exactly the option they chose; the last option is valid when the human explicitly chooses nobody.\n\nCheck exactly one box in each list.\n-->\n\nWho wrote this:\n\n- [ ] A human wrote it.\n- [x] An agent wrote it under close human direction.\n- [ ] An agent wrote it independently, and no human has guided the implementation beyond the initial prompt.\n\nWho answers review comments:\n\n- [x] @bobrik will read and reply directly. Name the account.\n- [ ] An agent will draft replies and @username will read them before they are posted.\n- [ ] Nobody has explicitly committed to replying.\n",
+  "labels": [
+    {
+      "id": 3490675323,
+      "node_id": "LA_kwDODKw3uc7QD3p7",
+      "url": "https://api.github.com/repos/cli/cli/labels/needs-triage",
+      "name": "needs-triage",
+      "description": "needs to be reviewed",
+      "color": "D6393F",
+      "default": false,
+      "archived_at": null,
+      "archived_by": null
+    },
+    {
+      "id": 3581582503,
+      "node_id": "LA_kwDODKw3uc7Vepyn",
+      "url": "https://api.github.com/repos/cli/cli/labels/external",
+      "name": "external",
+      "description": "pull request originating outside of the CLI core team",
+      "color": "2700AF",
+      "default": false,
+      "archived_at": null,
+      "archived_by": null
+    },
+    {
+      "id": 10197031647,
+      "node_id": "LA_kwDODKw3uc8AAAACX8pa3w",
+      "url": "https://api.github.com/repos/cli/cli/labels/ready-for-review",
+      "name": "ready-for-review",
+      "description": "",
+      "color": "39d965",
+      "default": false,
+      "archived_at": null,
+      "archived_by": null
+    }
+  ],
+  "milestone": null,
+  "active_lock_reason": null,
+  "created_at": "2026-10-28T05:45:42Z",
+  "updated_at": "2026-10-28T09:58:31Z",
+  "closed_at": "2026-10-28T09:58:30Z",
+  "merged_at": "2026-10-28T09:58:30Z",
+  "merge_commit_sha": "674516ff39ccdaa8a525873f87552609dcda63de",
+  "assignee": null,
+  "assignees": [],
+  "requested_reviewers": [
+    {
+      "login": "BagToad",
+      "id": 47394200,
+      "node_id": "MDQ6VXNlcjQ3Mzk0MjAw",
+      "avatar_url": "https://avatars.githubusercontent.com/u/47394200?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/BagToad",
+      "html_url": "https://github.com/BagToad",
+      "followers_url": "https://api.github.com/users/BagToad/followers",
+      "following_url": "https://api.github.com/users/BagToad/following{/other_user}",
+      "gists_url": "https://api.github.com/users/BagToad/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/BagToad/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/BagToad/subscriptions",
+      "organizations_url": "https://api.github.com/users/BagToad/orgs",
+      "repos_url": "https://api.github.com/users/BagToad/repos",
+      "events_url": "https://api.github.com/users/BagToad/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/BagToad/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": true
+    }
+  ],
+  "requested_teams": [],
+  "head": {
+    "label": "bobrik:ivan/normalize-tmp",
+    "ref": "ivan/normalize-tmp",
+    "repo": {
+      "id": 1436653911,
+      "node_id": "R_kgDOVaGZVw",
+      "name": "github-cli",
+      "full_name": "bobrik/github-cli",
+      "owner": {
+        "login": "bobrik",
+        "id": 89186,
+        "node_id": "MDQ6VXNlcjg5MTg2",
+        "avatar_url": "https://avatars.githubusercontent.com/u/89186?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/bobrik",
+        "html_url": "https://github.com/bobrik",
+        "followers_url": "https://api.github.com/users/bobrik/followers",
+        "following_url": "https://api.github.com/users/bobrik/following{/other_user}",
+        "gists_url": "https://api.github.com/users/bobrik/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/bobrik/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/bobrik/subscriptions",
+        "organizations_url": "https://api.github.com/users/bobrik/orgs",
+        "repos_url": "https://api.github.com/users/bobrik/repos",
+        "events_url": "https://api.github.com/users/bobrik/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/bobrik/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "private": false,
+      "fork": true,
+      "archived": false,
+      "disabled": false,
+      "description": "GitHub’s official command line tool",
+      "homepage": "https://cli.github.com",
+      "language": null,
+      "visibility": "public",
+      "is_template": false,
+      "topics": [],
+      "forks_count": 0,
+      "forks": 0,
+      "stargazers_count": 0,
+      "watchers_count": 0,
+      "watchers": 0,
+      "open_issues_count": 0,
+      "open_issues": 0,
+      "size": 56101,
+      "default_branch": "trunk",
+      "has_issues": false,
+      "has_projects": true,
+      "has_wiki": false,
+      "has_pages": false,
+      "has_downloads": false,
+      "has_discussions": false,
+      "has_pull_requests": true,
+      "pushed_at": "2026-10-28T05:44:41Z",
+      "created_at": "2026-10-28T05:43:21Z",
+      "updated_at": "2026-10-28T05:43:21Z",
+      "allow_forking": true,
+      "web_commit_signoff_required": false,
+      "pull_request_creation_policy": "all",
+      "license": {
+        "key": "mit",
+        "name": "MIT License",
+        "url": "https://api.github.com/licenses/mit",
+        "spdx_id": "MIT",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "url": "https://api.github.com/repos/bobrik/github-cli",
+      "html_url": "https://github.com/bobrik/github-cli",
+      "archive_url": "https://api.github.com/repos/bobrik/github-cli/{archive_format}{/ref}",
+      "assignees_url": "https://api.github.com/repos/bobrik/github-cli/assignees{/user}",
+      "blobs_url": "https://api.github.com/repos/bobrik/github-cli/git/blobs{/sha}",
+      "branches_url": "https://api.github.com/repos/bobrik/github-cli/branches{/branch}",
+      "collaborators_url": "https://api.github.com/repos/bobrik/github-cli/collaborators{/collaborator}",
+      "comments_url": "https://api.github.com/repos/bobrik/github-cli/comments{/number}",
+      "commits_url": "https://api.github.com/repos/bobrik/github-cli/commits{/sha}",
+      "compare_url": "https://api.github.com/repos/bobrik/github-cli/compare/{base}...{head}",
+      "contents_url": "https://api.github.com/repos/bobrik/github-cli/contents/{+path}",
+      "contributors_url": "https://api.github.com/repos/bobrik/github-cli/contributors",
+      "deployments_url": "https://api.github.com/repos/bobrik/github-cli/deployments",
+      "downloads_url": "https://api.github.com/repos/bobrik/github-cli/downloads",
+      "events_url": "https://api.github.com/repos/bobrik/github-cli/events",
+      "forks_url": "https://api.github.com/repos/bobrik/github-cli/forks",
+      "git_commits_url": "https://api.github.com/repos/bobrik/github-cli/git/commits{/sha}",
+      "git_refs_url": "https://api.github.com/repos/bobrik/github-cli/git/refs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/bobrik/github-cli/git/tags{/sha}",
+      "git_url": "git://github.com/bobrik/github-cli.git",
+      "issue_comment_url": "https://api.github.com/repos/bobrik/github-cli/issues/comments{/number}",
+      "issue_events_url": "https://api.github.com/repos/bobrik/github-cli/issues/events{/number}",
+      "issues_url": "https://api.github.com/repos/bobrik/github-cli/issues{/number}",
+      "keys_url": "https://api.github.com/repos/bobrik/github-cli/keys{/key_id}",
+      "labels_url": "https://api.github.com/repos/bobrik/github-cli/labels{/name}",
+      "languages_url": "https://api.github.com/repos/bobrik/github-cli/languages",
+      "merges_url": "https://api.github.com/repos/bobrik/github-cli/merges",
+      "milestones_url": "https://api.github.com/repos/bobrik/github-cli/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/bobrik/github-cli/notifications{?since,all,participating}",
+      "pulls_url": "https://api.github.com/repos/bobrik/github-cli/pulls{/number}",
+      "releases_url": "https://api.github.com/repos/bobrik/github-cli/releases{/id}",
+      "ssh_url": "git@github.com:bobrik/github-cli.git",
+      "stargazers_url": "https://api.github.com/repos/bobrik/github-cli/stargazers",
+      "statuses_url": "https://api.github.com/repos/bobrik/github-cli/statuses/{sha}",
+      "subscribers_url": "https://api.github.com/repos/bobrik/github-cli/subscribers",
+      "subscription_url": "https://api.github.com/repos/bobrik/github-cli/subscription",
+      "tags_url": "https://api.github.com/repos/bobrik/github-cli/tags",
+      "teams_url": "https://api.github.com/repos/bobrik/github-cli/teams",
+      "trees_url": "https://api.github.com/repos/bobrik/github-cli/git/trees{/sha}",
+      "clone_url": "https://github.com/bobrik/github-cli.git",
+      "mirror_url": null,
+      "hooks_url": "https://api.github.com/repos/bobrik/github-cli/hooks",
+      "svn_url": "https://github.com/bobrik/github-cli"
+    },
+    "sha": "4a64788a49b73d793419d4ffb0e416da11e2e37b",
+    "user": {
+      "login": "bobrik",
+      "id": 89186,
+      "node_id": "MDQ6VXNlcjg5MTg2",
+      "avatar_url": "https://avatars.githubusercontent.com/u/89186?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/bobrik",
+      "html_url": "https://github.com/bobrik",
+      "followers_url": "https://api.github.com/users/bobrik/followers",
+      "following_url": "https://api.github.com/users/bobrik/following{/other_user}",
+      "gists_url": "https://api.github.com/users/bobrik/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/bobrik/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/bobrik/subscriptions",
+      "organizations_url": "https://api.github.com/users/bobrik/orgs",
+      "repos_url": "https://api.github.com/users/bobrik/repos",
+      "events_url": "https://api.github.com/users/bobrik/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/bobrik/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    }
+  },
+  "base": {
+    "label": "cli:trunk",
+    "ref": "trunk",
+    "repo": {
+      "id": 212613049,
+      "node_id": "MDEwOlJlcG9zaXRvcnkyMTI2MTMwNDk=",
+      "name": "cli",
+      "full_name": "cli/cli",
+      "owner": {
+        "login": "cli",
+        "id": 59704711,
+        "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+        "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/cli",
+        "html_url": "https://github.com/cli",
+        "followers_url": "https://api.github.com/users/cli/followers",
+        "following_url": "https://api.github.com/users/cli/following{/other_user}",
+        "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+        "organizations_url": "https://api.github.com/users/cli/orgs",
+        "repos_url": "https://api.github.com/users/cli/repos",
+        "events_url": "https://api.github.com/users/cli/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/cli/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "private": false,
+      "fork": false,
+      "archived": false,
+      "disabled": false,
+      "description": "GitHub’s official command line tool",
+      "homepage": "https://cli.github.com",
+      "language": "Go",
+      "visibility": "public",
+      "is_template": false,
+      "topics": [
+        "cli",
+        "git",
+        "github-api-v4",
+        "golang"
+      ],
+      "forks_count": 9222,
+      "forks": 9222,
+      "stargazers_count": 46798,
+      "watchers_count": 46798,
+      "watchers": 46798,
+      "open_issues_count": 1103,
+      "open_issues": 1103,
+      "size": 82692,
+      "default_branch": "trunk",
+      "has_issues": true,
+      "has_projects": true,
+      "has_wiki": false,
+      "has_pages": false,
+      "has_downloads": false,
+      "has_discussions": true,
+      "has_pull_requests": true,
+      "pushed_at": "2026-10-29T20:42:05Z",
+      "created_at": "2019-10-03T15:24:53Z",
+      "updated_at": "2026-10-29T23:46:44Z",
+      "allow_forking": true,
+      "web_commit_signoff_required": false,
+      "pull_request_creation_policy": "all",
+      "license": {
+        "key": "mit",
+        "name": "MIT License",
+        "url": "https://api.github.com/licenses/mit",
+        "spdx_id": "MIT",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "url": "https://api.github.com/repos/cli/cli",
+      "html_url": "https://github.com/cli/cli",
+      "archive_url": "https://api.github.com/repos/cli/cli/{archive_format}{/ref}",
+      "assignees_url": "https://api.github.com/repos/cli/cli/assignees{/user}",
+      "blobs_url": "https://api.github.com/repos/cli/cli/git/blobs{/sha}",
+      "branches_url": "https://api.github.com/repos/cli/cli/branches{/branch}",
+      "collaborators_url": "https://api.github.com/repos/cli/cli/collaborators{/collaborator}",
+      "comments_url": "https://api.github.com/repos/cli/cli/comments{/number}",
+      "commits_url": "https://api.github.com/repos/cli/cli/commits{/sha}",
+      "compare_url": "https://api.github.com/repos/cli/cli/compare/{base}...{head}",
+      "contents_url": "https://api.github.com/repos/cli/cli/contents/{+path}",
+      "contributors_url": "https://api.github.com/repos/cli/cli/contributors",
+      "deployments_url": "https://api.github.com/repos/cli/cli/deployments",
+      "downloads_url": "https://api.github.com/repos/cli/cli/downloads",
+      "events_url": "https://api.github.com/repos/cli/cli/events",
+      "forks_url": "https://api.github.com/repos/cli/cli/forks",
+      "git_commits_url": "https://api.github.com/repos/cli/cli/git/commits{/sha}",
+      "git_refs_url": "https://api.github.com/repos/cli/cli/git/refs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/cli/cli/git/tags{/sha}",
+      "git_url": "git://github.com/cli/cli.git",
+      "issue_comment_url": "https://api.github.com/repos/cli/cli/issues/comments{/number}",
+      "issue_events_url": "https://api.github.com/repos/cli/cli/issues/events{/number}",
+      "issues_url": "https://api.github.com/repos/cli/cli/issues{/number}",
+      "keys_url": "https://api.github.com/repos/cli/cli/keys{/key_id}",
+      "labels_url": "https://api.github.com/repos/cli/cli/labels{/name}",
+      "languages_url": "https://api.github.com/repos/cli/cli/languages",
+      "merges_url": "https://api.github.com/repos/cli/cli/merges",
+      "milestones_url": "https://api.github.com/repos/cli/cli/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/cli/cli/notifications{?since,all,participating}",
+      "pulls_url": "https://api.github.com/repos/cli/cli/pulls{/number}",
+      "releases_url": "https://api.github.com/repos/cli/cli/releases{/id}",
+      "ssh_url": "git@github.com:cli/cli.git",
+      "stargazers_url": "https://api.github.com/repos/cli/cli/stargazers",
+      "statuses_url": "https://api.github.com/repos/cli/cli/statuses/{sha}",
+      "subscribers_url": "https://api.github.com/repos/cli/cli/subscribers",
+      "subscription_url": "https://api.github.com/repos/cli/cli/subscription",
+      "tags_url": "https://api.github.com/repos/cli/cli/tags",
+      "teams_url": "https://api.github.com/repos/cli/cli/teams",
+      "trees_url": "https://api.github.com/repos/cli/cli/git/trees{/sha}",
+      "clone_url": "https://github.com/cli/cli.git",
+      "mirror_url": null,
+      "hooks_url": "https://api.github.com/repos/cli/cli/hooks",
+      "svn_url": "https://github.com/cli/cli"
+    },
+    "sha": "93d24ce9ffefb6cc86bde89b50271457bb0ef9cb",
+    "user": {
+      "login": "cli",
+      "id": 59704711,
+      "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/cli",
+      "html_url": "https://github.com/cli",
+      "followers_url": "https://api.github.com/users/cli/followers",
+      "following_url": "https://api.github.com/users/cli/following{/other_user}",
+      "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+      "organizations_url": "https://api.github.com/users/cli/orgs",
+      "repos_url": "https://api.github.com/users/cli/repos",
+      "events_url": "https://api.github.com/users/cli/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/cli/received_events",
+      "type": "Organization",
+      "user_view_type": "public",
+      "site_admin": false
+    }
+  },
+  "_links": {
+    "comments": {
+      "href": "https://api.github.com/repos/cli/cli/issues/14854/comments"
+    },
+    "commits": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/14854/commits"
+    },
+    "statuses": {
+      "href": "https://api.github.com/repos/cli/cli/statuses/4a64788a49b73d793419d4ffb0e416da11e2e37b"
+    },
+    "html": {
+      "href": "https://github.com/cli/cli/pull/14854"
+    },
+    "issue": {
+      "href": "https://api.github.com/repos/cli/cli/issues/14854"
+    },
+    "review_comments": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/14854/comments"
+    },
+    "review_comment": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/comments{/number}"
+    },
+    "self": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/14854"
+    }
+  },
+  "author_association": "CONTRIBUTOR",
+  "auto_merge": null,
+  "draft": false,
+  "merged": true,
+  "mergeable": true,
+  "rebaseable": false,
+  "mergeable_state": "clean",
+  "merged_by": {
+    "login": "williammartin",
+    "id": 1611510,
+    "node_id": "MDQ6VXNlcjE2MTE1MTA=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1611510?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/williammartin",
+    "html_url": "https://github.com/williammartin",
+    "followers_url": "https://api.github.com/users/williammartin/followers",
+    "following_url": "https://api.github.com/users/williammartin/following{/other_user}",
+    "gists_url": "https://api.github.com/users/williammartin/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/williammartin/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/williammartin/subscriptions",
+    "organizations_url": "https://api.github.com/users/williammartin/orgs",
+    "repos_url": "https://api.github.com/users/williammartin/repos",
+    "events_url": "https://api.github.com/users/williammartin/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/williammartin/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+  },
+  "comments": 1,
+  "review_comments": 0,
+  "maintainer_can_modify": false,
+  "commits": 1,
+  "additions": 1,
+  "deletions": 1,
+  "changed_files": 1
+}
+
+Independent GitHub REST oracle: merged 38.67 hours ago
+$ bin/fm-lab-home.sh create /tmp/fm-lab.merged.xf98iqtd
+exit=0
+/tmp/fm-lab.merged.xf98iqtd
+
+$ FM_HOME=/tmp/fm-lab.merged.xf98iqtd bin/fm-tasks-axi.sh add oldmerge Disposable live-validation oldmerge --repo demo
+exit=0
+ok: added oldmerge (repo demo) -> Queued
+task:
+  id: oldmerge
+  title: Disposable live-validation oldmerge
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start oldmerge` to move it to in flight
+  - Run `tasks-axi block oldmerge --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.merged.xf98iqtd bin/fm-tasks-axi.sh hold oldmerge --reason waiting for independently observed event --kind external --release-on pr:cli/cli#14854
+exit=0
+ok: hold oldmerge -> held (external)
+task:
+  id: oldmerge
+  title: Disposable live-validation oldmerge
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDcyOC0xOTUzMDQtMjIyMDI3MTk2NjIyIiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzE0ODU0In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold oldmerge` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.merged.xf98iqtd bin/fm-watch-checkpoint.sh --seconds 12
+exit=0
+check: hold-release: hold condition met: oldmerge pr:cli/cli#14854
+
+$ FM_HOME=/tmp/fm-lab.merged.xf98iqtd bin/fm-wake-drain.sh
+exit=0
+1793320729	1	check	hold-release:oldmerge	check: hold-release: hold condition met: oldmerge pr:cli/cli#14854
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+oldmerge [key=hold-release-oldmerge] blocked: hold-release-met: pr:cli/cli#14854
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+STDERR:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 196036.1793320729.dYRNl5
+
+$ FM_HOME=/tmp/fm-lab.merged.xf98iqtd bin/fm-tasks-axi.sh show oldmerge
+exit=0
+task:
+  id: oldmerge
+  title: Disposable live-validation oldmerge
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting for independently observed event"
+  hold_release_on: "pr:cli/cli#14854"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDcyOC0xOTUzMDQtMjIyMDI3MTk2NjIyIiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzE0ODU0In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+OBSERVED RESULT: PASS
+
+SCENARIO: Open, closed-unmerged, and failed PR lookups leave holds waiting without false readiness
+$ bin/fm-lab-home.sh create /tmp/fm-lab.negative.wdirkzg1
+exit=0
+/tmp/fm-lab.negative.wdirkzg1
+
+$ curl -fsSL --max-time 20 https://api.github.com/repos/cli/cli/pulls/14846
+exit=0
+{
+  "url": "https://api.github.com/repos/cli/cli/pulls/14846",
+  "id": 5043999218,
+  "node_id": "PR_kwDODKw3uc8AAAABLKVR8g",
+  "html_url": "https://github.com/cli/cli/pull/14846",
+  "diff_url": "https://github.com/cli/cli/pull/14846.diff",
+  "patch_url": "https://github.com/cli/cli/pull/14846.patch",
+  "issue_url": "https://api.github.com/repos/cli/cli/issues/14846",
+  "commits_url": "https://api.github.com/repos/cli/cli/pulls/14846/commits",
+  "review_comments_url": "https://api.github.com/repos/cli/cli/pulls/14846/comments",
+  "review_comment_url": "https://api.github.com/repos/cli/cli/pulls/comments{/number}",
+  "comments_url": "https://api.github.com/repos/cli/cli/issues/14846/comments",
+  "statuses_url": "https://api.github.com/repos/cli/cli/statuses/aaf296326df06cbafd523c12efa0112cdc53c10c",
+  "number": 14846,
+  "state": "open",
+  "locked": false,
+  "title": "Add shared team PR preparation skill",
+  "user": {
+    "login": "tidy-dev",
+    "id": 75402236,
+    "node_id": "MDQ6VXNlcjc1NDAyMjM2",
+    "avatar_url": "https://avatars.githubusercontent.com/u/75402236?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/tidy-dev",
+    "html_url": "https://github.com/tidy-dev",
+    "followers_url": "https://api.github.com/users/tidy-dev/followers",
+    "following_url": "https://api.github.com/users/tidy-dev/following{/other_user}",
+    "gists_url": "https://api.github.com/users/tidy-dev/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/tidy-dev/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/tidy-dev/subscriptions",
+    "organizations_url": "https://api.github.com/users/tidy-dev/orgs",
+    "repos_url": "https://api.github.com/users/tidy-dev/repos",
+    "events_url": "https://api.github.com/users/tidy-dev/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/tidy-dev/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": true
+  },
+  "body": "<!--\nThank you for contributing to GitHub CLI!\n\nIf you are proposing a fix for a security issue, STOP and follow .github/SECURITY.md instead.\n\nKeep the entire pull request self-contained, reviewer-facing, and diegetic: describe the\nchange, rationale, and evidence within the context of the repository and pull request. Do not\nnarrate how the pull request was produced or refer to private conversations, prior agent work,\nor other behind-the-scenes context. Omit those details unless they materially affect review;\nif they do, state the relevant fact and its significance directly.\n-->\n\n<!-- List related issues here. Use `fixes` or `closes` keywords to associate an issue number. -->\n\n### Description\n\n<!--\nWhat's the problem? How are we addressing it?\n\nWrite for a reviewer who has not worked in this part of the codebase. Give them the\nbackground they need before the problem makes sense, and avoid jargon.\n-->\n\nInstall the shared `prepare-team-pr` skill, pinned to its latest upstream commit, and add root agent guidance for using it when preparing or updating authorized team-authored pull requests. The skill complements the repository's existing contribution policy and PR template; it does not change external contribution eligibility or product behavior.\n\n### How did you test this change?\n\n<!--\nReport only actions you actually performed and results you actually observed, using factual\nfirst-person language (for example, \"I ran...\" and \"I saw...\"). Do not present planned,\nhypothetical, inferred, or merely expected scenarios as testing.\n\nAutomated test results do not belong here. Passing unit tests, `go test ./...` output, and\ncoverage numbers tell a reviewer nothing they cannot see from CI, so do not paste them.\n\nIf you did not exercise the changed behavior, write `Not tested` and explain why.\n\nUse one or more of these, whichever communicates best:\n\n1. Screenshots or GIFs of the real command running. Preferred whenever the change is visible\n   in terminal output. If output changed, show it before and after.\n2. Given/When/Then scenarios, but only when you actually executed the steps. For example:\n   Given I was in a repo with no open pull requests\n   When I ran `gh pr list`\n   Then I saw \"no open pull requests in cli/cli\"\n3. A natural language walkthrough of what you did by hand, the states you covered, and what\n   you saw, including error and edge cases.\n\nIf you leave this empty, your pull request will very likely be closed.\n-->\n\nTested in the `desktop/desktop` repository.\n\n### Key points\n\n<!--\nTradeoffs you accepted, alternatives you rejected, and anything a reviewer would otherwise have to guess at.\n-->\n\n- The skill is pinned to commit `bc4d7f71095ac6a6977de5d84de25e32bf0e71e1` from the shared CLI/Desktop workflow repository, with source-tracking metadata retained.\n- Root `AGENTS.md` points to the skill while preserving the existing contribution policy and PR template requirements.\n- No command behavior or public PR template changes.\n\n### Notes for reviewers\n\n<!--\nWhere should review start, and what should be read next? Call out anything you are unsure about.\n\nLink related issues or prior discussion, with one sentence on why each matters.\n-->\n\nReview the new skill and its entry in `AGENTS.md`.\n\n### Team-authored review\n\n**Evidence:** Not applicable; this is a documentation and agent-instructions change. `git diff --check` passed.\n\n**Review path:** Lightweight review, as requested; no specific concern requiring in-depth review was identified.\n\n### Authorship and follow-up\n\n<!--\nREQUIRED - If you are an AI agent filling in this template, answer \"Who wrote this\" for yourself and answer honestly. For \"Who answers review comments,\" use only a choice the human has explicitly made in the conversation. If no choice has already been established, pause and ask the human to choose one of the three options before creating or updating the pull request. Do not infer the choice from repository ownership, authorship, assignees, prior interactions, or the current operator. After the human answers, check exactly the option they chose; the last option is valid when the human explicitly chooses nobody.\n\nCheck exactly one box in each list.\n-->\n\nWho wrote this:\n\n- [ ] A human wrote it.\n- [x] An agent wrote it under close human direction.\n- [ ] An agent wrote it independently, and no human has guided the implementation beyond the initial prompt.\n\nWho answers review comments:\n\n- [x] @tidy-dev will read and reply directly.\n- [ ] An agent will draft replies and @username will read them before they are posted.\n- [ ] Nobody has explicitly committed to replying.\n",
+  "labels": [],
+  "milestone": null,
+  "active_lock_reason": null,
+  "created_at": "2026-10-28T02:05:57Z",
+  "updated_at": "2026-10-28T02:11:55Z",
+  "closed_at": null,
+  "merged_at": null,
+  "merge_commit_sha": "e86e6c86297cf199ff54a039075e06aa12b35a71",
+  "assignee": null,
+  "assignees": [],
+  "requested_reviewers": [
+    {
+      "login": "BagToad",
+      "id": 47394200,
+      "node_id": "MDQ6VXNlcjQ3Mzk0MjAw",
+      "avatar_url": "https://avatars.githubusercontent.com/u/47394200?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/BagToad",
+      "html_url": "https://github.com/BagToad",
+      "followers_url": "https://api.github.com/users/BagToad/followers",
+      "following_url": "https://api.github.com/users/BagToad/following{/other_user}",
+      "gists_url": "https://api.github.com/users/BagToad/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/BagToad/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/BagToad/subscriptions",
+      "organizations_url": "https://api.github.com/users/BagToad/orgs",
+      "repos_url": "https://api.github.com/users/BagToad/repos",
+      "events_url": "https://api.github.com/users/BagToad/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/BagToad/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": true
+    }
+  ],
+  "requested_teams": [],
+  "head": {
+    "label": "cli:tidy-dev-prepare-team-pr-skill",
+    "ref": "tidy-dev-prepare-team-pr-skill",
+    "repo": {
+      "id": 212613049,
+      "node_id": "MDEwOlJlcG9zaXRvcnkyMTI2MTMwNDk=",
+      "name": "cli",
+      "full_name": "cli/cli",
+      "owner": {
+        "login": "cli",
+        "id": 59704711,
+        "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+        "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/cli",
+        "html_url": "https://github.com/cli",
+        "followers_url": "https://api.github.com/users/cli/followers",
+        "following_url": "https://api.github.com/users/cli/following{/other_user}",
+        "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+        "organizations_url": "https://api.github.com/users/cli/orgs",
+        "repos_url": "https://api.github.com/users/cli/repos",
+        "events_url": "https://api.github.com/users/cli/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/cli/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "private": false,
+      "fork": false,
+      "archived": false,
+      "disabled": false,
+      "description": "GitHub’s official command line tool",
+      "homepage": "https://cli.github.com",
+      "language": "Go",
+      "visibility": "public",
+      "is_template": false,
+      "topics": [
+        "cli",
+        "git",
+        "github-api-v4",
+        "golang"
+      ],
+      "forks_count": 9222,
+      "forks": 9222,
+      "stargazers_count": 46798,
+      "watchers_count": 46798,
+      "watchers": 46798,
+      "open_issues_count": 1103,
+      "open_issues": 1103,
+      "size": 82692,
+      "default_branch": "trunk",
+      "has_issues": true,
+      "has_projects": true,
+      "has_wiki": false,
+      "has_pages": false,
+      "has_downloads": false,
+      "has_discussions": true,
+      "has_pull_requests": true,
+      "pushed_at": "2026-10-29T20:42:05Z",
+      "created_at": "2019-10-03T15:24:53Z",
+      "updated_at": "2026-10-29T23:46:44Z",
+      "allow_forking": true,
+      "web_commit_signoff_required": false,
+      "pull_request_creation_policy": "all",
+      "license": {
+        "key": "mit",
+        "name": "MIT License",
+        "url": "https://api.github.com/licenses/mit",
+        "spdx_id": "MIT",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "url": "https://api.github.com/repos/cli/cli",
+      "html_url": "https://github.com/cli/cli",
+      "archive_url": "https://api.github.com/repos/cli/cli/{archive_format}{/ref}",
+      "assignees_url": "https://api.github.com/repos/cli/cli/assignees{/user}",
+      "blobs_url": "https://api.github.com/repos/cli/cli/git/blobs{/sha}",
+      "branches_url": "https://api.github.com/repos/cli/cli/branches{/branch}",
+      "collaborators_url": "https://api.github.com/repos/cli/cli/collaborators{/collaborator}",
+      "comments_url": "https://api.github.com/repos/cli/cli/comments{/number}",
+      "commits_url": "https://api.github.com/repos/cli/cli/commits{/sha}",
+      "compare_url": "https://api.github.com/repos/cli/cli/compare/{base}...{head}",
+      "contents_url": "https://api.github.com/repos/cli/cli/contents/{+path}",
+      "contributors_url": "https://api.github.com/repos/cli/cli/contributors",
+      "deployments_url": "https://api.github.com/repos/cli/cli/deployments",
+      "downloads_url": "https://api.github.com/repos/cli/cli/downloads",
+      "events_url": "https://api.github.com/repos/cli/cli/events",
+      "forks_url": "https://api.github.com/repos/cli/cli/forks",
+      "git_commits_url": "https://api.github.com/repos/cli/cli/git/commits{/sha}",
+      "git_refs_url": "https://api.github.com/repos/cli/cli/git/refs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/cli/cli/git/tags{/sha}",
+      "git_url": "git://github.com/cli/cli.git",
+      "issue_comment_url": "https://api.github.com/repos/cli/cli/issues/comments{/number}",
+      "issue_events_url": "https://api.github.com/repos/cli/cli/issues/events{/number}",
+      "issues_url": "https://api.github.com/repos/cli/cli/issues{/number}",
+      "keys_url": "https://api.github.com/repos/cli/cli/keys{/key_id}",
+      "labels_url": "https://api.github.com/repos/cli/cli/labels{/name}",
+      "languages_url": "https://api.github.com/repos/cli/cli/languages",
+      "merges_url": "https://api.github.com/repos/cli/cli/merges",
+      "milestones_url": "https://api.github.com/repos/cli/cli/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/cli/cli/notifications{?since,all,participating}",
+      "pulls_url": "https://api.github.com/repos/cli/cli/pulls{/number}",
+      "releases_url": "https://api.github.com/repos/cli/cli/releases{/id}",
+      "ssh_url": "git@github.com:cli/cli.git",
+      "stargazers_url": "https://api.github.com/repos/cli/cli/stargazers",
+      "statuses_url": "https://api.github.com/repos/cli/cli/statuses/{sha}",
+      "subscribers_url": "https://api.github.com/repos/cli/cli/subscribers",
+      "subscription_url": "https://api.github.com/repos/cli/cli/subscription",
+      "tags_url": "https://api.github.com/repos/cli/cli/tags",
+      "teams_url": "https://api.github.com/repos/cli/cli/teams",
+      "trees_url": "https://api.github.com/repos/cli/cli/git/trees{/sha}",
+      "clone_url": "https://github.com/cli/cli.git",
+      "mirror_url": null,
+      "hooks_url": "https://api.github.com/repos/cli/cli/hooks",
+      "svn_url": "https://github.com/cli/cli"
+    },
+    "sha": "aaf296326df06cbafd523c12efa0112cdc53c10c",
+    "user": {
+      "login": "cli",
+      "id": 59704711,
+      "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/cli",
+      "html_url": "https://github.com/cli",
+      "followers_url": "https://api.github.com/users/cli/followers",
+      "following_url": "https://api.github.com/users/cli/following{/other_user}",
+      "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+      "organizations_url": "https://api.github.com/users/cli/orgs",
+      "repos_url": "https://api.github.com/users/cli/repos",
+      "events_url": "https://api.github.com/users/cli/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/cli/received_events",
+      "type": "Organization",
+      "user_view_type": "public",
+      "site_admin": false
+    }
+  },
+  "base": {
+    "label": "cli:trunk",
+    "ref": "trunk",
+    "repo": {
+      "id": 212613049,
+      "node_id": "MDEwOlJlcG9zaXRvcnkyMTI2MTMwNDk=",
+      "name": "cli",
+      "full_name": "cli/cli",
+      "owner": {
+        "login": "cli",
+        "id": 59704711,
+        "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+        "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/cli",
+        "html_url": "https://github.com/cli",
+        "followers_url": "https://api.github.com/users/cli/followers",
+        "following_url": "https://api.github.com/users/cli/following{/other_user}",
+        "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+        "organizations_url": "https://api.github.com/users/cli/orgs",
+        "repos_url": "https://api.github.com/users/cli/repos",
+        "events_url": "https://api.github.com/users/cli/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/cli/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "private": false,
+      "fork": false,
+      "archived": false,
+      "disabled": false,
+      "description": "GitHub’s official command line tool",
+      "homepage": "https://cli.github.com",
+      "language": "Go",
+      "visibility": "public",
+      "is_template": false,
+      "topics": [
+        "cli",
+        "git",
+        "github-api-v4",
+        "golang"
+      ],
+      "forks_count": 9222,
+      "forks": 9222,
+      "stargazers_count": 46798,
+      "watchers_count": 46798,
+      "watchers": 46798,
+      "open_issues_count": 1103,
+      "open_issues": 1103,
+      "size": 82692,
+      "default_branch": "trunk",
+      "has_issues": true,
+      "has_projects": true,
+      "has_wiki": false,
+      "has_pages": false,
+      "has_downloads": false,
+      "has_discussions": true,
+      "has_pull_requests": true,
+      "pushed_at": "2026-10-29T20:42:05Z",
+      "created_at": "2019-10-03T15:24:53Z",
+      "updated_at": "2026-10-29T23:46:44Z",
+      "allow_forking": true,
+      "web_commit_signoff_required": false,
+      "pull_request_creation_policy": "all",
+      "license": {
+        "key": "mit",
+        "name": "MIT License",
+        "url": "https://api.github.com/licenses/mit",
+        "spdx_id": "MIT",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "url": "https://api.github.com/repos/cli/cli",
+      "html_url": "https://github.com/cli/cli",
+      "archive_url": "https://api.github.com/repos/cli/cli/{archive_format}{/ref}",
+      "assignees_url": "https://api.github.com/repos/cli/cli/assignees{/user}",
+      "blobs_url": "https://api.github.com/repos/cli/cli/git/blobs{/sha}",
+      "branches_url": "https://api.github.com/repos/cli/cli/branches{/branch}",
+      "collaborators_url": "https://api.github.com/repos/cli/cli/collaborators{/collaborator}",
+      "comments_url": "https://api.github.com/repos/cli/cli/comments{/number}",
+      "commits_url": "https://api.github.com/repos/cli/cli/commits{/sha}",
+      "compare_url": "https://api.github.com/repos/cli/cli/compare/{base}...{head}",
+      "contents_url": "https://api.github.com/repos/cli/cli/contents/{+path}",
+      "contributors_url": "https://api.github.com/repos/cli/cli/contributors",
+      "deployments_url": "https://api.github.com/repos/cli/cli/deployments",
+      "downloads_url": "https://api.github.com/repos/cli/cli/downloads",
+      "events_url": "https://api.github.com/repos/cli/cli/events",
+      "forks_url": "https://api.github.com/repos/cli/cli/forks",
+      "git_commits_url": "https://api.github.com/repos/cli/cli/git/commits{/sha}",
+      "git_refs_url": "https://api.github.com/repos/cli/cli/git/refs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/cli/cli/git/tags{/sha}",
+      "git_url": "git://github.com/cli/cli.git",
+      "issue_comment_url": "https://api.github.com/repos/cli/cli/issues/comments{/number}",
+      "issue_events_url": "https://api.github.com/repos/cli/cli/issues/events{/number}",
+      "issues_url": "https://api.github.com/repos/cli/cli/issues{/number}",
+      "keys_url": "https://api.github.com/repos/cli/cli/keys{/key_id}",
+      "labels_url": "https://api.github.com/repos/cli/cli/labels{/name}",
+      "languages_url": "https://api.github.com/repos/cli/cli/languages",
+      "merges_url": "https://api.github.com/repos/cli/cli/merges",
+      "milestones_url": "https://api.github.com/repos/cli/cli/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/cli/cli/notifications{?since,all,participating}",
+      "pulls_url": "https://api.github.com/repos/cli/cli/pulls{/number}",
+      "releases_url": "https://api.github.com/repos/cli/cli/releases{/id}",
+      "ssh_url": "git@github.com:cli/cli.git",
+      "stargazers_url": "https://api.github.com/repos/cli/cli/stargazers",
+      "statuses_url": "https://api.github.com/repos/cli/cli/statuses/{sha}",
+      "subscribers_url": "https://api.github.com/repos/cli/cli/subscribers",
+      "subscription_url": "https://api.github.com/repos/cli/cli/subscription",
+      "tags_url": "https://api.github.com/repos/cli/cli/tags",
+      "teams_url": "https://api.github.com/repos/cli/cli/teams",
+      "trees_url": "https://api.github.com/repos/cli/cli/git/trees{/sha}",
+      "clone_url": "https://github.com/cli/cli.git",
+      "mirror_url": null,
+      "hooks_url": "https://api.github.com/repos/cli/cli/hooks",
+      "svn_url": "https://github.com/cli/cli"
+    },
+    "sha": "93d24ce9ffefb6cc86bde89b50271457bb0ef9cb",
+    "user": {
+      "login": "cli",
+      "id": 59704711,
+      "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/cli",
+      "html_url": "https://github.com/cli",
+      "followers_url": "https://api.github.com/users/cli/followers",
+      "following_url": "https://api.github.com/users/cli/following{/other_user}",
+      "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+      "organizations_url": "https://api.github.com/users/cli/orgs",
+      "repos_url": "https://api.github.com/users/cli/repos",
+      "events_url": "https://api.github.com/users/cli/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/cli/received_events",
+      "type": "Organization",
+      "user_view_type": "public",
+      "site_admin": false
+    }
+  },
+  "_links": {
+    "comments": {
+      "href": "https://api.github.com/repos/cli/cli/issues/14846/comments"
+    },
+    "commits": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/14846/commits"
+    },
+    "statuses": {
+      "href": "https://api.github.com/repos/cli/cli/statuses/aaf296326df06cbafd523c12efa0112cdc53c10c"
+    },
+    "html": {
+      "href": "https://github.com/cli/cli/pull/14846"
+    },
+    "issue": {
+      "href": "https://api.github.com/repos/cli/cli/issues/14846"
+    },
+    "review_comments": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/14846/comments"
+    },
+    "review_comment": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/comments{/number}"
+    },
+    "self": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/14846"
+    }
+  },
+  "author_association": "CONTRIBUTOR",
+  "auto_merge": null,
+  "draft": false,
+  "merged": false,
+  "mergeable": true,
+  "rebaseable": true,
+  "mergeable_state": "clean",
+  "merged_by": null,
+  "comments": 0,
+  "review_comments": 0,
+  "maintainer_can_modify": false,
+  "commits": 3,
+  "additions": 188,
+  "deletions": 0,
+  "changed_files": 2
+}
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh add open Disposable live-validation open --repo demo
+exit=0
+ok: added open (repo demo) -> Queued
+task:
+  id: open
+  title: Disposable live-validation open
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start open` to move it to in flight
+  - Run `tasks-axi block open --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh hold open --reason waiting for independently observed event --kind external --release-on pr:cli/cli#14846
+exit=0
+ok: hold open -> held (external)
+task:
+  id: open
+  title: Disposable live-validation open
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczMC0xOTczODQtMjYxMzEyNDE0MDM0IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzE0ODQ2In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold open` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ curl -fsSL --max-time 20 https://api.github.com/repos/cli/cli/pulls/100
+exit=0
+{
+  "url": "https://api.github.com/repos/cli/cli/pulls/100",
+  "id": 344152630,
+  "node_id": "MDExOlB1bGxSZXF1ZXN0MzQ0MTUyNjMw",
+  "html_url": "https://github.com/cli/cli/pull/100",
+  "diff_url": "https://github.com/cli/cli/pull/100.diff",
+  "patch_url": "https://github.com/cli/cli/pull/100.patch",
+  "issue_url": "https://api.github.com/repos/cli/cli/issues/100",
+  "commits_url": "https://api.github.com/repos/cli/cli/pulls/100/commits",
+  "review_comments_url": "https://api.github.com/repos/cli/cli/pulls/100/comments",
+  "review_comment_url": "https://api.github.com/repos/cli/cli/pulls/comments{/number}",
+  "comments_url": "https://api.github.com/repos/cli/cli/issues/100/comments",
+  "statuses_url": "https://api.github.com/repos/cli/cli/statuses/24b83202679eeddb72bf9ebeb35752bf3f5ea737",
+  "number": 100,
+  "state": "closed",
+  "locked": false,
+  "title": "start on a manpage",
+  "user": {
+    "login": "vilmibm",
+    "id": 98482,
+    "node_id": "MDQ6VXNlcjk4NDgy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/98482?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/vilmibm",
+    "html_url": "https://github.com/vilmibm",
+    "followers_url": "https://api.github.com/users/vilmibm/followers",
+    "following_url": "https://api.github.com/users/vilmibm/following{/other_user}",
+    "gists_url": "https://api.github.com/users/vilmibm/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/vilmibm/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/vilmibm/subscriptions",
+    "organizations_url": "https://api.github.com/users/vilmibm/orgs",
+    "repos_url": "https://api.github.com/users/vilmibm/repos",
+    "events_url": "https://api.github.com/users/vilmibm/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/vilmibm/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "body": "# start on a man page\n\nThis PR starts work on a manpage written in markdown. The ultimate goal is to use something like\nhttps://github.com/maxheld83/pandoc to convert to proper markdown format as part of automated\nrelease packaging.\n\nI've been using this post as reference:\nhttps://eddieantonio.ca/blog/2015/12/18/authoring-manpages-in-markdown-with-pandoc/\n\nI'm shelving this work for now as we're not considering a manpage necessary for the alpha deadline.\n\n@ampinsk, I wonder if you'd like to take a look at this and see if the approach makes sense? You're\nwelcome to add more content if that makes sense!\n",
+  "labels": [],
+  "milestone": null,
+  "active_lock_reason": null,
+  "created_at": "2019-11-21T17:38:35Z",
+  "updated_at": "2020-01-23T15:35:22Z",
+  "closed_at": "2020-01-23T15:34:56Z",
+  "merged_at": null,
+  "merge_commit_sha": "85293fc2922fb30376e5e6fb33e146b078776ce9",
+  "assignee": null,
+  "assignees": [],
+  "requested_reviewers": [
+    {
+      "login": "ampinsk",
+      "id": 10404068,
+      "node_id": "MDQ6VXNlcjEwNDA0MDY4",
+      "avatar_url": "https://avatars.githubusercontent.com/u/10404068?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/ampinsk",
+      "html_url": "https://github.com/ampinsk",
+      "followers_url": "https://api.github.com/users/ampinsk/followers",
+      "following_url": "https://api.github.com/users/ampinsk/following{/other_user}",
+      "gists_url": "https://api.github.com/users/ampinsk/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/ampinsk/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/ampinsk/subscriptions",
+      "organizations_url": "https://api.github.com/users/ampinsk/orgs",
+      "repos_url": "https://api.github.com/users/ampinsk/repos",
+      "events_url": "https://api.github.com/users/ampinsk/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/ampinsk/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    }
+  ],
+  "requested_teams": [],
+  "head": {
+    "label": "cli:start-manpage",
+    "ref": "start-manpage",
+    "repo": {
+      "id": 212613049,
+      "node_id": "MDEwOlJlcG9zaXRvcnkyMTI2MTMwNDk=",
+      "name": "cli",
+      "full_name": "cli/cli",
+      "owner": {
+        "login": "cli",
+        "id": 59704711,
+        "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+        "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/cli",
+        "html_url": "https://github.com/cli",
+        "followers_url": "https://api.github.com/users/cli/followers",
+        "following_url": "https://api.github.com/users/cli/following{/other_user}",
+        "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+        "organizations_url": "https://api.github.com/users/cli/orgs",
+        "repos_url": "https://api.github.com/users/cli/repos",
+        "events_url": "https://api.github.com/users/cli/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/cli/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "private": false,
+      "fork": false,
+      "archived": false,
+      "disabled": false,
+      "description": "GitHub’s official command line tool",
+      "homepage": "https://cli.github.com",
+      "language": "Go",
+      "visibility": "public",
+      "is_template": false,
+      "topics": [
+        "cli",
+        "git",
+        "github-api-v4",
+        "golang"
+      ],
+      "forks_count": 9222,
+      "forks": 9222,
+      "stargazers_count": 46798,
+      "watchers_count": 46798,
+      "watchers": 46798,
+      "open_issues_count": 1103,
+      "open_issues": 1103,
+      "size": 82692,
+      "default_branch": "trunk",
+      "has_issues": true,
+      "has_projects": true,
+      "has_wiki": false,
+      "has_pages": false,
+      "has_downloads": false,
+      "has_discussions": true,
+      "has_pull_requests": true,
+      "pushed_at": "2026-10-29T20:42:05Z",
+      "created_at": "2019-10-03T15:24:53Z",
+      "updated_at": "2026-10-29T23:46:44Z",
+      "allow_forking": true,
+      "web_commit_signoff_required": false,
+      "pull_request_creation_policy": "all",
+      "license": {
+        "key": "mit",
+        "name": "MIT License",
+        "url": "https://api.github.com/licenses/mit",
+        "spdx_id": "MIT",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "url": "https://api.github.com/repos/cli/cli",
+      "html_url": "https://github.com/cli/cli",
+      "archive_url": "https://api.github.com/repos/cli/cli/{archive_format}{/ref}",
+      "assignees_url": "https://api.github.com/repos/cli/cli/assignees{/user}",
+      "blobs_url": "https://api.github.com/repos/cli/cli/git/blobs{/sha}",
+      "branches_url": "https://api.github.com/repos/cli/cli/branches{/branch}",
+      "collaborators_url": "https://api.github.com/repos/cli/cli/collaborators{/collaborator}",
+      "comments_url": "https://api.github.com/repos/cli/cli/comments{/number}",
+      "commits_url": "https://api.github.com/repos/cli/cli/commits{/sha}",
+      "compare_url": "https://api.github.com/repos/cli/cli/compare/{base}...{head}",
+      "contents_url": "https://api.github.com/repos/cli/cli/contents/{+path}",
+      "contributors_url": "https://api.github.com/repos/cli/cli/contributors",
+      "deployments_url": "https://api.github.com/repos/cli/cli/deployments",
+      "downloads_url": "https://api.github.com/repos/cli/cli/downloads",
+      "events_url": "https://api.github.com/repos/cli/cli/events",
+      "forks_url": "https://api.github.com/repos/cli/cli/forks",
+      "git_commits_url": "https://api.github.com/repos/cli/cli/git/commits{/sha}",
+      "git_refs_url": "https://api.github.com/repos/cli/cli/git/refs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/cli/cli/git/tags{/sha}",
+      "git_url": "git://github.com/cli/cli.git",
+      "issue_comment_url": "https://api.github.com/repos/cli/cli/issues/comments{/number}",
+      "issue_events_url": "https://api.github.com/repos/cli/cli/issues/events{/number}",
+      "issues_url": "https://api.github.com/repos/cli/cli/issues{/number}",
+      "keys_url": "https://api.github.com/repos/cli/cli/keys{/key_id}",
+      "labels_url": "https://api.github.com/repos/cli/cli/labels{/name}",
+      "languages_url": "https://api.github.com/repos/cli/cli/languages",
+      "merges_url": "https://api.github.com/repos/cli/cli/merges",
+      "milestones_url": "https://api.github.com/repos/cli/cli/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/cli/cli/notifications{?since,all,participating}",
+      "pulls_url": "https://api.github.com/repos/cli/cli/pulls{/number}",
+      "releases_url": "https://api.github.com/repos/cli/cli/releases{/id}",
+      "ssh_url": "git@github.com:cli/cli.git",
+      "stargazers_url": "https://api.github.com/repos/cli/cli/stargazers",
+      "statuses_url": "https://api.github.com/repos/cli/cli/statuses/{sha}",
+      "subscribers_url": "https://api.github.com/repos/cli/cli/subscribers",
+      "subscription_url": "https://api.github.com/repos/cli/cli/subscription",
+      "tags_url": "https://api.github.com/repos/cli/cli/tags",
+      "teams_url": "https://api.github.com/repos/cli/cli/teams",
+      "trees_url": "https://api.github.com/repos/cli/cli/git/trees{/sha}",
+      "clone_url": "https://github.com/cli/cli.git",
+      "mirror_url": null,
+      "hooks_url": "https://api.github.com/repos/cli/cli/hooks",
+      "svn_url": "https://github.com/cli/cli"
+    },
+    "sha": "24b83202679eeddb72bf9ebeb35752bf3f5ea737",
+    "user": {
+      "login": "cli",
+      "id": 59704711,
+      "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/cli",
+      "html_url": "https://github.com/cli",
+      "followers_url": "https://api.github.com/users/cli/followers",
+      "following_url": "https://api.github.com/users/cli/following{/other_user}",
+      "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+      "organizations_url": "https://api.github.com/users/cli/orgs",
+      "repos_url": "https://api.github.com/users/cli/repos",
+      "events_url": "https://api.github.com/users/cli/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/cli/received_events",
+      "type": "Organization",
+      "user_view_type": "public",
+      "site_admin": false
+    }
+  },
+  "base": {
+    "label": "cli:master",
+    "ref": "master",
+    "repo": {
+      "id": 212613049,
+      "node_id": "MDEwOlJlcG9zaXRvcnkyMTI2MTMwNDk=",
+      "name": "cli",
+      "full_name": "cli/cli",
+      "owner": {
+        "login": "cli",
+        "id": 59704711,
+        "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+        "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/cli",
+        "html_url": "https://github.com/cli",
+        "followers_url": "https://api.github.com/users/cli/followers",
+        "following_url": "https://api.github.com/users/cli/following{/other_user}",
+        "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+        "organizations_url": "https://api.github.com/users/cli/orgs",
+        "repos_url": "https://api.github.com/users/cli/repos",
+        "events_url": "https://api.github.com/users/cli/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/cli/received_events",
+        "type": "Organization",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "private": false,
+      "fork": false,
+      "archived": false,
+      "disabled": false,
+      "description": "GitHub’s official command line tool",
+      "homepage": "https://cli.github.com",
+      "language": "Go",
+      "visibility": "public",
+      "is_template": false,
+      "topics": [
+        "cli",
+        "git",
+        "github-api-v4",
+        "golang"
+      ],
+      "forks_count": 9222,
+      "forks": 9222,
+      "stargazers_count": 46798,
+      "watchers_count": 46798,
+      "watchers": 46798,
+      "open_issues_count": 1103,
+      "open_issues": 1103,
+      "size": 82692,
+      "default_branch": "trunk",
+      "has_issues": true,
+      "has_projects": true,
+      "has_wiki": false,
+      "has_pages": false,
+      "has_downloads": false,
+      "has_discussions": true,
+      "has_pull_requests": true,
+      "pushed_at": "2026-10-29T20:42:05Z",
+      "created_at": "2019-10-03T15:24:53Z",
+      "updated_at": "2026-10-29T23:46:44Z",
+      "allow_forking": true,
+      "web_commit_signoff_required": false,
+      "pull_request_creation_policy": "all",
+      "license": {
+        "key": "mit",
+        "name": "MIT License",
+        "url": "https://api.github.com/licenses/mit",
+        "spdx_id": "MIT",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "url": "https://api.github.com/repos/cli/cli",
+      "html_url": "https://github.com/cli/cli",
+      "archive_url": "https://api.github.com/repos/cli/cli/{archive_format}{/ref}",
+      "assignees_url": "https://api.github.com/repos/cli/cli/assignees{/user}",
+      "blobs_url": "https://api.github.com/repos/cli/cli/git/blobs{/sha}",
+      "branches_url": "https://api.github.com/repos/cli/cli/branches{/branch}",
+      "collaborators_url": "https://api.github.com/repos/cli/cli/collaborators{/collaborator}",
+      "comments_url": "https://api.github.com/repos/cli/cli/comments{/number}",
+      "commits_url": "https://api.github.com/repos/cli/cli/commits{/sha}",
+      "compare_url": "https://api.github.com/repos/cli/cli/compare/{base}...{head}",
+      "contents_url": "https://api.github.com/repos/cli/cli/contents/{+path}",
+      "contributors_url": "https://api.github.com/repos/cli/cli/contributors",
+      "deployments_url": "https://api.github.com/repos/cli/cli/deployments",
+      "downloads_url": "https://api.github.com/repos/cli/cli/downloads",
+      "events_url": "https://api.github.com/repos/cli/cli/events",
+      "forks_url": "https://api.github.com/repos/cli/cli/forks",
+      "git_commits_url": "https://api.github.com/repos/cli/cli/git/commits{/sha}",
+      "git_refs_url": "https://api.github.com/repos/cli/cli/git/refs{/sha}",
+      "git_tags_url": "https://api.github.com/repos/cli/cli/git/tags{/sha}",
+      "git_url": "git://github.com/cli/cli.git",
+      "issue_comment_url": "https://api.github.com/repos/cli/cli/issues/comments{/number}",
+      "issue_events_url": "https://api.github.com/repos/cli/cli/issues/events{/number}",
+      "issues_url": "https://api.github.com/repos/cli/cli/issues{/number}",
+      "keys_url": "https://api.github.com/repos/cli/cli/keys{/key_id}",
+      "labels_url": "https://api.github.com/repos/cli/cli/labels{/name}",
+      "languages_url": "https://api.github.com/repos/cli/cli/languages",
+      "merges_url": "https://api.github.com/repos/cli/cli/merges",
+      "milestones_url": "https://api.github.com/repos/cli/cli/milestones{/number}",
+      "notifications_url": "https://api.github.com/repos/cli/cli/notifications{?since,all,participating}",
+      "pulls_url": "https://api.github.com/repos/cli/cli/pulls{/number}",
+      "releases_url": "https://api.github.com/repos/cli/cli/releases{/id}",
+      "ssh_url": "git@github.com:cli/cli.git",
+      "stargazers_url": "https://api.github.com/repos/cli/cli/stargazers",
+      "statuses_url": "https://api.github.com/repos/cli/cli/statuses/{sha}",
+      "subscribers_url": "https://api.github.com/repos/cli/cli/subscribers",
+      "subscription_url": "https://api.github.com/repos/cli/cli/subscription",
+      "tags_url": "https://api.github.com/repos/cli/cli/tags",
+      "teams_url": "https://api.github.com/repos/cli/cli/teams",
+      "trees_url": "https://api.github.com/repos/cli/cli/git/trees{/sha}",
+      "clone_url": "https://github.com/cli/cli.git",
+      "mirror_url": null,
+      "hooks_url": "https://api.github.com/repos/cli/cli/hooks",
+      "svn_url": "https://github.com/cli/cli"
+    },
+    "sha": "ce4fae3f0607f25e6d9b971c541a5eaf6a728f9f",
+    "user": {
+      "login": "cli",
+      "id": 59704711,
+      "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5NzA0NzEx",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59704711?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/cli",
+      "html_url": "https://github.com/cli",
+      "followers_url": "https://api.github.com/users/cli/followers",
+      "following_url": "https://api.github.com/users/cli/following{/other_user}",
+      "gists_url": "https://api.github.com/users/cli/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/cli/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/cli/subscriptions",
+      "organizations_url": "https://api.github.com/users/cli/orgs",
+      "repos_url": "https://api.github.com/users/cli/repos",
+      "events_url": "https://api.github.com/users/cli/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/cli/received_events",
+      "type": "Organization",
+      "user_view_type": "public",
+      "site_admin": false
+    }
+  },
+  "_links": {
+    "comments": {
+      "href": "https://api.github.com/repos/cli/cli/issues/100/comments"
+    },
+    "commits": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/100/commits"
+    },
+    "statuses": {
+      "href": "https://api.github.com/repos/cli/cli/statuses/24b83202679eeddb72bf9ebeb35752bf3f5ea737"
+    },
+    "html": {
+      "href": "https://github.com/cli/cli/pull/100"
+    },
+    "issue": {
+      "href": "https://api.github.com/repos/cli/cli/issues/100"
+    },
+    "review_comments": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/100/comments"
+    },
+    "review_comment": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/comments{/number}"
+    },
+    "self": {
+      "href": "https://api.github.com/repos/cli/cli/pulls/100"
+    }
+  },
+  "author_association": "CONTRIBUTOR",
+  "auto_merge": null,
+  "draft": false,
+  "merged": false,
+  "mergeable": false,
+  "rebaseable": false,
+  "mergeable_state": "dirty",
+  "merged_by": null,
+  "comments": 2,
+  "review_comments": 1,
+  "maintainer_can_modify": false,
+  "commits": 1,
+  "additions": 88,
+  "deletions": 0,
+  "changed_files": 1
+}
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh add closed Disposable live-validation closed --repo demo
+exit=0
+ok: added closed (repo demo) -> Queued
+task:
+  id: closed
+  title: Disposable live-validation closed
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start closed` to move it to in flight
+  - Run `tasks-axi block closed --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh hold closed --reason waiting for independently observed event --kind external --release-on pr:cli/cli#100
+exit=0
+ok: hold closed -> held (external)
+task:
+  id: closed
+  title: Disposable live-validation closed
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczMS0xOTc1NDMtMTA4OTMyNDQyMzM4IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzEwMCJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold closed` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh add unavailable Disposable live-validation unavailable --repo demo
+exit=0
+ok: added unavailable (repo demo) -> Queued
+task:
+  id: unavailable
+  title: Disposable live-validation unavailable
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start unavailable` to move it to in flight
+  - Run `tasks-axi block unavailable --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh hold unavailable --reason waiting for independently observed event --kind external --release-on pr:cli/cli#999999999
+exit=0
+ok: hold unavailable -> held (external)
+task:
+  id: unavailable
+  title: Disposable live-validation unavailable
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczMS0xOTc2NzAtMjIyNzI2NDM5NjY1IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzk5OTk5OTk5OSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold unavailable` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.negative.wdirkzg1/state/open.status
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh show open
+exit=0
+task:
+  id: open
+  title: Disposable live-validation open
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting for independently observed event"
+  hold_release_on: "pr:cli/cli#14846"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczMC0xOTczODQtMjYxMzEyNDE0MDM0IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzE0ODQ2In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.negative.wdirkzg1/state/closed.status
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh show closed
+exit=0
+task:
+  id: closed
+  title: Disposable live-validation closed
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting for independently observed event"
+  hold_release_on: "pr:cli/cli#100"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczMS0xOTc1NDMtMTA4OTMyNDQyMzM4IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzEwMCJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.negative.wdirkzg1/state/unavailable.status
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-tasks-axi.sh show unavailable
+exit=0
+task:
+  id: unavailable
+  title: Disposable live-validation unavailable
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting for independently observed event"
+  hold_release_on: "pr:cli/cli#999999999"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczMS0xOTc2NzAtMjIyNzI2NDM5NjY1IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzk5OTk5OTk5OSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.negative.wdirkzg1 bin/fm-wake-drain.sh
+exit=0
+
+OBSERVED RESULT: PASS
+
+SCENARIO: Lost or stale caches recover from the committed hold and never reuse a previous condition
+$ bin/fm-lab-home.sh create /tmp/fm-lab.recover.k4h3peo9
+exit=0
+/tmp/fm-lab.recover.k4h3peo9
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bin/fm-tasks-axi.sh add recover Disposable live-validation recover --repo demo
+exit=0
+ok: added recover (repo demo) -> Queued
+task:
+  id: recover
+  title: Disposable live-validation recover
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start recover` to move it to in flight
+  - Run `tasks-axi block recover --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bin/fm-tasks-axi.sh hold recover --reason waiting for independently observed event --kind external --release-on marker:/tmp/fm-lab.recover.k4h3peo9/old
+exit=0
+ok: hold recover -> held (external)
+task:
+  id: recover
+  title: Disposable live-validation recover
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczNC0xOTg4NzktNzMyNTE2Nzk1NDcwIiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIucmVjb3Zlci5rNGgzcGVvOS9vbGQifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold recover` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+hold condition met: recover marker:/tmp/fm-lab.recover.k4h3peo9/old
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.recover.k4h3peo9/state/recover.status
+exit=0
+hold-release-recover	blocked	hold-release-met: marker:/tmp/fm-lab.recover.k4h3peo9/old
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bin/fm-tasks-axi.sh hold recover --reason waiting for independently observed event --kind external --release-on marker:/tmp/fm-lab.recover.k4h3peo9/new
+exit=0
+ok: hold recover -> held (external)
+task:
+  id: recover
+  title: Disposable live-validation recover
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczNC0xOTkzNjktMTY1MzczMTMzODAxIiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIucmVjb3Zlci5rNGgzcGVvOS9uZXcifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold recover` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.recover.k4h3peo9/state/recover.status
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+hold condition met: recover marker:/tmp/fm-lab.recover.k4h3peo9/new
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bin/fm-tasks-axi.sh hold recover --reason dated disposition --until 2099-01-01
+exit=0
+ok: hold recover -> held (until 2099-01-01)
+task:
+  id: recover
+  title: Disposable live-validation recover
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: dated disposition
+  hold_kind: "-"
+  hold_until: 2099-01-01
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold recover` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.recover.k4h3peo9 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.recover.k4h3peo9/state/recover.status
+exit=0
+
+OBSERVED RESULT: PASS
+
+SCENARIO: Native task moves and uploaded remote receipts preserve PR conditions without copying sidecars
+$ bin/fm-lab-home.sh create /tmp/fm-lab.source-move.2wc0qpu9
+exit=0
+/tmp/fm-lab.source-move.2wc0qpu9
+
+$ bin/fm-lab-home.sh create /tmp/fm-lab.destination-move.6z8wouap
+exit=0
+/tmp/fm-lab.destination-move.6z8wouap
+
+$ FM_HOME=/tmp/fm-lab.source-move.2wc0qpu9 bin/fm-tasks-axi.sh add travels Disposable live-validation travels --repo demo
+exit=0
+ok: added travels (repo demo) -> Queued
+task:
+  id: travels
+  title: Disposable live-validation travels
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start travels` to move it to in flight
+  - Run `tasks-axi block travels --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.source-move.2wc0qpu9 bin/fm-tasks-axi.sh hold travels --reason waiting for independently observed event --kind external --release-on pr:cli/cli#14854
+exit=0
+ok: hold travels -> held (external)
+task:
+  id: travels
+  title: Disposable live-validation travels
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczNS0yMDA2ODItMjE2NDgxNjQ2MTMwIiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzE0ODU0In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold travels` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.source-move.2wc0qpu9 bin/fm-tasks-axi.sh mv travels --to /tmp/fm-lab.destination-move.6z8wouap/data/backlog.md
+exit=0
+ok: mv travels -> /tmp/fm-lab.destination-move.6z8wouap/data/backlog.md
+help[1]:
+  - Run `tasks-axi list` to see remaining tasks
+
+$ FM_HOME=/tmp/fm-lab.destination-move.6z8wouap bin/fm-tasks-axi.sh show travels
+exit=0
+task:
+  id: travels
+  title: Disposable live-validation travels
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting for independently observed event"
+  hold_release_on: "pr:cli/cli#14854"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczNS0yMDA2ODItMjE2NDgxNjQ2MTMwIiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzE0ODU0In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.destination-move.6z8wouap bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+hold condition met: travels pr:cli/cli#14854
+
+$ FM_HOME=/tmp/fm-lab.destination-move.6z8wouap bin/fm-wake-drain.sh
+exit=0
+1793320737	1	check	hold-release:travels	check: hold-release: hold condition met: travels pr:cli/cli#14854
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+travels [key=hold-release-travels] blocked: hold-release-met: pr:cli/cli#14854
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+STDERR:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 200818.1793320737.HVhu79
+
+$ FM_HOME=/tmp/fm-lab.destination-move.6z8wouap bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+
+$ bin/fm-lab-home.sh create /tmp/fm-lab.source-receipt.vadnuns3
+exit=0
+/tmp/fm-lab.source-receipt.vadnuns3
+
+$ bin/fm-lab-home.sh create /tmp/fm-lab.destination-receipt.g1q36571
+exit=0
+/tmp/fm-lab.destination-receipt.g1q36571
+
+$ FM_HOME=/tmp/fm-lab.source-receipt.vadnuns3 bin/fm-tasks-axi.sh add travels Disposable live-validation travels --repo demo
+exit=0
+ok: added travels (repo demo) -> Queued
+task:
+  id: travels
+  title: Disposable live-validation travels
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start travels` to move it to in flight
+  - Run `tasks-axi block travels --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.source-receipt.vadnuns3 bin/fm-tasks-axi.sh hold travels --reason waiting for independently observed event --kind external --release-on pr:cli/cli#14854
+exit=0
+ok: hold travels -> held (external)
+task:
+  id: travels
+  title: Disposable live-validation travels
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczOS0yMDQwMzAtMTkwNTQwMzY4NTA5IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzE0ODU0In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold travels` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.source-receipt.vadnuns3 bin/fm-tasks-axi.sh mv travels --to /tmp/fm-lab.source-receipt.vadnuns3/outbox.md
+exit=0
+ok: mv travels -> /tmp/fm-lab.source-receipt.vadnuns3/outbox.md
+help[1]:
+  - Run `tasks-axi list` to see remaining tasks
+
+$ FM_HOME=/tmp/fm-lab.destination-receipt.g1q36571 bin/fm-remote-file.sh put state/handoff/sender.outbox.md 1048576 339 966a25cf8f12df388879bb0e8b693c3de7299f1ab5e0d371bdeae610690b64a4 1
+exit=0
+stored: state/handoff/sender.outbox.md bytes=339
+
+$ FM_HOME=/tmp/fm-lab.destination-receipt.g1q36571 bin/fm-backlog-receive.sh state/handoff/sender.outbox.md 339 966a25cf8f12df388879bb0e8b693c3de7299f1ab5e0d371bdeae610690b64a4 1
+exit=0
+received: sender moved=1 already=0
+
+$ FM_HOME=/tmp/fm-lab.destination-receipt.g1q36571 bin/fm-tasks-axi.sh show travels
+exit=0
+task:
+  id: travels
+  title: Disposable live-validation travels
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "waiting for independently observed event"
+  hold_release_on: "pr:cli/cli#14854"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDczOS0yMDQwMzAtMTkwNTQwMzY4NTA5IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJwcjpjbGkvY2xpIzE0ODU0In0="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+$ FM_HOME=/tmp/fm-lab.destination-receipt.g1q36571 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+hold condition met: travels pr:cli/cli#14854
+
+$ FM_HOME=/tmp/fm-lab.destination-receipt.g1q36571 bin/fm-wake-drain.sh
+exit=0
+1793320740	1	check	hold-release:travels	check: hold-release: hold condition met: travels pr:cli/cli#14854
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+travels [key=hold-release-travels] blocked: hold-release-met: pr:cli/cli#14854
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+STDERR:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 204679.1793320740.B1db91
+
+$ FM_HOME=/tmp/fm-lab.destination-receipt.g1q36571 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+
+OBSERVED RESULT: PASS
+
+SCENARIO: Removing a met held task reconciles the real backend stderr NOT_FOUND and retires its decision
+$ bin/fm-lab-home.sh create /tmp/fm-lab.removed.s95wyte4
+exit=0
+/tmp/fm-lab.removed.s95wyte4
+
+$ FM_HOME=/tmp/fm-lab.removed.s95wyte4 bin/fm-tasks-axi.sh add vanishes Disposable live-validation vanishes --repo demo
+exit=0
+ok: added vanishes (repo demo) -> Queued
+task:
+  id: vanishes
+  title: Disposable live-validation vanishes
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start vanishes` to move it to in flight
+  - Run `tasks-axi block vanishes --by <other>` to record a dependency
+
+$ FM_HOME=/tmp/fm-lab.removed.s95wyte4 bin/fm-tasks-axi.sh hold vanishes --reason waiting for independently observed event --kind external --release-on marker:/tmp/fm-lab.removed.s95wyte4/met
+exit=0
+ok: hold vanishes -> held (external)
+task:
+  id: vanishes
+  title: Disposable live-validation vanishes
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDc0Mi0yMDc5NzEtNDg2NDc4NTU1MDg5IiwicmVhc29uIjoid2FpdGluZyBmb3IgaW5kZXBlbmRlbnRseSBvYnNlcnZlZCBldmVudCIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIucmVtb3ZlZC5zOTV3eXRlNC9tZXQifQ=="
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold vanishes` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+
+$ FM_HOME=/tmp/fm-lab.removed.s95wyte4 bash -c . bin/fm-hold-release-lib.sh; fm_hold_release_evaluate "$FM_HOME/state"
+exit=0
+hold condition met: vanishes marker:/tmp/fm-lab.removed.s95wyte4/met
+
+$ FM_HOME=/tmp/fm-lab.removed.s95wyte4 bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.removed.s95wyte4/state/vanishes.status
+exit=0
+hold-release-vanishes	blocked	hold-release-met: marker:/tmp/fm-lab.removed.s95wyte4/met
+$ FM_HOME=/tmp/fm-lab.removed.s95wyte4 bin/fm-tasks-axi.sh rm vanishes
+exit=0
+ok: removed vanishes
+help[1]:
+  - Run `tasks-axi list` to see remaining tasks
+
+$ FM_HOME=/tmp/fm-lab.removed.s95wyte4 bin/fm-tasks-axi.sh show vanishes
+exit=1
+error: "Task \"vanishes\" not found in this backlog"
+code: NOT_FOUND
+help[1]: Run `tasks-axi list` to see existing tasks
+
+OBSERVED RESULT: FAIL Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M653CRY7NAGXTSWXGCEEE7W9/live-validation.py", line 44, in scenario
+    fn()
+  File "~/.no-mistakes/evidence/01M653CRY7NAGXTSWXGCEEE7W9/live-validation.py", line 155, in removal
+    p=axi(h,'show','vanishes',ok=(1,));assert 'code: NOT_FOUND' in p.stderr,'real backend NOT_FOUND must be on stderr'
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: real backend NOT_FOUND must be on stderr
+
+
+SCENARIO: Captain hold wrapper evaluates a marker and its answer-release retires the disposition decision
+$ bin/fm-lab-home.sh create /tmp/fm-lab.captain.pyyfr0mw
+exit=0
+/tmp/fm-lab.captain.pyyfr0mw
+
+$ FM_HOME=/tmp/fm-lab.captain.pyyfr0mw bin/fm-captain-hold.sh hold question --title Disposable release-condition question --reason await activation --repo demo --release-on marker:/tmp/fm-lab.captain.pyyfr0mw/answer-ready
+exit=0
+question
+
+$ FM_HOME=/tmp/fm-lab.captain.pyyfr0mw bin/fm-tasks-axi.sh show question
+exit=0
+task:
+  id: question
+  title: Disposable release-condition question
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "await activation"
+  hold_release_on: "marker:/tmp/fm-lab.captain.pyyfr0mw/answer-ready"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzMyMDc0Mi0yMDk0NzYtNjk3Nzg0ODU5OTkzIiwicmVhc29uIjoiYXdhaXQgYWN0aXZhdGlvbiIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L3RtcC9mbS1sYWIuY2FwdGFpbi5weXlmcjBtdy9hbnN3ZXItcmVhZHkifQ=="
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-30T00:39:02Z"
+
+$ FM_HOME=/tmp/fm-lab.captain.pyyfr0mw bin/fm-watch-checkpoint.sh --seconds 12
+exit=0
+check: hold-release: hold condition met: question marker:/tmp/fm-lab.captain.pyyfr0mw/answer-ready
+
+$ FM_HOME=/tmp/fm-lab.captain.pyyfr0mw bin/fm-wake-drain.sh
+exit=0
+1793320744	1	check	hold-release:question	check: hold-release: hold condition met: question marker:/tmp/fm-lab.captain.pyyfr0mw/answer-ready
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+question [key=hold-release-question] blocked: hold-release-met: marker:/tmp/fm-lab.captain.pyyfr0mw/answer-ready
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+STDERR:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 213852.1793320744.8iGn63
+
+$ FM_HOME=/tmp/fm-lab.captain.pyyfr0mw bin/fm-captain-hold.sh answer question --release --decision-file /tmp/fm-lab.captain.pyyfr0mw/answer.txt
+exit=0
+released: question
+
+$ FM_HOME=/tmp/fm-lab.captain.pyyfr0mw bash -c . bin/fm-classify-lib.sh; status_open_decisions "$1" _ /tmp/fm-lab.captain.pyyfr0mw/state/question.status
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.captain.pyyfr0mw bin/fm-tasks-axi.sh show question
+exit=0
+task:
+  id: question
+  title: Disposable release-condition question
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: captain
+  repo: demo
+  priority: "-"
+  created: 2026-10-29
+  closed: "-"
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: 290230ef0147f3b5502c792b5c1230334864bbeb93e6ba5cb7be8e87d3b5b029\nResolution mode: released\n\nCaptain decision:\nResume the disposable task."
+
+OBSERVED RESULT: PASS
+
+SCENARIO: A mate request reaches the registered MAIN check; missing dispatcher refusal returns once through the real steering inbox
+$ bin/fm-lab-home.sh create /tmp/fm-lab.main.0lawcbr7
+exit=0
+/tmp/fm-lab.main.0lawcbr7
+
+$ bin/fm-lab-home.sh create /tmp/fm-lab.mate.g9014mc1
+exit=0
+/tmp/fm-lab.mate.g9014mc1
+
+$ FM_HOME=/tmp/fm-lab.mate.g9014mc1 bin/fm-walk-request.sh --brief /tmp/fm-lab.mate.g9014mc1/data/walk-briefs/brief.md --release 8797976169b061d3deed2b93d5e32036d52b8f1c --walks step --bot Walker
+exit=0
+corr=237cf4cdb7886833
+once-key=step@8797976169b061d3deed2b93d5e32036d52b8f1c
+
+$ FM_HOME=/tmp/fm-lab.main.0lawcbr7 bin/fm-walk-request-check.sh arm
+exit=0
+registered: state/walk-request.check.sh
+armed: state/walk-request.check.sh
+
+$ FM_HOME=/tmp/fm-lab.main.0lawcbr7 bash /tmp/fm-lab.main.0lawcbr7/state/walk-request.check.sh
+exit=0
+walk-request: dispatcher absent at /tmp/fm-lab.main.0lawcbr7/data/bin/fm-grok-bot-dispatch.sh; install the home's walker dispatcher or disarm this check
+
+PERSISTED INBOX /tmp/fm-lab.main.0lawcbr7/state/mate.inbox/001.msg
+schema=fm-task-inbox.v1
+at=2026-10-30T00:39:06Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=069abd630d99f864 walk request@8797976169b061d3deed2b93d5e32036d52b8f1c (corr=237cf4cdb7886833) outcome: refused: MAIN has no walker dispatcher at /tmp/fm-lab.main.0lawcbr7/data/bin/fm-grok-bot-dispatch.sh; the walk was not dispatched
+PERSISTED INBOX /tmp/fm-lab.main.0lawcbr7/state/mate.inbox/001.ring-reason
+rc=3 token=agent-dead
+
+PERSISTED WALK RECORD
+schema=fm-walk-request-v1
+corr=237cf4cdb7886833
+mate=mate
+walks=step
+brief=/tmp/fm-lab.mate.g9014mc1/data/walk-briefs/brief.md
+brief64=
+brief_format=
+release=8797976169b061d3deed2b93d5e32036d52b8f1c
+bot=Walker
+created_epoch=1793320746
+phase=failed
+reason=dispatcher absent at /tmp/fm-lab.main.0lawcbr7/data/bin/fm-grok-bot-dispatch.sh; install the home's walker dispatcher or disarm this check
+reported=dispatcher absent at /tmp/fm-lab.main.0lawcbr7/data/bin/fm-grok-bot-dispatch.sh; install the home's walker dispatcher or disarm this check
+outcome=refused: MAIN has no walker dispatcher at /tmp/fm-lab.main.0lawcbr7/data/bin/fm-grok-bot-dispatch.sh; the walk was not dispatched
+retried=
+spawned=
+delivered=
+
+$ FM_HOME=/tmp/fm-lab.main.0lawcbr7 bash /tmp/fm-lab.main.0lawcbr7/state/walk-request.check.sh
+exit=0
+
+$ FM_HOME=/tmp/fm-lab.main.0lawcbr7 bin/fm-walk-request-check.sh disarm
+exit=0
+unregistered: state/walk-request.check.sh
+disarmed: state/walk-request.check.sh
+
+OBSERVED RESULT: PASS
+
+SCENARIO: A maximum-size remote brief survives the real delta reader while oversized, binary, and private paths are refused
+$ bin/fm-lab-home.sh create /tmp/fm-lab.remote.aw17pd2q
+exit=0
+/tmp/fm-lab.remote.aw17pd2q
+
+$ FM_HOME=/tmp/fm-lab.remote.aw17pd2q bin/fm-walk-request.sh --brief /tmp/fm-lab.remote.aw17pd2q/data/walk-briefs/large.md --release 8797976169b061d3deed2b93d5e32036d52b8f1c --walks large-step --bot Walker
+exit=0
+corr=b44451180e112515
+once-key=large-step@8797976169b061d3deed2b93d5e32036d52b8f1c
+
+$ FM_HOME=/tmp/fm-lab.remote.aw17pd2q bin/fm-remote-delta-read.sh state/parent-replies.status 0 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 0
+exit=0
+schema=fm-remote-delta.v1
+status=delta
+path=state/parent-replies.status
+from_offset=0
+to_offset=87530
+from_prefix_sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+to_prefix_sha256=ccc6650f5fcb9f18e192ee61f54f251ea8b2731fc9e147036242b2bfc6e7bbb0
+payload_sha256=ccc6650f5fcb9f18e192ee61f54f251ea8b2731fc9e147036242b2bfc6e7bbb0
+payload_bytes=87530
+reason=
+
+note [corr=b44451180e112515] [at=1793320746]: walk-request: walks=large-step brief64=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBCg== release=8797976169b061d3deed2b93d5e32036d52b8f1c bot=Walker
+
+REMOTE BYTE PROOF: brief=65536 bytes, complete typed channel=87530 bytes, delta payload identical
+$ FM_HOME=/tmp/fm-lab.remote.aw17pd2q bin/fm-walk-request.sh --brief /tmp/fm-lab.remote.aw17pd2q/data/walk-briefs/large.md --release 8797976169b061d3deed2b93d5e32036d52b8f1c --walks large-step --bot Walker
+exit=2
+STDERR:
+walk-request: brief exceeds 64 KiB
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+
+$ FM_HOME=/tmp/fm-lab.remote.aw17pd2q bin/fm-walk-request.sh --brief /tmp/fm-lab.remote.aw17pd2q/data/walk-briefs/large.md --release 8797976169b061d3deed2b93d5e32036d52b8f1c --walks large-step --bot Walker
+exit=2
+STDERR:
+walk-request: brief must be UTF-8 text, not binary
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+
+$ FM_HOME=/tmp/fm-lab.remote.aw17pd2q bin/fm-walk-request.sh --brief /tmp/fm-lab.remote.aw17pd2q/data/walk-briefs/escaped.md --release 8797976169b061d3deed2b93d5e32036d52b8f1c --walks large-step --bot Walker
+exit=2
+STDERR:
+walk-request: brief resolves to a private path
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+
+$ FM_HOME=/tmp/fm-lab.remote.aw17pd2q bin/fm-walk-request.sh --brief /tmp/fm-lab.remote.aw17pd2q/config/private.txt --release 8797976169b061d3deed2b93d5e32036d52b8f1c --walks large-step --bot Walker
+exit=2
+STDERR:
+walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+
+OBSERVED RESULT: PASS
+TEARDOWN removed disposable lab /tmp/fm-lab.remote.aw17pd2q
+TEARDOWN removed disposable lab /tmp/fm-lab.mate.g9014mc1
+TEARDOWN removed disposable lab /tmp/fm-lab.main.0lawcbr7
+TEARDOWN removed disposable lab /tmp/fm-lab.captain.pyyfr0mw
+TEARDOWN removed disposable lab /tmp/fm-lab.removed.s95wyte4
+TEARDOWN removed disposable lab /tmp/fm-lab.destination-receipt.g1q36571
+TEARDOWN removed disposable lab /tmp/fm-lab.source-receipt.vadnuns3
+TEARDOWN removed disposable lab /tmp/fm-lab.destination-move.6z8wouap
+TEARDOWN removed disposable lab /tmp/fm-lab.source-move.2wc0qpu9
+TEARDOWN removed disposable lab /tmp/fm-lab.recover.k4h3peo9
+TEARDOWN removed disposable lab /tmp/fm-lab.negative.wdirkzg1
+TEARDOWN removed disposable lab /tmp/fm-lab.merged.xf98iqtd
+TEARDOWN removed disposable lab /tmp/fm-lab.marker.6ehhks9q
+TEARDOWN removed disposable lab /tmp/fm-lab.guard.its1ix5b
+All manual-verification subprocesses completed; no detached dispatch was launched (private dispatcher absent).

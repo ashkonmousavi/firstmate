@@ -10,16 +10,4 @@ ok - hold-release: a closed row reconciles record and decision away
 ok - hold-release: a removed row reconciles record and decision away
 ok - hold-release: show overrides preserve unknown reads and reconcile missing tasks
 ok - hold-release: committed episodes recover after interrupted publication and refused writes preserve the prior hold
-ok - hold-release: raw moves, local peers, registered mates and remote receipts preserve conditions
-ok - hold-release: structured reasons round-trip through show, list, snapshots and markdown
-ok - hold-release: pr condition is met only on MERGED, never on failure
-ok - hold-release: captain holds accept --release-on and answering drops it
-ok - hold-release: answering or re-holding a captain hold ends its release decision
-ok - hold-release: bounded sweeps eventually disposition all 26 met holds
-ok - hold-release: PR and task reads respect the remaining sweep budget
-ok - hold-release: all hold mutations serialize with evaluation and close stale decisions
-ok - hold-release: an announced decision always has a durable wake before budget expiry
-ok - hold-release: failed wake commits leave publication retryable
-ok - hold-release: all wrapper spellings require a condition while captain holds stay exempt
-ok - hold-release: stalled lookups reserve processing time for later registered checks
-# fm-hold-release.test.sh: all assertions passed
+not ok - the held task must transfer to a local peer: error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/049a88734b0e/01M653CRY7NAGXTSWXGCEEE7W9/.test-phase/tmp/fm-hold-release.kUcm20/transfer-peer-dest
