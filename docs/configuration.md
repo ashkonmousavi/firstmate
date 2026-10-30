@@ -837,7 +837,9 @@ A secondmate whose machine has no access to the home-private walker dispatcher a
 Arming [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) with `arm` in that home - the same authenticated watcher-check binding as the growth check above - dispatches each requested walk at most once per `<walk-id>@<release>` through the home's `data/bin/fm-grok-bot-dispatch.sh` and returns the outcome to the requesting mate as a fire-and-forget steering-inbox message.
 Remote requests carry the brief inline through the existing parent channel; MAIN never opens a remote mate's supplied path.
 Briefs must be UTF-8 text of at most 64 KiB; binary and larger inputs are refused.
-The carrier confines source paths to the requesting mate's `data/walk-briefs/` or MAIN's `data/from-main/walk-lists/`, resolving symlinks and refusing dotfiles, `config/`, `state/`, and paths outside that set.
+The carrier requires an absolute source path under the requesting mate's or MAIN's home, using either the configured home path or its resolved form; the resolved file must be inside the mate's `data/walk-briefs/` or MAIN's `data/from-main/walk-lists/`.
+In both the supplied path and resolved target, privacy checks refuse dot-prefixed components and case-insensitive `config` or `state` components below the containing home, including when a symlink points between the two approved homes.
+Home roots and their ancestors may contain those names, so homes under `.treehouse/` can request walks; `..` traversal and symlink escapes outside the approved directories remain refused.
 MAIN applies the same confinement to local path requests and copies every accepted brief into `data/walk-requests/<request-id>/brief.md` before dispatching that snapshot.
 Outcomes preserve multiline report text up to the carrier's bound and include the full report's MAIN path; recovery appends to that report.
 The bridge and its sign-in stay private to that home: the check only invokes the dispatcher, and a home without the dispatcher reports that plainly rather than guessing.

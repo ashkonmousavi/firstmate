@@ -285,8 +285,11 @@ fm_exec_timed() {  # <seconds> <grace-seconds> <command...>
 }
 
 fm_checkpoint_clock() {
-  if [ -z "${FM_CHECKPOINT_CLOCK_OFFSET:-}" ]; then FM_CHECKPOINT_CLOCK_OFFSET=$(( $(date +%s) - SECONDS )); fi
-  FM_CHECKPOINT_NOW=$((FM_CHECKPOINT_CLOCK_OFFSET + SECONDS))
+  # SECONDS follows wall-clock corrections, which must not extend a sweep.
+  local monotonic
+  monotonic=$(python3 -c 'import time; print(int(time.monotonic()))') || return 1
+  if [ -z "${FM_CHECKPOINT_CLOCK_OFFSET:-}" ]; then FM_CHECKPOINT_CLOCK_OFFSET=$(( $(date +%s) - monotonic )); fi
+  FM_CHECKPOINT_NOW=$((FM_CHECKPOINT_CLOCK_OFFSET + monotonic))
 }
 
 fm_checkpoint_budget() {
