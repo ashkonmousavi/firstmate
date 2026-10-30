@@ -1,0 +1,3 @@
+walk-request: brief path contains a private or relative component
+fm-walk-request: --brief must name an approved UTF-8 walk brief of at most 64 KiB
+not ok - interruption before initial or recovery launch must leave the request pending: expected exit 143, got 0

@@ -1,0 +1,1 @@
+start=1793356482.212542 pid=3004292 ppid=3004289 argv=-k 1 5 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.6WMvTb python3 - /tmp/fm-walk-request.KykI8d/lost-main/state/lost-mate.status 2096:615074 231 

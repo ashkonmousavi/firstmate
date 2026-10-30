@@ -1,0 +1,22 @@
+[
+  {
+    "name": "configured",
+    "result": "pass"
+  },
+  {
+    "name": "unset",
+    "result": "pass"
+  },
+  {
+    "name": "token-shape",
+    "result": "pass"
+  },
+  {
+    "name": "invalid pair refused at sweep and direct dispatch",
+    "result": "pass"
+  },
+  {
+    "name": "no request-level route",
+    "result": "pass"
+  }
+]

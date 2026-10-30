@@ -1,0 +1,1 @@
+start=1793356469.264361 pid=2990025 ppid=2990022 argv=-k 1 5 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.0Jw8D0 python3 - /tmp/fm-walk-request.KykI8d/retry-commit-main/state/retry-commit-mate.status 2096:561418 209 

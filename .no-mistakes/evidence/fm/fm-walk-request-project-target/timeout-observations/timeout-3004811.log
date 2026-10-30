@@ -1,0 +1,1 @@
+start=1793356482.660319 pid=3004811 ppid=3004808 argv=-k 1 5 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.omswvv python3 - /tmp/fm-walk-request.KykI8d/interrupted-main/state/interrupted-mate.status 2096:615136 225 

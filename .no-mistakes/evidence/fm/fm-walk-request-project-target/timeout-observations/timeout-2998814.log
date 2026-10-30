@@ -1,0 +1,1 @@
+start=1793356478.476670 pid=2998814 ppid=2998809 argv=-k 1 5 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.Y3pWc6 python3 - /tmp/fm-walk-request.KykI8d/invalid-main/state/invalid-mate.status 2096:614760 365 

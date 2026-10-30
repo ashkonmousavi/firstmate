@@ -1,0 +1,66 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/bounded-live-ove568so/contended
+~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/bounded-live-ove568so/contended
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+awaited child exit=0
+Real fm-send target metadata lock held by another live process.
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+walk-request: outcome delivery to route-mate failed (fm-send rc=124) for request abcdef0123456789; will retry
+exit=0
+sweep=1 elapsed=2.086s registered_bound=4s
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+sweep=2 elapsed=2.071s registered_bound=4s
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+sweep=3 elapsed=2.091s registered_bound=4s
+PENDING RECORD:
+schema=fm-walk-request-v1
+corr=abcdef0123456789
+mate=route-mate
+walks=desk-step
+brief=
+brief64=RGlzcG9zYWJsZSByb3V0aW5nIGFjY2VwdGFuY2UgYnJpZWYuIE5vIGV4dGVybmFsIHdhbGtzIGFyZSByZXF1ZXN0ZWQuCg==
+brief_format=inline
+release=0123456789abcdef0123456789abcdef01234567
+bot=J01Walker
+created_epoch=1793357277
+phase=dispatching
+reason=
+reported=outcome delivery to route-mate failed (fm-send rc=124) for request abcdef0123456789; will retry
+outcome=
+retried=
+spawned=desk-step
+delivered=
+
+lock-holder exit=0 
+awaited child exit=-15
+awaited child exit=-15
+awaited child exit=-15
+awaited child exit=-15
+awaited child exit=-15
+awaited child exit=-15
+DISPATCH REPORT:
+dispatcher boundary accepted: project=x target=production walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+
+__FM_WALK_DISPATCH_EXIT__=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+REAL FM-SEND INBOX:
+schema=fm-task-inbox.v1
+at=2026-10-30T10:48:04Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=74363178df64390d walk desk-step@0123456789abcdef0123456789abcdef01234567 (corr=abcdef0123456789) outcome: sent, exit=0: dispatcher boundary accepted: project=x target=production walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/bounded-live-ove568so/contended/state/walk-requests/abcdef0123456789.desk-step.log
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+Recovered real inbox delivery after releasing contention; repeated sweep remained idempotent.
+Disposable homes removed; holder and dispatch children awaited.

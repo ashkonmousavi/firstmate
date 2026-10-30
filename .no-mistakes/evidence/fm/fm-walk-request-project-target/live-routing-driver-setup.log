@@ -1,0 +1,33 @@
+
+SCENARIO configured
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-y2tknrqb/configured
+~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-y2tknrqb/configured
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+DISPATCH REPORT:
+dispatcher boundary accepted: project=x target=production walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+
+__FM_WALK_DISPATCH_EXIT__=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+REAL FM-SEND INBOX:
+schema=fm-task-inbox.v1
+at=2026-10-30T10:31:11Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=74363178df64390d walk desk-step@0123456789abcdef0123456789abcdef01234567 (corr=abcdef0123456789) outcome: sent, exit=0: dispatcher boundary accepted: project=x target=production walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-y2tknrqb/configured/state/walk-requests/abcdef0123456789.desk-step.log
+RESULTS []
+All disposable homes removed; detached dispatch children awaited.
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M6652CCZDGTN89BP9K68QCQS/drive-routing.py", line 101, in <module>
+    call=collect(lab,corr,env)
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/evidence/01M6652CCZDGTN89BP9K68QCQS/drive-routing.py", line 87, in collect
+    assert call['brief']==BRIEF
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError

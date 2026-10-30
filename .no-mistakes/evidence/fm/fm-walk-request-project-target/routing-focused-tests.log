@@ -1,0 +1,4 @@
+ok - walk-request: the environment pair controls project and target
+ok - walk-request: no project or target flag without a source
+ok - walk-request: sweep and dispatch reject incomplete or malformed environment routing
+# fm-walk-request.test.sh: all assertions passed

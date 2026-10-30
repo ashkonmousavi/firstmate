@@ -1,0 +1,1 @@
+start=1793356478.652981 pid=2999263 ppid=2999260 argv=-k 1 5 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.eJLlTj python3 - /tmp/fm-walk-request.KykI8d/retry-incomplete-main/state/retry-incomplete-mate.status '' 0 

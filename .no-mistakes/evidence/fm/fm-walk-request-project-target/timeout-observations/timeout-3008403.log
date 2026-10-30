@@ -1,0 +1,1 @@
+start=1793356490.409634 pid=3008403 ppid=3008400 argv=-k 1 1 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.q6G5Bt python3 - /tmp/fm-walk-request.KykI8d/fair-main/state/fair-mate-1.status 2096:615237 207 

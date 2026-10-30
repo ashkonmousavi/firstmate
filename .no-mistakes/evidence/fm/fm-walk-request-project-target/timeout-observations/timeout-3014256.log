@@ -1,0 +1,2 @@
+start=1793356496.862669 pid=3014256 ppid=3014237 argv=-k 1 2 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.wVOMHp /tmp/fm-walk-request.KykI8d/fair-main/fake-send fair-mate-3 --fire-and-forget e789035f56345248 walk\ request@\ \(corr=0000000000000003\)\ outcome:\ refused:\ the\ typed\ walk\ request\ was\ incomplete\;\ re-send\ it\ with\ walks\,\ brief\,\ and\ release 
+/usr/bin/timeout: sending signal TERM to command 'bash'

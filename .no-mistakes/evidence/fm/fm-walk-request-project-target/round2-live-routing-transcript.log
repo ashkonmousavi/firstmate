@@ -1,0 +1,552 @@
+
+SCENARIO configured
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/configured
+~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/configured
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+DISPATCH REPORT:
+dispatcher boundary accepted: project=x target=production walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+
+__FM_WALK_DISPATCH_EXIT__=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+REAL FM-SEND INBOX:
+schema=fm-task-inbox.v1
+at=2026-10-30T10:46:01Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=74363178df64390d walk desk-step@0123456789abcdef0123456789abcdef01234567 (corr=abcdef0123456789) outcome: sent, exit=0: dispatcher boundary accepted: project=x target=production walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/configured/state/walk-requests/abcdef0123456789.desk-step.log
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+CAPTURED DISPATCH ARGV: ["~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/configured/data/walk-requests/abcdef0123456789/brief.md", "--bot", "J01Walker", "--walk", "desk-step", "--walk-owner", "route-mate", "--timeout", "1800", "--once-key", "desk-step@0123456789abcdef0123456789abcdef01234567", "--project", "x", "--target", "production"]
+
+REGRESSION COUNTERFACTUAL: base checker with identical environment
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/.fm-walk-request-check-base-validation.sh dispatch-one abcdef0123456789 desk-step
+(silent)
+exit=0
+dispatcher boundary accepted: project=x target=production walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+
+__FM_WALK_DISPATCH_EXIT__=0
+explicit supported --project and --target required
+
+__FM_WALK_DISPATCH_EXIT__=2
+
+
+SCENARIO unset
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/unset
+~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/unset
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+DISPATCH REPORT:
+dispatcher boundary accepted: project=None target=None walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+
+__FM_WALK_DISPATCH_EXIT__=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+REAL FM-SEND INBOX:
+schema=fm-task-inbox.v1
+at=2026-10-30T10:46:02Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=74363178df64390d walk desk-step@0123456789abcdef0123456789abcdef01234567 (corr=abcdef0123456789) outcome: sent, exit=0: dispatcher boundary accepted: project=None target=None walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/unset/state/walk-requests/abcdef0123456789.desk-step.log
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+CAPTURED DISPATCH ARGV: ["~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/unset/data/walk-requests/abcdef0123456789/brief.md", "--bot", "J01Walker", "--walk", "desk-step", "--walk-owner", "route-mate", "--timeout", "1800", "--once-key", "desk-step@0123456789abcdef0123456789abcdef01234567"]
+
+SCENARIO token-shape
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/token-shape
+~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/token-shape
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+DISPATCH REPORT:
+dispatcher boundary accepted: project=Project_2.v1-rc target=Target_3.prod-v2 walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+
+__FM_WALK_DISPATCH_EXIT__=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+REAL FM-SEND INBOX:
+schema=fm-task-inbox.v1
+at=2026-10-30T10:46:03Z
+delivery=fire-and-forget
+--
+[fm-from-firstmate]⁣delivery=74363178df64390d walk desk-step@0123456789abcdef0123456789abcdef01234567 (corr=abcdef0123456789) outcome: sent, exit=0: dispatcher boundary accepted: project=Project_2.v1-rc target=Target_3.prod-v2 walk=desk-step once-key=desk-step@0123456789abcdef0123456789abcdef01234567
+Full report (MAIN): ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/token-shape/state/walk-requests/abcdef0123456789.desk-step.log
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
+(silent)
+exit=0
+CAPTURED DISPATCH ARGV: ["~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/token-shape/data/walk-requests/abcdef0123456789/brief.md", "--bot", "J01Walker", "--walk", "desk-step", "--walk-owner", "route-mate", "--timeout", "1800", "--once-key", "desk-step@0123456789abcdef0123456789abcdef01234567", "--project", "Project_2.v1-rc", "--target", "Target_3.prod-v2"]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/invalid
+~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/.walk-route-validation/routing-live-8bvziwhu/invalid
+exit=0
+
+INVALID ROUTE ('x', None) action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE (None, 'production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('a b', 'production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', 'a b') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('-x', 'production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT must start with a letter or digit
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', '-production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_TARGET must start with a letter or digit
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('_x', 'production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT must start with a letter or digit
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', '.production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_TARGET must start with a letter or digit
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x;y', 'production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', 'production;y') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x\ty', 'production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', 'production\ny') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('é', 'production') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', 'production/other') action=check
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', None) action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE (None, 'production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must be set together
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('a b', 'production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', 'a b') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('-x', 'production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT must start with a letter or digit
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', '-production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_TARGET must start with a letter or digit
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('_x', 'production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT must start with a letter or digit
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', '.production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_TARGET must start with a letter or digit
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x;y', 'production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', 'production;y') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x\ty', 'production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', 'production\ny') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('é', 'production') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+INVALID ROUTE ('x', 'production/other') action=dispatch-one
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh dispatch-one abcdef0123456789 desk-step
+fm-walk-request-check: FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET must each be one space-free name
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+exit=2
+
+SCENARIO carrier refuses request-level routing flags
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request.sh --project untrusted
+Usage:
+  fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
+    --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
+  fm-walk-request.sh --help
+
+Writes one typed walk request on this secondmate home's parent channel so
+MAIN's registered walk-request check dispatches it through the home-private
+fm-grok-bot-dispatch.sh (at most once per <walk-id>@<release>) and returns
+the outcome to this home's steering inbox.
+
+The brief must be UTF-8 text of at most 64 KiB, inside this mate data/walk-briefs
+or MAIN data/from-main/walk-lists; private paths and symlink escapes are refused.
+Remote requests carry the content inline. MAIN dispatches a private copy. The release is the
+served commit the walk covers. Walk ids are privacy-safe slugs.
+exit=2
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request.sh --target untrusted
+Usage:
+  fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
+    --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
+  fm-walk-request.sh --help
+
+Writes one typed walk request on this secondmate home's parent channel so
+MAIN's registered walk-request check dispatches it through the home-private
+fm-grok-bot-dispatch.sh (at most once per <walk-id>@<release>) and returns
+the outcome to this home's steering inbox.
+
+The brief must be UTF-8 text of at most 64 KiB, inside this mate data/walk-briefs
+or MAIN data/from-main/walk-lists; private paths and symlink escapes are refused.
+Remote requests carry the content inline. MAIN dispatches a private copy. The release is the
+served commit the walk covers. Walk ids are privacy-safe slugs.
+exit=2
+RESULTS [{"name": "configured", "result": "pass"}, {"name": "unset", "result": "pass"}, {"name": "token-shape", "result": "pass"}, {"name": "invalid pair refused at sweep and direct dispatch", "result": "pass"}, {"name": "no request-level route", "result": "pass"}]
+All disposable homes removed; detached dispatch children awaited.

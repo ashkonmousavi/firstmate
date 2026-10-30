@@ -1,0 +1,1 @@
+start=1793356479.876934 pid=3001552 ppid=3001545 argv=-k 1 5 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.8UcbcK python3 - /tmp/fm-walk-request.KykI8d/retry-short-main/state/retry-short-mate.status 2096:614902 164 

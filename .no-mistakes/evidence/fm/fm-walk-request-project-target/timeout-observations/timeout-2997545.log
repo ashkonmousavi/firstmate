@@ -1,0 +1,1 @@
+start=1793356478.052075 pid=2997545 ppid=2997542 argv=-k 1 5 bash -c $'\n    status_file=$1\n    shift\n    "$@"\n    command_rc=$?\n    printf "%s\\n" "$command_rc" > "$status_file"\n    exit "$command_rc"\n  ' _ /tmp/fm-timeout-status.OqUNts python3 - /tmp/fm-walk-request.KykI8d/absent-main/state/absent-mate.status 2096:614553 220 

@@ -1,0 +1,426 @@
++1793356322.096590 set -u
+++1793356322.096824 dirname tests/.walk-route-fair-validation.sh
++1793356322.097491 . tests/lib.sh
+++1793356322.097552 '[' -n '' ']'
+++1793356322.097560 FM_TEST_LIB_SOURCED=1
+++1793356322.097568 umask 022
++++1793356322.097750 dirname tests/lib.sh
+++1793356322.098398 . tests/git-config-helpers.sh
++++1793356322.098444 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
++++1793356322.098448 GIT_CONFIG_GLOBAL=/dev/null
++++1793356322.098451 GIT_CONFIG_NOSYSTEM=1
++++1793356322.098459 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR
+++1793356322.098469 export FM_GATE_REFUSE_BYPASS=1
+++1793356322.098471 FM_GATE_REFUSE_BYPASS=1
+++1793356322.098475 export FM_TEST_SEAM=1
+++1793356322.098476 FM_TEST_SEAM=1
+++1793356322.098480 unset FM_TASK_ID
+++1793356322.098488 unset TASKS_AXI_FILE TASKS_AXI_BACKEND
+++++1793356322.098860 dirname tests/lib.sh
++++1793356322.099656 cd tests/..
++++1793356322.099693 pwd
+++1793356322.099831 ROOT=~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS
+++1793356322.099855 export FM_CAPACITY_MEMINFO=~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/tests/captures/capacity-meminfo
+++1793356322.099859 FM_CAPACITY_MEMINFO=~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/tests/captures/capacity-meminfo
+++1793356322.099866 export FM_RESOURCE_CGROUP_FILE=/dev/null
+++1793356322.099868 FM_RESOURCE_CGROUP_FILE=/dev/null
+++1793356322.099874 export FM_CAPACITY_PRESSURE_FILE=~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/tests/captures/capacity-pressure
+++1793356322.099877 FM_CAPACITY_PRESSURE_FILE=~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/tests/captures/capacity-pressure
++++1793356322.100139 fm_test_tmpdir
++++1793356322.100171 local base=/tmp physical
++++1793356322.100186 base=/tmp
++++1793356322.100191 '[' -n /tmp ']'
++++1793356322.100194 case "$base" in
+++++1793356322.100388 CDPATH=
+++++1793356322.100402 cd -- /tmp
+++++1793356322.100442 pwd -P
++++1793356322.100588 physical=/tmp
++++1793356322.100602 base=/tmp
++++1793356322.100609 '[' -e /tmp/.git ']'
++++1793356322.100618 printf '%s\n' /tmp
+++1793356322.100771 FM_TEST_TMPDIR=/tmp
+++1793356322.100789 FM_TEST_CLEANUP_DIRS=()
++++1793356322.100971 mktemp /tmp/.fm-test-cleanup.2902977.XXXXXX
+++1793356322.101725 FM_TEST_CLEANUP_REGISTRY=/tmp/.fm-test-cleanup.2902977.NccreP
++++1793356322.101935 fm_test_pid_identity 2902977
++++1793356322.101959 local pid=2902977
++++1793356322.101975 FM_STATE_OVERRIDE=/tmp
++++1793356322.101977 bash -c '. "$1"; fm_pid_identity "$2"' _ ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-wake-lib.sh 2902977
+++1793356322.111722 FM_TEST_OWNER_IDENTITY='linux-starttime=9036421 cmdline-hex=62617368002d780074657374732f2e77616c6b2d726f7574652d666169722d76616c69646174696f6e2e736800'
++++1793356322.111931 mktemp /tmp/.fm-test-procevent.2902977.XXXXXX
+++1793356322.112711 FM_TEST_PROCEVENT_REGISTRY=/tmp/.fm-test-procevent.2902977.4zSw1R
++++1793356322.112969 mktemp /tmp/.fm-test-watcher.2902977.XXXXXX
+++1793356322.113745 FM_TEST_WATCHER_REGISTRY=/tmp/.fm-test-watcher.2902977.GakwoW
+++1793356322.113837 FM_TEST_STUB_MAX_BLOCK_SECONDS=120
+++1793356322.113848 export FM_TEST_STUB_MAX_BLOCK_SECONDS
+++1793356322.113899 trap fm_test_cleanup EXIT
+++1793356322.113907 trap 'fm_test_cleanup; exit 130' INT
+++1793356322.113912 trap 'fm_test_cleanup; exit 143' TERM
+++1793356322.113915 trap 'fm_test_cleanup; exit 129' HUP
+++1793356322.113919 trap 'fm_test_cleanup; exit 131' QUIT
+++1793356322.113926 FM_TEST_ORPHAN_MAX_AGE_SECONDS=3600
+++1793356322.113971 '[' 0 '!=' 1 ']'
+++1793356322.113975 fm_test_reap_orphans
+++1793356322.113984 local marker dir mtime now owner_pid owner_identity current_identity
++++1793356322.114172 date +%s
+++1793356322.114957 now=1793356322
+++1793356322.119032 for marker in "$FM_TEST_TMPDIR"/fm-*/.fm-test-fixture
+++1793356322.119049 '[' -e '/tmp/fm-*/.fm-test-fixture' ']'
+++1793356322.119055 continue
++1793356322.119448 command -v jq
+++1793356322.119673 fm_test_tmproot fm-walk-request
+++1793356322.119734 local prefix=fm-walk-request root tmp_base
++++1793356322.119923 fm_test_tmpdir
++++1793356322.119966 local base=/tmp physical
++++1793356322.119981 base=/tmp
++++1793356322.119988 '[' -n /tmp ']'
++++1793356322.119991 case "$base" in
+++++1793356322.120191 CDPATH=
+++++1793356322.120205 cd -- /tmp
+++++1793356322.120254 pwd -P
++++1793356322.120396 physical=/tmp
++++1793356322.120411 base=/tmp
++++1793356322.120419 '[' -e /tmp/.git ']'
++++1793356322.120428 printf '%s\n' /tmp
+++1793356322.120582 tmp_base=/tmp
+++1793356322.120600 tmp_base=/tmp
++++1793356322.120789 mktemp -d /tmp/fm-walk-request.XXXXXX
+++1793356322.121704 root=/tmp/fm-walk-request.HhD9mX
++++1793356322.121911 cd -P -- /tmp/fm-walk-request.HhD9mX
++++1793356322.121944 pwd -P
+++1793356322.122083 root=/tmp/fm-walk-request.HhD9mX
+++1793356322.122107 printf '%s\n%s\n' 2902977 'linux-starttime=9036421 cmdline-hex=62617368002d780074657374732f2e77616c6b2d726f7574652d666169722d76616c69646174696f6e2e736800'
+++1793356322.122153 printf '%s\n' /tmp/fm-walk-request.HhD9mX
+++1793356322.122165 printf '%s\n' /tmp/fm-walk-request.HhD9mX
++1793356322.122348 TMP_ROOT=/tmp/fm-walk-request.HhD9mX
++1793356322.122375 CARRIER=~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request.sh
++1793356322.122382 CHECK=~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh
++1793356322.122386 RELEASE=0123456789abcdef0123456789abcdef01234567
++1793356322.122392 unset FM_WALK_REQUEST_PROJECT FM_WALK_REQUEST_TARGET
++1793356322.123769 CHECK=~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh
++1793356322.123783 test_slow_deliveries_are_bounded_and_fair
++1793356322.123796 local parent mate dispatch send n corr walks out
+++1793356322.123985 make_parent fair-main
+++1793356322.124016 local parent=/tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.124029 mkdir -p /tmp/fm-walk-request.HhD9mX/fair-main/state /tmp/fm-walk-request.HhD9mX/fair-main/data/from-main/walk-lists
+++1793356322.125432 printf 'shared walk brief\n'
+++1793356322.125492 printf '%s\n' /tmp/fm-walk-request.HhD9mX/fair-main
++1793356322.125642 parent=/tmp/fm-walk-request.HhD9mX/fair-main
++1793356322.125661 dispatch=/tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356322.125666 send=/tmp/fm-walk-request.HhD9mX/fair-main/fake-send
++1793356322.125670 fake_dispatcher /tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356322.125678 cat
++1793356322.126546 chmod +x /tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356322.127406 cat
++1793356322.128250 chmod +x /tmp/fm-walk-request.HhD9mX/fair-main/fake-send
++1793356322.129403 for n in 1 2 3
+++1793356322.129597 make_mate fair-mate-1 /tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.129630 local mate=/tmp/fm-walk-request.HhD9mX/fair-mate-1 parent=/tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.129643 mkdir -p /tmp/fm-walk-request.HhD9mX/fair-mate-1/state /tmp/fm-walk-request.HhD9mX/fair-mate-1/data/walk-briefs /tmp/fm-walk-request.HhD9mX/fair-main/state
+++1793356322.130843 printf 'walk brief\n'
+++1793356322.130897 printf '%s\n' fair-mate-1
+++1793356322.130917 printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' /tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.130934 printf 'kind=secondmate\nhome=%s\n' /tmp/fm-walk-request.HhD9mX/fair-mate-1
+++1793356322.130949 printf '%s\n' /tmp/fm-walk-request.HhD9mX/fair-mate-1
++1793356322.131133 mate=/tmp/fm-walk-request.HhD9mX/fair-mate-1
++1793356322.131153 printf -v corr %016x 1
++1793356322.131163 case "$n" in
++1793356322.131167 walks=first,middle,last
++1793356322.131172 '[' 1 -eq 3 ']'
++1793356322.131184 printf 'note [corr=%s]: walk-request: walks=%s brief=/tmp/fm-walk-request.HhD9mX/fair-main/data/from-main/walk-lists/brief.md release=%s bot=Walker\n' 0000000000000001 first,middle,last 0123456789abcdef0123456789abcdef01234567
++1793356322.131221 for n in 1 2 3
+++1793356322.131401 make_mate fair-mate-2 /tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.131438 local mate=/tmp/fm-walk-request.HhD9mX/fair-mate-2 parent=/tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.131452 mkdir -p /tmp/fm-walk-request.HhD9mX/fair-mate-2/state /tmp/fm-walk-request.HhD9mX/fair-mate-2/data/walk-briefs /tmp/fm-walk-request.HhD9mX/fair-main/state
+++1793356322.132672 printf 'walk brief\n'
+++1793356322.132746 printf '%s\n' fair-mate-2
+++1793356322.132774 printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' /tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.132790 printf 'kind=secondmate\nhome=%s\n' /tmp/fm-walk-request.HhD9mX/fair-mate-2
+++1793356322.132806 printf '%s\n' /tmp/fm-walk-request.HhD9mX/fair-mate-2
++1793356322.132955 mate=/tmp/fm-walk-request.HhD9mX/fair-mate-2
++1793356322.132972 printf -v corr %016x 2
++1793356322.132979 case "$n" in
++1793356322.132982 walks=other
++1793356322.132987 '[' 2 -eq 3 ']'
++1793356322.132998 printf 'note [corr=%s]: walk-request: walks=%s brief=/tmp/fm-walk-request.HhD9mX/fair-main/data/from-main/walk-lists/brief.md release=%s bot=Walker\n' 0000000000000002 other 0123456789abcdef0123456789abcdef01234567
++1793356322.133041 for n in 1 2 3
+++1793356322.133226 make_mate fair-mate-3 /tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.133256 local mate=/tmp/fm-walk-request.HhD9mX/fair-mate-3 parent=/tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.133270 mkdir -p /tmp/fm-walk-request.HhD9mX/fair-mate-3/state /tmp/fm-walk-request.HhD9mX/fair-mate-3/data/walk-briefs /tmp/fm-walk-request.HhD9mX/fair-main/state
+++1793356322.134650 printf 'walk brief\n'
+++1793356322.134704 printf '%s\n' fair-mate-3
+++1793356322.134749 printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' /tmp/fm-walk-request.HhD9mX/fair-main
+++1793356322.134798 printf 'kind=secondmate\nhome=%s\n' /tmp/fm-walk-request.HhD9mX/fair-mate-3
+++1793356322.134818 printf '%s\n' /tmp/fm-walk-request.HhD9mX/fair-mate-3
++1793356322.134963 mate=/tmp/fm-walk-request.HhD9mX/fair-mate-3
++1793356322.134981 printf -v corr %016x 3
++1793356322.134988 case "$n" in
++1793356322.134992 walks=refusal
++1793356322.134997 '[' 3 -eq 3 ']'
++1793356322.135049 printf 'note [corr=%s]: walk-request: walks=refusal\n' 0000000000000003
++1793356322.135121 . ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-timeout-lib.sh
+++1793356322.135176 set -u
++1793356322.135396 for n in {1..8}
++1793356322.135405 FM_HOME=/tmp/fm-walk-request.HhD9mX/fair-main
++1793356322.135409 FM_STATE_OVERRIDE=/tmp/fm-walk-request.HhD9mX/fair-main/state
++1793356322.135411 FM_CHECK_TIMEOUT=4
++1793356322.135414 FM_WALK_REQUEST_DISPATCH=/tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356322.135416 FM_WALK_REQUEST_SEND=/tmp/fm-walk-request.HhD9mX/fair-main/fake-send
++1793356322.135418 FM_WALK_REQUEST_SEND_BOUND=25
++1793356322.135420 fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356322.135443 local seconds=4
++1793356322.135446 shift
++1793356322.135448 case "$(fm_timeout_mechanism)" in
+++1793356322.135653 fm_timeout_mechanism
+++1793356322.135690 '[' '' = bash ']'
+++1793356322.135699 command -v timeout
+++1793356322.135745 printf 'timeout\n'
++1793356322.135897 fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356322.135924 local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++1793356322.135934 shift 2
+++1793356322.136118 mktemp /tmp/fm-timeout-status.XXXXXX
++1793356322.137235 status_file=/tmp/fm-timeout-status.W9G6qA
++1793356322.137389 runner_pid=2903019
++1793356322.137407 wait 2903019
++1793356322.137486 timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ /tmp/fm-timeout-status.W9G6qA ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356324.524583 runner_rc=0
+++1793356324.524901 cat /tmp/fm-timeout-status.W9G6qA
++1793356324.525979 command_rc=0
++1793356324.525998 rm -f /tmp/fm-timeout-status.W9G6qA
++1793356324.526836 case "$command_rc" in
++1793356324.526855 '[' 0 -le 255 ']'
++1793356324.526860 case "$runner_rc" in
++1793356324.526864 return 0
++1793356324.526893 for n in {1..8}
++1793356324.526909 FM_HOME=/tmp/fm-walk-request.HhD9mX/fair-main
++1793356324.526913 FM_STATE_OVERRIDE=/tmp/fm-walk-request.HhD9mX/fair-main/state
++1793356324.526915 FM_CHECK_TIMEOUT=4
++1793356324.526918 FM_WALK_REQUEST_DISPATCH=/tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356324.526920 FM_WALK_REQUEST_SEND=/tmp/fm-walk-request.HhD9mX/fair-main/fake-send
++1793356324.526922 FM_WALK_REQUEST_SEND_BOUND=25
++1793356324.526924 fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356324.526954 local seconds=4
++1793356324.526958 shift
++1793356324.526960 case "$(fm_timeout_mechanism)" in
+++1793356324.527174 fm_timeout_mechanism
+++1793356324.527214 '[' '' = bash ']'
+++1793356324.527223 command -v timeout
+++1793356324.527271 printf 'timeout\n'
++1793356324.527431 fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356324.527458 local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++1793356324.527471 shift 2
+++1793356324.527683 mktemp /tmp/fm-timeout-status.XXXXXX
++1793356324.528691 status_file=/tmp/fm-timeout-status.yrejjp
++1793356324.528834 runner_pid=2903831
++1793356324.528854 wait 2903831
++1793356324.528873 timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ /tmp/fm-timeout-status.yrejjp ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356326.631480 runner_rc=0
+++1793356326.631757 cat /tmp/fm-timeout-status.yrejjp
++1793356326.632752 command_rc=0
++1793356326.632771 rm -f /tmp/fm-timeout-status.yrejjp
++1793356326.633565 case "$command_rc" in
++1793356326.633582 '[' 0 -le 255 ']'
++1793356326.633587 case "$runner_rc" in
++1793356326.633591 return 0
++1793356326.633644 for n in {1..8}
++1793356326.633660 FM_HOME=/tmp/fm-walk-request.HhD9mX/fair-main
++1793356326.633664 FM_STATE_OVERRIDE=/tmp/fm-walk-request.HhD9mX/fair-main/state
++1793356326.633667 FM_CHECK_TIMEOUT=4
++1793356326.633669 FM_WALK_REQUEST_DISPATCH=/tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356326.633672 FM_WALK_REQUEST_SEND=/tmp/fm-walk-request.HhD9mX/fair-main/fake-send
++1793356326.633674 FM_WALK_REQUEST_SEND_BOUND=25
++1793356326.633675 fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356326.633842 local seconds=4
++1793356326.633855 shift
++1793356326.633858 case "$(fm_timeout_mechanism)" in
+++1793356326.634069 fm_timeout_mechanism
+++1793356326.634112 '[' '' = bash ']'
+++1793356326.634121 command -v timeout
+++1793356326.634169 printf 'timeout\n'
++1793356326.634333 fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356326.634360 local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++1793356326.634370 shift 2
+++1793356326.634566 mktemp /tmp/fm-timeout-status.XXXXXX
++1793356326.635644 status_file=/tmp/fm-timeout-status.2Ki6Se
++1793356326.635784 runner_pid=2904170
++1793356326.635802 wait 2904170
++1793356326.635821 timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ /tmp/fm-timeout-status.2Ki6Se ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356328.738899 runner_rc=0
+++1793356328.739148 cat /tmp/fm-timeout-status.2Ki6Se
++1793356328.740249 command_rc=0
++1793356328.740269 rm -f /tmp/fm-timeout-status.2Ki6Se
++1793356328.741144 case "$command_rc" in
++1793356328.741162 '[' 0 -le 255 ']'
++1793356328.741174 case "$runner_rc" in
++1793356328.741178 return 0
++1793356328.741233 for n in {1..8}
++1793356328.741254 FM_HOME=/tmp/fm-walk-request.HhD9mX/fair-main
++1793356328.741258 FM_STATE_OVERRIDE=/tmp/fm-walk-request.HhD9mX/fair-main/state
++1793356328.741260 FM_CHECK_TIMEOUT=4
++1793356328.741263 FM_WALK_REQUEST_DISPATCH=/tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356328.741266 FM_WALK_REQUEST_SEND=/tmp/fm-walk-request.HhD9mX/fair-main/fake-send
++1793356328.741267 FM_WALK_REQUEST_SEND_BOUND=25
++1793356328.741269 fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356328.741430 local seconds=4
++1793356328.741442 shift
++1793356328.741444 case "$(fm_timeout_mechanism)" in
+++1793356328.741658 fm_timeout_mechanism
+++1793356328.741699 '[' '' = bash ']'
+++1793356328.741707 command -v timeout
+++1793356328.741760 printf 'timeout\n'
++1793356328.741921 fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356328.741951 local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++1793356328.741961 shift 2
+++1793356328.742158 mktemp /tmp/fm-timeout-status.XXXXXX
++1793356328.743232 status_file=/tmp/fm-timeout-status.LQkZxt
++1793356328.743361 runner_pid=2905094
++1793356328.743380 wait 2905094
++1793356328.743424 timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ /tmp/fm-timeout-status.LQkZxt ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356330.836625 runner_rc=0
+++1793356330.836882 cat /tmp/fm-timeout-status.LQkZxt
++1793356330.837835 command_rc=0
++1793356330.837852 rm -f /tmp/fm-timeout-status.LQkZxt
++1793356330.838632 case "$command_rc" in
++1793356330.838658 '[' 0 -le 255 ']'
++1793356330.838665 case "$runner_rc" in
++1793356330.838668 return 0
++1793356330.838699 for n in {1..8}
++1793356330.838715 FM_HOME=/tmp/fm-walk-request.HhD9mX/fair-main
++1793356330.838719 FM_STATE_OVERRIDE=/tmp/fm-walk-request.HhD9mX/fair-main/state
++1793356330.838721 FM_CHECK_TIMEOUT=4
++1793356330.838724 FM_WALK_REQUEST_DISPATCH=/tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356330.838727 FM_WALK_REQUEST_SEND=/tmp/fm-walk-request.HhD9mX/fair-main/fake-send
++1793356330.838728 FM_WALK_REQUEST_SEND_BOUND=25
++1793356330.838730 fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356330.838757 local seconds=4
++1793356330.838760 shift
++1793356330.838762 case "$(fm_timeout_mechanism)" in
+++1793356330.838958 fm_timeout_mechanism
+++1793356330.839028 '[' '' = bash ']'
+++1793356330.839047 command -v timeout
+++1793356330.839098 printf 'timeout\n'
++1793356330.839260 fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356330.839291 local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++1793356330.839301 shift 2
+++1793356330.839497 mktemp /tmp/fm-timeout-status.XXXXXX
++1793356330.840816 status_file=/tmp/fm-timeout-status.CH1NpY
++1793356330.840948 runner_pid=2905759
++1793356330.840974 wait 2905759
++1793356330.840990 timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ /tmp/fm-timeout-status.CH1NpY ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356332.945245 runner_rc=0
+++1793356332.945525 cat /tmp/fm-timeout-status.CH1NpY
++1793356332.946471 command_rc=0
++1793356332.946489 rm -f /tmp/fm-timeout-status.CH1NpY
++1793356332.947421 case "$command_rc" in
++1793356332.947442 '[' 0 -le 255 ']'
++1793356332.947449 case "$runner_rc" in
++1793356332.947453 return 0
++1793356332.947481 for n in {1..8}
++1793356332.947501 FM_HOME=/tmp/fm-walk-request.HhD9mX/fair-main
++1793356332.947519 FM_STATE_OVERRIDE=/tmp/fm-walk-request.HhD9mX/fair-main/state
++1793356332.947526 FM_CHECK_TIMEOUT=4
++1793356332.947536 FM_WALK_REQUEST_DISPATCH=/tmp/fm-walk-request.HhD9mX/fair-main/fake-dispatch
++1793356332.947541 FM_WALK_REQUEST_SEND=/tmp/fm-walk-request.HhD9mX/fair-main/fake-send
++1793356332.947546 FM_WALK_REQUEST_SEND_BOUND=25
++1793356332.947553 fm_run_timed 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356332.947593 local seconds=4
++1793356332.947605 shift
++1793356332.947608 case "$(fm_timeout_mechanism)" in
+++1793356332.947819 fm_timeout_mechanism
+++1793356332.947856 '[' '' = bash ']'
+++1793356332.947866 command -v timeout
+++1793356332.947914 printf 'timeout\n'
++1793356332.948081 fm_run_external_timeout timeout 4 ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356332.948106 local runner=timeout seconds=4 status_file runner_pid runner_rc command_rc
++1793356332.948116 shift 2
+++1793356332.948323 mktemp /tmp/fm-timeout-status.XXXXXX
++1793356332.949303 status_file=/tmp/fm-timeout-status.GDoTHw
++1793356332.949460 runner_pid=2907711
++1793356332.949481 wait 2907711
++1793356332.949513 timeout -k 1 4 bash -c '
+    status_file=$1
+    shift
+    "$@"
+    command_rc=$?
+    printf "%s\n" "$command_rc" > "$status_file"
+    exit "$command_rc"
+  ' _ /tmp/fm-timeout-status.GDoTHw ~/.no-mistakes/worktrees/049a88734b0e/01M6652CCZDGTN89BP9K68QCQS/bin/fm-walk-request-check.sh check
++1793356334.219180 runner_rc=124
+++1793356334.219457 cat /tmp/fm-timeout-status.GDoTHw
++1793356334.220536 command_rc=
++1793356334.220554 rm -f /tmp/fm-timeout-status.GDoTHw
++1793356334.221385 case "$command_rc" in
++1793356334.221396 case "$runner_rc" in
++1793356334.221404 kill -KILL -- -2907711
++1793356334.221428 true
++1793356334.221431 return 124
++1793356334.221458 fail 'a sweep must yield inside the registered check'\''s bound'
++1793356334.221466 printf 'not ok - %s\n' 'a sweep must yield inside the registered check'\''s bound'
+not ok - a sweep must yield inside the registered check's bound
++1793356334.221472 exit 1
++1793356334.221480 fm_test_cleanup
++1793356334.221485 local d
++1793356334.221489 fm_test_reap_watchers
++1793356334.221497 local state lock_home 'seen=
+'
++1793356334.221504 '[' -f /tmp/.fm-test-watcher.2902977.GakwoW ']'
++1793356334.221516 IFS=
++1793356334.221517 read -r state
++1793356334.221533 rm -f /tmp/.fm-test-watcher.2902977.GakwoW
++1793356334.222331 fm_test_reap_procevent_homes
++1793356334.222346 local home claim_root 'seen=
+'
++1793356334.222357 '[' -f /tmp/.fm-test-procevent.2902977.4zSw1R ']'
++1793356334.222376 IFS='	'
++1793356334.222378 read -r home claim_root
++1793356334.222392 rm -f /tmp/.fm-test-procevent.2902977.4zSw1R
++1793356334.223201 for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++1793356334.223215 '[' -n '' ']'
++1793356334.223222 '[' -f /tmp/.fm-test-cleanup.2902977.NccreP ']'
++1793356334.223238 IFS=
++1793356334.223240 read -r d
++1793356334.223252 '[' -n /tmp/fm-walk-request.HhD9mX ']'
++1793356334.223256 fm_test_remove_tree /tmp/fm-walk-request.HhD9mX
++1793356334.223263 local dir=/tmp/fm-walk-request.HhD9mX
++1793356334.223268 '[' -d /tmp/fm-walk-request.HhD9mX ']'
++1793356334.223273 '[' '!' -L /tmp/fm-walk-request.HhD9mX ']'
++1793356334.223279 find /tmp/fm-walk-request.HhD9mX -type d -exec chmod u+rwx '{}' +
++1793356334.225569 rm -rf /tmp/fm-walk-request.HhD9mX
++1793356334.227096 IFS=
++1793356334.227107 read -r d
++1793356334.227122 rm -f /tmp/.fm-test-cleanup.2902977.NccreP

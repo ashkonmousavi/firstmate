@@ -1,0 +1,9 @@
+base
+initial=1793357206 deadline=1793357207
+expired_status=1 budget_status=0 budget=25
+exit=1
+target
+initial=1793357207 deadline=1793357208
+expired_status=0 budget_status=124 budget=
+exit=0
+Disposable base copy removed.
