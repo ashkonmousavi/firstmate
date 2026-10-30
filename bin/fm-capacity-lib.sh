@@ -9,9 +9,12 @@
 # requires available memory minus reserve >= 0. There are no
 # per-lane estimates and CPU load never refuses admission.
 # Every local registered home is counted through fm_local_firstmate_state_dirs.
-# Task records hold a lane unless the endpoint is proven agent-free and the
-# worktree has no non-shell process. Unknown liveness counts, including ready-PR
-# handoffs whose processes still run. Persistent secondmate records are exempt.
+# Task records hold a lane unless the endpoint is proven agent-free and either
+# fm-teardown.sh's released-copy sentinel marks completed cleanup or a readable
+# worktree has no non-shell process, as proved by a successful process scan.
+# Missing ordinary worktrees or unreadable process evidence retain the lane.
+# Unknown liveness counts, including ready-PR handoffs whose processes still run.
+# Persistent secondmate records are exempt.
 # External bots have no local records;
 # ordinary local workers carrying walk markers still hold a lane.
 # Available memory is the smallest memory.high minus (anon + shmem) balance
@@ -171,6 +174,9 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
       case "$(fm_backend_agent_state "${backend:-tmux}" "$target")" in
         dead|missing)
           worktree=$(printf '%s\n' "$raw" | sed -n 's/^worktree=//p' | tail -1)
+          # A teardown-completed record names the <id>.released-copy sentinel, which is
+          # never a real directory, so with no live agent it holds no seat.
+          [ "$worktree" != "$dir/$(basename "$meta" .meta).released-copy" ] || continue
           # Use teardown's bounded cwd scan, never a recursive file-tree walk.
           # Missing or unreadable worktree/process evidence retains the seat.
           if [[ "$worktree" = /* ]] && [ -d "$worktree" ] && [ -r "$worktree" ] && [ -x "$worktree" ] \

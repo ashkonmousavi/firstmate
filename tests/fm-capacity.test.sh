@@ -150,6 +150,16 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   rm "$TMP_ROOT/live/state/live-5.meta"
   fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state" || fail 'four live workers should admit'
   expect_code 1 "$FM_CAPACITY_FREE" 'dead records leave one seat free'
+  for n in 1 2; do
+    fm_write_meta "$TMP_ROOT/live/state/rel-$n.meta" kind=ship "window=gone-$n" "worktree=$TMP_ROOT/live/state/rel-$n.released-copy"
+  done
+  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state" || fail 'released-copy records should not block admission'
+  expect_code 4 "$FM_CAPACITY_LANES" 'dead teardown-completed records with a released copy hold no seat'
+  fm_write_meta "$TMP_ROOT/live/state/liverel.meta" kind=ship "window=live-9" "worktree=$TMP_ROOT/live/state/liverel.released-copy"
+  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
+  expect_code 75 "$rc" 'a live released-copy record fills the fifth seat'
+  expect_code 5 "$FM_CAPACITY_LANES" 'a released-copy record whose agent is alive still holds its seat'
+  rm "$TMP_ROOT/live/state/liverel.meta" "$TMP_ROOT/live/state/rel-1.meta" "$TMP_ROOT/live/state/rel-2.meta"
   fm_write_meta "$TMP_ROOT/live/state/unknown.meta" kind=ship window=unknown "worktree=$TMP_ROOT/empty-worktree"
   fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
   expect_code 75 "$rc" 'unknown endpoint liveness holds a seat'
