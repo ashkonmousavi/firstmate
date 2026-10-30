@@ -394,6 +394,32 @@ test_run_timed_passes_a_natural_exit_through_a_fired_bound() {
   pass 'fm_run_timed passes a natural exit through when the bound fired after completion'
 }
 
+test_checkpoint_deadlines_ignore_wall_clock_changes() {
+  (
+    . "$ROOT/bin/fm-timeout-lib.sh"
+    fm_checkpoint_clock
+    # Callers may supply an epoch deadline, rather than using this clock.
+    FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 2 ))
+    local budget rc=0
+    budget=$(fm_checkpoint_budget 25) || fail "an epoch deadline must retain its unexpired budget"
+    [ "$budget" -le 2 ] || fail "checkpoint budgets must accept epoch deadlines (budget=$budget)"
+    # Bash SECONDS follows the adjustable wall clock. Moving it backwards
+    # reproduces a clock correction without changing the host's clock.
+    SECONDS=$((SECONDS - 60))
+    budget=$(fm_checkpoint_budget 25) || fail "the checkpoint must retain its unexpired budget"
+    [ "$budget" -le 2 ] || fail "a backwards wall-clock jump must not extend the checkpoint (budget=$budget)"
+    SECONDS=$((SECONDS + 120))
+    fm_checkpoint_expired && fail "a forwards wall-clock jump must not expire the checkpoint"
+    SECONDS=$((SECONDS - 120))
+    sleep 2
+    fm_checkpoint_expired || fail "the checkpoint must expire after its elapsed-time budget"
+    fm_checkpoint_budget 25 >/dev/null || rc=$?
+    expect_code 124 "$rc" "an expired checkpoint must not grant more time"
+  ) || fail "checkpoint deadlines must follow elapsed time"
+  pass "checkpoint deadlines ignore wall-clock changes and expire after elapsed time"
+}
+
+test_checkpoint_deadlines_ignore_wall_clock_changes
 test_passes_the_command_status_and_output_through
 test_system_bash_preserves_completion_and_signal_statuses
 test_run_timed_reports_the_bound_when_the_wrapper_records_a_signal_death

@@ -575,7 +575,7 @@ SH
 }
 
 test_slow_deliveries_are_bounded_and_fair() {
-  local parent mate dispatch send n corr walks out
+  local parent mate dispatch send n corr walks out rc
   parent=$(make_parent fair-main)
   dispatch="$parent/fake-dispatch"
   send="$parent/fake-send"
@@ -604,10 +604,14 @@ SH
   done
   . "$ROOT/bin/fm-timeout-lib.sh"
   for n in {1..8}; do
+    rc=0
     FM_HOME="$parent" FM_STATE_OVERRIDE="$parent/state" FM_CHECK_TIMEOUT=4 \
       FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" \
-      FM_WALK_REQUEST_SEND_BOUND=25 fm_run_timed 4 "$CHECK" check > "$parent/check-output" \
-      || fail "a sweep must yield inside the registered check's bound"
+      FM_WALK_REQUEST_SEND_BOUND=25 fm_run_timed 4 "$CHECK" check > "$parent/check-output" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      cat "$parent/check-output" >&2
+      fail "sweep $n must yield inside the registered check's bound (rc=$rc)"
+    fi
   done
   for walks in first middle last other request; do
     assert_grep "walk $walks@" "$send.attempts" "pending outcome $walks must get a turn despite stalled transports"
