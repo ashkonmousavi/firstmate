@@ -833,7 +833,7 @@ A reported review need is only a recommendation, not cleanup authority.
 
 ## Walk-request carrier
 
-A secondmate whose machine has no access to the home-private walker dispatcher asks for a checkpoint walk with [`bin/fm-walk-request.sh`](../bin/fm-walk-request.sh): it writes one typed request (brief content or a local brief path, release sha, walk ids, optional bot name) on the mate's parent channel, which is the pipe that already reaches the dispatcher-owning home for every mate shape.
+A secondmate whose machine has no access to the home-private walker dispatcher asks for a checkpoint walk with [`bin/fm-walk-request.sh`](../bin/fm-walk-request.sh): it writes one typed request (brief content or a local brief path, release sha, walk ids, optional bot name, optional project and target pair) on the mate's parent channel, which is the pipe that already reaches the dispatcher-owning home for every mate shape.
 Arming [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) with `arm` in that home - the same authenticated watcher-check binding as the growth check above - dispatches each requested walk at most once per `<walk-id>@<release>` through the home's `data/bin/fm-grok-bot-dispatch.sh` and returns the outcome to the requesting mate as a fire-and-forget steering-inbox message.
 Remote requests carry the brief inline through the existing parent channel; MAIN never opens a remote mate's supplied path.
 Briefs must be UTF-8 text of at most 64 KiB; binary and larger inputs are refused.
@@ -841,7 +841,7 @@ The carrier confines source paths to the requesting mate's `data/walk-briefs/` o
 MAIN applies the same confinement to local path requests and copies every accepted brief into `data/walk-requests/<request-id>/brief.md` before dispatching that snapshot.
 Outcomes preserve multiline report text up to the carrier's bound and include the full report's MAIN path; recovery appends to that report.
 The bridge and its sign-in stay private to that home: the check only invokes the dispatcher, and a home without the dispatcher reports that plainly rather than guessing.
-The script headers own the typed line, dispatch, recovery, delivery, disarming, and tunables (including `FM_WALK_REQUEST_BOT`, the default bot for requests that omit one).
+The script headers own the typed line, dispatch, recovery, delivery, disarming, and tunables (including `FM_WALK_REQUEST_BOT`, the default bot for requests that omit one, and `FM_WALK_REQUEST_PROJECT` with `FM_WALK_REQUEST_TARGET`, the default dispatcher `--project`/`--target` pair for requests that omit it).
 
 ## Stow pass horizon (config/stow-pass-horizon)
 
