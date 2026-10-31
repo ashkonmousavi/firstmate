@@ -1674,6 +1674,19 @@ spawn_orca_reclaim_launch_file() {
 
 spawn_abort_cleanup() {
   local status=$?
+  if [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$RELEASED_COMMITTED" = 0 ]; then
+    trap '' HUP INT TERM
+    if [ "$status" -ne 0 ] && [ "$RELEASED_ENDPOINT_OPENED" = 1 ]; then
+      fm_backend_kill "$BACKEND" "$T" "" "fm-$ID" 2>/dev/null || true
+      if fm_backend_endpoint_confirmed_gone "$BACKEND" "$T"; then
+        RELEASED_ENDPOINT_OPENED=0
+        SPAWN_ENDPOINT_CLOSED=1
+      else
+        RELAUNCH_REPLACEMENT_PENDING=0
+        echo "warning: endpoint $T is not confirmed gone; keeping task $ID's copy, branch, claim, record and wiring at ${WT:-unknown}" >&2
+      fi
+    fi
+  fi
   if [ "$RELAUNCH_REPLACEMENT_PENDING" = 1 ] &&
     [ "$RELAUNCH_FROM_RELEASED" = 0 ] &&
     [ "$SPAWN_META_PUBLISH_STARTED" = 1 ] &&
@@ -1816,46 +1829,53 @@ spawn_abort_cleanup() {
       fi
     fi
   fi
-  # A released relaunch that fails leaves
-  # the released record exactly as it was: the brief is restored without the
-  # progress note, the endpoint it opened in the project is closed, and the
-  # copy it allocated goes back to the pool with its claim, while the project
-  # lock that allocated it is still held. The sentinel is never touched.
   if [ "$status" -ne 0 ] && [ "$RELAUNCH_FROM_RELEASED" = 1 ] &&
     [ "$RELEASED_COMMITTED" = 0 ]; then
-    if [ -n "$RELEASED_META_PRIOR" ] && [ -f "$RELEASED_META_PRIOR" ]; then
-      mv -f "$RELEASED_META_PRIOR" "$STATE/$ID.meta" ||
-        echo "warning: could not restore task $ID's released record from $RELEASED_META_PRIOR" >&2
-    fi
+    local released_safe=1 released_abort_head released_abort_dirty released_abort_branch
     if [ "$RELEASED_HOLD_LIFTED" = 1 ]; then
       fm_backlog_mutate "$DATA" hold "$ID" --kind external --reason "awaiting merge $RELEASED_PR" ||
         echo "warning: could not restore task $ID's merge hold" >&2
     fi
-    if [ -n "$RELEASED_BRIEF_PRIOR" ] && [ -f "$RELEASED_BRIEF_PRIOR" ]; then
-      cp -p "$RELEASED_BRIEF_PRIOR" "$RELEASED_SOURCE_BRIEF" 2>/dev/null ||
-        echo "warning: could not restore $RELEASED_SOURCE_BRIEF after the failed relaunch of $ID; restore it from $RELEASED_BRIEF_PRIOR" >&2
-    fi
-    if [ "$RELEASED_ENDPOINT_OPENED" = 1 ] && [ -n "${T:-}" ]; then
-      RELEASED_ENDPOINT_OPENED=0
-      fm_backend_kill "$BACKEND" "$T" "" "fm-$ID" 2>/dev/null ||
-        echo "warning: could not close endpoint $T after the failed relaunch of $ID; close it by hand" >&2
-    fi
-    if [ "$SPAWN_SLOT_CLAIMED" = 1 ] && [ -n "${WT:-}" ] && [ -d "$WT" ]; then
-      SPAWN_SLOT_CLAIMED=0
-      local released_abort_branch
-      released_abort_branch=$(git -C "$WT" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
-      if [ -n "$released_abort_branch" ] && git -C "$WT" checkout --detach -q 2>/dev/null; then
-        git -C "$WT" branch -D "$released_abort_branch" >/dev/null 2>&1 || true
+    if [ "$RELEASED_ENDPOINT_OPENED" = 1 ]; then
+      released_safe=0
+    elif [ "$SPAWN_SLOT_CLAIMED" = 1 ] && [ -n "${WT:-}" ]; then
+      released_abort_head=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null) || released_safe=0
+      released_abort_dirty=$(git -C "$WT" status --porcelain --untracked-files=all --ignored --ignore-submodules=none 2>/dev/null) || released_safe=0
+      if [ -n "$released_abort_dirty" ] ||
+        { [ "$SPAWN_LAUNCH_SENT" = 1 ] && [ "$released_abort_head" != "$RELEASED_RECREATED_HEAD" ]; }; then
+        released_safe=0
       fi
-      if (cd "$PROJ_ABS" && treehouse return --force "$WT") >/dev/null 2>&1; then
-        fm_treehouse_slot_owner_release "$WT" "$ID" || true
-      else
-        echo "warning: could not return pool slot $WT after the failed relaunch of $ID; its claim names $ID, so return it by hand" >&2
+      if [ "$released_safe" = 1 ]; then
+        released_abort_branch=$(git -C "$WT" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+        if [ "$released_abort_branch" = "$RELEASED_BRANCH" ] &&
+          [ "$released_abort_head" = "$RELEASED_RECREATED_HEAD" ]; then
+          git -C "$WT" checkout --detach -q || released_safe=0
+        fi
+        if [ "$released_safe" = 1 ] && (cd "$PROJ_ABS" && treehouse return "$WT") >/dev/null 2>&1; then
+          fm_treehouse_slot_owner_release "$WT" "$ID" || true
+          SPAWN_SLOT_CLAIMED=0
+        else
+          released_safe=0
+        fi
       fi
+    fi
+    if [ "$released_safe" = 1 ]; then
+      if [ -n "$RELEASED_META_PRIOR" ] && [ -f "$RELEASED_META_PRIOR" ]; then
+        mv -f "$RELEASED_META_PRIOR" "$STATE/$ID.meta" ||
+          echo "warning: could not restore task $ID's released record from $RELEASED_META_PRIOR" >&2
+      fi
+      if [ -n "$RELEASED_BRIEF_PRIOR" ] && [ -f "$RELEASED_BRIEF_PRIOR" ]; then
+        cp -p "$RELEASED_BRIEF_PRIOR" "$RELEASED_SOURCE_BRIEF" 2>/dev/null ||
+          echo "warning: could not restore $RELEASED_SOURCE_BRIEF after the failed relaunch of $ID; restore it from $RELEASED_BRIEF_PRIOR" >&2
+      fi
+    else
+      echo "warning: safe return was not proven for task $ID; keeping copy ${WT:-unknown}, its branch, claim and current record. Prior record: $RELEASED_META_PRIOR; prior brief: $RELEASED_BRIEF_PRIOR" >&2
     fi
   fi
-  [ -z "$RELEASED_BRIEF_PRIOR" ] || rm -f -- "$RELEASED_BRIEF_PRIOR" 2>/dev/null || true
-  [ -z "$RELEASED_META_PRIOR" ] || rm -f -- "$RELEASED_META_PRIOR" 2>/dev/null || true
+  if [ "$status" -eq 0 ] || [ "$RELEASED_COMMITTED" = 1 ] || [ "${released_safe:-1}" = 1 ]; then
+    [ -z "$RELEASED_BRIEF_PRIOR" ] || rm -f -- "$RELEASED_BRIEF_PRIOR" 2>/dev/null || true
+    [ -z "$RELEASED_META_PRIOR" ] || rm -f -- "$RELEASED_META_PRIOR" 2>/dev/null || true
+  fi
   if [ "$SPAWN_META_LOCK_HELD" = 1 ]; then
     SPAWN_META_LOCK_HELD=0
     fm_lock_release "$SPAWN_META_LOCK" || true
@@ -2334,6 +2354,9 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # (docs/agent-control.md "Relaunching a released copy").
   if [ "$(fm_meta_get "$RELAUNCH_META" worktree)" = "$STATE/$ID.released-copy" ]; then
     RELAUNCH_FROM_RELEASED=1
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     case "$BACKEND" in
       tmux|herdr) ;;
       *)
@@ -6857,7 +6880,7 @@ if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
   SPAWN_META_LOCK_HELD=1
 fi
 SPAWN_DEFERRED_SIGNAL=
-if [ "$BACKLOG_TRANSITION" = 1 ]; then
+if [ "$BACKLOG_TRANSITION" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
   trap 'SPAWN_DEFERRED_SIGNAL=HUP' HUP
   trap 'SPAWN_DEFERRED_SIGNAL=INT' INT
   trap 'SPAWN_DEFERRED_SIGNAL=TERM' TERM
@@ -6891,12 +6914,12 @@ if [ "$SPAWN_BACKLOG_COMMIT_STATUS" -ne 0 ]; then
     echo "error: task $ID was republished but its backlog item could not be moved to In flight ($FM_BACKLOG_TRANSITION_ERROR); fix the backlog and re-run the relaunch" >&2
   fi
 fi
-trap - HUP INT TERM
 if [ "$SPAWN_BACKLOG_COMMIT_STATUS" -ne 0 ]; then
   exit "$SPAWN_BACKLOG_COMMIT_STATUS"
 fi
 RELEASED_COMMITTED=1
 RELAUNCH_REPLACEMENT_PENDING=0
+trap - HUP INT TERM
 if [ -n "$SPAWN_DEFERRED_SIGNAL" ]; then
   case "$SPAWN_DEFERRED_SIGNAL" in
   HUP) SPAWN_DEFERRED_SIGNAL_STATUS=129 ;;

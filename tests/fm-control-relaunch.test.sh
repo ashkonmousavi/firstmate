@@ -102,7 +102,10 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
-      if [ "$payload" = Enter ] && [ -e "$D/launch-typed" ] && [ -e "$D/fail-launch-enter" ]; then exit 1; fi
+      if [ "$payload" = Enter ] && [ -e "$D/launch-typed" ]; then
+        [ ! -x "$D/worker-action" ] || "$D/worker-action"
+        [ ! -e "$D/fail-launch-enter" ] || exit 1
+      fi
       case "$payload" in
         'treehouse get')
           # A released relaunch allocates its copy through the pane's shell:
@@ -184,6 +187,8 @@ case "${1:-}" in
     : > "$D/windows"
     exit 0 ;;
   kill-window)
+    : > "$D/close-attempted"
+    [ ! -e "$D/keep-endpoint-open" ] || exit 0
     : > "$D/windows"
     printf 'zsh' > "$D/command"
     exit 0 ;;
@@ -518,6 +523,7 @@ SH
   cat > "$dir/fakebin/treehouse" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FM_FAKE_DIR/treehouse-log"
+[ ! -e "$FM_FAKE_DIR/fail-return" ] || exit 1
 exit 0
 SH
   chmod +x "$dir/fakebin/gh" "$dir/fakebin/gh-axi" "$dir/fakebin/treehouse"
@@ -621,7 +627,7 @@ test_released_copy_relaunch_returns_the_slot_when_the_branch_cannot_be_recreated
     esac
     assert_released_untouched "$dir" rr3 "$meta" "$brief" "$why"
     assert_grep 'treehouse get' "$dir/fake/keys" "$why: the refusal should come after allocation"
-    assert_grep "return --force $dir/pool/1/repo" "$dir/fake/treehouse-log" "$why: the allocated copy was not returned"
+    assert_grep "return $dir/pool/1/repo" "$dir/fake/treehouse-log" "$why: the allocated copy was not returned"
     assert_absent "$dir/pool/1/.fm-slot-owner" "$why: the returned slot is still claimed"
   done
   pass "a released relaunch that cannot recreate the branch returns the slot and keeps the sentinel"
@@ -2985,9 +2991,14 @@ case "${1:-} ${2:-}" in
     esac
     exit 0 ;;
   'pane send-keys')
-    if [ "${4:-}" = enter ] && [ -e "$D/launch-typed" ] && [ -e "$D/fail-launch-enter" ]; then exit 1; fi
+    if [ "${4:-}" = enter ] && [ -e "$D/launch-typed" ]; then
+      [ ! -x "$D/worker-action" ] || "$D/worker-action"
+      [ ! -e "$D/fail-launch-enter" ] || exit 1
+    fi
     exit 0 ;;
   'pane close')
+    : > "$D/close-attempted"
+    [ ! -e "$D/keep-endpoint-open" ] || exit 0
     printf '%s' '%none' > "$D/herdr-pane"
     rm -f "$D/herdr-agent-live"
     exit 0 ;;
@@ -3709,7 +3720,7 @@ test_released_launch_delivery_failure_rolls_back() {
       [ "$(cat "$dir/home/state/rr12.released-copy")" = 'sentinel contents' ] || fail "the sentinel was touched"
       [ "$(backlog_held "$dir" rr12)" = yes ] || fail "$backend/$failure: the merge hold was lifted"
       assert_absent "$dir/pool/1/.fm-slot-owner" "$backend/$failure: the slot is still claimed"
-      assert_grep "return --force $dir/pool/1/repo" "$dir/fake/treehouse-log" "$backend/$failure: the copy was not returned"
+      assert_grep "return $dir/pool/1/repo" "$dir/fake/treehouse-log" "$backend/$failure: the copy was not returned"
       if [ "$backend" = tmux ]; then
         [ ! -s "$dir/fake/windows" ] || fail "the failed launch left its window open"
       else
@@ -3805,6 +3816,117 @@ SH
   [ "$(backlog_state "$dir" rr15)" = in_flight ] || fail "the round trip left the task out of flight"
   [ "$(released_note_count "$dir" rr15)" = 1 ] || fail "the round trip did not deliver exactly one progress note"
   pass "real teardown and relaunch round trip preserves the pushed branch and lifts the release hold"
+}
+
+
+test_released_signals_roll_back_until_commit() {
+  local dir backend signal stage out rc meta brief
+  for backend in tmux herdr; do
+    for signal in HUP TERM; do
+      for stage in before-literal after-literal; do
+        dir=$(new_case "released-signal-$backend-$signal-$stage" rr16)
+        add_released_ship_task "$dir" rr16
+        [ "$backend" != herdr ] || released_use_herdr "$dir" rr16
+        printf '%s\n' "$signal" > "$dir/fake/signal"
+        printf '%s\n' "$stage" > "$dir/fake/signal-stage"
+        cat > "$dir/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+D=$FM_FAKE_DIR
+if [ "${1:-}" = 0.3 ] && [ ! -e "$D/signal-sent" ]; then
+  if [ "$(cat "$D/signal-stage")" = before-literal ] || [ -e "$D/launch-typed" ]; then
+    : > "$D/signal-sent"
+    kill -"$(cat "$D/signal")" "$PPID"
+  fi
+fi
+exit 0
+SH
+        chmod +x "$dir/fakebin/sleep"
+        meta=$(cat "$dir/home/state/rr16.meta")
+        brief=$(cat "$dir/home/data/rr16/brief.md")
+        out=$(run_control "$dir" rr16 relaunch --note "interrupted pickup"); rc=$?
+        [ "$rc" -ne 0 ] || fail "$backend/$signal/$stage: the interrupted launch should fail"
+        assert_present "$dir/fake/signal-sent" "the launch did not reach the signal boundary"
+        assert_released_untouched "$dir" rr16 "$meta" "$brief" "$backend/$signal/$stage"
+        assert_absent "$dir/pool/1/.fm-slot-owner" "the interrupted launch retained its claim"
+        assert_grep "return $dir/pool/1/repo" "$dir/fake/treehouse-log" "the interrupted launch did not return its copy"
+      done
+    done
+  done
+  pass "HUP and TERM roll back released relaunches before and after literal delivery on both backends"
+}
+
+test_released_rollback_preserves_new_work_and_unconfirmed_endpoints() {
+  local dir backend change out rc slot head meta brief
+  for backend in tmux herdr; do
+    for change in clean dirty ignored commit close-unconfirmed return-failed; do
+      dir=$(new_case "released-preserve-$backend-$change" rr17)
+      add_released_ship_task "$dir" rr17
+      [ "$backend" != herdr ] || released_use_herdr "$dir" rr17
+      slot="$dir/pool/1/repo"
+      head=$(cat "$dir/fake/pr-head")
+      seed_backlog "$dir" rr17 queued
+      tasks-axi hold rr17 --kind external --reason "awaiting merge https://github.com/example/repo/pull/7" \
+        --file "$dir/home/data/backlog.md" >/dev/null
+      break_tasks_axi_start "$dir"
+      meta=$(cat "$dir/home/state/rr17.meta")
+      brief=$(cat "$dir/home/data/rr17/brief.md")
+      printf '%s\n' "$change" > "$dir/fake/worker-change"
+      (cd "$slot" && printf 'ignored-work.log\n' >> "$(git rev-parse --git-path info/exclude)")
+      cat > "$dir/fake/worker-action" <<'SH'
+#!/usr/bin/env bash
+D=$FM_FAKE_DIR
+slot=$(cat "$D/treehouse-slot")
+case "$(cat "$D/worker-change")" in
+  dirty) printf 'new uncommitted work\n' > "$slot/work.txt" ;;
+  ignored) printf 'new ignored work\n' > "$slot/ignored-work.log" ;;
+  commit)
+    printf 'new committed work\n' > "$slot/worker.txt"
+    git -C "$slot" add worker.txt
+    git -C "$slot" -c user.name=Tests -c user.email=t@t commit -qm 'new worker commit'
+    git -C "$slot" rev-parse HEAD > "$D/worker-head"
+    ;;
+  close-unconfirmed) : > "$D/keep-endpoint-open" ;;
+  return-failed) : > "$D/fail-return" ;;
+esac
+: > "$D/worker-ran"
+SH
+      chmod +x "$dir/fake/worker-action"
+      out=$(run_control "$dir" rr17 relaunch --note "preserve any new work"); rc=$?
+      [ "$rc" -ne 0 ] || fail "$backend/$change: the dispatch failure should fail the launch"
+      assert_present "$dir/fake/worker-ran" "$backend/$change: the worker never started"
+      assert_present "$dir/fake/close-attempted" "$backend/$change: rollback never attempted closure"
+      [ "$(backlog_held "$dir" rr17)" = yes ] || fail "$backend/$change: rollback lost the merge hold"
+      if [ "$change" = clean ]; then
+        assert_released_untouched "$dir" rr17 "$meta" "$brief" "$backend clean dispatch failure"
+        assert_absent "$dir/pool/1/.fm-slot-owner" "the clean copy remained claimed"
+        assert_grep "return $slot" "$dir/fake/treehouse-log" "the clean copy was not returned"
+      else
+        [ "$(meta_field "$dir" rr17 worktree)" = "$slot" ] || fail "$backend/$change: the sentinel hid a retained copy"
+        git -C "$slot" show-ref --verify --quiet refs/heads/fm/rr17 || fail "$backend/$change: the worker branch was deleted"
+        if [ "$change" != return-failed ]; then
+          [ "$(git -C "$slot" symbolic-ref --short HEAD)" = fm/rr17 ] || fail "$backend/$change: the worker branch was detached"
+        fi
+        assert_grep 'task=rr17' "$dir/pool/1/.fm-slot-owner" "$backend/$change: the retained copy lost its claim"
+        if [ "$change" = return-failed ]; then
+          assert_grep "return $slot" "$dir/fake/treehouse-log" "$backend: the return failure was not reached"
+        else
+          assert_absent "$dir/fake/treehouse-log" "$backend/$change: an unsafe copy was returned"
+        fi
+        assert_contains "$out" 'safe rollback was not proven' "$backend/$change: control claimed a complete rollback"
+        assert_absent "$dir/home/state/rr17.control-relaunch" "$backend/$change: failure rewrote the journal"
+        case "$change" in
+          dirty) [ "$(cat "$slot/work.txt")" = 'new uncommitted work' ] || fail "new tracked work was lost" ;;
+          ignored) [ "$(cat "$slot/ignored-work.log")" = 'new ignored work' ] || fail "new ignored work was lost" ;;
+          commit)
+            [ "$(git -C "$slot" rev-parse HEAD)" = "$(cat "$dir/fake/worker-head")" ] || fail "new commits were lost"
+            [ "$(git -C "$slot" rev-parse HEAD)" != "$head" ] || fail "the commit fixture was vacuous"
+            ;;
+          close-unconfirmed) assert_present "$slot/.claude/settings.local.json" "live worker wiring was retired" ;;
+        esac
+      fi
+    done
+  done
+  pass "rollback returns only proven clean copies and retains new work or unconfirmed endpoints on both backends"
 }
 
 # Reuse these hermetic fixtures in the pending-proof lifecycle regression.
@@ -3925,3 +4047,5 @@ test_released_launch_delivery_failure_rolls_back
 test_released_pool_exhaustion_defers
 test_released_fork_branch_uses_head_repository
 test_teardown_to_relaunch_round_trip
+test_released_signals_roll_back_until_commit
+test_released_rollback_preserves_new_work_and_unconfirmed_endpoints

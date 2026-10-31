@@ -162,8 +162,13 @@ The worktree and the task's records are unaffected either way.
 
 ### Relaunching a released copy
 
-`bin/fm-teardown.sh` can free the local copy of a ship whose pull request is still open, under the release rule its header owns: only when the copy's HEAD is the pull request's head on the forge, never when the commits reached only the no-mistakes gate or another remote.
-The kept record then names `worktree=<state>/<id>.released-copy` and records `released_head=`, `released_branch=` and `released_pr=`.
+`bin/fm-teardown.sh` can free the local copy of a ship whose pull request is still open under the release rule in its header.
+Release requires a configured non-gate remote whose URL matches the PR head repository and a readable head-branch identity; `no-mistakes` and `publicsrc` never qualify.
+A fork published with only no-mistakes `--fork-url`, while `origin` points to the parent, needs a configured fork remote before release.
+Unreadable head identity, including the state-only `gh-axi` fallback, refuses release and keeps the copy.
+A reported forge-head mismatch always refuses, even when a freshly fetched tracking ref matches local HEAD; tracking proof is used only when the head identity is readable but the forge reports no head commit.
+The `released_head=`, `released_branch=` and `released_pr=` proof is persisted before returning the copy and survives failed endpoint closure and retries.
+Only after endpoint closure is confirmed does the kept record name `worktree=<state>/<id>.released-copy`.
 A relaunch of such a record recreates the copy instead of reusing one; the release itself stays a manual `bin/fm-teardown.sh <id> --keep-open` of an idle worker.
 
 - **Checkpoint.** `fm-control` runs a released checkpoint in place of the worktree checkpoint, with no git read of the sentinel: the task is a ship with its project and released head, branch and pull request recorded, its endpoint is missing, and the pull request reads OPEN through `bin/fm-pr-lib.sh`.
@@ -174,12 +179,16 @@ A relaunch of such a record recreates the copy instead of reusing one; the relea
 - **Admission and allocation.** `fm-spawn --relaunch` opens the new endpoint in the project and allocates the copy through the fresh path's `treehouse get`, isolation check and slot claim, under the same project capacity admission and Treehouse project lock a fresh worker takes.
   A full project or a held project lock defers with exit 75 and changes nothing.
   The backlog item teardown held "awaiting merge <pull request>" (kind external) is accepted, and that exact hold is lifted at the launch commit point so the item goes back In flight only once the worker is launched; any other hold, including a captain hold, refuses as before.
-- **Branch.** The branch is fetched from the one remote whose URL addresses the pull request's project and must contain the released head; a tip that moved on is accepted only as a descendant of that head and, when the forge reports a head, only when it is that head.
+- **Branch.** The branch is fetched from the configured non-gate remote matching the PR head repository and must contain the released head; a tip that moved on is accepted only as a descendant of that head and, when the forge reports a head, only when it is that head.
   The copy is checked out on the branch itself, tracking that remote, and must be clean.
 - **Note and record.** Only after that does `fm-spawn` append the progress note, which says the copy was recreated from the branch at the commit actually checked out and that uncommitted files, ignored files and a no-mistakes run's local state were not carried over.
   A path-keyed session resume is not attempted, so the worker continues from its brief and that note.
   `fm-spawn` alone republishes the record, naming the new copy and dropping the released fields.
-- **Failure.** Any refusal before that publication restores the brief, closes the endpoint it opened, returns the allocated copy and its claim to the pool, and leaves the released record, the journal and the prior-record copy untouched, so a retry adds no second note.
+- **Failure.** Rollback remains active through launch delivery and dispatch commit, including HUP and TERM.
+  It confirms closure of the endpoint it opened before restoring the released record.
+  It returns a copy only when it is clean, including ignored files, and has no commits beyond the recreated head once launch delivery was attempted.
+  A complete rollback restores the brief and released record and leaves the journal and prior-record copy untouched, so a retry adds no second note.
+  If endpoint absence or safe return cannot be proven, it keeps the copy, branch, claim and current record and reports their location; it does not force-return the copy or hide it behind the sentinel.
 
 ### Failure and rollback
 

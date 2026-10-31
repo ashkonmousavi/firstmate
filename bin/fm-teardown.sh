@@ -85,20 +85,23 @@
 # MERGED allows closing cleanup after acceptance and retires the merge watch.
 # OPEN never closes the item. The local copy of an OPEN pull request may still
 # be freed - automatically when the commits are on a remote, or on --keep-open -
-# only under the release rule: the worktree is clean and its HEAD equals the
-# pull request's head commit as the forge reports it through bin/fm-pr-lib.sh,
-# or, when that forge answer carries no head (the gh-axi fallback), equals the
-# freshly fetched tracking ref of the one remote whose URL addresses the pull
-# request's project. The no-mistakes gate and publicsrc remotes never count.
+# only under the release rule: the worktree is clean, a configured non-gate
+# remote matches the PR head repository and branch read through fm-pr-lib.sh,
+# and HEAD equals the forge head, or its freshly fetched tracking ref when the
+# forge reports no head commit. A reported forge-head mismatch always refuses.
+# Missing or unreadable head identity, including the state-only gh-axi fallback,
+# refuses release; an origin=parent fork needs a configured fork remote.
+# The no-mistakes gate and publicsrc remotes never count.
 # A copy whose HEAD differs, has no branch, or cannot be proven that way is
 # kept and teardown refuses, naming both commits.
 # On release the item stays open, held "awaiting merge
 # <url>", the task record stays so the merge watch remains registered, and the
 # recorded worktree path is released so the pool slot is not still named here.
 # The retained record uses worktree=<absolute-state-directory>/<id>.released-copy
-# as a sentinel, not an actual worktree, and records released_head=,
-# released_branch= and released_pr= with it, which bin/fm-spawn.sh --relaunch
-# reads to recreate the copy from that branch (docs/agent-control.md
+# as a sentinel, not an actual worktree. The released_head=, released_branch=
+# and released_pr= proof is persisted before returning the copy, retained across
+# failed endpoint closure and retries, and read by bin/fm-spawn.sh --relaunch
+# to recreate the copy from that branch (docs/agent-control.md
 # "Relaunching a released copy"). A later teardown
 # rechecks the PR and, once merged and accepted, retires the item's watch without
 # removing the released copy again. Release is persisted before fallible parent
@@ -1574,29 +1577,32 @@ teardown_recorded_copy_released() {
   [ "$(meta_value "$meta" worktree)" = "$state/$id.released-copy" ]
 }
 
-# Writes the sentinel, and with it the release rule's proof when this run made
-# one: released_head, released_branch, and released_pr name exactly what a
-# relaunch must recreate (bin/fm-spawn.sh --relaunch). They sit beside
-# worktree=, ahead of the trailing pr= block bin/fm-pr-lib.sh's metadata parse
-# requires. A rerun over an already released record keeps the proof the first
-# run wrote.
 teardown_release_recorded_copy() {
   [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ] || return 0
-  local tmp line
+  local tmp line head branch pr
+  head=${TEARDOWN_RELEASED_HEAD:-$(meta_value "$META" released_head)}
+  branch=${TEARDOWN_RELEASED_BRANCH:-$(meta_value "$META" released_branch)}
+  pr=$(meta_value "$META" released_pr)
+  [ -z "$TEARDOWN_RELEASED_HEAD" ] || pr=$PR_URL
+  if ! fm_pr_head_valid "$head" || ! git check-ref-format --branch "$branch" >/dev/null 2>&1 ||
+    [ "$pr" != "$PR_URL" ]; then
+    echo "REFUSED: no durable release proof for $ID; keeping its record and copy." >&2
+    return 1
+  fi
   tmp=$(umask 077; mktemp "$STATE/.fm-teardown-release.XXXXXX") || return 1
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
       worktree=*)
-        printf 'worktree=%s\n' "$STATE/$ID.released-copy"
-        if [ -n "$TEARDOWN_RELEASED_HEAD" ]; then
-          printf 'released_head=%s\n' "$TEARDOWN_RELEASED_HEAD"
-          printf 'released_branch=%s\n' "$TEARDOWN_RELEASED_BRANCH"
-          printf 'released_pr=%s\n' "$PR_URL"
+        if [ "${1:-}" = proof-only ]; then
+          printf '%s\n' "$line"
+        else
+          printf 'worktree=%s\n' "$STATE/$ID.released-copy"
         fi
+        printf 'released_head=%s\n' "$head"
+        printf 'released_branch=%s\n' "$branch"
+        printf 'released_pr=%s\n' "$pr"
         ;;
-      released_head=*|released_branch=*|released_pr=*)
-        [ -n "$TEARDOWN_RELEASED_HEAD" ] || printf '%s\n' "$line"
-        ;;
+      released_head=*|released_branch=*|released_pr=*) ;;
       *) printf '%s\n' "$line" ;;
     esac
   done < "$META" > "$tmp" || { rm -f "$tmp"; return 1; }
@@ -1809,6 +1815,10 @@ teardown_release_head_proven() {
     echo "REFUSED: $WT has no branch, so a later relaunch could not recreate it; the copy of pull request $PR_URL is kept." >&2
     return 1
   fi
+  if ! remote=$(fm_pr_holding_remote "$WT"); then
+    echo "REFUSED: no single remote of $WT is a configured non-gate remote matching pull request $PR_URL's head repository and branch (or that head identity is unreadable); the copy is kept. Configure the PR head remote and use a forge reader that reports its identity before release." >&2
+    return 1
+  fi
   if [ -n "$TEARDOWN_RECORDED_PR_HEAD" ]; then
     if [ "$head" != "$TEARDOWN_RECORDED_PR_HEAD" ]; then
       echo "REFUSED: $WT is at $head, but pull request $PR_URL has head $TEARDOWN_RECORDED_PR_HEAD on the forge; the copy is kept until they match." >&2
@@ -1816,14 +1826,6 @@ teardown_release_head_proven() {
       return 1
     fi
   else
-    fm_pr_url_parse "$PR_URL" || {
-      echo "REFUSED: pull request $PR_URL cannot be parsed, so its head cannot be proven; the copy is kept." >&2
-      return 1
-    }
-    if ! remote=$(fm_pr_holding_remote "$WT"); then
-      echo "REFUSED: the forge did not report the head of pull request $PR_URL, and no single remote of $WT addresses that project; the copy is kept." >&2
-      return 1
-    fi
     remote_branch=$FM_PR_RECORD_HEAD_BRANCH
     tracking="refs/remotes/$remote/$remote_branch"
     if ! git -C "$WT" fetch --quiet "$remote" "+refs/heads/$remote_branch:$tracking" >/dev/null 2>&1; then
@@ -4057,6 +4059,8 @@ fi
 # Fix 3 (see script header): sweep remote job workers abandoned by an already
 # pruned code root. Best effort - a sweep failure never blocks this teardown.
 "$SCRIPT_DIR/fm-remote-job-reap-orphans.sh" >&2 || true
+
+teardown_release_recorded_copy proof-only || exit 1
 
 # Best-effort: drop the local task branch so the shared repo does not accumulate refs.
 if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree; then
