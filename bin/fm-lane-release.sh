@@ -726,15 +726,17 @@ candidate_step() {  # <id> <class> <gen> <anchor> <seq> <mode>
 }
 
 action_sweep() {
-  local mode id meta ids cursor started=0 deadline class gen anchor seq m bad rc
+  local mode id meta ids cursor started=0 deadline class gen anchor seq m bad bad_display rc
   mode=$(setting)
   case "$mode" in
     off) return 0 ;;
     invalid:*)
       bad=${mode#invalid:}
-      if [ "$(cat "$STATE/.lane-release-invalid" 2>/dev/null)" != "$bad" ]; then
+      if [ ! -f "$STATE/.lane-release-invalid" ] || [ "$(cat "$STATE/.lane-release-invalid" 2>/dev/null)" != "$bad" ]; then
         printf '%s\n' "$bad" > "$STATE/.lane-release-invalid"
-        printf "lane-release: config/lane-release holds '%s', expected off, audit, or on; nothing is released until it is corrected\n" "$bad"
+        bad_display=${bad//$'\n'/\\n}
+        bad_display=${bad_display//$'\r'/\\r}
+        printf "lane-release: config/lane-release holds '%s', expected off, audit, or on; nothing is released until it is corrected\n" "$bad_display"
       fi
       return 0
       ;;

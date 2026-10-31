@@ -885,6 +885,32 @@ extra_setting_whitespace_never_enables_release() {
   pass "embedded spaces and split lines are invalid settings and release nothing"
 }
 
+extra_invalid_setting_reports_empty_and_split_values_once() {
+  local dir value out
+  for value in empty blank split; do
+    dir=$(new_case "invalid-report-$value")
+    finished_ship "$dir" s1
+    case "$value" in
+      empty) : > "$dir/home/config/lane-release" ;;
+      blank) printf '\n' > "$dir/home/config/lane-release" ;;
+      split) printf 'o\nn\n' > "$dir/home/config/lane-release" ;;
+    esac
+    out=$(run_lr "$dir" 2500 sweep)
+    assert_contains "$out" 'expected off, audit, or on' "an unreported $value setting must report invalid"
+    if [ "$value" = split ]; then
+      assert_contains "$out" "holds 'o\\nn'" "the split setting must retain its content with an escaped newline"
+    else
+      assert_contains "$out" "holds ''" "an empty or blank setting must display an empty value"
+    fi
+    [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "the $value setting emitted multiple report lines"
+    out=$(run_lr "$dir" 2900 sweep)
+    [ -z "$out" ] || fail "the $value setting was reported again"
+    [ "$(control_calls "$dir")" = 0 ] || fail "the invalid $value setting released a worker"
+    [ ! -e "$dir/home/state/s1.released" ] || fail "the invalid $value setting created a release marker"
+  done
+  pass "empty, blank and split-line settings report once on one line and release nothing"
+}
+
 extra_debounce_needs_two_sweeps_a_grace_apart() {
   local dir gen
   dir=$(new_case extra-debounce)
@@ -1432,6 +1458,7 @@ extra_switched_off_does_nothing_and_prints_nothing
 extra_audit_setting_only_ledgers
 extra_invalid_setting_reports_once
 extra_setting_whitespace_never_enables_release
+extra_invalid_setting_reports_empty_and_split_values_once
 extra_debounce_needs_two_sweeps_a_grace_apart
 extra_deferred_exit_retries_without_spinning
 extra_held_control_lock_skips
