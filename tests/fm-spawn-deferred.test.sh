@@ -347,15 +347,16 @@ real_command() {
     PATH="$case_dir/fakebin:$PATH" "$@"
 }
 
-wait_for_task_completion() {
-  local home=$1 id=$2 i f active
+wait_for_task_completion() { # <id> <sweep-command...>; prints collected reports
+  local id=$1 i chunk out=''
+  shift
   for ((i=0; i<200; i++)); do
-    active=0
-    for f in "$home"/state/spawn-deferred/claim/*; do
-      [ -f "$f" ] || continue
-      [ "$(sed -n 's/^task=//p' "$f" | head -1)" != "$id" ] || active=1
-    done
-    if ! queue_has "$home" "$id" && [ "$active" -eq 0 ]; then
+    # Queue-to-claim moves and record removal precede report publication.
+    # Poll sweep until it delivers completion after the worker releases its lock.
+    chunk=$("$@") || fail "the retry sweep for $id failed"
+    [ -z "$chunk" ] || out+="${out:+$'\n'}$chunk"
+    if grep -Fxq -- "started $id" <<< "$out"; then
+      printf '%s' "$out"
       return 0
     fi
     sleep 0.05
@@ -423,8 +424,8 @@ test_real_spawn_starts_after_a_lane_frees() {
     FM_FAKE_PANE_PATH="$case_dir/wt-retry" FM_FAKE_CALL_LOG="$case_dir/calls.log" \
     PATH="$fakebin:$PATH" \
     "$ROOT_BIN" sweep 2>&1) || rc=$?
-  wait_for_task_completion "$home" retry-one
-  out="$out$(real_command "$case_dir" "$ROOT_BIN" sweep)"
+  out="$out$(wait_for_task_completion retry-one real_command "$case_dir" "$ROOT_BIN" sweep)" \
+    || fail "the real deferred retry did not complete"
   ended=$(date +%s)
   elapsed=$((ended - began))
   [ "$rc" -eq 0 ] || fail "the retry sweep failed (exit $rc): $out"
@@ -575,8 +576,8 @@ test_sweep_returns_while_spawn_is_hung() {
   assert_equals "sleep-one" "$(cat "$case_dir/spawn.log")" "overlapping sweeps ran concurrent retries"
   assert_not_contains "$out" "started sleep-one" "an overlapping sweep reported an unfinished launch"
   : > "$case_dir/spawn.log.release"
-  wait_for_task_completion "$home" next-one
-  out=$(deferred_home sweep "$home" "$case_dir")
+  out=$(wait_for_task_completion next-one deferred_home sweep "$home" "$case_dir") \
+    || fail "the detached retries did not complete"
   assert_equals "$(printf '%s\n' 'started sleep-one' 'started next-one')" "$out" "completed launches were not reported in order"
   assert_equals "" "$(deferred_home sweep "$home" "$case_dir")" "completed launches were reported twice"
   pass "the sweep returns during a hung spawn and reports completed launches once"
