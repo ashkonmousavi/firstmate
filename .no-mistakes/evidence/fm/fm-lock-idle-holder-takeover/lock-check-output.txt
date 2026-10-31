@@ -1,0 +1,24 @@
+terminal.acquire
+lock acquired: harness pid 3896629
+
+cleared.acquire
+lock acquired: harness pid 3896629
+
+unrelated.acquire
+error: another live firstmate session holds the lock (pid 3896629, session 766423b4-7642-4f6a-b965-976d34dfea2e); operate read-only until resolved
+
+phone.recent
+error: another live firstmate session holds the lock (pid 3896629, session 766423b4-7642-4f6a-b965-976d34dfea2e); operate read-only until resolved
+
+phone.acquire
+lock acquired: harness pid 3903640
+
+return.recent
+error: another live firstmate session holds the lock (pid 3903640, session 396f746b-b3e3-406c-9cb6-ce8911ceafa2); operate read-only until resolved
+
+return.stop-recent
+
+return.stop
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.

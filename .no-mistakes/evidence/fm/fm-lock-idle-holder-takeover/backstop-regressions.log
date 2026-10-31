@@ -1,0 +1,12 @@
+test_reused_nonharness_pid_keeps_stale_lock_recovery (__main__.Backstop.test_reused_nonharness_pid_keeps_stale_lock_recovery) ... ok
+test_unknown_holder_report_preserves_deduplicated_episode (__main__.Backstop.test_unknown_holder_report_preserves_deduplicated_episode) ... ok
+test_handover_before_report_uses_reported_pid_for_deduplication (__main__.Backstop.test_handover_before_report_uses_reported_pid_for_deduplication) ... ok
+test_disabled_capability_with_live_lock_defers_without_discovery (__main__.Backstop.test_disabled_capability_with_live_lock_defers_without_discovery) ... ok
+test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked (__main__.Backstop.test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked) ... ok
+test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes (__main__.Backstop.test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes) ... ok
+test_foreground_holder_is_also_queued_once_after_fifteen_minutes (__main__.Backstop.test_foreground_holder_is_also_queued_once_after_fifteen_minutes) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 4.225s
+
+OK

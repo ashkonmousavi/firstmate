@@ -1,0 +1,1 @@
+Final live driver exited 0. Targeted lock regressions exited 0; seven selected backstop regressions exited 0. Observation child exited 0. All recorded CLI/watcher PIDs absent; private tmux server stopped; lab removed; generated Python cache and test temp directory removed; working tree clean.

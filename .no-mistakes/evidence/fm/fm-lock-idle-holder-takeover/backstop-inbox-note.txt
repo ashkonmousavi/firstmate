@@ -1,0 +1,7 @@
+id=1793483090-kGTrG2
+at=2026-10-31T21:44:50Z
+source=text
+announce_marker=1
+request_id=backstop-37fa2e556dd844dfaf123eb10bcb249a
+--
+Idle lock holder pid=3896629 tty=pts/29 idle=2s. Watcher has been silent for 901s. Clear that holder so monitoring can arm.

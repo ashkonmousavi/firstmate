@@ -1,0 +1,46 @@
+# 2026-10-31 Claude 2.1.316 (Claude Code)
+~/.no-mistakes/worktrees/049a88734b0e/01M69PNP07GVT0C49316P6573T/l/p
+ok - native /clear: same terminal pid=3628197 rekeyed A to readable empty B, prior A retained
+idle lock holder pid=3628197 tty=pts/29 idle=1s; watcher silent 600s
+checked watcher_age=600s alarms=0
+Idle lock holder pid=3628197 tty=pts/29 idle=1s. Watcher has been silent for 901s. Clear that holder so monitoring can arm.
+checked watcher_age=901s alarms=1
+Idle lock holder pid=3628197 tty=pts/29 idle=1s. Watcher has been silent for 901s. Clear that holder so monitoring can arm.
+checked watcher_age=901s alarms=1
+BACKSTOP_NOTE id=1793482846-rOQ69K
+at=2026-10-31T21:40:46Z
+source=text
+announce_marker=1
+request_id=backstop-8b77cc712df5456683c7f76d071ea828
+--
+Idle lock holder pid=3628197 tty=pts/29 idle=1s. Watcher has been silent for 901s. Clear that holder so monitoring can arm.
+
+ok - live terminal holder: no ask at 10m; exactly one queued ask at 15m1s across two passes; no nudge
+ok - unrelated-seed holder pid=3636376 tty=?
+ok - unrelated holder pid=3643303 tty=?
+ok - unrelated real fork refused after native A-to-B clear
+ok - phone holder pid=3650631 tty=?
+ok - return holder pid=3672047 tty=pts/37
+REAL_STOP_OUTPUT firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+
+OWNERSHIP_VERDICTS {"cbe35168-2fea-459e-976d-6c59076ef21c": "1", "ec51e47d-c89e-4011-93d7-31eebe262f37": "1", "3af708fc-c308-4fbf-8205-160d092ff5c2": "1", "46df5c92-9e5a-420c-9833-74004545f772": "0", "d57ca2a3-70b0-4119-8e7a-a3edc87f8939": "1"}
+ok - live fork-resume terminal -> background phone -> terminal: two recorded handovers; recent-turn refusal; Stop recovery armed; predecessor processes stayed live; native A-to-empty-B clear and unrelated-fork refusal; classifier clock advanced 3600s; vendor turns unmodified
+LAB_WATCHER_CLEANUP watcher: stopped pid=3680085
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M69PNP07GVT0C49316P6573T/live-lock-driver.py", line 343, in <module>
+    main()
+  File "~/.no-mistakes/evidence/01M69PNP07GVT0C49316P6573T/live-lock-driver.py", line 36, in main
+    with lab_directory() as tmp:
+  File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "~/.no-mistakes/evidence/01M69PNP07GVT0C49316P6573T/live-lock-driver.py", line 29, in lab_directory
+    shutil.rmtree(lab)
+  File "/usr/lib/python3.12/shutil.py", line 785, in rmtree
+    _rmtree_safe_fd(fd, path, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 697, in _rmtree_safe_fd
+    onexc(os.rmdir, fullname, err)
+  File "/usr/lib/python3.12/shutil.py", line 695, in _rmtree_safe_fd
+    os.rmdir(entry.name, dir_fd=topfd)
+OSError: [Errno 39] Directory not empty: 'claude-config'

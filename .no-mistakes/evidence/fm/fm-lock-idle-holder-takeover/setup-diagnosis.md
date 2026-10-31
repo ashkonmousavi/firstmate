@@ -1,0 +1,3 @@
+The first live driver stopped because it searched for *.json notes. fm-inbox owns persisted *.note files, confirmed by its writer and existing notes() consumer. Hypothesis: counting *.note will find one durable request; zero or multiple notes falsifies this. The corrected driver retains that assertion and the emitted note. No product change.
+
+Claude session semantics checked against https://code.claude.com/docs/en/hooks and https://code.claude.com/docs/en/cli-reference: /clear changes sessions; --fork-session with --resume creates a fork, including background copies. No project research book exists in this gate worktree; operator-private research data was not accessed.
