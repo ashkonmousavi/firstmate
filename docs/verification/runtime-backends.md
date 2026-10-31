@@ -1557,7 +1557,7 @@ The Herdr lab was not running, so the Herdr path is covered by the existing fake
 Typing `/exit` while a background shell is still running opens a picker whose selected row is "Exit and stop tasks" and whose footer is "Enter to confirm · Esc to cancel".
 That screen still classifies as pending, the same verdict as unsubmitted composer text.
 A second Enter would confirm the selected row.
-[`fm_composer_blocking_dialog`](../../bin/fm-composer-lib.sh) owns the structural recognition and quoted-text exclusions; [agent control](../agent-control.md#verbs) owns submit and exit refusal, and [event-driven supervision](../architecture.md#event-driven-supervision) owns secondmate dialog monitoring.
+[`fm_composer_blocking_dialog`](../../bin/fm-composer-lib.sh) owns the structural recognition and quoted-text exclusions; [agent control](../agent-control.md#verbs) owns typed-submit safeguards and exit handling, and [event-driven supervision](../architecture.md#event-driven-supervision) owns secondmate dialog monitoring.
 The [agent-control exception](../agent-control.md#verbs) is exercised by [`fm-control-exit-picker-live-e2e.test.sh`](../../tests/fm-control-exit-picker-live-e2e.test.sh), which confirms an already-open picker and one opened by the exit command against real Claude Code through tmux.
 Run `FM_EXIT_PICKER_LIVE=1 bash tests/fm-control-exit-picker-live-e2e.test.sh` to refresh confirmation evidence after an upgrade.
 The opt-in guard submits model prompts in a disposable worktree with isolated Claude configuration and reused authentication; it requires both Claude and the background shell task to stop while preserving the terminal endpoint, worktree, index, and exact staged, unstaged, and untracked file bytes.
