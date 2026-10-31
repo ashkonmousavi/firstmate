@@ -60,6 +60,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 
@@ -91,6 +92,7 @@ esac
 exit 1
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 
@@ -146,6 +148,7 @@ printf 'called\n' > "$FM_TEST_TMUX_MARKER"
 printf 'bash\n'
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 
   for target in sess sess: :win sess:win:extra; do
     out=$(PATH="$fakebin:$BASE_PATH" FM_TEST_TMUX_MARKER="$marker" \
@@ -336,6 +339,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 

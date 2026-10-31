@@ -819,6 +819,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 }
 
 # A launch refused after it claimed its slot must leave the pool and the task
@@ -921,6 +922,7 @@ fi
 exec '$FAKEBIN_DIR/tmux.world' "\$@"
 SH
   chmod +x "$FAKEBIN_DIR/tmux"
+  fm_test_codex_first_turn_wrap "$FAKEBIN_DIR"
   cat > "$FAKEBIN_DIR/polytoken" <<'SH'
 #!/usr/bin/env bash
 case "$*" in
