@@ -162,10 +162,10 @@ ruff_fixture() {
   mkdir -p "$FX_BIN"
   cat >"$FX_BIN/ruff" <<'EOF'
 #!/usr/bin/env bash
-# fake ruff: format --check --force-exclude --stdin-filename NAME -
+# fake ruff: format --check --force-exclude --stdin-filename=NAME -
 name=
 while [ "$#" -gt 0 ]; do
-  [ "$1" != --stdin-filename ] || { name=$2; shift; }
+  case "$1" in --stdin-filename=*) name=${1#--stdin-filename=} ;; esac
   shift
 done
 if grep -q UNFORMATTED; then
@@ -206,7 +206,8 @@ ruff_refused() {  # <label> <file>...
   for f in "$@"; do
     assert_contains "$PUSH_OUT" "  $f" "$label was refused without naming $f"
   done
-  assert_contains "$PUSH_OUT" "Fix: ruff format" "$label was refused without the fix command"
+  assert_contains "$PUSH_OUT" "Fix: " "$label was refused without the fix command"
+  assert_contains "$PUSH_OUT" " format -- " "$label was refused without a format invocation"
   assert_contains "$PUSH_OUT" "commit the formatting and push again" "$label was refused without telling the worker to push again"
 }
 
@@ -226,7 +227,7 @@ test_ruff_format_refuses_unformatted_files() {
   ruff_push origin HEAD:refs/heads/fm/t1
   ruff_refused "an unformatted .py push" 'pkg/a.py' 'pkg/c d.py'
   assert_not_contains "$PUSH_OUT" "  b.py" "the formatted file was named as unformatted"
-  assert_contains "$PUSH_OUT" "Fix: ruff format pkg/a.py pkg/c\\ d.py" "the fix command does not list exactly the unformatted files"
+  assert_contains "$PUSH_OUT" " format -- pkg/a.py pkg/c\\ d.py" "the fix command does not list exactly the unformatted files"
   git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail "the refused push still reached the remote"
   ruff_commit 'format' 'pkg/a.py=x = 1' 'pkg/c d.py=z = 1'
   ruff_push origin HEAD:refs/heads/fm/t1
@@ -310,7 +311,7 @@ SH
     chmod +x "$FX_BIN/$tool"
     isolated_ruff_push origin HEAD:refs/heads/fm/t1
     ruff_refused "a push checked by $tool" a.py
-    expected=$'--from\nruff==0.12.7\nruff\nformat\n--check\n--force-exclude\n--stdin-filename\na.py\n-'
+    expected=$'--from\nruff==0.12.7\nruff\nformat\n--check\n--force-exclude\n--stdin-filename=a.py\n-'
     [ "$tool" != uv ] || expected=$'tool\nrun\n'"$expected"
     assert_equals "$expected" "$(cat "$FX_BIN/$tool.args")" "$tool did not receive the committed pin and the documented tool invocation"
     git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail "$tool let unformatted code reach the remote"
@@ -681,6 +682,183 @@ test_ruff_format_unreadable_committed_content_refuses() {
   pass 'ruff format check: failure to materialize committed content refuses the push'
 }
 
+collect_reported_fixes() {
+  local line
+  FIX_COMMANDS=()
+  while IFS= read -r line; do
+    case "$line" in 'Fix: '*) FIX_COMMANDS+=("${line#Fix: }") ;; esac
+  done <<<"$PUSH_OUT"
+}
+
+write_real_ruff_uv_runner() {
+  local tool=$1 real_ruff=$2
+  {
+    printf '#!/usr/bin/env bash\n'
+    cat <<'SH'
+printf '%s\n' "$@" >"$0.args"
+[ "${1:-}" != tool ] || shift 2
+[ "$#" -ge 3 ] && [ "$1" = --from ] && [ "$3" = ruff ] || exit 2
+printf '%s\n' "$2" >>"$0.packages"
+shift 3
+SH
+    printf 'exec %q "$@"\n' "$real_ruff"
+  } >"$FX_BIN/$tool"
+  chmod +x "$FX_BIN/$tool"
+}
+
+test_ruff_format_unpinned_uv_refuses() {
+  local tool declaration requirement
+  for tool in uvx uv; do
+    for declaration in config unpinned range wildcard local-pin; do
+      ruff_fixture "ruff-no-pin-$tool-$declaration"
+      requirement=ruff
+      case "$declaration" in
+        config) git -C "$FX_WT" rm -q requirements-dev.txt ;;
+        range) requirement='ruff>=0.12.7' ;;
+        wildcard) requirement='ruff==0.12.*' ;;
+      esac
+      if [ "$declaration" = config ]; then
+        ruff_commit 'config without requirements pin' 'ruff.toml=' 'a.py=x=UNFORMATTED'
+      else
+        ruff_commit 'no exact committed pin' "requirements-dev.txt=$requirement" 'a.py=x=UNFORMATTED'
+      fi
+      [ "$declaration" != local-pin ] || printf 'ruff==0.12.7\n' >"$FX_WT/requirements-dev.txt"
+      isolate_ruff_path
+      printf '#!/usr/bin/env bash\nprintf invoked >"$0.ran"\nexit 0\n' >"$FX_BIN/$tool"
+      chmod +x "$FX_BIN/$tool"
+      isolated_ruff_push origin HEAD:refs/heads/fm/t1
+      [ "$PUSH_RC" -ne 0 ] || fail "$tool accepted $declaration without an exact committed pin"
+      assert_contains "$PUSH_OUT" 'exact committed requirements-dev.txt pin' 'unpinned uv refusal did not explain the missing pin'
+      assert_contains "$PUSH_OUT" 'Install: python3 -m pip install ruff' 'unpinned uv refusal omitted the install command'
+      assert_absent "$FX_BIN/$tool.ran" 'uv was invoked despite the missing committed pin'
+      git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail 'unpinned uv advanced the remote'
+    done
+  done
+  pass 'ruff format check: uvx and uv refuse absent, ranged, wildcard and local-only pins'
+}
+
+test_ruff_format_committed_symlinks_refuse() {
+  local suffix symlinks comparison path object before
+  for suffix in py pyi ipynb; do
+    for symlinks in true false; do
+      for comparison in changed all; do
+        ruff_fixture "ruff-link-$suffix-$symlinks-$comparison"
+        git -C "$FX_WT" config core.symlinks "$symlinks"
+        path="alias.$suffix"
+        ruff_commit 'regular candidate and target' "$path=x = 1" 'module.txt=x = 1'
+        before=
+        if [ "$comparison" = changed ]; then
+          ruff_push origin HEAD:refs/heads/fm/t1
+          [ "$PUSH_RC" -eq 0 ] || fail "regular file was refused: $PUSH_OUT"
+          before=$(git -C "$FX_WT" rev-parse HEAD)
+        fi
+        object=$(printf 'module.txt' | git -C "$FX_WT" hash-object -w --stdin)
+        git -C "$FX_WT" update-index --add --cacheinfo "120000,$object,$path"
+        git -C "$FX_WT" commit -q -m 'replace regular candidate with a committed symlink'
+        [ "$comparison" != all ] || git -C "$FX_WT" update-ref -d refs/heads/main
+        ruff_push origin HEAD:refs/heads/fm/t1
+        [ "$PUSH_RC" -ne 0 ] || fail "a committed $suffix symlink was accepted with core.symlinks=$symlinks and $comparison selection"
+        assert_contains "$PUSH_OUT" "cannot format-check symlink or non-regular committed file $path (mode 120000)" 'symlink refusal did not identify the committed file and mode'
+        if [ -n "$before" ]; then
+          assert_equals "$before" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" 'a regular-to-symlink transition advanced the remote'
+        else
+          git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail 'a committed symlink reached the remote'
+        fi
+        object=$(printf 'x = 2\n' | git -C "$FX_WT" hash-object -w --stdin)
+        git -C "$FX_WT" update-index --cacheinfo "100644,$object,$path"
+        git -C "$FX_WT" commit -q -m 'restore a regular committed candidate'
+        ruff_push origin HEAD:refs/heads/fm/t1
+        [ "$PUSH_RC" -eq 0 ] || fail "restoring a regular candidate was refused: $PUSH_OUT"
+      done
+    done
+  done
+  pass 'ruff format check: committed symlinks refuse by mode for every type and selection, even when checkout materializes link text'
+}
+
+test_ruff_format_symlink_to_regular_is_checked() {
+  local suffix path object before
+  for suffix in py pyi ipynb; do
+    ruff_fixture "ruff-link-to-regular-$suffix"
+    path="alias.$suffix"
+    object=$(printf 'module.txt' | git -C "$FX_WT" hash-object -w --stdin)
+    git -C "$FX_WT" update-index --add --cacheinfo "120000,$object,$path"
+    git -C "$FX_WT" commit -q -m 'old symlink on the remote'
+    git -C "$FX_WT" push -q --no-verify origin HEAD:refs/heads/fm/t1
+    before=$(git -C "$FX_WT" rev-parse HEAD)
+    object=$(printf 'x=UNFORMATTED\n' | git -C "$FX_WT" hash-object -w --stdin)
+    git -C "$FX_WT" update-index --cacheinfo "100644,$object,$path"
+    git -C "$FX_WT" commit -q -m 'replace symlink with unformatted regular source'
+    ruff_push origin HEAD:refs/heads/fm/t1
+    ruff_refused 'a symlink-to-regular transition containing unformatted source' "$path"
+    assert_equals "$before" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" 'an unformatted type transition advanced the remote'
+    object=$(printf 'x = 1\n' | git -C "$FX_WT" hash-object -w --stdin)
+    git -C "$FX_WT" update-index --cacheinfo "100644,$object,$path"
+    git -C "$FX_WT" commit -q -m 'format the regular source'
+    ruff_push origin HEAD:refs/heads/fm/t1
+    [ "$PUSH_RC" -eq 0 ] || fail "a formatted symlink-to-regular transition was refused: $PUSH_OUT"
+  done
+  pass 'ruff format check: symlink-to-regular transitions are formatted rather than omitted'
+}
+
+test_ruff_format_reported_runner_commands_execute() {
+  local real_ruff runner executable fix file
+  real_ruff=$(command -v ruff) || { echo '# SKIP executable fix checks require real ruff'; return; }
+  for runner in .venv venv path uvx uv; do
+    ruff_fixture "ruff-fix-$runner with spaces"
+    ruff_commit 'unformatted names and default settings' 'ruff.toml=' 'requirements-dev.txt=ruff==0.12.7' \
+      'a file.py=x=1' "quote'file.py=x=1" '-leading.py=x=1'
+    isolate_ruff_path
+    case "$runner" in
+      .venv | venv)
+        mkdir -p "$FX_WT/$runner/bin"
+        executable="$FX_WT/$runner/bin/ruff"
+        ln -s "$real_ruff" "$executable"
+        ;;
+      path) executable="$FX_BIN/ruff"; ln -s "$real_ruff" "$executable" ;;
+      *) write_real_ruff_uv_runner "$runner" "$real_ruff" ;;
+    esac
+    isolated_ruff_push origin HEAD:refs/heads/fm/t1
+    ruff_refused "a push checked through $runner" 'a file.py' "quote'file.py" '-leading.py'
+    collect_reported_fixes
+    assert_equals 1 "${#FIX_COMMANDS[@]}" 'the push did not report one fix for its ref'
+    fix=${FIX_COMMANDS[0]}
+    (cd "$FX_WT" && PATH="$FX_BIN" bash -c "$fix") >/dev/null || fail "the printed $runner command could not execute: $fix"
+    for file in 'a file.py' "quote'file.py" '-leading.py'; do
+      assert_equals 'x = 1' "$(cat "$FX_WT/$file")" 'the reported command did not format the intended file'
+    done
+    git -C "$FX_WT" add -- 'a file.py' "quote'file.py" '-leading.py'
+    git -C "$FX_WT" commit -q -m 'apply the printed fix'
+    isolated_ruff_push origin HEAD:refs/heads/fm/t1
+    [ "$PUSH_RC" -eq 0 ] || fail "the printed $runner fix did not allow the push: $PUSH_OUT"
+    assert_equals "$(git -C "$FX_WT" rev-parse HEAD)" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" 'the fixed commit did not reach the remote'
+  done
+  pass 'ruff format check: quoted fix commands execute via venv, PATH and pinned uv runners for special filenames'
+}
+
+test_ruff_format_reports_each_refs_pinned_runner() {
+  local real_ruff first second fix
+  real_ruff=$(command -v ruff) || { echo '# SKIP per-ref runner fix checks require real ruff'; return; }
+  ruff_fixture 'ruff-fix-multiple refs'
+  ruff_commit 'first pin and bad source' 'ruff.toml=' 'requirements-dev.txt=ruff==0.12.7' 'a.py=x=1'
+  first=$(git -C "$FX_WT" rev-parse HEAD)
+  ruff_commit 'second pin and bad source' 'requirements-dev.txt=ruff==0.13.1' 'a.py=x=2'
+  second=$(git -C "$FX_WT" rev-parse HEAD)
+  isolate_ruff_path
+  write_real_ruff_uv_runner uvx "$real_ruff"
+  isolated_ruff_push origin "$first:refs/heads/fm/one" "$second:refs/heads/fm/two"
+  [ "$PUSH_RC" -ne 0 ] || fail 'unformatted multiple refs were accepted'
+  collect_reported_fixes
+  assert_equals 2 "${#FIX_COMMANDS[@]}" 'multiple refs did not retain separate runner fixes'
+  : >"$FX_BIN/uvx.packages"
+  for fix in "${FIX_COMMANDS[@]}"; do
+    (cd "$FX_WT" && PATH="$FX_BIN" bash -c "$fix") >/dev/null || fail 'a per-ref pinned runner fix could not execute'
+  done
+  assert_equals $'ruff==0.12.7\nruff==0.13.1' "$(cat "$FX_BIN/uvx.packages")" "the fix commands reused another ref's formatter pin"
+  git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/one >/dev/null && fail 'the first unformatted ref reached the remote'
+  git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/two >/dev/null && fail 'the second unformatted ref reached the remote'
+  pass 'ruff format check: multiple refs retain and execute their own pinned runner fixes'
+}
+
 test_origin_pushes_are_refused
 test_backup_namespace_rules
 test_empty_prefix_still_refuses_the_task_branch
@@ -704,5 +882,10 @@ test_ruff_format_ignores_external_configuration
 test_pre_push_chaining_preserves_empty_and_nonempty_input
 test_ruff_format_large_excluded_files_do_not_refuse
 test_ruff_format_unreadable_committed_content_refuses
+test_ruff_format_unpinned_uv_refuses
+test_ruff_format_committed_symlinks_refuse
+test_ruff_format_symlink_to_regular_is_checked
+test_ruff_format_reported_runner_commands_execute
+test_ruff_format_reports_each_refs_pinned_runner
 
 echo "# all fm-git-push-guard and ruff format check tests passed"

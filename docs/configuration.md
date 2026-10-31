@@ -1306,9 +1306,10 @@ Per-machine Cursor `cli-config.json` attribution-off is not this contract: it do
 
 Every ship launch installs the same `state/<id>.git-hooks` directory, including under `config/keep-ai-trailers`, on every harness and runtime backend, locally and remotely.
 Its pre-push wrapper automatically checks repositories declaring Ruff through `ruff.toml`, `.ruff.toml`, a `pyproject.toml` Ruff section, or a Ruff requirement in `requirements-dev.txt`; repositories without a declaration are unaffected.
-The check refuses pushes that would reformat changed `.py`, `.pyi`, or `.ipynb` files, using each pushed commit's content and configuration with Ruff exclusions respected, and prints the exact `ruff format <files>` fix command.
+The check refuses pushes that would reformat changed `.py`, `.pyi`, or `.ipynb` files, using each pushed commit's content and configuration with Ruff exclusions respected, and prints a shell-quoted fix command using that ref's resolved Ruff runner.
+Committed symlinks and other non-regular candidates are refused by name, including regular-file/symlink transitions.
 Without a comparison base it checks every tracked supported file.
-Ruff resolves from the worker copy's `.venv/bin/ruff` or `venv/bin/ruff`, then `PATH`, then `uvx` or `uv tool run`, using the version pinned in committed `requirements-dev.txt` when running through uv.
+Ruff resolves from the worker copy's `.venv/bin/ruff` or `venv/bin/ruff`, then `PATH`, then `uvx` or `uv tool run` only when an exact version is pinned in committed `requirements-dev.txt`.
 A missing formatter or a Ruff error refuses the push and names the install command.
 The push guard and this check each run and each refuse on their own, and the project's own pre-push hook runs only after both pass.
 `bin/fm-git-ruff-format-check.sh` owns the comparison base, file selection, formatter resolution, and refusal text, with regression coverage in [`tests/fm-git-push-guard.test.sh`](../tests/fm-git-push-guard.test.sh).

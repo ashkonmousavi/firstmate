@@ -71,6 +71,7 @@ find_ruff() {
     fi
   done
   for tool in ruff uvx uv; do
+    [ "$tool" = ruff ] || [ "$RUFF_PACKAGE" != ruff ] || continue
     if candidate=$(command -v "$tool"); then
       [[ "$candidate" = /* ]] || candidate="$PWD/$candidate"
       case "$tool" in
@@ -81,13 +82,14 @@ find_ruff() {
       return 0
     fi
   done
-  refuse 'Ruff was not found in .venv, venv, PATH, uvx or uv tool run'
+  refuse 'Ruff was not found in .venv, venv or PATH; uvx or uv tool run requires an available runner and an exact committed requirements-dev.txt pin'
   printf 'Install: python3 -m pip install %q\n' "$RUFF_PACKAGE" >&2
   return 1
 }
 
 check_ref() {
-  local oid=$1 remote_ref=$2 remote_oid=$3 base='' default path out rc
+  local oid=$1 remote_ref=$2 remote_oid=$3 base='' default path out rc mode
+  local BAD=()
   git cat-file -e "$oid^{commit}" 2>/dev/null || {
     refuse "could not read the pushed commit for $remote_ref"
     return 1
@@ -122,18 +124,23 @@ check_ref() {
     base=$(git merge-base "$default" "$oid" 2>/dev/null) || base=
   fi
   if [ -n "$base" ]; then
-    git diff -z --name-only --no-renames --diff-filter=ACMR "$base" "$oid" -- '*.py' '*.pyi' '*.ipynb' >"$SNAPSHOT/.git/candidates" || return 1
+    git diff -z --name-only --no-renames --diff-filter=ACMRT "$base" "$oid" -- '*.py' '*.pyi' '*.ipynb' >"$SNAPSHOT/.git/candidates" || return 1
   else
     GIT_INDEX_FILE="$SNAPSHOT/.git/index" git ls-files -z -- '*.py' '*.pyi' '*.ipynb' >"$SNAPSHOT/.git/candidates" || return 1
   fi
   [ -s "$SNAPSHOT/.git/candidates" ] || return 0
   find_ruff || return 1
   while IFS= read -r -d '' path; do
+    mode=$(git ls-tree --format='%(objectmode)' "$oid" -- "$path") || return 1
+    case "$mode" in
+      100644 | 100755) ;;
+      *) refuse "cannot format-check symlink or non-regular committed file $path (mode $mode)"; return 1 ;;
+    esac
     if ! git show "$oid:$path" >"$SNAPSHOT/.git/input"; then
       refuse "could not read committed content for $path"
       return 1
     fi
-    out=$(cd "$SNAPSHOT" && "${RUFF[@]}" format --check --force-exclude --stdin-filename "$path" - <.git/input 2>&1)
+    out=$(cd "$SNAPSHOT" && "${RUFF[@]}" format --check --force-exclude --stdin-filename="$path" - <.git/input 2>&1)
     rc=$?
     case "$rc" in
       0) ;;
@@ -145,6 +152,18 @@ check_ref() {
         ;;
     esac
   done <"$SNAPSHOT/.git/candidates"
+  if [ "${#BAD[@]}" -gt 0 ]; then
+    {
+      printf 'fm-ruff-format: refused: ruff format --check would reformat %s changed file(s) for %s, and CI fails the PR on them:\n' "${#BAD[@]}" "$remote_ref"
+      printf '  %s\n' "${BAD[@]}"
+      printf 'Fix:'
+      printf ' %q' "${RUFF[@]}"
+      printf ' format --'
+      printf ' %q' "${BAD[@]}"
+      printf '\nThen commit the formatting and push again.\n'
+    } >&2
+    return 1
+  fi
 }
 
 case "${1:-}" in
@@ -159,7 +178,6 @@ RUFF_PACKAGE=ruff
 CHECK_FAILED=0
 SNAPSHOT=
 trap '[ -z "$SNAPSHOT" ] || rm -rf -- "$SNAPSHOT"' EXIT
-BAD=()
 while read -r _ local_oid remote_ref remote_oid; do
   [ -n "${local_oid:-}" ] || continue
   [[ "$local_oid" =~ $ZERO_OID_RE ]] && continue
@@ -170,14 +188,4 @@ while read -r _ local_oid remote_ref remote_oid; do
   fi
 done
 
-[ "${#BAD[@]}" -gt 0 ] || exit "$CHECK_FAILED"
-SORTED=()
-while IFS= read -r -d '' path; do SORTED+=("$path"); done < <(printf '%s\0' "${BAD[@]}" | sort -zu)
-{
-  printf 'fm-ruff-format: refused: ruff format --check would reformat %s changed file(s), and CI fails the PR on them:\n' "${#SORTED[@]}"
-  printf '  %s\n' "${SORTED[@]}"
-  printf 'Fix: ruff format'
-  printf ' %q' "${SORTED[@]}"
-  printf '\nThen commit the formatting and push again.\n'
-} >&2
-exit 1
+exit "$CHECK_FAILED"
