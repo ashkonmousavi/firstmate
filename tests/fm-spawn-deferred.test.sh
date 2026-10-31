@@ -28,7 +28,7 @@ SH
 printf '%s\n' "$1" >> "${FM_DEFERRED_TEST_LOG:?}"
 if [ -n "${FM_DEFERRED_SLEEP_ID:-}" ] && [ "$1" = "$FM_DEFERRED_SLEEP_ID" ]; then
   printf '%s\n' "$$" > "${FM_DEFERRED_TEST_LOG}.child"
-  sleep 30
+  while [ ! -f "${FM_DEFERRED_TEST_LOG}.release" ]; do sleep 0.05; done
 fi
 exit 0
 SH
@@ -68,7 +68,6 @@ sweep_home() { # <home> <case-dir>
   local home=$1 case_dir=$2
   FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" \
-    FM_SPAWN_DEFERRED_SYNC=1 \
     FM_SPAWN_DEFERRED_CAPACITY_BIN="$case_dir/capacity" \
     FM_SPAWN_DEFERRED_FREE_FILE="$case_dir/free" \
     FM_DEFERRED_TEST_LOG="$case_dir/spawn.log" \
@@ -151,7 +150,7 @@ test_in_progress_claim_consumes_the_lane() {
   home="$case_dir/home"
   record_task "$home" "$case_dir" sleep-one
   record_task "$home" "$case_dir" next-one
-  printf '1\n' > "$case_dir/free"
+  printf '2\n' > "$case_dir/free"
   set +m
   FM_DEFERRED_SLEEP_ID=sleep-one sweep_home "$home" "$case_dir" >/dev/null &
   first=$!
@@ -165,8 +164,10 @@ test_in_progress_claim_consumes_the_lane() {
   assert_equals "sleep-one" "$(cat "$case_dir/spawn.log")" \
     "a second sweep started another request while the free lane was already claimed"
   queue_has "$home" next-one || fail "the waiting request was dropped while a claim was in progress"
-  kill "$(cat "$case_dir/spawn.log.child")" "$first" 2>/dev/null || true
-  wait "$first" 2>/dev/null || true
+  : > "$case_dir/spawn.log.release"
+  wait "$first" || fail "the original sweep did not finish its serial retries"
+  assert_equals "$(printf '%s\n' sleep-one next-one)" "$(cat "$case_dir/spawn.log")" \
+    "the original sweep did not continue with the next request"
   set -m
   pass "an in-progress claim consumes the free lane"
 }
@@ -377,7 +378,6 @@ test_real_spawn_starts_after_a_lane_frees() {
     FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' \
     FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_BACKEND=tmux \
     FM_FAKE_PANE_PATH="$case_dir/wt-retry" FM_FAKE_CALL_LOG="$case_dir/calls.log" \
-    FM_SPAWN_DEFERRED_SYNC=1 \
     PATH="$fakebin:$PATH" \
     "$ROOT_BIN" sweep 2>&1) || rc=$?
   ended=$(date +%s)
@@ -397,7 +397,7 @@ defer_exit=75
 defer_record=state/spawn-deferred/queue task=retry-one
 lane_free_command=rm -f $home/state/occupant.meta
 lane_freed_epoch=$began
-retry_command=FM_HOME=$home FM_SPAWN_NO_GUARD=1 TMUX=fake,1,0 FM_BACKEND=tmux FM_SPAWN_DEFERRED_SYNC=1 PATH=$fakebin:\$PATH $ROOT_BIN sweep
+retry_command=FM_HOME=$home FM_SPAWN_NO_GUARD=1 TMUX=fake,1,0 FM_BACKEND=tmux PATH=$fakebin:\$PATH $ROOT_BIN sweep
 retry_finished_epoch=$ended
 elapsed_s=$elapsed
 sweep_exit=$rc
@@ -409,6 +409,90 @@ EOF
   pass "a deferred spawn starts within five minutes of a lane freeing (${elapsed}s)"
 }
 
+test_retries_are_serial() {
+  local case_dir home out
+  require_tasks || return 0
+  case_dir=$(new_case serial first-one second-one)
+  home="$case_dir/home"
+  cat > "$case_dir/spawn" <<'SH'
+#!/usr/bin/env bash
+if ! mkdir "${FM_DEFERRED_TEST_LOG}.lock" 2>/dev/null; then
+  printf 'overlap\n' >> "$FM_DEFERRED_TEST_LOG"
+  exit 1
+fi
+printf '%s begin\n' "$1" >> "$FM_DEFERRED_TEST_LOG"
+sleep 0.2
+printf '%s end\n' "$1" >> "$FM_DEFERRED_TEST_LOG"
+rmdir "${FM_DEFERRED_TEST_LOG}.lock"
+SH
+  record_task "$home" "$case_dir" first-one
+  record_task "$home" "$case_dir" second-one
+  printf '2\n' > "$case_dir/free"
+  out=$(sweep_home "$home" "$case_dir")
+  assert_contains "$out" "started second-one" "the second serial retry did not start"
+  assert_equals "$(printf '%s\n' 'first-one begin' 'first-one end' 'second-one begin' 'second-one end')" \
+    "$(cat "$case_dir/spawn.log")" "retries overlapped or ran out of order"
+  queue_has "$home" first-one && fail "the first retry stayed queued"
+  queue_has "$home" second-one && fail "the second retry stayed queued"
+  pass "retries complete serially in deferred order"
+}
+
+test_refusal_preserves_launch_budget() {
+  local case_dir home out rc
+  require_tasks || return 0
+  for rc in 75 1; do
+    case_dir=$(new_case "refusal-$rc" blocked-one ready-one third-one)
+    home="$case_dir/home"
+    cat > "$case_dir/spawn" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$1" >> "$FM_DEFERRED_TEST_LOG"
+if [ "$1" = blocked-one ]; then
+  if [ "$FM_DEFERRED_TEST_RC" = 75 ]; then
+    "${FM_DEFERRED_TEST_BIN:?}" record "$1" -- "$0" "$1" || exit 1
+  fi
+  exit "$FM_DEFERRED_TEST_RC"
+fi
+exit 0
+SH
+    record_task "$home" "$case_dir" blocked-one
+    record_task "$home" "$case_dir" ready-one
+    record_task "$home" "$case_dir" third-one
+    printf '1\n' > "$case_dir/free"
+    out=$(FM_DEFERRED_TEST_RC="$rc" FM_DEFERRED_TEST_BIN="$ROOT_BIN" sweep_home "$home" "$case_dir")
+    assert_contains "$out" "started ready-one" "the younger request was not launched after refusal"
+    assert_equals "$(printf '%s\n' blocked-one ready-one)" "$(cat "$case_dir/spawn.log")" \
+      "exit $rc consumed the lane or prevented the younger ready task from starting"
+    queue_has "$home" blocked-one || fail "the refused request lost its queue record"
+    queue_has "$home" ready-one && fail "the successful younger request stayed queued"
+    queue_has "$home" third-one || fail "a launch exceeded the successful-launch budget"
+  done
+  pass "refused retries leave the free lane for younger ready work"
+}
+
+test_argument_bytes_survive_retry() {
+  local case_dir home out
+  require_tasks || return 0
+  case_dir=$(new_case argument-bytes bytes-one)
+  home="$case_dir/home"
+  cat > "$case_dir/spawn" <<'SH'
+#!/usr/bin/env bash
+printf '%s\0' "$@" > "${FM_DEFERRED_TEST_LOG}.argv"
+SH
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_CONFIG_OVERRIDE="$home/config" \
+    "$ROOT_BIN" record bytes-one -- "$case_dir/spawn" bytes-one '' $'\n' $'printf hello\n\n' trailing-x
+  printf '%s\0' bytes-one '' $'\n' $'printf hello\n\n' trailing-x > "$case_dir/expected.argv"
+  printf '1\n' > "$case_dir/free"
+  out=$(sweep_home "$home" "$case_dir")
+  [ -f "$case_dir/spawn.log.argv" ] || fail "the byte-preserving request was discarded instead of executed: $out"
+  cmp -s "$case_dir/expected.argv" "$case_dir/spawn.log.argv" || fail "retry changed the argument bytes"
+  queue_has "$home" bytes-one && fail "the byte-preserving request stayed queued after success"
+  pass "retry preserves empty arguments and trailing newlines"
+}
+
+test_retries_are_serial
+test_refusal_preserves_launch_budget
+test_argument_bytes_survive_retry
 test_oldest_and_one_per_free_lane
 test_no_double_start
 test_in_progress_claim_consumes_the_lane

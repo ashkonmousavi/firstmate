@@ -4,7 +4,6 @@
 # Usage:
 #   fm-spawn-deferred.sh record <task-id> -- <spawn-program> <task-id> [args...]
 #   fm-spawn-deferred.sh sweep
-#   fm-spawn-deferred.sh run-claim <claim-file>   (detached worker; not an operator command)
 #
 # bin/fm-spawn.sh calls record only when machine admission refuses a ship, scout,
 # or relaunch (exit 75, "no free machine lane" and the other fm_capacity_read
@@ -22,8 +21,8 @@
 #
 # sweep runs from the supervision check sweep (bin/fm-watch.sh), whose default
 # period is five minutes. It asks bin/fm-capacity.sh for free_lanes once. Each
-# claim already running counts against that number, and only a launch spends a
-# free lane. The oldest queued request that is still eligible starts first.
+# claim already running prevents another launch, and only a successful launch
+# spends a free lane. The oldest queued request that is still eligible starts first.
 # Eligible means the backlog row is exactly queued, not held and not blocked,
 # when the backlog gate applies (bin/fm-backlog-transition-lib.sh), and the task
 # record does not already hold a machine seat (bin/fm-project-capacity-lib.sh).
@@ -43,9 +42,8 @@
 # A claim directory entry is the in-progress mark, taken while the sweep lock
 # state/.spawn-deferred.lock is held. The spawn itself runs after that lock is
 # released, so a retried spawn can record another deferral without deadlocking
-# the sweep. Tests set FM_SPAWN_DEFERRED_SYNC=1 together with FM_TEST_SEAM=1
-# to run that spawn in the sweep process, and FM_SPAWN_DEFERRED_CAPACITY_BIN
-# to replace the capacity command. Neither hook applies unless FM_TEST_SEAM=1.
+# the sweep. Tests set FM_SPAWN_DEFERRED_CAPACITY_BIN to replace the capacity
+# command. This hook applies only when FM_TEST_SEAM=1.
 # sweep prints nothing and exits 0 when there is nothing to report, the lock
 # is busy, or the machine is full.
 set -u
@@ -302,8 +300,8 @@ deferred_decode_args() {
   DECODED=()
   [ "${#DEFERRED_ARG_ENC[@]}" -ge 2 ] || return 1
   for enc in "${DEFERRED_ARG_ENC[@]}"; do
-    raw=$(deferred_b64_decode "$enc") || return 1
-    DECODED+=("$raw")
+    raw=$(deferred_b64_decode "$enc" && printf x) || return 1
+    DECODED+=("${raw%x}")
   done
 }
 
@@ -584,14 +582,16 @@ $(deferred_each_order_file "$CLAIM")
 EOF
 }
 
-deferred_run_sync() { # <claim>
+deferred_run_claim() { # <claim>
   local claim=$1 rc=0
   printf '%s\n' "$$" > "${claim}.pid" || return 1
   fm_lock_release "$LOCK" || true
   set +e
-  (cd -- "$DEFERRED_CWD" && "${DECODED[@]}")
+  (cd -- "$DEFERRED_CWD" && "${DECODED[@]}") >> "$RETRY_LOG" 2>&1 </dev/null
   rc=$?
+  DEFERRED_LAUNCH_RC=$rc
   set +e
+  printf '%s\n' "$rc" > "${claim}.rc" || return 1
   fm_lock_acquire_wait "$LOCK" || return 1
   if [ -f "$claim" ]; then
     deferred_finish_claim "$claim" "$rc" sync || return 1
@@ -645,8 +645,8 @@ deferred_sweep() {
     return 0
   fi
   free=$(deferred_capacity_free) || return 0
-  if [ "$free" -gt "$IN_PROGRESS" ]; then
-    budget=$((free - IN_PROGRESS))
+  if [ "$IN_PROGRESS" -eq 0 ]; then
+    budget=$free
   else
     budget=0
   fi
@@ -676,36 +676,14 @@ deferred_sweep() {
     [ "$budget" -ge 1 ] || continue
     claim="$CLAIM/$(basename -- "$f")"
     mv -f -- "$f" "$claim" || continue
-    budget=$((budget - 1))
     printf 'started %s\n' "$DEFERRED_TASK"
-    if [ "${FM_TEST_SEAM:-}" = 1 ] && [ "${FM_SPAWN_DEFERRED_SYNC:-}" = 1 ]; then
-      deferred_run_sync "$claim" || return 1
-    else
-      setsid nohup "$0" run-claim "$claim" >> "$RETRY_LOG" 2>&1 </dev/null &
+    deferred_run_claim "$claim" || return 1
+    if [ "$DEFERRED_LAUNCH_RC" -eq 0 ]; then
+      budget=$((budget - 1))
     fi
   done <<EOF
 $(deferred_each_order_file "$QUEUE")
 EOF
-}
-
-deferred_run_claim() { # <claim>
-  local claim=${1:-} rc=0
-  [ -n "$claim" ] && [ -f "$claim" ] && [ ! -L "$claim" ] || return 0
-  printf '%s\n' "$$" > "${claim}.pid" || return 1
-  if ! deferred_validate "$claim"; then
-    fm_lock_acquire_wait "$LOCK" || return 1
-    deferred_report_stale "$claim"
-    fm_lock_release "$LOCK" || true
-    return 0
-  fi
-  set +e
-  (cd -- "$DEFERRED_CWD" && "${DECODED[@]}")
-  rc=$?
-  set +e
-  printf '%s\n' "$rc" > "${claim}.rc" || return 1
-  fm_lock_acquire_wait "$LOCK" || return 1
-  deferred_finish_claim "$claim" "$rc" async || return 1
-  fm_lock_release "$LOCK" || true
 }
 
 case "${1:-}" in
@@ -718,11 +696,6 @@ case "${1:-}" in
     ;;
   sweep)
     deferred_sweep
-    ;;
-  run-claim)
-    shift
-    deferred_ensure_dirs || exit 1
-    deferred_run_claim "$@"
     ;;
   *)
     echo 'usage: fm-spawn-deferred.sh record <task-id> -- <argv...> | sweep' >&2
