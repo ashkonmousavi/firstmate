@@ -147,10 +147,13 @@ pane_visible_capture() {
   lab pane read "$target" --source visible 2>/dev/null
 }
 
-wait_for_pane_text() {  # <id> <text> <max-seconds>
-  local id=$1 text=$2 max=$3 i=0
+wait_for_pane_reply() {
+  local id=$1 reply=$2 max=$3 i=0
   while [ "$i" -lt "$max" ]; do
-    pane_capture "$id" | grep -Fq -- "$text" && return 0
+    pane_capture "$id" | awk -v reply="$reply" '
+      $1 == "•" && $2 == reply && NF == 2 { found=1 }
+      END { exit !found }
+    ' && return 0
     i=$((i + 1))
     sleep 1
   done
@@ -172,7 +175,7 @@ esac
 [ "$SPAWN_ELAPSED" -le "$SPAWN_BOUND" ] || fail "the new-folder spawn took ${SPAWN_ELAPSED}s to start processing its brief (bound: ${SPAWN_BOUND}s)"
 pane_capture "$SCOUT" | grep -Fq 'FIRSTMATE_OP: v1 launch-brief' \
   || fail "the new-folder pane never showed the $TRANSPORT launch-brief envelope"
-wait_for_pane_text "$SCOUT" 'codex-brief-ok' 90 \
+wait_for_pane_reply "$SCOUT" 'codex-brief-ok' 90 \
   || fail "the new-folder scout never replied codex-brief-ok"$'\n'"$(pane_capture "$SCOUT" | tail -20)"
 pass "real codex $CODEX_VERSION on herdr: a new-folder scout starts processing its $TRANSPORT launch brief within ${SPAWN_ELAPSED}s and answers it"
 
@@ -202,7 +205,7 @@ if [ "$SPAWN_RC" -ne 0 ]; then
   fail "a codex relaunch in the trusted folder failed within ${SPAWN_ELAPSED}s"$'\n'"$SPAWN_OUT"
 fi
 [ "$SPAWN_ELAPSED" -le "$SPAWN_BOUND" ] || fail "the trusted-folder relaunch took ${SPAWN_ELAPSED}s to start processing its brief (bound: ${SPAWN_BOUND}s)"
-wait_for_pane_text "$SCOUT" 'codex-relaunch-ok' 90 \
+wait_for_pane_reply "$SCOUT" 'codex-relaunch-ok' 90 \
   || fail "the trusted-folder scout never replied codex-relaunch-ok"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
 [ -s "$TRUST_POLL" ] || fail "codex $CODEX_VERSION trusted-folder viewport was never observed"
 if grep -Fq 'Trust this folder' "$TRUST_POLL"; then
