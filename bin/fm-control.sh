@@ -797,7 +797,7 @@ fm_control_lane_release_guard() {
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
-  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy release_meta_lock= release_busy_token= submit_rc=0
+  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy release_meta_lock='' release_busy_token='' submit_rc=0
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -899,6 +899,8 @@ do_exit() {
     [ "$EXPECT_GEN_SET" = 1 ] && [ "$IF_IDLE" = 1 ] || return 75
     release_meta_lock=$(fm_meta_lock_path "$META") || return 75
     fm_lock_try_acquire "$release_meta_lock" || return 75
+    # Capture the lock path now because the local variable is gone at exit.
+    # shellcheck disable=SC2064
     trap "fm_lock_release $(printf '%q' "$release_meta_lock") || true" EXIT
     "$SCRIPT_DIR/fm-lane-release.sh" validate-exit "$ID" "$EXPECT_GEN" || return 75
     release_busy_token=$(sed -n 's/^busy_seq=//p' "$STATE/$ID.released")

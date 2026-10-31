@@ -1130,6 +1130,7 @@ extra_all_external_reads_share_the_sweep_deadline() {
     case "$what" in
       doorbell)
         (
+          # shellcheck source=/dev/null
           . "$ROOT/bin/fm-task-inbox-lib.sh"
           fm_task_inbox_write "$dir/home/state" s1 continuation >/dev/null
         ) || fail "could not enqueue the steer"
@@ -1151,10 +1152,12 @@ extra_all_external_reads_share_the_sweep_deadline() {
   pass "agent, busy, composer, doorbell and marker seat reads stop at the sweep deadline"
 }
 
+# shellcheck disable=SC2329 # Imported production code invokes the test override.
 extra_shared_seat_rule_preserves_uncertainty() {
   local dir
   dir=$(new_case seat-evidence)
   (
+    # shellcheck source=/dev/null
     . "$ROOT/bin/fm-project-capacity-lib.sh"
     fm_backend_agent_state() { printf '%s\n' "$agent"; }
     local agent=alive raw rc
@@ -1266,6 +1269,7 @@ extra_marker_verification_rotates_with_candidates() {
   pass "verification and candidate work share the durable cursor without starvation"
 }
 
+# shellcheck disable=SC2329 # Imported production code invokes the test overrides.
 extra_herdr_checks_release_guard_at_each_transport() {
   local dir action mode out rc
   dir=$(new_case herdr-release-guard)
@@ -1279,13 +1283,15 @@ SH
     for action in send-text send-keys; do
       : > "$dir/t/transport"
       out=$(
-        export PATH="$dir:$PATH" FM_GUARD_LOG="$dir/t/transport" FM_GUARD_MODE="$mode"
+        # shellcheck source=/dev/null
         . "$ROOT/bin/fm-backend.sh"
+        # shellcheck source=/dev/null
         . "$ROOT/bin/backends/herdr.sh"
         fm_control_lane_release_guard() { [ "$FM_GUARD_MODE" != refuse ] && [ ! -e "$dir/t/reselected" ]; }
         fm_backend_herdr_client_select() { : > "$dir/t/reselected"; }
         fm_backend_herdr_bin() { printf '%s\n' "$dir/compatible-herdr"; }
-        fm_backend_herdr_cli test pane "$action" p1 payload
+        PATH="$dir:$PATH" FM_GUARD_LOG="$dir/t/transport" FM_GUARD_MODE="$mode" \
+          fm_backend_herdr_cli test pane "$action" p1 payload
       ); rc=$?
       case "$mode" in
         allow)
@@ -1396,6 +1402,7 @@ extra_internal_exit_stays_inert_when_switched_off() {
   pass "off homes stay inert and only --audit is accepted"
 }
 
+# shellcheck disable=SC2329 # Imported production code invokes the test overrides.
 extra_herdr_release_preserves_foreign_composer_text() {
   local dir release_identity mode out rc
   dir=$(new_case herdr-composer-release)
@@ -1419,6 +1426,7 @@ SH
       out=$(
         export PATH="$dir:$PATH" FM_HOME="$dir/home" FM_CONTROL_LANE_RELEASE=1
         export FM_GUARD_LOG="$dir/t/transport" FM_DRAFT="$dir/t/draft"
+        # shellcheck source=/dev/null
         . "$ROOT/bin/fm-backend.sh"
         fm_backend_source herdr || exit 1
         fm_backend_herdr_target_ready() { fm_backend_herdr_parse_target "$1"; }

@@ -349,11 +349,14 @@ pred_no_unhandled_inbox() {
   dir=$(fm_task_inbox_dir "$STATE" "$1")
   OUT=
   if [ -e "$dir" ] || [ -L "$dir" ]; then
-    [ -d "$dir" ] && [ ! -L "$dir" ] && [ -r "$dir" ] && [ -x "$dir" ] || { KEEP=inbox-unreadable; return 2; }
+    [ -d "$dir" ] && [ ! -L "$dir" ] && [ -r "$dir" ] && [ -x "$dir" ] || { KEEP='inbox-unreadable'; return 2; }
   fi
   for f in "$dir"/*.msg; do
     [ -e "$f" ] || [ -L "$f" ] || continue
-    [ -f "$f" ] && [ ! -L "$f" ] && cat "$f" >/dev/null 2>&1 || { KEEP=inbox-unreadable; return 2; }
+    if ! { [ -f "$f" ] && [ ! -L "$f" ] && cat "$f" >/dev/null 2>&1; }; then
+      KEEP='inbox-unreadable'
+      return 2
+    fi
     [ "$found" = 1 ] || OUT=$f
     found=1
   done
@@ -423,7 +426,7 @@ pred_done_line() {
   KEEP='no-done'
   while IFS= read -r line; do
     status_line_verb "$line" verb
-    [ "$verb" = done ] || continue
+    [ "$verb" = "done" ] || continue
     at=$(status_line_at_epoch "$line") || { KEEP='done-unstamped'; continue; }
     [ "$at" -gt "$launch" ] || { [ "$KEEP" != no-done ] || KEEP='done-before-launch'; continue; }
     OUT=$at
