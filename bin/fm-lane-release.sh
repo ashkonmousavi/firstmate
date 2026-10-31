@@ -377,7 +377,7 @@ pred_crew_state() {
 # when the adapter keeps no busy record).
 pred_nothing_since() {
   local meta=$1 id=$2 anchor=$3 launch=$4 status last at inbox f m rec
-  local backend target busy_rec ts seq b_state b_source verdict composer line
+  local target busy_rec ts seq b_state b_source verdict composer line
   OUT=
   [ "$launch" -lt "$anchor" ] || { KEEP='relaunched-since'; return 1; }
   status="$STATE/$id.status"
@@ -548,7 +548,7 @@ action_exit_worker() {  # <id> <gen>
 # Verify one releasing or incomplete marker; prints a wake line for a new
 # RELEASE_INCOMPLETE.
 verify_marker() {  # <id>
-  local id=$1 marker meta result rc class anchor released_at tries raw target backend
+  local id=$1 marker meta result rc class anchor released_at tries
   marker=$(fm_lane_release_marker_path "$STATE" "$id")
   meta="$STATE/$id.meta"
   if [ ! -f "$meta" ]; then
@@ -678,7 +678,7 @@ action_sweep() {
 
 action_audit() {
   local mode id meta rc class anchor age t miss=0 unknown=0 status done_at launch gen
-  local holders=0 stuck=0 seat_hours=0 h agent backend target
+  local holders=0 stuck=0 seat_hours=0 h agent
   mode=$(setting)
   t=$(now)
   printf 'lane-release audit: home=%s setting=%s max-age=%ss\n' "$FM_HOME" "$mode" "$AUDIT_MAX_AGE"
