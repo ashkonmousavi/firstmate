@@ -1,0 +1,10 @@
+harness=codex
+stage=exit-after
+control output:
+stopped live-codex harness=codex backend=tmux endpoint=inboxlive:fm-live-codex worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.testphase/tmp/fm-inbox-live.kdi9OK/codex-lifecycle-home/worktree
+
+transport input:
+key=C-e
+key=C-u
+text=/quit
+key=Enter

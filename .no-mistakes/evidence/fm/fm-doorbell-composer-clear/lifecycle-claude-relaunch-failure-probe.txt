@@ -1,0 +1,3 @@
+delay=0 cursor_y=25 cursor-verdict=pending cursorless-verdict=pending
+delay=0.2 cursor_y=25 cursor-verdict=pending cursorless-verdict=pending
+delay=1 cursor_y=25 cursor-verdict=pending cursorless-verdict=pending

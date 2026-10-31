@@ -1,0 +1,37 @@
+bash-5.2$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.hs.SSZQXx/control-home F
+M_TASK_INBOX=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.hs.SSZQXx/control-home/state/
+doorbell.inbox CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDB
+ACK=0 claude --dangerously-skip-permissions --setting-sources user --settings \{\"feedbackDrafts\":\"off\"\,\"disableAl
+lHooks\":true\}
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Sonnet 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM
+
+⚠ 2 MCP servers need authentication · run /mcp
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /exit
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ❯ /exit                                          Exit the CLI
+    /context                                       Visualize current context usage as a colored grid
+    /data:data-context-extractor                   (data) Generate or improve a company-specific data analysis skill
+                                                   by extracting tribal knowledge from analysts. BOOTSTRAP MODE - Tr…
+    /product-management:competitive-brief          (product-management) Create a competitive analysis brief for one
+                                                   or more competitors or a feature area. Use when informing product…
+    /higgsfield:reset-credits (MCP)                Open the Credit Reset offer. Does not claim credits or change the
+                                                   subscription.
+    /usage-credits                                 Configure usage credits or request them from your admin when you
+                                                   hit a limit
+
+
+
+
+
+
+
+
+
+
+
+bash-5.2$
+bash-5.2$

@@ -1,0 +1,4 @@
+harness=cursor
+stage=interrupt-before
+control output:
+<not invoked>

@@ -1,0 +1,6 @@
+harness=pi
+stage=foreign-refused
+control output:
+error: task live-pi's composer visibly holds pending text; refusing to type the /quit exit command because it would concatenate onto that text. Clear or submit the pending text, then retry 'exit'
+
+transport input:

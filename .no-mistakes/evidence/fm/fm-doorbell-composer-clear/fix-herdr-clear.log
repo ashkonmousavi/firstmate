@@ -1,0 +1,4 @@
+ok - fm_backend_herdr_send_text_submit: a refused suffix whose clear cannot be verified reports unknown, not send-failed
+ok - fm_backend_herdr_send_text_submit: unreadable recovery of a 10000-character payload stops after one edit without Enter
+ok - fm_backend_herdr_send_text_submit: a refused 480-character suffix wrapped over five rows is cleared one row per Ctrl+U and reports send-failed
+ok - fm_backend_herdr_send_text_submit: after a refused suffix is cleared, a resend starts from an empty Claude composer and submits only the message

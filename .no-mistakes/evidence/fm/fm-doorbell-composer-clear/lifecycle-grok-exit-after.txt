@@ -1,0 +1,10 @@
+harness=grok
+stage=exit-after
+control output:
+stopped live-grok harness=grok backend=tmux endpoint=inboxlive:fm-live-grok worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/t/fm-inbox-live.PtaWmh/grok-lifecycle-home/worktree
+
+transport input:
+key=C-e
+key=C-u
+text=/exit
+key=Enter

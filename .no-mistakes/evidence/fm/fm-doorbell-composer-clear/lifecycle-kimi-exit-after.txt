@@ -1,0 +1,10 @@
+harness=kimi
+stage=exit-after
+control output:
+stopped live-kimi harness=kimi backend=tmux endpoint=inboxlive:fm-live-kimi worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/t/fm-inbox-live.YZBnGQ/kimi-lifecycle-home/worktree
+
+transport input:
+key=C-e
+key=C-u
+text=/exit
+key=Enter

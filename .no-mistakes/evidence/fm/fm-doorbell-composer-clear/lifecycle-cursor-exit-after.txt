@@ -1,0 +1,10 @@
+harness=cursor
+stage=exit-after
+control output:
+stopped live-cursor harness=cursor backend=tmux endpoint=inboxlive:fm-live-cursor worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/t/fm-inbox-live.PtaWmh/cursor-lifecycle-home/worktree
+
+transport input:
+key=C-e
+key=C-u
+text=/exit
+key=Enter

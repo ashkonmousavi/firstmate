@@ -1,0 +1,2 @@
+ok - kimi (2.4.1): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - live steering-inbox doorbell guard: 1 cases honored the doorbell contract

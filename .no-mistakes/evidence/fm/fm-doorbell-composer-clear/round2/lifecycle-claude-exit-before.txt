@@ -1,0 +1,4 @@
+harness=claude
+stage=exit-before
+control output:
+<not invoked>

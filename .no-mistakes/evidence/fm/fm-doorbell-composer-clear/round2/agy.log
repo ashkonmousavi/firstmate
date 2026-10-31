@@ -1,0 +1,3 @@
+# agy (1.4.12): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)
+ok - agy (1.4.12): unreadable composer preserves own and foreign drafts and refuses exit without lifecycle input
+ok - live steering-inbox doorbell guard: 1 cases honored the doorbell contract

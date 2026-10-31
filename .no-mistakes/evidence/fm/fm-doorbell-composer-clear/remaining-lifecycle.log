@@ -1,0 +1,107 @@
+ok - kimi (2.4.1): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+not ok - omp (omp/18.2.7): lifecycle composer guard failed
+
+╭─── omp v18.2.7 ──────────────────────────────────────────────────────────────────────────────────╮
+│                          │ Tips                                                                  │
+│      Welcome back!       │ # for prompt actions                                                  │
+│                          │ / for commands                                                        │
+│       ████████████       │ ! to run bash                                                         │
+│          ██  ██          │ $ to run python                                                       │
+│          ██  ██          │ ───────────────────────────────────────────────────────────────────── │
+│          ▒▒  ██          │ LSP Servers                                                           │
+│              ██          │  bashls .sh .bash .zsh                                               │
+│                          │  omnisharp .cs .csx                                                  │
+│    Claude Opus 4.6 1M    │                                                                       │
+│          cursor          │                                                                       │
+│                          │ ───────────────────────────────────────────────────────────────────── │
+│                          │ Recent sessions                                                       │
+│                          │ No recent sessions                                                    │
+│                          │                                                                       │
+│                          │                                                                       │
+│                          │                                                                       │
+│                          │                                                                       │
+╰──────────────────────────┴───────────────────────────────────────────────────────────────────────╯
+ Tip: Say `workflowz` in your message to drive the task with parallel subagents in eval — watch it
+      glow as you type
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ mcp__rea_inline_comment, mcp__rea_inspect_adb_client, mcp__rea_inspect_adb_device, mcp__rea_inspect_adb_display, mcp__rea_inspect_adb_package, mcp__rea_inspect_adb_window, mcp__rea_inspect_address_context,
+ mcp__rea_inspect_analysis_view, mcp__rea_inspect_android_class, mcp__rea_inspect_android_method, mcp__rea_inspect_android_package, mcp__rea_inspect_apktool_client, mcp__rea_inspect_artifact,
+ mcp__rea_inspect_asset_catalog, mcp__rea_inspect_binary_layout, mcp__rea_inspect_dart_aot, mcp__rea_inspect_electron_fuses, mcp__rea_inspect_electron_page, mcp__rea_inspect_evm_interface,
+ mcp__rea_inspect_firmware_regions, mcp__rea_inspect_go_binary, mcp__rea_inspect_jeb_client, mcp__rea_inspect_keyed_archive, mcp__rea_inspect_macho, mcp__rea_inspect_managed_artifact, mcp__rea_inspect_managed_members,
+ mcp__rea_inspect_managed_native_boundaries, mcp__rea_inspect_native_api, mcp__rea_inspect_native_data_type, mcp__rea_inspect_native_dispatch_metadata, mcp__rea_inspect_native_instruction,
+ mcp__rea_inspect_native_load_image, mcp__rea_inspect_packet_capture, mcp__rea_inspect_packet_fields, mcp__rea_inspect_pcap_capture, mcp__rea_inspect_pcap_client, mcp__rea_inspect_pe_resources, mcp__rea_inspect_plist,
+ mcp__rea_inspect_recorded_crash, mcp__rea_inspect_rust_binary, mcp__rea_inspect_signal_decoders, mcp__rea_inspect_signature, mcp__rea_inspect_sqlite_database, mcp__rea_inspect_wasm_artifact,
+ mcp__rea_inspect_web_event_listeners, mcp__rea_inspect_web_network_capture, mcp__rea_inspect_web_page, mcp__rea_inspect_with_objdump, mcp__rea_install_adb_package, mcp__rea_instrument_with_frida,
+ mcp__rea_list_adb_devices, mcp__rea_list_adb_directory, mcp__rea_list_adb_features, mcp__rea_list_adb_packages, mcp__rea_list_adb_processes, mcp__rea_list_adb_services, mcp__rea_list_architectures,
+ mcp__rea_list_bookmarks, mcp__rea_list_browser_targets, mcp__rea_list_cutter_sessions, mcp__rea_list_documents, mcp__rea_list_electron_targets, mcp__rea_list_frida_devices, mcp__rea_list_frida_processes,
+ mcp__rea_list_javascript_runtime_targets, mcp__rea_list_jeb_units, mcp__rea_list_names, mcp__rea_list_procedures, mcp__rea_list_segments, mcp__rea_list_strings, mcp__rea_list_unknowns, mcp__rea_load_frida_script,
+ mcp__rea_next_address, mcp__rea_observe_javascript_runtime, mcp__rea_observe_native_calls, mcp__rea_observe_native_ui, mcp__rea_observe_web_execution, mcp__rea_observe_web_session, mcp__rea_open_binary,
+ mcp__rea_open_jeb_project, mcp__rea_prev_address, mcp__rea_procedure_address, mcp__rea_procedure_assembly, mcp__rea_procedure_callees, mcp__rea_procedure_callers, mcp__rea_procedure_info,
+ mcp__rea_procedure_pseudo_code, mcp__rea_procedure_references, mcp__rea_project_android_application_graph, mcp__rea_project_apple_application_graph, mcp__rea_project_harmony_application_graph,
+ mcp__rea_project_managed_application_graph, mcp__rea_pull_adb_file, mcp__rea_pull_adb_package, mcp__rea_push_adb_file, mcp__rea_read_adb_logcat, mcp__rea_read_adb_setting, mcp__rea_read_bytes,
+ mcp__rea_read_function_instructions, mcp__rea_reconcile_javascript_runtime, mcp__rea_record_unknown, mcp__rea_recover_javascript_sources, mcp__rea_resolve_adb_packages, mcp__rea_resolve_containing_procedure,
+ mcp__rea_resolve_native_call_targets, mcp__rea_resume_frida_session, mcp__rea_rizin_debug_command, mcp__rea_rizin_debug_session_status, mcp__rea_search_android_classes, mcp__rea_search_bytes,
+ mcp__rea_search_procedures, mcp__rea_search_strings, mcp__rea_set_address_name, mcp__rea_set_addresses_names, mcp__rea_set_bookmark, mcp__rea_set_comment, mcp__rea_set_inline_comment, mcp__rea_start_adb_activity,
+ mcp__rea_start_adb_app, mcp__rea_start_frida_session, mcp__rea_start_gdb_session, mcp__rea_start_rizin_debug_session, mcp__rea_stop_adb_app, mcp__rea_trace_android_references, mcp__rea_trace_application_feature,
+ mcp__rea_trace_call_path, mcp__rea_trace_dylib_resolution, mcp__rea_trace_feature, mcp__rea_trace_javascript_semantics, mcp__rea_trace_native_ui_action, mcp__rea_trace_native_values, mcp__rea_trace_web_module_imports,
+ mcp__rea_trace_web_source_location, mcp__rea_uninstall_adb_package, mcp__rea_unload_frida_script, mcp__rea_unset_bookmark, mcp__rea_update_unknown, mcp__rea_verify_managed_native_boundaries,
+ mcp__rea_verify_reconstruction, mcp__rea_verify_unknown_resolution, mcp__rea_xrefs
+
+❯ An unsent human draft
+  Opus 4.6 1M ·  detached *2                                                                                                                                                                              󰙺 ·  4.8%/1M 󰁨
+# agy (1.4.12): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)
+not ok - agy (1.4.12): lifecycle composer guard failed
+
+     ▄▀▀▄
+    ▀▀▀▀▀▀
+   ▀▀▀▀▀▀▀▀
+  ▄▀▀    ▀▀▄
+ ▄▀▀      ▀▀▄
+
+ Welcome to the Antigravity CLI. You are currently not signed in.
+
+ Select login method:
+ > 1. Google OAuth
+   2. Use a Google Cloud project
+
+   ↑/↓ Navigate · enter Select
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 706: e: command not found
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 707: syntax error near unexpected token `fi'
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 707: `      fi'

@@ -1,0 +1,52 @@
+not ok - claude (2.1.314 (Claude Code)): lifecycle composer guard failed
+=1
+bash-5.2$ export FM_
+TASK_ID=live-claude
+bash-5.2$ . '/tmp/fm
+-live-claude+7d7b6ae
+013811fa890246e692ef
+a49615ce804eed599197
+01ece68755950bb2b/la
+unch.s1793416868.564
+794.11983.sh'
+
+────────────────────
+  Allow external
+  CLAUDE.md file
+  imports?
+
+  This project's
+  CLAUDE.md or
+  .claude/rules
+  imports files
+  outside the
+  current working
+  directory. Never
+  allow this for
+  third-party
+  repositories.
+
+  External
+  imports:
+    ~
+
+  Important: Only
+  use Claude Code
+  with files you
+  trust. Accessing
+  untrusted files
+  may pose
+  security risks
+  https://code.cla
+  ude.com/docs/en/
+  security
+
+  ❯ No, disable
+    external imports
+    Yes, allow
+    external imports
+
+  Enter to confirm
+  · Esc to cancel
+
+not ok - live steering-inbox doorbell guard found failures above

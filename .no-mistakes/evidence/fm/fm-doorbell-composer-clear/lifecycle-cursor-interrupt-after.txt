@@ -1,0 +1,9 @@
+harness=cursor
+stage=interrupt-after
+control output:
+interrupt-delivered live-cursor harness=cursor backend=tmux verified=agent-alive cancel=unconfirmed
+
+transport input:
+key=C-e
+key=C-u
+key=Escape

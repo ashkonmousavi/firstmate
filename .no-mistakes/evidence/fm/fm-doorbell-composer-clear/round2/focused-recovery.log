@@ -1,0 +1,3 @@
+ok - composer clear: tmux and Herdr stop after one edit on unreadable or failed readback
+ok - composer clear: redraw retries are read-only until pending or empty is proven
+ok - composer clear: tmux and Herdr finish 180 and 260 characters at widths 1 and 20 from every cursor position

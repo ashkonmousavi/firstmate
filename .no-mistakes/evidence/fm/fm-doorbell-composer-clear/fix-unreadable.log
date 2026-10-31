@@ -1,0 +1,5 @@
+error: task live-claude's composer holds Firstmate's own unsubmitted doorbell, but clearing it did not leave the composer empty; refusing to send lifecycle input onto it. Clear the composer, then retry 'exit'
+key=C-e
+key=C-u
+ok - claude: injected post-edit capture failure stops after one edit pair, submits nothing, and preserves the agent and inbox record
+ok - live steering-inbox doorbell guard: 1 cases honored the doorbell contract

@@ -1,0 +1,82 @@
+<!doctype html><meta charset="utf-8"><title>Live composer failure</title><style>body{margin:28px;background:#14151a;color:#e9e9ed;font:16px system-ui}h1{font-size:25px}h2{font-size:17px;color:#b9cbff}article{display:grid;grid-template-columns:1fr 1fr;gap:22px}section{padding:18px;background:#20222a;border:1px solid #404555;border-radius:8px;overflow:auto}pre{font:15px/1.32 "DejaVu Sans Mono",monospace;white-space:pre;tab-size:4}.log{font-size:12px;white-space:pre-wrap;color:#ffd6a5}p{max-width:1100px;line-height:1.5}</style><h1>Claude: own-doorbell recovery refuses at 20 columns</h1><p>Actual captures from the disposable tmux worker, Claude Code 2.1.314. Left was pressed once before interrupt. Recovery sent Ctrl+E then Ctrl+U, deleted the final wrapped row, and refused with the remaining draft still visible. ANSI colors are omitted.</p><article><section><h2>Before interrupt: own doorbell, unsubmitted</h2><pre>           Claude
+           Code
+           v2.1.314
+           Sonnet
+ ▐▛███▛█   5.5 with
+▝▜██████▀  med…
+ ▝▝   ▝▝   Claude
+           Max
+           /01M67PW7
+           89PCJGAFD
+           E…
+
+
+────────────────────
+❯ : Firstmate
+  instruction
+  waiting: list
+  &quot;$FM_TASK_INBOX&quot;
+  /*.msg in your
+  &#x27;live-claude.inb
+  ox&#x27; steering
+  inbox, read and
+  act on each in
+  numeric order,
+  then mv each
+  into its
+  handled/.
+────────────────────
+  ⏵⏵ bypass      ·
+  Ctrl+Y to paste…</pre><pre class="log">harness=claude
+stage=interrupt-before
+control output:
+&lt;not invoked&gt;
+</pre></section><section><h2>After interrupt refusal: leftover own doorbell</h2><pre>           Claude
+           Code
+           v2.1.314
+           Sonnet
+ ▐▛███▛█   5.5 with
+▝▜██████▀  med…
+ ▝▝   ▝▝   Claude
+           Max
+           /01M67PW7
+           89PCJGAFD
+           E…
+
+
+────────────────────
+❯ : Firstmate
+  instruction
+  waiting: list
+  &quot;$FM_TASK_INBOX&quot;
+  /*.msg in your
+  &#x27;live-claude.inb
+  ox&#x27; steering
+  inbox, read and
+  act on each in
+  numeric order,
+  then mv each
+────────────────────
+  ⏵⏵ bypass      ·
+  Ctrl+Y to paste…</pre><pre class="log">harness=claude
+stage=interrupt-failed
+control output:
+error: task live-claude&#x27;s composer holds Firstmate&#x27;s own unsubmitted doorbell, but clearing it did not leave the composer empty; refusing to send lifecycle input onto it. Clear the composer, then retry &#x27;interrupt&#x27;
+
+transport input:
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+</pre></section></article><h2>Settled readback after the refusal</h2><pre>delay=0 cursor_y=24 cursor-verdict=pending cursorless-verdict=unknown
+delay=0.2 cursor_y=24 cursor-verdict=pending cursorless-verdict=unknown
+delay=1 cursor_y=24 cursor-verdict=pending cursorless-verdict=unknown</pre><h2>Relaunch with an unpublished commit also refused during composer clearing</h2><pre class="log">harness=claude
+stage=relaunch-failed
+control output:
+error: task live-claude&#x27;s composer holds Firstmate&#x27;s own unsubmitted doorbell, but clearing it did not leave the composer empty; refusing to send lifecycle input onto it. Clear the composer, then retry &#x27;relaunch&#x27;
+error: relaunch of live-claude failed while stopping the old agent, which is still running; its original instructions were restored
+
+transport input:
+key=C-e
+key=C-u
+</pre>

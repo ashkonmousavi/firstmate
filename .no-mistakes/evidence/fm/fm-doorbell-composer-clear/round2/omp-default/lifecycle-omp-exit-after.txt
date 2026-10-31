@@ -1,0 +1,12 @@
+harness=omp
+stage=exit-after
+control output:
+stopped live-omp harness=omp backend=tmux endpoint=inboxlive:fm-live-omp worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.testphase/tmp/fm-inbox-live.o8Mqqh/omp-lifecycle-home/worktree
+
+transport input:
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+text=/quit
+key=Enter

@@ -1,0 +1,4 @@
+harness=claude-unreadable
+stage=before
+control output:
+<not invoked>

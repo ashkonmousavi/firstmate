@@ -1,0 +1,4 @@
+harness=claude
+stage=relaunch-before
+control output:
+<not invoked>

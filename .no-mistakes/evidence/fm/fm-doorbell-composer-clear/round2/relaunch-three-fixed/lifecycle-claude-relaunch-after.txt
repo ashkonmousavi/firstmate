@@ -1,0 +1,49 @@
+harness=claude
+stage=relaunch-after
+control output:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.testphase/tmp/fm-inbox-live.vA8tIg/claude-lifecycle-home/data/live-claude/launch-brief.md records no ship branch; defaulting to legacy branch fm/live-claude
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.testphase/tmp/fm-inbox-live.vA8tIg/claude-lifecycle-home/data/live-claude/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+relaunched live-claude harness=claude from=claude model=default effort=default backend=tmux endpoint=inboxlive:fm-live-claude worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.testphase/tmp/fm-inbox-live.vA8tIg/claude-lifecycle-home/worktree
+
+transport input:
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+key=C-e
+key=C-u
+text=/exit
+key=Enter
+key=Enter
+key=Enter
+key=Enter
+key=Enter
+text=. '/tmp/fm-live-claude+302155ef652ae73be39478314cbb041156d95849d0e93a30f8a016052488a574/launch.s1793416958.621468.8983.sh'
+key=Enter

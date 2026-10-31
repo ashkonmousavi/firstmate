@@ -1,0 +1,50 @@
+────────────────────
+  ❯ /exit   Exit
+            the C…
+    …ntext  Visual
+            ize c…
+    …actor  (data)
+            Gener…
+    …brief  (produ
+            ct-ma…
+    …edits  Config
+            ure u…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bash-5.2$ cd -- '/ho
+me/tegris/.no-mistak
+es/worktrees/049a887
+34b0e/01M67PW789PCJG
+AFDEVCTMZ3RM/.lv/tmp
+/fm-inbox-live.aDBij
+b/claude-lifecycle-h
+ome/worktree'
+bash-5.2$ export GOT
+MPDIR=/tmp/fm-live-c
+laude/gotmp
+bash-5.2$ export COM
+PACT_ADVISER_DISABLE
+=1
+bash-5.2$ export FM_
+TASK_ID=live-claude
+bash-5.2$ . '/tmp/fm
+-live-claude+11e4fb3
+76dcb34a6c42c29ac0cb
+ea0157d8d6cdcc163ea9
+55223ace667b220e4/la
+unch.s1793416422.392
+0133.14640.sh'
+

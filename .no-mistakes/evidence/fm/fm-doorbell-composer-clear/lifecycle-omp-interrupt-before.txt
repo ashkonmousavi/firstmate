@@ -1,0 +1,4 @@
+harness=omp
+stage=interrupt-before
+control output:
+<not invoked>

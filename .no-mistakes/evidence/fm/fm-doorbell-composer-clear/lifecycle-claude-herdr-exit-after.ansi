@@ -1,0 +1,36 @@
+bash-5.2$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.hs.XupFEb/control-home F
+M_TASK_INBOX=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.hs.XupFEb/control-home/state/
+doorbell.inbox CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDB
+ACK=0 claude --dangerously-skip-permissions --setting-sources user --settings \{\"feedbackDrafts\":\"off\"\,\"disableAl
+lHooks\":true\}
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Sonnet 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM
+
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /exit
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ❯ /exit                                        Exit the CLI
+    /context                                     Visualize current context usage as a colored grid
+    /higgsfield:reset-credits (MCP)              Open the Credit Reset offer. Does not claim credits or change the
+                                                 subscription.
+    /usage-credits                               Configure usage credits or request them from your admin when you hit
+                                                 a limit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bash-5.2$
+bash-5.2$

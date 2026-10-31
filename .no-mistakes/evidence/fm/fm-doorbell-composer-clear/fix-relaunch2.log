@@ -1,0 +1,17 @@
+ok - claude (2.1.314 (Claude Code)): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - live steering-inbox doorbell guard: 1 cases honored the doorbell contract
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/post-merge': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/commit-msg': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/post-checkout': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/post-commit': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/pre-push': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/pre-commit': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.lv/tmp/fm-inbox-live.aDBijb/claude-lifecycle-home/state/live-claude.git-hooks/pre-applypatch': Permission denied

@@ -1,0 +1,4 @@
+harness=claude
+stage=interrupt-before
+control output:
+<not invoked>

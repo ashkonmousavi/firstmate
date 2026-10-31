@@ -1,0 +1,16 @@
+bash-5.2$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.hs.SSZQXx/control-home F
+M_TASK_INBOX=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.hs.SSZQXx/control-home/state/
+doorbell.inbox CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDB
+ACK=0 claude --dangerously-skip-permissions --setting-sources user --settings \{\"feedbackDrafts\":\"off\"\,\"disableAl
+lHooks\":true\}
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Sonnet 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM
+
+⚠ 2 MCP servers need authentication · run /mcp
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · gh auth login for PR status            Ctrl+Y to paste deleted text
+                                                                                                                  /rc

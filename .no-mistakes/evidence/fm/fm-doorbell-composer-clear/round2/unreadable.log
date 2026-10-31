@@ -1,0 +1,52 @@
+not ok - claude (2.1.314 (Claude Code)): lifecycle composer guard failed
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Sonnet 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /exit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ❯ /exit                                                Exit the CLI
+    /context                                             Visualize current context usage as a colored grid
+    /data:data-context-extractor                         (data) Generate or improve a company-specific data analysis skill by extracting tribal knowledge from analysts. BOOTSTRAP MODE - Triggers: "Create a data context
+                                                         skill", "Set up data analysis for our warehouse", "Help me create a skill for our database", "Generate a data skill for [company]" → Discovers schemas, asks key…
+    /product-management:competitive-brief                (product-management) Create a competitive analysis brief for one or more competitors or a feature area. Use when informing product strategy or feature
+                                                         prioritization, building sales battle cards, prepping board or investor materials, or deciding where to differentiate vs. achieve parity.
+    /higgsfield:reset-credits (MCP)                      Open the Credit Reset offer. Does not claim credits or change the subscription.
+    /usage-credits                                       Configure usage credits or request them from your admin when you hit a limit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+not ok - live steering-inbox doorbell guard found failures above

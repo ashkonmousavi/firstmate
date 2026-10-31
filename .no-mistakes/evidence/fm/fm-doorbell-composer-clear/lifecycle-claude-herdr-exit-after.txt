@@ -1,0 +1,14 @@
+harness=claude-herdr
+stage=exit-after
+control output:
+stopped doorbell harness=claude backend=herdr endpoint=fm-lab-submit-2968712-6224:w1:p1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67PW789PCJGAFDEVCTMZ3RM/.hs.XupFEb/control-home/worktree background-sessions=none
+
+transport input:
+key=ctrl+e
+key=ctrl+u
+key=ctrl+e
+key=ctrl+u
+text=/exit
+key=enter
+key=enter
+key=enter

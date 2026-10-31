@@ -1,0 +1,54 @@
+ok - omp (omp/18.2.7): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+# agy (1.4.12): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)
+not ok - agy (1.4.12): lifecycle composer guard failed
+
+    ▄▀▀▄
+   ▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀
+ ▄▀▀    ▀▀▄
+▄▀▀      ▀▀▄
+
+Terms of Service & Data Use
+
+AI coding agents are known to have certain security risks, including autonomous code execution, data exfiltration, prompt injection and supply chain risks. Ensure that you monitor and verify all actions taken by the
+agent.
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+  > [ ] Yes, I agree to help improve Antigravity CLI by allowing
+      Google to collect and use my Interactions data,
+      subject to the Google Antigravity CLI Terms of Service
+      and Google Privacy Policy. I understand I can
+      choose to opt out later whenever I want via my
+      settings.
+
+      Links:
+      - Terms of Service: https://antigravity.google/terms
+      - Privacy Policy: https://policies.google.com/privacy
+
+    [Previous]      [Done]
+
+
+  ↑/↓ Navigate · enter Toggle
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+not ok - live steering-inbox doorbell guard found failures above

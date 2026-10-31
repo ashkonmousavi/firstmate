@@ -1,0 +1,222 @@
+ok - cursor (2026.10.19-6bbf2c4): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+error: task live-claude's composer holds Firstmate's own unsubmitted doorbell, but clearing it did not leave the composer empty; refusing to send lifecycle input onto it. Clear the composer, then retry 'interrupt'
+not ok - claude (2.1.314 (Claude Code)): lifecycle composer guard failed
+           Claude
+           Code
+           v2.1.314
+           Sonnet
+ ▐▛███▛█   5.5 with
+▝▜██████▀  med…
+ ▝▝   ▝▝   Claude
+           Max
+           /01M67PW7
+           89PCJGAFD
+           E…
+
+⚠ 1 MCP server needs
+  authentication ·
+  run /mcp
+
+────────────────────
+❯ : Firstmate
+  instruction
+  waiting: list
+  "$FM_TASK_INBOX"
+  /*.msg in your
+  'live-claude.inb
+  ox' steering
+  inbox, read and
+  act on each in
+  numeric order,
+  then mv each
+  into its
+────────────────────
+  ⏵⏵ bypass      ·
+  Ctrl+Y to paste…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ok - codex (codex-cli 0.159.3): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+# harness absent, not verified here: opencode
+ok - pi (1.0.0): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+# harness absent, not verified here: pi-signed
+ok - grok (grok 1.0.70 (f50904eaee6c)): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+# kimi (2.4.1): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)
+not ok - kimi (2.4.1): lifecycle composer guard failed
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Migrate from kimi-cli
+
+  Found an existing kimi-cli installation:
+    config
+
+  Migrate this data to kimi-code?
+
+   ❯ Migrate now
+     Ask me later
+     Never ask again
+
+  ↑/↓ move · ⏎ select · esc later
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# harness absent, not verified here: muse
+not ok - omp (omp/18.2.7): lifecycle composer guard failed
+
+╭─── omp v18.2.7 ──────────────────────────────────────────────────────────────────────────────────╮
+│                          │ Tips                                                                  │
+│      Welcome back!       │ # for prompt actions                                                  │
+│                          │ / for commands                                                        │
+│       ████████████       │ ! to run bash                                                         │
+│          ██  ██          │ $ to run python                                                       │
+│          ██  ██          │ ───────────────────────────────────────────────────────────────────── │
+│          ▒▒  ██          │ LSP Servers                                                           │
+│              ██          │  bashls .sh .bash .zsh                                               │
+│                          │  omnisharp .cs .csx                                                  │
+│         Unknown          │                                                                       │
+│         Unknown          │                                                                       │
+│                          │ ───────────────────────────────────────────────────────────────────── │
+│                          │ Recent sessions                                                       │
+│                          │ No recent sessions                                                    │
+│                          │                                                                       │
+│                          │                                                                       │
+│                          │                                                                       │
+│                          │                                                                       │
+╰──────────────────────────┴───────────────────────────────────────────────────────────────────────╯
+ Tip: Lint/type errors piling up? `omp cleanse` (or /cleanse right here) hunts project diagnostics
+      and fixes them with parallel subagents — esc cancels
+
+ Warning: No models available. Use /login or set an API key environment variable. Then use /model to select a model.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Update Available
+ New version 18.14.1 is available. Run: omp update
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ xdev: xd://: mounted mcp__sequential_thinking_sequentialthinking
+
+❯ An unsent human draft
+  no-model ·  detached *3                                                                                                                                                                                        46K/? 󰁨
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# harness absent, not verified here: gemini
+# harness absent, not verified here: rovo
+# agy (1.4.12): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)
+not ok - agy (1.4.12): lifecycle composer guard failed
+
+     ▄▀▀▄
+    ▀▀▀▀▀▀
+   ▀▀▀▀▀▀▀▀
+  ▄▀▀    ▀▀▄
+ ▄▀▀      ▀▀▄
+
+ Welcome to the Antigravity CLI. You are currently not signed in.
+
+ Select login method:
+ > 1. Google OAuth
+   2. Use a Google Cloud project
+
+   ↑/↓ Navigate · enter Select
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# harness absent, not verified here: devin
+# harness absent, not verified here: commandcode
+# harness absent, not verified here: polytoken
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 693: inue: command not found
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 694: syntax error near unexpected token `fi'
+tests/fm-send-inbox-doorbell-live-e2e.test.sh: line 694: `      fi'

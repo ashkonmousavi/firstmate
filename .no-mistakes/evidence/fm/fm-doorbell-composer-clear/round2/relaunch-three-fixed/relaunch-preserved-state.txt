@@ -1,0 +1,5 @@
+original_unpublished_commit=3ba04fefd061cd91d4e02504d87e68d976489f5b
+replacement_head=3ba04fefd061cd91d4e02504d87e68d976489f5b
+terminal_foreground_command=claude
+unread_records_preserved=3
+original_unpublished_commit_is_ancestor=true

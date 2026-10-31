@@ -1,0 +1,11 @@
+harness=claude-herdr
+stage=interrupt-after
+control output:
+interrupt-delivered doorbell harness=claude backend=herdr verified=agent-alive cancel=unconfirmed
+
+transport input:
+key=ctrl+e
+key=ctrl+u
+key=ctrl+e
+key=ctrl+u
+key=escape

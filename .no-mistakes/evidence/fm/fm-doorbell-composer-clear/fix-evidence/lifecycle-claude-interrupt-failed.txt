@@ -1,0 +1,8 @@
+harness=claude
+stage=interrupt-failed
+control output:
+error: task live-claude's composer holds Firstmate's own unsubmitted doorbell, but clearing it did not leave the composer empty; refusing to send lifecycle input onto it. Clear the composer, then retry 'interrupt'
+
+transport input:
+key=C-e
+key=C-u
