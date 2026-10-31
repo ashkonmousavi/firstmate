@@ -1038,6 +1038,7 @@ fm_backend_composer_clear() {  # <backend> <target> <text> [expected-label]
   fi
   presses=$(( ${#text} + 1 ))
   while [ "$i" -lt "$presses" ]; do
+    fm_backend_send_key "$backend" "$target" C-e "$label" || return 1
     fm_backend_send_key "$backend" "$target" C-u "$label" || return 1
     i=$((i + 1))
     [ "$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null)" = empty ] && return 0

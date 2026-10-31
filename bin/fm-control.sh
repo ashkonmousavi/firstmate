@@ -777,6 +777,7 @@ exit_background_check() {
 clear_own_doorbell() {
   local line
   fm_control_backend_supports_key "$BACKEND" C-u || return 1
+  fm_control_backend_supports_key "$BACKEND" C-e || return 1
   line=$(fm_task_inbox_doorbell_line "$STATE/$ID.inbox/clear.msg") || return 1
   fm_task_inbox_composer_holds_own "$BACKEND" "$T" "$line" "$LABEL" || return 1
   fm_backend_composer_clear "$BACKEND" "$T" "$line" "$LABEL" \
@@ -834,6 +835,7 @@ do_exit() {
   # A busy agent is interrupted first before the exit command is submitted.
   case "$(busy_verdict)" in
     busy*)
+      clear_own_doorbell || true
       cancel=$(deliver_interrupt) || return $?
       state=$(agent_state)
       case "$state" in

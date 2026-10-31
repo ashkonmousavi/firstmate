@@ -1850,6 +1850,22 @@ _fm_composer_bare_rule_sandwich() {  # <plain-screen> <row>
   _fm_composer_titled_rule_row "$above" "${below//─/ }"
 }
 
+_fm_composer_kimi_footer() {
+  local plain=$1 first=$2 boundary=$3 row
+  row=$(_fm_composer_screen_row "$first" "$plain")
+  row=$(_fm_composer_row_content "$row" 0)
+  case "$row" in '>'|'>'[[:space:]]*) ;; *) return 1 ;; esac
+  row=$(_fm_composer_screen_row "$((boundary + 1))" "$plain")
+  fm_composer_normalize_trim_var row
+  [[ "$row" =~ ^(Always\ Ask|Ask\ When\ Needed|Never\ Ask)[[:space:]]{2,}Kimi[[:space:]] ]] || return 1
+  row=$(_fm_composer_screen_row "$((boundary + 2))" "$plain")
+  fm_composer_normalize_trim_var row
+  [[ "$row" =~ ^context:\ [0-9]+%\ \([0-9]+/[0-9]+[kM]?\)$ ]] || return 1
+  row=$(_fm_composer_screen_row "$((boundary + 3))" "$plain")
+  fm_composer_normalize_trim_var row
+  [ -z "$row" ]
+}
+
 _fm_composer_select_cursorless() {
   local plain=$1 generic=-1 next boundary raw trimmed glyph bare footer=0
   FM_COMPOSER_SELECTED_KIND=
@@ -1956,7 +1972,9 @@ _fm_composer_select_cursorless() {
     raw=$(_fm_composer_screen_row "$next" "$plain")
     trimmed=$raw
     fm_composer_normalize_trim_var trimmed
-    if [ -n "$trimmed" ] && ! fm_composer_row_has_edge "$trimmed"; then
+    if [ -n "$trimmed" ] && ! fm_composer_row_has_edge "$trimmed" \
+       && ! { [ "$FM_COMPOSER_SELECTED_KIND" = box ] \
+              && _fm_composer_kimi_footer "$plain" "$FM_COMPOSER_SELECTED_FIRST" "$boundary"; }; then
       FM_COMPOSER_SELECTED_KIND=
       return 1
     fi

@@ -1860,7 +1860,7 @@ test_herdr_composer_clear_for_own_doorbell() {
     . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
     fm_backend_source herdr
     n=0
-    fm_backend_herdr_send_key() { n=$((n + 1)); return 0; }
+    fm_backend_herdr_send_key() { [ "$2" != C-u ] || n=$((n + 1)); return 0; }
     fm_backend_herdr_composer_state() { if [ "$n" -ge 2 ]; then printf empty; else printf pending; fi; }
     fm_backend_composer_clear herdr s:w:p "$(printf "x%.0s" $(seq 1 200))" && printf "cleared-after-%s" "$n"
     n=-100
@@ -1875,21 +1875,34 @@ test_composer_clear_at_narrow_widths() {
   got=$(bash -c '
     . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
     fm_backend_source herdr
-    fm_backend_send_key() { remaining=${remaining:width}; }
-    fm_backend_herdr_send_key() { remaining=${remaining:width}; }
+    fm_backend_send_key() {
+      case "$3" in
+        C-e) cursor=${#remaining} ;;
+        C-u)
+          removed=$width
+          [ "$removed" -le "$cursor" ] || removed=$cursor
+          remaining=${remaining:0:cursor-removed}${remaining:cursor}
+          cursor=$((cursor - removed))
+          ;;
+        *) return 1 ;;
+      esac
+    }
+    fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
     fm_backend_composer_state() { if [ -z "$remaining" ]; then printf empty; else printf pending; fi; }
     fm_backend_herdr_composer_state() { fm_backend_composer_state; }
     for backend in tmux herdr; do
       for width in 1 20; do
-        printf -v remaining "%0180d" 0
-        fm_backend_composer_clear "$backend" s:w:p "$remaining" || exit 1
-        [ -z "$remaining" ] || exit 1
+        for cursor in 0 90 179 180; do
+          printf -v remaining "%0180d" 0
+          fm_backend_composer_clear "$backend" s:w:p "$remaining" || exit 1
+          [ -z "$remaining" ] || exit 1
+        done
       done
     done
     printf cleared
   ' "$ROOT") || fail "a 180-character draft must clear even at one character per wrapped row"
   [ "$got" = cleared ] || fail "narrow composer clear: $got"
-  pass "composer clear: tmux and Herdr finish 180-character drafts at widths 1 and 20"
+  pass "composer clear: tmux and Herdr finish 180-character drafts at widths 1 and 20 from every cursor position"
 }
 
 test_watcher_escalates_when_every_ring_is_a_skip() {

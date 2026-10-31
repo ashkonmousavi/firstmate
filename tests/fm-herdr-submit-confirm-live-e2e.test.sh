@@ -339,6 +339,7 @@ for verb in interrupt exit; do
   sleep 1
   fm_task_inbox_composer_holds_own herdr "$TARGET" "$line" \
     || fail "Claude Code ($VERSION) on $HERDR_VER: own doorbell never rendered"
+  lab pane send-keys "$PANE" left >/dev/null || fail "could not move the test cursor left"
   : > "$input_log"
   output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$CONTROL_HOME" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" doorbell "$verb" 2>&1) \
     || fail "Claude Code ($VERSION) on $HERDR_VER: $verb failed: $output"
@@ -353,7 +354,7 @@ for verb in interrupt exit; do
     || fail "Claude Code ($VERSION) on $HERDR_VER: lifecycle submitted the doorbell"
 done
 fm_backend_target_exists herdr "$TARGET" || fail "lifecycle removed the lab endpoint"
-pass "live Herdr lifecycle: Claude Code ($VERSION) on $HERDR_VER clears its own doorbell without submitting, preserves foreign drafts, interrupts and exits"
+pass "live Herdr lifecycle: Claude Code ($VERSION) on $HERDR_VER clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits"
 exited=0
 i=0
 while [ "$i" -lt 30 ]; do

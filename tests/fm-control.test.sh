@@ -816,7 +816,7 @@ test_backend_key_capability_matrix() {
   for backend in tmux herdr zellij cmux paseo; do
     # C-u is the composer clear muse's interrupt needs; every session provider
     # but Orca normalizes it (bin/backends/*.sh).
-    for key in Escape Enter C-c C-u; do
+    for key in Escape Enter C-c C-u C-e; do
       fm_control_backend_supports_key "$backend" "$key" \
         || fail "$backend should be able to deliver $key"
     done
@@ -825,9 +825,23 @@ test_backend_key_capability_matrix() {
     && fail "orca's terminal API has no Escape and must not claim it"
   fm_control_backend_supports_key orca C-u \
     && fail "orca's terminal API has no composer clear and must not claim one"
+  fm_control_backend_supports_key orca C-e \
+    && fail "orca's terminal API has no cursor-end key and must not claim one"
   fm_control_backend_supports_key orca C-c || fail "orca should deliver C-c"
   fm_control_backend_supports_key orca Enter || fail "orca should deliver Enter"
   pass "fm-control-lib: the backend key matrix matches each adapter's real send-key surface"
+}
+
+test_backend_cursor_end_normalization() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/backends/herdr.sh"
+    . "$0/bin/backends/zellij.sh"
+    . "$0/bin/backends/cmux.sh"
+    printf "%s|%s|%s" "$(fm_backend_herdr_normalize_key C-e)" "$(fm_backend_zellij_normalize_key C-e)" "$(fm_backend_cmux_normalize_key C-e)"
+  ' "$ROOT") || fail "could not normalize the cursor-end key"
+  [ "$got" = 'ctrl+e|Ctrl e|ctrl-e' ] || fail "cursor-end keys must use each provider's key vocabulary: $got"
+  pass "cursor-end keys use the Herdr, zellij and cmux key vocabularies"
 }
 
 # A verified adapter is not automatically verified for every task kind, and the
@@ -1479,6 +1493,37 @@ test_exit_clears_own_doorbell_then_proceeds() {
   pass "fm-control exit: an unsubmitted doorbell for this task is cleared, then exit proceeds"
 }
 
+test_busy_exit_clears_own_doorbell_before_interrupt() {
+  local dir out line gen harness root log
+  for harness in claude muse; do
+    dir=$(new_case "own-doorbell-busy-$harness")
+    add_task "$dir" t1 "$harness"
+    alive_as "$dir" "$harness"
+    line=$(own_doorbell_line "$dir" t1)
+    claude_composer_screen "$line" > "$dir/fake/pane"
+    claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+    log=
+    if [ "$harness" = muse ]; then
+      root="$dir/muse-sessions"
+      log="$root/2026/08/08/session-1/session.jsonl"
+      mkdir -p "$(dirname "$log")"
+      printf '%s\n' \
+        "{\"schema_version\":1,\"payload_type\":\"runtime.session.metadata\",\"payload\":{\"kind\":\"metadata\",\"record\":{\"workspace_root\":\"$dir/wt-t1\"}}}" \
+        '{"schema_version":1,"payload_type":"runtime.session","payload":{"kind":"run","run_id":"run-1","event":{"kind":"started","prompt":"work"}}}' > "$log"
+      printf 'sessions_root=%s\nworkspace_root=%s\nbinding_id=test\n' \
+        "$root" "$dir/wt-t1" > "$dir/home/state/t1.muse-session"
+    else
+      gen=$("$ROOT/bin/fm-busy-event.sh" arm "$dir/home/state" t1)
+      printf 'busy_gen=%s\n' "$gen" >> "$dir/home/state/t1.meta"
+    fi
+    out=$(FM_FAKE_MUSE_LOG="$log" run_control "$dir" t1 exit) || fail "busy exit should recover its own doorbell: $out"
+    [ "$(head -3 "$dir/fake/keys")" = $'C-e\nC-u\nEscape' ] \
+      || fail "$harness must clear its own doorbell before interrupt delivery"
+    [ "$(literals "$dir")" = /exit ] || fail "only the exit command should follow the clear"
+  done
+  pass "busy exit clears an own doorbell before adapters can change it during interrupt"
+}
+
 test_exit_clears_wrapped_first_row_of_own_doorbell() {
   local dir out rc line
   dir=$(new_case own-doorbell-wrapped)
@@ -1551,7 +1596,7 @@ test_interrupt_clears_own_doorbell_first() {
   claude_composer_screen '' > "$dir/fake/pane-after-c-u"
   out=$(run_control "$dir" t1 interrupt); rc=$?
   expect_code 0 "$rc" "interrupt should proceed after clearing: $out"
-  [ "$(head -1 "$dir/fake/keys")" = C-u ] || fail "the doorbell should be cleared before the interrupt key"
+  [ "$(head -1 "$dir/fake/keys")" = C-e ] || fail "the cursor should move to line end before clearing"
   grep -qx Escape "$dir/fake/keys" || fail "the interrupt key should still be delivered"
   pass "fm-control interrupt: an own doorbell is cleared before the interrupt key"
 }
@@ -1665,6 +1710,7 @@ test_harness_family_resolution
 test_relaunch_resume_flag_is_per_adapter_and_reference_owner
 test_prefixed_recorded_harness_reaches_each_control_verb
 test_backend_key_capability_matrix
+test_backend_cursor_end_normalization
 test_harness_kind_capability
 test_orca_refuses_an_escape_harness_interrupt
 test_unverified_state_backends_refuse_stop_verbs
@@ -1710,6 +1756,7 @@ test_recorded_harness_capabilities
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task
 test_exit_clears_own_doorbell_then_proceeds
+test_busy_exit_clears_own_doorbell_before_interrupt
 test_exit_clears_wrapped_first_row_of_own_doorbell
 test_exit_refuses_doorbell_with_typed_text
 test_exit_refuses_other_tasks_doorbell

@@ -3135,6 +3135,7 @@ fm_backend_herdr_normalize_key() {  # <key>
     # C-u clears a composer line. fm-send.sh's muse interrupt path needs it to
     # drop the prompt muse restores into the composer after Escape.
     C-u|c-u|ctrl+u|Ctrl+U) printf 'ctrl+u' ;;
+    C-e|c-e|ctrl+e|Ctrl+E) printf 'ctrl+e' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -3495,6 +3496,7 @@ fm_backend_herdr_composer_clear() {  # <target> <text>
   local target=$1 text=$2 presses i=0
   presses=$(( ${#text} + 1 ))
   while [ "$i" -lt "$presses" ]; do
+    fm_backend_herdr_send_key "$target" C-e || return 1
     fm_backend_herdr_send_key "$target" C-u || return 1
     i=$((i + 1))
     [ "$(fm_backend_herdr_composer_state "$target")" = empty ] && return 0

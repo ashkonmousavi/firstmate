@@ -1221,6 +1221,16 @@ test_matrix_kimi_bordered_shell_glyph_box() {
   assert_screen "kimi idle on cmux/orca" empty "$CAPS_PLAIN" "$screen"
   assert_screen "kimi idle on herdr" empty "$CAPS_STYLED" "$screen"
   assert_screen "kimi idle on zellij" empty "$CAPS_STYLED_NOID" "$screen"
+  local footer caps draft out
+  footer=$'\n Never Ask  Kimi K3  …/worktrees/review  /theme to switch the terminal UI theme\n context: 0% (0/977k)\n'
+  draft=$'╭────────────────────────╮\n│ > human draft          │\n╰────────────────────────╯'
+  for caps in "$CAPS_PLAIN" "$CAPS_STYLED" "$CAPS_STYLED_NOID"; do
+    assert_screen "kimi footer preserves idle box" empty "$caps" "$screen$footer"
+    assert_screen "kimi footer preserves typed box" pending "$caps" "$draft$footer"
+    out=$(fm_composer_extract_selected_content "$caps" "$draft$footer")
+    [ "$out" = 'human draft' ] || fail "kimi footer obscured the draft: $out"
+    assert_screen "kimi footer cannot hide contiguous activity" unknown "$caps" "$screen${footer}Working on request..."
+  done
   pass "matrix: kimi's bordered shell-glyph box reads empty through the shared owner (spawn's fourth copy retired)"
 }
 
