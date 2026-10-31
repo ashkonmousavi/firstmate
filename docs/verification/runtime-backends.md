@@ -3391,7 +3391,7 @@ Their fixtures establish gate behavior and protocol handling; they do not establ
 
 | Affected axis | Executable regression or inspected integration | Live evidence still required |
 | --- | --- | --- |
-| Fresh explicit spawn, direct relaunch, control pre-stop relaunch | Catalog regressions exercise model-scoped refusal, all-model Claude refusal, explicit override metadata, and no allocation or stop on refusal. | Real fresh/relaunch runs for each installed adapter. |
+| Fresh explicit spawn, direct relaunch, control pre-stop relaunch | Catalog regressions exercise model-scoped refusal, all-model Claude refusal, explicit override metadata, and no agent launch or stop on refusal; fresh/base and released branches supply the actual checkout configuration. | Real fresh/relaunch runs for each installed adapter. |
 | Requested model, catalog default, catalog alias | Native protocol regressions exercise every accepted adapter; catalog regressions exercise Pi aliases/defaults through spawn and control. | Each installed adapter's effective default and supported aliases against its native catalog/configuration. |
 | Claude | Stream-JSON control initialization and applied settings; selected account root and credential shedding use the worker-account owner. | Installed version, applied canonical model, pinned and ordinary root cases. |
 | Codex | App-server model catalog plus project-scoped `config/read`; the project default differs from the healthy global default in regression. | Real project trust/config layering with and without an explicit model. |
@@ -3399,21 +3399,23 @@ Their fixtures establish gate behavior and protocol handling; they do not establ
 | OMP | RPC state with the actual worker configuration overlay. | Installed overlay/default/provider resolution. |
 | Grok | Native model-state catalog. | Current model IDs and aliases on the installed release. |
 | OpenCode | Effective project configuration and native provider/model catalog. | Installed default/configuration layering and account credentials. |
-| Cursor, Agy | Native model listing and its default marker. | Current listing/default formats on each installed release. |
+| Cursor, Agy | Native model listings; Cursor default marker and Agy native saved/default startup selection. | Current listing/default formats on each installed release. |
 | Kimi | ACP effective selection joined to its configured provider/model catalog. | Configured aliases, default, and provider IDs on the installed release. |
 | Gemini, Rovo, Devin, Command Code | Native ACP effective model state and provider metadata where supplied; missing family metadata requires an explicit profile family. | Native defaults/aliases, provider metadata, and account-family declarations. |
 | Muse | MSP model catalog including default and provider IDs. | Native catalog source, aliases and account defaults. |
 | Polytoken | Native JSON model catalog; worker launch additionally requires concrete model/effort through the existing Polytoken owner. | Installed catalog schema and selectable concrete references; defaults cannot authorize a worker launch. |
 | Schema 5 family, schema 6 account lane, opaque catalog account IDs | Gate regression keeps `provider=codex` separate from `accountKey=openai-codex-work`, with an exhausted account beside a healthy default. | Real account IDs joined to the quota snapshot, without cross-account borrowing. |
 | No account pin, home pin, per-secondmate pin, permitted provider restrictions | Account-selection owner runs before ranking; ship/scout and secondmate regressions distinguish retained credentials from permitted providers. | Root selection, sign-in checks and model selection against real accounts. |
-| Ship, scout, secondmate; tmux, Herdr, zellij, cmux, Orca, paseo | Catalog regression crosses every task kind/backend with adapter capability exclusions, ties and fallback alternatives; worker tool exclusions cover ship/scout and preserve the secondmate exemption. | Placement-specific real-harness launches; Command Code remains tmux/Herdr only and the existing secondmate exclusions remain in force. |
+| Ship, scout, secondmate; tmux, Herdr, zellij, cmux, Orca, paseo | Catalog regression crosses every task kind/backend with adapter capability exclusions, ties and fallback alternatives, checks Kimi/typed-Codex capture restrictions and retains Polytoken effort; worker tool exclusions cover ship/scout and preserve the secondmate exemption. | Placement-specific real-harness launches; Command Code remains tmux/Herdr only and the existing secondmate exclusions remain in force. |
 | Remote secondmate launch/relaunch, explicit override, metadata handoff | Catalog regression reaches the host entry point and records host refusal evidence; [remote protocol regression](../../tests/fm-remote-secondmate-relaunch.test.sh) covers forwarding. | Remote account/catalog context and host-authoritative metadata against a real remote. |
 | Healthy success, exhausted/short-runway refusal, unresolved catalog refusal, explicit override | Gate regressions distinguish these outcomes and preserve ordinary Herdr resume behavior. | Each installed adapter's native responses, including resolution failure. |
 | Linux/WSL/macOS, x86_64/arm64 | Resolver uses native protocols and Python subprocesses; no new platform/backend selector. | macOS/WSL and architecture parity remain unproven by Linux portable fixtures. |
 
 [Native catalog live guard](../../tests/fm-quota-catalog-live-e2e.test.sh) is registered in `live-harness-optin` and refreshes installed-harness evidence without submitting a model prompt.
-It requires independently captured native expectations rather than deriving its oracle from the resolver it checks.
-Prepare a JSON array of cases from native catalog/configuration or session evidence, using this shape:
+It runs by default and constructs independent Pi/Pi-signed expectations from isolated custom-provider and default-model configuration, without credentials or model requests.
+Agy cases bind the native tab-separated ID/label catalog to an isolated saved-model setting.
+Other installed adapters require independently captured native expectations rather than deriving their oracle from the resolver it checks.
+Optionally supply `FM_QUOTA_CATALOG_LIVE_CASES` as a JSON array of additional cases from native catalog/configuration or session evidence, using this shape:
 
 ```json
 [

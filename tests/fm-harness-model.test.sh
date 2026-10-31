@@ -29,7 +29,7 @@ if h == "polytoken":
     print(json.dumps({"models":[{"id":"model-v1", "aliases":["alias"], "provider":"account", "isDefault":True}]}))
     sys.exit()
 if h in ("cursor", "agy"):
-    print("model-v1 - Model V1 (default)")
+    print("model-v1\\tModel V1" if h == "agy" else "model-v1 - Model V1 (default)")
     sys.exit()
 if h == "kimi" and sys.argv[1:4] == ["provider", "list", "--json"]:
     print(json.dumps({"models":{"kimi-alias":{"model":"model-v1", "provider":"account"}}}))
@@ -84,9 +84,12 @@ for line in sys.stdin:
 ''')
 vendor.chmod(0o755)
 context = {"overlay": str(scratch / "worker.yml")}
+settings = scratch / "home/.gemini/antigravity-cli/settings.json"
+settings.parent.mkdir(parents=True)
+settings.write_text(json.dumps({"model":"Model V1"}))
 adapters = "claude codex opencode pi pi-signed grok kimi cursor omp agy gemini muse rovo devin commandcode polytoken".split()
 for harness in adapters:
-    env = dict(os.environ, CATALOG_ADAPTER=harness, EXPECT_OVERLAY=context["overlay"])
+    env = dict(os.environ, HOME=str(scratch / "home"), CATALOG_ADAPTER=harness, EXPECT_OVERLAY=context["overlay"])
     canonical = "account/model-v1" if harness in ("pi", "pi-signed", "omp", "opencode") else "model-v1"
     selections = ["", canonical]
     if harness not in ("cursor", "agy", "opencode"):

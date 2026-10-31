@@ -1,10 +1,151 @@
 {
-  "claude": [{"id":"claude-sonnet-5-5","aliases":["sonnet"],"provider":"claude","default":true}],
-  "codex": [{"id":"gpt-6.1-sol","provider":"codex","default":true},{"id":"gpt-6-astra","provider":"codex"}],
-  "grok": [{"id":"grok-4.7","aliases":["grok-4"],"provider":"grok","default":true}],
-  "pi": [{"id":"glm-5.3","model":"zai/glm-5.3","provider":"zai","default":true},{"id":"codex-native/gpt-6-astra","model":"codex-native/gpt-6-astra","provider":"codex-native"}],
-  "pi-signed": [{"id":"glm-5.3","model":"zai/glm-5.3","provider":"zai","default":true}],
-  "cursor": [{"id":"grok-4.7-high","provider":"cursor","default":true}],
-  "agy": [{"id":"agy-default","provider":"agy","default":true}],
-  "muse": [{"id":"muse-default","provider":"meta","default":true}]
+  "claude": [
+    {
+      "id": "claude-sonnet-5-5",
+      "aliases": [
+        "sonnet"
+      ],
+      "provider": "claude",
+      "default": true
+    },
+    {
+      "id": "haiku",
+      "provider": "claude"
+    },
+    {
+      "id": "claude-haiku-4-5-20251001",
+      "provider": "claude"
+    },
+    {
+      "id": "claude-haiku-5-5",
+      "provider": "claude"
+    },
+    {
+      "id": "opus",
+      "provider": "claude"
+    },
+    {
+      "id": "claude-opus-5-5",
+      "provider": "claude"
+    }
+  ],
+  "codex": [
+    {
+      "id": "gpt-6.1-sol",
+      "provider": "codex",
+      "default": true
+    },
+    {
+      "id": "gpt-6-astra",
+      "provider": "codex"
+    },
+    {
+      "id": "gpt-5",
+      "provider": "codex"
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "provider": "codex"
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "provider": "codex"
+    },
+    {
+      "id": "explicit-model",
+      "provider": "codex"
+    },
+    {
+      "id": "other-model",
+      "provider": "codex"
+    }
+  ],
+  "grok": [
+    {
+      "id": "grok-4.7",
+      "aliases": [
+        "grok-4"
+      ],
+      "provider": "grok",
+      "default": true
+    }
+  ],
+  "pi": [
+    {
+      "id": "glm-5.3",
+      "model": "zai/glm-5.3",
+      "provider": "zai",
+      "default": true
+    },
+    {
+      "id": "codex-native/gpt-6-astra",
+      "model": "codex-native/gpt-6-astra",
+      "provider": "codex-native"
+    },
+    {
+      "id": "openai-codex/gpt-5.6-sol",
+      "provider": "codex"
+    }
+  ],
+  "pi-signed": [
+    {
+      "id": "glm-5.3",
+      "model": "zai/glm-5.3",
+      "provider": "zai",
+      "default": true
+    },
+    {
+      "id": "openai-codex/gpt-5.6-sol",
+      "provider": "codex"
+    }
+  ],
+  "cursor": [
+    {
+      "id": "grok-4.7-high",
+      "provider": "cursor",
+      "default": true
+    },
+    {
+      "id": "cursor-grok-4.5-high",
+      "provider": "cursor"
+    },
+    {
+      "id": "cursor-grok-4.5",
+      "provider": "cursor"
+    },
+    {
+      "id": "cursor-catalog-unreachable",
+      "provider": "cursor"
+    }
+  ],
+  "agy": [
+    {
+      "id": "agy-default",
+      "provider": "agy",
+      "default": true
+    }
+  ],
+  "muse": [
+    {
+      "id": "muse-default",
+      "provider": "meta",
+      "default": true
+    }
+  ],
+  "polytoken": [
+    {
+      "id": "zai/glm-5.3-flash",
+      "provider": "zai"
+    }
+  ],
+  "opencode": [
+    {
+      "id": "anthropic/claude-sonnet-4-5",
+      "provider": "codex"
+    },
+    {
+      "id": "openai/gpt-5.6-sol",
+      "provider": "codex"
+    }
+  ]
 }

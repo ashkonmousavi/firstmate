@@ -1256,12 +1256,12 @@ resolve_relaunch_profile() {
   # Likewise the spawn quota gate for an explicitly chosen harness. The launch
   # owner does not gate a relaunch this transaction drives, so this is the one
   # decision; its evidence is handed on for the task record.
-  if [ "$HARNESS_SET" = 1 ]; then
+  if [ "$HARNESS_SET" = 1 ] && [ "$RELEASED" = 0 ]; then
     local quota_rc=0
     fm_quota_gate_run "$TARGET_HARNESS" "$account_model" \
       "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-control "$KIND" "$BACKEND" \
-      "$([ "$RELEASED" != 1 ] && printf '%s' "$WT" || fm_meta_get "$META" project)" \
-      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" "$([ "$RELEASED" != 1 ] && printf '%s' "$T")" || quota_rc=$?
+      "$WT" \
+      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" "$T" || quota_rc=$?
     [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
     [ "$quota_rc" = 0 ] || return 1
     QUOTA_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
@@ -1447,7 +1447,7 @@ do_relaunch() {
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
-  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" \
+  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
     # $T was resolved from the record before the launch. When the recorded
@@ -1510,7 +1510,7 @@ do_relaunch_released() {
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
   spawn_status=0
   FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
-    FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" \
+    FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
   if [ "$spawn_status" -ne 0 ]; then
     rm -f "$note_stage"

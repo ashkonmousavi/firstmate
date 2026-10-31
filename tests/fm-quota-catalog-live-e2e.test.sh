@@ -3,10 +3,10 @@ set -eu
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-fm_live_gate opt-in FM_QUOTA_CATALOG_LIVE_E2E python3 jq
+fm_live_gate default-on FM_QUOTA_CATALOG_LIVE_E2E python3 jq
 unset FM_QUOTA_MODEL_CATALOG_FILE FM_TEST_SEAM
-: "${FM_QUOTA_CATALOG_LIVE_CASES:?Set FM_QUOTA_CATALOG_LIVE_CASES to independently captured native model cases; see docs/verification/runtime-backends.md}"
-python3 - "$ROOT" "$FM_QUOTA_CATALOG_LIVE_CASES" <<'PY'
+TMP_ROOT=$(fm_test_tmproot fm-quota-catalog-live)
+python3 - "$ROOT" "${FM_QUOTA_CATALOG_LIVE_CASES:-}" "$TMP_ROOT" <<'PY'
 import json
 import os
 from pathlib import Path
@@ -15,8 +15,46 @@ import subprocess
 import sys
 
 root = Path(sys.argv[1])
-with open(sys.argv[2], encoding="utf-8") as handle:
-    cases = json.load(handle)
+cases = []
+if sys.argv[2]:
+    with open(sys.argv[2], encoding="utf-8") as handle:
+        cases = json.load(handle)
+lab = Path(sys.argv[3])
+for harness in ("pi", "pi-signed"):
+    executable = shutil.which(harness)
+    if not executable or any(c["harness"] == harness for c in cases):
+        continue
+    version = subprocess.run([executable, "--version"], capture_output=True, text=True, timeout=15, check=True).stdout.strip().splitlines()[0]
+    home = lab / harness
+    agent = home / ".pi/agent"
+    agent.mkdir(parents=True)
+    (agent / "models.json").write_text(json.dumps({"providers":{"fm-quota-live":{
+        "baseUrl":"http://127.0.0.1:9/v1", "apiKey":"synthetic-no-request", "api":"openai-completions",
+        "models":[{"id":"quota-a", "name":"Quota A", "reasoning":False, "input":["text"],
+                   "cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},
+                   "contextWindow":32768,"maxTokens":4096}]}}}))
+    (agent / "settings.json").write_text(json.dumps({"defaultProvider":"fm-quota-live", "defaultModel":"quota-a"}))
+    for model in ("", "fm-quota-live/quota-a"):
+        cases.append({"harness":harness, "name":"isolated native model configuration", "version":version,
+                      "oracle_source":"Pi custom provider models.json and defaultProvider/defaultModel settings contract",
+                      "cwd":str(home), "model":model, "env":{"HOME":str(home),"PI_CODING_AGENT_DIR":str(agent)},
+                      "expected":{"model":"fm-quota-live/quota-a", "provider":"fm-quota-live"}})
+executable = shutil.which("agy")
+if executable and not any(c["harness"] == "agy" for c in cases):
+    version = subprocess.run([executable, "--version"], capture_output=True, text=True, timeout=15, check=True).stdout.strip().splitlines()[0]
+    listing = subprocess.run([executable, "models"], capture_output=True, text=True, timeout=20, check=True).stdout
+    rows = [line.split("\t", 1) for line in listing.splitlines() if "\t" in line]
+    assert rows, f"agy {version}: native model listing has no tab-separated rows"
+    model, label = rows[0]
+    home = lab / "agy"
+    config = home / ".gemini/antigravity-cli"
+    config.mkdir(parents=True)
+    (config / "settings.json").write_text(json.dumps({"model":label}))
+    for requested in ("", model, label):
+        cases.append({"harness":"agy", "name":"native catalog label and saved model", "version":version,
+                      "oracle_source":"agy models tab-separated ID/label and saved settings model contract",
+                      "cwd":str(home), "model":requested, "env":{"HOME":str(home)},
+                      "expected":{"model":model, "provider":""}})
 adapters = "claude codex opencode pi pi-signed grok kimi cursor omp agy gemini muse rovo devin commandcode polytoken".split()
 checked = 0
 missing = []
@@ -26,9 +64,11 @@ for harness in adapters:
     if not executable:
         print(f"skip - {harness}: executable absent on PATH", flush=True)
         continue
+    version = subprocess.run([executable, "--version"], capture_output=True, text=True, timeout=15, check=True).stdout.strip().splitlines()[0]
+    print(f"native - {harness} {version}", flush=True)
     selected = [c for c in cases if c["harness"] == harness]
     if not selected:
-        missing.append(harness)
+        missing.append(f"{harness} {version}")
         continue
     if harness != "polytoken":
         assert any(not c.get("model") or c["model"] == "default" for c in selected), f"{harness}: missing default case"

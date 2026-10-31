@@ -1564,7 +1564,7 @@ test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops() {
   expect_code 1 "$rc" "a relaunch onto grok with under three hours of runway must refuse"$'\n'"$out"
   assert_contains "$out" "fm-control refuses explicit harness grok model grok-4.7: provider grok runway at all_products" \
     "the refusal must name the harness, model and runway"
-  assert_contains "$out" "Best alternative: provider codex (spendPriority 0.85): --harness codex --model gpt-6.1-sol." \
+  assert_contains "$out" "Best alternative: provider codex (spendPriority 0.85): --harness codex --model gpt-6.1-sol --effort medium." \
     "the refusal must name the best-spendPriority alternative"
   [ "$(cat "$dir/fake/command")" = claude ] || fail "a quota refusal stopped the running agent"
   [ ! -s "$dir/fake/literal" ] || fail "a quota refusal sent lifecycle input"

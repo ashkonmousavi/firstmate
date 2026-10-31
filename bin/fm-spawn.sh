@@ -226,8 +226,7 @@
 #   secondmate-vs-crewmate split is DURABLE across every respawn (recovery,
 #   /updatefirstmate, restart). A bare adapter name (claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|agy|devin|commandcode)
 #   overrides it for this spawn (either kind). An explicitly named adapter
-#   (--harness or the positional) also passes the quota gate before anything is
-#   created: fm_quota_gate_run in bin/fm-quota-axi-lib.sh refuses it, naming the
+#   (--harness or the positional) also passes the quota gate before launch: fm_quota_gate_run in bin/fm-quota-axi-lib.sh refuses it, naming the
 #   best alternative, when its own quota-axi row is exhausted_now or its runway
 #   ends within three hours (docs/configuration.md "Crew dispatch profiles" owns
 #   the contract). --quota-override <reason> launches anyway and records
@@ -2382,6 +2381,7 @@ fi
 SPAWN_TASK_LOCK_HELD=1
 PROJ=
 ARG3=
+QUOTA_HARNESS_EXPLICIT=0
 FIRSTMATE_HOME=
 RAW_LAUNCH=0
 
@@ -2554,6 +2554,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # the caller's explicit decision, made with --harness (bin/fm-control.sh
   # resolves that decision, including a secondmate's durable pin).
   ARG3=${HARNESS_ARG:-$RELAUNCH_PRIOR_HARNESS}
+  [ -z "$HARNESS_ARG" ] || QUOTA_HARNESS_EXPLICIT=1
   [ -n "$ARG3" ] || {
     echo "error: task $ID has no recorded harness; pass --harness to relaunch it" >&2
     exit 1
@@ -2581,6 +2582,7 @@ else
   ARG3=${POS[2]:-}
 fi
 [ -z "$HARNESS_ARG" ] || ARG3=$HARNESS_ARG
+if [ "$RELAUNCH" = 0 ] && [ -n "$ARG3" ]; then QUOTA_HARNESS_EXPLICIT=1; fi
 
 shell_quote() {
   printf "'"
@@ -3118,32 +3120,6 @@ if [ "$KIND" = secondmate ]; then
   fi
 fi
 
-# Quota gate for an explicitly named adapter (header above). A relaunch whose
-# fm-control parent holds the control lock was gated there before the old agent
-# stopped; refusing here instead would strand a stopped task, so the parent's
-# decision and its evidence are recorded as handed on.
-QUOTA_GATE_EVIDENCE=
-if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" = 1 ]; then
-  QUOTA_GATE_EVIDENCE=${FM_CONTROL_QUOTA_EVIDENCE:-}
-elif [ -n "$ARG3" ] && [ "$RAW_LAUNCH" -eq 0 ]; then
-  QUOTA_GATE_CWD=$PROJ
-  if [ "$KIND" = secondmate ]; then
-    QUOTA_GATE_CWD=$FIRSTMATE_HOME
-  elif [ "$RELAUNCH" -eq 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
-    QUOTA_GATE_CWD=$RELAUNCH_WT
-  fi
-  fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" \
-    "$QUOTA_GATE_CWD" "$CONFIG" "$([ "$KIND" != secondmate ] || printf '%s' "$ID")" \
-    "$([ "$RELAUNCH" != 1 ] || [ "$RELAUNCH_FROM_RELEASED" != 0 ] || printf '%s' "$RELAUNCH_TARGET")" || {
-    [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
-    exit 1
-  }
-  [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
-  QUOTA_GATE_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
-elif [ -n "$QUOTA_OVERRIDE" ]; then
-  echo "error: --quota-override applies only to an explicitly named adapter, the only launch the quota check gates" >&2
-  exit 1
-fi
 
 # config/crew-exclude-tools (header above): refuse before worker provisioning
 # if this launch cannot honor the list. Secondmate agents are not covered.
@@ -5880,6 +5856,33 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
 fi
 if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
   released_recreate_branch || exit 1
+fi
+
+QUOTA_GATE_EVIDENCE=
+if [ "$SPAWN_CONTROL_PARENT" = 1 ] && [ "${FM_CONTROL_QUOTA_EXPLICIT:-1}" = 0 ]; then
+  QUOTA_HARNESS_EXPLICIT=0
+fi
+if [ "$RELAUNCH" -eq 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ] && [ "$SPAWN_CONTROL_PARENT" = 1 ]; then
+  QUOTA_GATE_EVIDENCE=${FM_CONTROL_QUOTA_EVIDENCE:-}
+elif [ "$QUOTA_HARNESS_EXPLICIT" = 1 ] && [ "$RAW_LAUNCH" -eq 0 ]; then
+  fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" \
+    "$WT" "$CONFIG" "$([ "$KIND" != secondmate ] || printf '%s' "$ID")" \
+    "$([ "$RELAUNCH" != 1 ] || [ "$RELAUNCH_FROM_RELEASED" != 0 ] || printf '%s' "$RELAUNCH_TARGET")" || {
+    [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+    if [ "$RELAUNCH" = 0 ] && [ "$BACKEND" != orca ]; then
+      fm_backend_kill "$BACKEND" "$T" "${ZELLIJ_TAB_ID:-}" "fm-$ID" >/dev/null 2>&1 || true
+    fi
+    exit 1
+  }
+  [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+  QUOTA_GATE_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
+elif [ -n "$QUOTA_OVERRIDE" ]; then
+  echo "error: --quota-override applies only to an explicitly named adapter, the only launch the quota check gates" >&2
+  exit 1
+fi
+
+
+if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
   released_write_progress_note || exit 1
 fi
 

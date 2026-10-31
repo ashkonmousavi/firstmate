@@ -1819,6 +1819,7 @@ quota_gate_case() {  # <name> <harness> <id> <grok-state>
   local rec
   rec=$(make_spawn_case "$1" "$2" "$3")
   read_case_record "$rec"
+  fm_fake_exit0 "$FAKEBIN_DIR" claude codex grok kimi omp agy muse gemini rovo devin commandcode polytoken
   enable_quota_profiles "$HOME_DIR"
   fm_test_quota_snapshot "$CASE_DIR/quota.json" "$4"
 }
@@ -1834,7 +1835,7 @@ test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative() {
     expect_code 1 "$status" "grok with $state quota must refuse the spawn"$'\n'"$out"
     assert_contains "$out" "fm-spawn refuses explicit harness grok model grok-4.7: provider grok" \
       "the $state refusal must name the harness, model and provider"
-    assert_contains "$out" "Best alternative: provider codex (spendPriority 0.85): --harness codex --model gpt-6.1-sol." \
+    assert_contains "$out" "Best alternative: provider codex (spendPriority 0.85): --harness codex --model gpt-6.1-sol --effort medium." \
       "the $state refusal must name the best-spendPriority alternative"
     assert_contains "$out" "Pass --quota-override <reason>" "the $state refusal must name the override"
     [ ! -s "$LAUNCH_LOG" ] || fail "grok with $state quota still launched a worker"
@@ -1856,11 +1857,12 @@ test_quota_alternatives_obey_launch_capabilities() {
   fm_test_quota_snapshot "$dir/quota.json" exhausted
   for harness in muse gemini agy devin commandcode polytoken rovo; do
     jq -n --arg h "$harness" '{rules: [], default: [
-      {harness: $h, provider: "codex"}, {harness: "claude"}
+      {harness: $h, provider: "codex"} + (if $h == "polytoken" then {model:"model-polytoken",effort:"high"} else {} end), {harness: "claude"}
     ]}' > "$dir/rules.json"
     for kind in ship scout secondmate; do
       for backend in tmux herdr zellij cmux orca paseo; do
         expected="provider codex (spendPriority 0.85): --harness $harness --model model-$harness"
+        [ "$harness" != polytoken ] || expected="$expected --effort high"
         if [ "$kind" = secondmate ]; then
           expected='provider claude (spendPriority -0.39): --harness claude --model claude-sonnet-5-5'
         elif [ "$harness" = commandcode ] && [ "$backend" != tmux ] && [ "$backend" != herdr ]; then

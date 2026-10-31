@@ -22,6 +22,9 @@ if [ -n "${FM_TEST_FIXTURES_SOURCED:-}" ]; then
   return 0
 fi
 FM_TEST_FIXTURES_SOURCED=1
+FM_QUOTA_MODEL_CATALOG_FILE=${FM_QUOTA_MODEL_CATALOG_FILE-"$ROOT/tests/fixtures/quota-model-catalog.json"}
+export FM_QUOTA_MODEL_CATALOG_FILE
+
 
 # Production floor lives in bin/fm-bootstrap.sh (NO_MISTAKES_MIN). Keep this
 # equal to that floor so a bump is one constant here plus that production pin.

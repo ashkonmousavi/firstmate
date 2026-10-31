@@ -15,6 +15,11 @@ test_quota_gate_passes_healthy_and_long_runway_harnesses
 test_quota_gate_unresolved_catalog_refuses_and_missing_reading_notices
 test_quota_gate_override_passes_and_is_recorded
 
+test_active_dispatch_profile_allows_explicit_harness
+test_active_dispatch_profile_allows_positional_harness
+test_claude_haiku_launch_gets_an_opus_advisor
+test_batch_forwards_shared_profile_flags
+
 id=quota-claude-native
 quota_gate_case "$id" claude "$id" through
 cat > "$FAKEBIN_DIR/claude" <<'PYV'
@@ -43,7 +48,18 @@ pass "an explicit native Claude alias refuses exhausted all-models quota"
 id=quota-codex-project
 quota_gate_case "$id" codex "$id" through
 mkdir -p "$PROJ_DIR/.codex"
-printf 'model = "gpt-6-astra"\n' > "$PROJ_DIR/.codex/config.toml"
+printf 'model = "gpt-6.1-sol"\n' > "$PROJ_DIR/.codex/config.toml"
+git -C "$PROJ_DIR" add .codex/config.toml
+git -C "$PROJ_DIR" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'healthy primary model'
+primary_head=$(git -C "$PROJ_DIR" rev-parse HEAD)
+git -C "$WT_DIR" checkout -qb quota-base
+mkdir -p "$WT_DIR/.codex"
+printf 'model = "gpt-6-astra"\n' > "$WT_DIR/.codex/config.toml"
+git -C "$WT_DIR" add .codex/config.toml
+git -C "$WT_DIR" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'exhausted base model'
+git -C "$WT_DIR" checkout -q --detach "$primary_head"
+git -C "$PROJ_DIR" push -q origin quota-base
+printf '\n# Setup\nYou are in a disposable git worktree of project, at a detached HEAD on a clean copy of its base branch.\nBase branch: quota-base\n' >> "$HOME_DIR/data/$id/brief.md"
 cat > "$FAKEBIN_DIR/codex" <<'PYV'
 #!/usr/bin/env python3
 import json
@@ -68,16 +84,28 @@ for line in sys.stdin:
     print(json.dumps({"id":request["id"],"result":response}), flush=True)
 PYV
 chmod +x "$FAKEBIN_DIR/codex"
+CODEX_CONTEXT_PROBE="$FAKEBIN_DIR/codex"
 jq '(.providers[] | select(.provider=="codex").quotaSemantics.effectiveAvailability) +=
   [{scope:"model:gpt-6-astra",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"},selection:{spendPriority:-3}}]' \
   "$CASE_DIR/quota.json" > "$CASE_DIR/project-quota.json"
 out=$(FM_QUOTA_MODEL_CATALOG_FILE='' FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/project-quota.json" \
-  run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness codex)
+  run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness codex --base-branch quota-base)
 rc=$?
 expect_code 1 "$rc" "Codex must check the project default rather than the healthy global default: $out"
 assert_contains "$out" 'provider codex runway exhausted_now at model:gpt-6-astra' "Codex default resolution omitted project cwd"
 [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "the exhausted Codex project default launched"
-pass "Codex quota preflight reads the actual project's effective configuration"
+[ "$(git -C "$WT_DIR" show HEAD:.codex/config.toml)" = 'model = "gpt-6-astra"' ] || fail "the test did not refresh onto the requested base"
+pass "Codex quota preflight reads the refreshed worker checkout rather than the healthy primary"
+
+id=quota-project-argument
+quota_gate_case "$id" grok "$id" through
+mkdir -p "$HOME_DIR/projects"
+ln -s "$PROJ_DIR" "$HOME_DIR/projects/quota-project"
+out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+  "$id" projects/quota-project --harness grok --model grok-4.7)
+rc=$?
+expect_code 0 "$rc" "a projects/name argument must resolve before catalog lookup: $out"
+pass "catalog lookup follows the resolved project argument into the actual worker checkout"
 
 id=quota-opaque-account
 quota_gate_case "$id" pi "$id" through
@@ -149,6 +177,8 @@ for selection in codex-native/gpt-6-astra astra default; do
   assert_contains "$out" 'provider codex runway exhausted_now at model:gpt-6-astra' "catalog identity must reach quota matching"
   assert_contains "$out" '--harness pi --model zai/glm-5.3' "the named alternative must also resolve through its own catalog"
   [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "catalog refusal published metadata"
+  dirty=$(git -C "$WT_DIR" status --porcelain)
+  [ -z "$dirty" ] || fail "a refused native probe changed the pool copy: $dirty"
 done
 pass "native Pi catalog resolves explicit models, aliases, and defaults before spawn quota matching"
 out=$(FM_QUOTA_MODEL_CATALOG_FILE='' FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/native.json" \
@@ -312,6 +342,49 @@ for kind in ship scout secondmate; do
 done
 pass "quota alternatives honor permitted providers and per-secondmate account precedence"
 
+for mapping in openai-codex:codex claude-bridge:claude; do
+  provider=${mapping%:*} family=${mapping#*:}
+  id="quota-omp-$family"
+  quota_gate_case "$id" omp "$id" through
+  jq -n --arg m "$provider/model-v1" --arg p "$provider" '{omp:[{id:$m,model:$m,provider:$p,default:true}],claude:[{id:"claude-sonnet-5-5",provider:"claude",default:true}],codex:[{id:"gpt-6.1-sol",provider:"codex",default:true}]}' > "$CASE_DIR/catalog.json"
+  jq --arg p "$family" '(.providers[] | select(.provider==$p).quotaSemantics.effectiveAvailability[]) |=
+    (.effectivePercentRemaining=0 | .runway.status="exhausted_now")' "$CASE_DIR/quota.json" > "$CASE_DIR/exhausted.json"
+  out=$(FM_QUOTA_MODEL_CATALOG_FILE="$CASE_DIR/catalog.json" fm_quota_gate_explicit omp '' \
+    "$HOME_DIR/config/crew-dispatch.json" "$CASE_DIR/exhausted.json" ship tmux "$WT_DIR" "$HOME_DIR/config")
+  rc=$?
+  expect_code 1 "$rc" "OMP must join its existing $provider family: $out"
+  assert_contains "$out" "provider $family runway exhausted_now" "OMP lost the existing family relation"
+done
+pass "OMP defaults use both existing provider-family relations"
+
+id=quota-capture-eligibility
+quota_gate_case "$id" grok "$id" exhausted
+for h in kimi codex; do
+  printf '{"default":[{"harness":"%s","provider":"codex","effort":"high"},{"harness":"claude"}]}\n' "$h" > "$CASE_DIR/rules.json"
+  jq '.kimi=[{id:"kimi-test",provider:"kimi",default:true}]' "$FM_QUOTA_MODEL_CATALOG_FILE" > "$CASE_DIR/catalog.json"
+  for backend in tmux herdr zellij cmux orca paseo; do
+    for typed in 0 1; do
+      out=$(FM_CODEX_TYPED_LAUNCH="$typed" FM_QUOTA_MODEL_CATALOG_FILE="$CASE_DIR/catalog.json" \
+        fm_quota_gate_explicit grok '' "$CASE_DIR/rules.json" "$CASE_DIR/quota.json" ship "$backend" "$WT_DIR" "$HOME_DIR/config")
+      if { [ "$h" = kimi ] || [ "$typed" = 1 ]; } && { [ "$backend" = cmux ] || [ "$backend" = orca ] || [ "$backend" = paseo ]; }; then
+        assert_contains "$out" '--harness claude ' "an unsupported capture backend survived ranking"
+      else
+        assert_contains "$out" "--harness $h " "a supported capture path was excluded"
+        assert_contains "$out" '--effort high' "suggestion lost its effort"
+      fi
+    done
+  done
+done
+pass "suggestions retain effort and honor Kimi and typed Codex capture restrictions"
+
+printf '%s\n' '{"default":[{"harness":"polytoken","model":"zai/glm-5.3-flash","effort":"low","provider":"codex"},{"harness":"claude"}]}' > "$CASE_DIR/poly-rules.json"
+out=$(fm_quota_gate_explicit grok '' "$CASE_DIR/poly-rules.json" "$CASE_DIR/quota.json" ship tmux "$WT_DIR" "$HOME_DIR/config")
+assert_contains "$out" '--harness polytoken --model zai/glm-5.3-flash --effort low' "Polytoken suggestion lost a required axis"
+jq 'del(.default[0].effort)' "$CASE_DIR/poly-rules.json" > "$CASE_DIR/poly-invalid.json"
+out=$(fm_quota_gate_explicit grok '' "$CASE_DIR/poly-invalid.json" "$CASE_DIR/quota.json" ship tmux "$WT_DIR" "$HOME_DIR/config")
+assert_not_contains "$out" '--harness polytoken' "an unlaunchable Polytoken profile survived ranking"
+pass "Polytoken alternatives retain concrete model and effort and reject missing effort"
+
 export FM_TEST_FIXTURE_IMPORT=control-relaunch
 # shellcheck source=tests/fm-control-relaunch.test.sh
 . "$ROOT/tests/fm-control-relaunch.test.sh"
@@ -319,6 +392,55 @@ unset FM_TEST_FIXTURE_IMPORT
 test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops
 test_secondmate_quota_relaunch_names_a_supported_alternative
 test_quota_override_relaunches_and_is_recorded
+
+test_refused_relaunch_onto_polytoken_keeps_the_project_hook_layer
+test_explicit_secondmate_harness_ignores_configured_profile_axes
+
+id=quota-implicit-relaunch
+dir=$(quota_relaunch_case "$id" "$id" exhausted)
+sed -i 's/^harness=claude$/harness=grok/' "$dir/home/state/$id.meta"
+printf 'zsh' > "$dir/fake/command"
+out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_spawn "$dir" "$id" --relaunch); rc=$?
+expect_code 0 "$rc" "adopting the recorded harness must not add an explicit quota gate: $out"
+assert_not_contains "$out" 'refuses explicit harness' "implicit direct relaunch was quota gated"
+pass "direct relaunch without a caller-supplied harness stays ungated on exhausted quota"
+
+for caller in control spawn; do
+  id="quota-released-context-$caller"
+  dir=$(new_case "$id" "$id")
+  add_released_ship_task "$dir" "$id"
+  git -C "$dir/proj" checkout -qb released-quota-fixture "origin/fm/$id"
+  mkdir -p "$dir/proj/.codex"
+  printf 'model = "gpt-6-astra"\n' > "$dir/proj/.codex/config.toml"
+  git -C "$dir/proj" add .codex/config.toml
+  git -C "$dir/proj" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'released exhausted model'
+  head=$(git -C "$dir/proj" rev-parse HEAD)
+  git -C "$dir/proj" push -q origin "HEAD:fm/$id"
+  printf '%s\n' "$head" > "$dir/fake/pr-head"
+  sed -i "s/^released_head=.*/released_head=$head/" "$dir/home/state/$id.meta"
+  git -C "$dir/proj" checkout -q main
+  mkdir -p "$dir/proj/.codex"
+  printf 'model = "gpt-6.1-sol"\n' > "$dir/proj/.codex/config.toml"
+  git -C "$dir/proj" add .codex/config.toml
+  git -C "$dir/proj" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'healthy primary model'
+  fm_fake_exit0 "$dir/fakebin" grok kimi cursor-agent agy muse
+  cp "$CODEX_CONTEXT_PROBE" "$dir/fakebin/codex"
+  fm_test_quota_snapshot "$dir/quota.json" through
+  jq '(.providers[] | select(.provider=="codex").quotaSemantics.effectiveAvailability) +=
+    [{scope:"model:gpt-6-astra",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"},selection:{spendPriority:-3}}]' \
+    "$dir/quota.json" > "$dir/exhausted.json"
+  if [ "$caller" = control ]; then
+    out=$(FM_QUOTA_MODEL_CATALOG_FILE='' FM_QUOTA_SNAPSHOT_FILE="$dir/exhausted.json" \
+      run_control "$dir" "$id" relaunch --harness codex --note 'check the released branch'); rc=$?
+  else
+    out=$(FM_QUOTA_MODEL_CATALOG_FILE='' FM_QUOTA_SNAPSHOT_FILE="$dir/exhausted.json" \
+      run_spawn "$dir" "$id" --relaunch --harness codex); rc=$?
+  fi
+  expect_code 1 "$rc" "$caller must check the recreated branch, not the healthy primary: $out"
+  assert_contains "$out" 'provider codex runway exhausted_now at model:gpt-6-astra' "$caller used the primary's model for a released copy"
+  assert_not_contains "$(cat "$dir/fake/literal")" 'encode launch-brief' "the exhausted released model launched"
+done
+pass "control and direct released relaunches gate the actual recreated branch"
 
 id=quota-control-catalog
 dir=$(quota_relaunch_case quota-control-catalog "$id" through)
@@ -357,6 +479,7 @@ for caller in control spawn; do
   id="quota-saved-session-$caller"
   herdr_case_or_skip "$id" "$id" || fail "saved-session regression requires jq"
   dir=$HERDR_CASE_DIR
+  fm_fake_exit0 "$dir/fakebin" codex grok kimi cursor-agent agy muse
   rm -f "$dir/fake/herdr-stopped"
   sed -i 's/^harness=claude$/harness=pi/' "$dir/home/state/$id.meta"
   session="$dir/saved.jsonl"

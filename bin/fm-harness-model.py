@@ -175,9 +175,21 @@ def resolve(harness, executable, wanted, context):
         for line in listing.splitlines():
             if " - " in line or "\t" in line:
                 model = line.split()[0]
-                models.append({"id": model})
-                if "(default)" in line:
+                label = line.split("\t", 1)[1].strip() if "\t" in line else line.split(" - ", 1)[1].strip()
+                models.append({"id": model, "aliases": [label]})
+                if harness == "cursor" and "(default)" in line:
                     default = model
+        if harness == "agy" and not wanted:
+            path = os.path.expanduser("~/.gemini/antigravity-cli/settings.json")
+            if os.path.isfile(path):
+                with open(path, encoding="utf-8") as handle:
+                    default = json.load(handle).get("model")
+            if not default:
+                startup = command([executable, "--print", "--input-format", "stream-json", "--output-format", "stream-json"])
+                for line in startup.splitlines():
+                    event = json.loads(line)
+                    if event.get("type") == "system" and event.get("subtype") == "init":
+                        default = event.get("model")
         model = select_model(models, wanted, default)
         return {"model": model["id"], "provider": ""}
     raise ValueError("no non-generating catalog resolver for this adapter")

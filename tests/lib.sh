@@ -59,8 +59,7 @@ export FM_TEST_SEAM=1
 # at its own fixture.
 FM_QUOTA_SNAPSHOT_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/quota-axi-healthy.json"
 export FM_QUOTA_SNAPSHOT_FILE
-FM_QUOTA_MODEL_CATALOG_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/quota-model-catalog.json"
-export FM_QUOTA_MODEL_CATALOG_FILE
+
 
 # Clear the task-worker marker bin/fm-spawn.sh exports into ship and scout
 # panes. This suite builds git-init fixture repositories whose primary checkout
