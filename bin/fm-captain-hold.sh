@@ -440,6 +440,11 @@ task_show() {  # <id>; sets TASK_SHOW_OUTPUT
       "${reason:-tasks-axi show $1 exceeded its backlog read bound}" >&2
     exit 124
   fi
+  if [ "$status" -ne 0 ] && [ "${CAPTAIN_VERIFY_READ:-0}" = 1 ] \
+    && ! printf '%s\n' "$TASK_SHOW_OUTPUT" | grep -q '^code: NOT_FOUND$'; then
+    printf 'fm-captain-hold: could not read task %s for verification\n' "$1" >&2
+    exit 2
+  fi
   return "$status"
 }
 
@@ -937,7 +942,7 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
   resolved=$(resolve_entry "$origin" "$entry") || resolve_status=$?
   if [ "$resolve_status" -ne 0 ]; then
     [ "$resolve_status" -ne 124 ] \
-      || fail "the backlog backend exceeded its read bound resolving $entry"
+      || printf 'fm-captain-hold: the backlog backend exceeded its read bound resolving %s\n' "$entry" >&2
     exit "$resolve_status"
   fi
   id=${resolved%% *}
@@ -1937,12 +1942,12 @@ EOF
 }
 
 command_verify() {
-  local origin=${1:-} meta reviewed keys entry key open resolved
+  local origin=${1:-} meta reviewed keys entry key open resolved CAPTAIN_VERIFY_READ=1
   [ "$#" -eq 1 ] || { usage >&2; exit 2; }
   validate_slug origin-id "$origin"
   meta="$STATE/$origin.meta"
   [ -f "$meta" ] || fail "origin metadata is absent: $meta"
-  require_tasks_axi
+  (require_tasks_axi) || return 2
   reviewed=$(meta_value "$meta" decisions_reviewed)
   [ "$reviewed" = 1 ] || fail "origin $origin has no completed captain-call inventory"
   keys=$(meta_value "$meta" decision_keys)

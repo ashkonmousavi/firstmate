@@ -849,13 +849,39 @@ fm_backend_send_key() {  # <backend> <target> <key> [expected-label]
   esac
 }
 
+fm_backend_lane_release_guard() {
+  local backend=$1 target=$2 action=$3 input=${4:-} content cap
+  if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
+    case "$action" in
+      send-text)
+        [ "$(fm_backend_composer_state "$backend" "$target" "${label:-}")" = empty ] || return 75
+        ;;
+      send-keys)
+        case "$input" in Enter|enter) ;; *) return 75 ;; esac
+        [ -n "${release_draft:-}" ] || return 75
+        case "$backend" in
+          tmux)
+            cap=$(fm_tmux_composer_capture "$target") || return 75
+            content=$(FM_COMPOSER_GHOST_LUMA_MAX=0 fm_composer_extract_selected_content "$(fm_tmux_composer_caps)" "$cap") || return 75
+            ;;
+          herdr) content=$(fm_backend_herdr_composer_content "$target") || return 75 ;;
+          *) return 75 ;;
+        esac
+        [ "$content" = "$release_draft" ] || return 75
+        ;;
+      *) return 75 ;;
+    esac
+  fi
+  if declare -F fm_control_lane_release_guard >/dev/null; then fm_control_lane_release_guard || return 75; fi
+}
+
 # fm_backend_send_text_submit: type text once, then submit and verify,
 # retrying only the submission (never retyping). Echoes the backend's
 # proof-carrying verdict; callers require exact empty for confirmed delivery.
 # A pane that already shows the recognised dialog is refused before any
 # adapter types, so that submit neither types the text nor sends Enter.
 fm_backend_send_text_submit() {  # <backend> <target> <text> <retries> <enter-sleep> <settle> [expected-label]
-  local backend=$1 rc=0 target label dialog
+  local backend=$1 rc=0 target label dialog preflight release_draft=$3
   shift
   target=$1
   label=${6:-}
@@ -870,7 +896,13 @@ fm_backend_send_text_submit() {  # <backend> <target> <text> <retries> <enter-sl
   # One composer read after the sink exists and before the adapter types.
   # The classify writes the sink; a named dialog means the next Enter would
   # answer it.
-  if [ -n "$label" ]; then
+  if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
+    preflight=$(fm_backend_composer_state "$backend" "$target" "$label") || preflight=unknown
+    if [ "$preflight" != empty ]; then
+      fm_composer_dialog_sink_release
+      return 75
+    fi
+  elif [ -n "$label" ]; then
     fm_backend_composer_state "$backend" "$target" "$label" >/dev/null || true
   else
     fm_backend_composer_state "$backend" "$target" >/dev/null || true

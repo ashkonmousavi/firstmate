@@ -137,7 +137,9 @@ case "${1:-}" in
     payload=${1:-}
     if [ "$literal" = 1 ]; then
       printf '%s\n' "$payload" >> "$D/literal"
+      if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then printf '%s' "$payload" > "$D/draft"; fi
       if [ -z "${FM_FAKE_NEVER_DIES:-}" ] \
+         && [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] \
          && { [ "$payload" = /exit ] || [ "$payload" = /quit ]; }; then
         printf 'zsh' > "$D/command"
       fi
@@ -146,6 +148,15 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
+      if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] && [ "$payload" = Enter ]; then
+        if [ "${FM_RELEASE_TEST_RACE:-}" = composer-retry ] && [ ! -e "$D/first-enter" ]; then
+          : > "$D/first-enter"
+          printf '/exit owner note' > "$D/draft"
+        else
+          printf zsh > "$D/command"
+          rm -f "$D/draft"
+        fi
+      fi
       printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
       # pane-after-c-u models a composer that a Ctrl+U empties; without it the
       # pane never changes, which is a clear that does not take.
@@ -190,6 +201,15 @@ case "${1:-}" in
     done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    if [ "${FM_RELEASE_TEST_RACE:-}" = composer-preflight ] && [ -e "$FM_HOME/probe-composer-read" ]; then
+      rm "$FM_HOME/probe-composer-read"
+      printf 'owner draft' > "$D/draft"
+    fi
+    if [ "${FM_RELEASE_TEST_RACE:-}" = preflight ] && [ -e "$FM_HOME/probe-composer-read" ]; then
+      rm "$FM_HOME/probe-composer-read"
+      "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
+      "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
+    fi
     if [ -f "$D/after-enter" ] && [ -f "$D/keys" ] && grep -qx Enter "$D/keys"; then
       # after-enter-late holds how many captures after Enter still show the
       # ordinary pane, for a screen that renders after the submit has read it.
@@ -201,6 +221,10 @@ case "${1:-}" in
         cat "$D/after-enter"
         exit 0
       fi
+    fi
+    if [ -f "$D/draft" ]; then
+      printf '╭────╮\n│ %s │\n╰────╯\n' "$(cat "$D/draft")"
+      exit 0
     fi
     if [ -f "$D/devin" ]; then devin_screen "$(cat "$D/devin")"; elif [ -f "$D/pane" ]; then cat "$D/pane"; else printf '╭────╮\n│    │\n╰────╯\n'; fi
     exit 0 ;;
@@ -214,6 +238,13 @@ SH
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 if [ -f "$FM_FAKE_DIR/devin" ]; then exec /bin/sleep "$@"; fi
+if [ "${FM_RELEASE_TEST_RACE:-}" = composer-settle ] && [ "$1" = 1.2 ]; then
+  printf '/exit owner note' > "$FM_FAKE_DIR/draft"
+fi
+if [ "${FM_RELEASE_TEST_RACE:-}" = settle ] && [ "$1" = 1.2 ]; then
+  "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
+  "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
+fi
 if [ -n "${FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK:-}" ] \
    && [ -e "$FM_FAKE_DIR/muse-ack-pending" ]; then
   rm -f "$FM_FAKE_DIR/muse-ack-pending"
@@ -1213,6 +1244,86 @@ test_busy_agent_is_interrupted_before_the_exit_command() {
   pass "fm-control exit: a busy agent receives interrupt delivery before the exit command"
 }
 
+# --if-idle is the unattended exit bin/fm-lane-release.sh drives: a busy or
+# unproven-idle agent, a held lifecycle lock, and a replaced incarnation each
+# exit 75 having sent nothing, and only an idle agent receives the exit command.
+arm_busy_as() {  # <case-dir> <busy|idle>
+  local dir=$1 want=$2 gen
+  gen=$("$ROOT/bin/fm-busy-event.sh" arm "$dir/home/state" t1)
+  printf 'busy_gen=%s\n' "$gen" >> "$dir/home/state/t1.meta"
+  if [ "$want" = idle ]; then
+    "$ROOT/bin/fm-busy-event.sh" apply "$dir/home/state" t1 idle --gen "$gen" \
+      --source claude-hook --event stop >/dev/null
+  fi
+}
+
+test_if_idle_exit_leaves_a_busy_agent_alone() {
+  local dir out rc
+  dir=$(new_case ifidle-busy)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  arm_busy_as "$dir" busy
+  out=$(run_control "$dir" t1 exit --if-idle); rc=$?
+  expect_code 75 "$rc" "a busy agent should defer the unattended exit"$'\n'"$out"
+  assert_contains "$out" "never interrupts" "the deferral should say why"
+  [ -z "$(keys_sent "$dir")" ] || fail "the unattended exit must not interrupt, got: $(keys_sent "$dir")"
+  [ -z "$(literals "$dir")" ] || fail "the unattended exit must type nothing into a busy agent"
+  pass "fm-control exit --if-idle: a busy agent is neither interrupted nor exited (75)"
+}
+
+test_if_idle_exit_defers_an_unproven_idle_verdict() {
+  local dir out rc
+  dir=$(new_case ifidle-unknown)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  out=$(run_control "$dir" t1 exit --if-idle); rc=$?
+  expect_code 75 "$rc" "an agent with no busy record is not proven idle"$'\n'"$out"
+  [ -z "$(literals "$dir")" ] || fail "an unproven-idle agent must receive no exit command"
+  pass "fm-control exit --if-idle: an unknown busy verdict defers (75) with nothing sent"
+}
+
+test_if_idle_exit_stops_an_idle_agent() {
+  local dir out rc
+  dir=$(new_case ifidle-idle)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  arm_busy_as "$dir" idle
+  out=$(run_control "$dir" t1 exit --if-idle --expect-spawn-gen s1.1.1 2>&1); rc=$?
+  expect_code 75 "$rc" "a record with no matching spawn_gen should defer"$'\n'"$out"
+  assert_contains "$out" "no longer records spawn_gen" "the deferral should name the replaced incarnation"
+  [ -z "$(literals "$dir")" ] || fail "a replaced incarnation must receive no exit command"
+  printf 'spawn_gen=s1.1.1\n' >> "$dir/home/state/t1.meta"
+  out=$(run_control "$dir" t1 exit --if-idle --expect-spawn-gen s1.1.1); rc=$?
+  expect_code 0 "$rc" "an idle agent of the expected incarnation should exit"$'\n'"$out"
+  [ -z "$(keys_sent "$dir")" ] || fail "an idle agent needs no interrupt"
+  [ "$(literals "$dir")" = "/exit" ] || fail "an idle agent should receive exactly its exit command"
+  out=$(run_control "$dir" t1 exit --if-idle --expect-spawn-gen=s1.1.1); rc=$?
+  expect_code 1 "$rc" "the equals form is not an accepted control argument"$'\n'"$out"
+  pass "fm-control exit --if-idle: an idle agent of the expected incarnation exits; a replaced one defers"
+}
+
+test_if_idle_exit_defers_on_a_held_lifecycle_lock() {
+  local dir out rc lock holder i
+  dir=$(new_case ifidle-locked)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  arm_busy_as "$dir" idle
+  lock="$dir/home/state/.control-t1.lock"
+  hold_lifecycle_lock "$lock" &
+  holder=$!
+  i=0
+  while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
+  out=$(run_control "$dir" t1 exit --if-idle); rc=$?
+  kill "$holder" 2>/dev/null || true
+  wait "$holder" 2>/dev/null || true
+  expect_code 75 "$rc" "a held lifecycle lock should defer the unattended exit"
+  [ -z "$(literals "$dir")" ] || fail "a contended unattended exit must type nothing"
+  out=$(run_control "$dir" t1 interrupt --if-idle); rc=$?
+  expect_code 1 "$rc" "--if-idle should be refused on interrupt"
+  assert_contains "$out" "apply to 'exit' only" "the refusal should scope the flag"
+  pass "fm-control exit --if-idle: a held lifecycle lock defers (75); the flag is exit-only"
+}
+
 exit_picker_screen() {
   printf '%s\n' \
     'Background work is running' \
@@ -1697,6 +1808,112 @@ EOF
   pass "fm-control-lib: only a runtime's own recorded session has a relaunch resume form"
 }
 
+test_lane_release_revalidates_under_the_inbox_lock() {
+  local dir change out rc at gen seq kind class
+  for change in none unread status decision report gate hold board promotion sequence lock live-busy live-composer preflight settle composer-preflight composer-settle composer-retry off no-record ship-none ship-unread ship-status ship-merge ship-sequence; do
+    dir=$(new_case "release-final-$change")
+    printf 'on\n' > "$dir/home/config/lane-release"
+    kind=scout
+    class=scout
+    case "$change" in ship-*) kind=ship; class='merged-ship' ;; esac
+    add_task "$dir" t1 claude "$kind"
+    alive_as "$dir" claude
+    arm_busy_as "$dir" idle
+    at=$(date +%s)
+    gen=$(cat "$dir/home/state/t1.busy-gen")
+    seq=7
+    printf 'v1 gen=%s seq=%s state=idle source=claude-hook event=stop ts=%s\n' "$gen" "$seq" "$at" > "$dir/home/state/t1.busy-state"
+    printf 'spawn_gen=s1000.1.1\n' >> "$dir/home/state/t1.meta"
+    printf 'done [at=%s]: report ready\n' "$at" > "$dir/home/state/t1.status"
+    printf '# report\n' > "$dir/home/data/t1/report.md"
+    printf 'fm-lane-release-v1\ntask=t1\nspawn_gen=s1000.1.1\nreleased_at=%s\nanchor=%s\nclass=%s\nresult=releasing\nbusy_seq=%s:7\n' "$at" "$at" "$class" "$gen" > "$dir/home/state/t1.released"
+    if [ "$kind" = ship ]; then
+      printf 'pr=https://github.com/o/r/pull/7\n' >> "$dir/home/state/t1.meta"
+      (
+        # shellcheck source=/dev/null
+        . "$ROOT/bin/fm-pr-lib.sh"
+        fm_pr_poll_merge_mark_notified "$dir/home/state" t1 github github.com o/r 7
+      ) || fail "could not record the landing"
+      touch -d "@$at" "$dir/home/state/t1.pr-poll-merge-notified" 2>/dev/null \
+        || touch -t "$(date -r "$at" +%Y%m%d%H%M.%S)" "$dir/home/state/t1.pr-poll-merge-notified"
+    fi
+    cat > "$dir/fakebin/release-crew" <<'SH'
+#!/usr/bin/env bash
+printf 'state: done\n'
+SH
+    cat > "$dir/fakebin/release-hold" <<'SH'
+#!/usr/bin/env bash
+[ -e "$FM_HOME/state/.meta-t1.lock" ] || exit 2
+printf 'locked\n' >> "$FM_HOME/validated"
+if [ "$1" = open ]; then
+  [ -e "$FM_HOME/held" ] && exit 0
+  exit 1
+fi
+[ ! -e "$FM_HOME/gate-failed" ]
+SH
+    cat > "$dir/fakebin/release-probe" <<'SH'
+#!/usr/bin/env bash
+if [ "${FM_RELEASE_TEST_RACE:-}" = "live-$1" ]; then
+  "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
+  "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
+fi
+case "${FM_RELEASE_TEST_RACE:-}:$1" in preflight:composer|composer-preflight:composer) : > "$FM_HOME/probe-composer-read" ;; esac
+case "$1" in agent) echo alive ;; busy) echo idle ;; composer) echo empty ;; doorbell) echo no ;; esac
+SH
+    chmod +x "$dir/fakebin/release-crew" "$dir/fakebin/release-hold" "$dir/fakebin/release-probe"
+    case "$change" in
+      unread|ship-unread)
+        (
+          # shellcheck source=/dev/null
+          . "$ROOT/bin/fm-task-inbox-lib.sh"
+          fm_task_inbox_write "$dir/home/state" t1 continuation >/dev/null
+        ) || fail "could not publish a continuation"
+        ;;
+      status|ship-status) printf 'needs-decision [at=%s]: question\n' "$((at + 1))" >> "$dir/home/state/t1.status" ;;
+      decision) printf 'needs-decision [at=%s] [key=q]: question\ndone [at=%s]: ready\n' "$((at - 1))" "$at" > "$dir/home/state/t1.status" ;;
+      report) rm "$dir/home/data/t1/report.md" ;;
+      gate) : > "$dir/home/gate-failed" ;;
+      hold) : > "$dir/home/held" ;;
+      board) mkdir "$dir/home/state/procevent"; printf 'owner_task=t1\n' > "$dir/home/state/procevent/review.source" ;;
+      promotion) : > "$dir/home/data/t1/ship-instructions.md" ;;
+      sequence|ship-sequence) printf 'v1 gen=%s seq=8 state=idle source=claude-hook event=stop ts=%s\n' "$gen" "$at" > "$dir/home/state/t1.busy-state" ;;
+      ship-merge) rm "$dir/home/state/t1.pr-poll-merge-notified" ;;
+      off) printf 'off\n' > "$dir/home/config/lane-release" ;;
+      no-record) rm "$dir/home/state/t1.busy-state" "$dir/home/state/t1.busy-gen" ;;
+      lock) mkdir "$dir/home/state/.meta-t1.lock"; printf '%s\n' "$$" > "$dir/home/state/.meta-t1.lock/pid" ;;
+    esac
+    out=$(FM_CONTROL_LANE_RELEASE=1 FM_RELEASE_TEST_RACE="$change" FM_RELEASE_TEST_BUSY_EVENT="$ROOT/bin/fm-busy-event.sh" FM_LANE_RELEASE_CREW_STATE="$dir/fakebin/release-crew" \
+      FM_LANE_RELEASE_CAPTAIN_HOLD="$dir/fakebin/release-hold" FM_LANE_RELEASE_PROBE="$dir/fakebin/release-probe" \
+      run_control "$dir" t1 exit --if-idle --expect-spawn-gen s1000.1.1); rc=$?
+    if [ "$change" = none ] || [ "$change" = ship-none ]; then
+      expect_code 0 "$rc" "an unchanged eligible worker must exit"$'\n'"$out"
+      [ "$(literals "$dir")" = /exit ] || fail "the ordinary release did not send exit"
+      [ "$kind" = ship ] || [ -s "$dir/home/validated" ] || fail "the final gate did not observe the metadata lock"
+      [ ! -e "$dir/home/state/t1.busy-gen" ] || fail "the ordinary release did not retire the busy generation"
+    else
+      expect_code 75 "$rc" "$change must defer final release"$'\n'"$out"
+      if [ "$change" = settle ] || [ "$change" = composer-settle ] || [ "$change" = composer-retry ]; then
+        [ "$(literals "$dir")" = /exit ] || fail "the settle case did not reach the draft stage"
+        if [ "$change" = composer-retry ]; then
+          [ "$(cat "$dir/fake/keys")" = Enter ] || fail "a changed draft received another Enter"
+        else
+          [ ! -s "$dir/fake/keys" ] || fail "a changed composer or turn still received Enter"
+        fi
+      else
+        [ -z "$(literals "$dir")" ] || fail "$change still received exit"
+      fi
+    fi
+    case "$change" in
+      composer-preflight) [ "$(cat "$dir/fake/draft")" = 'owner draft' ] || fail "the owner draft changed" ;;
+      composer-settle|composer-retry) [ "$(cat "$dir/fake/draft")" = '/exit owner note' ] || fail "the changed exit draft was erased" ;;
+    esac
+    if [ "$change" != lock ]; then
+      [ ! -e "$dir/home/state/.meta-t1.lock" ] || fail "final validation leaked the metadata lock"
+    fi
+  done
+  pass "lane release revalidates ship and scout evidence under the steer publication lock before exit"
+}
+
 test_exit_types_each_harness_verified_command
 test_interrupt_sends_each_harness_verified_key
 test_devin_interrupt_invalidates_busy
@@ -1740,6 +1957,10 @@ test_missing_tmux_endpoint_refuses_rather_than_claiming_a_stop
 test_interrupt_refuses_when_no_agent_runs
 test_ambiguous_endpoint_refuses
 test_busy_agent_is_interrupted_before_the_exit_command
+test_if_idle_exit_leaves_a_busy_agent_alone
+test_if_idle_exit_defers_an_unproven_idle_verdict
+test_if_idle_exit_stops_an_idle_agent
+test_if_idle_exit_defers_on_a_held_lifecycle_lock
 test_idle_agent_is_not_interrupted
 test_exit_drops_meta_busy_gen_with_the_sidecar
 test_exit_refuses_an_open_background_picker
@@ -1755,6 +1976,8 @@ test_grok_idle_footer_does_not_confirm_cancellation
 test_recorded_harness_capabilities
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task
+
+test_lane_release_revalidates_under_the_inbox_lock
 test_exit_clears_own_doorbell_then_proceeds
 test_busy_exit_clears_own_doorbell_before_interrupt
 test_exit_clears_wrapped_first_row_of_own_doorbell

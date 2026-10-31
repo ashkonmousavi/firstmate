@@ -132,6 +132,36 @@ EOF
     "mode=ship"
 }
 
+# The heartbeat listing names a worker its lane release stopped on purpose
+# (an active marker, bin/fm-lane-release-lib.sh) as released, and a marker from
+# an earlier incarnation leaves the row unmarked.
+test_released_worker_is_listed_released() {
+  local home fakebin out view
+  home=$(make_home released)
+  fakebin=$(make_fakebin "$home")
+  mkdir -p "$home/projects/r-worktree" "$home/projects/o-worktree"
+  fm_write_meta "$home/state/rel-task.meta" "window=firstmate:fm-rel-task" \
+    "worktree=$home/projects/r-worktree" "project=alpha" "harness=claude" "kind=scout" \
+    "spawn_gen=s1000.1.1"
+  printf 'fm-lane-release-v1\ntask=rel-task\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=scout\nresult=released\n' \
+    > "$home/state/rel-task.released"
+  fm_write_meta "$home/state/old-task.meta" "window=firstmate:fm-old-task" \
+    "worktree=$home/projects/o-worktree" "project=alpha" "harness=claude" "kind=scout" \
+    "spawn_gen=s3000.1.1"
+  printf 'fm-lane-release-v1\ntask=old-task\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=scout\nresult=released\n' \
+    > "$home/state/old-task.released"
+  out=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$SNAPSHOT" --json)
+  printf '%s' "$out" | jq -e '
+    (.tasks[] | select(.id == "rel-task") | .lane_release) == {class:"scout",result:"released",released_at:2000}
+    and (.tasks[] | select(.id == "old-task") | .lane_release) == null
+  ' >/dev/null || fail "snapshot lane_release field wrong: $out"
+  view=$(PATH="$fakebin:$PATH" FM_HOME="$home" "$VIEW")
+  assert_contains "$view" "(released: scout)" "the fleet view should mark the released worker"
+  assert_not_contains "$(printf '%s\n' "$view" | grep '| old-task |')" "(released:" \
+    "a stale marker must not mark a relaunched worker released"
+  pass "fleet view: a released worker is listed released; a stale marker changes nothing"
+}
+
 test_empty_fleet_json() {
   local home out view
   home=$(make_home empty)
@@ -1153,6 +1183,7 @@ EOF
 }
 
 test_empty_fleet_json
+test_released_worker_is_listed_released
 test_fixture_snapshot_json
 test_home_summary_excludes_secondmate_from_child_inventory
 test_undated_captain_hold_phrasing_and_aging

@@ -3,7 +3,7 @@
 # lifecycle verbs addressed to an exact task id.
 #
 # Usage: fm-control.sh <task-id> interrupt
-#        fm-control.sh <task-id> exit
+#        fm-control.sh <task-id> exit [--if-idle [--expect-spawn-gen <gen>]]
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
 #                                         [--effort <level>] [--if-recoverable]
 #                                         (--note <text> | --note-file <path>)
@@ -49,6 +49,13 @@
 #              takes the ordinary interrupt-then-exit path. A tmux `missing`
 #              requires the recorded spawn generation to predate the OS boot;
 #              otherwise absence remains unproven and the action refuses.
+#              --if-idle is the unattended form an automatic caller uses
+#              (bin/fm-lane-release.sh): it exits 75 instead of acting when
+#              another lifecycle action holds the task, when a running agent's
+#              busy verdict is anything but idle (it never interrupts a turn), or, with
+#              --expect-spawn-gen, when the task's recorded spawn_gen is no
+#              longer <gen> because a relaunch replaced the agent. Every other
+#              refusal keeps its ordinary exit status 1.
 #              A Claude exit has one more postcondition. Claude Code can hand a
 #              session with background work to a background session instead
 #              of exiting, so afterwards `claude agents --json --all` is read under
@@ -274,6 +281,9 @@ EFFORT_SET=0
 NOTE=
 NOTE_SET=0
 RECOVER_ONLY=0
+IF_IDLE=0
+EXPECT_GEN=
+EXPECT_GEN_SET=0
 control_want_value=
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
@@ -285,6 +295,7 @@ for control_arg in "$@"; do
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
+      expect_gen) EXPECT_GEN=$control_arg; EXPECT_GEN_SET=1 ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
         NOTE=$(cat "$control_arg")
@@ -296,6 +307,8 @@ for control_arg in "$@"; do
   fi
   case "$control_arg" in
     --if-recoverable) RECOVER_ONLY=1 ;;
+    --if-idle) IF_IDLE=1 ;;
+    --expect-spawn-gen) control_want_value=expect_gen ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
@@ -322,6 +335,12 @@ if [ "$VERB" != relaunch ]; then
   [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] \
     || die "--harness, --model, --effort, --note, and --if-recoverable apply to 'relaunch' only"
 fi
+if [ "$VERB" != exit ]; then
+  [ "$IF_IDLE" = 0 ] && [ "$EXPECT_GEN_SET" = 0 ] \
+    || die "--if-idle and --expect-spawn-gen apply to 'exit' only"
+fi
+[ "$EXPECT_GEN_SET" = 0 ] || [ "$IF_IDLE" = 1 ] || die "--expect-spawn-gen requires --if-idle"
+[ "$EXPECT_GEN_SET" = 0 ] || [ -n "$EXPECT_GEN" ] || die "--expect-spawn-gen requires a non-empty value"
 [ "$HARNESS_SET" = 0 ] || [ -n "$NEW_HARNESS" ] || die "--harness requires a non-empty value"
 [ "$MODEL_SET" = 0 ] || [ -n "$NEW_MODEL" ] || die "--model requires a non-empty value"
 [ "$EFFORT_SET" = 0 ] || [ -n "$NEW_EFFORT" ] || die "--effort requires a non-empty value"
@@ -348,7 +367,7 @@ fm_lease_guard "$ID" "lifecycle control (fm-control)"
 CONTROL_LOCK="$STATE/.control-$ID.lock"
 trap control_cleanup EXIT
 if ! fm_lock_try_acquire "$CONTROL_LOCK"; then
-  if [ "$RECOVER_ONLY" = 1 ]; then
+  if [ "$RECOVER_ONLY" = 1 ] || [ "$IF_IDLE" = 1 ]; then
     echo "another lifecycle action is already running for task $ID" >&2
     exit 75
   fi
@@ -375,6 +394,10 @@ if [ ! -f "$META" ]; then
       ;;
   esac
   die "no task '$ID' in $STATE (fm-control resolves an exact task id only)"
+fi
+if [ "$EXPECT_GEN_SET" = 1 ] && [ "$(fm_meta_get "$META" spawn_gen)" != "$EXPECT_GEN" ]; then
+  echo "task $ID no longer records spawn_gen $EXPECT_GEN; a relaunch replaced the agent, so the unattended exit does not apply" >&2
+  exit 75
 fi
 
 # A remotely placed secondmate records its endpoint on ANOTHER host, so every
@@ -767,6 +790,17 @@ exit_background_check() {
   printf 'background-sessions=stopped:%s' "$(IFS=,; printf '%s' "${stopped[*]}")"
 }
 
+fm_control_lane_release_guard() {
+  [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] || return 0
+  local record current state seq
+  [ "$(fm_meta_get "$META" spawn_gen)" = "$EXPECT_GEN" ] || return 75
+  current=$(fm_busy_current_gen "$STATE" "$ID") || return 75
+  record=$(fm_busy_record_read "$STATE" "$ID") || return 75
+  read -r state _ _ seq <<< "$record"
+  [ "$state" = idle ] && [ "$current:$seq" = "${release_busy_token:-}" ] \
+    && [ "$(fm_busy_current_gen "$STATE" "$ID")" = "$current" ] || return 75
+}
+
 # clear_own_doorbell: when the composer holds nothing but this task's own
 # unsubmitted doorbell (bin/fm-task-inbox-lib.sh builds the line), clear it so
 # the lifecycle action does not refuse Firstmate's own text. Returns 0 when it
@@ -787,7 +821,7 @@ clear_own_doorbell() {
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
-  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
+  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy release_meta_lock='' release_busy_token='' submit_rc=0
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -832,8 +866,20 @@ do_exit() {
       ;;
     *) die "task $ID's endpoint reads '$state' rather than a positively classified state; refusing to send a lifecycle command into an unattributed endpoint" ;;
   esac
-  # A busy agent is interrupted first before the exit command is submitted.
-  case "$(busy_verdict)" in
+  # A busy agent is interrupted first before the exit command is submitted,
+  # except under --if-idle, which acts only on a positively idle verdict and
+  # never interrupts a turn.
+  busy=$(busy_verdict)
+  if [ "$IF_IDLE" = 1 ]; then
+    case "$busy" in
+      idle*) ;;
+      *)
+        echo "task $ID reads '${busy%% *}', not idle; the unattended exit never interrupts or guesses" >&2
+        exit 75
+        ;;
+    esac
+  fi
+  case "$busy" in
     busy*)
       clear_own_doorbell || true
       cancel=$(deliver_interrupt) || return $?
@@ -881,14 +927,26 @@ do_exit() {
       die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       ;;
   esac
+  if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
+    [ "$EXPECT_GEN_SET" = 1 ] && [ "$IF_IDLE" = 1 ] || return 75
+    release_meta_lock=$(fm_meta_lock_path "$META") || return 75
+    fm_lock_try_acquire "$release_meta_lock" || return 75
+    # Capture the lock path now because the local variable is gone at exit.
+    # shellcheck disable=SC2064
+    trap "fm_lock_release $(printf '%q' "$release_meta_lock") || true" EXIT
+    "$SCRIPT_DIR/fm-lane-release.sh" validate-exit "$ID" "$EXPECT_GEN" || return 75
+    release_busy_token=$(sed -n 's/^busy_seq=//p' "$STATE/$ID.released")
+    fm_control_lane_release_guard || return 75
+  fi
   # The submit verdict is NOT the postcondition here: a successful exit command
   # destroys the composer the verdict is read from, so a post-exit read can
   # legitimately report anything. Only a hard transport failure aborts; the
   # authoritative proof is the agent-state wait below. The retried Enter still
   # matters, because a slash command opens a completion popup on some TUIs that
   # swallows the first Enter.
-  verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
+  verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") || submit_rc=$?
+  [ "$submit_rc" != 75 ] || return 75
+  [ "$submit_rc" = 0 ] || die "the exit command could not be sent to task $ID on $BACKEND"
   [ "$verdict" != send-failed ] \
     || die "the exit command could not be sent to task $ID on $BACKEND"
   # The submitting Enter can open the picker. The agent is still alive, and
@@ -913,6 +971,10 @@ do_exit() {
   }
   # The incarnation is over: retire its busy wiring so no stale record or
   # orphaned generation survives the agent that produced it.
+  if [ -n "$release_meta_lock" ]; then
+    fm_lock_release "$release_meta_lock" || true
+    trap - EXIT
+  fi
   retire_busy_incarnation
   printf 'stopped'
 }

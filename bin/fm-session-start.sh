@@ -51,8 +51,10 @@
 #   6. fleet digest   - a compact data/backlog.md identity/metadata listing,
 #                       every state/*.meta, a bounded state/*.status tail,
 #                       the away posture (state/.afk-contract and the legacy
-#                       state/.afk daemon flag), and a cheap per-task
-#                       endpoint-liveness read, each bounded and crash-
+#                       state/.afk daemon flag), and per-task endpoint evidence
+#                       under bin/fm-lane-release-lib.sh's reader contract.
+#                       Other tasks get a cheap endpoint-liveness read,
+#                       each bounded and crash-
 #                       isolated so one task's read can never abort the
 #                       digest: read-only, always runs. The per-task reads
 #                       run serially, so with a wedged backend the stage's
@@ -366,6 +368,8 @@ PRIMARY_HARNESS=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
 
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
+# shellcheck source=bin/fm-lane-release-lib.sh
+. "$SCRIPT_DIR/fm-lane-release-lib.sh"
 # shellcheck source=bin/fm-tasks-axi-lib.sh
 . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
 # shellcheck source=bin/fm-public-followup-lib.sh
@@ -918,8 +922,10 @@ for meta in "$STATE"/*.meta; do
 
   window=$(fm_meta_get "$meta" window)
   target=$(fm_backend_target_of_meta "$meta")
-  if [ -n "$window" ]; then
-    backend=$(fm_backend_of_meta "$meta")
+  backend=$(fm_backend_of_meta "$meta")
+  if fm_lane_release_marker_active "$STATE" "$id"; then
+    printf 'endpoint: released (backend=%s window=%s - %s)\n' "$backend" "${window:-none}" "$(fm_lane_release_phrase)"
+  elif [ -n "$window" ]; then
     endpoint_rc=0
     fm_session_start_endpoint_read "$backend" "${target:-$window}" "fm-$id" || endpoint_rc=$?
     # Only the timeout owner's own statuses mean the read itself failed: 124 is

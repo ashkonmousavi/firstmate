@@ -244,6 +244,8 @@ WATCH_HOME_EXISTED=0
 . "$SCRIPT_DIR/fm-hold-release-lib.sh"
 # shellcheck source=bin/fm-busy-lib.sh
 . "$SCRIPT_DIR/fm-busy-lib.sh"
+# shellcheck source=bin/fm-lane-release-lib.sh
+. "$SCRIPT_DIR/fm-lane-release-lib.sh"
 # Steering-inbox loss detection: bin/fm-task-inbox-lib.sh owns the record,
 # doorbell, re-ring ladder, and unavailable-endpoint contracts; this watcher
 # supplies their live endpoint and busy checks plus wake emission
@@ -534,6 +536,9 @@ window_key() {  # <window>
 inbox_steer_escalate_unavailable() {  # <window> <task> <record>
   local w=$1 task=$2 rec=$3 reason
   reason="stale: $w (unread firstmate instruction: $rec is unhandled and the worker's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the worker)"
+  if fm_lane_release_marker_active "$STATE" "$task"; then
+    reason="stale: $w (unread firstmate instruction: $rec is unhandled and the worker was $(fm_lane_release_phrase), so the doorbell was not typed; relaunch it into its kept copy if the instruction still applies)"
+  fi
   if [ ! -d "${rec%/*}" ] || [ ! -f "$rec" ]; then
     fm_task_inbox_due_action "$STATE" "$task" >/dev/null || true
     return 0
@@ -1752,6 +1757,11 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
     return 0
   fi
   reason="stale: $win (idle ${age}s, agent $agent_state - $detail, so this is not a wedge; reported once and not re-escalated while it stays that way - reconcile this record, and check for unlanded work before any cleanup)"
+  if [ -n "$task" ] && fm_lane_release_marker_active "$STATE" "$task"; then
+    triage_log "absorbed $label (idle ${age}s, agent $agent_state - $(fm_lane_release_phrase)): $win"
+    clear_write_tracking "$key"
+    return 0
+  fi
   # Append before the marker, for the reason stale_wait_record gives: a marker
   # written ahead of a failed append outlives it, and the next sighting would then
   # absorb the retry - the one way this bound could swallow the report outright

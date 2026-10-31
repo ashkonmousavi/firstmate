@@ -399,6 +399,11 @@ fm_backend_herdr_cli() {  # <session> <herdr-subcommand-and-args...>
     HERDR_SESSION="$session" "$client_bin" "$@" --session "$session"
     return $?
   fi
+  case "${1:-}:${2:-}" in
+    pane:send-text|pane:send-keys)
+      if declare -F fm_backend_lane_release_guard >/dev/null; then fm_backend_lane_release_guard herdr "$session:${3:-}" "$2" "${4:-}" || return 75; fi
+      ;;
+  esac
   failed_bin=$client_bin
   { err=$(HERDR_SESSION="$session" "$failed_bin" "$@" --session "$session" 2>&1 1>&3 3>&-) || rc=$?; } 3>&1
   if [ "$rc" -ne 0 ]; then
@@ -407,6 +412,11 @@ fm_backend_herdr_cli() {  # <session> <herdr-subcommand-and-args...>
         fm_backend_herdr_client_select "$session" force
         selected_bin=$(fm_backend_herdr_bin)
         if [ "$selected_bin" != "$failed_bin" ]; then
+          case "${1:-}:${2:-}" in
+            pane:send-text|pane:send-keys)
+              if declare -F fm_backend_lane_release_guard >/dev/null; then fm_backend_lane_release_guard herdr "$session:${3:-}" "$2" "${4:-}" || return 75; fi
+              ;;
+          esac
           HERDR_SESSION="$session" "$selected_bin" "$@" --session "$session"
           return $?
         fi
@@ -3516,7 +3526,7 @@ fm_backend_herdr_composer_clear() {  # <target> <text>
 }
 
 fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep> <settle>
-  local target=$1 text=$2 retries=$3 sleep_s=$4 settle=$5 i=0 verdict baseline confirm_sleep
+  local target=$1 text=$2 retries=$3 sleep_s=$4 settle=$5 i=0 verdict baseline confirm_sleep rc=0
   local raw_status footer_baseline='' allow_rendered=0 enter_sent=0 identity proof=0 content busy_harness=''
   fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
   # Claude on Herdr is the live-verified truncation shape: Enter is withheld
@@ -3533,11 +3543,12 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
       || { fm_backend_herdr_note_reason composer-nonempty; printf 'send-failed'; return 0; }
   fi
   fm_backend_herdr_send_literal "$target" "$text" \
-    || { fm_backend_herdr_note_reason literal-send-failed; printf 'send-failed'; return 0; }
+    || { rc=$?; [ "$rc" != 75 ] || return 75; fm_backend_herdr_note_reason literal-send-failed; printf 'send-failed'; return 0; }
   sleep "$settle"
   if [ "$proof" = 1 ]; then
     if ! content=$(fm_backend_herdr_composer_content "$target") \
       || ! fm_backend_herdr_composer_payload_shown "$text" "$content"; then
+      [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] || return 75
       if fm_backend_herdr_composer_clear "$target" "$text"; then
         fm_backend_herdr_note_reason payload-not-shown
         printf 'send-failed'
@@ -3561,15 +3572,19 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
   while :; do
     if fm_backend_herdr_send_key "$target" Enter; then
       enter_sent=1
-    elif [ "$enter_sent" -eq 0 ]; then
-      i=$((i + 1))
-      if [ "$i" -ge "$retries" ]; then
-        fm_backend_herdr_note_reason enter-send-failed
-        printf 'send-failed'
-        return 0
+    else
+      rc=$?
+      [ "$rc" != 75 ] || return 75
+      if [ "$enter_sent" -eq 0 ]; then
+        i=$((i + 1))
+        if [ "$i" -ge "$retries" ]; then
+          fm_backend_herdr_note_reason enter-send-failed
+          printf 'send-failed'
+          return 0
+        fi
+        sleep "$sleep_s"
+        continue
       fi
-      sleep "$sleep_s"
-      continue
     fi
     if [ "$baseline" = idle ]; then
       verdict=$(fm_backend_herdr_wait_for_working "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE" \

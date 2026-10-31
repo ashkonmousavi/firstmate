@@ -1953,7 +1953,9 @@ fm_pr_conflict_relaunch() {  # <id> <url>
 # must dispatch the worker itself.
 # A live worker is steered at most once while that steer stays unacknowledged.
 # A dead worker that is not done is relaunched once and is not steered.
-# A done task, or a missing or unproved endpoint, is not steered or relaunched.
+# A done task, a task its lane release stopped on purpose
+# (bin/fm-lane-release-lib.sh), or a missing or unproved endpoint, is not
+# steered or relaunched.
 fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url> <result>
   local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 url=$7 result=$8
   local posture='' added_at=''
@@ -1975,7 +1977,12 @@ fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url
     return 0
   fi
   posture=$(fm_pr_conflict_posture "$state" "$id")
+  if ! command -v fm_lane_release_marker_active >/dev/null 2>&1; then
+    # shellcheck source=bin/fm-lane-release-lib.sh disable=SC1091
+    . "$(fm_pr_conflict_bin_dir)/fm-lane-release-lib.sh"
+  fi
   if fm_pr_conflict_task_done "$state" "$id" \
+    || fm_lane_release_marker_active "$state" "$id" \
     || [ "$posture" = none ] || [ "$posture" = unknown ]; then
     printf 'wake\n'
     return 0

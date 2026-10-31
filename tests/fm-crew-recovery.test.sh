@@ -211,6 +211,33 @@ test_dead_unlanded_ship_and_scout_are_relaunched() {
   pass "dead ship and scout with unlanded work are relaunched in place"
 }
 
+# A worker its lane release stopped on purpose carries an active marker
+# (bin/fm-lane-release-lib.sh): startup recovery leaves it for acceptance or an
+# explicit relaunch even though its copy still reads unlanded (a squash-merged
+# PR's head is never an ancestor of main). A marker from an earlier incarnation
+# does not hide a genuinely dead worker.
+test_released_worker_is_not_relaunched() {
+  local home fakebin out
+  home=$(new_home released)
+  plant_copy ahead "$TMP_ROOT/released/ship"
+  plant_copy ahead "$TMP_ROOT/released/old"
+  fm_write_meta "$home/state/ship-released.meta" "window=sess:win" \
+    "worktree=$TMP_ROOT/released/ship/wt" "kind=ship" "spawn_gen=s1000.1.1"
+  printf 'fm-lane-release-v1\ntask=ship-released\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=merged-ship\nresult=released\n' \
+    > "$home/state/ship-released.released"
+  fm_write_meta "$home/state/ship-relaunched.meta" "window=sess:win" \
+    "worktree=$TMP_ROOT/released/old/wt" "kind=ship" "spawn_gen=s3000.1.1"
+  printf 'fm-lane-release-v1\ntask=ship-relaunched\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=merged-ship\nresult=released\n' \
+    > "$home/state/ship-relaunched.released"
+  fakebin=$(make_tmux "$TMP_ROOT/released" dead)
+  reset_log
+  out=$(run_sweep "$home" "$fakebin")
+  assert_not_called ship-released "startup recovery relaunched a worker its lane release stopped"
+  assert_not_contains "$out" "ship-released" "a released worker must not be reported as recovered or failed"
+  assert_called ship-relaunched "a stale marker from an earlier incarnation hid a dead worker"
+  pass "startup recovery never relaunches a released worker, and ignores a stale marker"
+}
+
 test_missing_endpoint_with_unlanded_work_is_relaunched() {
   local home fakebin out
   home=$(new_home missing-unlanded)
@@ -527,6 +554,7 @@ SH
 
 test_dead_unlanded_ship_and_scout_are_relaunched
 test_missing_endpoint_with_unlanded_work_is_relaunched
+test_released_worker_is_not_relaunched
 test_no_unlanded_work_is_not_relaunched
 test_base_ref_containment_controls_clean_recovery
 test_only_captain_hold_blocks_unowned_work

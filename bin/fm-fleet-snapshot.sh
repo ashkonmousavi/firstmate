@@ -64,6 +64,9 @@
 #     fm-classify-lib.sh's authoritative status_open_decisions fold and reconciled
 #     against current_state; hints.pending_decision and hints.blocked_event are
 #     booleans derived from that set.
+#     lane_release is null, or {class,result,released_at} while the task carries
+#     an active lane-release marker (bin/fm-lane-release-lib.sh): the worker was
+#     stopped on purpose to free its seat, and its copy is kept.
 #     endpoint.exists is the cheap local backend endpoint-presence read.
 #     endpoint.agent_alive is populated for local secondmates only, where it is
 #     useful return-channel supervision data; remote secondmates use "unknown"
@@ -218,6 +221,8 @@ esac
 # shellcheck source=bin/fm-classify-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-classify-lib.sh"
+# shellcheck source=bin/fm-lane-release-lib.sh
+. "$SCRIPT_DIR/fm-lane-release-lib.sh"
 # shellcheck source=bin/fm-ff-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-ff-lib.sh"  # validate_secondmate_home: shared seeded-home boundary checks
@@ -747,7 +752,7 @@ task_json_lines() {
   local remote_host remote_root current_file endpoint_file observation_line index=0
   local pr pr_source event_json current_json endpoint_exists agent_alive meta_json status_json report_json worktree_json home_json
   local last_event_raw current_state current_source pending_decision blocked_event report_present=0 pr_from_status
-  local open_decisions_tsv open_decisions_json
+  local open_decisions_tsv open_decisions_json lane_release_json
 
   while [ "$index" -lt "$SNAPSHOT_TASK_META_COUNT" ]; do
     meta=${SNAPSHOT_TASK_METAS[index]}
@@ -854,6 +859,11 @@ task_json_lines() {
     else
       home_json=$(jq -n '{path:null,present:false}')
     fi
+    lane_release_json=null
+    if fm_lane_release_marker_active "$STATE" "$id"; then
+      lane_release_json=$(jq -n --arg class "$FM_LANE_RELEASE_CLASS" --arg result "$FM_LANE_RELEASE_RESULT" \
+        --arg at "$FM_LANE_RELEASE_AT" '{class:$class,result:$result,released_at:($at | tonumber? // null)}')
+    fi
 
     jq -n \
       --arg id "$id" \
@@ -888,6 +898,7 @@ task_json_lines() {
       --argjson pending_decision "$(bool_json "$pending_decision")" \
       --argjson blocked_event "$(bool_json "$blocked_event")" \
       --argjson report_present "$(bool_json "$report_present")" \
+      --argjson lane_release "$lane_release_json" \
       '{
         id:$id,
         kind:$kind,
@@ -908,6 +919,7 @@ task_json_lines() {
         },
         secondmate_projects:($projects | if . == "" then [] else split(",") | map(gsub("^[[:space:]]+|[[:space:]]+$"; "")) | map(select(. != "")) end),
         current_state:($current_state + {observed_at:$observed_at,freshness:"fresh"}),
+        lane_release:$lane_release,
         endpoint:{target:($target | if . == "" then null else . end),exists:$endpoint_exists,agent_alive:$agent_alive,
           status:(if $endpoint_exists == false then "absent"
                   elif $agent_alive == "alive" or $agent_alive == "dead" then $agent_alive

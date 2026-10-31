@@ -1786,6 +1786,36 @@ test_watcher_escalates_once_after_budget() {
   pass "watcher: a spent ring budget emits exactly one ordinary stale wake for recovery"
 }
 
+# A steer waiting for a worker its lane release stopped (an active marker,
+# bin/fm-lane-release-lib.sh) surfaces once naming the release and the relaunch
+# path, not as a crashed worker to recover.
+test_watcher_steer_for_a_released_worker_names_the_release() {
+  local dir state out log pid rec shell_capture
+  dir=$(setup_watch_case released-pane)
+  state="$dir/state"; out="$dir/watch.out"; log="$dir/send.log"; : > "$log"
+  printf 'spawn_gen=s1000.1.1\n' >> "$state/t1.meta"
+  printf 'fm-lane-release-v1\ntask=t1\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=merged-ship\nresult=released\n' \
+    > "$state/t1.released"
+  shell_capture="$dir/shell.capture"
+  printf 'bash-5.2$ \n' > "$shell_capture"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please merge base in")
+  age_path "$rec"
+  watch_bg "$state" "$dir/fakebin" "$out" \
+    FM_SEND_LOG="$log" FM_FAKE_TMUX_CAPTURE="$shell_capture" \
+    FM_FAKE_TMUX_AGENT=zsh FM_TASK_INBOX_RING_MAX=99
+  pid=$!
+  wait_watcher_gone "$pid" \
+    || { kill "$pid" 2>/dev/null; fail "the watcher never surfaced the released worker's unhandled instruction"; }
+  [ ! -s "$log" ] || fail "a released worker's pane was typed into:"$'\n'"$(cat "$log")"
+  grep -qF "released by lane release (merged-ship, released)" "$state/.wake-queue" \
+    || fail "the stale wake should name the release:"$'\n'"$(cat "$state/.wake-queue")"
+  grep -qF "relaunch it into its kept copy" "$state/.wake-queue" \
+    || fail "the stale wake should name the relaunch path:"$'\n'"$(cat "$state/.wake-queue")"
+  grep -qF "recover the worker" "$state/.wake-queue" \
+    && fail "a released worker was reported as one to recover:"$'\n'"$(cat "$state/.wake-queue")"
+  pass "watcher: a steer for a released worker surfaces once, naming the release and the relaunch path"
+}
+
 test_watcher_dead_pane_escalates_once_without_ringing() {
   local dir state out log pid rec shell_capture
   dir=$(setup_watch_case dead-pane)
@@ -2246,6 +2276,7 @@ test_composer_clear_waits_for_redraw
 test_composer_clear_at_narrow_widths
 test_watcher_escalates_when_every_ring_is_a_skip
 test_watcher_dead_pane_escalates_once_without_ringing
+test_watcher_steer_for_a_released_worker_names_the_release
 test_watcher_dead_pane_ignores_stale_busy_state
 test_watcher_submits_busy_claude
 test_watcher_submits_busy_claude claude-latest
