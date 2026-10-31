@@ -93,6 +93,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`).
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
 - Rebuildable hold-release disposition caches under `state/hold-releases/` (`bin/fm-hold-release-lib.sh`); the backlog hold owns the condition.
+- Unwatched conflicted pull-request episode markers under `state/pr-orphan-conflict/`, written only by `bin/fm-pr-orphan-sweep.sh`.
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 - Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
 
@@ -966,7 +967,8 @@ The verified adapter evidence - each harness's busy-state source, interrupt and 
 The executable interrupt and exit mechanics live in [`bin/fm-control-lib.sh`](../bin/fm-control-lib.sh), and [`docs/agent-control.md`](agent-control.md) owns their lifecycle-control architecture.
 Launch mechanics, including the verified command templates, live in [`bin/fm-spawn.sh`](../bin/fm-spawn.sh).
 A Claude worker's launch brief is published as an operational record in the receiving home's state and delivered as a printable doorbell; if publication fails, the spawn reports the failure and launches nothing rather than sending a marker that Claude Code would strip.
-Other harnesses retain the typed operational-marker launch path.
+Other harnesses retain operational-marker launch delivery.
+For Codex startup confirmation, effort display, and transport limits, see [Codex launch brief](verification/runtime-backends.md#codex-launch-brief).
 
 Pi-family launches adapt the regular-TUI safeguard to the installed CLI's capabilities; [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns the exact version-safe launch mechanics.
 Enabled primary-session turn-end guard integrations are tracked as repo-level hook files and documented in [`docs/turnend-guard.md`](turnend-guard.md).
@@ -1581,6 +1583,9 @@ After the answer, code applies all remaining checks and ranking:
 - The confidence floor and the matched rule's `approval` and `floor`.
 - Each candidate's `provider` and `floor`.
 - Every applicable account-wide and model/product row from one `quota-axi --json` snapshot.
+- The runway-feasibility gate: while at least one eligible, rankable candidate has known `through_reset` runway on every applicable row, an otherwise eligible candidate with a known, established `projected_exhaustion` row becomes ineligible.
+  Without such an alternative, this gate adds no refusals; existing exhaustion, zero-quota, and profile-floor vetoes still apply.
+  Projections with early, unknown, or missing confidence cannot justify a projected-exhaustion refusal; unknown runway alone neither refuses a candidate nor supplies a through-reset alternative.
 - The numeric `spendPriority` argmax over candidates, using each candidate's limiting row.
 
 The [shared quota library](../bin/fm-quota-axi-lib.sh) accepts schema 5 and schema 6 and implements the [account-matching contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
@@ -1624,7 +1629,9 @@ Every result above exits 0.
 **Firstmate retains the dispatch decision**
 
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
-By accepted design, a `clear` result does not enforce catalog/authentication, reasoning-class, or completion-runway gates.
+By accepted design, a `clear` result does not enforce catalog/authentication or reasoning-class gates, and its runway gate is the through-reset rule above rather than a completion-horizon estimate.
+The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` does not enforce it.
+Spawn-time enforcement is deferred because this branch lacks the dispatch guard library and off-table spawn check it builds on.
 
 Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
 
@@ -2747,7 +2754,7 @@ FM_HEARTBEAT=600        # base seconds between heartbeat scans; no-change heartb
 FM_HEARTBEAT_MAX=7200   # heartbeat backoff cap
 FM_INACTIVE_RECONCILE_SECS=900  # 60..1800-second watcher cadence and inactivity threshold; locked session start also requests an immediate scan in the deferred worker
 FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline, including budgets 1 and 2; bin/fm-inactive-reconcile.sh owns backlog budget allocation and cursor resume; wedged-scan kill backstop follows one second later
-FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch)
+FM_CHECK_INTERVAL=300   # seconds between slow checks (orphan conflict sweeps, authenticated merge polls, custom checks, or Relay dispatch)
 FM_TASK_INBOX_GRACE_SECS=90   # steering-inbox delivery grace and minimum attempt spacing, local and remote; policy: bin/fm-task-inbox-lib.sh
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts before stale escalation, local and remote
 FM_TASK_INBOX_BUSY_MAX=2      # busy-deferral budget; scope, bounds, and policy: bin/fm-task-inbox-lib.sh

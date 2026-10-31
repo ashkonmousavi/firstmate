@@ -101,6 +101,55 @@ fm_test_machine_policy() { # <config-directory>; keep intentionally changed poli
   jq -n --arg path "$1" '{schema:"fm-machine-admission.v1",memory_floor_gib:0,memory_full_avg60_max:5,disk_floor_gib:0,disk_paths:[$path]}' > "$1/machine-admission.json"
 }
 
+# fm_test_codex_first_turn_wrap <fakebin>
+# Wraps an existing fake tmux so a codex launch shows its first turn: once a
+# send-keys carries a codex launch (the `. '<staged file>'` source line whose
+# file, or a literal that, holds codex's --dangerously-bypass-approvals-and-sandbox
+# flag), every capture-pane appends codex's verified busy row, which is what
+# bin/fm-spawn.sh's positional first-turn gate waits for. Any other launch
+# clears it. Everything else passes straight through to the wrapped fake.
+fm_test_codex_first_turn_wrap() {
+  local fakebin=$1 inner n=1
+  # Already wrapped: nothing to do. A suite that later replaces or chains the
+  # fake re-wraps its new one; each wrap keeps its own inner file, so a chain
+  # that execs an earlier wrapper never loops back into itself.
+  ! grep -q 'codex-first-turn' "$fakebin/tmux" 2>/dev/null || return 0
+  while [ -e "$fakebin/tmux.codex-inner.$n" ]; do n=$((n + 1)); done
+  inner="$fakebin/tmux.codex-inner.$n"
+  mv "$fakebin/tmux" "$inner"
+  printf '#!/usr/bin/env bash\ninner=%q\n' "$inner" > "$fakebin/tmux"
+  cat >> "$fakebin/tmux" <<'SH'
+marker="$(dirname "$0")/.codex-first-turn"
+case "${1:-}" in
+  send-keys)
+    for arg in "$@"; do
+      case "$arg" in
+        ". '"*"'")
+          staged=${arg#". '"}
+          staged=${staged%"'"}
+          if [ -f "$staged" ] && grep -q -e '--dangerously-bypass-approvals-and-sandbox' "$staged"; then
+            : > "$marker"
+          else
+            rm -f "$marker"
+          fi
+          ;;
+        *'--dangerously-bypass-approvals-and-sandbox'*) : > "$marker" ;;
+      esac
+    done
+    ;;
+  capture-pane)
+    if [ -e "$marker" ]; then
+      "$inner" "$@" || :
+      printf '%s\n' '• Working (1s • esc to interrupt)'
+      exit 0
+    fi
+    ;;
+esac
+exec "$inner" "$@"
+SH
+  chmod +x "$fakebin/tmux"
+}
+
 # --- reporters --------------------------------------------------------------
 
 fail() {

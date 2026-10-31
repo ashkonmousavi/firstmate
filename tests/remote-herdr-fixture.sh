@@ -93,14 +93,36 @@ case "${1:-} ${2:-}" in
     jq_state --arg p "${3:-}" \
       '.tabs |= [.[]|select(.pane_id != $p)]
        | .typed |= with_entries(select(.key != $p))
+       | .codex = ((.codex // {}) | with_entries(select(.key != $p)))
        | .working |= with_entries(select(.key != $p))' | save ;;
   "pane send-text")
     [ ! -f "$SEND_FAIL" ] || exit 1
-    jq_state --arg p "${3:-}" '.typed[$p] = true' | save ;;
+    codex=false
+    text=${4:-}
+    case "$text" in
+      *--dangerously-bypass-approvals-and-sandbox*) codex=true ;;
+      *"'"*/launch.*)
+        staged=${text#*"'"}
+        staged=${staged%%"'"*}
+        if [ -f "$staged" ] && grep -q -e '--dangerously-bypass-approvals-and-sandbox' "$staged"; then
+          codex=true
+        fi
+        ;;
+    esac
+    jq_state --arg p "${3:-}" --argjson codex "$codex" \
+      '.typed[$p] = true | if $codex then .codex[$p] = true else . end' | save ;;
   "pane send-keys")
     [ ! -f "$SEND_FAIL" ] || exit 1
     jq_state --arg p "${3:-}" '.typed[$p] = true | .working[$p] = true' | save ;;
-  "pane read") printf '\n' ;;
+  "pane read")
+    # A pane a codex launch line was typed into shows codex's busy row, the
+    # first turn bin/fm-spawn.sh's positional first-turn gate waits for.
+    if [ "$(jq_state -r --arg p "${3:-}" '.codex[$p] // false')" = true ]; then
+      printf '%s\n' '• Working (1s • esc to interrupt)'
+    else
+      printf '\n'
+    fi
+    ;;
   "pane process-info")
     printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"codex","argv0":"codex","argv":["codex"],"cmdline":"codex"}]}}}\n' \
       "$pane" "$$" "$$" "$$" ;;

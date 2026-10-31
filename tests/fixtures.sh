@@ -192,6 +192,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 }
 
 # fm_test_fake_tmux_send <fakebin>

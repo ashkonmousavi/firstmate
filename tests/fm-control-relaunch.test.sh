@@ -215,6 +215,7 @@ esac
 exit 0
 SH
   chmod +x "$fb/tmux"
+  fm_test_codex_first_turn_wrap "$fb"
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 [ -z "${FM_FAKE_LOCK_WAITING:-}" ] || : > "$FM_FAKE_LOCK_WAITING"
@@ -2740,6 +2741,7 @@ test_spawn_relaunch_refuses_a_symlinked_task_record_before_inspection() {
 exec "$dir/fakebin/tmux-real" "\$@"
 SH
   chmod +x "$dir/fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$dir/fakebin"
 
   out=$(run_spawn "$dir" rl37 --relaunch --harness claude); rc=$?
   expect_code 1 "$rc" "relaunching from symlinked metadata should refuse"
@@ -2772,6 +2774,7 @@ fi
 exec "$dir/fakebin/tmux-real" "\$@"
 SH
   chmod +x "$dir/fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$dir/fakebin"
 
   out=$(run_spawn "$dir" rl38 --relaunch --harness claude); rc=$?
   expect_code 0 "$rc" "relaunch with one continuous meta lock should succeed"$'\n'"$out"
