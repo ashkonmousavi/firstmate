@@ -1464,7 +1464,16 @@ test_curated_primary_is_followed() {
   git -C "$w/main" config branch.feature/wip.merge refs/heads/other
   [ "$(primary_head_commit "$w/main")" = "$main_tip" ] \
     || fail "a branch tracking a differently named upstream was followed"
-  pass "T1b a curated primary's tracked branch is the sync target; untracked branches are not"
+  git init -q --bare "$w/origin.git"
+  git -C "$w/main" remote add origin "$w/origin.git"
+  git -C "$w/main" push -qu origin feature/wip
+  [ "$(fleet_branch "$w/main")" = main ] || fail "a tracked feature branch became a fleet target"
+  [ "$(primary_head_commit "$w/main")" = "$main_tip" ] \
+    || fail "a primary's pushed feature commits were selected for secondmate sync"
+  run_ff "$w/main" "$curated_tip"
+  [ "$FF_STATUS" = skipped ] || fail "a tracked feature checkout was accepted as a home branch"
+  [ "$(head_of "$w/main")" = "$curated_tip" ] || fail "the skipped feature checkout moved"
+  pass "T1b curated is followed and feature branches are excluded even with an origin upstream"
 }
 
 test_ff_updated

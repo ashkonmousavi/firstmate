@@ -473,11 +473,16 @@ test_firstmate_wrong_branch_skipped() {
   bump_origin "$w" instr
   # Simulate firstmate mid-shipping its own change: not on the default branch.
   git -C "$w/main" checkout -q -b feature/wip
+  printf 'unlanded\n' > "$w/main/FEATURE_ONLY"
+  git -C "$w/main" add FEATURE_ONLY
+  git -C "$w/main" commit -qm feature-work
+  git -C "$w/main" push -qu origin feature/wip
   before=$(git -C "$w/main" rev-parse HEAD)
 
   out=$(run_update "$w")
 
   assert_contains "$out" "firstmate: skipped: on feature/wip, expected main" "off-default firstmate skipped"
+  assert_contains "$out" "update target: origin/main " "a pushed feature branch became the fleet update target"
   assert_contains "$out" "reread-firstmate: no" "no reread when firstmate was skipped"
   [ "$(git -C "$w/main" rev-parse HEAD)" = "$before" ] \
     || fail "skipped firstmate HEAD moved"
@@ -756,7 +761,7 @@ SH
         ;;
       no-origin) git -C "$w/main" remote remove origin ;;
       missing-branch)
-        git -C "$w/main" config --unset branch.curated.remote
+        git -C "$w/main" checkout -q --detach
         git -C "$w/main" symbolic-ref --delete refs/remotes/origin/HEAD
         git -C "$w/main" branch -D main >/dev/null
         ;;
@@ -785,6 +790,50 @@ SH
   pass "unresolved targets abort before updating primary, live, registry, cloned or remote homes"
 }
 
+test_legacy_host_rejects_pinned_update_without_advancing() {
+  local w out before fake_ssh
+  w=$(remote_only_world legacy-rejection)
+  git clone -q "$w/origin.git" "$w/remote-root"
+  git clone -q "$w/origin.git" "$w/remote-home"
+  git -C "$w/remote-home" checkout -q --detach
+  before=$(git -C "$w/remote-root" rev-parse HEAD)
+  git -C "$w/seed" checkout -q -b curated
+  git -C "$w/seed" push -q origin curated
+  git -C "$w/main" fetch -q origin
+  git -C "$w/main" checkout -q -b curated --track origin/curated
+  git -C "$w/seed" checkout -q main
+  bump_origin "$w" readme
+  fake_ssh="$w/fakebin/legacy-ssh"
+  cat > "$fake_ssh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+decode() { printf '%s' "$1" | base64 --decode 2>/dev/null || printf '%s' "$1" | base64 -D; }
+rargs=()
+while IFS= read -r -d '' a; do rargs+=("$a"); done < <(decode "$4")
+printf '%s\n' "${rargs[*]}" >> "$FM_FAKE_DIR/legacy-calls"
+[ "${#rargs[@]}" -eq 3 ] || exit 2
+for home in remote-root remote-home; do
+  git -C "$FM_FAKE_DIR/../$home" fetch -q origin
+  git -C "$FM_FAKE_DIR/../$home" merge -q --ff-only origin/main
+done
+printf 'synced: %s\n' "$(git -C "$FM_FAKE_DIR/../remote-home" rev-parse HEAD)"
+SH
+  chmod +x "$fake_ssh"
+  out=$(run_update_bounded "$w" "$fake_ssh")
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: pinned update rejected; manual update required" \
+    "the rejecting host was not named with the manual update requirement"
+  [ "$(wc -l < "$w/fake/legacy-calls" | tr -d ' ')" -eq 1 ] || fail "the rejecting host received an unpinned retry"
+  [ "$(git -C "$w/remote-root" rev-parse HEAD)" = "$before" ] || fail "the rejecting host code root advanced"
+  [ "$(git -C "$w/remote-home" rev-parse HEAD)" = "$before" ] || fail "the rejecting remote home advanced"
+  assert_contains "$out" "restart-secondmates: none" "the rejecting host was selected for restart"
+  assert_contains "$out" "nudge-secondmates: none" "the rejecting host was selected for a nudge"
+  pass "a status-2 host is reported for manual update without an unpinned retry or mutation"
+}
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
@@ -805,5 +854,6 @@ test_curated_branch_is_the_update_target
 test_remote_steps_are_bounded
 test_remote_commit_mismatch_is_skipped
 test_unresolved_target_leaves_all_homes_untouched
+test_legacy_host_rejects_pinned_update_without_advancing
 
 echo "# all fm-update tests passed"

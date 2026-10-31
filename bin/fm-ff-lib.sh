@@ -63,19 +63,10 @@ default_branch() {
   return 1
 }
 
-# The branch a checkout's fleet follows. A fleet that tracks a branch other than
-# origin's default (a fork's curated branch, while origin/HEAD still names the
-# fork's main) records that choice in git itself: the checkout has that branch
-# checked out with origin's same-named branch as its configured upstream. Any
-# other state - detached HEAD, a branch with no upstream, or an upstream on
-# another remote or under another name - falls back to origin's default branch,
-# so a feature branch merely created in a primary is never followed.
 fleet_branch() {
   local dir=$1 cur
   cur=$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
-  if [ -n "$cur" ] \
-    && [ "$(git -C "$dir" config --get "branch.$cur.remote" 2>/dev/null || true)" = origin ] \
-    && [ "$(git -C "$dir" config --get "branch.$cur.merge" 2>/dev/null || true)" = "refs/heads/$cur" ]; then
+  if [ "$cur" = curated ]; then
     printf '%s\n' "$cur"
     return 0
   fi

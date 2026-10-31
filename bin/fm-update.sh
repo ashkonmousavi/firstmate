@@ -2,9 +2,7 @@
 # Self-update a running firstmate and its secondmates to the latest origin.
 #
 # Mechanical half of the /updatefirstmate skill. Resolves ONE update target on the
-# running firstmate repo - origin's tip of its fleet branch (bin/fm-ff-lib.sh
-# fleet_branch: the checked-out branch when it tracks origin's same-named branch,
-# as a curated fork fleet does, otherwise origin's default branch) - prints it as
+# running firstmate repo (bin/fm-ff-lib.sh fleet_branch) - prints it as
 # `update target: origin/<branch> <commit>`, and fast-forwards the running repo
 # and every registered secondmate home to that same commit. Local homes are
 # treehouse worktrees or standalone clones; remote routes receive the branch and
@@ -73,9 +71,7 @@
 # (default 60), through bin/fm-timeout-lib.sh. A step that hits its bound is
 # reported by name (`remote secondmate <id>: skipped on <host>: <step> step timed
 # out after <n>s`) and that mate gets no action; the update continues with the
-# next home. A host whose control script predates the target handoff refuses the
-# extra arguments with its usage status 2, and is asked once more without them,
-# then held to the same commit check.
+# next home.
 #
 # FM_UPDATE_TARGET_BRANCH and FM_UPDATE_TARGET_COMMIT, set together, replace the
 # local target resolution with a parent's: bin/fm-remote-secondmate-control.sh
@@ -228,17 +224,9 @@ fm_ff_after_secondmate_settled() {  # <id> <home> <window> <status> <instr>
 # Run the remote update step under its bound, handing the host this pass's target.
 # Sets REMOTE_UPDATE_OUT; returns the step's status, 124 when the bound was hit.
 remote_update_step() {  # <id>
-  local id=$1 rc=0
-  REMOTE_UPDATE_OUT=""
+  local id=$1
   REMOTE_UPDATE_OUT=$(fm_run_timed "$REMOTE_UPDATE_SECONDS" "$SCRIPT_DIR/fm-on.sh" "$id" \
-    fm-remote-secondmate-control.sh update "$id" "$TARGET_BRANCH" "$TARGET_COMMIT" < /dev/null 2>&1) || rc=$?
-  # A host whose control script predates the target handoff exits with its
-  # usage status; ask it the old way and let the commit check below judge it.
-  [ "$rc" -eq 2 ] || return "$rc"
-  rc=0
-  REMOTE_UPDATE_OUT=$(fm_run_timed "$REMOTE_UPDATE_SECONDS" "$SCRIPT_DIR/fm-on.sh" "$id" \
-    fm-remote-secondmate-control.sh update "$id" < /dev/null 2>&1) || rc=$?
-  return "$rc"
+    fm-remote-secondmate-control.sh update "$id" "$TARGET_BRANCH" "$TARGET_COMMIT" < /dev/null 2>&1)
 }
 
 # Live direct reports first: state/<id>.meta with kind=secondmate carries the
@@ -265,6 +253,8 @@ if [ -f "$SECONDMATES_MD" ]; then
       remote_out=$REMOTE_UPDATE_OUT
       if [ "$remote_rc" -ne 0 ] && fm_timed_out "$remote_rc"; then
         echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: update step timed out after ${REMOTE_UPDATE_SECONDS}s" >&2
+      elif [ "$remote_rc" -eq 2 ]; then
+        echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: pinned update rejected; manual update required" >&2
       elif [ "$remote_rc" -eq 0 ]; then
         remote_result=$(printf '%s\n' "$remote_out" | tail -1)
         remote_reported=${remote_result#*: }
