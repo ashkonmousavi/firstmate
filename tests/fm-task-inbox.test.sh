@@ -432,7 +432,7 @@ case "${1:-}" in
     if [ "${FM_FAKE_COMPOSER_SHAPE:-}" = cursor ]; then
       printf ' ▄▄▄▄▄▄▄▄\n'
       if [ -s "$FM_FAKE_COMPOSER" ]; then
-        fold -w 40 "$FM_FAKE_COMPOSER" | awk 'NR == 1 { print "  → " $0 " ctrl+c to stop"; next } { print "    " $0 }'
+        fold -w 40 "$FM_FAKE_COMPOSER" | awk 'NR == 1 { printf "  → %s\033[2m ctrl+c to stop\033[0m\n", $0; next } { print "    " $0 }'
       else
         printf '  →\n'
       fi

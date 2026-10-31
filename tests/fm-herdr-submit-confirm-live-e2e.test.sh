@@ -16,40 +16,51 @@
 # "Herdr submit confirmation" entry. Claude draws the popup above or below the
 # composer depending on the account, so run it under each config directory the
 # fleet's workers use ("Claude slash-command popup below the composer").
-# Every Herdr call, including adapter calls, is routed through bin/fm-herdr-lab.sh.
 set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/lifecycle-input.sh"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LAB_HELPER=${HERDR_LAB_HELPER:-$ROOT/bin/fm-herdr-lab.sh}
 
 fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
 pass() { printf 'ok - %s\n' "$1"; }
 
 fm_live_gate opt-in FM_HERDR_SUBMIT_CONFIRM_LIVE herdr jq claude python3
 
-[ -x "$LAB_HELPER" ] || fail "FM_HERDR_SUBMIT_CONFIRM_LIVE=1 but the Herdr lab helper is not executable at $LAB_HELPER"
-
 # shellcheck source=tests/herdr-test-safety.sh
 . "$ROOT/tests/herdr-test-safety.sh"
 herdr_forget_inherited_pane
 
 ORIGINAL_PATH=$PATH
-SESSION=$("$LAB_HELPER" name herdr-submit-confirm-live)
-TMP_ROOT=$(mktemp -d "$(cd "${TMPDIR:-/tmp}" && pwd -P)/fm-herdr-submit-confirm-live.XXXXXX")
+SESSION=default
+TMP_ROOT=$(mktemp -d "$ROOT/.hs.XXXXXX")
+mkdir "$ROOT/.x" || { rm -rf "$TMP_ROOT"; fail "private Herdr config directory already exists"; }
 FAKEBIN="$TMP_ROOT/fakebin"
 mkdir -p "$FAKEBIN"
 CHECKED=0
+SERVER_PID=
+REAL_HERDR=$(command -v herdr)
+export HERDR_SESSION="$SESSION" HERDR_SOCKET_PATH="$TMP_ROOT/s"
+export XDG_CONFIG_HOME="$ROOT/.x" XDG_DATA_HOME="$TMP_ROOT/data"
+export XDG_STATE_HOME="$TMP_ROOT/state" XDG_CACHE_HOME="$TMP_ROOT/cache"
+mkdir -p "$XDG_CONFIG_HOME/herdr" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
+printf '#!/bin/sh\nexec /bin/bash --noprofile --norc\n' > "$TMP_ROOT/shell"
+chmod +x "$TMP_ROOT/shell"
+printf '[terminal]\ndefault_shell = "%s"\nshell_mode = "non_login"\n[update]\nversion_check = false\nmanifest_check = false\n' \
+  "$TMP_ROOT/shell" > "$XDG_CONFIG_HOME/herdr/config.toml"
+CONTROL_HOME="$TMP_ROOT/control-home"
+mkdir -p "$CONTROL_HOME/state/doorbell.inbox" "$CONTROL_HOME/worktree"
 
 cleanup() {
   local rc=$?
   trap - EXIT
-  if ! PATH="$ORIGINAL_PATH" "$LAB_HELPER" teardown "$SESSION"; then
-    rc=1
+  if [ -n "$SERVER_PID" ]; then
+    kill "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
   fi
-  rm -rf "$TMP_ROOT"
+  rm -rf "$TMP_ROOT" "$XDG_CONFIG_HOME"
   exit "$rc"
 }
 trap cleanup EXIT
@@ -66,17 +77,30 @@ else
   echo "wrapper requires trailing --session $SESSION" >&2
   exit 98
 fi
-exec env PATH="$ORIGINAL_PATH" "$LAB_HELPER" run "$SESSION" "\${args[@]}"
+if [ -n "\${FM_LIFECYCLE_INPUT_LOG:-}" ]; then
+  case "\${args[0]:-} \${args[1]:-}" in
+    'pane send-text') printf 'text=%s\\n' "\${args[3]}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
+    'pane send-keys') printf 'key=%s\\n' "\${args[@]:3}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
+  esac
+fi
+exec "$REAL_HERDR" "\${args[@]}" --session "$SESSION"
 EOF
 chmod +x "$FAKEBIN/herdr"
 
-"$LAB_HELPER" provision "$SESSION" || fail "could not provision the isolated Herdr lab"
+"$REAL_HERDR" server --session "$SESSION" > "$TMP_ROOT/server.log" 2>&1 &
+SERVER_PID=$!
+for ((i=0; i<150; i++)); do
+  kill -0 "$SERVER_PID" 2>/dev/null || { cat "$TMP_ROOT/server.log" >&2; fail "private Herdr server exited"; }
+  "$REAL_HERDR" pane list --session "$SESSION" >/dev/null 2>&1 && break
+  sleep 0.2
+done
+[ "$i" -lt 150 ] || fail "private Herdr server did not become ready"
 export PATH="$FAKEBIN:$ORIGINAL_PATH"
 
 # shellcheck source=/dev/null
 . "$ROOT/bin/backends/herdr.sh"
 
-lab() { env PATH="$ORIGINAL_PATH" "$LAB_HELPER" run "$SESSION" "$@"; }
+lab() { herdr "$@" --session "$SESSION"; }
 WS_JSON=$(lab workspace create --cwd "$ROOT" --label fm-submitlive --no-focus) \
   || fail "could not create the isolated submit-confirm workspace"
 PANE=$(printf '%s' "$WS_JSON" | jq -er '.result.root_pane.pane_id') \
@@ -87,7 +111,9 @@ HERDR_VER=$(PATH="$ORIGINAL_PATH" herdr --version 2>/dev/null | head -1 || print
 
 # The viewport regression needs native terminal scrollback. Fullscreen Claude
 # uses the alternate screen buffer, whose Herdr scroll maximum stays zero.
-lab pane run "$PANE" "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\"}'" >/dev/null \
+printf -v launch 'FM_HOME=%q FM_TASK_INBOX=%q CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --setting-sources user --settings %q' \
+  "$CONTROL_HOME" "$CONTROL_HOME/state/doorbell.inbox" '{"feedbackDrafts":"off","disableAllHooks":true}'
+lab pane run "$PANE" "$launch" >/dev/null \
   || fail "could not launch Claude Code ($VERSION) in the isolated Herdr pane"
 
 idle=0
@@ -285,8 +311,6 @@ done
 [ "$actual" = empty ] \
   || fail "Claude Code ($VERSION) on $HERDR_VER: recovery draft did not clear"
 . "$ROOT/bin/fm-task-inbox-lib.sh"
-CONTROL_HOME="$TMP_ROOT/control-home"
-mkdir -p "$CONTROL_HOME/state" "$CONTROL_HOME/worktree"
 workspace=$(printf '%s' "$WS_JSON" | jq -er '.result.workspace.workspace_id') || fail "workspace identity unavailable"
 tab=$(lab pane get "$PANE" | jq -er '.result.pane.tab_id') || fail "tab identity unavailable"
 printf 'window=%s\nendpoint_task_id=doorbell\nbackend=herdr\nherdr_session=%s\nherdr_workspace_id=%s\nherdr_tab_id=%s\nherdr_pane_id=%s\nharness=claude\nkind=ship\nworktree=%s\nproject=%s\n' \
@@ -294,17 +318,20 @@ printf 'window=%s\nendpoint_task_id=doorbell\nbackend=herdr\nherdr_session=%s\nh
 rec=$(fm_task_inbox_write "$CONTROL_HOME/state" doorbell "Run touch $CONTROL_HOME/unexpected-submit, then acknowledge this record.") \
   || fail "Claude Code ($VERSION) on $HERDR_VER: could not create the lifecycle record"
 line=$(fm_task_inbox_doorbell_line "$rec") || fail "could not build the lifecycle doorbell"
-for draft in 'An unsent human draft' "${line//doorbell.inbox/another-task.inbox}" "$line additional human text"; do
+input_log="$CONTROL_HOME/lifecycle-input.log"
+for draft in 'An unsent human draft' "${line//doorbell.inbox/another-task.inbox}" "$line additional human text" "$line ctrl+c to stop"; do
   fm_backend_herdr_send_literal "$TARGET" "$draft" || fail "could not type the foreign draft"
   sleep 1
   fm_task_inbox_composer_holds herdr "$TARGET" "$draft" \
     || fail "Claude Code ($VERSION) on $HERDR_VER: foreign draft never rendered in full"
-  if output=$(FM_HOME="$CONTROL_HOME" bash "$ROOT/bin/fm-control.sh" doorbell exit 2>&1); then
+  : > "$input_log"
+  if output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$CONTROL_HOME" bash "$ROOT/bin/fm-control.sh" doorbell exit 2>&1); then
     fail "Claude Code ($VERSION) on $HERDR_VER: exit accepted a foreign draft: $output"
   fi
   case "$output" in *'composer visibly holds pending text'*) ;; *) fail "$output" ;; esac
   fm_task_inbox_composer_holds herdr "$TARGET" "$draft" \
     || fail "Claude Code ($VERSION) on $HERDR_VER: exit changed a foreign draft"
+  [ ! -s "$input_log" ] || fail "Claude Code ($VERSION) on $HERDR_VER: refused exit sent lifecycle input"
   fm_backend_composer_clear herdr "$TARGET" "$draft" || fail "could not clear the test's foreign draft"
 done
 for verb in interrupt exit; do
@@ -312,8 +339,11 @@ for verb in interrupt exit; do
   sleep 1
   fm_task_inbox_composer_holds_own herdr "$TARGET" "$line" \
     || fail "Claude Code ($VERSION) on $HERDR_VER: own doorbell never rendered"
-  output=$(FM_HOME="$CONTROL_HOME" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" doorbell "$verb" 2>&1) \
+  : > "$input_log"
+  output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$CONTROL_HOME" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" doorbell "$verb" 2>&1) \
     || fail "Claude Code ($VERSION) on $HERDR_VER: $verb failed: $output"
+  fm_test_lifecycle_input "$input_log" "$verb" /exit \
+    || fail "Claude Code ($VERSION) on $HERDR_VER: $verb submitted composer text before the exit command"
   if [ "$verb" = interrupt ]; then
     [ "$(fm_backend_composer_state herdr "$TARGET")" = empty ] \
       || fail "Claude Code ($VERSION) on $HERDR_VER: interrupt did not clear the own doorbell"

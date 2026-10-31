@@ -660,7 +660,6 @@ fm_task_inbox_composer_read() {  # <backend> <target> [expected-label]
 }
 
 # Whether the composer's content is exactly <line>.
-# fm_composer_text_is_own_doorbell ignores Cursor's same-row stop hint.
 fm_task_inbox_composer_holds() {  # <backend> <target> <line> [expected-label]
   fm_task_inbox_composer_read "$1" "$2" "${4:-}" || return 1
   fm_composer_text_is_own_doorbell "$FM_TASK_INBOX_COMPOSER_HELD" "$3"

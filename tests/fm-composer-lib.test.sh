@@ -1743,3 +1743,27 @@ test_long_composer_input_remains_selectable() {
 }
 
 test_long_composer_input_remains_selectable
+
+test_doorbell_comparison_preserves_literal_stop_hints() {
+  local line=": Firstmate instruction waiting in 't1.inbox' steering inbox, read and act" prefix draft held screen
+  prefix=${line% and act}
+  for draft in "$line" "$prefix"; do
+    fm_composer_text_is_own_doorbell_partial "$draft" "$line" || fail "an own doorbell or its visible prefix must match"
+  done
+  fm_composer_text_is_own_doorbell "$line" "$line" || fail "the exact own doorbell must match"
+  for draft in "$line ctrl+c to stop" "ctrl+c to stop $line" "${line/steering/ctrl+c to stop steering}" "$prefix ctrl+c to stop"; do
+    fm_composer_text_is_own_doorbell "$draft" "$line" && fail "literal stop-hint bytes are foreign input"
+    fm_composer_text_is_own_doorbell_partial "$draft" "$line" && fail "literal stop-hint bytes cannot turn a foreign draft into an own prefix"
+    screen=$(printf '────────────────────────\n❯ %s\n────────────────────────\n' "$draft")
+    held=$(fm_composer_extract_selected_content styled=1 "$screen") || fail "could not read the Claude draft"
+    [ "$held" = "$draft" ] || fail "extracting a Claude draft removed literal bytes"
+  done
+  for draft in "$line" "$line ctrl+c to stop"; do
+    screen=$(printf ' ▄▄▄▄▄▄▄▄\n  → %s\033[2m ctrl+c to stop\033[0m\n ▀▀▀▀▀▀▀▀\n' "$draft")
+    held=$(fm_composer_extract_selected_content styled=1 "$screen") || fail "could not read the Cursor draft"
+    [ "$held" = "$draft" ] || fail "only styled Cursor furniture may disappear"
+  done
+  pass "doorbell comparison preserves literal stop-hint bytes while extraction removes styled Cursor furniture"
+}
+
+test_doorbell_comparison_preserves_literal_stop_hints

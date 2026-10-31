@@ -36,6 +36,7 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/lifecycle-input.sh"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -67,6 +68,12 @@ mkdir -p "$SHIM_DIR"
 REAL_TMUX=$(command -v tmux)
 cat > "$SHIM_DIR/tmux" <<SH
 #!/usr/bin/env bash
+if [ -n "\${FM_LIFECYCLE_INPUT_LOG:-}" ] && [ "\${1:-}" = send-keys ]; then
+  case " \$* " in
+    *' -l '*) printf 'text=%s\\n' "\${!#}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
+    *) printf 'key=%s\\n' "\${!#}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
+  esac
+fi
 if [ -n "\${FM_SEND_INBOX_LIVE_FAULT_DIR:-}" ]; then
   fault=\$FM_SEND_INBOX_LIVE_FAULT_DIR
   case "\${1:-}" in
@@ -101,6 +108,7 @@ PATH="$SHIM_DIR:$PATH"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-task-inbox-lib.sh"
 . "$ROOT/bin/fm-cursor-lib.sh"
+. "$ROOT/bin/fm-control-lib.sh"
 
 tmux -L "$SOCKET" new-session -d -s "$SESSION" -x 220 -y 50 -c "$ROOT"
 
@@ -258,24 +266,35 @@ touch $(printf '%q' "$acted")" \
 }
 
 check_lifecycle_composer() {
-  local name=$1 version=$2 home=$3 task=$4 target=$5 rec line draft output verb i
+  local name=$1 version=$2 home=$3 task=$4 target=$5 rec line draft output verb i binding sid port credential
+  local input_log="$3/lifecycle-input.log"
   mkdir -p "$home/worktree"
   printf 'worktree=%s\nproject=%s\n' "$home/worktree" "$home/worktree" >> "$home/state/$task.meta"
+  if [ "$name" = polytoken ]; then
+    . "$ROOT/bin/fm-polytoken-lib.sh"
+    binding=$(fm_polytoken_session_for_project polytoken "$home/polytoken-config" "$home/polytoken-sessions" "$ROOT") || return 1
+    [ -n "$binding" ] && [ "${binding#*$'\n'}" = "$binding" ] || return 1
+    IFS=$'\t' read -r sid port credential _ <<< "$binding"
+    [ -n "$sid" ] && [ -n "$port" ] && [ -r "$credential" ] || return 1
+    printf 'polytoken_session=%s\npolytoken_port=%s\npolytoken_credential=%s\n' "$sid" "$port" "$credential" >> "$home/state/$task.meta"
+  fi
   rec=$(fm_task_inbox_write "$home/state" "$task" "Run touch $home/unexpected-submit, then acknowledge this record.") || return 1
   line=$(fm_task_inbox_doorbell_line "$rec") || return 1
-  for draft in 'An unsent human draft' "${line//$task.inbox/another-task.inbox}" "$line additional human text"; do
+  for draft in 'An unsent human draft' "${line//$task.inbox/another-task.inbox}" "$line additional human text" "$line ctrl+c to stop"; do
     tmux send-keys -t "$target" -l -- "$draft" || return 1
     for i in 1 2 3 4 5; do
       sleep 1
       fm_task_inbox_composer_holds tmux "$target" "$draft" && break
     done
     fm_task_inbox_composer_holds tmux "$target" "$draft" || return 1
-    if output=$(FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" exit 2>&1); then
+    : > "$input_log"
+    if output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" exit 2>&1); then
       printf 'not ok - %s (%s): exit accepted a foreign draft: %s\n' "$name" "$version" "$output" >&2
       return 1
     fi
     case "$output" in *'composer visibly holds pending text'*) ;; *) printf '%s\n' "$output" >&2; return 1 ;; esac
     fm_task_inbox_composer_holds tmux "$target" "$draft" || return 1
+    [ ! -s "$input_log" ] || return 1
     fm_backend_composer_clear tmux "$target" "$draft" || return 1
   done
   if [ "$name" = claude ]; then
@@ -289,7 +308,9 @@ check_lifecycle_composer() {
       fm_task_inbox_composer_holds_own tmux "$target" "$line" && break
     done
     fm_task_inbox_composer_holds_own tmux "$target" "$line" || return 1
-    output=$(FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" "$verb" 2>&1) || { printf '%s\n' "$output" >&2; return 1; }
+    : > "$input_log"
+    output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" "$verb" 2>&1) || { printf '%s\n' "$output" >&2; return 1; }
+    fm_test_lifecycle_input "$input_log" "$verb" "$(fm_control_exit_command "$name")" || return 1
     case "$verb" in
       interrupt)
         [ "$(fm_backend_agent_state tmux "$target")" = alive ] || return 1

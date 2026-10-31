@@ -1505,18 +1505,20 @@ test_exit_clears_wrapped_first_row_of_own_doorbell() {
 }
 
 test_exit_refuses_doorbell_with_typed_text() {
-  local dir out rc line
+  local dir out rc line draft
   dir=$(new_case doorbell-typed)
   add_task "$dir" t1 claude
   alive_as "$dir" claude
   line=$(own_doorbell_line "$dir" t1)
-  claude_composer_screen "$line please also fix" > "$dir/fake/pane"
   claude_composer_screen '' > "$dir/fake/pane-after-c-u"
-  out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "doorbell plus typed text must refuse"
-  assert_contains "$out" "composer visibly holds pending text" "the existing refusal should stand"
-  ! grep -qx C-u "$dir/fake/keys" || fail "typed text must never be cleared"
-  [ -z "$(literals "$dir")" ] || fail "nothing may be typed onto the draft"
+  for draft in "$line please also fix" "$line ctrl+c to stop" "${line%% read and act*} ctrl+c to stop"; do
+    claude_composer_screen "$draft" > "$dir/fake/pane"
+    out=$(run_control "$dir" t1 exit); rc=$?
+    expect_code 1 "$rc" "doorbell plus typed text must refuse"
+    assert_contains "$out" "composer visibly holds pending text" "the existing refusal should stand"
+    ! grep -qx C-u "$dir/fake/keys" || fail "typed text must never be cleared"
+    [ -z "$(literals "$dir")" ] || fail "nothing may be typed onto the draft"
+  done
   pass "fm-control exit: a doorbell followed by typed text still refuses"
 }
 
@@ -1562,6 +1564,21 @@ test_interrupt_clears_own_doorbell_first() {
   [ "$(head -1 "$dir/fake/keys")" = C-u ] || fail "the doorbell should be cleared before the interrupt key"
   grep -qx Escape "$dir/fake/keys" || fail "the interrupt key should still be delivered"
   pass "fm-control interrupt: an own doorbell is cleared before the interrupt key"
+}
+
+test_interrupt_preserves_literal_stop_hint() {
+  local dir out line draft
+  dir=$(new_case doorbell-interrupt-foreign)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  for draft in "$line ctrl+c to stop" "${line%% read and act*} ctrl+c to stop"; do
+    claude_composer_screen "$draft" > "$dir/fake/pane"
+    out=$(run_control "$dir" t1 interrupt) || fail "interrupt should still deliver its key: $out"
+    ! grep -qx C-u "$dir/fake/keys" || fail "interrupt must not erase a draft containing literal stop-hint bytes"
+    [ -z "$(literals "$dir")" ] || fail "interrupt must not submit a foreign draft"
+  done
+  pass "fm-control interrupt preserves literal stop-hint text on full and partial doorbell drafts"
 }
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1708,3 +1725,4 @@ test_exit_refuses_doorbell_with_typed_text
 test_exit_refuses_other_tasks_doorbell
 test_exit_refuses_when_own_doorbell_clear_does_not_take
 test_interrupt_clears_own_doorbell_first
+test_interrupt_preserves_literal_stop_hint

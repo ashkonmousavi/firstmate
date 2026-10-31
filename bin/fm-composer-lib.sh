@@ -2060,16 +2060,11 @@ EOF
 }
 
 # fm_composer_text_is_own_doorbell: 0 when <text> is exactly <line>.
-# Whitespace is ignored, so a wrapped composer row still matches. Cursor draws
-# `ctrl+c to stop` on the same composer row as the draft; that hint is not
-# part of the draft, and removing it is what lets an unsubmitted doorbell
-# match. Any other remaining text is a foreign draft and does not match.
+# Whitespace is ignored, so a wrapped composer row still matches.
 fm_composer_text_is_own_doorbell() {  # <text> <line>
-  local text=$1 line=$2 hint
-  hint=$(printf '%s' 'ctrl+c to stop' | tr -d '[:space:]')
+  local text=$1 line=$2
   text=$(printf '%s' "$text" | tr -d '[:space:]')
   line=$(printf '%s' "$line" | tr -d '[:space:]')
-  text=${text//"$hint"/}
   [ -n "$line" ] && [ "$text" = "$line" ]
 }
 
@@ -2083,11 +2078,9 @@ fm_composer_text_is_own_doorbell() {  # <text> <line>
 # task's doorbell, or any short fragment a person typed, never qualifies; extra
 # characters after a prefix break the prefix and do not match.
 fm_composer_text_is_own_doorbell_partial() {  # <text> <line>
-  local text=$1 line=$2 hint anchor='steeringinbox,' tail
-  hint=$(printf '%s' 'ctrl+c to stop' | tr -d '[:space:]')
+  local text=$1 line=$2 anchor='steeringinbox,' tail
   text=$(printf '%s' "$text" | tr -d '[:space:]')
   line=$(printf '%s' "$line" | tr -d '[:space:]')
-  text=${text//"$hint"/}
   [ -n "$line" ] && [ -n "$text" ] || return 1
   case "$line" in *"$anchor"*) ;; *) return 1 ;; esac
   tail=${line#*"$anchor"}
