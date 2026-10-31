@@ -2964,11 +2964,14 @@ SH
 # config push never queues the reread doorbell, any instruction, or any retry
 # obligation for it.
 test_config_push_skips_reread_notice_for_parked_secondmate() {
-  local w head out err status log rec launchlog queued
+  local w head out err status log rec launchlog queued now attempts
   w=$(new_world config-push-parked)
   head=$(git -C "$w/main" rev-parse HEAD)
   add_sm_worktree "$w" sm "$head"
-  printf '%s\t%s\n' "$(date +%s)" dead > "$w/home/state/.secondmate-relaunch-bound-sm"
+  now=$(date +%s)
+  printf '%s\tattempt\n%s\tattempt\n%s\tattempt\n' "$now" "$now" "$now" \
+    > "$w/home/state/.secondmate-relaunch-sm"
+  printf '%s\tdead\n' "$now" > "$w/home/state/.secondmate-relaunch-bound-sm"
   printf '{"default":{"harness":"codex"}}\n' > "$w/home/config/crew-dispatch.json"
   printf 'codex\n' > "$w/home/config/crew-harness"
   printf 'tmux\n' > "$w/home/config/backend"
@@ -3010,6 +3013,11 @@ test_config_push_skips_reread_notice_for_parked_secondmate() {
   expect_code 0 "$status" "parked secondmate relaunch failed: $out"
   [ ! -e "$w/home/state/.secondmate-relaunch-bound-sm" ] \
     || fail "successful launch retained the watcher park record"
+  attempts=$(STATE="$w/home/state" bash -c '. "$1"; fm_secondmate_liveness_recent_attempts sm 3600' _ \
+    "$ROOT/bin/fm-secondmate-liveness-lib.sh")
+  [ "$attempts" = 0 ] || fail "manual launch did not restore the parked mate's recovery budget"
+  [ "$(awk -F '\t' '$2 == "attempt" { n++ } END { print n + 0 }' "$w/home/state/.secondmate-relaunch-sm")" = 3 ] \
+    || fail "manual launch discarded recovery history"
   assert_present "$queued" "launch archived an existing steering message"
   printf 'claude\n' > "$w/home/config/crew-harness"
   out=$(run_config_push "$w" "$log" 2>"$err"); status=$?

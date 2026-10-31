@@ -29,6 +29,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-secondmate-liveness-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 usage() { sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
@@ -92,4 +94,8 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < "$META"
 chmod 0600 "$META_TMP"
 mv -f -- "$META_TMP" "$META"
+fm_secondmate_liveness_rearm "$ID" || {
+  fm_lock_release "$META_LOCK"
+  die "the host relaunched $ID but its parent park state could not be rearmed"
+}
 fm_lock_release "$META_LOCK"

@@ -820,6 +820,38 @@ test_remote_poll_probe_unreachable_preserves_route() {
   pass "poll probe: unreachable or inconclusive remote reads preserve the route"
 }
 
+test_rearm_only_resets_a_parked_mate() {
+  local state="$TMP_ROOT/rearm-state"
+  mkdir -p "$state"
+  (
+    STATE="$state"
+    . "$ROOT/bin/fm-secondmate-liveness-lib.sh"
+    now=$(date +%s)
+    printf '%s\tattempt\n%s\tattempt\n%s\tattempt\n' "$now" "$now" "$now" > "$STATE/.secondmate-relaunch-sm"
+    fm_secondmate_liveness_rearm sm || fail "ordinary rearm failed"
+    [ "$(fm_secondmate_liveness_recent_attempts sm 3600)" = 3 ] \
+      || fail "an ordinary launch erased its attempt budget"
+    printf '%s\tdead\n' "$now" > "$STATE/.secondmate-relaunch-bound-sm"
+    fm_secondmate_liveness_rearm sm || fail "parked rearm failed"
+    assert_absent "$STATE/.secondmate-relaunch-bound-sm" "rearm left the park record"
+    [ "$(fm_secondmate_liveness_recent_attempts sm 3600)" = 0 ] \
+      || fail "rearm did not restore the parked mate's full budget"
+    fm_secondmate_liveness_ledger_add sm attempt || fail "could not record the next crash"
+    fm_secondmate_liveness_rearm sm || fail "repeated rearm failed"
+    [ "$(fm_secondmate_liveness_recent_attempts sm 3600)" = 1 ] \
+      || fail "repeated rearm reset an ordinary attempt"
+    [ "$(awk -F '\t' '$2 == "rearmed" { n++ } END { print n + 0 }' "$STATE/.secondmate-relaunch-sm")" = 1 ] \
+      || fail "rearm was ledgered more than once"
+    mkdir "$STATE/.secondmate-relaunch-blocked"
+    printf '%s\tdead\n' "$now" > "$STATE/.secondmate-relaunch-bound-blocked"
+    if fm_secondmate_liveness_rearm blocked 2>/dev/null; then
+      fail "an unwritable ledger was accepted"
+    fi
+    assert_present "$STATE/.secondmate-relaunch-bound-blocked" "ledger failure cleared the park record"
+  ) || fail "park-to-live recovery state regression"
+  pass "park-to-live rearming restores the budget once and retains failed recovery state"
+}
+
 test_tmux_agent_state_classifies
 test_tmux_agent_state_rejects_malformed_targets_before_probe
 test_herdr_agent_state_preserves_husk_classifier
@@ -842,5 +874,7 @@ test_relaunch_waits_for_other_mates_relaunch_lock
 test_sweep_refuses_relaunch_on_ledger_errors
 test_remote_poll_probe_maps_states
 test_remote_poll_probe_unreachable_preserves_route
+
+test_rearm_only_resets_a_parked_mate
 
 echo "# all fm-secondmate-liveness tests passed"

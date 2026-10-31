@@ -861,6 +861,9 @@ pass "mixed local and remote routes validate without migration"
 # Launch on the remote home's own configured backend. Parent metadata records
 # host placement separately from that backend and arms the reply source.
 printf 'pi\n' > "$PARENT/config/crew-harness"
+recovery_now=$(date +%s)
+printf '%s\tattempt\n%s\tattempt\n%s\tattempt\n' "$recovery_now" "$recovery_now" "$recovery_now" \
+  > "$PARENT/state/.secondmate-relaunch-ios"
 printf '%s\tdead\n' "$(date +%s)" > "$PARENT/state/.secondmate-relaunch-bound-ios"
 launches_before_inherit=0
 [ ! -f "$HERDR_LOG" ] || launches_before_inherit=$(grep -c '^tab create' "$HERDR_LOG" || true)
@@ -876,6 +879,9 @@ assert_absent "$PARENT/state/ios.meta" "failed remote inheritance published laun
 assert_present "$PARENT/state/.secondmate-relaunch-bound-ios" "failed launch cleared the park record"
 out=$(remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate)
 assert_absent "$PARENT/state/.secondmate-relaunch-bound-ios" "successful remote launch kept the park record"
+[ "$(STATE="$PARENT/state" bash -c '. "$1"; fm_secondmate_liveness_recent_attempts ios 3600' _ \
+  "$ROOT/bin/fm-secondmate-liveness-lib.sh")" = 0 ] \
+  || fail "successful remote launch did not restore the parked mate's recovery budget"
 assert_contains "$out" 'remote=remote-mac backend=herdr' "remote spawn did not report separate host and backend dimensions"
 assert_grep 'remote_host=remote-mac' "$PARENT/state/ios.meta" "parent metadata omitted the remote host"
 assert_grep 'remote_backend=herdr' "$PARENT/state/ios.meta" "parent metadata omitted the remote-local backend"

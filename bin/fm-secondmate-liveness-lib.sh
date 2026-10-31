@@ -114,9 +114,19 @@ fm_secondmate_liveness_recent_attempts() {  # <id> <window-secs>
     "$ledger" 2>/dev/null
 }
 
+fm_secondmate_liveness_rearm() {
+  local id=$1 marker
+  case "$id" in ''|*[!A-Za-z0-9._-]*) return 1 ;; esac
+  marker="$STATE/.secondmate-relaunch-bound-$id"
+  if [ -e "$marker" ] || [ -L "$marker" ]; then
+    fm_secondmate_liveness_ledger_add "$id" rearmed || return 1
+    rm -f -- "$marker" || return 1
+  fi
+}
+
 # fm_secondmate_parked reads the watcher's relaunch-bound record.
-# Successful local and remote secondmate launches remove that record in
-# bin/fm-spawn.sh; a later live watcher probe also clears it, and teardown
+# Successful secondmate launches and confirmed parent-side remote relaunches
+# rearm that record; a later live watcher probe also rearms it, and teardown
 # removes it at retirement. Deliberate fm-control exit records no park marker,
 # so it keeps the ordinary reread-send behavior. Missing or unreadable records
 # never authorize a skip.
