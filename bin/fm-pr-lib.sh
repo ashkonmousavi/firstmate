@@ -1316,6 +1316,7 @@ fm_pr_gerrit_read_revision() {  # <host> <number>
 # read returned, or stays empty when that forge answer carries none.
 # Shared by bin/fm-teardown.sh's close guard and release rule and by
 # bin/fm-spawn.sh's relaunch of a released copy.
+# shellcheck disable=SC2034 # Result globals are consumed by the sourcing callers.
 fm_pr_read_class() {  # <pr-url>
   local state_lc
   FM_PR_RECORD_CLASS=unreadable
