@@ -239,11 +239,12 @@ EOF
 # Print the session id recorded beside the lock in state dir $1, or return 1.
 # bin/fm-lock.sh is the only writer of state/.lock-session; a missing,
 # symlinked, unreadable, or empty sidecar, or one whose first line contains a
-# newline or carriage return, is simply no recorded id.
+# carriage return, is simply no recorded id. The optional second row retains
+# the immediately prior session after a same-process rekey.
 fm_session_lock_recorded_session_id() {  # <state>
   local state=$1 recorded
   [ -f "$state/.lock-session" ] && [ ! -L "$state/.lock-session" ] || return 1
-  recorded=$(head -n 1 "$state/.lock-session" 2>/dev/null) || return 1
+  recorded=$(sed -n '1p;1q' "$state/.lock-session" 2>/dev/null) || return 1
   [ -n "$recorded" ] || return 1
   case "$recorded" in *$'\n'*|*$'\r'*) return 1 ;; esac
   printf '%s\n' "$recorded"
@@ -253,6 +254,7 @@ fm_session_lock_read_record() {
   local state=$1 STATE=$1 FM_STATE_OVERRIDE=$1 mutex=$1/.lock.acquire current acquired=0
   FM_SESSION_LOCK_PID=
   FM_SESSION_LOCK_SESSION=
+  FM_SESSION_LOCK_PRIOR_SESSION=
   [ -d "$state" ] || return 1
   if ! command -v fm_lock_try_acquire >/dev/null 2>&1; then
     # shellcheck source=/dev/null
@@ -260,12 +262,19 @@ fm_session_lock_read_record() {
   fi
   fm_current_pid current || return 1
   if [ "$(cat "$mutex/pid" 2>/dev/null || true)" != "$current" ]; then
-    fm_lock_acquire_wait_max "$mutex" "${2:-5}" || return 2
+    if [ "${2:-}" = 0 ]; then
+      fm_lock_try_acquire "$mutex" || return 2
+    else
+      fm_lock_acquire_wait "$mutex" || return 2
+    fi
     acquired=1
   fi
   if [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ]; then
     FM_SESSION_LOCK_PID=$(cat "$state/.lock" 2>/dev/null || true)
     FM_SESSION_LOCK_SESSION=$(fm_session_lock_recorded_session_id "$state" 2>/dev/null || true)
+    if [ -f "$state/.lock-session" ] && [ ! -L "$state/.lock-session" ]; then
+      FM_SESSION_LOCK_PRIOR_SESSION=$(sed -n '2p;2q' "$state/.lock-session" 2>/dev/null || true)
+    fi
   fi
   if [ "$acquired" -eq 1 ]; then
     fm_lock_release "$mutex"
@@ -315,7 +324,7 @@ fm_session_lock_anchor_pid() {
 # an ancestry that cannot be resolved all fail closed.
 fm_session_lock_owned_by_self() {
   local state=$1 lock_pid pids trusted
-  fm_session_lock_read_record "$state" "${2:-5}" || return "$?"
+  fm_session_lock_read_record "$state" "${2:-}" || return "$?"
   lock_pid=$FM_SESSION_LOCK_PID
   pids=$(fm_harness_ancestry_pids) || return 1
   fm_harness_pid_listed "$lock_pid" "$pids" && return 0
@@ -521,9 +530,9 @@ PY
 # User and assistant rows count; summary and other rows do not. A missing
 # timestamp refuses. Quiet is FM_LOCK_TAKEOVER_QUIET_SECONDS from this file.
 fm_session_lock_turn_verdict() {  # <holder-path> <successor-path-or-empty> <successor-state> <fork-epoch>
-  python3 - "$1" "$2" "$3" "$4" "$FM_LOCK_TAKEOVER_QUIET_SECONDS" "$FM_LOCK_TAKEOVER_TRANSCRIPT_MAX" <<'PY'
+  python3 - "$1" "$2" "$3" "$4" "$FM_LOCK_TAKEOVER_QUIET_SECONDS" "$FM_LOCK_TAKEOVER_TRANSCRIPT_MAX" "${5:-}" "${6:-0}" <<'PY'
 import datetime, hashlib, json, os, stat, sys, time
-holder_path, successor_path, successor_state, fork_s, quiet_s, cap_s = sys.argv[1:7]
+holder_path, successor_path, successor_state, fork_s, quiet_s, cap_s, prior_path, proof_prior = sys.argv[1:9]
 quiet = int(quiet_s)
 cap = int(cap_s)
 fork_epoch = int(fork_s)
@@ -531,7 +540,7 @@ now = time.time()
 
 def emit(token):
     if token == 'ok':
-        token += ' ' + hashlib.sha256(json.dumps(holder).encode()).hexdigest()
+        token += ' ' + hashlib.sha256(json.dumps([holder_path, holder, prior_path, prior]).encode()).hexdigest()
     sys.stdout.write(token + '\n')
     sys.exit(0)
 
@@ -598,26 +607,30 @@ def load(path):
     return turns
 
 holder = load(holder_path)
-if holder is None:
+prior = load(prior_path) if prior_path else []
+if holder is None or prior is None:
     emit('unreadable')
-for _uid, stamp in holder:
-    age = now - stamp
-    if age < quiet:
-        emit('recent')
-    if fork_epoch > 0 and stamp > fork_epoch:
-        emit('after-fork')
+for turns in (holder, prior):
+    for _uid, stamp in turns:
+        if now - stamp < quiet:
+            emit('recent')
+        if fork_epoch > 0 and stamp > fork_epoch:
+            emit('after-fork')
 if successor_state == 'ok':
     successor = load(successor_path)
     if successor is None:
         emit('ok' if fork_epoch > 0 else 'not-fork')
-    shared = 0
-    for left, right in zip(holder, successor):
-        if left[0] != right[0]:
-            break
-        shared += 1
-    if shared < len(holder):
-        emit('after-fork')
-    if holder:
+    histories = ([prior if proof_prior == '1' else holder]
+                 if fork_epoch > 0 else [holder, prior])
+    for turns in histories:
+        shared = 0
+        for left, right in zip(turns, successor):
+            if left[0] != right[0]:
+                break
+            shared += 1
+        if shared < len(turns):
+            emit('after-fork')
+    if any(histories):
         emit('ok')
     emit('ok' if fork_epoch > 0 else 'not-fork')
 emit('ok' if fork_epoch > 0 else 'not-fork')
@@ -625,26 +638,33 @@ PY
 }
 
 # True only when state dir $1's live holder pid $2 can be taken by this
-# fork-resume successor. The holder's transcript must be the one regular file
-# for the recorded session id, with no user or assistant turn in the last
+# fork-resume successor. Current and retained prior session transcripts must
+# each be one readable regular file, with no user or assistant turn in the last
 # FM_LOCK_TAKEOVER_QUIET_SECONDS and none after this process's fork. The fork
-# is this process's --fork-session --resume of that id, or the holder's turn
-# uuids being a prefix of this session's transcript. A missing python3, an
+# is this process's --fork-session --resume of either id, or both histories
+# being prefixes of this session's transcript with at least one shared turn. A missing python3, an
 # unreadable holder, or any failed proof returns 1.
 fm_session_lock_idle_fork_takeover_allowed() {  # <state> <holder-pid>
-  local state=$1 holder=$2 recorded trusted holder_file succ_file succ_rc
-  local fork_epoch=0 verdict succ_state=missing
+  local state=$1 holder=$2 recorded prior trusted holder_file prior_file= succ_file succ_rc
+  local fork_epoch=0 verdict succ_state=missing proof_prior=0
   case "$holder" in
     ''|*[!0-9]*) return 1 ;;
   esac
   command -v python3 >/dev/null 2>&1 || return 1
   fm_harness_pid_alive "$holder" || return 1
-  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
+  fm_session_lock_read_record "$state" || return 1
+  [ "$holder" = "$FM_SESSION_LOCK_PID" ] || return 1
+  recorded=$FM_SESSION_LOCK_SESSION
+  prior=$FM_SESSION_LOCK_PRIOR_SESSION
   fm_session_lock_id_token "$recorded" || return 1
   trusted=$(fm_session_lock_trusted_session_id) || return 1
   fm_session_lock_id_token "$trusted" || return 1
   [ "$trusted" != "$recorded" ] || return 1
   holder_file=$(fm_session_lock_transcript_file "$recorded") || return 1
+  if [ -n "$prior" ]; then
+    fm_session_lock_id_token "$prior" || return 1
+    prior_file=$(fm_session_lock_transcript_file "$prior") || return 1
+  fi
   succ_rc=0
   succ_file=$(fm_session_lock_transcript_file "$trusted") || succ_rc=$?
   case "$succ_rc" in
@@ -654,37 +674,65 @@ fm_session_lock_idle_fork_takeover_allowed() {  # <state> <holder-pid>
   esac
   if fork_epoch=$(fm_session_lock_fork_epoch "$recorded"); then
     :
+  elif [ -n "$prior" ] && fork_epoch=$(fm_session_lock_fork_epoch "$prior"); then
+    proof_prior=1
   else
     fork_epoch=0
   fi
   case "$fork_epoch" in
     ''|*[!0-9]*) return 1 ;;
   esac
-  verdict=$(fm_session_lock_turn_verdict "$holder_file" "$succ_file" "$succ_state" "$fork_epoch") || return 1
+  verdict=$(fm_session_lock_turn_verdict "$holder_file" "$succ_file" "$succ_state" "$fork_epoch" "$prior_file" "$proof_prior") || return 1
   case "$verdict" in
     'ok '*) FM_LOCK_TAKEOVER_EVIDENCE=${verdict#ok }; return 0 ;;
     *) return 1 ;;
   esac
 }
 
-# Print pid, tty, and idle_seconds for the live harness holding state dir $1.
-# Idle is the age of the newest user or assistant turn when that session's
-# transcript is the one readable file; otherwise it is the process elapsed
-# time. Tty '?' or empty is none.
+# Print state=held with pid, tty and idle_seconds, or state=free/stale/unknown.
+# Idle is the age of the newest readable current or prior user/assistant turn,
+# falling back to process elapsed time. Tty '?' or empty is none.
 fm_session_lock_holder_report() {  # <state>
-  local state=$1 pid tty idle='' recorded file newest now etimes
-  [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ] || return 1
-  fm_session_lock_read_record "$state" || return 1
+  local state=$1 pid tty idle='' recorded file newest now etimes comm args read_rc age ps_rc
+  if fm_session_lock_read_record "$state" 0; then
+    :
+  else
+    read_rc=$?
+    if [ "$read_rc" -ne 2 ] && [ ! -e "$state/.lock" ] && [ ! -L "$state/.lock" ]; then
+      printf 'state=free\n'
+    else
+      printf 'state=unknown\n'
+    fi
+    return 0
+  fi
   pid=$FM_SESSION_LOCK_PID
-  fm_harness_pid_alive "$pid" || return 1
+  if ! kill -0 "$pid" 2>/dev/null; then
+    if ps -o comm= -p "$pid" >/dev/null 2>&1; then
+      printf 'state=unknown\n'
+    else
+      ps_rc=$?
+      if [ "$ps_rc" -eq 1 ]; then
+        printf 'state=stale pid=%s\n' "$pid"
+      else
+        printf 'state=unknown\n'
+      fi
+    fi
+    return 0
+  fi
+  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || { printf 'state=unknown\n'; return 0; }
+  args=$(ps -o args= -p "$pid" 2>/dev/null) || { printf 'state=unknown\n'; return 0; }
+  if ! fm_harness_process_matches "$comm" "$args"; then
+    printf 'state=stale pid=%s\n' "$pid"
+    return 0
+  fi
   tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d '[:space:]') || tty=
   case "$tty" in
     ''|'?'|*[!A-Za-z0-9_./-]*) tty=none ;;
   esac
-  recorded=$FM_SESSION_LOCK_SESSION
-  if fm_session_lock_id_token "$recorded" \
-    && file=$(fm_session_lock_transcript_file "$recorded"); then
-    newest=$(python3 - "$file" "$FM_LOCK_TAKEOVER_TRANSCRIPT_MAX" <<'PY'
+  for recorded in "$FM_SESSION_LOCK_SESSION" "$FM_SESSION_LOCK_PRIOR_SESSION"; do
+    if fm_session_lock_id_token "$recorded" \
+      && file=$(fm_session_lock_transcript_file "$recorded"); then
+      newest=$(python3 - "$file" "$FM_LOCK_TAKEOVER_TRANSCRIPT_MAX" <<'PY'
 import datetime, json, os, stat, sys, time
 path, cap_s = sys.argv[1], sys.argv[2]
 cap = int(cap_s)
@@ -747,18 +795,22 @@ if newest is None:
     sys.exit(1)
 sys.stdout.write(str(int(newest)) + '\n')
 PY
-    ) || newest=
-    if [ -n "$newest" ]; then
-      now=$(date +%s 2>/dev/null) || return 1
-      case "$newest" in
-        ''|*[!0-9]*) newest= ;;
-      esac
+      ) || newest=
+      if [ -n "$newest" ]; then
+        now=$(date +%s 2>/dev/null) || return 1
+        case "$newest" in
+          ''|*[!0-9]*) newest= ;;
+        esac
+      fi
+      if [ -n "$newest" ]; then
+        age=$((now - newest))
+        [ "$age" -ge 0 ] || age=0
+        if [ -z "$idle" ] || [ "$age" -lt "$idle" ]; then
+          idle=$age
+        fi
+      fi
     fi
-    if [ -n "$newest" ]; then
-      idle=$((now - newest))
-      [ "$idle" -ge 0 ] || idle=0
-    fi
-  fi
+  done
   if [ -z "$idle" ]; then
     etimes=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d '[:space:]') || return 1
     case "$etimes" in
@@ -766,5 +818,5 @@ PY
     esac
     idle=$etimes
   fi
-  printf 'pid=%s tty=%s idle_seconds=%s\n' "$pid" "$tty" "$idle"
+  printf 'state=held pid=%s tty=%s idle_seconds=%s\n' "$pid" "$tty" "$idle"
 }

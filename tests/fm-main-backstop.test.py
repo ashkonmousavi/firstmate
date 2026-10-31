@@ -1160,6 +1160,63 @@ os.execv(real,[command]+sys.argv[3:])
         self.addCleanup(proc.kill)
         return proc.pid
 
+    def test_reused_nonharness_pid_keeps_stale_lock_recovery(self):
+        holder = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % holder)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.assertIn('holder-%s' % holder, self.memory()['episodes'])
+        sleeper = subprocess.Popen(['/bin/sleep', '30'])
+        self.addCleanup(sleeper.wait)
+        self.addCleanup(sleeper.kill)
+        (self.state / '.lock').write_text('%s\n' % sleeper.pid)
+        self.run_guard()
+        self.assertEqual(len(self.sends()), 1)
+        self.assertNotIn('holder-%s' % holder, self.memory()['episodes'])
+        self.assertNotIn('holder-%s' % sleeper.pid, self.memory()['episodes'])
+
+    def test_unknown_holder_report_preserves_deduplicated_episode(self):
+        holder = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % holder)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        incident = self.memory()['episodes']['holder-%s' % holder]
+        self.executable(self.fake / 'ps', '#!/bin/sh\nexit 1\n')
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+        (self.state / '.lock').write_text('2147483647\n')
+        self.executable(self.fake / 'ps', '#!/bin/sh\nexit 127\n')
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+        (self.state / '.lock').write_text('%s\n' % holder)
+        (self.fake / 'ps').unlink()
+        self.run_guard()
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+
+    def test_handover_before_report_uses_reported_pid_for_deduplication(self):
+        predecessor = self.start_named_claude()
+        successor = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % predecessor)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.env['BACKSTOP_NEXT_HOLDER'] = str(successor)
+        self.executable(self.fake / 'bash', '''#!/bin/bash
+if [ "${3:-}" = holder-report ]; then
+  tmp=$(mktemp "$5/.lock-transition.XXXXXX") || exit 1
+  printf '%s\\n' "$BACKSTOP_NEXT_HOLDER" > "$tmp"
+  mv -f "$tmp" "$5/.lock"
+fi
+exec /bin/bash "$@"
+''')
+        self.run_guard()
+        self.run_guard()
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % successor, self.notes())
+        self.assertIn('holder-%s' % successor, self.memory()['episodes'])
+        self.assertNotIn('holder-%s' % predecessor, self.memory()['episodes'])
+
     def test_disabled_capability_with_live_lock_defers_without_discovery(self):
         pid = self.start_named_claude()
         (self.state / '.lock').write_text('%s\n' % pid)

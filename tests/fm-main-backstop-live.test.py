@@ -97,13 +97,7 @@ def main():
                         deadline = time.monotonic() + 60
                         while True:
                             try:
-                                found_pane, found_pid = backstop.live_primary(home, env)
-                                assert found_pane == pane
-                                assert type(found_pid) is int and found_pid > 1
-                                os.kill(found_pid, 0)
-                                info = json.loads(cli('pane', 'process-info', '--pane', pane))['result']
-                                assert found_pid in {p['pid'] for p in
-                                                     info['process_info']['foreground_processes']}
+                                assert backstop.live_primary(home, env) == pane
                                 break
                             except (backstop.ProbeError, AssertionError) as error:
                                 if time.monotonic() >= deadline:

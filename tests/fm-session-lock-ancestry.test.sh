@@ -725,7 +725,7 @@ expect_phase_owned() {  # <dir> <n> <expected-arms> <expected-lock-pid> <label> 
   [ "$(phase_value "$dir" "$n" lock-after)" = "$lock_pid" ] \
     || fail "$label: lock line 1 is $(phase_value "$dir" "$n" lock-after), expected $lock_pid"
   if [ -n "$session_id" ]; then
-    [ "$(phase_value "$dir" "$n" session-after)" = "$session_id" ] \
+    [ "$(sed -n '1p' "$dir/state/phase-$n/session-after")" = "$session_id" ] \
       || fail "$label: the session sidecar names $(phase_value "$dir" "$n" session-after), expected $session_id"
   else
     cmp -s "$dir/state/phase-$n/session-after" "$dir/sidecar-initial" \
@@ -820,6 +820,7 @@ test_e2e_background_session_keeps_its_lock_across_a_recycled_chain() {
   # the sidecar is re-keyed.
   fire_phase "$dir" 6 'export CLAUDE_CODE_SESSION_ID=S2; export CLAUDE_PID=$$'
   expect_phase_owned "$dir" 6 6 "$spare" "same process after a session-id change" S2
+  [ "$(sed -n '2p' "$dir/state/phase-6/session-after")" = S1 ] || fail "clear lost the prior session"
 
   : > "$dir/state/stop-frontend"
   : > "$dir/state/stop-spare"
@@ -906,7 +907,7 @@ SH
   wait "$session_pid" || true
   expect_code 0 "$(tr -d '[:space:]' < "$dir/state/confirm.rc")" \
     "the same-session confirmation failed while the claim lock was held: $(cat "$dir/state/confirm.out")"
-  [ "$(tr -d '[:space:]' < "$dir/state/.lock-session")" = S2 ] \
+  [ "$(cat "$dir/state/.lock-session")" = "$(printf 'S2\nS1')" ] \
     || fail "the sidecar still names $(cat "$dir/state/.lock-session"), expected the re-keyed id S2"
   [ "$(tr -d '[:space:]' < "$dir/state/.lock")" = "$(tr -d '[:space:]' < "$dir/state/session-pid")" ] \
     || fail "the confirmation rewrote lock line 1"
@@ -1249,9 +1250,18 @@ while not os.path.exists(stop):
     probe = os.path.join(out, 'probe-' + tag)
     if os.path.exists(probe):
         os.unlink(probe)
-        verdict = subprocess.run(['bash', '-c', '. "$1/bin/fm-session-lock-lib.sh"; fm_session_lock_owned_by_self "$2"',
-                                  'probe', os.environ['FM_LOCK_TEST_ROOT'], out]).returncode
+        verdict = subprocess.run(['bash', '-c', '. "$1/bin/fm-session-lock-lib.sh"; fm_session_lock_owned_by_self "$2" "${3:-}"',
+                                  'probe', os.environ['FM_LOCK_TEST_ROOT'], out,
+                                  '0' if os.path.exists(os.path.join(out, 'gap')) and not os.path.exists(os.path.join(out, 'release')) else '']).returncode
         open(os.path.join(out, 'verdict-' + tag), 'w').write(str(verdict))
+    rekey = os.path.join(out, 'rekey-' + tag)
+    if os.path.exists(rekey):
+        os.environ['CLAUDE_CODE_SESSION_ID'] = open(rekey).read().strip()
+        os.unlink(rekey)
+        result = subprocess.run([os.environ['FM_LOCK_TEST_ROOT'] + '/bin/fm-lock.sh'],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        open(os.path.join(out, 'rekey-' + tag + '.out'), 'w').write(result.stdout)
+        open(os.path.join(out, 'rekey-' + tag + '.rc'), 'w').write(str(result.returncode))
     time.sleep(0.05)
 PY
   chmod +x "$IDLE_FORK_SHIM"
@@ -1388,7 +1398,7 @@ target=${*: -1}
 case "$FM_BOUNDARY_STAGE:$target" in
   gap:*/.lock-session)
     rc=0
-    bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_session_lock_owned_by_self "$2"' \
+    bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_session_lock_owned_by_self "$2" 0' \
       probe "$FM_LOCK_TEST_ROOT" "$FM_HOME/state" || rc=$?
     printf '%s\n' "$rc" > "$FM_HOME/state/succ-gap"
     printf 'paused\n' > "$FM_HOME/state/gap"
@@ -1521,6 +1531,101 @@ test_takeover_boundaries_share_one_commit() {
     done
   done
   pass "session-lock: startup and Stop serialize ownership, reject new turns, and roll back every interrupted takeover"
+}
+
+test_rekeyed_holder_retains_prior_session_takeover_proof() {
+  local mode scenario dir config holder succ resume expected prior current=holder22222
+  prepare_idle_fork_shim
+  for mode in startup stop; do
+    for scenario in prior current unrelated recent-prior recent-current missing-prior missing-current changed-prior malformed-prior; do
+      dir=$TMP_ROOT/prior-$mode-$scenario
+      config=$TMP_ROOT/prior-config-$mode-$scenario
+      prepare_takeover_boundary "$dir" "$([ "$scenario" = changed-prior ] && echo backdated || echo lineage)" "$mode" "$config"
+      write_idle_fork_turns "$config" "$IDLE_FORK_HOLDER" 7200 prior-turn
+      write_idle_fork_turns "$config" "$current" 7200
+      start_idle_fork_proc holder "$IDLE_FORK_HOLDER" "$dir" "$config" "$ROOT/bin/fm-lock.sh"
+      holder=$(idle_fork_pid "$dir" holder)
+      printf '%s\n' "$current" > "$dir/state/rekey-holder"
+      wait_for_file "$dir/state/rekey-holder.rc" "the same-process clear rekey"
+      expect_code 0 "$(cat "$dir/state/rekey-holder.rc")" "the holder could not rekey"
+      [ "$(cat "$dir/state/.lock")" = "$holder" ] || fail "clear changed the holder pid"
+      [ "$(cat "$dir/state/.lock-session")" = "$(printf '%s\n%s' "$current" "$IDLE_FORK_HOLDER")" ] \
+        || fail "clear did not retain exactly the prior session"
+      seed_takeover_leases "$dir" "$holder"
+      resume=$IDLE_FORK_HOLDER
+      prior=$IDLE_FORK_HOLDER
+      expected=1
+      case "$scenario" in
+        malformed-prior)
+          prior=$IDLE_FORK_HOLDER$'\r'
+          printf '%s\n%s\n' "$current" "$prior" > "$dir/state/.lock-session" ;;
+        current) resume=$current ;;
+        unrelated) resume=unrelated999 ;;
+        recent-prior) write_idle_fork_turns "$config" "$IDLE_FORK_HOLDER" 60 recent-prior-turn ;;
+        recent-current) write_idle_fork_turns "$config" "$current" 60 recent-current-turn ;;
+        missing-prior) rm "$config/projects/lab/$IDLE_FORK_HOLDER.jsonl" ;;
+        missing-current) rm "$config/projects/lab/$current.jsonl" ;;
+      esac
+      case "$scenario" in prior|current) expected=0 ;; esac
+      start_idle_fork_proc succ "$IDLE_FORK_SUCC" "$dir" "$config" "$dir/claim" \
+        --fork-session --resume "$resume"
+      if [ "$expected" -eq 0 ]; then
+        succ=$(idle_fork_pid "$dir" succ)
+        [ "$(cat "$dir/state/.lock")" = "$succ" ] || fail "$mode/$scenario: prior-session takeover failed"
+        [ "$(cat "$dir/state/.lock-session")" = "$IDLE_FORK_SUCC" ] || fail "takeover inherited another holder's lineage"
+        assert_takeover_leases "$dir" "$succ"
+        [ -s "$dir/state/.lock-handover.jsonl" ] || fail "prior-session takeover was not recorded"
+        if [ "$mode" = stop ]; then expected=2; fi
+      else
+        [ "$(cat "$dir/state/.lock")" = "$holder" ] || fail "$mode/$scenario: an ineligible successor took over"
+        [ "$(cat "$dir/state/.lock-session")" = "$(printf '%s\n%s' "$current" "$prior")" ] || fail "refused takeover changed lineage"
+        [ ! -e "$dir/state/.lock-handover.jsonl" ] || fail "$mode/$scenario: refused takeover was recorded"
+        assert_takeover_leases "$dir" "$holder"
+        if [ "$mode" = stop ]; then expected=0; fi
+      fi
+      expect_code "$expected" "$(cat "$dir/state/succ.rc")" "$mode/$scenario: wrong takeover verdict"
+      kill -0 "$holder" || fail "the predecessor exited before the verdict"
+      stop_idle_fork_procs "$dir" holder succ
+    done
+  done
+  pass "session-lock: rekey A to empty B retains A; startup and Stop accept A or B and reject unrelated, recent, missing, or changed histories"
+}
+
+hold_sweep_for_ownership_test() {
+  local dir=$1
+  rm -f "$dir/state/sweep-ready"
+  FM_HOME="$dir" STATE="$dir/state" bash -c '
+    . "$1/bin/fm-wake-lib.sh"
+    fm_lock_acquire_wait "$STATE/.lock.acquire"
+    printf ready > "$STATE/sweep-ready"
+    sleep 6
+    fm_lock_release "$STATE/.lock.acquire"
+  ' test "$ROOT" &
+  BG_FIXTURE_PIDS+=("$!")
+  wait_for_file "$dir/state/sweep-ready" "the bounded sweep claim"
+}
+
+test_bounded_sweep_does_not_discard_ownership_admission() {
+  local dir=$TMP_ROOT/ownership-sweep config=$TMP_ROOT/ownership-sweep-config
+  prepare_idle_fork_shim
+  prepare_takeover_boundary "$dir" lineage stop "$config"
+  write_idle_fork_turns "$config" "$IDLE_FORK_HOLDER" 7200 prior-turn
+  start_idle_fork_proc holder "$IDLE_FORK_HOLDER" "$dir" "$config" "$ROOT/bin/fm-lock.sh"
+  hold_sweep_for_ownership_test "$dir"
+  start_idle_fork_proc stop "$IDLE_FORK_HOLDER" "$dir" "$config" "$dir/bin/fm-claude-stop-autoarm.sh"
+  expect_code 2 "$(cat "$dir/state/stop.rc")" "a six-second sweep discarded the owning Stop"
+  [ -s "$dir/state/arm-ran" ] || fail "the owning Stop did not arm after the sweep"
+  cat > "$dir/claim-generation" <<'SH'
+#!/usr/bin/env bash
+. "$FM_LOCK_TEST_ROOT/bin/fm-wake-lib.sh"
+fm_autoarm_claim_next "$STATE" 300
+SH
+  chmod +x "$dir/claim-generation"
+  hold_sweep_for_ownership_test "$dir"
+  start_idle_fork_proc claim "$IDLE_FORK_HOLDER" "$dir" "$config" "$dir/claim-generation"
+  expect_code 0 "$(cat "$dir/state/claim.rc")" "a six-second sweep discarded generation admission"
+  stop_idle_fork_procs "$dir" holder stop claim
+  pass "session-lock: a bounded sweep longer than five seconds preserves Stop and generation admission"
 }
 
 test_idle_fork_resume_of_a_quiet_holder_takes_the_lock() {
@@ -1869,3 +1974,5 @@ test_transcript_prefix_without_fork_argv_takes_the_lock
 test_stop_hook_of_an_idle_fork_successor_takes_the_lock
 test_repeated_remote_continue_switches_keep_one_holder
 test_takeover_boundaries_share_one_commit
+test_rekeyed_holder_retains_prior_session_takeover_proof
+test_bounded_sweep_does_not_discard_ownership_admission

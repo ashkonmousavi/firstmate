@@ -6,12 +6,12 @@ Usage: fm-main-backstop.py --home PATH [--code-root PATH] [--mate ID ...]
 Run every three minutes. After a five-minute watcher silence with supervision
 work and no state/.afk record, discover a unique live Claude/Codex primary in
 this exact home and nudge it so its own turn-end owner re-arms.
-When that silence has a live lock holder that is not the live primary, do not
-nudge the read-only session. After fifteen minutes send one inbox note naming
-that holder's pid, tty, and idle time, once per holder pid, and do not raise a
-recovery failure for that silence. A holder that is the live primary keeps the
-five-minute nudge. fm_session_lock_holder_report in bin/fm-session-lock-lib.sh
-is the holder report.
+When that silence has a verified live lock holder, suppress the silence nudge.
+After fifteen minutes queue one inbox ask naming its pid, tty and idle time;
+the working main session drains the inbox and tells the owner. A stale lock
+retains normal primary recovery; an unknown report preserves the episode and
+suppresses nudges. fm_session_lock_holder_report in bin/fm-session-lock-lib.sh
+supplies one classified holder snapshot for each pass.
 Successful nudges are at least five minutes apart.
 Nudges require the shared composer classifier to prove the input empty;
 occupied or unknown input is preserved and reported as a recovery failure.
@@ -365,14 +365,9 @@ def live_primary(home, env):
         processes = info['result']['process_info']['foreground_processes']
         # Herdr's live foreground process observation is required in addition
         # to display metadata. A stale agent label over bash is not an agent.
-        matched = None
-        for proc in processes:
-            if (proc.get('pid', 0) > 0 and proc.get('name') == agent
-                    and proc.get('cwd') == str(home)):
-                matched = int(proc['pid'])
-                break
-        if matched is not None:
-            candidates.append((pane_id, matched))
+        if any(proc.get('pid', 0) > 0 and proc.get('name') == agent
+               and proc.get('cwd') == str(home) for proc in processes):
+            candidates.append(pane_id)
     if len(candidates) != 1:
         raise ProbeError('no verified live primary (or multiple candidates)')
     return candidates[0]
@@ -389,23 +384,6 @@ def format_idle(seconds):
     return '%dh%dm' % (hours, minutes)
 
 
-def read_lock_pid(state):
-    path = state / '.lock'
-    try:
-        if path.is_symlink() or not path.is_file():
-            return None
-        pid = int(path.read_text().splitlines()[0].strip())
-    except (OSError, ValueError, IndexError):
-        return None
-    if pid <= 1:
-        return None
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return None
-    return pid
-
-
 def holder_report(state, env):
     """pid, tty, and idle_seconds from the session-lock lib, or ProbeError."""
     lib = Path(__file__).resolve().parent / 'fm-session-lock-lib.sh'
@@ -420,8 +398,18 @@ def holder_report(state, env):
             raise ProbeError('holder report failed')
         key, value = part.split('=', 1)
         fields[key] = value
-    if not {'pid', 'tty', 'idle_seconds'} <= set(fields):
+    if fields.get('state') not in ('held', 'free', 'stale', 'unknown'):
         raise ProbeError('holder report failed')
+    if fields['state'] == 'held':
+        if not {'pid', 'tty', 'idle_seconds'} <= set(fields):
+            raise ProbeError('holder report failed')
+        try:
+            pid, idle = int(fields['pid']), int(fields['idle_seconds'])
+        except ValueError as error:
+            raise ProbeError('holder report failed') from error
+        if pid <= 0 or idle < 0:
+            raise ProbeError('holder report failed')
+        fields['pid'] = str(pid)
     return fields
 
 
@@ -548,30 +536,30 @@ def main():
             or any((state / 'procevent').glob('*.source')))
     trouble = []
     suppress_nudge = False
-    live_lock_pid = read_lock_pid(state)
+    try:
+        report = holder_report(state, env)
+    except ProbeError:
+        report = {'state': 'unknown'}
+    holder_key = 'holder-%s' % report['pid'] if report['state'] == 'held' else None
     silence = need and beat_age >= SILENCE_NUDGE_AFTER and not (state / '.afk').exists()
     if silence and not send_enabled():
         alarm('recovery', 'BACKSTOP HELD: watcher silent for %ds' % beat_age)
         suppress_nudge = True
-    elif silence and live_lock_pid is not None:
-        try:
-            report = holder_report(state, env)
-        except ProbeError:
-            audit('idle lock holder pid=%s report unavailable; suppressing the nudge' % live_lock_pid)
-            suppress_nudge = True
-            report = None
-        if report is not None:
+    elif silence:
+        if report['state'] == 'held':
             if beat_age < HOLDER_ASK_AFTER:
                 audit('idle lock holder pid=%s tty=%s idle=%s; watcher silent %ds' % (
                     report['pid'], report['tty'], format_idle(report['idle_seconds']), beat_age))
-                suppress_nudge = True
             else:
-                alarm('holder-%s' % live_lock_pid,
+                alarm(holder_key,
                       'Idle lock holder pid=%s tty=%s idle=%s. Watcher has been silent for %ds. Clear that holder so monitoring can arm.' % (
                           report['pid'], report['tty'], format_idle(report['idle_seconds']), beat_age))
-                suppress_nudge = True
-    elif silence:
-        trouble.append('watcher silent for %ds' % beat_age)
+            suppress_nudge = True
+        elif report['state'] in ('free', 'stale'):
+            trouble.append('watcher silent for %ds' % beat_age)
+        else:
+            audit('lock holder report unavailable; suppressing the nudge')
+            suppress_nudge = True
     read_fails = memory.setdefault('read_fails', {})
     runner_fails = memory.setdefault('runner_fails', {})
     lag_oldest = memory.setdefault('lag_oldest', {})
@@ -630,11 +618,11 @@ def main():
         try:
             if not send_enabled():
                 raise ProbeError('send capability revoked')
-            pane, _primary_pid = live_primary(home, env)
+            pane = live_primary(home, env)
             if now - memory.get('last_nudge', 0) >= 300:
                 # Resolve the live foreground again just before sending; never
                 # use a saved id when a primary has exited or changed panes.
-                if live_primary(home, env)[0] != pane:
+                if live_primary(home, env) != pane:
                     raise ProbeError('primary changed during discovery')
                 text = '[backstop] ' + '; '.join(trouble) + '. Drain wakes and handle the recovery; your turn-end owner re-arms supervision.'
                 target = env.get('HERDR_SESSION', 'default') + ':' + pane
@@ -659,10 +647,10 @@ fm_backend_send_text_submit herdr "$2" "$3" 2 0.4 0.3
             alarm('recovery', 'BACKSTOP FAILURE: %s; %s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.' % (detail, '; '.join(trouble)))
     elif all(mate not in read_fails and mate not in runner_fails for mate in mates):
         resolve_episode('recovery')
-    holder_key = 'holder-%s' % live_lock_pid if live_lock_pid else None
-    for key in list(episodes):
-        if key.startswith('holder-') and key != holder_key:
-            resolve_episode(key)
+    if report['state'] != 'unknown':
+        for key in list(episodes):
+            if key.startswith('holder-') and key != holder_key:
+                resolve_episode(key)
     save()
     audit('checked watcher_age=%ds alarms=%d' % (beat_age, len(active)))
 

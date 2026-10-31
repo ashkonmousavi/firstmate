@@ -36,6 +36,12 @@ def main():
             if source.is_file():
                 shutil.copyfile(source, config / name)
                 (config / name).chmod(0o600)
+        client_path = config / '.claude.json'
+        client = json.loads(client_path.read_text()) if client_path.exists() else {}
+        client['hasCompletedOnboarding'] = True
+        client['theme'] = 'dark'
+        client.setdefault('projects', {}).setdefault(str(home), {})['hasTrustDialogAccepted'] = True
+        client_path.write_text(json.dumps(client))
         env = {k: v for k, v in os.environ.items()
                if not k.startswith(('CLAUDE_CODE_', 'FM_'))
                and k not in ('CLAUDECODE', 'CLAUDE_PID', 'TMUX')}
@@ -79,6 +85,10 @@ sid=$(printf '%s' "$payload" | jq -r '.session_id')
 [ "$sid" = "${CLAUDE_CODE_SESSION_ID:-}" ] || exit 1
 [ -n "${CLAUDE_PID:-}" ] || exit 1
 out="$FM_HOME/state/$FM_LOCK_LIVE_TAG"
+if [ "$FM_LOCK_LIVE_TAG" = terminal ] && [ "$(printf '%s' "$payload" | jq -r '.source')" = clear ]; then
+  out="$FM_HOME/state/cleared"
+  printf '%s' "$payload" | jq -r '.transcript_path' > "$out.transcript"
+fi
 if [ "$1" = start ]; then
   printf '%s\\n%s\\n' "$sid" "$CLAUDE_PID" > "$out.identity"
   if [ "$FM_LOCK_LIVE_TAG" = terminal ]; then
@@ -87,7 +97,7 @@ if [ "$1" = start ]; then
   else
     bash "$FM_HOME/bin/fm-lock.sh" > "$out.recent" 2>&1
     printf '%s\\n' "$?" > "$out.recent-rc"
-    if [ "$FM_LOCK_LIVE_TAG" = phone ]; then
+    if [ "$FM_LOCK_LIVE_TAG" != return ]; then
       FM_LOCK_LIVE_CLOCK=3600 bash "$FM_HOME/bin/fm-lock.sh" > "$out.acquire" 2>&1
       printf '%s\\n' "$?" > "$out.rc"
     fi
@@ -111,12 +121,51 @@ exit 0
         def wait_file(path, proc):
             deadline = time.monotonic() + 120
             while not path.exists():
-                if proc.poll() is not None:
+                if proc is not None and proc.poll() is not None:
                     raise AssertionError('Claude exited before ' + path.name + ': ' +
                                          (base / (path.name.split('.')[0] + '.log')).read_text()[-2000:])
                 if time.monotonic() >= deadline:
                     raise AssertionError('Claude timed out before ' + path.name)
                 time.sleep(0.1)
+
+        def tmux_cli(*args):
+            result = subprocess.run(['tmux', '-S', str(base / 'tmux'), '-f', '/dev/null', *args],
+                                    cwd=home, env=dict(env, FM_LOCK_LIVE_TAG='terminal'),
+                                    capture_output=True, text=True, timeout=15)
+            if result.returncode:
+                raise AssertionError('tmux %s: %s' % (args[0], result.stderr))
+            return result.stdout
+
+        def native_clear_predecessor():
+            session = str(uuid.uuid4())
+            args = ['claude', '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+                    '--setting-sources', '', '--settings', str(settings), '--session-id', session]
+            tmux_cli('new-session', '-d', '-s', 'terminal', '-x', '160', '-y', '44',
+                     '-c', str(home), shlex.join(args))
+            wait_file(state / 'terminal.identity', None)
+            time.sleep(1)
+            tmux_cli('send-keys', '-t', 'terminal', '-l', 'Reply with exactly OK. Do not use tools.')
+            tmux_cli('send-keys', '-t', 'terminal', 'Enter')
+            wait_file(state / 'terminal.done', None)
+            actual, pid = (state / 'terminal.identity').read_text().splitlines()
+            assert actual == session
+            assert (state / 'terminal.rc').read_text().strip() == '0'
+            tmux_cli('send-keys', '-t', 'terminal', '-l', '/clear')
+            tmux_cli('send-keys', '-t', 'terminal', 'Enter')
+            wait_file(state / 'cleared.rc', None)
+            cleared, clear_pid = (state / 'cleared.identity').read_text().splitlines()
+            assert cleared != session and clear_pid == pid, 'native clear did not rekey the same process'
+            assert (state / 'cleared.rc').read_text().strip() == '0'
+            assert (state / '.lock-session').read_text().splitlines() == [cleared, session]
+            assert (state / '.lock').read_text() == pid + '\n'
+            transcript = Path((state / 'cleared.transcript').read_text().strip())
+            transcript.relative_to(config)
+            transcript.touch(exist_ok=True)
+            assert not any(json.loads(line).get('type') in ('user', 'assistant')
+                           for line in transcript.read_text().splitlines()), 'B is not empty after clear'
+            print('ok - native /clear: same terminal pid=%s rekeyed A to readable empty B, prior A retained' % pid,
+                  flush=True)
+            return session, cleared, int(pid)
 
         def launch(tag, predecessor=None):
             session = str(uuid.uuid4())
@@ -128,7 +177,7 @@ exit 0
             child_env = dict(env, FM_LOCK_LIVE_TAG=tag)
             master = slave = None
             preexec = None
-            if tag != 'phone':
+            if tag == 'return':
                 master, slave = pty.openpty()
 
                 def terminal():
@@ -138,7 +187,7 @@ exit 0
             with (base / (tag + '.log')).open('w') as log:
                 proc = subprocess.Popen(args, cwd=home, env=child_env, stdin=subprocess.PIPE,
                                         stdout=log, stderr=log, text=True, preexec_fn=preexec,
-                                        start_new_session=(tag == 'phone'),
+                                        start_new_session=(tag != 'return'),
                                         pass_fds=(() if slave is None else (slave,)))
             processes.append((proc, master))
             if slave is not None:
@@ -152,24 +201,31 @@ exit 0
             pid = int(pid_s)
             os.kill(pid, 0)
             tty = subprocess.check_output(['ps', '-o', 'tty=', '-p', str(pid)], text=True).strip()
-            assert (tty in ('?', '')) == (tag == 'phone'), 'background/terminal topology differs'
-            assert (state / (tag + '.rc')).read_text().strip() == ('2' if tag == 'return' else '0'), tag
+            assert (tty in ('?', '')) == (tag != 'return'), 'background/terminal topology differs'
+            refused = tag.startswith('unrelated')
+            expected = '1' if refused else ('2' if tag == 'return' else '0')
+            assert (state / (tag + '.rc')).read_text().strip() == expected, tag
             if predecessor:
                 assert (state / (tag + '.recent-rc')).read_text().strip() == '1', 'recent holder was taken'
-            assert (state / '.lock').read_text() == str(pid) + '\n'
-            assert (state / '.lock-session').read_text().strip() == session
+            if not refused:
+                assert (state / '.lock').read_text() == str(pid) + '\n'
+                assert (state / '.lock-session').read_text().strip() == session
             print('ok - %s holder pid=%s tty=%s' % (tag, pid, tty), flush=True)
             return session, pid
 
         try:
-            sid, terminal_pid = launch('terminal')
+            sid, cleared_sid, terminal_pid = native_clear_predecessor()
+            unrelated_sid, _ = launch('unrelated-seed')
+            launch('unrelated', unrelated_sid)
+            assert (state / '.lock-session').read_text().splitlines() == [cleared_sid, sid]
+            print('ok - unrelated real fork refused after native A-to-B clear', flush=True)
             phone_sid, phone_pid = launch('phone', sid)
             return_sid, return_pid = launch('return', phone_sid)
             for proc, _master in processes:
                 assert proc.poll() is None, 'a predecessor exited instead of remaining live'
             rows = [json.loads(line) for line in (state / '.lock-handover.jsonl').read_text().splitlines()]
             assert [(row['from_pid'], row['to_pid'], row['from_session'], row['to_session']) for row in rows] == [
-                (terminal_pid, phone_pid, sid, phone_sid), (phone_pid, return_pid, phone_sid, return_sid)]
+                (terminal_pid, phone_pid, cleared_sid, phone_sid), (phone_pid, return_pid, phone_sid, return_sid)]
             arms = (state / 'arm-ran').read_text().splitlines()
             assert arms and all(pid == str(return_pid) for pid in arms), arms
             transcripts = list((config / 'projects').glob('*/*.jsonl'))
@@ -181,9 +237,13 @@ exit 0
                 assert any(row.get('type') == 'assistant' and row.get('uuid') and row.get('timestamp') for row in rows)
             print('ok - live fork-resume terminal -> background phone -> terminal: two recorded handovers; '
                   'recent-turn refusal; Stop recovery armed; predecessor processes stayed live; '
-                  'classifier clock advanced 3600s, vendor transcripts unmodified', flush=True)
+                  'native A-to-empty-B clear and unrelated-fork refusal; classifier clock advanced 3600s; vendor turns unmodified', flush=True)
         except Exception as error:
-            raise AssertionError('Claude %s: %s (logs in %s while running)' % (version, error, base)) from error
+            try:
+                screen = tmux_cli('capture-pane', '-p', '-t', 'terminal')
+            except AssertionError:
+                screen = ''
+            raise AssertionError('Claude %s: %s; terminal=%s' % (version, error, screen)) from error
         finally:
             for proc, master in reversed(processes):
                 if proc.poll() is None:
@@ -192,6 +252,8 @@ exit 0
                 proc.stdin.close()
                 if master is not None:
                     os.close(master)
+            subprocess.run(['tmux', '-S', str(base / 'tmux'), 'kill-server'],
+                           capture_output=True, timeout=15)
 
 
 if __name__ == '__main__':

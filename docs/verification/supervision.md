@@ -394,12 +394,13 @@ FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=43472
 
 The recycled-helper-chain topology is documented by the real process listings in issues #3902, #2314, #3398, and #4066; the coverage above is the structural predicate plus those executable fixtures, not a live pass of that topology.
 An idle fork-resume successor may take that lock.
-The holder transcript must be the one readable file for the recorded session, with no user or assistant turn after the successor forked from it and none in the last 30 minutes.
-The fork is this process's `--fork-session` plus `--resume` of the recorded session, or the holder's turn uuids as a prefix of the successor transcript.
+A same-process `/clear` from A to B retains A on row 2 of `.lock-session`, with B on row 1; confirming B preserves both rows.
+Both recorded histories must each be one readable regular transcript, with no user or assistant turn after the successor forked and none in the last 30 minutes.
+The fork is this process's `--fork-session` plus `--resume` of either recorded session, or both histories as prefixes of the successor transcript with at least one shared turn.
 `bin/fm-lock.sh` records the handover after line 1 is verified; that script's header owns the JSON line.
 A holder with any turn in the last 30 minutes, or a holder whose transcript cannot be read, stays on the ordinary live-owner refusal.
 The Stop hook uses the same decision before it arms.
-Ownership and generation readers take `state/.lock.acquire` to snapshot the PID and session sidecar together, waiting at most five seconds before failing closed.
+Ownership and generation readers take `state/.lock.acquire` to snapshot the PID and session sidecar together, waiting through the existing bounded acquisition or deferred sweep rather than treating contention as lost ownership.
 Auto-arm claim inspection never waits on acquisition while holding its own mutex; an otherwise live claim remains deferred when acquisition is busy.
 The writer reuses its own mutex hold for confirmation; its preliminary nonblocking probe preserves the existing quick refusal while a startup sweep is finishing.
 Both startup and Stop acquisition use this same publication boundary.
@@ -408,7 +409,9 @@ Any added turn aborts takeover, including a backdated row.
 UserPromptSubmit does not take the acquisition mutex: a normally sub-second scan-to-publication interval remains, and a scheduler stall can extend it; this is a revalidation bound, not atomic admission of physical input.
 Both acquisition paths serialize task-lease handover with lease commands and preserve the actor and epoch when moving leases to the new holder.
 Every uncommitted takeover restores the predecessor PID and sidecar before releasing claim and lease serialization; reverse lease movement is needed only after leases started moving.
-When the watcher has been silent and a live process holds the lock, `bin/fm-main-backstop.py` queues one inbox ask after 15 minutes with its pid, tty, and idle time, suppressing the silence nudge.
+The backstop uses one classified holder report for the note identity, deduplication key and episode retirement.
+A proven dead or non-harness PID retains normal primary recovery; an unknown report suppresses nudges and preserves any existing episode.
+When the watcher has been silent and a verified live harness holds the lock, `bin/fm-main-backstop.py` queues one inbox ask after 15 minutes with its pid, tty, and idle time, suppressing the silence nudge.
 The working main session drains that inbox and tells the owner; queueing is not direct owner notification.
 A foreground terminal holder follows the same rule as a detached holder.
 Other harnesses have no trusted Claude session id, so they keep the ordinary refusal.

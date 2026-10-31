@@ -12,7 +12,8 @@
 # every other reader takes the first line as the pid.
 #
 # The trusted id itself is recorded beside the lock in state/.lock-session, a
-# sidecar written only here and only under the claim lock: refreshed on every
+# sidecar with the current id on row 1 and optional prior id on row 2 after
+# a same-process rekey, written only here under the claim lock: refreshed on every
 # confirmed-own acquisition, including the early already-mine exit that waits
 # for the claim lock, removed when the acquiring session proves no trusted id,
 # and left byte-identical when it already names that id. A same-session
@@ -182,15 +183,18 @@ remember_lock_session() {
 # naming this id is left untouched, so a same-session confirmation keeps it
 # byte-identical.
 publish_lock_session() {
-  local trusted recorded tmp
+  local trusted recorded tmp prior=
   if trusted=$(fm_session_lock_trusted_session_id); then
     if recorded=$(fm_session_lock_recorded_session_id "$STATE") && [ "$recorded" = "$trusted" ]; then
       return 0
     fi
+    if [ -n "$recorded" ] && [ -z "$TAKEOVER_FROM" ] && fm_session_lock_owned_by_self "$STATE"; then
+      prior=$recorded
+    fi
     remember_lock_session || return 1
     tmp=$(mktemp "$STATE/.lock-session.XXXXXX" 2>/dev/null) || return 1
     LOCK_SESSION_TMP=$tmp
-    if ! printf '%s\n' "$trusted" > "$tmp"; then
+    if ! { printf '%s\n' "$trusted" && { [ -z "$prior" ] || printf '%s\n' "$prior"; }; } > "$tmp"; then
       rm -f "$tmp" 2>/dev/null
       return 1
     fi

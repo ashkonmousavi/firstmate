@@ -3397,9 +3397,12 @@ Validation must retain current real-harness evidence for the installed eligible 
 
 `FM_SESSION_LOCK_LIVE=1 bash tests/fm-session-lock-live-e2e.test.sh` refreshes the Claude-specific fork-resume evidence.
 The prompt-submitting guard belongs to `live-harness-optin` and uses `fm_live_gate` with the opt-in policy.
-It starts real Claude stream-JSON sessions with a controlling terminal, a detached background fork, and a return terminal fork, while keeping both predecessors alive.
-The hook identities, argv and user/assistant transcript rows come from Claude; the guard never rewrites those rows.
-Each fork first attempts acquisition against the recent predecessor and must refuse.
+It starts an interactive Claude in a private tmux server, submits a turn in session A, then invokes native `/clear` to session B in the same process.
+The real SessionStart hook must publish B and retain A in the existing sidecar.
+An empty B transcript file is created if Claude has not yet persisted it, solely to meet the readable-empty-history precondition; no user or assistant rows are fabricated.
+The guard creates a separate real conversation and refuses its unrelated detached fork before accepting a detached `--fork-session --resume A` successor and a return terminal fork through Stop.
+All vendor processes remain alive through both handovers. Hook identities, argv and user/assistant turn rows come from Claude; the guard never rewrites those rows.
+Each related fork first attempts acquisition against the recent predecessor and must refuse.
 The guard then advances only the lock-check clock by 3600 seconds to exercise quiet-holder startup acquisition and Stop recovery without a 30-minute sleep.
 It checks the completed lock pairs, the two recorded handovers and the Stop-owned arm against the independently known session ids and live process ids.
 The watcher-arm transport is a fixture, and real phone transport is outside this guard's proof.
@@ -3413,26 +3416,41 @@ Observed on 2026-10-31 with `env FM_SESSION_LOCK_LIVE=1 TMPDIR="$PWD/.review-evi
 
 ```text
 # 2026-10-31 Claude 2.1.316 (Claude Code)
-ok - terminal holder pid=3138856 tty=pts/46
-ok - phone holder pid=3147709 tty=?
-ok - return holder pid=3173780 tty=pts/52
-ok - live fork-resume terminal -> background phone -> terminal: two recorded handovers; recent-turn refusal; Stop recovery armed; predecessor processes stayed live; classifier clock advanced 3600s, vendor transcripts unmodified
+ok - native /clear: same terminal pid=2088195 rekeyed A to readable empty B, prior A retained
+ok - unrelated-seed holder pid=2095116 tty=?
+ok - unrelated holder pid=2102532 tty=?
+ok - unrelated real fork refused after native A-to-B clear
+ok - phone holder pid=2105393 tty=?
+ok - return holder pid=2110669 tty=pts/37
+ok - live fork-resume terminal -> background phone -> terminal: two recorded handovers; recent-turn refusal; Stop recovery armed; predecessor processes stayed live; native A-to-empty-B clear and unrelated-fork refusal; classifier clock advanced 3600s; vendor turns unmodified
 ```
 
-The focused portable checks on the same date also passed with `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-ancestry.test.sh` and `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-main-backstop.test.sh` (both exit 0).
+The `unrelated` output tags describe live candidate processes; both were refused ownership, as the guard's following assertion records.
+The focused portable checks on the same date also passed with `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-ancestry.test.sh`, `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-main-backstop.test.sh` and `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-claude-stop-autoarm.test.sh` (all exit 0).
+The new prior-session matrix covers 18 startup/Stop cases; the sweep regression separately checks Stop and generation admission after six-second holds.
 Their output included:
 
 ```text
 ok - session-lock: a partial lease move rolls back and keeps both actors excluded
 ok - session-lock: phone and terminal switches leave exactly one holder
 ok - session-lock: startup and Stop serialize ownership, reject new turns, and roll back every interrupted takeover
-test_disabled_capability_with_live_lock_defers_without_discovery (__main__.Backstop.test_disabled_capability_with_live_lock_defers_without_discovery) ... ok
-test_foreground_holder_is_also_queued_once_after_fifteen_minutes (__main__.Backstop.test_foreground_holder_is_also_queued_once_after_fifteen_minutes) ... ok
-test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes (__main__.Backstop.test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes) ... ok
-Ran 74 tests in 160.205s
+ok - session-lock: rekey A to empty B retains A; startup and Stop accept A or B and reject unrelated, recent, missing, or changed histories
+ok - session-lock: a bounded sweep longer than five seconds preserves Stop and generation admission
+test_handover_before_report_uses_reported_pid_for_deduplication (__main__.Backstop.test_handover_before_report_uses_reported_pid_for_deduplication) ... ok
+test_reused_nonharness_pid_keeps_stale_lock_recovery (__main__.Backstop.test_reused_nonharness_pid_keeps_stale_lock_recovery) ... ok
+test_unknown_holder_report_preserves_deduplicated_episode (__main__.Backstop.test_unknown_holder_report_preserves_deduplicated_episode) ... ok
+Ran 77 tests in 154.303s
 OK
 ```
 
-The current class-inventory handoff also records passing focused session-start, Stop lifecycle and startup-network checks.
+The pane-only discovery guard also passed with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh`:
+
+```text
+# herdr 0.9.5
+ok - claude (2.1.316 (Claude Code)): exact-home discovery, wrong-home and stale-label shell refusal
+ok - codex (codex-cli 0.166.0): exact-home discovery, wrong-home and stale-label shell refusal
+```
+
+The previous-round class-inventory results retain passing focused session-start and startup-network checks; the current round refreshed Stop lifecycle above.
 The startup-network run passed its assertions and exited 0, then reported a nonfatal fixture directory-cleanup race; its remaining fixture worker was retired before removing the task-local evidence tree.
 That fixture warning is retained as a validation gap rather than hidden by the passing exit status.
