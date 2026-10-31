@@ -393,6 +393,43 @@ FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=43472
 ```
 
 No live unattended Claude background session ran on the verifying machine: that topology is documented by the real process listings in issues #3902, #2314, #3398, and #4066, and the coverage above is the structural predicate plus those executable fixtures, not a live pass.
+An idle fork-resume successor may take that lock.
+The holder transcript must be the one readable file for the recorded session, with no user or assistant turn after the successor forked from it and none in the last 30 minutes.
+The fork is this process's `--fork-session` plus `--resume` of the recorded session, or the holder's turn uuids as a prefix of the successor transcript.
+`bin/fm-lock.sh` records the handover after line 1 is verified; that script's header owns the JSON line.
+A holder with any turn in the last 30 minutes, or a holder whose transcript cannot be read, stays on the ordinary live-owner refusal.
+The Stop hook uses the same decision before it arms.
+When the watcher has been silent and a different live process holds the lock, `bin/fm-main-backstop.py` names that holder once after 15 minutes, with its pid, tty, and idle time, and does not send the silence nudge to the read-only session.
+A holder that is the session itself still gets the silence nudge.
+Other harnesses have no trusted Claude session id, so they keep the ordinary refusal.
+This proof uses Claude-shaped processes and fixture transcripts, not a live Claude prompt.
+A phone remote-continue is that fork-resume background copy of the idle terminal.
+A later fork-resume of the phone session takes the lock back when the phone transcript is quiet, and each switch leaves exactly one holder.
+A phone turn inside the last 30 minutes keeps the phone as that one holder.
+Idle fork-resume takeover and the one-time holder ask ran on 2026-10-31 on Linux with GNU bash 5.2.21 and Python 3.12.3:
+
+```sh
+bash tests/fm-session-lock-ancestry.test.sh
+bash tests/fm-main-backstop.test.sh
+```
+
+Observed output, bounded to the lines this coverage adds:
+
+```text
+ok - session-lock: a fork-resume successor of an idle holder takes the lock and records the handover
+ok - session-lock: Linux /proc argv proves an idle fork-resume when the successor transcript is absent
+ok - session-lock: a holder with a turn in the last 30 minutes is not taken over
+ok - session-lock: a missing or symlinked holder transcript is not taken over
+ok - session-lock: a shared transcript prefix takes an idle lock, and a diverged transcript does not
+ok - session-lock: a Stop hook of an idle fork-resume successor takes the lock
+ok - session-lock: phone and terminal switches leave exactly one holder
+test_foreign_holder_is_named_once_after_fifteen_minutes ... ok
+test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked ... ok
+test_primary_that_holds_the_lock_is_still_nudged ... ok
+Ran 73 tests in 134.721s
+OK
+```
+
 [`sessionstart-nudge.md`](../sessionstart-nudge.md#shared-wrapper-and-safety) owns the nudge wrapper's separate ancestry check and its redundant-nudge behavior after helper-chain recycling.
 `tests/fm-watch-arm.test.sh` runs real watcher and arm cycles against durable on-disk state to verify that a delivered reason survives until post-handling acknowledgement and stops replaying after acknowledgement, while an unrelated queue append cannot make a watcher cycle that delivered nothing look successful.
 The same suite ingests a keyed remote-secondmate parent reply through the real adapter, establishes the incremental OPEN DECISIONS cursor, interrupts supervision, and proves re-arm replays every unacknowledged queue row plus the still-open decision through the ordinary drain path.

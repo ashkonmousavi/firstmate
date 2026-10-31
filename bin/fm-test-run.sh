@@ -1535,8 +1535,12 @@ families_for_changed_path() {
       ;;
     bin/fm-session-start.sh|bin/fm-fleet-sync.sh|\
     bin/fm-sessionstart-nudge.sh|bin/fm-startup-network.sh|bin/fm-tangle*|bin/fm-update.sh|\
-    bin/fm-gate-refuse*|bin/fm-lock*)
+    bin/fm-gate-refuse*)
       printf '%s\n' session-bootstrap
+      ;;
+    bin/fm-lock*)
+      printf '%s\n' session-bootstrap
+      printf '%s\n' "__script__:fm-session-lock-ancestry.test.sh"
       ;;
     bin/fm-bootstrap.sh)
       printf '%s\n' session-bootstrap

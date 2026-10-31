@@ -1150,6 +1150,49 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertFalse(any(c[:2] == ['pane','send-text'] for c in self.commands()))
         self.assertIn('BACKSTOP FAILURE', self.notes())
 
+    def start_named_claude(self):
+        path = self.base / 'holder-bin' / 'claude'
+        path.parent.mkdir(exist_ok=True)
+        if not path.exists():
+            path.symlink_to('/bin/sleep')
+        proc = subprocess.Popen([str(path), '30'])
+        self.addCleanup(proc.wait)
+        self.addCleanup(proc.kill)
+        return proc.pid
+
+    def test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('Idle lock holder', self.notes())
+        self.assertNotIn('BACKSTOP FAILURE', self.notes())
+        self.assertIn('idle lock holder pid=%s' % pid, (self.state / '.main-backstop.log').read_text())
+
+    def test_foreign_holder_is_named_once_after_fifteen_minutes(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.run_guard()
+        notes = self.notes()
+        self.assertEqual(notes.count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % pid, notes)
+        self.assertIn('tty=', notes)
+        self.assertIn('idle=', notes)
+        self.assertNotIn('BACKSTOP FAILURE', notes)
+        self.assertEqual(self.sends(), [])
+        self.assertIn('holder-%s' % pid, self.memory()['episodes'])
+
+    def test_primary_that_holds_the_lock_is_still_nudged(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        self.config['process_pid'] = pid
+        self.config['process_cwd'] = str(self.home)
+        self.run_guard()
+        self.assertEqual(len(self.sends()), 1)
+        self.assertNotIn('Idle lock holder', self.notes())
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
