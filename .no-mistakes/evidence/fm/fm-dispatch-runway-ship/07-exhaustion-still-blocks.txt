@@ -1,0 +1,12 @@
+$ bin/fm-dispatch-resolve.sh <isolated-brief> --project disposable-runway-check
+exit: 0
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=0%  spendPriority=-  runway=exhausted_now  -> not eligible: runway exhausted_now at all_models
+  profile: --harness 'codex' --model 'gpt-5.6-sol'
+

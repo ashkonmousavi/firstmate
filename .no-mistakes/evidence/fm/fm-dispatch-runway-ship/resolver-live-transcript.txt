@@ -1,0 +1,350 @@
+=== 01-short-provider-refusal ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4757  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-11-02T20:08:02.029Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:02.029Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 02-rank-over-array-order ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 03-all-tight-selection ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4757  runway=projected_exhaustion  -> eligible
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> eligible
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+
+=== 04-uncertain-early ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  -> eligible
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+
+=== 04-uncertain-unknown ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 7   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  -> eligible
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+
+=== 04-uncertain-None ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  -> eligible
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+
+=== 04-unknown-alternate-no-refusal ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  -> eligible
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=projected_exhaustion  -> eligible
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> eligible
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+
+=== 04-unranked-through-no-refusal ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 7   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  note: 1 eligible candidate(s) unranked (grok)
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  -> eligible
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> eligible
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=-  runway=through_reset  -> eligible, unranked: spendPriority missing or non-numeric at all_products: not rankable: disclosed uncertainty
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+
+=== 08-unrelated-model-scope ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=70%  spendPriority=0.8  runway=through_reset  -> eligible
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+
+=== 05-mixed-model-early-False ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=all_models:40%/projected_exhaustion,model:sonnet:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at model:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-model-early-True ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=model:sonnet  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=model:sonnet:40%/projected_exhaustion,all_models:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at model:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-model-unknown-False ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=all_models:40%/projected_exhaustion,model:sonnet:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at model:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-model-unknown-True ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=model:sonnet  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=model:sonnet:40%/projected_exhaustion,all_models:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at model:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-model-None-False ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 11   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=all_models:40%/projected_exhaustion,model:sonnet:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at model:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-model-None-True ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 10   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=model:sonnet  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=model:sonnet:40%/projected_exhaustion,all_models:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at model:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-product-early-False ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_products  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=all_products:40%/projected_exhaustion,product:sonnet:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at product:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-product-early-True ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=product:sonnet  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=product:sonnet:40%/projected_exhaustion,all_products:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at product:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-product-unknown-False ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_products  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=all_products:40%/projected_exhaustion,product:sonnet:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at product:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-product-unknown-True ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=product:sonnet  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=product:sonnet:40%/projected_exhaustion,all_products:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at product:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-product-None-False ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_products  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=all_products:40%/projected_exhaustion,product:sonnet:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at product:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 05-mixed-product-None-True ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=product:sonnet  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  bounds=product:sonnet:40%/projected_exhaustion,all_products:40%/projected_exhaustion  -> not eligible: runway projected_exhaustion at product:sonnet ends 2030-01-01T02:00:00Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 06-default-routing ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 10   tokens: 0/0
+  rule: default (No listed rule applies to this task.)   confidence: 0.99
+  probabilities: rule_1=0.0 default=1.0
+  note: no rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4768  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-11-02T20:08:04.465Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:04.465Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 06-floor-default ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 10   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule rule_1 floor all_models below 90%: fall through to default
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4768  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-11-02T20:08:04.761Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:04.761Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'
+
+=== 06-ambiguous-evidence ===
+dispatch-resolve:
+  status: ambiguous
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.4
+  probabilities: rule_1=1.0 default=0.0
+  reason: confidence 0.4 below floor 0.6
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4766  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-11-02T20:08:05.026Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:05.026Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+
+=== 06-approval-evidence ===
+dispatch-resolve:
+  status: escalate
+  model: isolated-protocol-classifier   latency_ms: 7   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  reason: rule requires the captain's explicit approval before dispatch
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4763  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-11-02T20:08:05.260Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:05.260Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+
+=== 07-genuine-tie ===
+dispatch-resolve:
+  status: escalate
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  reason: genuine spendPriority tie
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+
+=== 07-exhaustion-still-blocks ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=0%  spendPriority=-  runway=exhausted_now  -> not eligible: runway exhausted_now at all_models
+  profile: --harness 'codex' --model 'gpt-5.6-sol'
+
+=== 08-schema6-account-isolation ===
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-11-02T20:08:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:01.812Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  profile: --harness 'grok' --model 'grok-test' --effort 'high'

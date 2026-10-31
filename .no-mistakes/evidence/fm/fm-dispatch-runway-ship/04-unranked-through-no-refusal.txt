@@ -1,0 +1,14 @@
+$ bin/fm-dispatch-resolve.sh <isolated-brief> --project disposable-runway-check
+exit: 0
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 7   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  note: 1 eligible candidate(s) unranked (grok)
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4737  runway=projected_exhaustion  -> eligible
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> eligible
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=-  runway=through_reset  -> eligible, unranked: spendPriority missing or non-numeric at all_products: not rankable: disclosed uncertainty
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+

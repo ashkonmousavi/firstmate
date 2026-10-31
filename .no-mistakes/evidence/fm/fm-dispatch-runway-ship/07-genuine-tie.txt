@@ -1,0 +1,12 @@
+$ bin/fm-dispatch-resolve.sh <isolated-brief> --project disposable-runway-check
+exit: 0
+dispatch-resolve:
+  status: escalate
+  model: isolated-protocol-classifier   latency_ms: 8   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  reason: genuine spendPriority tie
+  note: rule matched
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+

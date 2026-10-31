@@ -1,0 +1,170 @@
+[
+  {
+    "name": "01-short-provider-refusal",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "02-rank-over-array-order",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "03-all-tight-selection",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "04-uncertain-early",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "04-uncertain-unknown",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "04-uncertain-None",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "04-unknown-alternate-no-refusal",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "04-unranked-through-no-refusal",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "08-unrelated-model-scope",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "05-mixed-model-early-False",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-model-early-True",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-model-unknown-False",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-model-unknown-True",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-model-None-False",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-model-None-True",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-product-early-False",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-product-early-True",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-product-unknown-False",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-product-unknown-True",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-product-None-False",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "05-mixed-product-None-True",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  },
+  {
+    "name": "06-default-routing",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "06-floor-default",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "06-ambiguous-evidence",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "06-approval-evidence",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "07-genuine-tie",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "07-exhaustion-still-blocks",
+    "result": "pass",
+    "exit": 0,
+    "input": "real quota-axi snapshot mode"
+  },
+  {
+    "name": "08-schema6-account-isolation",
+    "result": "pass",
+    "exit": 0,
+    "input": "controlled external quota JSON protocol"
+  }
+]

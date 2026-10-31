@@ -1,0 +1,13 @@
+exit: 0
+dispatch-resolve:
+  status: clear
+  model: isolated-protocol-classifier   latency_ms: 9   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  note: rule matched
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4789  runway=projected_exhaustion  -> eligible
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.3999  runway=projected_exhaustion  -> eligible
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4001  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  profile: --harness 'claude' --model 'sonnet' --effort 'high'
+

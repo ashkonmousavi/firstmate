@@ -1,0 +1,1 @@
+{"result": "pass", "cases": 28, "baseline": "short Claude selected before fix; through-reset Grok selected after fix", "children": "TLS server stopped in finally"}

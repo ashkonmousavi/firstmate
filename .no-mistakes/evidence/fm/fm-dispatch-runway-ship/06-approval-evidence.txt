@@ -1,0 +1,13 @@
+$ bin/fm-dispatch-resolve.sh <isolated-brief> --project disposable-runway-check
+exit: 0
+dispatch-resolve:
+  status: escalate
+  model: isolated-protocol-classifier   latency_ms: 7   tokens: 0/0
+  rule: rule_1 (A routine implementation task with a known solution.)   confidence: 0.99
+  probabilities: rule_1=1.0 default=0.0
+  reason: rule requires the captain's explicit approval before dispatch
+  candidate: grok:grok-test  provider=grok  scope=all_products  remaining=60%  spendPriority=0.4  runway=through_reset  -> eligible
+  candidate: pi:zai/glm-test  provider=zai  scope=all_models  remaining=55%  spendPriority=0.2  runway=through_reset  -> eligible
+  candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=2.4763  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-11-02T20:08:05.260Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+  candidate: codex:gpt-5.6-sol  provider=codex  scope=all_models  remaining=40%  spendPriority=-0.4  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2026-10-31T13:48:05.260Z before its reset while grok:grok-test (spendPriority 0.4), pi:zai/glm-test (spendPriority 0.2) runs through its reset
+
