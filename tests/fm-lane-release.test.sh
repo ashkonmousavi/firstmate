@@ -698,6 +698,19 @@ extra_ship_question_before_merge_keeps_the_worker() {
   pass "a ship's chat question at 2050 after done at 2000 keeps its seat despite merge at 2100"
 }
 
+extra_ship_working_status_preserves_done_anchor() {
+  local dir
+  dir=$(new_case ship-working-after-done)
+  finished_ship "$dir" s1
+  status_lines "$dir" s1 'done [at=2000]: checks green' 'working [at=2020]: continuing the task'
+  printf 'v1 gen=gfixture seq=8 state=idle source=claude-hook event=stop ts=2050\n' > "$dir/home/state/s1.busy-state"
+  cycle "$dir"
+  [ "$(control_calls "$dir")" = 0 ] || fail "a later working status hid completion before the continuation question"
+  [ ! -e "$dir/home/state/s1.released" ] || fail "the continuation awaiting an answer received a release marker"
+  assert_kept "$dir" s1 status-since
+  pass "working at 2020 preserves done at 2000, so a 2050 question keeps its seat after merge at 2100"
+}
+
 extra_closed_unmerged_is_not_released() {
   local dir
   dir=$(new_case extra-closed)
@@ -855,6 +868,21 @@ extra_invalid_setting_reports_once() {
   [ -z "$out" ] || fail "an invalid setting was reported twice"
   [ "$(control_calls "$dir")" = 0 ] || fail "an invalid setting released a worker"
   pass "extra invalid setting: reported once, nothing released"
+}
+
+extra_setting_whitespace_never_enables_release() {
+  local dir value out
+  for value in 'o n' $'o\nn'; do
+    dir=$(new_case "setting-whitespace-${value//$'\n'/-}")
+    finished_ship "$dir" s1
+    printf '%s\n' "$value" > "$dir/home/config/lane-release"
+    out=$(run_lr "$dir" 2500 sweep)
+    assert_contains "$out" 'expected off, audit, or on' "whitespace aliases must print the invalid-setting report"
+    run_lr "$dir" 2900 sweep >/dev/null
+    [ "$(control_calls "$dir")" = 0 ] || fail "an invalid setting enabled worker exit"
+    [ ! -e "$dir/home/state/s1.released" ] || fail "an invalid setting created a release marker"
+  done
+  pass "embedded spaces and split lines are invalid settings and release nothing"
 }
 
 extra_debounce_needs_two_sweeps_a_grace_apart() {
@@ -1392,6 +1420,7 @@ stop_owner_typed_in_the_window_keeps
 stop_stuck_composer_is_reported_never_released
 extra_done_then_question_is_not_released
 extra_ship_question_before_merge_keeps_the_worker
+extra_ship_working_status_preserves_done_anchor
 extra_closed_unmerged_is_not_released
 extra_scout_awaiting_promotion_is_not_released
 extra_open_pr_ship_is_kept_and_measured
@@ -1402,6 +1431,7 @@ extra_unknown_seat_verification_becomes_incomplete
 extra_switched_off_does_nothing_and_prints_nothing
 extra_audit_setting_only_ledgers
 extra_invalid_setting_reports_once
+extra_setting_whitespace_never_enables_release
 extra_debounce_needs_two_sweeps_a_grace_apart
 extra_deferred_exit_retries_without_spinning
 extra_held_control_lock_skips

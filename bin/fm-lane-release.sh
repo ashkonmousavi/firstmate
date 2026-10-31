@@ -51,8 +51,8 @@
 # FINISHED (every predicate below is a function in this file):
 #   done line     the raw status log (never only its latest event, because a
 #                 later `done` hides an earlier open question from the status
-#                 fold): the last line is a `done` whose [at=] epoch is newer
-#                 than this incarnation's launch, and the log before it folds to
+#                 fold): the last valid `done` anywhere in the log has an [at=]
+#                 epoch newer than this incarnation's launch, and the log folds to
 #                 no open decision when read with no terminal rule
 #                 (status_open_decisions with a non-ship kind). The launch epoch
 #                 is the integer after the `s` of spawn_gen, which bin/fm-spawn.sh
@@ -248,13 +248,15 @@ file_mtime() {
 
 # The setting word, or `invalid:<word>`.
 setting() {
-  local file="$CONFIG/lane-release" word
+  local file="$CONFIG/lane-release"
   [ -f "$file" ] || { printf 'off\n'; return 0; }
-  word=$(tr -d '[:space:]' < "$file" 2>/dev/null)
-  case "$word" in
-    off|audit|on) printf '%s\n' "$word" ;;
-    *) printf 'invalid:%s\n' "$word" ;;
-  esac
+  LC_ALL=C awk '
+    { word = word (NR > 1 ? "\n" : "") $0 }
+    END {
+      if (NR == 1 && (word == "off" || word == "audit" || word == "on")) print word
+      else printf "invalid:%s\n", word
+    }
+  ' "$file" 2>/dev/null || printf 'invalid:\n'
 }
 
 counter_bump() {  # <reason>
@@ -399,39 +401,31 @@ pred_scout_complete() {
 
 # pred_done_line <status> <launch>: OUT is the done line's epoch.
 pred_done_line() {
-  local status=$1 launch=$2 last at
+  local status=$1 launch=$2 lines line verb at
   OUT=
   [ -e "$status" ] || [ -L "$status" ] || { KEEP='no-done'; return 1; }
   [ -f "$status" ] && [ ! -L "$status" ] || { KEEP='status-unreadable'; return 1; }
-  last=$(cat "$status" 2>/dev/null) || { KEEP='status-unreadable'; return 1; }
-  last=$(_fm_status_event_scan <<< "$last") || { KEEP='status-unreadable'; return 1; }
-  last=${last##*$'\n'}
-  [ "$(status_line_verb "$last")" = "done" ] || { KEEP='no-done'; return 1; }
-  at=$(status_line_at_epoch "$last") || { KEEP='done-unstamped'; return 1; }
-  [ "$at" -gt "$launch" ] || { KEEP='done-before-launch'; return 1; }
-  OUT=$at
+  lines=$(cat "$status" 2>/dev/null) || { KEEP='status-unreadable'; return 1; }
+  KEEP='no-done'
+  while IFS= read -r line; do
+    status_line_verb "$line" verb
+    [ "$verb" = done ] || continue
+    at=$(status_line_at_epoch "$line") || { KEEP='done-unstamped'; continue; }
+    [ "$at" -gt "$launch" ] || { [ "$KEEP" != no-done ] || KEEP='done-before-launch'; continue; }
+    OUT=$at
+  done <<< "$lines"
+  [ -n "$OUT" ]
 }
 
-# pred_no_open_decision <status> <drop-last-line:0|1>
+# pred_no_open_decision <status>
 pred_no_open_decision() {
-  local status=$1 drop=$2 tmp open
+  local status=$1 open
   [ -f "$status" ] || return 0
-  tmp=$(mktemp "${TMPDIR:-/tmp}/fm-lane-release-log.XXXXXX") || { KEEP='status-unreadable'; return 1; }
-  if [ "$drop" = 1 ]; then
-    sed '$d' "$status" > "$tmp"
-  else
-    cat "$status" > "$tmp"
-  fi
-  # A non-ship kind keeps the terminal rule from erasing questions a later
-  # `done` would otherwise hide.
-  open=$(status_open_decisions "$tmp" lane-release)
-  rm -f -- "$tmp"
+  open=$(status_open_decisions "$status" lane-release)
   [ -z "$open" ] || { KEEP='open-decision'; return 1; }
-  if [ "$drop" = 0 ]; then
-    case "$(status_line_verb "$(last_status_line "$status")")" in
-      paused|needs-decision|blocked|failed) KEEP='declared-stop'; return 1 ;;
-    esac
-  fi
+  case "$(status_line_verb "$(last_status_line "$status")")" in
+    paused|needs-decision|blocked|failed) KEEP='declared-stop'; return 1 ;;
+  esac
 }
 
 # pred_crew_state <id> <class>
@@ -457,7 +451,8 @@ pred_nothing_since() {
   status="$STATE/$id.status"
   if [ -f "$status" ]; then
     last=$(last_status_line "$status")
-    if at=$(status_line_at_epoch "$last") && [ "$at" -gt "$quiet_since" ]; then
+    at=$(status_line_at_epoch "$last") || { KEEP='status-unreadable'; return 1; }
+    if [ "$at" -gt "$quiet_since" ]; then
       KEEP='status-since'
       return 1
     fi
@@ -543,7 +538,7 @@ evaluate() {
     done_at=$OUT
     pred_scout_complete "$id" || return 1
     anchor=$done_at
-    pred_no_open_decision "$status" 1 || return 1
+    pred_no_open_decision "$status" || return 1
   else
     class='merged-ship'
     [ "$(meta_field "$meta" mode)" != local-only ] || { KEEP='local-only-unproven'; return 1; }
@@ -553,12 +548,12 @@ evaluate() {
       done_at=$OUT
       anchor=$done_at
       [ "$merge_at" -le "$anchor" ] || anchor=$merge_at
-      pred_no_open_decision "$status" 1 || return 1
+      pred_no_open_decision "$status" || return 1
     else
       case "$KEEP" in no-done|done-before-launch) ;; *) return 1 ;; esac
       [ "$merge_at" -gt "$launch" ] || { KEEP='merged-before-launch'; return 1; }
       anchor=$merge_at
-      pred_no_open_decision "$status" 0 || return 1
+      pred_no_open_decision "$status" || return 1
     fi
   fi
   pred_crew_state "$id" "$class" || return 1
