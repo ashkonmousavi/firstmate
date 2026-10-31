@@ -55,6 +55,17 @@ trap relaunch_cleanup EXIT
 make_tmux_stub() {  # <dir>
   local fb="$1/fakebin"
   mkdir -p "$fb"
+  # A relaunch of a Claude task exits it first, and fm-control then lists
+  # `claude agents --json`. This fake lists no background session, so the suite
+  # never reaches the developer's real Claude account.
+  cat > "$fb/claude" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  agents) echo '[]' ;;
+esac
+exit 0
+SH
+  chmod +x "$fb/claude"
   cat > "$fb/tmux" <<'SH'
 #!/usr/bin/env bash
 set -u
@@ -83,6 +94,7 @@ case "${1:-}" in
           ;;
         *'encode launch-brief'* | *'Firstmate operational input waiting: read'*)
           cat "$D/becomes" > "$D/command"
+          [ -z "${FM_FAKE_CAPACITY_AFTER_LAUNCH:-}" ] || printf '0 0\n' > "$FM_FAKE_CAPACITY_AFTER_LAUNCH"
           [ -z "${FM_FAKE_LAUNCH_TRANSPORT_FAIL_AFTER_START:-}" ] || exit 1
           ;;
       esac
@@ -105,7 +117,12 @@ case "${1:-}" in
     for a in "$@"; do
       case "$a" in
         *cursor_y*) printf '1\n'; exit 0 ;;
-        *pane_current_command*) cat "$D/command"; printf '\n'; exit 0 ;;
+        *pane_current_command*)
+          if [ -n "${FM_FAKE_RECOVERY_PROBE_READY:-}" ] && [ ! -e "$FM_FAKE_RECOVERY_PROBE_RELEASE" ]; then
+            : > "$FM_FAKE_RECOVERY_PROBE_READY"
+            while [ ! -e "$FM_FAKE_RECOVERY_PROBE_RELEASE" ]; do /bin/sleep 0.01; done
+          fi
+          cat "$D/command"; printf '\n'; exit 0 ;;
         *pane_current_path*)
           if [ -n "${FM_FAKE_CWD_RACE_READY:-}" ]; then
             : > "$FM_FAKE_CWD_RACE_READY"
@@ -140,6 +157,9 @@ case "${1:-}" in
       exit 1
     fi
     [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
+  has-session)
+    [ ! -f "$D/server-dead" ] && [ ! -f "$D/session-missing" ]
+    exit $? ;;
   new-session)
     # Nothing in the relaunch path may ever create a session; recording the
     # call is how a refusal test proves that.
@@ -152,6 +172,8 @@ case "${1:-}" in
       esac
     done
     printf '%s\n' "$ses" >> "$D/created-sessions"
+    rm -f "$D/server-dead" "$D/session-missing"
+    : > "$D/windows"
     exit 0 ;;
   new-window)
     # Model the one thing an endpoint re-creation depends on: the window now
@@ -188,6 +210,7 @@ new_case() {
   mkdir -p "$dir/home/state" "$dir/home/data" "$dir/fake"
   mkdir -p "$dir/home/config"
   printf '999999 0\n' > "$dir/home/config/lane-capacity"
+  fm_test_machine_policy "$dir/home/config"
   : > "$dir/fake/literal"
   : > "$dir/fake/keys"
   printf 'claude' > "$dir/fake/command"
@@ -233,6 +256,11 @@ EOF
 
 run_control() {  # <case-dir> <args...>
   local dir=$1; shift
+  run_lifecycle_fixture "$dir" "$CONTROL" "$@"
+}
+
+run_lifecycle_fixture() {
+  local dir=$1; shift
   # A claude spawn pre-registers workspace trust in the launching user's own
   # store (bin/fm-claude-trust.sh), and a relaunch reaches it through fm-control.sh, so this runs against a throwaway HOME;
   # without it this suite would write the developer's real ~/.claude.json.
@@ -254,7 +282,35 @@ run_control() {  # <case-dir> <args...>
     FM_FAKE_TRACE_RELEASE="${FM_FAKE_TRACE_RELEASE:-}" \
     FM_FAKE_META_WRITER_READY="${FM_FAKE_META_WRITER_READY:-}" \
     FM_FAKE_TRACE_EXPORTED="${FM_FAKE_TRACE_EXPORTED:-}" \
-    "$CONTROL" "$@" 2>&1
+    "$@" 2>&1
+}
+
+run_recovery() {
+  local dir=$1
+  # shellcheck disable=SC2016 # Expand $1 in the child shell.
+  FM_CREW_RECOVERY_CONTROL="$ROOT/bin/fm-control.sh" run_lifecycle_fixture "$dir" \
+    bash -c '. "$1"; fm_crew_recovery_sweep' _ "$ROOT/bin/fm-crew-recovery-lib.sh"
+}
+
+make_recovery_nm_stub() {
+  cat > "$1/fakebin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+set -u
+D=$FM_FAKE_DIR
+case "$*" in
+  'axi status'*)
+    if [ -f "$D/run-status" ]; then
+      [ "$*" != 'axi status --run 01RECOVERY' ] || [ ! -f "$D/run-unreadable" ] || exit 1
+      cat "$D/run-status"
+    else
+      printf 'current_branch: %s\nruns_on_current_branch: 0\n' "$(git branch --show-current)"
+    fi
+    ;;
+  axi) [ ! -f "$D/run-overview" ] || cat "$D/run-overview" ;;
+  'daemon status') printf 'daemon running\n' ;;
+esac
+SH
+  chmod +x "$1/fakebin/no-mistakes"
 }
 
 run_spawn() {  # <case-dir> <args...>
@@ -500,6 +556,54 @@ test_relaunch_preserves_durable_task_metadata() {
   pass "fm-control relaunch: durable task metadata survives replacement launch publication"
 }
 
+# shellcheck disable=SC2030 # This case intentionally isolates its exported fixture environment.
+test_relaunched_conflict_replacement_exit_wakes_once() (
+  local dir state id=rl-conflict url=https://github.com/example/repo/pull/7
+  local added_at=2026-01-01T00:00:00Z decision out
+  # R1's oracle: an unresolved replacement's exit must request one conflict
+  # wake. A successful launch that invalidates its registered poll fails this.
+  dir=$(new_case conflict-poll "$id")
+  add_ship_task "$dir" "$id" claude
+  state="$dir/home/state"
+  printf 'pr=%s\n' "$url" >> "$state/$id.meta"
+  mkdir -p "$dir/user-home"
+  export FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" PATH="$dir/fakebin:$PATH"
+  export HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' GROK_HOME="$dir/grokhome"
+  export FM_SPAWN_NO_GUARD=1 FM_CONTROL_POLL=0.01
+  export FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-pr-lib.sh"
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-backend.sh"
+  if ! fm_pr_poll_prepare "$state" "$id" github "$url" github.com example/repo 7 \
+    "$ROOT/bin/fm-pr-poll.sh" || ! fm_pr_poll_publish_prepared; then
+    fail "could not register the conflict poll before relaunch"
+  fi
+  fm_pr_poll_snapshot_capture "$state" "$id" "$ROOT/bin/fm-pr-poll.sh" \
+    || fail "the initial conflict poll did not authenticate"
+
+  out=$(run_control "$dir" "$id" exit) \
+    || fail "could not stop the original worker: $out"
+  decision=$(fm_pr_conflict_handle "$state" "$id" github github.com example/repo 7 \
+    "$url" "conflict:$added_at")
+  [ "$decision" = quiet ] || fail "the dead worker was not relaunched: $decision"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "relaunch did not start the replacement"
+  out=$(run_control "$dir" "$id" exit) \
+    || fail "could not stop the unresolved replacement: $out"
+  fm_pr_poll_snapshot_capture "$state" "$id" "$ROOT/bin/fm-pr-poll.sh" \
+    || fail "relaunch invalidated the conflict poll, suppressing replacement-exit recovery"
+  decision=$(fm_pr_conflict_handle "$state" "$id" github github.com example/repo 7 \
+    "$url" "conflict:$added_at")
+  [ "$decision" = wake ] || fail "an exited replacement must request a conflict wake: $decision"
+  fm_pr_conflict_episode_open "$state" "$id" github github.com example/repo 7 "$added_at" \
+    || fail "could not record the published conflict wake"
+  decision=$(fm_pr_conflict_handle "$state" "$id" github github.com example/repo 7 \
+    "$url" "conflict:$added_at")
+  [ "$decision" = quiet ] || fail "the published replacement-exit wake repeated: $decision"
+  pass "real relaunch preserves poll authentication and wakes once after unresolved replacement exit"
+)
+
+# shellcheck disable=SC2031 # PATH intentionally retains the parent environment between cases.
 test_relaunch_serializes_concurrent_durable_metadata_publication() {
   local dir control_pid link_pid rc i=0 traceparent prepare launch_release waiting ready release
   dir=$(new_case metadata-race rl28)
@@ -950,6 +1054,8 @@ test_worker_account_pin_follows_the_relaunch() {
   out=$(run_control "$dir" "$id" relaunch --note "pinned account"); rc=$?
   expect_code 0 "$rc" "a relaunch under a signed-in account pin should succeed"$'\n'"$out"
   [ "$(meta_field "$dir" "$id" account)" = "$dir/work" ] || fail "the relaunched record should carry the pinned account"
+  [ "$(meta_field "$dir" "$id" claude_config_dir)" = "$dir/work" ] \
+    || fail "the replacement must record the pinned Claude config root"
   assert_contains "$(cat "$dir/fake/literal")" "CLAUDE_CONFIG_DIR='$dir/work'" \
     "the replacement should launch under the pinned root"
   rm "$dir/home/config/claude-account"
@@ -957,6 +1063,9 @@ test_worker_account_pin_follows_the_relaunch() {
   out=$(run_control "$dir" "$id" relaunch --note "pin removed"); rc=$?
   expect_code 0 "$rc" "a relaunch after the pin is removed should succeed"$'\n'"$out"
   assert_no_grep "account=" "$dir/home/state/$id.meta" "a relaunch without a pin must drop the previous account from the record"
+  # shellcheck disable=SC2031 # The earlier subshell fixture leaves the ambient root unchanged.
+  [ "$(meta_field "$dir" "$id" claude_config_dir)" = "${CLAUDE_CONFIG_DIR:-}" ] \
+    || fail "an unpinned replacement must record its ambient Claude root for later cleanup"
   assert_not_contains "$(cat "$dir/fake/literal")" "CLAUDE_CONFIG_DIR=" \
     "an unpinned replacement must launch exactly as before"
   pass "fm-control relaunch: the replacement follows the home's current worker account pin"
@@ -1671,6 +1780,56 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
   pass "fm-promote/fm-spawn --relaunch: the current ship contract supersedes stale scout delivery text"
 }
 
+# A scout its lane release stopped (an active marker, bin/fm-lane-release-lib.sh)
+# can still be promoted: fm-promote never checks liveness, and the relaunch into
+# the kept copy carries the ship contract and mints a new spawn_gen, which makes
+# the marker inactive.
+test_released_scout_promotes_and_relaunches_into_its_kept_copy() {
+  local dir home id brief out launch
+  id=rl-released-scout
+  dir=$(new_case released-scout "$id")
+  home="$dir/home"
+  fm_git_worktree "$dir/proj" "$dir/wt" "task-$id"
+  printf 'kept scratch\n' > "$dir/wt/scratch.txt"
+  FM_HOME="$home" "$BRIEF" "$id" firstmate --scout >/dev/null || fail "could not scaffold the scout brief"
+  brief="$home/data/$id/brief.md"
+  sed 's/{TASK}/Investigate the thing./; s/{FIRSTMATE_SPEC}/Report findings./' "$brief" > "$brief.filled"
+  mv "$brief.filled" "$brief"
+  {
+    echo "window=fmses:fm-$id"
+    echo "endpoint_task_id=$id"
+    echo "worktree=$dir/wt"
+    echo "project=$dir/proj"
+    echo "harness=claude"
+    echo "kind=scout"
+    echo "tasktmp=/tmp/fm-$id"
+    echo "model=default"
+    echo "effort=default"
+    echo "spawn_gen=s1000.1.1"
+  } > "$home/state/$id.meta"
+  printf 'fm-lane-release-v1\ntask=%s\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=scout\nresult=released\n' \
+    "$id" > "$home/state/$id.released"
+  printf '%s\n' "fm-$id" > "$dir/fake/windows"
+  printf '%s' "$dir/wt" > "$dir/fake/cwd"
+  printf 'zsh' > "$dir/fake/command"
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+    "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1) \
+    || fail "a released scout should still promote: $out"
+  out=$(run_spawn "$dir" "$id" --relaunch) || fail "the promoted released scout should relaunch: $out"
+  launch="$home/data/$id/launch-brief.md"
+  assert_grep "This task is now kind=ship with mode=direct-PR" "$launch" \
+    "the relaunch did not carry the promoted ship contract"
+  [ -f "$dir/wt/scratch.txt" ] || fail "the kept copy lost its files"
+  ! grep -qx 'spawn_gen=s1000.1.1' "$home/state/$id.meta" \
+    || fail "the relaunch did not mint a new spawn_gen"
+  (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-lane-release-lib.sh"
+    ! fm_lane_release_marker_active "$home/state" "$id"
+  ) || fail "the release marker is still active after the relaunch"
+  pass "fm-promote/fm-spawn --relaunch: a released scout promotes and relaunches into its kept copy, clearing the marker"
+}
+
 # fm-spawn arms per-task wiring on harness PREFIXES, because a task launched
 # from a raw command records that command's basename rather than the exact
 # adapter name. Retirement must resolve the same way, or a task recorded as
@@ -1817,6 +1976,7 @@ test_launch_failure_keeps_the_prior_record_and_reports_it() {
   pass "fm-control relaunch: a launch failure after the stop keeps the prior record and reports the real state"
 }
 
+# shellcheck disable=SC2031 # PATH intentionally retains the parent environment between cases.
 test_prepublication_failure_keeps_concurrent_durable_metadata() {
   local dir control_pid link_out rc i=0
   dir=$(new_case rollback-race rl30)
@@ -2809,6 +2969,8 @@ test_herdr_reclaim_keeps_the_task_whole() {
     "the replacement must inherit the progress note"
   [ "$(journal_field "$dir" rl75 exit_result)" = endpoint-gone ] \
     || fail "the transaction should record that the endpoint was already gone"
+  [ "$(journal_field "$dir" rl75 exit_background)" = background-sessions=none ] \
+    || fail "the transaction should record the Claude background-session check beside the exit result"
   pass "reclaim: a herdr reclaim rebinds the endpoint and leaves the whole rest of the task alone"
 }
 
@@ -2976,14 +3138,236 @@ SH
   pass "fm-control exit removes the dialog file before it releases the control lock"
 }
 
+test_recovery_rechecks_eligibility_after_manual_relaunch() {
+  local dir out rc before
+  dir=$(new_case recovery-recheck)
+  add_ship_task "$dir" t1
+  printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+  printf zsh > "$dir/fake/command"
+  # shellcheck disable=SC2016 # Expand positional parameters in the child shell.
+  out=$(run_lifecycle_fixture "$dir" \
+    bash -c '. "$1"; fm_crew_recovery_agent_state "$2" t1' _ \
+    "$ROOT/bin/fm-crew-recovery-lib.sh" "$dir/home/state")
+  [ "$out" = dead ] || fail "startup did not discover the dead task: $out"
+  out=$(run_control "$dir" t1 relaunch --note manual)
+  expect_code 0 "$?" "manual relaunch failed: $out"
+  printf 'pending\n' > "$dir/home/state/t1.composer-dialog"
+  before=$(cat "$dir/home/state/t1.meta" "$dir/home/data/t1/brief.md" "$dir/fake/literal")
+  out=$(run_control "$dir" t1 relaunch --note recovery --if-recoverable); rc=$?
+  expect_code 3 "$rc" "recovery must skip the healthy replacement: $out"
+  [ "$before" = "$(cat "$dir/home/state/t1.meta" "$dir/home/data/t1/brief.md" "$dir/fake/literal")" ] \
+    || fail "recovery modified the healthy replacement"
+  [ "$(cat "$dir/home/state/t1.composer-dialog")" = pending ] || fail "skipped recovery removed the dialog record"
+  pass "recovery skips a task relaunched since startup discovery"
+}
+
+test_recovery_eligibility_holds_the_lifecycle_lock() {
+  local dir worker out rc i deferred deferred_rc
+  dir=$(new_case recovery-lock)
+  add_ship_task "$dir" t1
+  printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+  printf zsh > "$dir/fake/command"
+  FM_FAKE_RECOVERY_PROBE_READY="$dir/probe-ready" \
+    FM_FAKE_RECOVERY_PROBE_RELEASE="$dir/probe-release" \
+    run_control "$dir" t1 relaunch --note recovery --if-recoverable > "$dir/recovery.out" &
+  # shellcheck disable=SC2031 # $! is set by the background launch in this shell.
+  worker=$!
+  i=0
+  while [ ! -e "$dir/probe-ready" ] && [ "$i" -lt 300 ]; do
+    /bin/sleep 0.01
+    i=$((i + 1))
+  done
+  if [ ! -e "$dir/probe-ready" ]; then
+    : > "$dir/probe-release"
+    wait "$worker" || true
+    fail "recovery did not reach the eligibility probe: $(cat "$dir/recovery.out")"
+  fi
+  out=$(run_control "$dir" t1 relaunch --note manual); rc=$?
+  deferred=$(run_control "$dir" t1 relaunch --note recovery --if-recoverable); deferred_rc=$?
+  : > "$dir/probe-release"
+  wait "$worker"; i=$?
+  expect_code 1 "$rc" "manual relaunch must not interrupt recovery eligibility: $out"
+  assert_contains "$out" 'another lifecycle action' 'manual relaunch bypassed the recovery lock'
+  expect_code 75 "$deferred_rc" "overlapping recovery must defer to the lifecycle owner: $deferred"
+  expect_code 0 "$i" "recovery failed after releasing the probe: $(cat "$dir/recovery.out")"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "recovery did not start the replacement"
+  out=$(run_control "$dir" t1 relaunch --note manual)
+  expect_code 0 "$?" "manual relaunch failed after recovery released its lock: $out"
+  pass "recovery locks eligibility through replacement and releases the lifecycle lock"
+}
+
+test_recovery_rechecks_task_records_and_work() {
+  local dir out rc mutation
+  for mutation in held clean secondmate; do
+    dir=$(new_case "recovery-$mutation")
+    add_ship_task "$dir" t1
+    printf zsh > "$dir/fake/command"
+    printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+    case "$mutation" in
+      held) printf 'captain-held [at=1]: waiting\n' > "$dir/home/state/t1.status" ;;
+      clean)
+        git -C "$dir/wt" add unlanded.txt
+        git -C "$dir/wt" -c user.name=fmtest -c user.email=fmtest@example.invalid commit -qm landed
+        git -C "$dir/proj" merge -q --ff-only task-t1
+        ;;
+      secondmate) printf 'kind=secondmate\n' >> "$dir/home/state/t1.meta" ;;
+    esac
+    out=$(run_control "$dir" t1 relaunch --note recovery --if-recoverable); rc=$?
+    expect_code 3 "$rc" "recovery must recheck $mutation eligibility: $out"
+    [ ! -s "$dir/fake/literal" ] || fail "recovery sent input to an ineligible $mutation task"
+  done
+  pass "conditional recovery rechecks the task kind, record, and unlanded work"
+}
+
+test_reboot_recovery_uses_the_real_control_and_spawn_paths() {
+  local dir route kind out rc
+  for route in sweep control spawn; do
+    for kind in ship scout; do
+      dir=$(new_case "reboot-$route-$kind")
+      add_ship_task "$dir" t1
+      make_recovery_nm_stub "$dir"
+      printf 'kind=%s\nspawn_gen=s1.1.1\n' "$kind" >> "$dir/home/state/t1.meta"
+      printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+      : > "$dir/fake/server-dead"
+      case "$route" in
+        sweep) out=$(run_recovery "$dir"); rc=$? ;;
+        control) out=$(run_control "$dir" t1 relaunch --note reboot --if-recoverable); rc=$? ;;
+        spawn) out=$(run_spawn "$dir" t1 --relaunch); rc=$? ;;
+      esac
+      expect_code 0 "$rc" "reboot $route recovery failed for $kind: $out"
+      [ "$(cat "$dir/fake/command")" = claude ] || fail "reboot recovery did not launch the agent: $out"
+      [ "$(meta_field "$dir" t1 window)" = fmses:fm-t1 ] || fail "reboot recovery changed the recorded session"
+      [ "$(cat "$dir/fake/created-sessions")" = fmses ] || fail "reboot recovery created the wrong session"
+      [ "$(cat "$dir/fake/created-windows")" = fm-t1 ] || fail "reboot recovery created duplicate windows"
+      [ "$(cat "$dir/wt/unlanded.txt")" = unlanded ] || fail "reboot recovery discarded work"
+      out=$(run_recovery "$dir")
+      assert_not_contains "$out" 'CREW_RECOVERY: relaunched' 'a second pass replaced the healthy worker'
+      [ "$(cat "$dir/fake/created-windows")" = fm-t1 ] || fail "a second pass created another window"
+    done
+  done
+  pass "rebooted tmux ship and scout recovery preserves work through control and spawn"
+}
+
+test_tmux_absence_needs_prior_boot_evidence() {
+  local dir generation out rc
+  for generation in '' broken s999999999999.1.1 "s$(date +%s).1.1"; do
+    dir=$(new_case reboot-unproven)
+    add_ship_task "$dir" t1
+    printf 'spawn_gen=%s\n' "$generation" >> "$dir/home/state/t1.meta"
+    : > "$dir/fake/server-dead"
+    out=$(run_control "$dir" t1 relaunch --note reboot); rc=$?
+    expect_code 1 "$rc" "unproven tmux absence must refuse: $out"
+    [ ! -e "$dir/fake/created-windows" ] || fail "unproven absence created a replacement"
+    [ ! -s "$dir/fake/literal" ] || fail "unproven absence sent lifecycle input"
+  done
+  pass "missing malformed future and current-boot generations never prove tmux absence"
+}
+
+test_recovery_respects_reconciled_run_ownership() {
+  local dir status out rc head
+  for status in running fix_review completed failed unreadable; do
+    dir=$(new_case "recovery-run-$status")
+    add_ship_task "$dir" t1
+    make_recovery_nm_stub "$dir"
+    printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+    printf zsh > "$dir/fake/command"
+    printf 'paused: waiting for validation\n' > "$dir/home/state/t1.status"
+    head=$(git -C "$dir/wt" rev-parse HEAD)
+    [ "$status" != unreadable ] || { : > "$dir/fake/run-unreadable"; status=running; }
+    cat > "$dir/fake/run-status" <<EOF
+run:
+  id: "01RECOVERY"
+  branch: task-t1
+  status: $status
+  head: "$head"
+  pr: ""
+  findings: none
+branch_sync:
+  state: pipeline_owned
+EOF
+    case "$status" in
+      completed) printf 'outcome: passed\n' >> "$dir/fake/run-status" ;;
+      failed) printf 'outcome: failed\n' >> "$dir/fake/run-status" ;;
+    esac
+    printf 'count: 1 of 1 total\nruns[1]{id,branch,status,head,pr}:\n  01RECOVERY,task-t1,%s,%s,""\n' "$status" "$head" > "$dir/fake/run-overview"
+    if [ "$status" = running ] && [ ! -f "$dir/fake/run-unreadable" ]; then
+      out=$(run_lifecycle_fixture "$dir" "$ROOT/bin/fm-crew-state.sh" t1)
+      assert_contains "$out" 'source: none' 'the fixture did not reach the ordinary dead-endpoint override'
+      assert_contains "$out" 'agent gone' 'the fixture did not classify the dead agent'
+    fi
+    out=$(run_control "$dir" t1 relaunch --note recovery --if-recoverable); rc=$?
+    expect_code 3 "$rc" "recovery must leave an attributed $status run alone: $out"
+    out=$(run_recovery "$dir")
+    assert_not_contains "$out" 'CREW_RECOVERY: relaunched' 'the sweep relaunched a run-owned worker'
+    [ ! -s "$dir/fake/literal" ] || fail "recovery sent input to a run-owned worker"
+  done
+  pass "recovery respects active parked terminal and unreadable attributed runs"
+}
+
+test_recovery_relaunches_the_prevalidation_done_handoff() {
+  local dir out
+  dir=$(new_case recovery-handoff)
+  add_ship_task "$dir" t1
+  make_recovery_nm_stub "$dir"
+  printf 'unpublished\n' > "$dir/wt/unpublished.txt"
+  git -C "$dir/wt" add unpublished.txt
+  git -C "$dir/wt" -c user.name=fmtest -c user.email=fmtest@example.invalid commit -qm 'implementation complete'
+  printf 'done: implementation complete\n' > "$dir/home/state/t1.status"
+  printf 'spawn_gen=s1.1.1\n' >> "$dir/home/state/t1.meta"
+  : > "$dir/fake/server-dead"
+  out=$(run_recovery "$dir")
+  assert_contains "$out" 'CREW_RECOVERY: relaunched t1 after missing' 'the prevalidation done handoff was skipped'
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "the handoff did not resume"
+  [ "$(cat "$dir/wt/unpublished.txt")" = unpublished ] || fail "the handoff lost its implementation"
+  pass "a done-before-validation worker resumes its unpublished commits after reboot"
+}
+
+test_serial_recovery_rereads_capacity_before_each_launch() {
+  local dir id out
+  dir=$(new_case recovery-capacity a-first)
+  add_ship_task "$dir" a-first
+  make_recovery_nm_stub "$dir"
+  printf 'unlanded\n' > "$dir/wt/unlanded.txt"
+  printf 'spawn_gen=s1.1.1\n' >> "$dir/home/state/a-first.meta"
+  for id in b-next c-last; do
+    sed "s/a-first/$id/g" "$dir/home/state/a-first.meta" > "$dir/home/state/$id.meta"
+    mkdir -p "$dir/home/data/$id"
+    cp "$dir/home/data/a-first/brief.md" "$dir/home/data/$id/brief.md"
+  done
+  printf '1 0\n' > "$dir/home/config/lane-capacity"
+  : > "$dir/fake/server-dead"
+  out=$(FM_FAKE_CAPACITY_AFTER_LAUNCH="$dir/home/config/lane-capacity" run_recovery "$dir")
+  assert_contains "$out" 'CREW_RECOVERY: relaunched a-first after missing' 'the available lane was not used'
+  assert_contains "$out" 'CREW_RECOVERY: b-next: relaunch deferred' 'capacity was not reread after the first launch'
+  assert_not_contains "$out" 'c-last' 'the sweep continued after the capacity deferral'
+  [ "$(cat "$dir/fake/created-windows")" = fm-a-first ] || fail "serial recovery over-admitted workers"
+  [ ! -e "$dir/home/state/c-last.control-relaunch" ] || fail "a later task was touched after deferral"
+  pass "serial recovery rereads capacity and stops at the first deferred launch"
+}
+
+# Reuse these hermetic fixtures in the pending-proof lifecycle regression.
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
+
+test_reboot_recovery_uses_the_real_control_and_spawn_paths
+test_tmux_absence_needs_prior_boot_evidence
+test_recovery_respects_reconciled_run_ownership
+test_recovery_relaunches_the_prevalidation_done_handoff
+test_serial_recovery_rereads_capacity_before_each_launch
+
+test_recovery_rechecks_eligibility_after_manual_relaunch
+test_recovery_eligibility_holds_the_lifecycle_lock
+test_recovery_rechecks_task_records_and_work
+
 test_relaunch_off_opencode_removes_tracked_wiring
 test_exit_and_relaunch_remove_the_dialog_file
 test_exit_removes_the_dialog_file_before_releasing_the_lock
+
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
 test_relaunch_refuses_before_exit_when_the_composer_holds_pending_text
 test_relaunch_refuses_before_exit_when_the_composer_state_is_unproven
 test_relaunch_from_linked_home_preserves_recorded_worktree
 test_relaunch_preserves_durable_task_metadata
+test_relaunched_conflict_replacement_exit_wakes_once
 test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_the_progress_note_to_the_instructions
@@ -3021,6 +3405,7 @@ test_ship_relaunch_ignores_the_crew_harness_config
 test_spawn_relaunch_without_a_harness_reuses_the_recorded_one
 test_spawn_relaunch_of_promoted_scout_uses_the_recorded_branch
 test_promoted_scout_relaunch_receives_the_current_delivery_contract
+test_released_scout_promotes_and_relaunches_into_its_kept_copy
 test_prefixed_prior_harness_wiring_is_still_retired
 test_muse_session_binding_is_retired_on_a_harness_switch
 test_cursor_session_binding_is_retired_on_a_harness_switch

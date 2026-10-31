@@ -795,6 +795,7 @@ EOF
       and (.gates | any(.id == "sample-route-call") | not)
   ' >/dev/null || fail "Bearings did not surface the captain-held task: $json"
 
+  tasks_in "$home" 'done' "$id" --report "data/$id/report.md" >/dev/null
   run_teardown "$home" "$id" >/dev/null 2> "$home/teardown.err" \
     || fail "reviewed investigation teardown failed: $(cat "$home/teardown.err")"
   tasks_in "$home" "done" "$id" --report "data/$id/report.md" --keep 0 >/dev/null \
@@ -970,6 +971,64 @@ EOF
   pass "release frees held work with the captain's words recorded and the body preserved"
 }
 
+# A hold names who the call is attributed to. --origin-kind records one of the
+# three attribution classes on the held task itself, replaces it when a later
+# hold names a new class, keeps it when a re-hold omits the flag, never clears
+# a recorded origin association, and refuses a class outside the three before
+# anything is mutated.
+test_hold_records_and_preserves_its_origin_kind() {
+  local home show
+  home=$(make_home origin-kind)
+  if run_captain "$home" hold sample-kind-call --title "Sample attribution call" \
+    --reason "captain choice pending" --origin-kind owner_request \
+    > "$home/bad-kind.out" 2> "$home/bad-kind.err"; then
+    fail "hold accepted an origin kind outside the three classes"
+  fi
+  assert_grep "origin-kind must be owner-request, finding, or pipeline-outcome" \
+    "$home/bad-kind.err" "the refused origin kind did not name the three classes"
+  run_captain "$home" hold sample-kind-call --title "Sample attribution call" \
+    --reason "captain choice pending" --origin-kind owner-request >/dev/null \
+    || fail "could not hold a call attributed to an owner request"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin-kind: owner-request" \
+    "the hold did not record its attribution on the task"
+  FM_CAPTAIN_HOLD_NOW=2026-07-15T09:00:00Z run_captain "$home" hold sample-kind-call \
+    --reason "captain choice still pending" >/dev/null \
+    || fail "could not re-hold without naming an origin kind"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin-kind: owner-request" \
+    "a re-hold without --origin-kind dropped the recorded attribution"
+  run_captain "$home" hold sample-kind-call --reason "re-scoped to the pipeline" \
+    --origin-kind pipeline-outcome >/dev/null \
+    || fail "could not re-hold with a new origin kind"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin-kind: pipeline-outcome" \
+    "a new origin kind did not replace the recorded attribution"
+  assert_not_contains "$show" "Captain hold origin-kind: owner-request" \
+    "the replaced attribution survived on the task"
+
+  tasks_in "$home" add sample-kind-origin "Review the sample" --kind scout --repo sample >/dev/null \
+    || fail "could not create the origin task"
+  write_origin_meta "$home" sample-kind-origin
+  run_captain "$home" hold sample-kind-call --reason "association needed" \
+    --origin sample-kind-origin >/dev/null \
+    || fail "could not hold with an origin"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin: sample-kind-origin" \
+    "the origin association was not recorded"
+  assert_contains "$show" "Captain hold origin-kind: pipeline-outcome" \
+    "recording an origin dropped the origin kind"
+  run_captain "$home" hold sample-kind-call --reason "re-attributed" \
+    --origin-kind finding >/dev/null \
+    || fail "could not re-hold with only an origin kind"
+  show=$(tasks_in "$home" show sample-kind-call --full)
+  assert_contains "$show" "Captain hold origin: sample-kind-origin" \
+    "an origin-kind re-hold cleared the origin association"
+  assert_contains "$show" "Captain hold origin-kind: finding" \
+    "an origin-kind re-hold did not replace the attribution"
+  pass "hold records and preserves its origin kind beside its origin"
+}
+
 # The hold-set stamp must be durable before the captain hold becomes visible.
 # A wrapper observes the real tasks-axi hold boundary, and a forced stamp-write
 # failure proves the command never publishes the hold without its timestamp.
@@ -1037,7 +1096,7 @@ EOF
   mkdir -p "$home/at-close"
   cat > "$home/fakebin/tasks-axi" <<'EOF'
 #!/usr/bin/env bash
-if [ "${1:-}" = done ] && [ "${2:-}" = sample-interrupted-call ] \
+if [ "${1:-}" = 'done' ] && [ "${2:-}" = sample-interrupted-call ] \
   && [ ! -e "$FM_HOME/close-failed-once" ]; then
   cp "$FM_HOME/data/backlog.md" "$FM_HOME/at-close/backlog.md" || exit 93
   : > "$FM_HOME/close-failed-once"
@@ -1046,7 +1105,7 @@ fi
 if [ "${1:-}" = update ] && [ "${2:-}" = sample-interrupted-call ] \
   && [ ! -e "$FM_HOME/normalize-failed-once" ]; then
   state=$("$REAL_TASKS_AXI" show "$2" --full | sed -n 's/^  state: //p' | head -1)
-  if [ "$state" = done ]; then
+  if [ "$state" = 'done' ]; then
     : > "$FM_HOME/normalize-failed-once"
     exit 94
   fi
@@ -1213,6 +1272,7 @@ test_out_of_band_close_is_recordable() {
     > "$home/drifted.out" 2> "$home/drifted.err"; then
     fail "a drifted retry overwrote the recorded captain decision"
   fi
+  tasks_in "$home" 'done' "$id" --report "data/$id/report.md" >/dev/null
   run_teardown "$home" "$id" >/dev/null 2> "$home/teardown.err" \
     || fail "teardown still refused after the answer was recorded: $(cat "$home/teardown.err")"
 
@@ -1243,6 +1303,7 @@ test_visual_review_uses_shared_completion_owner() {
   printf '# Sample board investigation\n\nThe initial findings need no captain choice.\n' > "$home/data/$id/report.md"
   run_captain "$home" complete "$id" --none >/dev/null \
     || fail "initial investigation could not pass the shared completion owner"
+  tasks_in "$home" 'done' "$id" --report "data/$id/report.md" >/dev/null
   run_teardown "$home" "$id" >/dev/null 2> "$home/visual-teardown.err" \
     || fail "completed investigation teardown failed: $(cat "$home/visual-teardown.err")"
   tasks_in "$home" "done" "$id" --report "data/$id/report.md" --keep 0 >/dev/null
@@ -1314,6 +1375,7 @@ test_terminal_single_owner_status_decision_does_not_block_empty_inventory() {
   printf 'resolved [key=access]: answered\nfailed: investigation ended\nnote: final cleanup\n' >> "$home/state/$id.status"
   run_captain "$home" complete "$id" --none >/dev/null || fail "resolved reopening blocked completion"
   run_captain "$home" verify "$id" >/dev/null || fail "resolved reopening blocked verification"
+  tasks_in "$home" 'done' "$id" --report "data/$id/report.md" >/dev/null
   run_teardown "$home" "$id" >/dev/null 2> "$home/terminal-teardown.err" \
     || fail "terminal single-owner stale status decision blocked teardown: $(cat "$home/terminal-teardown.err")"
 
@@ -1366,6 +1428,7 @@ EOF
     "$mate" > "$parent/data/secondmates.md"
   fm_write_secondmate_meta "$parent/state/sample-mate.meta" "$mate" \
     "firstmate:fm-sample-mate" sample
+  tasks_in "$mate" 'done' "$origin" --report "data/$origin/report.md" >/dev/null
   run_teardown "$mate" "$origin" >/dev/null 2> "$mate/teardown.err" \
     || fail "secondmate investigation teardown failed: $(cat "$mate/teardown.err")"
   tasks_in "$mate" "done" "$origin" --report "data/$origin/report.md" --keep 0 >/dev/null
@@ -1973,7 +2036,7 @@ test_reconcile_outcomes_retry_partial_failures_once() {
   printf 'Captain answered despite retirement failure.\n' > "$home/answer-retire.txt"
   cat > "$home/fakebin/tasks-axi" <<'SH'
 #!/usr/bin/env bash
-if [ "${1:-}" = done ] && [ "${2:-}" = sample-reconcile-close-retry ] \
+if [ "${1:-}" = 'done' ] && [ "${2:-}" = sample-reconcile-close-retry ] \
   && [ ! -e "$FM_HOME/reconcile-close-failed" ]; then
   : > "$FM_HOME/reconcile-close-failed"
   exit 92
@@ -2617,6 +2680,7 @@ test_teardown_never_closes_a_captain_held_task() {
   printf '# Sample cache\n\nNothing waits on the captain.\n' > "$home/data/$plain/report.md"
   run_captain "$home" complete "$plain" --none >/dev/null \
     || fail "completion gate failed for the ordinary investigation"
+  tasks_in "$home" 'done' "$plain" --report "data/$plain/report.md" >/dev/null
   run_teardown "$home" "$plain" > "$home/plain.out" 2> "$home/plain.err" \
     || fail "ordinary cleanup failed: $(cat "$home/plain.err")"
   show=$(tasks_in "$home" show "$plain" --full) || fail "the ordinary row vanished"
@@ -2783,6 +2847,7 @@ SH
     || fail "could not release the approved merge"
   show=$(tasks_in "$home" show "$approved_id" --full) || fail "the approved merge disappeared"
   assert_not_contains "$show" "hold_kind: captain" "merge approval retained its captain hold kind"
+  tasks_in "$home" 'done' "$approved_id" --pr "$approved_pr" >/dev/null
   run_teardown "$home" "$approved_id" > "$home/approved-teardown.out" \
     2> "$home/approved-teardown.err" \
     || fail "approved merge cleanup failed: $(cat "$home/approved-teardown.err")"
@@ -2815,6 +2880,7 @@ SH
     FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-merge-local.sh" "$local_id" \
     > "$home/local-merge.out" 2> "$home/local-merge.err" \
     || fail "approved local merge failed: $(cat "$home/local-merge.err")"
+  tasks_in "$home" 'done' "$local_id" >/dev/null
   run_teardown "$home" "$local_id" > "$home/local-teardown.out" \
     2> "$home/local-teardown.err" \
     || fail "released local cleanup failed: $(cat "$home/local-teardown.err")"
@@ -2836,6 +2902,7 @@ SH
   run_captain "$home" answer "$released_id" --release \
     --decision-file "$home/released-answer.txt" >/dev/null \
     || fail "could not release the completed report"
+  tasks_in "$home" 'done' "$released_id" --report "data/$released_id/report.md" >/dev/null
   run_teardown "$home" "$released_id" > "$home/released-teardown.out" \
     2> "$home/released-teardown.err" \
     || fail "released report cleanup failed: $(cat "$home/released-teardown.err")"
@@ -3369,6 +3436,7 @@ SH
     "merge approval completed the zero-retention row before landing"
   assert_contains "$show" "Resolution mode: released" \
     "merge approval did not record the existing release mode"
+  tasks_in "$home" 'done' "$id" --pr "$pr" >/dev/null
   run_teardown "$home" "$id" > "$home/teardown.out" 2> "$home/teardown.err" \
     || fail "zero-retention cleanup failed: $(cat "$home/teardown.err")"
   assert_no_grep "$id" "$home/data/backlog.md" \
@@ -3618,6 +3686,7 @@ test_merge_entrypoints_refuse_a_reused_task_incarnation() {
     "spawn_gen=original-$id"
   printf 'done: merge ready\n' > "$home/state/$id.status"
 
+  tasks_in "$home" 'done' "$id" >/dev/null
   teardown_ready="$home/reuse-teardown-ready"
   teardown_release="$home/reuse-teardown-release"
   merge_ready="$home/reuse-merge-ready"
@@ -3708,6 +3777,7 @@ test_merge_entrypoints_refuse_a_reused_task_incarnation() {
     "kind=ship" "mode=local-only" "spawn_gen=original-$local_id"
   printf 'done: local merge ready\n' > "$local_home/state/$local_id.status"
 
+  tasks_in "$local_home" 'done' "$local_id" >/dev/null
   local_teardown_ready="$local_home/reuse-teardown-ready"
   local_teardown_release="$local_home/reuse-teardown-release"
   local_merge_ready="$local_home/reuse-merge-ready"
@@ -3991,6 +4061,7 @@ test_released_merge_passes_the_entrypoint_and_lands() {
     "the approved merge remained captain-held after its release"
   run_pr_merge "$home" "$id" "$pr" > "$home/merge.out" 2> "$home/merge.err" \
     || fail "the released merge was refused: $(cat "$home/merge.err")"
+  tasks_in "$home" 'done' "$id" --pr "$pr" >/dev/null
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" "$TEARDOWN" "$id" --force \
@@ -4664,6 +4735,7 @@ test_completion_gate_attests_and_transfers
 test_answer_records_and_closes
 test_release_frees_held_work
 test_hold_stamp_precedes_hold_visibility
+test_hold_records_and_preserves_its_origin_kind
 test_interrupted_answer_preserves_hold_age
 test_deferral_leaves_captains_call_until_due
 test_out_of_band_close_is_recordable

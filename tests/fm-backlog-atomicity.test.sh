@@ -69,6 +69,7 @@ make_home() {  # <name> [task-id...]
   touch "$home/state/.last-watcher-beat"
   printf '%s\n' claude > "$home/config/crew-harness"
   printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' '' '## Done' \
     > "$home/data/backlog.md"
   # Pin the adapter per case: without it fm_tasks_axi_backend would fall through
@@ -908,7 +909,7 @@ case "\${1:-}" in
     esac
     printf '%s\n' 'task:'
     printf '  id: %s\n' "$id"
-    printf '%s\n' '  state: in_flight' '  held: no' '  blocked: no'
+    printf '%s\n' '  state: done' '  held: no' '  blocked: no'
     ;;
   list)
     case " \$* " in
@@ -1117,6 +1118,7 @@ test_recovery_uses_the_parent_of_a_trailing_slash_data_record() {
   printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' '' '## Done' > "$backlog"
   tasks-axi add "$id" "item for $id" --kind ship --file "$backlog" >/dev/null
   tasks-axi start "$id" --file "$backlog" >/dev/null
+  tasks-axi 'done' "$id" --file "$backlog" >/dev/null
   marker="$(home_of "$case_dir")/state/$id.backlog-close"
   printf 'id=%s\ndata=%s/\nspawn_gen=spawn-relocated-recovery\narg=--note\narg=local%%20main\n' "$id" "$relocated" > "$marker"
   require_show_cwd "$case_dir" "$(cd "$case_dir" && pwd -P)"
@@ -1141,6 +1143,7 @@ test_completion_targets_a_nested_relative_data_directory() {
   backlog="$data/backlog.md"
   tasks-axi add "$id" "item for $id" --kind ship --file "$backlog" >/dev/null
   tasks-axi start "$id" --file "$backlog" >/dev/null
+  tasks-axi 'done' "$id" --file "$backlog" >/dev/null
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-relative-data"
 
   out=$(cd "$case_dir" && \
@@ -1175,6 +1178,7 @@ test_immediate_child_absolute_data_dispatches_and_completes() {
   [ "$(tasks-axi show "$id" --file "$backlog" 2>/dev/null | sed -n 's/^  state: *//p' | head -1)" = in_flight ] \
     || fail "immediate-child absolute dispatch mutated a different backlog"
   rm -f "$(home_of "$case_dir")/state/$id.meta"
+  tasks-axi 'done' "$id" --file "$backlog" >/dev/null
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-immediate-child"
   out=$(FM_DATA_OVERRIDE="$data" run_teardown "$case_dir" "$id") \
     || fail "immediate-child-data teardown failed: $out"
@@ -1200,6 +1204,7 @@ test_bare_relative_data_dispatches_and_completes() {
   [ "$(tasks-axi show "$id" --file "$backlog" 2>/dev/null | sed -n 's/^  state: *//p' | head -1)" = in_flight ] \
     || fail "bare relative dispatch mutated a different backlog"
   rm -f "$(home_of "$case_dir")/state/$id.meta"
+  tasks-axi 'done' "$id" --file "$backlog" >/dev/null
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-bare-relative"
   out=$(cd "$case_dir" && FM_DATA_OVERRIDE=records run_teardown "$case_dir" "$id") \
     || fail "bare-relative-data teardown failed: $out"
@@ -1634,6 +1639,7 @@ test_completion_closes_a_local_only_ship_before_reporting_success() {
   case_dir=$(make_home close-local-only)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-close-local"
 
   out=$(run_teardown "$case_dir" "$id") || fail "teardown failed: $out"
@@ -1650,6 +1656,7 @@ test_completion_closes_a_scout_with_its_report() {
   case_dir=$(make_home close-scout)
   add_item "$case_dir" "$id" scout
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" scout '' "spawn_gen=spawn-close-scout"
   # A scout's deliverable is its report, and teardown also enforces the shared
   # captain-call completion gate; satisfy both the way a real scout does.
@@ -1722,6 +1729,7 @@ test_completion_records_a_relative_report_for_relocated_data() {
   backlog="$relocated/backlog.md"
   tasks-axi add "$id" "item for $id" --kind scout --file "$backlog" >/dev/null
   tasks-axi start "$id" --file "$backlog" >/dev/null
+  tasks-axi 'done' "$id" --file "$backlog" >/dev/null
   write_task_meta "$case_dir" "$id" scout '' "spawn_gen=spawn-relocated-scout"
   mkdir -p "$relocated/$id"
   printf 'findings\n' > "$relocated/$id/report.md"
@@ -1750,6 +1758,7 @@ test_space_containing_scout_report_marker_replays() {
   backlog="$data/backlog.md"
   tasks-axi add "$id" "item for $id" --kind scout --file "$backlog" >/dev/null
   tasks-axi start "$id" --file "$backlog" >/dev/null
+  tasks-axi 'done' "$id" --file "$backlog" >/dev/null
   write_task_meta "$case_dir" "$id" scout '' "spawn_gen=spawn-space-report"
   mkdir -p "$data/$id"
   printf 'findings\n' > "$data/$id/report.md"
@@ -1846,6 +1855,7 @@ test_completion_preserves_records_when_meta_removal_fails() {
   case_dir=$(make_home close-meta-remove-failure)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-one"
   meta="$(home_of "$case_dir")/state/$id.meta"
   marker="$(home_of "$case_dir")/state/$id.backlog-close"
@@ -1857,7 +1867,7 @@ test_completion_preserves_records_when_meta_removal_fails() {
     "teardown did not report task-record removal failure"
   assert_present "$meta" "teardown lost meta after its removal failed"
   assert_present "$marker" "teardown discarded recovery after meta removal failed"
-  [ "$(row_state "$case_dir" "$id")" = in_flight ] \
+  [ "$(row_state "$case_dir" "$id")" = 'done' ] \
     || fail "teardown closed the row before verifying meta removal"
   pass "completion preserves recovery state when task-record removal fails"
 }
@@ -1868,6 +1878,7 @@ test_completion_fails_loudly_and_records_the_close_it_still_owes() {
   case_dir=$(make_home close-fails)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-close-fails"
   break_verb "$case_dir" "done"
 
@@ -1890,13 +1901,14 @@ test_interrupted_destructive_cleanup_leaves_a_recoverable_close() {
   marker="$home/state/$id.backlog-close"
   interrupt_teardown_during_treehouse_return "$case_dir"
 
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   out=$(run_teardown "$case_dir" "$id") || rc=$?
   [ "$rc" -ne 0 ] || fail "interrupted destructive cleanup reported success"
   assert_present "$marker" \
     "destructive cleanup began before recording its authoritative close"
   assert_present "$home/state/$id.meta" \
     "interrupted destructive cleanup lost the task incarnation"
-  [ "$(row_state "$case_dir" "$id")" = in_flight ] \
+  [ "$(row_state "$case_dir" "$id")" = 'done' ] \
     || fail "interrupted cleanup changed the backlog before recovery"
 
   out=$(run_bootstrap "$case_dir")
@@ -1916,6 +1928,7 @@ test_completion_refuses_a_close_target_symlinked_to_a_directory() {
   home=$(home_of "$case_dir")
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-target-symlink"
   marker="$home/state/$id.backlog-close"
   external="$case_dir/external-directory"
@@ -1931,7 +1944,7 @@ test_completion_refuses_a_close_target_symlinked_to_a_directory() {
     || fail "teardown wrote a staged close outside the home"
   assert_present "$home/state/$id.meta" \
     "unsafe close publication removed the task record"
-  [ "$(row_state "$case_dir" "$id")" = in_flight ] \
+  [ "$(row_state "$case_dir" "$id")" = 'done' ] \
     || fail "unsafe close publication changed the backlog row"
   pass "completion refuses directory-symlink close targets"
 }
@@ -1942,6 +1955,7 @@ test_completion_fails_when_its_close_marker_cannot_be_removed() {
   case_dir=$(make_home close-marker-remove-failure)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-marker-fails"
   marker="$(home_of "$case_dir")/state/$id.backlog-close"
   break_meta_removal "$case_dir" "$marker"
@@ -1964,6 +1978,7 @@ test_recovery_retries_when_a_close_marker_cannot_be_removed() {
   case_dir=$(make_home heal-marker-remove-failure)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   marker="$(home_of "$case_dir")/state/$id.backlog-close"
   printf 'id=%s\ndata=%s\nspawn_gen=spawn-marker-retry\narg=--note\narg=local%%20main\n' \
     "$id" "$(home_of "$case_dir")/data" > "$marker"
@@ -2087,6 +2102,7 @@ test_recovery_replays_a_close_an_interrupted_cleanup_left_open() {
   case_dir=$(make_home heal-pending-close)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   printf 'id=%s\ndata=%s\nspawn_gen=spawn-heal-pr\narg=--pr\narg=https://github.com/example/repo/pull/11\n' \
     "$id" "$(home_of "$case_dir")/data" \
     > "$(home_of "$case_dir")/state/$id.backlog-close"
@@ -2109,6 +2125,7 @@ test_recovery_replays_a_gerrit_close_with_its_change_url_as_a_note() {
   case_dir=$(make_home heal-pending-gerrit-close)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   # The record a pre-fix teardown left: the Gerrit change URL as a --pr link.
   printf 'id=%s\ndata=%s\nspawn_gen=spawn-heal-gerrit\narg=--pr\narg=%s\n' \
     "$id" "$(home_of "$case_dir")/data" "$gerrit_url" \
@@ -2168,6 +2185,7 @@ test_recovery_preserves_a_close_when_the_backlog_cannot_be_read() {
   case_dir=$(make_home heal-read-error)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   printf 'id=%s\ndata=%s\nspawn_gen=spawn-heal-read\narg=--note\narg=local%%20main\n' \
     "$id" "$(home_of "$case_dir")/data" \
     > "$(home_of "$case_dir")/state/$id.backlog-close"
@@ -2177,7 +2195,7 @@ test_recovery_preserves_a_close_when_the_backlog_cannot_be_read() {
   assert_present "$(home_of "$case_dir")/state/$id.backlog-close" \
     "a transient backlog read failure discarded the pending close"
   rm -f "$case_dir/fakebin/tasks-axi"
-  [ "$(row_state "$case_dir" "$id")" = in_flight ] \
+  [ "$(row_state "$case_dir" "$id")" = 'done' ] \
     || fail "a failed recovery changed the backlog row: $out"
 
   out=$(run_bootstrap "$case_dir")
@@ -2195,6 +2213,7 @@ test_recovery_retry_preserves_incomplete_cleanup_warning() {
   home=$(home_of "$case_dir")
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" ship no-mistakes "spawn_gen=spawn-warning"
   marker="$home/state/$id.backlog-close"
   printf 'id=%s\ndata=%s\nspawn_gen=spawn-warning\narg=--note\narg=local%%20main\n' \
@@ -2202,8 +2221,8 @@ test_recovery_retry_preserves_incomplete_cleanup_warning() {
   break_verb "$case_dir" show
 
   out=$(run_bootstrap "$case_dir")
-  assert_absent "$home/state/$id.meta" \
-    "failed replay did not cross the task-record removal boundary"
+  assert_present "$home/state/$id.meta" \
+    "unreadable acceptance state removed the resumable task record"
   assert_present "$marker" "failed replay discarded its pending close"
   rm -f "$case_dir/fakebin/tasks-axi"
 
@@ -2222,6 +2241,7 @@ test_recovery_finishes_a_close_for_the_same_meta_incarnation() {
   case_dir=$(make_home heal-same-incarnation)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   write_task_meta "$case_dir" "$id" ship no-mistakes "spawn_gen=spawn-one"
   printf 'id=%s\ndata=%s\nspawn_gen=spawn-one\narg=--note\narg=local%%20main\n' \
     "$id" "$(home_of "$case_dir")/data" \
@@ -2267,6 +2287,7 @@ test_recovery_preserves_both_records_when_meta_removal_fails() {
   case_dir=$(make_home heal-remove-failure)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   meta="$(home_of "$case_dir")/state/$id.meta"
   write_task_meta "$case_dir" "$id" ship no-mistakes "spawn_gen=spawn-one"
   printf 'id=%s\ndata=%s\nspawn_gen=spawn-one\narg=--note\narg=local%%20main\n' \
@@ -2280,7 +2301,7 @@ test_recovery_preserves_both_records_when_meta_removal_fails() {
   assert_present "$meta" "failed recovery removed the task record"
   assert_present "$(home_of "$case_dir")/state/$id.backlog-close" \
     "failed recovery discarded the pending close"
-  [ "$(row_state "$case_dir" "$id")" = in_flight ] \
+  [ "$(row_state "$case_dir" "$id")" = 'done' ] \
     || fail "failed recovery closed the backlog before removing meta"
 
   rm -f "$case_dir/fakebin/rm"
@@ -3000,6 +3021,7 @@ test_dispatch_and_completion_are_structural() {
 printf 'pull_request:\n  state: merged\n'
 SH
   chmod +x "$case_dir/fakebin/gh-axi"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   out=$(run_teardown "$case_dir" "$id") \
     || fail "structural teardown failed: $out"
   [ "$(row_state "$case_dir" "$id")" = "done" ] \
@@ -3086,6 +3108,7 @@ test_a_secondmate_home_keeps_its_own_books() {
 
   rm -f "$(home_of "$case_dir")/state/$id.meta"
   write_task_meta "$case_dir" "$id" ship local-only "spawn_gen=spawn-mate-close"
+  tasks-axi 'done' "$id" --file "$(backlog_of "$case_dir")" >/dev/null
   out=$(run_teardown "$case_dir" "$id") || fail "mate-home teardown failed: $out"
   [ "$(row_state "$case_dir" "$id")" = "done" ] \
     || fail "a mate's own completion left its item at $(row_state "$case_dir" "$id")"
@@ -3112,6 +3135,9 @@ test_a_persistent_secondmate_is_never_a_backlog_item() {
   assert_present "$(home_of "$case_dir")/state/$id.meta" "secondmate spawn published no record"
   pass "dispatching a persistent secondmate needs no backlog item"
 }
+
+# Allow focused lifecycle regressions to reuse these hermetic fixtures.
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != atomicity ] || return 0
 
 test_backend_resolution_preserves_config_errors
 test_backend_resolution_preserves_precedence_and_defaults

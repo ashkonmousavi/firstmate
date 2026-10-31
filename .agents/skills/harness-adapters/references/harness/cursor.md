@@ -43,17 +43,7 @@ Cursor parks its terminal cursor outside the composer: `#{cursor_y}` was below t
 The composite then reads empty or pending, verified on 2026-08-13, while every other harness keeps strict blank-cursor behavior and a dead shell never reads empty.
 `../../../bin/fm-supervise-daemon.sh` can therefore require affirmatively empty before away-mode delivery without a Cursor-only branch.
 
-Submission also uses an idle-to-busy transition.
-Match stable token `ctrl+c to stop`, never spinner verbs that changed from `Working` to `Running` between turns.
-
-Confirmation is verified only on tmux and Herdr.
-Herdr reports Cursor `blocked` in every state, so its native idle path is unreachable; the composer path sees the mid-turn placeholder beside `ctrl+c to stop` as pending.
-`../../../bin/backends/herdr.sh` baselines before Enter and confirms the footer transition, so an already-busy pane cannot confirm.
-
-Zellij, cmux, and Orca do not consult that footer.
-A typed-plane native invocation or explicit backend send lands but reports unconfirmed and exits nonzero; ordinary steering uses the durable inbox and exits zero at enqueue.
-Treat this as confirmation failure, not loss, because text lands and busy state comes from the transcript.
-Teaching those backends is separate cross-harness work requiring live checks.
+[Runtime backend verification](../../../../../docs/verification/runtime-backends.md#cursor-agent-cli) owns Cursor's typed-submit confirmation limits and transcript-state boundary.
 
 Reverse-video placeholder remnants and Herdr half-block edges belong to `../../../bin/fm-composer-lib.sh`; without the edges a bare composer swallows the footer and idle reads pending.
 `../../../docs/verification/runtime-backends.md` owns captures.

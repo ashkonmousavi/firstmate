@@ -61,6 +61,10 @@ show_task() { # <id> <file>
   local out
   # The help trailer names the backlog path, so it is not part of the item.
   out=$(tasks-axi show "$1" --full --file "$2" --backend markdown) || return 1
+  if [[ "$out" == *'```Owner request acceptance v1'* ]]; then
+    [ -x "$SCRIPT_DIR/fm-request-acceptance.py" ] || return 1
+    printf '%s\n' "$out" | "$SCRIPT_DIR/fm-request-acceptance.py" validate-show --task-id "$1" --home "$FM_HOME" || return 1
+  fi
   printf '%s\n' "$out" | awk '
     /^help\[/ { exit }
     /^  (state|blocked|blocked_by|held|hold_reason|hold_kind|hold_until|created|closed|deps):/ { next }
@@ -134,9 +138,39 @@ DELIVERED="$PARENT_REAL/$(basename "$REL")"
 NAME=$(basename "$REL")
 ID=${NAME%.outbox.md}
 case "$ID" in ''|*[!A-Za-z0-9._-]*) die "delivered outbox id is unsafe" ;; esac
+# The sender's immutable task IDs are read before the route lock, then locked
+# in sorted order, matching teardown's CONTROL -> route ordering. Re-read the
+# delivered bytes and keys after locking; a changed preimage is refused.
+[ -f "$DELIVERED" ] && [ ! -L "$DELIVERED" ] || die "delivered outbox is unsafe"
+PRE_HASH=$(sha256_file "$DELIVERED") || die "cannot read delivered outbox"
+PRE_KEYS=()
+while IFS= read -r key; do
+  PRE_KEYS+=("$key")
+done < <(list_keys "$DELIVERED")
+ORDERED_KEYS=()
+if [ "${#PRE_KEYS[@]}" -gt 0 ]; then
+  while IFS= read -r key; do
+    ORDERED_KEYS+=("$key")
+  done < <(printf '%s\n' "${PRE_KEYS[@]}" | LC_ALL=C sort -u)
+fi
+TASK_LOCKS=()
+release_receiver_locks() {
+  local i
+  fm_lock_release "$TRANSFER_LOCK" || true
+  for ((i=${#TASK_LOCKS[@]}-1; i>=0; i--)); do
+    fm_lock_release "${TASK_LOCKS[i]}" || true
+  done
+}
 TRANSFER_LOCK="$PARENT_REAL/.$ID.upload.lock"
+trap release_receiver_locks EXIT
+for key in ${ORDERED_KEYS[@]+"${ORDERED_KEYS[@]}"}; do
+  case "$key" in ''|*[!A-Za-z0-9._-]*) die "unsafe delivered task id" ;; esac
+  lock="$FM_HOME/state/.control-$key.lock"
+  fm_lock_acquire_wait "$lock" || die "cannot lock received task"
+  TASK_LOCKS+=("$lock")
+done
 fm_lock_acquire_wait "$TRANSFER_LOCK" || die "cannot lock delivered outbox"
-trap 'fm_lock_release "$TRANSFER_LOCK" || true' EXIT
+[ "$(sha256_file "$DELIVERED")" = "$PRE_HASH" ] || die "delivered outbox changed before locked receipt"
 [ -f "$DELIVERED" ] && [ ! -L "$DELIVERED" ] || die "delivered outbox is not a non-symlink regular file"
 GENERATION_FILE="$PARENT_REAL/.$ID.upload-generation"
 [ -f "$GENERATION_FILE" ] && [ ! -L "$GENERATION_FILE" ] || die "delivered outbox generation is unavailable or unsafe"
@@ -166,6 +200,7 @@ KEYS=()
 while IFS= read -r key; do
   [ -n "$key" ] && KEYS+=("$key")
 done < <(list_keys "$DELIVERED")
+[ "${KEYS[*]-}" = "${PRE_KEYS[*]-}" ] || die "delivered task set changed before locked receipt"
 for key in "${KEYS[@]}"; do
   section=$(backlog_key_section "$DELIVERED" "$key") || die "delivered key disappeared during classification: $key"
   [ "$section" = '## Queued' ] || die "delivered outbox contains non-Queued item $key under $section"
@@ -231,6 +266,6 @@ for key in "${KEYS[@]}"; do
 done
 rm -f -- "$RECEIPT_SNAPSHOT" || die "receipt succeeded but read-back cleanup failed"
 rm -f -- "$DELIVERED" || die "receipt succeeded but delivered scratch cleanup failed"
-fm_lock_release "$TRANSFER_LOCK" || die "receipt succeeded but transfer lock cleanup failed"
+release_receiver_locks
 trap - EXIT
 printf 'received: %s moved=%s already=%s\n' "$(basename "$REL" .outbox.md)" "${#TO_MOVE[@]}" "${#ALREADY[@]}"

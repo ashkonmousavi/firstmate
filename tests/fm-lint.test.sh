@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 # Parity guard for firstmate's shell-lint definition.
 #
-# bin/fm-lint.sh is the single owner invoked by CI
-# (.github/workflows/ci.yml) and by the pre-push gate (.no-mistakes.yaml
-# commands.lint). CI and the local gate deliberately select different roots;
+# bin/fm-lint.sh is the single owner invoked by CI (.github/workflows/ci.yml)
+# and manual local runs. CI and local runs deliberately select different roots;
 # bin/fm-lint.sh owns their analysis modes, memory fallback, configuration,
 # and tool versions.
-# Regression origin: with no commands.lint configured, the local no-mistakes
-# lint step never ran the deterministic shell lint, so PRs passed local
-# validation yet failed CI on info/warning findings such as SC2015, SC1007, and
-# SC2034. A second axis was tool-version skew: CI's ShellCheck floated with the
-# runner image and still emitted SC2015, which ShellCheck retired in 0.11.0.
+# docs/configuration.md owns the no-mistakes gate defaults.
+# The tool-version pin prevents runner-image skew: ShellCheck retired SC2015
+# in 0.11.0, so mixing versions changes the diagnostics.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -184,7 +181,7 @@ test_canonical_partitions_preserve_full_lint() {
   mkdir -p "$fakebin"
   all=$(CI=true "$LINT" --list-files | LC_ALL=C sort)
   : > "$tmp/union"
-  for part in 1of2 2of2; do
+  for part in 1of4 2of4 3of4 4of4; do
     selected=$(CI=false GITHUB_ACTIONS=false "$LINT" --partition "$part" --list-files) \
       || fail "partition $part must select full canonical roots even on a local branch"
     [ -n "$selected" ] || fail "empty lint partition $part"
@@ -213,10 +210,20 @@ test_canonical_partitions_preserve_full_lint() {
       || fail "partition $part did not stream an end record per root"
   done
   [ "$(LC_ALL=C sort "$tmp/union")" = "$all" ] || fail "lint partitions lose or duplicate canonical roots"
-  for option in 0of2 3of2 1of3; do
+  : > "$tmp/union2"
+  for part in 1of2 2of2; do
+    "$LINT" --partition="$part" --list-files >> "$tmp/union2" \
+      || fail "partition $part was refused"
+  done
+  [ "$(LC_ALL=C sort "$tmp/union2")" = "$all" ] \
+    || fail "two lint partitions lose or duplicate canonical roots"
+  for option in 0of2 3of2 1of1 1of3 1of5 1of6 1of7 1of8 1of9 0of4 5of4 1of 2of2x abc; do
     rc=0
     "$LINT" --partition "$option" --list-files > "$tmp/refused" 2>&1 || rc=$?
     [ "$rc" = 2 ] || fail "invalid partition $option was not refused"
+    rc=0
+    "$LINT" --partition="$option" --list-files > "$tmp/refused" 2>&1 || rc=$?
+    [ "$rc" = 2 ] || fail "invalid partition=$option was not refused"
   done
   rc=0
   "$LINT" --partition 1of2 --fast > "$tmp/refused" 2>&1 || rc=$?
@@ -224,7 +231,7 @@ test_canonical_partitions_preserve_full_lint() {
   rc=0
   "$LINT" --partition 1of2 bin/fm-lint.sh > "$tmp/refused" 2>&1 || rc=$?
   [ "$rc" = 2 ] || fail "partition accepted an explicit subset"
-  pass "two canonical lint partitions preserve complete source-aware coverage and reject weakened modes"
+  pass "canonical lint partitions preserve complete source-aware coverage and reject weakened modes"
 }
 
 # fm_lint_stub_git <fakebin-dir>: install a git stub for the changed-file mode

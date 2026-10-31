@@ -7,11 +7,11 @@
 # safeguards: PR runs supersede within one PR while main pushes are never
 # cancelled, and every CI job carries a finite hang tripwire drawn from the
 # three-tier timeout policy that docs/fm-test-portable-shards.md "Timeouts"
-# owns (fast, normal, heavy), so no job drifts back to a one-off number.
+# owns (fast, normal, heavy) plus the named serial exception, so no job drifts back to a one-off number.
 #
-# They also hold the fork opt-out: the repository variables FM_CI_SKIP_PUSH and
-# FM_CI_SKIP_MACOS let a fork skip the push run and the macOS job through a
-# job-level condition, while with neither set every job runs exactly as before.
+# They also hold the fork controls: FM_CI_SKIP_PUSH skips the push run,
+# FM_CI_SKIP_MACOS skips macOS, and FM_CI_HOSTED_EVIDENCE enables the aggregate
+# only when its hosted timing inputs can exist.
 #
 # The workflow is parsed as YAML and its concurrency and job-level `if`
 # expressions are resolved against simulated pull_request and push contexts,
@@ -35,127 +35,13 @@ command -v ruby >/dev/null 2>&1 \
 # the `a || b` fallback that returns the first truthy operand rather than a
 # boolean. The status functions read the simulated outcome of the needed jobs
 # from the context key "needs.status" (success, failure, or cancelled), which
-# defaults to success. Each ruby -e below prepends this so every resolver shares one
-# evaluator.
-# shellcheck disable=SC2016  # the ${{ }} below is Ruby text, not a shell expansion
-EXPRESSION_RUBY='
-require "strscan"
-class Expression
-  def self.evaluate(source, context)
-    new(source, context).parse
-  end
-
-  STATUS_FUNCTIONS = %w[always() success() failure() cancelled()].freeze
-
-  # A job or step `if` is a bare expression or one wrapped in ${{ }}, an
-  # absent condition means the job runs, and a condition that calls no status
-  # function gets the implicit success() check GitHub documents.
-  def self.condition(raw, context)
-    source = raw.to_s.strip
-    source = Regexp.last_match(1) if source =~ /\A\$\{\{(.*)\}\}\z/m
-    source = "success()" if source.empty?
-    source = "success() && (#{source})" unless new(source, context).status_check?
-    truthy?(evaluate(source, context))
-  end
-
-  # A result is truthy unless it is false, nil, or the empty string.
-  def self.truthy?(value)
-    value != false && !value.nil? && value != ""
-  end
-
-  def initialize(source, context)
-    @context = context
-    @tokens = []
-    scanner = StringScanner.new(source)
-    until scanner.eos?
-      next if scanner.skip(/\s+/)
-      if scanner.scan(/\x27([^\x27]*)\x27/) then @tokens << [:string, scanner[1]]
-      elsif scanner.scan(/\|\||&&|==|!=|[()!]/) then @tokens << [:operator, scanner.matched]
-      elsif scanner.scan(/[A-Za-z_][\w.\-]*(?:\(\))?/) then @tokens << [:name, scanner.matched]
-      else raise "unsupported expression syntax at: #{scanner.rest}"
-      end
-    end
-  end
-
-  def status_check?
-    @tokens.any? { |kind, value| kind == :name && STATUS_FUNCTIONS.include?(value) }
-  end
-
-  def parse
-    result = parse_or
-    raise "unexpected trailing token: #{@tokens.first.inspect}" unless @tokens.empty?
-    result
-  end
-
-  private
-
-  def take?(operator)
-    return false unless @tokens.first == [:operator, operator]
-    @tokens.shift
-    true
-  end
-
-  def parse_or
-    left = parse_and
-    while take?("||")
-      right = parse_and
-      left = Expression.truthy?(left) ? left : right
-    end
-    left
-  end
-
-  def parse_and
-    left = parse_comparison
-    while take?("&&")
-      right = parse_comparison
-      left = Expression.truthy?(left) ? right : left
-    end
-    left
-  end
-
-  def parse_comparison
-    left = parse_unary
-    loop do
-      operator = ["==", "!="].find { |candidate| take?(candidate) } or break
-      right = parse_unary
-      unless left.class == right.class
-        raise "the resolver only compares operands of one type: #{left.inspect} #{operator} #{right.inspect}"
-      end
-      equal = left.is_a?(String) ? left.casecmp?(right) : left == right
-      left = operator == "==" ? equal : !equal
-    end
-    left
-  end
-
-  def parse_unary
-    return !Expression.truthy?(parse_unary) if take?("!")
-    parse_primary
-  end
-
-  def parse_primary
-    if take?("(")
-      inner = parse_or
-      raise "missing closing parenthesis" unless take?(")")
-      return inner
-    end
-    kind, value = @tokens.shift
-    raise "expected an operand, got #{kind.inspect}" unless kind == :string || kind == :name
-    return value if kind == :string
-    if STATUS_FUNCTIONS.include?(value)
-      status = @context.fetch("needs.status", "success")
-      return value == "always()" || value == "#{status}()"
-    end
-    raise "unresolvable context reference: #{value}" unless @context.key?(value)
-    @context.fetch(value)
-  end
-end
-'
+# defaults to success.
 
 # Resolve the workflow's concurrency contract under one simulated event and
 # print "<group><TAB><cancel-in-progress>".
 resolve_concurrency() {
   local event=$1 pr_number=$2 run_id=$3
-  ruby -ryaml -e "$EXPRESSION_RUBY" -e '
+  ruby -ryaml -r"$ROOT/tests/ci-expression.rb" -e '
 doc = YAML.load_file(ARGV[0])
 concurrency = doc.fetch("concurrency")
 context = {
@@ -177,17 +63,18 @@ puts [interpolate.call(concurrency.fetch("group")),
 # Print, one per line in workflow order, the jobs whose job-level `if`
 # resolves true under one simulated event and fork variable setting; an unset
 # repository variable reads as the empty string, as GitHub documents.
-jobs_running_under() {  # <event> <FM_CI_SKIP_PUSH> <FM_CI_SKIP_MACOS>
-  ruby -ryaml -e "$EXPRESSION_RUBY" -e '
+jobs_running_under() {  # <event> <FM_CI_SKIP_PUSH> <FM_CI_SKIP_MACOS> <FM_CI_HOSTED_EVIDENCE>
+  ruby -ryaml -r"$ROOT/tests/ci-expression.rb" -e '
 context = {
   "github.event_name" => ARGV[1],
   "vars.FM_CI_SKIP_PUSH" => ARGV[2],
   "vars.FM_CI_SKIP_MACOS" => ARGV[3],
+  "vars.FM_CI_HOSTED_EVIDENCE" => ARGV[4],
 }
 YAML.load_file(ARGV[0]).fetch("jobs").each do |name, job|
   puts name if Expression.condition(job["if"], context)
 end
-' "$CI_WORKFLOW" "$1" "$2" "$3"
+' "$CI_WORKFLOW" "$1" "$2" "$3" "$4"
 }
 
 job_timeout() {
@@ -200,7 +87,8 @@ puts YAML.load_file(ARGV[0]).fetch("jobs").fetch(ARGV[1]).fetch("timeout-minutes
 # must join a tier, and a job-level value outside these tiers is exactly the
 # one-off number the policy removed.
 FAST_TIER_JOBS='test-coverage invariants tests-timing-aggregate'
-NORMAL_TIER_JOBS='lint tests-portable-parallel-1 tests-portable-parallel-2 tests-portable-serial macos-stock-bash'
+NORMAL_TIER_JOBS='lint tests-portable-parallel-1 tests-portable-parallel-2 macos-stock-bash'
+SERIAL_EXCEPTION_JOBS='tests-portable-serial'
 HEAVY_TIER_JOBS='tests-herdr'
 
 # Print the one timeout every listed job shares; fail on any disagreement.
@@ -272,21 +160,21 @@ end
   pass "every ci.yml job carries a finite timeout"
 }
 
-# Every job sits in exactly one tier, and the workflow carries exactly three
-# distinct job-level timeouts: one per tier, no one-off numbers.
+# Every job sits in exactly one tier, and the workflow carries exactly four
+# distinct job-level timeouts: one per tier plus the named serial exception.
 test_every_job_belongs_to_exactly_one_timeout_tier() {
   local expected actual distinct
   # shellcheck disable=SC2086
-  expected=$(printf '%s\n' $FAST_TIER_JOBS $NORMAL_TIER_JOBS $HEAVY_TIER_JOBS | LC_ALL=C sort)
+  expected=$(printf '%s\n' $FAST_TIER_JOBS $NORMAL_TIER_JOBS $SERIAL_EXCEPTION_JOBS $HEAVY_TIER_JOBS | LC_ALL=C sort)
   [ "$(printf '%s\n' "$expected" | LC_ALL=C sort -u)" = "$expected" ] \
     || fail "a job is listed in more than one timeout tier:"$'\n'"$expected"
   actual=$(workflow_jobs | LC_ALL=C sort) || fail "could not list ci.yml jobs"
   [ "$actual" = "$expected" ] \
     || fail "ci.yml jobs and the timeout tiers disagree; every job must join one tier"$'\n'"workflow: $(printf '%s' "$actual" | tr '\n' ' ')"$'\n'"tiers: $(printf '%s' "$expected" | tr '\n' ' ')"
   distinct=$(for job in $expected; do job_timeout "$job"; done | LC_ALL=C sort -u | wc -l | tr -d ' ')
-  [ "$distinct" = 3 ] \
-    || fail "ci.yml must carry exactly three distinct job timeouts (fast, normal, heavy), got $distinct"
-  pass "every ci.yml job belongs to one of the three timeout tiers"
+  [ "$distinct" = 4 ] \
+    || fail "ci.yml must carry exactly four distinct job timeouts (fast, normal, serial exception, heavy), got $distinct"
+  pass "every ci.yml job belongs to one of the timeout tiers"
 }
 
 # Fast tier: seconds-long checks share one short tripwire in the 5-10 minute band.
@@ -299,8 +187,8 @@ test_fast_tier_shares_one_short_tripwire() {
   pass "fast tier jobs share one $fast minute tripwire"
 }
 
-# Normal tier: every test or lint lane shares ONE fixed 30-minute budget,
-# above the fast tier. That budget is a hang tripwire, not a packing estimate.
+# Normal tier: the jobs listed in NORMAL_TIER_JOBS share the budget owned by
+# docs/fm-test-portable-shards.md "Timeouts".
 test_normal_tier_shares_one_budget() {
   local fast normal
   # shellcheck disable=SC2086
@@ -312,6 +200,17 @@ test_normal_tier_shares_one_budget() {
   [ "$normal" = 30 ] \
     || fail "normal tier must be the single 30-minute shared budget, got $normal"
   pass "normal tier jobs share one $normal minute budget"
+}
+
+# Serial exception: the portable serial shards alone carry a 45-minute hang
+# tripwire, because the slowest shard needs about 29 minutes by construction.
+test_serial_exception_is_45_minutes() {
+  local serial
+  # shellcheck disable=SC2086
+  serial=$(tier_timeout serial $SERIAL_EXCEPTION_JOBS) || exit 1
+  [ "$serial" = 45 ] \
+    || fail "the portable serial job must be the 45-minute exception, got $serial"
+  pass "portable serial jobs carry the $serial minute exception"
 }
 
 # Heavy tier: Herdr alone carries a job-level last-resort backstop above the
@@ -327,14 +226,16 @@ test_heavy_tier_keeps_a_step_tripwire_under_a_job_backstop() {
     || fail "heavy tier backstop ($heavy) must exceed the normal tier ($normal)"
   [ "$heavy" -ge 60 ] && [ "$heavy" -le 75 ] \
     || fail "heavy tier backstop must stay a 60-75 minute last resort, got $heavy"
-  step=$(ruby -ryaml -e '
+  step=$(ruby -ryaml -r"$ROOT/tests/ci-expression.rb" -e '
 steps = YAML.load_file(ARGV[0]).fetch("jobs").fetch(ARGV[1]).fetch("steps")
 index = steps.index { |s| s["id"] == "run-real-herdr-family" }
 raise "no run-real-herdr-family step" unless index
 teardown = steps.index { |s| s["id"] == "cleanup-herdr-lab-sessions" }
 raise "no cleanup-herdr-lab-sessions step" unless teardown
 raise "teardown must follow the family-run step" unless teardown > index
-raise "teardown must run under always()" unless steps[teardown]["if"].to_s.strip == "always()"
+%w[success failure cancelled].each do |status|
+  raise "teardown must run after #{status}" unless Expression.condition(steps[teardown]["if"], {"needs.status" => status})
+end
 puts steps[index].fetch("timeout-minutes", "none")
 ' "$CI_WORKFLOW" tests-herdr) || fail "could not read the Herdr family-run step"
   case "$step" in ''|*[!0-9]*) fail "the Herdr family-run step needs its own timeout-minutes, got $step" ;; esac
@@ -345,68 +246,74 @@ puts steps[index].fetch("timeout-minutes", "none")
   pass "Herdr keeps a $step minute step tripwire under a $heavy minute job backstop"
 }
 
-# The fork opt-out is opt-in: with neither variable set every job runs on both
-# events, FM_CI_SKIP_PUSH=1 empties only the push run, and FM_CI_SKIP_MACOS=1
-# removes only the macOS job. A "-" in the table means the variable is unset.
+# A "-" in the table means the variable is unset.
 test_fork_skip_variables_are_opt_in() {
-  local all event skip_push skip_macos expected want actual
+  local all event skip_push skip_macos hosted expected want actual
   all=$(workflow_jobs) || fail "could not list ci.yml jobs"
   printf '%s\n' "$all" | grep -qx macos-stock-bash \
     || fail "the macOS job is missing from ci.yml, so the table below would prove nothing"
-  while read -r event skip_push skip_macos expected; do
+  while read -r event skip_push skip_macos hosted expected; do
     [ "$skip_push" != - ] || skip_push=
     [ "$skip_macos" != - ] || skip_macos=
+    [ "$hosted" != - ] || hosted=
     case $expected in
       all) want=$all ;;
       none) want= ;;
       all-but-macos) want=$(printf '%s\n' "$all" | grep -vx macos-stock-bash) ;;
+      all-but-aggregate) want=$(printf '%s\n' "$all" | grep -vx tests-timing-aggregate) ;;
+      all-but-macos-aggregate) want=$(printf '%s\n' "$all" | grep -Evx 'macos-stock-bash|tests-timing-aggregate') ;;
       *) fail "unknown expectation $expected" ;;
     esac
-    actual=$(jobs_running_under "$event" "$skip_push" "$skip_macos") \
-      || fail "could not resolve the job conditions for $event FM_CI_SKIP_PUSH=$skip_push FM_CI_SKIP_MACOS=$skip_macos"
+    actual=$(jobs_running_under "$event" "$skip_push" "$skip_macos" "$hosted") \
+      || fail "could not resolve the job conditions for $event FM_CI_SKIP_PUSH=$skip_push FM_CI_SKIP_MACOS=$skip_macos FM_CI_HOSTED_EVIDENCE=$hosted"
     [ "$actual" = "$want" ] \
       || fail "$event with FM_CI_SKIP_PUSH=$skip_push FM_CI_SKIP_MACOS=$skip_macos must run $expected jobs"$'\n'"ran: $(printf '%s' "$actual" | tr '\n' ' ')"$'\n'"wanted: $(printf '%s' "$want" | tr '\n' ' ')"
   done <<'TABLE'
-push         - - all
-pull_request - - all
-push         1 - none
-pull_request 1 - all
-pull_request - 1 all-but-macos
-push         - 1 all-but-macos
+push         - - - all-but-aggregate
+pull_request - - - all-but-aggregate
+push         1 - - none
+pull_request 1 - - all-but-aggregate
+pull_request - 1 - all-but-macos-aggregate
+push         - 1 - all-but-macos-aggregate
+pull_request - - 1 all
+push         - 1 1 all-but-macos
 TABLE
-  pass "the fork skip variables change nothing unless set, and each skips only its own run or job"
+  pass "push, macOS and hosted-evidence variables change only their own jobs"
 }
 
 # Print true or false: whether one job's job-level `if` resolves true under
 # one simulated event, fork variable setting, and outcome of its needed jobs.
-job_runs_under() {  # <job> <event> <FM_CI_SKIP_PUSH> <FM_CI_SKIP_MACOS> <needs status>
-  ruby -ryaml -e "$EXPRESSION_RUBY" -e '
+job_runs_under() {  # <job> <event> <FM_CI_SKIP_PUSH> <FM_CI_SKIP_MACOS> <FM_CI_HOSTED_EVIDENCE> <needs status>
+  ruby -ryaml -r"$ROOT/tests/ci-expression.rb" -e '
 context = {
   "github.event_name" => ARGV[2],
   "vars.FM_CI_SKIP_PUSH" => ARGV[3],
   "vars.FM_CI_SKIP_MACOS" => ARGV[4],
-  "needs.status" => ARGV[5],
+  "vars.FM_CI_HOSTED_EVIDENCE" => ARGV[5],
+  "needs.status" => ARGV[6],
 }
 puts Expression.condition(YAML.load_file(ARGV[0]).fetch("jobs").fetch(ARGV[1])["if"], context)
 ' "$CI_WORKFLOW" "$@"
 }
 
-# The aggregate must keep running after a failed lane so its timing summary
-# still lands, while the push skip still removes it from a skipped push run.
+# The aggregate runs after a failed lane only when hosted timing inputs exist.
 test_timing_aggregate_still_runs_after_a_failed_lane() {
-  local event skip_push expected actual
-  while read -r event skip_push expected; do
+  local event skip_push hosted expected actual
+  while read -r event skip_push hosted expected; do
     [ "$skip_push" != - ] || skip_push=
-    actual=$(job_runs_under tests-timing-aggregate "$event" "$skip_push" '' failure) \
+    [ "$hosted" != - ] || hosted=
+    actual=$(job_runs_under tests-timing-aggregate "$event" "$skip_push" '' "$hosted" failure) \
       || fail "could not resolve the aggregate condition for $event FM_CI_SKIP_PUSH=$skip_push"
     [ "$actual" = "$expected" ] \
       || fail "after a failed lane, the aggregate on $event with FM_CI_SKIP_PUSH=$skip_push must resolve $expected, got $actual"
   done <<'TABLE'
-pull_request - true
-push         - true
-push         1 false
+pull_request - - false
+push         - - false
+pull_request - 1 true
+push         - 1 true
+push         1 1 false
 TABLE
-  pass "the timing aggregate still runs after a failed lane unless the push run is skipped"
+  pass "the timing aggregate skips without hosted inputs and still runs after a failed lane when enabled"
 }
 
 test_ci_matrices_match_executable_partitions() {
@@ -449,4 +356,5 @@ test_every_job_has_a_finite_timeout
 test_every_job_belongs_to_exactly_one_timeout_tier
 test_fast_tier_shares_one_short_tripwire
 test_normal_tier_shares_one_budget
+test_serial_exception_is_45_minutes
 test_heavy_tier_keeps_a_step_tripwire_under_a_job_backstop

@@ -62,7 +62,7 @@ test_branch_prompt_is_byte_stable_and_above_cache_floor() {
   # moment or the command, so the stale wake ended in the recovery playbook's
   # "nothing to recover".
   case "$out_a" in
-    *"A worker whose pull request has landed is finished, not stuck"*"\`check: merge landed:\` wake names exactly that moment"*"\`bin/fm-teardown.sh <task>\` with no flags"*"never forced, worked around, or repaired by hand"*) ;;
+    *"requires the Ship landing policy included below"*"merge alone does not authorize task completion"*"# Ship landing policy"*"## Resource release and accepted completion"*"Acceptance precedes cleanup"*) ;;
     *) fail "branch prompt lost the landed-work cleanup rule" ;;
   esac
   case "$out_a" in
@@ -79,7 +79,7 @@ test_branch_prompt_routes_completed_scouts_through_guarded_cleanup() {
   # The emitted system prompt is the contract, not the generator's source or
   # proof that a model will obey it. No live agent or endpoint is involved.
   case "$prompt" in
-    *"For a completed scout, follow the scout-completion and captain-hold-lifecycle policies included below in both postures."*"After their completion gate passes, retain the report, claim the task's lease, and run \`bin/fm-teardown.sh <task>\` with no flags."*"Report the findings and cleanup result in that event's outcome; a refusal is reported with its exact reason and never forced, worked around, or repaired by hand."*) ;;
+    *"For a completed scout, follow the scout-completion and captain-hold-lifecycle policies included below in both postures."*"After their completion gate passes, retain the report, record accepted completion with \`bin/fm-tasks-axi.sh done <task> --report <durable report path>\`, claim the task's lease, and run \`bin/fm-teardown.sh <task>\` with no flags."*"Report the findings and cleanup result in that event's outcome; a refusal is reported with its exact reason and never forced, worked around, or repaired by hand."*) ;;
     *) fail "branch prompt omits the completed-scout cleanup sequence or refusal reporting" ;;
   esac
   assert_contains "$prompt" \
@@ -89,7 +89,7 @@ test_branch_prompt_routes_completed_scouts_through_guarded_cleanup() {
     "Missing or incomplete reports, an unreviewed decision inventory or unrecorded captain calls, WIP ships, deliberate external waits, and idle or exited agents are not proof of task completion." \
     "branch prompt lost the incomplete-work and agent-lifetime boundaries"
   assert_contains "$prompt" \
-    "Ordinary teardown of a confirmed-landed ship or a completed scout, steering, lifecycle control, PR checks, and backlog status moves are yours, under the task's lease." \
+    "Ordinary teardown of an accepted, landed ship or a completed scout, steering, lifecycle control, PR checks, and backlog status moves are yours, under the task's lease." \
     "branch role limits still exclude completed-scout cleanup"
 
   # This checks delivery of the per-task result contract, not model adherence.

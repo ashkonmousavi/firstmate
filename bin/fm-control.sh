@@ -3,9 +3,9 @@
 # lifecycle verbs addressed to an exact task id.
 #
 # Usage: fm-control.sh <task-id> interrupt
-#        fm-control.sh <task-id> exit
+#        fm-control.sh <task-id> exit [--if-idle [--expect-spawn-gen <gen>]]
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
-#                                         [--effort <level>]
+#                                         [--effort <level>] [--if-recoverable]
 #                                         (--note <text> | --note-file <path>)
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
@@ -47,10 +47,28 @@
 #              preserves did not survive; a pane that turns out to be there and
 #              idle is the ordinary `already-stopped`; one whose agent is back
 #              takes the ordinary interrupt-then-exit path. A tmux `missing`
-#              always REFUSES: a task record carries no socket identity for its
-#              endpoint, so this verb cannot tell a destroyed window from one on
-#              a tmux server it cannot address, and it will not claim a stop it
-#              cannot see.
+#              requires the recorded spawn generation to predate the OS boot;
+#              otherwise absence remains unproven and the action refuses.
+#              --if-idle is the unattended form an automatic caller uses
+#              (bin/fm-lane-release.sh): it exits 75 instead of acting when
+#              another lifecycle action holds the task, when a running agent's
+#              busy verdict is anything but idle (it never interrupts a turn), or, with
+#              --expect-spawn-gen, when the task's recorded spawn_gen is no
+#              longer <gen> because a relaunch replaced the agent. Every other
+#              refusal keeps its ordinary exit status 1.
+#              A Claude exit has one more postcondition. Claude Code can hand a
+#              session with background work to a background session instead
+#              of exiting, so afterwards `claude agents --json --all` is read under
+#              the worker's account (agent view enabled), and any background
+#              session whose cwd is exactly this worktree is ended with
+#              `claude rm <id>`. The line ends `background-sessions=none`,
+#              `=stopped:<ids>`, or `=unverified` (the listing failed, with a
+#              ❌ on stderr); a session or its carried processes surviving
+#              cleanup fails the verb. Process ownership across respawns is
+#              defined by bin/fm-claude-bg-stop.py. This holds for
+#              `already-stopped` and `endpoint-gone` too,
+#              because a handed-off session outlives its pane. Another
+#              worktree's session is never touched.
 #   relaunch   Transactionally replace the running agent with a new one, in the
 #              SAME worktree - and the same endpoint whenever that endpoint
 #              still exists - on the same or a newly chosen
@@ -61,9 +79,8 @@
 #              names, and the task's record rebinds to it; that is how a task
 #              whose terminal was destroyed is reclaimed by the home that owns
 #              it, rather than being stranded with a parked approval nobody can
-#              answer. Reclaim is HERDR-ONLY for the reason `exit` gives above:
-#              a tmux `missing` cannot be proven absent from a task record, so
-#              it refuses.
+#              answer. A tmux incarnation proven to predate reboot is reclaimed
+#              in its recorded session and worktree by the same launch owner.
 #              An explicit `default` model or effort clears that
 #              axis for the replacement. With no explicit axis, a secondmate
 #              re-resolves its durable config/secondmate-harness pin (harness
@@ -89,6 +106,9 @@
 #              the prior durable record in place and reports the concrete
 #              state; it never leaves a half-transitioned task claiming to be
 #              running.
+#              --if-recoverable applies the startup eligibility decision from
+#              bin/fm-crew-recovery-lib.sh under the lifecycle lock. Exit 3
+#              means no recovery was needed; exit 75 defers a busy task.
 #
 # Teardown and discard are NOT verbs here and never will be. `exit` stops an
 # agent and preserves everything else; removing a worktree, killing an
@@ -132,6 +152,10 @@
 #   FM_CONTROL_EXIT_WAIT         alive->dead wait after the exit command (30)
 #   FM_CONTROL_LAUNCH_WAIT       dead->alive wait after a relaunch (90)
 #   FM_CONTROL_EXIT_RETRIES      Enter retries for the exit command (3)
+#   FM_CONTROL_BG_TIMEOUT        bound for each Claude listing/cleanup call after a
+#                                Claude exit (30)
+#   FM_CONTROL_BG_TRIES          polls for a stopped background session to leave
+#                                the listing (10, FM_CONTROL_POLL apart)
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -173,6 +197,10 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
+# shellcheck source=bin/fm-composer-lib.sh
+. "$SCRIPT_DIR/fm-composer-lib.sh"
+# shellcheck source=bin/fm-task-inbox-lib.sh
+. "$SCRIPT_DIR/fm-task-inbox-lib.sh"
 # shellcheck source=bin/fm-polytoken-lib.sh
 . "$SCRIPT_DIR/fm-polytoken-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
@@ -190,6 +218,8 @@ ARM_WAIT=${FM_CONTROL_ARM_WAIT:-1.5}
 EXIT_WAIT=${FM_CONTROL_EXIT_WAIT:-30}
 LAUNCH_WAIT=${FM_CONTROL_LAUNCH_WAIT:-90}
 EXIT_RETRIES=${FM_CONTROL_EXIT_RETRIES:-3}
+BG_TIMEOUT=${FM_CONTROL_BG_TIMEOUT:-30}
+BG_TRIES=${FM_CONTROL_BG_TRIES:-10}
 
 die() {  # <message>
   echo "error: $1" >&2
@@ -250,6 +280,10 @@ MODEL_SET=0
 EFFORT_SET=0
 NOTE=
 NOTE_SET=0
+RECOVER_ONLY=0
+IF_IDLE=0
+EXPECT_GEN=
+EXPECT_GEN_SET=0
 control_want_value=
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
@@ -261,6 +295,7 @@ for control_arg in "$@"; do
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
+      expect_gen) EXPECT_GEN=$control_arg; EXPECT_GEN_SET=1 ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
         NOTE=$(cat "$control_arg")
@@ -271,6 +306,9 @@ for control_arg in "$@"; do
     continue
   fi
   case "$control_arg" in
+    --if-recoverable) RECOVER_ONLY=1 ;;
+    --if-idle) IF_IDLE=1 ;;
+    --expect-spawn-gen) control_want_value=expect_gen ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
@@ -294,9 +332,15 @@ if [ -n "$control_want_value" ]; then
 fi
 
 if [ "$VERB" != relaunch ]; then
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] \
-    || die "--harness, --model, --effort, and --note apply to 'relaunch' only"
+  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] \
+    || die "--harness, --model, --effort, --note, and --if-recoverable apply to 'relaunch' only"
 fi
+if [ "$VERB" != exit ]; then
+  [ "$IF_IDLE" = 0 ] && [ "$EXPECT_GEN_SET" = 0 ] \
+    || die "--if-idle and --expect-spawn-gen apply to 'exit' only"
+fi
+[ "$EXPECT_GEN_SET" = 0 ] || [ "$IF_IDLE" = 1 ] || die "--expect-spawn-gen requires --if-idle"
+[ "$EXPECT_GEN_SET" = 0 ] || [ -n "$EXPECT_GEN" ] || die "--expect-spawn-gen requires a non-empty value"
 [ "$HARNESS_SET" = 0 ] || [ -n "$NEW_HARNESS" ] || die "--harness requires a non-empty value"
 [ "$MODEL_SET" = 0 ] || [ -n "$NEW_MODEL" ] || die "--model requires a non-empty value"
 [ "$EFFORT_SET" = 0 ] || [ -n "$NEW_EFFORT" ] || die "--effort requires a non-empty value"
@@ -322,15 +366,25 @@ ID=$RAW_ID
 fm_lease_guard "$ID" "lifecycle control (fm-control)"
 CONTROL_LOCK="$STATE/.control-$ID.lock"
 trap control_cleanup EXIT
-fm_lock_try_acquire "$CONTROL_LOCK" \
-  || die "another lifecycle action is already running for task $ID"
+if ! fm_lock_try_acquire "$CONTROL_LOCK"; then
+  if [ "$RECOVER_ONLY" = 1 ] || [ "$IF_IDLE" = 1 ]; then
+    echo "another lifecycle action is already running for task $ID" >&2
+    exit 75
+  fi
+  die "another lifecycle action is already running for task $ID"
+fi
 CONTROL_LOCK_HELD=1
 # do_exit runs in a command substitution. That subshell does not run this
 # EXIT trap, so the parent has to hold the path the trap removes. Set it
 # only once the lock is held: a process that loses the lock runs the same
 # trap, and would remove the file the lock holder is reading.
-FM_COMPOSER_DIALOG_SINK=$STATE/$ID.composer-dialog
 META="$STATE/$ID.meta"
+if [ "$RECOVER_ONLY" = 1 ]; then
+  # shellcheck source=bin/fm-crew-recovery-lib.sh
+  . "$SCRIPT_DIR/fm-crew-recovery-lib.sh"
+  fm_crew_recovery_agent_state "$STATE" "$ID" >/dev/null || exit 3
+fi
+FM_COMPOSER_DIALOG_SINK=$STATE/$ID.composer-dialog
 if [ ! -f "$META" ]; then
   case "$RAW_ID" in
     fm-*)
@@ -340,6 +394,10 @@ if [ ! -f "$META" ]; then
       ;;
   esac
   die "no task '$ID' in $STATE (fm-control resolves an exact task id only)"
+fi
+if [ "$EXPECT_GEN_SET" = 1 ] && [ "$(fm_meta_get "$META" spawn_gen)" != "$EXPECT_GEN" ]; then
+  echo "task $ID no longer records spawn_gen $EXPECT_GEN; a relaunch replaced the agent, so the unattended exit does not apply" >&2
+  exit 75
 fi
 
 # A remotely placed secondmate records its endpoint on ANOTHER host, so every
@@ -585,13 +643,16 @@ verify_interrupt_running() {
     after=$(agent_state)
     [ "$after" = alive ] \
       || die "task $ID's agent is '$after' after its interrupt key; an interrupt must leave the agent running"
-    proof=agent-alive
+    proof='agent-alive'
   fi
   printf '%s' "$proof"
 }
 
 do_interrupt() {
   local proof cancel
+  # Esc on a composer holding our own unsent doorbell does not cancel the turn
+  # it was meant for; clear that text first, and leave anything else alone.
+  clear_own_doorbell || true
   cancel=$(deliver_interrupt) || return $?
   proof=$(verify_interrupt_running) || return $?
   printf '%s cancel=%s' "$proof" "$cancel"
@@ -659,10 +720,108 @@ retire_busy_incarnation() {
   fi
 }
 
+# --- Claude background sessions after exit ------------------------------------
+#
+# fm_control_claude_bg_ids (bin/fm-control-lib.sh) owns the matching rule; this
+# half runs `claude` the way the worker did. Background sessions are scoped to
+# the Claude config root, so the listing uses the retained launch root, falling
+# back to the pin or ambient root only for records that predate that field,
+# and clears the agent-view and exit-handoff switches the workers launch with,
+# because CLAUDE_CODE_DISABLE_AGENT_VIEW also disables `claude agents`.
+
+CLAUDE_BG_ENV=()
+
+claude_bg_prepare() {
+  local root
+  CLAUDE_BG_ENV=(env -u CLAUDE_CODE_DISABLE_AGENT_VIEW -u CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF)
+  root=$(fm_meta_get "$META" claude_config_dir)
+  if ! grep -q '^claude_config_dir=' "$META"; then
+    root=$(fm_meta_get "$META" account)
+    case "$root" in
+      ordinary) root= ;;
+      '') root=${CLAUDE_CONFIG_DIR:-} ;;
+    esac
+  fi
+  if [ -n "$root" ]; then
+    CLAUDE_BG_ENV+=("CLAUDE_CONFIG_DIR=$root")
+  else
+    CLAUDE_BG_ENV+=(-u CLAUDE_CONFIG_DIR)
+  fi
+}
+
+claude_bg_list() {
+  fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" claude agents --json --all </dev/null 2>/dev/null
+}
+
+# exit_background_check: after a Claude exit, end any background session of this
+# worktree. Prints `background-sessions=none|stopped:<ids>|unverified`, nothing
+# for another harness. Dies when a session or its captured carried work survives
+# cleanup; fm-claude-bg-stop.py owns cross-incarnation process ownership.
+exit_background_check() {
+  local json ids remaining id session stopped=() i unverified
+  [ "$HARNESS" = claude ] || return 0
+  unverified="❌ task $ID: the Claude background-session check failed (claude agents --json --all), so a background session running in $WT cannot be ruled out; list it with 'claude agents --json --all --cwd $WT' and stop it with 'claude rm <id>'"
+  if ! claude_bg_prepare || ! json=$(claude_bg_list) || ! ids=$(fm_control_claude_bg_ids "$WT" "$json"); then
+    echo "$unverified" >&2
+    printf 'background-sessions=unverified'
+    return 0
+  fi
+  if [ -z "$ids" ]; then
+    printf 'background-sessions=none'
+    return 0
+  fi
+  for id in $ids; do
+    session=$(jq -c --arg id "$id" '.[] | select(.id == $id) | {sessionId, cwd}' <<< "$json")
+    fm_run_timed "$BG_TIMEOUT" "${CLAUDE_BG_ENV[@]}" python3 "$SCRIPT_DIR/fm-claude-bg-stop.py" "$id" "$BG_TIMEOUT" "$session" \
+      || die "task $ID's Claude background session $id could not be stopped with its carried work"
+    stopped+=("$id")
+  done
+  for ((i = 0; i < BG_TRIES; i++)); do
+    if ! json=$(claude_bg_list) || ! remaining=$(fm_control_claude_bg_ids "$WT" "$json"); then
+      echo "$unverified" >&2
+      printf 'background-sessions=unverified'
+      return 0
+    fi
+    [ -n "$remaining" ] || break
+    sleep "$POLL"
+  done
+  [ -z "$remaining" ] \
+    || die "task $ID's Claude exit left background session(s) running in $WT after 'claude rm': ${remaining//$'\n'/ } - they keep running outside every lane; remove them with 'claude rm <id>' and check 'claude agents --json --all --cwd $WT'"
+  printf 'background-sessions=stopped:%s' "$(IFS=,; printf '%s' "${stopped[*]}")"
+}
+
+fm_control_lane_release_guard() {
+  [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] || return 0
+  local record current state seq
+  [ "$(fm_meta_get "$META" spawn_gen)" = "$EXPECT_GEN" ] || return 75
+  current=$(fm_busy_current_gen "$STATE" "$ID") || return 75
+  record=$(fm_busy_record_read "$STATE" "$ID") || return 75
+  read -r state _ _ seq <<< "$record"
+  [ "$state" = idle ] && [ "$current:$seq" = "${release_busy_token:-}" ] \
+    && [ "$(fm_busy_current_gen "$STATE" "$ID")" = "$current" ] || return 75
+}
+
+# clear_own_doorbell: when the composer holds nothing but this task's own
+# unsubmitted doorbell (bin/fm-task-inbox-lib.sh builds the line), clear it so
+# the lifecycle action does not refuse Firstmate's own text. Returns 0 when it
+# did, and 1 (sending nothing) when the composer
+# holds anything else (including another task's doorbell or a doorbell with
+# typed characters after it) or cannot be read, and dies when the text is ours
+# but the clear does not read back empty.
+clear_own_doorbell() {
+  local line
+  fm_control_backend_supports_key "$BACKEND" C-u || return 1
+  fm_control_backend_supports_key "$BACKEND" C-e || return 1
+  line=$(fm_task_inbox_doorbell_line "$STATE/$ID.inbox/clear.msg") || return 1
+  fm_task_inbox_composer_holds_own "$BACKEND" "$T" "$line" "$LABEL" || return 1
+  fm_backend_composer_clear "$BACKEND" "$T" "$line" "$LABEL" \
+    || die "task $ID's composer holds Firstmate's own unsubmitted doorbell, but clearing it did not leave the composer empty; refusing to send lifecycle input onto it. Clear the composer, then retry '$VERB'"
+}
+
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
-  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
+  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy release_meta_lock='' release_busy_token='' submit_rc=0
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -676,7 +835,7 @@ do_exit() {
       # "destroyed" with "unreachable from this seat". Route it through the
       # control plane's one absence proof - the same one the relaunch gate uses
       # - and report what that proof actually established, never more.
-      absence=$(fm_control_endpoint_absence_verdict "$BACKEND" "$T")
+      absence=$(fm_control_endpoint_absence_verdict "$BACKEND" "$T" "$META")
       case "${absence%%$'\t'*}" in
         gone)
           # Proven gone, so the agent that lived in it went with it: exit's
@@ -707,9 +866,22 @@ do_exit() {
       ;;
     *) die "task $ID's endpoint reads '$state' rather than a positively classified state; refusing to send a lifecycle command into an unattributed endpoint" ;;
   esac
-  # A busy agent is interrupted first before the exit command is submitted.
-  case "$(busy_verdict)" in
+  # A busy agent is interrupted first before the exit command is submitted,
+  # except under --if-idle, which acts only on a positively idle verdict and
+  # never interrupts a turn.
+  busy=$(busy_verdict)
+  if [ "$IF_IDLE" = 1 ]; then
+    case "$busy" in
+      idle*) ;;
+      *)
+        echo "task $ID reads '${busy%% *}', not idle; the unattended exit never interrupts or guesses" >&2
+        exit 75
+        ;;
+    esac
+  fi
+  case "$busy" in
     busy*)
+      clear_own_doorbell || true
       cancel=$(deliver_interrupt) || return $?
       state=$(agent_state)
       case "$state" in
@@ -742,20 +914,39 @@ do_exit() {
   case "$composer_state" in
     empty) ;;
     pending)
-      die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
+      if clear_own_doorbell; then
+        composer_state=$(fm_backend_composer_state "$BACKEND" "$T" "$LABEL" 2>/dev/null) \
+          || composer_state=unknown
+        [ "$composer_state" = empty ] \
+          || die "task $ID's composer holds Firstmate's own unsubmitted doorbell and it was cleared, but the composer then reads '$composer_state', not proven empty; refusing to type the $cmd exit command. Retry '$VERB'"
+      else
+        die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
+      fi
       ;;
     *)
       die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       ;;
   esac
+  if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
+    [ "$EXPECT_GEN_SET" = 1 ] && [ "$IF_IDLE" = 1 ] || return 75
+    release_meta_lock=$(fm_meta_lock_path "$META") || return 75
+    fm_lock_try_acquire "$release_meta_lock" || return 75
+    # Capture the lock path now because the local variable is gone at exit.
+    # shellcheck disable=SC2064
+    trap "fm_lock_release $(printf '%q' "$release_meta_lock") || true" EXIT
+    "$SCRIPT_DIR/fm-lane-release.sh" validate-exit "$ID" "$EXPECT_GEN" || return 75
+    release_busy_token=$(sed -n 's/^busy_seq=//p' "$STATE/$ID.released")
+    fm_control_lane_release_guard || return 75
+  fi
   # The submit verdict is NOT the postcondition here: a successful exit command
   # destroys the composer the verdict is read from, so a post-exit read can
   # legitimately report anything. Only a hard transport failure aborts; the
   # authoritative proof is the agent-state wait below. The retried Enter still
   # matters, because a slash command opens a completion popup on some TUIs that
   # swallows the first Enter.
-  verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
+  verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") || submit_rc=$?
+  [ "$submit_rc" != 75 ] || return 75
+  [ "$submit_rc" = 0 ] || die "the exit command could not be sent to task $ID on $BACKEND"
   [ "$verdict" != send-failed ] \
     || die "the exit command could not be sent to task $ID on $BACKEND"
   # The submitting Enter can open the picker. The agent is still alive, and
@@ -780,6 +971,10 @@ do_exit() {
   }
   # The incarnation is over: retire its busy wiring so no stale record or
   # orphaned generation survives the agent that produced it.
+  if [ -n "$release_meta_lock" ]; then
+    fm_lock_release "$release_meta_lock" || true
+    trap - EXIT
+  fi
   retire_busy_incarnation
   printf 'stopped'
 }
@@ -1120,7 +1315,7 @@ record_note() {
 }
 
 do_relaunch() {
-  local exit_result state note_line spawn_status
+  local exit_result exit_bg state note_line spawn_status
   local -a spawn_args
 
   require_state_verified_backend relaunch
@@ -1159,7 +1354,8 @@ do_relaunch() {
 
   journal_write stopping "${CHECKPOINT_LINES[@]}" "$note_line"
   exit_result=$(do_exit)
-  journal_write exited "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result"
+  exit_bg=$(exit_background_check)
+  journal_write exited "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result" "exit_background=${exit_bg:-not-applicable}"
 
   # The launch owner (fm-spawn --relaunch) clears the previous incarnation's
   # per-task harness wiring before arming the new one, so nothing to do here.
@@ -1201,7 +1397,7 @@ do_relaunch() {
   }
   RELAUNCH_AGENT_CONFIRMED=1
 
-  journal_write complete "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result"
+  journal_write complete "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result" "exit_background=${exit_bg:-not-applicable}"
   RELAUNCH_ACTIVE=0
   echo "relaunched $ID harness=$TARGET_HARNESS from=$PRIOR_RECORDED_HARNESS model=$TARGET_MODEL effort=$TARGET_EFFORT backend=$BACKEND endpoint=$T worktree=$WT"
 }
@@ -1227,7 +1423,8 @@ case "$VERB" in
     ;;
   exit)
     result=$(do_exit)
-    echo "$result $ID harness=$HARNESS backend=$BACKEND endpoint=$T worktree=$WT"
+    bg=$(exit_background_check)
+    echo "$result $ID harness=$HARNESS backend=$BACKEND endpoint=$T worktree=$WT${bg:+ $bg}"
     ;;
   relaunch)
     do_relaunch

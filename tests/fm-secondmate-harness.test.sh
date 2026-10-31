@@ -1272,6 +1272,7 @@ test_spawn_fallback_chain_and_crew_scout_unaffected() {
   mkdir -p "$w/home/config"
   printf 'codex\n' > "$w/home/config/crew-harness"
   printf '999999 0\n' > "$w/home/config/lane-capacity"
+  fm_test_machine_policy "$w/home/config"
   make_seeded_home "$sm" sm
 
   spawn_secondmate_capture "$w" sm "$sm" "$launchlog" >/dev/null 2>&1

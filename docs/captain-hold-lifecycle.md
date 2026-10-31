@@ -51,7 +51,7 @@ It works in this order:
 
 1. It uses an existing task, or creates one when nothing exists to hold.
 2. It records the task's UTC hold-set timestamp as the leading line of the task body.
-3. When `--origin` is supplied, it records the origin on the task, replacing any previous association.
+3. It records any supplied originating-task association and attribution metadata before publishing the hold.
 4. It invokes the underlying tasks-axi hold operation.
 5. It verifies the hold and timestamp.
 
@@ -63,8 +63,10 @@ Repeat and edge cases:
 - Re-holding released work starts a new timestamped lifecycle.
 - A closed task is refused rather than reopened.
 - `--until` stores the captain's own deferral date through tasks-axi's date gate.
+- Optional structured release conditions use the shared [hold-release contract](../bin/fm-hold-release-lib.sh).
 - Before the backend hold runs, `--origin` records the origin the call is held for on its own `Captain hold origin:` body line, which `complete` and `verify` check using backend identities rather than alias spellings.
   If that write fails, the backend hold is not attempted.
+- [`bin/fm-captain-hold.sh`'s header and `--help`](../bin/fm-captain-hold.sh) own the optional attribution flag's values, storage, re-hold behavior, and rollback contract.
 - The reason may contain parentheses, semicolons, quotes, and line breaks.
   [`bin/fm-hold-reason-lib.sh`](../bin/fm-hold-reason-lib.sh) owns the storage encoding and compatibility rules; [`bin/fm-tasks-axi.sh --help`](../bin/fm-tasks-axi.sh) owns the public read commands and output contract.
 
@@ -132,19 +134,19 @@ The `--force` path remains the explicit captain-approved discard escape hatch.
 ## Cleanup never closes a captain call
 
 The policy prefers holding the very work item a question gates.
-So the backlog row a finished task's cleanup is about to close is routinely the captain's own call.
+So the backlog row a finished task's cleanup encounters is routinely the captain's own call.
 
-`bin/fm-teardown.sh` therefore asks the read-only `open` subcommand before its automatic close:
+`bin/fm-teardown.sh` therefore asks the read-only `open` subcommand before selecting its cleanup transition:
 
 | `open` exit | Meaning | What teardown does |
 | --- | --- | --- |
 | 0 | The row is still an open captain call (not Done, `hold_kind: captain`). | Retains the row, as described below. |
-| 1 | The row is not an open captain call. | Proceeds with its automatic close. |
+| 1 | The row is not an open captain call. | Applies the ordinary cleanup gates in [`bin/fm-teardown.sh`'s header](../bin/fm-teardown.sh). |
 | 2 | The answer could not be established. | Treats it as a refusal before any destructive step, never as permission to close. |
 
 ### Retaining the row on exit 0
 
-On 0 only the close changes.
+On 0 cleanup uses retention instead of closing bookkeeping.
 After cleanup, and still under the task's own lock, teardown does three things:
 
 - It records one `Deliverable of the finished work: ...` line at the end of the task body.

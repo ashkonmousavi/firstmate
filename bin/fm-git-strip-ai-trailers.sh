@@ -26,11 +26,16 @@
 #       nonzero rather than skipping the repository's hook. Does not touch the
 #       project's git config; the caller prefixes the pane with env-file below.
 #       --no-strip writes a commit-msg wrapper that only chains, for a home that
-#       keeps trailers but still needs the directory for the push guard.
+#       keeps trailers but still needs the directory for pre-push checks.
 #       --push-guard copies <guard-file> into <hooks-dir> read-only and makes
 #       the pre-push wrapper run bin/fm-git-push-guard.sh on it first, with
 #       git's arguments and ref lines, chaining to the repository's pre-push
 #       hook only when the guard passes (that script owns the rules).
+#       The pre-push wrapper also runs bin/fm-git-ruff-format-check.sh.
+#       That script owns repository declaration and formatting rules. The
+#       guard and the format check each run and each refuse on their own, so one
+#       refusal never hides the other; the repository's pre-push hook is chained
+#       only when both pass.
 #   fm-git-strip-ai-trailers.sh env-file <hooks-dir> <out-file>
 #       Write <out-file> as one plain export statement that appends
 #       core.hooksPath=<hooks-dir> after the GIT_CONFIG_COUNT entries this
@@ -274,7 +279,7 @@ write_env_file() {
 }
 
 install_hooks() {
-  local hooks_dir=$1 wt=$2 strip=${3:-1} guard_src=${4:-} name strip_line guard_file guard_cmd
+  local hooks_dir=$1 wt=$2 strip=${3:-1} guard_src=${4:-} name strip_line guard_file guard_cmd ruff_cmd checks_line
   [ -n "$hooks_dir" ] && [ -n "$wt" ] || usage
   if [ -n "$guard_src" ] && { [ ! -f "$guard_src" ] || [ ! -r "$guard_src" ]; }; then
     echo "error: push guard file is not a readable regular file: $guard_src" >&2
@@ -303,29 +308,35 @@ $strip_line
 $(runtime_chain_body "$hooks_dir")
 EOF
 
+  guard_cmd='' ruff_cmd='' checks_line=''
   if [ -n "$guard_src" ]; then
     guard_file="$hooks_dir/fm-push-guard"
     { cp "$guard_src" "$guard_file" && chmod 400 "$guard_file"; } || return 1
     guard_cmd="$(quote_for_hook "${SELF%/*}/fm-git-push-guard.sh") $(quote_for_hook "$guard_file")"
-    # git passes the refs being pushed on stdin; the guard reads them, so they
-    # are captured once and replayed to the repository's own pre-push hook.
-    write_executable "$hooks_dir/pre-push" <<EOF
+    checks_line="${checks_line}feed | $guard_cmd \"\$@\" || bad=1"$'\n'
+  fi
+  ruff_cmd=$(quote_for_hook "${SELF%/*}/fm-git-ruff-format-check.sh")
+  checks_line="${checks_line}feed | $ruff_cmd \"\$@\" || bad=1"$'\n'
+  # git passes the refs being pushed on stdin; each check reads them, so they
+  # are captured once, fed to every check, and replayed to the repository's
+  # own pre-push hook. Every check runs, so one refusal never hides another.
+  write_executable "$hooks_dir/pre-push" <<EOF
 #!/usr/bin/env bash
 set -u
 refs=\$(cat)
+feed() { if [ -n "\$refs" ]; then printf '%s\\n' "\$refs"; fi; }
+bad=0
+${checks_line}[ "\$bad" = 0 ] || exit 1
 if [ -n "\$refs" ]; then
-  printf '%s\\n' "\$refs" | $guard_cmd "\$@" || exit 1
   exec 0<<<"\$refs"
 else
-  $guard_cmd "\$@" </dev/null || exit 1
   exec 0</dev/null
 fi
 $(runtime_chain_body "$hooks_dir")
 EOF
-  fi
 
   for name in $FM_GIT_CLIENT_HOOKS; do
-    [ -z "$guard_src" ] || [ "$name" != pre-push ] || continue
+    [ "$name" != pre-push ] || continue
     write_executable "$hooks_dir/$name" <<EOF
 #!/usr/bin/env bash
 set -u

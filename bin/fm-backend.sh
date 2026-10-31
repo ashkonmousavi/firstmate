@@ -849,13 +849,39 @@ fm_backend_send_key() {  # <backend> <target> <key> [expected-label]
   esac
 }
 
+fm_backend_lane_release_guard() {
+  local backend=$1 target=$2 action=$3 input=${4:-} content cap
+  if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
+    case "$action" in
+      send-text)
+        [ "$(fm_backend_composer_state "$backend" "$target" "${label:-}")" = empty ] || return 75
+        ;;
+      send-keys)
+        case "$input" in Enter|enter) ;; *) return 75 ;; esac
+        [ -n "${release_draft:-}" ] || return 75
+        case "$backend" in
+          tmux)
+            cap=$(fm_tmux_composer_capture "$target") || return 75
+            content=$(FM_COMPOSER_GHOST_LUMA_MAX=0 fm_composer_extract_selected_content "$(fm_tmux_composer_caps)" "$cap") || return 75
+            ;;
+          herdr) content=$(fm_backend_herdr_composer_content "$target") || return 75 ;;
+          *) return 75 ;;
+        esac
+        [ "$content" = "$release_draft" ] || return 75
+        ;;
+      *) return 75 ;;
+    esac
+  fi
+  if declare -F fm_control_lane_release_guard >/dev/null; then fm_control_lane_release_guard || return 75; fi
+}
+
 # fm_backend_send_text_submit: type text once, then submit and verify,
 # retrying only the submission (never retyping). Echoes the backend's
 # proof-carrying verdict; callers require exact empty for confirmed delivery.
 # A pane that already shows the recognised dialog is refused before any
 # adapter types, so that submit neither types the text nor sends Enter.
 fm_backend_send_text_submit() {  # <backend> <target> <text> <retries> <enter-sleep> <settle> [expected-label]
-  local backend=$1 rc=0 target label dialog
+  local backend=$1 rc=0 target label dialog preflight release_draft=$3
   shift
   target=$1
   label=${6:-}
@@ -863,18 +889,26 @@ fm_backend_send_text_submit() {  # <backend> <target> <text> <retries> <enter-sl
   # Every Enter loop below reads the dialog sink, so it must exist before
   # any adapter types: a sink that fails here leaves the composer untouched.
   fm_composer_dialog_sink_prepare || {
+    [ -z "${FM_RING_REASON_SINK:-}" ] || { printf '%s\n' dialog-sink-failed > "$FM_RING_REASON_SINK"; } 2>/dev/null || true
     echo "error: the dialog check for a $backend submit could not be recorded" >&2
     return 1
   }
   # One composer read after the sink exists and before the adapter types.
   # The classify writes the sink; a named dialog means the next Enter would
   # answer it.
-  if [ -n "$label" ]; then
+  if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
+    preflight=$(fm_backend_composer_state "$backend" "$target" "$label") || preflight=unknown
+    if [ "$preflight" != empty ]; then
+      fm_composer_dialog_sink_release
+      return 75
+    fi
+  elif [ -n "$label" ]; then
     fm_backend_composer_state "$backend" "$target" "$label" >/dev/null || true
   else
     fm_backend_composer_state "$backend" "$target" >/dev/null || true
   fi
   if dialog=$(fm_composer_blocking_dialog_noted); then
+    [ -z "${FM_RING_REASON_SINK:-}" ] || { printf '%s\n' preflight-dialog > "$FM_RING_REASON_SINK"; } 2>/dev/null || true
     fm_composer_dialog_sink_release
     echo "error: blocked on a prompt: $dialog" >&2
     return 1
@@ -1020,6 +1054,39 @@ fm_backend_composer_state() {  # <backend> <target> [expected-label] -> empty|pe
     zellij) fm_backend_zellij_composer_state "$@" ;;
     *) printf 'unknown' ;;
   esac
+}
+
+# fm_backend_composer_clear: press Ctrl+U until the composer reads empty, for a
+# composer already proven to hold only <text> (bin/fm-control.sh clears a task's
+# own unsubmitted doorbell with it). Ctrl+C is never used because it interrupts
+# a running turn. A wrapped draft can need one press per screen row, so the
+# bound follows <text>'s length. 0 only when the composer is read back empty.
+fm_backend_composer_clear() {  # <backend> <target> <text> [expected-label]
+  local backend=$1 target=$2 text=$3 label=${4:-} presses i=0 verdict read_try
+  fm_backend_source "$backend" || return 1
+  if [ "$backend" = herdr ]; then
+    fm_backend_herdr_composer_clear "$target" "$text"
+    return $?
+  fi
+  presses=$(( ${#text} + 1 ))
+  while [ "$i" -lt "$presses" ]; do
+    fm_backend_send_key "$backend" "$target" C-e "$label" || return 1
+    fm_backend_send_key "$backend" "$target" C-u "$label" || return 1
+    i=$((i + 1))
+    # A redraw can briefly invalidate the cursor/screen pair. Retry reads,
+    # never edits, until the next deletion has a readable pending verdict.
+    for read_try in 1 2 3 4 5; do
+      verdict=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || return 1
+      [ "$verdict" = unknown ] && [ "$read_try" -lt 5 ] || break
+      sleep 0.1
+    done
+    case "$verdict" in
+      empty) return 0 ;;
+      pending|pending-unproven) ;;
+      *) return 1 ;;
+    esac
+  done
+  return 1
 }
 
 # fm_backend_target_exists: cheap, READ-ONLY existence check - does the

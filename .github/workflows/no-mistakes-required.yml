@@ -20,10 +20,11 @@ concurrency:
   group: no-mistakes-required-${{ github.event.pull_request.number }}-${{ (github.event.action == 'opened' || github.event.action == 'edited') && github.run_id || 'head-change' }}
   cancel-in-progress: true
 
+# Pin Ubuntu 24.04 during the Ubuntu 26.04 rollout (actions/runner-images#14748).
 jobs:
   check:
     name: PR must be raised via no-mistakes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: >-
       github.event.pull_request.user.login != 'github-actions[bot]' &&
       github.event.pull_request.user.login != 'dependabot[bot]'

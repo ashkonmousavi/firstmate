@@ -4,19 +4,23 @@
 # When the main firstmate delivers a reply-bearing marked from-firstmate request
 # to a secondmate, this library records a durable parent-owned pending-reply
 # expectation BEFORE delivery, embeds a privacy-safe correlation id in the
-# outbound message, and later resolves that expectation only from a correlated
+# outbound message, and later automatically resolves that expectation from a correlated
 # line in the asked task's own parent status log, or a document it points to -
 # never from transport success, chat content, unrelated status activity, or
-# another task's line that echoes or quotes the token. Summary-classified
-# one-way notices are the exception: fm_pending_reply_oneway_expired below
-# owns their expiry rule, which does not prove delivery or acknowledgement.
+# another task's line that echoes or quotes the token. Notice exceptions are
+# owned by fm_pending_reply_text_is_notice and fm_pending_reply_oneway_expired
+# below; their resolution does not prove delivery or acknowledgement.
+# Explicit no-reply resolution is owned by fm_pending_reply_ack_handled below;
+# delivery acknowledgement alone never closes it.
+# Explicit operator retirement is separate from acknowledgement; its contract
+# is owned by bin/fm-pending-reply-retire-stale.sh's header.
 #
 # Safety property (captain direction 2026-07-22): a secondmate agent may ignore
 # the marker and answer only in its visible conversation. The parent must notice
 # the missing correlated report without scraping that conversation, send exactly
 # one automatic recovery request asking for a repost through the parent channel
-# (held back, when config/wait-no-turns is present, while the mate waits on its
-# own open decision or blocker), and
+# (subject, when config/wait-no-turns is present, to the decision-age gate in
+# fm_pending_reply_mate_decision_newer_than below), and
 # escalate once if the recovery turn also completes without a correlated
 # report. Never loop, never repeatedly inject, never silently expire unresolved
 # reply-bearing records outside the one-way exception, and never treat
@@ -65,7 +69,22 @@
 #                           escalation was closed again (see the escalation
 #                           lifecycle note below); empty until then
 #   resolved_epoch=
-#   resolved_via=           status | document | helper | expired-one-way | empty
+#   one_way=                1 only when the full request body is a notice that
+#                           asks for no reply (fm_pending_reply_text_is_notice);
+#                           absent otherwise
+#   resolved_via=           status | document | helper | expired-one-way |
+#                           one-way-notice | handled | retired-stale | empty
+#                           one-way-notice is a one_way=1 record closed at its
+#                           first resolve attempt, since nothing was asked
+#                           handled is the recipient's acknowledgement that
+#                           this exact request needs no reply
+#                           (fm_pending_reply_ack_handled); its close note
+#                           carries the words "handled, no reply needed"
+#                           retired-stale is the operator stale retirement
+#                           (fm_pending_reply_retire_stale); the record is
+#                           kept and retired_reason= says why
+#   retired_reason=         task-gone | superseded-by-<corr>
+#                           empty unless resolved_via=retired-stale
 #   wrong_home_hits=        count of corr sightings under the secondmate home
 #   wrong_home_first_sighting= encoded path:line identity of the first sighting
 #   wrong_home_sightings=   comma-separated encoded path:line identities
@@ -98,9 +117,10 @@
 # resets the record to awaiting_report and leaves the published escalation
 # decision open: a confirmed delivery does not settle the request; see the
 # resolution contract above. A later escalation reuses that key rather than
-# opening a duplicate while the decision stays open, and only the ordinary
-# resolve close closes it. Once that close is in the log, the next escalation
-# of a record that already escalated and was reset is a new episode: it
+# opening a duplicate while the decision stays open. Resolution, including
+# explicit operator retirement, closes it.
+# Once that close is in the log, the next escalation of a record that already
+# escalated and was reset is a new episode: it
 # appends a new blocked line for the same key, even one identical to the
 # first, and the fold opens the decision again. That reopen belongs to this
 # escalation alone; status_event_recorded (bin/fm-classify-lib.sh) stays an
@@ -109,8 +129,9 @@
 # (bin/fm-backlog-handoff.sh's receiver wake) stayed refused forever once the
 # watcher escalated between the lost transport and the next resume.
 #
-# Sourced by bin/fm-send.sh, bin/fm-watch.sh, bin/fm-secondmate-report.sh, and
-# tests. No side effects on source. set -u / set -e safe.
+# Sourced by bin/fm-send.sh, bin/fm-watch.sh, bin/fm-secondmate-report.sh,
+# bin/fm-pending-reply-ack-handled.sh, bin/fm-pending-reply-retire-stale.sh,
+# and tests. No side effects on source. set -u / set -e safe.
 #
 # Tunables (env):
 #   FM_PENDING_REPLY_GRACE_SECS   default 120; counted from the request turn's
@@ -145,6 +166,9 @@ _FM_PENDING_REPLY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/n
 FM_PENDING_REPLY_SCHEMA='fm-pending-reply.v1'
 FM_PENDING_REPLY_CORR_RE='corr=[A-Fa-f0-9]{16}'
 FM_PENDING_REPLY_GRACE_DEFAULT=120
+# Fixed age for fm-pending-reply-retire-stale.sh.
+# A record is eligible only when strictly older than this many seconds.
+FM_PENDING_REPLY_STALE_AGE_SECS=86400
 
 fm_pending_reply_now() {
   if [ -n "${FM_PENDING_REPLY_NOW:-}" ]; then
@@ -379,11 +403,26 @@ grace_secs=$(fm_pending_reply_grace_secs)
 EOF
   chmod 600 "$tmp" 2>/dev/null || true
   mv -f "$tmp" "$rec" || return 1
+  if fm_pending_reply_text_is_notice "$request_text"; then
+    fm_pending_reply_set "$rec" one_way 1 || return 1
+  fi
   printf '%s' "$corr"
 }
 
 # Mark delivery success for an existing expectation. Never resolves.
-fm_pending_reply_mark_delivered() {  # <state-dir> <corr_id> [confirmed-epoch]
+fm_pending_reply_mark_delivered() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_mark_delivered_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_mark_delivered_locked() {  # <state-dir> <corr_id> [confirmed-epoch]
   local state=$1 corr=$2 confirmed_epoch=${3-} rec phase delivered now
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
@@ -450,7 +489,7 @@ _fm_pending_reply_confirm_delivery_locked() {  # <state-dir> <corr_id>
   fi
   now=$(fm_pending_reply_now)
   fm_pending_reply_write_delivery_confirmation "$state" "$corr" confirmed "$now" || return 1
-  if fm_pending_reply_mark_delivered "$state" "$corr" "$now"; then
+  if _fm_pending_reply_mark_delivered_locked "$state" "$corr" "$now"; then
     rm -f "$marker" 2>/dev/null || true
     return 0
   fi
@@ -460,7 +499,19 @@ _fm_pending_reply_confirm_delivery_locked() {  # <state-dir> <corr_id>
 # Preserve an expectation when a remote transport disconnect makes delivery
 # completion unknowable. This never resolves or retries the request; it moves
 # the existing prepared record to the owner's explicit unknown-delivery path.
-fm_pending_reply_mark_delivery_unknown() {  # <state-dir> <corr_id>
+fm_pending_reply_mark_delivery_unknown() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_mark_delivery_unknown_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_mark_delivery_unknown_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec phase
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
@@ -490,7 +541,7 @@ _fm_pending_reply_reconcile_delivery_locked() {  # <state-dir> <corr_id>
     confirmed)
       epoch=$value
       case "$epoch" in ''|*[!0-9]*) return 1 ;; esac
-      fm_pending_reply_mark_delivered "$state" "$corr" "$epoch" || return 1
+      _fm_pending_reply_mark_delivered_locked "$state" "$corr" "$epoch" || return 1
       rm -f "$marker" 2>/dev/null || true
       return 0
       ;;
@@ -577,10 +628,23 @@ _fm_pending_reply_reset_known_undelivered_locked() {  # <state-dir> <corr_id>
 
 # Drop an undelivered expectation after a failed send so transport failure does
 # not masquerade as a missed report later.
-fm_pending_reply_discard_undelivered() {  # <state-dir> <corr_id>
+fm_pending_reply_discard_undelivered() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_discard_undelivered_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_discard_undelivered_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec delivered marker
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 0
+  [ "$(fm_pending_reply_get "$rec" phase)" != resolved ] || return 1
   delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
   [ -z "$delivered" ] || return 1
   marker=$(fm_pending_reply_delivery_confirmation_path "$state" "$corr")
@@ -626,6 +690,27 @@ fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
 # whether delivered or not. Resolution records expired-one-way and closes any
 # escalation; it does not establish delivery or a correlated reply.
 FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited config changed|(MAIN[:,]? )?(FYI|fyi)\b|MAIN fyi|Done by MAIN|Applied:|Agreed:|Correction to )'
+# Full-body notice classification, separate from the summary expiry above:
+# standalone no-reply/no-action waiver sentences may appear anywhere; walk
+# end/dispatched, copied/carried, and Firstmate-updated openings also qualify.
+# A question mark or an explicit reporting/investigation directive takes
+# precedence, including after an introductory clause. A report filename or
+# noun alone is not a directive. Classification sets one_way=1 at creation;
+# the record schema above owns its resolution semantics.
+FM_PENDING_REPLY_NOTICE_BODY_RE=$'(^|[.!:;][[:space:]]+|\n[[:space:]]*)no[[:space:]]+(reply|action)([[:space:]]+is)?[[:space:]]+needed([[:space:]]+on[[:space:]]+your[[:space:]]+side)?[[:space:]]*([.!]([[:space:]]|$)|\n|$)'
+FM_PENDING_REPLY_NOTICE_OPEN_RE='^(walk[[:space:]]+end:|walk[[:space:]]+dispatched|copied:|carried:|firstmate[[:space:]]+updated[[:space:]]+to[[:space:]])'
+FM_PENDING_REPLY_NOTICE_REQUEST_RE=$'(^|[[:punct:]][[:space:]]*|\n[[:space:]]*)(please[[:space:]]+)?(investigate|report|reply|respond)[[:space:]]|(^|[^[:alnum:]_])((please|and|then)[[:space:]]+(report|reply|respond)|(can|could|would|will)[[:space:]]+you[[:space:]]+(please[[:space:]]+)?(report|reply|respond)|(when[[:space:]]+ready|you[[:space:]]+should|after[[:space:]]+the[[:space:]]+check)[[:space:]]+report|report[[:space:]]+back|reply[[:space:]]+with|send[[:space:]]+me)([[:space:][:punct:]]|$)'
+fm_pending_reply_text_is_notice() {  # <request-text>
+  local text=$1
+  text=${text#"$FM_FROMFIRST_MARK"}
+  text=$(printf '%s' "$text" | tr '\t\r' '  ' | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]*(corr=[a-f0-9]{16})?[[:space:]]*//')
+  text=${text#"${text%%[![:space:]]*}"}
+  [[ $text == *'?'* ]] && return 1
+  [[ $text =~ $FM_PENDING_REPLY_NOTICE_REQUEST_RE ]] && return 1
+  [[ $text =~ $FM_PENDING_REPLY_NOTICE_OPEN_RE ]] && return 0
+  [[ $text =~ $FM_PENDING_REPLY_NOTICE_BODY_RE ]]
+}
+
 fm_pending_reply_oneway_expired() {  # <record-path>
   local rec=$1 summary created now
   summary=$(fm_pending_reply_get "$rec" request_summary)
@@ -706,11 +791,16 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
     _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
     return 0
   fi
-  if [ -z "$status_override" ] && fm_pending_reply_oneway_expired "$rec"; then
+  if [ "$(fm_pending_reply_get "$rec" one_way)" = 1 ] \
+    || { [ -z "$status_override" ] && fm_pending_reply_oneway_expired "$rec"; }; then
     now=$(fm_pending_reply_now)
     fm_pending_reply_set "$rec" phase resolved || return 1
     fm_pending_reply_set "$rec" resolved_epoch "$now" || return 1
-    fm_pending_reply_set "$rec" resolved_via expired-one-way || return 1
+    if [ "$(fm_pending_reply_get "$rec" one_way)" = 1 ]; then
+      fm_pending_reply_set "$rec" resolved_via one-way-notice || return 1
+    else
+      fm_pending_reply_set "$rec" resolved_via expired-one-way || return 1
+    fi
     _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
     return 0
   fi
@@ -746,7 +836,7 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
   now=$(fm_pending_reply_now)
   fm_pending_reply_set "$rec" phase resolved || return 1
   if [ -z "$delivered" ]; then
-    fm_pending_reply_mark_delivered "$state" "$corr" "$now" || return 1
+    _fm_pending_reply_mark_delivered_locked "$state" "$corr" "$now" || return 1
     rm -f "$marker" 2>/dev/null || true
   fi
   fm_pending_reply_set "$rec" resolved_epoch "$now" || return 1
@@ -759,7 +849,19 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
 
 # Observe backend busy/idle evidence for the active turn without reading chat.
 # busy_state must be one of: busy | idle | unknown.
-fm_pending_reply_observe_busy() {  # <state-dir> <corr_id> <busy_state>
+fm_pending_reply_observe_busy() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_observe_busy_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_observe_busy_locked() {  # <state-dir> <corr_id> <busy_state>
   local state=$1 corr=$2 busy_state=$3
   local rec phase delivered now seen completed field_seen field_completed
   rec=$(fm_pending_reply_path "$state" "$corr")
@@ -878,7 +980,19 @@ fm_pending_reply_busy_state_from_observation() {  # <record-path> <observation>
 
 # Explicit turn-completion proof (for tests and turn-end backends that surface
 # a completion event without a busy/idle pair).
-fm_pending_reply_mark_turn_completed() {  # <state-dir> <corr_id> [which: request|recovery]
+fm_pending_reply_mark_turn_completed() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_mark_turn_completed_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_mark_turn_completed_locked() {  # <state-dir> <corr_id> [which: request|recovery]
   local state=$1 corr=$2 which=${3:-request}
   local rec phase field now
   rec=$(fm_pending_reply_path "$state" "$corr")
@@ -977,6 +1091,38 @@ fm_pending_reply_recovery_message() {  # <record-path>
   printf '%s' "$msg"
 }
 
+# 0 when the mate holds an open decision of its own that does not predate
+# <since-epoch>, the request's creation: only that decision can be the reason a
+# reply is outstanding. A decision opened earlier is a standing question the
+# request did not wait behind. E amendment: equal or unreadable timestamps still
+# block the re-ask because the gate cannot prove the decision is old.
+fm_pending_reply_mate_decision_newer_than() {  # <status-file> <since-epoch>
+  local status_file=$1 since=$2 open key line at event opening folded verb kind resolve held
+  open=$(status_own_open_decisions "$status_file")
+  [ -n "$open" ] || return 1
+  kind=$(_fm_status_kind "$status_file")
+  resolve=${FM_CLASSIFY_RESOLVE_VERB:-$FM_CLASSIFY_RESOLVE_VERB_DEFAULT}
+  held=${FM_CLASSIFY_CAPTAIN_HELD_VERB:-$FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT}
+  while IFS= read -r line; do
+    key=${line%%$'\t'*}
+    [ -n "$key" ] || continue
+    opening=''
+    while IFS= read -r event || [ -n "$event" ]; do
+      status_line_verb "$event" verb
+      case "$verb" in needs-decision|blocked) ;; *) continue ;; esac
+      folded=$(_fm_decision_fold_line '' "$event" "$resolve" "$held" "$kind")
+      case "$folded" in "$key"$'\t'*) opening=$event ;; esac
+    done < "$status_file"
+    at=$(status_line_at_epoch "$opening") || at=''
+    [ -n "$at" ] && [ -n "$since" ] || return 0
+    case "$at$since" in *[!0-9]*) return 0 ;; esac
+    [ "$at" -ge "$since" ] && return 0
+  done <<EOF
+$open
+EOF
+  return 1
+}
+
 # Deliver the recovery message once. Caller must hold phase awaiting_report with
 # turn completed and grace elapsed. Uses FM_PENDING_REPLY_SEND_HOOK when set
 # (tests), otherwise invokes fm-send with FM_PENDING_REPLY_EXISTING_CORR so a
@@ -1010,10 +1156,11 @@ fm_pending_reply_send_recovery() {  # <state-dir> <corr_id>
   task_id=$(fm_pending_reply_get "$rec" task_id)
   # A remote mate's report may exist and simply not have been mirrored yet.
   fm_pending_reply_missing_report_is_evidence "$state" "$task_id" "$completed" || return 1
-  # config/wait-no-turns: a mate waiting on its own open decision or blocker
-  # is never poked. The recovery stays unattempted until the answer lands.
+  # config/wait-no-turns uses the decision-age contract owned by
+  # fm_pending_reply_mate_decision_newer_than above.
   if [ -e "${FM_CONFIG_OVERRIDE:-${FM_HOME:-}/config}/wait-no-turns" ]; then
-    [ -z "$(status_own_open_decisions "$state/$task_id.status")" ] || return 1
+    ! fm_pending_reply_mate_decision_newer_than "$state/$task_id.status" \
+      "$(fm_pending_reply_get "$rec" created_epoch)" || return 1
   fi
   status_file=$(fm_pending_reply_get "$rec" parent_status)
   parent_home=$(fm_pending_reply_get "$rec" parent_home)
@@ -1082,7 +1229,19 @@ fm_pending_reply_sender_alive() {  # <record-path>
   [ "$actual" = "$expected" ]
 }
 
-fm_pending_reply_finish_recovery() {  # <state-dir> <corr_id> <confirmed|failed>
+fm_pending_reply_finish_recovery() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_finish_recovery_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_finish_recovery_locked() {  # <state-dir> <corr_id> <confirmed|failed>
   local state=$1 corr=$2 outcome=$3 rec phase now sent
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
@@ -1104,7 +1263,19 @@ fm_pending_reply_finish_recovery() {  # <state-dir> <corr_id> <confirmed|failed>
   fi
 }
 
-fm_pending_reply_reconcile_recovery() {  # <state-dir> <corr_id>
+fm_pending_reply_reconcile_recovery() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_reconcile_recovery_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_reconcile_recovery_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec phase attempted outcome
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
@@ -1115,8 +1286,8 @@ fm_pending_reply_reconcile_recovery() {  # <state-dir> <corr_id>
   case "$attempted" in *[!0-9]*) return 1 ;; esac
   outcome=$(fm_pending_reply_get "$rec" recovery_delivery_outcome)
   case "$outcome" in
-    confirmed) fm_pending_reply_finish_recovery "$state" "$corr" confirmed; return $? ;;
-    failed) fm_pending_reply_finish_recovery "$state" "$corr" failed; return $? ;;
+    confirmed) _fm_pending_reply_finish_recovery_locked "$state" "$corr" confirmed; return $? ;;
+    failed) _fm_pending_reply_finish_recovery_locked "$state" "$corr" failed; return $? ;;
     unknown)
       fm_pending_reply_set "$rec" phase recovery_unknown || return 1
       return 0
@@ -1231,9 +1402,66 @@ fm_pending_reply_close_escalation() {  # <state-dir> <corr_id>
   return "$rc"
 }
 
+# Close one exact correlation the recipient names as needing no reply.
+# Same identity checks and escalation close as notice retirement, with
+# resolved_via=handled. Nothing here infers the correlation from text, and
+# moving an inbox record to handled/ does not call this. Idempotent for a
+# record already closed this way; refuses a record resolved through any
+# other path.
+fm_pending_reply_ack_handled() {  # <parent-home> <task-id> <corr_id>
+  local home=$1 task_id=$2 corr=$3 state rec status lock rc=0 now
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  [ -d "$home" ] || return 1
+  state="${FM_STATE_OVERRIDE:-$home/state}"
+  case "$home" in
+    /*) ;;
+    *) home=$(cd "$home" && pwd) || return 1 ;;
+  esac
+  case "$state" in
+    /*) ;;
+    *) state=$(cd "$state" && pwd) || return 1 ;;
+  esac
+  STATE=$state
+  rec=$(fm_pending_reply_path "$state" "$corr")
+  status="$state/$task_id.status"
+  if [ ! -f "$rec" ] || [ -L "$rec" ] || [ ! -f "$status" ] || [ -L "$status" ]; then
+    echo "error: exact pending record or parent status missing" >&2
+    return 1
+  fi
+  lock="$state/.pending-reply-$corr.lock"
+  # Deliberately undirected: bin/fm-wake-lib.sh is expanded once at the
+  # fm_pending_reply_try_resolve site; each directed site would re-expand its
+  # whole transitive graph under ShellCheck's external-source traversal.
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  if [ "$(fm_pending_reply_get "$rec" schema)" != "$FM_PENDING_REPLY_SCHEMA" ] ||
+     [ "$(fm_pending_reply_get "$rec" corr_id)" != "$corr" ] ||
+     [ "$(fm_pending_reply_get "$rec" task_id)" != "$task_id" ] ||
+     [ "$(fm_pending_reply_get "$rec" parent_home)" != "$home" ] ||
+     [ "$(fm_pending_reply_get "$rec" parent_status)" != "$status" ]; then
+    echo "error: pending record identity mismatch" >&2
+    rc=1
+  elif [ "$(fm_pending_reply_get "$rec" phase)" = resolved ]; then
+    if [ "$(fm_pending_reply_get "$rec" resolved_via)" != handled ]; then
+      echo "error: correlation already resolved through another path" >&2
+      rc=1
+    fi
+  else
+    now=$(fm_pending_reply_now)
+    fm_pending_reply_set "$rec" resolved_via handled &&
+      fm_pending_reply_set "$rec" resolved_epoch "$now" &&
+      fm_pending_reply_set "$rec" phase resolved || rc=1
+  fi
+  if [ "$rc" -eq 0 ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || rc=1
+  fi
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
 _fm_pending_reply_close_escalation_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 rec escalated closed parent_status escalation key note
-  local open_line open_key open_note now close_line close_rc _task _via
+  local open_line open_key open_note now close_line close_rc _task _via _extra
   rec=$(fm_pending_reply_path "$state" "$corr")
   [ -f "$rec" ] || return 1
   [ "$(fm_pending_reply_get "$rec" phase)" = resolved ] || return 0
@@ -1261,7 +1489,12 @@ _fm_pending_reply_close_escalation_locked() {  # <state-dir> <corr_id>
       # OPEN above stays a plain append because a new blocker must wake.
       _task=$(fm_pending_reply_get "$rec" task_id)
       _via=$(fm_pending_reply_get "$rec" resolved_via)
-      close_line="resolved [key=${key}]: $(fm_pending_reply_resolved_note "$_task" "$corr" "$_via")"
+      _extra=
+      case "$_via" in
+        handled) _extra='handled, no reply needed' ;;
+        retired-stale) _extra=$(fm_pending_reply_get "$rec" retired_reason) ;;
+      esac
+      close_line="resolved [key=${key}]: $(fm_pending_reply_resolved_note "$_task" "$corr" "$_via" "$_extra")"
       close_rc=0
       fm_wake_status_append_self_announced "${parent_status%/*}" "$parent_status" "$close_line" \
         2>/dev/null || close_rc=$?
@@ -1299,6 +1532,58 @@ fm_pending_reply_maybe_escalate() {  # <state-dir> <corr_id>
   return "$rc"
 }
 
+# 0 when the remote mate's own inbox holds a message carrying corr=<id>, unread
+# or handled: the read-only answer to "did the enqueue land?" that a
+# delivery-unknown record otherwise leaves to a human. Anything but a clear
+# "landed" (absent, ssh down, timeout) is 1, so the record still escalates.
+# The production transport has a fixed 20-second bound.
+# FM_PENDING_REPLY_REMOTE_PROBE_HOOK replaces the transport; it receives
+# task_id and corr_id and prints landed or absent.
+fm_pending_reply_remote_inbox_has_corr() {  # <state-dir> <corr_id>
+  local state=$1 corr=$2 task_id answer
+  task_id=$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" task_id)
+  fm_pending_reply_target_is_remote "$state" "$task_id" || return 1
+  if [ -n "${FM_PENDING_REPLY_REMOTE_PROBE_HOOK:-}" ]; then
+    # shellcheck disable=SC2086
+    answer=$(eval "$FM_PENDING_REPLY_REMOTE_PROBE_HOOK" "$(printf '%q' "$task_id")" "$(printf '%q' "$corr")" 2>/dev/null) || return 1
+  else
+    # shellcheck source=bin/fm-timeout-lib.sh
+    . "$_FM_PENDING_REPLY_LIB_DIR/fm-timeout-lib.sh"
+    answer=$(fm_run_timed 20 "$_FM_PENDING_REPLY_LIB_DIR/fm-on.sh" "$task_id" \
+      fm-remote-secondmate-control.sh probe "$task_id" "$corr" < /dev/null 2>/dev/null) || return 1
+  fi
+  [ "$answer" = landed ]
+}
+
+# Run after the delivery ladder in fm-watch.sh's detached remote-inbox pass,
+# outside the watcher cycle and under the existing per-correlation locks.
+# Spend at most one delivery-unknown probe per pass, while still checking
+# already-escalated records for late replies throughout the backlog.
+fm_pending_reply_remote_inbox_tick() {
+  local state=$1 rec corr task_id phase probed=0
+  for rec in "$(fm_pending_reply_dir "$state")"/*; do
+    [ -f "$rec" ] || continue
+    case "${rec##*/}" in .*) continue ;; esac
+    [ "$(fm_pending_reply_get "$rec" phase)" != resolved ] || continue
+    [ -z "$(fm_pending_reply_get "$rec" delivered_epoch)" ] || continue
+    task_id=$(fm_pending_reply_get "$rec" task_id)
+    fm_pending_reply_target_is_remote "$state" "$task_id" || continue
+    corr=$(fm_pending_reply_get "$rec" corr_id)
+    [ -n "$corr" ] || corr=${rec##*/}
+    fm_pending_reply_reconcile_delivery "$state" "$corr" || true
+    phase=$(fm_pending_reply_get "$rec" phase)
+    case "$phase" in
+      delivery_unknown)
+        [ "$probed" = 0 ] || continue
+        fm_pending_reply_maybe_escalate "$state" "$corr" || true
+        probed=1
+        ;;
+      escalated) fm_pending_reply_try_resolve "$state" "$corr" >/dev/null 2>&1 || true ;;
+    esac
+  done
+  return 0
+}
+
 _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
   local state=$1 corr=$2
   local rec phase completed now payload parent_status line kind first display
@@ -1310,6 +1595,13 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
     _fm_pending_reply_reconcile_delivery_locked "$state" "$corr" || true
     phase=$(fm_pending_reply_get "$rec" phase)
     [ "$phase" = delivery_unknown ] || return 0
+  fi
+  # The enqueue may have landed with only its confirmation lost: ask the
+  # remote inbox before calling it lost.
+  if [ "$phase" = delivery_unknown ] && fm_pending_reply_remote_inbox_has_corr "$state" "$corr"; then
+    _fm_pending_reply_mark_delivered_locked "$state" "$corr" || return 1
+    rm -f "$(fm_pending_reply_delivery_confirmation_path "$state" "$corr")" 2>/dev/null || true
+    return 0
   fi
   case "$phase" in
     recovery_sent)
@@ -1337,7 +1629,7 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
     remote_host=$(fm_meta_get "$meta" remote_host)
     sm_home=$(fm_meta_get "$meta" home)
     if [ -z "$remote_host" ] && [ -n "$sm_home" ]; then
-      fm_pending_reply_detect_wrong_home "$state" "$corr" "$sm_home" || true
+      _fm_pending_reply_detect_wrong_home_locked "$state" "$corr" "$sm_home" || true
       fm_pending_reply_restatement_copy_same_basename "$state" "$corr" "$sm_home" || true
     fi
   fi
@@ -1387,7 +1679,19 @@ _fm_pending_reply_maybe_escalate_locked() {  # <state-dir> <corr_id>
 # Detect a correlated report written under the secondmate home (wrong home)
 # without treating it as acknowledgement. A remote route's
 # parent-replies.status is its parent channel, not a stranded self-home file.
-fm_pending_reply_detect_wrong_home() {  # <state-dir> <corr_id> <secondmate-home>
+fm_pending_reply_detect_wrong_home() {
+  local state=$1 corr=$2 lock rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  lock="$state/.pending-reply-$corr.lock"
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  _fm_pending_reply_detect_wrong_home_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+_fm_pending_reply_detect_wrong_home_locked() {  # <state-dir> <corr_id> <secondmate-home>
   local state=$1 corr=$2 sm_home=$3
   local rec delivered hits first sightings snapshot previous status_file line line_no sighting_base sighting_id phase changed=0
   local remote_parent_channel=0
@@ -1612,6 +1916,10 @@ fm_pending_reply_tick() {  # <state-dir>
       fm_pending_reply_close_escalation "$state" "$corr" || true
       continue
     fi
+    delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
+    if [ -z "$delivered" ] && fm_pending_reply_target_is_remote "$state" "$task_id"; then
+      continue
+    fi
     fm_pending_reply_reconcile_delivery "$state" "$corr" || true
     phase=$(fm_pending_reply_get "$rec" phase)
     delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
@@ -1718,4 +2026,229 @@ fm_pending_reply_task_has_open() {  # <state-dir> <task_id>
     return 0
   done
   return 1
+}
+
+# 0 when <task-id> is safe to use as a single status-file path segment.
+fm_pending_reply_task_id_safe() {  # <task_id>
+  case "$1" in ''|*[!A-Za-z0-9._-]*|.*) return 1 ;; esac
+  return 0
+}
+
+# 0 when <record> is a regular pending-reply file bound to <home>'s state.
+fm_pending_reply_record_bound() {  # <home> <state-dir> <record> <corr_id>
+  local home=$1 state=$2 rec=$3 corr=$4 task_id
+  [ -f "$rec" ] && [ ! -L "$rec" ] || return 1
+  [ "$(basename "$rec")" = "$corr" ] || return 1
+  fm_pending_reply_task_id_safe "$(fm_pending_reply_get "$rec" task_id)" || return 1
+  task_id=$(fm_pending_reply_get "$rec" task_id)
+  [ "$(fm_pending_reply_get "$rec" schema)" = "$FM_PENDING_REPLY_SCHEMA" ] || return 1
+  [ "$(fm_pending_reply_get "$rec" corr_id)" = "$corr" ] || return 1
+  [ "$(fm_pending_reply_get "$rec" parent_home)" = "$home" ] || return 1
+  [ "$(fm_pending_reply_get "$rec" parent_status)" = "$state/$task_id.status" ] || return 1
+  return 0
+}
+
+# Corr id of the newest confirmed-delivery successor for the same task, or empty.
+# A successor must have a strictly greater created_epoch than the original.
+# Ties among eligible successors use the greater correlation id for stability.
+fm_pending_reply_later_corr() {  # <state-dir> <task_id> <created_epoch> <self_corr>
+  local state=$1 task_id=$2 created=$3 self=$4 dir rec corr cepoch delivered best='' best_epoch=''
+  dir=$(fm_pending_reply_dir "$state")
+  [ -d "$dir" ] || return 0
+  for rec in "$dir"/*; do
+    [ -f "$rec" ] && [ ! -L "$rec" ] || continue
+    corr=$(basename "$rec")
+    case "$corr" in
+      [a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]) ;;
+      *) continue ;;
+    esac
+    [ "$corr" = "$self" ] && continue
+    [ "$(fm_pending_reply_get "$rec" schema)" = "$FM_PENDING_REPLY_SCHEMA" ] || continue
+    [ "$(fm_pending_reply_get "$rec" corr_id)" = "$corr" ] || continue
+    [ "$(fm_pending_reply_get "$rec" task_id)" = "$task_id" ] || continue
+    delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
+    case "$delivered" in ''|*[!0-9]*) continue ;; esac
+    cepoch=$(fm_pending_reply_get "$rec" created_epoch)
+    case "$cepoch" in ''|*[!0-9]*) continue ;; esac
+    [ "$cepoch" -gt "$created" ] || continue
+    if [ -z "$best" ] || [ "$cepoch" -gt "$best_epoch" ]; then
+      best=$corr
+      best_epoch=$cepoch
+      continue
+    fi
+    if [ "$cepoch" -eq "$best_epoch" ]; then
+      best=$(printf '%s\n%s\n' "$best" "$corr" | LC_ALL=C sort | tail -n 1)
+    fi
+  done
+  printf '%s' "$best"
+}
+
+# 0 and prints "<age> <reason>" when <record> is an unresolved record strictly
+# older than 24 hours and superseded. Reason is task-gone or
+# superseded-by-<corr>. A live task's newest unanswered record is not eligible.
+fm_pending_reply_stale_reason() {  # <state-dir> <record> <now>
+  local state=$1 rec=$2 now=$3
+  local created phase age task_id corr later
+  [ -f "$rec" ] && [ ! -L "$rec" ] || return 1
+  phase=$(fm_pending_reply_get "$rec" phase)
+  [ "$phase" != resolved ] || return 1
+  created=$(fm_pending_reply_get "$rec" created_epoch)
+  case "$created" in ''|*[!0-9]*) return 1 ;; esac
+  case "$now" in ''|*[!0-9]*) return 1 ;; esac
+  age=$((now - created))
+  [ "$age" -gt "$FM_PENDING_REPLY_STALE_AGE_SECS" ] || return 1
+  task_id=$(fm_pending_reply_get "$rec" task_id)
+  corr=$(fm_pending_reply_get "$rec" corr_id)
+  [ -n "$task_id" ] && [ -n "$corr" ] || return 1
+  fm_pending_reply_task_id_safe "$task_id" || return 1
+  if [ ! -e "$state/$task_id.meta" ] && [ ! -L "$state/$task_id.meta" ]; then
+    printf '%s %s\n' "$age" task-gone
+    return 0
+  fi
+  later=$(fm_pending_reply_later_corr "$state" "$task_id" "$created" "$corr")
+  [ -n "$later" ] || return 1
+  printf '%s %s\n' "$age" "superseded-by-$later"
+}
+
+# 0 when <reason> is one of the tokens this retirement writes into a record.
+fm_pending_reply_stale_reason_safe() {  # <reason>
+  case "$1" in
+    task-gone|superseded-by-[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9])
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+# Mark one eligible record resolved in place. Keeps the file.
+# Writes retired_reason=, a status note when that task's status file already
+# exists, and the ordinary escalation close when one is open.
+# Returns 0 retired, 2 no longer eligible, 1 on a failed write.
+fm_pending_reply_retire_stale_one() {  # <home> <state-dir> <corr_id> <now>
+  local home=$1 state=$2 corr=$3 now=$4
+  local rec task_id status lock eligibility age reason note note_rc=0 rc=0
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  STATE=$state
+  rec=$(fm_pending_reply_path "$state" "$corr")
+  fm_pending_reply_record_bound "$home" "$state" "$rec" "$corr" || return 1
+  lock="$state/.pending-reply-$corr.lock"
+  # Deliberately undirected: bin/fm-wake-lib.sh is expanded once at the
+  # fm_pending_reply_try_resolve site; each directed site would re-expand its
+  # whole transitive graph under ShellCheck's external-source traversal.
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  eligibility=$(fm_pending_reply_stale_reason "$state" "$rec" "$now") || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fm_lock_release "$lock"
+    return 2
+  fi
+  age=${eligibility%% *}
+  reason=${eligibility#* }
+  if ! fm_pending_reply_stale_reason_safe "$reason"; then
+    echo "error: refusing unsafe stale-retirement reason for $corr" >&2
+    fm_lock_release "$lock"
+    return 1
+  fi
+  case "$age" in ''|*[!0-9]*) fm_lock_release "$lock"; return 1 ;; esac
+  task_id=$(fm_pending_reply_get "$rec" task_id)
+  status="$state/$task_id.status"
+  if [ -L "$status" ]; then
+    echo "error: refusing to write a stale-retirement note through a status symlink for $corr" >&2
+    fm_lock_release "$lock"
+    return 1
+  fi
+  fm_pending_reply_set "$rec" retired_reason "$reason" &&
+    fm_pending_reply_set "$rec" resolved_via retired-stale &&
+    fm_pending_reply_set "$rec" resolved_epoch "$now" &&
+    fm_pending_reply_set "$rec" phase resolved || rc=1
+  if [ "$rc" -eq 0 ] && [ -f "$status" ]; then
+    note="note: pending-reply-retired-stale: task=${task_id} pending-reply-id=${corr} reason=${reason} age=${age}"
+    fm_wake_status_append_self_announced "$state" "$status" "$note" 2>/dev/null || note_rc=$?
+    [ "$note_rc" -ne 2 ] || rc=1
+  fi
+  if [ "$rc" -eq 0 ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || rc=1
+  elif [ "$(fm_pending_reply_get "$rec" phase)" = resolved ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
+  fi
+  fm_lock_release "$lock"
+  if [ "$(fm_pending_reply_get "$rec" phase)" = resolved ] &&
+     [ "$(fm_pending_reply_get "$rec" resolved_via)" = retired-stale ]; then
+    printf 'retired task=%s corr=%s age=%s reason=%s\n' "$task_id" "$corr" "$age" "$reason"
+  fi
+  [ "$rc" -eq 0 ]
+}
+
+# List or retire stale superseded pending-reply records under <home>.
+# <mode> is dry-run or apply. A record must be strictly older than 24 hours.
+# Prints one line per eligible record. Does not delete files
+# and does not retire an unresolved record that is not superseded.
+# The command header of bin/fm-pending-reply-retire-stale.sh is the operator
+# statement of this rule.
+fm_pending_reply_retire_stale() {  # <home> <mode>
+  local home=$1 mode=$2 state dir rec corr now
+  local matched=0 kept=0 errors=0 one_rc eligibility age reason task_id
+  local list='' sorted
+  case "$mode" in dry-run|apply) ;; *) echo "error: stale retirement mode must be dry-run or apply" >&2; return 2 ;; esac
+  state="$home/state"
+  [ -d "$state" ] || { echo "error: parent state directory missing" >&2; return 1; }
+  now=$(fm_pending_reply_now)
+  case "$now" in ''|*[!0-9]*) echo "error: pending-reply clock is not an epoch" >&2; return 1 ;; esac
+  dir=$(fm_pending_reply_dir "$state")
+  if [ -d "$dir" ]; then
+    for rec in "$dir"/*; do
+      [ -e "$rec" ] || [ -L "$rec" ] || continue
+      if [ -L "$rec" ] || [ ! -f "$rec" ]; then
+        echo "error: skipping unsafe pending record $rec" >&2
+        errors=$((errors + 1))
+        continue
+      fi
+      corr=$(basename "$rec")
+      case "$corr" in
+        [a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]) ;;
+        *)
+          echo "error: skipping pending record with an unexpected name: $corr" >&2
+          errors=$((errors + 1))
+          continue
+          ;;
+      esac
+      list="${list}${corr}"$'\n'
+    done
+  fi
+  sorted=$(printf '%s' "$list" | LC_ALL=C sort)
+  while IFS= read -r corr <&3; do
+    [ -n "$corr" ] || continue
+    rec=$(fm_pending_reply_path "$state" "$corr")
+    if ! fm_pending_reply_record_bound "$home" "$state" "$rec" "$corr"; then
+      echo "error: pending record $corr is not bound to this home" >&2
+      errors=$((errors + 1))
+      continue
+    fi
+    if [ "$(fm_pending_reply_get "$rec" phase)" = resolved ]; then
+      continue
+    fi
+    eligibility=$(fm_pending_reply_stale_reason "$state" "$rec" "$now") || {
+      kept=$((kept + 1))
+      continue
+    }
+    age=${eligibility%% *}
+    reason=${eligibility#* }
+    task_id=$(fm_pending_reply_get "$rec" task_id)
+    if [ "$mode" = dry-run ]; then
+      printf 'would-retire task=%s corr=%s age=%s reason=%s\n' "$task_id" "$corr" "$age" "$reason"
+      matched=$((matched + 1))
+      continue
+    fi
+    one_rc=0
+    fm_pending_reply_retire_stale_one "$home" "$state" "$corr" "$now" || one_rc=$?
+    case "$one_rc" in
+      0) matched=$((matched + 1)) ;;
+      2) kept=$((kept + 1)) ;;
+      *) errors=$((errors + 1)) ;;
+    esac
+  done 3<<EOF
+$sorted
+EOF
+  printf 'retire-stale: mode=%s matched=%s kept=%s errors=%s\n' "$mode" "$matched" "$kept" "$errors" >&2
+  [ "$errors" -eq 0 ]
 }

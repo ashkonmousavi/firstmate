@@ -1,0 +1,63 @@
+      B…)
+[0m[38;2;153;153;153m  ⎿  (No output)[0m
+
+[0m[38;2;255;255;255m● [0mThe research entry is committed on branch [0m[38;2;177;185;249mfm/x-xfb-r-entry [0mat [0m[38;2;177;185;249m311ae1e7[0m. It is not pushed and no PR is open, per the hold-the-line instruction. It is ready for you to say push and open the PR.
+
+  [0m[1mWhat's in it: [0mthe entry is [0m[38;2;177;185;249mQ107[0m, in [0m[38;2;177;185;249mresearch_book/05-operator-layer/[0m, plus the regenerated [0m[38;2;177;185;249mresearch_book/README.md [0mindex. It covers the Codex Responses streaming bug class and the image-input bug class, which block the A and B2 builder tasks.
+
+  [0m[1mChecks: [0m[38;2;177;185;249mpython3 docs/check_map.py [0mreports 0 errors and 4 warnings that are not from this change. The hardcoding ratchet, import-baseline ratchet and J-01 gate tests gave 362 passed and 2 skipped. I skipped no tests and left the worktree clean.
+
+  [0m[1mSources I read myself rather than trusting the prep:[0m
+  - LiteLLM issue 45348: open, with the 12/9/9/0 event counts.
+  - LiteLLM PR 27797: closed on 2026-08-31 and not merged, so the entry treats it as a design reference only.
+  - pi issue 2745: closed.
+  - openai-python [0m[38;2;177;185;249m_responses.py[0m.
+  - The Responses streaming-events and create references.
+  - The Codex CLI reference and the ChatGPT Learn image-inputs page.
+  - Open WebUI v0.12.0 [0m[38;2;177;185;249mexecute_tool_call[0m, [0m[38;2;177;185;249mChat.svelte [0mand [0m[38;2;177;185;249mMessageInput.svelte[0m.
+
+  [0m[1mOne correction to the prep: [0mthe prep said the openai-python SDK replaces the accumulated item at [0m[38;2;177;185;249mresponse.output_item.done[0m. The source shows it keeps the final item in a separate map and uses it when assembling the final response, so the entry says that instead.
+
+  [0m[1mNot covered by any source: [0mthe contradiction rule (A3) is X's own design choice. The entry says so.
+
+  [0m[1mOpen points left in the entry: [0mMAIN asks 4(a), 4(b) and 4(c), plus whether the final-only stream shape is stable across the listed models. I did not edit Q89 to point at Q107, since the brief said the entry only.
+
+  I filed the status line as [0m[38;2;177;185;249mdone[0m, but it's accurate to read it as "ready, awaiting your word to push", since the PR isn't open yet.
+
+[0m[38;2;153;153;153m✻ Baked for 3m 17s · done 2:41 PM[0m
+
+[0m[38;2;153;153;153m[48;2;55;55;55m❯ [0m[38;2;255;255;255m[48;2;55;55;55m: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'x-xfb-r-entry.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.[0m[48;2;55;55;55m                                                                                                                                                                               [0m
+
+[0m[38;2;78;186;101m● [0m[1mBash[0m(I=/home/zcrew/fm-home2/state/x-xfb-r-entry.inbox; for f in $(find $I -maxdepth 1 -name '*.msg' | sort -V); do echo "== $f"; cat "$f"; done)
+[0m[38;2;153;153;153m  ⎿  [0m== /home/zcrew/fm-home2/state/x-xfb-r-entry.inbox/001.msg
+     schema=fm-task-inbox.v1
+     at=2026-10-29T21:42:24Z
+     [0m[2m… +3 lines (ctrl+o to expand)[0m
+
+[0m[38;2;78;186;101m● [0m[1mBash[0m(git fetch -q origin main; git ls-tree -r origin/main --name-only research_book | grep -oE '/Q1[0-9][0-9]' | sort -u | tail -3
+      D=research_book/05-operator-layer;…)
+[0m[38;2;153;153;153m  ⎿  [0m/Q104
+     /Q105
+     /Q106
+     [0m[2m… +4 lines (ctrl+o to expand)[0m
+
+[0m[38;2;78;186;101m● [0m[1mBash[0m(git add -A research_book && git commit -q -m "Renumber research entry Q107 to Q124 (id range reserved by the AI plan record lane)" && git log --oneline -1; git…)
+[0m[38;2;153;153;153m  ⎿  [0m3f216047 Renumber research entry Q107 to Q124 (id range reserved by the AI plan record lane)
+     3f216047c2ee65571890550700ec3c9bd7f13b22
+
+[0m[38;2;255;255;255m● [0mThe research entry is now [0m[38;2;177;185;249mQ124[0m. It was [0m[38;2;177;185;249mQ107[0m, which falls inside the Q107–Q123 range that x-ai-rl2a reserves. The branch [0m[38;2;177;185;249mfm/x-xfb-r-entry [0mis committed at [0m[38;2;177;185;249m3f216047 [0mand not pushed, with no PR open.
+
+  - [0m[1mFree id: [0morigin/main's highest id is Q106, and nothing there uses Q124. I did not check the x-ai-rl2a branch itself, so the range is taken from your message.
+  - [0m[1mRename and references: [0mI renamed the file and changed its [0m[38;2;177;185;249mid: [0mline. No other file referred to Q107, and I regenerated [0m[38;2;177;185;249mresearch_book/README.md[0m, which now lists only Q124.
+  - [0m[1mCheck: [0m[38;2;177;185;249mcheck_map.py [0mreports 0 errors and the same 4 warnings as before.
+  - [0m[1mInbox: [0mI moved the instruction to [0m[38;2;177;185;249mhandled/ [0mand filed a [0m[38;2;177;185;249mdone [0mstatus line.
+
+  Say when to push and open the PR.
+
+[0m[38;2;153;153;153m✻ Cooked for 12s · done 2:42 PM[0m
+
+[0m[38;2;136;136;136m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
+❯ : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'x-xfb-r-entry.inbox' steering inbox, read and
+[0m[38;2;136;136;136m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
+  [0m[38;2;255;107;128m⏵⏵ bypass permissions on[0m[38;2;153;153;153m (shift+tab to cycle)                                                                                                                                                                                                                                                                           [0m[38;2;78;186;101m✔ Update installed · Restart to update[0m
+                                                                                                                                                                                                                                                                                                                          [0m[38;2;153;153;153mnew task? [0m[38;2;177;185;249m/clear[0m[38;2;153;153;153m to save [0m[38;2;177;185;249m131.8k tokens[0m

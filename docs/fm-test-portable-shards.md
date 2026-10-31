@@ -76,7 +76,7 @@ Even so, maxima from five runs do not establish a P95 or guarantee future headro
 Job timeouts remain hang tripwires under the policy in [Timeouts](#timeouts) below; they are not the desired healthy duration.
 `tests/fm-ci-workflow.test.sh` compares the parsed CI matrix to the executable runner lanes, and the runner rejects parallel `--jobs` on a serial lane even when that shard has only one member.
 
-Refresh the CI-derived hints by downloading the per-shard timing artifacts from several green CI runs and replacing the `portable_serial_weight_hints` table in `bin/fm-test-run.sh` with the slowest measured `duration_ms` per `path`:
+Refresh the CI-derived hints from several green CI runs collected under the [hosted evidence configuration](../CONTRIBUTING.md#development), downloading their per-shard timing artifacts and replacing the `portable_serial_weight_hints` table in `bin/fm-test-run.sh` with the slowest measured `duration_ms` per `path`:
 
 ```sh
 for run in <run-id> <run-id> <run-id>; do
@@ -101,21 +101,22 @@ Its hint-coverage and modeled-budget checks are described in [Portable serial CI
 
 ## Timing artifacts
 
-Portable shards, each portable serial shard, and the Herdr lane upload runner-generated timing JSON.
+Hosted timing uploads and aggregation follow the optional evidence policy in [CONTRIBUTING.md](../CONTRIBUTING.md#development).
 `bin/fm-test-run.sh --aggregate-json` creates the combined summary artifact.
 `.github/workflows/ci.yml` owns the exact artifact names and aggregation wiring.
 
 ## Lint partitions and end-to-end latency
 
-`bin/fm-lint.sh` owns two canonical CI partitions, each attempting full source-aware ShellCheck analysis and running workflow validation and backend-purity checks.
+`bin/fm-lint.sh` owns the supported canonical partition forms, analysis modes, and checks (see its header and `--help`).
+Byte balance does not establish analysis cost or timeout headroom; measure completed hosted-runner partitions before claiming a runtime reduction.
 CI requires its per-root bounds, so an unenforceable deadline or address-space limit refuses lint rather than running uncapped; the script header owns the envelope, per-root execution contract, and memory fallback.
 Its `--list-files` interface exposes partition membership; `tests/fm-lint.test.sh` verifies complete/disjoint executed roots, initial analysis flags, and fallback reporting.
-The workflow uploads each partition's quiet telemetry plus its per-root lifecycle sidecar to distinguish analysis cost, memory use, and host contention.
+Each partition's quiet telemetry and per-root lifecycle sidecar distinguish analysis cost, memory use, and host contention; uploads follow the [hosted evidence policy](../CONTRIBUTING.md#development).
 No fast mode, path skips, or paid runner provisioning is part of this layout.
 
 The longer-term performance objective remains a complete green run under fifteen minutes including start delay, but the current watch-triage floor alone exceeds that objective.
 The immediate packing target is the runner's modeled script budget, not a claim that more shards alone can make an indivisible script faster.
-The layout uses fourteen long-lived Linux jobs (nine serial, two parallel, Herdr, two lint), plus short checks and macOS; insufficient shared account capacity can erase the packing gain.
+The job layout and matrix counts are owned by [`.github/workflows/ci.yml`](../.github/workflows/ci.yml); insufficient shared account capacity can erase the packing gain.
 Compare complete before/after runs, preserve cancelled and partial-run evidence, and measure a representative normal-run sample before claiming a P95 improvement.
 The workflow retains per-PR supersession without cancelling main pushes or changing the compliance workflow's event semantics.
 
@@ -126,16 +127,17 @@ The workflow retains per-PR supersession without cancelling main pushes or chang
 
 ## Timeouts
 
-CI job timeouts follow one three-tier policy, so the workflow reads as a policy rather than as a collection of per-job numbers.
-Every tier is a hang tripwire with headroom above the healthy duration, never a packing estimate or a runtime target.
-A lane that reaches its tier bound needs investigation and a distribution or runtime fix, not a larger timeout to fit the same work.
+CI job timeouts follow three tiers plus one approved portable serial exception, so the workflow reads as a policy rather than as a collection of per-job numbers.
+Every bound is a hang tripwire with headroom above the healthy duration, never a packing estimate or a runtime target.
+A lane that reaches its bound needs investigation and a distribution or runtime fix, not a further timeout increase to fit the same work.
 
 | Tier | Jobs | Bound | Rationale |
 |---|---|---|---|
 | Fast | coverage guard, repo invariants, timing aggregate | 5 minutes | Seconds-long local work, so the tripwire only catches a hung runner. |
-| Normal | lint partitions, portable parallel shards, portable serial shards, macOS stock Bash | 30 minutes, one value shared by every job in the tier | One shared hang tripwire keeps every ordinary test and lint lane on the same policy instead of allowing per-lane packing estimates or one-off caps to set the bound. |
+| Normal | lint partitions, portable parallel shards, macOS stock Bash | 30 minutes, one value shared by every job in the tier | One shared hang tripwire keeps every ordinary test and lint lane on the same policy instead of allowing per-lane packing estimates or one-off caps to set the bound. |
+| Serial exception | portable serial shards | 45 minutes | The serial shards are the 45-minute exception: the slowest shard needs about 29 minutes by construction, so a 30-minute cap sat at the limit and cancelled on slow runners. |
 | Heavy | Herdr | family-run step 20 minutes under a 75-minute job-level last-resort backstop | Healthy runs finish in about 7-10 minutes, so the step tripwire fails a wedged suite while the `always()` cleanup and timing upload still run, and the job cap only catches a hang outside that step. |
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) holds the executable values and names each job's tier beside its `timeout-minutes`.
-[`tests/fm-ci-workflow.test.sh`](../tests/fm-ci-workflow.test.sh) holds the policy against the parsed workflow: every job belongs to exactly one tier, the workflow carries exactly three distinct job-level values, the fast tier stays within 5-10 minutes, the normal jobs share one 30-minute budget, and the Herdr family-run step is the 20-minute tripwire below its job backstop with an `always()` teardown after it.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) holds the executable values and names each job's tier or exception beside its `timeout-minutes`.
+[`tests/fm-ci-workflow.test.sh`](../tests/fm-ci-workflow.test.sh) guards this policy against the parsed workflow, including complete job membership, shared tier bounds, the serial exception, and Herdr's step tripwire and `always()` teardown ordering.
 A passing coverage guard does not establish a healthy job duration; refresh the healthy figures above from the lanes' uploaded timing artifacts.

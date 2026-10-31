@@ -778,6 +778,7 @@ test_teardown_closes_the_backlog_item_itself() {
   write_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   install_merged_recorded_pr "$case_dir"
 
   out=$(run_teardown "$case_dir") || fail "teardown failed with a real backlog"
@@ -802,6 +803,7 @@ test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note() {
   write_meta "$case_dir" no-mistakes ship
   printf 'pr=%s\n' "$gerrit_url" >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   # Pin the refusal tasks-axi applies to a --pr link that is not a canonical
   # GitHub pull request, so this case keeps reproducing whatever the installed
   # release accepts.
@@ -834,6 +836,7 @@ SH
   write_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   cp "$TMP_ROOT/tasks-axi-close-gerrit/fakebin/tasks-axi" "$case_dir/fakebin/tasks-axi"
   install_merged_recorded_pr "$case_dir"
   out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed GitHub task failed: $out"
@@ -850,6 +853,7 @@ test_teardown_closes_a_gitlab_task_with_its_merge_request_url_as_a_note() {
   write_meta "$case_dir" no-mistakes ship
   printf 'pr=%s\n' "$gitlab_url" >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   # Pin the refusal tasks-axi applies to a --pr link that is neither a GitHub
   # nor a Forgejo pull request, so this case keeps reproducing whatever the
   # installed release accepts.
@@ -884,6 +888,7 @@ SH
     write_meta "$case_dir" no-mistakes ship
     printf 'pr=%s\n' "$url" >> "$case_dir/state/task-x1.meta"
     seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
     cp "$TMP_ROOT/tasks-axi-close-gitlab/fakebin/tasks-axi" "$case_dir/fakebin/tasks-axi"
     install_merged_recorded_pr "$case_dir"
     out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed task with $url failed: $out"
@@ -1051,6 +1056,7 @@ test_no_pr_recorded_discovers_merged_pr_by_branch_allows() {
   land_on_origin_main "$case_dir" feature.txt hello
   add_gh_pr_merged_for_head "$case_dir" "$pr_head"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   # No append_pr_meta_* call: state/task-x1.meta has no pr= or pr_head= line.
 
   ! grep -qE '^(pr|pr_head)=' "$case_dir/state/task-x1.meta" \
@@ -1927,6 +1933,7 @@ test_windowless_legacy_record_with_gone_worktree_tears_down() {
   case_dir=$(make_case windowless-gone)
   write_windowless_legacy_meta "$case_dir" no-mistakes ship "$case_dir/missing-wt"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
 
   out=$(run_teardown "$case_dir") \
     || fail "windowless-gone: teardown refused a leftover with no window, no spawn_gen, and no worktree"
@@ -1946,6 +1953,7 @@ test_windowless_legacy_record_tears_down_with_the_legacy_flag() {
   case_dir=$(make_case windowless-flag)
   write_windowless_legacy_meta "$case_dir" no-mistakes ship "$case_dir/missing-wt"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
 
   out=$(run_teardown "$case_dir" --legacy-record) \
     || fail "windowless-flag: --legacy-record refused a leftover with no window and no spawn_gen"
@@ -2055,6 +2063,7 @@ test_windowless_leftover_retries_its_retained_legacy_stamp_without_the_flag() {
   write_windowless_legacy_meta "$case_dir" no-mistakes ship "$case_dir/missing-wt"
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   install_github_pr_class "$case_dir" merged
   # A directory where the close marker must be a file makes the close unrecordable
   # after the pull request has already read as merged.
@@ -2088,6 +2097,7 @@ test_legacy_record_teardown_completes_when_landed_and_endpoint_dead() {
   case_dir=$(make_case legacy-allow)
   write_legacy_meta "$case_dir" no-mistakes ship
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   wt_commit "$case_dir" "landed legacy work"
   add_fork_with_pushed_branch "$case_dir"
   # The default fakebin tmux answers every query with success and no output, so
@@ -2163,6 +2173,7 @@ test_legacy_record_rolls_the_stamp_back_when_the_marker_write_fails() {
   write_legacy_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   wt_commit "$case_dir" "landed legacy work"
   add_fork_with_pushed_branch "$case_dir"
   install_github_pr_class "$case_dir" merged
@@ -2180,7 +2191,7 @@ test_legacy_record_rolls_the_stamp_back_when_the_marker_write_fails() {
     || fail "legacy-stamp-rollback: the failed marker write left the record modified"
   grep -q "rolled back" "$case_dir/stderr" \
     || fail "legacy-stamp-rollback: the refusal did not report the rolled-back stamp"
-  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+  [ "$(backlog_row_state "$case_dir")" = 'done' ] \
     || fail "legacy-stamp-rollback: the failed teardown closed the backlog item anyway"
 
   set +e
@@ -2218,6 +2229,7 @@ test_retained_legacy_stamp_still_faces_the_endpoint_gate() {
   write_legacy_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   wt_commit "$case_dir" "landed legacy work"
   add_fork_with_pushed_branch "$case_dir"
   install_github_pr_class "$case_dir" merged
@@ -2252,7 +2264,7 @@ test_retained_legacy_stamp_still_faces_the_endpoint_gate() {
     || fail "legacy-stamp-retained: the retry stamped a second incarnation into the record"
   [ "$(cksum "$case_dir/state/task-x1.meta" | awk '{print $1, $2}')" = "$stamped" ] \
     || fail "legacy-stamp-retained: the endpoint refusal modified the task record"
-  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+  [ "$(backlog_row_state "$case_dir")" = 'done' ] \
     || fail "legacy-stamp-retained: the endpoint refusal closed the backlog item anyway"
 
   set +e
@@ -4109,6 +4121,7 @@ test_teardown_records_unavailable_spend_for_a_gone_worktree() {
   write_windowless_legacy_meta "$case_dir" no-mistakes ship "$case_dir/missing-wt"
   : > "$case_dir/config/pipeline-spend"
   seed_backlog_in_flight "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
   expect_code 0 "$rc" "pipeline-spend-gone: teardown should succeed"
   ledger=$case_dir/data/pipeline-spend.jsonl
@@ -5469,6 +5482,7 @@ test_merged_pr_on_a_reachable_branch_closes() {
   local case_dir
   case_dir=$(prepare_recorded_github_pr merged-pr-closes)
   install_github_pr_class "$case_dir" merged
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   teardown_capture "$case_dir"
   expect_code 0 "$TEARDOWN_CAPTURE_RC" "merged-pr: a merged pull request should close"$'\n'"$(cat "$case_dir/stderr")"
   [ "$(backlog_row_state "$case_dir")" = "done" ] \
@@ -5546,6 +5560,7 @@ esac
 SH
     printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$case_dir/fakebin/gh-axi"
     chmod +x "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-axi"
+    if [ "$class" = merged ]; then tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null; fi
     teardown_capture "$case_dir"
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "$class: cached PR state should survive later forge failure"$'\n'"$(cat "$case_dir/stderr")"
     [ "$(wc -l < "$case_dir/pr-lookups" | tr -d ' ')" = 1 ] || fail "$class: teardown repeated the PR-state lookup"
@@ -5618,12 +5633,14 @@ SH
       calls=$(grep -E '^(worktree (show|rm)|terminal close) ' "$case_dir/orca.log")
     fi
     FM_HOME="$case_dir" teardown_capture "$case_dir"
-    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: repeated open cleanup failed"$'\n'"$(cat "$case_dir/stderr")"
+    expect_code 1 "$TEARDOWN_CAPTURE_RC" "$backend: external merge hold must await acceptance"$'\n'"$(cat "$case_dir/stderr")"
     [ "$(backlog_row_state "$case_dir")" != "done" ] || fail "$backend: repeated cleanup closed an open PR"
     assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: repeated cleanup lost its watch"
     install_github_pr_class "$case_dir" merged
+    tasks-axi unhold task-x1 --file "$case_dir/data/backlog.md" >/dev/null
+    tasks-axi 'done' task-x1 --note 'accepted fixture proof after merge' --file "$case_dir/data/backlog.md" >/dev/null
     FM_HOME="$case_dir" teardown_capture "$case_dir"
-    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: released copy prevented merge completion"$'\n'"$(cat "$case_dir/stderr")"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: released copy prevented accepted completion"$'\n'"$(cat "$case_dir/stderr")"
     [ "$(backlog_row_state "$case_dir")" = "done" ] || fail "$backend: merged item did not close"
     assert_absent "$case_dir/state/task-x1.meta" "$backend: completed record remained"
     assert_absent "$case_dir/state/task-x1.pr-poll-registration" "$backend: completed watch remained"
@@ -5645,6 +5662,7 @@ test_pushed_merged_pr_still_closes() {
   install_github_pr_class "$case_dir" merged
   push_task_branch "$case_dir"
   arm_registered_merge_watch "$case_dir"
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   teardown_capture "$case_dir"
   expect_code 0 "$TEARDOWN_CAPTURE_RC" "pushed-merged: a merged pull request should still close"$'\n'"$(cat "$case_dir/stderr")"
   [ "$(backlog_row_state "$case_dir")" = "done" ] \
@@ -5673,6 +5691,7 @@ test_closed_unmerged_pr_refuses_unless_force() {
   expect_code 1 "$TEARDOWN_CAPTURE_RC" "closed-pr: --keep-open must not discard a closed unmerged pull request"
   assert_present "$case_dir/state/task-x1.meta" "closed-pr: --keep-open removed the task record"
 
+  tasks-axi 'done' task-x1 --file "$case_dir/data/backlog.md" >/dev/null
   teardown_capture "$case_dir" --force
   expect_code 0 "$TEARDOWN_CAPTURE_RC" "closed-pr: --force should discard a closed unmerged pull request"$'\n'"$(cat "$case_dir/stderr")"
   [ "$(backlog_row_state "$case_dir")" = "done" ] \
@@ -5971,6 +5990,9 @@ test_keep_open_without_automatic_backlog_requests_merge_hold() {
   done
   pass "--keep-open requests the manual merge hold when automatic backlog transitions are disabled"
 }
+
+# Reuse these hermetic fixtures in the pending-proof lifecycle regression.
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != "teardown" ] || return 0
 
 test_teardown_preserves_opencode_busy_plugin_on_pool_return
 test_missing_startup_source_refuses_before_cleanup

@@ -98,7 +98,15 @@
 #   stale: <window> (steering-inbox busy bookkeeping unwritable: ...)
 #                          steering-inbox recovery; bin/fm-task-inbox-lib.sh owns
 #                          delivery-attempt, busy-deferral, and unavailable-endpoint policy
-#   check: <script>: <out> authenticated check output, always actionable
+#   check: <script>: <out> authenticated check result, always actionable;
+#                          docs/configuration.md's FM_CHECK_TIMEOUT default
+#                          owns custom-check failure and timeout wake formats
+#   check: hold-release: hold condition met: <task-id> <condition>
+#                          a held row's structured release condition (its
+#                          --release-on pr:/marker:) was found met by this
+#                          sweep; the keyed decision it opened stays in OPEN
+#                          DECISIONS until the hold is released or re-held
+#                          (bin/fm-hold-release-lib.sh owns the contract)
 #   check: process-event result captured: <keys>
 #                          a durably captured process-to-event result is queued
 #                          and has not been surfaced yet; reported once per
@@ -208,8 +216,7 @@ WATCH_HOME_EXISTED=0
 . "$SCRIPT_DIR/fm-procevent-lib.sh"
 # Single owner of durable merge-outcome publication, shared with
 # bin/fm-pr-merge.sh so self and poll origins use the same role-routed outcome.
-# The watcher still owns immediate delivery of its actionable poll result and
-# poll retirement.
+# The watcher owns poll retirement and delivery after the due check sweep.
 # This library is a canonical lint root in its own right, and it reaches the
 # wake queue, PR identity, and secondmate parent libraries. Keep it an analysis
 # boundary here for the same reason as the transition and inbox owners above and
@@ -230,8 +237,15 @@ WATCH_HOME_EXISTED=0
 # cheap when no records exist and never scrapes secondmate conversation.
 # shellcheck source=bin/fm-pending-reply-lib.sh
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
+# Structured hold release conditions: the check sweep below evaluates the
+# records written beside holds with --release-on and wakes once per met
+# condition, keeping a keyed decision open until the hold is dispositioned.
+# shellcheck source=bin/fm-hold-release-lib.sh
+. "$SCRIPT_DIR/fm-hold-release-lib.sh"
 # shellcheck source=bin/fm-busy-lib.sh
 . "$SCRIPT_DIR/fm-busy-lib.sh"
+# shellcheck source=bin/fm-lane-release-lib.sh
+. "$SCRIPT_DIR/fm-lane-release-lib.sh"
 # Steering-inbox loss detection: bin/fm-task-inbox-lib.sh owns the record,
 # doorbell, re-ring ladder, and unavailable-endpoint contracts; this watcher
 # supplies their live endpoint and busy checks plus wake emission
@@ -522,6 +536,9 @@ window_key() {  # <window>
 inbox_steer_escalate_unavailable() {  # <window> <task> <record>
   local w=$1 task=$2 rec=$3 reason
   reason="stale: $w (unread firstmate instruction: $rec is unhandled and the worker's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the worker)"
+  if fm_lane_release_marker_active "$STATE" "$task"; then
+    reason="stale: $w (unread firstmate instruction: $rec is unhandled and the worker was $(fm_lane_release_phrase), so the doorbell was not typed; relaunch it into its kept copy if the instruction still applies)"
+  fi
   if [ ! -d "${rec%/*}" ] || [ ! -f "$rec" ]; then
     fm_task_inbox_due_action "$STATE" "$task" >/dev/null || true
     return 0
@@ -536,31 +553,48 @@ inbox_steer_escalate_unavailable() {  # <window> <task> <record>
 
 # Steering-inbox loss detection, one cheap check per recorded window per poll.
 # bin/fm-task-inbox-lib.sh owns delivery, busy-deferral, retry, and escalation policy.
-# Endpoint and busy checks precede delivery so recovery never types into a busy,
-# dead, or missing worker; the ring helper protects pending composer text.
+# Endpoint checks precede delivery so recovery never types into a dead or
+# missing worker. A harness fm_control_submit_queue accepts is rung while
+# busy. Any other harness keeps the busy deferral and is rung on the next
+# idle observation, including inside grace and after stuck-busy. The ring
+# helper protects pending composer text.
 # Normal retries keep the watcher blocking rather than waking firstmate.
 # Runs for secondmates too: their pane-staleness exemption is about quiet panes
 # being healthy, while an unacknowledged instruction can still be a stuck steer.
 inbox_steer_check() {  # <window> <task>
-  local w=$1 task=$2 action verb rec count tail40 reason='' ring_rc backend agent_state
+  local w=$1 task=$2 action verb rec count tail40 reason='' ring_rc backend agent_state last_reason
+  local harness idle_followup=0 nonbusy=0
   action=$(fm_task_inbox_due_action "$STATE" "$task") || return 0
   verb=${action%% *}
-  [ "$verb" != quiet ] || return 0
-  if [ "$verb" = retry ] && [ -n "$(status_own_open_decisions "$STATE/$task.status")" ]; then
-    return 0
+  harness=$(window_harness "$w")
+  if [ "$verb" = quiet ]; then
+    # A deferred non-queue doorbell is still owed when the pane is next idle.
+    # Promoting it only to look, then returning while the pane is still busy
+    # or gone, leaves an already-escalated record quiet.
+    fm_task_inbox_idle_followup "$STATE" "$task" "$harness" || return 0
+    idle_followup=1
+    verb=ring
+    rec=$(fm_task_inbox_oldest_unhandled "$STATE" "$task") || return 0
+  else
+    if [ "$verb" = retry ] && [ -n "$(status_own_open_decisions "$STATE/$task.status")" ]; then
+      return 0
+    fi
+    rec=${action#* }
+    count=
+    case "$verb" in
+      escalate)
+        count=${rec##* }
+        rec=${rec% *}
+        ;;
+    esac
   fi
-  rec=${action#* }
-  count=
-  case "$verb" in
-    escalate)
-      count=${rec##* }
-      rec=${rec% *}
-      ;;
-  esac
   backend=$(window_backend "$w")
   agent_state=$(fm_backend_agent_state "$backend" "$w" 2>/dev/null || true)
   case "$agent_state" in
     dead|missing)
+      if [ "$idle_followup" = 1 ]; then
+        return 0
+      fi
       if [ "$verb" = retry ]; then
         fm_task_inbox_clear_retry "$STATE" "$task" "$rec" || true
       else
@@ -572,24 +606,40 @@ inbox_steer_check() {  # <window> <task>
   watcher_capture "$backend" "$w" 40 "$(window_label "$w")" || WATCHER_CAPTURE=
   tail40=$WATCHER_CAPTURE
   if window_is_busy "$w" "$tail40"; then
-    [ "$verb" != retry ] || return 0
-    if ! count=$(fm_task_inbox_record_busy "$STATE" "$task" "$rec"); then
-      [ -f "$rec" ] || return 0
-      reason="stale: $w (steering-inbox busy bookkeeping unwritable: ${rec%/*}/.busy-state cannot be written while $rec stays unhandled; inspect the inbox directory)"
-    elif [ "$count" -ge "$(fm_task_inbox_busy_max)" ]; then
-      reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; $rec stays unhandled and no doorbell was typed; inspect the worker)"
-    else
+    if [ "$idle_followup" = 1 ]; then
       return 0
     fi
-    verb=escalate
-  elif [ "$verb" != retry ] && ! fm_task_inbox_clear_busy "$STATE" "$task"; then
+    if fm_control_submit_queue "$harness" && { [ "$verb" = ring ] || [ "$verb" = retry ]; }; then
+      :
+    else
+      [ "$verb" != retry ] || return 0
+      if ! count=$(fm_task_inbox_record_busy "$STATE" "$task" "$rec"); then
+        [ -f "$rec" ] || return 0
+        reason="stale: $w (steering-inbox busy bookkeeping unwritable: ${rec%/*}/.busy-state cannot be written while $rec stays unhandled; inspect the inbox directory)"
+      elif [ "$count" -ge "$(fm_task_inbox_busy_max)" ]; then
+        reason="stale: $w (unread firstmate instruction: stuck-busy after $count consecutive busy-deferred due doorbells; $rec stays unhandled and no doorbell was typed; inspect the worker)"
+      else
+        triage_log "steer-inbox busy deferral: $task ${rec##*/} count=$count/$(fm_task_inbox_busy_max)"
+        return 0
+      fi
+      verb=escalate
+    fi
+  else
+    nonbusy=1
+  fi
+  if [ "$nonbusy" = 1 ] && [ "$verb" != retry ] && ! fm_task_inbox_clear_busy "$STATE" "$task"; then
+    # A follow-up of a doorbell already escalated must not raise that same
+    # bookkeeping failure on every later idle poll.
+    if [ "$idle_followup" = 1 ] && [ "$(cat "${rec%/*}/.escalated" 2>/dev/null || true)" = "${rec##*/}" ]; then
+      return 0
+    fi
     reason="stale: $w (steering-inbox busy bookkeeping unwritable: ${rec%/*}/.busy-state cannot be reset after a non-busy check; inspect the inbox directory)"
     verb=escalate
   fi
   case "$verb" in
     ring)
       ring_rc=0
-      fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
+      fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
       if [ "$ring_rc" -eq 3 ]; then
         inbox_steer_escalate_unavailable "$w" "$task" "$rec"
         return 0
@@ -605,20 +655,21 @@ inbox_steer_check() {  # <window> <task>
           wake "$reason"
         fi
       fi
-      triage_log "steer-inbox delivery attempt: $task ${rec##*/} result=$ring_rc"
+      triage_log "steer-inbox delivery attempt: $task ${rec##*/} result=$ring_rc${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}"
       ;;
     retry)
       ring_rc=0
-      fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
+      fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness" || ring_rc=$?
       if ! fm_task_inbox_clear_retry "$STATE" "$task" "$rec" && [ -f "$rec" ]; then
         reason="stale: $w (steering-inbox retry mark unremovable: ${rec%/*}/.retry-ring cannot be removed, so $rec would ring on every poll - inspect the inbox directory)"
         fm_wake_append stale "$w" "$reason" || exit 1
         wake "$reason"
       fi
-      triage_log "steer-inbox retry ring: $task ${rec##*/} result=$ring_rc"
+      triage_log "steer-inbox retry ring: $task ${rec##*/} result=$ring_rc${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}"
       ;;
     escalate)
-      reason=${reason:-"stale: $w (unread firstmate instruction: $rec still unhandled after $count doorbell delivery attempts with an idle pane; inspect the worker)"}
+      last_reason=$(fm_task_inbox_last_reason "$rec")
+      reason=${reason:-"stale: $w (unread firstmate instruction: $rec still unhandled after $count doorbell delivery attempts with an idle pane${last_reason:+ (last ring reason=$last_reason)}; inspect the worker)"}
       if [ ! -d "${rec%/*}" ] || [ ! -f "$rec" ]; then
         fm_task_inbox_due_action "$STATE" "$task" >/dev/null || true
         return 0
@@ -949,7 +1000,7 @@ secondmate_idle_ring_safe() {  # <window>
 # wake queue; this parent never rewrites that foreign queue. 0 iff the ring
 # call returned 0.
 secondmate_ring_to_drain() {  # <task> <window>
-  local task=$1 w=$2 rec backend delivery_id
+  local task=$1 w=$2 rec backend delivery_id harness
   backend=$(window_backend "$w")
   delivery_id=$(LC_ALL=C od -An -v -tx1 -N 8 /dev/urandom 2>/dev/null | tr -d ' \n') || return 1
   case "$delivery_id" in ''|*[!0-9a-f]*) return 1 ;; esac
@@ -957,7 +1008,8 @@ secondmate_ring_to_drain() {  # <task> <window>
   rec=$(fm_task_inbox_write "$STATE" "$task" \
     "${FM_FROMFIRST_MARK}delivery=${delivery_id} Drain pending rows in this home's wake queue, then resume idle supervision." \
     fire-and-forget) || return 1
-  fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")"
+  harness=$(window_harness "$w")
+  fm_task_inbox_ring "$backend" "$w" "$rec" "$(window_label "$w")" "$harness"
 }
 
 # Surface one durable parent check when the foreign queue's drain position has
@@ -1171,7 +1223,7 @@ secondmate_liveness_tick() {
 # prints the remote side's first stderr line (or the exit status) instead, for
 # the triage log, so a remote copy that predates the inbox verb reads
 # differently from a lost transport.
-remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
+remote_inbox_hop() {  # <id> due <grace> <ring-max> [<busy-max>] | <id> ring <record> [<busy-max>] | <id> escalated <record>
   local id=$1 out err errfile rc=0
   errfile=$(mktemp "${TMPDIR:-/tmp}/fm-remote-inbox.XXXXXX") || { printf 'no temp file'; return 1; }
   out=$(fm_run_timed 30 "$SCRIPT_DIR/fm-on.sh" "$id" \
@@ -1209,7 +1261,7 @@ remote_inbox_tick() {
 }
 
 remote_inbox_pass() {
-  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason notify_key appended first_reason=''
+  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count last_reason out reason notify_key appended busy_arg first_reason=''
   touch "$tick_marker" || return 1
   for meta in "$STATE"/*.meta; do
     [ -e "$meta" ] || continue
@@ -1221,17 +1273,25 @@ remote_inbox_pass() {
     case "$id" in ''|*[!A-Za-z0-9._-]*) continue ;; esac
     w=$(fm_meta_get "$meta" window 2>/dev/null || true)
     [ -n "$w" ] || w="remote:$id"
-    if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)"); then
-      triage_log "remote steer-inbox: $id due check unreachable or failed ($due); the next tick retries"
-      continue
+    # Passing the busy maximum tells the remote this parent understands its
+    # busy verdicts. A remote copy that predates them refuses the extra
+    # argument, so one failed hop retries without it and keeps today's
+    # ring-while-busy ladder until that host is updated.
+    busy_arg=$(fm_task_inbox_busy_max)
+    if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)" "$busy_arg"); then
+      busy_arg=
+      if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)"); then
+        triage_log "remote steer-inbox: $id due check unreachable or failed ($due); the next tick retries"
+        continue
+      fi
     fi
     reason=''
-    read -r verb rec count <<EOF
+    read -r verb rec count last_reason <<EOF
 $due
 EOF
     case "$verb" in
       ring)
-        if ! out=$(remote_inbox_hop "$id" ring "$rec"); then
+        if ! out=$(remote_inbox_hop "$id" ring "$rec" ${busy_arg:+"$busy_arg"}); then
           triage_log "remote steer-inbox delivery attempt: $id $rec unreachable or failed ($out); the next tick retries"
           continue
         fi
@@ -1239,12 +1299,16 @@ EOF
           reason="stale: $w (unread firstmate instruction: remote record $rec is unhandled and the secondmate's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the secondmate)"
         elif [ "$out" = bookkeeping-failed ]; then
           reason="stale: $w (remote steering-inbox ladder bookkeeping unwritable: .ring-state cannot be written while remote record $rec stays unhandled; inspect the inbox directory)"
+        elif [ "${out%% *}" = stuck-busy ]; then
+          reason="stale: $w (unread firstmate instruction: stuck-busy after ${out#* } consecutive busy-deferred due doorbells; remote record $rec stays unhandled and no doorbell was typed; inspect the secondmate)"
+        elif [ "${out%% *}" = deferred ]; then
+          triage_log "remote steer-inbox busy deferral: $id $rec count=${out#* }/$busy_arg"
         else
           triage_log "remote steer-inbox delivery attempt: $id $rec result=$out"
         fi
         ;;
       escalate)
-        reason="stale: $w (unread firstmate instruction: remote record $rec still unhandled after $count doorbell delivery attempts; inspect the secondmate)"
+        reason="stale: $w (unread firstmate instruction: remote record $rec still unhandled after $count doorbell delivery attempts${last_reason:+ (last ring $last_reason)}; inspect the secondmate)"
         ;;
       *) continue ;;
     esac
@@ -1263,6 +1327,7 @@ EOF
     out=$(remote_inbox_hop "$id" escalated "$rec") \
       || triage_log "remote steer-inbox: $id escalation marker for $rec was not written ($out); the next tick retries the marker"
   done
+  fm_pending_reply_remote_inbox_tick "$STATE" || return 1
   REMOTE_INBOX_REASON=$first_reason
   return 0
 }
@@ -1692,6 +1757,11 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
     return 0
   fi
   reason="stale: $win (idle ${age}s, agent $agent_state - $detail, so this is not a wedge; reported once and not re-escalated while it stays that way - reconcile this record, and check for unlanded work before any cleanup)"
+  if [ -n "$task" ] && fm_lane_release_marker_active "$STATE" "$task"; then
+    triage_log "absorbed $label (idle ${age}s, agent $agent_state - $(fm_lane_release_phrase)): $win"
+    clear_write_tracking "$key"
+    return 0
+  fi
   # Append before the marker, for the reason stale_wait_record gives: a marker
   # written ahead of a failed append outlives it, and the next sighting would then
   # absorb the retry - the one way this bound could swallow the report outright
@@ -2480,7 +2550,7 @@ run_check_process() {
     exec gtimeout "$CHECK_TIMEOUT" bash "$c" "$@"
   else
     # shellcheck disable=SC2016  # single quotes are deliberate: Perl expands its own variables.
-    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = $stop; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit($? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
+    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = sub { if (length $ENV{FM_CHECK_TIMEOUT_MARK}) { open my $m, ">", $ENV{FM_CHECK_TIMEOUT_MARK}; close $m } $stop->() }; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit(($? & 127) ? 128 + ($? & 127) : $? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
   fi
 }
 
@@ -2495,7 +2565,7 @@ FM_CHECK_RESULT=
 FM_CHECK_SIGNAL_PENDING=
 
 fm_check_output_cleanup() {
-  [ -z "$FM_CHECK_OUTPUT" ] || rm -f -- "$FM_CHECK_OUTPUT"
+  [ -z "$FM_CHECK_OUTPUT" ] || rm -f -- "$FM_CHECK_OUTPUT" "$FM_CHECK_OUTPUT.timeout"
   FM_CHECK_OUTPUT=
 }
 
@@ -2553,7 +2623,7 @@ run_check_capture() {
   # can drop a trap that is pending when one is parsed (watcher_stop_signals).
   trap 'FM_CHECK_SIGNAL_PENDING=1' HUP INT TERM
   set -m
-  ( FM_CHECK_OWNED_GROUP=1 run_check_process "$@" ) > "$FM_CHECK_OUTPUT" 2>/dev/null &
+  ( FM_CHECK_OWNED_GROUP=1 FM_CHECK_TIMEOUT_MARK="$FM_CHECK_OUTPUT.timeout" run_check_process "$@" ) > "$FM_CHECK_OUTPUT" 2>/dev/null &
   FM_ACTIVE_CHECK_PID=$!
   FM_ACTIVE_CHECK_PGID=$FM_ACTIVE_CHECK_PID
   set +m
@@ -2568,6 +2638,9 @@ run_check_capture() {
   wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || FM_CHECK_EXIT_STATUS=$?
   FM_ACTIVE_CHECK_PID=
   fm_active_check_stop || return 1
+  # The perl fallback kills its own owned group, so the bound can reach the
+  # watcher as SIGKILL; its marker file says the alarm, not something else, did it.
+  [ ! -e "$FM_CHECK_OUTPUT.timeout" ] || FM_CHECK_EXIT_STATUS=124
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
   fm_check_output_cleanup
 }
@@ -3327,9 +3400,39 @@ while :; do
   # keeps producing signals - the slow poll (e.g. merge detection) would then
   # never run until the fleet went quiet. Checks are due only every
   # CHECK_INTERVAL, so most cycles skip this block and fall straight through.
+  # One sweep runs every due check and queues each actionable result. Only a
+  # completed sweep touches .last-check, and any needed wake follows the sweep.
+  # A check that prints cannot skip later checks.
   if [ "$(age_of "$STATE/.last-check")" -ge "$CHECK_INTERVAL" ]; then
     rejected_checks=
     contribution_check_output=
+    sweep_wake_reason=
+    # Hold release conditions are evaluated in the same sweep, before the
+    # per-check loop: each newly-met condition has already opened its durable
+    # keyed decision and queued its check wake before announcing it.
+    # The evaluation is bounded (its own per-record reads and sweep cap)
+    # and its diagnostics are triage, not wakes.
+    hold_release_out=$(fm_hold_release_evaluate "$STATE" 2>"$STATE/.hold-release-sweep.err")
+    hold_release_rc=$?
+    [ ! -s "$STATE/.hold-release-sweep.err" ] || {
+      while IFS= read -r hold_release_diag; do
+        [ -n "$hold_release_diag" ] || continue
+        triage_log "$hold_release_diag"
+      done < "$STATE/.hold-release-sweep.err"
+      : > "$STATE/.hold-release-sweep.err"
+    }
+    if [ "$hold_release_rc" -ne 0 ]; then
+      triage_log "hold-release evaluation reported rc=$hold_release_rc"
+    fi
+    if [ -n "$hold_release_out" ]; then
+      while IFS= read -r hold_release_line; do
+        [ -n "$hold_release_line" ] || continue
+        reason="check: hold-release: $hold_release_line"
+        [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
+      done <<EOF
+$hold_release_out
+EOF
+    fi
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue
       is_pr_poll=0
@@ -3377,8 +3480,11 @@ while :; do
             exit "$FM_CHECK_EXIT_STATUS"
           fi
           out=$FM_CHECK_RESULT
-          # conflict is one episode: steer a live worker, relaunch an exited
-          # one, or leave out=conflict so the check wake below fires once.
+          # conflict is one episode: steer a live worker once while its earlier
+          # conflict steer for that PR is unacknowledged, relaunch an
+          # exited relaunchable worker once, or leave out=conflict so the
+          # check wake below fires once. A done task, or a dead or missing
+          # endpoint, is not steered.
           # conflict-clear removes the episode and stays quiet.
           case "$out" in
             conflict:*|conflict-clear)
@@ -3405,8 +3511,16 @@ while :; do
           esac
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
+          custom_check_started=$(date +%s)
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
+          # A killed or failing run must not vanish: it wakes naming the check,
+          # its exit code and its duration. Exit 0 keeps the printed output.
+          if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
+            out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+          elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
+            out="exited $FM_CHECK_EXIT_STATUS after $(( $(date +%s) - custom_check_started ))s${out:+: $out}"
+          fi
           fm_custom_check_snapshot_cleanup
         else
           fm_custom_check_snapshot_cleanup
@@ -3444,7 +3558,6 @@ EOF
             fm_pr_conflict_episode_remove "$STATE" "$id" || true
             retire_merged_pr_poll "$id"
             pr_poll_control_release || exit 1
-            touch "$STATE/.last-check"
             triage_log "retired a merge poll armed on secondmate $id without reporting an outcome"
             continue
           fi
@@ -3471,12 +3584,12 @@ EOF
           fm_pr_conflict_episode_remove "$STATE" "$id" || true
           retire_merged_pr_poll "$id"
           pr_poll_control_release || exit 1
-          touch "$STATE/.last-check"
           if [ "$FM_MERGE_OUTCOME_ALREADY_RECORDED" = true ]; then
             triage_log "absorbed duplicate merged PR poll result for $id"
             continue
           fi
-          wake "$reason"
+          [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
+          continue
         fi
         fm_wake_append check "$c" "$reason" || exit 1
         if [ "$is_pr_poll" -eq 1 ] && [ "$out" = conflict ]; then
@@ -3484,20 +3597,23 @@ EOF
             "$provider" "$host" "$path" "$number" "$conflict_added_at" || exit 1
         fi
         pr_poll_control_release || exit 1
-        touch "$STATE/.last-check"
-        wake "$reason"
+        [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
       fi
       pr_poll_control_release || exit 1
     done
     if [ -n "$rejected_checks" ]; then
       reason="check: rejected unauthenticated state checks:$rejected_checks"
       fm_wake_append check unauthenticated-state-checks "$reason" || exit 1
-      touch "$STATE/.last-check"
-      wake "$reason"
+      [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
     fi
     touch "$STATE/.last-check"
+    # One wake carries the first printing check, otherwise a contribution
+    # result, so the durable queue holds every actionable check result.
     if [ -n "$contribution_check_output" ]; then
-      wake "$contribution_check_output"
+      [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$contribution_check_output
+    fi
+    if [ -n "$sweep_wake_reason" ]; then
+      wake "$sweep_wake_reason"
     fi
   fi
 

@@ -2,6 +2,7 @@
 """Linux cron backstop for Herdr primary wake delivery, independent of the watcher.
 
 Usage: fm-main-backstop.py --home PATH [--code-root PATH] [--mate ID ...]
+       [--send-enabled-file HOME/config/main-backstop-send-enabled]
 Run every three minutes. After a five-minute watcher silence with supervision
 work and no state/.afk record, discover a unique live Claude/Codex primary in
 this exact home and nudge it so its own turn-end owner re-arms.
@@ -20,7 +21,11 @@ Reply lag is the elapsed time since the oldest remote at= stamp not yet
 mirrored in state/.remote-reply-mirrored-<mate>, or zero when caught up.
 All reply and watermark timestamps use status_line_at_epoch in
 bin/fm-classify-lib.sh, the canonical status timestamp grammar owner.
-An unparseable nonblank line makes the read fail rather than imply caught up.
+A nonblank line that grammar rejects is a continuation of the previous
+entry's multi-line text and contributes no stamp, including a leading one
+when a byte-cursor window begins mid-entry; a rejected line before the
+first entry of a read from the log's beginning is corrupt and makes the
+read fail rather than imply caught up.
 An incident clears only when its oldest reply is mirrored.
 Local status notices cannot advance that ingestion watermark, and a missing
 or empty watermark counts as zero.
@@ -30,11 +35,23 @@ get bootstraps a delta cursor, then fm-remote-delta-read returns only appended
 lines. A moved log is re-read from the beginning, preserving unmirrored
 stamps; a source past the whole-file bound is scanned from the beginning
 through the bounded delta path across successive passes.
-A delta scan must reach the current tail within four reads; exhausting that
-budget counts as a failed read while preserving cursor progress for the next
-pass, never reporting an intermediate timestamp as current. Delta reads allow one
+A delta scan reads at most four windows per pass. Exhausting them with the
+cursor advanced persists that progress and continues next pass as catching
+up, reporting only the oldest unmirrored stamp actually seen, while a budget
+exhausted with no cursor progress counts as a failed read, never reporting an
+intermediate timestamp as current. A reader with exactly the legacy
+{offset, prefix, stamp} keys migrates only when its offset and prefix pass
+validation and its stamp is a nonnegative integer; it keeps its cursor and
+seeds pending_at with that stamp.
+Delta reads allow one
 reply-runner poll window in the shared remote job lane (ninety seconds); other
-commands keep fifteen seconds. Output bodies are never logged. A read failing
+commands keep fifteen seconds. On exit 76, re-issue the same (offset, prefix)
+read up to three times per read (DELTA_PREEMPT_REREADS).
+A preempted attempt makes no cursor progress and consumes none of the four-read
+budget; four consecutive preemptions count as one failed read, preserving
+cursor progress for the next pass.
+The bin/fm-remote-job-lib.sh header owns the lane preemption contract.
+Output bodies are never logged. A read failing
 on two consecutive passes alarms instead of claiming caught-up; a single
 failed pass is audited as transport noise. A live runner removes its .runner
 pid record while it applies each captured reply and rewrites it by
@@ -43,10 +60,23 @@ runner read as not alive on a single pass is audited as transient. No remote
 source is changed or live runner reconciled.
 Notes deduplicate for an incident until a healthy observation clears it.
 Runner identity requires Linux /proc process state and command-line records.
-Private state: .main-backstop.json (incident ids, successful nudge time,
-delta cursors and consecutive failure records),
+Private state: .main-backstop.json (incident ids, deferred alarms when gated,
+successful nudge time, delta cursors and consecutive failure records),
 .main-backstop.lock (cron exclusion), .main-backstop.log (bounded audit).
 The caller deploys/backs up its private files and supplies the home's code root.
+When --send-enabled-file is selected, its path must be exactly the resolved
+HOME/config/main-backstop-send-enabled and its contents exactly enabled\n.
+The config directory must be a nonsymlink directory owned by the home owner.
+The file must be regular, nonsymlink, singly linked, and owned by both the home
+owner and effective user; neither directory nor file may be group/world writable.
+Reads are bounded and nonblocking, so a FIFO refuses permission without waiting.
+Permission is rechecked before inbox notes, primary discovery and submission.
+A missing or invalid capability leaves this pass observing and retaining
+incidents without inbox notes or primary discovery/submission.
+Deferred notes retain their request IDs and replay when enabled, even if the
+incident resolved while stopped; a later incident receives a distinct ID.
+Omitting the option preserves upstream send behavior; select it in the private
+scheduler wrapper to enable the intentional-stop posture.
 """
 import argparse
 import fcntl
@@ -56,6 +86,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import stat
 import subprocess
 import time
 import uuid
@@ -73,10 +104,41 @@ DELTA_READ_BUDGET = 4
 # and a queued delta read does not preempt a running one, so one delta call can
 # legitimately wait a full window behind it before its own bounded read.
 DELTA_TIMEOUT = 90
+DELTA_PREEMPT_REREADS = 3
 # The runner's truncate-then-write rewrite leaves its pid record empty for a
 # moment; a few short re-reads read around it while keeping a pass bounded.
 RUNNER_REREADS = 5
 RUNNER_REREAD_DELAY = 0.02
+
+
+def send_capability_enabled(home, path):
+    """Read the exact private send capability without following a replaced link."""
+    expected = home / 'config/main-backstop-send-enabled'
+    if path != expected:
+        return False
+    fd = None
+    try:
+        config = os.lstat(expected.parent)
+        owner = home.stat().st_uid
+        if (not stat.S_ISDIR(config.st_mode) or config.st_uid != owner
+                or config.st_mode & 0o022):
+            return False
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+                     | os.O_NONBLOCK)
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != owner
+                or info.st_uid != os.geteuid() or info.st_nlink != 1
+                or info.st_mode & 0o022 or info.st_size != len(b'enabled\n')):
+            return False
+        content = os.read(fd, len(b'enabled\n') + 1)
+        current = os.stat(path, follow_symlinks=False)
+        return (content == b'enabled\n' and current.st_dev == info.st_dev
+                and current.st_ino == info.st_ino and stat.S_ISREG(current.st_mode))
+    except (OSError, ValueError):
+        return False
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def run(argv, env):
@@ -116,15 +178,32 @@ def run_status(argv, env, timeout=15, input_data=None):
     return process.returncode, stdout, stderr
 
 
-def stamps(text):
+def stamps(text, at_start):
+    """Entry epochs in one reply-log read, in file order.
+
+    A nonblank line the canonical grammar rejects is a continuation of the
+    previous entry's multi-line text and contributes no stamp. A read that
+    starts at a byte cursor can start mid-entry, so a rejected leading line
+    there is the tail of an entry from before the cursor; at_start marks a
+    read of the log from its beginning, where a rejected line before the
+    first entry is corrupt and fails the read rather than imply caught up.
+    """
     rc, output, _ = run_status(['bash', '-c', r'''
 . "$1" || exit 1
+seen=0
 while IFS= read -r line || [ -n "$line" ]; do
     [ -n "${line//[$' \t\r']/}" ] || continue
-    status_line_at_epoch "$line" || exit 1
-    printf '\n'
+    if ! epoch=$(status_line_at_epoch "$line"); then
+        if [ "$seen" -gt 0 ] || [ "$2" != log-start ]; then
+            continue
+        fi
+        exit 1
+    fi
+    seen=1
+    printf '%s\n' "$epoch"
 done
-''', 'backstop-timestamps', str(Path(__file__).parent / 'fm-classify-lib.sh')],
+''', 'backstop-timestamps', str(Path(__file__).parent / 'fm-classify-lib.sh'),
+                               'log-start' if at_start else 'at-cursor'],
                                os.environ, input_data=text.encode('utf-8'))
     if rc != 0:
         raise ProbeError('reply timestamps unavailable')
@@ -132,7 +211,7 @@ done
 
 
 def newest(text):
-    return max(stamps(text), default=0)
+    return max(stamps(text, True), default=0)
 
 
 def valid_reader(record):
@@ -150,14 +229,37 @@ def valid_reader(record):
             and re.fullmatch(r'[0-9a-f]{64}', prefix) is not None)
 
 
+def migrate_reader(record):
+    """A legacy {offset, prefix, stamp} record as the pending_at shape, or
+    None when the record is not exactly that older private-copy shape."""
+    if not isinstance(record, dict) or set(record) != {'offset', 'prefix', 'stamp'}:
+        return None
+    try:
+        offset = int(record['offset'])
+        prefix = str(record['prefix'])
+        stamp = record['stamp']
+    except (KeyError, TypeError, ValueError):
+        return None
+    if (offset >= 0 and re.fullmatch(r'[0-9a-f]{64}', prefix) is not None
+            and type(stamp) is int and stamp >= 0):
+        return {'offset': offset, 'prefix': prefix, 'pending_at': [stamp]}
+    return None
+
+
 def delta_call(code, env, mate, offset, prefix):
     """One fm-remote-delta.v1 record as (fields, payload); fields is None when
-    the window closed with no new complete line."""
+    the window closed with no new complete line.
+    The module header owns the bounded preemption retry policy."""
     argv = [str(code / 'bin/fm-on.sh'), mate, 'fm-remote-delta-read.sh',
             DELTA_LOG, str(offset), prefix, DELTA_WAIT]
-    rc, stdout, _ = run_status(argv, env, DELTA_TIMEOUT)
+    for _ in range(DELTA_PREEMPT_REREADS + 1):
+        rc, stdout, _ = run_status(argv, env, DELTA_TIMEOUT)
+        if rc != 76:
+            break
     if rc == 75:
         return None, b''
+    if rc == 76:
+        raise ProbeError('delta read stayed preempted')
     if rc != 0:
         raise ProbeError('command failed or timed out')
     header, split, payload = stdout.partition(b'\n\n')
@@ -179,7 +281,8 @@ def delta_call(code, env, mate, offset, prefix):
     return fields, payload
 
 
-def drain_delta(code, env, readers, mate, local):
+def drain_delta(code, env, readers, mate, local, audit):
+    start = readers[mate]['offset']
     for _ in range(DELTA_READ_BUDGET):
         record = readers[mate]
         record['pending_at'] = sorted({stamp for stamp in record['pending_at'] if stamp > local})
@@ -190,18 +293,32 @@ def drain_delta(code, env, readers, mate, local):
             return None
         if int(fields['payload_bytes']) != len(payload):
             raise ProbeError('delta record is malformed')
-        found = stamps(payload.decode('utf-8', errors='replace'))
+        # A window at a nonzero cursor can begin mid-entry; offset zero is
+        # the head of the log, where no entry precedes the first line.
+        found = stamps(payload.decode('utf-8', errors='replace'),
+                       record['offset'] == 0)
         readers[mate] = {'offset': int(fields['to_offset']),
                          'prefix': fields['to_prefix_sha256'],
                          'pending_at': sorted(set(record['pending_at']) | {stamp for stamp in found if stamp > local})}
+    if readers[mate]['offset'] > start:
+        # An advancing rescan of a large log is catching up, not a failed
+        # read: the persisted cursor converges across passes, and the oldest
+        # unmirrored stamp seen so far reports real lag without implying the
+        # tail was reached. No cursor progress is still a failed read.
+        audit('read %s log catching up: cursor at %d' % (mate, readers[mate]['offset']))
+        return min(readers[mate]['pending_at'], default=0)
     raise ProbeError('remote reply tail not reached within read budget')
 
 
 def remote_oldest(code, env, memory, mate, local, audit):
     readers = memory.setdefault('readers', {})
     pending = []
+    legacy = migrate_reader(readers.get(mate))
+    if legacy is not None:
+        readers[mate] = legacy
+        audit('migrated %s legacy reader cursor' % mate)
     if valid_reader(readers.get(mate)):
-        oldest = drain_delta(code, env, readers, mate, local)
+        oldest = drain_delta(code, env, readers, mate, local, audit)
         if oldest is not None:
             return oldest
         pending = readers[mate]['pending_at']
@@ -210,7 +327,7 @@ def remote_oldest(code, env, memory, mate, local, audit):
                                   'fm-remote-file.sh', 'get', DELTA_LOG,
                                   str(TRANSFER_BOUND)], env)
     if rc == 0:
-        found = stamps(body.decode('utf-8', errors='replace'))
+        found = stamps(body.decode('utf-8', errors='replace'), True)
         pending = sorted(set(pending) | {stamp for stamp in found if stamp > local})
         readers[mate] = {'offset': len(body),
                          'prefix': hashlib.sha256(body).hexdigest(),
@@ -220,7 +337,7 @@ def remote_oldest(code, env, memory, mate, local, audit):
         raise ProbeError('command failed or timed out')
     readers[mate] = {'offset': 0, 'prefix': hashlib.sha256(b'').hexdigest(),
                      'pending_at': pending}
-    oldest = drain_delta(code, env, readers, mate, local)
+    oldest = drain_delta(code, env, readers, mate, local, audit)
     if oldest is None:
         raise ProbeError('remote reply log kept moving')
     return oldest
@@ -279,6 +396,7 @@ def main():
     parser.add_argument('--home', type=Path, required=True)
     parser.add_argument('--code-root', type=Path)
     parser.add_argument('--mate', action='append', default=[])
+    parser.add_argument('--send-enabled-file', type=Path)
     args = parser.parse_args()
     home = args.home.resolve(strict=True)
     code = (args.code_root or home).resolve(strict=True)
@@ -300,7 +418,17 @@ def main():
         memory = json.loads(journal.read_text())
     except (OSError, ValueError):
         memory = {}
+    # An older private copy stored these as lists; reset any non-dict shape
+    # to a fresh dict so the dict-typed bookkeeping below starts cleanly,
+    # keeping last_nudge and any reader cursors.
+    for key in ('episodes', 'read_fails', 'runner_fails'):
+        if not isinstance(memory.get(key), dict):
+            memory[key] = {}
     episodes = memory.setdefault('episodes', {})
+    deferred = memory.setdefault('deferred_alarms', {}) if args.send_enabled_file else {}
+    for key in list(deferred):
+        if key in episodes:
+            deferred[episodes[key]] = deferred.pop(key)
     active = set()
     now = int(time.time())
     log = state / '.main-backstop.log'
@@ -318,19 +446,40 @@ def main():
         tmp.write_text(json.dumps(memory, sort_keys=True) + '\n')
         tmp.replace(journal)
 
-    def alarm(key, message):
-        active.add(key)
-        request = episodes.setdefault(key, 'backstop-' + uuid.uuid4().hex)
-        save()  # Preserve replay identity before an interrupted note submission.
+    def send_enabled():
+        return (args.send_enabled_file is None
+                or send_capability_enabled(home, args.send_enabled_file))
+
+    def deliver_alarm(request, message):
+        if not send_enabled():
+            audit('BACKSTOP ALARM HELD: ' + request)
+            return
         try:
             run([str(code / 'bin/fm-inbox.sh'), 'note', '--request-id', request,
                  '--', message], env)
         except ProbeError:
-            # Keep the same request id; note may already be saved, and its
-            # idempotent retry repairs announcement rather than duplicating it.
             audit('BACKSTOP ALARM SAVE FAILED: ' + message)
             return
+        deferred.pop(request, None)
+        save()
         audit(message)
+
+    def resolve_episode(key):
+        episodes.pop(key, None)
+
+    def alarm(key, message):
+        active.add(key)
+        request = episodes.setdefault(key, 'backstop-' + uuid.uuid4().hex)
+        if args.send_enabled_file is not None:
+            deferred[request] = message
+        save()  # Preserve replay identity before an interrupted note submission.
+        # Keep the same request id across a stop or interrupted note. The
+        # inbox's idempotent retry repairs an uncertain prior submission.
+        deliver_alarm(request, message)
+
+    if send_enabled():
+        for request, message in list(deferred.items()):
+            deliver_alarm(request, message)
 
     try:
         beat_age = now - int((state / '.last-watcher-beat').stat().st_mtime)
@@ -361,14 +510,14 @@ def main():
                 save()
         else:
             runner_fails.pop(mate, None)
-            episodes.pop('runner-' + mate, None)
+            resolve_episode('runner-' + mate)
         try:
             local_path = state / ('.remote-reply-mirrored-' + mate)
             local = newest(local_path.read_text()) if local_path.exists() else 0
             oldest = remote_oldest(code, env, memory, mate, local, audit)
             lag = max(0, now - oldest) if oldest else 0
             if mate in lag_oldest and local >= lag_oldest[mate]:
-                episodes.pop('lag-' + mate, None)
+                resolve_episode('lag-' + mate)
                 lag_oldest.pop(mate)
             if lag > 900:
                 message = 'REPLY DELIVERY LAG %s: %ds (oldest_at=%d ingested_at=%d); primary wake path needs recovery.' % (mate, lag, oldest, local)
@@ -376,10 +525,10 @@ def main():
                 alarm('lag-' + mate, message)
                 trouble.append('reply lag: ' + mate)
             elif not oldest:
-                episodes.pop('lag-' + mate, None)
+                resolve_episode('lag-' + mate)
                 lag_oldest.pop(mate, None)
             read_fails.pop(mate, None)
-            episodes.pop('read-' + mate, None)
+            resolve_episode('read-' + mate)
         except (ProbeError, OSError, ValueError):
             # One failed pass is transport noise under load; two consecutive
             # passes are a genuinely unverified delivery state and alarm
@@ -391,8 +540,12 @@ def main():
             else:
                 audit('read failed once, tolerating one pass: ' + mate)
                 save()
-    if trouble:
+    if trouble and not send_enabled():
+        alarm('recovery', 'BACKSTOP HELD: ' + '; '.join(trouble))
+    elif trouble:
         try:
+            if not send_enabled():
+                raise ProbeError('send capability revoked')
             pane = live_primary(home, env)
             if now - memory.get('last_nudge', 0) >= 300:
                 # Resolve the live foreground again just before sending; never
@@ -401,6 +554,8 @@ def main():
                     raise ProbeError('primary changed during discovery')
                 text = '[backstop] ' + '; '.join(trouble) + '. Drain wakes and handle the recovery; your turn-end owner re-arms supervision.'
                 target = env.get('HERDR_SESSION', 'default') + ':' + pane
+                if not send_enabled():
+                    raise ProbeError('send capability revoked')
                 verdict = run(['bash', '-c', '''
 . "$1" || exit 1
 state=$(fm_backend_composer_state herdr "$2") || exit 1
@@ -412,14 +567,14 @@ fm_backend_send_text_submit herdr "$2" "$3" 2 0.4 0.3
                 memory['last_nudge'] = now
                 (home / 'data/main-pane').write_text(pane + '\n')
                 audit('nudged verified primary pane=' + pane)
-                episodes.pop('recovery', None)
+                resolve_episode('recovery')
         except (ProbeError, OSError, ValueError, KeyError, TypeError) as error:
             detail = str(error) if isinstance(error, ProbeError) else 'primary discovery unavailable'
             if detail == 'command failed or timed out':
                 detail = 'primary nudge failed or discovery unavailable'
             alarm('recovery', 'BACKSTOP FAILURE: %s; %s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.' % (detail, '; '.join(trouble)))
     elif all(mate not in read_fails and mate not in runner_fails for mate in mates):
-        episodes.pop('recovery', None)
+        resolve_episode('recovery')
     save()
     audit('checked watcher_age=%ds alarms=%d' % (beat_age, len(active)))
 

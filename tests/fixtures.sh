@@ -325,6 +325,7 @@ fm_test_spawn_home() {
   local home=$1 harness=${2-}
   mkdir -p "$home/data" "$home/projects" "$home/state" "$home/config"
   printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   touch "$home/state/.last-watcher-beat"
   if [ -n "$harness" ]; then
     printf '%s\n' "$harness" > "$home/config/crew-harness"
@@ -338,6 +339,7 @@ fm_test_spawn_brief() {
   mkdir -p "$home/config"
   if [ ! -e "$home/config/lane-capacity" ]; then
     printf '999999 0\n' > "$home/config/lane-capacity"
+    fm_test_machine_policy "$home/config"
   fi
   cat > "$home/data/$id/brief.md" <<EOF
 # Task

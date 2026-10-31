@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Steer a task by durable record: write the message into the task's steering
 # inbox and ring a constant doorbell line into its terminal, best-effort.
-# Usage: fm-send.sh <target> [--resolve-key <key>]... [--fire-and-forget <delivery-id>] <text...>
+# Usage: fm-send.sh <target> [--resolve-key <key>]... [--fire-and-forget <delivery-id>] [--one-way] <text...>
 #   <target> may be an exact task id, a legacy fm-<id> task label resolved
 #   through this home's state/<id>.meta, or an explicit well-formed backend
 #   target. fm-send refuses unresolved guesses rather than falling back to a
@@ -37,7 +37,8 @@
 # command: it preserves the same correlation, body, and record, while a plain
 # re-run mints a new correlation and delivers a separate record. An explicit
 # fire-and-forget request instead retries with its same caller-supplied delivery
-# id. A still-unconfirmed reply-bearing request keeps its reply expectation
+# id. A one-way request instead uses the FM_SEND_REQUEST_ID retry contract below.
+# A still-unconfirmed reply-bearing request keeps its reply expectation
 # preserved for the record that may have landed.
 # Pending-reply bookkeeping trouble after a durable enqueue NEVER exits
 # nonzero: with the recovery marker stored the watcher reconciles it silently,
@@ -54,6 +55,11 @@
 # the composer visibly holds pending text the ring is skipped with a notice and
 # the watcher re-rings an ordinary record later; no composer verdict is
 # delivery proof on this plane, and a failed ring never fails the send.
+# The ring requires a positive submit verdict under bin/fm-task-inbox-lib.sh's
+# confirmation contract, including prompt-matched receipts for tmux Claude
+# workers. An unconfirmed doorbell prints a loud "NOT delivered" notice, but the exit stays 0
+# because the steer itself is durably recorded and a nonzero here would invite
+# a duplicate enqueue.
 #
 # TYPED - the LOCAL text that must reach the terminal itself: a harness-native
 # invocation (a leading "/", or a leading "$" to a codex target) must reach
@@ -63,7 +69,11 @@
 # type the literal
 # text through the target backend's verified submit core: typed ONCE, then
 # Enter retried (never retyped) until the backend confirms a submit or reports
-# an inconclusive send. Typed-plane exit contract: 0 = submit confirmed;
+# an inconclusive send. The fixed budget is five Enter presses with two-second
+# confirmation windows (up to ten seconds); an unsafe or unreadable verdict
+# can end it early. A matching tmux Claude prompt receipt can end a window
+# early under bin/fm-busy-lib.sh's submit-signal contract.
+# Typed-plane exit contract: 0 = submit confirmed;
 # 3 = the text was typed into the live endpoint and
 # Enter was sent, but the submit read-back stayed unconfirmed (verify the pane
 # before any resend, and never re-type blindly; a marked request's
@@ -71,9 +81,7 @@
 # failure); any other nonzero = the send failed and nothing may be assumed
 # delivered. Submission dispatches through the target's recorded backend; the
 # tmux adapter shares its composer/submit core with the away-mode daemon via
-# bin/fm-tmux-lib.sh. Tune with FM_SEND_RETRIES (default 3; agy typed targets
-# default to 20 for agy's late busy render) / FM_SEND_SLEEP (0.4). Slash
-# commands, and codex `$...` skill invocations resolved through harness meta,
+# bin/fm-tmux-lib.sh. Slash commands, and codex `$...` skill invocations resolved through harness meta,
 # get a longer pre-Enter settle so completion popups do not swallow Enter.
 # A remote secondmate target has no typed text plane at all:
 # every remote text steer rides the inbox (a marked secondmate request already
@@ -100,7 +108,7 @@
 # marked - their behavior is unchanged.
 #
 # Parent-owned pending-reply expectation: every newly marked secondmate request
-# except an explicit --fire-and-forget delivery receives a privacy-safe
+# except an explicit --fire-and-forget or --one-way delivery receives a privacy-safe
 # correlation id and a durable parent record under state/pending-replies/ before
 # delivery (bin/fm-pending-reply-lib.sh). Delivery
 # success and reply success are separate facts: delivery never resolves the
@@ -119,6 +127,17 @@
 # sent with --fire-and-forget <16-hex-delivery-id> uses the same inbox transport
 # without creating a reply expectation; its delivery id makes uncertain retries
 # idempotent while allowing a later identical instruction to be distinct.
+# A routine notice that expects no reply is sent with --fire-and-forget.
+# --one-way is the ordinary inbox steer that expects no reply: the record,
+# doorbell, and re-ring ladder are unchanged, and no pending-reply correlation
+# is minted or embedded. Its request-id header distinguishes intentional repeats;
+# FM_SEND_REQUEST_ID=<32 lowercase hex digits> reuses an uncertain request.
+# It is not fire-and-forget and it does not set
+# delivery=. It cannot accompany --fire-and-forget, --resolve-key, or --key.
+# This flag does not close an existing correlation, nor does moving the inbox
+# record to handled/. For recipient acknowledgement of an existing correlation:
+# FM_HOME=<parent-home> bin/fm-pending-reply-ack-handled.sh <task-id> <corr-id>
+# (bin/fm-pending-reply-lib.sh owns that resolved_via=handled transition).
 #
 # Remote secondmate delivery: the send crosses fm-on.sh to a host-local leg
 # (bin/fm-remote-secondmate-control.sh cmd_send) that writes the message as a
@@ -132,15 +151,15 @@
 # deduplicates the same request onto the same record - and a still-lost
 # transport exits nonzero while preserving a reply-bearing marked request's
 # expectation, since the record may have landed. Its error prints the exact
-# FM_PENDING_REPLY_EXISTING_CORR=<id> resend command that preserves the body
-# and makes a later remote enqueue deduplicate onto that same record. An
+# identity-preserving resend command described above, so a later remote enqueue
+# deduplicates onto that same record. An
 # unconfirmed fire-and-forget request exits 3 and names the same delivery id to
 # retry. Every remote transport attempt is bounded by FM_SEND_REMOTE_BUDGET
 # seconds (default 30, and any override must be a positive integer): a bound
 # hit is completion-unknown and exits through this same unconfirmed contract
 # instead of waiting out a busy remote queue.
 # A swallowed remote doorbell is re-rung by the parent watcher's remote inbox
-# ladder (bin/fm-task-inbox-lib.sh "Remote leg"), and a marked request's
+# ladder (bin/fm-task-inbox-lib.sh "Remote leg"), and a reply-bearing marked request's
 # pending-reply recovery re-rings it again when its recovery request is
 # enqueued; fire-and-forget records stay outside both. Internal
 # semantic callers may set FM_SEND_EXPECTED_SPAWN_GEN or
@@ -462,6 +481,8 @@ fi
 # message exactly as before, so ordinary sends are byte-identical.
 RESOLVE_KEYS=
 FIRE_AND_FORGET_ID=
+ONE_WAY=0
+ONE_WAY_REQUEST_ID=${FM_SEND_REQUEST_ID:-}
 fm_send_add_resolve_key() { # <key>
   local k=$1
   case "$k" in
@@ -512,6 +533,14 @@ while :; do
     FIRE_AND_FORGET_ID=${1#--fire-and-forget=}
     shift
     ;;
+  --one-way)
+    [ "$ONE_WAY" = 0 ] || {
+      echo "error: duplicate --one-way" >&2
+      exit 1
+    }
+    ONE_WAY=1
+    shift
+    ;;
   *) break ;;
   esac
 done
@@ -529,6 +558,7 @@ MARK_FROM_FIRSTMATE=0
 PENDING_REPLY_CORR=
 PENDING_REPLY_CREATED=0
 TARGET_TASK_ID=
+[ -z "$TARGET_META" ] || TARGET_TASK_ID=$(fm_send_id_from_meta "$TARGET_META")
 fm_send_known_undelivered_cleanup() {
   [ -n "$PENDING_REPLY_CORR" ] || return 0
   if [ "$PENDING_REPLY_CREATED" = 1 ]; then
@@ -539,7 +569,6 @@ fm_send_known_undelivered_cleanup() {
 }
 if [ -n "$TARGET_SELECTOR" ] && [ -n "$TARGET_META" ] && [ "$(fm_meta_get "$TARGET_META" kind)" = secondmate ]; then
   MARK_FROM_FIRSTMATE=1
-  TARGET_TASK_ID=$(fm_send_id_from_meta "$TARGET_META")
 fi
 
 # Validate the answerer-closes request before any durable mutation or send: the
@@ -606,6 +635,25 @@ if [ -n "$FIRE_AND_FORGET_ID" ]; then
   [ -z "$RESOLVE_KEYS" ] ||
     {
       echo "error: --fire-and-forget cannot accompany --resolve-key" >&2
+      exit 1
+    }
+fi
+
+if [ -n "$ONE_WAY_REQUEST_ID" ]; then
+  if [ "$ONE_WAY" != 1 ] || ! fm_task_inbox_request_id_valid "$ONE_WAY_REQUEST_ID"; then
+    echo "error: FM_SEND_REQUEST_ID requires --one-way and exactly 32 lowercase hex digits" >&2
+    exit 1
+  fi
+fi
+if [ "$ONE_WAY" = 1 ]; then
+  [ -z "$FIRE_AND_FORGET_ID" ] ||
+    {
+      echo "error: --one-way cannot accompany --fire-and-forget" >&2
+      exit 1
+    }
+  [ -z "$RESOLVE_KEYS" ] ||
+    {
+      echo "error: --one-way cannot accompany --resolve-key" >&2
       exit 1
     }
 fi
@@ -761,6 +809,11 @@ if [ "${1:-}" = "--key" ]; then
       echo "error: --fire-and-forget cannot accompany --key" >&2
       exit 1
     }
+  [ "$ONE_WAY" = 0 ] ||
+    {
+      echo "error: --one-way cannot accompany --key" >&2
+      exit 1
+    }
   case "$*" in
   *--resolve-key*)
     echo "error: --resolve-key cannot accompany --key; answering a decision requires a text answer" >&2
@@ -810,6 +863,11 @@ else
     fm_message_mark_from_firstmate "$MESSAGE" MESSAGE
     MESSAGE="${FM_FROMFIRST_MARK}delivery=${FIRE_AND_FORGET_ID} ${MESSAGE#"$FM_FROMFIRST_MARK"}"
     FM_SEND_IDEMPOTENT=1
+  elif [ "$MARK_FROM_FIRSTMATE" = 1 ] && [ "$ONE_WAY" = 1 ]; then
+    # Ordinary steer, no reply expectation. The marker stays so the mate
+    # reads it as a parent message. Do not mint or embed a correlation, and
+    # do not mark the record fire-and-forget: the re-ring ladder still applies.
+    fm_message_mark_from_firstmate "$MESSAGE" MESSAGE
   elif [ "$MARK_FROM_FIRSTMATE" = 1 ]; then
     # Reuse an existing correlation id for recovery resends; otherwise create a
     # durable parent expectation before delivery. Transport success never
@@ -886,6 +944,13 @@ else
       esac
     fi
   fi
+  if [ "$INBOX_PLANE" = 1 ] && [ "$ONE_WAY" = 1 ]; then
+    if [ -z "$ONE_WAY_REQUEST_ID" ]; then
+      ONE_WAY_REQUEST_ID=$(LC_ALL=C od -An -v -tx1 -N 16 /dev/urandom | tr -d ' \n')
+      fm_task_inbox_request_id_valid "$ONE_WAY_REQUEST_ID" || exit 1
+    fi
+    FM_SEND_IDEMPOTENT=1
+  fi
   if [ "$INBOX_PLANE" = 1 ] && [ "$TARGET_BACKEND" = remote ]; then
     # Remote inbox leg: the message becomes a durable record in the remote
     # home's steering inbox, written idempotently by the host-local leg, then
@@ -931,6 +996,7 @@ else
     remote_completion_unknown=0
     REMOTE_SEND_ARGS=("$TARGET_REMOTE_ID" "$MESSAGE")
     [ -z "$FIRE_AND_FORGET_ID" ] || REMOTE_SEND_ARGS+=(fire-and-forget)
+    [ -z "$ONE_WAY_REQUEST_ID" ] || REMOTE_SEND_ARGS+=('' "$ONE_WAY_REQUEST_ID")
     # Each transport attempt is bounded by FM_SEND_REMOTE_BUDGET seconds.
     # fm_run_timed's 124 means the attempt was killed at the bound with remote
     # completion unknown - the enqueue may have landed - so it exits through
@@ -958,11 +1024,20 @@ else
         fm_pending_reply_mark_delivery_unknown "$STATE" "$PENDING_REPLY_CORR" || true
       fi
       if [ "$remote_rc" -eq 255 ]; then
-        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (transport lost twice; remote completion unknown). Only the correlation-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
+        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (transport lost twice; remote completion unknown). Retry guidance:" >&2
       elif [ "$remote_rc" -eq 124 ]; then
-        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (the remote transport did not complete within its ${FM_SEND_REMOTE_BUDGET}s budget; remote completion unknown). Only the correlation-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
+        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (the remote transport did not complete within its ${FM_SEND_REMOTE_BUDGET}s budget; remote completion unknown). Retry guidance:" >&2
       else
-        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (the first transport attempt had unknown completion and the retry failed). Only the correlation-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
+        echo "error: steer to remote secondmate $TARGET_REMOTE_ID is unconfirmed (the first transport attempt had unknown completion and the retry failed). Retry guidance:" >&2
+      fi
+      if [ -z "$PENDING_REPLY_CORR" ] && [ -z "$ONE_WAY_REQUEST_ID" ]; then
+        echo "No durable retry identity is available; inspect the remote inbox before resending." >&2
+        exit 1
+      fi
+      if [ -n "$PENDING_REPLY_CORR" ]; then
+        echo "Only the correlation-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
+      else
+        echo "Only the request-id-reusing resend below is idempotent and lands on the same remote inbox record:" >&2
       fi
       resend_home=$(cd "$FM_HOME" 2>/dev/null && pwd) || resend_home=$FM_HOME
       printf 'FM_HOME=%q ' "$resend_home" >&2
@@ -970,7 +1045,11 @@ else
         resend_state=$(cd "$STATE" 2>/dev/null && pwd) || resend_state=$STATE
         printf 'FM_STATE_OVERRIDE=%q ' "$resend_state" >&2
       fi
-      printf 'FM_PENDING_REPLY_EXISTING_CORR=%q %q' "$PENDING_REPLY_CORR" "$SCRIPT_DIR/fm-send.sh" >&2
+      if [ -n "$ONE_WAY_REQUEST_ID" ]; then
+        printf 'FM_SEND_REQUEST_ID=%q %q' "$ONE_WAY_REQUEST_ID" "$SCRIPT_DIR/fm-send.sh" >&2
+      else
+        printf 'FM_PENDING_REPLY_EXISTING_CORR=%q %q' "$PENDING_REPLY_CORR" "$SCRIPT_DIR/fm-send.sh" >&2
+      fi
       for resend_arg in "${FM_SEND_ORIGINAL_ARGS[@]}"; do
         printf ' %q' "$resend_arg" >&2
       done
@@ -1034,7 +1113,7 @@ else
     fi
     if [ "${FM_SEND_IDEMPOTENT:-0}" = 1 ]; then
       INBOX_RECORD=$(fm_task_inbox_write_idempotent "$STATE" "$INBOX_TASK_ID" "$MESSAGE" \
-        "${FIRE_AND_FORGET_ID:+fire-and-forget}") || inbox_write_rc=$?
+        "${FIRE_AND_FORGET_ID:+fire-and-forget}" "$ONE_WAY_REQUEST_ID") || inbox_write_rc=$?
     else
       INBOX_RECORD=$(fm_task_inbox_write "$STATE" "$INBOX_TASK_ID" "$MESSAGE" \
         "${FIRE_AND_FORGET_ID:+fire-and-forget}") || inbox_write_rc=$?
@@ -1049,8 +1128,8 @@ else
     fi
     fm_lock_release "$INBOX_META_LOCK"
     # Enqueue IS durable delivery to the task's record: mark the pending
-    # expectation delivered now, without resolving it - only a correlated
-    # parent report acknowledges the request.
+    # expectation delivered now, without resolving it; resolution belongs to
+    # bin/fm-pending-reply-lib.sh, independently of the delivery result.
     if [ -n "$PENDING_REPLY_CORR" ]; then
       if fm_pending_reply_confirm_delivery "$STATE" "$PENDING_REPLY_CORR"; then
         :
@@ -1080,13 +1159,14 @@ else
     # Ring the doorbell, best-effort: no ring outcome changes the exit status,
     # because the watcher owns loss detection from here, either through its
     # bounded re-ring ladder or direct unavailable-endpoint recovery.
+    case "$INBOX_RECORD" in */handled/*) exit 0 ;; esac
     ring_rc=0
-    fm_task_inbox_ring "$TARGET_BACKEND" "$T" "$INBOX_RECORD" "$EXPECTED_LABEL" || ring_rc=$?
+    fm_task_inbox_ring "$TARGET_BACKEND" "$T" "$INBOX_RECORD" "$EXPECTED_LABEL" "$TARGET_HARNESS" || ring_rc=$?
     ring_retry="the watcher will re-ring"
     if [ -n "$FIRE_AND_FORGET_ID" ] \
       && [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/wait-no-turns" ]; then
       case "$ring_rc" in
-      1|2)
+      1|2|4)
         if fm_task_inbox_mark_retry "$STATE" "$INBOX_TASK_ID" "$INBOX_RECORD"; then
           ring_retry="the watcher will ring it once more"
         else
@@ -1097,7 +1177,8 @@ else
     fi
     case "$ring_rc" in
     1) echo "fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
-    2) echo "fm-send: doorbell did not reach $T; the steer is durably recorded at $INBOX_RECORD and $ring_retry" >&2 ;;
+    2) echo "fm-send: doorbell did not reach $T; the steer is durably recorded at $INBOX_RECORD and $ring_retry${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}" >&2 ;;
+    4) echo "fm-send: doorbell NOT delivered: it was typed into $T and Enter was retried, but the harness never confirmed the submit; the steer is durably recorded at $INBOX_RECORD and $ring_retry. Do not resend.${FM_TASK_INBOX_RING_REASON:+ reason=$FM_TASK_INBOX_RING_REASON}" >&2 ;;
     3) echo "fm-send: doorbell not typed because the agent in $T has exited; the steer is durably recorded at $INBOX_RECORD for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane" >&2 ;;
     esac
     exit 0
@@ -1117,28 +1198,14 @@ else
     ;;
   *) settle=0.3 ;;
   esac
-  # Per-harness submit-confirm budget. agy's bare `>` composer verdict is
-  # `unknown`, so a landed submit is acknowledged only by the idle-to-busy
-  # transition poll, and agy renders its verified busy footer well after the
-  # shared budget expires: ~1.5s after Enter for a short steer, ~4-5s for a
-  # realistic longer brief (live-measured, agy 1.2.1), against the shared
-  # default's 3 x 0.4s. With the shared default a typed steer to an agy
-  # endpoint was reported exit-1 non-delivery for a message that landed and
-  # ran, inviting a duplicate resend. agy typed targets get a longer default
-  # budget (~8s at the default cadence, twice the worst measured render); an
-  # explicit FM_SEND_RETRIES still wins, and every other harness keeps the
-  # shared 3-retry default untouched.
-  case "$TARGET_HARNESS" in
-    agy) retries=${FM_SEND_RETRIES:-20} ;;
-    *) retries=${FM_SEND_RETRIES:-3} ;;
-  esac
-  sleep_s=${FM_SEND_SLEEP:-0.4}
-  # Type once, submit, verify. Only exact empty confirms delivery; every other
-  # verdict preserves the loud refusal boundary. Only LOCAL targets reach this
-  # block: remote text rides the inbox leg above, and remote --key exits
-  # earlier.
   send_rc=0
-  if verdict=$(fm_backend_send_text_submit "$TARGET_BACKEND" "$T" "$MESSAGE" "$retries" "$sleep_s" "$settle" "$EXPECTED_LABEL"); then
+  submit_baseline=
+  if [ "$TARGET_BACKEND" = tmux ] && [ -n "$TARGET_TASK_ID" ]; then
+    submit_baseline=$(fm_busy_submit_baseline "$STATE" "$TARGET_TASK_ID" "$TARGET_HARNESS" "$MESSAGE" 2>/dev/null) || submit_baseline=
+  fi
+  if verdict=$(FM_SUBMIT_SIGNAL_STATE=$STATE FM_SUBMIT_SIGNAL_ID=$TARGET_TASK_ID \
+      FM_SUBMIT_SIGNAL_HARNESS=$TARGET_HARNESS FM_SUBMIT_SIGNAL_BASELINE=$submit_baseline \
+      fm_backend_send_text_submit "$TARGET_BACKEND" "$T" "$MESSAGE" 5 2 "$settle" "$EXPECTED_LABEL"); then
     :
   else
     send_rc=$?
@@ -1182,7 +1249,7 @@ else
     ;;
   esac
   # Delivery confirmed. Mark the pending expectation delivered without resolving
-  # it: only a correlated parent report acknowledges the request.
+  # it; resolution belongs to bin/fm-pending-reply-lib.sh.
   if [ -n "$PENDING_REPLY_CORR" ]; then
     if fm_pending_reply_confirm_delivery "$STATE" "$PENDING_REPLY_CORR"; then
       :

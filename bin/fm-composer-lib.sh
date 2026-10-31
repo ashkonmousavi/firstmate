@@ -388,15 +388,10 @@ fm_composer_strip_ghost() {
 # The full moon-phase set remains locale- and emoji-font-sensitive because Kimi
 # exposes no stable ASCII busy token.
 # The harness-less default is the UNION of the per-harness tokens below, used
-# when a caller has no recorded harness for the pane (the submit cores read the
-# baseline and the post-Enter transition this way). cursor's `ctrl+c to stop` is
-# part of that union for the same reason the others are: without it a cursor
-# submit could never be acknowledged, because cursor parks its terminal cursor
-# outside its composer and the composer verdict is therefore always `unknown`.
-# agy's `esc to cancel` is part of the union for the same reason: an explicit
-# tmux agy endpoint reaches the submit core with no recorded harness, and its
-# bare `>` composer verdict is `unknown`, so the busy footer is the only
-# turn-started acknowledgement that path can read.
+# when a caller has no recorded harness for the pane. Herdr's submit core uses
+# this fallback for its rendered-footer transition unless native identity
+# selects a harness-specific matcher. Tmux's submit core does not use this
+# matcher as submission proof; bin/fm-tmux-lib.sh owns its confirmation boundary.
 FM_DELIVERY_BUSY_REGEX_DEFAULT='esc (to )?interrupt|Working(\.\.\.|…)|Ctrl\+c:cancel|ctrl\+c to stop|esc[[:space:]]+to[[:space:]]+cancel|esc twice to interrupt|^[[:space:]]*❭ Guide Devin while it works$'
 FM_DELIVERY_CLAUDE_BUSY_REGEX_DEFAULT='esc to interrupt|…[[:space:]]+\([0-9]+[smh]'
 # Devin 3000.11.1: the working composer and interrupt hint are independent
@@ -1132,7 +1127,7 @@ EOF
 # inner (corners already stripped) still starts and ends with the family's own
 # rule glyph, so the title is embedded IN the rule rather than replacing it.
 _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
-  local family=$1 inner=$2 expected=$3 dash spaces title effort model limit
+  local family=$1 inner=$2 expected=$3 dash spaces title effort model limit status
   fm_composer_normalize_trim_var inner
   case "$family" in
     rounded|light) dash='─' ;;
@@ -1148,8 +1143,10 @@ _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
   title=${inner//"$dash"/}
   fm_composer_normalize_trim_var title
   spaces=${inner//"$dash"/ }
-  # Grok also embeds quota and approval status around the model title.
-  # Admit its middle-dot separators only in that known status shape.
+  # Grok embeds quota and approval status around the model title.
+  # Admit its middle-dot separators only in those known status shapes.
+  # The dot is not ASCII, so leaving it would fail the width proof and a
+  # visibly empty composer would read unknown.
   case "$title" in
     'Weekly limit left: '*'% · Grok '*' · always-approve')
       limit=${title#Weekly limit left: }
@@ -1157,6 +1154,22 @@ _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
       case "$limit" in 0|[1-9]|[1-9][0-9]|100) ;; *) return 1 ;; esac
       title=${title#*% · }
       title=${title% · always-approve}
+      spaces=${spaces//·/ }
+      ;;
+    'Grok '*' · always-approve')
+      # Observed with no weekly-limit prefix: "Grok 4.7 (high) · always-approve".
+      status=${title% · always-approve}
+      case "$status" in
+        'Grok '*\ \(low\)) effort=low ;;
+        'Grok '*\ \(medium\)) effort=medium ;;
+        'Grok '*\ \(high\)) effort=high ;;
+        'Grok '*\ \(xhigh\)) effort=xhigh ;;
+        *) return 1 ;;
+      esac
+      model=${status#Grok }
+      model=${model%" ($effort)"}
+      [ -n "$model" ] || return 1
+      case "$model" in *[!A-Za-z0-9._-]*) return 1 ;; esac
       spaces=${spaces//·/ }
       ;;
   esac
@@ -1674,9 +1687,10 @@ _fm_composer_row_is_composer_furniture() {  # <trimmed-row> <proof-glyph>
 # slash-command popup, which Claude 2.1.301 can draw directly below the
 # closing rule of a composer holding a typed `/` command (see THE COMPOSER
 # FOOTER ZONE in this file's header). A command row is indented, optionally
-# leads with <proof> as its selection marker, names a `/` command, and may
-# carry a description after a gap of two or more spaces; that description's
-# column is recorded in FM_COMPOSER_POPUP_DESC_COL. A wrapped description row
+# leads with <proof> as its selection marker, names a `/` command (optionally
+# followed by ` (MCP)`), and may carry a description after a gap of two or more
+# spaces; that description's column is recorded in FM_COMPOSER_POPUP_DESC_COL.
+# A wrapped description row
 # is accepted only at exactly the column <desc-col> recorded by the row above
 # (0 means no description column is open). Column 0 is never a popup row:
 # that is where a live composer row starts. The marker is replaced with one
@@ -1707,6 +1721,12 @@ _fm_composer_slash_popup_row() {  # <raw-row> <proof-glyph> <desc-col>
   esac
   cmd=${body%%[[:space:]]*}
   body=${body#"$cmd"}
+  case "$body" in
+    ' (MCP)'|' (MCP)'[[:space:]]*)
+      cmd="$cmd (MCP)"
+      body=${body#' (MCP)'}
+      ;;
+  esac
   gap=${body%%[![:space:]]*}
   body=${body#"$gap"}
   if [ -z "$body" ]; then
@@ -1796,24 +1816,54 @@ _fm_composer_locate_footer_zone() {  # <plain>
 
 # _fm_composer_bare_rule_sandwich: 0 when bare agent-glyph <row> sits in its
 # own titled composer: a titled rule directly above it and the screen's only
-# unmatched separator directly below it, which is that composer's closing rule.
+# unmatched separator directly below its wrap region, which is that composer's
+# closing rule.
 #
 # The cursorless staleness rule reads an unmatched separator BELOW a candidate
 # as proof the candidate is scrollback. A titled top rule never opens the
 # separator pair, so the composer's own closing rule becomes that unmatched
 # separator and a genuinely idle composer read `unknown`. Adjacency on BOTH
 # edges keeps the staleness rule intact everywhere else: a glyph stranded in
-# scrollback has transcript rows, not its own rules, around it.
+# scrollback has transcript rows, not its own rules, around it. The wrap
+# region is the contiguous run of non-blank, edge-free rows under the glyph
+# row, so a next-prompt suggestion that wraps onto a second row still sits in
+# its own composer.
 _fm_composer_bare_rule_sandwich() {  # <plain-screen> <row>
-  local plain=$1 row=$2 above below
+  local plain=$1 row=$2 above below last trimmed
   [ "$row" -ge 1 ] || return 1
-  [ "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" -eq "$((row + 1))" ] || return 1
-  below=$(_fm_composer_screen_row "$((row + 1))" "$plain")
+  last=$row
+  while :; do
+    trimmed=$(_fm_composer_screen_row "$((last + 1))" "$plain")
+    fm_composer_normalize_trim_var trimmed
+    [ -n "$trimmed" ] || break
+    fm_composer_row_has_edge "$trimmed" && break
+    _fm_composer_row_is_omp_status "$trimmed" && break
+    _fm_composer_row_is_braille_furniture "$trimmed" && break
+    last=$((last + 1))
+  done
+  [ "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" -eq "$((last + 1))" ] || return 1
+  below=$(_fm_composer_screen_row "$((last + 1))" "$plain")
   fm_composer_normalize_trim_var below
   _fm_composer_pi_separator_row "$below" || return 1
   above=$(_fm_composer_screen_row "$((row - 1))" "$plain")
   fm_composer_normalize_trim_var above
   _fm_composer_titled_rule_row "$above" "${below//─/ }"
+}
+
+_fm_composer_kimi_footer() {
+  local plain=$1 first=$2 boundary=$3 row
+  row=$(_fm_composer_screen_row "$first" "$plain")
+  row=$(_fm_composer_row_content "$row" 0)
+  case "$row" in '>'|'>'[[:space:]]*) ;; *) return 1 ;; esac
+  row=$(_fm_composer_screen_row "$((boundary + 1))" "$plain")
+  fm_composer_normalize_trim_var row
+  [[ "$row" =~ ^(Always\ Ask|Ask\ When\ Needed|Never\ Ask)[[:space:]]{2,}Kimi[[:space:]] ]] || return 1
+  row=$(_fm_composer_screen_row "$((boundary + 2))" "$plain")
+  fm_composer_normalize_trim_var row
+  [[ "$row" =~ ^context:\ [0-9]+%\ \([0-9]+([.][0-9]+)?[kM]?/[0-9]+([.][0-9]+)?[kM]?\)$ ]] || return 1
+  row=$(_fm_composer_screen_row "$((boundary + 3))" "$plain")
+  fm_composer_normalize_trim_var row
+  [ -z "$row" ]
 }
 
 _fm_composer_select_cursorless() {
@@ -1922,12 +1972,23 @@ _fm_composer_select_cursorless() {
     raw=$(_fm_composer_screen_row "$next" "$plain")
     trimmed=$raw
     fm_composer_normalize_trim_var trimmed
-    if [ -n "$trimmed" ] && ! fm_composer_row_has_edge "$trimmed"; then
+    if [ -n "$trimmed" ] && ! fm_composer_row_has_edge "$trimmed" \
+       && ! { [ "$FM_COMPOSER_SELECTED_KIND" = box ] \
+              && _fm_composer_kimi_footer "$plain" "$FM_COMPOSER_SELECTED_FIRST" "$boundary"; }; then
       FM_COMPOSER_SELECTED_KIND=
       return 1
     fi
   fi
   [ -n "$FM_COMPOSER_SELECTED_KIND" ]
+}
+
+fm_composer_none_reason() {  # <caps> <screen>
+  local screen=$2 plain
+  plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
+  _fm_composer_scan_screen "$plain" ''
+  _fm_composer_select_cursorless "$plain" && return 0
+  printf 'no-composer'
+  return 0
 }
 
 fm_composer_extract_selected_content() {  # <caps> <screen>
@@ -2017,17 +2078,32 @@ EOF
 }
 
 # fm_composer_text_is_own_doorbell: 0 when <text> is exactly <line>.
-# Whitespace is ignored, so a wrapped composer row still matches. Cursor draws
-# `ctrl+c to stop` on the same composer row as the draft; that hint is not
-# part of the draft, and removing it is what lets an unsubmitted doorbell
-# match. Any other remaining text is a foreign draft and does not match.
+# Whitespace is ignored, so a wrapped composer row still matches.
 fm_composer_text_is_own_doorbell() {  # <text> <line>
-  local text=$1 line=$2 hint
-  hint=$(printf '%s' 'ctrl+c to stop' | tr -d '[:space:]')
+  local text=$1 line=$2
   text=$(printf '%s' "$text" | tr -d '[:space:]')
   line=$(printf '%s' "$line" | tr -d '[:space:]')
-  text=${text//"$hint"/}
   [ -n "$line" ] && [ "$text" = "$line" ]
+}
+
+# fm_composer_text_is_own_doorbell_partial: 0 when <text> is a leading part of
+# <line> that is long enough to carry the task's inbox name. A composer can
+# show only the first row of a wrapped doorbell (recorded on a Claude Code
+# composer in a Herdr pane: the row ends at `read and` and the wrapped rest is
+# never drawn), so the full-line match misses a doorbell that is ours. Whitespace
+# is ignored as in fm_composer_text_is_own_doorbell. The text must reach the end
+# of `steering inbox,`, which follows the quoted `<task>.inbox` name, so another
+# task's doorbell, or any short fragment a person typed, never qualifies; extra
+# characters after a prefix break the prefix and do not match.
+fm_composer_text_is_own_doorbell_partial() {  # <text> <line>
+  local text=$1 line=$2 anchor='steeringinbox,' tail
+  text=$(printf '%s' "$text" | tr -d '[:space:]')
+  line=$(printf '%s' "$line" | tr -d '[:space:]')
+  [ -n "$line" ] && [ -n "$text" ] || return 1
+  case "$line" in *"$anchor"*) ;; *) return 1 ;; esac
+  tail=${line#*"$anchor"}
+  [ "${#text}" -ge $(( ${#line} - ${#tail} )) ] || return 1
+  [ "${line#"$text"}" != "$line" ]
 }
 
 # fm_composer_blocking_dialog: name a screen whose next Enter would answer it.
@@ -2227,8 +2303,9 @@ EOF
 # retyping would duplicate it. Proven pending (and pending-unproven) retries
 # consume the budget; any other verdict returns immediately, so `unknown`
 # stays a loud refusal rather than a blind retry into an unreadable pane.
-# tmux and herdr keep richer cores that consume this same shared verdict plus
-# fm_composer_queued_enter_verdict; no shape knowledge lives in any loop.
+# tmux and herdr keep their own cores over the same shared composer verdict;
+# only herdr also consumes fm_composer_queued_enter_verdict. No shape knowledge
+# lives in any loop.
 fm_composer_submit_retry_core() {  # <send-key-fn> <state-fn> <target> <retries> <enter-sleep> [expected-label]
   local send_key_fn=$1 state_fn=$2 target=$3 retries=$4 sleep_s=$5 expected_label=${6:-} i=0 state
   while :; do
@@ -2257,9 +2334,9 @@ fm_composer_submit_retry_core() {  # <send-key-fn> <state-fn> <target> <retries>
 #   pending + unknown -> pending (unreadable busy is not proof of a queue)
 # Every other composer verdict is returned unchanged, so pending-unproven,
 # empty, and unknown never receive this conversion.
-# Adapters supply their own busy primitive (tmux: fm_pane_is_busy; herdr:
-# native agent_status=working, or a rendered busy footer on an idle native
-# baseline). This function does not read a pane.
+# Herdr supplies native agent_status=working, or a rendered busy footer on an
+# idle native baseline. Tmux does not use this conversion. This function does
+# not read a pane.
 fm_composer_queued_enter_verdict() {  # <composer-state> <busy|idle|unknown>
   local state=$1 busy=${2:-}
   [ "$state" = pending ] || { printf '%s' "$state"; return 0; }

@@ -320,13 +320,13 @@ in_polytoken_submit_pane() (  # <dir> <command...>
   "$@"
 )
 
-test_polytoken_tmux_submit_is_acknowledged_by_its_running_row() {
+test_polytoken_tmux_submit_requires_a_readable_cleared_composer() {
   local dir out
   dir="$TMP_ROOT/submit-polytoken"
   make_polytoken_submit_pane "$dir" polytoken
   out=$(in_polytoken_submit_pane "$dir" fm_tmux_submit_core win hello 3 0.01 0)
-  [ "$out" = empty ] \
-    || fail "a polytoken pane that starts its Running-for turn after Enter must confirm the submit, got '$out'"
+  [ "$out" = unknown ] \
+    || fail "a running polytoken turn without a readable composer must not confirm the typed prompt, got '$out'"
   dir="$TMP_ROOT/submit-harnessless"
   make_polytoken_submit_pane "$dir" zsh
   cp "$dir/running" "$dir/screen"
@@ -336,7 +336,7 @@ test_polytoken_tmux_submit_is_acknowledged_by_its_running_row() {
   out=$(in_polytoken_submit_pane "$dir" fm_tmux_submit_core win hello 3 0.01 0)
   [ "$out" = unknown ] \
     || fail "a pane without polytoken identity must not confirm a submit from Running for, got '$out'"
-  pass "fm-tmux-lib: only a polytoken-identity pane confirms a submit from its Running-for row"
+  pass "fm-tmux-lib: a Running-for row never confirms an unreadable typed composer"
 }
 
 # ---------------------------------------------------------------------------
@@ -797,6 +797,7 @@ Verify launch and delivery behavior.
 EOF
   printf 'polytoken\n' > "$home/config/crew-harness"
   printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   printf 'version: 4\nproviders:\n  zai:\n    auth:\n      type: static_key\n      key: k\nmodels:\n  zai/glm-5.3-flash:\n    enabled: true\ndefault_permission_matcher: standard\n' \
     > "$home/.config/polytoken/config.yaml"
   fm_git_worktree "$proj" "$wt" "wt-$name"
@@ -1201,7 +1202,7 @@ test_polytoken_busy_sources_are_the_verified_pair
 test_polytoken_busy_footer_needs_the_pinned_running_row
 test_polytoken_composer_is_the_verified_separated_shape
 test_polytoken_busy_queued_enter_converts_like_opencode
-test_polytoken_tmux_submit_is_acknowledged_by_its_running_row
+test_polytoken_tmux_submit_requires_a_readable_cleared_composer
 test_polytoken_write_config_enforces_the_unattended_posture
 test_polytoken_write_facet_carries_the_role_contract_without_a_model_pin
 test_polytoken_busy_writer_dispatches_without_argv_and_never_fails

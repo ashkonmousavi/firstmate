@@ -34,6 +34,7 @@ TMP_ROOT=$(fm_test_tmproot fm-backend-herdr-tests)
 mkdir -p "$TMP_ROOT/ambient-home"
 export FM_HOME="$TMP_ROOT/ambient-home"
 export FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0
+export FM_HERDR_SCRIPT_PANE_GET=1
 
 # make_herdr_fakebin: a `herdr` stub that logs every invocation (one line,
 # unit-separated args, to $FM_HERDR_LOG) and returns the canned response for
@@ -65,6 +66,18 @@ if [ "${1:-}" = terminal ] && [ "${2:-}" = title ] && [ "${3:-}" = clear ]; then
   reason=${FM_FAKE_HERDR_FOREGROUND_REASON:-no_foreground_client}
   printf '{"result":{"reason":"%s"}}\n' "$reason"
   exit 0
+fi
+if [ "${FM_HERDR_SCRIPT_PANE_GET:-0}" != 1 ]; then
+  offset=$(cat "$RESP/scroll.offset" 2>/dev/null || printf 0)
+  if [ "${1:-} ${2:-}" = 'pane get' ]; then
+    if [ -f "$RESP/pane-get.exit" ]; then exit "$(cat "$RESP/pane-get.exit")"; fi
+    printf '{"result":{"pane":{"pane_id":"%s","scroll":{"max_offset_from_bottom":205,"offset_from_bottom":%s,"viewport_rows":64}}}}\n' "$3" "$offset"
+    exit 0
+  fi
+  if [ "${1:-} ${2:-}" = 'pane read' ] && [ -f "$RESP/scroll.offset" ]; then
+    printf 'READ_OFFSET=%s\n' "$offset" >> "$LOG"
+    if [ "$offset" -gt 0 ]; then cat "$RESP/scrolled.out"; exit 0; fi
+  fi
 fi
 n=$next
 echo "$n" > "$COUNT_FILE"
@@ -4480,13 +4493,14 @@ test_send_text_submit_detects_landed_send() {
   printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/4.out"
   herdr_submit_identity_prefix "$resp" codex
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "hello captain" 3 0.01 0.01' "$ROOT" )
   [ "$out" = empty ] || fail "send_text_submit should report empty (submitted) once agent_status reports working, got '$out'"
   assert_contains "$(cat "$log")" $'\x1f''pane'$'\x1f''send-text'$'\x1f''w1:p2'$'\x1f''hello captain' "send_text_submit did not type the literal text first"
   enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
   [ "$enter_count" -eq 1 ] || fail "send_text_submit should not need a second Enter for a plain message with no popup, sent $enter_count Enter(s)"
   [ "$(grep -c $'\x1f''pane'$'\x1f''read' "$log")" -eq 0 ] || fail "send_text_submit must never read the composer/pane content for confirmation anymore"
+  [ ! -s "$dir/reason" ] || fail "a delivered submit must offer no failure reason, got: $(cat "$dir/reason")"
   pass "fm_backend_herdr_send_text_submit: reports 'empty' once agent_status reports working after one Enter, without ever reading the composer"
 }
 
@@ -4504,9 +4518,10 @@ test_send_text_submit_detects_swallowed_enter() {
   printf '  ready\n' > "$resp/10.out"
   herdr_submit_identity_prefix "$resp" codex
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "hello captain" 2 0.01 0.01' "$ROOT" )
   [ "$out" = pending ] || fail "send_text_submit should report pending once retries are exhausted with agent_status never going busy and the composer still holding the text, got '$out'"
+  assert_ring_reason "$dir/reason" enter-retries-exhausted
   pass "fm_backend_herdr_send_text_submit: reports 'pending' when agent_status stays idle and the composer still holds unsent text after retried Enters (swallowed)"
 }
 
@@ -4577,13 +4592,14 @@ test_send_text_submit_refuses_confirming_enter_on_exit_picker() {
     'Enter to confirm · Esc to cancel' > "$resp/8.out"
   herdr_submit_preflight_prefix "$resp"
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     TMPDIR="$dir/tmp" \
     bash -c '. "$0/bin/fm-backend.sh"; fm_backend_send_text_submit herdr default:w1:p2 "/exit" 3 0.01 0.01' "$ROOT" )
   enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log" || true)
   [ "$out" = unknown ] || fail "the exit picker should stop the retry as unknown, got '$out'; log: $(cat "$log")"
   [ "$enter_count" -eq 1 ] || fail "the exit picker should get one Enter, got $enter_count; log: $(cat "$log")"
   [ -z "$(ls -A "$dir/tmp")" ] || fail "the submit left its dialog record behind: $(ls -A "$dir/tmp")"
+  assert_ring_reason "$dir/reason" blocking-dialog
   pass "fm_backend_herdr_send_text_submit: the Claude background-task exit picker gets no confirming Enter"
 }
 
@@ -4685,12 +4701,13 @@ test_send_text_submit_idle_baseline_does_not_confirm_failed_enter() {
   printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/4.out"
   herdr_submit_identity_prefix "$resp" codex
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "hello captain" 1 0.01 0.01' "$ROOT" )
   [ "$out" = send-failed ] || fail "a failed Enter must not borrow a later native transition as delivery proof, got '$out'"
   enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
   [ "$enter_count" -eq 1 ] || fail "send_text_submit should attempt the configured number of Enters, made $enter_count attempt(s)"
   [ "$(grep -c $'\x1f''agent'$'\x1f''get' "$log")" -eq 2 ] || fail "a failed Enter must not run native delivery confirmation beyond the identity and baseline reads"
+  assert_ring_reason "$dir/reason" enter-send-failed
   pass "fm_backend_herdr_send_text_submit: a failed Enter cannot borrow a later native transition as delivery proof"
 }
 
@@ -4827,9 +4844,10 @@ test_send_text_submit_never_idle_native_state_keeps_pending_without_a_transition
   cp "$resp/5.out" "$resp/7.out"
   herdr_submit_identity_prefix "$resp" codex
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "hello captain" 2 0.01 0.01' "$ROOT" )
   [ "$out" = pending ] || fail "a pane already busy before our Enter must not confirm from that same busy footer, got '$out'"
+  assert_ring_reason "$dir/reason" enter-retries-exhausted
   pass "fm_backend_herdr_send_text_submit: an already-busy footer baseline is never accepted as proof that this Enter landed"
 }
 
@@ -4907,16 +4925,38 @@ test_send_text_submit_slow_transition_within_one_enter_needs_no_extra_enter() {
   pass "fm_backend_herdr_send_text_submit: a slow transition landing on a later sample within one Enter's budget is confirmed WITHOUT sending a needless extra Enter"
 }
 
+# assert_ring_reason: the failure step a herdr submit offered through the
+# FM_RING_REASON_SINK file (fm_backend_herdr_note_reason); the stdout verdict
+# asserted beside it stays unchanged.
+assert_ring_reason() {  # <sink-file> <token>
+  [ "$(cat "$1" 2>/dev/null)" = "$2" ] || fail "expected reason token '$2', got '$(cat "$1" 2>/dev/null)'"
+}
+
 test_send_text_submit_send_failed() {
   local dir log resp fb out
   dir="$TMP_ROOT/submit-fail"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
   printf '1\n' > "$resp/1.exit"
   herdr_submit_identity_prefix "$resp" codex
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "x" 2 0.01 0.01' "$ROOT" )
   [ "$out" = send-failed ] || fail "send_text_submit should report send-failed when the literal send itself fails, got '$out'"
+  assert_ring_reason "$dir/reason" literal-send-failed
   pass "fm_backend_herdr_send_text_submit: reports 'send-failed' when the literal send-text call itself errors"
+}
+
+test_send_text_submit_claude_unreadable_composer_names_its_step() {
+  local dir log resp fb out
+  dir="$TMP_ROOT/submit-claude-composer-unreadable"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/1.out"
+  printf '1\n' > "$resp/2.exit"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "hello" 3 0.01 0.01' "$ROOT" )
+  [ "$out" = send-failed ] || fail "an unreadable Claude composer should refuse the send, got '$out'"
+  [ "$(grep -c $'\x1f''pane'$'\x1f''send-text' "$log")" -eq 0 ] || fail "nothing may be typed when the composer cannot be read first"
+  assert_ring_reason "$dir/reason" composer-unreadable
+  pass "fm_backend_herdr_send_text_submit: an unreadable Claude composer is refused and named composer-unreadable"
 }
 
 test_send_text_submit_unknown_on_capture_failure() {
@@ -4926,11 +4966,12 @@ test_send_text_submit_unknown_on_capture_failure() {
   printf '1\n' > "$resp/4.exit"
   herdr_submit_identity_prefix "$resp" codex
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "x" 2 0.01 0.01' "$ROOT" )
   [ "$out" = unknown ] || fail "send_text_submit should report unknown when the post-Enter agent-get read fails, got '$out'"
   enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
   [ "$enter_count" -eq 1 ] || fail "send_text_submit must never retry past an unreadable target (that is a hard I/O failure, not a timing race), sent $enter_count Enter(s)"
+  assert_ring_reason "$dir/reason" status-unknown
   pass "fm_backend_herdr_send_text_submit: reports 'unknown' when the post-Enter agent-get read fails (never retries past an unreadable target)"
 }
 
@@ -4942,12 +4983,30 @@ test_send_text_submit_unknown_on_composer_capture_failure() {
   printf '1\n' > "$resp/5.exit"
   herdr_submit_identity_prefix "$resp" codex
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "x" 2 0.01 0.01' "$ROOT" )
   [ "$out" = unknown ] || fail "send_text_submit should report unknown when native status stays idle but the composer cannot be read, got '$out'"
   enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
   [ "$enter_count" -eq 1 ] || fail "send_text_submit must not retry Enter after composer verification becomes unreadable, sent $enter_count Enter(s)"
+  assert_ring_reason "$dir/reason" post-enter-unreadable
   pass "fm_backend_herdr_send_text_submit: an unreadable composer stops Enter retries after native status stays idle"
+}
+
+test_send_text_submit_unknown_on_busy_composer_capture_failure() {
+  local dir log resp fb out enter_count
+  dir="$TMP_ROOT/submit-busy-composer-read-fail"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/2.out"
+  printf '  ready\n' > "$resp/3.out"
+  printf '1\n' > "$resp/5.exit"
+  herdr_submit_identity_prefix "$resp" codex
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "x" 2 0.01 0.01' "$ROOT" )
+  [ "$out" = unknown ] || fail "an unreadable post-Enter composer on a working baseline must remain unknown, got '$out'"
+  enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+  [ "$enter_count" -eq 1 ] || fail "an unreadable busy composer retried Enter $enter_count times"
+  assert_ring_reason "$dir/reason" post-enter-unreadable
+  pass "fm_backend_herdr_send_text_submit: a working baseline names the failed post-Enter composer read without retrying"
 }
 
 # On a Claude pane, a long payload the selected composer still holds is
@@ -5028,16 +5087,17 @@ test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix() {
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf %s\n' "$suffix" > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
-  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/7.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/8.out"
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
   [ "$out" = send-failed ] || fail "a composer holding only the payload suffix, cleared back to empty, should report send-failed, got '$out'"
   enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
   [ "$enter_count" -eq 0 ] || fail "a suffix must not be submitted, sent $enter_count Enter(s)"
   [ "$(herdr_ctrl_u_count "$log")" -eq 1 ] || fail "the refused suffix should be cleared with one Ctrl+U, sent $(herdr_ctrl_u_count "$log")"
   [ "$(grep -c $'\x1f''agent'$'\x1f''get' "$log")" -eq 1 ] || fail "a refused suffix must not be confirmed by a later working status"
+  assert_ring_reason "$dir/reason" payload-not-shown
   pass "fm_backend_herdr_send_text_submit: a long payload whose Claude composer kept only the tail is not submitted, is cleared, and reports send-failed"
 }
 
@@ -5048,18 +5108,45 @@ test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown() {
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf %s\n' "$suffix" > "$resp/4.out"
-  cap=$(( 1500 / 40 + 8 ))
-  for ((n = 6; n <= 4 + 2 * cap; n += 2)); do
+  cap=1501
+  for ((n = 7; n <= 4 + 3 * cap; n += 3)); do
     printf '  \xe2\x9d\xaf %s\n' "$suffix" > "$resp/$n.out"
   done
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
   [ "$out" = unknown ] || fail "a refused suffix that stays in the composer must not claim nothing was typed, got '$out'"
   enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
   [ "$enter_count" -eq 0 ] || fail "a suffix must not be submitted, sent $enter_count Enter(s)"
   [ "$(herdr_ctrl_u_count "$log")" -eq "$cap" ] || fail "a leftover that will not clear should get a bounded $cap Ctrl+U presses, sent $(herdr_ctrl_u_count "$log")"
+  assert_ring_reason "$dir/reason" clear-unverified
   pass "fm_backend_herdr_send_text_submit: a refused suffix whose clear cannot be verified reports unknown, not send-failed"
+}
+
+test_send_text_submit_unreadable_clear_stops_after_one_edit() {
+  local kind dir log resp fb out text
+  text=$(herdr_long_payload 9992)
+  for kind in empty no-composer failed; do
+    dir="$TMP_ROOT/submit-unreadable-clear-$kind"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+    herdr_submit_claude_prefix "$resp" "$text"
+    printf '  \xe2\x9d\xaf TAIL\n' > "$resp/4.out"
+    case "$kind" in
+      empty) : > "$resp/7.out" ;;
+      no-composer) printf 'transcript without a composer\n' > "$resp/7.out" ;;
+      failed) printf '1\n' > "$resp/7.exit"; printf '1\n' > "$resp/8.exit" ;;
+    esac
+    fb=$(make_herdr_fakebin "$dir")
+    out=$(FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+      bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text")
+    [ "$out" = unknown ] || fail "$kind clear readback must leave the 10000-character send unconfirmed, got '$out'"
+    [ "$(herdr_ctrl_u_count "$log")" -eq 1 ] || fail "$kind clear readback must stop further deletion"
+    [ "$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")" -eq 0 ] || fail "an unreadable clear must never submit"
+    case "$kind" in
+      no-composer) assert_ring_reason "$dir/reason" composer-not-located ;;
+      *) assert_ring_reason "$dir/reason" clear-unverified ;;
+    esac
+  done
+  pass "fm_backend_herdr_send_text_submit: unreadable recovery of a 10000-character payload stops after one edit without Enter"
 }
 
 test_send_text_submit_clears_a_wrapped_suffix_one_row_per_press() {
@@ -5069,7 +5156,7 @@ test_send_text_submit_clears_a_wrapped_suffix_one_row_per_press() {
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   for drop in 0 1 2 3 4 5; do
-    herdr_wrapped_composer "$suffix" 96 "$drop" > "$resp/$((4 + 2 * drop)).out"
+    herdr_wrapped_composer "$suffix" 96 "$drop" > "$resp/$((4 + 3 * drop)).out"
   done
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
@@ -5088,12 +5175,12 @@ test_send_text_submit_refused_suffix_then_clean_retry_submits_only_the_message()
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf %s\n' "$suffix" > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
-  printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/7.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/8.out"
-  printf '  \xe2\x9d\xaf %s\n' "$text" > "$resp/10.out"
-  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/11.out"
-  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/13.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
+  printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/8.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/9.out"
+  printf '  \xe2\x9d\xaf %s\n' "$text" > "$resp/11.out"
+  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/12.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/14.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"
@@ -5114,11 +5201,12 @@ test_send_text_submit_claude_refuses_to_type_into_a_nonempty_composer() {
   printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/1.out"
   printf '  \xe2\x9d\xaf %s\n' "${text: -480}" > "$resp/2.out"
   fb=$(make_herdr_fakebin "$dir")
-  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
   [ "$out" = send-failed ] || fail "a Claude composer that already holds text should refuse the send, got '$out'"
   [ "$(grep -c $'\x1f''pane'$'\x1f''send-text' "$log")" -eq 0 ] || fail "nothing may be typed after a leftover tail, or Enter would submit tail plus message"
   [ "$(grep -c $'\x1f''pane'$'\x1f''send-keys' "$log")" -eq 0 ] || fail "a refused pre-send composer must not receive any key"
+  assert_ring_reason "$dir/reason" composer-nonempty
   pass "fm_backend_herdr_send_text_submit: a Claude composer holding leftover text is refused before anything is typed"
 }
 
@@ -5132,7 +5220,7 @@ test_send_text_submit_refuses_suffix_when_transcript_still_shows_the_head() {
     printf '%s\n' "$text"
     printf '  \xe2\x9d\xaf %s\n' "$suffix"
   } > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
@@ -5181,7 +5269,7 @@ test_send_text_submit_refuses_marked_digest_missing_its_head() {
   shown=${text//$'\xe2\x81\xa3'/}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf\xc2\xa0%s\n' "${shown: -480}" > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
@@ -5281,6 +5369,8 @@ test_send_text_submit_claude_popup_below_composer_is_proven_and_submitted() {
     printf '\x1b[0m\x1b[38;2;61;90;128m%s\x1b[0m\n' "$rule"
     printf '  \x1b[0m\x1b[38;2;94;179;246m\xe2\x9d\xaf /\x1b[0m\x1b[1m\x1b[38;2;94;179;246mexit\x1b[0m\x1b[38;2;94;179;246m                    \x1b[0m\x1b[1m\x1b[38;2;94;179;246mExit\x1b[0m\x1b[38;2;94;179;246m the CLI\x1b[0m\n'
     printf '  \x1b[0m\x1b[38;2;123;135;156m  /context                 Visualize current context usage as a colored grid\x1b[0m\n'
+    printf '    /higgsfield:reset-credits (MCP)              Open the Credit Reset offer. Does not claim credits or change the\n'
+    printf '                                                 subscription.\n'
     printf '  \x1b[0m\x1b[38;2;123;135;156m  /usage-credits           Configure usage credits or request them from your admin when you\x1b[0m\n'
     printf '  \x1b[0m\x1b[38;2;123;135;156m                           hit a limit\x1b[0m\n'
   } > "$resp/4.out"
@@ -5341,7 +5431,7 @@ test_send_text_submit_refuses_placeholder_followed_by_a_literal_remainder() {
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf [Pasted text #1]%s\n' "$suffix" > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
@@ -5397,6 +5487,187 @@ test_send_text_submit_non_claude_skips_the_payload_proof() {
 }
 
 # --- fm-backend.sh dispatch wiring -------------------------------------------
+
+# --- composer_state: scrolled viewport ---------------------------------------
+
+herdr_scrolled_fixture() {
+  local dir=$1 after=$2 recap=$3 gap=${4:-blank} rows=${5:-40} resp="$1/responses" i
+  mkdir -p "$resp"; : > "$dir/log"; : > "$dir/scroll.log"
+  printf '205\n' > "$resp/scroll.offset"
+  printf '%s\n' "$after" > "$resp/scroll.after"
+  {
+    printf '❯ please fix the login bug\n'
+    [ "$gap" != blank ] || printf '\n'
+    for i in $(seq 1 "$rows"); do printf '  ⎿  tool output line %s\n' "$i"; done
+    [ "$gap" != rejected ] || printf '\n$\n'
+  } > "$resp/scrolled.out"
+  printf '{"sessions":[{"name":"default","running":true,"socket_path":"/tmp/fm-herdr-scroll-test.sock"}]}\n' > "$resp/1.out"
+  cp "$recap" "$resp/2.out"
+  cat > "$dir/scroller" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$(dirname "$0")/scroll.log"
+cp "$(dirname "$0")/responses/scroll.after" "$(dirname "$0")/responses/scroll.offset"
+SH
+  chmod +x "$dir/scroller"
+}
+
+test_composer_state_scrolled_viewport_resets_and_recaptures() {
+  local dir fb out gap rows want
+  for gap in contiguous blank rejected; do
+    for rows in 20 40; do
+      for want in empty pending; do
+        dir="$TMP_ROOT/composer-scrolled-$gap-$rows-$want"; mkdir -p "$dir"
+        if [ "$want" = empty ]; then
+          printf '────────────────────────\n❯\n────────────────────────\n' > "$dir/bottom.txt"
+        else
+          printf '────────────────────────\n❯ live draft\n────────────────────────\n' > "$dir/bottom.txt"
+        fi
+        herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt" "$gap" "$rows"
+        fb=$(make_herdr_fakebin "$dir")
+        out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+          FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+          bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
+        [ "$out" = "$want" ] || fail "$gap $rows-row transcript must recover $want, got '$out'"
+        [ "$(cat "$dir/scroll.log")" = '/tmp/fm-herdr-scroll-test.sock w1:p2' ] \
+          || fail "the viewport must be reset once through the socket scroll helper"
+        if grep -q 'READ_OFFSET=205\|send-keys' "$dir/log"; then
+          fail "a composer read must reset the viewport before capturing, without typing"
+        fi
+        [ ! -s "$dir/reason" ] || fail "a recovered read must name no refusal reason"
+      done
+    done
+  done
+  pass "fm_backend_herdr_composer_state: resets short, long, contiguous, separated and rejected stale transcripts before reading"
+}
+
+test_composer_state_scroll_reset_not_taking_is_unknown() {
+  local dir fb out reader rc gap
+  for reader in state content; do
+    for gap in contiguous blank; do
+      dir="$TMP_ROOT/composer-scroll-stuck-$reader-$gap"; mkdir -p "$dir"
+      printf '❯ live draft\n' > "$dir/bottom.txt"
+      herdr_scrolled_fixture "$dir" 205 "$dir/bottom.txt" "$gap" 20
+      fb=$(make_herdr_fakebin "$dir")
+      rc=0
+      out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+        FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+        bash -c '. "$0/bin/backends/herdr.sh"; "fm_backend_herdr_composer_$1" default:w1:p2' "$ROOT" "$reader" ) || rc=$?
+      if [ "$reader" = state ]; then
+        [ "$out" = unknown ] && [ "$rc" -eq 0 ] || fail "a failed reset must yield unknown state"
+      else
+        [ -z "$out" ] && [ "$rc" -ne 0 ] || fail "a failed reset must refuse stale content"
+      fi
+      assert_ring_reason "$dir/reason" viewport-not-bottom
+      if grep -q 'READ_OFFSET=' "$dir/log"; then fail "a failed reset must prevent capture"; fi
+    done
+  done
+  pass "Herdr composer reads refuse both stale transcript shapes when the scroll reset does not take"
+}
+
+test_composer_state_composerless_at_bottom_is_unknown() {
+  local dir fb out initial reader rc
+  for initial in 0 205; do
+    for reader in state content; do
+      dir="$TMP_ROOT/composer-composerless-$initial-$reader"; mkdir -p "$dir"
+      printf '  nothing but output\n' > "$dir/bottom.txt"
+      herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt"
+      printf '%s\n' "$initial" > "$dir/responses/scroll.offset"
+      if [ "$initial" = 0 ]; then cp "$dir/bottom.txt" "$dir/responses/1.out"; fi
+      fb=$(make_herdr_fakebin "$dir")
+      rc=0
+      out=$( FM_RING_REASON_SINK="$dir/reason" FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+        FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+        bash -c '. "$0/bin/backends/herdr.sh"; "fm_backend_herdr_composer_$1" default:w1:p2' "$ROOT" "$reader" ) || rc=$?
+      if [ "$reader" = state ]; then
+        [ "$out" = unknown ] && [ "$rc" -eq 0 ] || fail "a bottom capture with no composer must read unknown"
+        assert_ring_reason "$dir/reason" composer-not-located
+      else
+        [ -z "$out" ] && [ "$rc" -ne 0 ] || fail "a bottom capture with no composer must refuse extraction"
+      fi
+      if [ "$initial" = 0 ] && [ -s "$dir/scroll.log" ]; then fail "an at-bottom read must not reset scrolling"; fi
+    done
+  done
+  pass "Herdr composer reads refuse a composerless bottom capture, with and without a scroll reset"
+}
+
+test_composer_content_scrolled_viewport_resets_and_recaptures() {
+  local dir fb out gap rows
+  for gap in contiguous blank rejected; do
+    for rows in 20 40; do
+      dir="$TMP_ROOT/content-scrolled-$gap-$rows"; mkdir -p "$dir"
+      printf '────────────────────────\n❯ half typed\n────────────────────────\n' > "$dir/bottom.txt"
+      herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt" "$gap" "$rows"
+      fb=$(make_herdr_fakebin "$dir")
+      out=$( FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+        FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+        bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_content default:w1:p2' "$ROOT" )
+      [ "$out" = 'half typed' ] || fail "$gap $rows-row transcript must yield only the live draft, got '$out'"
+      [ -s "$dir/scroll.log" ] || fail "the content read must reset the scrolled viewport"
+      if grep -q 'READ_OFFSET=205' "$dir/log"; then fail "content must not be captured before the reset"; fi
+    done
+  done
+  pass "fm_backend_herdr_composer_content: resets both stale transcript shapes before extracting the live draft"
+}
+
+test_composer_scrolled_plain_fallback_and_unreadable_position() {
+  local dir fb out reader rc
+  for reader in state content; do
+    dir="$TMP_ROOT/composer-plain-scroll-$reader"; mkdir -p "$dir"
+    printf '────────────────────────\n❯ live draft\n────────────────────────\n' > "$dir/bottom.txt"
+    herdr_scrolled_fixture "$dir" 0 "$dir/bottom.txt" contiguous 20
+    mv "$dir/responses/2.out" "$dir/responses/3.out"
+    printf '1\n' > "$dir/responses/2.exit"
+    fb=$(make_herdr_fakebin "$dir")
+    out=$( FM_BACKEND_HERDR_PANE_SCROLLER="$dir/scroller" PATH="$fb:$PATH" \
+      FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+      bash -c '. "$0/bin/backends/herdr.sh"; "fm_backend_herdr_composer_$1" default:w1:p2' "$ROOT" "$reader" )
+    if [ "$reader" = state ]; then
+      [ "$out" = unknown ] || fail "a plain Claude draft must retain its unproven state"
+    else
+      [ "$out" = 'live draft' ] || fail "a plain capture must extract the recovered live draft"
+    fi
+    [ "$(cat "$dir/responses/scroll.offset")" = 0 ] || fail "plain fallback must follow a viewport reset"
+    if grep -q 'READ_OFFSET=205' "$dir/log"; then fail "plain fallback must not read stale output"; fi
+    : > "$dir/log"
+    printf '1\n' > "$dir/responses/pane-get.exit"
+    rc=0
+    out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" \
+      FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$dir/responses" \
+      bash -c '. "$0/bin/backends/herdr.sh"; "fm_backend_herdr_composer_$1" default:w1:p2' "$ROOT" "$reader" ) || rc=$?
+    if [ "$reader" = state ]; then
+      [ "$out" = unknown ] && [ "$rc" -eq 0 ] || fail "unreadable scrolling must yield unknown state"
+    else
+      [ -z "$out" ] && [ "$rc" -ne 0 ] || fail "unreadable scrolling must refuse content"
+    fi
+    assert_ring_reason "$dir/reason" viewport-not-bottom
+    if grep -q 'READ_OFFSET=' "$dir/log"; then fail "unreadable scrolling must prevent capture"; fi
+  done
+  pass "Herdr composer reads check scrolling before plain fallback and refuse unreadable viewport position"
+}
+
+test_pane_scroll_helper_sends_only_pane_scroll() {
+  local dir out
+  command -v python3 >/dev/null 2>&1 || { echo "skip: python3 not found"; return 0; }
+  dir="$TMP_ROOT/scroll-helper"; mkdir -p "$dir"
+  out=$(python3 -I - "$dir/s.sock" "$ROOT/bin/backends/herdr-pane-scroll.py" <<'PY'
+import json, socket, subprocess, sys, threading
+path, helper = sys.argv[1:3]
+srv = socket.socket(socket.AF_UNIX); srv.bind(path); srv.listen(1)
+got = []
+def serve():
+    conn, _ = srv.accept()
+    got.append(json.loads(conn.makefile().readline()))
+    conn.sendall((json.dumps({"id": got[0]["id"], "result": {"type": "ok"}}) + "\n").encode())
+t = threading.Thread(target=serve); t.start()
+rc = subprocess.run([helper, path, "w1:p2"], capture_output=True).returncode
+t.join()
+bad = subprocess.run([helper, path, "w1:p2", "205"], capture_output=True).returncode
+print(rc, bad, got[0]["method"], got[0]["params"]["pane_id"], got[0]["params"]["offset_from_bottom"])
+PY
+  )
+  [ "$out" = "0 2 pane.scroll w1:p2 0" ] || fail "the scroll helper must send one pane.scroll and refuse an offset argument, got '$out'"
+  pass "herdr-pane-scroll.py: sends exactly one pane.scroll request for the exact pane and refuses an offset argument"
+}
 
 test_dispatch_routes_herdr_backend() {
   fm_backend_validate herdr 2>/dev/null || fail "fm_backend_validate should accept herdr (P2 adds it to FM_BACKEND_KNOWN)"
@@ -6139,6 +6410,7 @@ test_current_path_reads_cwd
 test_busy_state_working_maps_to_busy
 test_busy_state_done_and_blocked_map_to_idle
 test_busy_state_unknown_on_no_agent
+unset FM_HERDR_SCRIPT_PANE_GET
 test_composer_state_bare_prompt_is_empty
 test_composer_state_styled_placeholder_draft_is_pending
 test_composer_state_real_text_is_pending
@@ -6193,11 +6465,14 @@ test_composer_state_codex_dynamic_idle_tip_reads_empty_when_faint
 test_composer_state_guard_still_refuses_real_pending_text_after_submit_confirmation_change
 test_send_text_submit_slow_transition_within_one_enter_needs_no_extra_enter
 test_send_text_submit_send_failed
+test_send_text_submit_claude_unreadable_composer_names_its_step
 test_send_text_submit_unknown_on_capture_failure
 test_send_text_submit_unknown_on_composer_capture_failure
+test_send_text_submit_unknown_on_busy_composer_capture_failure
 test_send_text_submit_long_literal_submits_when_composer_holds_every_byte
 test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix
 test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown
+test_send_text_submit_unreadable_clear_stops_after_one_edit
 test_send_text_submit_clears_a_wrapped_suffix_one_row_per_press
 test_send_text_submit_refused_suffix_then_clean_retry_submits_only_the_message
 test_send_text_submit_claude_refuses_to_type_into_a_nonempty_composer
@@ -6233,3 +6508,9 @@ test_wait_transition_stream_absorb_clears_then_timeout
 test_wait_transition_reader_failure_returns_2
 test_wait_transition_bad_ack_returns_2_and_cleans_up
 test_wait_transition_clean_timeout_returns_1
+test_composer_state_scrolled_viewport_resets_and_recaptures
+test_composer_state_scroll_reset_not_taking_is_unknown
+test_composer_state_composerless_at_bottom_is_unknown
+test_composer_content_scrolled_viewport_resets_and_recaptures
+test_composer_scrolled_plain_fallback_and_unreadable_position
+test_pane_scroll_helper_sends_only_pane_scroll

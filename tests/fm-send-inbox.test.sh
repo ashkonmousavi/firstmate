@@ -27,6 +27,9 @@
 #  10. An empty or whitespace-only text steer is refused before anything is
 #      marked, recorded, or typed - on the marked secondmate path that means
 #      no marker-only record and no pending-reply expectation.
+#  11. --one-way records the same inbox steer and writes no pending-reply
+#      correlation. It refuses to combine with --fire-and-forget, --key, or
+#      --resolve-key.
 # Every case below that passes a literal `$...` message quotes it on purpose
 # (the point is sending an unexpanded `$` line), so SC2016 is disabled.
 # shellcheck disable=SC2016
@@ -71,11 +74,17 @@ case "${1:-}" in
     for a in "$@"; do case "$a" in *cursor_y*) printf '1\n'; exit 0 ;; esac; done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
-    if [ "${FM_FAKE_TMUX_COMPOSER:-}" = pending ]; then
-      printf '╭──────────────╮\n│ leftover txt │\n╰──────────────╯\n'
-    else
-      printf '╭────╮\n│    │\n╰────╯\n'
-    fi
+    case "${FM_FAKE_TMUX_COMPOSER:-}" in
+      pending) printf '╭──────────────╮\n│ leftover txt │\n╰──────────────╯\n' ;;
+      unknown|capture-failure)
+        if [ -s "$FM_SEND_LOG" ]; then
+          [ "$FM_FAKE_TMUX_COMPOSER" != capture-failure ] || exit 1
+          printf 'unreadable composer\n'
+        else
+          printf '╭────╮\n│    │\n╰────╯\n'
+        fi ;;
+      *) printf '╭────╮\n│    │\n╰────╯\n' ;;
+    esac
     exit 0 ;;
   list-windows) printf 'fm-t1\nwin\n'; exit 0 ;;
 esac
@@ -239,7 +248,29 @@ test_failed_ring_is_still_sent() {
   [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "the steer was not recorded"
   assert_contains "$(cat "$err")" "watcher will re-ring" \
     "the failed-ring notice should point at the re-ring"
+  assert_contains "$(cat "$err")" "doorbell did not reach" "the failed-ring notice keeps its existing text"
+  assert_contains "$(cat "$err")" " reason=" "the failed-ring notice must name the ring step that failed"
   pass "fm-send inbox: a failed doorbell is still a durably sent steer"
+}
+
+test_unreadable_ring_is_reported_without_failing_enqueue() {
+  local mode dir err rc body
+  for mode in unknown capture-failure; do
+    dir=$(setup_case "ring-$mode")
+    err="$dir/send.err"
+    run_send "$dir" "$err" "FM_FAKE_TMUX_COMPOSER=$mode" -- t1 "preserve this durable steer"
+    rc=$?
+    expect_code 0 "$rc" "an unreadable doorbell outcome must preserve successful enqueue"
+    body=$(record_body _ "$dir/home/state/t1.inbox/001.msg")
+    [ "$body" = 'preserve this durable steer' ] || fail "an unreadable ring lost its durable payload"
+    assert_contains "$(cat "$err")" 'doorbell NOT delivered' "an unreadable ring must report non-delivery"
+    assert_contains "$(cat "$err")" 'durably recorded' "the ring notice must distinguish durable enqueue"
+    assert_contains "$(cat "$err")" 'watcher will re-ring' "the ring notice must preserve recovery"
+    assert_contains "$(cat "$err")" ' reason=' "an unconfirmed ring must name its step"
+    [ "$(wc -l < "$dir/send.log")" -eq 1 ] || fail "a failed confirmation must never retype its doorbell"
+    assert_not_contains "$(cat "$dir/send.log")" 'preserve this durable steer' "an unreadable ring must not type its payload"
+    pass "fm-send inbox: $mode reports non-delivery while preserving durable enqueue"
+  done
 }
 
 # Contract: a fire-and-forget record stays outside the re-ring ladder, so a
@@ -504,12 +535,84 @@ test_empty_message_refused() {
   pass "fm-send: an empty or whitespace-only text steer refuses before marking, recording, or typing"
 }
 
+test_one_way_records_no_pending_reply() {
+  local dir err body rc
+  dir=$(setup_case oneway-ship)
+  err="$dir/send.err"
+  run_send "$dir" "$err" -- t1 --one-way "status only, no reply" || fail "a ship --one-way steer should succeed"
+  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "a --one-way steer should still record the inbox message"
+  body=$(record_body _ "$dir/home/state/t1.inbox/001.msg")
+  [ "$body" = "status only, no reply" ] || fail "a ship --one-way body differs: $body"
+  case "$body" in
+  *corr=*|*delivery=*) fail "a ship --one-way body embedded corr or delivery: $body" ;;
+  esac
+  [ -z "$(find "$dir/home/state/pending-replies" -type f -not -name '.*' 2>/dev/null)" ] ||
+    fail "a ship --one-way steer wrote a pending-reply record"
+
+  dir=$(setup_case oneway-mate)
+  err="$dir/send.err"
+  fm_write_secondmate_meta "$dir/home/state/domain.meta" "$dir/home" "sess:fm-domain"
+  run_send "$dir" "$err" -- fm-domain --one-way "fleet note, no reply" ||
+    fail "a secondmate --one-way steer should succeed"
+  body=$(record_body _ "$dir/home/state/domain.inbox/001.msg")
+  [ "$body" = "${FM_FROMFIRST_MARK}fleet note, no reply" ] ||
+    fail "a secondmate --one-way body lost the marker or the message:"$'\n'"$body"
+  case "$body" in
+  *corr=*|*delivery=*) fail "a --one-way body must not carry corr or delivery: $body" ;;
+  esac
+  [ -z "$(find "$dir/home/state/pending-replies" -type f -not -name '.*' 2>/dev/null)" ] ||
+    fail "a secondmate --one-way steer wrote a pending-reply record"
+  run_send "$dir" "$err" -- fm-domain --one-way "fleet note, no reply" ||
+    fail "a repeated --one-way steer should succeed"
+  [ -f "$dir/home/state/domain.inbox/002.msg" ] || fail "a repeated --one-way steer should write a new inbox record"
+  [ -z "$(find "$dir/home/state/pending-replies" -type f -not -name '.*' 2>/dev/null)" ] ||
+    fail "a repeated --one-way steer wrote a pending-reply record"
+
+  dir=$(setup_case oneway-refuse)
+  err="$dir/send.err"
+  fm_write_secondmate_meta "$dir/home/state/domain.meta" "$dir/home" "sess:fm-domain"
+  run_send "$dir" "$err" -- fm-domain --one-way --fire-and-forget 0123456789abcdef "no"
+  rc=$?
+  [ "$rc" -ne 0 ] || fail "--one-way with --fire-and-forget should refuse"
+  assert_contains "$(cat "$err")" "--one-way cannot accompany --fire-and-forget" \
+    "the combined-flag refusal should name both flags"
+  run_send "$dir" "$err" -- t1 --one-way --key Enter
+  rc=$?
+  [ "$rc" -ne 0 ] || fail "--one-way with --key should refuse"
+  assert_contains "$(cat "$err")" "--one-way cannot accompany --key" \
+    "the --key refusal should name --one-way"
+  run_send "$dir" "$err" -- t1 --one-way --resolve-key some-key "answered"
+  rc=$?
+  [ "$rc" -ne 0 ] || fail "--one-way with --resolve-key should refuse"
+  assert_contains "$(cat "$err")" "--one-way cannot accompany --resolve-key" \
+    "the --resolve-key refusal should name --one-way"
+  pass "fm-send --one-way records the steer and writes no pending-reply correlation"
+}
+
+test_one_way_retry_identity() {
+  local dir err id
+  dir=$(setup_case oneway-identity)
+  err="$dir/send.err"
+  id=0123456789abcdef0123456789abcdef
+  run_send "$dir" "$err" "FM_SEND_REQUEST_ID=$id" -- t1 --one-way 'continue supervision' || fail "one-way request failed"
+  run_send "$dir" "$err" "FM_SEND_REQUEST_ID=$id" -- t1 --one-way 'continue supervision' || fail "one-way retry failed"
+  [ ! -f "$dir/home/state/t1.inbox/002.msg" ] || fail "a retry duplicated the request"
+  mv "$dir/home/state/t1.inbox/001.msg" "$dir/home/state/t1.inbox/handled/"
+  run_send "$dir" "$err" "FM_SEND_REQUEST_ID=$id" -- t1 --one-way 'continue supervision' || fail "handled retry failed"
+  [ ! -s "$dir/send.log" ] || fail "a handled request was rung again"
+  run_send "$dir" "$err" -- t1 --one-way 'continue supervision' || fail "deliberate repeated request failed"
+  [ -f "$dir/home/state/t1.inbox/002.msg" ] || fail "a distinct request was collapsed"
+  run_send "$dir" "$err" "FM_SEND_REQUEST_ID=$id" -- t1 --one-way 'different instruction' && fail "request-id reuse with a different body succeeded"
+  pass "one-way identities preserve retries and distinct repeated local instructions"
+}
+
 test_text_steer_rides_inbox
 test_deep_home_doorbell_stays_short
 test_multiline_steer_is_legal
 test_resend_enqueues_new_sequence
 test_pending_composer_skips_ring_advisorily
 test_failed_ring_is_still_sent
+test_unreadable_ring_is_reported_without_failing_enqueue
 test_fire_and_forget_unlanded_ring_owes_one_retry
 test_fire_and_forget_retry_stays_off_without_the_flag
 test_harness_invocations_stay_typed
@@ -520,3 +623,5 @@ test_post_enqueue_bookkeeping_failure_is_not_retryable
 test_meta_lock_contention_fails_bounded
 test_unwritable_inbox_fails_loudly
 test_empty_message_refused
+test_one_way_records_no_pending_reply
+test_one_way_retry_identity

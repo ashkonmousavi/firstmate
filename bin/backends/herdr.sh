@@ -399,6 +399,11 @@ fm_backend_herdr_cli() {  # <session> <herdr-subcommand-and-args...>
     HERDR_SESSION="$session" "$client_bin" "$@" --session "$session"
     return $?
   fi
+  case "${1:-}:${2:-}" in
+    pane:send-text|pane:send-keys)
+      if declare -F fm_backend_lane_release_guard >/dev/null; then fm_backend_lane_release_guard herdr "$session:${3:-}" "$2" "${4:-}" || return 75; fi
+      ;;
+  esac
   failed_bin=$client_bin
   { err=$(HERDR_SESSION="$session" "$failed_bin" "$@" --session "$session" 2>&1 1>&3 3>&-) || rc=$?; } 3>&1
   if [ "$rc" -ne 0 ]; then
@@ -407,6 +412,11 @@ fm_backend_herdr_cli() {  # <session> <herdr-subcommand-and-args...>
         fm_backend_herdr_client_select "$session" force
         selected_bin=$(fm_backend_herdr_bin)
         if [ "$selected_bin" != "$failed_bin" ]; then
+          case "${1:-}:${2:-}" in
+            pane:send-text|pane:send-keys)
+              if declare -F fm_backend_lane_release_guard >/dev/null; then fm_backend_lane_release_guard herdr "$session:${3:-}" "$2" "${4:-}" || return 75; fi
+              ;;
+          esac
           HERDR_SESSION="$session" "$selected_bin" "$@" --session "$session"
           return $?
         fi
@@ -3135,6 +3145,7 @@ fm_backend_herdr_normalize_key() {  # <key>
     # C-u clears a composer line. fm-send.sh's muse interrupt path needs it to
     # drop the prompt muse restores into the composer after Escape.
     C-u|c-u|ctrl+u|Ctrl+U) printf 'ctrl+u' ;;
+    C-e|c-e|ctrl+e|Ctrl+E) printf 'ctrl+e' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -3214,6 +3225,34 @@ fm_backend_herdr_composer_identity() {  # <target> -> "<agent>\t<status>"
   fm_backend_herdr_agent_identity_raw "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE"
 }
 
+# fm_backend_herdr_viewport_to_bottom: put <target>'s viewport back at the live
+# bottom of the pane. A viewport scrolled up (by a click-scroll or a mouse
+# wheel in the pane) makes `pane read --source visible` return old output with
+# no composer on screen. `pane get` reports scroll.offset_from_bottom; above 0
+# the viewport is reset through the socket API (pane.scroll,
+# offset_from_bottom 0, via herdr-pane-scroll.py) - never by typing keys into
+# the pane - and the offset is read back.
+fm_backend_herdr_pane_scroll_offset() {  # <session> <pane> -> offset, empty when unreported
+  local out
+  out=$(fm_backend_herdr_cli "$1" pane get "$2" 2>/dev/null) || return 1
+  printf '%s' "$out" | jq -r '.result.pane.scroll.offset_from_bottom // empty' 2>/dev/null
+}
+
+fm_backend_herdr_viewport_to_bottom() {  # <target>
+  local target=$1 session pane offset socket scroller
+  fm_backend_herdr_target_observable "$target" || return 1
+  session=$FM_BACKEND_HERDR_SESSION
+  pane=$FM_BACKEND_HERDR_PANE
+  offset=$(fm_backend_herdr_pane_scroll_offset "$session" "$pane") || return 1
+  case "$offset" in ''|0) return 0 ;; *[!0-9]*) return 1 ;; esac
+  scroller=${FM_BACKEND_HERDR_PANE_SCROLLER:-$FM_BACKEND_HERDR_ROOT/bin/backends/herdr-pane-scroll.py}
+  command -v python3 >/dev/null 2>&1 || [ -n "${FM_BACKEND_HERDR_PANE_SCROLLER:-}" ] || return 1
+  socket=$(fm_backend_herdr_presentation_session_socket_path "$session") || return 1
+  "$scroller" "$socket" "$pane" >/dev/null 2>&1 || return 1
+  offset=$(fm_backend_herdr_pane_scroll_offset "$session" "$pane") || return 1
+  [ "$offset" = 0 ]
+}
+
 # fm_backend_herdr_composer_state: thin adapter - capture plus capabilities
 # in, shared verdict out. The ANSI capture is preferred (styled=1 lets the
 # shared classifier strip ghost/placeholder text); when it fails on an older
@@ -3234,6 +3273,11 @@ fm_backend_herdr_composer_identity() {  # <target> -> "<agent>\t<status>"
 fm_backend_herdr_composer_state() {  # <target> -> empty|pending|pending-unproven|unknown
   local target=$1 cap caps verdict identity
   fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
+  if ! fm_backend_herdr_viewport_to_bottom "$target"; then
+    fm_backend_herdr_note_reason viewport-not-bottom
+    printf 'unknown'
+    return 0
+  fi
   if cap=$(fm_backend_herdr_visible_capture_ansi "$target" 2>/dev/null); then
     caps=$(printf 'styled=1\ncursor=0\nidentity=1')
   elif cap=$(fm_backend_herdr_visible_capture "$target"); then
@@ -3249,6 +3293,12 @@ fm_backend_herdr_composer_state() {  # <target> -> empty|pending|pending-unprove
     fi
     verdict=$(fm_composer_classify_screen "$caps" "$cap" '' "$identity")
     [ "$verdict" != need-identity ] || verdict=unknown
+  fi
+  # A blank capture is an unreadable pane, not a screen of old output.
+  if [ "$verdict" = unknown ] && [ -n "$(printf '%s' "$cap" | tr -d '[:space:]')" ]; then
+    if [ -n "$(fm_composer_none_reason "$caps" "$cap")" ]; then
+      fm_backend_herdr_note_reason composer-not-located
+    fi
   fi
   printf '%s' "$verdict"
 }
@@ -3273,6 +3323,16 @@ fm_backend_herdr_rendered_busy_state() {  # <target> [harness] -> busy|idle|unkn
   else
     printf 'idle'
   fi
+}
+
+# Offer the submit's failure step to fm_task_inbox_ring (logging only). The
+# submit runs inside a command substitution, so the token travels through the
+# sink file named by FM_RING_REASON_SINK; with no sink it is a no-op. The first
+# token written wins. Tokens are listed at fm_task_inbox_ring.
+fm_backend_herdr_note_reason() {  # <token>
+  [ -n "${FM_RING_REASON_SINK:-}" ] || return 0
+  [ -s "$FM_RING_REASON_SINK" ] && return 0
+  { printf '%s\n' "$1" > "$FM_RING_REASON_SINK"; } 2>/dev/null || true
 }
 
 # fm_backend_herdr_send_text_submit: type <text> into <target> once (raw,
@@ -3337,9 +3397,8 @@ fm_backend_herdr_rendered_busy_state() {  # <target> [harness] -> busy|idle|unkn
 # composer that holds no user text at all and every steer reported delivery
 # unconfirmed on a message that had actually landed.
 # The escape is the SAME semantic signal the idle-baseline path uses, read from
-# the pane's verified busy footer instead of native agent-state, and it is the
-# rendered-footer twin of the tmux submit core's turn-started confirmation
-# (bin/fm-tmux-lib.sh): an idle-to-busy transition ACROSS our Enter is proof the
+# the pane's verified busy footer instead of native agent-state:
+# an idle-to-busy transition ACROSS our Enter is proof the
 # harness accepted the submission. The baseline is taken before the first Enter
 # and only when the native baseline was not legibly idle, so the idle-baseline
 # path still never reads pane content until native stays idle. A pane already
@@ -3377,24 +3436,6 @@ fm_backend_herdr_queued_enter_busy() {  # <target> <allow-rendered> [busy-harnes
   fi
 }
 
-# fm_backend_herdr_proof_lines: how many composer rows a refused leftover may
-# occupy, bounding the Ctrl+U presses a verified clear may need. A literal
-# payload wraps, and clearing a multi-row leftover is one press per rendered
-# row (live Claude deletes one wrapped row per press). The composer read
-# itself is the full visible viewport (fm_backend_herdr_composer_content), so
-# this bound no longer sizes a capture.
-fm_backend_herdr_proof_lines() {  # <text>
-  local text=$1 lines
-  lines=$(( (${#text} / 40) + 8 ))
-  if [ "$lines" -lt "$FM_COMPOSER_CAPTURE_LINES" ]; then
-    lines=$FM_COMPOSER_CAPTURE_LINES
-  fi
-  if [ "$lines" -gt 200 ]; then
-    lines=200
-  fi
-  printf '%s' "$lines"
-}
-
 # fm_backend_herdr_composer_content: the selected composer's visible text.
 # The capture is the FULL VISIBLE VIEWPORT, never a bounded tail: an overlay
 # rendered between the composer and the pane bottom - Claude Code's
@@ -3411,6 +3452,10 @@ fm_backend_herdr_proof_lines() {  # <text>
 # ghost suggestion is SGR-2 dim and is still stripped.
 fm_backend_herdr_composer_content() {  # <target>
   local target=$1 cap caps
+  if ! fm_backend_herdr_viewport_to_bottom "$target"; then
+    fm_backend_herdr_note_reason viewport-not-bottom
+    return 1
+  fi
   if cap=$(fm_backend_herdr_visible_capture_ansi "$target" 2>/dev/null) && [ -n "$cap" ]; then
     caps=$(printf 'styled=1\ncursor=0\nidentity=0')
   elif cap=$(fm_backend_herdr_visible_capture "$target") && [ -n "$cap" ]; then
@@ -3455,22 +3500,33 @@ fm_backend_herdr_composer_payload_shown() {  # <text> <after>
 # as delete-to-line-start, repeated across lines of a multiline draft; Ctrl+C
 # is not used because it interrupts a running turn. Live Claude deletes one
 # wrapped screen row per press, so a single-line leftover can need several
-# presses. The press count comes from fm_backend_herdr_proof_lines, which
-# sizes it from the payload length, not from the viewport read.
+# presses.
 # 0 only when the composer is verified empty again.
 fm_backend_herdr_composer_clear() {  # <target> <text>
-  local target=$1 text=$2 presses i=0
-  presses=$(fm_backend_herdr_proof_lines "$text")
+  local target=$1 text=$2 presses i=0 verdict read_try
+  presses=$(( ${#text} + 1 ))
   while [ "$i" -lt "$presses" ]; do
+    fm_backend_herdr_send_key "$target" C-e || return 1
     fm_backend_herdr_send_key "$target" C-u || return 1
     i=$((i + 1))
-    [ "$(fm_backend_herdr_composer_state "$target")" = empty ] && return 0
+    # A redraw can briefly invalidate the cursor/screen pair. Retry reads,
+    # never edits, until the next deletion has a readable pending verdict.
+    for read_try in 1 2 3 4 5; do
+      verdict=$(fm_backend_herdr_composer_state "$target") || return 1
+      [ "$verdict" = unknown ] && [ "$read_try" -lt 5 ] || break
+      sleep 0.1
+    done
+    case "$verdict" in
+      empty) return 0 ;;
+      pending|pending-unproven) ;;
+      *) return 1 ;;
+    esac
   done
   return 1
 }
 
 fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep> <settle>
-  local target=$1 text=$2 retries=$3 sleep_s=$4 settle=$5 i=0 verdict baseline confirm_sleep
+  local target=$1 text=$2 retries=$3 sleep_s=$4 settle=$5 i=0 verdict baseline confirm_sleep rc=0
   local raw_status footer_baseline='' allow_rendered=0 enter_sent=0 identity proof=0 content busy_harness=''
   fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
   # Claude on Herdr is the live-verified truncation shape: Enter is withheld
@@ -3482,17 +3538,22 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
   if [ "${identity%%$'\t'*}" = claude ]; then
     proof=1
     content=$(fm_backend_herdr_composer_content "$target") \
-      || { printf 'send-failed'; return 0; }
-    [ -z "${content//[$' \t\r\n\v\f']/}" ] || { printf 'send-failed'; return 0; }
+      || { fm_backend_herdr_note_reason composer-unreadable; printf 'send-failed'; return 0; }
+    [ -z "${content//[$' \t\r\n\v\f']/}" ] \
+      || { fm_backend_herdr_note_reason composer-nonempty; printf 'send-failed'; return 0; }
   fi
-  fm_backend_herdr_send_literal "$target" "$text" || { printf 'send-failed'; return 0; }
+  fm_backend_herdr_send_literal "$target" "$text" \
+    || { rc=$?; [ "$rc" != 75 ] || return 75; fm_backend_herdr_note_reason literal-send-failed; printf 'send-failed'; return 0; }
   sleep "$settle"
   if [ "$proof" = 1 ]; then
     if ! content=$(fm_backend_herdr_composer_content "$target") \
       || ! fm_backend_herdr_composer_payload_shown "$text" "$content"; then
+      [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] || return 75
       if fm_backend_herdr_composer_clear "$target" "$text"; then
+        fm_backend_herdr_note_reason payload-not-shown
         printf 'send-failed'
       else
+        fm_backend_herdr_note_reason clear-unverified
         printf 'unknown'
       fi
       return 0
@@ -3511,39 +3572,46 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
   while :; do
     if fm_backend_herdr_send_key "$target" Enter; then
       enter_sent=1
-    elif [ "$enter_sent" -eq 0 ]; then
-      i=$((i + 1))
-      if [ "$i" -ge "$retries" ]; then
-        printf 'send-failed'
-        return 0
+    else
+      rc=$?
+      [ "$rc" != 75 ] || return 75
+      if [ "$enter_sent" -eq 0 ]; then
+        i=$((i + 1))
+        if [ "$i" -ge "$retries" ]; then
+          fm_backend_herdr_note_reason enter-send-failed
+          printf 'send-failed'
+          return 0
+        fi
+        sleep "$sleep_s"
+        continue
       fi
-      sleep "$sleep_s"
-      continue
     fi
     if [ "$baseline" = idle ]; then
       verdict=$(fm_backend_herdr_wait_for_working "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE" \
         "$confirm_sleep" "$FM_BACKEND_HERDR_SUBMIT_POLLS")
       case "$verdict" in
         busy) printf 'empty'; return 0 ;;
-        unknown) printf 'unknown'; return 0 ;;
+        unknown) fm_backend_herdr_note_reason status-unknown; printf 'unknown'; return 0 ;;
       esac
       # Native stayed idle. Composer empty is positive delivery (a landed
       # Claude turn that never flipped agent_status). Proven pending retries.
       # A picker that classifies pending must not receive that retry.
       verdict=$(fm_backend_herdr_composer_state "$target")
       if fm_composer_blocking_dialog_noted >/dev/null; then
+        fm_backend_herdr_note_reason blocking-dialog
         printf 'unknown'
         return 0
       fi
       case "$verdict" in
         empty) printf 'empty'; return 0 ;;
         pending|pending-unproven) ;;
-        *) printf '%s' "$verdict"; return 0 ;;
+        *) fm_backend_herdr_note_reason post-enter-unreadable; printf '%s' "$verdict"; return 0 ;;
       esac
     else
       sleep "$sleep_s"
       verdict=$(fm_backend_herdr_composer_state "$target")
       if fm_composer_blocking_dialog_noted >/dev/null; then
+        fm_backend_herdr_note_reason blocking-dialog
         printf 'unknown'
         return 0
       fi
@@ -3555,16 +3623,19 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
       case "$verdict" in
         busy) printf 'empty'; return 0 ;;
         empty) printf 'empty'; return 0 ;;
-        unknown) printf 'unknown'; return 0 ;;
+        unknown) fm_backend_herdr_note_reason post-enter-unreadable; printf 'unknown'; return 0 ;;
       esac
     fi
     i=$((i + 1))
     if [ "$i" -ge "$retries" ]; then
       if [ "$enter_sent" -eq 0 ]; then
+        fm_backend_herdr_note_reason enter-send-failed
         printf 'send-failed'
       else
-        fm_composer_queued_enter_verdict "$verdict" \
-          "$(fm_backend_herdr_queued_enter_busy "$target" "$allow_rendered" "$busy_harness")"
+        verdict=$(fm_composer_queued_enter_verdict "$verdict" \
+          "$(fm_backend_herdr_queued_enter_busy "$target" "$allow_rendered" "$busy_harness")")
+        [ "$verdict" = empty ] || fm_backend_herdr_note_reason enter-retries-exhausted
+        printf '%s' "$verdict"
       fi
       return 0
     fi

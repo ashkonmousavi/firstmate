@@ -38,7 +38,7 @@ Prerequisites:
 - Herdr protocol 14 or newer, installed from [herdr.dev](https://herdr.dev).
 - `jq` for JSON responses.
 - The universal harness and toolchain requirements in [`configuration.md`](configuration.md#toolchain).
-- `python3` only for optional protocol-16 presentation-space ordering, native event subscription, and opt-in [project groups](#project-groups) agent-view transport.
+- `python3` for [composer viewport recovery](#claude-composer-proof), optional protocol-16 presentation-space ordering, native event subscription, and opt-in [project groups](#project-groups) agent-view transport.
 
 Herdr is dual-licensed AGPL-3.0-or-later or commercial.
 Firstmate invokes its CLI as a separate process.
@@ -649,9 +649,14 @@ Typed-plane text is typed once; only Enter is retried.
 When native `agent get` identity is Claude, the adapter types only into an empty composer.
 A Claude composer that already holds text, or cannot be read, before the send is refused with nothing typed.
 Before that Enter, the adapter continues only when the selected composer shows the typed payload, or only Claude paste placeholders with no literal remainder.
-Every herdr adapter composer read (`fm_backend_herdr_composer_state`, `fm_backend_herdr_composer_content`) captures the full visible viewport, never a bounded tail, while the shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend: an overlay Claude renders between the composer and the pane bottom - the slash-command popup is the verified shape - pushes the composer outside a tail window, and the composer is by definition inside the viewport.
+Every herdr adapter composer read (`fm_backend_herdr_composer_state`, `fm_backend_herdr_composer_content`) captures the full visible viewport, never a bounded tail, while the shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend: an overlay Claude renders between the composer and the pane bottom - the slash-command popup is the verified shape - can push the composer outside a tail window even at the live bottom.
+A state capture with no selectable composer reads `unknown`, never `pending`; a viewport scrolled off the live bottom can instead show old output that resembles a composer.
+Before either composer read captures the viewport, the adapter checks `pane get` `scroll.offset_from_bottom`; above 0 it resets the viewport through the socket API `pane.scroll` (`bin/backends/herdr-pane-scroll.py`, always offset 0, never typed keys) and verifies the pane is at the bottom, even when old output resembles a composer.
+For compatibility, a successful `pane get` response that omits the scroll offset allows capture without a reset.
+A failed position query, a nonnumeric reported offset, or a reset that cannot be verified at zero refuses the read with `viewport-not-bottom`.
+A nonblank state capture with no selectable composer records `composer-not-located`; a blank capture remains unreadable without that reason.
 Claude can also draw that popup directly below the composer's closing rule, with its selected row led by the composer's own `❯`; the shared classifier counts those rows as the composer's footer furniture only while the composer holds a typed `/` command, so the proof still reads the typed payload.
-Dated measurements: docs/verification/runtime-backends.md "Claude exit behind the slash-command popup" and "Claude slash-command popup below the composer".
+Verification: [composer viewport recovery](verification/runtime-backends.md#composer-viewport-recovery), [Claude exit behind the slash-command popup](verification/runtime-backends.md#claude-exit-behind-the-slash-command-popup), and [Claude slash-command popup below the composer](verification/runtime-backends.md#claude-slash-command-popup-below-the-composer).
 
 That comparison ignores whitespace and U+2063, the invisible mark that starts operational inputs and ends the from-firstmate label.
 It ignores U+2063 because Claude's Herdr read-back never shows it.
@@ -659,10 +664,11 @@ It ignores U+2063 because Claude's Herdr read-back never shows it.
 A composer that holds a shorter suffix, or a placeholder plus a literal remainder, does not receive Enter.
 Instead:
 
-1. The adapter presses Ctrl+U until the shared classifier reads the composer as empty.
+1. The adapter moves to line end with Ctrl+E before each Ctrl+U deletion until the shared classifier reads the composer as empty.
 2. It then reports `send-failed`, so a resend starts from a clean composer.
 
 Ctrl+C is not used for this, because Claude documents it as interrupting a running operation.
+An unreadable redraw permits only bounded read retries before another deletion; failed reads or exhausted retries abort clearing.
 If the composer cannot be verified empty again, the submit reports `unknown` instead, because text may still be in the composer.
 
 Other harnesses, and panes with no native identity, skip this proof and keep the type-then-Enter path.
@@ -697,7 +703,7 @@ Cursor is one such harness:
 That fallback alone reported every delivered steer as unconfirmed.
 So it is paired with a rendered-footer transition.
 The pane's verified busy footer is read once before the first Enter, and an idle-to-busy transition across that Enter confirms the submit.
-It is the same semantic signal the native path uses and the same one the tmux submit core reads.
+It is the same semantic signal the native path uses; tmux follows its separate [submission acknowledgement contract](tmux-backend.md#composer-busy-state-and-delivery).
 
 A pane already mid-turn cannot borrow a rendered-footer transition as proof of this delivery.
 After retries, only proven pending text plus native `working` can establish that its Enter was accepted and queued.
@@ -744,6 +750,11 @@ Identity stays a lazy second read, consulted only when a separator pair could ch
 
 ANSI capture preserves de-emphasized placeholder style.
 `bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and dark truecolor placeholders while retaining bright typed input.
+
+Claude's titled composer is also recognized when its suggestion wraps onto contiguous nonblank rows before the closing rule.
+Within that recognized shape, ghost-only content reads `empty`, while real wrapped text or text after a blank prompt row reads `pending`.
+A blank continuation row or a match for structural edges or footer furniture can leave the shape unproven and the read `unknown`; the supported wrap boundary is owned by `_fm_composer_bare_rule_sandwich` in `bin/fm-composer-lib.sh`.
+The [titled-composer verification inventory](verification/runtime-backends.md#claude-titled-composer-validation-inventory) distinguishes portable regression coverage from outstanding live evidence.
 
 If the ANSI capture ever fails, the plain fallback declares itself unstyled.
 The classifier then degrades a glyph row carrying trailing text to `unknown` instead of misreading ghost suggestions as typed input.

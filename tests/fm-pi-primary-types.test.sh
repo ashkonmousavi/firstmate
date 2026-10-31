@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Strict no-emit production-consumer checks against public Pi 1.1.0 and 1.2.0.
 # Owns temporary npm dependencies and TypeScript 5.9.3; never uses global tsc
-# or FM_PI_PACKAGE_DIR. Compiler-owning lint/CI phases run this check.
+# or FM_PI_PACKAGE_DIR. docs/configuration.md owns the no-mistakes gate defaults.
 set -eu
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

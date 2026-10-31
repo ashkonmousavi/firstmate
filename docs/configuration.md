@@ -78,6 +78,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Project and secondmate registries.
 - Captain preferences and optional shared captain preferences.
 - Learnings, backlog, briefs, scout reports, and the optional per-task no-mistakes pipeline-spend ledger.
+- The append-only lane-release ledger `data/lane-release.ledger` ([Lane release](#lane-release-configlane-release)).
 - Explicitly installed content-addressed extension packages under `data/extensions/packages/`.
 
 `state/` holds runtime records:
@@ -91,6 +92,9 @@ Each effective `FM_HOME` contains private operational directories.
 - Private secondmate config-reread generations with their retry and quarantine state.
 - Per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`).
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
+- Rebuildable hold-release disposition caches under `state/hold-releases/` (`bin/fm-hold-release-lib.sh`); the backlog hold owns the condition.
+- Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
+- Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -114,14 +118,14 @@ Untracked files and directories whose names begin with `scratchpad` are also git
 
 - `bin/fm-session-start.sh`'s header is the single owner of session-start ordering, composed commands, digest contents, and the digest's startup mechanism.
 
-- `bin/fm-startup-network.sh`'s header owns the deferred startup stage that keeps every external-network call and the potentially slow inactive-outcome scan off that digest's blocking path, including its state files and the safety argument for running them later.
+- `bin/fm-startup-network.sh`'s header owns the deferred startup stage for network checks, dead-crewmate recovery, and the inactive-outcome scan, including its state files and the safety argument for running them later.
 
 - `docs/sessionstart-nudge.md` owns the native session-open adapter tiers that run or nudge the digest command, and the source routing between them.
 
 - `AGENTS.md` retains the run-once and read-once operator rules, lock-refusal safety, and direct-report recovery boundaries because those facts apply at every session start.
 - [Bootstrap diagnostics](../.agents/skills/bootstrap-diagnostics/SKILL.md) owns installation decisions and manual-step escalation.
 
-- Ordinary dead-direct-report recovery is owned by `stuck-crewmate-recovery`, while persistent-secondmate recovery is owned by `secondmate-provisioning`.
+- [`bin/fm-crew-recovery-lib.sh`](../bin/fm-crew-recovery-lib.sh) owns automatic ship and scout recovery; `stuck-crewmate-recovery` owns supervisor reconciliation, while persistent-secondmate recovery is owned by `secondmate-provisioning`.
 
 ## Orchestrator behavior (AGENTS.md)
 
@@ -351,16 +355,27 @@ Captain rows have no Beads due semantics, so that create path waives a Beads `du
 
 Do not register a Beads `types.custom` `captain` type for this: captain is a hold kind, and the fleet Beads `due.required` policy for ordinary work stays in the federated beads config.
 
-### Automatic dispatch and completion
+### Hold release conditions
 
-When the automatic transition gate applies, dispatch and completion each move the work item in the same run that creates or removes its task record.
-The ordinary successful path therefore keeps the backlog and live task set in sync ([`bin/fm-backlog-transition-lib.sh`](../bin/fm-backlog-transition-lib.sh)).
+A held row may name a GitHub PR merge or the appearance of an activation marker as the event that makes it ready for disposition.
+The hold wrappers accept a structured release condition.
+[`bin/fm-tasks-axi.sh --help`](../bin/fm-tasks-axi.sh) and [`bin/fm-captain-hold.sh --help`](../bin/fm-captain-hold.sh) own the invocation syntax.
+A kindless hold or a hold of kind `external` with neither `--release-on` nor `--until <date>` is refused, so those holds always name when they clear; captain holds remain exempt and retain optional date deferral; a bare `tasks-axi hold` writes no condition and is the documented bypass, never evaluated.
+
+The watcher's check sweep evaluates the conditions - no new daemon - and wakes firstmate when one is met, leaving it visible in OPEN DECISIONS for disposition rather than automatically releasing the hold.
+[`bin/fm-hold-release-lib.sh`](../bin/fm-hold-release-lib.sh) owns the condition syntax, its native hold-field storage, the local disposition cache under `state/hold-releases/`, the evaluation, and the decision lifecycle; its header documents the tunables (`FM_HOLD_RELEASE_GH` for tests among them).
+A pull-request lookup that fails is never met: the condition simply retries on the next sweep.
+
+### Dispatch, acceptance and cleanup
+
+When the automatic transition gate applies, dispatch pairs the In flight transition with creation of the task record ([`bin/fm-backlog-transition-lib.sh`](../bin/fm-backlog-transition-lib.sh)).
+Acceptance and worker cleanup follow the separate transitions owned by [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion).
 Under that gate, dispatch accepts only an unheld, unblocked Queued or In flight item in this home; a missing, Done, held, or dependency-blocked item is refused before any endpoint or local copy is created.
 
 [`bin/fm-tasks-axi.sh`](../bin/fm-tasks-axi.sh) refuses `add --start` and its `create --start` alias.
 Either would place a row In flight without a task record, status file, or inbox, counting it as live work that nobody is doing.
 The wrapper still passes through the documented direct transition `tasks-axi start <id>`.
-Completion refuses to report success until its close or retention transition is committed, and session start reconciles this home's own books after an interrupted run.
+Cleanup refuses to report success until its close bookkeeping or retention transition is committed, and session start reconciles this home's own books after an interrupted run without accepting pending work.
 [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header owns the PR-state and dependent-item cleanup gates and the conditions for retaining an open item.
 
 When a spawn is interrupted after launch delivery began, its exit path re-reads the paired task record and the backlog row under the same per-task lock as the commit, repairs a row the commit believed it had moved, and reports only what was verified or honestly attempted, never intent phrased as outcome ([`bin/fm-spawn.sh`](../bin/fm-spawn.sh); [`tests/fm-backlog-atomicity.test.sh`](../tests/fm-backlog-atomicity.test.sh)).
@@ -619,7 +634,7 @@ The receipt prevents accidental publication through supported paths; it proves c
 ## Waiting worker spends no turns (config/wait-no-turns)
 
 The optional local, gitignored `config/wait-no-turns` presence flag opts this home into keeping a waiting worker from spending turns until it is answered.
-With it present, ship and scout briefs gain the `# Waiting` section and the foreground no-mistakes drive text, every brief's inbox section keeps the natural-checkpoint check and adds that a waiting worker does not poll or list its inbox because a waiting instruction rings, a pending-reply recovery waits while that mate has its own open decision or blocker, and a fire-and-forget steer whose doorbell did not land gets one later ring.
+With it present, ship and scout briefs gain the `# Waiting` section and the foreground no-mistakes drive text, every brief's inbox section keeps the natural-checkpoint check and adds that a waiting worker does not poll or list its inbox because a waiting instruction rings, pending-reply recovery follows the mate-decision age gate owned by `fm_pending_reply_mate_decision_newer_than` in [`bin/fm-pending-reply-lib.sh`](../bin/fm-pending-reply-lib.sh), and a fire-and-forget steer whose doorbell did not land gets one later ring.
 With the file absent, generated briefs omit the waiting section and the no-poll inbox line, the drive text backgrounds the call, recovery sends during an open decision, and a fire-and-forget steer is not owed a retry ring.
 The flag is a home-local preference and is not inherited by secondmate homes.
 
@@ -645,6 +660,25 @@ The file is a home-local site choice and is not inherited by secondmate homes; `
 ## Lane capacity (config/lane-capacity)
 
 See [Machine capacity](#machine-capacity-configlane-capacity) for machine admission, reporting and placement.
+
+## Lane release (config/lane-release)
+
+The optional local, gitignored `config/lane-release` holds one word that decides whether this home frees the seat of a worker whose job is finished and landed: `off` (the default, also when the file is absent), `audit`, or `on`.
+Only two classes are ever released: a ship whose pull request has merged, and a scout whose report exists and whose completion gate has passed with no captain hold, Lavish board, or promotion pending.
+A release stops the agent through the [unattended control-plane exit](agent-control.md#verbs) and keeps the local copy; a continuation uses the [relaunch transaction](agent-control.md#transactional-relaunch) with its required progress note.
+Every other worker keeps its seat, including a ship with an open pull request and any worker that is not proven idle with nothing new since it finished.
+Local-only ships are explicitly excluded from automatic lane release, retain their seats, and appear as `kept-local-only` holders in `--audit`.
+
+With the file absent or set to `off`, the sweep does nothing and prints nothing.
+Empty, blank, padded, or split-line values are invalid; the [script header](../bin/fm-lane-release.sh) owns parsing and the single-line invalid-setting report.
+`audit` records what would be released in `data/lane-release.ledger` without stopping anything; `on` releases.
+The sweep permits wakes only for RELEASE_INCOMPLETE and the single report of an invalid setting; ordinary stale observations of an actively released worker are absorbed, while new unread steers still escalate.
+Arm the sweep once per home with `bin/fm-lane-release.sh arm`, which writes `state/lane-release.check.sh` and binds it with `bin/fm-check-register.sh`, so the watcher runs it on its ordinary check cadence in every posture; `bin/fm-lane-release.sh disarm` removes it.
+`bin/fm-lane-release.sh --audit` is a read-only report of seats held by finished work and open-PR seat-hours, and runs in any setting.
+
+The word is a per-home choice and is deliberately not inherited by secondmate homes, so each home moves from `off` to `audit` to `on` on its own schedule.
+[`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns the marker and the reader rule for reporting and recovery.
+The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the ledger, the audit exit codes, and the fixed limits.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
@@ -724,13 +758,15 @@ The flag is a home-local supervision-noise preference and is not inherited by se
 
 ## Gate defaults (.no-mistakes.yaml)
 
-The tracked [`.no-mistakes.yaml`](../.no-mistakes.yaml) sets `test.evidence.store_in_repo: true` and runs the canonical [shell/workflow lint](../bin/fm-lint.sh) followed by the [Pi production-consumer typecheck](../tests/fm-pi-primary-types.test.sh) in the compiler-owning lint phase.
+The tracked [`.no-mistakes.yaml`](../.no-mistakes.yaml) sets `test.evidence.store_in_repo: true` and skips duplicate local lint with an explicit successful `commands.lint` command.
+Its `review.path_instructions` block owns finding deduplication, the report's conclusion on what named checks would miss, and the scope of later review rounds.
+Hosted CI Lint 1, Lint 2, Lint 3, and Lint 4 run `bin/fm-lint.sh`, and the required Behavior portable parallel 1 check retains `tests/fm-pi-primary-types.test.sh`.
 Storing evidence in the repo publishes each run's test artifacts to the orphan `no-mistakes/evidence` branch and links them from the PR body, instead of keeping them on local disk under the no-mistakes home.
 
 That branch shares no history with code branches, so evidence never enters a pushed feature branch or the default branch; the worktree's `.no-mistakes/` stays local and CI rejects tracked entries under that path.
 The [`firstmate-coding-guidelines` skill](../.agents/skills/firstmate-coding-guidelines/SKILL.md#no-mistakes-test-configuration) owns why `commands.test` stays absent and targeted validation belongs to the evidence path.
 
-`commands.test` executes code, so no-mistakes honors it only from the default-branch copy of `.no-mistakes.yaml`; a pushed branch cannot change what the gate runs.
+`commands.lint` and `commands.test` execute code, so no-mistakes honors them only from the default-branch copy of `.no-mistakes.yaml`; a pushed branch cannot change what the gate runs.
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the firstmate-specific local test policy and entry points.
 
 Portable shard evidence and coverage rules are in [fm-test-portable-shards.md](fm-test-portable-shards.md); [herdr-backend.md](herdr-backend.md#destructive-lab-safety) owns the real-Herdr lane's isolation boundary, and [runtime-backends.md](verification/runtime-backends.md#herdr) owns active evidence.
@@ -817,6 +853,20 @@ That one line goes out through the shared per-line digest cut, so an over-long f
 Older bulk learning files remain reference-only; this monitor neither loads nor merges them.
 A reported review need is only a recommendation, not cleanup authority.
 
+## Walk-request carrier
+
+A secondmate whose machine has no access to the home-private walker dispatcher asks for a checkpoint walk with [`bin/fm-walk-request.sh`](../bin/fm-walk-request.sh): it writes one typed request (brief content or a local brief path, release sha, walk ids, optional bot name) on the mate's parent channel, which is the pipe that already reaches the dispatcher-owning home for every mate shape.
+Arming [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) with `arm` in that home - the same authenticated watcher-check binding as the growth check above - dispatches each requested walk at most once per `<walk-id>@<release>` through the home's `data/bin/fm-grok-bot-dispatch.sh` and returns the outcome to the requesting mate as a fire-and-forget steering-inbox message.
+Remote requests carry the brief inline through the existing parent channel; MAIN never opens a remote mate's supplied path.
+Briefs must be UTF-8 text of at most 64 KiB; binary and larger inputs are refused.
+The carrier requires an absolute source path under the requesting mate's or MAIN's home, using either the configured home path or its resolved form; the resolved file must be inside the mate's `data/walk-briefs/` or MAIN's `data/from-main/walk-lists/`.
+In both the supplied path and resolved target, privacy checks refuse dot-prefixed components and case-insensitive `config` or `state` components below the containing home, including when a symlink points between the two approved homes.
+Home roots and their ancestors may contain those names, so homes under `.treehouse/` can request walks; `..` traversal and symlink escapes outside the approved directories remain refused.
+MAIN applies the same confinement to local path requests and copies every accepted brief into `data/walk-requests/<request-id>/brief.md` before dispatching that snapshot.
+Outcomes preserve multiline report text up to the carrier's bound and include the full report's MAIN path; recovery appends to that report.
+The bridge and its sign-in stay private to that home: the check only invokes the dispatcher, and a home without the dispatcher reports that plainly rather than guessing.
+The script headers own the typed line, dispatch, recovery, delivery, disarming, and tunables; see [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) for bot selection and dispatcher routing, including environment precedence and the dispatch-time `watch.env` fallback.
+
 ## Stow pass horizon (config/stow-pass-horizon)
 
 `config/stow-pass-horizon` is an optional local, gitignored presence flag that opts this home in to the pass-count decay horizon in the internal [`/stow` skill](../.agents/skills/stow/SKILL.md).
@@ -886,8 +936,7 @@ claude, codex, opencode, pi, pi-signed, grok, kimi, cursor, and omp are empirica
 `fm-spawn.sh` refuses kimi on cmux and Orca at preflight, because answering Kimi's folder-trust dialog needs a verified viewport-only capture those backends lack; [its adapter reference](../.agents/skills/harness-adapters/references/harness/kimi.md#readiness-gated-start) owns the trust-dialog handling.
 A cursor secondmate or primary runs the tracked project-scope `.cursor/hooks.json` in its own home and must be launched with `--trust`, or no project hook loads; [`docs/supervision-protocols/cursor.md`](supervision-protocols/cursor.md) owns its supervision protocol.
 
-Cursor typed-submit confirmation is verified on tmux and Herdr only.
-On Zellij, cmux, Orca, and Paseo a typed-plane Cursor send (a harness-native invocation or an explicit backend target; ordinary text steers ride the durable inbox and exit 0 at enqueue) lands, but `fm-send` reports delivery unconfirmed and exits non-zero because their shared submit core does not consult the busy footer; [runtime backend verification](verification/runtime-backends.md#cursor-agent-cli) owns the evidence and transcript-state boundary.
+[Runtime backend verification](verification/runtime-backends.md#cursor-agent-cli) owns Cursor's backend-specific typed-submit confirmation limits and transcript-state boundary.
 
 muse is verified for crewmate and scout launches ONLY, and `fm-spawn.sh` refuses it for a secondmate, because muse ships no usable hook surface for a primary session's turn-end supervision; [`docs/verification/muse.md`](verification/muse.md) owns that evidence.
 muse also needs a worker-reachable credential before spawning, and the portable fleet path is the `<config>/muse/auth.json` credential stored by `muse login`, because a caller-only `META_API_KEY` does not cross a long-lived backend daemon.
@@ -1076,7 +1125,10 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 ## Worker account pin (config/claude-account, config/pi-account)
 
 A home that mixes accounts for one runner, such as a work login and a personal one, can pin the account its own Claude and Pi workers launch on.
-The pin is opt-in: without a home-wide or per-secondmate pin, every launch is unchanged, and Claude workers keep receiving firstmate's own `CLAUDE_CONFIG_DIR` when it is set.
+The pin is opt-in: without a home-wide or per-secondmate pin, account selection stays ambient, and canonical Claude workers keep receiving firstmate's own `CLAUDE_CONFIG_DIR` when it is set.
+An unpinned raw launch may override that root through a leading `CLAUDE_CONFIG_DIR` assignment containing a literal absolute path or an empty value; quoted paths with spaces are supported, while dynamic or relative overrides refuse before launch.
+Firstmate exports the selected Claude root across the complete launch expression, including fallback commands, and retains it for lifecycle cleanup.
+Raw expressions retain their leading executable's identity: an opaque expression such as `cd directory && claude` does not select the Claude adapter or its account pin.
 
 Both files are local and gitignored.
 
@@ -1167,6 +1219,12 @@ The text is static and never executed or expanded; secondmate charters never tak
 
 `bin/fm-brief.sh`'s header owns the placement rule and its safety argument.
 
+Shared worker policy belongs in the optional primary-authored `config/worker-sheet.md`, inherited through the [secondmate configuration contract](../.agents/skills/secondmate-provisioning/SKILL.md#charter-and-seed).
+Keep `data/worker-sheet.md` as a symlink to that regular canonical file; local and remote inheritance create the alias when absent, and ship/scout scaffolding requires it when either policy path exists.
+If an editor replaces the alias with a regular file, preserve both paths, reconcile the latest instructions into the canonical source, then restore the alias before inheritance or scaffolding.
+The alias validation and recovery mechanics are owned by [`bin/fm-config-inherit-lib.sh`](../bin/fm-config-inherit-lib.sh).
+The shared policy does not replace home-local brief additions: keep role, domain and host-specific instructions in their existing owners rather than overwriting them with shared policy.
+
 ## Worker launch environment (config/launch-env-allowlist)
 
 The optional local, gitignored `config/launch-env-allowlist` limits the ambient environment passed to newly launched workers, scouts, and secondmates, including relaunches.
@@ -1196,7 +1254,7 @@ SSH_AUTH_SOCK
 
 ### Variables retained and where values come from
 
-Firstmate retains basic home, executable search, terminal, locale, temporary-directory, and backend routing variables, plus its explicit launch assignments, its ship and scout task marker, the compact-adviser kill switch described below, and enabled task trace.
+Firstmate retains basic home, executable search, terminal, locale, temporary-directory, and backend routing variables, plus its explicit launch assignments, its ship and scout task marker, the compact-adviser kill switch described below, the [Claude background-exit safeguards](../.agents/skills/harness-adapters/references/harness/claude.md#background-exit), and enabled task trace.
 [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns the exact retained names and parsing mechanics.
 
 Other ambient names must be listed explicitly, including custom credential-store locations, proxy settings, and certificate overrides when required by the selected tools.
@@ -1261,25 +1319,54 @@ This applies only to agents Firstmate launches; the captain's own primary Firstm
 The optional local, gitignored `config/keep-ai-trailers` presence flag opts this home into keeping AI co-author trailers on its launched workers.
 With the flag absent, every Claude launch's inline `--settings` JSON carries `"attribution":{"commit":"","pr":"","sessionUrl":false}`, every Devin worker config sets `"attribution": false`, and every fleet launch appends a pane-scoped `GIT_CONFIG` `core.hooksPath` entry pointing at `state/<id>.git-hooks`, where git's `commit-msg` hook strips known AI trailers even when a runtime injects them after the typed message.
 The entry follows any `GIT_CONFIG_*` entries the worker inherits, so an inherited scoped `credential.helper` still applies to the worker and to the repository's own hooks, such as a git-lfs `pre-push`; an inherited `GIT_CONFIG_COUNT` that is not a decimal number, or that leaves no room for another entry within Git's signed int, stops the launch before the worker runs.
-When the flag is present, Claude launches omit those attribution-off settings, Devin worker configs keep the user config's `attribution` setting (Devin's default is on), and fleet launches do not install or select the strip hooks, so Git uses the repository's configured hooks directly.
+When the flag is present, Claude launches omit those attribution-off settings, Devin worker configs keep the user config's `attribution` setting (Devin's default is on), and ship launches retain the hooks directory for pre-push checks while their commit-msg wrapper only chains the repository's hook.
+Scout and secondmate launches with the flag present use the repository's configured hooks directly.
 `bin/fm-git-strip-ai-trailers.sh` owns the identities, the install, and chaining the hooks of whichever repository git is running in, including when `git -c core.hooksPath` supplies the pane's hook override, so a project hook such as husky still runs when stripping is enabled.
 A repository whose config sets `core.hooksPath` to the empty string runs no project hook, as in plain git; if the wrapper otherwise cannot resolve that repository's hooks directory, the git operation fails rather than silently skipping a project hook such as a pre-push guard.
-When stripping is enabled, the hooks directory is read-only, so a hook manager run inside a fleet pane (lefthook's npm postinstall, `pre-commit install`) fails instead of displacing the strip; install a project's hooks from outside the pane, where the wrappers chain them.
+Whenever installed, the hooks directory is read-only, so a hook manager run inside a fleet pane (lefthook's npm postinstall, `pre-commit install`) fails instead of displacing the fleet hooks; install a project's hooks from outside the pane, where the wrappers chain them.
 The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
 Per-machine Cursor `cli-config.json` attribution-off is not this contract: it does not travel with Firstmate, defaults back to on when unset, and only feeds the CLI's request to the server, so it suppresses the trailer rather than preventing it.
+
+### Worker pre-push checks
+
+Every ship launch installs the same `state/<id>.git-hooks` directory, including under `config/keep-ai-trailers`, on every harness and runtime backend, locally and remotely.
+Whenever this directory is installed, its pre-push wrapper automatically checks repositories declaring Ruff in the pushed commit through `ruff.toml`, `.ruff.toml`, a `pyproject.toml` Ruff section, or a Ruff requirement in `requirements-dev.txt`, at any directory level; repositories without a declaration are unaffected.
+The check refuses pushes that would reformat changed `.py`, `.pyi`, or `.ipynb` files, using each pushed commit's content and configuration with Ruff exclusions respected, and prints a shell-quoted fix command using that ref's resolved Ruff runner.
+Committed symlinks and other non-regular candidates are refused by name, including regular-file/symlink transitions.
+Without a comparison base it checks every tracked supported file.
+Ruff resolves from the worker copy's `.venv/bin/ruff` or `venv/bin/ruff`, then `PATH`, then `uvx` or `uv tool run` only when an exact version is pinned in committed `requirements-dev.txt`.
+A missing formatter or a Ruff error refuses the push and names the install command.
+The push guard and this check each run and each refuse on their own, and the project's own pre-push hook runs only after both pass.
+`bin/fm-git-ruff-format-check.sh` owns the comparison base, file selection, formatter resolution, and refusal text, with regression coverage in [`tests/fm-git-push-guard.test.sh`](../tests/fm-git-push-guard.test.sh).
 
 ## Machine capacity (config/lane-capacity)
 
 Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch or relaunch.
 For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunch when the observed occupancy reaches five lanes and reserves three GiB of available memory.
-Seats count live workers, including non-shell processes in their worktrees; a proven-dead endpoint with no such process holds no seat, while unknown liveness retains its seat.
-[`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, exemptions and refusal rules.
+[`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy (including task records retained after cleanup), exemptions and refusal rules.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
 The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
 Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
+
+The root home must also provide `config/machine-admission.json` before installing this reader.
+It is the numeric policy owner for resource admission, independent of the ceiling/reserve pair; worker-instruction prose is not parsed.
+The [resource reader's policy validator](../bin/fm-machine-resources.py) owns the `fm-machine-admission.v1` schema and exact bounds for `memory_floor_gib`, `disk_floor_gib`, `memory_full_avg60_max` and the absolute-path array `disk_paths`.
+Memory must exceed the floor as well as satisfy the existing reserve; every configured disk path must exceed its floor, and memory full PSI avg60 must remain below its limit on the host and every memory-controller ancestor.
+Missing or malformed policy, pressure or disk evidence refuses admission rather than treating the machine as healthy.
+CPU utilization and load average do not gate admission.
+The shared `bin/fm-machine-resources.py` reader bounds host MemAvailable by every finite cgroup memory.high/memory.max minus max(memory.current - inactive_file, 0), using the same hard-floor calculation as private consumers.
+This effective reading is separate from the unchanged high-(anon+shmem) reserve balance.
+The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
+The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
+Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
+During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.
+Machine policy is not a generic inherited item: local descendants resolve their machine-root config, while a remote home owns target-host policy.
+Remote provisioning validates and preserves an existing home's policy and ceiling/reserve declaration, or seeds missing declarations from the target code root's own config directory before publishing the home marker.
+The remote parent never supplies those bytes; a missing target-host declaration refuses provisioning and names the exact file to prepare.
+Tracked self-update preserves these ignored host declarations.
 
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
 It exits 75 when room cannot be proved and does not change task state.
@@ -1291,6 +1378,12 @@ Fetch that file from each machine through the existing fleet transport, then pas
 The placement command names the eligible machine with the most free lanes, breaking ties by available memory headroom and then machine name.
 Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
 Advice never reserves a lane, and spawn always rereads live facts before launch.
+
+## Curated delivery exceptions (config/curated-delivery-exceptions)
+
+The optional local, gitignored `config/curated-delivery-exceptions` records evidence-backed equivalent re-landings of merged fork PRs for `bin/fm-curated-delivery-check.sh`.
+The private `config/curated-delivery-repo` and `config/curated-delivery-homes` select the repository and fleet homes to audit.
+The [`fm-curated-delivery-check.sh` header](../bin/fm-curated-delivery-check.sh) owns input formats, overrides, evidence requirements for equivalent re-landings, and incomplete-check reporting.
 
 ## Project capacity (config/project-capacity)
 
@@ -1307,13 +1400,13 @@ The name is the project's registered name, which is its clone directory name and
 A line that is only `#`, or that begins with `#` followed by whitespace, is a comment, as is a `#` line whose last field is not an integer.
 A project name may begin with `#` when that `#` is written immediately against the rest of the name and the line ends with the project's capacity.
 A name that is `#`, or that begins with `#` and a space, cannot be declared, because that line is a comment.
-A place is held by every ship or scout on that project in the root home or any local secondmate home registered under it, including one working in a separate clone of the same origin, until its ready PR is recorded or it is cleaned up; a local-only ship or a scout holds its place until cleanup.
+Ships and scouts share the project's places across local homes and same-origin clones; see the [occupancy contract](../bin/fm-project-capacity-lib.sh) for PR handoff and release before cleanup under the live-process seat rule shared with lane counting.
 A failed or cancelled fresh spawn retains its record and place against both new ids and same-id retries until its endpoint is proven gone; see the [spawn rollback contract](../bin/fm-spawn.sh) and [backend proof requirements and limits](../bin/fm-backend.sh).
 The declaration is matched by the spawning clone's directory name, so clones of the same origin share the cap only when they use that same directory name.
 A clone of that origin under a different directory name finds no declaration and is not capped, though its workers are still counted as holders for a same-origin clone that is capped.
 When every place is held, `bin/fm-spawn.sh` launches nothing, creates no record, leaves the backlog item queued, prints one `deferred:` line naming the holders, and exits 75, so Firstmate dispatches the item again once a place frees.
 A malformed or unreadable file refuses every fresh ship or scout spawn until it is fixed, rather than guessing the intended limit, and so does a local home's state directory or task record that cannot be read while counting a capped project's holders.
-Firstmate cannot see which part of a worker's life uses the resource, so the number bounds whole workers from launch to handoff, and the tightest resource every worker needs should decide it.
+Firstmate cannot see which part of a worker's life uses the resource, so the limit applies to whole workers rather than individual resource operations, and the tightest resource every worker needs should decide it.
 [`bin/fm-project-capacity-lib.sh`](../bin/fm-project-capacity-lib.sh) owns the file format, what holds a place, and why concurrent spawns cannot both take the last one.
 
 ## Crew dispatch profiles (config/crew-dispatch.json)
@@ -1747,7 +1840,7 @@ Arm the check once per home with `bin/fm-tool-update-check.sh arm`.
 | `FM_TOOL_UPDATE_BUDGET_SECS` | 20 | Bounds a whole sweep. |
 
 - A sweep that runs out of budget says which tool it did not reach rather than reporting the rest as current.
-- The sweep must finish inside `FM_CHECK_TIMEOUT` (default 30), because a run the watcher kills prints nothing and records nothing and would then repeat that silence on every poll.
+- The sweep must finish inside `FM_CHECK_TIMEOUT` (default 30), because the watcher kills a run that outlasts it before the run reports anything; each timed-out run emits the wake described under the `FM_CHECK_TIMEOUT` default below.
 - So a budget larger than that timeout allows is cut down to what fits instead of being refused, and the cut is reported in the report line.
 - A budget that is not a whole number from 1 to 120 is still refused outright.
 
@@ -2649,12 +2742,12 @@ FM_RECONCILE_REQUEST_MAX_BYTES=1048576   # maximum captured Bearings or fleet sn
 FM_HEARTBEAT=600        # base seconds between heartbeat scans; no-change heartbeats are absorbed while idle
 FM_HEARTBEAT_MAX=7200   # heartbeat backoff cap
 FM_INACTIVE_RECONCILE_SECS=900  # 60..1800-second watcher cadence and inactivity threshold; locked session start also requests an immediate scan in the deferred worker
-FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline; wedged-scan kill backstop follows one second later
+FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline, including budgets 1 and 2; bin/fm-inactive-reconcile.sh owns backlog budget allocation and cursor resume; wedged-scan kill backstop follows one second later
 FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch)
 FM_TASK_INBOX_GRACE_SECS=90   # steering-inbox delivery grace and minimum attempt spacing, local and remote; policy: bin/fm-task-inbox-lib.sh
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts before stale escalation, local and remote
-FM_TASK_INBOX_BUSY_MAX=2      # local-only consecutive busy-deferred due polls before a stuck-busy stale wake; 1..999999999, at most 9 decimal digits, otherwise 2; policy: bin/fm-task-inbox-lib.sh
-FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script
+FM_TASK_INBOX_BUSY_MAX=2      # busy-deferral budget; scope, bounds, and policy: bin/fm-task-inbox-lib.sh
+FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script; each timed-out custom-check run emits one wake as `check: <path>: timed out after <N>s (FM_CHECK_TIMEOUT)`, and each other run that exits nonzero emits one wake as `check: <path>: exited <code> after <N>s`, appending `: <output>` when present; exit-0 output wakes unchanged, with empty output silent
 FM_MAIL_CHECK_BUDGET=15   # seconds allowed for one standing mail poll; valid 5..25, cut to fit FM_CHECK_TIMEOUT
 FM_MAIL_POLL_MAX_WAKES=20   # per-poll wake cap for a mail poll; valid 1..200, keeps a flood from flooding firstmate
 FM_MAIL_TIMEOUT=20   # mail-plane IMAP/SMTP socket timeout in seconds; invalid or non-positive values become 20
@@ -2748,8 +2841,6 @@ FM_COMPOSER_CAPTURE_LINES=20   # fleet-wide bound for tail-capture composer read
 FM_COMPOSER_PI_MAX_LINES=8     # fleet-wide: maximum rows admitted between Pi's identity-corroborated separator pair; taller or ambiguous candidates stay unknown
 FM_COMPOSER_GHOST_LUMA_MAX=128   # fleet-wide: max perceived luminance (0.299R+0.587G+0.114B, 0-255) for a TRUECOLOR foreground to count as de-emphasised ghost/placeholder text and be stripped; dim/faint (SGR 2) is stripped regardless, and a screen whose backend identity is Command Code is read at a fixed 160 instead. Assumes a dark terminal theme (bin/fm-composer-lib.sh's fm_composer_strip_ghost, used by styled tmux, herdr, and Zellij reads). The default sits between the two populations it separates: harnesses draw their own de-emphasised composer furniture below it (opencode 1.19.0's mode footer at luminance 119.8 and its cwd row) and typed text above it. While it sits above the furniture the mode cells are stripped as ghost, so the footer's own identifying cells are gone from the ghost-stripped row and only the row's ANSI-stripped form still proves the footer - which is why the left-bar footer rule reads both forms and an idle opencode pane reads `empty` instead of the false `pending` that position produced - while dropping it under the furniture's luminance leaves those cells in the row and the footer then matches the left-bar footer rule in its stripped form too (still `empty`), and raising it over real typed text deletes typed text and reads as the false `empty` that authorizes typing into a live session; the measured luminances and the left-bar footer proof this threshold decides are in [runtime backend verification](verification/runtime-backends.md#2026-10-14-opencode-1190-de-emphasised-modefooter-row-in-the-left-bar-composer), so move it only against a fresh live capture
 GROK_HOME=              # optional Grok config home for firstmate's global grok turn-end hook; defaults to ~/.grok
-FM_SEND_RETRIES=3       # fm-send typed-plane Enter-retry attempts after typing the line once; agy typed targets use a longer per-harness default owned by bin/fm-send.sh
-FM_SEND_SLEEP=0.4       # seconds between fm-send typed-plane submit checks
 FM_SEND_SETTLE=1        # seconds fm-send waits after a successful typed-plane submit; 0 disables
 FM_PENDING_REPLY_GRACE_SECS=120   # seconds after the request turn completes without a correlated parent report before its one recovery repost is eligible, and after the recovery turn completes before the missed-report escalation is eligible; never counted from delivery
 # sub-supervisor (bin/fm-supervise-daemon.sh); presence-gated via /afk

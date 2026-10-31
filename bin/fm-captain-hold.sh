@@ -21,7 +21,9 @@
 #
 # Usage:
 #   fm-captain-hold.sh hold <task-id> --reason <reason> \
-#     [--title <title>] [--repo <repo>] [--origin <origin-id>] [--until YYYY-MM-DD]
+#     [--title <title>] [--repo <repo>] [--origin <origin-id>] \
+#     [--origin-kind <owner-request|finding|pipeline-outcome>] [--until YYYY-MM-DD] \
+#     [--release-on pr:<owner>/<repo>#<n> | --release-on marker:<absolute-path>]
 #   fm-captain-hold.sh answer <task-id> --decision-file <path> [--release]
 #   fm-captain-hold.sh answers [<legacy-origin> | --any-origin] --source <provenance>   (keyed answers on stdin)
 #   fm-captain-hold.sh reconcile-requests --source-id <source-id> --source <provenance>   (task ids on stdin)
@@ -50,7 +52,14 @@
 # hold preserves the existing timestamp, while re-holding released work starts
 # a new lifecycle. A task already closed is refused rather than reopened.
 # `--origin` also records the origin on a `Captain hold origin:` body line, which
-# `complete` and `verify` check. The reason may hold parentheses and line breaks:
+# `complete` and `verify` check. `--origin-kind` records the call's attribution -
+# `owner-request` (the owner's own message), `finding` (a firstmate or worker
+# finding), or `pipeline-outcome` (a delivery-pipeline outcome) - on its own
+# `Captain hold origin-kind:` body line. Supplied values replace recorded ones;
+# omitted origin and attribution fields preserve their recorded values, and a
+# refused backend hold restores both previous fields. Attribution is optional
+# metadata and no command gates on it. The reason may hold
+# parentheses and line breaks:
 # tasks-axi refuses them, so `hold` escapes them where it writes the reason and
 # readers decode them (bin/fm-hold-reason-lib.sh owns the encoding).
 # `--until` records the captain's own deferral date through `tasks-axi hold
@@ -234,6 +243,9 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 # shellcheck source=bin/fm-hold-reason-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-hold-reason-lib.sh"
+# shellcheck source=bin/fm-hold-release-lib.sh
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/fm-hold-release-lib.sh"
 # shellcheck source=bin/fm-parent-channel-lib.sh
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/fm-parent-channel-lib.sh"
@@ -355,9 +367,51 @@ tasks_axi() {
   backend=$(fm_tasks_axi_backend "$root") || return 2
   if [ "$backend" = markdown ]; then
     file=$(fm_backlog_file "$data") || fail "$FM_BACKLOG_TRANSITION_ERROR"
-    (cd "$root" && tasks-axi "$@" --file "$file")
+  fi
+  # Body writers already hold the task CONTROL lock from their command entry.
+  # Check its actual owner before reusing it; reacquiring a same-PID fm_lock
+  # would reclaim the parent's lock and admit a concurrent correction.
+  if [ "${1:-}" = update ]; then
+    local arg body_file='' bound_body='' current shown prior
+    local -a all_args=("$@")
+    for ((i=0; i<${#all_args[@]}; i++)); do
+      arg=${all_args[i]}
+      case "$arg" in
+        --body-file) body_file=${all_args[i+1]:-} ;;
+        --body-file=*) body_file=${arg#*=} ;;
+      esac
+    done
+    if [ -n "$body_file" ]; then
+      [ "$CAPTAIN_CONTROL_LOCK_HELD" = 1 ] || fail "body edit lacks task control ownership"
+      [ "$CAPTAIN_CONTROL_LOCK" = "$STATE/.control-$2.lock" ] || fail "body edit holds another task's control lock"
+      fm_current_pid current || fail "cannot verify task control owner"
+      [ "$(cat "$CAPTAIN_CONTROL_LOCK/pid" 2>/dev/null)" = "$current" ] || fail "task control lock is not owned by this process"
+      if [ "$backend" = markdown ]; then
+        shown=$(cd "$root" && tasks-axi show "$2" --full --file "$file") || fail "native body read failed"
+      else
+        shown=$(cd "$root" && tasks-axi show "$2" --full) || fail "native body read failed"
+      fi
+      prior=$(umask 077; mktemp "${TMPDIR:-/tmp}/fm-hold-prior.XXXXXX") || fail "cannot stage prior body"
+      printf '%s\n' "$shown" | "$SCRIPT_DIR/fm-request-acceptance.py" show-body --task-id "$2" > "$prior" || { rm -f "$prior"; fail "native body malformed"; }
+      "$SCRIPT_DIR/fm-request-acceptance.py" compare-section --body-file "$prior" --packet-file "$body_file" --task-id "$2" --home "$FM_HOME" || { rm -f "$prior"; fail "protected acceptance changed by captain body edit"; }
+      if [[ "$(cat "$prior")" == *'```Owner request acceptance v1'* ]]; then
+        bound_body=$body_file
+      fi
+      rm -f "$prior"
+    fi
+  fi
+  if [ "$backend" = markdown ]; then
+    (cd "$root" && tasks-axi "$@" --file "$file") || return $?
   else
-    (cd "$root" && tasks-axi "$@")
+    (cd "$root" && tasks-axi "$@") || return $?
+  fi
+  if [ -n "${bound_body:-}" ]; then
+    if [ "$backend" = markdown ]; then
+      shown=$(cd "$root" && tasks-axi show "$2" --full --file "$file") || fail "native body readback failed"
+    else
+      shown=$(cd "$root" && tasks-axi show "$2" --full) || fail "native body readback failed"
+    fi
+    printf '%s\n' "$shown" | "$SCRIPT_DIR/fm-request-acceptance.py" compare-show --body-file "$bound_body" --task-id "$2" --home "$FM_HOME" || fail "native captain body readback mismatch"
   fi
 }
 
@@ -385,6 +439,11 @@ task_show() {  # <id>; sets TASK_SHOW_OUTPUT
     printf 'fm-captain-hold: %s\n' \
       "${reason:-tasks-axi show $1 exceeded its backlog read bound}" >&2
     exit 124
+  fi
+  if [ "$status" -ne 0 ] && [ "${CAPTAIN_VERIFY_READ:-0}" = 1 ] \
+    && ! printf '%s\n' "$TASK_SHOW_OUTPUT" | grep -q '^code: NOT_FOUND$'; then
+    printf 'fm-captain-hold: could not read task %s for verification\n' "$1" >&2
+    exit 2
   fi
   return "$status"
 }
@@ -806,8 +865,13 @@ write_hold_set_stamp() {  # <task-id> <shown-body> <timestamp> <preserve-existin
 # The origin a hold was recorded for lives in the held task's own body, on a
 # line of its own, so `complete` can tell a call held for this origin from one
 # held for another. Omitting --origin leaves any existing association intact.
+# The origin-kind line beside it records the call's attribution class.
 body_hold_origin() {  # <decoded-task-body>
   printf '%s\n' "$1" | sed -n 's/^Captain hold origin: \(.*\)$/\1/p' | head -1
+}
+
+body_hold_origin_kind() {  # <decoded-task-body>
+  printf '%s\n' "$1" | sed -n 's/^Captain hold origin-kind: \(.*\)$/\1/p' | head -1
 }
 
 task_identity() {
@@ -821,18 +885,22 @@ task_identity() {
   printf '%s' "$id"
 }
 
-write_hold_origin() {  # <task-id> <shown-body> <origin-or-empty>
-  local id=$1 body=$2 origin=$3 stamp rest new_body tmp
+write_hold_origin() {  # <task-id> <shown-body> <origin-or-empty> [<origin-kind-or-empty>]
+  local id=$1 body=$2 origin=$3 origin_kind=${4:-} stamp rest new_body tmp
   body=$(decode_shown_value "$body") \
     || fail "could not decode the existing body for $id"
   stamp=$(printf '%s\n' "$body" | sed -n 1p)
   [ -n "$(body_hold_set_timestamp "$body")" ] \
     || fail "task $id lost its hold-set stamp before its origin was recorded"
-  rest=$(printf '%s\n' "$body" | sed 1d | awk '!/^Captain hold origin: /' \
+  rest=$(printf '%s\n' "$body" | sed 1d \
+    | awk '!/^Captain hold origin: / && !/^Captain hold origin-kind: /' \
     | awk 'NF || started { started = 1; print }')
   new_body=$stamp
   if [ -n "$origin" ]; then
-    new_body=$(printf '%s\nCaptain hold origin: %s' "$stamp" "$origin")
+    new_body=$(printf '%s\nCaptain hold origin: %s' "$new_body" "$origin")
+  fi
+  if [ -n "$origin_kind" ]; then
+    new_body=$(printf '%s\nCaptain hold origin-kind: %s' "$new_body" "$origin_kind")
   fi
   if [ -n "$rest" ]; then
     new_body=$(printf '%s\n\n%s' "$new_body" "$rest")
@@ -874,7 +942,7 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
   resolved=$(resolve_entry "$origin" "$entry") || resolve_status=$?
   if [ "$resolve_status" -ne 0 ]; then
     [ "$resolve_status" -ne 124 ] \
-      || fail "the backlog backend exceeded its read bound resolving $entry"
+      || printf 'fm-captain-hold: the backlog backend exceeded its read bound resolving %s\n' "$entry" >&2
     exit "$resolve_status"
   fi
   id=${resolved%% *}
@@ -901,9 +969,15 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
 }
 
 command_hold() {
-  local id=${1:-} title='' reason='' repo='' origin='' until='' show state existing_title body='' hold_kind hold_set occurrence
-  local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' hold_status=0
   [ "$#" -ge 1 ] || { usage >&2; exit 2; }
+  validate_slug task-id "${1:-}"
+  acquire_task_control_lock "$1"
+  fm_hold_release_with_lock "$STATE" "$1" command_hold_locked "$@"
+}
+
+command_hold_locked() {
+  local id=${1:-} title='' reason='' repo='' origin='' origin_kind='' until='' release_on='' show state existing_title body='' hold_kind hold_set occurrence
+  local existing_hold_kind='' existing_held='' preserve_hold_set=0 stored_reason previous_origin='' previous_origin_kind='' hold_status=0
   shift
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -911,30 +985,42 @@ command_hold() {
       --reason) shift; reason=${1:-} ;;
       --repo) shift; repo=${1:-} ;;
       --origin) shift; origin=${1:-} ;;
+      --origin-kind) shift; origin_kind=${1:-} ;;
       --until) shift; until=${1:-} ;;
+      --release-on) shift; release_on=${1:-} ;;
       *) usage >&2; exit 2 ;;
     esac
     shift
   done
-  validate_slug task-id "$id"
   [ -n "$reason" ] || fail "reason must not be empty"
   # bin/fm-hold-reason-lib.sh owns the storage constraint and reversible encoding.
-  stored_reason=$(fm_hold_reason_encode "$reason") || fail "could not encode the hold reason"
   if [ -n "$origin" ]; then
     validate_slug origin-id "$origin"
   fi
+  case "$origin_kind" in
+    ''|owner-request|finding|pipeline-outcome) : ;;
+    *) fail "--origin-kind must be owner-request, finding, or pipeline-outcome: $origin_kind" ;;
+  esac
   if [ -n "$until" ]; then
     case "$until" in
       [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) : ;;
       *) fail "--until must be a YYYY-MM-DD date: $until" ;;
     esac
   fi
+  # A captain hold may also name the external event that makes the question
+  # moot (the PR whose merge answers it, or an activation marker); the watcher
+  # evaluates it and wakes once when it is met. bin/fm-hold-release-lib.sh
+  # owns the condition syntax, the record, and the keyed decision.
+  if [ -n "$release_on" ]; then
+    release_on=$(fm_hold_release_valid "$release_on") \
+      || fail "--release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: $release_on"
+  fi
+  stored_reason=$(fm_hold_reason_encode "$reason" "$release_on") || fail "could not encode the hold reason"
   hold_set=${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
   case "$hold_set" in
     [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) : ;;
     *) fail "FM_CAPTAIN_HOLD_NOW must be a UTC YYYY-MM-DDTHH:MM:SSZ timestamp" ;;
   esac
-  acquire_task_control_lock "$id"
   require_tasks_axi
   if task_show "$id"; then
     show=$TASK_SHOW_OUTPUT
@@ -982,8 +1068,14 @@ command_hold() {
     || fail "task $id did not retain its hold-set stamp"
   if [ -n "$origin" ]; then
     origin=$(task_identity "$origin") || exit $?
+  fi
+  if [ -n "$origin" ] || [ -n "$origin_kind" ]; then
     previous_origin=$(body_hold_origin "$(show_field_value "$show" body)")
-    write_hold_origin "$id" "$(show_field "$show" body)" "$origin" || exit $?
+    previous_origin_kind=$(body_hold_origin_kind "$(show_field_value "$show" body)")
+    # Omitting --origin leaves any existing association intact, so an
+    # origin-kind write passes the preserved origin through, not an empty one.
+    write_hold_origin "$id" "$(show_field "$show" body)" \
+      "${origin:-$previous_origin}" "${origin_kind:-$previous_origin_kind}" || exit $?
   fi
   if [ -n "$until" ]; then
     tasks_axi hold "$id" --reason "$stored_reason" --kind captain --until "$until" >/dev/null \
@@ -994,9 +1086,10 @@ command_hold() {
   fi
   if [ "$hold_status" -ne 0 ]; then
     # A refused re-hold must not associate the previous hold or answer with a
-    # new origin. Restore the old line verbatim, without resolving it again.
-    if [ -n "$origin" ]; then
-      write_hold_origin "$id" "$(show_field "$show" body)" "$previous_origin" || exit $?
+    # new origin. Restore the old lines verbatim, without resolving them again.
+    if [ -n "$origin" ] || [ -n "$origin_kind" ]; then
+      write_hold_origin "$id" "$(show_field "$show" body)" \
+        "$previous_origin" "$previous_origin_kind" || exit $?
     fi
     fail "could not hold task $id for the captain"
   fi
@@ -1004,6 +1097,19 @@ command_hold() {
   show=$TASK_SHOW_OUTPUT
   hold_kind=$(show_field_value "$show" hold_kind)
   [ "$hold_kind" = captain ] || fail "task $id did not retain its captain hold"
+  if [ -n "$release_on" ]; then
+    fm_hold_release_record_write "$STATE" "$id" "$release_on" "$stored_reason" \
+      || fail "the captain hold was recorded but its release condition could not be stored; re-run the same hold to retry"
+  elif [ -e "$(fm_hold_release_record_path "$STATE" "$id")" ] \
+    || [ -L "$(fm_hold_release_record_path "$STATE" "$id")" ]; then
+    # A re-hold that no longer names a structured condition ends that
+    # lifecycle, the same way bin/fm-tasks-axi.sh does. The hold itself
+    # already succeeded, so a drop that fails is reported and the next
+    # evaluation sweep reconciles the leftover record.
+    fm_hold_release_record_drop "$STATE" "$id" \
+      "re-held without a structured release condition" \
+      || printf 'fm-captain-hold: warning: the hold was re-held but its stale release record could not be dropped\n' >&2
+  fi
   occurrence=$(( $(resolution_record_count "$(show_field "$show" body)") + 1 ))
   [ -n "$(body_hold_set_timestamp "$(show_field_value "$show" body)")" ] \
     || fail "task $id lost its hold-set stamp while being held"
@@ -1072,12 +1178,31 @@ apply_pending_retained_artifact() {  # <task-id>
   esac
 }
 
-close_answered() {  # <task-id> <release-0-or-1>
+close_answered() {
+  fm_hold_release_with_lock "$STATE" "$1" close_answered_locked "$@"
+}
+
+close_answered_locked() {
+  local close_rc=0
   if [ "$2" = 1 ]; then
-    tasks_axi unhold "$1" >/dev/null
+    # The close status must be carried explicitly: this function runs inside
+    # an `if !` caller, where errexit is disabled and a trailing block would
+    # otherwise mask a failed close.
+    tasks_axi unhold "$1" >/dev/null || close_rc=$?
   else
     apply_pending_retained_artifact "$1" || return 1
-    tasks_axi "done" "$1" "${RETAINED_CLOSE_ARGS[@]+"${RETAINED_CLOSE_ARGS[@]}"}" >/dev/null
+    tasks_axi "done" "$1" "${RETAINED_CLOSE_ARGS[@]+"${RETAINED_CLOSE_ARGS[@]}"}" >/dev/null \
+      || close_rc=$?
+  fi
+  [ "$close_rc" -eq 0 ] || return "$close_rc"
+  # Either close ends the hold lifecycle, so a release condition recorded for
+  # it ends too: drop the record and close any still-open hold-release
+  # decision now rather than at the next evaluation sweep. Best effort - the
+  # sweep reconciles a drop that failed - because the captain's answer itself
+  # already succeeded here.
+  if [ -e "$(fm_hold_release_record_path "$STATE" "$1")" ] \
+    || [ -L "$(fm_hold_release_record_path "$STATE" "$1")" ]; then
+    fm_hold_release_record_drop "$STATE" "$1" "captain call settled" || true
   fi
 }
 
@@ -1817,12 +1942,12 @@ EOF
 }
 
 command_verify() {
-  local origin=${1:-} meta reviewed keys entry key open resolved
+  local origin=${1:-} meta reviewed keys entry key open resolved CAPTAIN_VERIFY_READ=1
   [ "$#" -eq 1 ] || { usage >&2; exit 2; }
   validate_slug origin-id "$origin"
   meta="$STATE/$origin.meta"
   [ -f "$meta" ] || fail "origin metadata is absent: $meta"
-  require_tasks_axi
+  (require_tasks_axi) || return 2
   reviewed=$(meta_value "$meta" decisions_reviewed)
   [ "$reviewed" = 1 ] || fail "origin $origin has no completed captain-call inventory"
   keys=$(meta_value "$meta" decision_keys)

@@ -50,7 +50,7 @@ Handle it start to finish in one turn sequence:
 2. For each task you are about to mutate, claim its lease first: `bin/fm-lease.sh claim <task>`.
    Claim the reserved `backlog` lease around backlog writes (`bin/fm-lease.sh claim backlog`, then `bin/fm-tasks-axi.sh ...`, then release).
    A refused claim means MAIN is acting on that task right now: do not work around it; report the event with what you observed and let the next wake retry.
-3. Handle with real tools: `bin/fm-crew-state.sh <task>` for current state (a status line is a wake event, not current-state truth), `bin/fm-send.sh` for a short steer, `bin/fm-control.sh <task> interrupt|exit|relaunch` for lifecycle, `bin/fm-pr-check.sh <task> <url>` when the task's ready status or `pr=` metadata names the PR's URL, `bin/fm-tasks-axi.sh` for backlog moves, and `bin/fm-teardown.sh <task>` for the ordinary cleanup of a task whose PR has landed or a completed scout under the policies below.
+3. Handle with real tools: `bin/fm-crew-state.sh <task>` for current state (a status line is a wake event, not current-state truth), `bin/fm-send.sh` for a short steer, `bin/fm-control.sh <task> interrupt|exit|relaunch` for lifecycle, `bin/fm-pr-check.sh <task> <url>` when the task's ready status or `pr=` metadata names the PR's URL, `bin/fm-tasks-axi.sh` for backlog moves, and `bin/fm-teardown.sh <task>` for ordinary cleanup after accepted completion under the policies below.
 4. Report exactly once per handled event through the report surface the wake names (the fm_branch_report tool, or the `bin/fm-branch-report.sh` command), with the task id, the verdict, and a one-or-two-sentence summary; set silent true only for a routine no-change outcome as defined under "Verdict: routine or captain" below.
    Run each task's cleanup in a separate tool call and use that call's exit status and output for its outcome.
    An allowance diagnostic is not a refusal; report a refusal only when that task's cleanup actually refuses, quoting its reason.
@@ -66,13 +66,12 @@ Never report verdict captain merely to say the fleet is quiet; a no-op heartbeat
 For a stale, looping, confused, or unresponsive worker, follow the recovery playbook included at the end of this prompt.
 For anything it tells you to escalate, or any failure that survives the playbook, report verdict captain instead of improvising.
 
-A worker whose pull request has landed is finished, not stuck, and closing it is your job in both postures.
-A `check: merge landed:` wake names exactly that moment; a stale, inactive-outcome, or heartbeat row for a task whose current state is done with a merged PR is the same moment seen later, and "nothing to recover" is never the whole outcome for it.
-Claim the task's lease and run `bin/fm-teardown.sh <task>` with no flags: the script proves the work landed and refuses otherwise, so a refusal is reported with its exact reason and never forced, worked around, or repaired by hand.
-Report the cleanup in that event's outcome with the PR's URL.
+A `check: merge landed:` wake, an inactive worker with a merged PR, or a cleanup request requires the Ship landing policy included below.
+Apply its pending-proof exit or accepted-completion sequence under the task lease; merge alone does not authorize task completion.
+Report the observed acceptance or pending-proof release outcome with the PR's URL.
 
 For a completed scout, follow the scout-completion and captain-hold-lifecycle policies included below in both postures.
-After their completion gate passes, retain the report, claim the task's lease, and run `bin/fm-teardown.sh <task>` with no flags.
+After their completion gate passes, retain the report, record accepted completion with `bin/fm-tasks-axi.sh done <task> --report <durable report path>`, claim the task's lease, and run `bin/fm-teardown.sh <task>` with no flags.
 Report the findings and cleanup result in that event's outcome; a refusal is reported with its exact reason and never forced, worked around, or repaired by hand.
 Reporting a scout as finished and idle is not a substitute for that cleanup.
 Missing or incomplete reports, an unreviewed decision inventory or unrecorded captain calls, WIP ships, deliberate external waits, and idle or exited agents are not proof of task completion.
@@ -117,7 +116,7 @@ While the home is attended you never:
 - tear down over a refusal, force, stash, or discard anything - a teardown refusal is a stop-and-report result;
 - write to any project checkout or worktree;
 - talk to the captain, post publicly, or send anything outside this home's fleet.
-Ordinary teardown of a confirmed-landed ship or a completed scout, steering, lifecycle control, PR checks, and backlog status moves are yours, under the task's lease.
+Ordinary teardown of an accepted, landed ship or a completed scout, steering, lifecycle control, PR checks, and backlog status moves are yours, under the task's lease.
 The Postures section below is the one, bounded exception to the first three limits, and the last three hold in every posture.
 
 # Postures
@@ -173,3 +172,9 @@ cat <<'PROMPT'
 
 PROMPT
 cat "$FM_TRACKED_ROOT/.agents/skills/captain-hold-lifecycle/SKILL.md"
+cat <<'PROMPT'
+
+# Ship landing policy (verbatim copy of the tracked skill)
+
+PROMPT
+cat "$FM_TRACKED_ROOT/.agents/skills/ship-landing/SKILL.md"

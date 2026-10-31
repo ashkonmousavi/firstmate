@@ -8,6 +8,7 @@ CAPACITY="$ROOT/bin/fm-capacity.sh"
 mkdir -p "$TMP_ROOT/home/"{state,config,data} "$TMP_ROOT/mate/"{state,config,data}
 export FM_HOME="$TMP_ROOT/home" FM_CAPACITY_MEMINFO="$TMP_ROOT/meminfo"
 printf '5 3\n' > "$FM_HOME/config/lane-capacity"
+fm_test_machine_policy "$FM_HOME/config"
 printf 'MemTotal: 16777216 kB\nMemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
 printf -- '- mate - local (home: %s; scope: tests; projects: a; added 2026-09-01)\n' "$TMP_ROOT/mate" > "$FM_HOME/data/secondmates.md"
 for n in 1 2 3; do
@@ -51,6 +52,7 @@ assert_contains "$out" "$FM_CAPACITY_MEMINFO" 'reading named'
 pass 'memory reserve is fixed and refuses below zero headroom'
 for bad in '' '5' '5 -1' '5 3 extra' 'NaN 3'; do
   printf '%s\n' "$bad" > "$FM_HOME/config/lane-capacity"
+  fm_test_machine_policy "$FM_HOME/config"
   out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
   expect_code 75 "$rc" "invalid config: $bad"
   assert_contains "$out" "$FM_HOME/config/lane-capacity" 'bad file named'
@@ -59,6 +61,7 @@ rm "$FM_HOME/config/lane-capacity"
 bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
 expect_code 75 "$rc" 'missing declaration'
 printf '5 3\n' > "$FM_HOME/config/lane-capacity"
+fm_test_machine_policy "$FM_HOME/config"
 for bad in '' 'MemAvailable: nope kB' 'MemAvailable: 4 MB' $'MemAvailable: 4 kB\nMemAvailable: 8 kB'; do
   printf '%s\n' "$bad" > "$FM_CAPACITY_MEMINFO"
   bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
@@ -126,6 +129,7 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   mkdir -p "$TMP_ROOT/live/"{state,config,data} "$TMP_ROOT/empty-worktree"
   FM_HOME="$TMP_ROOT/live"
   printf '5 3\n' > "$TMP_ROOT/live/config/lane-capacity"
+  fm_test_machine_policy "$TMP_ROOT/live/config"
   fm_backend_agent_state() {
     case "$2" in
       live-*) printf alive ;;
@@ -146,6 +150,16 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   rm "$TMP_ROOT/live/state/live-5.meta"
   fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state" || fail 'four live workers should admit'
   expect_code 1 "$FM_CAPACITY_FREE" 'dead records leave one seat free'
+  for n in 1 2; do
+    fm_write_meta "$TMP_ROOT/live/state/rel-$n.meta" kind=ship "window=gone-$n" "worktree=$TMP_ROOT/live/state/rel-$n.released-copy"
+  done
+  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state" || fail 'released-copy records should not block admission'
+  expect_code 4 "$FM_CAPACITY_LANES" 'dead teardown-completed records with a released copy hold no seat'
+  fm_write_meta "$TMP_ROOT/live/state/liverel.meta" kind=ship "window=live-9" "worktree=$TMP_ROOT/live/state/liverel.released-copy"
+  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
+  expect_code 75 "$rc" 'a live released-copy record fills the fifth seat'
+  expect_code 5 "$FM_CAPACITY_LANES" 'a released-copy record whose agent is alive still holds its seat'
+  rm "$TMP_ROOT/live/state/liverel.meta" "$TMP_ROOT/live/state/rel-1.meta" "$TMP_ROOT/live/state/rel-2.meta"
   fm_write_meta "$TMP_ROOT/live/state/unknown.meta" kind=ship window=unknown "worktree=$TMP_ROOT/empty-worktree"
   fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
   expect_code 75 "$rc" 'unknown endpoint liveness holds a seat'
@@ -159,6 +173,7 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   FM_HOME="$TMP_ROOT/shell-home"
   export FM_HOME
   printf '5 3\n' > "$FM_HOME/config/lane-capacity"
+  fm_test_machine_policy "$FM_HOME/config"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_ROOT/fakebin/tmux"
   chmod +x "$TMP_ROOT/fakebin/tmux"
   mkfifo "$TMP_ROOT/shell-input" "$TMP_ROOT/shell-ready"
@@ -192,6 +207,7 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   fakebin=$(fm_test_make_spawn_fakebin "$case_dir/fake")
   fm_test_spawn_home "$relaunch_home" codex
   printf '1 0\n' > "$relaunch_home/config/lane-capacity"
+  fm_test_machine_policy "$relaunch_home/config"
   for task in capacity-a capacity-b; do
     fm_git_worktree "$case_dir/project-$task" "$case_dir/wt-$task" "wt-$task"
     fm_test_spawn_brief "$relaunch_home" "$task"
@@ -259,12 +275,13 @@ SH
 (
   mkdir -p "$TMP_ROOT/probe-home/"{state,config,data}
   printf '5 3\n' > "$TMP_ROOT/probe-home/config/lane-capacity"
+  fm_test_machine_policy "$TMP_ROOT/probe-home/config"
   fakebin=$(make_probes "$TMP_ROOT/high-probes" 99.50 9 8 1048576)
   out=$(PATH="$fakebin:$PATH" FM_HOME="$TMP_ROOT/probe-home" bash "$CAPACITY") || fail 'host probe report failed'
-  assert_contains "$out" 'free_lanes=5 reason=ok lanes=0 target=5' 'host load and disk probes are informational'
+  assert_contains "$out" 'free_lanes=5 reason=ok lanes=0 target=5' 'host load is informational; disk satisfies its separate floor'
   assert_contains "$out" 'load1=99.50 cores=8 mem_free_pct=9 disk_free_mb=1024' 'upstream host fields are retained'
   fakebin=$(make_probes "$TMP_ROOT/unknown-probes" '' '' '' '')
-  out=$(PATH="$fakebin:$PATH" FM_HOME="$TMP_ROOT/probe-home" bash "$CAPACITY") || fail 'unknown optional probes blocked admission'
+  out=$(PATH="$fakebin:$PATH" FM_HOME="$TMP_ROOT/probe-home" bash "$CAPACITY") || fail 'optional display probes blocked independent resource reader'
   assert_contains "$out" 'load1=unknown cores=unknown mem_free_pct=unknown disk_free_mb=unknown' 'missing optional probes stay explicit'
   pass 'upstream host probes remain visible and never replace shared admission facts'
 ) || exit 1
@@ -280,6 +297,7 @@ test_cgroup_memory() {
   export FM_HOME FM_CAPACITY_MEMINFO FM_CAPACITY_CGROUP_FILE FM_CAPACITY_CGROUP_ROOT
   mkdir -p "$FM_HOME/"{config,state,data} "$FM_CAPACITY_CGROUP_ROOT/crew/lane"
   printf '5 4\n' > "$FM_HOME/config/lane-capacity"
+  fm_test_machine_policy "$FM_HOME/config"
   printf '0::/crew/lane\n' > "$FM_CAPACITY_CGROUP_FILE"
   printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
   printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
@@ -371,3 +389,41 @@ test_cgroup_memory() {
   pass 'root cgroup fallback and unreadable limit/statistics behave safely'
 }
 test_cgroup_memory || exit 1
+
+test_resource_policy() {
+  local FM_HOME="$TMP_ROOT/resource-home" FM_CAPACITY_MEMINFO="$TMP_ROOT/resource-memory"
+  local FM_CAPACITY_PRESSURE_FILE="$TMP_ROOT/resource-pressure" out rc
+  export FM_HOME FM_CAPACITY_MEMINFO FM_CAPACITY_PRESSURE_FILE
+  mkdir -p "$FM_HOME/"{config,state,data}
+  printf '5 2\n' > "$FM_HOME/config/lane-capacity"
+  fm_test_machine_policy "$FM_HOME/config"
+  printf 'MemAvailable: 8388608 kB\n' > "$FM_CAPACITY_MEMINFO"
+  printf 'full avg10=0.00 avg60=5.00 avg300=0.00 total=0\n' > "$FM_CAPACITY_PRESSURE_FILE"
+  jq -n --arg path "$TMP_ROOT" '{schema:"fm-machine-admission.v1",memory_floor_gib:1.5,memory_full_avg60_max:5,disk_floor_gib:0,disk_paths:[$path]}' > "$FM_HOME/config/machine-admission.json"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'pressure threshold refuses direct shared admission'
+  assert_contains "$out" 'reason=pressure' 'pressure is not a parser error'
+  printf 'full avg10=0.00 avg60=4.99 avg300=0.00 total=0\n' > "$FM_CAPACITY_PRESSURE_FILE"
+  out=$(bash "$CAPACITY" --json) || fail 'below pressure threshold should be readable'
+  jq -e '.reason == "ok" and .memory_floor_kb == 1572864 and .reserve_kb == 2097152 and (.resource_policy_sha256 | length == 64)' <<< "$out" >/dev/null || fail 'floor and reserve must stay independent'
+  printf 'MemAvailable: 2000000 kB\n' > "$FM_CAPACITY_MEMINFO"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'above floor but below reserve still refuses'
+  printf 'MemAvailable: 8388608 kB\n' > "$FM_CAPACITY_MEMINFO"
+  jq '.disk_floor_gib=999999' "$FM_HOME/config/machine-admission.json" > "$TMP_ROOT/policy-next"
+  mv "$TMP_ROOT/policy-next" "$FM_HOME/config/machine-admission.json"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'real measured disk below configured floor refuses'
+  assert_contains "$out" 'reason=disk' 'disk refusal is named'
+  rm "$FM_HOME/config/machine-admission.json"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'missing numeric policy refuses'
+  assert_contains "$out" 'machine-admission.json' 'missing policy named'
+  for malformed in '{}' '{"schema":"wrong"}' '{"memory_full_avg60_max":101}' 'not-json'; do
+    printf '%s\n' "$malformed" > "$FM_HOME/config/machine-admission.json"
+    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+    expect_code 75 "$rc" 'malformed numeric policy refuses'
+  done
+  pass 'shared admission enforces numeric policy without confusing floor and reserve'
+}
+test_resource_policy || exit 1

@@ -335,6 +335,11 @@ test_composer_footer_zone_claude_slash_popup() {
   composer=$'transcript line\n\n'"$rule"$'\n❯'"$NBSP"$'/exit\n'"$rule"
   popup=$'\n  ❯ /exit                    Exit the CLI'
   popup+=$'\n    /context                 Visualize current context usage as a colored grid'
+  # Claude 2.1.314's recorded /exit popup includes a single-space MCP label.
+  # Extraction must still return only the typed command, including when the
+  # annotated entry's description wraps at its own (wider) column.
+  popup+=$'\n    /higgsfield:reset-credits (MCP)              Open the Credit Reset offer. Does not claim credits or change the'
+  popup+=$'\n                                                 subscription.'
   popup+=$'\n    /usage-credits           Configure usage credits or request them from your admin when you'
   popup+=$'\n                             hit a limit'
   popup+=$'\n    /quiet                   Enter quiet supervision mode when the captain invokes /quiet or'
@@ -356,6 +361,10 @@ test_composer_footer_zone_claude_slash_popup() {
   screen="$composer"$'\n❯ /fix the  login bug'
   out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
   [ "$out" != /exit ] || fail "a live composer below the envelope must keep winning, got '$out'"
+  # The MCP annotation does not permit arbitrary single-space descriptions.
+  screen="$composer"$'\n  ❯ /exit Exit the CLI'
+  out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
+  [ "$out" != /exit ] || fail "a single-space description must not count as popup furniture, got '$out'"
   # A wrapped description is accepted only at the description column.
   screen="$composer"$'\n  ❯ /exit                    Exit the CLI\n                          hit a limit'
   out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
@@ -1094,6 +1103,32 @@ test_matrix_grok_weekly_limit_border() {
   pass "matrix: grok weekly-limit border preserves empty, pending, and unknown verdicts"
 }
 
+test_matrix_grok_always_approve_border_from_capture() {
+  # Captured idle Grok pane whose bottom title is "Grok 4.7 (high) · always-approve"
+  # with no weekly-limit prefix. The middle dot used to fail the width proof,
+  # so the box read unknown and exit refused a visibly empty composer.
+  local screen typed malformed clipped caps pad
+  screen=$(cat "$ROOT/tests/captures/grok-idle-always-approve.txt")
+  pad=$(printf '%15s' '')
+  typed=$(printf '%s\n' "$screen" | awk -v pad="$pad" 'NR==37 { sub("❯" pad, "❯ deploy the fix") } { print }')
+  malformed=$(printf '%s\n' "$screen" | awk 'NR==38 { sub(/Grok 4\.7 \(high\)/, "Grok ??? (high)") } { print }')
+  clipped=$(printf '%s\n' "$screen" | awk 'NR>=36 && NR<=38 { sub(/.$/, "") } { print }')
+  for caps in "$CAPS_TMUX" "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+    if [ "$caps" = "$CAPS_TMUX" ]; then
+      assert_screen "grok always-approve capture" empty "$caps" "$screen" 36
+      assert_screen "grok always-approve typed capture" pending "$caps" "$typed" 36
+      assert_screen "grok always-approve malformed title" unknown "$caps" "$malformed" 36
+      assert_screen "grok always-approve clipped box" unknown "$caps" "$clipped" 36
+    else
+      assert_screen "grok always-approve capture" empty "$caps" "$screen"
+      assert_screen "grok always-approve typed capture" pending "$caps" "$typed"
+      assert_screen "grok always-approve malformed title" unknown "$caps" "$malformed"
+      assert_screen "grok always-approve clipped box" unknown "$caps" "$clipped"
+    fi
+  done
+  pass "matrix: grok always-approve capture is empty only when the prompt row is the sole content"
+}
+
 test_matrix_claude_titled_top_rule() {
   # A named Claude Code session draws its title into the composer's TOP rule
   # (issues #5601 and #5558; observed on herdr as
@@ -1147,6 +1182,35 @@ test_matrix_claude_titled_top_rule() {
   pass "matrix: claude's titled top rule proves an idle composer empty and a draft pending (#5601, #5558)"
 }
 
+test_matrix_claude_titled_wrapped_ghost_suggestion() {
+  # Claude Code draws its next-prompt suggestion as SGR-2 ghost text in an
+  # empty composer (https://code.claude.com/docs/en/interactive-mode, "Prompt
+  # suggestions"). A suggestion longer than the pane wraps onto a second row,
+  # so the titled composer spans more than one row while nothing was typed.
+  local rule title top bottom footer claude_idle ghost1 ghost2 wrapped bright
+  claude_idle=$(printf 'claude\tidle')
+  rule='────────────────────────────────────────────────────────────'
+  title=' Firstmate operational input 1793350000 '
+  top="${rule}───${title}─"
+  bottom="${rule}────────────────────────────────────────────"
+  footer='  ⏵⏵ bypass permissions on (shift+tab to cycle)'
+  ghost1="${ESC}[2mOpen the PR for fm/x-j16-source-off-oracle once the merge line drops${ESC}[0m"
+  ghost2="${ESC}[2mbelow 8 and confirm CI is green${ESC}[0m"
+  wrapped="$top"$'\n❯'"$NBSP$ghost1"$'\n  '"$ghost2"$'\n'"$bottom"$'\n'"$footer"
+  assert_screen "titled claude wrapped ghost suggestion on herdr" empty "$CAPS_STYLED" "$wrapped" '' "$claude_idle"
+  # Without styling the ghost cannot be told from typed text: still a refusal.
+  assert_screen "titled claude wrapped ghost suggestion on plain herdr" unknown \
+    'styled=0
+cursor=0
+identity=1' "$wrapped" '' "$claude_idle"
+  # A real draft that wraps, or opens with a newline, still reads pending.
+  bright="$top"$'\n❯'"$NBSP$ghost1"$'\n  typed second line\n'"$bottom"$'\n'"$footer"
+  assert_screen "titled claude ghost row over a typed row" pending "$CAPS_STYLED" "$bright" '' "$claude_idle"
+  bright="$top"$'\n❯'"$NBSP"$'\n  draft that opened with a newline\n'"$bottom"$'\n'"$footer"
+  assert_screen "titled claude draft opening with a newline" pending "$CAPS_STYLED" "$bright" '' "$claude_idle"
+  pass "matrix: a wrapped ghost suggestion in claude's titled composer reads empty while wrapped drafts stay pending"
+}
+
 test_matrix_kimi_bordered_shell_glyph_box() {
   # Kimi's bordered `│ > │` composer - the shape fm-spawn.sh's retired
   # spawn-local regex used to own. Now the shared owner proves it everywhere,
@@ -1157,6 +1221,30 @@ test_matrix_kimi_bordered_shell_glyph_box() {
   assert_screen "kimi idle on cmux/orca" empty "$CAPS_PLAIN" "$screen"
   assert_screen "kimi idle on herdr" empty "$CAPS_STYLED" "$screen"
   assert_screen "kimi idle on zellij" empty "$CAPS_STYLED_NOID" "$screen"
+  local footer caps draft out usage line rule own
+  draft=$'╭────────────────────────╮\n│ > human draft          │\n╰────────────────────────╯'
+  line=": Firstmate instruction waiting in 't1.inbox' steering inbox, read and act"
+  printf -v rule '%080d' 0
+  rule=${rule//0/─}
+  own=$(printf '╭%s╮\n│ > %-77s│\n╰%s╯' "$rule" "$line" "$rule")
+  for caps in "$CAPS_PLAIN" "$CAPS_STYLED" "$CAPS_STYLED_NOID"; do
+    for usage in '0% (0/977k)' '1% (1.5k/977k)' '67% (1k/1.5k)' '96% (977k/1M)' '67% (1M/1.5M)' '75% (1.5M/2M)' '100% (999/999)'; do
+      printf -v footer '\n Never Ask  Kimi K3  …/worktrees/review  /theme to switch the terminal UI theme\n context: %s\n' "$usage"
+      assert_screen "kimi footer $usage preserves idle box" empty "$caps" "$screen$footer"
+      assert_screen "kimi footer $usage preserves typed box" pending "$caps" "$draft$footer"
+      out=$(fm_composer_extract_selected_content "$caps" "$draft$footer")
+      [ "$out" = 'human draft' ] || fail "kimi footer $usage obscured the draft: $out"
+      out=$(fm_composer_extract_selected_content "$caps" "$own$footer") || fail "kimi footer $usage hid the own doorbell"
+      [ "$out" = "$line" ] || fail "kimi footer $usage changed the own doorbell"
+      fm_composer_text_is_own_doorbell "$out" "$line" || fail "kimi footer $usage blocked doorbell ownership"
+      assert_screen "kimi footer cannot hide contiguous activity" unknown "$caps" "$screen${footer}Working on request..."
+    done
+    for usage in '1% (1..5k/977k)' '1% (1.5k/9..7M)' '1% (draft/977k)' '1% (1.5k/draft)'; do
+      printf -v footer '\n Never Ask  Kimi K3  …/worktrees/review  /theme to switch the terminal UI theme\n context: %s\n' "$usage"
+      assert_screen "malformed kimi footer $usage remains unclaimed activity" unknown "$caps" "$screen$footer"
+    done
+  done
+  pass "kimi formatter counts preserve composer extraction and doorbell ownership in plain and styled captures"
   pass "matrix: kimi's bordered shell-glyph box reads empty through the shared owner (spawn's fourth copy retired)"
 }
 
@@ -1403,7 +1491,9 @@ test_matrix_opencode_leftbar_cwd_furniture
 test_matrix_opencode_leftbar_abs_cwd_furniture
 test_matrix_grok_titled_bottom_border
 test_matrix_grok_weekly_limit_border
+test_matrix_grok_always_approve_border_from_capture
 test_matrix_claude_titled_top_rule
+test_matrix_claude_titled_wrapped_ghost_suggestion
 test_matrix_kimi_bordered_shell_glyph_box
 test_matrix_claude_inside_zellij_ansi_dump
 test_strict_blank_row_divergence
@@ -1603,3 +1693,101 @@ test_background_exit_picker_stays_pending_and_blocks_retry
 test_dialog_heading_and_footer_must_be_the_recorded_lines
 test_dialog_note_skips_the_match_when_no_sink_is_set
 test_quoted_exit_picker_text_is_not_a_dialog
+
+test_composerless_capture_is_unknown_not_pending() {
+  local fill screen caps reason
+  fill=$(for i in $(seq 1 40); do printf '  ⎿  tool output line %s\n' "$i"; done)
+  for screen in "$fill" $'❯ old prompt\n\n$' $'╭────────────────────────╮\n│ unfinished composer'; do
+    for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+      assert_screen "no selected composer" unknown "$caps" "$screen" '' $'claude\tidle'
+      reason=$(fm_composer_none_reason "$caps" "$screen")
+      [ "$reason" = no-composer ] || fail "an unselectable composer must name no-composer, got '$reason'"
+      reason=$(LC_ALL=C fm_composer_none_reason "$caps" "$screen")
+      [ "$reason" = no-composer ] || fail "an unselectable composer must name no-composer under LC_ALL=C"
+    done
+  done
+  screen="$fill"$'\n────────────────────────\n❯'"$NBSP"$'\n────────────────────────\n  bypass permissions'
+  assert_screen "idle composer under long output" empty "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+  reason=$(fm_composer_none_reason "$CAPS_STYLED" "$screen")
+  [ -z "$reason" ] || fail "a located composer must name no reason, got '$reason'"
+  screen="$fill"$'\n────────────────────────\n❯ half typed\n────────────────────────\n  bypass permissions'
+  assert_screen "typed composer under long output" pending "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+  pass "fm_composer_classify_screen: no composer selected yields unknown with a distinct reason in both locales"
+}
+
+test_composerless_capture_is_unknown_not_pending
+
+test_long_composer_input_remains_selectable() {
+  local kind count i screen expected caps reason
+  for kind in bare titled leftbar box; do
+    for count in 28 40; do
+      screen=''
+      expected=''
+      case "$kind" in
+        bare) screen='❯ draft' ;;
+        titled) screen=$'──────── Claude ────────\n❯ draft' ;;
+        leftbar) screen='┃ draft' ;;
+        box) screen=$'╭────────────────────────╮\n│ ❯ draft                │' ;;
+      esac
+      expected=draft
+      for i in $(seq 1 "$count"); do
+        case "$kind" in
+          bare|titled) screen+=$'\n'"  continuation $i" ;;
+          leftbar) screen+=$'\n'"┃ continuation $i" ;;
+          box) screen+=$'\n'"│ continuation $(printf '%02d' "$i")        │" ;;
+        esac
+        case "$kind" in
+          box) expected+=" continuation $(printf '%02d' "$i")" ;;
+          *) expected+=" continuation $i" ;;
+        esac
+      done
+      case "$kind" in
+        titled) screen+=$'\n────────────────────────' ;;
+        leftbar) screen+=$'\n╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀' ;;
+        box) screen+=$'\n╰────────────────────────╯' ;;
+      esac
+      for caps in "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+        if [ "$caps" = "$CAPS_PLAIN" ] && [ "$kind" != box ]; then
+          assert_screen "$kind long draft on plain capture" unknown "$caps" "$screen"
+        else
+          assert_screen "$kind long draft with $count continuation rows" pending "$caps" "$screen"
+        fi
+        reason=$(fm_composer_none_reason "$caps" "$screen")
+        [ -z "$reason" ] || fail "$kind long draft was rejected as $reason"
+        reason=$(fm_composer_extract_selected_content "$caps" "$screen") \
+          || fail "$kind long draft could not be extracted"
+        [ "$reason" = "$expected" ] || fail "$kind long draft lost input: '$reason'"
+        reason=$(LC_ALL=C fm_composer_extract_selected_content "$caps" "$screen") \
+          || fail "$kind long draft could not be extracted under LC_ALL=C"
+        [ "$reason" = "$expected" ] || fail "$kind long draft lost input under LC_ALL=C"
+      done
+    done
+  done
+  pass "long wrapped input remains selectable and extractable across composer shapes"
+}
+
+test_long_composer_input_remains_selectable
+
+test_doorbell_comparison_preserves_literal_stop_hints() {
+  local line=": Firstmate instruction waiting in 't1.inbox' steering inbox, read and act" prefix draft held screen
+  prefix=${line% and act}
+  for draft in "$line" "$prefix"; do
+    fm_composer_text_is_own_doorbell_partial "$draft" "$line" || fail "an own doorbell or its visible prefix must match"
+  done
+  fm_composer_text_is_own_doorbell "$line" "$line" || fail "the exact own doorbell must match"
+  for draft in "$line ctrl+c to stop" "ctrl+c to stop $line" "${line/steering/ctrl+c to stop steering}" "$prefix ctrl+c to stop"; do
+    fm_composer_text_is_own_doorbell "$draft" "$line" && fail "literal stop-hint bytes are foreign input"
+    fm_composer_text_is_own_doorbell_partial "$draft" "$line" && fail "literal stop-hint bytes cannot turn a foreign draft into an own prefix"
+    screen=$(printf '────────────────────────\n❯ %s\n────────────────────────\n' "$draft")
+    held=$(fm_composer_extract_selected_content styled=1 "$screen") || fail "could not read the Claude draft"
+    [ "$held" = "$draft" ] || fail "extracting a Claude draft removed literal bytes"
+  done
+  for draft in "$line" "$line ctrl+c to stop"; do
+    screen=$(printf ' ▄▄▄▄▄▄▄▄\n  → %s\033[2m ctrl+c to stop\033[0m\n ▀▀▀▀▀▀▀▀\n' "$draft")
+    held=$(fm_composer_extract_selected_content styled=1 "$screen") || fail "could not read the Cursor draft"
+    [ "$held" = "$draft" ] || fail "only styled Cursor furniture may disappear"
+  done
+  pass "doorbell comparison preserves literal stop-hint bytes while extraction removes styled Cursor furniture"
+}
+
+test_doorbell_comparison_preserves_literal_stop_hints

@@ -1,12 +1,12 @@
 # Secondmate parent channel
 
-This note records why a secondmate home's captain-facing outcomes are delivered by scripts instead of by the mate model, and which script delivers each one.
+This note records why a secondmate home's shared-fleet outcomes are delivered by scripts instead of by the mate model, and which script delivers each one.
 `bin/fm-parent-channel-lib.sh` owns the channel contract: where the channel lives, how a line is appended, and the return codes every publisher shares.
 [`remote-secondmates.md`](remote-secondmates.md) owns the transport that carries the remote form of the channel back to the parent.
 
 ## The problem
 
-A secondmate is a firstmate in its own home, and nobody reads its chat: the captain and the main firstmate see only what is appended to the parent channel.
+For MAIN-routed work, chat alone does not reach the parent; [`bin/fm-brief.sh`](../bin/fm-brief.sh)'s generated charter owns the distinction between marked parent requests and direct captain conversation.
 On 2026-09-02 four outcomes across two mate homes never reached the captain.
 The watcher had delivered the parent's request within a minute each time, the mate did the work, and then the mate addressed "captain" in its own chat instead of appending to the channel.
 The cause is structural rather than a one-off lapse: the mate can satisfy the [address rule in `AGENTS.md`](../AGENTS.md#firstmate) in local chat while missing the charter's later return-channel instruction.
@@ -18,7 +18,7 @@ The design goal is therefore: the parent channel must not depend on the model re
 ## The design
 
 The delivery rule has one sentence: the scripts report facts, the mate reports judgement.
-Every captain-facing outcome that leaves durable evidence in the mate home is published on the channel by the script that records that evidence, at record time or on the next supervision poll, and the charter reserves the mate's own appends for judgement.
+Every shared-fleet outcome that leaves durable evidence in the mate home is published on the channel by the script that records that evidence, at record time or on the next supervision poll, and the charter reserves the mate's own appends for judgement.
 
 | Outcome | Durable evidence in the mate home | Published by |
 |---|---|---|
@@ -41,6 +41,10 @@ Other correlated mate-home status lines remain wrong-home evidence, while a remo
 The mate home's own status scans treat that remote channel the same way: `status_scan_parent_channel_exclude` in `bin/fm-classify-lib.sh` resolves the outbound path through the same `bin/fm-parent-channel-lib.sh` binding, and the watcher's signal scan and heartbeat backstop, the away-mode daemon's catch-all scan, and the fleet-wide folds skip exactly that resolved path, never a file name.
 The remote reply adapter already mirrors every channel line into the parent home, so folding the channel again here would only spin spurious wakes and a phantom `parent-replies` task, while a `parent-replies.status` in a main home or in a local mate is an ordinary task log that keeps folding and waking.
 A missed-reply escalation includes the complete first sighting path and line number in readable shell-escaped form.
+The channel also carries one typed request a mate script emits rather than an outcome: a walk request written by `bin/fm-walk-request.sh`, read and dispatched by the dispatcher-owning home's registered check (`bin/fm-walk-request-check.sh`), whose carrier header owns the line format.
+For no-reply steers, [`fm-send.sh`](../bin/fm-send.sh) owns the choice between `--one-way` and fire-and-forget delivery.
+An existing correlation is closed by the recipient with [`fm-pending-reply-ack-handled.sh`](../bin/fm-pending-reply-ack-handled.sh).
+Stale superseded records use [`fm-pending-reply-retire-stale.sh`](../bin/fm-pending-reply-retire-stale.sh); that script's header owns the age and superseded rules.
 
 ## What is deliberately not built
 
@@ -56,6 +60,8 @@ A missed-reply escalation includes the complete first sighting path and line num
 `tests/fm-pr-merge.test.sh` covers the PR-ready line at registration and the merge outcome's upward report.
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
+`tests/fm-pending-reply-ack-handled.test.sh` covers the recipient acknowledgement closing one correlation while another stays open.
+`tests/fm-pending-reply-retire-stale.test.sh` covers retirement strictly after 24 hours for records superseded by a confirmed-delivery successor or a gone task, retained records and retirement notes, and the refusal to retire unsuperseded unanswered records.
 `tests/fm-pending-reply.test.sh` covers helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
 `tests/fm-parent-channel-scan-exclusion.test.sh` covers the home-shape-aware scan exclusion against real remote, main-home, and local-mate fixtures: the watcher signal scan, both heartbeat backstops, the fleet-wide folds, and the real `fm-wake-drain.sh` end to end.
 

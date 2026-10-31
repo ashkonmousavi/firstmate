@@ -78,12 +78,10 @@
 #   ADOPTED as-is, while an endpoint PROVEN gone is RE-CREATED in the recorded
 #   worktree and the republished record rebinds the task to it. That proof is
 #   its own step, because a backend's `missing` also covers an endpoint that is
-#   merely unreachable from here - and it is only available on HERDR, which must
-#   still read the recorded pane as gone once that session's server is running
-#   again. A tmux `missing` always refuses: a task record carries no socket
-#   identity for its endpoint, so no read here can tell a destroyed window from
-#   one on a tmux server this process cannot address. An endpoint that turns out
-#   to have survived refuses too. The worktree is reused untouched either way; a
+#   merely unreachable from here. fm_control_endpoint_absence_verdict owns
+#   Herdr's session recheck and tmux's prior-boot generation proof. Unproven
+#   absence and an endpoint that turns out to have survived both refuse.
+#   The worktree is reused untouched either way; a
 #   rebind is a recovery, never a teardown. Only a crewmate or scout rebinds: a
 #   secondmate whose endpoint is gone is respawned by its own owner
 #   (`--secondmate`, driven by the session-start liveness sweep).
@@ -366,6 +364,10 @@
 #   compact-adviser kill switch COMPACT_ADVISER_DISABLE, which the floor also
 #   pins to 1 with a literal assignment so it survives the cleared environment
 #   even on a host that never had it set.
+#   CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 and CLAUDE_CODE_DISABLE_AGENT_VIEW=1
+#   are also literal assignments at this boundary and exports before the whole
+#   launch expression, so fallbacks inherit both safeguards. Leading raw
+#   assignments that disable either switch refuse before launch.
 #   An enabled task trace also retains TRACEPARENT. Explicit Firstmate launch
 #   assignments still apply inside the filtered environment, including the
 #   FM_TASK_INBOX export every launch carries (the absolute state/<id>.inbox
@@ -420,8 +422,8 @@
 #   and its operator contract. Resolve it with bin/fm-exclude-tools-lib.sh
 #   before provisioning; __PIEXCLUDE__ below owns the Pi launch substitution.
 # Worker account pin (config/claude-account, config/pi-account):
-#   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
-#   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
+#   Opt-in. With no file, canonical Claude launches still receive this
+#   process's own CLAUDE_CONFIG_DIR when it is set, and Pi retains the
 #   destination pane's ambient account. A present file pins every launch of
 #   that runner from this home - ship, scout, local secondmate, raw Claude
 #   command, and relaunch - to the declared account root, and the spawn
@@ -2143,18 +2145,8 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # endpoint was DESTROYED" with "the endpoint is UNREACHABLE from here right
   # now", and an unreachable endpoint can still hold the live agent this
   # relaunch would duplicate. So absence is PROVEN before it may rebind, never
-  # inferred from a failed read - and only HERDR can prove it:
-  #   herdr - the recorded session's server is started, and the recorded pane is
-  #           RE-READ through that session's own socket. `dead` means the pane
-  #           survived the restart and is adopted after all; `alive` means the
-  #           agent came back and refuses; only a second `missing` proves the
-  #           pane itself did not survive.
-  #   tmux  - REFUSES, always. A task record carries no socket identity for its
-  #           endpoint, and a server-wide inventory describes only the server
-  #           this process addresses, so no read available here can tell "gone"
-  #           from "on a server I cannot see". A tmux `missing` therefore stays
-  #           as deadlocked as it was before this change - deliberately, and
-  #           with the reason stated rather than guessed past.
+  # inferred from a failed read. fm_control_endpoint_absence_verdict owns
+  # the per-backend proof, including the recorded generation's reboot evidence.
   # Every transient or self-contradicting read stays `unreadable`/`ambiguous`
   # and refuses as it always did (bin/fm-backend.sh's fm_backend_agent_state
   # owns that vocabulary). The proof itself lives in one place for the whole
@@ -2162,7 +2154,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # `relaunch` cannot reach two different answers about one endpoint.
   RELAUNCH_STATE=$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")
   if [ "$RELAUNCH_STATE" = missing ]; then
-    RELAUNCH_ABSENCE=$(fm_control_endpoint_absence_verdict "$BACKEND" "$RELAUNCH_TARGET")
+    RELAUNCH_ABSENCE=$(fm_control_endpoint_absence_verdict "$BACKEND" "$RELAUNCH_TARGET" "$RELAUNCH_META")
     case "${RELAUNCH_ABSENCE%%$'\t'*}" in
       gone) RELAUNCH_STATE=missing ;;
       dead) RELAUNCH_STATE=dead ;;
@@ -2418,6 +2410,18 @@ launch_template() {
   # busy hooks share that value, in state/<id>.claude-settings.json, and the
   # file also carries feedbackDrafts and attribution so those session keys
   # stay in force.
+  # Claude Code's /exit can offer to hand off a session with background work
+  # (subagents, background shells, workflows, monitors), leaving a
+  # background session ("Moving to background... backgrounded <id>") that keeps
+  # running outside every lane and every pane
+  # (https://code.claude.com/docs/en/agent-view.md). Two switches, both in the
+  # per-launch environment so every home inherits them and the captain's global
+  # settings stay untouched: CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 makes /exit
+  # stop that background work with the process, and CLAUDE_CODE_DISABLE_AGENT_VIEW=1
+  # (the disableAgentView setting's env form) turns background agents off
+  # entirely (`claude agents`, `--bg`, /background, the daemon). Both names were
+  # confirmed in claude 2.1.312. bin/fm-control.sh exit is the verb-side
+  # backstop for sessions that predate or escape these switches.
   # __CLAUDEPERMFLAG__ is the permission flag config/claude-permission-mode
   # selects (header above): --dangerously-skip-permissions by default, or
   # --permission-mode auto for a captain who refuses bypass mode.
@@ -2702,14 +2706,9 @@ case "$ARG3" in
 *' '*) # raw launch command (unverified-adapter escape hatch)
   RAW_LAUNCH=1
   LAUNCH=$ARG3
-  HARNESS=""
-  for word in $LAUNCH; do
-    case "$word" in [A-Za-z_]*=*) continue ;; *)
-      HARNESS=$(basename "$word")
-      break
-      ;;
-    esac
-  done
+  RAW_PROFILE=$(fm_worker_account_raw_profile "$LAUNCH" "${CLAUDE_CONFIG_DIR:-}") || exit 1
+  HARNESS=${RAW_PROFILE%%$'\t'*}
+  RAW_CLAUDE_ROOT=${RAW_PROFILE#*$'\t'}
   ;;
 '')
   # No explicit harness: resolve from config. A secondmate AGENT launches on the
@@ -2925,14 +2924,22 @@ RAW_COMMAND=
 [ "$RAW_LAUNCH" = 0 ] || RAW_COMMAND=$ARG3
 WORKER_ACCOUNT_MATE=
 [ "$KIND" != secondmate ] || WORKER_ACCOUNT_MATE=$ID
-WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
+WORKER_ACCOUNT_HARNESS=$(fm_control_harness_family "$HARNESS") || WORKER_ACCOUNT_HARNESS=$HARNESS
+WORKER_ACCOUNT=$(fm_worker_account_select "$WORKER_ACCOUNT_HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE") || exit 1
 WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
 WORKER_ACCOUNT_PROVIDER=${WORKER_ACCOUNT_ROOT#*$'\t'}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
-if [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = claude ]; then
+if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
   if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
     export CLAUDE_CONFIG_DIR=$WORKER_ACCOUNT_ROOT
+  else
+    unset CLAUDE_CONFIG_DIR
+  fi
+fi
+if [ "$RAW_LAUNCH" = 1 ] && { [ "$WORKER_ACCOUNT_HARNESS" != claude ] || [ -z "$WORKER_ACCOUNT" ]; }; then
+  if [ -n "$RAW_CLAUDE_ROOT" ]; then
+    export CLAUDE_CONFIG_DIR=$RAW_CLAUDE_ROOT
   else
     unset CLAUDE_CONFIG_DIR
   fi
@@ -4249,6 +4256,14 @@ if [ "$RELAUNCH" -eq 1 ]; then
     T=$RELAUNCH_TARGET
     WT_TARGET=$T
     SES=${T%%:*}
+  elif [ "$BACKEND" = tmux ]; then
+    SES=${RELAUNCH_TARGET%%:*}
+    if ! tmux has-session -t "=$SES" 2>/dev/null; then
+      tmux new-session -d -s "$SES" || exit 1
+    fi
+    T="$SES:$W"
+    WID=$(fm_backend_tmux_create_task "$SES" "$W" "$WT") || exit 1
+    WT_TARGET=$WID
   else
     # The recorded endpoint is authoritatively gone, so there is nothing to
     # adopt: create ONE fresh endpoint for the same task, opened directly in the
@@ -4256,11 +4271,8 @@ if [ "$RELAUNCH" -eq 1 ]; then
     # ids) from these values, which is the whole rebind - the task id, brief,
     # worktree, armed poll and status log are untouched.
     #
-    # Herdr is the ONLY backend that reaches here: the gate above rebinds only
-    # on a PROVEN-gone endpoint, and absence is provable only on herdr, whose
-    # every read is scoped to the session the record names
-    # (fm_control_endpoint_absence_verdict owns that argument). tmux and every
-    # secondmate were already refused, so there is no dispatch left to make.
+    # The gate above proves this Herdr endpoint gone. Tmux rebinds above;
+    # secondmates retain their separate recovery owner.
     #
     # This deliberately uses the FLAT container shape rather than Herdr's
     # presentation projection: projection is a presentation-only layout that is
@@ -5640,7 +5652,7 @@ BUSY_GEN=
     # home's tracked Stop guard and its settings.local.json both stay.
     busy_cmd_prefix="$(shell_quote "$FM_ROOT/bin/fm-busy-event.sh") apply $(shell_quote "$STATE_REAL") $(shell_quote "$ID")"
     busy_suffix="--gen $(shell_quote "$BUSY_GEN") --source claude-hook"
-    j_submit=$(json_escape "$busy_cmd_prefix busy $busy_suffix --event user-prompt-submit 2>/dev/null || true")
+    j_submit=$(json_escape "$busy_cmd_prefix busy $busy_suffix --event user-prompt-submit --prompt-stdin 2>/dev/null || true")
     j_stopfail=$(json_escape "$busy_cmd_prefix idle $busy_suffix --event stop-failure 2>/dev/null || true")
     j_sessionend=$(json_escape "$busy_cmd_prefix idle $busy_suffix --event session-end 2>/dev/null || true")
     stop_entry=
@@ -6043,17 +6055,17 @@ EOF
   esac
 
 # Per-task git hooksPath that strips AI commit trailers at the commit object.
-# Installed for every kind, including secondmate, unless the home opts in to
-# keeping trailers. Cursor and other non-Claude runtimes inject the trailer
+# Installed for every kind, including secondmate, when stripping is enabled.
+# Cursor and other non-Claude runtimes inject the trailer
 # after the typed message, so the typed message is not the object. When
 # installed, the pane receives this directory via GIT_CONFIG_* below, which
 # overrides a project's husky core.hooksPath without rewriting it; the installer
 # chains the previous hooks so they still run. Real secondmate
 # homes are firstmate clones; a launch whose worktree is not git fails closed
 # rather than shipping a runtime that cannot strip.
-# A forge=external ship always gets this directory, because its pre-push
-# wrapper carries the guard that keeps task branches off the shared origin; a
-# home that keeps trailers gets a commit-msg wrapper that only chains.
+# Every ship gets this directory for the shared pre-push checks, even when
+# keeping trailers; the commit-msg wrapper then only chains. The installer
+# owns check chaining, including the additional forge=external push guard.
 GIT_HOOKS_DIR="$STATE_REAL/$ID.git-hooks"
 GIT_HOOKS_INSTALLED=0
 if [ "$EXTERNAL_REVIEW" = 1 ]; then
@@ -6069,8 +6081,10 @@ if [ "$EXTERNAL_REVIEW" = 1 ]; then
     exit 1
   }
   GIT_HOOKS_INSTALLED=1
-elif [ "$KEEP_AI_TRAILERS" = 0 ]; then
-  "$FM_ROOT/bin/fm-git-strip-ai-trailers.sh" install "$GIT_HOOKS_DIR" "$WT" || {
+elif [ "$KEEP_AI_TRAILERS" = 0 ] || [ "$KIND" = ship ]; then
+  strip_args=()
+  [ "$KEEP_AI_TRAILERS" = 0 ] || strip_args=(--no-strip)
+  "$FM_ROOT/bin/fm-git-strip-ai-trailers.sh" install "${strip_args[@]+"${strip_args[@]}"}" "$GIT_HOOKS_DIR" "$WT" || {
     echo "error: could not install the AI-trailer strip hooks for $ID" >&2
     exit 1
   }
@@ -6140,7 +6154,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort account account_provider claude_config_dir busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -6165,10 +6179,13 @@ preserve_relaunch_meta() {
   [ -z "$EXTERNAL_BACKUP_REMOTE" ] || echo "backup_prefix=$EXTERNAL_BACKUP_PREFIX"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"
-  # The worker account pin, only when this home declares one, so an unpinned
-  # task record stays byte-identical.
+  # account= records a declared pin; claude_config_dir= below also retains
+  # unpinned launch roots for background-session cleanup.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
+  if [ "$WORKER_ACCOUNT_HARNESS" = claude ] || [ "$RAW_LAUNCH" = 1 ]; then
+    printf 'claude_config_dir=%s\n' "${CLAUDE_CONFIG_DIR:-}"
+  fi
   [ -z "${BUSY_GEN:-}" ] || echo "busy_gen=$BUSY_GEN"
   echo "spawn_gen=$SPAWN_GEN"
   # Default-off writes no traceparent= line.
@@ -6203,11 +6220,11 @@ preserve_relaunch_meta() {
     echo "home=$PROJ_ABS"
     echo "projects=$SECONDMATE_PROJECTS"
   fi
-  if [ "$RELAUNCH" -eq 1 ]; then
-    preserve_relaunch_meta
-  fi
   if [ "$SPAWN_CONTROL_PARENT" = 1 ] && [ -n "${FM_CONTROL_RELAUNCH_TX:-}" ]; then
     echo "control_relaunch_tx=$FM_CONTROL_RELAUNCH_TX"
+  fi
+  if [ "$RELAUNCH" -eq 1 ]; then
+    preserve_relaunch_meta
   fi
 } >"$SPAWN_META_PATH" || {
   echo "error: task record for $ID could not be prepared at $SPAWN_META_PATH" >&2
@@ -6314,6 +6331,16 @@ sq_ompcfg=$(shell_quote "${OMP_WORKER_CFG:-$FM_ROOT/.omp/fm-worker-overlay.yml}"
 sq_opinput=$(shell_quote "$FM_ROOT/bin/fm-operational-input.sh")
 sq_worktree=$(shell_quote "$WT")
 MODELFLAG=$(model_flag_for_harness "$HARNESS" "$MODEL")
+# A Haiku Claude crew or scout worker runs with an Opus advisor, the pairing
+# the advisor docs list for Haiku 4.5 and Haiku 5.5 alike
+# (https://code.claude.com/docs/en/advisor). --advisor is accepted by claude
+# 2.1.312 but absent from `claude --help`; an unaccepted pairing makes a
+# foreground launch exit, so no other model gets the flag.
+if [ "$HARNESS" = claude ] && [ "$KIND" != secondmate ]; then
+  case "$MODEL" in
+  *[Hh][Aa][Ii][Kk][Uu]*) MODELFLAG="${MODELFLAG}--advisor 'opus' " ;;
+  esac
+fi
 # A pinned Pi launch confines Pi's model lookup to the declared provider.
 [ -z "$WORKER_ACCOUNT_PROVIDER" ] || MODELFLAG="--provider $(shell_quote "$WORKER_ACCOUNT_PROVIDER") $MODELFLAG"
 EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT" "$MODEL") || exit 1
@@ -6417,31 +6444,12 @@ claude | codex | opencode | pi | pi-signed | grok | kimi | gemini | muse | rovo 
   LAUNCH="env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI $LAUNCH"
   ;;
 esac
-# Crewmate panes are created by a long-lived tmux/herdr daemon that does not
-# inherit firstmate's current environment, so a bare `claude` in the pane falls
-# back to the default ~/.claude store even when firstmate itself runs under a
-# different CLAUDE_CONFIG_DIR (for example a work-vs-personal subscription split).
-# Forward firstmate's own resolved store onto the claude launch so the crewmate
-# uses the same credential/config firstmate is authenticated with. Only when set;
-# an unset value is the single-store default and needs no prefix.
-# A home's worker account pin replaces that forwarding: the launch names the
-# pinned root (or unsets the variable for the ordinary Claude account) and
-# sheds the environment credentials Claude ranks above the root's login.
 if [ -n "$WORKER_ACCOUNT" ]; then
-  case "$HARNESS" in
-  claude)
-    if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
-      LAUNCH="$(fm_worker_account_claude_shed) CLAUDE_CONFIG_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
-    else
-      LAUNCH="$(fm_worker_account_claude_shed) -u CLAUDE_CONFIG_DIR $LAUNCH"
-    fi
-    ;;
+  case "$WORKER_ACCOUNT_HARNESS" in
   pi | pi-signed)
     LAUNCH="PI_CODING_AGENT_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
     ;;
   esac
-elif [ "$HARNESS" = claude ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
-  LAUNCH="CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR") $LAUNCH"
 fi
 if [ "$KIND" = secondmate ]; then
   sq_home=$(shell_quote "$PROJ_ABS")
@@ -6495,9 +6503,9 @@ esac
 LAUNCH_DIR="/tmp/fm-$ID+$LAUNCH_HOME_TOKEN"
 # Pane-scoped override: git in this worker reads our commit-msg strip without
 # rewriting the project's core.hooksPath. GIT_CONFIG_* takes precedence over
-# config files and is inherited by child git processes. When the home opts in
-# to keeping trailers, leave core.hooksPath alone so the repository's hooks run
-# directly. An export statement inside the pane command carries the override
+# config files and is inherited by child git processes. Without an installed
+# per-task hooks directory, the repository's hooks run directly. An export
+# statement inside the pane command carries the override
 # across every step of a compound raw launch while firstmate's own git is unchanged.
 # The helper appends after the GIT_CONFIG_COUNT entries the worker actually
 # inherits (after any launch environment filtering), so credential.helper and
@@ -6531,7 +6539,17 @@ fi
 # kill switch below it is an export statement, so it survives a compound raw
 # launch and the launch-env-allowlist `env -i` wrapper.
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
-LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
+if [ "$WORKER_ACCOUNT_HARNESS" = claude ] || [ "$RAW_LAUNCH" = 1 ]; then
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+    LAUNCH="export CLAUDE_CONFIG_DIR=$(shell_quote "$CLAUDE_CONFIG_DIR"); $LAUNCH"
+  else
+    LAUNCH="unset CLAUDE_CONFIG_DIR; $LAUNCH"
+  fi
+fi
+if [ "$WORKER_ACCOUNT_HARNESS" = claude ] && [ -n "$WORKER_ACCOUNT" ]; then
+  LAUNCH="unset $FM_WORKER_ACCOUNT_CLAUDE_SHED; $LAUNCH"
+fi
+LAUNCH="export COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1; $LAUNCH"
 # When the live-harness gate has exported DISABLE_AUTOUPDATER into this spawn's
 # own environment, carry it into the launch command text so Claude Code's
 # auto-updater cannot rewrite the shared binary during a live run. Embedding the
@@ -6646,7 +6664,7 @@ if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
   # Setting it here rather than relying on the assignment already carried by
   # $LAUNCH is what gives the wrapping `/bin/sh` itself the switch, not only the
   # agent command it runs.
-  LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX COMPACT_ADVISER_DISABLE=1"
+  LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX COMPACT_ADVISER_DISABLE=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_AGENT_VIEW=1"
   if [ -n "$SPAWN_TRACEPARENT" ]; then
     # shellcheck disable=SC2016
     LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX "'${TRACEPARENT+"TRACEPARENT=$TRACEPARENT"}'

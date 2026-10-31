@@ -49,6 +49,7 @@ make_home() {  # <home> [task-id...]
   mkdir -p "$home/state" "$home/config" "$home/data" "$home/projects"
   touch "$home/state/.last-watcher-beat"
   printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   printf '%s\n' codex > "$home/config/crew-harness"
   if [ "$HAVE_TASKS_AXI" = 1 ]; then
     printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' '' '## Done' \
@@ -166,7 +167,7 @@ declare_capacity() {  # <home> <line>...
 }
 
 # A live worker already on a project: the record shape bin/fm-spawn.sh
-# publishes, with its backlog item In flight so cleanup can close it.
+# publishes, with its backlog item In flight until explicitly accepted.
 write_live() {  # <home> <id> <project-dir> [extra-line...]
   local home=$1 id=$2 project=$3
   shift 3
@@ -499,7 +500,11 @@ test_release_frees_a_place() {
   expect_code "$DEFER_EXIT" "$rc" "one freed place admitted two workers: $out"
   assert_contains "$out" "2 already hold a place (live-b, task-c)" "the new worker did not take the freed place"
 
-  # Cleanup: the real teardown removes the record, which frees its place.
+  # Accepted cleanup: the real teardown removes the record, freeing its place.
+  if [ "$HAVE_TASKS_AXI" = 1 ]; then
+    FM_HOME="$home" "$ROOT/bin/fm-tasks-axi.sh" 'done' live-b >/dev/null \
+      || fail "could not accept the completed worker before cleanup"
+  fi
   rc=0
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_CONFIG_OVERRIDE='' \
     FM_FAKE_CALL_LOG="$case_dir/calls.log" PATH="$case_dir/fakebin:$PATH" \
@@ -535,6 +540,86 @@ test_occupancy_counts_only_this_projects_workers() {
   assert_contains "$out" "3 already hold a place (legacy-b, scout-a, task-c)" \
     "occupancy counted the wrong records"
   pass "only this project's ship and scout records hold places"
+}
+
+# A teardown-completed record names the <id>.released-copy sentinel. With no
+# live agent it holds no place; one whose agent is still alive keeps its place.
+test_released_copy_without_live_agent_holds_no_place() {
+  local case_dir home out rc=0 n
+  case_dir=$(make_case released task-c task-d)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 2"
+  for n in 1 2; do
+    write_live "$home" rel-$n "$case_dir/project" "worktree=$home/state/rel-$n.released-copy"
+  done
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code 0 "$rc" "dead released-copy records held places: $out"
+
+  write_live "$home" rel-live "$case_dir/project" "worktree=$home/state/rel-live.released-copy"
+  printf '%s\n' "fm-rel-live" >> "$case_dir/calls.log.window"
+  rc=0
+  out=$(spawn_ship "$case_dir" task-d "$case_dir/unused") || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "a live released-copy record held no place: $out"
+  assert_contains "$out" "2 already hold a place (rel-live, task-c)" \
+    "occupancy counted the wrong released-copy records"
+  pass "a released-copy record holds a place only while its agent is alive"
+}
+
+# A dead or missing agent frees its place when its worktree is a readable
+# directory with no non-shell process in it, the rule bin/fm-capacity-lib.sh
+# applies to lanes. A non-shell process inside the worktree, a live agent, and
+# unknown evidence (a missing worktree) each keep the place.
+test_exited_record_with_idle_worktree_holds_no_place() {
+  local case_dir home out rc=0 n holder
+  case_dir=$(make_case exited task-c task-d)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 2"
+  for n in 1 2; do
+    mkdir -p "$case_dir/idle-$n"
+    write_live "$home" idle-$n "$case_dir/project" "worktree=$case_dir/idle-$n"
+  done
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code 0 "$rc" "dead records with idle worktrees held places: $out"
+
+  mkdir -p "$case_dir/busy"
+  write_live "$home" busy "$case_dir/project" "worktree=$case_dir/busy"
+  ( cd "$case_dir/busy" && exec sleep 60 ) &
+  holder=$!
+  sleep 0.3
+  rc=0
+  out=$(spawn_ship "$case_dir" task-d "$case_dir/unused") || rc=$?
+  kill "$holder" 2>/dev/null
+  wait "$holder" 2>/dev/null
+  expect_code "$DEFER_EXIT" "$rc" "a record with a process in its worktree freed its place: $out"
+  assert_contains "$out" "2 already hold a place (busy, task-c)" \
+    "occupancy counted the wrong exited records"
+  pass "an exited record frees its place unless a process still works in its worktree"
+}
+
+test_exited_record_with_unknown_evidence_keeps_its_place() {
+  local case_dir home out rc=0
+  case_dir=$(make_case unknown task-c)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 1"
+  write_live "$home" gone "$case_dir/project" "worktree=$case_dir/never-created"
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "a record with a missing worktree freed its place: $out"
+  assert_contains "$out" "1 already hold a place (gone)" "the unknown-evidence record was not counted"
+  pass "a dead record with a missing worktree keeps its place"
+}
+
+test_live_agent_with_idle_worktree_keeps_its_place() {
+  local case_dir home out rc=0
+  case_dir=$(make_case live-idle task-c)
+  home="$case_dir/home"
+  declare_capacity "$home" "project 1"
+  mkdir -p "$case_dir/idle"
+  write_live "$home" alive "$case_dir/project" "worktree=$case_dir/idle"
+  printf '%s\n' "fm-alive" >> "$case_dir/calls.log.window"
+  out=$(spawn_ship "$case_dir" task-c) || rc=$?
+  expect_code "$DEFER_EXIT" "$rc" "a live agent freed its place: $out"
+  assert_contains "$out" "1 already hold a place (alive)" "the live agent was not counted"
+  pass "a live agent keeps its place"
 }
 
 # Capacity belongs to the machine: a local secondmate home's workers on a
@@ -774,6 +859,7 @@ test_machine_ceiling_across_projects() {
   case_dir=$(make_case machine-ceiling task-six)
   home="$case_dir/home"
   printf '5 3\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   for n in 1 2 3 4 5; do
     write_live "$home" "live-$n" "$case_dir/project-$((n % 3))"
   done
@@ -791,6 +877,7 @@ test_machine_memory_and_unreadable() {
   case_dir=$(make_case machine-memory task-a)
   home="$case_dir/home"
   printf '5 3\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   memfile="$case_dir/meminfo"
   printf 'MemAvailable: 356000 kB\n' > "$memfile"
   rc=0
@@ -804,10 +891,24 @@ test_machine_memory_and_unreadable() {
   expect_code 75 "$rc" "unreadable machine: $out"
   assert_contains "$out" "$memfile" 'unreadable machine names reading'
   printf 'broken\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   rc=0
   out=$(spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
   expect_code 75 "$rc" "unreadable declaration: $out"
   assert_contains "$out" "$home/config/lane-capacity" 'unreadable file named'
+  printf '5 3\n' > "$home/config/lane-capacity"
+  printf 'MemAvailable: 8388608 kB\n' > "$memfile"
+  printf 'full avg10=0.00 avg60=5.00 avg300=0.00 total=0\n' > "$case_dir/pressure"
+  rc=0
+  out=$(FM_CAPACITY_PRESSURE_FILE="$case_dir/pressure" spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
+  expect_code 75 "$rc" 'actual spawn consumes pressure refusal'
+  assert_contains "$out" 'memory PSI full avg60' 'spawn names pressure source'
+  assert_absent "$home/state/task-a.meta" 'pressure refusal published a worker'
+  rm "$home/config/machine-admission.json"
+  rc=0
+  out=$(spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
+  expect_code 75 "$rc" 'missing resource policy refuses before launch'
+  assert_contains "$out" 'machine-admission.json' 'spawn names missing numeric policy'
   pass 'fresh spawn refuses low memory and unreadable machine facts'
 }
 
@@ -848,6 +949,7 @@ test_machine_counts_published_lane_without_lock() {
   printf -- '- mate - local (home: %s; scope: tests; projects: other-project; added 2026-09-01)\n' "$mate" > "$home/data/secondmates.md"
   printf '%s\n' schema=fm-secondmate-parent.v1 route=local "parent_home=$home" > "$mate/.fm-secondmate-parent"
   printf '5 3\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   for n in 1 2 3 4; do write_live "$home" "live-$n" "$case_dir/other-$n"; done
   hold="$case_dir/hold"
   wt=$(new_worktree "$case_dir" task-a)
@@ -885,6 +987,7 @@ test_machine_registry_parent_refuses_spawn() {
   printf -- '- mate - local (home: %s; scope: tests; projects: project; added 2026-09-01)\n' "$mate" > "$root/data/secondmates.md"
   printf -- '- sibling - local (home: %s; scope: tests; projects: other; added 2026-09-01)\n' "$sibling" >> "$root/data/secondmates.md"
   printf '5 3\n' > "$root/config/lane-capacity"
+  fm_test_machine_policy "$root/config"
   for n in 1 2 3 4 5; do write_live "$sibling" "live-$n" "$case_dir/other-$n"; done
   chmod 000 "$root/data"
   rc=0
@@ -1080,6 +1183,10 @@ test_symlinked_home_counts_each_worker_once
 test_release_frees_a_place
 test_restart_does_not_count_its_own_record
 test_occupancy_counts_only_this_projects_workers
+test_released_copy_without_live_agent_holds_no_place
+test_exited_record_with_idle_worktree_holds_no_place
+test_exited_record_with_unknown_evidence_keeps_its_place
+test_live_agent_with_idle_worktree_keeps_its_place
 test_capacity_is_shared_by_every_local_home
 test_unreadable_holders_refuse_admission
 test_concurrent_spawns_cannot_both_take_the_last_place

@@ -172,6 +172,12 @@ Resolve the project independently for every request.
 An explicit project wins, a clear follow-up inherits its referent, and otherwise match the request against the registry, work under way, and project code or README.
 Proceed on one confident match while naming the project in plain language; ask one concise question when multiple or no projects plausibly match.
 
+For each owner-origin request that creates or updates a native task, including an explanation-only request or later correction, MAIN or the receiving secondmate authors a private `Owner request acceptance v1` packet before `bin/fm-tasks-axi.sh add|update --owner-request-file`.
+Capture every action and explanation part under its source UUID and stable requirement ID; append later corrections instead of rewriting earlier requirements.
+Read the packet authoring contract in `bin/fm-request-acceptance.py` before that call: never copy or hash secret spans, bind independently safe parts, and hold inseparable restricted parts.
+Transfer and relaunch preserve the bound native section; a Done row or the helper's structural readback does not qualify proof or accept a requirement.
+Non-owner tasks and historical unbound rows keep their existing task path.
+
 Route by the nature of the work against each registered secondmate scope, not by a non-exclusive clone list.
 Keep `local-only` work in the main home.
 Send in-scope work to the fitting secondmate unless it is blocked or the captain explicitly redirects it; do not read the secondmate's chat because marked routed replies return through its status or referenced document.
@@ -223,7 +229,8 @@ When a steer answers an open keyed decision or blocker, pass `fm-send`'s `--reso
 Drive a worker's lifecycle through `bin/fm-control.sh <task-id> interrupt|exit|relaunch`, which owns the per-runtime mechanics, verifies each action, and never tears down or discards anything ([`docs/agent-control.md`](docs/agent-control.md)).
 A secondmate's routed reply returns through status or a document pointer, not by firstmate peeking into its chat.
 For the parent-owned correlation, recovery, and escalation contract on marked secondmate requests, see `bin/fm-pending-reply-lib.sh`.
-When the captain adds or changes an ask mid-task, append the captain's words without added speaker labels or direct address to that brief's `## Captain's intent` and relay those words to the worker; Firstmate build constraints stay in `## Firstmate spec` or the steer.
+When the captain adds or changes an ask mid-task, first append its native source-linked requirement or correction through the intake packet path above; update the same bound task, or create a separate bound item when the existing task is legacy unbound.
+Then append the captain's words without added speaker labels or direct address to that brief's `## Captain's intent` and relay those words to the worker; Firstmate build constraints stay in `## Firstmate spec` or the steer.
 Supervise all live work under section 8.
 
 ### Selected delivery path and merge authority
@@ -285,7 +292,7 @@ Handle actionable wakes as follows:
 1. For `signal:`, read the listed event lines first, then reconcile current state only where action depends on it.
 2. For `stale:`, inspect the recorded endpoint and load `stuck-crewmate-recovery` for a stopped, looping, confused, or unresponsive worker; a deep-inspection reason also requires current-state and validation-log inspection.
 3. For `check:`, act on the named poll result, including merges, contribution signals, Relay events, process-to-event source results, and captain inbox notes; a handled inbox note is also acknowledged with `bin/fm-inbox.sh drain --ack <id>`, or it stays counted as still waiting for firstmate.
-   A `check:` result of `conflict` means that task's pull request has carried the conflict label for more than 15 minutes and the automatic steer or relaunch did not run, so dispatch its worker to merge the base branch in with a merge commit, regenerate generated files, run their tests, and push once, without rebasing or force-pushing.
+   A `check:` result of `conflict` means that task's pull request has carried the conflict label for more than 15 minutes and automatic recovery could not run or became unavailable, so dispatch its worker to merge the base branch in with a merge commit, regenerate generated files, run their tests, and push once, without rebasing or force-pushing.
    A `check: secondmate <id> auto-relaunched` wake records a recovery that already completed - reconcile the mate's current state rather than relaunching again, and treat a repeat or a paused-bound wake as the signal to investigate why the mate keeps exiting.
    When the note needs a durable answer the submitter can read, publish it with `bin/fm-inbox.sh reply <id>` (the script header owns the reply contract) rather than leaving the answer only in this transcript.
 4. For `heartbeat:`, review the whole fleet from the structured fleet view, reconcile suspicious tasks and PR state, update the backlog, and never report an unchanged fleet as progress.
@@ -324,6 +331,7 @@ For the full `stuck-crewmate-recovery` trigger, including a live worker claiming
 - This final-message rule is a visibility recap: it may list all outstanding decisions and their URLs, but it does not override, replace, or combine any separate per-decision ask messages required by a harness's no-batching rule.
 - Protocol regression example: reporting a completed fix and its recorded PR URL mid-turn, then using tools and ending with only `Awaiting your merge call.`, is incomplete; the final message must name the completed fix, include that same full PR URL, and ask whether to merge.
 - Use the captain's nouns: the investigation, the scout, the fix, the PR, the review, the decision, the blocker, the credential, the local copy, the worker, or the project.
+- Captain-facing plain words follow each home's private glossary at `data/GLOSSARY.md` (ubiquitous language), and terms listed there as 'Already known' are never explained; this file only points to that glossary.
 - Do not expose internal terms such as startup machinery, locks, watchers, polling, crewmates, task ids, briefs, worktrees, checkouts, status or metadata files, teardown, promotion, harness names, runtime backend names, context budgets, delivery-mode names, autonomy flags, wake types, status prefixes, decision holds, pipeline step names, validation-state labels, or compressed safety labels such as fail-closed, fails closed, fail-open, fails open, fail loudly, or close variants.
 - Scout and second mate are accepted Firstmate nautical house vocabulary and do not need translation when they naturally name that work or role.
 - When evidence uses an internal label, rewrite it before sending:
@@ -365,12 +373,13 @@ Report a real blocker or failure after the relevant playbook is exhausted, then 
 The worker still routes every ask-user finding to firstmate and never answers its own finding.
 That route is not owner permission.
 
-- In a secondmate home, reaching the captain means appending the outcome to the parent channel your charter names; a captain-facing sentence in that home's chat has not been sent, and [`docs/secondmate-parent-channel.md`](docs/secondmate-parent-channel.md) owns which outcomes the home's own scripts deliver there without you.
+- In a secondmate home, route MAIN-requested outcomes through the parent channel your charter names; the charter owns direct captain conversation, and [`docs/secondmate-parent-channel.md`](docs/secondmate-parent-channel.md) owns which outcomes the home's own scripts deliver there without you.
 - Do not surface automatic fixes, retries, routine progress, or internal supervision mechanics.
 - Reply exactly `Captain, shipshape.` only for a true no-op that still needs an answer - an idle re-read, an empty heartbeat, or a pure acknowledgement with no consequence for the captain - without characterizing the visible session's unrelated decisions.
 - For a captain-requested completion, or any wake that needs the captain's review, merge, or reserved ask, give a captain-facing outcome that states what finished and never reply `Captain, shipshape.`; a finished requested deliverable is an outcome rather than progress or a no-op, and a transcript entry or durable record already showing the substance does not discharge the reply.
 - Ask for the captain's word only when the next step is a reserved category above, a destructive or irreversible action, a discard, or a merge.
   A design pick is taste and stays reserved.
+- Begin every question or ask to the captain with the pointing hand emoji (👉), and use that emoji for nothing else.
 - Batch non-urgent updates into the next natural reply.
 - Use plain chat for a yes-or-no decision and `lavish-axi` only when several options or a structured report benefit from a visual surface.
 - Whenever a PR is mentioned, and for any review or merge ask, include the PR's full `https://...` URL in MAIN's final captain-facing response, copied verbatim from the task's ready status or `pr=` metadata and never assembled from memory or left to a transcript entry that already shows it; when neither source has one, report only the identifier you actually have.
@@ -382,9 +391,12 @@ The configured `tasks-axi` backend is the durable queue; the tracked default is 
 It tracks work items only, never agents; persistent secondmates never appear as backlog items.
 Work routed to a secondmate is recorded in that secondmate home's own backlog, not the main backlog.
 A decision is simply a task held for the captain: create the task with `bin/fm-tasks-axi.sh add` when needed, then always hold it through `bin/fm-captain-hold.sh hold <id> --reason "<reason>"`, with `--until <date>` when the captain defers it.
+Every hold and Captain's Call item names its origin - owner request citing the owner's own message as its source, a firstmate or worker finding, or a delivery-pipeline outcome - and only the first is the owner's word.
+A hold, status, or note that says the owner said, parked, or decided something with no traceable owner message is our own prior call: re-decide it with the advisor and never present it to the owner as theirs.
 When a main-side thread such as a pending captain decision or relay reminder is worth durable tracking, file it as its own work item and hold it through that wrapper.
 Captain calls discovered by investigations or visual reviews follow `captain-hold-lifecycle`, which owns their completion gate and recorded-answer rules.
-When the automatic transition gate applies, dispatch and completion move the item themselves - `bin/fm-spawn.sh` and `bin/fm-teardown.sh` own those transitions and refuse rather than report success without them - so what remains yours is filing the item before dispatch, recording decisions, and keeping notes current; `docs/configuration.md` owns gate applicability and the manual-backend exception.
+When the automatic transition gate applies, `bin/fm-spawn.sh` owns dispatch and `bin/fm-teardown.sh` owns cleanup; `ship-landing` owns pending-proof resource release and acceptance-before-cleanup ordering through the existing task commands.
+Keep filing, ownership, decisions and acceptance evidence current; `docs/configuration.md` owns gate applicability and the manual-backend exception.
 Re-evaluate queued work after every teardown and heartbeat, and also after a recorded PR-ready handoff when `config/project-capacity` caps that project, dispatching items only when dependencies, time gates, and project capacity have cleared.
 Use `bin/fm-capacity.sh` for that re-evaluation under the [machine admission requirements](docs/configuration.md#machine-capacity-configlane-capacity).
 

@@ -625,6 +625,50 @@ The real pane renders this inside a bordered box, omitted here for readability; 
 That capture demonstrated why each signature function matches the FULL captured tail rather than the Grok/Rovo/AGY busy-footer convention of the last 12 non-blank lines: a bordered dialog box renders many short lines of pure border and padding (`│  ...  │`) that are NOT whitespace-only, so the 12-line reduction pushed this exact heading text out of the window and silently defeated the match on the first attempt.
 None of these three runs ever answered its dialog (Escape only, never Enter), so no credential store was written to and no model tokens were spent.
 
+## Claude background exit
+
+Claude Code's `/exit` on a session that still has background work (a running shell, subagents, workflows) opens a `Background work is running` dialog with `Exit and stop tasks` (the default), `Move to background and exit`, and `Stay`.
+Choosing the handoff leaves a background session that `claude agents --json --all` lists with `kind: background` and the session's cwd, outside every lane.
+The [Claude adapter](../../.agents/skills/harness-adapters/references/harness/claude.md#background-exit) owns the universal launch safeguards; the [control-plane contract](../agent-control.md#verbs) owns cleanup after exit and before relaunch.
+`tests/fm-claude-bg-exit-live-e2e.test.sh` drives the real TUI under tmux through three arms.
+The control arm, with no switch, is offered `Move to background and exit`, takes it, and must find a background session for its folder, so the guard fails rather than passing vacuously.
+The switched arm, with the launch environment, must not be offered the handoff, must end the process, and must leave no background session.
+The backstop arm respawns the control session, proves the session PID changed while its original shell survived, stops the session, and confirms its stopped record remains in `agents --json --all` while the shell survives.
+It then invokes `fm-control.sh exit` and checks both listing disappearance and shell termination.
+`bin/fm-claude-bg-stop.py` captures session-owned process identities before removal, including earlier incarnations linked by transcript handoffs, and terminates and verifies captured survivors afterward.
+Ownership requires the inherited session identity and recorded account, while captured descendants may clear their environment or change process groups.
+The vendor's [supervisor lifecycle contract](https://code.claude.com/docs/en/agent-view#the-supervisor-process) defines deletion as the boundary that stops carried work; Firstmate verifies process termination independently of the listing.
+Firstmate creates the matched worktree itself; the vendor's [deletion contract](https://code.claude.com/docs/en/agent-view#what-deleting-a-session-removes) preserves a caller-created worktree and the conversation transcript.
+A refused removal fails cleanup without forcing worktree deletion.
+The guard records its shell's PID and start time and uses portable process identity checks for its assertion and trap cleanup.
+The [account-selection contract](../configuration.md#worker-account-pin-configclaude-account-configpi-account) owns raw overrides and the limits of adapter recognition; `tests/fm-worker-account.test.sh` verifies exported roots against persisted metadata.
+
+| Class axis | Covered paths and evidence | Validation handoff |
+| --- | --- | --- |
+| Task and home | All ship, scout, and local secondmate launch expressions share safeguard exports and record their exported account; remote secondmates route to their owning home | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh` |
+| Account | Pinned directory, ordinary, ambient, and literal raw overrides; quoted, empty, and final repeated assignments | `tests/fm-worker-account.test.sh`; compare the executed worker environment with persisted metadata |
+| Lifecycle | Current session, exited process, reparented work, respawned session, removal refusal, and surviving listing | Deterministic control regressions plus the live guard's respawn arm |
+| Harness and backend | Cleanup is gated to Claude; tmux and Herdr permit stop-proving verbs; other runtime backends refuse those verbs | Control capability regressions; other harnesses do not enter Claude cleanup |
+| Platform | PID/start-time assertions use `ps` on Linux and macOS | Run the live guard on both platforms and retain version, output, and process assertions |
+
+The live guard refreshes this record's dated per-platform evidence after Claude upgrades.
+The generated no-mistakes driving instructions in `bin/fm-dod-lib.sh` hand the class inventory and live-evidence gaps to that phase.
+
+The two background-exit safeguard variable names are present in the installed binary, and `--advisor <model>` is accepted there although `claude --help` does not list it (its pairing rules are in the advisor documentation, `https://code.claude.com/docs/en/advisor`; Haiku 4.5 and Haiku 5.5 both accept Opus).
+
+Verified 2026-10-29 on Linux with Claude Code 2.1.312 using an isolated authenticated `CLAUDE_CONFIG_DIR` and `DISABLE_AUTOUPDATER=1`.
+`bash tests/fm-control.test.sh` passed with real reparented processes, separate child process groups, and a vendor-removal fixture that leaves carried work alive.
+That regression also preserved a neighboring session and the same session identity under another account.
+The live command below exited 0 and printed `ok - backstop: exact-session removal ends the respawned session and its earlier carried shell` after the public exit boundary reported `background-sessions=stopped:6086c0e3`.
+macOS process inspection is implemented but was not run in this Linux validation.
+The designated validation command is:
+
+```sh
+FM_CLAUDE_BG_EXIT_LIVE_E2E=1 bash tests/fm-claude-bg-exit-live-e2e.test.sh
+```
+
+The guard submits a few Haiku prompts, so it stays opt-in; rerun it after every Claude upgrade.
+
 ## Worker account pin sign-in check
 
 `bin/fm-worker-account-lib.sh` decides whether a pinned account is signed in from vendor output: the exit status of `claude auth status`, the JSON of `pi auth check`, and the provider column of `pi --list-models`.
@@ -845,6 +889,8 @@ It uses an isolated Grok home with a copy of the managed authentication file and
 On Linux with `grok 1.0.62 (1474f9cbdd91) [stable]`, the real idle composer rendered `Grok 4.7 (high) · always-approve` without `Weekly limit left:`.
 The guard therefore failed rather than claiming coverage of the weekly-limit surface.
 Live verification of that surface remains outstanding; the portable regression is not a substitute.
+A later idle pane drew the same model line with no weekly-limit prefix, `Grok 4.7 (high) · always-approve`, and the classifier read the box unknown because the middle dot is not ASCII.
+`test_matrix_grok_always_approve_border_from_capture` pins that captured screen: empty when the only content row is the prompt glyph, pending when that row holds a draft, and unknown when the model title is not the known shape or a border is clipped.
 `test_matrix_grok_weekly_limit_border` in `tests/fm-composer-lib.test.sh` pins empty, typed, and malformed-title verdicts across the shared capture capability profiles.
 
 ```sh
@@ -858,7 +904,8 @@ not ok - grok (grok 1.0.62 (1474f9cbdd91) [stable]): weekly-limit border not ren
 ## Composer classification matrix
 
 The shared composer classifier (`bin/fm-composer-lib.sh`, `fm_composer_classify_screen`) owns every composer shape fleet-wide; each backend contributes only a capture and a capability descriptor.
-The live half of that guarantee was verified on 2026-08-10 from an already-trusted checkout at the branch's final validated head, against every installed harness then covered by the empty-composer matrix on tmux 3.6a, macOS arm64, on an isolated private socket, with no prompt submitted to any harness.
+The idle-composer checks were verified on 2026-08-10 from an already-trusted checkout at the branch's final validated head, against every installed harness then covered by the empty-composer matrix on tmux 3.6a, macOS arm64, on an isolated private socket, with no prompt submitted to any harness.
+This historical idle-only result does not establish the wrapped-suggestion coverage described below.
 An earlier untrusted-worktree run left Claude, Grok, and Muse unverified because the guard treats first-launch trust dialogs as an unreadable-composer state and never confirms them; this trusted-checkout rerun supersedes those missing results.
 
 ```sh
@@ -892,6 +939,45 @@ This closes only #3436's idle-composer-misclassification symptom (Grok/Herdr com
 Cursor is deliberately outside this cursor-anchored empty-composer matrix because its terminal cursor is parked outside the composer; tmux's Cursor-specific, process-identity-gated cursorless fallback is covered by the [Cursor Agent CLI](#cursor-agent-cli) section's separate live evidence and drift guard.
 
 `zellij action dump-screen --pane-id <id> --ansi` was verified at zellij 0.44.0 to preserve ANSI styling (real Claude Code rendered inside a zellij pane dumped `ESC[m` `❯` U+00A0 for its idle composer row), which is the capability the zellij composer classifier reads.
+
+### Claude titled-composer validation inventory
+
+This inventory maps the titled-composer paths to regression coverage and outstanding live evidence.
+It is a coverage map, not a claim that the commands below have passed against the current harness versions.
+The affected implementation is `_fm_composer_bare_rule_sandwich` in `bin/fm-composer-lib.sh`; its portable regression is `test_matrix_claude_titled_wrapped_ghost_suggestion` in `tests/fm-composer-lib.test.sh`, and its real-rendering guard is `tests/fm-composer-matrix-live-e2e.test.sh`.
+The oracle combines the required empty, pending, and refusal outcomes with Claude's documented [prompt-suggestion behavior](https://code.claude.com/docs/en/interactive-mode#prompt-suggestions) and the guard's known unsent draft input.
+Accepting an ordinary empty pane without observing a wrapped dim suggestion, or discarding a real draft, must not count as proof.
+
+| Class axis | Affected paths or inspected boundary | Regression and remaining validation |
+| --- | --- | --- |
+| Cursorless classification | `fm_composer_classify_screen` selects through `_fm_composer_select_cursorless`, whose titled-rule exception calls `_fm_composer_bare_rule_sandwich` | `test_matrix_claude_titled_top_rule` and `test_matrix_claude_titled_wrapped_ghost_suggestion`; the live matrix requires the named titled shape and tests identity-capable and identity-free cursorless reads |
+| Cursor classification | `fm_tmux_composer_state` supplies the real cursor row; the glyph-row and continuation-row branches use `_fm_composer_classify_bare_row`, `_fm_composer_wrap_region_ok`, and `_fm_composer_classify_bare_wrap` | `test_bare_wrap_region_classifies` and the live matrix's cursor-capability reads; retain both prompt-row and continuation-row cursor evidence |
+| Extraction and payload proof | `fm_composer_extract_selected_content` shares cursorless selection; Herdr's `fm_backend_herdr_composer_content`, Zellij's content and observed-append functions, and `fm_task_inbox_composer_holds` consume extracted text | `test_selected_content_is_composer_scoped_and_wrap_normalized`, `tests/fm-backend-herdr.test.sh`, and `tests/fm-backend-zellij.test.sh`; exact extraction of titled wrapped ghosts and drafts still needs dedicated evidence |
+| Exit and relaunch | `fm-control.sh` requires a proven-empty composer before typing an exit command; relaunch uses the same exit boundary before replacement | `tests/fm-control.test.sh` and `tests/fm-control-relaunch.test.sh`; the matrix proves classifier verdicts, not a completed exit or relaunch from a wrapped suggestion |
+| Steering and submit | `fm-send.sh` reaches `_fm_task_inbox_ring_step` and backend submit confirmation; pending-draft recovery also compares extracted own-doorbell content | `tests/fm-send-inbox.test.sh`, `tests/fm-send-strict.test.sh`, and `tests/fm-send-inbox-doorbell-live-e2e.test.sh`; a real wrapped-suggestion Herdr doorbell remains an integration evidence gap |
+| Spawn and launch suppression | `fm-spawn.sh` launch-readiness checks use `fm_backend_composer_state`; the [Claude adapter reference](../../.agents/skills/harness-adapters/references/harness/claude.md#composer-ghost) owns launch suppression | `tests/fm-spawn-dispatch-profile.test.sh` exercises emitted launch expressions; validation must observe the executed worker environment and must not treat the suggestion-enabled matrix probe as suppression proof |
+| Task and home | Ship, scout, and local secondmate use the shared spawn and classifier paths; remote secondmates execute in their owning home; classifier input carries no task kind or home | `tests/fm-spawn-dispatch-profile.test.sh`, `tests/fm-send-secondmate-marker.test.sh`, and `tests/fm-remote-secondmate-relaunch.test.sh`; manually launched primaries still need the classifier backstop because they need not use the worker launch template |
+| Harness | Claude emits the target shape; Codex, OpenCode, Pi, pi-signed, Grok, Kimi, Cursor, Muse, Gemini, Rovo, OMP, Agy, Devin, Command Code, and Polytoken can share the generic selector because it is shape-based, not Claude-gated | `tests/fm-composer-lib.test.sh` and `tests/fm-composer-ghost.test.sh` cover sibling shapes, footer boundaries, stale candidates, and ghost stripping; the live matrix launches Claude, Codex, OpenCode, Pi, Grok, Kimi, and Muse only, so it cannot establish live coverage for the other harnesses |
+| Backend | Tmux supplies styled capture and cursor metadata; Herdr supplies styled cursorless capture with plain fallback and optional identity; Zellij supplies styled cursorless capture with plain fallback and no identity; cmux, Orca, and Paseo supply plain cursorless captures | `tests/fm-backend.test.sh` plus the corresponding `fm-backend-herdr`, `fm-backend-zellij`, `fm-backend-cmux`, `fm-backend-orca`, and `fm-backend-paseo` test scripts; matching matrix capability profiles do not prove those backends' actual captures or transport; Codex App is excluded by `FM_BACKEND_KNOWN` and has no classifier dispatch |
+| Platform and locale | The changed selector is shared Bash code with no OS branch; terminal wrapping, ANSI capture, and process or key behavior still depend on Linux or WSL2 versus macOS and on the installed tools | Run the portable composer regressions under their existing UTF-8 and `LC_ALL=C` matrix, then refresh live evidence separately on Linux and macOS with Bash, tmux, Claude, and applicable backend versions; historical idle evidence above does not prove the new wrapped surface |
+| Account and launch options | The classifier consumes no account, credential, model, or permission-mode input; spawn resolves ordinary, ambient `CLAUDE_CONFIG_DIR`, pinned, raw-command, and per-secondmate account selection before launch | `tests/fm-worker-account.test.sh` and `tests/fm-spawn-dispatch-profile.test.sh`; routing is inspected as unaffected, while executed suppression and rendered-suggestion evidence must name the selected account category without exposing credentials or assuming every raw override uses the canonical template |
+| Lifecycle and input representation | Fresh idle, completed turn with dim suggestion, narrow-pane wrap, typed wrapped draft, newline-leading draft, cleared input, missing styling, stale transcript, and lower footer or shell activity all feed the same selector or its consumers | The titled, bare-wrap, strict-blank-row, footer, and lower-candidate cases in `tests/fm-composer-lib.test.sh` plus the live matrix's ghost, wrapped, and newline arms; edge-looking continuation text such as `C++`, multiple leading blank rows, status-like or braille-like interior text, and titled extraction are not covered by the new wrapped regression |
+
+To refresh this coverage, run the portable composer regressions and the applicable consumer regressions listed above, then the opt-in live guards below using installed, authenticated harnesses.
+The matrix now submits a Claude prompt with suggestions explicitly enabled in a 40-column named pane, requires an actual multirow dim suggestion inside its titled rules, tests unsent wrapped and newline-leading drafts, and requires unstyled suggestion reads to refuse.
+A missing titled surface or suggestion is a failed coverage attempt, not a successful empty-composer check.
+The doorbell guard supplies separate real-agent delivery evidence; it does not require the wrapped-suggestion surface and cannot replace the matrix arm or the outstanding Herdr integration proof.
+Run real Herdr scenarios only through the named non-default lab session owned by `bin/fm-herdr-lab.sh` and [the Herdr backend contract](../herdr-backend.md).
+
+```sh
+bash tests/fm-composer-lib.test.sh
+bash tests/fm-composer-ghost.test.sh
+FM_COMPOSER_MATRIX_LIVE=1 bash tests/fm-composer-matrix-live-e2e.test.sh
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=claude bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+Before claiming live proof, replace the outstanding evidence with the date, platform, relevant tool and harness versions, exact command, and exact observed output in this record.
+Record absent harnesses, unavailable logins or backends, unrendered required surfaces, and untested axes explicitly; a guard covering only tmux capability profiles does not establish every backend or account combination.
 
 ### 2026-10-14 opencode 1.19.0 de-emphasised mode/footer row in the left-bar composer
 
@@ -1069,13 +1155,48 @@ The cursorless backends still defer: on a cursorless read (Herdr and Zellij) a f
 
 ## Steering-inbox doorbell
 
+The live guard submits Claude and OpenCode doorbells while a real foreground tool is blocked, then separately requires each instruction's side effect and acknowledgement after releasing that tool, without an idle re-ring.
+The portable busy-Claude and OpenCode regressions verify literal input followed by Enter; they do not claim model consumption.
+Rovo retains busy deferral and re-ring on idle because its footer has no retained queued-consumption proof; portable regressions cover both fresh and pending-doorbell deferral.
+
 The steering channel's one behavioral assumption - a real worker agent follows the constant self-describing doorbell line (list the inbox, read and act on its records in numeric order, then `mv` each into `handled/`) - was verified on 2026-08-23 against every installed verified harness, on tmux 3.6a, macOS arm64, on an isolated private socket, driving the REAL `bin/fm-send.sh` end to end (durable record plus doorbell, with one mid-wait re-ring playing the watcher's role).
 
 ```sh
 FM_SEND_INBOX_LIVE_E2E=1 tests/fm-send-inbox-doorbell-live-e2e.test.sh
 ```
 
-Observed output (combined across the full run and the grok rerun after the advisory-skip narrowing landed):
+The Claude cases arm a real busy-state generation and install lifecycle hooks invoking the production `bin/fm-busy-event.sh` writer with the vendor's JSON prompt input.
+They exercise a fresh doorbell through `fm-send`, an existing own-doorbell draft through `fm_task_inbox_ring`, and a marked secondmate typed send through `fm-send`.
+The test boundary swallows the first two Enter presses, then makes pane capture unavailable only after the real submit hook successfully writes its production busy event and a test receipt, so the real harness hook must confirm submission without a composer fallback or a later watcher re-ring.
+The independent oracles are the sender's bounded-retry contract, Claude's [documented `UserPromptSubmit` event](https://code.claude.com/docs/en/hooks#userpromptsubmit), and the requested worker action and inbox acknowledgement.
+The successful Claude cases require three to five Enter presses, no retyping, a generation-matching receipt for the accepted prompt, and the requested action; a separate exhausted-budget case requires five swallowed presses, a non-delivery notice, no receipt, and the durable record remaining unhandled.
+The guard also checks the two-second minimum between retries, refuses an unreadable capture after a swallowed Enter, and rejects an unrelated real prompt receipt while the target draft remains unsubmitted.
+Receipt hashing removes only Firstmate's U+2063 separator, matching Claude's [documented prompt cleanup](https://code.claude.com/docs/en/interactive-mode#invisible-characters-in-prompts); other Unicode and trailing newlines remain significant.
+The typed send uses the production retry budget.
+Other harnesses retain the action-and-acknowledgement cases and now use the same fixed retry budget, with a positive backend submit verdict required when no prompt receipt is available.
+The portable regressions in `tests/fm-task-inbox.test.sh` also drive a different prompt followed by Stop and a matching prompt followed by unrelated turns, so advancing a lifecycle sequence alone cannot satisfy confirmation.
+
+The four-case run below was verified on 2026-10-29 with Claude Code 2.1.312 and tmux 3.4 on Linux, before the capture-failure and unrelated-prompt cases were added.
+The worktree-local configuration below was seeded from the existing Claude credentials, onboarding store, and recorded bypass acceptance; no original user settings or credential files were changed.
+
+```sh
+HOME="$PWD/.review-submit-live/user-home" \
+CLAUDE_CONFIG_DIR="$PWD/.review-submit-live/claude-config" \
+TMPDIR="$PWD/.review-submit-live/tmp" \
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=claude \
+FM_SEND_INBOX_LIVE_TIMEOUT=90 \
+bash tests/fm-send-inbox-doorbell-live-e2e.test.sh > .review-submit-live/result.log 2>&1
+```
+
+```text
+ok - claude (2.1.312 (Claude Code)): typed submit checked real lifecycle hooks with 4 Enter presses
+ok - claude (2.1.312 (Claude Code)): fresh submit checked real lifecycle hooks with 3 Enter presses
+ok - claude (2.1.312 (Claude Code)): blocked submit checked real lifecycle hooks with 5 Enter presses
+ok - claude (2.1.312 (Claude Code)): pending submit checked real lifecycle hooks with 3 Enter presses
+ok - live steering-inbox doorbell guard: 4 cases honored the doorbell contract
+```
+
+Earlier action-and-acknowledgement output (combined across the full run and the grok rerun after the advisory-skip narrowing landed):
 
 ```text
 ok - claude (2.1.241 (Claude Code)): the doorbell reached a real worker, which acted and acked with the mv
@@ -1197,7 +1318,7 @@ The Cursor-only pending recovery refresh uses the default 240-second action-and-
 env -u FM_SEND_INBOX_LIVE_TIMEOUT FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=cursor FM_SEND_INBOX_LIVE_PENDING_ONLY=1 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
 ```
 
-`FM_SEND_INBOX_LIVE_PENDING_ONLY=1` omits the fresh-send case; without it, the guard retains both cases for each selected installed harness.
+Case-selection flags are documented in the [live guard's header](../../tests/fm-send-inbox-doorbell-live-e2e.test.sh).
 A pending record, doorbell-construction or seed failure marks the guard failed, names the harness and version, cleans up its window, and returns to the loop so later harnesses are still reported.
 
 On 2026-10-22, this pending-only command passed on Cursor 2026.10.19-6bbf2c4 with tmux 3.4 from the repository worktree, using the default 240-second limit after clearing the timeout override.
@@ -1215,6 +1336,98 @@ All three returned control to the caller with `FAILED=1`, `CHECKED=0`, a harness
 Those are failure-path checks, not live-harness proof; their oracle is that a failing case cannot terminate enumeration or count as a successful case.
 Shell syntax validation of the changed guard passed.
 Scratch pane captures, generated fixtures and logs belong in PR evidence, outside the tracked source change.
+
+#### Lifecycle clearing
+
+The lifecycle mode of `tests/fm-send-inbox-doorbell-live-e2e.test.sh` exercises real `fm-control.sh` interrupt and exit calls against each selected installed harness.
+Its oracle requires a human draft, another task's doorbell and an own doorbell with appended human text to survive refused exits unchanged; an own doorbell must clear without submitting its unread record, interrupt must preserve the agent, and exit must stop it while preserving the endpoint.
+The appended-text cases include literal `ctrl+c to stop` bytes, which are user input unless composer extraction proves they are styled Cursor furniture.
+Both live guards record the real transport input forwarded by their isolated CLI wrappers and reject any submission before the bare exit command, including submission immediately followed by cancellation.
+The tmux guard narrows Claude's lifecycle cases to 20 columns.
+The tmux guard moves the cursor left once before interrupt and halfway through the doorbell before exit; the Herdr guard moves it left once before both verbs.
+Each clear iteration sends Ctrl+E before Ctrl+U, establishing the documented line-end position before deleting text before the cursor.
+Busy exit clears an owned doorbell before delivering an interrupt that could change the draft.
+The exit path is shared with relaunch; this guard does not exercise replacement-agent launch.
+The portable `test_composer_clear_at_narrow_widths` in `tests/fm-task-inbox.test.sh` also requires both tmux and Herdr to clear 180 characters at widths 1 and 20 from cursor positions 0, 90, 179 and 180, modeling the editing contract documented by [Claude Code](https://code.claude.com/docs/en/interactive-mode#text-editing).
+It also clears 260 characters at those widths from the start, middle, penultimate and final cursor positions, preserving recovery beyond a fixed 200-press ceiling.
+Both clear loops retry unknown readbacks at most five times with 0.1-second waits, sending no further keys until pending text is readable; failed reads or exhausted retries refuse clearing.
+The portable `test_composer_clear_waits_for_redraw` in `tests/fm-task-inbox.test.sh` requires read-only retries through transient redraws before another deletion or success.
+On 2026-10-30, Claude Code 2.1.314 passed the 20-column interrupt and exit cases with `FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY=1 FM_SEND_INBOX_LIVE_HARNESSES=claude bash tests/fm-send-inbox-doorbell-live-e2e.test.sh`, reporting `ok - live steering-inbox doorbell guard: 1 cases honored the doorbell contract`.
+The Herdr adapter regressions require a 10,000-character direct send to stop clearing after its first unreadable readback, with no Enter and an unconfirmed result.
+These recovery-bound regressions passed on 2026-10-30 with `TMPDIR=/tmp bash tests/fm-backend-herdr.test.sh` and `bash tests/fm-task-inbox.test.sh`; the short Herdr temporary root keeps its Unix socket fixture within the platform path limit.
+An insufficient deletion budget or failure to position the cursor leaves observable pending text and fails that regression.
+AGY's bare `>` composer remains [unknown by design](agy.md#composer-unknown-by-design); its lifecycle case instead proves that exit refuses own and foreign drafts unchanged, with no lifecycle input and the agent still alive.
+No automatic clearing or successful exit is claimed for that unreadable surface.
+
+Verified 2026-10-30 on Linux with tmux 3.4 and Herdr 0.9.5 using the following commands; the output below records each installed harness version:
+
+```sh
+export HOME="$PWD/.rv/h" CLAUDE_CONFIG_DIR="$PWD/.rv/c" TMPDIR="$PWD/.rv/t"
+export DISABLE_AUTOUPDATER=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false
+unset FM_SEND_INBOX_LIVE_HARNESSES
+bash tests/lifecycle-input.test.sh
+bash tests/fm-composer-lib.test.sh
+bash tests/fm-control.test.sh
+bash tests/fm-task-inbox.test.sh
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY=1 \
+bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash tests/fm-herdr-submit-confirm-live-e2e.test.sh
+```
+
+The disposable directories were prepared inside the checkout, with existing account credentials, workspace trust and launch settings copied into disposable configurations.
+AGY's disposable onboarding was completed with interaction-data collection unchecked.
+The original configuration was not changed.
+The tmux fixture enables Bash job control so vendor descendants do not remain in the shell's foreground process group after exit.
+Readiness dismisses the current Codex folder-trust dialog before accepting an empty verdict.
+Kimi launches with both `KIMI_CODE_NO_AUTO_UPDATE=1` and its legacy alias `KIMI_CLI_NO_AUTO_UPDATE=1`, following the [vendor environment reference](https://github.com/MoonshotAI/kimi-code/blob/main/docs/en/configuration/env-vars.md).
+The composer tests also execute classification and ownership extraction against Kimi 2.4.1's complete two-row status footer, while rejecting contiguous unclaimed activity below it.
+The footer regression includes integer, decimal, `k` and `M` token counts in both fields, including the [vendor formatter's](https://raw.githubusercontent.com/MoonshotAI/kimi-code/@moonshot-ai/kimi-code@2.4.1/apps/kimi-code/src/utils/usage/usage-format.ts) `1% (1.5k/977k)` readout for 1536 used tokens; malformed counts remain unclaimed activity.
+All four portable files and both live guards passed; relevant output was:
+
+```text
+ok - lifecycle transport oracle rejects submission even when immediately cancelled
+ok - doorbell comparison preserves literal stop-hint bytes while extraction removes styled Cursor furniture
+ok - fm-control interrupt preserves literal stop-hint text on full and partial doorbell drafts
+ok - busy exit clears an own doorbell before adapters can change it during interrupt
+ok - composer clear: tmux and Herdr finish 180 and 260 characters at widths 1 and 20 from every cursor position
+ok - composer clear: tmux and Herdr stop after one edit on unreadable or failed readback
+ok - fm_backend_herdr_send_text_submit: unreadable recovery of a 10000-character payload stops after one edit without Enter
+ok - cursor (2026.10.19-6bbf2c4): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - claude (2.1.314 (Claude Code)): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - codex (codex-cli 0.159.3): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - pi (1.0.0): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - grok (grok 1.0.70 (f50904eaee6c)): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - kimi (2.4.1): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - omp (omp/18.2.7): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - agy (1.4.12): unreadable composer preserves own and foreign drafts and refuses exit without lifecycle input
+# harness absent, not verified here: polytoken
+ok - live steering-inbox doorbell guard: 8 cases honored the doorbell contract
+ok - live Herdr lifecycle: Claude Code (2.1.314 (Claude Code)) on herdr 0.9.5 clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - live Herdr submit confirm: Claude Code (2.1.314 (Claude Code)) on herdr 0.9.5 proves and submits a typed /exit behind its command popup
+```
+
+The default enumeration refreshed every installed harness.
+OpenCode, Pi-signed, Muse, Gemini, Rovo, Devin, Command Code and Polytoken were absent from PATH and explicitly reported as unverified.
+Polytoken's production session-binding fixture was inspected, but its real lifecycle case remains unverified.
+AGY reported account location ineligibility; its result proves local draft-preserving refusal only, with no submitted model turn.
+`FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash tests/fm-herdr-submit-confirm-live-e2e.test.sh` now exercises the same lifecycle cases against real Claude on Herdr before its final exit proof.
+The Herdr guard owns a private server process, socket, configuration and state inside the checkout, using the same isolation pattern as the main-backstop discovery guard.
+It claims an absent `.x` directory for its private XDG namespace and addresses that namespace's default session; the operator's Herdr namespace is never selected.
+Its worker receives the test's `FM_TASK_INBOX` before launch.
+
+#### Lifecycle class inventory
+
+| Axis | Affected paths and coverage |
+| --- | --- |
+| Ownership consumers | Exact comparison serves `fm_task_inbox_composer_holds`, inbox ringing and watcher/mate authorization; exact-or-prefix comparison serves `fm_task_inbox_composer_holds_own` and lifecycle clearing; `tests/fm-composer-lib.test.sh` covers literal hint text before, inside and after a doorbell, full and prefix drafts, Claude extraction and styled Cursor furniture; `tests/fm-task-inbox.test.sh` covers Cursor ringing and the recorded Herdr ANSI capture. |
+| Lifecycle transitions | `do_interrupt` clears an own draft before cancellation; `do_exit` clears before a busy interrupt and before its exit command; relaunch calls that same exit path before replacement; own-doorbell recovery rejects foreign drafts; empty, unreadable and failed-clear paths retain their existing gates; `tests/fm-control.test.sh` covers own, partial, foreign, busy-exit and failed-clear cases; `tests/fm-control-relaunch.test.sh` owns replacement launch; live guards cover interrupt and exit only. |
+| Task kinds | Ships, scouts and secondmates share the same metadata-bound inbox and clear helper; the existing harness-kind gate rejects secondmates on worker-only harnesses; no task-kind-specific ownership branch exists. |
+| Harnesses | Claude, Codex, OpenCode, Pi, Pi-signed, Grok, Kimi, Cursor, Gemini, Muse, Rovo, omp, AGY, Devin, Command Code and Polytoken share comparison after extraction; Cursor's styled hint is removed during extraction and literal hint text is preserved; Kimi's complete status footer leaves its boxed draft selectable; AGY's unreadable bare prompt remains excluded from clearing; the tmux guard enumerates all installed harnesses by default; Polytoken binds its REST port and credential through production session lookup; aliases continue through `fm_control_harness_family`. |
+| Backends and representations | tmux uses styled capture; Herdr uses styled visible capture with its existing plain fallback; both clear loops position the cursor with Ctrl+E before each Ctrl+U and require empty readback; zellij, cmux and paseo normalize these keys for generic interrupt clearing and still refuse exit/relaunch without verified agent-state proof; Orca cannot send either editing key, making lifecycle clearing inapplicable; whitespace normalization and the inbox-name-bearing prefix boundary are unchanged. |
+| Platforms | Ownership comparison and the transport oracle share Bash/awk logic on Linux and macOS; no platform-specific branch was added; these live results are Linux-only and do not establish native Windows proof. |
+| Accounts | Existing recorded config selection and launch/account rules are unchanged; guards use disposable configurations seeded from existing accounts; AGY's account could not run a model turn, so only its local refusal is verified; Polytoken discovers only the session matching its private session root and launch cwd and records its production session/port/credential fields without creating or disclosing a credential; other pinned accounts were not refreshed. |
+
+The current live refresh commands are the two guards above; selecting fewer harnesses does not establish live proof for the others.
 
 ## Waiting-worker command ceilings
 
@@ -1578,6 +1791,19 @@ Observed 2026-08-19:
 
 ```text
 ok - live Herdr submit confirm: Claude Code (2.1.236 (Claude Code)) on herdr 0.8.0 reports empty for a landed idle steer
+```
+
+### Composer viewport recovery
+
+The [Herdr socket API](https://herdr.dev/docs/socket-api/) defines `scroll.offset_from_bottom == 0` as the at-bottom state used by the recovery assertions.
+`tests/fm-composer-lib.test.sh` exercises composerless captures and long bare, titled, left-bar, and boxed drafts through state classification and content extraction.
+`tests/fm-backend-herdr.test.sh` covers both public composer reads against echoed-prompt transcripts with and without a blank row at offset 205, successful and ineffective resets, composerless bottom captures, plain-capture fallback, failed position queries, and the helper's zero-offset-only socket request.
+The Herdr submit-confirmation guard also creates transcript scrollback with real Claude output, scrolls each public composer read independently, and requires both reads to recover the empty or pending draft at offset zero from a visibly different viewport.
+These scroll-and-recover scenarios have no live verification result recorded yet; the earlier submit-confirmation evidence does not cover them.
+Refresh this record during validation with the platform, Claude and Herdr versions, and exact output from:
+
+```sh
+FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash tests/fm-herdr-submit-confirm-live-e2e.test.sh
 ```
 
 ### Claude exit behind the slash-command popup
@@ -2596,9 +2822,11 @@ The rest of the lifecycle was driven end to end on that worker:
 Other harnesses on Herdr are unaffected by the edge-detector change.
 All seven live panes of the running default session - one Pi, four Claude, two plain shells - classified identically under the pre-fix and current classifiers.
 
-**Typed-submit confirmation is verified on tmux and Herdr only.**
-Zellij, cmux, Orca, and Paseo share a submit core that never consults the busy footer, so a typed-plane Cursor send there lands but `fm-send` reports delivery unconfirmed and exits non-zero; ordinary text steers ride the durable inbox and exit 0 at enqueue.
-Teaching that shared core the same transition is deliberately separate work, because it changes the submit path for every harness on those four backends and needs its own live validation on each.
+**The rendered-footer typed-submit confirmation above remains available on Herdr only.**
+Tmux now requires the [submission acknowledgement contract](../tmux-backend.md#composer-busy-state-and-delivery), so these earlier footer observations no longer prove tmux typed-submit confirmation.
+Zellij, cmux, Orca, and Paseo share a submit core that never consults the busy footer.
+A Cursor typed send on those backends or tmux can therefore land while `fm-send` reports submission unconfirmed and exits non-zero; ordinary text steers remain durably enqueued even when their doorbell is unconfirmed.
+Changes to the other backends' confirmation signals require separate live validation on each.
 
 The portable regression is `tests/fm-cursor-harness.test.sh`, the composer captures are pinned in `tests/fm-composer-lib.test.sh`, and the Herdr submit and footer behavior is pinned in `tests/fm-backend-herdr.test.sh`.
 Refresh this harness-dependent proof before accepting a cursor upgrade:
@@ -2924,20 +3152,10 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 
 ## Busy inbox escalation
 
-Verified at `2026-10-03T19:20:07Z` on commit `23b0232908a5adc7fbf7339ef48c34a091a7a799` with Claude Code `2.1.288 (Claude Code)` on Herdr `0.9.1`, protocol `22`, in a named isolated lab session through `bin/fm-herdr-lab.sh`.
-`bin/fm-task-inbox-lib.sh` owns the durable busy-deferral budget.
-
-A real Claude worker opened an `AskUserQuestion` panel, and Firstmate's `UserPromptSubmit` hook reported busy.
-Four due inbox checks using the original `origin/main` watcher at `1f3e769616fdf9f31f85f4c3e6a9f71606634238` against that live pane each read `busy=yes` and added zero wakes.
-With `FM_TASK_INBOX_GRACE_SECS=0 FM_TASK_INBOX_BUSY_MAX=2`, two distinct processes sourcing the fixed watcher and calling `inbox_steer_check` against the same pane produced one wake containing `stuck-busy after 2 consecutive busy-deferred due doorbells`.
-A third check left exactly one wake total; the question panel remained open and the instruction remained unhandled.
-Lab teardown completed with exit `0`, including the default-session tripwire.
-The zero grace accelerates only the experiment; the normal grace remains unchanged.
-Without Firstmate's hooks, Herdr reported the question panel as `blocked`, which did not classify as busy; that is a different path and does not establish this regression.
-
-This live proof covers the watcher and queue boundary; it does not establish live daemon-consumer delivery.
-`bin/fm-test-run.sh tests/fm-daemon.test.sh` exercises that consumer routing separately with portable regressions for busy escalation and busy-bookkeeping failures in away and quiet mode.
-Repeat the hooked-worker check above before publication if watcher or task-inbox busy code changes; `bin/fm-test-run.sh tests/fm-task-inbox.test.sh` refreshes the portable ladder regressions.
+[`fm-task-inbox-lib.sh`](../../bin/fm-task-inbox-lib.sh) owns the durable busy-deferral budget and idle follow-up contract.
+`tests/fm-task-inbox.test.sh` covers non-queue busy escalation and the owed idle ring surviving stuck-busy escalation.
+`tests/fm-daemon.test.sh` covers consumer routing for busy escalation and busy-bookkeeping failures in away and quiet mode.
+The [Steering-inbox doorbell](#steering-inbox-doorbell) live guard now exercises Claude busy submission rather than the non-queue escalation path; the dated idle-doorbell results there do not establish busy queued consumption.
 
 ## Main backstop discovery guard, 2026-10-20
 
@@ -2957,3 +3175,68 @@ ok - codex (codex-cli 0.160.0): exact-home discovery, wrong-home and stale-label
 
 This proves live process discovery and shell refusal, including startup interfaces without a submitted prompt.
 It does not prove prompt delivery or turn-end watcher recovery.
+
+
+## Lane release class inventory for validation
+
+Inspected on 2026-10-30 against the executable boundaries below.
+This is the retained validation handoff required by `bin/fm-dod-lib.sh`, not a claim of current real-harness proof.
+The dedicated validation phase owns live guard execution and recording the installed versions, commands, exact output, and remaining gaps here.
+The focused review regression commands are `bash tests/fm-lane-release.test.sh` and `bash tests/fm-control.test.sh`.
+
+| Boundary | Inspected call paths and required behavior | Executable regression | Applicable live guard and evidence gap |
+| --- | --- | --- | --- |
+| Agent liveness | `fm-lane-release.sh` agent reads reach `fm_backend_agent_state` for the recorded backend and target; only positively alive candidates qualify, and unreadable audit reads return unknown. | `tests/fm-lane-release.test.sh`, `tests/fm-tmux-agent-liveness.test.sh`, `tests/fm-backend-herdr.test.sh` | `tests/fm-harness-liveness-drift-live-e2e.test.sh`, `tests/fm-control-herdr-smoke.test.sh`; refresh both process attribution and endpoint evidence. |
+| Busy and intervening turns | Sweep evaluation and detached validation compare a validated busy generation and full record across live reads; submission guards compare that incarnation and sequence before literal input and every Enter, including Herdr client retries. | `tests/fm-lane-release.test.sh`, `tests/fm-control.test.sh`, `tests/fm-busy-state.test.sh`, `tests/fm-busy-adapter-wiring.test.sh` | Run the applicable harness signal guards listed below; a source without a monotonic busy record remains ineligible. |
+| Composer | `read_composer` reaches the backend composer classifier; pending text, dialogs and unknown reads retain the seat. | `tests/fm-composer-lib.test.sh`, `tests/fm-composer-ghost.test.sh`, `tests/fm-control.test.sh` | `tests/fm-composer-matrix-live-e2e.test.sh`; historical versions in this record do not establish present behavior. |
+| Own doorbell | `composer_holds_doorbell` reaches task-inbox extraction for tmux, Herdr, or generic capture; every unread message retains the seat, and an own unsubmitted doorbell is stuck-composer. | `tests/fm-task-inbox.test.sh`, `tests/fm-send-inbox.test.sh`, `tests/fm-lane-release.test.sh` | `tests/fm-send-inbox-doorbell-live-e2e.test.sh`; real handling and acknowledgement do not alone establish release-race exclusion. |
+| Seat verification | Marker verification and audit share `fm_task_record_holds_seat`; dead or missing agents require readable worktree and process evidence before their seats can be called free. | `tests/fm-capacity.test.sh`, `tests/fm-project-capacity.test.sh`, `tests/fm-lane-release.test.sh` | Retain actual endpoint, process and seat-count observations for RELEASED and RELEASE_INCOMPLETE; missing or unreadable `lsof`/`ps` is unknown. |
+| Unattended exit | `exit-worker` invokes `fm-control exit --if-idle --expect-spawn-gen`; metadata validation excludes published steers, turn guards cover submission reads and waits, and the ordinary stopped path retires busy wiring. | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh`, `tests/fm-lane-release.test.sh` | `tests/fm-control-herdr-smoke.test.sh`, `tests/fm-claude-bg-exit-live-e2e.test.sh`; current per-harness unattended-exit evidence remains to be collected. |
+| Open-PR metrics | Audit uses bounded existing GitHub, GitLab, Forgejo and Gerrit record readers; OPEN evidence is required, while terminal states contribute no open-PR hours and unreadable provider, endpoint, status or inbox evidence returns unknown. | `tests/fm-lane-release.test.sh`, provider reader cases in `tests/fm-crew-state.test.sh` | Refresh provider credential and protocol coverage; [GitHub CLI documentation](https://cli.github.com/manual/gh_pr_view) defines its state read interface. |
+| Sweep scheduling | Verification and candidate evaluation share the existing durable cursor and overall deadline, including orphan markers, slow reads, and the two-release limit. | `tests/fm-lane-release.test.sh` | No additional vendor signal is introduced; retain wall-time and eventual candidate progress evidence. |
+
+### Task kinds, lifecycle, backend and platform axes
+
+Local ships and scouts are the release subjects; an absent kind retains the existing ship default.
+Secondmates and remotely placed task records are excluded before release evaluation, because their lifecycle belongs to the owning home.
+Merged ships require an identity-matching merge receipt; open PRs and closed-unmerged ships retain their seats.
+Scouts require a report, successful completion verification, no captain hold, no task-owned board and no promotion artifact.
+Local-only coverage checks the [documented exclusion](../configuration.md#lane-release-configlane-release), rather than a merged-PR success path.
+
+| Transition or backend axis | Coverage or inspected disposition |
+| --- | --- |
+| LIVE to FINISHED to candidate debounce | Lane-release regressions cover raw done status, open questions, crew agreement, merge/report evidence, both sightings, grace and changed busy sequence. |
+| FINISHED to RELEASING to detached exit | Lane-release and control regressions cover marker-before-exit, changed incarnation, unread steer, changed completion evidence, turn events during reads, preflight and settle. |
+| RELEASING to RELEASED or RELEASE_INCOMPLETE | Lane-release regressions cover seat proof, two-sweep incomplete classification, single wake, retained occupancy, unknown evidence and later successful verification. |
+| Deferred or refused exit | Lane-release and control regressions cover marker removal and later retry without spinning; a guard refusal after typing retains the draft and sends no further Enter. |
+| Relaunch and marker readers | `tests/fm-control-relaunch.test.sh`, `tests/fm-session-start.test.sh`, `tests/fm-crew-recovery.test.sh`, `tests/fm-pr-conflict.test.sh`, `tests/fm-inactive-reconcile.test.sh`, `tests/fm-fleet-snapshot-view.test.sh`, `tests/fm-watch-triage.test.sh` cover incarnation invalidation and intentional-release presentation/recovery suppression. |
+| tmux | Recorded backend default; process-tree liveness, styled capture and guarded literal/Enter submission apply. |
+| Herdr | Native pane targeting, attributed liveness, composer content, protocol-compatible client selection and guarded initial/retried input apply; native idle alone is insufficient turn history. |
+| zellij, Orca, cmux, Paseo | Read interfaces remain subject to backend capabilities; `fm_control_state_verified_backend` refuses automatic exit because recovery-grade stop proof is unavailable. Orca resolves its recorded terminal, not a tmux window. |
+| Linux and WSL | Existing GNU stat and process-table paths apply; process evidence and tools must be readable. |
+| macOS | Existing BSD stat, stock Bash compatibility and `lsof`/`ps` paths apply; no Linux-only lock or transport dependency was added. |
+| Other tool environments | No new native platform path is introduced; missing backend/process tools remain unknown rather than proof of a free seat. |
+
+### Harness and account axes
+
+The control family table includes Claude, Codex, OpenCode, Pi, Pi-signed, Grok, Kimi, Cursor, Gemini, Muse, Rovo, OMP, AGY, Devin, CommandCode and Polytoken, including the recorded aliases normalized by `fm_control_harness_family`.
+Unknown control families remain refused.
+
+| Harness group | Busy evidence and release disposition | Applicable real guards |
+| --- | --- | --- |
+| Claude, OpenCode, Gemini | Hook-driven busy records must be armed and valid; process and composer checks still apply independently. | `tests/fm-launch-prompt-signals-live-e2e.test.sh`, `tests/fm-composer-matrix-live-e2e.test.sh`, `tests/fm-claude-bg-exit-live-e2e.test.sh` |
+| Pi, Pi-signed, OMP | Extension-owned turn records require current generation wiring; primary and secondmate lifecycle remain outside release subjects. | `tests/fm-pi-primary-live-e2e.test.sh`, `tests/fm-omp-primary-live-e2e.test.sh`, `tests/fm-composer-matrix-live-e2e.test.sh`; primary guards establish shared extension signals, not worker release proof. |
+| Devin, CommandCode, Polytoken | Their semantic busy writers and version-sensitive composer/exit surfaces must be checked. | `tests/fm-devin-signals-live-e2e.test.sh`, `tests/fm-commandcode-signals-live-e2e.test.sh`, `tests/fm-polytoken-signals-live-e2e.test.sh` |
+| Codex, Kimi | Existing semantic capability gates remain authoritative; unknown or unverified busy evidence cannot authorize release. | `tests/fm-codex-hook-layer-live-e2e.test.sh`, `tests/fm-composer-codex-idle-live-e2e.test.sh`, `tests/fm-kimi-harness.test.sh`; absence of verified lifecycle signals remains a gap. |
+| Cursor, Muse, Grok | Transcript/session-log/rendered idle without a monotonic busy record cannot prove that no intervening turn completed, so release remains ineligible. | `tests/fm-cursor-harness.test.sh`, `tests/fm-muse-signals-live-e2e.test.sh`, `tests/fm-grok-stop-live-e2e.test.sh`; these do not supply a missing release sequence. |
+| Rovo, AGY | Missing trusted idle/turn signals remain fail-closed. | `tests/fm-rovo-signals-live-e2e.test.sh`, `tests/fm-agy-signals-live-e2e.test.sh`; no automatic-release proof claimed. |
+
+Ordinary backend reads continue using the task's recorded endpoint and the selected backend client.
+Claude background cleanup retains the recorded `claude_config_dir`, including explicit ordinary roots; legacy records retain the recorded-account and ambient-root fallback already owned by worker-account selection.
+`tests/fm-control.test.sh` covers changed pins, explicit ordinary roots, ship/scout/secondmate records and non-Claude isolation.
+`tests/fm-worker-account-live-e2e.test.sh` supplies current sign-in evidence, but does not by itself prove release-time cleanup routing.
+Provider reads retain their existing host/login/account selection; the audit does not write forge state or change credentials.
+
+No live guard, credentialed session, or installed-harness version is claimed by this inspection handoff.
+The terminal adapters expose separate reads and input calls, not an atomic conditional-exit protocol; action guards reject observed generation/sequence changes, and do not claim atomic exclusion of arbitrary concurrent physical keyboard input.
+Validation must retain current real-harness evidence for the installed eligible adapters, explicitly name unavailable adapters, and leave unsupported turn-history sources ineligible.

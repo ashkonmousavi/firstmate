@@ -29,6 +29,10 @@
 #   7. A fire-and-forget record stays outside the ladder, but one whose first
 #      ring did not land gets exactly one retry ring and never escalates. The
 #      retry waits while the worker has an open decision of its own.
+#   8. A submit-queue harness receives literal input followed by Enter while
+#      busy. A harness without a submit queue is
+#      rung on the next idle observation, including inside grace and after
+#      stuck-busy.
 set -u
 
 # shellcheck source=tests/wake-helpers.sh
@@ -90,6 +94,8 @@ case "${1:-}" in
       if [ -n "${FM_RING_MARKS_RETRY:-}" ]; then
         printf '%s\n' "${FM_RING_MARKS_RETRY##*/}" > "${FM_RING_MARKS_RETRY%/*}/.retry-ring"
       fi
+    else
+      printf 'key:%s\n' "$@" >> "${FM_SEND_LOG:-/dev/null}"
     fi
     exit 0 ;;
   display-message)
@@ -297,6 +303,64 @@ test_ring_skips_dead_agent() {
   pass "inbox: the ring skips dead or missing endpoints and still rings live or unclassifiable endpoints"
 }
 
+# fm_task_inbox_ring names the step that produced each result: the return
+# code and the stdout verdicts stay as they were, the token lands in the
+# sibling <seq>.ring-reason, and the .msg bytes are never touched. The backend
+# boundary is faked with functions, so no harness runs.
+ring_reason_case() {  # <state> <rec> <setup-snippet>; prints "<rc> <token-var>"
+  local state=$1 rec=$2 snippet=$3
+  FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" bash -c '
+    . "$1"
+    fm_backend_agent_state() { printf "idle"; }
+    fm_backend_composer_state() { printf "empty"; }
+    fm_task_inbox_signal_prepare() { :; }
+    fm_backend_send_text_submit() { printf "empty"; }
+    eval "$3"
+    rc=0
+    fm_task_inbox_ring herdr w:p "$2" fm-t1 || rc=$?
+    printf "%s %s" "$rc" "$FM_TASK_INBOX_RING_REASON"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$rec" "$snippet"
+}
+
+test_ring_records_the_failing_step_without_changing_codes() {
+  local dir state rec before got want label snippet
+  dir="$TMP_ROOT/ring-reason"; state="$dir/state"; mkdir -p "$state/tmp"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  before=$(cat "$rec")
+  while IFS='|' read -r label want snippet; do
+    got=$(ring_reason_case "$state" "$rec" "$snippet")
+    [ "$got" = "$want" ] || fail "$label: expected '$want', got '$got'"
+  done <<'CASES'
+agent dead|3 agent-dead|fm_backend_agent_state() { printf dead; }
+agent missing|3 agent-dead|fm_backend_agent_state() { printf missing; }
+foreign pending draft|1 foreign-pending-draft|fm_backend_composer_state() { printf pending; }; fm_task_inbox_composer_holds() { return 1; }
+backend refused before typing|2 submit-refused|fm_backend_send_text_submit() { return 1; }
+send-failed with no finer step|2 backend-send-failed|fm_backend_send_text_submit() { printf send-failed; }
+send-failed names the literal send|2 literal-send-failed|fm_backend_send_text_submit() { printf "literal-send-failed\n" > "$FM_RING_REASON_SINK"; printf send-failed; }
+send-failed names the Enter send|2 enter-send-failed|fm_backend_send_text_submit() { printf "enter-send-failed\n" > "$FM_RING_REASON_SINK"; printf send-failed; }
+unknown verdict with no finer step|4 submit-unconfirmed|fm_backend_send_text_submit() { printf unknown; }
+pending verdict with no finer step|4 submit-unconfirmed|fm_backend_send_text_submit() { printf pending; }
+unknown verdict names the dialog|4 blocking-dialog|fm_backend_send_text_submit() { printf "blocking-dialog\n" > "$FM_RING_REASON_SINK"; printf unknown; }
+confirmed submit|0 ok|:
+CASES
+  got=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_backend_agent_state() { printf "idle"; }
+    fm_task_inbox_doorbell_line() { return 1; }
+    rc=0
+    fm_task_inbox_ring herdr w:p "$2" fm-t1 || rc=$?
+    printf "%s %s" "$rc" "$FM_TASK_INBOX_RING_REASON"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$rec")
+  [ "$got" = "2 doorbell-rejected" ] || fail "a rejected doorbell line should name doorbell-rejected, got '$got'"
+  [ "$(cat "$state/t1.inbox/001.ring-reason")" = 'rc=2 token=doorbell-rejected' ] \
+    || fail "the sibling file must hold the last attempt only, got: $(cat "$state/t1.inbox/001.ring-reason")"
+  [ "$(cat "$rec")" = "$before" ] || fail "recording the ring reason changed the steering record bytes"
+  [ "$(inbox_lib "$state" fm_task_inbox_last_reason "$rec")" = doorbell-rejected ] \
+    || fail "the last reason must be readable by later surfaces"
+  ! compgen -G "$state/tmp/fm-ring-reason.*" >/dev/null || fail "the ring left its reason sink behind"
+  pass "inbox: the ring names the step behind each result, keeps every code, and never rewrites the record"
+}
+
 # A fake tmux whose pane is a Claude-style composer that keeps its content in
 # FM_FAKE_COMPOSER: literal input appends to it, capture renders it wrapped
 # between rules, and Enter submits it (logged as SUBMIT) unless
@@ -320,12 +384,28 @@ case "${1:-}" in
     if [ "$literal" = 1 ]; then
       printf '%s' "$1" >> "$FM_FAKE_COMPOSER"
     elif [ "${1:-}" = Enter ]; then
+      [ -z "${FM_FAKE_ENTER_LOG:-}" ] || printf 'Enter\n' >> "$FM_FAKE_ENTER_LOG"
       drops=$(cat "$FM_FAKE_DROP_ENTERS" 2>/dev/null || echo 0)
       if [ "$drops" -gt 0 ]; then
         echo $((drops - 1)) > "$FM_FAKE_DROP_ENTERS"
+        if [ "${FM_FAKE_AUTOMATIC_WAKE:-0}" = 1 ]; then
+          printf '%s\n' '{"prompt":"unrelated automatic wake"}' | \
+            "$FM_FAKE_HOOK_WRITER" apply "$FM_FAKE_HOOK_STATE" "$FM_FAKE_HOOK_ID" busy \
+              --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null 2>&1 || true
+          "$FM_FAKE_HOOK_WRITER" apply "$FM_FAKE_HOOK_STATE" "$FM_FAKE_HOOK_ID" idle \
+            --current-gen --source claude-hook --event stop >/dev/null 2>&1 || true
+        fi
       elif [ -s "$FM_FAKE_COMPOSER" ]; then
         printf 'SUBMIT: %s\n' "$(cat "$FM_FAKE_COMPOSER")" >> "$FM_SEND_LOG"
-        : > "$FM_FAKE_COMPOSER"
+        # The harness hook: an accepted prompt opens the busy record, exactly
+        # as fm-spawn's UserPromptSubmit wiring does for a Claude worker.
+        if [ -n "${FM_FAKE_HOOK_STATE:-}" ]; then
+          jq -Rs '{prompt:.}' < "$FM_FAKE_COMPOSER" | \
+            "$FM_FAKE_HOOK_WRITER" apply "$FM_FAKE_HOOK_STATE" "$FM_FAKE_HOOK_ID" busy \
+              --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null 2>&1 || true
+        fi
+        # A composer that keeps rendering text after an accepted submit.
+        [ "${FM_FAKE_KEEP_TEXT:-0}" = 1 ] || : > "$FM_FAKE_COMPOSER"
       fi
     fi
     exit 0 ;;
@@ -343,10 +423,16 @@ case "${1:-}" in
     esac
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    if [ -s "${FM_FAKE_ENTER_LOG:-/dev/null}" ]; then
+      case "${FM_FAKE_CAPTURE_AFTER_ENTER:-}" in
+        fail) exit 1 ;;
+        unknown) printf 'unrecognized harness screen\n'; exit 0 ;;
+      esac
+    fi
     if [ "${FM_FAKE_COMPOSER_SHAPE:-}" = cursor ]; then
       printf ' ▄▄▄▄▄▄▄▄\n'
       if [ -s "$FM_FAKE_COMPOSER" ]; then
-        fold -w 40 "$FM_FAKE_COMPOSER" | awk 'NR == 1 { print "  → " $0 " ctrl+c to stop"; next } { print "    " $0 }'
+        fold -w 40 "$FM_FAKE_COMPOSER" | awk 'NR == 1 { printf "  → %s\033[2m ctrl+c to stop\033[0m\n", $0; next } { print "    " $0 }'
       else
         printf '  →\n'
       fi
@@ -360,13 +446,129 @@ case "${1:-}" in
     else
       printf '❯ \n'
     fi
-    printf '%s\n  ? for shortcuts\n' "$rule"
+    printf '%s\n  %s\n' "$rule" "${FM_FAKE_COMPOSER_ACTIVITY:-? for shortcuts}"
     exit 0 ;;
   list-windows) printf 'fm-t1\n'; exit 0 ;;
 esac
 exit 0
 SH
   chmod +x "$1/fakebin/tmux"
+}
+
+test_existing_doorbell_confirmation_reasons() {
+  local dir state rec got mode want presses
+  dir="$TMP_ROOT/existing-doorbell-reasons"; state="$dir/state"; mkdir -p "$state"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  cp "$rec" "$dir/before"
+  while IFS='|' read -r mode want presses; do
+    : > "$dir/keys"
+    rm -f "$dir/reads"
+    got=$(FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1/bin/fm-task-inbox-lib.sh"
+      . "$1/bin/fm-composer-lib.sh"
+      rec=$2 mode=$3 dir=$4
+      own=$(fm_task_inbox_doorbell_line "$rec")
+      fm_backend_source() { :; }
+      fm_backend_agent_state() { printf idle; }
+      fm_task_inbox_signal_prepare() { :; }
+      fm_backend_composer_state() {
+        local reads
+        reads=$(cat "$dir/reads" 2>/dev/null || printf 0)
+        reads=$((reads + 1)); printf "%s" "$reads" > "$dir/reads"
+        if [ "$reads" = 1 ]; then printf pending; return 0; fi
+        case "$mode" in
+          unreadable) return 1 ;;
+          unknown) printf unknown ;;
+          cleared) printf empty ;;
+          *) printf pending ;;
+        esac
+      }
+      fm_backend_herdr_composer_content() {
+        [ "$mode" != initial-unreadable ] || return 1
+        if [ "$(cat "$dir/reads")" -gt 1 ]; then
+          [ "$mode" != content-unreadable ] || return 1
+          if [ "$mode" = foreign ]; then printf "human draft"; return 0; fi
+        fi
+        printf "%s" "$own"
+      }
+      fm_busy_submit_wait() { [ "$mode" = receipt ]; }
+      fm_backend_send_key() {
+        printf "%s\n" "$3" >> "$dir/keys"
+        [ "$mode" != send-failed ]
+      }
+      fm_backend_send_text_submit() { printf literal >> "$dir/keys"; return 1; }
+      rc=0
+      fm_task_inbox_ring herdr session:w:p "$rec" fm-t1 || rc=$?
+      printf "%s %s" "$rc" "$FM_TASK_INBOX_RING_REASON"
+    ' _ "$ROOT" "$rec" "$mode" "$dir")
+    [ "$got" = "$want" ] || fail "$mode existing doorbell: expected '$want', got '$got'"
+    [ "$(wc -l < "$dir/keys")" -eq "$presses" ] || fail "$mode used the wrong number of Enters"
+    if [ "$presses" -gt 0 ]; then
+      [ "$(sort -u "$dir/keys")" = Enter ] || fail "$mode typed a fresh doorbell instead of Enter"
+    fi
+    [ "$(cat "${rec%.msg}.ring-reason")" = "rc=${want%% *} token=${want#* }" ] \
+      || fail "$mode did not persist its confirmation reason"
+    cmp -s "$rec" "$dir/before" || fail "$mode changed the instruction bytes"
+  done <<'CASES'
+initial-unreadable|1 composer-unreadable|0
+content-unreadable|4 composer-unreadable|1
+unreadable|4 post-enter-unreadable|1
+unknown|4 post-enter-unreadable|1
+foreign|4 post-enter-foreign-draft|1
+exhausted|4 enter-retries-exhausted|5
+send-failed|2 enter-send-failed|1
+cleared|0 ok|1
+receipt|0 ok|1
+CASES
+  pass "inbox: existing doorbells distinguish failed reads, foreign drafts and exhausted retries while preserving successful delivery"
+}
+
+test_ring_preflight_failure_reasons() {
+  local dir state rec backend mode want got
+  dir="$TMP_ROOT/preflight-reasons"; state="$dir/state"; mkdir -p "$state/tmp"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  cp "$rec" "$dir/before"
+  for backend in tmux herdr zellij orca cmux paseo; do
+    for mode in dialog sink; do
+      case "$mode" in
+        dialog) want=preflight-dialog ;;
+        sink) want=dialog-sink-failed ;;
+      esac
+      got=$(FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" bash -c '
+        . "$1/bin/fm-task-inbox-lib.sh"
+        . "$1/bin/fm-composer-lib.sh"
+        rec=$2 backend=$3 mode=$4 dir=$5
+        fm_backend_source() { :; }
+        fm_backend_agent_state() { printf idle; }
+        fm_task_inbox_signal_prepare() { :; }
+        fm_backend_composer_state() {
+          fm_composer_note_blocking_dialog "$(printf "Background work is running\n❯ 1. Exit and stop tasks\nEnter to confirm · Esc to cancel\n")" || true
+          printf unknown
+        }
+        eval "fm_backend_${backend}_send_text_submit() { printf typed >> \"\$dir/typed\"; printf empty; }"
+        if [ "$mode" = sink ]; then
+          FM_COMPOSER_DIALOG_SINK="$dir/missing/dialog"
+        else
+          FM_COMPOSER_DIALOG_SINK=
+        fi
+        FM_RING_REASON_SINK="$dir/direct-reason"
+        : > "$FM_RING_REASON_SINK"
+        rc=0
+        out=$(fm_backend_send_text_submit "$backend" target doorbell 5 2 0.3 label 2>/dev/null) || rc=$?
+        printf "%s|%s|%s\n" "$rc" "$out" "$(cat "$FM_RING_REASON_SINK")"
+        FM_RING_REASON_SINK=
+        rc=0
+        out=$(fm_task_inbox_ring "$backend" target "$rec" label) || rc=$?
+        printf "%s|%s|%s" "$rc" "$out" "$(cat "${rec%.msg}.ring-reason")"
+      ' _ "$ROOT" "$rec" "$backend" "$mode" "$dir")
+      [ "$got" = "1||$want"$'\n'"2||rc=2 token=$want" ] \
+        || fail "$backend $mode preflight lost its reason or changed stdout/return codes: $got"
+      [ ! -e "$dir/typed" ] || fail "$backend $mode typed despite a preflight refusal"
+      cmp -s "$rec" "$dir/before" || fail "$backend $mode changed the instruction bytes"
+    done
+  done
+  ! compgen -G "$state/tmp/fm-*" >/dev/null || fail "preflight refusal leaked a diagnostic sink"
+  pass "inbox: every backend distinguishes a preflight dialog from a failed dialog sink without typing"
 }
 
 # The stuck-doorbell deadlock: a doorbell whose Enter never landed sits in the
@@ -384,7 +586,7 @@ test_ring_submits_its_own_stuck_doorbell() {
   log="$dir/send.log"; composer="$dir/composer"; drops="$dir/drops"
   ring() {
     PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
-      FM_FAKE_DROP_ENTERS="$drops" inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1
+      FM_FAKE_DROP_ENTERS="$drops" inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1 "${1:-}"
   }
 
   : > "$log"; printf '%s' "$doorbell" > "$composer"
@@ -400,6 +602,21 @@ test_ring_submits_its_own_stuck_doorbell() {
   [ "$(cat "$log")" = "SUBMIT: $doorbell" ] \
     || fail "the retry Enter should submit the stuck doorbell once, not retype it:"$'\n'"$(cat "$log")"
   [ ! -s "$composer" ] || fail "a lost Enter left the stuck doorbell unsubmitted"
+
+  for other in rovo rovo-preview; do
+    : > "$log"; printf '%s' "$doorbell" > "$composer"
+    PATH="$dir/fakebin:$PATH" FM_FAKE_COMPOSER="$composer" FM_FAKE_COMPOSER_ACTIVITY='Rovo is thinking' \
+      inbox_lib "$state" fm_busy_is_busy tmux sess:fm-t1 "$other" t1 "$state" \
+      || fail "$other pending-doorbell fixture is not busy"
+    rc=0
+    FM_FAKE_COMPOSER_ACTIVITY='Rovo is thinking' ring "$other" || rc=$?
+    [ "$rc" = 1 ] || fail "busy $other submitted a pending doorbell: $rc"
+    [ ! -s "$log" ] || fail "busy $other received Enter"
+    [ "$(cat "$composer")" = "$doorbell" ] || fail "busy $other changed the pending doorbell"
+    ring "$other" || fail "idle $other did not submit its pending doorbell"
+    [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "idle $other did not submit exactly once"
+    [ ! -s "$composer" ] || fail "idle $other retained the pending doorbell"
+  done
 
   for other in 'a half-typed draft' "$doorbell and a draft"; do
     : > "$log"; printf '%s' "$other" > "$composer"
@@ -497,6 +714,249 @@ test_mate_ring_submits_own_doorbell_and_skips_foreign_text() {
   pass "mate: our own doorbell is submitted with one Enter; foreign pending text is not"
 }
 
+# Arm a task's busy record the way fm-spawn does for a Claude worker and mark
+# it idle, so the ring sees a submit signal. Echoes nothing.
+arm_idle_worker() {  # <state> <task> <harness>
+  local state=$1 task=$2 harness=$3
+  fm_write_meta "$state/$task.meta" "window=sess:fm-$task" "kind=ship" "harness=$harness" "backend=tmux"
+  "$ROOT/bin/fm-busy-event.sh" arm "$state" "$task" >/dev/null || fail "could not arm $task"
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" "$task" idle --current-gen \
+    --source claude-hook --event stop >/dev/null || fail "could not mark $task idle"
+}
+
+test_busy_submit_signal_semantics() {
+  local state="$TMP_ROOT/signal/state" base prompt=$'résumé ✓\nsecond line\n\n' other_base marked normalized
+  mkdir -p "$state"
+  arm_idle_worker "$state" t1 claude
+  confirmed() { bash -c '. "$1"; fm_busy_submit_confirmed "$2" t1 "$3" "$4"' _ "$ROOT/bin/fm-busy-lib.sh" "$state" "$1" "$base"; }
+  baseline() { bash -c '. "$1"; fm_busy_submit_baseline "$2" t1 claude "$3"' _ "$ROOT/bin/fm-busy-lib.sh" "$state" "$1"; }
+  event() { "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 "$1" --current-gen --source "$2" --event "$3" >/dev/null || fail "event $3 refused"; }
+  prompt_event() {
+    printf '%s' "$1" | jq -Rs '{prompt:.}' | "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy \
+      --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null \
+      || fail "prompt-submit refused"
+  }
+  base=$(baseline "$prompt") || fail "an idle armed Claude worker should yield a submit baseline"
+  confirmed claude && fail "no event since the baseline must not confirm"
+  event idle claude-hook stop
+  confirmed claude && fail "a lone turn-end after the baseline must not confirm"
+  prompt_event 'unrelated automatic wake'
+  confirmed claude && fail "an unrelated automatic wake must not confirm our draft"
+  event idle claude-hook stop
+  confirmed claude && fail "an unrelated completed turn must not confirm our draft"
+  prompt_event "${prompt%$'\n\n'}"
+  confirmed claude && fail "a prompt without our trailing newlines must not confirm"
+  prompt_event "$prompt"
+  confirmed claude || fail "the exact Unicode multiline prompt should confirm"
+  confirmed codex && fail "a harness without a submit signal must never confirm"
+  event idle claude-hook stop
+  confirmed claude || fail "Stop must preserve a matching prompt receipt"
+  prompt_event 'another unrelated automatic wake'
+  event idle claude-hook stop-failure
+  confirmed claude || fail "a later unrelated turn must preserve our matching receipt"
+  base=$(baseline "$prompt") || fail "second baseline"
+  confirmed claude && fail "a matching receipt before the baseline must not confirm"
+  event busy fm-recovery user-prompt-submit
+  confirmed claude && fail "an event from a source other than the adapter's writer must not confirm"
+  base=$(baseline "$prompt") || fail "a trusted busy worker should yield a baseline"
+  prompt_event "$prompt"
+  confirmed claude || fail "a matching submit must confirm from a busy baseline"
+  event unknown claude-hook interrupted
+  base=$(baseline "$prompt") || fail "a trusted unknown worker should yield a baseline"
+  prompt_event "$prompt"
+  confirmed claude || fail "a matching submit must confirm from an unknown baseline"
+  base=$(baseline "$prompt") || fail "missing-prompt baseline"
+  printf '%s' '{"prompt":null}' | "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy \
+    --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null \
+    || fail "a missing prompt must not discard the busy event"
+  confirmed claude && fail "missing prompt text must not create a receipt"
+  printf '%s' 'malformed hook JSON' | "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy \
+    --current-gen --source claude-hook --event user-prompt-submit --prompt-stdin >/dev/null \
+    || fail "malformed hook input must not discard the busy event"
+  confirmed claude && fail "malformed hook input must not create a receipt"
+  normalized=$'[fm-from-firstmate]corr=typed-submit résumé ✓\nsecond line\n\n'
+  marked=$'\u2063'"$normalized"
+  base=$(baseline "$marked") || fail "marked prompt baseline"
+  prompt_event '[fm-from-firstmate]corr=another-request résumé ✓'
+  confirmed claude && fail "invisible-marker normalization must not match another request"
+  prompt_event "$normalized changed"
+  confirmed claude && fail "invisible-marker normalization must not match changed payload text"
+  prompt_event $'\u2062'"$normalized"
+  confirmed claude && fail "normalization must preserve Unicode characters other than U+2063"
+  prompt_event "${normalized%$'\n\n'}"
+  confirmed claude && fail "invisible-marker normalization must preserve trailing newlines"
+  prompt_event "$normalized"
+  confirmed claude || fail "Claude's removal of U+2063 must preserve confirmation of the marked prompt"
+  base=$(baseline "$normalized") || fail "sanitized prompt baseline"
+  prompt_event "$marked"
+  confirmed claude || fail "hook prompts containing U+2063 must use the same confirmation identity"
+  other_base=$(baseline abc) || fail "known hash baseline"
+  [ "${other_base##* }" = ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad ] \
+    || fail "the receipt digest must use the published SHA-256 abc test vector"
+  "$ROOT/bin/fm-busy-event.sh" arm "$state" t1 >/dev/null
+  confirmed claude && fail "a re-armed incarnation must not confirm against an old baseline"
+  base=$(baseline "$prompt") || fail "a newly armed busy worker should yield a baseline"
+  confirmed claude && fail "re-arming must discard the old prompt receipt"
+  "$ROOT/bin/fm-busy-event.sh" retire "$state" t1 --current-gen >/dev/null || fail "retirement failed"
+  confirmed claude && fail "a retired worker must not confirm"
+  baseline "$prompt" >/dev/null && fail "an unarmed worker must yield no baseline"
+  arm_idle_worker "$state" t2 codex
+  bash -c '. "$1"; fm_busy_submit_baseline "$2" t2 codex "$3"' _ "$ROOT/bin/fm-busy-lib.sh" "$state" "$prompt" >/dev/null \
+    && fail "a harness without a submit signal must yield no baseline"
+  pass "inbox: receipts confirm only the exact new prompt in the same incarnation across lifecycle events"
+}
+
+test_ring_confirms_submit_from_the_harness_hook() {
+  local dir state rec doorbell log composer drops enters rc capture_mode automatic sleeps mode
+  dir="$TMP_ROOT/ring-confirm"
+  state="$dir/state"
+  mkdir -p "$state"
+  make_composer_stub "$dir"
+  cat > "$dir/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+[ -z "${FM_FAKE_SLEEP_LOG:-}" ] || printf '%s\n' "$1" >> "$FM_FAKE_SLEEP_LOG"
+SH
+  chmod +x "$dir/fakebin/sleep"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
+  log="$dir/send.log"; composer="$dir/composer"; drops="$dir/drops"; enters="$dir/enters"; sleeps="$dir/sleeps"
+  ring() {
+    PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_COMPOSER="$composer" \
+      FM_FAKE_DROP_ENTERS="$drops" FM_FAKE_ENTER_LOG="$enters" FM_FAKE_KEEP_TEXT="${1:-0}" \
+      FM_FAKE_HOOK_STATE="$state" FM_FAKE_HOOK_ID=t1 FM_FAKE_HOOK_WRITER="$ROOT/bin/fm-busy-event.sh" \
+      FM_FAKE_CAPTURE_AFTER_ENTER="$capture_mode" FM_FAKE_AUTOMATIC_WAKE="$automatic" FM_FAKE_SLEEP_LOG="$sleeps" \
+      inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1
+  }
+  reset() {
+    : > "$log"; : > "$enters"; : > "$composer"; : > "$sleeps"
+    echo "$1" > "$drops"; arm_idle_worker "$state" t1 "$2"
+    capture_mode=; automatic=0
+  }
+  count() { wc -l < "$enters" | tr -d ' '; }
+  exhausted() {
+    [ "$rc" = 4 ] || fail "an unconfirmed doorbell should return 4, got $rc"
+    [ "$(count)" = 5 ] || fail "the fixed retry budget should send five Enters, pressed $(count)"
+    awk '{s += $1} END {exit !(s >= 9.99 && s <= 10.31)}' "$sleeps" \
+      || fail "the fixed retry budget should wait ten seconds: $(cat "$sleeps")"
+    [ "$(cat "$composer")" = "$doorbell" ] || fail "the unconfirmed doorbell was retyped or changed"
+    [ -f "$rec" ] || fail "an unconfirmed ring must preserve the durable record"
+  }
+
+  reset 1 claude
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a swallowed first Enter that the retry submits should ring clean, got $rc"
+  [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "the retry should submit the doorbell once: $(cat "$log")"
+  [ "$(count)" = 2 ] || fail "swallowed then submitted should take exactly two Enters, took $(count)"
+
+  reset 99 claude
+  rc=0; ring || rc=$?
+  exhausted
+  [ ! -s "$log" ] || fail "an unaccepted doorbell was submitted: $(cat "$log")"
+
+  reset 1 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] || fail "a stuck doorbell whose first Enter is swallowed should be submitted, got $rc"
+  [ "$(cat "$log")" = "SUBMIT: $doorbell" ] || fail "the stuck doorbell should be submitted once: $(cat "$log")"
+  [ "$(count)" = 2 ] || fail "stuck doorbell: expected two Enters, pressed $(count)"
+  reset 99 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  exhausted
+
+  reset 0 claude; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring 1 || rc=$?
+  [ "$rc" = 0 ] || fail "a hook-confirmed submit should ring clean even if the composer still renders text, got $rc"
+  [ "$(count)" = 1 ] || fail "a hook-confirmed submit must not be pressed again, pressed $(count)"
+  reset 0 claude
+  rc=0; ring 1 || rc=$?
+  [ "$rc" = 0 ] || fail "a fresh hook-confirmed doorbell should ring clean, got $rc"
+  [ "$(count)" = 1 ] || fail "a fresh hook-confirmed doorbell must be pressed once, pressed $(count)"
+
+  reset 99 codex
+  rc=0; ring || rc=$?
+  exhausted
+  reset 99 codex; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  exhausted
+  reset 99 claude
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy --current-gen --source claude-hook --event user-prompt-submit >/dev/null
+  rc=0; ring || rc=$?
+  exhausted
+  reset 99 claude; automatic=1
+  rc=0; ring || rc=$?
+  exhausted
+  reset 99 claude; automatic=1; printf '%s' "$doorbell" > "$composer"
+  rc=0; ring || rc=$?
+  exhausted
+
+  reset 99 claude
+  "$ROOT/bin/fm-busy-event.sh" retire "$state" t1 --current-gen >/dev/null || fail "unarmed fixture retirement failed"
+  rc=0; ring || rc=$?
+  exhausted
+  reset 0 claude
+  "$ROOT/bin/fm-busy-event.sh" apply "$state" t1 busy --current-gen --source claude-hook --event user-prompt-submit >/dev/null
+  rc=0; ring 1 || rc=$?
+  [ "$rc" = 0 ] && [ "$(count)" = 1 ] || fail "a busy worker's matching receipt should confirm one Enter"
+  reset 0 codex
+  rc=0; ring || rc=$?
+  [ "$rc" = 0 ] && [ "$(count)" = 1 ] || fail "a signal-less harness must confirm a genuinely cleared composer"
+
+  for mode in unknown fail; do
+    reset 99 claude; capture_mode=$mode
+    rc=0; ring || rc=$?
+    [ "$rc" = 4 ] || fail "a fresh $mode capture must report not-delivered, got $rc"
+    [ -f "$rec" ] || fail "a fresh $mode capture lost the durable record"
+    reset 99 claude; capture_mode=$mode; printf '%s' "$doorbell" > "$composer"
+    rc=0; ring || rc=$?
+    [ "$rc" = 4 ] || fail "an existing draft with $mode capture must report not-delivered, got $rc"
+    [ "$(cat "$composer")" = "$doorbell" ] || fail "a $mode capture changed the existing draft"
+    [ -f "$rec" ] || fail "a $mode capture lost the durable record"
+  done
+  pass "inbox: exact prompt receipts, fixed Enter budgets, and unreadable captures preserve delivery proof"
+}
+
+# An enqueue killed mid-scan leaves no .dedup.* scratch file in the inbox.
+test_idempotent_write_leaves_no_scratch_when_killed() {
+  local state fb
+  state="$TMP_ROOT/idem-kill/state"; mkdir -p "$state/t1.inbox/handled"
+  fb="$TMP_ROOT/idem-kill/fakebin"; mkdir -p "$fb"
+  cat > "$fb/wc" <<'SH'
+#!/usr/bin/env bash
+: > "$FM_TEST_KILL_READY"
+while :; do sleep 1; done
+SH
+  chmod +x "$fb/wc"
+  (
+    set -m
+    FM_STATE_OVERRIDE="$state" PATH="$fb:$PATH" FM_TEST_KILL_READY="$state/ready" bash -c '
+      . "$1"
+      fm_task_inbox_write_idempotent "$2" t1 "killed steer"
+    ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" >/dev/null 2>&1 &
+    enqueue=$!
+    trap 'kill -TERM -- "-$enqueue" 2>/dev/null || true; wait "$enqueue" 2>/dev/null || true' EXIT
+    for ((i = 0; i < 100; i++)); do
+      [ ! -e "$state/ready" ] || break
+      sleep 0.05
+    done
+    [ -e "$state/ready" ] || fail "enqueue never reached the dedup scan"
+    scratch=("$state/t1.inbox"/.dedup.*)
+    [ "${#scratch[@]}" = 2 ] && [ -f "${scratch[0]}" ] && [ -f "${scratch[1]}" ] \
+      || fail "dedup scan did not create both scratch files before termination"
+    kill -TERM -- "-$enqueue" || fail "could not terminate the enqueue process group"
+    rc=0
+    wait "$enqueue" 2>/dev/null || rc=$?
+    [ "$rc" = 143 ] || fail "enqueue must terminate by SIGTERM, got $rc"
+    for ((i = 0; i < 100; i++)); do
+      leftovers=$(find "$state/t1.inbox" -maxdepth 1 -name '.dedup.*' | wc -l | tr -d ' ')
+      [ "$leftovers" != 0 ] || break
+      sleep 0.05
+    done
+    [ "$leftovers" = 0 ] || fail "a killed enqueue left $leftovers .dedup.* scratch files in the inbox"
+    [ ! -e "$state/t1.inbox/001.msg" ] || fail "terminated enqueue unexpectedly committed a record"
+    trap - EXIT
+  ) || fail "interrupted enqueue cleanup failed"
+  pass "inbox: an enqueue killed mid-scan removes its dedup scratch files"
+}
+
 test_idempotent_write_dedups_exact_body() {
   local state r1 r2 r3 r4 count text
   state="$TMP_ROOT/idem/state"; mkdir -p "$state"
@@ -529,11 +989,90 @@ test_idempotent_write_dedups_exact_body() {
   pass "inbox: the idempotent enqueue dedups an exact re-run onto the same record, handled or not"
 }
 
+test_one_way_dedup_bulk_selects_request_ids() {
+  local dir state fakebin real_awk real_cmp i id rec retry rc
+  local wanted=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa text=$'one-way steer\nsecond line'
+  dir="$TMP_ROOT/one-way-bulk"
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  mkdir -p "$state/t1.inbox/handled" "$fakebin"
+  for ((i=1; i<=256; i++)); do
+    printf -v id '%032x' "$i"
+    printf -v rec '%s/t1.inbox/%03d.msg' "$state" "$i"
+    [ "$i" -le 128 ] || printf -v rec '%s/t1.inbox/handled/%03d.msg' "$state" "$i"
+    printf 'schema=fm-task-inbox.v1\nat=2026-10-28T00:00:00Z\nrequest-id=%s\n--\nrequest-id=%s\nunrelated retained body %s' \
+      "$id" "$wanted" "$i" > "$rec"
+  done
+  real_awk=$(command -v awk)
+  real_cmp=$(command -v cmp)
+  cat > "$fakebin/awk" <<SH
+#!/usr/bin/env bash
+printf 'parse\n' >> "\$FM_DEDUP_PARSE_LOG"
+exec "$real_awk" "\$@"
+SH
+  cat > "$fakebin/cmp" <<SH
+#!/usr/bin/env bash
+printf 'compare\n' >> "\$FM_DEDUP_COMPARE_LOG"
+exec "$real_cmp" "\$@"
+SH
+  chmod +x "$fakebin/awk" "$fakebin/cmp"
+  bulk_write() {
+    : > "$dir/parses"
+    : > "$dir/comparisons"
+    PATH="$fakebin:$PATH" FM_DEDUP_PARSE_LOG="$dir/parses" FM_DEDUP_COMPARE_LOG="$dir/comparisons" \
+      inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$1" '' "$wanted"
+  }
+  rec=$(bulk_write "$text") || fail "fresh one-way enqueue failed"
+  [ "$rec" = "$state/t1.inbox/257.msg" ] || fail "fresh request did not create a distinct record: $rec"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "retained history required more than one header parse"
+  [ ! -s "$dir/comparisons" ] || fail "fresh request compared bodies of unrelated request ids"
+  retry=$(bulk_write "$text") || fail "unhandled retry failed"
+  [ "$retry" = "$rec" ] || fail "same-id retry created another record"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "retry parsed headers per record"
+  [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "retry compared unrelated bodies"
+  mv "$rec" "$state/t1.inbox/handled/"
+  retry=$(bulk_write "$text") || fail "handled retry failed"
+  [ "$retry" = "$state/t1.inbox/handled/257.msg" ] || fail "handled retry did not find its record"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "handled retry parsed headers per record"
+  [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "handled retry compared unrelated bodies"
+  rc=0
+  bulk_write 'conflicting request body of a different size' > "$dir/conflict.out" || rc=$?
+  [ "$rc" != 0 ] || fail "same request id accepted a conflicting body"
+  [ ! -e "$state/t1.inbox/258.msg" ] || fail "conflict created a new record"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "conflict parsed headers per record"
+  [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "conflict compared unrelated bodies"
+  pass "inbox: one bulk header parse selects only matching one-way requests across retained history"
+}
+
+test_one_way_dedup_follows_ack_before_header_open() {
+  local dir state rec result real_find
+  local wanted=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  dir="$TMP_ROOT/one-way-header-ack"
+  state="$dir/state"
+  mkdir -p "$state" "$dir/fakebin"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 'ack during header selection' '' "$wanted") \
+    || fail "header-race fixture write failed"
+  real_find=$(command -v find)
+  cat > "$dir/fakebin/find" <<SH
+#!/usr/bin/env bash
+"$real_find" "\$@" > "\$FM_FIND_LIST" || exit 1
+mv "\$FM_ACK_RECORD" "\${FM_ACK_RECORD%/*}/handled/" || exit 1
+cat "\$FM_FIND_LIST"
+SH
+  chmod +x "$dir/fakebin/find"
+  result=$(PATH="$dir/fakebin:$PATH" FM_FIND_LIST="$dir/selected-paths" FM_ACK_RECORD="$rec" \
+    inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 'ack during header selection' '' "$wanted") \
+    || fail "one-way retry failed during acknowledgement before header open"
+  [ "$result" = "$state/t1.inbox/handled/001.msg" ] || fail "header selection lost the acknowledged request: $result"
+  [ ! -e "$state/t1.inbox/002.msg" ] || fail "header selection race duplicated the request"
+  pass "inbox: bulk header selection follows an acknowledgement before opening the record"
+}
+
 test_idempotent_write_follows_concurrent_ack() {
-  local state rec result count text
-  state="$TMP_ROOT/idem-ack-race/state"; mkdir -p "$state"
+  local state rec result count text request_id=${1:-}
+  state="$TMP_ROOT/idem-ack-race-${request_id:-ordinary}/state"; mkdir -p "$state"
   text="acknowledge while dedup scans"
-  rec=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$text") \
+  rec=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$text" '' "$request_id") \
     || fail "race fixture write failed"
   result=$(FM_STATE_OVERRIDE="$state" bash -c '
     . "$1"
@@ -547,8 +1086,8 @@ test_idempotent_write_follows_concurrent_ack() {
       esac
       _original_fm_task_inbox_body "$candidate"
     }
-    fm_task_inbox_write_idempotent "$2" t1 "$3"
-  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" "$text") \
+    fm_task_inbox_write_idempotent "$2" t1 "$3" "" "$4"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" "$text" "$request_id") \
     || fail "idempotent enqueue failed while acknowledgement moved its candidate"
   [ "$result" = "$state/t1.inbox/handled/${rec##*/}" ] \
     || fail "dedup did not follow the concurrently acknowledged record: $result"
@@ -819,13 +1358,19 @@ test_watcher_waits_on_busy_pane() {
   dir=$(busy_case busywait)
   busy_steer_check "$dir"
   [ ! -s "$dir/state/.wake-queue" ] || fail "first busy deferral must wait"
+  grep -q 'steer-inbox busy deferral: t1 001.msg count=1/2$' "$dir/state/.watch-triage.log" \
+    || fail "a below-bound busy deferral left no triage line"
   busy_steer_check "$dir"
   grep -q 'stuck-busy' "$dir/state/.wake-queue" \
     || fail "consecutive busy deferrals did not escalate across watcher restart"
+  [ "$(grep -c 'steer-inbox busy deferral' "$dir/state/.watch-triage.log")" = 1 ] \
+    || fail "the stuck-busy bound added a second busy deferral line"
   [ ! -s "$dir/send.log" ] || fail "busy escalation typed into the pane"
   wakes=$(wc -l < "$dir/state/.wake-queue")
   busy_steer_check "$dir"
   [ "$(wc -l < "$dir/state/.wake-queue")" = "$wakes" ] || fail "busy escalation repeated"
+  [ "$(grep -c 'steer-inbox busy deferral' "$dir/state/.watch-triage.log")" = 1 ] \
+    || fail "a post-escalation busy poll logged another deferral"
   [ -f "$dir/state/t1.inbox/001.msg" ] || fail "busy escalation lost the steer"
   pass "watcher: busy deferrals survive restart, escalate once at the bound, and never type"
 }
@@ -998,7 +1543,7 @@ test_watcher_successor_escalation_stays_quiet() {
   done
   [ "$(cut -f1 "$dir/state/t1.inbox/.ring-state")" = 001.msg ] \
     || fail "$mode successor changed the predecessor's delivery history"
-  [ "$(wc -l < "$dir/send.log" | tr -d ' ')" = 1 ] || fail "$mode successor was typed into"
+  [ "$(grep -cF 'Firstmate instruction waiting' "$dir/send.log")" = 1 ] || fail "$mode successor was typed into"
   [ -f "$rec" ] || fail "$mode successor lost its unhandled instruction"
   mv "$rec" "$dir/state/t1.inbox/handled/"
   rec=$(inbox_lib "$dir/state" fm_task_inbox_write "$dir/state" t1 "next instruction")
@@ -1131,6 +1676,16 @@ test_watcher_pays_fire_and_forget_retry_once() {
     sleep 0.1
     i=$((i + 1))
   done
+  # Literal input precedes submission confirmation and retry bookkeeping.
+  # Observe the spent retry before timing the no-second-ring window.
+  i=0
+  while [ "$i" -lt 150 ] && [ -e "$state/t1.inbox/.retry-ring" ]; do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.1
+    i=$((i + 1))
+  done
+  [ ! -e "$state/t1.inbox/.retry-ring" ] \
+    || { kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; fail "the watcher did not complete retry bookkeeping:"$'\n'"$(cat "$out")"; }
   sleep 3
   kill -0 "$pid" 2>/dev/null \
     || fail "a fire-and-forget retry must not wake firstmate (watcher exited):"$'\n'"$(cat "$out")"
@@ -1226,7 +1781,39 @@ test_watcher_escalates_once_after_budget() {
   [ "$(grep -cF 'unread firstmate instruction' "$state/.wake-queue")" = 1 ] \
     || fail "the escalation must fire exactly once:"$'\n'"$(cat "$state/.wake-queue")"
   grep -qF 'stale:' "$out" || fail "the watcher should exit through the ordinary stale wake:"$'\n'"$(cat "$out")"
+  grep -qF '(last ring reason=ok)' "$state/.wake-queue" \
+    || fail "the stale wake should carry the last ring's reason:"$'\n'"$(cat "$state/.wake-queue")"
   pass "watcher: a spent ring budget emits exactly one ordinary stale wake for recovery"
+}
+
+# A steer waiting for a worker its lane release stopped (an active marker,
+# bin/fm-lane-release-lib.sh) surfaces once naming the release and the relaunch
+# path, not as a crashed worker to recover.
+test_watcher_steer_for_a_released_worker_names_the_release() {
+  local dir state out log pid rec shell_capture
+  dir=$(setup_watch_case released-pane)
+  state="$dir/state"; out="$dir/watch.out"; log="$dir/send.log"; : > "$log"
+  printf 'spawn_gen=s1000.1.1\n' >> "$state/t1.meta"
+  printf 'fm-lane-release-v1\ntask=t1\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=merged-ship\nresult=released\n' \
+    > "$state/t1.released"
+  shell_capture="$dir/shell.capture"
+  printf 'bash-5.2$ \n' > "$shell_capture"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please merge base in")
+  age_path "$rec"
+  watch_bg "$state" "$dir/fakebin" "$out" \
+    FM_SEND_LOG="$log" FM_FAKE_TMUX_CAPTURE="$shell_capture" \
+    FM_FAKE_TMUX_AGENT=zsh FM_TASK_INBOX_RING_MAX=99
+  pid=$!
+  wait_watcher_gone "$pid" \
+    || { kill "$pid" 2>/dev/null; fail "the watcher never surfaced the released worker's unhandled instruction"; }
+  [ ! -s "$log" ] || fail "a released worker's pane was typed into:"$'\n'"$(cat "$log")"
+  grep -qF "released by lane release (merged-ship, released)" "$state/.wake-queue" \
+    || fail "the stale wake should name the release:"$'\n'"$(cat "$state/.wake-queue")"
+  grep -qF "relaunch it into its kept copy" "$state/.wake-queue" \
+    || fail "the stale wake should name the relaunch path:"$'\n'"$(cat "$state/.wake-queue")"
+  grep -qF "recover the worker" "$state/.wake-queue" \
+    && fail "a released worker was reported as one to recover:"$'\n'"$(cat "$state/.wake-queue")"
+  pass "watcher: a steer for a released worker surfaces once, naming the release and the relaunch path"
 }
 
 test_watcher_dead_pane_escalates_once_without_ringing() {
@@ -1271,6 +1858,153 @@ test_watcher_dead_pane_escalates_once_without_ringing() {
 # Every delivery attempt was a skip (the composer holds someone else's draft).
 # The skips still spend the ring budget, and the next check reports the
 # message once. The draft is never submitted.
+# The recorded Herdr capture of a stuck pane: the composer holds only the first
+# row of this task's own doorbell. fm-control clears exactly that, nothing else.
+test_herdr_recorded_capture_classifies_as_own_doorbell() {
+  local fixture="$ROOT/tests/fixtures/herdr-own-doorbell-wrapped.ansi" dir got
+  dir="$TMP_ROOT/own-doorbell-capture"
+  mkdir -p "$dir/x-xfb-r-entry.inbox" "$dir/other-task.inbox"
+  # A doorbell for another task, and the same capture with typed text after the doorbell.
+  sed 's/x-xfb-r-entry\.inbox/other-task.inbox/' "$fixture" > "$dir/other.ansi"
+  sed "s/inbox, read and/inbox, read and please/" "$fixture" > "$dir/typed.ansi"
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"; . "$0/bin/fm-task-inbox-lib.sh"
+    fm_backend_source herdr
+    fm_backend_herdr_viewport_to_bottom() { return 0; }
+    fm_backend_herdr_visible_capture_ansi() { cat "$FIXTURE"; }
+    line=$(fm_task_inbox_doorbell_line "$1/x-xfb-r-entry.inbox/1.msg")
+    for f in "$0/tests/fixtures/herdr-own-doorbell-wrapped.ansi" "$1/other.ansi" "$1/typed.ansi"; do
+      FIXTURE=$f
+      if fm_task_inbox_composer_holds_own herdr s:w:p "$line"; then printf "own "; else printf "foreign "; fi
+    done
+    FIXTURE=$0/tests/fixtures/herdr-own-doorbell-wrapped.ansi
+    if fm_task_inbox_composer_holds herdr s:w:p "$line"; then printf "exact"; else printf "partial-only"; fi
+  ' "$ROOT" "$dir")
+  [ "$got" = "own foreign foreign partial-only" ] || fail "recorded capture classified as '$got'"
+  pass "fm_task_inbox_composer_holds_own: the recorded wrapped capture is this task's doorbell, a wrong task or typed text is not"
+}
+
+test_herdr_composer_clear_for_own_doorbell() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    fm_backend_source herdr
+    n=0
+    fm_backend_herdr_send_key() { [ "$2" != C-u ] || n=$((n + 1)); return 0; }
+    fm_backend_herdr_composer_state() { if [ "$n" -ge 2 ]; then printf empty; else printf pending; fi; }
+    fm_backend_composer_clear herdr s:w:p "$(printf "x%.0s" $(seq 1 200))" && printf "cleared-after-%s" "$n"
+    n=-100
+    fm_backend_composer_clear herdr s:w:p "short" || printf " refused"
+  ' "$ROOT")
+  [ "$got" = "cleared-after-2 refused" ] || fail "herdr clear: '$got'"
+  pass "fm_backend_composer_clear: herdr presses Ctrl+U until empty and refuses when it never empties"
+}
+
+test_composer_clear_stops_on_unreadable_readback() {
+  local got dir="$TMP_ROOT/clear-unreadable"
+  mkdir -p "$dir"
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    read_log=$1/reads
+    fm_backend_source herdr
+    fm_backend_send_key() { [ "$3" != C-u ] || n=$((n + 1)); return 0; }
+    fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
+    fm_backend_composer_state() {
+      printf . >> "$read_log"
+      if [ "$n" -ge 3 ]; then printf empty; else printf "%s" "$readback"; fi
+      return "$read_status"
+    }
+    fm_backend_herdr_composer_state() { fm_backend_composer_state; }
+    printf -v text "%010000d" 0
+    for backend in tmux herdr; do
+      for pair in unknown:0 :0 future-verdict:0 pending:1 empty:1; do
+        : > "$read_log"
+        readback=${pair%:*}; read_status=${pair##*:}; n=0
+        if fm_backend_composer_clear "$backend" s:w:p "$text"; then exit 1; fi
+        [ "$n" -eq 1 ] || exit 1
+        [ "$(wc -c < "$read_log")" -le 10 ] || exit 1
+      done
+      read_status=0
+      for readback in pending pending-unproven; do
+        n=0
+        fm_backend_composer_clear "$backend" s:w:p "$text" || exit 1
+        [ "$n" -eq 3 ] || exit 1
+      done
+    done
+    printf stopped
+  ' "$ROOT" "$dir") || fail "unreadable readback must stop deletion independently of payload length"
+  [ "$got" = stopped ] || fail "unreadable composer clear: $got"
+  pass "composer clear: tmux and Herdr stop after one edit on unreadable or failed readback"
+}
+
+# Oracle: lifecycle recovery must survive an unreadable redraw, but cannot
+# edit again until readback proves pending, or succeed before it proves empty.
+# The transport trace rejects both aborting on the first redraw and blind edits.
+test_composer_clear_waits_for_redraw() {
+  local dir backend got
+  dir="$TMP_ROOT/clear-redraw"; mkdir -p "$dir"
+  for backend in tmux herdr; do
+    : > "$dir/trace"
+    got=$(bash -c '
+      . "$0/bin/fm-backend.sh"
+      fm_backend_source herdr
+      fm_backend_send_key() { printf "key=%s\n" "$3" >> "$2/trace"; }
+      fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
+      fm_backend_composer_state() {
+        local read=0
+        [ ! -f "$2/reads" ] || read=$(cat "$2/reads")
+        read=$((read + 1)); printf "%s" "$read" > "$2/reads"
+        printf "read=%s\n" "$read" >> "$2/trace"
+        case "$read" in 1|2|4) printf unknown ;; 3) printf pending ;; 5) printf empty ;; *) return 1 ;; esac
+      }
+      fm_backend_herdr_composer_state() { fm_backend_composer_state herdr "$@"; }
+      fm_backend_composer_clear "$1" "$2" doorbell && printf cleared
+    ' "$ROOT" "$backend" "$dir")
+    [ "$got" = cleared ] || fail "$backend clear must wait for transient redraw"
+    [ "$(cat "$dir/trace")" = "$(printf 'key=C-e\nkey=C-u\nread=1\nread=2\nread=3\nkey=C-e\nkey=C-u\nread=4\nread=5')" ] \
+      || fail "$backend clear sent input before a readable pending verdict"
+    rm "$dir/reads"
+  done
+  pass "composer clear: redraw retries are read-only until pending or empty is proven"
+}
+
+test_composer_clear_at_narrow_widths() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    fm_backend_source herdr
+    fm_backend_send_key() {
+      case "$3" in
+        C-e) cursor=${#remaining} ;;
+        C-u)
+          removed=$width
+          [ "$removed" -le "$cursor" ] || removed=$cursor
+          remaining=${remaining:0:cursor-removed}${remaining:cursor}
+          cursor=$((cursor - removed))
+          ;;
+        *) return 1 ;;
+      esac
+    }
+    fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
+    fm_backend_composer_state() { if [ -z "$remaining" ]; then printf empty; else printf pending; fi; }
+    fm_backend_herdr_composer_state() { fm_backend_composer_state; }
+    for backend in tmux herdr; do
+      for width in 1 20; do
+        for length in 180 260; do
+          for cursor in 0 "$((length / 2))" "$((length - 1))" "$length"; do
+            printf -v remaining "%0*d" "$length" 0
+            fm_backend_composer_clear "$backend" s:w:p "$remaining" || exit 1
+            [ -z "$remaining" ] || exit 1
+          done
+        done
+      done
+    done
+    printf cleared
+  ' "$ROOT") || fail "a draft must clear even beyond 200 one-character wrapped rows"
+  [ "$got" = cleared ] || fail "narrow composer clear: $got"
+  pass "composer clear: tmux and Herdr finish 180 and 260 characters at widths 1 and 20 from every cursor position"
+}
+
 test_watcher_escalates_when_every_ring_is_a_skip() {
   local dir state rec log composer draft check wakes
   dir=$(setup_watch_case skip-budget)
@@ -1328,15 +2062,175 @@ test_watcher_dead_pane_ignores_stale_busy_state() {
   pass "watcher: dead-pane recovery overrides stale busy state"
 }
 
+# Classify through the same watcher the ring uses, before that ring runs.
+watch_classify() {  # <dir> <capture>
+  PATH="$1/fakebin:$PATH" FM_STATE_OVERRIDE="$1/state" bash -c '
+    . "$1"
+    fm_busy_classify_meta "$2" t1 "$3" "$(cat "$4")"
+  ' _ "$WATCH" "$1/state/t1.meta" "$1/state" "$2"
+}
+
+steer_check() {  # <dir> <capture> [env...]
+  local dir=$1 capture=$2
+  shift 2
+  # shellcheck disable=SC2016 # $1 is the inner bash argument, expanded there.
+  PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$dir/state" FM_SEND_LOG="$dir/send.log" \
+    FM_FAKE_TMUX_CAPTURE="$capture" \
+    env "$@" bash -c '. "$1" && inbox_steer_check sess:fm-t1 t1' _ "$WATCH" \
+    > "$dir/check.out" 2>&1
+}
+
+arm_semantic_busy() {  # <state> <source> <event>
+  local gen
+  gen=$("$ROOT/bin/fm-busy-event.sh" arm "$1" t1) || return 1
+  "$ROOT/bin/fm-busy-event.sh" apply "$1" t1 busy --gen "$gen" \
+    --source "$2" --event "$3"
+}
+
+assert_classified_busy() {  # <dir> <capture> <label>
+  local verdict
+  verdict=$(watch_classify "$1" "$2") || fail "$3: classification failed"
+  case "$verdict" in
+    busy\ *) ;;
+    *) fail "$3: fixture must classify busy before the doorbell, got: $verdict" ;;
+  esac
+}
+
+set_watch_harness() {  # <dir> <harness>
+  fm_write_meta "$1/state/t1.meta" "window=sess:fm-t1" "kind=ship" "harness=$2"
+}
+
+assert_doorbell_submitted() {
+  awk '
+    /Firstmate instruction waiting/ { typed=1; next }
+    typed && $0 == "key:Enter" { submitted=1 }
+    END { exit !submitted }
+  ' "$1/send.log" || fail "the busy doorbell lacked a following Enter:"$'\n'"$(cat "$1/send.log")"
+}
+
+test_watcher_submits_busy_claude() {
+  local dir state capture harness=${1:-claude}
+  dir=$(setup_watch_case "$harness-busy")
+  state="$dir/state"
+  set_watch_harness "$dir" "$harness"
+  inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue" >/dev/null
+  age_path "$state/t1.inbox/001.msg"
+  : > "$dir/send.log"
+  capture=$(idle_capture "$dir")
+  arm_semantic_busy "$state" claude-hook user-prompt-submit || fail "claude busy arm failed"
+  assert_classified_busy "$dir" "$capture" "busy claude"
+  steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=0
+  assert_doorbell_submitted "$dir"
+  [ ! -s "$state/.wake-queue" ] || fail "a busy claude submit woke firstmate:"$'\n'"$(cat "$state/.wake-queue")"
+  [ -f "$state/t1.inbox/001.msg" ] || fail "the durable steer was removed"
+  pass "watcher: a busy $harness pane receives the doorbell followed by Enter"
+}
+
+test_watcher_submits_busy_opencode() {
+  local dir state capture
+  dir=$(setup_watch_case opencode-busy)
+  state="$dir/state"
+  set_watch_harness "$dir" opencode
+  inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue" >/dev/null
+  age_path "$state/t1.inbox/001.msg"
+  : > "$dir/send.log"
+  capture=$(idle_capture "$dir")
+  arm_semantic_busy "$state" opencode-plugin session-status || fail "opencode busy arm failed"
+  assert_classified_busy "$dir" "$capture" "busy opencode"
+  steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=0
+  assert_doorbell_submitted "$dir"
+  [ ! -s "$state/.wake-queue" ] || fail "a busy opencode submit woke firstmate:"$'\n'"$(cat "$state/.wake-queue")"
+  pass "watcher: a busy opencode pane receives the doorbell followed by Enter"
+}
+
+test_watcher_defers_busy_rovo_until_idle() {
+  local dir state capture harness=${1:-rovo} delivery_mode=${2:-}
+  dir=$(setup_watch_case "$harness-${delivery_mode:-ordinary}-busy")
+  state="$dir/state"
+  set_watch_harness "$dir" "$harness"
+  inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue" "$delivery_mode" >/dev/null
+  age_path "$state/t1.inbox/001.msg"
+  if [ "$delivery_mode" = fire-and-forget ]; then
+    mkdir -p "$dir/config"
+    : > "$dir/config/wait-no-turns"
+    inbox_lib "$state" fm_task_inbox_mark_retry "$state" t1 "$state/t1.inbox/001.msg"
+    age_path "$state/t1.inbox/.retry-ring"
+  fi
+  : > "$dir/send.log"
+  printf 'Rovo is thinking\n╭────╮\n│    │\n╰────╯\n' > "$dir/rovo.capture"
+  capture="$dir/rovo.capture"
+  assert_classified_busy "$dir" "$capture" "busy rovo"
+  steer_check "$dir" "$capture" FM_TASK_INBOX_GRACE_SECS=0 FM_CONFIG_OVERRIDE="$dir/config"
+  [ ! -s "$dir/send.log" ] || fail "a busy $harness pane received a doorbell"
+  if [ "$delivery_mode" = fire-and-forget ]; then
+    [ -s "$state/t1.inbox/.retry-ring" ] || fail "busy $harness consumed the deferred retry"
+  else
+    [ -s "$state/t1.inbox/.busy-state" ] || fail "busy $harness did not retain the owed doorbell"
+  fi
+  [ ! -s "$state/.wake-queue" ] || fail "the first busy $harness deferral woke firstmate"
+  steer_check "$dir" "$(idle_capture "$dir")" FM_TASK_INBOX_GRACE_SECS=3600 FM_CONFIG_OVERRIDE="$dir/config"
+  assert_doorbell_submitted "$dir"
+  [ ! -e "$state/t1.inbox/.busy-state" ] || fail "idle $harness retained the owed doorbell after submission"
+  [ ! -e "$state/t1.inbox/.retry-ring" ] || fail "idle $harness retained a consumed retry"
+  [ -f "$state/t1.inbox/001.msg" ] || fail "$harness deferral lost the durable steer"
+  : > "$dir/send.log"
+  steer_check "$dir" "$(idle_capture "$dir")" FM_TASK_INBOX_GRACE_SECS=3600 FM_CONFIG_OVERRIDE="$dir/config"
+  [ ! -s "$dir/send.log" ] || fail "idle $harness repeated the consumed follow-up"
+  pass "watcher: $harness defers while busy and submits the doorbell once on idle"
+}
+
+test_watcher_rerings_nonqueue_on_idle_after_escalation() {
+  local dir wakes
+  dir=$(busy_case grok-idle-follow)
+  busy_steer_check "$dir"
+  busy_steer_check "$dir"
+  grep -q 'stuck-busy' "$dir/state/.wake-queue" \
+    || fail "two busy deferrals did not escalate"
+  [ ! -s "$dir/send.log" ] || fail "a busy grok pane was typed into"
+  wakes=$(wc -l < "$dir/state/.wake-queue")
+  busy_steer_check "$dir" "$(idle_capture "$dir")"
+  grep -qF 'Firstmate instruction waiting' "$dir/send.log" \
+    || fail "an idle grok pane after stuck-busy was not rung:"$'\n'"$(cat "$dir/send.log")"
+  [ "$(wc -l < "$dir/state/.wake-queue")" = "$wakes" ] \
+    || fail "the idle re-ring added a wake:"$'\n'"$(cat "$dir/state/.wake-queue")"
+  pass "watcher: a non-queue runtime is re-rung on the next idle observation after stuck-busy"
+}
+
+test_watcher_rerings_nonqueue_inside_grace_after_busy() {
+  local dir state action
+  dir=$(busy_case grok-grace)
+  state="$dir/state"
+  busy_steer_check "$dir"
+  [ ! -s "$dir/send.log" ] || fail "the busy deferral typed into the pane"
+  [ -s "$state/t1.inbox/.busy-state" ] || fail "the busy deferral did not record the owed doorbell"
+  touch "$state/t1.inbox/001.msg"
+  action=$(FM_TASK_INBOX_GRACE_SECS=3600 inbox_lib "$state" fm_task_inbox_due_action "$state" t1)
+  [ "$action" = quiet ] || fail "a just-touched message should stay inside grace, got: $action"
+  steer_check "$dir" "$(idle_capture "$dir")" FM_TASK_INBOX_GRACE_SECS=3600 FM_BUSY_REGEX=BUSYTOKEN
+  grep -qF 'Firstmate instruction waiting' "$dir/send.log" \
+    || fail "an idle pane inside grace did not re-ring the deferred doorbell:"$'\n'"$(cat "$dir/send.log")"
+  pass "watcher: a non-queue runtime deferred while busy is re-rung on idle inside grace"
+}
+
+
 test_write_is_durable_and_exact
 test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
+test_ring_records_the_failing_step_without_changing_codes
+test_existing_doorbell_confirmation_reasons
+test_ring_preflight_failure_reasons
 test_ring_submits_its_own_stuck_doorbell
 test_ring_submits_own_doorbell_on_a_cursor_composer
 test_mate_ring_submits_own_doorbell_and_skips_foreign_text
+test_busy_submit_signal_semantics
+test_ring_confirms_submit_from_the_harness_hook
 test_idempotent_write_dedups_exact_body
+test_idempotent_write_leaves_no_scratch_when_killed
+test_one_way_dedup_bulk_selects_request_ids
+test_one_way_dedup_follows_ack_before_header_open
 test_idempotent_write_follows_concurrent_ack
+test_idempotent_write_follows_concurrent_ack cccccccccccccccccccccccccccccccc
 test_handled_mv_dedups_by_sequence
 test_concurrent_writers_never_clobber
 test_writer_retries_after_a_vanished_lock_collision
@@ -1375,6 +2269,21 @@ test_watcher_pays_fire_and_forget_retry_once
 test_watcher_holds_retry_while_the_worker_decides
 test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
+test_herdr_recorded_capture_classifies_as_own_doorbell
+test_herdr_composer_clear_for_own_doorbell
+test_composer_clear_stops_on_unreadable_readback
+test_composer_clear_waits_for_redraw
+test_composer_clear_at_narrow_widths
 test_watcher_escalates_when_every_ring_is_a_skip
 test_watcher_dead_pane_escalates_once_without_ringing
+test_watcher_steer_for_a_released_worker_names_the_release
 test_watcher_dead_pane_ignores_stale_busy_state
+test_watcher_submits_busy_claude
+test_watcher_submits_busy_claude claude-latest
+test_watcher_submits_busy_opencode
+test_watcher_defers_busy_rovo_until_idle
+test_watcher_defers_busy_rovo_until_idle rovo-preview
+test_watcher_defers_busy_rovo_until_idle rovo fire-and-forget
+test_watcher_defers_busy_rovo_until_idle rovo-preview fire-and-forget
+test_watcher_rerings_nonqueue_on_idle_after_escalation
+test_watcher_rerings_nonqueue_inside_grace_after_busy

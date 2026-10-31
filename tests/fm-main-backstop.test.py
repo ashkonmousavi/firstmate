@@ -1,12 +1,15 @@
 """End-to-end backstop cases: fake transports, real durable inbox and processes."""
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(os.environ['ROOT'])
 HAS_PROC_RUNNER = all(os.access('/proc/self/' + name, os.R_OK)
@@ -26,6 +29,7 @@ class Backstop(unittest.TestCase):
             path.mkdir(parents=True)
         self.executable(self.code / 'bin/fm-inbox.sh', '#!/bin/bash\nexec \"' + str(ROOT / 'bin/fm-inbox.sh') + '\" \"$@\"\n')
         self.executable(self.code / 'bin/fm-backend.sh',
+                        'export PATH=' + shlex.quote(str(self.fake)) + ':$PATH\n'
                         '. ' + repr(str(ROOT / 'bin/fm-backend.sh')) + '\n')
         (self.state / 'example.meta').touch()
         (self.state / '.last-watcher-beat').touch()
@@ -47,6 +51,7 @@ a=sys.argv[1:]
 if a[-2:-1]==['--session']:a=a[:-2]
 with open(os.environ['BACKSTOP_CALLS'],'a') as f:f.write(json.dumps(a)+'\\n')
 if a==['pane','list']:
+ if c.get('revoke_on_discovery'):Path(os.environ['BACKSTOP_SEND_FILE']).unlink(missing_ok=True)
  p={'pane_id':'live:p1','agent':c['agent'],'cwd':os.environ['FM_HOME']}
  print(json.dumps({'result':{'panes':[p]*c['panes']}}))
 elif a[:2]==['pane','process-info']:
@@ -59,6 +64,8 @@ elif a[:2]==['status','--json']:
  print(json.dumps({'server':{'running':True}}))
 elif a[:2]==['agent','get']:
  print(json.dumps({'result':{'agent':{'agent':c['agent'],'agent_status':c.get('status','idle')}}}))
+elif a[:2]==['pane','get']:
+ print(json.dumps({'result':{'pane':{'pane_id':a[2],'scroll':{'offset_from_bottom':0}}}}))
 elif a[:2]==['pane','read']:
  if c.get('unreadable'):sys.exit(1)
  glyph='❯' if c['agent']=='claude' else '›'
@@ -100,6 +107,15 @@ if c.get('fail_reads',0)>0:
         sys.exit(1)
 command=sys.argv[2]
 with open(os.environ['BACKSTOP_CALLS'],'a') as f:f.write(json.dumps(['reader',command]+sys.argv[3:])+'\\n')
+if command=='fm-remote-delta-read.sh' and c.get('preempt_delta',0)>0:
+    counter=Path(os.environ['BACKSTOP_PREEMPTS'])
+    n=int(counter.read_text()) if counter.exists() else 0
+    counter.write_text(str(n+1))
+    if n<c['preempt_delta']:
+        sys.exit(76)
+if command=='fm-remote-delta-read.sh' and c.get('stuck_delta',0)>0:
+    sys.stdout.write('schema=fm-remote-delta.v1\\nstatus=delta\\nto_offset=%s\\npayload_bytes=0\\nto_prefix_sha256=%s\\n\\n' % (sys.argv[4],sys.argv[5]))
+    sys.exit(0)
 os.environ['FM_HOME']=str(remote)
 real=str(Path(os.environ['BACKSTOP_ROOT'])/'bin'/command)
 os.execv(real,[command]+sys.argv[3:])
@@ -109,7 +125,9 @@ os.execv(real,[command]+sys.argv[3:])
                         BACKSTOP_FIXTURE=str(self.fixture), BACKSTOP_CALLS=str(self.calls),
                         BACKSTOP_REMOTE=str(self.base / 'remote'),
                         BACKSTOP_ROOT=str(ROOT),
-                        BACKSTOP_REMOTE_FAILS=str(self.base / 'remote-fails.txt'))
+                        BACKSTOP_REMOTE_FAILS=str(self.base / 'remote-fails.txt'),
+                        BACKSTOP_PREEMPTS=str(self.base / 'preempts.txt'))
+        self.send_enabled_file = None
         # No test inherits a real operational state override.
         for key in ['FM_STATE_OVERRIDE', 'FM_DATA_OVERRIDE', 'FM_CONFIG_OVERRIDE']:
             self.env.pop(key, None)
@@ -120,15 +138,273 @@ os.execv(real,[command]+sys.argv[3:])
 
     def run_guard(self):
         self.fixture.write_text(json.dumps(self.config))
-        result = subprocess.run(['python3', '-c',
+        argv = ['python3', '-c',
                                  'import runpy,sys,time; clock=float(sys.argv.pop(1)); time.time=lambda:clock; '
                                  'sys.argv=sys.argv[1:]; runpy.run_path(sys.argv[0],run_name="__main__")',
                                  str(self.now), str(ROOT / 'bin/fm-main-backstop.py'),
                                  '--home', str(self.home), '--code-root', str(self.code),
-                                 '--mate', 'q-server'], env=self.env,
+                                 '--mate', 'q-server']
+        if self.send_enabled_file is not None:
+            argv += ['--send-enabled-file', str(self.send_enabled_file)]
+        result = subprocess.run(argv, env=self.env,
                                 capture_output=True, text=True, timeout=25)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
+
+    def select_send_file(self, content=b'enabled\n'):
+        config = self.home / 'config'
+        config.mkdir(exist_ok=True)
+        config.chmod(0o700)
+        self.send_enabled_file = config / 'main-backstop-send-enabled'
+        self.send_enabled_file.write_bytes(content)
+        self.send_enabled_file.chmod(0o600)
+        self.env['BACKSTOP_SEND_FILE'] = str(self.send_enabled_file)
+        return self.send_enabled_file
+
+    def assert_observe_only(self):
+        self.assertEqual(self.notes(), '')
+        self.assertFalse((self.state / '.wake-queue').exists())
+        self.assertFalse(any(c[0] in ('pane', 'agent') for c in self.commands()))
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('last_nudge', self.memory())
+        self.assertEqual((self.home / 'data/main-pane').read_text(), 'dead:old\n')
+
+    def test_nested_backend_shell_uses_recording_transport(self):
+        selected = self.select_send_file()
+        self.assertTrue(selected.exists())
+        probe = subprocess.run(['bash', '-c', '. "$1"; command -v herdr', 'fixture',
+                                str(self.code / 'bin/fm-backend.sh')], env=self.env,
+                               capture_output=True, text=True, timeout=5)
+        self.assertEqual(probe.returncode, 0, probe.stderr)
+        self.assertEqual(probe.stdout.strip(), str(self.fake / 'herdr'))
+
+    def test_selected_missing_or_malformed_capability_keeps_watcher_observe_only(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        self.run_guard()
+        self.assert_observe_only()
+        self.assertIn(self.memory()['episodes']['recovery'], self.memory()['deferred_alarms'])
+
+    def test_held_incident_keeps_identity_until_enabled_note(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        self.run_guard()
+        incident = self.memory()['episodes']['recovery']
+        self.assertIn(self.memory()['episodes']['recovery'], self.memory()['deferred_alarms'])
+        selected.write_bytes(b'enabled\n')
+        selected.chmod(0o600)
+        self.run_guard()
+        self.assertIn('BACKSTOP HELD', self.notes())
+        self.assertIn(incident, self.notes())
+        self.assertNotIn(incident, self.memory()['deferred_alarms'])
+
+    def check_distinct_incidents_across_stop(self, kind):
+        selected = self.select_send_file()
+        self.config['process'] = 'bash'
+        (self.state / '.last-watcher-beat').touch()
+        key = kind + '-q-server' if kind != 'recovery' else kind
+
+        def trigger():
+            if kind == 'runner':
+                self.register_runner('999999999\n')
+            elif kind == 'lag':
+                self.config['remote'] += 60
+            elif kind == 'read':
+                self.config['fail_reads'] = 100
+            else:
+                os.utime(self.state / '.last-watcher-beat', (4400, 4400))
+            self.run_guard()
+            self.run_guard()
+
+        def resolve():
+            if kind == 'runner':
+                (self.state / 'procevent/remote-reply-q-server.source').unlink()
+            elif kind == 'lag':
+                (self.state / '.remote-reply-mirrored-q-server').write_text(
+                    'done [at=%d]: mirrored\n' % self.config['remote'])
+            elif kind == 'read':
+                self.config['fail_reads'] = 0
+            else:
+                (self.state / '.last-watcher-beat').touch()
+            self.run_guard()
+
+        trigger()
+        first = self.memory()['episodes'][key]
+        self.assertIn(first, self.notes())
+        selected.unlink()
+        self.run_guard()
+        resolve()
+        self.assertNotIn(key, self.memory()['episodes'])
+        self.assertIn(first, self.memory()['deferred_alarms'])
+        trigger()
+        second = self.memory()['episodes'][key]
+        self.assertNotEqual(first, second)
+        self.assertNotIn(second, self.notes())
+        self.select_send_file()
+        self.run_guard()
+        self.assertIn(second, self.notes())
+        self.assertEqual(self.notes().count('request_id=' + first), 1)
+        self.assertEqual(self.notes().count('request_id=' + second), 1)
+        self.assertEqual(self.memory()['deferred_alarms'], {})
+
+    def test_runner_resolution_releases_identity_during_stop(self):
+        self.check_distinct_incidents_across_stop('runner')
+
+    def test_lag_resolution_releases_identity_during_stop(self):
+        self.check_distinct_incidents_across_stop('lag')
+
+    def test_read_resolution_releases_identity_during_stop(self):
+        self.check_distinct_incidents_across_stop('read')
+
+    def test_recovery_resolution_releases_identity_during_stop(self):
+        self.check_distinct_incidents_across_stop('recovery')
+
+    def test_resolved_held_incidents_both_deliver_after_resume(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        self.run_guard()
+        first = self.memory()['episodes']['recovery']
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        second = self.memory()['episodes']['recovery']
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        self.assertNotEqual(first, second)
+        self.assertEqual(self.notes(), '')
+        self.select_send_file()
+        self.run_guard()
+        self.assertIn(first, self.notes())
+        self.assertIn(second, self.notes())
+        self.assertIn('watcher silent for 600s', self.notes())
+        self.assertIn('watcher silent for 1000s', self.notes())
+        self.assertEqual(self.memory()['deferred_alarms'], {})
+
+    def test_legacy_deferred_alarm_keeps_original_delivery_identity(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        journal = self.state / '.main-backstop.json'
+        journal.write_text(json.dumps({
+            'episodes': {'recovery': 'backstop-original'},
+            'deferred_alarms': {'recovery': 'original held incident'}}))
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        self.assertNotIn('recovery', self.memory()['episodes'])
+        self.select_send_file()
+        self.run_guard()
+        self.assertIn('backstop-original', self.notes())
+        self.assertIn('original held incident', self.notes())
+        self.assertEqual(self.memory()['deferred_alarms'], {})
+
+    def test_legacy_list_shaped_state_migrates_and_runs_one_pass(self):
+        (self.state / '.last-watcher-beat').touch()
+        (self.state / '.main-backstop.json').write_text(json.dumps({
+            'episodes': [], 'last_nudge': 4700, 'read_fails': [],
+            'runner_fails': [],
+            'readers': {'q-server': {'offset': 12, 'prefix': 'a' * 64,
+                                     'stamp': 1000}}}))
+        self.run_guard()
+        memory = self.memory()
+        self.assertEqual(memory['episodes'], {})
+        self.assertEqual(memory['read_fails'], {})
+        self.assertEqual(memory['runner_fails'], {})
+        self.assertEqual(memory['last_nudge'], 4700)
+        self.assertEqual(memory['readers']['q-server']['offset'],
+                         len('working [at=1000]: remote reply\n'))
+        self.assertEqual(memory['readers']['q-server']['pending_at'], [])
+        self.assertEqual(self.notes(), '')
+
+    def test_selected_valid_capability_is_recognized(self):
+        selected = self.select_send_file()
+        spec = importlib.util.spec_from_file_location('backstop_candidate', ROOT / 'bin/fm-main-backstop.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertTrue(module.send_capability_enabled(self.home, selected))
+
+    def test_selected_valid_capability_allows_confirmed_nudge(self):
+        self.select_send_file()
+        self.run_guard()
+        self.assertTrue(any(c[:2] == ['pane', 'read'] for c in self.commands()))
+        self.assertEqual(len(self.sends()), 1)
+        self.assertIn('last_nudge', self.memory())
+
+    def test_malformed_large_and_symlink_capabilities_refuse_send(self):
+        for contents in (b'enabled', b'enabled\nextra', b'x' * 1024):
+            with self.subTest(contents=contents[:12]):
+                self.select_send_file(contents)
+                self.run_guard()
+                self.assert_observe_only()
+        selected = self.send_enabled_file
+        selected.unlink()
+        target = self.base / 'enabled-target'
+        target.write_bytes(b'enabled\n')
+        selected.symlink_to(target)
+        self.run_guard()
+        self.assert_observe_only()
+        selected.unlink()
+        selected.write_bytes(b'enabled\n')
+        (self.home / 'config').chmod(0o777)
+        self.run_guard()
+        self.assert_observe_only()
+
+    def test_fifo_capability_is_rejected_without_blocking(self):
+        selected = self.select_send_file()
+        selected.unlink()
+        os.mkfifo(selected, 0o600)
+        program = (
+            'import importlib.util,sys; from pathlib import Path; '
+            'spec=importlib.util.spec_from_file_location("backstop_fifo",sys.argv[1]); '
+            'module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); '
+            'print(module.send_capability_enabled(Path(sys.argv[2]),Path(sys.argv[3])))'
+        )
+        child = subprocess.run(
+            ['python3', '-c', program, str(ROOT / 'bin/fm-main-backstop.py'),
+             str(self.home), str(selected)], env=self.env,
+            capture_output=True, text=True, timeout=2)
+        self.assertEqual(child.returncode, 0, child.stderr)
+        self.assertEqual(child.stdout.strip(), 'False')
+
+    def test_disabled_runner_and_lag_incidents_keep_cursors_without_notes(self):
+        self.send_enabled_file = self.home / 'config/main-backstop-send-enabled'
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.config['remote'] = 1001
+        self.run_guard()
+        self.run_guard()
+        self.assert_observe_only()
+        memory = self.memory()
+        self.assertIn('q-server', memory['runner_fails'])
+        self.assertEqual(memory['lag_oldest']['q-server'], 1001)
+        self.assertEqual(memory['readers']['q-server']['pending_at'], [1001])
+
+    def test_disabled_read_failure_does_not_write_alarm_or_drop_incident(self):
+        self.send_enabled_file = self.home / 'config/main-backstop-send-enabled'
+        (self.state / '.last-watcher-beat').touch()
+        self.config['fail_reads'] = 2
+        self.run_guard()
+        self.run_guard()
+        self.assert_observe_only()
+        self.assertIn('q-server', self.memory()['read_fails'])
+
+    def test_revocation_during_discovery_refuses_submission_and_note(self):
+        self.select_send_file()
+        self.config['revoke_on_discovery'] = True
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('last_nudge', self.memory())
+        self.assertEqual(self.notes(), '')
+
+    def test_wrong_owner_capability_is_refused_by_reader(self):
+        selected = self.select_send_file()
+        spec = importlib.util.spec_from_file_location('backstop_candidate', ROOT / 'bin/fm-main-backstop.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        original = os.stat(selected)
+        values = list(original)
+        values[4] = original.st_uid + 1
+        with patch.object(module.os, 'fstat', return_value=os.stat_result(values)):
+            self.assertFalse(module.send_capability_enabled(self.home, selected))
 
     def commands(self):
         return [json.loads(x) for x in self.calls.read_text().splitlines()] if self.calls.exists() else []
@@ -267,7 +543,10 @@ os.execv(real,[command]+sys.argv[3:])
             'readers': {'q-server': {'offset': 9999, 'prefix': '0' * 64, 'stamp': 99999}}}))
         self.run_guard()
         self.assertIn('3940s (oldest_at=1060 ingested_at=1000)', self.notes())
-        self.assertEqual(self.reader_calls()[0][1], 'fm-remote-file.sh')
+        # The migrated legacy cursor is tried first; its bogus prefix breaks
+        # continuity and the pass rebuilds from the whole file.
+        self.assertEqual(self.reader_calls()[0][1], 'fm-remote-delta-read.sh')
+        self.assertEqual(self.reader_calls()[1][1], 'fm-remote-file.sh')
 
     def test_report_body_cannot_advance_mirror_or_clear_incident(self):
         (self.state / '.last-watcher-beat').touch()
@@ -324,18 +603,94 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [1060, 1200, 1300])
         self.assertNotIn('q-server', self.memory()['read_fails'])
 
-    def test_invalid_remote_line_does_not_commit_delta_progress(self):
+    def test_invalid_leading_remote_line_does_not_commit_delta_progress(self):
         (self.state / '.last-watcher-beat').touch()
         self.run_guard()
         offset = self.memory()['readers']['q-server']['offset']
         for line in ('done: at=1060;', 'done [at=1060] [at=9000]: duplicate',
                      'done [at=01060]: leading zero', 'done [at=1000000000000]: overflow'):
             with self.subTest(line=line):
-                self.config['remote_file'] = 'working [at=1000]: remote reply\n'+line+'\n'
+                self.config['remote_file'] = line + '\nworking [at=1000]: remote reply\n'
                 self.run_guard()
                 self.assertEqual(self.memory()['readers']['q-server']['offset'], offset)
                 self.assertIn('q-server', self.memory()['read_fails'])
         self.assertIn('REPLY DELIVERY UNVERIFIED', self.notes())
+
+    def test_multiline_reply_entries_read_as_continuations_from_the_head(self):
+        (self.state / '.last-watcher-beat').touch()
+        entry = ('done [corr=sample] [at=1060]: landed the first item\n'
+                 'Desk page: nothing of mine owns the desk screen.\n'
+                 'Step 1, wiring: two follow-up swaps stay open.\n')
+        self.config['remote_file'] = entry + 'done [at=4990]: second entry\n'
+        (self.state / '.remote-reply-mirrored-q-server').write_text(entry)
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['offset'],
+                         len(self.config['remote_file'].encode()))
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [4990])
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+        self.assertEqual(self.notes(), '')
+
+    def test_delta_window_beginning_mid_entry_reads_continuations(self):
+        (self.state / '.last-watcher-beat').touch()
+        head = 'done [corr=sample] [at=1060]: landed the first item\n'
+        self.config['remote_file'] = head
+        (self.state / '.remote-reply-mirrored-q-server').write_text(head)
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [])
+        cold_calls = len(self.reader_calls())
+        self.config['remote_file'] += ('Desk page: nothing of mine owns the desk screen.\n'
+                                       'Step 1, wiring: two follow-up swaps stay open.\n')
+        self.run_guard()
+        delta_calls = self.reader_calls()[cold_calls:]
+        self.assertTrue(delta_calls)
+        self.assertTrue(all(call[1] == 'fm-remote-delta-read.sh' for call in delta_calls))
+        self.assertEqual(self.memory()['readers']['q-server']['offset'],
+                         len(self.config['remote_file'].encode()))
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [])
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+        self.assertEqual(self.notes(), '')
+        self.config['remote_file'] += 'done [at=4990]: second entry\n'
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [4990])
+
+    def test_preempted_delta_read_reissues_same_cursor_and_progresses(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        offset = self.memory()['readers']['q-server']['offset']
+        calls = len(self.reader_calls())
+        self.config['remote_file'] = ('working [at=1000]: remote reply\n'
+                                      'done [at=1901]: newer reply\n')
+        self.config['preempt_delta'] = 1
+        self.run_guard()
+        attempts = self.reader_calls()[calls:]
+        self.assertEqual(attempts[0][1], 'fm-remote-delta-read.sh')
+        self.assertEqual(attempts[1][3], attempts[0][3])
+        self.assertEqual(attempts[1][4], attempts[0][4])
+        self.assertEqual(self.memory()['readers']['q-server']['offset'],
+                         len(self.config['remote_file'].encode()))
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+        self.assertIn('REPLY DELIVERY LAG q-server: 3099s (oldest_at=1901 ingested_at=1000)',
+                      self.notes())
+
+    def test_permanently_preempted_delta_read_fails_boundedly(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        offset = self.memory()['readers']['q-server']['offset']
+        calls = len(self.reader_calls())
+        self.config['remote_file'] = ('working [at=1000]: remote reply\n'
+                                      'done [at=1901]: newer reply\n')
+        self.config['preempt_delta'] = 100
+        self.run_guard()
+        attempts = self.reader_calls()[calls:]
+        self.assertEqual(len(attempts), 4)
+        self.assertTrue(all(call[1] == 'fm-remote-delta-read.sh' for call in attempts))
+        self.assertTrue(all(call[3] == str(offset) for call in attempts))
+        self.assertEqual(self.memory()['readers']['q-server']['offset'], offset)
+        self.assertIn('q-server', self.memory()['read_fails'])
+        self.assertEqual(self.notes(), '')
+        self.run_guard()
+        self.assertIn('REPLY DELIVERY UNVERIFIED q-server', self.notes())
+        self.assertEqual(self.memory()['readers']['q-server']['offset'], offset)
 
     def test_canonical_timestamp_upper_bound_is_accepted(self):
         (self.state / '.last-watcher-beat').touch()
@@ -572,20 +927,109 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertIn('REPLY DELIVERY LAG q-server: 3800s', self.notes())
         self.assertNotIn('q-server', self.memory()['read_fails'])
 
-    def test_over_budget_backlog_stays_unverified_until_tail(self):
+    def test_over_budget_backlog_catches_up_without_unverified_alarm(self):
         (self.state / '.last-watcher-beat').touch()
         self.run_guard()
         self.config['remote_file'] = ('working [at=1000]: remote reply\n' +
                                       'working [at=1200]: backlog\n' * 22000 +
                                       'done [at=3000]: latest\n')
+        for _ in range(6):
+            self.run_guard()
+            self.assertNotIn('q-server', self.memory()['read_fails'])
+            self.assertNotIn('REPLY DELIVERY UNVERIFIED', self.notes())
+            if self.memory()['readers']['q-server']['offset'] == len(self.config['remote_file'].encode()):
+                break
+        self.assertEqual(self.memory()['readers']['q-server']['offset'],
+                         len(self.config['remote_file'].encode()))
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+        self.assertIn('REPLY DELIVERY LAG q-server: 3800s', self.notes())
+        self.assertNotIn('REPLY DELIVERY UNVERIFIED', self.notes())
+
+    def test_tail_never_reached_without_progress_still_alarms(self):
+        (self.state / '.last-watcher-beat').touch()
         self.run_guard()
+        offset = self.memory()['readers']['q-server']['offset']
+        calls = len(self.reader_calls())
+        self.config['remote_file'] = ('working [at=1000]: remote reply\n'
+                                      'done [at=1901]: newer reply\n')
+        self.config['stuck_delta'] = 1
+        self.run_guard()
+        attempts = self.reader_calls()[calls:]
+        self.assertEqual(len(attempts), 4)
+        self.assertTrue(all(call[1] == 'fm-remote-delta-read.sh' for call in attempts))
+        self.assertEqual(self.memory()['readers']['q-server']['offset'], offset)
         self.assertIn('q-server', self.memory()['read_fails'])
         self.assertEqual(self.notes(), '')
         self.run_guard()
         self.assertIn('REPLY DELIVERY UNVERIFIED q-server', self.notes())
+
+    def test_legacy_reader_record_migrates_and_keeps_cursor(self):
+        (self.state / '.last-watcher-beat').touch()
+        body = 'working [at=1000]: remote reply\n'
+        self.config['remote_file'] = body
+        prefix = hashlib.sha256(body.encode()).hexdigest()
+        for stamp in (0, 1000):
+            with self.subTest(stamp=stamp):
+                (self.state / '.main-backstop.json').write_text(json.dumps({
+                    'readers': {'q-server': {'offset': len(body), 'prefix': prefix,
+                                             'stamp': stamp}}}))
+                calls = len(self.reader_calls())
+                self.run_guard()
+                reads = self.reader_calls()[calls:]
+                self.assertEqual(len(reads), 1)
+                self.assertEqual(reads[0][1], 'fm-remote-delta-read.sh')
+                self.assertEqual(reads[0][3:5], [str(len(body)), prefix])
+                self.assertEqual(self.memory()['readers']['q-server'],
+                                 {'offset': len(body), 'prefix': prefix, 'pending_at': []})
+                self.assertNotIn('q-server', self.memory()['read_fails'])
+                self.assertEqual(self.notes(), '')
+
+    def test_legacy_reader_preserves_unmirrored_stamp_until_mirrored(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.now = 2802
+        body = 'done [at=1901]: remote reply\n'
+        self.config['remote_file'] = body
+        prefix = hashlib.sha256(body.encode()).hexdigest()
+        (self.state / '.main-backstop.json').write_text(json.dumps({
+            'readers': {'q-server': {'offset': len(body), 'prefix': prefix,
+                                     'stamp': 1901}}}))
         self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 3800s', self.notes())
+        self.assertEqual(len(self.reader_calls()), 1)
+        self.assertEqual(self.reader_calls()[0][1], 'fm-remote-delta-read.sh')
+        self.assertEqual(self.reader_calls()[0][3:5], [str(len(body)), prefix])
+        self.assertEqual(self.memory()['readers']['q-server'],
+                         {'offset': len(body), 'prefix': prefix, 'pending_at': [1901]})
+        self.assertIn('901s (oldest_at=1901 ingested_at=1000)', self.notes())
         self.assertNotIn('q-server', self.memory()['read_fails'])
+        (self.state / '.remote-reply-mirrored-q-server').write_text(
+            'done [at=1901]: mirrored\n')
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [])
+        self.assertNotIn('lag-q-server', self.memory()['episodes'])
+
+    def test_invalid_legacy_reader_rebootstraps_before_reporting_lag(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.now = 2802
+        body = 'done [at=1901]: remote reply\n'
+        self.config['remote_file'] = body
+        prefix = hashlib.sha256(body.encode()).hexdigest()
+        legacy = {'offset': len(body), 'prefix': prefix, 'stamp': 1901}
+        records = [dict(legacy, version=2),
+                   {key: value for key, value in legacy.items() if key != 'stamp'},
+                   dict(legacy, offset=-1), dict(legacy, prefix='bogus')]
+        records += [dict(legacy, stamp=stamp)
+                    for stamp in (-1, True, False, 1901.0, '1901', None, [], {})]
+        for record in records:
+            with self.subTest(record=record):
+                (self.state / '.main-backstop.json').write_text(json.dumps({
+                    'readers': {'q-server': record}}))
+                calls = len(self.reader_calls())
+                self.run_guard()
+                self.assertEqual(self.reader_calls()[calls][1], 'fm-remote-file.sh')
+                self.assertEqual(self.memory()['readers']['q-server'],
+                                 {'offset': len(body), 'prefix': prefix, 'pending_at': [1901]})
+                self.assertIn('901s (oldest_at=1901 ingested_at=1000)', self.notes())
+                self.assertNotIn('q-server', self.memory()['read_fails'])
 
     def test_single_transient_read_failure_is_tolerated_without_alarm(self):
         (self.state / '.last-watcher-beat').touch()

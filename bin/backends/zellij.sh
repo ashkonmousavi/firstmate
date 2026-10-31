@@ -454,6 +454,7 @@ fm_backend_zellij_normalize_key() {  # <key>
     # C-u clears a composer line. fm-send.sh's muse interrupt path needs it to
     # drop the prompt muse restores into the composer after Escape.
     C-u|c-u|ctrl+u|Ctrl+u|Ctrl+U|'Ctrl u'|'ctrl u') printf 'Ctrl u' ;;
+    C-e|c-e|ctrl+e|Ctrl+e|Ctrl+E|'Ctrl e'|'ctrl e') printf 'Ctrl e' ;;
     *) printf '%s' "$1" ;;
   esac
 }

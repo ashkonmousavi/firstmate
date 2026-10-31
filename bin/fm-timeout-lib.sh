@@ -283,3 +283,39 @@ fm_exec_timed() {  # <seconds> <grace-seconds> <command...>
   printf 'fm_exec_timed: cannot bound %s within %ss: none of perl, timeout, or gtimeout is available\n' "${1##*/}" "$seconds" >&2
   exit 127
 }
+
+fm_checkpoint_clock() {
+  local monotonic
+  # SECONDS follows wall-clock corrections, which must not extend a sweep.
+  # Preserve epoch deadlines while measuring elapsed time independently of
+  # wall-clock corrections. Uptime avoids a subprocess on Linux; macOS uses
+  # the same portable monotonic clock as the process-event owner lease.
+  if [ -r /proc/uptime ]; then
+    read -r monotonic _ < /proc/uptime || return 1
+    monotonic=${monotonic%%.*}
+  else
+    monotonic=$(perl -MTime::HiRes=clock_gettime,CLOCK_MONOTONIC -e \
+      'print int(clock_gettime(CLOCK_MONOTONIC))') || return 1
+  fi
+  if [ -z "${FM_CHECKPOINT_CLOCK_OFFSET:-}" ]; then FM_CHECKPOINT_CLOCK_OFFSET=$(( $(date +%s) - monotonic )); fi
+  FM_CHECKPOINT_NOW=$((FM_CHECKPOINT_CLOCK_OFFSET + monotonic))
+}
+
+fm_checkpoint_budget() {
+  local budget=$1 remaining whole
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then
+    fm_checkpoint_clock
+    remaining=$((FM_CHECKPOINT_DEADLINE - FM_CHECKPOINT_NOW))
+    [ "$remaining" -gt 0 ] || return 124
+    whole=${budget%%.*}
+    [ "${whole:-0}" -lt "$remaining" ] || budget=$remaining
+  fi
+  printf '%s\n' "$budget"
+}
+
+fm_checkpoint_expired() {
+  [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] || return 1
+  fm_checkpoint_clock
+  [ "$FM_CHECKPOINT_NOW" -ge "$FM_CHECKPOINT_DEADLINE" ]
+}
+

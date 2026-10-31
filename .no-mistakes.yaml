@@ -22,18 +22,27 @@ document:
     evidence destination, and unique safety facts, then review the complete
     branch diff again after every documentation or lint fix.
 
-# Pin lint to the same owner CI invokes instead of leaving it to no-mistakes'
-# default handling, which does not invoke the repository's canonical lint gate.
-# `bin/fm-lint.sh` owns the context-sensitive ShellCheck modes and GitHub
-# workflow lint via pinned actionlint in `bin/fm-lint-workflows.sh`.
-# Invocation wiring is asserted by `tests/fm-lint.test.sh` and
-# `tests/fm-lint-workflows.test.sh`.
+# Review rules so rounds stop repeating themselves and say what the named checks miss.
+review:
+  path_instructions:
+    - path: "*"
+      instructions: >-
+        Never repeat a finding that an earlier round already raised or resolved.
+        End the report with one short paragraph naming what the checks the pull request names
+        (tests, lint, CI legs) would miss.
+        In a later round, re-check only the fix diff and the class sites of the earlier findings.
+
+# Skip duplicate local lint with an explicit successful command; an empty
+# commands.lint would trigger agent-driven lint instead.
+# https://kunchenguid.github.io/no-mistakes/reference/repo-config/#commandslint
+# Hosted CI Lint 1, Lint 2, Lint 3, and Lint 4 run bin/fm-lint.sh and gate
+# the PR (.github/workflows/ci.yml jobs.lint).
+# Hosted CI retains tests/fm-pi-primary-types.test.sh inside the required
+# Behavior portable parallel 1 check.
 #
-# Strict dual-SDK compilation belongs to this compiler-owning phase, not Test.
-# The existing type-regression owner also runs in the required portable CI lane.
 # Keep commands.test absent; the firstmate-coding-guidelines skill owns this policy.
 commands:
-  lint: 'bin/fm-lint.sh && bash tests/fm-pi-primary-types.test.sh'
+  lint: ':'
 
 # Publish each run's test evidence to the orphan no-mistakes/evidence branch linked from the PR.
 # The evidence is not committed to the feature or default branch.

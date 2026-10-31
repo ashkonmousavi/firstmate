@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Behavior tests for tests/lib.sh's shared fixture-tempdir helper
-# (fm_test_tmproot / fm_test_cleanup / fm_test_reap_orphans).
+# Behavior tests for tests/lib.sh's shared fixture lifecycle helpers
+# (fm_test_tmproot / fm_test_cleanup / fm_test_reap_orphans /
+# fm_test_stop_remote_job_worker).
 #
 # The near-universal call pattern across this suite is
 # `TMP_ROOT=$(fm_test_tmproot prefix)`, which forks a subshell to capture the
@@ -8,7 +9,9 @@
 # that exact pattern and assert the fixture root is actually gone once the
 # owning process's guarded teardown has run - on a normal exit and on a
 # terminating signal - plus that a stale marked fixture from a killed prior
-# run gets reaped on the next source. Nothing here inspects tests/lib.sh's
+# run gets reaped on the next source. A slow-shutdown worker also verifies
+# that fixture removal waits for its shutdown writes.
+# Nothing here inspects tests/lib.sh's
 # source text; it only observes filesystem state around the real helper.
 set -u
 
@@ -209,6 +212,40 @@ test_registries_avoid_git_worktree_root() {
   pass "test registries and fixture roots stay out of a git worktree TMPDIR"
 }
 
+# The remote job worker shuts down asynchronously after TERM, still writing
+# into its state directory. A deterministic slow writer stands in for it: on TERM
+# it waits, then writes a file and exits. Removing the fixture right after a bare
+# signal races that write; the helper must return only after the writer is gone.
+test_stop_remote_job_worker_waits_for_shutdown_writes() {
+  local root state pid tries
+  root=$(fm_test_tmproot fm-test-stop-worker)
+  state="$root/remote-jobs"
+  mkdir -p "$state"
+  # shellcheck disable=SC2016 # the trap body expands in the child, not here
+  ( bash -c '
+      trap "sleep 1; mkdir -p \"$1/late\"; echo done > \"$1/late/shutdown\"; exit 0" TERM
+      : > "$1/ready"
+      while :; do sleep 0.1; done
+    ' _ "$state" >/dev/null 2>&1 & echo $! > "$state/worker.pid" )
+  pid=$(cat "$state/worker.pid")
+  tries=0
+  while [ "$tries" -lt 100 ] && [ ! -f "$state/ready" ]; do
+    sleep 0.05
+    tries=$((tries + 1))
+  done
+  [ -f "$state/ready" ] || fail "the slow-shutdown worker fixture never became ready"
+  fm_test_stop_remote_job_worker "$state"
+  if kill -0 "$pid" 2>/dev/null && [ "$(ps -o stat= -p "$pid" 2>/dev/null | tr -d ' ')" != Z ]; then
+    kill -KILL "$pid" 2>/dev/null || true
+    fail "fm_test_stop_remote_job_worker returned while the worker was still running"
+  fi
+  assert_present "$state/late/shutdown" \
+    "the worker's shutdown write had not landed when the stop helper returned"
+  fm_test_remove_tree "$root"
+  assert_absent "$root" "removal right after the stop helper left the fixture behind"
+  pass "stopping a remote job worker waits for its shutdown writes before the fixture is removed"
+}
+
 test_fixture_root_gone_after_normal_exit
 test_fixture_root_gone_after_sigterm
 test_cleanup_registry_resists_precreation
@@ -216,3 +253,4 @@ test_fixture_registration_failure_rolls_back_root
 test_orphan_sweep_respects_fixture_ownership
 test_orphan_sweep_reaps_read_only_package_tree
 test_registries_avoid_git_worktree_root
+test_stop_remote_job_worker_waits_for_shutdown_writes

@@ -5,13 +5,14 @@
 #
 # config/lane-capacity in the local root home is mandatory: one line with
 # <lane-ceiling> <memory-reserve-gb>, both non-negative integers (up to 6 digits).
-# GB here means 1024^3 bytes. Zero ceiling stops admission; zero reserve allows
-# zero available memory. Available memory minus reserve must be >= 0. There are no
+# GB here means 1024^3 bytes. Zero ceiling stops admission; the reserve check
+# requires available memory minus reserve >= 0. There are no
 # per-lane estimates and CPU load never refuses admission.
 # Every local registered home is counted through fm_local_firstmate_state_dirs.
-# Task records hold a lane unless the endpoint is proven agent-free and the
-# worktree has no non-shell process. Unknown liveness counts, including ready-PR
-# handoffs whose processes still run. Persistent secondmate records are exempt.
+# Task records hold a lane under fm_task_record_holds_seat, the shared seat
+# rule owned by bin/fm-project-capacity-lib.sh.
+# A ready-PR handoff alone does not exempt a record from the lane count.
+# Persistent secondmate records are exempt.
 # External bots have no local records;
 # ordinary local workers carrying walk markers still hold a lane.
 # Available memory is the smallest memory.high minus (anon + shmem) balance
@@ -20,7 +21,9 @@
 # Only without a finite high limit, use /proc/meminfo's MemAvailable.
 # Reports retain mem_available_kb for this pre-reserve balance, floored to KiB;
 # headroom_kb subtracts the configured reserve. Either balance may be negative.
-# Unreadable config, state, registry or memory facts fail closed with exit 75.
+# Independent resource floors and pressure/disk admission are owned by
+# fm-machine-resources.py and require config/machine-admission.json in that root.
+# Unreadable config, state, registry or resource facts fail closed with exit 75.
 # Admission is a fresh reading before launch, including relaunch. No machine
 # lock is held across launch; reports and placement advice reserve no lane.
 
@@ -31,10 +34,11 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   local home=$1 config=$2 state=$3 self=${4:-} config_dir raw ceiling reserve extra
   local dir meta kind available meminfo=/proc/meminfo memory_source
   local cgroup_file=/proc/self/cgroup cgroup_root=/sys/fs/cgroup cgroup_path cgroup_dir high stats anon shmem bytes balance_kb
-  local backend target worktree processes line pid path holds name args argv0
   FM_CAPACITY_ERROR='' FM_CAPACITY_REASON=unreadable
   FM_CAPACITY_LANES=0 FM_CAPACITY_SECONDMATES=0 FM_CAPACITY_FREE=0
   FM_CAPACITY_TARGET=0 FM_CAPACITY_RESERVE_KB=0 FM_CAPACITY_AVAILABLE_KB=0 FM_CAPACITY_HEADROOM_KB=0
+  FM_CAPACITY_POLICY_SHA256='' FM_CAPACITY_FLOOR_KB=0 FM_CAPACITY_PRESSURE=0 FM_CAPACITY_DISK_KB=0 FM_CAPACITY_EFFECTIVE_KB=0
+  local resources resource_status=0
   FM_CAPACITY_FILE="$config/lane-capacity"
   config_dir=$(fm_project_capacity_config_dir "$home" "$config") || {
     FM_CAPACITY_ERROR="cannot resolve machine root for $home ($FM_CAPACITY_FILE)"; return 75;
@@ -51,6 +55,18 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   if [[ "$raw" == *$'\n'* ]] || ! [[ "$ceiling" =~ ^[0-9]{1,6}$ && "$reserve" =~ ^[0-9]{1,6}$ ]] || [ -n "$extra" ]; then
     FM_CAPACITY_ERROR="$FM_CAPACITY_FILE reading '$raw': expected <lane-ceiling> <memory-reserve-gb>"; return 75
   fi
+  resources=$(python3 "${BASH_SOURCE[0]%/*}/fm-machine-resources.py" --policy "$config_dir/machine-admission.json") || resource_status=$?
+  if [ "$resource_status" -ne 0 ] && [ "$resource_status" -ne 75 ]; then
+    FM_CAPACITY_ERROR="resource reader failed for $config_dir/machine-admission.json"; return 75
+  fi
+  if ! jq -e '.readable == true' >/dev/null 2>&1 <<< "$resources"; then
+    FM_CAPACITY_ERROR="$config_dir/machine-admission.json: $(jq -r '.refusal_reasons | join("; ")' <<< "$resources" 2>/dev/null)"; return 75
+  fi
+  FM_CAPACITY_POLICY_SHA256=$(jq -r '.resource_policy_sha256' <<< "$resources")
+  FM_CAPACITY_FLOOR_KB=$(jq -r '.memory_floor_gib * 1048576 | floor' <<< "$resources")
+  FM_CAPACITY_EFFECTIVE_KB=$(jq -r '.effective_available_bytes / 1024 | floor' <<< "$resources")
+  FM_CAPACITY_PRESSURE=$(jq -r '.memory_full_avg60' <<< "$resources")
+  FM_CAPACITY_DISK_KB=$(jq -r '[.disk_available_bytes[]] | min / 1024 | floor' <<< "$resources")
   FM_CAPACITY_TARGET=$((10#$ceiling))
   FM_CAPACITY_RESERVE_KB=$((10#$reserve * 1048576))
   if [ "${FM_TEST_SEAM:-}" = 1 ]; then
@@ -150,48 +166,7 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
       if [ "$kind" = secondmate ]; then
         FM_CAPACITY_SECONDMATES=$((FM_CAPACITY_SECONDMATES + 1)); continue
       fi
-      backend=$(printf '%s\n' "$raw" | sed -n 's/^backend=//p' | tail -1)
-      target=$(printf '%s\n' "$raw" | sed -n 's/^window=//p' | tail -1)
-      case "$(fm_backend_agent_state "${backend:-tmux}" "$target")" in
-        dead|missing)
-          worktree=$(printf '%s\n' "$raw" | sed -n 's/^worktree=//p' | tail -1)
-          # Use teardown's bounded cwd scan, never a recursive file-tree walk.
-          # Missing or unreadable worktree/process evidence retains the seat.
-          if [[ "$worktree" = /* ]] && [ -d "$worktree" ] && [ -r "$worktree" ] && [ -x "$worktree" ] \
-             && worktree=$(cd "$worktree" && pwd -P) \
-             && processes=$(lsof -a -d cwd -Fpn 2>/dev/null); then
-            holds=0 pid=
-            while IFS= read -r line; do
-              case "$line" in
-                p*)
-                  pid=${line#p}
-                  case "$pid" in ''|*[!0-9]*) holds=1; break ;; esac
-                  ;;
-                fcwd) [ -n "$pid" ] || { holds=1; break; } ;;
-                n*)
-                  [ -n "$pid" ] || { holds=1; break; }
-                  path=${line#n}
-                  case "$path" in
-                    "$worktree"|"$worktree"/*)
-                      [ "$pid" != "$$" ] || continue
-                      name=$(ps -p "$pid" -o comm= 2>/dev/null) || { holds=1; break; }
-                      args=$(ps -p "$pid" -o args= 2>/dev/null) || { holds=1; break; }
-                      [ -n "$name" ] && [ -n "$args" ] || { holds=1; break; }
-                      read -r argv0 _ <<< "$args"
-                      if [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" != shell ]; then
-                        holds=1; break
-                      fi
-                      ;;
-                  esac
-                  ;;
-                '') ;;
-                *) holds=1; break ;;
-              esac
-            done <<< "$processes"
-            [ "$holds" -ne 0 ] || continue
-          fi
-          ;;
-      esac
+      fm_task_record_holds_seat "$meta" "$raw" "$dir" || continue
       FM_CAPACITY_LANES=$((FM_CAPACITY_LANES + 1))
     done
   done
@@ -200,6 +175,16 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   if [ "$FM_CAPACITY_HEADROOM_KB" -lt 0 ]; then
     FM_CAPACITY_FREE=0 FM_CAPACITY_REASON=memory
     FM_CAPACITY_ERROR="$memory_source=$FM_CAPACITY_AVAILABLE_KB kB minus reserve=$FM_CAPACITY_RESERVE_KB kB ($FM_CAPACITY_FILE) gives headroom=$FM_CAPACITY_HEADROOM_KB kB"
+    return 75
+  fi
+  if [ "$resource_status" -ne 0 ]; then
+    FM_CAPACITY_FREE=0
+    FM_CAPACITY_ERROR=$(jq -r '.refusal_reasons | join("; ")' <<< "$resources")
+    case "$FM_CAPACITY_ERROR" in
+      *'memory floor'*) FM_CAPACITY_REASON=memory ;;
+      *'PSI'*) FM_CAPACITY_REASON=pressure ;;
+      *) FM_CAPACITY_REASON=disk ;;
+    esac
     return 75
   fi
   if [ "$FM_CAPACITY_FREE" -eq 0 ]; then
@@ -217,8 +202,12 @@ fm_capacity_json() { # result of the latest fm_capacity_read, including refusals
     --argjson free "$FM_CAPACITY_FREE" --argjson secondmates "$FM_CAPACITY_SECONDMATES" \
     --argjson available "$FM_CAPACITY_AVAILABLE_KB" --argjson reserve "$FM_CAPACITY_RESERVE_KB" \
     --argjson headroom "$FM_CAPACITY_HEADROOM_KB" \
+    --arg policy_sha256 "$FM_CAPACITY_POLICY_SHA256" --argjson floor "$FM_CAPACITY_FLOOR_KB" \
+    --argjson effective "$FM_CAPACITY_EFFECTIVE_KB" --argjson pressure "$FM_CAPACITY_PRESSURE" --argjson disk "$FM_CAPACITY_DISK_KB" \
     '{schema:"fm-lane-capacity.v1",machine:$machine,generated_epoch:(now|floor),
       readable:($reason != "unreadable"),reason:$reason,error:$error,config_file:$file,
       lanes:$lanes,target:$target,free_lanes:$free,secondmates:$secondmates,
-      mem_available_kb:$available,reserve_kb:$reserve,headroom_kb:$headroom}'
+      mem_available_kb:$available,reserve_kb:$reserve,headroom_kb:$headroom,
+      resource_policy_sha256:$policy_sha256,memory_floor_kb:$floor,effective_available_kb:$effective,
+      memory_full_avg60:$pressure,disk_free_min_kb:$disk}'
 }
