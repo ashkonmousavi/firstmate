@@ -6,6 +6,81 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Released-copy lifecycle validation handoff
+
+The [released-copy contract](../agent-control.md#relaunching-a-released-copy) owns the expected behavior.
+This inventory hands its affected classes to the designated validation phase; it is not a live verification result.
+The executable regressions below use fake session providers and forge responses, with real Git repositories and a bare origin where applicable.
+Their presence and the earlier version-scoped evidence elsewhere in this record do not establish live proof for this lifecycle.
+
+### Call paths and transitions
+
+[Relaunch regressions](../../tests/fm-control-relaunch.test.sh), [control regressions](../../tests/fm-control.test.sh), and [teardown regressions](../../tests/fm-teardown.test.sh) own the behavior cases named below.
+Each row identifies an observable contract rather than a source-text assertion.
+
+| Affected path or transition | Executable regression or inspected boundary | Evidence still needed |
+| --- | --- | --- |
+| `fm-control relaunch` -> released checkpoint -> `fm-spawn --relaunch` -> note -> record -> journal | `test_released_copy_relaunch_recreates_the_branch_and_notes_it_once` and `test_teardown_to_relaunch_round_trip` execute the commands and inspect branch, head, record, delivered brief, and merge hold. | Real Treehouse, endpoint, and worker round trip on both backends. |
+| Direct `fm-spawn --relaunch`; recovery dispatch through `fm-control` | `test_spawn_relaunch_of_a_released_copy_gates_its_endpoint`, `test_direct_spawn_relaunch_participates_in_the_lifecycle_lock`, and `test_recovery_rechecks_task_records_and_work`; both entry points reach the same allocation and rollback owner. | A released-record recovery rehearsal; current recovery fixtures do not prove that live combination. |
+| Released endpoint missing, existing shell, live agent, unreadable or ambiguous endpoint | `test_released_copy_relaunch_refuses_and_changes_nothing`, the direct-spawn endpoint case, and existing absence/refusal cases in the control and relaunch suites. | Refresh real liveness and absence evidence, including Herdr stale registrations; do not infer absence from a transport failure. |
+| Allocation: lane admission, project capacity, project lock, pool wait, isolation, slot claim | `test_released_copy_relaunch_defers_without_a_free_lane`, `test_released_pool_exhaustion_defers`, `test_concurrent_released_relaunches_serialise`, and `test_released_copy_frees_its_seat_and_the_relaunch_holds_one`; shared admission and isolation have [capacity](../../tests/fm-capacity.test.sh), [project-capacity](../../tests/fm-project-capacity.test.sh), and [worktree-settling](../../tests/fm-spawn-worktree-settle.test.sh) regressions. | Real pool exhaustion and claim return on tmux and Herdr; the dedicated released fixture does not exercise every admission failure. |
+| Fetch, ancestry check, branch checkout, upstream binding, clean-copy requirement | `test_released_copy_relaunch_returns_the_slot_when_the_branch_cannot_be_recreated` covers missing and rewritten heads; `test_released_fork_branch_uses_head_repository` covers a configured fork and differently named remote branch. | Descendant-head advancement, live push after recreation, and fork-only publication without a configured fork remote remain unproven here. |
+| Literal-send or Enter failure after allocation/publication -> endpoint close, slot return, record/brief restoration -> retry | `test_released_launch_delivery_failure_rolls_back` runs both failures on both backends, checks that delivery was reached, preserves the sentinel and hold, and retries with one progress note. | Actual provider close/lease behavior and adapter-specific readiness failures after delivery; mocked sends are not live transport proof. |
+| Teardown merge hold -> launch delivery -> unhold/dispatch; other holds refuse | `test_released_relaunch_lifts_only_the_merge_hold_teardown_set` and the round trip cover teardown's external hold, a captain hold, and a failed launch. | Real backlog integration during a live round trip; final backlog-commit failure is a separate coverage gap. |
+| Teardown automatic classification or `--keep-open` -> release; later merged cleanup, including interrupted release | `test_release_refuses_when_the_head_is_only_on_the_gate_remote`, `test_release_records_the_head_it_proved`, `test_release_without_a_forge_head_reads_the_pull_request_remote`, `test_release_tracking_proof_uses_fork_head_branch`, `test_released_copy_completes_after_merge`, and `test_interrupted_release_completes_after_merge`. | Live forge equality and tracking proof; retain dirty/unpushed, closed, unreadable, and `--force` refusal cases from the same suite. |
+| Ordinary relaunch and fresh spawn share note, wiring, metadata, and allocation helpers | `test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint`, `test_relaunch_appends_the_progress_note_to_the_instructions`, and existing harness-switch, metadata-lock, busy-generation, and post-publication-failure cases; [pool-base regressions](../../tests/fm-spawn-pool-base-freshen.test.sh) retain fresh-spawn coverage. | Preserve ordinary endpoint-absence and resume behavior when validating the released-only exceptions. |
+| Shared forge readers -> control checkpoint, spawn recreation, teardown proof and merged-work check, crew-state PR detail | [PR reader](../../bin/fm-pr-lib.sh), `pr_is_merged` in teardown, and `passed_pr_detail` in [crew state](../../bin/fm-crew-state.sh) are all consumers; [crew-state regressions](../../tests/fm-crew-state.test.sh) cover GitHub, GitLab, Forgejo, and Gerrit state outcomes. | Non-GitHub head-identity reads and authentication against real services; the existing PR-state live guard exercises a different reader. |
+
+### Compatibility axes
+
+| Axis | Classes and inspected disposition | Regression or gap |
+| --- | --- | --- |
+| Task kind and delivery | Released recreation requires a local `ship`; recorded mode, branch, project, model, and effort pass through the existing launch path. | Released round-trip fixtures use `no-mistakes`; repeat for the supported local-only fork-contribution workflow before claiming that mode is proven. |
+| Scout, secondmate, remote placement | `safe_checkpoint_released` and `released_relaunch_preflight` reject non-ship sentinels; control rejects `remote_host` before local endpoint work. Ordinary scouts still share the note writer; ordinary secondmates keep their charter and own recovery path. | Inspected refusal boundaries, plus existing promoted-scout, secondmate checkpoint/account, and remote-control refusal cases; no released non-ship or remote success is claimed. |
+| tmux | Released missing endpoints use the teardown exception; ordinary absence still needs its existing proof. | Released success, refusal, rollback, pool deferral, and direct-spawn regressions; real tmux guard and round trip pending. |
+| Herdr | Released recreation uses a new pane; normal Herdr registration/resume rules still apply to ordinary relaunch. | `test_herdr_relaunch_of_a_released_copy_recreates_it`, both-backend rollback/deferral cases, and `test_herdr_relaunch_resumes_only_the_registered_pi_session`; real Herdr guards and round trip pending. |
+| Orca, cmux, zellij, paseo | The released-record backend gate in spawn accepts only tmux and Herdr; control has the same support boundary. | `test_released_copy_relaunch_refuses_off_tmux_and_herdr` executes Orca, cmux, and zellij refusals; paseo's rejection was inspected, without a dedicated released fixture. |
+| Linux, WSL, macOS; x86_64 and arm64 | The changed transaction uses shared Bash/Git, lock, path, and backend interfaces; no new OS or CPU selector was introduced. Treehouse shell cwd, process identity, and provider-close behavior still depend on the host. | Portable fixtures do not establish macOS/WSL runtime parity or any CPU-specific live result; record the actual OS/architecture for each live run. |
+| Account selection | No pin, a recorded pin, an explicit replacement harness, and a signed-out/refused pin continue through `fm_worker_account_select` before endpoint allocation; Claude trust uses the selected root and Pi provider selection uses its existing account path. | `test_signed_out_worker_account_pin_refuses_before_stop`, `test_worker_account_pin_follows_the_relaunch`, [worker-account regressions](../../tests/fm-worker-account.test.sh), and [dispatch-profile regressions](../../tests/fm-spawn-dispatch-profile.test.sh); released round trips with pinned accounts remain unproven. |
+| Model, effort, account-family aliases, trace context | Ordinary same-harness and explicit-harness replacement retain their existing profile rules; released recreation suppresses the path-keyed resume call. | Existing profile, prefixed-harness, native-ultra, trace-context, Muse/Cursor binding, and Herdr Pi resume cases in the relaunch suite; inspect the rendered launch for each real released worker. |
+| Forge and remote representation | GitHub `gh`, GitHub `gh-axi`, GitLab `glab`, Forgejo `tea`, and Gerrit `gerrit-axi` share state classification; fetch proof additionally needs head repository and branch. Holding-remote matching examines raw HTTPS, SSH, and scp-like URLs and excludes `no-mistakes` and `publicsrc`. | GitHub configured-fork and tracking-proof fixtures exist; live provider, URL-spelling, and excluded-remote parity are not established by those fixtures. The configured-fork prerequisite and missing `gh-axi` head identity remain unresolved source-review gaps, not validated successes. |
+
+Every currently recognized ship harness reaches the shared released transaction, but several have distinct readiness, hook, session, or credential boundaries.
+The following inventory does not promote one mocked Claude launch into proof for another adapter.
+
+| Harness classes | Inspected integration surface | Regression or live-proof disposition |
+| --- | --- | --- |
+| `claude` | Selected config root, workspace trust, turn-end/busy wiring, literal command and Enter. | Released fixtures use a fake Claude worker on tmux and Herdr; real launch, trust, and account proof pending. |
+| `codex`, `opencode`, `cursor` | Existing launch template, hook/config wiring and session bindings; the released path bypasses endpoint-session resume. | Ordinary switch/binding cases and adapter suites remain applicable; no real released-worker proof for these three. |
+| `pi`, `pi-signed`, `omp` | Pi-family executable selection, provider/account roots, extension wiring, and Herdr registration/session authority. | Pi account/tool and Herdr resume regressions cover shared boundaries; Pi stale-registration and launch-prompt guards cover only their stated runtime surfaces. No real released round trip for any of the three. |
+| `grok` | Existing launch template and rendered liveness/busy fallback remain outside branch recreation. | Liveness drift guard covers installed Grok; released-worker launch and progress-note consumption remain unproven. |
+| `kimi`, `rovo` | Post-command readiness, brief-pointer submission, and delivery gates can fail before final dispatch commit. | Inspect these distinct failure exits through `spawn_abort_cleanup`; their own adapter/signal guards do not exercise released rollback. Real readiness-failure rollback remains a gap. |
+| `gemini` | Existing trust/system settings and busy hook path; released allocation and rollback are shared. | Launch-prompt guard covers Gemini's prompt signal, not released recreation; real released-worker proof pending. |
+| `muse` | Existing launcher, session binding and hook path. | Ordinary Muse binding case and Muse signals guard; released launch/rollback pending. |
+| `agy` | Existing launcher and post-launch readiness gate before dispatch. | Agy signals guard; released readiness-failure rollback pending. |
+| `devin`, `commandcode` | Existing executable checks, launch templates and hook/config wiring; Command Code already restricts placement to tmux/Herdr. | Respective signals guards; released launch/rollback pending for both. |
+| `polytoken` | Existing session daemon/readiness gate, isolated configuration, credentials, hooks and raw-launch distinctions. | Ordinary raw-launch and hook-retirement regressions plus Polytoken signals guard; released session-daemon failure and cleanup need live proof. |
+
+### Validation-phase live handoff
+
+Run the applicable guards below in the designated validation phase using `FM_LIVE=1 bash bin/fm-test-run.sh <test-path>`; this review phase does not execute them.
+Record absent tools/harnesses and skipped cases explicitly, and require a nonempty checked set before claiming coverage.
+Capture date, exact command, OS/architecture, backend and harness versions, account-selection label without secrets, output, and exit status in the corresponding section of this verification record.
+Respect each guard's isolated socket, home, and Herdr-lab contract; an incompatible workspace boundary is a reported gap, not permission to run against a live home.
+
+| Guard | Actual surface it can prove |
+| --- | --- |
+| [Harness liveness drift](../../tests/fm-harness-liveness-drift-live-e2e.test.sh) | Real tmux process identity and ancestry for its installed list: Claude, Codex, OpenCode, Pi, pi-signed, Grok, Kimi, Cursor, Muse; it does not cover every ship adapter or Herdr. |
+| [Herdr control smoke](../../tests/fm-control-herdr-smoke.test.sh) and [Pi stale registration](../../tests/fm-herdr-pi-stale-registration-live-e2e.test.sh) | Real Herdr control/registration behavior; the smoke uses stand-in processes, while the Pi guard launches real Pi without a model prompt. |
+| [Worker account](../../tests/fm-worker-account-live-e2e.test.sh) | Real installed Claude/Pi account-check output using disposable synthetic roots, not the whole released lifecycle under every account. |
+| [Launch prompts](../../tests/fm-launch-prompt-signals-live-e2e.test.sh) and [Herdr submit confirmation](../../tests/fm-herdr-submit-confirm-live-e2e.test.sh) | Stated real launch-dialog signatures and Claude Herdr submit/exit behavior; the latter must be checked for each relevant Claude config root. |
+| [Devin](../../tests/fm-devin-signals-live-e2e.test.sh), [Command Code](../../tests/fm-commandcode-signals-live-e2e.test.sh), [Muse](../../tests/fm-muse-signals-live-e2e.test.sh), [Rovo](../../tests/fm-rovo-signals-live-e2e.test.sh), [Agy](../../tests/fm-agy-signals-live-e2e.test.sh), [Polytoken](../../tests/fm-polytoken-signals-live-e2e.test.sh) signals | The individual adapters' actual prompt, turn, busy and control surfaces as described by each guard; these may submit model prompts and are not released-copy integration guards. |
+| [PR-state live read](../../tests/fm-pr-state-live-e2e.test.sh) | GitHub's own jq engine for `fm-pr-state.sh`; it does not validate the new shared head-identity query or another forge. |
+
+No existing guard above proves a real teardown-to-relaunch transaction with actual Treehouse allocation, endpoint replacement, branch recreation, note delivery, rollback, and backlog-hold release together.
+The validation phase must perform that isolated rehearsal on tmux and Herdr, including no-slot and failed-delivery paths, before recording live proof for the released-copy guarantee.
+Keep the unexercised harnesses, platforms, accounts, forge fallbacks, and unresolved source-review cases visible if the available environment cannot cover them.
+
 ## Polytoken worker lifecycle
 
 Verified on 2026-10-14 with Polytoken 0.9.0 on macOS arm64 using the tmux worker path.
