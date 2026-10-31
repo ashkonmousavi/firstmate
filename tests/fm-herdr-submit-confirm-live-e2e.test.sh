@@ -155,6 +155,7 @@ HERDR_VER=$(PATH="$ORIGINAL_PATH" herdr --version 2>/dev/null | head -1 || print
 
 # The viewport regression needs native terminal scrollback. Fullscreen Claude
 # uses the alternate screen buffer, whose Herdr scroll maximum stays zero.
+# shellcheck disable=SC2016 # The launched bash expands its script arguments.
 printf -v launch 'set +m; FM_HOME=%q FM_TASK_INBOX=%q CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 bash -c %q _ %q claude --dangerously-skip-permissions --setting-sources user --settings %q' \
   "$CONTROL_HOME" "$CONTROL_HOME/state/doorbell.inbox" 'printf "%s\n" "$$" > "$1"; shift; exec "$@"' \
   "$TMP_ROOT/claude.pid" '{"feedbackDrafts":"off","disableAllHooks":true}'

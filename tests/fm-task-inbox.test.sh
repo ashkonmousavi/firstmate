@@ -368,7 +368,7 @@ CASES
 # inbox with a slow backend send: exactly one types, the other skips with
 # ring-in-flight. A lock left by a killed ringer does not block later rings.
 test_ring_serializes_overlapping_rings_per_inbox() (
-  local dir state rec1 rec2 log a= b= holder= i
+  local dir state rec1 rec2 log a='' b='' holder='' i
   trap '
     : > "$dir/b.done"
     for pid in "$a" "$b"; do [ -z "$pid" ] || wait "$pid" 2>/dev/null || true; done
@@ -378,6 +378,7 @@ test_ring_serializes_overlapping_rings_per_inbox() (
   rec1=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "first steer")
   rec2=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "second steer")
   ring_overlap() {  # <rec>
+    # shellcheck disable=SC2016 # The inner bash expands its script arguments.
     exec env FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" bash -c '
       . "$1"
       sends=$3
@@ -432,7 +433,7 @@ test_ring_serializes_overlapping_rings_per_inbox() (
 )
 
 test_ring_skips_during_dead_owner_reclamation() (
-  local dir state rec1 rec2 lock log real_rm a= b= i
+  local dir state rec1 rec2 lock log real_rm a='' b='' i
   dir="$TMP_ROOT/ring-reclaim"; state="$dir/state"; log="$dir/sends"
   mkdir -p "$state/tmp" "$dir/fakebin"
   : > "$log"
@@ -441,8 +442,9 @@ test_ring_skips_during_dead_owner_reclamation() (
   rec2=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "second steer")
   lock="$state/t1.inbox/.ring.lock"
   inbox_lib "$state" fm_lock_try_acquire "$lock" || fail "could not seed the dead ring owner"
-  [ -s "$lock/pid" ] && ! kill -0 "$(cat "$lock/pid")" 2>/dev/null \
-    || fail "the seeded ring owner must have exited"
+  if [ ! -s "$lock/pid" ] || kill -0 "$(cat "$lock/pid")" 2>/dev/null; then
+    fail "the seeded ring owner must have exited"
+  fi
   real_rm=$(command -v rm)
   cat > "$dir/fakebin/rm" <<'SH'
 #!/usr/bin/env bash
@@ -459,6 +461,7 @@ fi
 SH
   chmod +x "$dir/fakebin/rm"
   reclaim_ring() {
+    # shellcheck disable=SC2016 # The inner bash expands its script arguments.
     exec env FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" PATH="$dir/fakebin:$PATH" \
       FM_REAL_RM="$real_rm" FM_RING_LOCK="$lock" FM_RING_GATE="$dir" FM_RING_RECLAIMER="$2" \
       bash -c '
