@@ -1804,7 +1804,23 @@ The previous proof read once after the caller's 0.3 s settle, which matched the 
 `fm_backend_herdr_composer_payload_wait` now re-reads while the composer shows a strict prefix of the payload, bounded by `FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS`.
 
 Counterfactual: pausing the lab Claude process for 1.5 s from the `send-text` call reproduced `payload-not-shown` with the previous proof on both hosts and left the doorbell in the composer; with the bounded wait, three such stalled `bin/fm-send.sh` steers and then three plain 1228-character steers each recorded `rc=0 token=ok` and were acted on (record moved into `handled/`) on both hosts.
-The lab harness that drove these runs is private task evidence; no live guard covers a render stall yet.
+Refresh the render-stall proof with the maintained live guard:
+
+```sh
+FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash bin/fm-test-run.sh --jobs 1 --per-script-timeout-secs 600 tests/fm-herdr-submit-confirm-live-e2e.test.sh
+```
+
+The guard uses [stop and continue signals](https://man7.org/linux/man-pages/man7/signal.7.html) on only its launched Claude process, captures the real empty composer read after `send-text`, and verifies the process stays stopped for at least 1.5 seconds after typing before resuming it.
+It requires an Enter, `rc=0 token=ok`, the requested file action, and the record's move into `handled/`.
+It fails naming the Claude and Herdr versions if the delay, submission, action, or acknowledgement is missing.
+Refreshed 2026-10-31 on Linux with Claude Code 2.1.316 and Herdr 0.9.5, using a disposable `CLAUDE_CONFIG_DIR` with the existing account credentials and the documented `skipDangerousModePermissionPrompt` setting.
+The complete guard passed, including its ordinary submit, viewport, and lifecycle cases:
+
+```text
+ok - live Herdr render delay: Claude Code (2.1.316 (Claude Code)) on herdr 0.9.5 submits after a verified 1.861 s stall, acts and acknowledges
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=41618
+```
+
 Portable regressions:
 
 ```sh

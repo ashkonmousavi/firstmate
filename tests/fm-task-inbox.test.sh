@@ -367,45 +367,65 @@ CASES
 # payload-not-shown). Real concurrent processes ring two records of one
 # inbox with a slow backend send: exactly one types, the other skips with
 # ring-in-flight. A lock left by a killed ringer does not block later rings.
-test_ring_serializes_overlapping_rings_per_inbox() {
-  local dir state rec1 rec2 log a b holder
+test_ring_serializes_overlapping_rings_per_inbox() (
+  local dir state rec1 rec2 log a= b= holder= i
+  trap 'for pid in "$a" "$b" "$holder"; do [ -z "$pid" ] || { kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; }; done' EXIT
   dir="$TMP_ROOT/ring-overlap"; state="$dir/state"; mkdir -p "$state/tmp"; log="$dir/sends"; : > "$log"
   rec1=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "first steer")
   rec2=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "second steer")
   ring_overlap() {  # <rec>
-    FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" bash -c '
+    exec env FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" bash -c '
       . "$1"
       sends=$3
       fm_backend_agent_state() { printf "idle"; }
       fm_backend_composer_state() { printf "empty"; }
       fm_task_inbox_signal_prepare() { :; }
-      fm_backend_send_text_submit() { printf "send\n" >> "$sends"; sleep 1; printf "empty"; }
+      done_file=${4:-}
+      fm_backend_send_text_submit() {
+        printf "send\n" >> "$sends"
+        if [ -n "$done_file" ]; then
+          for ((i=0; i<900; i++)); do
+            [ ! -e "$done_file" ] || break
+            sleep 0.1
+          done
+          [ -e "$done_file" ] || return 1
+        fi
+        printf "empty"
+      }
       rc=0
       fm_task_inbox_ring herdr w:p "$2" fm-t1 || rc=$?
       printf "%s %s" "$rc" "$FM_TASK_INBOX_RING_REASON"
-    ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$1" "$log"
+    ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$1" "$log" "${2:-}"
   }
-  ring_overlap "$rec1" > "$dir/a" &
+  ring_overlap "$rec1" "$dir/b.done" > "$dir/a" &
   a=$!
-  sleep 0.3
-  ring_overlap "$rec2" > "$dir/b" &
+  for ((i=0; i<300; i++)); do [ -s "$log" ] && break; sleep 0.1; done
+  [ -s "$log" ] || fail "the first ring never entered the backend"
+  (ring_overlap "$rec2" > "$dir/b") &
   b=$!
-  wait "$a" "$b"
+  for ((i=0; i<300; i++)); do [ -s "$dir/b" ] && break; sleep 0.1; done
+  [ -s "$dir/b" ] || fail "the contender never returned while the first ring held the lock"
+  wait "$b" || fail "the contender process failed"
+  b=
+  : > "$dir/b.done"
+  wait "$a" || fail "the first ring process failed"
+  a=
   [ "$(cat "$dir/a")" = "0 ok" ] || fail "the first ring should deliver, got '$(cat "$dir/a")'"
   [ "$(cat "$dir/b")" = "1 ring-in-flight" ] || fail "an overlapping ring of the same inbox should skip, got '$(cat "$dir/b")'"
   [ "$(wc -l < "$log")" -eq 1 ] || fail "only one ring may type into the composer, $(wc -l < "$log") did"
   [ "$(cat "$state/t1.inbox/002.ring-reason")" = 'rc=1 token=ring-in-flight' ] \
     || fail "the skipped record should name ring-in-flight, got: $(cat "$state/t1.inbox/002.ring-reason")"
   [ "$(ring_overlap "$rec2")" = "0 ok" ] || fail "a ring after the first finished should deliver"
-  FM_STATE_OVERRIDE="$state" bash -c '. "$1"; fm_lock_try_acquire "$2" && exec sleep 30' \
+  FM_STATE_OVERRIDE="$state" bash -c '. "$1"; fm_lock_try_acquire "$2" && exec sleep 300' \
     _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state/t1.inbox/.ring.lock" &
   holder=$!
-  for _ in $(seq 1 50); do [ -s "$state/t1.inbox/.ring.lock/pid" ] && break; sleep 0.1; done
+  for ((i=0; i<300; i++)); do [ -s "$state/t1.inbox/.ring.lock/pid" ] && break; sleep 0.1; done
   [ -s "$state/t1.inbox/.ring.lock/pid" ] || fail "the stand-in ringer never took the ring lock"
   kill -9 "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+  holder=
   [ "$(ring_overlap "$rec1")" = "0 ok" ] || fail "a lock left by a killed ringer must not block the next ring"
   pass "inbox: overlapping rings of one inbox type once, the other skips with ring-in-flight, and a dead ringer's lock is reclaimed"
-}
+)
 
 # A fake tmux whose pane is a Claude-style composer that keeps its content in
 # FM_FAKE_COMPOSER: literal input appends to it, capture renders it wrapped

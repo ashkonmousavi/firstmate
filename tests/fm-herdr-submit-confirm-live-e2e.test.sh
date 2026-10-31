@@ -42,6 +42,8 @@ FAKEBIN="$TMP_ROOT/fakebin"
 mkdir -p "$FAKEBIN"
 CHECKED=0
 SERVER_PID=
+STALL_PID=
+CLAUDE_PID=
 REAL_HERDR=$(command -v herdr)
 export HERDR_SESSION="$SESSION" HERDR_SOCKET_PATH="$TMP_ROOT/s"
 export XDG_CONFIG_HOME="$ROOT/.x" XDG_DATA_HOME="$TMP_ROOT/data"
@@ -57,6 +59,11 @@ mkdir -p "$CONTROL_HOME/state/doorbell.inbox" "$CONTROL_HOME/worktree"
 cleanup() {
   local rc=$?
   trap - EXIT
+  if [ -n "$STALL_PID" ]; then
+    kill "$STALL_PID" 2>/dev/null || true
+    wait "$STALL_PID" 2>/dev/null || true
+  fi
+  [ -z "$CLAUDE_PID" ] || kill -CONT "$CLAUDE_PID" 2>/dev/null || true
   if [ -n "$SERVER_PID" ]; then
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
@@ -82,6 +89,42 @@ if [ -n "\${FM_LIFECYCLE_INPUT_LOG:-}" ]; then
   case "\${args[0]:-} \${args[1]:-}" in
     'pane send-text') printf 'text=%s\\n' "\${args[3]}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
     'pane send-keys') printf 'key=%s\\n' "\${args[@]:3}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
+  esac
+fi
+if [ -n "\${FM_HERDR_RENDER_STALL_DIR:-}" ]; then
+  stall=\$FM_HERDR_RENDER_STALL_DIR
+  case "\${args[0]:-} \${args[1]:-}" in
+    'pane send-text')
+      [ ! -e "\$stall/typed" ] || exit 95
+      pid=\$(cat "$TMP_ROOT/claude.pid") || exit 96
+      kill -STOP "\$pid" || exit 96
+      for ((i=0; i<300; i++)); do
+        status=\$(ps -p "\$pid" -o stat=)
+        case "\$status" in *T*) break ;; esac
+        sleep 0.1
+      done
+      case "\$status" in *T*) ;; *) exit 96 ;; esac
+      "$REAL_HERDR" "\${args[@]}" --session "$SESSION" || exit 97
+      python3 -c 'import time; print(time.monotonic())' > "\$stall/typed"
+      exit 0
+      ;;
+    'pane read')
+      if [ -s "\$stall/typed" ] && [ ! -e "\$stall/probe" ]; then
+        case " \${args[*]} " in
+          *' --format ansi '*)
+            "$REAL_HERDR" "\${args[@]}" --session "$SESSION" > "\$stall/probe.tmp" || exit 98
+            cat "\$stall/probe.tmp"
+            mv "\$stall/probe.tmp" "\$stall/probe"
+            exit 0
+            ;;
+        esac
+      fi
+      ;;
+    'pane send-keys')
+      case " \${args[*]} " in
+        *' enter '*) printf 'enter\\n' >> "\$stall/enters" ;;
+      esac
+      ;;
   esac
 fi
 exec "$REAL_HERDR" "\${args[@]}" --session "$SESSION"
@@ -112,8 +155,9 @@ HERDR_VER=$(PATH="$ORIGINAL_PATH" herdr --version 2>/dev/null | head -1 || print
 
 # The viewport regression needs native terminal scrollback. Fullscreen Claude
 # uses the alternate screen buffer, whose Herdr scroll maximum stays zero.
-printf -v launch 'FM_HOME=%q FM_TASK_INBOX=%q CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --setting-sources user --settings %q' \
-  "$CONTROL_HOME" "$CONTROL_HOME/state/doorbell.inbox" '{"feedbackDrafts":"off","disableAllHooks":true}'
+printf -v launch 'set +m; FM_HOME=%q FM_TASK_INBOX=%q CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 bash -c %q _ %q claude --dangerously-skip-permissions --setting-sources user --settings %q' \
+  "$CONTROL_HOME" "$CONTROL_HOME/state/doorbell.inbox" 'printf "%s\n" "$$" > "$1"; shift; exec "$@"' \
+  "$TMP_ROOT/claude.pid" '{"feedbackDrafts":"off","disableAllHooks":true}'
 lab pane run "$PANE" "$launch" >/dev/null \
   || fail "could not launch Claude Code ($VERSION) in the isolated Herdr pane"
 
@@ -147,6 +191,8 @@ while [ "$i" -lt 60 ]; do
   sleep 1
 done
 [ "$idle" = 1 ] || fail "Claude Code ($VERSION) on $HERDR_VER never rendered an idle composer in the lab pane"
+CLAUDE_PID=$(cat "$TMP_ROOT/claude.pid") || fail "Claude Code ($VERSION) on $HERDR_VER: launch PID unavailable"
+case "$CLAUDE_PID" in ''|*[!0-9]*) fail "invalid lab Claude PID" ;; esac
 
 TOKEN="FMHERDRPONG$$_$RANDOM"
 verdict=$(fm_backend_herdr_send_text_submit "$TARGET" "Print $TOKEN on its own line, then print 120 numbered lines of plain text, one number per line, without using tools." 3 0.4 0.4) \
@@ -316,6 +362,57 @@ workspace=$(printf '%s' "$WS_JSON" | jq -er '.result.workspace.workspace_id') ||
 tab=$(lab pane get "$PANE" | jq -er '.result.pane.tab_id') || fail "tab identity unavailable"
 printf 'window=%s\nendpoint_task_id=doorbell\nbackend=herdr\nherdr_session=%s\nherdr_workspace_id=%s\nherdr_tab_id=%s\nherdr_pane_id=%s\nharness=claude\nkind=ship\nworktree=%s\nproject=%s\n' \
   "$TARGET" "$SESSION" "$workspace" "$tab" "$PANE" "$CONTROL_HOME/worktree" "$CONTROL_HOME/worktree" > "$CONTROL_HOME/state/doorbell.meta"
+stall="$TMP_ROOT/render-stall"
+mkdir "$stall"
+STALL_TOKEN="FMHERDRSTALL$$_$RANDOM"
+rec=$(fm_task_inbox_write "$CONTROL_HOME/state" doorbell "Use the Bash tool to run: printf '%s' '$STALL_TOKEN' > '$CONTROL_HOME/render-action'. Then acknowledge this record by moving it into handled/.") \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: could not write the delayed-render record"
+(
+  trap 'kill -CONT "$CLAUDE_PID" 2>/dev/null || true' EXIT
+  for ((i=0; i<300; i++)); do [ -f "$stall/probe" ] && break; sleep 0.1; done
+  [ -f "$stall/probe" ] || exit 1
+  sleep 1.5
+  status=$(ps -p "$CLAUDE_PID" -o stat=)
+  case "$status" in *T*) ;; *) exit 1 ;; esac
+  python3 - "$stall/typed" > "$stall/delay" <<'PYDELAY'
+import pathlib
+import sys
+import time
+elapsed = time.monotonic() - float(pathlib.Path(sys.argv[1]).read_text())
+if elapsed < 1.5:
+    raise SystemExit(1)
+print(f"{elapsed:.3f}")
+PYDELAY
+) &
+STALL_PID=$!
+rc=0
+FM_HERDR_RENDER_STALL_DIR="$stall" FM_STATE_OVERRIDE="$CONTROL_HOME/state" \
+  fm_task_inbox_ring herdr "$TARGET" "$rec" '' claude || rc=$?
+wait "$STALL_PID" || fail "Claude Code ($VERSION) on $HERDR_VER: render stall was not verified"
+STALL_PID=
+[ "$rc $FM_TASK_INBOX_RING_REASON" = '0 ok' ] \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: delayed doorbell returned $rc $FM_TASK_INBOX_RING_REASON; viewport: $(lab pane read "$PANE" --source visible 2>/dev/null)"
+[ -s "$stall/delay" ] && [ -s "$stall/enters" ] \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: no measured render stall or submission"
+actual=$(FM_COMPOSER_GHOST_LUMA_MAX=0 fm_composer_extract_selected_content \
+  $'styled=1\ncursor=0\nidentity=0' "$(cat "$stall/probe")") \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: stalled proof capture was unreadable"
+[ -z "$actual" ] \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: delayed proof did not see an empty composer"
+for ((i=0; i<480; i++)); do
+  [ -f "$CONTROL_HOME/render-action" ] && [ -f "${rec%/*}/handled/${rec##*/}" ] && break
+  sleep 0.5
+done
+[ -f "$CONTROL_HOME/render-action" ] && [ "$(cat "$CONTROL_HOME/render-action")" = "$STALL_TOKEN" ] \
+  && [ ! -e "$rec" ] && [ -f "${rec%/*}/handled/${rec##*/}" ] \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: delayed doorbell was not acted on and acknowledged"
+pass "live Herdr render delay: Claude Code ($VERSION) on $HERDR_VER submits after a verified $(cat "$stall/delay") s stall, acts and acknowledges"
+for ((i=0; i<90; i++)); do
+  st=$(lab agent get "$PANE" 2>/dev/null | jq -r '.result.agent.agent_status // empty')
+  case "$st" in idle|done) break ;; esac
+  sleep 1
+done
+case "$st" in idle|done) ;; *) fail "Claude Code ($VERSION) on $HERDR_VER: never became idle after the delayed doorbell" ;; esac
 rec=$(fm_task_inbox_write "$CONTROL_HOME/state" doorbell "Run touch $CONTROL_HOME/unexpected-submit, then acknowledge this record.") \
   || fail "Claude Code ($VERSION) on $HERDR_VER: could not create the lifecycle record"
 line=$(fm_task_inbox_doorbell_line "$rec") || fail "could not build the lifecycle doorbell"
