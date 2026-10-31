@@ -28,12 +28,9 @@
 #   candidate binds to one row through quota_row in
 #   bin/fm-quota-axi-lib.sh, so a Pi lane such as openai-codex-work/...
 #   reads its own account's row and an expanded provider with no row for the
-#   candidate is unmeasured, never blocked), the runway-feasibility gate
-#   (quota_runway_gate in bin/fm-quota-axi-lib.sh: while an eligible, rankable
-#   candidate runs through its reset, a candidate whose runway ends before its
-#   reset is not eligible; an all-tight set refuses nothing), and the
-#   spendPriority argmax over the eligible candidates, which are printed in
-#   that ranked order. The model never sees quota, catalogs, approvals,
+#   candidate is unmeasured, never blocked), the through-reset gate and
+#   spendPriority argmax over eligible candidates, implemented by
+#   bin/fm-quota-axi-lib.sh. The model never sees quota, catalogs, approvals,
 #   confidence floors, `why`, or `use`. With no rules, it returns a non-clear
 #   result so firstmate keeps using the existing intake.
 #   docs/configuration.md "Crew dispatch profiles" owns the declared fields and

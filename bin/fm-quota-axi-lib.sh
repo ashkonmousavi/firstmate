@@ -56,16 +56,13 @@ FM_QUOTA_ROW_JQ='
 #       candidate's applicable rows. "short" is a known, established
 #       projected_exhaustion row: its runway ends before its reset.
 #   quota_runway_gate($cands)
-#       the runway-feasibility gate of the quota-array-dispatch skill, applied
-#       as the captain's tier-1 rule: when at least one eligible, rankable
-#       candidate runs through its reset on every applicable row, every short
-#       or exhausted candidate is refused (runway_refused: true). With no such
-#       candidate (an all-tight set) nothing is refused. Unknown runway is
-#       never refused and never triggers a refusal.
+#       applies the through-reset rule owned by docs/configuration.md,
+#       "Typed dispatch resolution", marking refusals with runway_refused:
+#       true and naming through-reset alternatives.
 #   quota_rank_order($cands)
 #       rankable eligible candidates by spendPriority, highest first, then
-#       eligible unranked ones, then ineligible ones, each group in declared
-#       order.
+#       eligible unranked ones, then ineligible ones; the latter two groups
+#       retain declared order.
 # shellcheck disable=SC2016,SC2034  # jq program text, not shell expansion; read by the sourcing consumers
 FM_QUOTA_EVAL_JQ='
   def quota_rows($q; $p; $lane): (quota_row($q; $p; $lane) | .quotaSemantics.effectiveAvailability // []);

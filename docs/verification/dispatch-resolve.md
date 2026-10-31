@@ -115,7 +115,7 @@ It proves the clear, fixed-floor ambiguous with candidate evidence, escalate (ap
 
 This is the class-inventory handoff for resolver quota evaluation and refusal evidence.
 The executable regressions are in [the resolver behavior suite](../../tests/fm-dispatch-resolve.test.sh); inspected boundaries below do not claim live execution.
-The operator-approved scope is resolver-only; spawn-time enforcement is deferred because this curated branch lacks the dispatch guard library and off-table spawn check it builds on.
+The [operator contract](../configuration.md#typed-dispatch-resolution-env-typesafe_api_key) owns the resolver-only enforcement limit.
 
 | Axis | Affected classes and regression or inspected boundary | Evidence gap |
 | --- | --- | --- |
@@ -141,7 +141,6 @@ The regression rejects citing the earlier weak bound even when candidate selecti
 Those account and liveness surfaces are unchanged by the resolver evaluator and are listed for the validation owner, not claimed as run here.
 An actual resolver request with a live quota snapshot remains a separate credentialed check through the public command described above; the historical live results do not verify the current runway gate.
 Before claiming fresh live proof, the validation owner must record the date, installed versions, command, and observed output here or in the runtime-backend record for the corresponding guard.
-This review runs only the focused offline resolver suite; it does not run the repository suite, live guards, or subsequent validation phases.
 
 Focused offline evidence refreshed on 2026-10-31 on Linux with GNU Bash 5.2.21 and jq 1.7: the resolver suite exited 0, including all 24 mixed-confidence scope/order cases.
 
