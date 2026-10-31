@@ -69,8 +69,8 @@
 #              `already-stopped` and `endpoint-gone` too,
 #              because a handed-off session outlives its pane. Another
 #              worktree's session is never touched.
-#   relaunch   Transactionally replace the running agent with a new one, in the
-#              SAME worktree - and the same endpoint whenever that endpoint
+#   relaunch   Transactionally replace the running agent with a new one, normally
+#              in the SAME worktree - and the same endpoint whenever that endpoint
 #              still exists - on the same or a newly chosen
 #              harness/model/effort - so switching harness is one ordinary use
 #              of this verb. When the recorded endpoint is instead proven gone -
@@ -106,6 +106,13 @@
 #              the prior durable record in place and reports the concrete
 #              state; it never leaves a half-transitioned task claiming to be
 #              running.
+#              A record whose copy bin/fm-teardown.sh released (worktree= names
+#              its <id>.released-copy sentinel) has no agent to stop: a
+#              released checkpoint proves the recorded release and an OPEN pull
+#              request, and the launch owner recreates the copy from the pull
+#              request's branch and only then writes the note, so a preflight
+#              refusal or admission deferral changes nothing (docs/agent-control.md "Relaunching a
+#              released copy").
 #              --if-recoverable applies the startup eligibility decision from
 #              bin/fm-crew-recovery-lib.sh under the lifecycle lock. Exit 3
 #              means no recovery was needed; exit 75 defers a busy task.
@@ -205,6 +212,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-polytoken-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-relaunch-note-lib.sh
+. "$SCRIPT_DIR/fm-relaunch-note-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
@@ -421,6 +430,11 @@ RECORDED_HARNESS=$(fm_meta_get "$META" harness)
 KIND=$(fm_meta_get "$META" kind)
 WT=$(fm_meta_get "$META" worktree)
 [ -n "$KIND" ] || KIND=ship
+# A record whose copy bin/fm-teardown.sh released names its sentinel instead
+# of a worktree; relaunch then recreates the copy (docs/agent-control.md
+# "Relaunching a released copy").
+RELEASED=0
+[ "$WT" != "$STATE/$ID.released-copy" ] || RELEASED=1
 
 HARNESS=$(fm_control_harness_family "$RECORDED_HARNESS") \
   || die "task $ID records harness '${RECORDED_HARNESS:-none}', which has no verified control mechanics; fm-control refuses to guess an interrupt key or exit command"
@@ -1201,9 +1215,13 @@ resolve_relaunch_profile() {
     fm_polytoken_launch_ref "$polytoken_bin" "$TARGET_MODEL" "$TARGET_EFFORT" >/dev/null || return 1
     polytoken_state=$(cd "$STATE" && pwd -P) || return 1
     fm_polytoken_require_handler_path "$(fm_polytoken_busy_script "$polytoken_state" "$ID")" || return 1
-    fm_control_harness_wiring_paths "$PRIOR_HARNESS" "$WT" "$STATE" "$ID" "$KIND" \
-        | grep -qxF "$(fm_polytoken_hooks_file "$WT")" \
-      || fm_polytoken_require_hooks_free "$WT" || return 1
+    # A released copy has no worktree yet: the launch owner checks the hook
+    # layer of the copy it recreates before arming anything there.
+    if [ "$RELEASED" = 0 ]; then
+      fm_control_harness_wiring_paths "$PRIOR_HARNESS" "$WT" "$STATE" "$ID" "$KIND" \
+          | grep -qxF "$(fm_polytoken_hooks_file "$WT")" \
+        || fm_polytoken_require_hooks_free "$WT" || return 1
+    fi
   fi
   # Likewise config/crew-exclude-tools: a malformed file, or a replacement
   # runtime that cannot hide the listed tools, refuses here, before the old
@@ -1279,6 +1297,41 @@ safe_checkpoint() {
   fi
 }
 
+# safe_checkpoint_released: the checkpoint for a record whose copy teardown
+# released. There is no worktree to inspect and nothing on this host to lose:
+# teardown freed the copy only after proving its HEAD was the pull request's
+# head. What a recreation needs is proven instead, without one git read of the
+# sentinel path: a ship with its project and branch recorded, the head teardown
+# proved, an endpoint holding no agent, and a pull request still OPEN. Every
+# refusal here leaves the brief, the journal and the record untouched.
+safe_checkpoint_released() {
+  local state released_head released_branch released_pr
+  CHECKPOINT_LINES=()
+  [ "$KIND" = ship ] \
+    || die "task $ID's copy was released, but a released copy is recreated only for a ship (this record is kind '$KIND'); refusing to relaunch"
+  [ -n "$(fm_meta_get "$META" project)" ] \
+    || die "task $ID's copy was released but its record names no project to recreate it from; refusing to relaunch"
+  released_head=$(fm_meta_get "$META" released_head)
+  released_branch=$(fm_meta_get "$META" released_branch)
+  released_pr=$(fm_meta_get "$META" released_pr)
+  { fm_pr_head_valid "$released_head" && [ -n "$released_branch" ] && [ -n "$released_pr" ]; } \
+    || die "task $ID's copy was released without a recorded released head, branch and pull request, so nothing proves what to recreate; refusing to relaunch"
+  state=$(agent_state)
+  case "$state" in
+    missing) ;;
+    dead) die "task $ID's copy was released, but its endpoint $T still exists; close that window first, then relaunch" ;;
+    *) die "task $ID's copy was released, but its recorded endpoint reads '$state'; a released copy is recreated only while no agent runs for it" ;;
+  esac
+  fm_pr_read_class "$released_pr"
+  case "$FM_PR_RECORD_CLASS" in
+    open) ;;
+    merged) die "task $ID's pull request $released_pr has merged; the task needs cleanup (bin/fm-teardown.sh $ID), not a relaunch" ;;
+    closed) die "task $ID's pull request $released_pr was closed without merging; relaunching it needs a captain decision, so nothing was changed" ;;
+    *) die "task $ID's pull request $released_pr could not be read; nothing was changed, retry the relaunch later" ;;
+  esac
+  CHECKPOINT_LINES+=("worktree_head=released:$released_head" "worktree_dirty=released" "released_branch=$released_branch")
+}
+
 # record_note: put the required progress note somewhere durable, and - for a
 # ship or scout, whose only record of the interrupted reasoning is the
 # conversation about to be discarded - into the instructions the replacement
@@ -1286,29 +1339,13 @@ safe_checkpoint() {
 # never rewritten: a secondmate reconciles its own home's records at startup,
 # so the note stays parent-side audit evidence.
 record_note() {
-  local stamp inbox_q
   [ -n "$NOTE" ] || return 0
-  stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   printf '%s\n' "$NOTE" > "$NOTE_FILE"
   case "$KIND" in
     ship|scout)
       cp -p "$RELAUNCH_BRIEF" "$BRIEF_PRIOR" \
         || die "could not preserve task $ID's instructions before recording the progress note"
-      {
-        echo
-        echo "## Progress note ($stamp)"
-        echo
-        echo "This task was relaunched. Continue from here; the local copy and every"
-        echo "uncommitted change are exactly as the previous worker left them."
-        echo
-        inbox_q=$(printf '%s' "$STATE/$ID.inbox" | sed "s/'/'\\\\''/g")
-        echo "First, check your instruction inbox: list it with"
-        echo "\`find '$inbox_q' -maxdepth 1 -name '*.msg' 2>/dev/null | sort -V\`, act on"
-        echo "each message in numeric order, then mv each handled file into"
-        echo "'$inbox_q/handled/'. A steer sent before the relaunch survives there."
-        echo
-        printf '%s\n' "$NOTE"
-      } >> "$RELAUNCH_BRIEF" \
+      fm_relaunch_note_append "$RELAUNCH_BRIEF" "$STATE/$ID.inbox" "$NOTE_FILE" \
         || die "could not append the progress note to task $ID's instructions"
       ;;
   esac
@@ -1318,6 +1355,10 @@ do_relaunch() {
   local exit_result exit_bg state note_line spawn_status
   local -a spawn_args
 
+  case "$RELEASED:$BACKEND" in
+    1:tmux|1:herdr|0:*) ;;
+    *) die "task $ID's copy was released, and recreating a released copy is supported on the tmux and herdr backends only (this record is on $BACKEND); refusing to relaunch" ;;
+  esac
   require_state_verified_backend relaunch
   resolve_relaunch_profile
 
@@ -1343,6 +1384,10 @@ do_relaunch() {
     note_line="note_file=$NOTE_FILE"
   else
     note_line="note=none"
+  fi
+  if [ "$RELEASED" = 1 ]; then
+    do_relaunch_released "$note_line"
+    return
   fi
   safe_checkpoint
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
@@ -1400,6 +1445,63 @@ do_relaunch() {
   journal_write complete "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result" "exit_background=${exit_bg:-not-applicable}"
   RELAUNCH_ACTIVE=0
   echo "relaunched $ID harness=$TARGET_HARNESS from=$PRIOR_RECORDED_HARNESS model=$TARGET_MODEL effort=$TARGET_EFFORT backend=$BACKEND endpoint=$T worktree=$WT"
+}
+
+# do_relaunch_released: the relaunch of a record whose copy teardown released.
+# No agent runs, so nothing is stopped. The launch owner, bin/fm-spawn.sh
+# --relaunch, allocates the new copy and recreates the branch first, and only
+# then writes the progress note this transaction hands it. Rollback follows
+# docs/agent-control.md "Relaunching a released copy"; the journal starts only
+# after the launch owner succeeds.
+do_relaunch_released() {
+  local note_line=$1 note_stage prior_stage spawn_status state
+  local -a spawn_args
+  safe_checkpoint_released
+  note_stage=$(umask 077; mktemp "$STATE/.$ID.relaunch-note.XXXXXX") \
+    || die "could not stage task $ID's progress note"
+  prior_stage=$(umask 077; mktemp "$STATE/.$ID.relaunch-prior.XXXXXX") \
+    || { rm -f "$note_stage"; die "could not stage task $ID's durable record"; }
+  if ! printf '%s\n' "$NOTE" > "$note_stage" || ! cp -p "$META" "$prior_stage"; then
+    rm -f "$note_stage" "$prior_stage"
+    die "could not stage task $ID's progress note and durable record"
+  fi
+  RELAUNCH_TX="${BASHPID:-$$}.$(date -u +%Y%m%dT%H%M%SZ).$RANDOM"
+  spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
+  [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
+  [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
+  spawn_status=0
+  FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
+    "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
+  if [ "$spawn_status" -ne 0 ]; then
+    rm -f "$note_stage"
+    if [ "$(fm_meta_get "$META" worktree)" != "$STATE/$ID.released-copy" ]; then
+      die "the released relaunch of $ID failed; its current copy and record were kept because safe rollback was not proven. Inspect $(fm_meta_get "$META" worktree); the prior record is at $prior_stage"
+    fi
+    rm -f "$prior_stage"
+    [ "$spawn_status" -ne 75 ] || exit 75
+    die "the released copy of $ID could not be recreated and relaunched on $TARGET_HARNESS; its released record, instructions and journal are unchanged"
+  fi
+  mv -f "$note_stage" "$NOTE_FILE" \
+    || die "the replacement for $ID was launched, but its progress note could not be published at $NOTE_FILE; staged note: $note_stage"
+  mv -f "$prior_stage" "$META_PRIOR" \
+    || die "the replacement for $ID was published, but its prior durable record could not be kept at $META_PRIOR"
+  RELAUNCH_META_PUBLISHED=1
+  WT=$(fm_meta_get "$META" worktree)
+  RELAUNCH_ACTIVE=1
+  journal_write launching "${CHECKPOINT_LINES[@]}" "$note_line" "relaunch_tx=$RELAUNCH_TX"
+  if fm_backend_validate_task_endpoint "$META" "$ID" >/dev/null \
+     && [ -n "$FM_BACKEND_VALIDATED_TARGET" ]; then
+    T=$FM_BACKEND_VALIDATED_TARGET
+  else
+    die "the replacement agent for $ID was launched, but task $ID's republished record no longer passes endpoint validation (the refusal above names the row); reconcile $META before any further control action"
+  fi
+  state=$(wait_agent_state "$LAUNCH_WAIT" alive) || {
+    die "the replacement agent for $ID did not come up within ${LAUNCH_WAIT}s (endpoint reads '$state')"
+  }
+  RELAUNCH_AGENT_CONFIRMED=1
+  journal_write complete "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=released-copy" "exit_background=not-applicable"
+  RELAUNCH_ACTIVE=0
+  echo "relaunched $ID harness=$TARGET_HARNESS from=$PRIOR_RECORDED_HARNESS model=$TARGET_MODEL effort=$TARGET_EFFORT backend=$BACKEND endpoint=$T worktree=$WT recreated-from=released-copy"
 }
 
 # --- verbs ------------------------------------------------------------------
