@@ -645,7 +645,7 @@ PY
 # being prefixes of this session's transcript with at least one shared turn. A missing python3, an
 # unreadable holder, or any failed proof returns 1.
 fm_session_lock_idle_fork_takeover_allowed() {  # <state> <holder-pid>
-  local state=$1 holder=$2 recorded prior trusted holder_file prior_file= succ_file succ_rc
+  local state=$1 holder=$2 recorded prior trusted holder_file prior_file='' succ_file succ_rc
   local fork_epoch=0 verdict succ_state=missing proof_prior=0
   case "$holder" in
     ''|*[!0-9]*) return 1 ;;
