@@ -1464,16 +1464,6 @@ claude_composer_screen() {
   printf '%s\n❯ %s\n%s\n  ⏵⏵ bypass permissions on (shift+tab to cycle)\n' "$rule" "$1" "$rule"
 }
 
-own_doorbell_case() {  # <name> <draft> [clears:yes|no] -> case dir
-  local dir
-  dir=$(new_case "$1")
-  add_task "$dir" t1 claude
-  alive_as "$dir" claude
-  claude_composer_screen "$2" > "$dir/fake/pane"
-  if [ "${3:-yes}" = yes ]; then claude_composer_screen '' > "$dir/fake/pane-after-c-u"; fi
-  printf '%s\n' "$dir"
-}
-
 test_exit_clears_own_doorbell_then_proceeds() {
   local dir out rc line
   dir=$(new_case own-doorbell)
