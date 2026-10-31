@@ -93,6 +93,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`).
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
 - Rebuildable hold-release disposition caches under `state/hold-releases/` (`bin/fm-hold-release-lib.sh`); the backlog hold owns the condition.
+- Unwatched conflicted pull-request episode markers under `state/pr-orphan-conflict/`, written only by `bin/fm-pr-orphan-sweep.sh`.
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 - Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
 
