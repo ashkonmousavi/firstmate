@@ -364,12 +364,16 @@ wait_for_task_completion() {
 
 test_real_spawn_starts_after_a_lane_frees() {
   local variant=${1:-ship} case_dir home fakebin project out rc=0 began ended elapsed proof
-  local args=()
+  local args=() projects_override= retry_backend=tmux expected_kind=ship
   require_tasks || return 0
   case_dir=$(new_case "real-lane-$variant")
   home="$case_dir/home"
   fakebin=$(install_real_fakes "$case_dir")
   project="$case_dir/project"
+  if [ "$variant" = pinned ]; then
+    projects_override="$case_dir/selected-projects"
+    project="$projects_override/demo"
+  fi
   fm_git_init_commit "$project"
   fm_git_add_origin "$project" "$case_dir/project.origin.git"
   git -C "$project" worktree add --quiet -b wt-retry "$case_dir/wt-retry"
@@ -391,12 +395,18 @@ test_real_spawn_starts_after_a_lane_frees() {
     "spawn_gen=s-occupant"
   case "$variant" in
     ship) args=(retry-one "$project" --mode no-mistakes --yolo off) ;;
-    scout) args=(--scout retry-one "$project") ;;
-    flags) args=(--harness codex --mode=no-mistakes --yolo off retry-one "$project") ;;
+    scout) args=(--scout retry-one "$project"); expected_kind=scout ;;
+    flags) args=(--harness codex --mode=no-mistakes --yolo off --backend=tmux retry-one "$project") ;;
+    pinned)
+      mkdir -p "$home/projects"
+      fm_git_init_commit "$home/projects/demo"
+      args=(retry-one projects/demo --mode no-mistakes --yolo off)
+      retry_backend=orca
+      ;;
   esac
   rc=0
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" \
-    FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' \
+    FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_PROJECTS_OVERRIDE="$projects_override" FM_CONFIG_OVERRIDE='' \
     FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_BACKEND=tmux \
     FM_FAKE_PANE_PATH="$case_dir/wt-retry" FM_FAKE_CALL_LOG="$case_dir/calls.log" \
     PATH="$fakebin:$PATH" \
@@ -408,7 +418,7 @@ test_real_spawn_starts_after_a_lane_frees() {
   rc=0
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" \
     FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' \
-    FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_BACKEND=tmux \
+    FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_BACKEND="$retry_backend" \
     FM_FAKE_PANE_PATH="$case_dir/wt-retry" FM_FAKE_CALL_LOG="$case_dir/calls.log" \
     PATH="$fakebin:$PATH" \
     "$ROOT_BIN" sweep 2>&1) || rc=$?
@@ -420,7 +430,9 @@ test_real_spawn_starts_after_a_lane_frees() {
   assert_contains "$out" "started retry-one" "the deferred task did not start after the lane freed"
   [ -f "$home/state/retry-one.meta" ] || fail "the retried spawn did not publish a task record: $out"
   queue_has "$home" retry-one && fail "the started request was left queued"
-  assert_equals "${variant/flags/ship}" "$(sed -n 's/^kind=//p' "$home/state/retry-one.meta")" "retry changed the worker kind"
+  assert_equals "$expected_kind" "$(sed -n 's/^kind=//p' "$home/state/retry-one.meta")" "retry changed the worker kind"
+  assert_equals "$project" "$(sed -n 's/^project=//p' "$home/state/retry-one.meta")" "retry followed a different projects directory"
+  assert_equals "" "$(sed -n 's/^backend=//p' "$home/state/retry-one.meta")" "retry followed the sweep backend instead of the recorded tmux backend"
   [ "$elapsed" -lt 300 ] || fail "the retry took ${elapsed}s, which is not within five minutes"
   proof=${FM_SPAWN_DEFERRED_PROOF_DIR:-}
   if [ -n "$proof" ]; then
@@ -501,6 +513,12 @@ SH
     queue_has "$home" blocked-one || fail "the refused request lost its queue record"
     queue_has "$home" ready-one && fail "the successful younger request stayed queued"
     queue_has "$home" third-one || fail "a launch exceeded the successful-launch budget"
+    out=$(FM_DEFERRED_TEST_RC="$rc" FM_DEFERRED_TEST_BIN="$ROOT_BIN" deferred_home retry "$home" "$case_dir")
+    if [ "$rc" -eq 1 ]; then
+      assert_equals "$(printf '%s\n' blocked-one ready-one third-one)" "$(cat "$case_dir/spawn.log")" "a permanent failure was attempted again"
+    else
+      assert_equals "$(printf '%s\n' blocked-one ready-one blocked-one third-one)" "$(cat "$case_dir/spawn.log")" "a temporary refusal stopped being retryable"
+    fi
   done
   pass "refused retries leave the free lane for younger ready work"
 }
@@ -647,6 +665,94 @@ SH
   pass "home, task, and project contention preserve existing automatic retries"
 }
 
+test_manual_or_missing_backlog_never_starts() {
+  local state case_dir home out
+  require_tasks || return 0
+  for state in done held queued missing; do
+    case_dir=$(new_case "unproven-$state" retry-one)
+    home="$case_dir/home"
+    record_task "$home" "$case_dir" retry-one
+    if [ "$state" = missing ]; then
+      rm "$home/data/backlog.md"
+    else
+      printf 'manual\n' > "$home/config/backlog-backend"
+      case "$state" in
+        done)
+          tasks-axi start retry-one --file "$home/data/backlog.md" >/dev/null
+          tasks-axi done retry-one --file "$home/data/backlog.md" >/dev/null
+          ;;
+        held) tasks-axi hold retry-one --kind captain --reason 'wait' --file "$home/data/backlog.md" >/dev/null ;;
+      esac
+    fi
+    printf '1\n' > "$case_dir/free"
+    out=$(deferred_home retry "$home" "$case_dir")
+    assert_contains "$out" 'cannot establish queued eligibility' "an unproven $state row was not reported"
+    assert_equals "" "$(cat "$case_dir/spawn.log")" "an unproven $state row was launched"
+    assert_not_contains "$out" 'started retry-one' "an unproven $state row was reported as started"
+  done
+  pass "manual and absent backlogs cannot establish automatic queued eligibility"
+}
+
+test_temporary_preflight_refusals_remain_retryable() {
+  local condition case_dir home project out actor
+  require_tasks || return 0
+  for condition in spend hold dependency branch-hold branch-dependency; do
+    case_dir=$(new_case "temporary-$condition" retry-one blocker)
+    home="$case_dir/home"
+    project="$case_dir/project"
+    install_real_fakes "$case_dir" >/dev/null
+    fm_git_init_commit "$project"
+    fm_git_add_origin "$project" "$case_dir/project.origin.git"
+    git -C "$project" worktree add --quiet -b wt-retry "$case_dir/wt-retry"
+    write_brief "$home" retry-one
+    actor=main
+    case "$condition" in
+      branch-*)
+        actor=branch
+        real_command "$case_dir" "$ROOT/bin/fm-afk-contract.sh" enter --words 'continue queued work' --spend 3 >/dev/null
+        ;;
+    esac
+    cat > "$case_dir/spawn" <<'SH'
+#!/usr/bin/env bash
+if [ ! -f "$FM_HOME/mutated" ]; then
+  : > "$FM_HOME/mutated"
+  case "$FM_DEFERRED_TEST_CONDITION" in
+    hold|branch-hold) tasks-axi hold "$1" --kind captain --reason 'wait' --file "$FM_HOME/data/backlog.md" >/dev/null || exit 1 ;;
+    dependency|branch-dependency) tasks-axi block "$1" --by blocker --file "$FM_HOME/data/backlog.md" >/dev/null || exit 1 ;;
+  esac
+fi
+exec "$FM_DEFERRED_REAL_SPAWN" "$@"
+SH
+    real_command "$case_dir" "$ROOT_BIN" record retry-one -- "$case_dir/spawn" retry-one "$project" --mode no-mistakes --yolo off
+    if [ "$condition" = spend ]; then
+      fm_write_meta "$home/state/blocker.meta" \
+        "window=firstmate:fm-blocker" "endpoint_task_id=blocker" \
+        "worktree=$home/absent-worktree-blocker" "project=$project" \
+        "harness=codex" "kind=ship" "mode=no-mistakes" "yolo=off" "spawn_gen=s-blocker"
+      real_command "$case_dir" "$ROOT/bin/fm-afk-contract.sh" enter --words 'wait for current work' --spend 1 >/dev/null
+    fi
+    out=$(FM_SUPERVISION_ACTOR="$actor" FM_DEFERRED_TEST_CONDITION="$condition" FM_DEFERRED_REAL_SPAWN="$SPAWN" real_command "$case_dir" "$ROOT_BIN" retry)
+    assert_not_contains "$out" 'failed retry-one' "$condition refusal permanently suppressed the request"
+    assert_not_contains "$out" 'started retry-one' "$condition refusal was reported as a launch"
+    queue_has "$home" retry-one || fail "$condition refusal lost the queued request"
+    [ ! -f "$home/state/retry-one.meta" ] || fail "$condition refusal created a worker"
+    case "$condition" in
+      spend) real_command "$case_dir" "$ROOT/bin/fm-afk-contract.sh" archive >/dev/null ;;
+      hold|branch-hold) tasks-axi unhold retry-one --file "$home/data/backlog.md" >/dev/null ;;
+      dependency|branch-dependency)
+        tasks-axi start blocker --file "$home/data/backlog.md" >/dev/null
+        tasks-axi done blocker --file "$home/data/backlog.md" >/dev/null
+        ;;
+    esac
+    out=$(FM_SUPERVISION_ACTOR="$actor" FM_DEFERRED_TEST_CONDITION="$condition" FM_DEFERRED_REAL_SPAWN="$SPAWN" real_command "$case_dir" "$ROOT_BIN" retry)
+    assert_contains "$out" 'started retry-one' "$condition refusal did not resume after clearing"
+    [ -f "$home/state/retry-one.meta" ] || fail "$condition retry did not publish a worker"
+  done
+  pass "AFK spend caps and raced holds or dependencies preserve retryability"
+}
+
+test_manual_or_missing_backlog_never_starts
+test_temporary_preflight_refusals_remain_retryable
 test_sweep_returns_while_spawn_is_hung
 test_lock_contention_keeps_existing_retries
 test_only_full_machine_refusals_are_recorded
@@ -664,3 +770,4 @@ test_busy_lock_starts_nothing
 test_real_spawn_starts_after_a_lane_frees ship
 test_real_spawn_starts_after_a_lane_frees scout
 test_real_spawn_starts_after_a_lane_frees flags
+test_real_spawn_starts_after_a_lane_frees pinned

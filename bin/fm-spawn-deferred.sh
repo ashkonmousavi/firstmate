@@ -25,12 +25,13 @@
 # claim already running prevents another launch, and only a successful launch
 # spends a free lane. The oldest eligible queued request in this home starts first.
 # Ordering is per home; there is no machine-wide sequencing or shared queue.
-# Eligible means the backlog row is exactly queued, not held and not blocked,
-# when the backlog gate applies (bin/fm-backlog-transition-lib.sh), and the task
-# record does not already hold a machine seat (bin/fm-project-capacity-lib.sh).
-# When the gate does not apply, a row with no held seat is eligible. A held or
-# blocked row stays queued and does not block a younger request. A row that is
-# in flight, done, cancelled, or missing is removed without a launch.
+# Eligible means a readable backlog row is exactly queued, not held and not
+# blocked (bin/fm-backlog-transition-lib.sh), and the task record does not hold
+# a machine seat (bin/fm-project-capacity-lib.sh). Manual-backlog homes, absent
+# backlogs, and unreadable rows report "cannot establish queued eligibility"
+# and never launch automatically. A held or blocked row stays queued and does
+# not block a younger request. A row that is in flight, done, cancelled, or
+# missing is removed without a launch.
 #
 # The recorded program is executed with the recorded arguments and working
 # directory. The environment is the sweep's environment, not a snapshot from
@@ -389,33 +390,29 @@ deferred_eligibility() { # <id> sets ELIG to start, skip, drop, or error
   ELIG_REASON=
   fm_backlog_transition_applies "$CONFIG" "$DATA" ship
   applies=$?
-  if [ "$applies" -eq 2 ]; then
-    ELIG=error
-    ELIG_REASON=${FM_BACKLOG_TRANSITION_ERROR:-backlog gate unreadable}
+  if [ "$applies" -ne 0 ]; then
+    ELIG_REASON="cannot establish queued eligibility: ${FM_BACKLOG_TRANSITION_SKIP:-${FM_BACKLOG_TRANSITION_ERROR:-backlog gate unreadable}}"
     return 0
   fi
-  if [ "$applies" -eq 0 ]; then
-    if ! fm_backlog_row_probe "$DATA" "$id"; then
-      if [ "${FM_BACKLOG_ROW_RESULT:-}" = not_found ]; then
-        ELIG=drop
-        return 0
-      fi
-      ELIG=error
-      ELIG_REASON=${FM_BACKLOG_ROW_ERROR:-backlog row unreadable}
+  if ! fm_backlog_row_probe "$DATA" "$id"; then
+    if [ "${FM_BACKLOG_ROW_RESULT:-}" = not_found ]; then
+      ELIG=drop
       return 0
     fi
-    case "$FM_BACKLOG_ROW_STATE" in
-      "queued no no") ;;
-      queued\ yes\ *|queued\ no\ yes)
-        ELIG=skip
-        return 0
-        ;;
-      *)
-        ELIG=drop
-        return 0
-        ;;
-    esac
+    ELIG_REASON="cannot establish queued eligibility: ${FM_BACKLOG_ROW_ERROR:-backlog row unreadable}"
+    return 0
   fi
+  case "$FM_BACKLOG_ROW_STATE" in
+    "queued no no") ;;
+    queued\ yes\ *|queued\ no\ yes)
+      ELIG=skip
+      return 0
+      ;;
+    *)
+      ELIG=drop
+      return 0
+      ;;
+  esac
   if deferred_seat_held "$id"; then
     ELIG=skip
     return 0
@@ -577,7 +574,7 @@ deferred_reap() {
     deferred_eligibility "$DEFERRED_TASK"
     case "$ELIG" in
       drop) deferred_remove_task "$DEFERRED_TASK" ;;
-      error) ;;
+      error) printf 'unreadable %s %s\n' "$DEFERRED_TASK" "$ELIG_REASON" ;;
       *)
         mv -f -- "$f" "$QUEUE/$(basename -- "$f")"
         rm -f -- "${f}.pid" "${f}.rc"
