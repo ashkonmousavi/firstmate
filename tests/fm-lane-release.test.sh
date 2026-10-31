@@ -34,6 +34,11 @@ SH
 cat > "$STUBS/probe" <<'SH'
 #!/usr/bin/env bash
 what=$1 id=$2
+if [ -e "$FM_T/$id.turn-on-$what" ]; then
+  rm "$FM_T/$id.turn-on-$what"
+  "$FM_TEST_BUSY_EVENT" apply "$FM_HOME/state" "$id" busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
+  "$FM_TEST_BUSY_EVENT" apply "$FM_HOME/state" "$id" idle --current-gen --source claude-hook --event stop || exit 1
+fi
 [ ! -e "$FM_T/$id.$what-hangs" ] || sleep 30
 if [ -f "$FM_T/$id.$what" ]; then cat "$FM_T/$id.$what"; exit 0; fi
 case "$what" in
@@ -73,6 +78,43 @@ if [ "$rc" = 0 ]; then
 fi
 exit "$rc"
 SH
+cat > "$STUBS/gh" <<'SH'
+#!/usr/bin/env bash
+state=$(cat "$FM_T/pr-state" 2>/dev/null || echo open)
+[ "$state" != hang ] || sleep 30
+[ "$state" != failure ] || exit 1
+merged=false
+[ "$state" != merged ] || merged=true
+case "$state" in open) state=OPEN ;; closed) state=CLOSED ;; merged) state=MERGED ;; esac
+printf 'state=%s\nmerged=%s\n' "$state" "$merged"
+SH
+cat > "$STUBS/gh-axi" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+cat > "$STUBS/glab" <<'SH'
+#!/usr/bin/env bash
+state=$(cat "$FM_T/pr-state" 2>/dev/null || echo open)
+[ "$state" != open ] || state=opened
+printf '{"state":"%s"}\n' "$state"
+SH
+cat > "$STUBS/tea" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = login ]; then
+  printf '[{"name":"test","url":"https://forge.example.org"}]\n'
+  exit 0
+fi
+state=$(cat "$FM_T/pr-state" 2>/dev/null || echo open)
+merged=false
+if [ "$state" = merged ]; then state=closed; merged=true; fi
+printf '{"state":"%s","merged":%s,"head":{"sha":"aabbcc"}}\n' "$state" "$merged"
+SH
+cat > "$STUBS/gerrit-axi" <<'SH'
+#!/usr/bin/env bash
+state=$(cat "$FM_T/pr-state" 2>/dev/null || echo open)
+case "$state" in open) state=NEW ;; closed) state=ABANDONED ;; merged) state=MERGED ;; esac
+printf '{"ok":true,"changes":[{"change":7,"status":"%s"}]}\n' "$state"
+SH
 chmod +x "$STUBS"/*
 
 set_mtime() {  # <epoch> <path>
@@ -106,6 +148,8 @@ add_task() {
       echo "pr=https://github.com/o/r/pull/7"
     fi
   } > "$dir/home/state/$id.meta"
+  printf 'gfixture\n' > "$dir/home/state/$id.busy-gen"
+  printf 'v1 gen=gfixture seq=7 state=idle source=claude-hook event=stop ts=1900\n' > "$dir/home/state/$id.busy-state"
   if [ "$kind" = scout ]; then
     mkdir -p "$dir/home/data/$id"
     printf '# report\n' > "$dir/home/data/$id/report.md"
@@ -150,7 +194,7 @@ stub() {  # <dir> <id> <what> <value>
 run_lr() {  # <dir> <now> <args...>
   local dir=$1 now=$2
   shift 2
-  env FM_HOME="$dir/home" FM_T="$dir/t" FM_LANE_RELEASE_NOW="$now" \
+  env PATH="$STUBS:$PATH" FM_HOME="$dir/home" FM_T="$dir/t" FM_LANE_RELEASE_NOW="$now" FM_TEST_BUSY_EVENT="$ROOT/bin/fm-busy-event.sh" \
     FM_LANE_RELEASE_PROBE="$STUBS/probe" FM_LANE_RELEASE_CREW_STATE="$STUBS/crew-state" \
     FM_LANE_RELEASE_CAPTAIN_HOLD="$STUBS/hold" FM_LANE_RELEASE_CONTROL="$STUBS/control" \
     "${FM_LANE_RELEASE_RUNNER:-$LR}" "$@"
@@ -978,6 +1022,135 @@ worktree=$dir/home/state/s1.released-copy"
   pass "shared capacity keeps uncertain seats occupied while exposing uncertainty to audit"
 }
 
+extra_turns_during_external_reads_keep_the_seat() {
+  local dir what
+  for what in agent busy composer; do
+    dir=$(new_case "turn-during-$what")
+    finished_ship "$dir" s1
+    : > "$dir/t/s1.turn-on-$what"
+    cycle "$dir"
+    assert_kept "$dir" s1 turn-since
+    grep -q 'seq=9 ' "$dir/home/state/s1.busy-state" || fail "the intervening turn did not complete"
+  done
+  dir=$(new_case no-monotonic-record)
+  finished_ship "$dir" s1
+  rm "$dir/home/state/s1.busy-state" "$dir/home/state/s1.busy-gen"
+  cycle "$dir"
+  assert_kept "$dir" s1 busy-record-unreadable
+  pass "a complete turn during any live read, or absent turn history, prevents release"
+}
+
+extra_open_pr_audit_requires_readable_positive_evidence() {
+  local dir provider state out rc url fault start took
+  for provider in github gitlab forgejo gerrit; do
+    case "$provider" in
+      github) url=https://github.com/o/r/pull/7 ;;
+      gitlab) url=https://gitlab.example.org/o/r/-/merge_requests/7 ;;
+      forgejo) url=https://forge.example.org/o/r/pulls/7 ;;
+      gerrit) url=https://review.example.org/c/o/r/+/7 ;;
+    esac
+    for state in open closed merged unknown; do
+      dir=$(new_case "audit-$provider-$state")
+      add_task "$dir" s1 ship
+      printf 'pr=%s\n' "$url" >> "$dir/home/state/s1.meta"
+      status_lines "$dir" s1 'done [at=2000]: ready'
+      printf '%s\n' "$state" > "$dir/t/pr-state"
+      out=$(run_lr "$dir" 12800 --audit); rc=$?
+      case "$state" in
+        open)
+          expect_code 0 "$rc" "$provider OPEN is readable"$'\n'"$out"
+          assert_contains "$out" 'kept-open-pr seat-hours=3' "$provider OPEN contributes exactly three hours"
+          ;;
+        closed|merged)
+          expect_code 0 "$rc" "$provider terminal state is readable"$'\n'"$out"
+          assert_contains "$out" 'kept-open-pr seat-hours=0' "a terminal PR is never counted as OPEN"
+          ;;
+        *) expect_code 2 "$rc" "an unrecognized provider record must be unknown"$'\n'"$out" ;;
+      esac
+    done
+  done
+  for fault in endpoint status inbox message failure hang; do
+    dir=$(new_case "audit-open-$fault")
+    add_task "$dir" s1 ship
+    status_lines "$dir" s1 'done [at=2000]: ready'
+    case "$fault" in
+      endpoint) stub "$dir" s1 agent unknown ;;
+      status) rm "$dir/home/state/s1.status"; mkdir "$dir/home/state/s1.status" ;;
+      inbox) printf 'unreadable inbox shape\n' > "$dir/home/state/s1.inbox" ;;
+      message) mkdir -p "$dir/home/state/s1.inbox/000001.msg" ;;
+      failure|hang) printf '%s\n' "$fault" > "$dir/t/pr-state" ;;
+    esac
+    start=$(date +%s)
+    out=$(run_lr "$dir" 12800 --audit); rc=$?
+    took=$(( $(date +%s) - start ))
+    expect_code 2 "$rc" "unreadable $fault evidence makes open-PR metrics unknown"$'\n'"$out"
+    assert_contains "$out" 'kept-open-pr seat-hours=0' "unknown evidence cannot contribute seat-hours"
+    [ "$took" -lt 15 ] || fail "the provider read exceeded its 10s bound: ${took}s"
+    [ "$(control_calls "$dir")" = 0 ] || fail "the audit stopped a worker"
+  done
+  pass "open-PR metrics require positive OPEN evidence on every provider and propagate all read failures"
+}
+
+extra_marker_verification_rotates_with_candidates() {
+  local dir id i start took
+  dir=$(new_case rotating-verification)
+  for id in a b; do
+    finished_ship "$dir" "$id"
+    printf 'fm-lane-release-v1\ntask=%s\nspawn_gen=s1000.1.1\nreleased_at=2200\nanchor=2100\nclass=merged-ship\nresult=release-incomplete\n' "$id" > "$dir/home/state/$id.released"
+    : > "$dir/t/$id.seat-hangs"
+  done
+  finished_ship "$dir" z
+  for i in 0 1 2 3 4 5; do
+    start=$(date +%s)
+    FM_LANE_RELEASE_BUDGET=2 run_lr "$dir" "$((2500 + 400 * i))" sweep >/dev/null
+    took=$(( $(date +%s) - start ))
+    [ "$took" -le 3 ] || fail "a rotating sweep exceeded its 2s budget: ${took}s"
+  done
+  wait_exit_log "$dir" z
+  [ "$(control_calls "$dir")" = 1 ] || fail "slow markers starved the eligible candidate"
+  pass "verification and candidate work share the durable cursor without starvation"
+}
+
+extra_herdr_checks_release_guard_at_each_transport() {
+  local dir action mode out rc
+  dir=$(new_case herdr-release-guard)
+  cat > "$dir/herdr" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_GUARD_LOG"
+[ "${FM_GUARD_MODE:-}" != retry ] || { echo protocol_mismatch >&2; exit 1; }
+SH
+  chmod +x "$dir/herdr"
+  for mode in allow refuse retry; do
+    for action in send-text send-keys; do
+      : > "$dir/t/transport"
+      out=$(
+        export PATH="$dir:$PATH" FM_GUARD_LOG="$dir/t/transport" FM_GUARD_MODE="$mode"
+        . "$ROOT/bin/backends/herdr.sh"
+        fm_control_lane_release_guard() { [ "$FM_GUARD_MODE" != refuse ] && [ ! -e "$dir/t/reselected" ]; }
+        fm_backend_herdr_client_select() { : > "$dir/t/reselected"; }
+        fm_backend_herdr_bin() { printf '%s\n' "$dir/compatible-herdr"; }
+        fm_backend_herdr_cli test pane "$action" p1 payload
+      ); rc=$?
+      case "$mode" in
+        allow)
+          expect_code 0 "$rc" "an unchanged guard permits Herdr transport"$'\n'"$out"
+          [ "$(wc -l < "$dir/t/transport")" -eq 1 ] || fail "the ordinary transport was not sent once"
+          ;;
+        refuse)
+          expect_code 75 "$rc" "a changed guard must defer Herdr transport"$'\n'"$out"
+          [ ! -s "$dir/t/transport" ] || fail "Herdr sent input despite refusal"
+          ;;
+        retry)
+          expect_code 75 "$rc" "a guard changed during client selection must defer the retry"$'\n'"$out"
+          [ "$(wc -l < "$dir/t/transport")" -eq 1 ] || fail "Herdr retried after the guard changed"
+          ;;
+      esac
+      rm -f "$dir/t/reselected"
+    done
+  done
+  pass "Herdr rechecks the release guard before each literal, key and protocol retry"
+}
+
 edge_trigger_is_a_confirmed_done_never_an_exited_or_quiet_pane
 edge_stopped_but_not_done_never_frees
 edge_done_is_not_landed_the_action_is_exit_only
@@ -1033,3 +1206,9 @@ extra_audit_marker_occupancy_and_unknown_reads
 extra_all_external_reads_share_the_sweep_deadline
 
 extra_shared_seat_rule_preserves_uncertainty
+
+extra_turns_during_external_reads_keep_the_seat
+extra_open_pr_audit_requires_readable_positive_evidence
+extra_marker_verification_rotates_with_candidates
+
+extra_herdr_checks_release_guard_at_each_transport

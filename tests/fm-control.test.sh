@@ -138,6 +138,7 @@ case "${1:-}" in
     if [ "$literal" = 1 ]; then
       printf '%s\n' "$payload" >> "$D/literal"
       if [ -z "${FM_FAKE_NEVER_DIES:-}" ] \
+         && [ "${FM_RELEASE_TEST_RACE:-}" != settle ] \
          && { [ "$payload" = /exit ] || [ "$payload" = /quit ]; }; then
         printf 'zsh' > "$D/command"
       fi
@@ -185,6 +186,11 @@ case "${1:-}" in
     done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    if [ "${FM_RELEASE_TEST_RACE:-}" = preflight ] && [ -e "$FM_HOME/probe-composer-read" ]; then
+      rm "$FM_HOME/probe-composer-read"
+      "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
+      "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
+    fi
     if [ -f "$D/after-enter" ] && [ -f "$D/keys" ] && grep -qx Enter "$D/keys"; then
       # after-enter-late holds how many captures after Enter still show the
       # ordinary pane, for a screen that renders after the submit has read it.
@@ -209,6 +215,10 @@ SH
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 if [ -f "$FM_FAKE_DIR/devin" ]; then exec /bin/sleep "$@"; fi
+if [ "${FM_RELEASE_TEST_RACE:-}" = settle ] && [ "$1" = 1.2 ]; then
+  "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
+  "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
+fi
 if [ -n "${FM_FAKE_MUSE_DISAPPEAR_BEFORE_ACK:-}" ] \
    && [ -e "$FM_FAKE_DIR/muse-ack-pending" ]; then
   rm -f "$FM_FAKE_DIR/muse-ack-pending"
@@ -1607,7 +1617,7 @@ EOF
 
 test_lane_release_revalidates_under_the_inbox_lock() {
   local dir change out rc at gen seq kind class
-  for change in none unread status decision report gate hold board promotion sequence lock ship-none ship-unread ship-status ship-merge ship-sequence; do
+  for change in none unread status decision report gate hold board promotion sequence lock live-busy live-composer preflight settle no-record ship-none ship-unread ship-status ship-merge ship-sequence; do
     dir=$(new_case "release-final-$change")
     kind=scout
     class=scout
@@ -1622,7 +1632,7 @@ test_lane_release_revalidates_under_the_inbox_lock() {
     printf 'spawn_gen=s1000.1.1\n' >> "$dir/home/state/t1.meta"
     printf 'done [at=%s]: report ready\n' "$at" > "$dir/home/state/t1.status"
     printf '# report\n' > "$dir/home/data/t1/report.md"
-    printf 'fm-lane-release-v1\ntask=t1\nspawn_gen=s1000.1.1\nreleased_at=%s\nanchor=%s\nclass=%s\nresult=releasing\nbusy_seq=7\n' "$at" "$at" "$class" > "$dir/home/state/t1.released"
+    printf 'fm-lane-release-v1\ntask=t1\nspawn_gen=s1000.1.1\nreleased_at=%s\nanchor=%s\nclass=%s\nresult=releasing\nbusy_seq=%s:7\n' "$at" "$at" "$class" "$gen" > "$dir/home/state/t1.released"
     if [ "$kind" = ship ]; then
       printf 'pr=https://github.com/o/r/pull/7\n' >> "$dir/home/state/t1.meta"
       (
@@ -1648,6 +1658,11 @@ fi
 SH
     cat > "$dir/fakebin/release-probe" <<'SH'
 #!/usr/bin/env bash
+if [ "${FM_RELEASE_TEST_RACE:-}" = "live-$1" ]; then
+  "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
+  "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
+fi
+if [ "${FM_RELEASE_TEST_RACE:-}" = preflight ] && [ "$1" = composer ]; then : > "$FM_HOME/probe-composer-read"; fi
 case "$1" in agent) echo alive ;; busy) echo idle ;; composer) echo empty ;; doorbell) echo no ;; esac
 SH
     chmod +x "$dir/fakebin/release-crew" "$dir/fakebin/release-hold" "$dir/fakebin/release-probe"
@@ -1667,9 +1682,10 @@ SH
       promotion) : > "$dir/home/data/t1/ship-instructions.md" ;;
       sequence|ship-sequence) printf 'v1 gen=%s seq=8 state=idle source=claude-hook event=stop ts=%s\n' "$gen" "$at" > "$dir/home/state/t1.busy-state" ;;
       ship-merge) rm "$dir/home/state/t1.pr-poll-merge-notified" ;;
+      no-record) rm "$dir/home/state/t1.busy-state" "$dir/home/state/t1.busy-gen" ;;
       lock) mkdir "$dir/home/state/.meta-t1.lock"; printf '%s\n' "$$" > "$dir/home/state/.meta-t1.lock/pid" ;;
     esac
-    out=$(FM_CONTROL_LANE_RELEASE=1 FM_LANE_RELEASE_CREW_STATE="$dir/fakebin/release-crew" \
+    out=$(FM_CONTROL_LANE_RELEASE=1 FM_RELEASE_TEST_RACE="$change" FM_RELEASE_TEST_BUSY_EVENT="$ROOT/bin/fm-busy-event.sh" FM_LANE_RELEASE_CREW_STATE="$dir/fakebin/release-crew" \
       FM_LANE_RELEASE_CAPTAIN_HOLD="$dir/fakebin/release-hold" FM_LANE_RELEASE_PROBE="$dir/fakebin/release-probe" \
       run_control "$dir" t1 exit --if-idle --expect-spawn-gen s1000.1.1); rc=$?
     if [ "$change" = none ] || [ "$change" = ship-none ]; then
@@ -1679,7 +1695,12 @@ SH
       [ ! -e "$dir/home/state/t1.busy-gen" ] || fail "the ordinary release did not retire the busy generation"
     else
       expect_code 75 "$rc" "$change must defer final release"$'\n'"$out"
-      [ -z "$(literals "$dir")" ] || fail "$change still received exit"
+      if [ "$change" = settle ]; then
+        [ "$(literals "$dir")" = /exit ] || fail "the settle case did not reach the draft stage"
+        [ ! -s "$dir/fake/keys" ] || fail "a turn during settle still received Enter"
+      else
+        [ -z "$(literals "$dir")" ] || fail "$change still received exit"
+      fi
     fi
     if [ "$change" != lock ]; then
       [ ! -e "$dir/home/state/.meta-t1.lock" ] || fail "final validation leaked the metadata lock"

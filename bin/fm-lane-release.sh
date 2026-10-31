@@ -120,7 +120,8 @@
 #   <event> task=<id> host=<host> class=<class> anchor=<epoch> released_at=<epoch> verified=<yes|no> reason=<text>
 # Skip decisions are bounded counters only, in state/lane-release.counters.
 #
-# AUDIT. `--audit` reads local state only and changes nothing. It lists every
+# AUDIT. `--audit` reads task state and provider state for open-PR metrics,
+# changing nothing. It lists every
 # class merged-ship or scout holder with a live agent, its age since the anchor,
 # and RELEASE_INCOMPLETE markers; stuck-composer holders; and kept-open-pr
 # seat-hours (open-PR ships with a live agent, a done line, no unread steer and
@@ -318,6 +319,39 @@ read_composer() { timed_read "$0" read-evidence composer "$@"; }
 composer_holds_doorbell() { timed_read "$0" read-evidence doorbell "$@"; }
 seat_held() { timed_read "$0" read-evidence seat "$@"; }
 
+raw_read_pr() {
+  local meta=$1
+  fm_pr_url_parse "$(meta_field "$meta" pr)" || return 1
+  case "$FM_PR_PROVIDER" in
+    github) fm_pr_github_read_record "$FM_PR_OWNER" "$FM_PR_REPO" "$FM_PR_NUMBER" || return 1 ;;
+    gitlab) fm_pr_gitlab_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || return 1 ;;
+    forgejo) fm_pr_forgejo_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || return 1 ;;
+    gerrit) fm_pr_gerrit_read_record "$FM_PR_HOST" "$FM_PR_NUMBER" || return 1 ;;
+  esac
+  case "$FM_PR_PROVIDER:$FM_PR_RECORD_STATE:$FM_PR_RECORD_MERGED" in
+    github:OPEN:false|gitlab:opened:false|forgejo:open:false|gerrit:NEW:false) printf 'open\n' ;;
+    github:CLOSED:false|gitlab:closed:false|forgejo:closed:false|gerrit:ABANDONED:false) printf 'closed\n' ;;
+    github:MERGED:true|gitlab:merged:true|forgejo:closed:true|gerrit:MERGED:true) printf 'merged\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+pred_no_unhandled_inbox() {
+  local dir f found=0
+  dir=$(fm_task_inbox_dir "$STATE" "$1")
+  OUT=
+  if [ -e "$dir" ] || [ -L "$dir" ]; then
+    [ -d "$dir" ] && [ ! -L "$dir" ] && [ -r "$dir" ] && [ -x "$dir" ] || { KEEP=inbox-unreadable; return 2; }
+  fi
+  for f in "$dir"/*.msg; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    [ -f "$f" ] && [ ! -L "$f" ] && cat "$f" >/dev/null 2>&1 || { KEEP=inbox-unreadable; return 2; }
+    [ "$found" = 1 ] || OUT=$f
+    found=1
+  done
+  [ "$found" = 0 ] || { KEEP=unread-steer; return 1; }
+}
+
 # pred_merged <meta> <id>: OUT is the merge anchor epoch.
 pred_merged() {
   local meta=$1 id=$2 pr marker
@@ -367,8 +401,11 @@ pred_scout_complete() {
 pred_done_line() {
   local status=$1 launch=$2 last at
   OUT=
-  [ -f "$status" ] && [ ! -L "$status" ] || { KEEP='no-done'; return 1; }
-  last=$(last_status_line "$status") || { KEEP='status-unreadable'; return 1; }
+  [ -e "$status" ] || [ -L "$status" ] || { KEEP='no-done'; return 1; }
+  [ -f "$status" ] && [ ! -L "$status" ] || { KEEP='status-unreadable'; return 1; }
+  last=$(cat "$status" 2>/dev/null) || { KEEP='status-unreadable'; return 1; }
+  last=$(_fm_status_event_scan <<< "$last") || { KEEP='status-unreadable'; return 1; }
+  last=${last##*$'\n'}
   [ "$(status_line_verb "$last")" = "done" ] || { KEEP='no-done'; return 1; }
   at=$(status_line_at_epoch "$last") || { KEEP='done-unstamped'; return 1; }
   [ "$at" -gt "$launch" ] || { KEEP='done-before-launch'; return 1; }
@@ -411,11 +448,10 @@ pred_crew_state() {
   return 1
 }
 
-# pred_nothing_since <meta> <id> <anchor> <launch>: OUT is the busy seq ("-"
-# when the adapter keeps no busy record).
+# pred_nothing_since <meta> <id> <anchor> <launch>: OUT is busy-gen:seq.
 pred_nothing_since() {
   local meta=$1 id=$2 anchor=$3 launch=$4 status last at inbox f m rec
-  local target busy_rec ts seq b_state b_source verdict composer line record
+  local target busy_rec ts seq b_state b_source verdict composer line record snapshot busy_gen inbox_rc=0
   OUT=
   [ "$launch" -lt "$anchor" ] || { KEEP='relaunched-since'; return 1; }
   status="$STATE/$id.status"
@@ -426,6 +462,21 @@ pred_nothing_since() {
       return 1
     fi
   fi
+  busy_rec=$(fm_busy_record_path "$STATE" "$id")
+  [ -f "$busy_rec" ] && [ ! -L "$busy_rec" ] || { KEEP='busy-record-unreadable'; return 1; }
+  snapshot=$(cat "$busy_rec" 2>/dev/null) || { KEEP='busy-record-unreadable'; return 1; }
+  busy_gen=$(fm_busy_current_gen "$STATE" "$id") || { KEEP='busy-record-unreadable'; return 1; }
+  record=$(fm_busy_record_read "$STATE" "$id") || { KEEP='busy-record-unreadable'; return 1; }
+  read -r b_state b_source _ seq <<< "$record"
+  case "$b_state" in
+    idle) ;;
+    busy) KEEP='busy-record-busy'; return 1 ;;
+    *) KEEP='busy-record-unreadable'; return 1 ;;
+  esac
+  [ "$b_source" != fm-interrupt ] || { KEEP='interrupted'; return 1; }
+  ts=$(sed -n 's/.* ts=\([0-9][0-9]*\).*/\1/p' "$busy_rec" 2>/dev/null | head -n 1)
+  [ -n "$ts" ] || { KEEP='busy-record-unreadable'; return 1; }
+  [ "$ts" -le $((anchor + TURN_SLACK)) ] || { KEEP='turn-since'; return 1; }
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || { KEEP='no-endpoint'; return 1; }
   case "$(read_agent "$meta" "$id")" in
@@ -434,36 +485,22 @@ pred_nothing_since() {
     *) KEEP='endpoint-unreadable'; return 1 ;;
   esac
   inbox=$(fm_task_inbox_dir "$STATE" "$id")
-  rec=$(fm_task_inbox_oldest_unhandled "$STATE" "$id" 2>/dev/null || true)
-  if [ -n "$rec" ]; then
-    line=$(fm_task_inbox_doorbell_line "$rec" 2>/dev/null || true)
-    if [ -n "$line" ] && composer_holds_doorbell "$meta" "$id" "$line"; then
-      KEEP='stuck-composer'
-    else
-      KEEP='unread-steer'
-    fi
-    return 1
-  fi
+  pred_no_unhandled_inbox "$id" || inbox_rc=$?
+  case "$inbox_rc" in
+    2) return 1 ;;
+    1)
+      rec=$OUT
+      line=$(fm_task_inbox_doorbell_line "$rec" 2>/dev/null || true)
+      if [ -n "$line" ] && composer_holds_doorbell "$meta" "$id" "$line"; then KEEP='stuck-composer'; fi
+      return 1
+      ;;
+  esac
   for f in "$inbox"/*.msg "$inbox"/handled/*.msg; do
-    [ -f "$f" ] || continue
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    [ -f "$f" ] && [ ! -L "$f" ] || { KEEP='inbox-unreadable'; return 1; }
     m=$(file_mtime "$f") || { KEEP='inbox-unreadable'; return 1; }
     [ "$m" -le "$anchor" ] || { KEEP='steer-since'; return 1; }
   done
-  seq=-
-  busy_rec=$(fm_busy_record_path "$STATE" "$id")
-  if [ -f "$busy_rec" ]; then
-    record=$(fm_busy_record_read "$STATE" "$id") || { KEEP='busy-record-unreadable'; return 1; }
-    read -r b_state b_source _ seq <<< "$record"
-    case "$b_state" in
-      idle) ;;
-      busy) KEEP='busy-record-busy'; return 1 ;;
-      *) KEEP='busy-record-unreadable'; return 1 ;;
-    esac
-    [ "$b_source" != fm-interrupt ] || { KEEP='interrupted'; return 1; }
-    ts=$(sed -n 's/.* ts=\([0-9][0-9]*\).*/\1/p' "$busy_rec" 2>/dev/null | head -n 1)
-    [ -n "$ts" ] || { KEEP='busy-record-unreadable'; return 1; }
-    [ "$ts" -le $((anchor + TURN_SLACK)) ] || { KEEP='turn-since'; return 1; }
-  fi
   verdict=$(read_busy "$meta" "$id") || verdict=unknown
   case "$verdict" in
     idle*) ;;
@@ -476,7 +513,10 @@ pred_nothing_since() {
     pending*) KEEP='pending-composer'; return 1 ;;
     *) KEEP='composer-unknown'; return 1 ;;
   esac
-  OUT=$seq
+  [ "$(cat "$busy_rec" 2>/dev/null)" = "$snapshot" ] \
+    && [ "$(fm_busy_current_gen "$STATE" "$id")" = "$busy_gen" ] \
+    || { KEEP='turn-since'; return 1; }
+  OUT="$busy_gen:$seq"
 }
 
 # evaluate <id>: on success EVAL is "<class> <gen> <anchor> <seq>"; otherwise
@@ -701,12 +741,17 @@ action_sweep() {
   trap 'fm_lock_release "$SWEEP_LOCK" || true' EXIT
   deadline=$(( $(date +%s) + BUDGET ))
   DEADLINE=$deadline
-  for m in "$STATE"/*.released; do
-    [ -f "$m" ] || continue
-    [ "$(date +%s)" -lt "$deadline" ] || break
-    verify_marker "$(basename "$m" .released)"
-  done
-  ids=$(for meta in "$STATE"/*.meta; do [ -f "$meta" ] && basename "$meta" .meta; done | LC_ALL=C sort)
+  ids=$(
+    for meta in "$STATE"/*.meta; do
+      [ -f "$meta" ] || continue
+      id=${meta##*/}; printf '%s\n' "${id%.meta}"
+    done
+    for m in "$STATE"/*.released; do
+      [ -f "$m" ] || continue
+      id=${m##*/}; printf '%s\n' "${id%.released}"
+    done
+  )
+  ids=$(printf '%s\n' "$ids" | LC_ALL=C sort -u)
   cursor=$(cat "$CURSOR_FILE" 2>/dev/null || true)
   ids=$(printf '%s\n' "$ids" | awk -v c="$cursor" 'NF { if (c != "" && $0 <= c) late = late $0 "\n"; else print } END { printf "%s", late }')
   while IFS= read -r id; do
@@ -715,6 +760,10 @@ action_sweep() {
     [ "$started" -lt "$MAX_RELEASES" ] || break
     fm_task_id_creation_valid "$id" || continue
     printf '%s\n' "$id" > "$CURSOR_FILE"
+    if [ -f "$STATE/$id.released" ]; then
+      verify_marker "$id"
+      fm_lane_release_marker_active "$STATE" "$id" && continue
+    fi
     rc=0
     evaluate "$id" || rc=$?
     case "$rc" in
@@ -738,7 +787,7 @@ action_sweep() {
 
 action_audit() {
   local mode id meta rc class anchor age t miss=0 unknown=0 status done_at launch gen
-  local holders=0 stuck=0 seat_hours=0 h agent
+  local holders=0 stuck=0 seat_hours=0 h agent pr_state
   mode=$(setting)
   t=$(now)
   printf 'lane-release audit: home=%s setting=%s max-age=%ss\n' "$FM_HOME" "$mode" "$AUDIT_MAX_AGE"
@@ -788,21 +837,42 @@ action_audit() {
             status="$STATE/$id.status"
             gen=$(meta_field "$meta" spawn_gen)
             launch=$(launch_epoch "$gen" 2>/dev/null) || launch=0
-            agent=$(read_agent "$meta" "$id" || printf unknown)
-            if [ "$agent" = alive ] && pred_done_line "$status" "$launch" && done_at=$OUT \
-              && [ -z "$(fm_task_inbox_oldest_unhandled "$STATE" "$id" 2>/dev/null)" ] \
-              && [ ! -e "$(fm_pr_conflict_episode_path "$STATE" "$id")" ]; then
-              h=$(( (t - done_at) / 3600 ))
-              [ "$h" -le 168 ] || h=168
-              seat_hours=$((seat_hours + h))
-              printf 'kept-open-pr %s idle-since-done=%sh\n' "$id" "$h"
+            if ! pr_state=$(timed_read "$0" read-evidence pr "$meta" "$id"); then
+              unknown=1
+              printf 'unknown %s (pr-unreadable; unknown is never counted as free)\n' "$id"
+              continue
             fi
+            [ "$pr_state" = open ] || continue
+            agent=$(read_agent "$meta" "$id") || agent=unknown
+            case "$agent" in
+              alive) ;;
+              dead|missing) continue ;;
+              *) unknown=1; printf 'unknown %s (endpoint-unreadable; unknown is never counted as free)\n' "$id"; continue ;;
+            esac
+            if ! pred_done_line "$status" "$launch"; then
+              case "$KEEP" in
+                status-unreadable|done-unstamped) unknown=1; printf 'unknown %s (%s; unknown is never counted as free)\n' "$id" "$KEEP" ;;
+              esac
+              continue
+            fi
+            done_at=$OUT
+            rc=0
+            pred_no_unhandled_inbox "$id" || rc=$?
+            case "$rc" in
+              2) unknown=1; printf 'unknown %s (inbox-unreadable; unknown is never counted as free)\n' "$id"; continue ;;
+              1) continue ;;
+            esac
+            [ ! -e "$(fm_pr_conflict_episode_path "$STATE" "$id")" ] || continue
+            h=$(( (t - done_at) / 3600 ))
+            [ "$h" -le 168 ] || h=168
+            seat_hours=$((seat_hours + h))
+            printf 'kept-open-pr %s idle-since-done=%sh\n' "$id" "$h"
             ;;
         esac
         ;;
     esac
   done
-  printf 'summary: class merged-ship/scout holders=%s stuck-composer=%s kept-open-pr seat-hours=%s (local reads; red checks and review findings not read)\n' \
+  printf 'summary: class merged-ship/scout holders=%s stuck-composer=%s kept-open-pr seat-hours=%s (PR state read; red checks and review findings not read)\n' \
     "$holders" "$stuck" "$seat_hours"
   [ "$unknown" = 0 ] || return 2
   [ "$miss" = 0 ] || return 1
@@ -851,6 +921,7 @@ case "${1:-}" in
       composer) shift; raw_read_composer "$@" ;;
       doorbell) shift; raw_composer_holds_doorbell "$@" ;;
       seat) shift; raw_seat_held "$@" ;;
+      pr) shift; raw_read_pr "$@" ;;
       *) exit 2 ;;
     esac
     ;;

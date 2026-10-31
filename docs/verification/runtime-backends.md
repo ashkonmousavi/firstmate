@@ -3008,3 +3008,68 @@ ok - codex (codex-cli 0.160.0): exact-home discovery, wrong-home and stale-label
 
 This proves live process discovery and shell refusal, including startup interfaces without a submitted prompt.
 It does not prove prompt delivery or turn-end watcher recovery.
+
+
+## Lane release class inventory for validation
+
+Inspected on 2026-10-30 against the executable boundaries below.
+This is the retained validation handoff required by `bin/fm-dod-lib.sh`, not a claim of current real-harness proof.
+The dedicated validation phase owns live guard execution and recording the installed versions, commands, exact output, and remaining gaps here.
+The focused review regression commands are `bash tests/fm-lane-release.test.sh` and `bash tests/fm-control.test.sh`.
+
+| Boundary | Inspected call paths and required behavior | Executable regression | Applicable live guard and evidence gap |
+| --- | --- | --- | --- |
+| Agent liveness | `fm-lane-release.sh` agent reads reach `fm_backend_agent_state` for the recorded backend and target; only positively alive candidates qualify, and unreadable audit reads return unknown. | `tests/fm-lane-release.test.sh`, `tests/fm-tmux-agent-liveness.test.sh`, `tests/fm-backend-herdr.test.sh` | `tests/fm-harness-liveness-drift-live-e2e.test.sh`, `tests/fm-control-herdr-smoke.test.sh`; refresh both process attribution and endpoint evidence. |
+| Busy and intervening turns | Sweep evaluation and detached validation compare a validated busy generation and full record across live reads; submission guards compare that incarnation and sequence before literal input and every Enter, including Herdr client retries. | `tests/fm-lane-release.test.sh`, `tests/fm-control.test.sh`, `tests/fm-busy-state.test.sh`, `tests/fm-busy-adapter-wiring.test.sh` | Run the applicable harness signal guards listed below; a source without a monotonic busy record remains ineligible. |
+| Composer | `read_composer` reaches the backend composer classifier; pending text, dialogs and unknown reads retain the seat. | `tests/fm-composer-lib.test.sh`, `tests/fm-composer-ghost.test.sh`, `tests/fm-control.test.sh` | `tests/fm-composer-matrix-live-e2e.test.sh`; historical versions in this record do not establish present behavior. |
+| Own doorbell | `composer_holds_doorbell` reaches task-inbox extraction for tmux, Herdr, or generic capture; every unread message retains the seat, and an own unsubmitted doorbell is stuck-composer. | `tests/fm-task-inbox.test.sh`, `tests/fm-send-inbox.test.sh`, `tests/fm-lane-release.test.sh` | `tests/fm-send-inbox-doorbell-live-e2e.test.sh`; real handling and acknowledgement do not alone establish release-race exclusion. |
+| Seat verification | Marker verification and audit share `fm_task_record_holds_seat`; dead or missing agents require readable worktree and process evidence before their seats can be called free. | `tests/fm-capacity.test.sh`, `tests/fm-project-capacity.test.sh`, `tests/fm-lane-release.test.sh` | Retain actual endpoint, process and seat-count observations for RELEASED and RELEASE_INCOMPLETE; missing or unreadable `lsof`/`ps` is unknown. |
+| Unattended exit | `exit-worker` invokes `fm-control exit --if-idle --expect-spawn-gen`; metadata validation excludes published steers, turn guards cover submission reads and waits, and the ordinary stopped path retires busy wiring. | `tests/fm-control.test.sh`, `tests/fm-control-relaunch.test.sh`, `tests/fm-lane-release.test.sh` | `tests/fm-control-herdr-smoke.test.sh`, `tests/fm-claude-bg-exit-live-e2e.test.sh`; current per-harness unattended-exit evidence remains to be collected. |
+| Open-PR metrics | Audit uses bounded existing GitHub, GitLab, Forgejo and Gerrit record readers; OPEN evidence is required, while terminal states contribute no open-PR hours and unreadable provider, endpoint, status or inbox evidence returns unknown. | `tests/fm-lane-release.test.sh`, provider reader cases in `tests/fm-crew-state.test.sh` | Refresh provider credential and protocol coverage; [GitHub CLI documentation](https://cli.github.com/manual/gh_pr_view) defines its state read interface. |
+| Sweep scheduling | Verification and candidate evaluation share the existing durable cursor and overall deadline, including orphan markers, slow reads, and the two-release limit. | `tests/fm-lane-release.test.sh` | No additional vendor signal is introduced; retain wall-time and eventual candidate progress evidence. |
+
+### Task kinds, lifecycle, backend and platform axes
+
+Local ships and scouts are the release subjects; an absent kind retains the existing ship default.
+Secondmates and remotely placed task records are excluded before release evaluation, because their lifecycle belongs to the owning home.
+Merged ships require an identity-matching merge receipt; open PRs and closed-unmerged ships retain their seats.
+Scouts require a report, successful completion verification, no captain hold, no task-owned board and no promotion artifact.
+The existing local-only landing exclusion remains an intent gap outside this round's assigned fixes; it is not covered by a merged-PR success claim.
+
+| Transition or backend axis | Coverage or inspected disposition |
+| --- | --- |
+| LIVE to FINISHED to candidate debounce | Lane-release regressions cover raw done status, open questions, crew agreement, merge/report evidence, both sightings, grace and changed busy sequence. |
+| FINISHED to RELEASING to detached exit | Lane-release and control regressions cover marker-before-exit, changed incarnation, unread steer, changed completion evidence, turn events during reads, preflight and settle. |
+| RELEASING to RELEASED or RELEASE_INCOMPLETE | Lane-release regressions cover seat proof, two-sweep incomplete classification, single wake, retained occupancy, unknown evidence and later successful verification. |
+| Deferred or refused exit | Lane-release and control regressions cover marker removal and later retry without spinning; a guard refusal after typing retains the draft and sends no further Enter. |
+| Relaunch and marker readers | `tests/fm-control-relaunch.test.sh`, `tests/fm-session-start.test.sh`, `tests/fm-crew-recovery.test.sh`, `tests/fm-pr-conflict.test.sh`, `tests/fm-inactive-reconcile.test.sh`, `tests/fm-fleet-snapshot-view.test.sh`, `tests/fm-watch-triage.test.sh` cover incarnation invalidation and intentional-release presentation/recovery suppression. |
+| tmux | Recorded backend default; process-tree liveness, styled capture and guarded literal/Enter submission apply. |
+| Herdr | Native pane targeting, attributed liveness, composer content, protocol-compatible client selection and guarded initial/retried input apply; native idle alone is insufficient turn history. |
+| zellij, Orca, cmux, Paseo | Read interfaces remain subject to backend capabilities; `fm_control_state_verified_backend` refuses automatic exit because recovery-grade stop proof is unavailable. Orca resolves its recorded terminal, not a tmux window. |
+| Linux and WSL | Existing GNU stat and process-table paths apply; process evidence and tools must be readable. |
+| macOS | Existing BSD stat, stock Bash compatibility and `lsof`/`ps` paths apply; no Linux-only lock or transport dependency was added. |
+| Other tool environments | No new native platform path is introduced; missing backend/process tools remain unknown rather than proof of a free seat. |
+
+### Harness and account axes
+
+The control family table includes Claude, Codex, OpenCode, Pi, Pi-signed, Grok, Kimi, Cursor, Gemini, Muse, Rovo, OMP, AGY, Devin, CommandCode and Polytoken, including the recorded aliases normalized by `fm_control_harness_family`.
+Unknown control families remain refused.
+
+| Harness group | Busy evidence and release disposition | Applicable real guards |
+| --- | --- | --- |
+| Claude, OpenCode, Gemini | Hook-driven busy records must be armed and valid; process and composer checks still apply independently. | `tests/fm-launch-prompt-signals-live-e2e.test.sh`, `tests/fm-composer-matrix-live-e2e.test.sh`, `tests/fm-claude-bg-exit-live-e2e.test.sh` |
+| Pi, Pi-signed, OMP | Extension-owned turn records require current generation wiring; primary and secondmate lifecycle remain outside release subjects. | `tests/fm-pi-primary-live-e2e.test.sh`, `tests/fm-omp-primary-live-e2e.test.sh`, `tests/fm-composer-matrix-live-e2e.test.sh`; primary guards establish shared extension signals, not worker release proof. |
+| Devin, CommandCode, Polytoken | Their semantic busy writers and version-sensitive composer/exit surfaces must be checked. | `tests/fm-devin-signals-live-e2e.test.sh`, `tests/fm-commandcode-signals-live-e2e.test.sh`, `tests/fm-polytoken-signals-live-e2e.test.sh` |
+| Codex, Kimi | Existing semantic capability gates remain authoritative; unknown or unverified busy evidence cannot authorize release. | `tests/fm-codex-hook-layer-live-e2e.test.sh`, `tests/fm-composer-codex-idle-live-e2e.test.sh`, `tests/fm-kimi-harness.test.sh`; absence of verified lifecycle signals remains a gap. |
+| Cursor, Muse, Grok | Transcript/session-log/rendered idle without a monotonic busy record cannot prove that no intervening turn completed, so release remains ineligible. | `tests/fm-cursor-harness.test.sh`, `tests/fm-muse-signals-live-e2e.test.sh`, `tests/fm-grok-stop-live-e2e.test.sh`; these do not supply a missing release sequence. |
+| Rovo, AGY | Missing trusted idle/turn signals remain fail-closed. | `tests/fm-rovo-signals-live-e2e.test.sh`, `tests/fm-agy-signals-live-e2e.test.sh`; no automatic-release proof claimed. |
+
+Ordinary backend reads continue using the task's recorded endpoint and the selected backend client.
+Claude background cleanup retains the recorded `claude_config_dir`, including explicit ordinary roots; legacy records retain the recorded-account and ambient-root fallback already owned by worker-account selection.
+`tests/fm-control.test.sh` covers changed pins, explicit ordinary roots, ship/scout/secondmate records and non-Claude isolation.
+`tests/fm-worker-account-live-e2e.test.sh` supplies current sign-in evidence, but does not by itself prove release-time cleanup routing.
+Provider reads retain their existing host/login/account selection; the audit does not write forge state or change credentials.
+
+No live guard, credentialed session, or installed-harness version is claimed by this inspection handoff.
+The terminal adapters expose separate reads and input calls, not an atomic conditional-exit protocol; action guards reject observed generation/sequence changes, and do not claim atomic exclusion of arbitrary concurrent physical keyboard input.
+Validation must retain current real-harness evidence for the installed eligible adapters, explicitly name unavailable adapters, and leave unsupported turn-history sources ineligible.
