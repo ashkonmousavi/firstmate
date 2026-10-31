@@ -1828,6 +1828,48 @@ test_watcher_dead_pane_escalates_once_without_ringing() {
 # Every delivery attempt was a skip (the composer holds someone else's draft).
 # The skips still spend the ring budget, and the next check reports the
 # message once. The draft is never submitted.
+# The recorded Herdr capture of a stuck pane: the composer holds only the first
+# row of this task's own doorbell. fm-control clears exactly that, nothing else.
+test_herdr_recorded_capture_classifies_as_own_doorbell() {
+  local fixture="$ROOT/tests/fixtures/herdr-own-doorbell-wrapped.ansi" dir got
+  dir="$TMP_ROOT/own-doorbell-capture"
+  mkdir -p "$dir/x-xfb-r-entry.inbox" "$dir/other-task.inbox"
+  # A doorbell for another task, and the same capture with typed text after the doorbell.
+  sed 's/x-xfb-r-entry\.inbox/other-task.inbox/' "$fixture" > "$dir/other.ansi"
+  sed "s/inbox, read and/inbox, read and please/" "$fixture" > "$dir/typed.ansi"
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"; . "$0/bin/fm-task-inbox-lib.sh"
+    fm_backend_source herdr
+    fm_backend_herdr_viewport_to_bottom() { return 0; }
+    fm_backend_herdr_visible_capture_ansi() { cat "$FIXTURE"; }
+    line=$(fm_task_inbox_doorbell_line "$1/x-xfb-r-entry.inbox/1.msg")
+    for f in "$0/tests/fixtures/herdr-own-doorbell-wrapped.ansi" "$1/other.ansi" "$1/typed.ansi"; do
+      FIXTURE=$f
+      if fm_task_inbox_composer_holds_own herdr s:w:p "$line"; then printf "own "; else printf "foreign "; fi
+    done
+    FIXTURE=$0/tests/fixtures/herdr-own-doorbell-wrapped.ansi
+    if fm_task_inbox_composer_holds herdr s:w:p "$line"; then printf "exact"; else printf "partial-only"; fi
+  ' "$ROOT" "$dir")
+  [ "$got" = "own foreign foreign partial-only" ] || fail "recorded capture classified as '$got'"
+  pass "fm_task_inbox_composer_holds_own: the recorded wrapped capture is this task's doorbell, a wrong task or typed text is not"
+}
+
+test_herdr_composer_clear_for_own_doorbell() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    fm_backend_source herdr
+    n=0
+    fm_backend_herdr_send_key() { n=$((n + 1)); return 0; }
+    fm_backend_herdr_composer_state() { if [ "$n" -ge 2 ]; then printf empty; else printf pending; fi; }
+    fm_backend_composer_clear herdr s:w:p "$(printf "x%.0s" $(seq 1 200))" && printf "cleared-after-%s" "$n"
+    n=-100
+    fm_backend_composer_clear herdr s:w:p "short" || printf " refused"
+  ' "$ROOT")
+  [ "$got" = "cleared-after-2 refused" ] || fail "herdr clear: '$got'"
+  pass "fm_backend_composer_clear: herdr presses Ctrl+U until empty and refuses when it never empties"
+}
+
 test_watcher_escalates_when_every_ring_is_a_skip() {
   local dir state rec log composer draft check wakes
   dir=$(setup_watch_case skip-budget)
@@ -2092,6 +2134,8 @@ test_watcher_pays_fire_and_forget_retry_once
 test_watcher_holds_retry_while_the_worker_decides
 test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
+test_herdr_recorded_capture_classifies_as_own_doorbell
+test_herdr_composer_clear_for_own_doorbell
 test_watcher_escalates_when_every_ring_is_a_skip
 test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_dead_pane_ignores_stale_busy_state

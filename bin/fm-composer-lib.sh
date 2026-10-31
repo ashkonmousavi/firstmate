@@ -2073,6 +2073,28 @@ fm_composer_text_is_own_doorbell() {  # <text> <line>
   [ -n "$line" ] && [ "$text" = "$line" ]
 }
 
+# fm_composer_text_is_own_doorbell_partial: 0 when <text> is a leading part of
+# <line> that is long enough to carry the task's inbox name. A composer can
+# show only the first row of a wrapped doorbell (recorded on a Claude Code
+# composer in a Herdr pane: the row ends at `read and` and the wrapped rest is
+# never drawn), so the full-line match misses a doorbell that is ours. Whitespace
+# is ignored as in fm_composer_text_is_own_doorbell. The text must reach the end
+# of `steering inbox,`, which follows the quoted `<task>.inbox` name, so another
+# task's doorbell, or any short fragment a person typed, never qualifies; extra
+# characters after a prefix break the prefix and do not match.
+fm_composer_text_is_own_doorbell_partial() {  # <text> <line>
+  local text=$1 line=$2 hint anchor='steeringinbox,' tail
+  hint=$(printf '%s' 'ctrl+c to stop' | tr -d '[:space:]')
+  text=$(printf '%s' "$text" | tr -d '[:space:]')
+  line=$(printf '%s' "$line" | tr -d '[:space:]')
+  text=${text//"$hint"/}
+  [ -n "$line" ] && [ -n "$text" ] || return 1
+  case "$line" in *"$anchor"*) ;; *) return 1 ;; esac
+  tail=${line#*"$anchor"}
+  [ "${#text}" -ge $(( ${#line} - ${#tail} )) ] || return 1
+  [ "${line#"$text"}" != "$line" ]
+}
+
 # fm_composer_blocking_dialog: name a screen whose next Enter would answer it.
 # Prints the name and returns 0 only for the recorded structure of one dialog:
 # the heading on its own line, then its selected row alone on a row, with the

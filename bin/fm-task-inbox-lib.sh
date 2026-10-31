@@ -634,27 +634,46 @@ fm_task_inbox_last_reason() {  # <record-path>
   esac
 }
 
-# Whether the composer's content is exactly <line>.
+# The composer's current content, read the way the pending verdict reads it.
 # Tmux and herdr use the same screen their pending verdict uses, not a plain
-# tail. fm_composer_text_is_own_doorbell ignores Cursor's same-row stop hint.
-fm_task_inbox_composer_holds() {  # <backend> <target> <line> [expected-label]
-  local backend=$1 target=$2 line=$3 label=${4:-} cap held caps
+# tail. Sets FM_TASK_INBOX_COMPOSER_HELD in this shell, never in a subshell, so
+# the ring reason set on failure survives; returns 1 when the content is
+# unreadable.
+fm_task_inbox_composer_read() {  # <backend> <target> [expected-label]
+  local backend=$1 target=$2 label=${3:-} cap caps
+  FM_TASK_INBOX_COMPOSER_HELD=
   fm_backend_source "$backend" || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
   case "$backend" in
     tmux)
       cap=$(fm_tmux_composer_capture "$target") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       caps=$(fm_tmux_composer_caps)
-      held=$(fm_composer_extract_selected_content "$caps" "$cap") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
+      FM_TASK_INBOX_COMPOSER_HELD=$(fm_composer_extract_selected_content "$caps" "$cap") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
     herdr)
-      held=$(fm_backend_herdr_composer_content "$target") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
+      FM_TASK_INBOX_COMPOSER_HELD=$(fm_backend_herdr_composer_content "$target") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
     *)
       cap=$(fm_backend_capture "$backend" "$target" "$FM_COMPOSER_CAPTURE_LINES" "$label" 2>/dev/null) || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
-      held=$(fm_composer_extract_selected_content styled=0 "$cap") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
+      FM_TASK_INBOX_COMPOSER_HELD=$(fm_composer_extract_selected_content styled=0 "$cap") || { FM_TASK_INBOX_RING_REASON=composer-unreadable; return 1; }
       ;;
   esac
-  fm_composer_text_is_own_doorbell "$held" "$line"
+}
+
+# Whether the composer's content is exactly <line>.
+# fm_composer_text_is_own_doorbell ignores Cursor's same-row stop hint.
+fm_task_inbox_composer_holds() {  # <backend> <target> <line> [expected-label]
+  fm_task_inbox_composer_read "$1" "$2" "${4:-}" || return 1
+  fm_composer_text_is_own_doorbell "$FM_TASK_INBOX_COMPOSER_HELD" "$3"
+}
+
+# Whether the composer holds nothing but this task's own doorbell: the whole
+# line, or the leading part a wrapped composer row shows once it reaches the
+# task's inbox name. Used by bin/fm-control.sh to clear an unsubmitted doorbell
+# it would otherwise refuse as pending text.
+fm_task_inbox_composer_holds_own() {  # <backend> <target> <line> [expected-label]
+  fm_task_inbox_composer_read "$1" "$2" "${4:-}" || return 1
+  fm_composer_text_is_own_doorbell "$FM_TASK_INBOX_COMPOSER_HELD" "$3" \
+    || fm_composer_text_is_own_doorbell_partial "$FM_TASK_INBOX_COMPOSER_HELD" "$3"
 }
 
 fm_task_inbox_is_fire_and_forget() {  # <record-path>

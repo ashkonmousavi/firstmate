@@ -147,6 +147,11 @@ case "${1:-}" in
     else
       printf '%s\n' "$payload" >> "$D/keys"
       printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
+      # pane-after-c-u models a composer that a Ctrl+U empties; without it the
+      # pane never changes, which is a clear that does not take.
+      if [ "$payload" = C-u ] && [ -f "$D/pane-after-c-u" ]; then
+        cp "$D/pane-after-c-u" "$D/pane"
+      fi
       if [ "$payload" = Escape ] && [ -f "$D/devin" ]; then
         case "$(cat "$D/devin")" in
           running) printf armed > "$D/devin" ;;
@@ -1446,6 +1451,119 @@ test_recorded_harness_capabilities() {
 
 # --- 6. marker non-regression -----------------------------------------------
 
+# --- Firstmate's own unsubmitted doorbell in the composer ------------------
+
+# own_doorbell_line <case-dir> <id>: the exact doorbell line for the task.
+own_doorbell_line() {
+  bash -c '. "$0/bin/fm-task-inbox-lib.sh"; fm_task_inbox_doorbell_line "$1"' "$ROOT" "$1/home/state/$2.inbox/1.msg"
+}
+
+# claude_composer_screen <draft>: a Claude-shaped screen whose prompt row holds <draft>.
+claude_composer_screen() {
+  local rule='────────────────────────────────────────────────────────────'
+  printf '%s\n❯ %s\n%s\n  ⏵⏵ bypass permissions on (shift+tab to cycle)\n' "$rule" "$1" "$rule"
+}
+
+own_doorbell_case() {  # <name> <draft> [clears:yes|no] -> case dir
+  local dir
+  dir=$(new_case "$1")
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  claude_composer_screen "$2" > "$dir/fake/pane"
+  if [ "${3:-yes}" = yes ]; then claude_composer_screen '' > "$dir/fake/pane-after-c-u"; fi
+  printf '%s\n' "$dir"
+}
+
+test_exit_clears_own_doorbell_then_proceeds() {
+  local dir out rc line
+  dir=$(new_case own-doorbell)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "$line" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exit should clear its own doorbell and proceed: $out"
+  grep -qx C-u "$dir/fake/keys" || fail "the doorbell should be cleared with Ctrl+U"
+  [ "$(literals "$dir")" = /exit ] || fail "only the exit command should be typed after the clear"
+  pass "fm-control exit: an unsubmitted doorbell for this task is cleared, then exit proceeds"
+}
+
+test_exit_clears_wrapped_first_row_of_own_doorbell() {
+  local dir out rc line
+  dir=$(new_case own-doorbell-wrapped)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  # The composer draws only the first row of the wrapped doorbell, as recorded.
+  claude_composer_screen "${line%% read and act*} read and" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "a wrapped first row of the doorbell should clear: $out"
+  grep -qx C-u "$dir/fake/keys" || fail "the wrapped doorbell should be cleared with Ctrl+U"
+  pass "fm-control exit: the visible first row of a wrapped own doorbell is cleared"
+}
+
+test_exit_refuses_doorbell_with_typed_text() {
+  local dir out rc line
+  dir=$(new_case doorbell-typed)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "$line please also fix" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "doorbell plus typed text must refuse"
+  assert_contains "$out" "composer visibly holds pending text" "the existing refusal should stand"
+  ! grep -qx C-u "$dir/fake/keys" || fail "typed text must never be cleared"
+  [ -z "$(literals "$dir")" ] || fail "nothing may be typed onto the draft"
+  pass "fm-control exit: a doorbell followed by typed text still refuses"
+}
+
+test_exit_refuses_other_tasks_doorbell() {
+  local dir out rc line
+  dir=$(new_case doorbell-other)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "${line//t1.inbox/t2.inbox}" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "another task's doorbell must refuse"
+  assert_contains "$out" "composer visibly holds pending text" "the existing refusal should stand"
+  ! grep -qx C-u "$dir/fake/keys" || fail "another task's doorbell must not be cleared"
+  pass "fm-control exit: a doorbell for another task still refuses"
+}
+
+test_exit_refuses_when_own_doorbell_clear_does_not_take() {
+  local dir out rc line
+  dir=$(new_case doorbell-stuck)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "$line" > "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "an unverified clear must refuse"
+  assert_contains "$out" "clearing it did not leave the composer empty" "the refusal should say the clear did not verify"
+  [ -z "$(literals "$dir")" ] || fail "nothing may be typed after a clear that did not take"
+  pass "fm-control exit: a clear that does not read back empty refuses"
+}
+
+test_interrupt_clears_own_doorbell_first() {
+  local dir out rc line
+  dir=$(new_case doorbell-interrupt)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "$line" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 interrupt); rc=$?
+  expect_code 0 "$rc" "interrupt should proceed after clearing: $out"
+  [ "$(head -1 "$dir/fake/keys")" = C-u ] || fail "the doorbell should be cleared before the interrupt key"
+  grep -qx Escape "$dir/fake/keys" || fail "the interrupt key should still be delivered"
+  pass "fm-control interrupt: an own doorbell is cleared before the interrupt key"
+}
+
 test_secondmate_control_command_carries_no_marker() {
   local dir out rc typed home
   dir=$(new_case sm-marker)
@@ -1584,3 +1702,9 @@ test_grok_idle_footer_does_not_confirm_cancellation
 test_recorded_harness_capabilities
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task
+test_exit_clears_own_doorbell_then_proceeds
+test_exit_clears_wrapped_first_row_of_own_doorbell
+test_exit_refuses_doorbell_with_typed_text
+test_exit_refuses_other_tasks_doorbell
+test_exit_refuses_when_own_doorbell_clear_does_not_take
+test_interrupt_clears_own_doorbell_first
