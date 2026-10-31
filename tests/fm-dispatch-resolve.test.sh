@@ -778,6 +778,33 @@ TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$EARLY" run code out err "$BRIEF"
 assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "an early projection is uncertainty, never a refusal"
 pass "runway: a short candidate is refused when another runs through its reset"
 
+MIXED="$TMP_ROOT/runway-mixed.json"
+for scopes in 'all_models model:sonnet' 'model:sonnet all_models' 'all_products product:sonnet' 'product:sonnet all_products'; do
+  read -r weak_scope established_scope <<< "$scopes"
+  for confidence in early unknown missing; do
+    for order in forward reverse; do
+      jq --arg weak_scope "$weak_scope" --arg established_scope "$established_scope" \
+        --arg confidence "$confidence" --arg order "$order" '
+        (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability) =
+          ([{scope: $weak_scope, status: "known", effectivePercentRemaining: 40,
+             runway: ({status: "projected_exhaustion", projectedExhaustedAt: "2030-01-01T01:00:00Z"}
+                      + if $confidence == "missing" then {} else {projectionConfidence: $confidence} end),
+             selection: {spendPriority: 0.9}},
+            {scope: $established_scope, status: "known", effectivePercentRemaining: 40,
+             runway: {status: "projected_exhaustion", projectedExhaustedAt: "2030-01-01T02:00:00Z", projectionConfidence: "established"},
+             selection: {spendPriority: 0.95}}]
+           | if $order == "reverse" then reverse else . end)
+      ' "$RUNWAY" > "$MIXED"
+      TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$MIXED" run code out err "$BRIEF"
+      assert_equals "$code" 0 "mixed-confidence bounds resolve: $scopes $confidence $order"
+      assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "the through-reset alternative still wins"
+      assert_contains "$out" "-> not eligible: runway projected_exhaustion at $established_scope ends 2030-01-01T02:00:00Z before its reset while cursor:cursor-grok-4.6-medium (spendPriority 0.2) runs through its reset" "the established bound supplies the refusal scope and date: $confidence $order"
+      assert_not_contains "$out" "-> not eligible: runway projected_exhaustion at $weak_scope" "uncertain evidence cannot justify refusal"
+    done
+  done
+done
+pass "runway: refusal cites established evidence across scopes, confidence states, and row order"
+
 reset_log
 write_runway_quota "$RUNWAY" short 0.9 short 0.2
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$RUNWAY" run code out err "$BRIEF"

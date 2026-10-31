@@ -89,13 +89,14 @@ FM_QUOTA_EVAL_JQ='
     end;
   def quota_evidence($rows):
     $rows | map({scope, status, pct: (.effectivePercentRemaining // null), runway: (.runway.status // null),
+                 projectionConfidence: (.runway.projectionConfidence // null),
                  exhaustsAt: (.runway.projectedExhaustedAt // null), spendPriority: (.selection.spendPriority // null)});
-  def quota_runway_class($rows):
-    if ($rows | length) == 0 then "unknown"
-    elif any($rows[]; (.runway.status // "") == "exhausted_now") then "exhausted"
-    elif any($rows[]; .status == "known" and .runway.status == "projected_exhaustion"
-                      and (.runway.projectionConfidence // "") == "established") then "short"
-    elif all($rows[]; .status == "known" and .runway.status == "through_reset") then "through"
+  def quota_runway_class($bounds):
+    if ($bounds | length) == 0 then "unknown"
+    elif any($bounds[]; .runway == "exhausted_now") then "exhausted"
+    elif any($bounds[]; .status == "known" and .runway == "projected_exhaustion"
+                        and .projectionConfidence == "established") then "short"
+    elif all($bounds[]; .status == "known" and .runway == "through_reset") then "through"
     else "unknown" end;
   def quota_candidate_label($c): "\($c.profile.harness):\($c.profile.model // "-")";
   def quota_evaluate($q; $pmap; $c):
@@ -110,7 +111,7 @@ FM_QUOTA_EVAL_JQ='
       quota_applicable($q; $p; $lane; ($c.model // "")) as $rows |
       quota_evidence($rows) as $bounds |
       quota_floor_state($q; $c.floor; $p; $lane) as $profile_floor_state |
-      quota_runway_class($rows) as $runway_class |
+      quota_runway_class($bounds) as $runway_class |
       (if any($rows[]; (.runway.status // "") == "exhausted_now") then
         ($rows | map(select((.runway.status // "") == "exhausted_now")) | first) as $bad |
         {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, pct: ($bad.effectivePercentRemaining // null), runway: $bad.runway.status, eligible: false, reason: "runway exhausted_now at \($bad.scope)"}
@@ -153,7 +154,8 @@ FM_QUOTA_EVAL_JQ='
       ($through | map("\(quota_candidate_label(.)) (spendPriority \(.spendPriority))") | join(", ")) as $names |
       $cands | map(
         if .runway_class == "short" or .runway_class == "exhausted" then
-          ((.bounds // []) | map(select(.runway == "projected_exhaustion" or .runway == "exhausted_now")) | first) as $row |
+          .runway_class as $class |
+          ((.bounds // []) | map(select(quota_runway_class([.]) == $class)) | first) as $row |
           # A candidate already ineligible keeps its own reason, with the
           # through-reset alternative appended.
           . + {eligible: false, unranked: false, runway_refused: true,
