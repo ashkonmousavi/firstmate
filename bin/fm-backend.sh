@@ -1036,7 +1036,7 @@ fm_backend_composer_clear() {  # <backend> <target> <text> [expected-label]
     fm_backend_herdr_composer_clear "$target" "$text"
     return $?
   fi
-  presses=$(( ${#text} / 40 + 2 ))
+  presses=$(( ${#text} + 1 ))
   while [ "$i" -lt "$presses" ]; do
     fm_backend_send_key "$backend" "$target" C-u "$label" || return 1
     i=$((i + 1))

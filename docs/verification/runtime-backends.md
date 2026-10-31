@@ -1262,6 +1262,42 @@ Those are failure-path checks, not live-harness proof; their oracle is that a fa
 Shell syntax validation of the changed guard passed.
 Scratch pane captures, generated fixtures and logs belong in PR evidence, outside the tracked source change.
 
+#### Lifecycle clearing
+
+The lifecycle mode of `tests/fm-send-inbox-doorbell-live-e2e.test.sh` exercises real `fm-control.sh` interrupt and exit calls against each selected installed harness.
+Its oracle requires a human draft, another task's doorbell and an own doorbell with appended human text to survive refused exits unchanged; an own doorbell must clear without submitting its unread record, interrupt must preserve the agent, and exit must stop it while preserving the endpoint.
+Claude's lifecycle cases use a 20-column pane.
+The exit path is shared with relaunch; this guard does not exercise replacement-agent launch.
+The portable `test_composer_clear_at_narrow_widths` in `tests/fm-task-inbox.test.sh` also requires both tmux and Herdr to clear 180 characters at widths 1 and 20, modeling the repeated line deletion documented by [Claude Code](https://code.claude.com/docs/en/interactive-mode#text-editing).
+An insufficient deletion budget leaves observable pending text and fails that regression.
+
+Verified 2026-10-30 on Linux with tmux 3.4 using the following commands:
+
+```sh
+TMPDIR="$PWD/.review-doorbell/tmp" bash tests/fm-task-inbox.test.sh
+HOME="$PWD/.review-doorbell/user-home" \
+CLAUDE_CONFIG_DIR="$PWD/.review-doorbell/claude-config" \
+TMPDIR="$PWD/.review-doorbell/tmp" DISABLE_AUTOUPDATER=1 \
+CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false FM_SEND_INBOX_LIVE_E2E=1 \
+FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY=1 FM_SEND_INBOX_LIVE_HARNESSES='claude pi' \
+bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+```
+
+The disposable directories were prepared inside the checkout, with existing Claude credentials, onboarding, workspace trust and accepted bypass settings copied into the disposable configuration.
+The original configuration was not changed.
+Both commands exited 0; relevant output was:
+
+```text
+ok - composer clear: tmux and Herdr finish 180-character drafts at widths 1 and 20
+ok - claude (2.1.314 (Claude Code)): lifecycle clears its own doorbell without submitting, preserves foreign drafts, interrupts and exits
+ok - pi (1.0.0): lifecycle clears its own doorbell without submitting, preserves foreign drafts, interrupts and exits
+ok - live steering-inbox doorbell guard: 2 cases honored the doorbell contract
+```
+
+Other harnesses were not refreshed by this focused run.
+`FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash tests/fm-herdr-submit-confirm-live-e2e.test.sh` now exercises the same lifecycle cases against real Claude on Herdr before its final exit proof.
+That live Herdr guard was not run here because its standard lab helper provisions session state outside the permitted worktree; the portable Herdr clearing regression passed, but the new Herdr lifecycle case has no refreshed live result.
+
 ## Waiting-worker command ceilings
 
 The `# Waiting` section of the ship and scout briefs (`bin/fm-brief.sh`) has a worker hold every external wait inside one blocking shell command, bounded by what its harness lets one command run.

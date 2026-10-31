@@ -284,10 +284,46 @@ while [ "$i" -lt 30 ]; do
 done
 [ "$actual" = empty ] \
   || fail "Claude Code ($VERSION) on $HERDR_VER: recovery draft did not clear"
-verdict=$(fm_backend_herdr_send_text_submit "$TARGET" '/exit' 3 0.4 1.2) \
-  || fail "send_text_submit failed to run the /exit submission against Claude Code ($VERSION) on $HERDR_VER"
-[ "$verdict" != send-failed ] \
-  || fail "Claude Code ($VERSION) on $HERDR_VER: a typed /exit behind its command popup was judged unsent and cleared instead of submitted"
+. "$ROOT/bin/fm-task-inbox-lib.sh"
+CONTROL_HOME="$TMP_ROOT/control-home"
+mkdir -p "$CONTROL_HOME/state" "$CONTROL_HOME/worktree"
+workspace=$(printf '%s' "$WS_JSON" | jq -er '.result.workspace.workspace_id') || fail "workspace identity unavailable"
+tab=$(lab pane get "$PANE" | jq -er '.result.pane.tab_id') || fail "tab identity unavailable"
+printf 'window=%s\nendpoint_task_id=doorbell\nbackend=herdr\nherdr_session=%s\nherdr_workspace_id=%s\nherdr_tab_id=%s\nherdr_pane_id=%s\nharness=claude\nkind=ship\nworktree=%s\nproject=%s\n' \
+  "$TARGET" "$SESSION" "$workspace" "$tab" "$PANE" "$CONTROL_HOME/worktree" "$CONTROL_HOME/worktree" > "$CONTROL_HOME/state/doorbell.meta"
+rec=$(fm_task_inbox_write "$CONTROL_HOME/state" doorbell "Run touch $CONTROL_HOME/unexpected-submit, then acknowledge this record.") \
+  || fail "Claude Code ($VERSION) on $HERDR_VER: could not create the lifecycle record"
+line=$(fm_task_inbox_doorbell_line "$rec") || fail "could not build the lifecycle doorbell"
+for draft in 'An unsent human draft' "${line//doorbell.inbox/another-task.inbox}" "$line additional human text"; do
+  fm_backend_herdr_send_literal "$TARGET" "$draft" || fail "could not type the foreign draft"
+  sleep 1
+  fm_task_inbox_composer_holds herdr "$TARGET" "$draft" \
+    || fail "Claude Code ($VERSION) on $HERDR_VER: foreign draft never rendered in full"
+  if output=$(FM_HOME="$CONTROL_HOME" bash "$ROOT/bin/fm-control.sh" doorbell exit 2>&1); then
+    fail "Claude Code ($VERSION) on $HERDR_VER: exit accepted a foreign draft: $output"
+  fi
+  case "$output" in *'composer visibly holds pending text'*) ;; *) fail "$output" ;; esac
+  fm_task_inbox_composer_holds herdr "$TARGET" "$draft" \
+    || fail "Claude Code ($VERSION) on $HERDR_VER: exit changed a foreign draft"
+  fm_backend_composer_clear herdr "$TARGET" "$draft" || fail "could not clear the test's foreign draft"
+done
+for verb in interrupt exit; do
+  fm_backend_herdr_send_literal "$TARGET" "$line" || fail "could not seed the own doorbell"
+  sleep 1
+  fm_task_inbox_composer_holds_own herdr "$TARGET" "$line" \
+    || fail "Claude Code ($VERSION) on $HERDR_VER: own doorbell never rendered"
+  output=$(FM_HOME="$CONTROL_HOME" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" doorbell "$verb" 2>&1) \
+    || fail "Claude Code ($VERSION) on $HERDR_VER: $verb failed: $output"
+  if [ "$verb" = interrupt ]; then
+    [ "$(fm_backend_composer_state herdr "$TARGET")" = empty ] \
+      || fail "Claude Code ($VERSION) on $HERDR_VER: interrupt did not clear the own doorbell"
+    [ "$(fm_backend_agent_state herdr "$TARGET")" = alive ] || fail "interrupt stopped the agent"
+  fi
+  [ -f "$rec" ] && [ ! -e "$CONTROL_HOME/unexpected-submit" ] \
+    || fail "Claude Code ($VERSION) on $HERDR_VER: lifecycle submitted the doorbell"
+done
+fm_backend_target_exists herdr "$TARGET" || fail "lifecycle removed the lab endpoint"
+pass "live Herdr lifecycle: Claude Code ($VERSION) on $HERDR_VER clears its own doorbell without submitting, preserves foreign drafts, interrupts and exits"
 exited=0
 i=0
 while [ "$i" -lt 30 ]; do
@@ -296,7 +332,7 @@ while [ "$i" -lt 30 ]; do
   sleep 1
 done
 [ "$exited" = 1 ] \
-  || fail "Claude Code ($VERSION) on $HERDR_VER: the /exit submission reported '$verdict' but the agent never exited"
+  || fail "Claude Code ($VERSION) on $HERDR_VER: lifecycle exit reported success but the agent never exited"
 pass "live Herdr submit confirm: Claude Code ($VERSION) on $HERDR_VER proves and submits a typed /exit behind its command popup"
 
 [ "$CHECKED" -gt 0 ] || fail "FM_HERDR_SUBMIT_CONFIRM_LIVE=1 checked no harness"

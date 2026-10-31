@@ -1870,6 +1870,28 @@ test_herdr_composer_clear_for_own_doorbell() {
   pass "fm_backend_composer_clear: herdr presses Ctrl+U until empty and refuses when it never empties"
 }
 
+test_composer_clear_at_narrow_widths() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    fm_backend_source herdr
+    fm_backend_send_key() { remaining=${remaining:width}; }
+    fm_backend_herdr_send_key() { remaining=${remaining:width}; }
+    fm_backend_composer_state() { if [ -z "$remaining" ]; then printf empty; else printf pending; fi; }
+    fm_backend_herdr_composer_state() { fm_backend_composer_state; }
+    for backend in tmux herdr; do
+      for width in 1 20; do
+        printf -v remaining "%0180d" 0
+        fm_backend_composer_clear "$backend" s:w:p "$remaining" || exit 1
+        [ -z "$remaining" ] || exit 1
+      done
+    done
+    printf cleared
+  ' "$ROOT") || fail "a 180-character draft must clear even at one character per wrapped row"
+  [ "$got" = cleared ] || fail "narrow composer clear: $got"
+  pass "composer clear: tmux and Herdr finish 180-character drafts at widths 1 and 20"
+}
+
 test_watcher_escalates_when_every_ring_is_a_skip() {
   local dir state rec log composer draft check wakes
   dir=$(setup_watch_case skip-budget)
@@ -2136,6 +2158,7 @@ test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
 test_herdr_recorded_capture_classifies_as_own_doorbell
 test_herdr_composer_clear_for_own_doorbell
+test_composer_clear_at_narrow_widths
 test_watcher_escalates_when_every_ring_is_a_skip
 test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_dead_pane_ignores_stale_busy_state

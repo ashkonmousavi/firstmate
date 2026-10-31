@@ -114,6 +114,7 @@ harness_version() {  # <binary>
 launch_cmd() {  # <name> <home> <binary>
   local home=${2:-} binary=${3:-} config
   case "$1" in
+    claude) printf '%q --dangerously-skip-permissions --setting-sources user --settings %q' "$binary" '{"disableAllHooks":true,"feedbackDrafts":"off"}' ;;
     codex)
       printf 'codex -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox --disable hooks -c %q -c %q' \
         "shell_environment_policy.set.FM_HOME=\"$home\"" \
@@ -182,6 +183,9 @@ wait_ready() {  # <window>
     screen=$(tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$win" 2>/dev/null || true)
     if [ "$trusted" = 0 ] && [[ "$screen" == *'Yes, I trust this folder'* ]]; then
       tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Down Enter || return 1
+      trusted=1
+    elif [ "$trusted" = 0 ] && [[ "$screen" == *'Trust project folder?'* ]]; then
+      tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Enter || return 1
       trusted=1
     fi
     # Dismiss one non-trust startup modal (update prompts), as the composer
@@ -253,13 +257,62 @@ touch $(printf '%q' "$acted")" \
   pass "$name ($version): a doorbell submitted during a real foreground tool was acted on and acked without an idle re-ring"
 }
 
+check_lifecycle_composer() {
+  local name=$1 version=$2 home=$3 task=$4 target=$5 rec line draft output verb i
+  mkdir -p "$home/worktree"
+  printf 'worktree=%s\nproject=%s\n' "$home/worktree" "$home/worktree" >> "$home/state/$task.meta"
+  rec=$(fm_task_inbox_write "$home/state" "$task" "Run touch $home/unexpected-submit, then acknowledge this record.") || return 1
+  line=$(fm_task_inbox_doorbell_line "$rec") || return 1
+  for draft in 'An unsent human draft' "${line//$task.inbox/another-task.inbox}" "$line additional human text"; do
+    tmux send-keys -t "$target" -l -- "$draft" || return 1
+    for i in 1 2 3 4 5; do
+      sleep 1
+      fm_task_inbox_composer_holds tmux "$target" "$draft" && break
+    done
+    fm_task_inbox_composer_holds tmux "$target" "$draft" || return 1
+    if output=$(FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" exit 2>&1); then
+      printf 'not ok - %s (%s): exit accepted a foreign draft: %s\n' "$name" "$version" "$output" >&2
+      return 1
+    fi
+    case "$output" in *'composer visibly holds pending text'*) ;; *) printf '%s\n' "$output" >&2; return 1 ;; esac
+    fm_task_inbox_composer_holds tmux "$target" "$draft" || return 1
+    fm_backend_composer_clear tmux "$target" "$draft" || return 1
+  done
+  if [ "$name" = claude ]; then
+    tmux resize-window -t "$target" -x 20 -y 50 || return 1
+    sleep 1
+  fi
+  for verb in interrupt exit; do
+    tmux send-keys -t "$target" -l -- "$line" || return 1
+    for i in 1 2 3 4 5; do
+      sleep 1
+      fm_task_inbox_composer_holds_own tmux "$target" "$line" && break
+    done
+    fm_task_inbox_composer_holds_own tmux "$target" "$line" || return 1
+    output=$(FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" "$verb" 2>&1) || { printf '%s\n' "$output" >&2; return 1; }
+    case "$verb" in
+      interrupt)
+        [ "$(fm_backend_agent_state tmux "$target")" = alive ] || return 1
+        [ "$(fm_backend_composer_state tmux "$target")" = empty ] || return 1
+        ;;
+      exit) [ "$(fm_backend_agent_state tmux "$target")" = dead ] || return 1 ;;
+    esac
+    fm_backend_target_exists tmux "$target" || return 1
+    [ -f "$rec" ] && [ ! -e "$home/unexpected-submit" ] || return 1
+  done
+  CHECKED=$((CHECKED + 1))
+  pass "$name ($version): lifecycle clears its own doorbell without submitting, preserves foreign drafts, interrupts and exits"
+}
+
 check_harness_doorbell() {  # <name> <mode> <binary>
   local name=$1 mode=$2 binary=$3 version cmd win="hx-$1-$2" home task acted rec handled i ready_rc line seeded=0
   version=$(harness_version "$binary")
   home="$LAB/$name-$mode-home"
   mkdir -p "$home/state"
   cmd=$(launch_cmd "$name" "$home" "$binary") || { FAILED=1; printf 'not ok - %s (%s): launch recipe preparation failed\n' "$name" "$version" >&2; return 0; }
+  [ "$mode" != lifecycle ] || cmd="$cmd; exec bash --noprofile --norc"
   task="live-$name"
+  [ "$mode" != lifecycle ] || win="fm-$task"
   acted="$LAB/acted-$name-$mode"
   tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$ROOT" \
     -- bash -lc "export FM_HOME=$(printf '%q' "$home") FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" \
@@ -274,6 +327,15 @@ check_harness_doorbell() {  # <name> <mode> <binary>
   fi
   [ "$ready_rc" -eq 0 ] || note "$name ($version): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)"
   printf 'window=%s:%s\nkind=ship\nharness=%s\n' "$SESSION" "$win" "$name" > "$home/state/$task.meta"
+  if [ "$mode" = lifecycle ]; then
+    if ! check_lifecycle_composer "$name" "$version" "$home" "$task" "$SESSION:$win"; then
+      FAILED=1
+      printf 'not ok - %s (%s): lifecycle composer guard failed\n' "$name" "$version" >&2
+      tmux capture-pane -p -t "$SESSION:$win" >&2
+    fi
+    tmux kill-window -t "$SESSION:$win" 2>/dev/null || true
+    return 0
+  fi
   if [ "$mode" = pending ]; then
     rec=$(fm_task_inbox_write "$home/state" "$task" \
       "Firstmate live check: run exactly this shell command now: touch $acted - then follow the mv instruction you were given for this message. Reply with one short line.") || {
@@ -533,6 +595,8 @@ for h in $HARNESSES; do
     *) binary=$(command -v "$h" 2>/dev/null) || binary= ;;
   esac
   if [ -n "$binary" ]; then
+    check_harness_doorbell "$h" lifecycle "$binary"
+    [ "${FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY:-0}" != 1 ] || continue
     if [ "$h" = claude ]; then
       if [ -n "${FM_SEND_INBOX_LIVE_CLAUDE_MODES:-}" ]; then
         for mode in $FM_SEND_INBOX_LIVE_CLAUDE_MODES; do check_claude_submit "$mode" "$binary"; done
