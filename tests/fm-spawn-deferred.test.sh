@@ -332,6 +332,7 @@ printf 'treehouse %s\n' "$*" >> "$FM_FAKE_CALL_LOG"
 exit 0
 SH
   chmod +x "$fakebin/tmux" "$fakebin/treehouse"
+  fm_test_codex_first_turn_wrap "$fakebin"
   fm_fake_exit0 "$fakebin" gh gh-axi no-mistakes
   printf '%s\n' "$fakebin"
 }
