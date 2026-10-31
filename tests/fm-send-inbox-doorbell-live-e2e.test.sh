@@ -28,6 +28,8 @@
 # per-harness wait with FM_SEND_INBOX_LIVE_TIMEOUT (seconds, default 240).
 # Set FM_SEND_INBOX_LIVE_PENDING_ONLY=1 to run only pending-draft recovery.
 # FM_SEND_INBOX_LIVE_CLAUDE_MODES selects individual Claude cases; optional
+# FM_SEND_INBOX_LIVE_READY_TIMEOUT extends the startup-only readiness budget.
+# FM_SEND_INBOX_LIVE_TRACE_READS=1 retains readback diagnostics on lifecycle failure.
 # FM_SEND_INBOX_LIVE_EVIDENCE_DIR retains CLI output and terminal captures.
 # Record the dated per-harness result in
 # docs/verification/runtime-backends.md ("Steering-inbox doorbell").
@@ -73,6 +75,12 @@ if [ -n "\${FM_LIFECYCLE_INPUT_LOG:-}" ] && [ "\${1:-}" = send-keys ]; then
     *' -l '*) printf 'text=%s\\n' "\${!#}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
     *) printf 'key=%s\\n' "\${!#}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
   esac
+fi
+if [ "\${FM_SEND_INBOX_LIVE_TRACE_READS:-0}" = 1 ] && [ -n "\${FM_LIFECYCLE_INPUT_LOG:-}" ] && [ "\${1:-}" = capture-pane ]; then
+  capture=\$("$REAL_TMUX" -L "$SOCKET" "\$@") || exit 1
+  printf '\\n--- composer read ---\\n%s\\n' "\$capture" >> "\$FM_LIFECYCLE_INPUT_LOG.reads"
+  printf '%s\\n' "\$capture"
+  exit 0
 fi
 if [ -n "\${FM_SEND_INBOX_LIVE_FAULT_DIR:-}" ]; then
   fault=\$FM_SEND_INBOX_LIVE_FAULT_DIR
@@ -143,7 +151,7 @@ launch_cmd() {  # <name> <home> <binary>
       config=$(jq -cn --arg lab "${home%/*}" '{toolPermissions:{allowedExternalPaths:[$lab]}}') || return 1
       printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS rovo run --yolo --config-override %q' "$config"
       ;;
-    agy) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS agy --dangerously-skip-permissions' ;;
+    agy) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS AGY_CLI_DISABLE_AUTO_UPDATE=true agy --dangerously-skip-permissions' ;;
     devin)
       bash "$ROOT/bin/fm-devin-config.sh" "$home/state" live-devin 0 || return 1
       printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u NO_COLOR devin --permission-mode dangerous --respect-workspace-trust false --config %q' \
@@ -183,7 +191,7 @@ esac
 # classifier cannot positively identify still gets its doorbell (the composer
 # matrix guard, not this one, owns re-proving the classifier per release).
 wait_ready() {  # <window> [harness]
-  local win=$1 harness=${2:-claude} i=0 budget=60 verdict=unknown dismissed=0 screen trusted=0
+  local win=$1 harness=${2:-claude} i=0 budget=${FM_SEND_INBOX_LIVE_READY_TIMEOUT:-60} verdict=unknown dismissed=0 screen trusted=0
   while [ "$i" -lt "$budget" ]; do
     i=$((i + 1))
     screen=$(tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$win" 2>/dev/null || true)
@@ -334,6 +342,7 @@ check_lifecycle_composer() {
       return 1
     fi
     case "$output" in *'composer visibly holds pending text'*) ;; *) printf '%s\n' "$output" >&2; return 1 ;; esac
+    fm_test_lifecycle_capture "$name" foreign-refused tmux "$target" "$output" "$input_log" || return 1
     fm_task_inbox_composer_holds tmux "$target" "$draft" || return 1
     [ ! -s "$input_log" ] || return 1
     fm_backend_composer_clear tmux "$target" "$draft" || return 1
@@ -354,8 +363,28 @@ check_lifecycle_composer() {
     else
       tmux send-keys -t "$target" -N "$(( ${#line} / 2 ))" Left || return 1
     fi
+    fm_test_lifecycle_capture "$name" "$verb-before" tmux "$target" || return 1
     : > "$input_log"
-    output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" "$verb" 2>&1) || { printf '%s\n' "$output" >&2; return 1; }
+    output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" "$verb" 2>&1) || {
+      printf '%s\n' "$output" >&2
+      fm_test_lifecycle_capture "$name" "$verb-failed" tmux "$target" "$output" "$input_log"
+      if [ -n "${FM_SEND_INBOX_LIVE_EVIDENCE_DIR:-}" ] && [ -f "$input_log.reads" ]; then
+        cp "$input_log.reads" "$FM_SEND_INBOX_LIVE_EVIDENCE_DIR/lifecycle-$name-$verb-reads.ansi"
+        {
+          local delay cy screen
+          for delay in 0 0.2 1; do
+            sleep "$delay"
+            cy=$(fm_tmux_composer_cursor_row "$target")
+            screen=$(fm_tmux_composer_capture "$target")
+            printf 'delay=%s cursor_y=%s cursor-verdict=%s cursorless-verdict=%s\n' "$delay" "$cy" \
+              "$(fm_composer_classify_screen "$(fm_tmux_composer_caps)" "$screen" "$cy")" \
+              "$(fm_composer_classify_screen $'styled=1\ncursor=0' "$screen")"
+          done
+        } > "$FM_SEND_INBOX_LIVE_EVIDENCE_DIR/lifecycle-$name-$verb-failure-probe.txt"
+      fi
+      return 1
+    }
+    fm_test_lifecycle_capture "$name" "$verb-after" tmux "$target" "$output" "$input_log" || return 1
     fm_test_lifecycle_input "$input_log" "$verb" "$(fm_control_exit_command "$name")" || return 1
     case "$verb" in
       interrupt)

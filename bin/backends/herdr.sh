@@ -3493,13 +3493,19 @@ fm_backend_herdr_composer_payload_shown() {  # <text> <after>
 # presses.
 # 0 only when the composer is verified empty again.
 fm_backend_herdr_composer_clear() {  # <target> <text>
-  local target=$1 text=$2 presses i=0 verdict
+  local target=$1 text=$2 presses i=0 verdict read_try
   presses=$(( ${#text} + 1 ))
   while [ "$i" -lt "$presses" ]; do
     fm_backend_herdr_send_key "$target" C-e || return 1
     fm_backend_herdr_send_key "$target" C-u || return 1
     i=$((i + 1))
-    verdict=$(fm_backend_herdr_composer_state "$target") || return 1
+    # A redraw can briefly invalidate the cursor/screen pair. Retry reads,
+    # never edits, until the next deletion has a readable pending verdict.
+    for read_try in 1 2 3 4 5; do
+      verdict=$(fm_backend_herdr_composer_state "$target") || return 1
+      [ "$verdict" = unknown ] && [ "$read_try" -lt 5 ] || break
+      sleep 0.1
+    done
     case "$verdict" in
       empty) return 0 ;;
       pending|pending-unproven) ;;

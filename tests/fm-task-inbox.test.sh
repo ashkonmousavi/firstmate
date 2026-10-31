@@ -1871,13 +1871,16 @@ test_herdr_composer_clear_for_own_doorbell() {
 }
 
 test_composer_clear_stops_on_unreadable_readback() {
-  local got
+  local got dir="$TMP_ROOT/clear-unreadable"
+  mkdir -p "$dir"
   got=$(bash -c '
     . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    read_log=$1/reads
     fm_backend_source herdr
     fm_backend_send_key() { [ "$3" != C-u ] || n=$((n + 1)); return 0; }
     fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
     fm_backend_composer_state() {
+      printf . >> "$read_log"
       if [ "$n" -ge 3 ]; then printf empty; else printf "%s" "$readback"; fi
       return "$read_status"
     }
@@ -1885,9 +1888,11 @@ test_composer_clear_stops_on_unreadable_readback() {
     printf -v text "%010000d" 0
     for backend in tmux herdr; do
       for pair in unknown:0 :0 future-verdict:0 pending:1 empty:1; do
+        : > "$read_log"
         readback=${pair%:*}; read_status=${pair##*:}; n=0
         if fm_backend_composer_clear "$backend" s:w:p "$text"; then exit 1; fi
         [ "$n" -eq 1 ] || exit 1
+        [ "$(wc -c < "$read_log")" -le 10 ] || exit 1
       done
       read_status=0
       for readback in pending pending-unproven; do
@@ -1897,9 +1902,40 @@ test_composer_clear_stops_on_unreadable_readback() {
       done
     done
     printf stopped
-  ' "$ROOT") || fail "unreadable readback must stop deletion independently of payload length"
+  ' "$ROOT" "$dir") || fail "unreadable readback must stop deletion independently of payload length"
   [ "$got" = stopped ] || fail "unreadable composer clear: $got"
   pass "composer clear: tmux and Herdr stop after one edit on unreadable or failed readback"
+}
+
+# Oracle: lifecycle recovery must survive an unreadable redraw, but cannot
+# edit again until readback proves pending, or succeed before it proves empty.
+# The transport trace rejects both aborting on the first redraw and blind edits.
+test_composer_clear_waits_for_redraw() {
+  local dir backend got
+  dir="$TMP_ROOT/clear-redraw"; mkdir -p "$dir"
+  for backend in tmux herdr; do
+    : > "$dir/trace"
+    got=$(bash -c '
+      . "$0/bin/fm-backend.sh"
+      fm_backend_source herdr
+      fm_backend_send_key() { printf "key=%s\n" "$3" >> "$2/trace"; }
+      fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
+      fm_backend_composer_state() {
+        local read=0
+        [ ! -f "$2/reads" ] || read=$(cat "$2/reads")
+        read=$((read + 1)); printf "%s" "$read" > "$2/reads"
+        printf "read=%s\n" "$read" >> "$2/trace"
+        case "$read" in 1|2|4) printf unknown ;; 3) printf pending ;; 5) printf empty ;; *) return 1 ;; esac
+      }
+      fm_backend_herdr_composer_state() { fm_backend_composer_state herdr "$@"; }
+      fm_backend_composer_clear "$1" "$2" doorbell && printf cleared
+    ' "$ROOT" "$backend" "$dir")
+    [ "$got" = cleared ] || fail "$backend clear must wait for transient redraw"
+    [ "$(cat "$dir/trace")" = "$(printf 'key=C-e\nkey=C-u\nread=1\nread=2\nread=3\nkey=C-e\nkey=C-u\nread=4\nread=5')" ] \
+      || fail "$backend clear sent input before a readable pending verdict"
+    rm "$dir/reads"
+  done
+  pass "composer clear: redraw retries are read-only until pending or empty is proven"
 }
 
 test_composer_clear_at_narrow_widths() {
@@ -2206,6 +2242,7 @@ test_watcher_escalates_once_after_budget
 test_herdr_recorded_capture_classifies_as_own_doorbell
 test_herdr_composer_clear_for_own_doorbell
 test_composer_clear_stops_on_unreadable_readback
+test_composer_clear_waits_for_redraw
 test_composer_clear_at_narrow_widths
 test_watcher_escalates_when_every_ring_is_a_skip
 test_watcher_dead_pane_escalates_once_without_ringing

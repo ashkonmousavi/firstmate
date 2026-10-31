@@ -1275,7 +1275,9 @@ Busy exit clears an owned doorbell before delivering an interrupt that could cha
 The exit path is shared with relaunch; this guard does not exercise replacement-agent launch.
 The portable `test_composer_clear_at_narrow_widths` in `tests/fm-task-inbox.test.sh` also requires both tmux and Herdr to clear 180 characters at widths 1 and 20 from cursor positions 0, 90, 179 and 180, modeling the editing contract documented by [Claude Code](https://code.claude.com/docs/en/interactive-mode#text-editing).
 It also clears 260 characters at those widths from the start, middle, penultimate and final cursor positions, preserving recovery beyond a fixed 200-press ceiling.
-Both clear loops stop immediately on an unreadable or failed readback; only readable pending text can continue toward the character bound.
+Both clear loops retry unknown readbacks at most five times with 0.1-second waits, sending no further keys until pending text is readable; failed reads or exhausted retries refuse clearing.
+The portable `test_composer_clear_waits_for_redraw` in `tests/fm-task-inbox.test.sh` requires read-only retries through transient redraws before another deletion or success.
+On 2026-10-30, Claude Code 2.1.314 passed the 20-column interrupt and exit cases with `FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY=1 FM_SEND_INBOX_LIVE_HARNESSES=claude bash tests/fm-send-inbox-doorbell-live-e2e.test.sh`, reporting `ok - live steering-inbox doorbell guard: 1 cases honored the doorbell contract`.
 The Herdr adapter regressions require a 10,000-character direct send to stop clearing after its first unreadable readback, with no Enter and an unconfirmed result.
 These recovery-bound regressions passed on 2026-10-30 with `TMPDIR=/tmp bash tests/fm-backend-herdr.test.sh` and `bash tests/fm-task-inbox.test.sh`; the short Herdr temporary root keeps its Unix socket fixture within the platform path limit.
 An insufficient deletion budget or failure to position the cursor leaves observable pending text and fails that regression.

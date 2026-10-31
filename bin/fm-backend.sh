@@ -1030,7 +1030,7 @@ fm_backend_composer_state() {  # <backend> <target> [expected-label] -> empty|pe
 # a running turn. A wrapped draft can need one press per screen row, so the
 # bound follows <text>'s length. 0 only when the composer is read back empty.
 fm_backend_composer_clear() {  # <backend> <target> <text> [expected-label]
-  local backend=$1 target=$2 text=$3 label=${4:-} presses i=0 verdict
+  local backend=$1 target=$2 text=$3 label=${4:-} presses i=0 verdict read_try
   fm_backend_source "$backend" || return 1
   if [ "$backend" = herdr ]; then
     fm_backend_herdr_composer_clear "$target" "$text"
@@ -1041,7 +1041,13 @@ fm_backend_composer_clear() {  # <backend> <target> <text> [expected-label]
     fm_backend_send_key "$backend" "$target" C-e "$label" || return 1
     fm_backend_send_key "$backend" "$target" C-u "$label" || return 1
     i=$((i + 1))
-    verdict=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || return 1
+    # A redraw can briefly invalidate the cursor/screen pair. Retry reads,
+    # never edits, until the next deletion has a readable pending verdict.
+    for read_try in 1 2 3 4 5; do
+      verdict=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || return 1
+      [ "$verdict" = unknown ] && [ "$read_try" -lt 5 ] || break
+      sleep 0.1
+    done
     case "$verdict" in
       empty) return 0 ;;
       pending|pending-unproven) ;;
