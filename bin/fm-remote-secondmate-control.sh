@@ -13,7 +13,7 @@
 #   fm-remote-secondmate-control.sh capture <id> [lines]
 #   fm-remote-secondmate-control.sh observe <id>
 #   fm-remote-secondmate-control.sh sync <id> [<parent-commit>]
-#   fm-remote-secondmate-control.sh update <id>
+#   fm-remote-secondmate-control.sh update <id> [<branch> <commit>]
 #   fm-remote-secondmate-control.sh retire <id> [--force]
 #
 # Remote placement ends here, but the second-mate agent always runs on the
@@ -25,13 +25,17 @@
 # bin/fm-remote-doctor.sh owns that host's readiness for Herdr.
 # docs/remote-secondmates.md owns why.
 #
-# With <parent-commit>, sync follows the PARENT PRIMARY's default-branch commit,
+# With <parent-commit>, sync follows the PARENT PRIMARY's fleet-branch commit
+# (selection: bin/fm-ff-lib.sh fleet_branch),
 # which the parent resolves on its own checkout and passes in, so a remote home
 # tracks the primary exactly like a local one instead of stopping at whatever
 # this host's Firstmate copy happens to hold. Omitting <parent-commit> targets
-# this host's own code-root HEAD instead, which is what /updatefirstmate wants
-# after it has refreshed that
-# code root from origin. Because this home is a standalone clone, the target
+# this host's own code-root HEAD instead, as an unpinned host-local update does
+# after refreshing that code root from origin.
+# With <branch> <commit>, update pins that refresh to the
+# parent's update target, so the code root and this home land on the commit the
+# parent chose for its whole fleet (bin/fm-update.sh owns the target and the
+# handoff). Because this home is a standalone clone, the target
 # commit is imported here first and the fast-forward itself is the shared one in
 # bin/fm-ff-lib.sh, so the clean, ancestry, and branch guards have a single owner.
 # A private parent-route state directory stores only the remote secondmate
@@ -557,10 +561,16 @@ cmd_sync() {
 }
 
 cmd_update() {
-  local id=$1 update_out root_status
+  local id=$1 branch=${2:-} commit=${3:-} update_out root_status
   validate_id "$id"
   validate_home "$id"
+  if [ -n "$commit" ]; then
+    git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "update branch is not a valid branch name: $branch"
+    case "$commit" in *[!0-9a-f]*) die "update target must be a full 40-character commit id" ;; esac
+    [ "${#commit}" -eq 40 ] || die "update target must be a full 40-character commit id"
+  fi
   if ! update_out=$(FM_HOME="$FM_ROOT" FM_ROOT_OVERRIDE="$FM_ROOT" \
+    FM_UPDATE_TARGET_BRANCH="$branch" FM_UPDATE_TARGET_COMMIT="$commit" \
     "$SCRIPT_DIR/fm-update.sh" 2>&1); then
     [ -z "$update_out" ] || printf '%s\n' "$update_out" >&2
     die "remote code root update failed"
@@ -573,7 +583,7 @@ cmd_update() {
       die "remote code root did not complete a safe origin update"
       ;;
   esac
-  cmd_sync "$id"
+  if [ -n "$commit" ]; then cmd_sync "$id" "$commit"; else cmd_sync "$id"; fi
 }
 
 cmd_retire() {
@@ -613,7 +623,7 @@ case "${1:-}" in
   capture) shift; [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage; cmd_capture "$@" ;;
   observe) shift; [ "$#" -eq 1 ] || usage; cmd_observe "$@" ;;
   sync) shift; [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage; cmd_sync "$@" ;;
-  update) shift; [ "$#" -eq 1 ] || usage; cmd_update "$@" ;;
+  update) shift; [ "$#" -eq 1 ] || [ "$#" -eq 3 ] || usage; cmd_update "$@" ;;
   retire) shift; [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage; cmd_retire "$@" ;;
   ''|-h|--help|help) usage ;;
   *) die "unknown command: $1" ;;

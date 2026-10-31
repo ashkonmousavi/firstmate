@@ -265,7 +265,9 @@ decode() { printf '%s' "$1" | base64 --decode 2>/dev/null || printf '%s' "$1" | 
 rargs=()
 while IFS= read -r -d '' a; do rargs+=("$a"); done < <(decode "$argv_b64")
 case "${rargs[1]:-}" in
-  update) printf 'synced: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' ;;
+  # The host lands on the target the parent handed it; this host predates the
+  # instr= suffix, so it reports the commit alone.
+  update) printf 'synced: %s\n' "${rargs[4]:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}" ;;
   state) printf 'alive\n' ;;
   *) exit 91 ;;
 esac
@@ -471,11 +473,16 @@ test_firstmate_wrong_branch_skipped() {
   bump_origin "$w" instr
   # Simulate firstmate mid-shipping its own change: not on the default branch.
   git -C "$w/main" checkout -q -b feature/wip
+  printf 'unlanded\n' > "$w/main/FEATURE_ONLY"
+  git -C "$w/main" add FEATURE_ONLY
+  git -C "$w/main" commit -qm feature-work
+  git -C "$w/main" push -qu origin feature/wip
   before=$(git -C "$w/main" rev-parse HEAD)
 
   out=$(run_update "$w")
 
   assert_contains "$out" "firstmate: skipped: on feature/wip, expected main" "off-default firstmate skipped"
+  assert_contains "$out" "update target: origin/main " "a pushed feature branch became the fleet update target"
   assert_contains "$out" "reread-firstmate: no" "no reread when firstmate was skipped"
   [ "$(git -C "$w/main" rev-parse HEAD)" = "$before" ] \
     || fail "skipped firstmate HEAD moved"
@@ -556,6 +563,279 @@ test_primary_update_rebinds_local_watch() {
   pass "T12 a self-update rebinds a locally armed watch on the primary"
 }
 
+# --- T13: a curated fleet updates every home to its tracked branch ---------
+# A fork fleet checks out its curated branch, tracking origin's curated, while
+# origin/HEAD still names main. The update follows curated, not main, and hands
+# the very same commit to a detached local home and to a remote host.
+test_curated_branch_is_the_update_target() {
+  local w out curated_tip fake_ssh args_log
+  w=$(new_world t13)
+  git -C "$w/seed" checkout -q -b curated
+  printf 'curated\n' > "$w/seed/CURATED"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm curated-base
+  git -C "$w/seed" push -q origin curated
+  git -C "$w/main" fetch -q origin
+  git -C "$w/main" checkout -q -b curated --track origin/curated
+  git -C "$w/main" worktree add -q --detach "$w/sm1" curated
+  {
+    printf 'window=main:fm-sm1\nendpoint_task_id=sm1\nworktree=%s/sm1\nproject=%s/sm1\n' "$w" "$w"
+    printf 'kind=secondmate\nharness=claude\nhome=%s/sm1\n' "$w"
+  } > "$w/home/state/sm1.meta"
+  printf 'fm-sm1\n' >> "$w/fake/windows"
+  printf 'sm1\n' > "$w/sm1/.fm-secondmate-home"
+  # Both branches move; only curated is this fleet's target.
+  printf 'm2\n' >> "$w/seed/README.md"
+  git -C "$w/seed" commit -qam curated-bump
+  git -C "$w/seed" push -q origin curated
+  curated_tip=$(git -C "$w/seed" rev-parse HEAD)
+  git -C "$w/seed" checkout -q main
+  printf 'main-only\n' > "$w/seed/MAIN_ONLY"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm main-bump
+  git -C "$w/seed" push -q origin main
+
+  args_log="$w/remote-args"
+  fake_ssh="$w/fakebin/fake-ssh"
+  cat > "$fake_ssh" <<SH
+#!/usr/bin/env bash
+set -u
+while [ "\$#" -gt 0 ]; do
+  case "\$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+decode() { printf '%s' "\$1" | base64 --decode 2>/dev/null || printf '%s' "\$1" | base64 -D; }
+rargs=()
+while IFS= read -r -d '' a; do rargs+=("\$a"); done < <(decode "\$4")
+printf '%s\n' "\${rargs[*]}" >> '$args_log'
+case "\${rargs[1]:-}" in
+  update) printf 'synced: %s instr=\n' "\${rargs[4]:-none}" ;;
+  state) printf 'alive\n' ;;
+  *) exit 91 ;;
+esac
+SH
+  chmod +x "$fake_ssh"
+  printf 'window=remote:sm2\nendpoint_task_id=sm2\nharness=claude\nkind=secondmate\nhome=/srv/sm2\nremote_host=remote-box\nremote_backend=herdr\n' \
+    > "$w/home/state/sm2.meta"
+  printf -- '- sm2 - remote domain (host: remote-box; root: /srv/fm; home: /srv/sm2; scope: things; projects: p; added 2026-09-03)\n' \
+    > "$w/home/data/secondmates.md"
+
+  out=$(FM_TEST_SSH_BIN="$fake_ssh" run_update "$w")
+
+  assert_contains "$out" "update target: origin/curated $curated_tip" "the update did not target the tracked curated branch"
+  assert_contains "$out" "firstmate: updated " "the curated primary was not updated"
+  assert_contains "$out" "secondmate sm1: updated " "the detached local home was not updated"
+  assert_contains "$out" "remote secondmate sm2: updated on remote-box ($curated_tip)" "the remote home was not held to the target"
+  [ "$(git -C "$w/main" rev-parse HEAD)" = "$curated_tip" ] || fail "the primary did not land on the curated tip"
+  [ "$(git -C "$w/main" symbolic-ref --short HEAD)" = curated ] || fail "the primary left its curated branch"
+  [ "$(git -C "$w/sm1" rev-parse HEAD)" = "$curated_tip" ] || fail "the local home did not land on the curated tip"
+  [ ! -e "$w/main/MAIN_ONLY" ] && [ ! -e "$w/sm1/MAIN_ONLY" ] || fail "main's commit leaked into the curated fleet"
+  grep -qx "fm-remote-secondmate-control.sh update sm2 curated $curated_tip" "$args_log" \
+    || fail "the remote host was not handed the branch and commit (got: $(cat "$args_log"))"
+  pass "T13 a curated fleet updates the primary, local and remote homes to one curated commit"
+}
+
+# --- T14: remote steps are bounded and named -------------------------------
+# A host whose remote job queue never serves leaves fm-on waiting; the update
+# must give up on that step at its bound, name it, and carry on.
+fake_hanging_ssh() {  # <path> <hanging-subcommand>
+  cat > "$1" <<SH
+#!/usr/bin/env bash
+set -u
+while [ "\$#" -gt 0 ]; do
+  case "\$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+decode() { printf '%s' "\$1" | base64 --decode 2>/dev/null || printf '%s' "\$1" | base64 -D; }
+rargs=()
+while IFS= read -r -d '' a; do rargs+=("\$a"); done < <(decode "\$4")
+if [ "\${rargs[1]:-}" = '$2' ]; then exec sleep 120; fi
+case "\${rargs[1]:-}" in
+  update) printf 'synced: %s\n' "\${rargs[4]:-none}" ;;
+  state) printf 'alive\n' ;;
+esac
+SH
+  chmod +x "$1"
+}
+
+remote_only_world() {  # <name>
+  local w
+  w=$(new_world "$1")
+  printf 'window=remote:sm1\nendpoint_task_id=sm1\nharness=claude\nkind=secondmate\nhome=/srv/sm1\nremote_host=remote-box\nremote_backend=herdr\n' \
+    > "$w/home/state/sm1.meta"
+  printf -- '- sm1 - remote domain (host: remote-box; root: /srv/fm; home: /srv/sm1; scope: things; projects: p; added 2026-09-03)\n' \
+    > "$w/home/data/secondmates.md"
+  printf '%s\n' "$w"
+}
+
+run_update_bounded() {  # <world> <ssh>; prints combined output
+  local w=$1
+  PATH="$w/fakebin:$PATH" FM_FAKE_DIR="$w/fake" FM_SSH_BIN="$2" \
+    FM_UPDATE_REMOTE_UPDATE_SECONDS=2 FM_UPDATE_REMOTE_STATE_SECONDS=2 \
+    FM_ROOT_OVERRIDE="$w/main" FM_HOME="$w/home" "$UPDATE" 2>&1
+}
+
+test_remote_steps_are_bounded() {
+  local w out started elapsed
+  w=$(remote_only_world t14)
+  bump_origin "$w" readme
+  fake_hanging_ssh "$w/fakebin/hang-update" update
+  started=$SECONDS
+  out=$(run_update_bounded "$w" "$w/fakebin/hang-update")
+  elapsed=$((SECONDS - started))
+  [ "$elapsed" -lt 30 ] || fail "a hung remote update held the pass for ${elapsed}s"
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: update step timed out after 2s" \
+    "the hung update step was not named"
+  assert_contains "$out" "firstmate: updated " "the primary update did not complete around the hung host"
+  assert_contains "$out" "restart-secondmates: none" "an unreached remote mate was sent to restart"
+
+  fake_hanging_ssh "$w/fakebin/hang-state" state
+  bump_origin "$w" readme
+  started=$SECONDS
+  out=$(run_update_bounded "$w" "$w/fakebin/hang-state")
+  elapsed=$((SECONDS - started))
+  [ "$elapsed" -lt 30 ] || fail "a hung remote state read held the pass for ${elapsed}s"
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: state step timed out after 2s" \
+    "the hung state step was not named"
+  assert_contains "$out" "restart-secondmates: none" "a mate whose state read hung was sent to restart"
+  pass "T14 a hung remote update or state step is cut off at its bound and named"
+}
+
+# --- T15: a host that lands elsewhere is not settled -----------------------
+test_remote_commit_mismatch_is_skipped() {
+  local w out fake_ssh
+  w=$(remote_only_world t15)
+  bump_origin "$w" readme
+  fake_ssh="$w/fakebin/fake-ssh"
+  cat > "$fake_ssh" <<'SH'
+#!/usr/bin/env bash
+printf 'synced: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n'
+SH
+  chmod +x "$fake_ssh"
+  out=$(run_update_bounded "$w" "$fake_ssh")
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: host reports bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, not update target" \
+    "a host on another commit was not reported"
+  assert_contains "$out" "restart-secondmates: none" "a mate left on another commit was sent to restart"
+  pass "T15 a remote host that lands on another commit is skipped, not settled"
+}
+
+test_unresolved_target_leaves_all_homes_untouched() {
+  local mode w before out rc real_git home
+  real_git=$(command -v git)
+  for mode in transient-fetch no-origin missing-branch missing-ref; do
+    w=$(new_world "unresolved-$mode")
+    git -C "$w/seed" branch curated
+    git -C "$w/seed" push -q origin curated
+    git -C "$w/main" fetch -q origin
+    git -C "$w/main" checkout -q -b curated --track origin/curated
+    add_sm "$w" sm1
+    git -C "$w/main" worktree add -q --detach "$w/sm2" curated
+    git clone -q "$w/origin.git" "$w/sm3"
+    git -C "$w/sm3" checkout -q --detach origin/curated
+    printf -- '- sm2 - registry home (home: %s/sm2; scope: things; projects: p; added 2026-09-03)\n- sm3 - clone home (home: %s/sm3; scope: things; projects: p; added 2026-09-03)\n' "$w" "$w" \
+      > "$w/home/data/secondmates.md"
+    printf -- '- sm4 - remote domain (host: remote-box; root: /srv/fm; home: /srv/sm4; scope: things; projects: p; added 2026-09-03)\n' \
+      >> "$w/home/data/secondmates.md"
+    before=$(git -C "$w/main" rev-parse HEAD)
+    bump_origin "$w" readme
+    git -C "$w/seed" checkout -q curated
+    printf 'curated update\n' >> "$w/seed/README.md"
+    git -C "$w/seed" commit -qam curated-update
+    git -C "$w/seed" push -q origin curated
+    case "$mode" in
+      transient-fetch)
+        cat > "$w/fakebin/git" <<'SH'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [ "$arg" = fetch ]; then
+    printf 'fetch\n' >> "$FM_FAKE_DIR/fetches"
+    if [ ! -e "$FM_FAKE_DIR/failed-fetch" ]; then
+      touch "$FM_FAKE_DIR/failed-fetch"
+      exit 1
+    fi
+  fi
+done
+exec "$FM_TEST_REAL_GIT" "$@"
+SH
+        chmod +x "$w/fakebin/git"
+        ;;
+      no-origin) git -C "$w/main" remote remove origin ;;
+      missing-branch)
+        git -C "$w/main" checkout -q --detach
+        # Git 2.48+ otherwise recreates origin/HEAD during the updater's fetch.
+        git -C "$w/main" config remote.origin.followRemoteHEAD never
+        git -C "$w/main" symbolic-ref --delete refs/remotes/origin/HEAD
+        git -C "$w/main" branch -D main >/dev/null
+        ;;
+      missing-ref) git -C "$w/seed" push -q origin --delete curated ;;
+    esac
+    cat > "$w/fakebin/ssh" <<'SH'
+#!/usr/bin/env bash
+touch "$FM_FAKE_DIR/remote-called"
+exit 90
+SH
+    chmod +x "$w/fakebin/ssh"
+    rc=0
+    out=$(FM_TEST_REAL_GIT="$real_git" PATH="$w/fakebin:$PATH" FM_FAKE_DIR="$w/fake" \
+      FM_SSH_BIN="$w/fakebin/ssh" FM_ROOT_OVERRIDE="$w/main" FM_HOME="$w/home" \
+      "$UPDATE" 2>&1) || rc=$?
+    [ "$rc" -ne 0 ] || fail "$mode: unresolved target was accepted"
+    assert_contains "$out" "cannot resolve shared update target; no homes updated" "$mode: missing failure diagnostic"
+    for home in main sm1 sm2 sm3; do
+      [ "$(git -C "$w/$home" rev-parse HEAD)" = "$before" ] || fail "$mode: $home moved without a shared target"
+    done
+    [ ! -e "$w/fake/remote-called" ] || fail "$mode: remote was contacted without a shared target"
+    if [ "$mode" = transient-fetch ]; then
+      [ "$(wc -l < "$w/fake/fetches" | tr -d ' ')" -eq 1 ] || fail "failed target fetch was retried during the update pass"
+    fi
+  done
+  pass "unresolved targets abort before updating primary, live, registry, cloned or remote homes"
+}
+
+test_legacy_host_rejects_pinned_update_without_advancing() {
+  local w out before fake_ssh
+  w=$(remote_only_world legacy-rejection)
+  git clone -q "$w/origin.git" "$w/remote-root"
+  git clone -q "$w/origin.git" "$w/remote-home"
+  git -C "$w/remote-home" checkout -q --detach
+  before=$(git -C "$w/remote-root" rev-parse HEAD)
+  git -C "$w/seed" checkout -q -b curated
+  git -C "$w/seed" push -q origin curated
+  git -C "$w/main" fetch -q origin
+  git -C "$w/main" checkout -q -b curated --track origin/curated
+  git -C "$w/seed" checkout -q main
+  bump_origin "$w" readme
+  fake_ssh="$w/fakebin/legacy-ssh"
+  cat > "$fake_ssh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+decode() { printf '%s' "$1" | base64 --decode 2>/dev/null || printf '%s' "$1" | base64 -D; }
+rargs=()
+while IFS= read -r -d '' a; do rargs+=("$a"); done < <(decode "$4")
+printf '%s\n' "${rargs[*]}" >> "$FM_FAKE_DIR/legacy-calls"
+[ "${#rargs[@]}" -eq 3 ] || exit 2
+for home in remote-root remote-home; do
+  git -C "$FM_FAKE_DIR/../$home" fetch -q origin
+  git -C "$FM_FAKE_DIR/../$home" merge -q --ff-only origin/main
+done
+printf 'synced: %s\n' "$(git -C "$FM_FAKE_DIR/../remote-home" rev-parse HEAD)"
+SH
+  chmod +x "$fake_ssh"
+  out=$(run_update_bounded "$w" "$fake_ssh")
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: pinned update rejected; manual update required" \
+    "the rejecting host was not named with the manual update requirement"
+  [ "$(wc -l < "$w/fake/legacy-calls" | tr -d ' ')" -eq 1 ] || fail "the rejecting host received an unpinned retry"
+  [ "$(git -C "$w/remote-root" rev-parse HEAD)" = "$before" ] || fail "the rejecting host code root advanced"
+  [ "$(git -C "$w/remote-home" rev-parse HEAD)" = "$before" ] || fail "the rejecting remote home advanced"
+  assert_contains "$out" "restart-secondmates: none" "the rejecting host was selected for restart"
+  assert_contains "$out" "nudge-secondmates: none" "the rejecting host was selected for a nudge"
+  pass "a status-2 host is reported for manual update without an unpinned retry or mutation"
+}
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
@@ -572,5 +852,10 @@ test_firstmate_wrong_branch_skipped
 test_firstmate_detached_head_skipped
 test_unsafe_secondmate_home_skipped_before_git_update
 test_primary_update_rebinds_local_watch
+test_curated_branch_is_the_update_target
+test_remote_steps_are_bounded
+test_remote_commit_mismatch_is_skipped
+test_unresolved_target_leaves_all_homes_untouched
+test_legacy_host_rejects_pinned_update_without_advancing
 
 echo "# all fm-update tests passed"

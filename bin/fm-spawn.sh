@@ -1278,8 +1278,8 @@ spawn_remote_secondmate() {
     return 1
   fi
   # Pre-launch sync, the remote twin of the local-HEAD sync below: this home
-  # follows THIS primary's default-branch commit, not the Firstmate copy on that
-  # host, so the commit is resolved here and handed over for the host to import
+  # follows THIS primary's fleet-branch commit (fm-ff-lib.sh fleet_branch), not
+  # the Firstmate copy on that host, so the commit is resolved here for the host to import
   # and fast-forward to. A skipped sync warns and launches the home unchanged.
   if sm_primary_head=$(primary_head_commit "$FM_ROOT"); then
     if sync_out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh sync "$id" \
@@ -3805,8 +3805,8 @@ if [ "$KIND" = secondmate ]; then
   fi
   WT="$PROJ_ABS"
   # Local-HEAD sync: before launch, fast-forward this secondmate's worktree to the
-  # PRIMARY checkout's current default-branch commit, so a freshly spawned or
-  # recovery-respawned secondmate always runs the primary's version (AGENTS.md
+  # PRIMARY checkout's current fleet-branch commit (fm-ff-lib.sh fleet_branch),
+  # so a freshly spawned or recovery-respawned secondmate runs the primary's version (AGENTS.md
   # spawn section). Purely local - no fetch: the home is a worktree of this same
 # repo and already holds the commit. The same guarded path can reconcile a clean
 # divergence already present at the target; a dirty, uniquely diverged, or

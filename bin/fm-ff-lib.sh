@@ -7,7 +7,7 @@
 # path:
 #   - /updatefirstmate (bin/fm-update.sh) pulls from origin: base_mode "origin".
 #   - the local-HEAD secondmate sync (bin/fm-spawn.sh on launch, bin/fm-bootstrap.sh
-#     on startup) follows the PRIMARY checkout's current default-branch commit:
+#     on startup) follows the PRIMARY checkout's current fleet-branch commit (fleet_branch below):
 #     base_mode is that local commit, with NO fetch and no origin dependency.
 #
 # A REMOTE secondmate home follows that same primary commit. Its host cannot read
@@ -32,10 +32,10 @@
 # happens after an upstream squash merge. Every other divergence stays put and
 # records an inspectable state/.secondmate-update-reconcile/<id>.pending marker
 # in the supervising home until a later successful convergence clears it.
-# Locally leased homes start at a detached HEAD on the default branch, so their
-# fast-forward advances HEAD only and never moves the shared default branch or
+# Locally leased homes use a detached HEAD, so their
+# fast-forward advances HEAD only and never moves the shared fleet branch or
 # any other worktree's checkout. A standalone remote home may instead advance
-# its checked-out default branch under the same guard.
+# its checked-out fleet branch under the same guard.
 
 SUB_HOME_MARKER="${SUB_HOME_MARKER:-.fm-secondmate-home}"
 # shellcheck source=bin/fm-secondmate-registry-lib.sh
@@ -63,15 +63,28 @@ default_branch() {
   return 1
 }
 
-# Resolve the PRIMARY checkout's current default-branch commit - the local-HEAD
-# sync target every secondmate follows. Reads the default branch *ref* rather than
+# Fleet branch selection: use curated when this checkout is on curated;
+# otherwise use default_branch (origin/HEAD, then local main or master).
+# Feature branches are never selected, even with a same-named origin upstream.
+fleet_branch() {
+  local dir=$1 cur
+  cur=$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+  if [ "$cur" = curated ]; then
+    printf '%s\n' "$cur"
+    return 0
+  fi
+  default_branch "$dir"
+}
+
+# Resolve the PRIMARY checkout's current fleet-branch commit - the local-HEAD
+# sync target every secondmate follows. Reads the fleet branch *ref* rather than
 # HEAD, so even a primary stranded on a feature branch (the worktree tangle of
-# section 8) still yields the true default-branch tip instead of propagating a
+# section 8) still yields the true fleet-branch tip instead of propagating a
 # stray feature branch to the fleet. Echoes the commit SHA, or returns 1.
 primary_head_commit() {
-  local root=$1 default
-  default=$(default_branch "$root") || return 1
-  git -C "$root" rev-parse --verify --quiet "refs/heads/$default^{commit}" 2>/dev/null || return 1
+  local root=$1 branch
+  branch=$(fleet_branch "$root") || return 1
+  git -C "$root" rev-parse --verify --quiet "refs/heads/$branch^{commit}" 2>/dev/null || return 1
 }
 
 resolve_path() {
@@ -368,19 +381,28 @@ live_secondmate_meta_records() {
 #   FF_INSTR  = comma list of changed instruction paths (only when updated)
 #
 # base_mode selects where the fast-forward base comes from:
-#   origin       - fetch origin and advance to origin/<default> (the /updatefirstmate
+#   origin       - fetch origin and advance to origin/<branch> (the /updatefirstmate
 #                  path); requires an origin remote and network reachability.
+#                  FF_TARGET_COMMIT, when set, pins the base to that one commit,
+#                  which must already be on the fetched origin/<branch>, so every
+#                  home of one update lands on the same commit even if origin
+#                  moves between their fetches.
 #   <commit-ish> - advance to that LOCAL commit with NO fetch and no origin
 #                  dependency (the local-HEAD secondmate sync). The commit must
 #                  already exist in the target's object store, which it always does
 #                  for a worktree of this same repo; a standalone clone that lacks
 #                  it is skipped rather than fetched.
+# <branch> is FF_TARGET_BRANCH when the caller set it (the update resolves it once
+# on the primary and hands it to every home, because a detached secondmate home
+# records no branch of its own), otherwise the target's own fleet_branch.
 # Guards are identical in both modes: never force/merge/stash; skip a dirty or
 # wrong-branch target and leave its work untouched. An optional secondmate id
 # enables the content-equivalent divergence proof and durable marker described
 # in this file's header.
 FF_STATUS=""
 FF_INSTR=""
+FF_TARGET_BRANCH=""
+FF_TARGET_COMMIT=""
 ff_target() {
   local dir=$1 label=$2 base_mode=$3 allow_detached=${4:-no} ignore_seed_marker=${5:-no}
   local secondmate_id=${6:-} reconciliation_state=${7:-}
@@ -396,11 +418,15 @@ ff_target() {
     return 0
   fi
 
-  local default base cur instr local_rev base_rev before after out
-  default=$(default_branch "$dir") || {
-    echo "$label: skipped: cannot determine default branch"
-    return 0
-  }
+  local default base base_name cur instr local_rev base_rev before after out
+  if [ -n "$FF_TARGET_BRANCH" ]; then
+    default=$FF_TARGET_BRANCH
+  else
+    default=$(fleet_branch "$dir") || {
+      echo "$label: skipped: cannot determine default branch"
+      return 0
+    }
+  fi
 
   # Resolve the fast-forward base from base_mode (see header).
   if [ "$base_mode" = origin ]; then
@@ -413,12 +439,22 @@ ff_target() {
       return 0
     fi
     base="origin/$default"
+    base_name=$base
+    if [ -n "$FF_TARGET_COMMIT" ]; then
+      if ! git -C "$dir" rev-parse --verify --quiet "$FF_TARGET_COMMIT^{commit}" >/dev/null \
+        || ! git -C "$dir" merge-base --is-ancestor "$FF_TARGET_COMMIT" "$base" 2>/dev/null; then
+        echo "$label: skipped: target $FF_TARGET_COMMIT is not on $base"
+        return 0
+      fi
+      base="$FF_TARGET_COMMIT"
+    fi
   else
     base="$base_mode"
+    base_name=$base
   fi
 
   if ! git -C "$dir" rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
-    echo "$label: skipped: $base does not exist"
+    echo "$label: skipped: $base_name does not exist"
     return 0
   fi
 
@@ -442,7 +478,7 @@ ff_target() {
     return 0
   }
   base_rev=$(git -C "$dir" rev-parse "$base" 2>/dev/null) || {
-    echo "$label: skipped: cannot read $base"
+    echo "$label: skipped: cannot read $base_name"
     return 0
   }
   if [ "$local_rev" = "$base_rev" ]; then
@@ -473,13 +509,13 @@ ff_target() {
     fi
     if [ -n "$secondmate_id" ] && [ -n "$reconciliation_state" ]; then
       local marker
-      if marker=$(secondmate_update_reconcile_record "$reconciliation_state" "$secondmate_id" "$local_rev" "$base_rev" "$base"); then
-        echo "$label: skipped: diverged from $base; reconciliation required (record: $marker)"
+      if marker=$(secondmate_update_reconcile_record "$reconciliation_state" "$secondmate_id" "$local_rev" "$base_rev" "$base_name"); then
+        echo "$label: skipped: diverged from $base_name; reconciliation required (record: $marker)"
       else
-        echo "$label: skipped: diverged from $base; reconciliation required, but its durable record could not be written"
+        echo "$label: skipped: diverged from $base_name; reconciliation required, but its durable record could not be written"
       fi
     else
-      echo "$label: skipped: diverged from $base"
+      echo "$label: skipped: diverged from $base_name"
     fi
     return 0
   fi

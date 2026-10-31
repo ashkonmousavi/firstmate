@@ -34,6 +34,15 @@
 # The heartbeat recreates a missing ready file with the serving process's PID
 # and mode 0600 after verifying ownership, without waiting for the serving loop.
 # Losing lock ownership stops heartbeat refresh.
+# Readiness also requires serving progress: every serving-loop pass rewrites the
+# worker.progress stamp with its pass count, and the heartbeat stops refreshing
+# readiness once that stamp has stayed unchanged for
+# FM_REMOTE_JOB_PROGRESS_STALL_SECONDS (default 120) of its own ticks, resuming
+# if the loop moves again. A serving loop wedged in a wait therefore stops
+# looking ready while its heartbeat lives, and fm-remote-job-lib.sh's Linux
+# ensure path replaces a verified owner whose readiness stays stale. The stall
+# is counted in heartbeat ticks rather than wall-clock age, so a host suspend
+# never reads as a stall.
 # A dead heartbeat, while this process still owns the lock, is replaced so the lanes already under way keep running.
 # Each observed heartbeat death counts toward a limit of five replacements; the sixth death stops the serving loop so the supervisor can restart it.
 # The count resets only when a serving-loop pass observes a live heartbeat at least five seconds old, so time spent in a slow pass alone cannot reset it.
@@ -69,6 +78,8 @@ FM_REMOTE_JOB_ORPHAN_GRACE_SECONDS=$(worker_bounded_setting "${FM_REMOTE_JOB_ORP
 FM_REMOTE_JOB_SUPERVISOR_MAX_RESTARTS=$(worker_bounded_setting "${FM_REMOTE_JOB_SUPERVISOR_MAX_RESTARTS:-}" 20)
 FM_REMOTE_JOB_SUPERVISOR_MAX_BACKOFF_SECONDS=$(worker_bounded_setting "${FM_REMOTE_JOB_SUPERVISOR_MAX_BACKOFF_SECONDS:-}" 5)
 FM_REMOTE_JOB_SUPERVISOR_HEALTHY_SECONDS=$(worker_bounded_setting "${FM_REMOTE_JOB_SUPERVISOR_HEALTHY_SECONDS:-}" 10)
+FM_REMOTE_JOB_PROGRESS_STALL_SECONDS=$(worker_bounded_setting "${FM_REMOTE_JOB_PROGRESS_STALL_SECONDS:-}" 120)
+[ "$FM_REMOTE_JOB_PROGRESS_STALL_SECONDS" -ge 1 ] || FM_REMOTE_JOB_PROGRESS_STALL_SECONDS=1
 WORKER_FAST_PASSES=4
 WORKER_IDLE_WAIT_SECONDS=1
 WORKER_SWEEP_SECONDS=60
@@ -97,6 +108,8 @@ WORKER_LANE_PIDS=()
 WORKER_LANE_STARTS=()
 WORKER_LANE_JOBS=()
 WORKER_ACTIVITY=0
+WORKER_PASS=0
+WORKER_PROGRESS=
 
 worker_error() { printf 'remote-job-worker: %s\n' "$1" >&2; }
 
@@ -118,8 +131,16 @@ worker_write_heartbeat() { # <owner-pid>
   mv -f -- "$tmp" "$ready"
 }
 
+# Publish this pass's progress stamp. Builtins only: the serving loop's steady
+# cost stays its sleep, and a failed write simply reads as no progress.
+worker_record_progress() {
+  WORKER_PASS=$((WORKER_PASS + 1))
+  [ ! -L "$WORKER_PROGRESS" ] || return 0
+  printf '%s\n' "$WORKER_PASS" 2>/dev/null > "$WORKER_PROGRESS" || true
+}
+
 worker_heartbeat_loop() { # <account-home> <owner-pid>
-  local account_home=$1 owner=$2 ready owner_state
+  local account_home=$1 owner=$2 ready owner_state progress=$WORKER_PROGRESS stamp last_stamp='' still=0 withheld=0
   ready=$(fm_remote_job_worker_ready_path)
   trap 'exit 0' HUP INT TERM
   while kill -0 "$owner" 2>/dev/null &&
@@ -127,10 +148,31 @@ worker_heartbeat_loop() { # <account-home> <owner-pid>
     [ -n "$owner_state" ] && [[ "$owner_state" != *Z* ]] &&
     fm_remote_job_lock_owner_matches_process "$account_home" &&
     [ "$FM_REMOTE_JOB_OWNER_PID" = "$owner" ]; do
-    if [ ! -e "$ready" ] && [ ! -L "$ready" ]; then
-      worker_write_heartbeat "$owner" || exit 1
+    stamp=
+    if [ -f "$progress" ] && [ ! -L "$progress" ]; then
+      IFS= read -r stamp < "$progress" 2>/dev/null || stamp=
+    fi
+    if [ -n "$stamp" ] && [ "$stamp" != "$last_stamp" ]; then
+      last_stamp=$stamp
+      still=0
+    elif [ "$still" -lt "$FM_REMOTE_JOB_PROGRESS_STALL_SECONDS" ]; then
+      still=$((still + 1))
+    fi
+    if [ "$still" -ge "$FM_REMOTE_JOB_PROGRESS_STALL_SECONDS" ]; then
+      if [ "$withheld" -eq 0 ]; then
+        worker_error "serving loop made no progress for ${FM_REMOTE_JOB_PROGRESS_STALL_SECONDS}s; withholding readiness"
+        withheld=1
+      fi
     else
-      touch -c -- "$ready" || exit 1
+      if [ "$withheld" -eq 1 ]; then
+        worker_error "serving loop progressed again; readiness resumed"
+        withheld=0
+      fi
+      if [ ! -e "$ready" ] && [ ! -L "$ready" ]; then
+        worker_write_heartbeat "$owner" || exit 1
+      else
+        touch -c -- "$ready" || exit 1
+      fi
     fi
     /bin/sleep 1
   done
@@ -1237,6 +1279,8 @@ main() {
   trap worker_shutdown HUP INT TERM
   worker_publish_pid || { worker_error "cannot publish worker pid"; exit 1; }
   worker_write_heartbeat "${BASHPID:-$$}" || { worker_error "cannot update worker heartbeat"; exit 1; }
+  WORKER_PROGRESS=$(fm_remote_job_worker_progress_path)
+  worker_record_progress
   worker_start_heartbeat "$account_home"
   sweep_interval=$WORKER_SWEEP_SECONDS
   [ "$FM_REMOTE_JOB_STAGE_REAP_SECONDS" -ge "$sweep_interval" ] || sweep_interval=$FM_REMOTE_JOB_STAGE_REAP_SECONDS
@@ -1272,6 +1316,7 @@ main() {
       next_sweep=$((SECONDS + sweep_interval))
     fi
     worker_process_once "$account_home"
+    worker_record_progress
     worker_wait_for_work
   done
 }
