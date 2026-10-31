@@ -1237,6 +1237,12 @@ if [ "${FM_TEARDOWN_GUARD_DONE:-0}" != 1 ]; then
 fi
 HOME_PATH=$(grep '^home=' "$META" | cut -d= -f2- || true)
 PR_URL=$(grep '^pr=' "$META" | tail -1 | cut -d= -f2- || true)
+TEARDOWN_RELEASE_PROOF_RECORDED=0
+if fm_pr_head_valid "$(fm_meta_get "$META" released_head)" &&
+  git check-ref-format --branch "$(fm_meta_get "$META" released_branch)" >/dev/null 2>&1 &&
+  [ -n "$PR_URL" ] && [ "$(fm_meta_get "$META" released_pr)" = "$PR_URL" ]; then
+  TEARDOWN_RELEASE_PROOF_RECORDED=1
+fi
 # tasktmp is recorded by fm-spawn for tasks that set up a per-task temp root
 # (/tmp/fm-<id>/); absent for tasks spawned before that change, so tolerate empty.
 TASK_TMP=$(grep '^tasktmp=' "$META" | cut -d= -f2- || true)
@@ -1816,7 +1822,7 @@ teardown_release_head_proven() {
     return 1
   fi
   if ! remote=$(fm_pr_holding_remote "$WT"); then
-    echo "REFUSED: no single remote of $WT is a configured non-gate remote matching pull request $PR_URL's head repository and branch (or that head identity is unreadable); the copy is kept. Configure the PR head remote and use a forge reader that reports its identity before release." >&2
+    echo "REFUSED: no remote of $WT is a configured non-gate remote matching pull request $PR_URL's head repository and branch (or that head identity is unreadable); the copy is kept. Configure the PR head remote and use a forge reader that reports its identity before release." >&2
     return 1
   fi
   if [ -n "$TEARDOWN_RECORDED_PR_HEAD" ]; then
@@ -1946,7 +1952,7 @@ teardown_guard_unlanded_close() {
       if [ "$FORCE" = --force ]; then
         echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
         pr_refused=1
-      elif teardown_recorded_copy_released "$META" "$STATE" "$ID"; then
+      elif teardown_recorded_copy_released "$META" "$STATE" "$ID" || [ "$TEARDOWN_RELEASE_PROOF_RECORDED" = 1 ]; then
         TEARDOWN_KEEP_OPEN=1
         TEARDOWN_KEEP_MERGE_WATCH=1
       elif [ "$KEEP_OPEN" = 1 ] || [ "$TEARDOWN_PUSHED_OPEN_PR" = 1 ]; then
@@ -2915,6 +2921,7 @@ require_owned_task_worktree_slot() {
 
 teardown_owns_worktree() {
   [ "$TEARDOWN_SLOT_REASSIGNED" != 1 ] \
+    && [ "$TEARDOWN_RELEASE_PROOF_RECORDED" != 1 ] \
     && [ "$WT" != "$STATE/$ID.released-copy" ]
 }
 

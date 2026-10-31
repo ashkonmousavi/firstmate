@@ -1409,8 +1409,8 @@ do_relaunch_released() {
   spawn_status=0
   FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
-  rm -f "$note_stage"
   if [ "$spawn_status" -ne 0 ]; then
+    rm -f "$note_stage"
     if [ "$(fm_meta_get "$META" worktree)" != "$STATE/$ID.released-copy" ]; then
       die "the released relaunch of $ID failed; its current copy and record were kept because safe rollback was not proven. Inspect $(fm_meta_get "$META" worktree); the prior record is at $prior_stage"
     fi
@@ -1418,6 +1418,8 @@ do_relaunch_released() {
     [ "$spawn_status" -ne 75 ] || exit 75
     die "the released copy of $ID could not be recreated and relaunched on $TARGET_HARNESS; its released record, instructions and journal are unchanged"
   fi
+  mv -f "$note_stage" "$NOTE_FILE" \
+    || die "the replacement for $ID was launched, but its progress note could not be published at $NOTE_FILE; staged note: $note_stage"
   mv -f "$prior_stage" "$META_PRIOR" \
     || die "the replacement for $ID was published, but its prior durable record could not be kept at $META_PRIOR"
   RELAUNCH_META_PUBLISHED=1

@@ -5767,7 +5767,7 @@ test_release_without_a_forge_head_reads_the_pull_request_remote() {
   head=$(git -C "$case_dir/wt" rev-parse HEAD)
   teardown_capture "$case_dir"
   expect_code 1 "$TEARDOWN_CAPTURE_RC" "no-forge-head: with no head and no remote addressing the project the copy must stay"
-  assert_grep 'no single remote' "$case_dir/stderr" \
+  assert_grep 'no remote' "$case_dir/stderr" \
     "no-forge-head: the refusal did not say no remote addresses the project"
   assert_present "$case_dir/wt" "no-forge-head: the unproven copy was removed"
 
@@ -6119,7 +6119,7 @@ test_keep_open_without_automatic_backlog_requests_merge_hold() {
 
 test_release_requires_a_configured_readable_head_remote() {
   local case_dir why before
-  for why in parent-only unreadable-identity gh-axi no-mistakes publicsrc ambiguous; do
+  for why in parent-only unreadable-identity gh-axi no-mistakes publicsrc; do
     case_dir=$(prepare_recorded_github_pr "release-remote-$why")
     install_github_pr_class "$case_dir" open
     push_task_branch "$case_dir"
@@ -6128,7 +6128,6 @@ test_release_requires_a_configured_readable_head_remote() {
       unreadable-identity) : > "$case_dir/forge-head-path"; printf 'fm/task-x1\n' > "$case_dir/forge-head-branch" ;;
       gh-axi) printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$case_dir/fakebin/gh" ;;
       no-mistakes|publicsrc) git -C "$case_dir/project" remote rename origin "$why" ;;
-      ambiguous) git -C "$case_dir/project" remote add duplicate https://github.com/example/repo.git ;;
     esac
     cat > "$case_dir/fakebin/treehouse" <<SH
 #!/usr/bin/env bash
@@ -6144,7 +6143,7 @@ SH
     assert_present "$case_dir/wt" "$why: the copy was removed"
     assert_absent "$case_dir/treehouse.log" "$why: the copy was returned"
   done
-  pass "release refuses unreadable head identity and absent, excluded or ambiguous configured head remotes"
+  pass "release refuses unreadable head identity and absent or excluded configured head remotes"
 }
 
 test_release_refuses_forge_mismatch_with_matching_tracking_ref() {
@@ -6164,9 +6163,10 @@ test_release_refuses_forge_mismatch_with_matching_tracking_ref() {
 }
 
 test_release_proof_survives_unconfirmed_close_and_reassignment() {
-  local case_dir slot head successor log closed fields
-  case_dir=$(prepare_recorded_github_pr release-proof-retry)
+  local case_dir slot head successor log closed fields mode=${1:-reassigned}
+  case_dir=$(prepare_recorded_github_pr "release-proof-retry-$mode")
   install_github_pr_class "$case_dir" open
+  wt_commit "$case_dir" 'work to release before resetting the slot'
   push_task_branch "$case_dir"
   head=$(git -C "$case_dir/wt" rev-parse HEAD)
   printf '%s\n' "$head" > "$case_dir/forge-head"
@@ -6183,6 +6183,7 @@ test_release_proof_survives_unconfirmed_close_and_reassignment() {
   cat > "$case_dir/fakebin/treehouse" <<SH
 #!/usr/bin/env bash
 cp '$case_dir/state/task-x1.meta' '$case_dir/proof-at-return'
+git -C '$slot' reset --hard -q main
 printf '%s\\n' "\$*" >> '$case_dir/treehouse.log'
 exit 0
 SH
@@ -6195,20 +6196,29 @@ SH
   [ "$(sed -n '/^released_/p' "$case_dir/proof-at-return")" = "$fields" ] || fail "the destructive return ran before proof was persisted"
   assert_grep "worktree=$slot" "$case_dir/state/task-x1.meta" "the sentinel was written before close confirmation"
   [ "$(sed -n '/^released_/p' "$case_dir/state/task-x1.meta")" = "$fields" ] || fail "failed close lost the proof"
-  git -C "$slot" checkout -q -b fm/successor main
-  printf 'successor work\n' > "$slot/successor.txt"
-  git -C "$slot" add successor.txt
-  git -C "$slot" -c user.name=Tests -c user.email=t@t commit -qm 'successor work'
-  successor=$(git -C "$slot" rev-parse HEAD)
-  bash -c '. "$1/bin/fm-wake-lib.sh"; fm_treehouse_slot_owner_claim "$2" successor "$3"' _ "$ROOT" "$slot" "$case_dir"
+  if [ "$mode" = reassigned ]; then
+    git -C "$slot" checkout -q -b fm/successor main
+    printf 'successor work\n' > "$slot/successor.txt"
+    git -C "$slot" add successor.txt
+    git -C "$slot" -c user.name=Tests -c user.email=t@t commit -qm 'successor work'
+    successor=$(git -C "$slot" rev-parse HEAD)
+    bash -c '. "$1/bin/fm-wake-lib.sh"; fm_treehouse_slot_owner_claim "$2" successor "$3"' _ "$ROOT" "$slot" "$case_dir"
+  else
+    [ "$(git -C "$slot" rev-parse HEAD)" != "$head" ] || fail "the return fixture did not reset the slot"
+    successor=$(git -C "$slot" rev-parse HEAD)
+  fi
   FM_HOME="$case_dir" FM_FAKE_HERDR_LOG="$log" FM_FAKE_HERDR_CLOSED="$closed" \
     teardown_capture "$case_dir" --keep-open
-  expect_code 0 "$TEARDOWN_CAPTURE_RC" "retry after reassignment must use the persisted proof"$'\n'"$(cat "$case_dir/stderr")"
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "retry after $mode return must use the persisted proof"$'\n'"$(cat "$case_dir/stderr")"
   assert_grep "worktree=$case_dir/state/task-x1.released-copy" "$case_dir/state/task-x1.meta" "retry did not write the sentinel"
   [ "$(sed -n '/^released_/p' "$case_dir/state/task-x1.meta")" = "$fields" ] || fail "retry lost the original release proof"
   [ "$(git -C "$slot" rev-parse HEAD)" = "$successor" ] || fail "retry touched the successor's work"
-  [ "$(wc -l < "$case_dir/treehouse.log" | tr -d ' ')" = 1 ] || fail "retry returned the reassigned copy"
-  pass "release proof is durable before return and survives failed close, reassignment and retry"
+  [ "$(wc -l < "$case_dir/treehouse.log" | tr -d ' ')" = 1 ] || fail "retry returned the already freed copy"
+  pass "release proof survives failed close and retry with a $mode slot"
+}
+
+test_release_retry_skips_the_unclaimed_reset_copy() {
+  test_release_proof_survives_unconfirmed_close_and_reassignment unclaimed
 }
 
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "teardown" ] || return 0
@@ -6371,3 +6381,5 @@ test_release_tracking_proof_uses_fork_head_branch
 test_release_requires_a_configured_readable_head_remote
 test_release_refuses_forge_mismatch_with_matching_tracking_ref
 test_release_proof_survives_unconfirmed_close_and_reassignment
+
+test_release_retry_skips_the_unclaimed_reset_copy

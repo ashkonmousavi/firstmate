@@ -209,6 +209,7 @@ case "${1:-}" in
     printf '%s\n' "$name" >> "$D/windows"
     printf '%s\n' "$name" >> "$D/created-windows"
     printf '@9\n'
+    [ ! -x "$D/signal-endpoint" ] || "$D/signal-endpoint"
     exit 0 ;;
 esac
 exit 0
@@ -3026,6 +3027,7 @@ case "${1:-} ${2:-}" in
     printf '{"result":{"tab":{"tab_id":"tabnew"},"root_pane":{"pane_id":"%%9"}}}\n'
     # From here on the new pane is the one that reads back.
     printf '%s' '%9' > "$D/herdr-pane"
+    [ ! -x "$D/signal-endpoint" ] || "$D/signal-endpoint"
     exit 0 ;;
 esac
 exit 0
@@ -3785,6 +3787,7 @@ test_teardown_to_relaunch_round_trip() {
   local dir out rc slot head
   dir=$(new_case released-roundtrip rr15)
   add_released_ship_task "$dir" rr15
+  git -C "$dir/proj" remote add duplicate https://github.com/example/repo.git
   seed_backlog "$dir" rr15 in_flight
   slot="$dir/pool/1/repo"
   head=$(cat "$dir/fake/pr-head")
@@ -3815,7 +3818,7 @@ SH
   [ "$(backlog_held "$dir" rr15)" = no ] || fail "the round trip did not lift the merge hold"
   [ "$(backlog_state "$dir" rr15)" = in_flight ] || fail "the round trip left the task out of flight"
   [ "$(released_note_count "$dir" rr15)" = 1 ] || fail "the round trip did not deliver exactly one progress note"
-  pass "real teardown and relaunch round trip preserves the pushed branch and lifts the release hold"
+  pass "real teardown and relaunch accept matching remote aliases, preserve the branch and lift the release hold"
 }
 
 
@@ -3927,6 +3930,152 @@ SH
     done
   done
   pass "rollback returns only proven clean copies and retains new work or unconfirmed endpoints on both backends"
+}
+
+test_released_signals_defer_through_mutation_bookkeeping() {
+  local dir backend signal boundary out rc meta brief real_mv real_tasks
+  real_mv=$(command -v mv)
+  real_tasks=$(command -v tasks-axi)
+  for backend in tmux herdr; do
+    for signal in HUP TERM; do
+      for boundary in endpoint claim unhold; do
+        dir=$(new_case "released-mutation-$backend-$signal-$boundary" rr18)
+        add_released_ship_task "$dir" rr18
+        [ "$backend" != herdr ] || released_use_herdr "$dir" rr18
+        seed_backlog "$dir" rr18 queued
+        tasks-axi hold rr18 --kind external --reason 'awaiting merge https://github.com/example/repo/pull/7' \
+          --file "$dir/home/data/backlog.md" >/dev/null
+        printf '%s\n' "$signal" > "$dir/fake/signal"
+        cat > "$dir/fake/signal-spawn" <<'SH'
+#!/usr/bin/env bash
+D=$FM_FAKE_DIR
+[ ! -e "$D/signal-sent" ] || exit 0
+pid=$PPID
+target=
+while [ "$pid" -gt 1 ]; do
+  args=$(ps -p "$pid" -o args=)
+  case "$args" in
+    *'/bin/fm-spawn.sh rr18 --relaunch'*) target=$pid ;;
+    *) [ -z "$target" ] || break ;;
+  esac
+  pid=$(ps -p "$pid" -o ppid= | tr -d ' ')
+done
+[ -n "$target" ] || exit 1
+: > "$D/signal-sent"
+kill -"$(cat "$D/signal")" "$target"
+SH
+        chmod +x "$dir/fake/signal-spawn"
+        case "$boundary" in
+          endpoint) cp "$dir/fake/signal-spawn" "$dir/fake/signal-endpoint" ;;
+          claim)
+            cat > "$dir/fakebin/mv" <<SH
+#!/usr/bin/env bash
+"$real_mv" "\$@" || exit \$?
+case "\${!#}" in */.fm-slot-owner) "\$FM_FAKE_DIR/signal-spawn" ;; esac
+exit 0
+SH
+            chmod +x "$dir/fakebin/mv"
+            ;;
+          unhold)
+            cat > "$dir/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+"$real_tasks" "\$@" || exit \$?
+[ "\${1:-}" != unhold ] || "\$FM_FAKE_DIR/signal-spawn"
+exit 0
+SH
+            chmod +x "$dir/fakebin/tasks-axi"
+            ;;
+        esac
+        meta=$(cat "$dir/home/state/rr18.meta")
+        brief=$(cat "$dir/home/data/rr18/brief.md")
+        out=$(run_control "$dir" rr18 relaunch --note 'interrupted mutation'); rc=$?
+        [ "$rc" -ne 0 ] || fail "$backend/$signal/$boundary: interrupted relaunch succeeded"
+        assert_present "$dir/fake/signal-sent" "$backend/$signal/$boundary: mutation was not reached"
+        assert_released_untouched "$dir" rr18 "$meta" "$brief" "$backend/$signal/$boundary"
+        assert_present "$dir/fake/close-attempted" "$backend/$signal/$boundary: endpoint was leaked"
+        assert_absent "$dir/pool/1/.fm-slot-owner" "$backend/$signal/$boundary: slot claim was leaked"
+        [ "$(backlog_held "$dir" rr18)" = yes ] || fail "$backend/$signal/$boundary: merge hold was lost"
+        if [ "$boundary" != endpoint ]; then
+          assert_grep "return $dir/pool/1/repo" "$dir/fake/treehouse-log" "$backend/$signal/$boundary: copy was not returned"
+        fi
+      done
+    done
+  done
+  pass "HUP and TERM wait for endpoint, claim and unhold bookkeeping on both backends"
+}
+
+test_released_rollback_retains_each_failed_restoration_backup() {
+  local dir restoration out rc meta brief real_cp real_mv backup count
+  real_cp=$(command -v cp)
+  real_mv=$(command -v mv)
+  for restoration in record brief; do
+    dir=$(new_case "released-restore-$restoration" rr19)
+    add_released_ship_task "$dir" rr19
+    meta=$(cat "$dir/home/state/rr19.meta")
+    brief=$(cat "$dir/home/data/rr19/brief.md")
+    : > "$dir/fake/fail-launch-enter"
+    if [ "$restoration" = record ]; then
+      cat > "$dir/fakebin/mv" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  case "\$arg" in
+    */.rr19.meta-prior.*) : > "\$FM_FAKE_DIR/restore-attempted"; exit 1 ;;
+  esac
+done
+exec "$real_mv" "\$@"
+SH
+      chmod +x "$dir/fakebin/mv"
+    else
+      cat > "$dir/fakebin/cp" <<SH
+#!/usr/bin/env bash
+case "\${2:-}" in
+  */.rr19.brief-prior.*) : > "\$FM_FAKE_DIR/restore-attempted"; exit 1 ;;
+esac
+exec "$real_cp" "\$@"
+SH
+      chmod +x "$dir/fakebin/cp"
+    fi
+    out=$(run_control "$dir" rr19 relaunch --note 'restore failure'); rc=$?
+    [ "$rc" -ne 0 ] || fail "$restoration: delivery failure succeeded"
+    assert_present "$dir/fake/restore-attempted" "$restoration: restoration failure was not reached"
+    count=0
+    for backup in "$dir/home/state/.rr19.meta-prior."* "$dir/home/state/.rr19.brief-prior."*; do
+      [ -f "$backup" ] || continue
+      count=$((count + 1))
+      if [ "$restoration" = record ]; then
+        [ "$(cat "$backup")" = "$meta" ] || fail "the retained record backup changed"
+      else
+        [ "$(cat "$backup")" = "$brief" ] || fail "the retained brief backup changed"
+      fi
+      assert_contains "$out" "$backup" 'the warning did not identify the retained backup'
+    done
+    [ "$count" = 1 ] || fail "$restoration: expected only the failed restoration's backup, found $count"
+    if [ "$restoration" = record ]; then
+      [ "$(cat "$dir/home/data/rr19/brief.md")" = "$brief" ] || fail 'the independent brief restoration failed'
+    else
+      [ "$(cat "$dir/home/state/rr19.meta")" = "$meta" ] || fail 'the independent record restoration failed'
+    fi
+  done
+  pass "each rollback backup survives its own restoration failure independently"
+}
+
+test_released_journal_publishes_its_staged_note_after_success() {
+  local dir out rc note_file
+  dir=$(new_case released-journal-note rr20)
+  add_released_ship_task "$dir" rr20
+  note_file="$dir/home/state/rr20.control-relaunch.note"
+  printf 'earlier note\n' > "$note_file"
+  : > "$dir/fake/fail-launch-enter"
+  out=$(run_control "$dir" rr20 relaunch --note 'current pickup'); rc=$?
+  [ "$rc" -ne 0 ] || fail 'the failed launch succeeded'
+  [ "$(cat "$note_file")" = 'earlier note' ] || fail 'failed launch replaced the durable note'
+  rm "$dir/fake/fail-launch-enter"
+  out=$(run_control "$dir" rr20 relaunch --note 'current pickup'); rc=$?
+  expect_code 0 "$rc" "the retry should publish its note: $out"
+  [ "$(journal_field "$dir" rr20 note_file)" = "$note_file" ] || fail 'journal points at another note'
+  [ "$(cat "$note_file")" = 'current pickup' ] || fail 'completed journal references an absent or stale note'
+  [ "$(journal_field "$dir" rr20 phase)" = complete ] || fail 'the relaunch did not complete'
+  pass "failed launch preserves the prior note and completed relaunch publishes the journal's current note"
 }
 
 # Reuse these hermetic fixtures in the pending-proof lifecycle regression.
@@ -4049,3 +4198,7 @@ test_released_fork_branch_uses_head_repository
 test_teardown_to_relaunch_round_trip
 test_released_signals_roll_back_until_commit
 test_released_rollback_preserves_new_work_and_unconfirmed_endpoints
+
+test_released_signals_defer_through_mutation_bookkeeping
+test_released_rollback_retains_each_failed_restoration_backup
+test_released_journal_publishes_its_staged_note_after_success

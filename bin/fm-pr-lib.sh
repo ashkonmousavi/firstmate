@@ -1342,15 +1342,15 @@ fm_pr_read_class() {  # <pr-url>
   esac
 }
 
-# The one remote of <repo> whose configured URL addresses the forge project
+# A remote of <repo> whose configured URL addresses the forge project
 # of the pull request head last read by fm_pr_read_class. The URL is the raw
 # configured spelling (https, ssh, or scp-like), compared by host and path with
 # any user, port, trailing slash, and trailing .git removed; a Gerrit "/a/"
 # authenticated prefix is accepted. The no-mistakes gate remote and the
 # publicsrc mirror are never the pull request's remote, whatever their URL.
-# Prints the remote name; zero or several matches return 1.
+# Prints a matching remote name; no match returns 1.
 fm_pr_holding_remote() {  # <repo>
-  local repo=$1 name url rest host path found='' count=0
+  local repo=$1 name url rest host path
   [ -n "$FM_PR_HOST" ] && [ -n "${FM_PR_RECORD_HEAD_PATH:-}" ] &&
     git check-ref-format --branch "${FM_PR_RECORD_HEAD_BRANCH:-}" >/dev/null 2>&1 || return 1
   while IFS= read -r name; do
@@ -1376,13 +1376,12 @@ fm_pr_holding_remote() {  # <repo>
     path=${path#/}
     [ "$host" = "$FM_PR_HOST" ] || continue
     [ "$path" = "$FM_PR_RECORD_HEAD_PATH" ] || [ "$path" = "a/$FM_PR_RECORD_HEAD_PATH" ] || continue
-    found=$name
-    count=$((count + 1))
+    printf '%s\n' "$name"
+    return 0
   done <<REMOTES
 $(git -C "$repo" remote 2>/dev/null)
 REMOTES
-  [ "$count" -eq 1 ] || return 1
-  printf '%s\n' "$found"
+  return 1
 }
 
 fm_pr_poll_retirement_data_valid() {

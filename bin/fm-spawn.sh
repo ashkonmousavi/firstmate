@@ -1480,6 +1480,22 @@ SPAWN_LAUNCH_SENT=0
 SPAWN_ENDPOINT_CLOSED=0
 SPAWN_STAGED_LAUNCH_FILE=
 
+released_mutation_begin() {
+  [ "$RELAUNCH_FROM_RELEASED" = 1 ] || return 0
+  RELEASED_PENDING_SIGNAL=0
+  trap 'RELEASED_PENDING_SIGNAL=129' HUP
+  trap 'RELEASED_PENDING_SIGNAL=130' INT
+  trap 'RELEASED_PENDING_SIGNAL=143' TERM
+}
+
+released_mutation_end() {
+  [ "$RELAUNCH_FROM_RELEASED" = 1 ] || return 0
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  [ "$RELEASED_PENDING_SIGNAL" = 0 ] || exit "$RELEASED_PENDING_SIGNAL"
+}
+
 spawn_fresh_commit_rollback() {
   # The record is the seat. Remove it only after a positive absence read.
   # Any other result, including a kill that returned 0, leaves the record and
@@ -1572,7 +1588,7 @@ released_relaunch_preflight() {
 released_recreate_branch() {
   local remote tracking tip remote_branch=$FM_PR_RECORD_HEAD_BRANCH
   remote=$(fm_pr_holding_remote "$WT") || {
-    echo "error: no single remote of $PROJ_ABS addresses pull request $RELEASED_PR, so task $ID's branch cannot be recreated; $(spawn_endpoint_hint)" >&2
+    echo "error: no remote of $PROJ_ABS addresses pull request $RELEASED_PR, so task $ID's branch cannot be recreated; $(spawn_endpoint_hint)" >&2
     return 1
   }
   tracking="refs/remotes/$remote/$remote_branch"
@@ -1865,14 +1881,17 @@ spawn_abort_cleanup() {
           echo "warning: could not restore task $ID's released record from $RELEASED_META_PRIOR" >&2
       fi
       if [ -n "$RELEASED_BRIEF_PRIOR" ] && [ -f "$RELEASED_BRIEF_PRIOR" ]; then
-        cp -p "$RELEASED_BRIEF_PRIOR" "$RELEASED_SOURCE_BRIEF" 2>/dev/null ||
+        if cp -p "$RELEASED_BRIEF_PRIOR" "$RELEASED_SOURCE_BRIEF" 2>/dev/null; then
+          rm -f -- "$RELEASED_BRIEF_PRIOR"
+        else
           echo "warning: could not restore $RELEASED_SOURCE_BRIEF after the failed relaunch of $ID; restore it from $RELEASED_BRIEF_PRIOR" >&2
+        fi
       fi
     else
       echo "warning: safe return was not proven for task $ID; keeping copy ${WT:-unknown}, its branch, claim and current record. Prior record: $RELEASED_META_PRIOR; prior brief: $RELEASED_BRIEF_PRIOR" >&2
     fi
   fi
-  if [ "$status" -eq 0 ] || [ "$RELEASED_COMMITTED" = 1 ] || [ "${released_safe:-1}" = 1 ]; then
+  if [ "$status" -eq 0 ] || [ "$RELEASED_COMMITTED" = 1 ]; then
     [ -z "$RELEASED_BRIEF_PRIOR" ] || rm -f -- "$RELEASED_BRIEF_PRIOR" 2>/dev/null || true
     [ -z "$RELEASED_META_PRIOR" ] || rm -f -- "$RELEASED_META_PRIOR" 2>/dev/null || true
   fi
@@ -4495,9 +4514,11 @@ if [ "$RELAUNCH" -eq 1 ]; then
       tmux new-session -d -s "$SES" || exit 1
     fi
     T="$SES:$W"
+    released_mutation_begin
     WID=$(fm_backend_tmux_create_task "$SES" "$W" "$RELAUNCH_ENDPOINT_CWD") || exit 1
     [ "$RELAUNCH_FROM_RELEASED" = 0 ] || RELEASED_ENDPOINT_OPENED=1
     WT_TARGET=$WID
+    released_mutation_end
   else
     # The recorded endpoint is authoritatively gone, so there is nothing to
     # adopt: create ONE fresh endpoint for the same task, opened directly in the
@@ -4555,6 +4576,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
     HERDR_SEEDED_DEFAULT_TAB_ID=${HERDR_CONTAINER_RAW#*$'\t'}
     HERDR_SES=${CONTAINER%%:*}
     HERDR_WORKSPACE_ID=${CONTAINER#*:}
+    released_mutation_begin
     HERDR_TASK_IDS=$(fm_backend_herdr_create_task "$CONTAINER" "$W" "$RELAUNCH_ENDPOINT_CWD" "$HERDR_SEEDED_DEFAULT_TAB_ID") || exit 1
     read -r HERDR_TAB_ID HERDR_PANE_ID <<EOF
 $HERDR_TASK_IDS
@@ -4567,6 +4589,7 @@ EOF
     SES=$HERDR_SES
     WT_TARGET=$T
     [ "$RELAUNCH_FROM_RELEASED" = 0 ] || RELEASED_ENDPOINT_OPENED=1
+    released_mutation_end
   fi
 else
   # A surviving record whose endpoint is not proven gone is still a worker.
@@ -5430,11 +5453,13 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   # Written under the Treehouse project lock held from before slot allocation
   # through metadata publication, so no other spawn or return sees a half-claim.
   if fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
+    released_mutation_begin
     if ! fm_treehouse_slot_owner_claim "$WT" "$ID" "$FM_HOME"; then
       echo "error: could not claim Treehouse pool slot $WT for task $ID; refusing to launch a worker whose slot cannot later be proved to be its own; $(spawn_endpoint_hint)" >&2
       exit 1
     fi
     SPAWN_SLOT_CLAIMED=1
+    released_mutation_end
   fi
 fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
@@ -6272,8 +6297,13 @@ spawn_commit_backlog_transition() {
     fm_backlog_row_probe "$DATA" "$ID" || return 1
     BACKLOG_ROW_STATE=$FM_BACKLOG_ROW_STATE
     if released_backlog_hold_is_teardown_own; then
-      fm_backlog_mutate "$DATA" unhold "$ID" || return 1
+      released_mutation_begin
+      if ! fm_backlog_mutate "$DATA" unhold "$ID"; then
+        released_mutation_end
+        return 1
+      fi
       RELEASED_HOLD_LIFTED=1
+      released_mutation_end
     fi
   fi
   fm_backlog_atomic_transition dispatch "$STATE/$ID.meta" "$DATA" "$ID" "$STATE"
