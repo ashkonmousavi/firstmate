@@ -17,7 +17,8 @@ The tool itself is private home configuration: `config/external-review.md` holds
 The invariant is enforced in three layers, from strongest to weakest:
 
 1. A per-task `pre-push` guard, `bin/fm-git-push-guard.sh`, runs from the read-only hooks directory `bin/fm-spawn.sh` installs through `bin/fm-git-strip-ai-trailers.sh install --push-guard`, even when the home keeps AI trailers.
-   It refuses any push to `origin` or to a URL matching one of origin's URLs, any push of the task branch or a task-prefixed ref to any remote, and any ref outside the backup prefix on the backup remote, then chains to the repository's own `pre-push` hook.
+   It refuses any push to `origin` or to a URL matching one of origin's URLs, any push of the task branch or a task-prefixed ref to any remote, and any ref outside the backup prefix on the backup remote.
+   Chaining to the repository's own hook follows the [shared pre-push check contract](configuration.md#worker-pre-push-checks).
 2. `bin/fm-spawn.sh` refuses `--yolo on`, a missing review tool adapter, and an unusable backup remote before any endpoint exists, and records `forge=external`, `backup_remote=`, and `backup_prefix=` in the task metadata.
 3. The generated brief's first rule forbids every such push, and its Definition of done names the review tool as the only publishing path.
 

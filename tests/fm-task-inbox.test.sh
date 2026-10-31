@@ -432,7 +432,7 @@ case "${1:-}" in
     if [ "${FM_FAKE_COMPOSER_SHAPE:-}" = cursor ]; then
       printf ' ▄▄▄▄▄▄▄▄\n'
       if [ -s "$FM_FAKE_COMPOSER" ]; then
-        fold -w 40 "$FM_FAKE_COMPOSER" | awk 'NR == 1 { print "  → " $0 " ctrl+c to stop"; next } { print "    " $0 }'
+        fold -w 40 "$FM_FAKE_COMPOSER" | awk 'NR == 1 { printf "  → %s\033[2m ctrl+c to stop\033[0m\n", $0; next } { print "    " $0 }'
       else
         printf '  →\n'
       fi
@@ -1858,6 +1858,153 @@ test_watcher_dead_pane_escalates_once_without_ringing() {
 # Every delivery attempt was a skip (the composer holds someone else's draft).
 # The skips still spend the ring budget, and the next check reports the
 # message once. The draft is never submitted.
+# The recorded Herdr capture of a stuck pane: the composer holds only the first
+# row of this task's own doorbell. fm-control clears exactly that, nothing else.
+test_herdr_recorded_capture_classifies_as_own_doorbell() {
+  local fixture="$ROOT/tests/fixtures/herdr-own-doorbell-wrapped.ansi" dir got
+  dir="$TMP_ROOT/own-doorbell-capture"
+  mkdir -p "$dir/x-xfb-r-entry.inbox" "$dir/other-task.inbox"
+  # A doorbell for another task, and the same capture with typed text after the doorbell.
+  sed 's/x-xfb-r-entry\.inbox/other-task.inbox/' "$fixture" > "$dir/other.ansi"
+  sed "s/inbox, read and/inbox, read and please/" "$fixture" > "$dir/typed.ansi"
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"; . "$0/bin/fm-task-inbox-lib.sh"
+    fm_backend_source herdr
+    fm_backend_herdr_viewport_to_bottom() { return 0; }
+    fm_backend_herdr_visible_capture_ansi() { cat "$FIXTURE"; }
+    line=$(fm_task_inbox_doorbell_line "$1/x-xfb-r-entry.inbox/1.msg")
+    for f in "$0/tests/fixtures/herdr-own-doorbell-wrapped.ansi" "$1/other.ansi" "$1/typed.ansi"; do
+      FIXTURE=$f
+      if fm_task_inbox_composer_holds_own herdr s:w:p "$line"; then printf "own "; else printf "foreign "; fi
+    done
+    FIXTURE=$0/tests/fixtures/herdr-own-doorbell-wrapped.ansi
+    if fm_task_inbox_composer_holds herdr s:w:p "$line"; then printf "exact"; else printf "partial-only"; fi
+  ' "$ROOT" "$dir")
+  [ "$got" = "own foreign foreign partial-only" ] || fail "recorded capture classified as '$got'"
+  pass "fm_task_inbox_composer_holds_own: the recorded wrapped capture is this task's doorbell, a wrong task or typed text is not"
+}
+
+test_herdr_composer_clear_for_own_doorbell() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    fm_backend_source herdr
+    n=0
+    fm_backend_herdr_send_key() { [ "$2" != C-u ] || n=$((n + 1)); return 0; }
+    fm_backend_herdr_composer_state() { if [ "$n" -ge 2 ]; then printf empty; else printf pending; fi; }
+    fm_backend_composer_clear herdr s:w:p "$(printf "x%.0s" $(seq 1 200))" && printf "cleared-after-%s" "$n"
+    n=-100
+    fm_backend_composer_clear herdr s:w:p "short" || printf " refused"
+  ' "$ROOT")
+  [ "$got" = "cleared-after-2 refused" ] || fail "herdr clear: '$got'"
+  pass "fm_backend_composer_clear: herdr presses Ctrl+U until empty and refuses when it never empties"
+}
+
+test_composer_clear_stops_on_unreadable_readback() {
+  local got dir="$TMP_ROOT/clear-unreadable"
+  mkdir -p "$dir"
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    read_log=$1/reads
+    fm_backend_source herdr
+    fm_backend_send_key() { [ "$3" != C-u ] || n=$((n + 1)); return 0; }
+    fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
+    fm_backend_composer_state() {
+      printf . >> "$read_log"
+      if [ "$n" -ge 3 ]; then printf empty; else printf "%s" "$readback"; fi
+      return "$read_status"
+    }
+    fm_backend_herdr_composer_state() { fm_backend_composer_state; }
+    printf -v text "%010000d" 0
+    for backend in tmux herdr; do
+      for pair in unknown:0 :0 future-verdict:0 pending:1 empty:1; do
+        : > "$read_log"
+        readback=${pair%:*}; read_status=${pair##*:}; n=0
+        if fm_backend_composer_clear "$backend" s:w:p "$text"; then exit 1; fi
+        [ "$n" -eq 1 ] || exit 1
+        [ "$(wc -c < "$read_log")" -le 10 ] || exit 1
+      done
+      read_status=0
+      for readback in pending pending-unproven; do
+        n=0
+        fm_backend_composer_clear "$backend" s:w:p "$text" || exit 1
+        [ "$n" -eq 3 ] || exit 1
+      done
+    done
+    printf stopped
+  ' "$ROOT" "$dir") || fail "unreadable readback must stop deletion independently of payload length"
+  [ "$got" = stopped ] || fail "unreadable composer clear: $got"
+  pass "composer clear: tmux and Herdr stop after one edit on unreadable or failed readback"
+}
+
+# Oracle: lifecycle recovery must survive an unreadable redraw, but cannot
+# edit again until readback proves pending, or succeed before it proves empty.
+# The transport trace rejects both aborting on the first redraw and blind edits.
+test_composer_clear_waits_for_redraw() {
+  local dir backend got
+  dir="$TMP_ROOT/clear-redraw"; mkdir -p "$dir"
+  for backend in tmux herdr; do
+    : > "$dir/trace"
+    got=$(bash -c '
+      . "$0/bin/fm-backend.sh"
+      fm_backend_source herdr
+      fm_backend_send_key() { printf "key=%s\n" "$3" >> "$2/trace"; }
+      fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
+      fm_backend_composer_state() {
+        local read=0
+        [ ! -f "$2/reads" ] || read=$(cat "$2/reads")
+        read=$((read + 1)); printf "%s" "$read" > "$2/reads"
+        printf "read=%s\n" "$read" >> "$2/trace"
+        case "$read" in 1|2|4) printf unknown ;; 3) printf pending ;; 5) printf empty ;; *) return 1 ;; esac
+      }
+      fm_backend_herdr_composer_state() { fm_backend_composer_state herdr "$@"; }
+      fm_backend_composer_clear "$1" "$2" doorbell && printf cleared
+    ' "$ROOT" "$backend" "$dir")
+    [ "$got" = cleared ] || fail "$backend clear must wait for transient redraw"
+    [ "$(cat "$dir/trace")" = "$(printf 'key=C-e\nkey=C-u\nread=1\nread=2\nread=3\nkey=C-e\nkey=C-u\nread=4\nread=5')" ] \
+      || fail "$backend clear sent input before a readable pending verdict"
+    rm "$dir/reads"
+  done
+  pass "composer clear: redraw retries are read-only until pending or empty is proven"
+}
+
+test_composer_clear_at_narrow_widths() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    fm_backend_source herdr
+    fm_backend_send_key() {
+      case "$3" in
+        C-e) cursor=${#remaining} ;;
+        C-u)
+          removed=$width
+          [ "$removed" -le "$cursor" ] || removed=$cursor
+          remaining=${remaining:0:cursor-removed}${remaining:cursor}
+          cursor=$((cursor - removed))
+          ;;
+        *) return 1 ;;
+      esac
+    }
+    fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
+    fm_backend_composer_state() { if [ -z "$remaining" ]; then printf empty; else printf pending; fi; }
+    fm_backend_herdr_composer_state() { fm_backend_composer_state; }
+    for backend in tmux herdr; do
+      for width in 1 20; do
+        for length in 180 260; do
+          for cursor in 0 "$((length / 2))" "$((length - 1))" "$length"; do
+            printf -v remaining "%0*d" "$length" 0
+            fm_backend_composer_clear "$backend" s:w:p "$remaining" || exit 1
+            [ -z "$remaining" ] || exit 1
+          done
+        done
+      done
+    done
+    printf cleared
+  ' "$ROOT") || fail "a draft must clear even beyond 200 one-character wrapped rows"
+  [ "$got" = cleared ] || fail "narrow composer clear: $got"
+  pass "composer clear: tmux and Herdr finish 180 and 260 characters at widths 1 and 20 from every cursor position"
+}
+
 test_watcher_escalates_when_every_ring_is_a_skip() {
   local dir state rec log composer draft check wakes
   dir=$(setup_watch_case skip-budget)
@@ -2122,6 +2269,11 @@ test_watcher_pays_fire_and_forget_retry_once
 test_watcher_holds_retry_while_the_worker_decides
 test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
+test_herdr_recorded_capture_classifies_as_own_doorbell
+test_herdr_composer_clear_for_own_doorbell
+test_composer_clear_stops_on_unreadable_readback
+test_composer_clear_waits_for_redraw
+test_composer_clear_at_narrow_widths
 test_watcher_escalates_when_every_ring_is_a_skip
 test_watcher_dead_pane_escalates_once_without_ringing
 test_watcher_steer_for_a_released_worker_names_the_release

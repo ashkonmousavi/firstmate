@@ -664,10 +664,11 @@ It ignores U+2063 because Claude's Herdr read-back never shows it.
 A composer that holds a shorter suffix, or a placeholder plus a literal remainder, does not receive Enter.
 Instead:
 
-1. The adapter presses Ctrl+U until the shared classifier reads the composer as empty.
+1. The adapter moves to line end with Ctrl+E before each Ctrl+U deletion until the shared classifier reads the composer as empty.
 2. It then reports `send-failed`, so a resend starts from a clean composer.
 
 Ctrl+C is not used for this, because Claude documents it as interrupting a running operation.
+An unreadable redraw permits only bounded read retries before another deletion; failed reads or exhausted retries abort clearing.
 If the composer cannot be verified empty again, the submit reports `unknown` instead, because text may still be in the composer.
 
 Other harnesses, and panes with no native identity, skip this proof and keep the type-then-Enter path.
