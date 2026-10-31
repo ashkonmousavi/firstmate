@@ -1,0 +1,94 @@
+Scout guarded exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab
+stopped sc harness=claude backend=tmux endpoint=primary:fm-sc worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt background-sessions=none
+rc=0
+
+
+Scout release events
+WOULD_RELEASE	task=sc	host=Pulse	class=scout	anchor=1793421073	released_at=-	verified=no	reason=audit setting
+RELEASE_INCOMPLETE	task=sc	host=Pulse	class=scout	anchor=1793421073	released_at=1793422373	verified=no	reason=seat still held after exit
+RELEASED	task=sc	host=Pulse	class=scout	anchor=1793421073	released_at=1793422373	verified=yes	reason=seat free
+
+
+Merged ship guarded exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab
+stopped sh harness=claude backend=tmux endpoint=primary:fm-sh worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship background-sessions=none
+rc=0
+
+
+Merged ship event
+RELEASED	task=sh	host=Pulse	class=merged-ship	anchor=1793421309	released_at=1793422609	verified=yes	reason=seat free
+
+
+Herdr guarded exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/herdr-home
+stopped hs harness=claude backend=herdr endpoint=fm-lab-lane-proof-01M67:w1:p1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.herdr-live/wt background-sessions=none
+rc=0
+
+
+Herdr release event
+RELEASED	task=hs	host=Pulse	class=scout	anchor=1793421430	released_at=1793422630	verified=yes	reason=seat free
+
+
+Fleet listing
+# Fleet View
+
+Schema: fm-fleet-snapshot.v1
+Home: ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab
+
+## Under Way
+| ID | Current | Kind | Repo/Project | Backend | Endpoint | Artifact | Path | Watch / return channel |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| sh | unknown / pane (released: merged-ship) | ship | ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship | tmux | present | https://github.com/example/disposable/pull/7 | ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship | bin/fm-peek.sh fm-sh |
+
+## Queued
+No queued backlog records found.
+
+## Done
+No done backlog records found.
+
+## Secondmates
+For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority.
+
+
+Real draft preserved
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt · /rc
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Worked for 1s · done 9:31 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ UNSENT important continuation
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)

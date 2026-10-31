@@ -1,0 +1,3 @@
+WOULD_RELEASE	task=sc	host=Pulse	class=scout	anchor=1793421073	released_at=-	verified=no	reason=audit setting
+RELEASE_INCOMPLETE	task=sc	host=Pulse	class=scout	anchor=1793421073	released_at=1793422373	verified=no	reason=seat still held after exit
+RELEASED	task=sc	host=Pulse	class=scout	anchor=1793421073	released_at=1793422373	verified=yes	reason=seat free

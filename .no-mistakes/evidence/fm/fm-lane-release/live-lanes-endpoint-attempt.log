@@ -1,0 +1,445 @@
+$ tmux -L fm-lab display-message -p -t primary '#{socket_path},#{pid},0'
+~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/tmux/tmux-1000/fm-lab,3960363,0
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-tasks-axi.sh add sc 'Disposable scout'
+ok: added sc -> Queued
+task:
+  id: sc
+  title: Disposable scout
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-30
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start sc` to move it to in flight
+  - Run `tasks-axi block sc --by <other>` to record a dependency
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-captain-hold.sh complete sc --none
+complete: sc captain-call inventory reviewed
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-busy-event.sh arm ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state sc
+g1793420948.3961153.16214
+[exit=0]
+$ tmux -L fm-lab new-window -d -t primary: -n fm-sc -c ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt 'claude --permission-mode auto --model haiku --setting-sources '"'"''"'"' --settings ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/settings.json --strict-mcp-config --mcp-config '"'"'{"mcpServers":{}}'"'"' --tools '"'"''"'"' --system-prompt '"'"'Reply with the exact requested word. Do not read or change files.'"'"''
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+empty[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt
+
+
+❯ Reply only READY
+
+✻ Doing…
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle) · esc to interrupt · ← 3 agents                                             /rc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sc -l 'Reply only READY'
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sc Enter
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Churned for 1s · done 9:29 PM
+
+❯ Reply only READY
+
+* Determining…
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle) · esc to interrupt · ← 3 agents                                             /rc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: real Claude is alive after its hooked turn
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: absent setting leaves live scout holding its seat
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+lane-release: config/lane-release holds '', expected off, audit, or on; nothing is released until it is corrected
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: empty invalid configuration reports one line exactly once and keeps worker alive
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+lane-release: config/lane-release holds 'o\nn', expected off, audit, or on; nothing is released until it is corrected
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: split invalid configuration reports one line exactly once and keeps worker alive
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: later done does not erase the unresolved question
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh --audit
+lane-release audit: home=~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab setting=on max-age=1800s
+unknown sc (board-unreadable; unknown is never counted as free)
+summary: class merged-ship/scout holders=0 stuck-composer=0 kept-open-pr seat-hours=0 (PR state read; red checks and review findings not read)
+[exit=2]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: unreadable board directory is unknown and retains the live worker
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh --audit
+lane-release audit: home=~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab setting=on max-age=1800s
+unknown sc (board-unreadable; unknown is never counted as free)
+summary: class merged-ship/scout holders=0 stuck-composer=0 kept-open-pr seat-hours=0 (PR state read; red checks and review findings not read)
+[exit=2]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: unreadable board source is unknown and retains the live worker
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: registered pending board prevents scout release
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: in-place promotion prevents scout release
+$ tmux -L fm-lab send-keys -t primary:fm-sc -l 'UNSENT important continuation'
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Churned for 1s · done 9:29 PM
+
+❯ Reply only READY
+
+● READY
+
+✻ Baked for 0s · done 9:29 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ UNSENT important continuation
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)                                                                             /rc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Churned for 1s · done 9:29 PM
+
+❯ Reply only READY
+
+● READY
+
+✻ Baked for 0s · done 9:29 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ UNSENT important continuation
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)                                                                             /rc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: unsent composer text survives both release sweeps
+$ tmux -L fm-lab send-keys -t primary:fm-sc C-u
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+empty[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: audit mode logs one would-release event and never stops the live scout
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh --audit
+lane-release audit: home=~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab setting=audit max-age=1800s
+holder sc class=scout age=2200s
+summary: class merged-ship/scout holders=1 stuck-composer=0 kept-open-pr seat-hours=0 (PR state read; red checks and review findings not read)
+[exit=1]
+OBSERVED: read-only audit detects a finished live holder older than thirty minutes
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh arm
+armed: state/lane-release.check.sh (setting: on)
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: a second sighting before 300 seconds does not release
+$ ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/lane-release.check.sh
+[exit=0]
+FAILED: AssertionError('registered check stops the real idle scout through fm-control exit')
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+can't find window: fm-sc
+[exit=1]
+$ tmux -L fm-lab kill-server
+[exit=0]
+CLEANUP: private tmux server stopped and disposable home/copy removed

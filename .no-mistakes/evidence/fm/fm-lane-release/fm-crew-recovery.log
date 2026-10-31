@@ -1,0 +1,15 @@
+ok - dead ship and scout with unlanded work are relaunched in place
+ok - a missing endpoint with unlanded work is relaunched
+ok - startup recovery never relaunches a released worker, and ignores a stale marker
+ok - unlanded work must be shown in the recorded copy itself
+ok - clean recovery checks both base refs and still recovers work ahead of both
+ok - unowned done and failed work recover while captain-held work stays held
+ok - an absent record and a worker wait stay eligible
+ok - only a dead or missing ship or scout endpoint is recovery-grade
+ok - recovery stays inside this home and ignores records it cannot trust
+ok - serial recovery stops at failure or deferral and leaves work for the next pass
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ok - bootstrap runs crew recovery only on the authorized deferred pass

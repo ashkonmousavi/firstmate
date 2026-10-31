@@ -1,0 +1,19 @@
+{
+  "bash tests/fm-lane-release.test.sh": 0,
+  "bash tests/fm-control.test.sh": 0,
+  "bash tests/fm-control-relaunch.test.sh": 0,
+  "bash tests/fm-crew-recovery.test.sh": 0,
+  "bash tests/fm-fleet-snapshot-view.test.sh": 0,
+  "bash tests/fm-inactive-reconcile.test.sh": 0,
+  "bash tests/fm-pr-conflict.test.sh": 0,
+  "bash tests/fm-session-start.test.sh": 0,
+  "bash tests/fm-task-inbox.test.sh": 0,
+  "bash tests/fm-watch-triage.test.sh": {
+    "exit": 143,
+    "disposition": "intentionally stopped; replaced by release-specific selector"
+  },
+  "FM_TEST_ONLY=test_gone_endpoint_of_a_released_worker_reads_released bash tests/fm-watch-triage.test.sh": 0,
+  "python3 ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/live-lanes.py": 0,
+  "python3 ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/live-ship.py": 0,
+  "python3 ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/live-herdr.py": 0
+}

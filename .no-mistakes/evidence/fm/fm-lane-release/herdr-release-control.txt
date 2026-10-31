@@ -1,0 +1,3 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/herdr-home
+stopped hs harness=claude backend=herdr endpoint=fm-lab-lane-proof-01M67:w1:p1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.herdr-live/wt background-sessions=none
+rc=0

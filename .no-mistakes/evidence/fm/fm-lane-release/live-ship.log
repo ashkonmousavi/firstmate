@@ -1,0 +1,575 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lab-home.sh create ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab
+~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab
+[exit=0]
+$ tmux -L fm-lab new-session -d -s primary -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ bash
+[exit=0]
+$ tmux -L fm-lab display-message -p -t primary '#{socket_path},#{pid},0'
+~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/tmux/tmux-1000/fm-lab,459305,0
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-busy-event.sh arm ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state sh
+g1793421276.459313.23801
+[exit=0]
+$ tmux -L fm-lab new-window -d -t primary: -n fm-sh -c ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship bash
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sh -l 'claude --permission-mode auto --model haiku --setting-sources '"'"''"'"' --settings ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship-settings.json --strict-mcp-config --mcp-config '"'"'{"mcpServers":{}}'"'"' --tools '"'"''"'"' --system-prompt '"'"'Reply only with the requested word. Do not read or change files.'"'"''
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sh Enter
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sh
+claude --permission-mode auto --model haiku --setting-sources '' --settings ~/.no-mistakes/worktrees/049a8873
+4b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship-settings.json --strict-mcp-config --mcp-config '{"mcpServers":{}}' --too
+ls '' --system-prompt 'Reply only with the requested word. Do not read or change files.'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sh
+claude --permission-mode auto --model haiku --setting-sources '' --settings ~/.no-mistakes/worktrees/049a8873
+4b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship-settings.json --strict-mcp-config --mcp-config '{"mcpServers":{}}' --too
+ls '' --system-prompt 'Reply only with the requested word. Do not read or change files.'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship$ claude --permission-mode
+auto --model haiku --setting-sources '' --settings ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4
+W2RCSJ/.lane-live/ship-settings.json --strict-mcp-config --mcp-config '{"mcpServers":{}}' --tools '' --system-prompt 'Re
+ply only with the requested word. Do not read or change files.'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sh
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship · /rc connecting…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sh -l 'Reply only READY'
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sh Enter
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sh
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship · /rc
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Crunched for 1s · done 9:34 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+[exit=0]
+$ git init -q -b disposable-ship ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship add base.txt
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship -c user.name=Fixture -c user.email=fixture@example.invalid commit -qm fixture
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+alive[exit=0]
+OBSERVED: ship without confirmed merge keeps its real worker alive
+$ bash -c '. "$1"; fm_pr_poll_merge_mark_notified "$2" sh github github.com example/disposable 7' fixture ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-pr-lib.sh ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-crew-state.sh sh
+state: working · source: status-log · started disposable ship
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+alive[exit=0]
+OBSERVED: worker declaring working is retained because crew-state does not agree completion
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-crew-state.sh sh
+state: unknown · source: none · no current-state source available
+[exit=0]
+$ bash -c '. "$1"; rec=$(fm_task_inbox_write "$2" sh "Unfinished continuation"); fm_task_inbox_doorbell_line "$rec"' fixture ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-task-inbox-lib.sh ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state
+: Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'sh.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+alive[exit=0]
+OBSERVED: unhandled steering record retains an otherwise merged idle ship
+$ tmux -L fm-lab send-keys -t primary:fm-sh -l ': Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your '"'"'sh.inbox'"'"' steering inbox, read and act on each in numeric order, then mv each into its handled/.'
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh --audit
+lane-release audit: home=~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab setting=on max-age=1800s
+stuck-composer sh (its own steering doorbell sits unsubmitted; never released)
+summary: class merged-ship/scout holders=0 stuck-composer=1 kept-open-pr seat-hours=0 (PR state read; red checks and review findings not read)
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+alive[exit=0]
+OBSERVED: the real unsent own-doorbell composer is classified stuck-composer and retained
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sh
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship · /rc
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Crunched for 1s · done 9:34 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'sh.inbox' steering inbox, read and act on each
+  in numeric order, then mv each into its handled/.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sh C-u
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+unknown[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+empty[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+OBSERVED: confirmed merged idle ship enters debounce
+$ tmux -L fm-lab send-keys -t primary:fm-sh -l 'Reply only AGAIN'
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sh Enter
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+alive[exit=0]
+OBSERVED: an intervening completed real model turn invalidates release
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+dead[exit=0]
+OBSERVED: merged-while-idle ship exits successfully without a done line
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+OBSERVED: real ship seat is verified free
+OBSERVED: ship exit keeps uncommitted work and its copy
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+OBSERVED: second sweep does not repeat a completed release event
+$ bash -c '. "$1"; fm_crew_recovery_sweep' fixture ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-crew-recovery-lib.sh
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta sh
+dead[exit=0]
+OBSERVED: startup recovery leaves intentionally released task stopped
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-fleet-view.sh
+# Fleet View
+
+Schema: fm-fleet-snapshot.v1
+Home: ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab
+
+## Under Way
+| ID | Current | Kind | Repo/Project | Backend | Endpoint | Artifact | Path | Watch / return channel |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| sh | unknown / pane (released: merged-ship) | ship | ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship | tmux | present | https://github.com/example/disposable/pull/7 | ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship | bin/fm-peek.sh fm-sh |
+
+## Queued
+No queued backlog records found.
+
+## Done
+No done backlog records found.
+
+## Secondmates
+For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority.
+[exit=0]
+OBSERVED: heartbeat fleet listing displays the intentional merged-ship release
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-fleet-snapshot.sh --json
+{
+  "schema": "fm-fleet-snapshot.v1",
+  "generated": "2026-10-31T04:35:30Z",
+  "fm_home": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab",
+  "roots": {
+    "fm_root": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ",
+    "state": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state",
+    "data": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data",
+    "config": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/config",
+    "projects": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/projects"
+  },
+  "backlog": {
+    "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/backlog.md",
+    "present": false,
+    "records": []
+  },
+  "tasks": [
+    {
+      "id": "sh",
+      "kind": "ship",
+      "harness": "claude",
+      "mode": "no-mistakes",
+      "yolo": "",
+      "branch": null,
+      "project": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship",
+      "spawn_gen": "s1793421277.2.2",
+      "backend": "tmux",
+      "remote": null,
+      "paths": {
+        "meta": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.meta",
+          "present": true
+        },
+        "status_log": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sh.status",
+          "present": false,
+          "kind": "event_history",
+          "last_event": {
+            "state": "",
+            "note": "",
+            "raw": "",
+            "age_seconds": null
+          }
+        },
+        "worktree": {
+          "path": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/ship",
+          "present": true
+        },
+        "home": {
+          "path": null,
+          "present": false
+        },
+        "report": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/sh/report.md",
+          "present": false
+        }
+      },
+      "secondmate_projects": [],
+      "current_state": {
+        "state": "unknown",
+        "source": "pane",
+        "detail": "harness state unavailable (unknown missing)",
+        "raw": "state: unknown · source: pane · harness state unavailable (unknown missing)",
+        "observed_at": "2026-10-31T04:35:30Z",
+        "freshness": "fresh"
+      },
+      "lane_release": null,
+      "endpoint": {
+        "target": "primary:fm-sh",
+        "exists": true,
+        "agent_alive": "not_checked",
+        "status": "unknown",
+        "observed_at": "2026-10-31T04:35:30Z",
+        "freshness": "fresh"
+      },
+      "pr": {
+        "url": "https://github.com/example/disposable/pull/7",
+        "source": "meta",
+        "head": null
+      },
+      "hints": {
+        "pending_decision": false,
+        "blocked_event": false,
+        "open_decisions": [],
+        "scout_report_present": false,
+        "last_event_text": ""
+      },
+      "actions": {
+        "watch": "bin/fm-peek.sh fm-sh",
+        "steer": "bin/fm-send.sh fm-sh '<instruction>'",
+        "return_channel_note": null
+      },
+      "backlog": null
+    }
+  ],
+  "main_inventory": {
+    "valid": true,
+    "reason": null,
+    "orphan_in_flight": [],
+    "unstructured_current_count": 0
+  },
+  "contributions": {
+    "known": 1,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 1,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": false,
+    "proven_clear": false,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 1,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "scout_reports": [],
+  "secondmate_current": {
+    "registry": {
+      "present": false,
+      "available": true,
+      "complete": true,
+      "reason": null,
+      "provenance": "registered-table",
+      "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/secondmates.md",
+      "freshness": {
+        "status": "fresh",
+        "observed_at": "2026-10-31T04:35:30Z"
+      },
+      "records": [],
+      "input_truncated": false,
+      "records_truncated": false,
+      "reasons": [],
+      "lines_in_window": 0,
+      "records_in_window": 0
+    },
+    "records": [],
+    "total_registered": 0,
+    "total": 0,
+    "shown": 0,
+    "truncated": 0
+  },
+  "secondmate_landed": {
+    "records": [],
+    "truncated": [],
+    "unreadable": [],
+    "partial": []
+  },
+  "secondmate_guidance": {
+    "note": "For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority."
+  }
+}
+[exit=0]
+OBSERVED: new incarnation does not inherit the previous release marker
+ALL LIVE SHIP SCENARIOS PASSED
+$ tmux -L fm-lab kill-server
+[exit=0]
+CLEANUP: private tmux server and disposable ship home/copy removed

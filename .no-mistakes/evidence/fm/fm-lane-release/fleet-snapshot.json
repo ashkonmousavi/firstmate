@@ -1,0 +1,244 @@
+{
+  "schema": "fm-fleet-snapshot.v1",
+  "generated": "2026-10-31T04:31:29Z",
+  "fm_home": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab",
+  "roots": {
+    "fm_root": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ",
+    "state": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state",
+    "data": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data",
+    "config": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/config",
+    "projects": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/projects"
+  },
+  "backlog": {
+    "records": [
+      {
+        "state": "queued",
+        "checked": false,
+        "order": 1,
+        "repo": null,
+        "hold_bucket": null,
+        "blocked_by_ids": [],
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "kind": null,
+        "blocked_reason": null,
+        "since": "2026-10-30",
+        "body_excerpt": null,
+        "body_lines": [],
+        "pr_url": null,
+        "priority": null,
+        "captain_actionable": false,
+        "id": "sc",
+        "hold_kind": null,
+        "hold_reason": null,
+        "report_path": null,
+        "title": "Disposable scout",
+        "blocked_by": null,
+        "hold_age_days": 1,
+        "unresolved_blocker_ids": [],
+        "requires_child_metadata": false,
+        "links": [],
+        "structured": true,
+        "done": null,
+        "hold_set": null,
+        "merged": null,
+        "current_role": "queued",
+        "hold_until": null,
+        "raw": "- [ ] sc - Disposable scout (since 2026-10-30)",
+        "reported": null,
+        "local_note": null
+      }
+    ],
+    "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/backlog.md",
+    "present": true
+  },
+  "tasks": [
+    {
+      "id": "sc",
+      "kind": "scout",
+      "harness": "claude",
+      "mode": "",
+      "yolo": "",
+      "branch": null,
+      "project": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt",
+      "spawn_gen": "s1793421059.1.1",
+      "backend": "tmux",
+      "remote": null,
+      "paths": {
+        "meta": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta",
+          "present": true
+        },
+        "status_log": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.status",
+          "present": true,
+          "kind": "event_history",
+          "last_event": {
+            "state": "done",
+            "note": "report complete",
+            "raw": "done [at=1793421073]: report complete",
+            "age_seconds": 16
+          }
+        },
+        "worktree": {
+          "path": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt",
+          "present": true
+        },
+        "home": {
+          "path": null,
+          "present": false
+        },
+        "report": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/sc/report.md",
+          "present": true
+        }
+      },
+      "secondmate_projects": [],
+      "current_state": {
+        "state": "unknown",
+        "source": "pane",
+        "detail": "harness state unavailable (unknown missing)",
+        "raw": "state: unknown · source: pane · harness state unavailable (unknown missing)",
+        "observed_at": "2026-10-31T04:31:29Z",
+        "freshness": "fresh"
+      },
+      "lane_release": {
+        "class": "scout",
+        "result": "released",
+        "released_at": 1793422373
+      },
+      "endpoint": {
+        "target": "primary:fm-sc",
+        "exists": true,
+        "agent_alive": "not_checked",
+        "status": "unknown",
+        "observed_at": "2026-10-31T04:31:29Z",
+        "freshness": "fresh"
+      },
+      "pr": {
+        "url": null,
+        "source": "absent",
+        "head": null
+      },
+      "hints": {
+        "pending_decision": false,
+        "blocked_event": false,
+        "open_decisions": [],
+        "scout_report_present": true,
+        "last_event_text": "done [at=1793421073]: report complete"
+      },
+      "actions": {
+        "watch": "bin/fm-peek.sh fm-sc",
+        "steer": "bin/fm-send.sh fm-sc '<instruction>'",
+        "return_channel_note": null
+      },
+      "backlog": {
+        "state": "queued",
+        "checked": false,
+        "order": 1,
+        "repo": null,
+        "hold_bucket": null,
+        "blocked_by_ids": [],
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "kind": null,
+        "blocked_reason": null,
+        "since": "2026-10-30",
+        "body_excerpt": null,
+        "body_lines": [],
+        "pr_url": null,
+        "priority": null,
+        "captain_actionable": false,
+        "id": "sc",
+        "hold_kind": null,
+        "hold_reason": null,
+        "report_path": null,
+        "title": "Disposable scout",
+        "blocked_by": null,
+        "hold_age_days": 1,
+        "unresolved_blocker_ids": [],
+        "requires_child_metadata": false,
+        "links": [],
+        "structured": true,
+        "done": null,
+        "hold_set": null,
+        "merged": null,
+        "current_role": "queued",
+        "hold_until": null,
+        "raw": "- [ ] sc - Disposable scout (since 2026-10-30)",
+        "reported": null,
+        "local_note": null
+      }
+    }
+  ],
+  "main_inventory": {
+    "valid": true,
+    "reason": null,
+    "orphan_in_flight": [],
+    "unstructured_current_count": 0
+  },
+  "contributions": {
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": true,
+    "proven_clear": true,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 0,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "scout_reports": [
+    {
+      "id": "sc",
+      "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/sc/report.md",
+      "kind": "scout"
+    }
+  ],
+  "secondmate_current": {
+    "registry": {
+      "present": false,
+      "available": true,
+      "complete": true,
+      "reason": null,
+      "provenance": "registered-table",
+      "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/secondmates.md",
+      "freshness": {
+        "status": "fresh",
+        "observed_at": "2026-10-31T04:31:29Z"
+      },
+      "records": [],
+      "input_truncated": false,
+      "records_truncated": false,
+      "reasons": [],
+      "lines_in_window": 0,
+      "records_in_window": 0
+    },
+    "records": [],
+    "total_registered": 0,
+    "total": 0,
+    "shown": 0,
+    "truncated": 0
+  },
+  "secondmate_landed": {
+    "records": [],
+    "truncated": [],
+    "unreadable": [],
+    "partial": []
+  },
+  "secondmate_guidance": {
+    "note": "For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority."
+  }
+}

@@ -1,0 +1,69 @@
+ok - A1 trigger: a quiet pane without a confirmed done, and an exited agent, are never released
+ok - A1 stopped-not-done: question, ask-user, wait, blocker, dialog, compaction, crash, quota, typed reply all keep the seat
+ok - A1 done-not-landed: the only action is the unattended exit; record, log, and copy stay
+ok - A1 needed again: a relaunch makes the marker stale, it is removed, and the new worker keeps its seat
+ok - A1 seat-not-copy: the seat is freed while the copy and report stay
+ok - A1 auto-start: a release starts nothing and leaves the queue alone
+ok - A1 same worker: an open PR and an unread steer keep the worker that has the context
+ok - A1 per home: a sweep acts only on its own home
+ok - A1 harness-agnostic: a control refusal (unverified harness, dialog, composer) keeps the seat
+ok - A1 remote: an unreachable endpoint is unknown in the audit and never released
+ok - stop row finished: a done, merged, idle ship is released silently
+ok - stop row needs-decision: a question a later done hides still keeps the seat
+ok - stop row ask-user: a run parked at a gate keeps the seat
+ok - stop row chat question: a turn that ended long after the done line keeps the seat
+ok - stop row paused: a declared wait keeps the seat
+ok - stop row blocked: an open blocker keeps the seat
+ok - stop row usage limit: an idle worker that never wrote done keeps the seat
+ok - stop row crash: a gone endpoint is not acted on (recovery owns it)
+ok - stop row dialog: an agent at a launch dialog is not proven idle and keeps the seat
+ok - stop row compaction: a busy agent keeps the seat
+ok - stop row looping: a worker crew state reads working keeps the seat
+ok - stop row unsent text: a pending composer keeps the seat
+ok - stop row validation: a running pipeline, and a green PR waiting on merge, keep the seat
+ok - stop row merged while idle: a merged ship that never wrote done is released on the merge anchor
+ok - stop row unreachable: no read means no release and an unknown audit
+ok - stop row failed: a failed worker keeps its seat in A1-core
+ok - stop row interrupted: a worker firstmate interrupted keeps the seat
+ok - stop row unread steer: a done worker with an unhandled message keeps the seat
+ok - stop row scout vs ship: a scout needs its report and gate; a ship needs its merge
+ok - stop row tool failed: a worker that has not finished keeps the seat
+ok - stop row away/restart: the sweep runs in away mode, and a restart is idempotent
+ok - stop row owner typed: the owner's unsent text keeps the seat
+ok - stop row stuck composer: our own unsubmitted doorbell is classified and reported, never released
+ok - extra done-then-question: a steer, relaunch, typed text, or chat turn after done keeps the seat
+ok - a ship's chat question at 2050 after done at 2000 keeps its seat despite merge at 2100
+ok - working at 2020 preserves done at 2000, so a 2050 question keeps its seat after merge at 2100
+ok - extra closed-unmerged: no merge record, no release
+ok - extra scout awaiting promotion: a held, promoting, board-hosting, or ungated scout keeps the seat
+ok - an absent board registry allows a finished scout to release
+ok - an unreadable board registry keeps the scout and is unknown in audit
+ok - an unreadable board source keeps the scout and is unknown in audit
+ok - extra open-PR ship: kept, and reported as phase-2 seat-hours, never as a miss
+ok - extra two at once: each finished worker is stopped once and ledgered once
+ok - extra budget: one sweep starts at most two releases
+ok - extra verification: RELEASED only on a free seat; a held one is RELEASE_INCOMPLETE, woken once, still counted
+ok - unknown seat evidence becomes incomplete after two sweeps, wakes once, and remains counted
+ok - extra switched off: absent or off, a sweep writes nothing, stops nothing, prints nothing
+ok - extra audit setting: a would-release is ledgered once and nothing is stopped
+ok - extra invalid setting: reported once, nothing released
+ok - embedded spaces and split lines are invalid settings and release nothing
+ok - empty, blank and split-line settings report once on one line and release nothing
+ok - extra debounce: one sweep never releases, and a turn between sweeps restarts the wait
+ok - extra deferred: a 75 from control removes the marker and the task is retried on later sweeps
+ok - extra lock: a held lifecycle lock skips the task for a later sweep
+ok - extra budget: a gate read that hangs is cut off inside the sweep budget and keeps the seat
+ok - extra local-only: the excluded ship keeps its seat and appears in audit
+ok - extra audit: read-only, 0 clean, 1 on a holder past 30 minutes, any setting
+ok - extra carrier: arm writes and registers a thin check shim; disarm removes it
+ok - audit counts occupied markers from the anchor and propagates unknown evidence
+ok - agent, busy, composer, doorbell and marker seat reads stop at the sweep deadline
+ok - shared capacity keeps uncertain seats occupied while exposing uncertainty to audit
+ok - a complete turn during any live read, or absent turn history, prevents release
+ok - open-PR metrics require positive OPEN evidence on every provider and propagate all read failures
+ok - verification and candidate work share the durable cursor without starvation
+ok - Herdr rechecks the release guard before each literal, key and protocol retry
+ok - a 2050 chat turn after done at 2000 keeps its seat; unchanged records release after exactly 300 seconds
+ok - all done timestamps and real completion-gate dependency/read failures propagate unknown to audit
+ok - off homes stay inert and only --audit is accepted
+ok - Claude and other Herdr releases preserve foreign, changed and unreadable composer text

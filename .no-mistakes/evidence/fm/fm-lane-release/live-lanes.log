@@ -1,0 +1,713 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lab-home.sh create ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab
+~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab
+[exit=0]
+$ tmux -L fm-lab new-session -d -s primary -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ bash
+[exit=0]
+$ tmux -L fm-lab display-message -p -t primary '#{socket_path},#{pid},0'
+~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/tmux/tmux-1000/fm-lab,52977,0
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-tasks-axi.sh add sc 'Disposable scout'
+ok: added sc -> Queued
+task:
+  id: sc
+  title: Disposable scout
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-30
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start sc` to move it to in flight
+  - Run `tasks-axi block sc --by <other>` to record a dependency
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-captain-hold.sh complete sc --none
+complete: sc captain-call inventory reviewed
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-busy-event.sh arm ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state sc
+g1793421069.53618.1233
+[exit=0]
+$ tmux -L fm-lab new-window -d -t primary: -n fm-sc -c ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt bash
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sc -l 'claude --permission-mode auto --model haiku --setting-sources '"'"''"'"' --settings ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/settings.json --strict-mcp-config --mcp-config '"'"'{"mcpServers":{}}'"'"' --tools '"'"''"'"' --system-prompt '"'"'Reply with the exact requested word. Do not read or change files.'"'"''
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sc Enter
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+claude --permission-mode auto --model haiku --setting-sources '' --settings ~/.no-mistakes/worktrees/049a8873
+4b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/settings.json --strict-mcp-config --mcp-config '{"mcpServers":{}}' --tools ''
+ --system-prompt 'Reply with the exact requested word. Do not read or change files.'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+claude --permission-mode auto --model haiku --setting-sources '' --settings ~/.no-mistakes/worktrees/049a8873
+4b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/settings.json --strict-mcp-config --mcp-config '{"mcpServers":{}}' --tools ''
+ --system-prompt 'Reply with the exact requested word. Do not read or change files.'
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt$ claude --permission-mode au
+to --model haiku --setting-sources '' --settings ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2
+RCSJ/.lane-live/settings.json --strict-mcp-config --mcp-config '{"mcpServers":{}}' --tools '' --system-prompt 'Reply wit
+h the exact requested word. Do not read or change files.'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt · /rc connecting…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt · /rc connecting…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sc -l 'Reply only READY'
+[exit=0]
+$ tmux -L fm-lab send-keys -t primary:fm-sc Enter
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt · /rc
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Worked for 1s · done 9:31 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: real Claude is alive after its hooked turn
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: absent setting leaves live scout holding its seat
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+lane-release: config/lane-release holds '', expected off, audit, or on; nothing is released until it is corrected
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: empty invalid configuration reports one line exactly once and keeps worker alive
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+lane-release: config/lane-release holds 'o\nn', expected off, audit, or on; nothing is released until it is corrected
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: split invalid configuration reports one line exactly once and keeps worker alive
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: later done does not erase the unresolved question
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh --audit
+lane-release audit: home=~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab setting=on max-age=1800s
+unknown sc (board-unreadable; unknown is never counted as free)
+summary: class merged-ship/scout holders=0 stuck-composer=0 kept-open-pr seat-hours=0 (PR state read; red checks and review findings not read)
+[exit=2]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: unreadable board directory is unknown and retains the live worker
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh --audit
+lane-release audit: home=~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab setting=on max-age=1800s
+unknown sc (board-unreadable; unknown is never counted as free)
+summary: class merged-ship/scout holders=0 stuck-composer=0 kept-open-pr seat-hours=0 (PR state read; red checks and review findings not read)
+[exit=2]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: unreadable board source is unknown and retains the live worker
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: registered pending board prevents scout release
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: in-place promotion prevents scout release
+$ tmux -L fm-lab send-keys -t primary:fm-sc -l 'UNSENT important continuation'
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+pending[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt · /rc
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Worked for 1s · done 9:31 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ UNSENT important continuation
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+[exit=0]
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sc
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  Haiku 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt · /rc
+
+
+❯ Reply only READY
+
+● READY
+
+✻ Worked for 1s · done 9:31 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ UNSENT important continuation
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: unsent composer text survives both release sweeps
+$ tmux -L fm-lab send-keys -t primary:fm-sc C-u
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence composer ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+empty[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: audit mode logs one would-release event and never stops the live scout
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh --audit
+lane-release audit: home=~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab setting=audit max-age=1800s
+holder sc class=scout age=2200s
+summary: class merged-ship/scout holders=1 stuck-composer=0 kept-open-pr seat-hours=0 (PR state read; red checks and review findings not read)
+[exit=1]
+OBSERVED: read-only audit detects a finished live holder older than thirty minutes
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh arm
+armed: state/lane-release.check.sh (setting: on)
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+alive[exit=0]
+OBSERVED: a second sighting before 300 seconds does not release
+$ ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/lane-release.check.sh
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh read-evidence agent ~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta sc
+dead[exit=0]
+OBSERVED: registered check stops the real idle scout through fm-control exit
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+lane-release: RELEASE_INCOMPLETE sc - the worker was stopped but its seat is still held by a process in its local copy; the task stays counted (state/sc.release.log)
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+OBSERVED: residual real process retains the seat and emits only one incomplete wake
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-lane-release.sh sweep
+[exit=0]
+OBSERVED: seat becomes released after the last real task process stops
+OBSERVED: release preserves the task copy and uncommitted content
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/bin/fm-fleet-snapshot.sh --json
+{
+  "schema": "fm-fleet-snapshot.v1",
+  "generated": "2026-10-31T04:31:29Z",
+  "fm_home": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab",
+  "roots": {
+    "fm_root": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ",
+    "state": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state",
+    "data": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data",
+    "config": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/config",
+    "projects": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/projects"
+  },
+  "backlog": {
+    "records": [
+      {
+        "state": "queued",
+        "checked": false,
+        "order": 1,
+        "repo": null,
+        "hold_bucket": null,
+        "blocked_by_ids": [],
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "kind": null,
+        "blocked_reason": null,
+        "since": "2026-10-30",
+        "body_excerpt": null,
+        "body_lines": [],
+        "pr_url": null,
+        "priority": null,
+        "captain_actionable": false,
+        "id": "sc",
+        "hold_kind": null,
+        "hold_reason": null,
+        "report_path": null,
+        "title": "Disposable scout",
+        "blocked_by": null,
+        "hold_age_days": 1,
+        "unresolved_blocker_ids": [],
+        "requires_child_metadata": false,
+        "links": [],
+        "structured": true,
+        "done": null,
+        "hold_set": null,
+        "merged": null,
+        "current_role": "queued",
+        "hold_until": null,
+        "raw": "- [ ] sc - Disposable scout (since 2026-10-30)",
+        "reported": null,
+        "local_note": null
+      }
+    ],
+    "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/backlog.md",
+    "present": true
+  },
+  "tasks": [
+    {
+      "id": "sc",
+      "kind": "scout",
+      "harness": "claude",
+      "mode": "",
+      "yolo": "",
+      "branch": null,
+      "project": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt",
+      "spawn_gen": "s1793421059.1.1",
+      "backend": "tmux",
+      "remote": null,
+      "paths": {
+        "meta": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.meta",
+          "present": true
+        },
+        "status_log": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/state/sc.status",
+          "present": true,
+          "kind": "event_history",
+          "last_event": {
+            "state": "done",
+            "note": "report complete",
+            "raw": "done [at=1793421073]: report complete",
+            "age_seconds": 16
+          }
+        },
+        "worktree": {
+          "path": "~/.no-mistakes/worktrees/049a88734b0e/01M67W332R62ZJZSW3A4W2RCSJ/.lane-live/wt",
+          "present": true
+        },
+        "home": {
+          "path": null,
+          "present": false
+        },
+        "report": {
+          "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/sc/report.md",
+          "present": true
+        }
+      },
+      "secondmate_projects": [],
+      "current_state": {
+        "state": "unknown",
+        "source": "pane",
+        "detail": "harness state unavailable (unknown missing)",
+        "raw": "state: unknown · source: pane · harness state unavailable (unknown missing)",
+        "observed_at": "2026-10-31T04:31:29Z",
+        "freshness": "fresh"
+      },
+      "lane_release": {
+        "class": "scout",
+        "result": "released",
+        "released_at": 1793422373
+      },
+      "endpoint": {
+        "target": "primary:fm-sc",
+        "exists": true,
+        "agent_alive": "not_checked",
+        "status": "unknown",
+        "observed_at": "2026-10-31T04:31:29Z",
+        "freshness": "fresh"
+      },
+      "pr": {
+        "url": null,
+        "source": "absent",
+        "head": null
+      },
+      "hints": {
+        "pending_decision": false,
+        "blocked_event": false,
+        "open_decisions": [],
+        "scout_report_present": true,
+        "last_event_text": "done [at=1793421073]: report complete"
+      },
+      "actions": {
+        "watch": "bin/fm-peek.sh fm-sc",
+        "steer": "bin/fm-send.sh fm-sc '<instruction>'",
+        "return_channel_note": null
+      },
+      "backlog": {
+        "state": "queued",
+        "checked": false,
+        "order": 1,
+        "repo": null,
+        "hold_bucket": null,
+        "blocked_by_ids": [],
+        "completion": {
+          "date": null,
+          "verb": null
+        },
+        "kind": null,
+        "blocked_reason": null,
+        "since": "2026-10-30",
+        "body_excerpt": null,
+        "body_lines": [],
+        "pr_url": null,
+        "priority": null,
+        "captain_actionable": false,
+        "id": "sc",
+        "hold_kind": null,
+        "hold_reason": null,
+        "report_path": null,
+        "title": "Disposable scout",
+        "blocked_by": null,
+        "hold_age_days": 1,
+        "unresolved_blocker_ids": [],
+        "requires_child_metadata": false,
+        "links": [],
+        "structured": true,
+        "done": null,
+        "hold_set": null,
+        "merged": null,
+        "current_role": "queued",
+        "hold_until": null,
+        "raw": "- [ ] sc - Disposable scout (since 2026-10-30)",
+        "reported": null,
+        "local_note": null
+      }
+    }
+  ],
+  "main_inventory": {
+    "valid": true,
+    "reason": null,
+    "orphan_in_flight": [],
+    "unstructured_current_count": 0
+  },
+  "contributions": {
+    "known": 0,
+    "checked": 0,
+    "counts": {
+      "captain": 0,
+      "fleet": 0,
+      "maintainer": 0,
+      "nobody": 0
+    },
+    "unmeasured": 0,
+    "complete": true,
+    "proven_clear": true,
+    "stale_verdicts": 0,
+    "missing_verdicts": 0,
+    "unreadable_records": 0,
+    "valid_until": 900,
+    "captain": [],
+    "captain_omitted": 0
+  },
+  "scout_reports": [
+    {
+      "id": "sc",
+      "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/sc/report.md",
+      "kind": "scout"
+    }
+  ],
+  "secondmate_current": {
+    "registry": {
+      "present": false,
+      "available": true,
+      "complete": true,
+      "reason": null,
+      "provenance": "registered-table",
+      "path": "~/.no-mistakes/evidence/01M67W332R62ZJZSW3A4W2RCSJ/lab/data/secondmates.md",
+      "freshness": {
+        "status": "fresh",
+        "observed_at": "2026-10-31T04:31:29Z"
+      },
+      "records": [],
+      "input_truncated": false,
+      "records_truncated": false,
+      "reasons": [],
+      "lines_in_window": 0,
+      "records_in_window": 0
+    },
+    "records": [],
+    "total_registered": 0,
+    "total": 0,
+    "shown": 0,
+    "truncated": 0
+  },
+  "secondmate_landed": {
+    "records": [],
+    "truncated": [],
+    "unreadable": [],
+    "partial": []
+  },
+  "secondmate_guidance": {
+    "note": "For kind=secondmate, bearings selects validated structured state from that registered home; parent events and bounded terminal evidence are fallback-only supplements and never current-state authority."
+  }
+}
+[exit=0]
+OBSERVED: fleet snapshot distinguishes intentional release from a dead worker
+ALL LIVE SCENARIOS PASSED
+$ tmux -L fm-lab kill-server
+[exit=0]
+CLEANUP: private tmux server stopped and disposable home/copy removed
