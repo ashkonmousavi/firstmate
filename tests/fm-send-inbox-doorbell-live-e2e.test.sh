@@ -18,6 +18,9 @@
 # (the mv into handled/), failing loudly with the harness name and version.
 # The pending case requires no action or acknowledgement before the ring and
 # has no later fresh-send retry that could mask a failed recovery.
+# Each installed harness first runs lifecycle cases proving own-doorbell
+# clearing without submission and preservation of foreign drafts; an unreadable
+# composer instead must refuse exit without sending lifecycle input.
 #
 # Run explicitly with FM_SEND_INBOX_LIVE_E2E=1. This test spends a small
 # number of real model tokens per installed harness -
@@ -26,8 +29,10 @@
 # than passing vacuously. Restrict with
 # FM_SEND_INBOX_LIVE_HARNESSES="claude codex ..." when needed, and tune the
 # per-harness wait with FM_SEND_INBOX_LIVE_TIMEOUT (seconds, default 240).
-# Set FM_SEND_INBOX_LIVE_PENDING_ONLY=1 to run only pending-draft recovery.
-# FM_SEND_INBOX_LIVE_CLAUDE_MODES selects individual Claude cases; optional
+# Set FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY=1 to omit all delivery cases.
+# FM_SEND_INBOX_LIVE_PENDING_ONLY=1 omits fresh delivery cases after lifecycle.
+# FM_SEND_INBOX_LIVE_CLAUDE_MODES selects Claude delivery cases after lifecycle
+# and takes precedence over FM_SEND_INBOX_LIVE_PENDING_ONLY.
 # FM_SEND_INBOX_LIVE_READY_TIMEOUT extends the startup-only readiness budget.
 # FM_SEND_INBOX_LIVE_TRACE_READS=1 retains readback diagnostics on lifecycle failure.
 # FM_SEND_INBOX_LIVE_EVIDENCE_DIR retains CLI output and terminal captures.

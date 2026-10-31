@@ -1243,7 +1243,7 @@ The Cursor-only pending recovery refresh uses the default 240-second action-and-
 env -u FM_SEND_INBOX_LIVE_TIMEOUT FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=cursor FM_SEND_INBOX_LIVE_PENDING_ONLY=1 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
 ```
 
-`FM_SEND_INBOX_LIVE_PENDING_ONLY=1` omits the fresh-send case; without it, the guard retains both cases for each selected installed harness.
+Case-selection flags are documented in the [live guard's header](../../tests/fm-send-inbox-doorbell-live-e2e.test.sh).
 A pending record, doorbell-construction or seed failure marks the guard failed, names the harness and version, cleans up its window, and returns to the loop so later harnesses are still reported.
 
 On 2026-10-22, this pending-only command passed on Cursor 2026.10.19-6bbf2c4 with tmux 3.4 from the repository worktree, using the default 240-second limit after clearing the timeout override.
