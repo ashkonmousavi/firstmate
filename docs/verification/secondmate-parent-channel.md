@@ -4,6 +4,7 @@ Maintainer-verification record for the guarantee in [`secondmate-parent-channel.
 Refresh it by rerunning the fixture below after changing any publisher named in `bin/fm-parent-channel-lib.sh`.
 This run predates emission-time stamping, so each published line below is the payload without its stamp: a rerun now writes the same bytes with an `[at=<epoch>]` tag closing the head, as in `done [key=child-outcome-child-done-05b032a1] [at=<epoch>]: child ...`.
 [`bin/fm-classify-lib.sh`](../../bin/fm-classify-lib.sh) owns that tag's syntax; nothing this record proves about delivery depends on it.
+The transcript also predates hold-provenance validation; apply [`bin/fm-captain-hold.sh`'s current header and `--help` requirements](../../bin/fm-captain-hold.sh) to Step 3 when refreshing this record.
 
 ## What was run
 

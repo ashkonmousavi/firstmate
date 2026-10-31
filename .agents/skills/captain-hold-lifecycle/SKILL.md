@@ -19,8 +19,7 @@ Every unresolved question that belongs to the captain and is discovered while pr
 A question belongs to the captain only when `AGENTS.md` section 9 reserves the ask.
 Technical ambiguity, scope disposition, and a repeated-theme correction are decided, recorded, and reported, and they do not become held tasks.
 A wait that is firstmate's own, such as a date, a freeze, or another task, is not a captain call.
-`hold` refuses a call with no owner-message reference and names the plain external hold.
-The script header owns that refusal.
+[`bin/fm-captain-hold.sh`'s header and `--help`](../../../bin/fm-captain-hold.sh) own the hold-provenance requirements and the refusal's plain external hold alternative.
 For a Lavish board-backed handoff, pass the reply through `bin/fm-procevent-lavish.sh arm --agent-reply-file` before appending the status; the adapter owns version-specific acceptance ordering.
 Prefer holding the work item the question gates over minting a new row; create a new task only when no work item exists to hold.
 The originating investigation or review is never its own inventory entry, so hold a separate task for the call and pass `--origin <origin-id>` so `complete` can check it.

@@ -58,12 +58,13 @@
 # `Captain hold origin-kind:` body line. Supplied values replace recorded ones;
 # omitted origin and attribution fields preserve their recorded values, and a
 # refused backend hold restores both previous fields.
-# A hold with no owner-message reference is refused before any mutation.
-# The reference is `--origin`, an origin already recorded on the task, or an
-# owner-request acceptance section already on the task that
-# bin/fm-request-acceptance.py validates.
-# `--origin-kind owner-request` counts only when that section validates,
-# because the section is the owner's message.
+# Hold provenance is checked before any backlog mutation, including on re-hold.
+# With `--origin-kind owner-request` (supplied or preserved), an existing
+# owner-request acceptance section must pass bin/fm-request-acceptance.py
+# validation; an origin alone does not suffice.
+# For finding, pipeline-outcome, or omitted attribution, `--origin`, a recorded
+# `Captain hold origin:`, or a validated acceptance section suffices.
+# An origin identifies the work that raised the call, not an owner message.
 # The refusal says a wait that is firstmate's own is not a captain call and
 # names the plain external hold:
 # `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`.
@@ -913,10 +914,8 @@ owner_request_source_ok() {  # <task-id> <show-output>
     --task-id "$id" --home "$FM_HOME" >/dev/null 2>&1
 }
 
-# Refuse before any hold mutation when this call names no owner message.
-# An origin flag or a recorded origin is that reference, except owner-request,
-# which still needs the acceptance section. A bound owner request with no
-# origin flag is accepted because the section itself is the reference.
+# Validate before create, stamp, or attribution writes so a provenance refusal
+# leaves no partial hold. The header owns the accepted provenance forms.
 assert_owner_message_reference() {  # <task-id> <show-or-empty> <origin> <origin-kind>
   local id=$1 show=$2 origin=$3 origin_kind=$4
   local effective_origin=$origin effective_kind=$origin_kind source_ok=0 body
