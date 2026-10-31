@@ -891,7 +891,16 @@ The dialogs the gate answered on the way, captured from the same version:
 
 `tests/fm-codex-brief-typed-live-e2e.test.sh` (isolated tmux server; the default positional launch, and the typed path with `FM_CODEX_TYPED_LAUNCH=1`) and `tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` (isolated Herdr lab session) are the commands that refresh this record.
 Both submit a brief, so both are opt-in (`FM_CODEX_LIVE_E2E=1`).
-The 2026-10-31 positional result above came from manual isolated-tmux probes; neither live test was run that day.
+Positional-path live result, 2026-10-31, codex-cli 0.166.0 on the PC (`FM_CODEX_LIVE_E2E=1 bash tests/fm-codex-brief-typed-live-e2e.test.sh`, isolated tmux server, fresh treehouse worktree):
+
+```text
+ok - real codex codex-cli 0.166.0 on tmux: a new-folder scout starts processing its positional launch brief within 42s and answers it
+ok - real codex codex-cli 0.166.0 on tmux: the trusted-folder relaunch rendered no trust dialog
+ok - real codex codex-cli 0.166.0 on tmux: a trusted-folder relaunch starts processing its positional launch brief within 51s
+ok - real codex codex-cli 0.166.0 positional launch brief verified end to end on an isolated tmux server
+```
+
+The Herdr-lab guard was not run for the positional path.
 The portable half, `tests/fm-codex-harness.test.sh`, pins the gate logic - first-turn confirmation, dialog answers, partial-draw safety, envelope text, unconfirmed-submit refusal, processing confirmation, and the typed path's viewport-capture preflight - against a state-machine fake with no model tokens.
 
 ## 2026-10-20 Grok weekly-limit border coverage
