@@ -1,0 +1,13 @@
+ok - a torn-down task's conflicted pull request wakes its home once per label episode
+ok - orphan discovery uses the documented publication target across fork layouts and remote forms
+ok - unsupported or unresolved publication targets never fall back to the fork
+ok - a conflict label wakes only once it is at least 15 minutes old
+ok - authenticated polls cover the destination regardless of owner and repository case until teardown
+ok - failed, empty, and capped listings preserve an episode without another wake
+ok - a label reapplied between sweeps wakes once for its new timestamp
+ok - temporary coverage preserves the episode while a different label timestamp wakes again
+ok - terminal, failed, and young-label observations preserve an existing episode
+ok - only literal fm/ branches wake and resolve their task regardless of the registered prefix
+ok - the wake names this home's task, a main home reports unclaimed work, and a secondmate only its own
+ok - local-only projects are not swept and arguments are refused
+ok - the watcher's check sweep wakes the home for a torn-down task's conflicted pull request

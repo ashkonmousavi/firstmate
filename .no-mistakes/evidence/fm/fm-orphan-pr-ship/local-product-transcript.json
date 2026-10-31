@@ -1,0 +1,505 @@
+{
+  "calls": [
+    {
+      "command": [
+        "bin/fm-lab-home.sh",
+        "create",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/local-only"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/local-only\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/local-only/projects/sample"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/local-only/projects/sample",
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/cli/cli.git"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/local-only",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-lab-home.sh",
+        "create",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/external"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/external\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/external/projects/sample"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/external/projects/sample",
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/cli/cli.git"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/external",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-lab-home.sh",
+        "create",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gerrit"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gerrit\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gerrit/projects/sample"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gerrit/projects/sample",
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/cli/cli.git"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gerrit",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-lab-home.sh",
+        "create",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/forgejo"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/forgejo\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/forgejo/projects/sample"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/forgejo/projects/sample",
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/cli/cli.git"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/forgejo",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-lab-home.sh",
+        "create",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gitlab"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gitlab\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gitlab/projects/sample"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gitlab/projects/sample",
+        "remote",
+        "add",
+        "origin",
+        "https://gitlab.com/example/repo.git"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/gitlab",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-lab-home.sh",
+        "create",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/malformed-target"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/malformed-target\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/malformed-target/projects/sample"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/malformed-target/projects/sample",
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/example/repo/extra.git"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/malformed-target",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-lab-home.sh",
+        "create",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/no-remote"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/no-remote\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/no-remote/projects/sample"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/no-remote",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh",
+        "--report"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/local-only",
+      "exit": 2,
+      "stdout": "",
+      "stderr": "usage: fm-pr-orphan-sweep.sh\n"
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh",
+        "--bogus"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/local-only",
+      "exit": 2,
+      "stdout": "",
+      "stderr": "usage: fm-pr-orphan-sweep.sh\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "list",
+        "-R",
+        "cli/cli",
+        "--state",
+        "open",
+        "--label",
+        "conflict",
+        "--limit",
+        "200",
+        "--json",
+        "number,headRefName"
+      ],
+      "home": null,
+      "exit": 4,
+      "stdout": "",
+      "stderr": "To get started with GitHub CLI, please run:  gh auth login\nAlternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.\n"
+    },
+    {
+      "command": [
+        "bin/fm-lab-home.sh",
+        "create",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/real-cli-no-auth"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/real-cli-no-auth\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/real-cli-no-auth/projects/sample"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/real-cli-no-auth/projects/sample",
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/cli/cli.git"
+      ],
+      "home": null,
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bin/fm-pr-orphan-sweep.sh"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/real-cli-no-auth",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "fm-pr-orphan-sweep: could not list conflicted pull requests for sample (cli/cli): To get started with GitHub CLI, please run:  gh auth login\n"
+    },
+    {
+      "command": [
+        "bin/fm-pr-poll.sh",
+        "--validated",
+        "github",
+        "https://github.com/cli/cli/pull/1",
+        "github.com",
+        "cli/cli",
+        "1"
+      ],
+      "home": "~/.no-mistakes/worktrees/049a88734b0e/01M68VGPZW3GD9GEZK61YV377K/.test-phase/labs/real-cli-no-auth",
+      "exit": 4,
+      "stdout": "",
+      "stderr": "To get started with GitHub CLI, please run:  gh auth login\nAlternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.\n"
+    }
+  ],
+  "observations": [
+    {
+      "scenario": "local-only",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "state_files": []
+    },
+    {
+      "scenario": "external",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "state_files": []
+    },
+    {
+      "scenario": "gerrit",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "state_files": []
+    },
+    {
+      "scenario": "forgejo",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "state_files": []
+    },
+    {
+      "scenario": "gitlab",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "state_files": []
+    },
+    {
+      "scenario": "malformed-target",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "state_files": []
+    },
+    {
+      "scenario": "no-remote",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "state_files": []
+    },
+    {
+      "scenario": "--report",
+      "exit": 2,
+      "stderr": "usage: fm-pr-orphan-sweep.sh\n"
+    },
+    {
+      "scenario": "--bogus",
+      "exit": 2,
+      "stderr": "usage: fm-pr-orphan-sweep.sh\n"
+    },
+    {
+      "scenario": "unauthenticated forge diagnostic without false wake",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "fm-pr-orphan-sweep: could not list conflicted pull requests for sample (cli/cli): To get started with GitHub CLI, please run:  gh auth login\n",
+      "state_files": []
+    }
+  ]
+}
