@@ -59,12 +59,13 @@
 #                 mints as s<epoch>.<pid>.<random> on every spawn and relaunch.
 #   crew state    bin/fm-crew-state.sh with FM_CREW_STATE_NO_FORGE=1 reads
 #                 `done` (a merged ship may also read `unknown`).
-#   nothing since the anchor (the later of the done line and the merge anchor):
+#   nothing since the valid done line, or the merge time without a valid done:
 #                 no status line newer than it; no steering-inbox record, handled
 #                 or not, newer than it and none unhandled; the incarnation
 #                 launched before it; the busy record (bin/fm-busy-lib.sh) is
 #                 idle, was not written by fm-interrupt, and is no newer than the
-#                 anchor; the live busy verdict is idle; the composer reads `empty`. A source
+#                 quiet-since time; the live busy verdict is idle; the composer
+#                 reads `empty`. A source
 #                 that cannot be read is "cannot prove" and keeps the seat.
 #                 A busy record's seq that moves between two sweeps restarts the
 #                 debounce, so a whole turn between sweeps is never missed.
@@ -74,7 +75,10 @@
 #   debounce      a task becomes a candidate on one sweep and is released on a
 #                 later sweep only when it is still finished with the same
 #                 incarnation, anchor, and busy seq, at least 300 s after both
-#                 the first sighting and the anchor.
+#                 the first sighting and the anchor. The marker and ledger
+#                 anchor is the later of valid done and merge for a ship, the
+#                 merge time without valid done, and done for a scout. It starts
+#                 grace and audit age; it never advances the quiet-since time.
 #
 # STATE MACHINE AND MARKER. LIVE -> FINISHED -> RELEASING -> RELEASED or
 # RELEASE_INCOMPLETE. bin/fm-lane-release-lib.sh owns the marker format, the
@@ -444,16 +448,16 @@ pred_crew_state() {
   return 1
 }
 
-# pred_nothing_since <meta> <id> <anchor> <launch>: OUT is busy-gen:seq.
+# pred_nothing_since <meta> <id> <quiet-since> <launch>: OUT is busy-gen:seq.
 pred_nothing_since() {
-  local meta=$1 id=$2 anchor=$3 launch=$4 status last at inbox f m rec
+  local meta=$1 id=$2 quiet_since=$3 launch=$4 status last at inbox f m rec
   local target busy_rec ts seq b_state b_source verdict composer line record snapshot busy_gen inbox_rc=0
   OUT=
-  [ "$launch" -lt "$anchor" ] || { KEEP='relaunched-since'; return 1; }
+  [ "$launch" -lt "$quiet_since" ] || { KEEP='relaunched-since'; return 1; }
   status="$STATE/$id.status"
   if [ -f "$status" ]; then
     last=$(last_status_line "$status")
-    if at=$(status_line_at_epoch "$last") && [ "$at" -gt "$anchor" ]; then
+    if at=$(status_line_at_epoch "$last") && [ "$at" -gt "$quiet_since" ]; then
       KEEP='status-since'
       return 1
     fi
@@ -472,7 +476,7 @@ pred_nothing_since() {
   [ "$b_source" != fm-interrupt ] || { KEEP='interrupted'; return 1; }
   ts=$(sed -n 's/.* ts=\([0-9][0-9]*\).*/\1/p' "$busy_rec" 2>/dev/null | head -n 1)
   [ -n "$ts" ] || { KEEP='busy-record-unreadable'; return 1; }
-  [ "$ts" -le "$anchor" ] || { KEEP='turn-since'; return 1; }
+  [ "$ts" -le "$quiet_since" ] || { KEEP='turn-since'; return 1; }
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || { KEEP='no-endpoint'; return 1; }
   case "$(read_agent "$meta" "$id")" in
@@ -495,7 +499,7 @@ pred_nothing_since() {
     [ -e "$f" ] || [ -L "$f" ] || continue
     [ -f "$f" ] && [ ! -L "$f" ] || { KEEP='inbox-unreadable'; return 1; }
     m=$(file_mtime "$f") || { KEEP='inbox-unreadable'; return 1; }
-    [ "$m" -le "$anchor" ] || { KEEP='steer-since'; return 1; }
+    [ "$m" -le "$quiet_since" ] || { KEEP='steer-since'; return 1; }
   done
   verdict=$(read_busy "$meta" "$id") || verdict=unknown
   case "$verdict" in
@@ -558,7 +562,7 @@ evaluate() {
     fi
   fi
   pred_crew_state "$id" "$class" || return 1
-  pred_nothing_since "$meta" "$id" "$anchor" "$launch" || return 1
+  pred_nothing_since "$meta" "$id" "${done_at:-$anchor}" "$launch" || return 1
   EVAL="$class $gen $anchor $OUT"
 }
 

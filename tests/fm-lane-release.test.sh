@@ -686,6 +686,18 @@ extra_done_then_question_is_not_released() {
   pass "extra done-then-question: a steer, relaunch, typed text, or chat turn after done keeps the seat"
 }
 
+extra_ship_question_before_merge_keeps_the_worker() {
+  local dir
+  dir=$(new_case ship-question-before-merge)
+  finished_ship "$dir" s1
+  printf 'v1 gen=gfixture seq=8 state=idle source=claude-hook event=stop ts=2050\n' > "$dir/home/state/s1.busy-state"
+  cycle "$dir"
+  [ "$(control_calls "$dir")" = 0 ] || fail "merge at 2100 hid the chat question after done at 2000"
+  [ ! -e "$dir/home/state/s1.released" ] || fail "a ship awaiting its continuation answer received a release marker"
+  assert_kept "$dir" s1 turn-since
+  pass "a ship's chat question at 2050 after done at 2000 keeps its seat despite merge at 2100"
+}
+
 extra_closed_unmerged_is_not_released() {
   local dir
   dir=$(new_case extra-closed)
@@ -1379,6 +1391,7 @@ stop_away_quiet_and_restart_still_release_once
 stop_owner_typed_in_the_window_keeps
 stop_stuck_composer_is_reported_never_released
 extra_done_then_question_is_not_released
+extra_ship_question_before_merge_keeps_the_worker
 extra_closed_unmerged_is_not_released
 extra_scout_awaiting_promotion_is_not_released
 extra_open_pr_ship_is_kept_and_measured
