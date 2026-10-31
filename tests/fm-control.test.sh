@@ -149,6 +149,12 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
+      # FM_FAKE_STOP_ON_ENTER=<n> models a picker whose nth Enter confirms the
+      # exit: the agent stops on that key and no earlier one.
+      if [ -n "${FM_FAKE_STOP_ON_ENTER:-}" ] && [ "$payload" = Enter ] \
+         && [ "$(grep -cx Enter "$D/keys")" -ge "$FM_FAKE_STOP_ON_ENTER" ]; then
+        printf 'zsh' > "$D/command"
+      fi
       printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
       if [ "$payload" = Escape ] && [ -f "$D/devin" ]; then
         case "$(cat "$D/devin")" in
@@ -889,64 +895,75 @@ exit_picker_screen() {
     'Enter to confirm · Esc to cancel'
 }
 
-test_exit_refuses_an_open_background_picker() {
-  local dir out rc
+test_exit_answers_an_open_background_picker() {
+  local dir out rc enters
   dir=$(new_case open-picker)
   add_task "$dir" t1 claude
   alive_as "$dir" claude
   exit_picker_screen > "$dir/fake/pane"
-  out=$(run_control "$dir" t1 exit); rc=$?
-  expect_code 1 "$rc" "an open exit picker should refuse"$'\n'"$out"
-  assert_contains "$out" "blocked on a prompt: Claude background-task exit picker" \
-    "the refusal should name the dialog"
-  assert_not_contains "$out" "Esc" "the refusal must not name a dismissal key"
+  out=$(env FM_FAKE_STOP_ON_ENTER=1 PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" \
+    FM_FAKE_DIR="$dir/fake" FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.5 \
+    "$CONTROL" t1 exit 2>&1); rc=$?
+  expect_code 0 "$rc" "an open exit picker should be answered"$'\n'"$out"
+  assert_contains "$out" "stopped" "the exit should report the stop"
   [ ! -s "$dir/fake/literal" ] || fail "an open picker must not be typed into"
-  [ ! -s "$dir/fake/keys" ] || fail "an open picker must receive no keys"
-  pass "fm-control exit: an already-open background-task picker is not typed into"
+  enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
+  [ "$enters" -eq 1 ] || fail "exactly one confirming Enter should be sent, got $enters"
+  pass "fm-control exit: an already-open background-task picker gets one confirming Enter and no typed text"
 }
 
-test_exit_refuses_the_confirming_enter() {
+test_exit_confirms_the_picker_its_submit_opened() {
   local dir out rc enters
   dir=$(new_case confirm-picker)
   add_task "$dir" t1 claude
   alive_as "$dir" claude
   exit_picker_screen > "$dir/fake/after-enter"
-  out=$(env FM_FAKE_NEVER_DIES=1 PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" \
-    FM_FAKE_DIR="$dir/fake" FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 \
+  out=$(env FM_FAKE_NEVER_DIES=1 FM_FAKE_STOP_ON_ENTER=2 PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" \
+    FM_FAKE_DIR="$dir/fake" FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.5 \
     "$CONTROL" t1 exit 2>&1); rc=$?
-  expect_code 1 "$rc" "the confirming Enter should refuse"$'\n'"$out"
-  assert_contains "$out" "blocked on a prompt: Claude background-task exit picker" \
-    "the refusal should name the dialog"
-  assert_not_contains "$out" "Esc" "the refusal must not name a dismissal key"
-  [ "$(literals "$dir")" = /exit ] || fail "the exit command should still be typed, got '$(literals "$dir")'"
+  expect_code 0 "$rc" "the picker the submit opened should be confirmed"$'\n'"$out"
+  [ "$(literals "$dir")" = /exit ] || fail "the exit command should be typed once, got '$(literals "$dir")'"
   enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
-  [ "$enters" -eq 1 ] || fail "only the submitting Enter should be sent, got $enters"
-  pass "fm-control exit: the Enter that opens the background-task picker is not followed by a confirming Enter"
+  [ "$enters" -eq 2 ] || fail "the submit and one confirming Enter should be sent, got $enters"
+  pass "fm-control exit: the picker the submitting Enter opened is confirmed with one more Enter"
 }
 
 # The submit reads a cleared composer before the picker renders, so it reports
 # delivery and no read inside it sees the picker. Exit's own read after the
 # stop wait times out must still name the dialog.
-test_exit_names_a_picker_that_renders_after_the_submit() {
+test_exit_confirms_a_picker_that_renders_after_the_submit() {
   local dir out rc enters
   dir=$(new_case late-picker)
   add_task "$dir" t1 claude
   alive_as "$dir" claude
   exit_picker_screen > "$dir/fake/after-enter"
   printf '1' > "$dir/fake/after-enter-late"
+  out=$(env FM_FAKE_NEVER_DIES=1 FM_FAKE_STOP_ON_ENTER=2 PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" \
+    FM_FAKE_DIR="$dir/fake" FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.3 \
+    "$CONTROL" t1 exit 2>&1); rc=$?
+  expect_code 0 "$rc" "a picker that renders after the submit should be confirmed"$'\n'"$out"
+  enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
+  [ "$enters" -eq 2 ] || fail "the submit and one confirming Enter should be sent, got $enters"
+  pass "fm-control exit: a picker that renders after the submit returned is confirmed when the stop wait times out"
+}
+
+# A picker that survives the one confirming Enter is refused, never answered
+# with a second Enter, even after the stop wait re-reads the screen.
+test_exit_refuses_a_picker_that_survives_its_enter() {
+  local dir out rc enters
+  dir=$(new_case surviving-picker)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  exit_picker_screen > "$dir/fake/pane"
   out=$(env FM_FAKE_NEVER_DIES=1 PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" \
     FM_FAKE_DIR="$dir/fake" FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 \
     "$CONTROL" t1 exit 2>&1); rc=$?
-  expect_code 1 "$rc" "a picker that renders after the submit should refuse"$'\n'"$out"
-  [ "$(cat "$dir/fake/after-enter-late")" = 0 ] \
-    || fail "the submit should have read the ordinary pane once after Enter"
-  assert_contains "$out" "blocked on a prompt: Claude background-task exit picker" \
-    "the refusal should name the dialog"
-  assert_not_contains "$out" "did not stop within" \
-    "a recognised picker must not fall back to the generic timeout message"
+  expect_code 1 "$rc" "a surviving picker should refuse"$'\n'"$out"
+  assert_contains "$out" "Enter did not clear it" "the refusal should say the Enter did not clear the picker"
+  [ ! -s "$dir/fake/literal" ] || fail "an open picker must not be typed into"
   enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
-  [ "$enters" -eq 1 ] || fail "only the submitting Enter should be sent, got $enters"
-  pass "fm-control exit: a picker that renders after the submit returned is named when the stop wait times out"
+  [ "$enters" -eq 1 ] || fail "exactly one confirming Enter should be sent, got $enters"
+  pass "fm-control exit: a picker that survives its one confirming Enter is refused without a second Enter"
 }
 
 test_idle_agent_is_not_interrupted() {
@@ -1614,9 +1631,10 @@ test_ambiguous_endpoint_refuses
 test_busy_agent_is_interrupted_before_the_exit_command
 test_idle_agent_is_not_interrupted
 test_exit_drops_meta_busy_gen_with_the_sidecar
-test_exit_refuses_an_open_background_picker
-test_exit_refuses_the_confirming_enter
-test_exit_names_a_picker_that_renders_after_the_submit
+test_exit_answers_an_open_background_picker
+test_exit_confirms_the_picker_its_submit_opened
+test_exit_confirms_a_picker_that_renders_after_the_submit
+test_exit_refuses_a_picker_that_survives_its_enter
 test_interrupt_without_acknowledgement_preserves_busy_state
 test_muse_interrupt_confirms_adapter_acknowledgement
 test_interrupt_revalidates_agent_after_acknowledgement_wait

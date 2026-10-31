@@ -1558,6 +1558,7 @@ Typing `/exit` while a background shell is still running opens a picker whose se
 That screen still classifies as pending, the same verdict as unsubmitted composer text.
 A second Enter would confirm the selected row.
 [`fm_composer_blocking_dialog`](../../bin/fm-composer-lib.sh) owns the structural recognition and quoted-text exclusions; [agent control](../agent-control.md#verbs) owns submit and exit refusal, and [event-driven supervision](../architecture.md#event-driven-supervision) owns secondmate dialog monitoring.
+`fm-control exit` answers this picker with exactly one confirming Enter, because its selected row stops background tasks only and keeps the worktree and every change; a picker still showing after that Enter is refused.
 No recorded screen was available for a model-downgrade confirmation, an MCP approval, or a Claude exit confirmation other than this picker, so those dialogs are not covered.
 The read-only refresh guard for this picker and the Codex dialog is [`fm-composer-dialog-live-e2e.test.sh`](../../tests/fm-composer-dialog-live-e2e.test.sh).
 Supply operator-prepared, isolated tmux pane IDs in `FM_DIALOG_CLAUDE_DIALOG`, `FM_DIALOG_CLAUDE_IDLE`, `FM_DIALOG_CLAUDE_PENDING`, and `FM_DIALOG_CLAUDE_WORKING`, and the corresponding `FM_DIALOG_CODEX_*` variables for every installed harness, plus `FM_DIALOG_UNKNOWN` for an unrecognized shell pane.
