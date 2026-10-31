@@ -1089,6 +1089,26 @@ extra_arm_registers_a_thin_check() {
   pass "extra carrier: arm writes and registers a thin check shim; disarm removes it"
 }
 
+extra_shim_survives_a_missing_arming_root() {
+  local dir shim out rc
+  dir=$(new_case extra-shim-root)
+  FM_HOME="$dir/home" "$LR" arm >/dev/null
+  shim="$dir/home/state/lane-release.check.sh"
+  # The arming root loses the script: the shim must say so and exit 1, never 127.
+  sed -i 's#^pinned=.*#pinned=/nonexistent/fm-lane-release.sh#' "$shim"
+  out=$(bash "$shim" 2>&1); rc=$?
+  expect_code 1 "$rc" "a shim with no script anywhere should exit 1"$'\n'"$out"
+  assert_contains "$out" "no executable fm-lane-release.sh" "the shim should name the missing script"
+  # The home own code root is preferred and rescues a lost arming root.
+  mkdir -p "$dir/home/bin"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/home/bin/fm-lane-release.sh"
+  chmod 0755 "$dir/home/bin/fm-lane-release.sh"
+  bash "$shim" >/dev/null 2>&1 || fail "the shim should run the home own code root"
+  # arm refuses when its own script is not executable.
+  FM_HOME="$dir/home" "$LR" disarm >/dev/null
+  pass "extra carrier: the shim prefers the home code root and reports a missing script instead of 127"
+}
+
 extra_audit_marker_occupancy_and_unknown_reads() {
   local dir result out rc what
   for result in releasing release-incomplete released; do
@@ -1535,6 +1555,7 @@ extra_slow_gate_read_is_bounded_by_the_sweep_budget
 extra_local_only_ship_is_kept
 extra_audit_exit_codes
 extra_arm_registers_a_thin_check
+extra_shim_survives_a_missing_arming_root
 
 extra_audit_marker_occupancy_and_unknown_reads
 extra_all_external_reads_share_the_sweep_deadline
