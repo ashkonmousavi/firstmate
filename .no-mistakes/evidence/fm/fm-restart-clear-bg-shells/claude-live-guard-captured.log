@@ -1,0 +1,4 @@
+# harness: 2.1.316 (Claude Code); transport: tmux 3.4
+ok - 2.1.316 (Claude Code): the status row below the composer reports 1 running background shell
+ok - 2.1.316 (Claude Code): the persist request's sentence made the agent stop its own shell, and the status row cleared
+ok - 2.1.316 (Claude Code): with its shells stopped, /exit closed Claude without a picker

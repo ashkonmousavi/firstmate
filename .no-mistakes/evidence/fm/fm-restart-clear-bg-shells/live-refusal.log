@@ -1,0 +1,14 @@
+case: running
+restart exit: 3
+unreached: sm1: the request to write down its open work could not be delivered: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git); the re-read message could not be delivered either: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+
+parent report:
+(missing)
+
+TEARDOWN: running private tmux server stopped and disposable lab removed
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M6A1RBDBTX6W12NDNV591RNK/live-refusal-driver.py", line 51, in <module>
+    assert 'background-shell cleanup incomplete:' in result
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

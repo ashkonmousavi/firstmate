@@ -1,0 +1,45 @@
+bash-5.2$ bash '~/.no-mistakes/worktrees/049a88734b0e/01M6A1RBDBTX6W12NDNV591RNK/.no-mistakes/restart-bg-shells-live.hAHtzr/launch.sh'
+
+Resume this session with:
+claude --resume 6080fba7-ff76-4b0c-bf69-f4253c1c00cd
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,4 @@
+ok - T1 persist is a gate, and asks for open records and task status only
+not ok - a confirmed persist should restart the mate
+unreached: sm1: the restart outcome is unknown: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/049a88734b0e/01M6A1RBDBTX6W12NDNV591RNK/.no-mistakes/test-tmp/fm-secondmate-restart.hwNNZr/order-17015/sm1-home
+summary: 0 of 1 restarted, 0 nudged, 1 unreached: expected exit 0, got 3

@@ -1,0 +1,9 @@
+/tmp/fm-lab.Cesimm
+/tmp/fm-lab.Cesimm/mate
+Real Claude pane: one running background shell; grid=180x45
+unreached: lab-mate: the request to write down its open work could not be delivered: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git); the re-read message could not be delivered either: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+restart exit status: 3
+Original background process is still alive. No cleanup observation or relaunch was reached.
+No relaunch transaction was created.
+rm: cannot remove '/tmp/fm-lab.Cesimm/claude': Directory not empty

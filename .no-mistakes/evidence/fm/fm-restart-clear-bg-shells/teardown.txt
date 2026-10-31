@@ -1,0 +1,4 @@
+Initial teardown raced Claude shutdown writes in its disposable config.
+Follow-up process check: no Claude process with the unique lab path remains.
+Disposable lab /tmp/fm-lab.Cesimm removed after process exit.
+Live guard private socket and throwaway worktree were also removed.
