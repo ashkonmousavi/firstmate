@@ -127,4 +127,26 @@ log.mkdir()
 assert capacity()['reason']=='ok'
 log.rmdir()
 print('ok - an unwritable sample log never changes the verdict (synthetic)')
+failed_reader = '''
+python3() { printf '%s' "$FM_FAILED_READER_OUTPUT"; return "$FM_FAILED_READER_STATUS"; }
+export -f python3
+exec bash "$@"
+'''
+for output,status in [('',137),('',0),(' \n\t',137),('{',1)]:
+    failed_env={**env,'FM_FAILED_READER_OUTPUT':output,'FM_FAILED_READER_STATUS':str(status)}
+    for mode,expected in [('--json',1),('--publish',1),('--admit',75),('',1)]:
+        log.unlink(missing_ok=True)
+        args=['bash','-c',failed_reader,'failed-reader',str(r/'bin/fm-capacity.sh')]
+        if mode:args.append(mode)
+        result=subprocess.run(args,env=failed_env,capture_output=True,text=True)
+        assert result.returncode==expected,(output,status,mode,result.stdout,result.stderr)
+        rows=log.read_text().splitlines()
+        assert len(rows)==1,(output,status,mode,rows)
+        row=rows[0].split('\t')
+        assert len(row)==9 and row[0].isdigit() and row[1]=='unknown',row
+        assert row[2:8]==['']*6 and row[8]=='resource reader output unreadable',row
+        if mode in ('--json','--publish'):
+            reading=json.loads(result.stdout)
+            assert reading['reason']=='unreadable' and reading['free_lanes']==0,reading
+print('ok - empty, whitespace and truncated reader output log one unknown TSV verdict across report modes (synthetic)')
 PY

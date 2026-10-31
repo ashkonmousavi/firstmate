@@ -42,7 +42,7 @@
 # it exceeds FM_ADMISSION_LOG_MAX_BYTES (default 2 MiB), so at most two files exist.
 fm_capacity_sample() { # <state> <reader-json> <reader-status>
   local log="$1/machine-admission.log" line max=${FM_ADMISSION_LOG_MAX_BYTES:-2097152} size
-  line=$(jq -r --arg status "$3" '
+  line=$(jq -er --arg status "$3" '
     def n: if type == "number" then tostring else "" end;
     [(now|floor|tostring),
      (if .readable != true or ($status != "0" and $status != "75") then "unknown"
