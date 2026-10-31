@@ -129,14 +129,28 @@ fm_secondmate_liveness_rearm() {
 # rearm that record; a later live watcher probe also rearms it, and teardown
 # removes it at retirement. Deliberate fm-control exit records no park marker,
 # so it keeps the ordinary reread-send behavior. Missing or unreadable records
-# never authorize a skip.
-fm_secondmate_parked() {  # <state-dir> <id>
-  local state=$1 id=$2 marker
+# never authorize a skip. Remote skips also require a read-only poll proving
+# the destination agent is dead or missing; alive or uncertain keeps sending.
+fm_secondmate_parked() (  # <state-dir> <id>
+  local state=$1 id=$2 marker meta window
   case "$id" in ''|*[!/A-Za-z0-9._-]*|*/*) return 1 ;; esac
   marker="$state/.secondmate-relaunch-bound-$id"
   [ -f "$marker" ] && [ -r "$marker" ] && [ ! -L "$marker" ] || return 1
-  awk -F '\t' 'NR != 1 || NF != 2 || $1 !~ /^[0-9]+$/ || ($2 != "dead" && $2 != "missing") { bad = 1 } END { exit (bad || NR != 1) }' "$marker" 2>/dev/null
-}
+  awk -F '\t' 'NR != 1 || NF != 2 || $1 !~ /^[0-9]+$/ || ($2 != "dead" && $2 != "missing") { bad = 1 } END { exit (bad || NR != 1) }' "$marker" 2>/dev/null || return 1
+  meta="$state/$id.meta"
+  [ -f "$meta" ] && [ -r "$meta" ] && [ ! -L "$meta" ] || return 1
+  [ "$(fm_backend_meta_exact_value "$meta" kind)" = secondmate ] || return 1
+  window=$(fm_backend_meta_exact_value "$meta" window) || return 1
+  case "$window" in
+    remote:*)
+      [ "$window" = "remote:$id" ] || return 1
+      fm_backend_meta_exact_value "$meta" remote_host >/dev/null || return 1
+      fm_secondmate_liveness_probe "$meta" "$id" poll || return 1
+      [ "$FM_SM_LIVE_STATUS" = relaunchable ]
+      ;;
+    *) [ -z "$(fm_meta_get "$meta" remote_host)" ] ;;
+  esac
+)
 
 # fm_secondmate_liveness_probe <meta> <id> <full|poll>
 #

@@ -440,7 +440,31 @@ case "$command_name:$subcommand" in
     printf 'current: test\n'
     exit 0
     ;;
-  fm-remote-secondmate-control.sh:state) printf 'END %s\n' "$host" >> "$log"; printf 'alive\n'; exit 0 ;;
+  fm-remote-secondmate-control.sh:state)
+    printf 'END %s\n' "$host" >> "$log"
+    if [ -n "${FM_FAKE_REMOTE_STATE_FILE:-}" ]; then
+      cat "$FM_FAKE_REMOTE_STATE_FILE"
+    else
+      printf '%s\n' "${FM_FAKE_REMOTE_STATE:-alive}"
+    fi
+    exit "${FM_FAKE_REMOTE_STATE_RC:-0}"
+    ;;
+  fm-remote-secondmate-control.sh:launch|fm-remote-secondmate-control.sh:relaunch)
+    [ -z "${FM_FAKE_REMOTE_STATE_FILE:-}" ] || printf 'alive\n' > "$FM_FAKE_REMOTE_STATE_FILE"
+    [ -z "${FM_FAKE_RELAUNCH_ENTERED:-}" ] || : > "$FM_FAKE_RELAUNCH_ENTERED"
+    if [ -n "${FM_FAKE_RELAUNCH_RELEASE:-}" ]; then
+      waited=0
+      while [ ! -f "$FM_FAKE_RELAUNCH_RELEASE" ] && [ "$waited" -lt 1000 ]; do
+        sleep 0.02
+        waited=$((waited + 1))
+      done
+      [ -f "$FM_FAKE_RELAUNCH_RELEASE" ] || exit 97
+    fi
+    printf 'END %s %s %s\n' "$host" "$command_name" "$subcommand" >> "$log"
+    [ "${FM_FAKE_RELAUNCH_UNKNOWN:-0}" != 1 ] || exit 255
+    printf 'schema=fm-remote-secondmate-control.v1\nbackend=herdr\ntarget=fm-remote:w1:p1\nherdr_session=fm-remote\nharness=codex\nmodel=\neffort=\n'
+    exit 0
+    ;;
   fm-remote-secondmate-control.sh:route) printf 'END %s\n' "$host" >> "$log"; printf 'backend=herdr\n'; exit 0 ;;
   fm-remote-inherit.sh:*)
     if [ "$item_rel" = "${FM_FAKE_ITEM_UNKNOWN:-none}" ]; then
@@ -494,8 +518,9 @@ convergence_fixture() {
     host=${spec#*:}
     mkdir -p "$dir/remote/$id/root" "$dir/remote/$id/home"
     write_remote_registry_line "$CF_HOME/data/secondmates.md" "$id" "$host" "$dir/remote/$id/root" "$dir/remote/$id/home"
-    fm_write_secondmate_meta "$CF_HOME/state/$id.meta" "$dir/remote/$id/home"
-    printf 'remote_host=%s\n' "$host" >> "$CF_HOME/state/$id.meta"
+    fm_write_secondmate_meta "$CF_HOME/state/$id.meta" "$dir/remote/$id/home" "remote:$id" alpha codex
+    printf 'remote_host=%s\nremote_root=%s\nremote_backend=herdr\nremote_herdr_session=fm-remote\nremote_target=fm-remote:w1:p1\n' \
+      "$host" "$dir/remote/$id/root" >> "$CF_HOME/state/$id.meta"
   done
 }
 
@@ -645,6 +670,34 @@ run_nudge_convergence() {
     "$ROOT/bin/$1" 2>&1
 }
 
+run_convergence_without_recovery() (
+  STATE="$CF_HOME/state"
+  . "$ROOT/bin/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$STATE/.secondmate-liveness-sm.lock"
+  trap 'fm_lock_release "$STATE/.secondmate-liveness-sm.lock" || true' EXIT
+  run_nudge_convergence "$1"
+)
+
+run_remote_launch() {
+  local action=$1; shift
+  PATH="$CF_FAKEBIN:$BASE_PATH" FM_HOME="$CF_HOME" FM_ROOT_OVERRIDE="$CF_PRIMARY" \
+    FM_SSH_BIN="$CF_FAKEBIN/fake-ssh" FM_FAKE_SSH_LOG="$CF_LOG" \
+    FM_INHERITABLE_CONFIG='item-a item-b' FM_SPAWN_NO_GUARD=1 \
+    "$ROOT/bin/$action" "$@" 2>&1
+}
+
+assert_remote_reread_sent() {
+  local script=$1 out=$2
+  assert_not_contains "$out" 'parked, skipped' "$script suppressed a live or uncertain mate's notice"
+  assert_grep 'START host-sm fm-remote-secondmate-control.sh send sm' "$CF_LOG" \
+    "$script did not send the reread through the remote inbox interface: $out"
+  if [ "$script" = fm-config-push.sh ]; then
+    assert_contains "$out" 'config-reread: sent' "$script did not confirm the reread: $out"
+  else
+    assert_contains "$out" 'BOOTSTRAP_INFO: nudged remote fm-sm' "$script did not confirm the reread: $out"
+  fi
+}
+
 assert_owed_reread_survives_unchanged_retry() {  # <script> <why>
   local script=$1 why=$2 marker out
   marker="$CF_HOME/state/.secondmate-nudge-pending/sm.pending"
@@ -761,9 +814,11 @@ SH
 # mate reads its config at launch, so the owed marker a push left behind is
 # discharged rather than delivered (fm_secondmate_parked).
 test_parked_remote_mate_keeps_files_but_loses_the_reread_notice() {
-  local script out rc marker inherit_lines
+  local script out rc marker inherit_lines statefile
   for script in fm-config-push.sh fm-bootstrap.sh; do
     convergence_fixture "$TMP_ROOT/parked-$script" sm:host-sm
+    statefile="$CF_HOME/agent-state"
+    printf 'alive\n' > "$statefile"
     marker="$CF_HOME/state/.secondmate-nudge-pending/sm.pending"
     out=$(FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_FAKE_ITEM_PUSHED=config/item-a \
       FM_FAKE_ITEM_FAIL=config/item-b run_nudge_convergence "$script"); rc=$?
@@ -775,8 +830,9 @@ test_parked_remote_mate_keeps_files_but_loses_the_reread_notice() {
 
     printf '%s\t%s\n' "$(date +%s)" dead \
       > "$CF_HOME/state/.secondmate-relaunch-bound-sm"
+    printf 'dead\n' > "$statefile"
     : > "$CF_LOG"
-    out=$(run_nudge_convergence "$script"); rc=$?
+    out=$(FM_FAKE_REMOTE_STATE_FILE="$statefile" run_convergence_without_recovery "$script"); rc=$?
     expect_code 0 "$rc" "$script: a parked skip is not an error: $out"
     assert_contains "$out" "secondmate sm: parked, skipped; it reads config at launch" \
       "$script: the parked skip line must be printed"
@@ -789,8 +845,91 @@ test_parked_remote_mate_keeps_files_but_loses_the_reread_notice() {
     inherit_lines=$(grep -c 'START .* fm-remote-inherit.sh' "$CF_LOG" || true)
     [ "${inherit_lines:-0}" -ge 1 ] \
       || fail "$script: the parked mate's files must still converge: $(cat "$CF_LOG")"
+    out=$(FM_FAKE_REMOTE_STATE_FILE="$statefile" run_remote_launch fm-remote-secondmate-relaunch.sh sm codex - -); rc=$?
+    expect_code 0 "$rc" "$script: relaunch failed: $out"
+    assert_absent "$CF_HOME/state/.secondmate-relaunch-bound-sm" "confirmed relaunch retained the parent park record"
+    : > "$CF_LOG"
+    out=$(FM_FAKE_REMOTE_STATE_FILE="$statefile" FM_FAKE_ITEM_PUSHED=config/item-a run_nudge_convergence "$script"); rc=$?
+    expect_code 0 "$rc" "$script: changed push after relaunch failed: $out"
+    assert_remote_reread_sent "$script" "$out"
   done
-  pass "a parked remote secondmate keeps file convergence but receives no reread notice or marker"
+  pass "both remote convergence commands skip parked agents and resume notices after relaunch"
+}
+
+test_remote_relaunch_serializes_with_convergence() {
+  local script statefile entered release launch_pid push_pid waited out
+  for script in fm-config-push.sh fm-bootstrap.sh; do
+    convergence_fixture "$TMP_ROOT/relaunch-race-$script" sm:host-sm
+    statefile="$CF_HOME/agent-state"
+    entered="$CF_HOME/entered"
+    release="$CF_HOME/release"
+    printf 'dead\n' > "$statefile"
+    printf '%s\tdead\n' "$(date +%s)" > "$CF_HOME/state/.secondmate-relaunch-bound-sm"
+    FM_FAKE_REMOTE_STATE_FILE="$statefile" FM_FAKE_RELAUNCH_ENTERED="$entered" \
+      FM_FAKE_RELAUNCH_RELEASE="$release" \
+      run_remote_launch fm-remote-secondmate-relaunch.sh sm codex - - > "$CF_HOME/launch.out" &
+    launch_pid=$!
+    waited=0
+    while [ ! -f "$entered" ] && [ "$waited" -lt 200 ]; do
+      sleep 0.02
+      waited=$((waited + 1))
+    done
+    assert_present "$entered" "relaunch never reached the remote runtime"
+    assert_present "$CF_HOME/state/.remote-inherit-sm.lock/pid" "relaunch did not own the inheritance transaction before starting the agent"
+    FM_FAKE_REMOTE_STATE_FILE="$statefile" FM_FAKE_ITEM_PUSHED=config/item-a \
+      run_convergence_without_recovery "$script" > "$CF_HOME/push.out" &
+    push_pid=$!
+    sleep 0.2
+    if grep -q 'START .* fm-remote-inherit.sh' "$CF_LOG"; then
+      : > "$release"
+      wait "$launch_pid" || true
+      wait "$push_pid" || true
+      fail "$script inherited config while relaunch had not confirmed its park-to-live transition"
+    fi
+    : > "$release"
+    wait "$launch_pid" || fail "relaunch failed: $(cat "$CF_HOME/launch.out")"
+    wait "$push_pid" || fail "$script failed: $(cat "$CF_HOME/push.out")"
+    out=$(cat "$CF_HOME/push.out")
+    assert_remote_reread_sent "$script" "$out"
+    assert_absent "$CF_HOME/state/.remote-inherit-sm.lock" "completed transaction retained its lock"
+  done
+  pass "remote relaunch holds the inheritance transaction through confirmation and reread recovery"
+}
+
+test_unknown_launch_completion_never_suppresses_remote_rereads() {
+  local script action out rc statefile
+  for script in fm-config-push.sh fm-bootstrap.sh; do
+    for action in fm-remote-secondmate-relaunch.sh fm-spawn.sh; do
+      convergence_fixture "$TMP_ROOT/unknown-launch-$script-$action" sm:host-sm
+      statefile="$CF_HOME/agent-state"
+      printf 'dead\n' > "$statefile"
+      printf '%s\tdead\n' "$(date +%s)" > "$CF_HOME/state/.secondmate-relaunch-bound-sm"
+      if [ "$action" = fm-spawn.sh ]; then
+        out=$(FM_FAKE_REMOTE_STATE_FILE="$statefile" FM_FAKE_RELAUNCH_UNKNOWN=1 \
+          run_remote_launch "$action" sm --secondmate --harness codex); rc=$?
+      else
+        out=$(FM_FAKE_REMOTE_STATE_FILE="$statefile" FM_FAKE_RELAUNCH_UNKNOWN=1 \
+          run_remote_launch "$action" sm codex - -); rc=$?
+      fi
+      expect_code 255 "$rc" "a lost launch reply must retain unknown completion: $out"
+      [ "$(cat "$statefile")" = alive ] || fail "the remote runtime did not launch before transport loss"
+      assert_present "$CF_HOME/state/.secondmate-relaunch-bound-sm" "unknown completion unexpectedly removed parent park evidence"
+      assert_absent "$CF_HOME/state/.remote-inherit-sm.lock" "unknown completion stranded the inheritance lock"
+      : > "$CF_LOG"
+      out=$(FM_FAKE_REMOTE_STATE_FILE="$statefile" FM_FAKE_ITEM_PUSHED=config/item-a \
+        run_convergence_without_recovery "$script"); rc=$?
+      expect_code 0 "$rc" "$script failed after unknown launch: $out"
+      assert_remote_reread_sent "$script" "$out"
+      assert_present "$CF_HOME/state/.secondmate-relaunch-bound-sm" "read-only classification rearmed the watcher budget"
+    done
+    convergence_fixture "$TMP_ROOT/unknown-state-$script" sm:host-sm
+    printf '%s\tdead\n' "$(date +%s)" > "$CF_HOME/state/.secondmate-relaunch-bound-sm"
+    out=$(FM_FAKE_REMOTE_STATE_RC=255 FM_FAKE_ITEM_PUSHED=config/item-a \
+      run_convergence_without_recovery "$script"); rc=$?
+    expect_code 0 "$rc" "$script failed after an inconclusive state read: $out"
+    assert_remote_reread_sent "$script" "$out"
+  done
+  pass "SSH-255 launch completion and uncertain state probes keep both remote reread paths sending"
 }
 
 test_remote_probe_scheduling_keeps_per_mate_lines parallel
@@ -806,4 +945,6 @@ test_unknown_completion_keeps_the_reread_owed
 test_parallel_unknown_completion_overrides_known_failure
 test_kill_during_remote_call_keeps_the_reread_owed
 test_parked_remote_mate_keeps_files_but_loses_the_reread_notice
+test_remote_relaunch_serializes_with_convergence
+test_unknown_launch_completion_never_suppresses_remote_rereads
 echo "# all fm-bootstrap-network-parallel tests passed"

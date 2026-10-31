@@ -171,6 +171,7 @@ for FAILURE_MODE in refuse unknown unconfirmed; do
   cp "$HOME_DIR/state/.secondmate-relaunch-ios" "$TMP/ledger-before-failure"
   OUT=$(FM_FAKE_RELAUNCH_MODE="$FAILURE_MODE" run_relaunch ios claude - -); RC=$?
   [ "$RC" -ne 0 ] || fail "$FAILURE_MODE relaunch should fail"
+  assert_absent "$HOME_DIR/state/.remote-inherit-ios.lock" "$FAILURE_MODE relaunch stranded the transaction lock"
   assert_present "$HOME_DIR/state/.secondmate-relaunch-bound-ios" "$FAILURE_MODE relaunch cleared the parent's park record"
   cmp -s "$HOME_DIR/state/.secondmate-relaunch-ios" "$TMP/ledger-before-failure" \
     || fail "$FAILURE_MODE relaunch changed the recovery budget"

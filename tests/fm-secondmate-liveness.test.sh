@@ -820,6 +820,55 @@ test_remote_poll_probe_unreachable_preserves_route() {
   pass "poll probe: unreachable or inconclusive remote reads preserve the route"
 }
 
+parked_remote() {
+  local w=$1; shift
+  env STATE="$w/home/state" FM_HOME="$w/home" FM_DATA_OVERRIDE="$w/home/data" \
+    FM_SSH_BIN="$w/fakebin/ssh" FM_FAKE_SSH_LOG="$w/ssh.log" "$@" \
+    bash -c '. "$0/bin/fm-secondmate-liveness-lib.sh"; fm_secondmate_parked "$STATE" rsm1' "$ROOT"
+}
+
+test_remote_parked_requires_positive_agent_absence() {
+  local w reply rc before
+  w=$(make_remote_probe_world parked-remote)
+  printf '123\tdead\n' > "$w/home/state/.secondmate-relaunch-bound-rsm1"
+  printf '123\tattempt\n' > "$w/home/state/.secondmate-relaunch-rsm1"
+  before=$(cat "$w/home/state/.secondmate-relaunch-rsm1")
+  for reply in dead missing; do
+    parked_remote "$w" FM_FAKE_REMOTE_REPLY="$reply" \
+      || fail "a valid park record and positive $reply probe must allow skipping"
+  done
+  for reply in alive ambiguous unreadable unverified bogus ''; do
+    if parked_remote "$w" FM_FAKE_REMOTE_REPLY="$reply"; then
+      fail "a $reply probe must retain the reread even with a park record"
+    fi
+  done
+  for rc in 1 255; do
+    if parked_remote "$w" FM_FAKE_REMOTE_REPLY=dead FM_FAKE_REMOTE_RC="$rc"; then
+      fail "failed transport $rc must not authorize skipping, even if it printed dead"
+    fi
+  done
+  cp "$w/home/state/rsm1.meta" "$w/valid.meta"
+  printf 'remote_host=other-host\n' >> "$w/home/state/rsm1.meta"
+  if parked_remote "$w" FM_FAKE_REMOTE_REPLY=dead; then
+    fail "duplicate remote identity must not authorize skipping"
+  fi
+  cp "$w/valid.meta" "$w/home/state/rsm1.meta"
+  sed '/^remote_host=/d' "$w/valid.meta" > "$w/home/state/rsm1.meta"
+  if parked_remote "$w" FM_FAKE_REMOTE_REPLY=dead; then
+    fail "missing remote identity must not fall through to local marker semantics"
+  fi
+  rm "$w/home/state/rsm1.meta"
+  ln -s "$w/valid.meta" "$w/home/state/rsm1.meta"
+  if parked_remote "$w" FM_FAKE_REMOTE_REPLY=dead; then
+    fail "unowned metadata must not authorize skipping"
+  fi
+  [ "$(cat "$w/home/state/.secondmate-relaunch-bound-rsm1")" = $'123\tdead' ] \
+    || fail "read-only parked classification changed the bound record"
+  [ "$(cat "$w/home/state/.secondmate-relaunch-rsm1")" = "$before" ] \
+    || fail "read-only parked classification changed the recovery budget"
+  pass "remote parked skips require positive absence; live or uncertain agents retain notices"
+}
+
 test_rearm_only_resets_a_parked_mate() {
   local state="$TMP_ROOT/rearm-state"
   mkdir -p "$state"
@@ -875,6 +924,7 @@ test_sweep_refuses_relaunch_on_ledger_errors
 test_remote_poll_probe_maps_states
 test_remote_poll_probe_unreachable_preserves_route
 
+test_remote_parked_requires_positive_agent_absence
 test_rearm_only_resets_a_parked_mate
 
 echo "# all fm-secondmate-liveness tests passed"
