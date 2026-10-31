@@ -941,6 +941,8 @@ verify_entry_durable() {  # <origin-or-empty> <entry>; prints "<id> <how> <origi
   fi
   resolved=$(resolve_entry "$origin" "$entry") || resolve_status=$?
   if [ "$resolve_status" -ne 0 ]; then
+    [ "$resolve_status" -ne 124 ] \
+      || printf 'fm-captain-hold: the backlog backend exceeded its read bound resolving %s\n' "$entry" >&2
     exit "$resolve_status"
   fi
   id=${resolved%% *}

@@ -4252,6 +4252,7 @@ test_gone_endpoint_of_a_released_worker_reads_released() {
   grep -F 'released by lane release (merged-ship, released)' "$state/.watch-triage.log" >/dev/null \
     || fail "a released worker was not logged as released: $(cat "$state/.watch-triage.log")"
   (
+    # shellcheck source=/dev/null
     . "$ROOT/bin/fm-task-inbox-lib.sh"
     fm_task_inbox_write "$state" wedge "please continue"
   ) >/dev/null || fail "could not publish the released worker's continuation"

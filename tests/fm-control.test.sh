@@ -1815,7 +1815,7 @@ test_lane_release_revalidates_under_the_inbox_lock() {
     printf 'on\n' > "$dir/home/config/lane-release"
     kind=scout
     class=scout
-    case "$change" in ship-*) kind=ship; class=merged-ship ;; esac
+    case "$change" in ship-*) kind=ship; class='merged-ship' ;; esac
     add_task "$dir" t1 claude "$kind"
     alive_as "$dir" claude
     arm_busy_as "$dir" idle
@@ -1830,6 +1830,7 @@ test_lane_release_revalidates_under_the_inbox_lock() {
     if [ "$kind" = ship ]; then
       printf 'pr=https://github.com/o/r/pull/7\n' >> "$dir/home/state/t1.meta"
       (
+        # shellcheck source=/dev/null
         . "$ROOT/bin/fm-pr-lib.sh"
         fm_pr_poll_merge_mark_notified "$dir/home/state" t1 github github.com o/r 7
       ) || fail "could not record the landing"
@@ -1863,6 +1864,7 @@ SH
     case "$change" in
       unread|ship-unread)
         (
+          # shellcheck source=/dev/null
           . "$ROOT/bin/fm-task-inbox-lib.sh"
           fm_task_inbox_write "$dir/home/state" t1 continuation >/dev/null
         ) || fail "could not publish a continuation"
