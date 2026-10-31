@@ -2950,6 +2950,151 @@ SH
   pass "B25 spawn quarantines stale rereads without blocking relaunch"
 }
 
+# A parked secondmate (fm_secondmate_parked: the relaunch bound marker) still
+# has its files pushed - the home must be current when it launches - but the
+# config push never queues the reread doorbell, any instruction, or any retry
+# obligation for it.
+test_config_push_skips_reread_notice_for_parked_secondmate() {
+  local w head out err status log rec
+  w=$(new_world config-push-parked)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+  printf '%s\t%s\n' "$(date +%s)" dead > "$w/home/state/.secondmate-relaunch-bound-sm"
+  printf '{"default":{"harness":"codex"}}\n' > "$w/home/config/crew-dispatch.json"
+  printf 'codex\n' > "$w/home/config/crew-harness"
+  printf 'tmux\n' > "$w/home/config/backend"
+  record_live_watcher_fixture "$w/home"
+  log="$w/config-push-parked.tmux.log"
+  err="$w/config-push-parked.err"
+
+  out=$(run_config_push "$w" "$log" 2>"$err"); status=$?
+  expect_code 0 "$status" "a parked skip is not an error: $out"
+  assert_contains "$out" "secondmate sm: parked, skipped; it reads config at launch" \
+    "the parked skip line must be printed"
+  assert_contains "$out" "crew-harness: pushed" \
+    "the parked mate's files must still be pushed"
+  assert_contains "$out" "backend: pushed" \
+    "the parked mate's config must still converge on disk"
+  assert_not_contains "$out" "config-reread" \
+    "a parked mate must not be sent or promised a reread notice"
+  [ "$(cat "$w/sm/config/crew-harness" 2>/dev/null)" = codex ] \
+    || fail "the parked mate's config was not updated on disk"
+  [ "$(cat "$w/sm/config/backend" 2>/dev/null)" = tmux ] \
+    || fail "the parked mate's backend was not updated on disk"
+  if [ -d "$w/home/state/sm.inbox" ]; then
+    for rec in "$w/home/state/sm.inbox"/*.msg; do
+      [ -e "$rec" ] || continue
+      fail "parked config push left a steering record: $rec"
+    done
+  fi
+  assert_no_reread_instructions "$w/sm"
+  assert_no_reread_pending "$w/sm"
+  assert_no_reread_retry_stages "$w/home" sm
+  [ ! -s "$log" ] || fail "parked config push rang the pane: $(cat "$log")"
+  [ ! -s "$err" ] || fail "parked config push wrote unexpected stderr: $(cat "$err")"
+  pass "B27 config-push pushes a parked secondmate's files but skips the reread notice and leaves no marker"
+}
+
+# The same push with no park marker keeps today's behavior exactly, and the
+# parked predicate itself never reads doubt as parked.
+test_config_push_sends_reread_notice_without_park_marker() {
+  local w head out err status log predicate_state
+  w=$(new_world config-push-not-parked)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+  printf '{"default":{"harness":"codex"}}\n' > "$w/home/config/crew-dispatch.json"
+  printf 'codex\n' > "$w/home/config/crew-harness"
+  record_live_watcher_fixture "$w/home"
+  log="$w/config-push-not-parked.tmux.log"
+  err="$w/config-push-not-parked.err"
+
+  out=$(run_config_push "$w" "$log" 2>"$err"); status=$?
+  expect_code 0 "$status" "a live mate's push should succeed: $out"
+  assert_contains "$out" "config-reread: sent" \
+    "a live mate must still receive the reread notice"
+  assert_not_contains "$out" "parked, skipped" \
+    "an unparked mate must not be reported as skipped"
+  assert_contains "$(inbox_stream "$w/home/state" sm)" "CONFIG_REREAD: " \
+    "the live mate's reread pointer must reach its steering inbox"
+
+  # The predicate answers not-parked when the state dir is missing (doubt
+  # keeps today's send behavior) and parked for a plain or symlinked marker.
+  if bash -c '. "$1"; fm_secondmate_parked "$2" sm' _ \
+    "$ROOT/bin/fm-secondmate-liveness-lib.sh" "$TMP_ROOT/no-such-state" 2>/dev/null; then
+    fail "fm_secondmate_parked must not read a missing state dir as parked"
+  fi
+  predicate_state="$TMP_ROOT/parked-predicate-state"
+  mkdir -p "$predicate_state"
+  printf 'parked by the watcher tick\n' > "$predicate_state/.secondmate-relaunch-bound-sm"
+  bash -c '. "$1"; fm_secondmate_parked "$2" sm' _ \
+    "$ROOT/bin/fm-secondmate-liveness-lib.sh" "$predicate_state" 2>/dev/null \
+    || fail "fm_secondmate_parked must read a bound marker as parked"
+  ln -s target "$predicate_state/.secondmate-relaunch-bound-sm2"
+  bash -c '. "$1"; fm_secondmate_parked "$2" sm2' _ \
+    "$ROOT/bin/fm-secondmate-liveness-lib.sh" "$predicate_state" 2>/dev/null \
+    || fail "fm_secondmate_parked must read a symlinked bound marker as parked"
+  pass "B28 config-push keeps today's reread behavior without a park marker; doubt never reads as parked"
+}
+
+# The bootstrap's own CONFIG_REREAD path skips a parked mate the same way: the
+# sweep still pushes the files, the doorbell notice never queues.
+test_bootstrap_config_reread_skips_parked_secondmate() {
+  local w head out log rec
+  w=$(new_world boot-parked)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+  printf '%s\t%s\n' "$(date +%s)" dead > "$w/home/state/.secondmate-relaunch-bound-sm"
+  printf 'codex\n' > "$w/home/config/crew-harness"
+  log="$w/boot-parked.tmux.log"
+
+  out=$(run_bootstrap "$w" "$log")
+  [ "$(cat "$w/sm/config/crew-harness" 2>/dev/null)" = codex ] \
+    || fail "bootstrap did not push files to the parked secondmate"
+  assert_contains "$out" "secondmate sm: parked, skipped; it reads config at launch" \
+    "bootstrap must print the parked skip line for the reread notice"
+  if [ -d "$w/home/state/sm.inbox" ]; then
+    for rec in "$w/home/state/sm.inbox"/*.msg; do
+      [ -e "$rec" ] || continue
+      fail "bootstrap left a steering record for the parked mate: $rec"
+    done
+  fi
+  assert_no_reread_instructions "$w/sm"
+  assert_no_reread_retry_stages "$w/home" sm
+  pass "B29 bootstrap pushes a parked secondmate's files but skips the config-reread notice"
+}
+
+# A secondmate launch re-reads inherited config and AGENTS.md fresh, so stale
+# config-reread notices waiting in its steering inbox are acknowledged at
+# launch; every other steer stays waiting for the agent.
+test_spawn_clears_stale_config_reread_notices_at_launch() {
+  local w sm inbox
+  w="$TMP_ROOT/spawn-clear-reread"
+  sm="$w/sm"
+  mkdir -p "$w/home/config"
+  printf 'codex\n' > "$w/home/config/crew-harness"
+  make_seeded_home "$sm" sm
+  inbox="$w/home/state/sm.inbox"
+  mkdir -p "$inbox/handled"
+  printf 'schema=fm-task-inbox.v1\nat=2026-10-31T00:00:00Z\n--\n[fm-from-firstmate]\xe2\x81\xa3corr=0123456789abcdef CONFIG_REREAD: /tmp/instruction-1\n' > "$inbox/001.msg"
+  printf 'schema=fm-task-inbox.v1\nat=2026-10-31T00:00:01Z\n--\n[fm-from-firstmate]\xe2\x81\xa3corr=1123456789abcdef keep this steer for the relaunched mate\n' > "$inbox/002.msg"
+  printf 'schema=fm-task-inbox.v1\nat=2026-10-31T00:00:02Z\n--\n[fm-from-firstmate]\xe2\x81\xa3corr=2123456789abcdef Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files before further work.\n' > "$inbox/003.msg"
+  printf 'schema=fm-task-inbox.v1\nat=2026-10-31T00:00:03Z\n--\n[fm-from-firstmate]\xe2\x81\xa3corr=3123456789abcdef REPOST REQUIRED: previous marked request had no correlated parent report. Original request: CONFIG_REREAD: /tmp/instruction-2\n' > "$inbox/004.msg"
+
+  spawn_secondmate "$w" sm "$sm"
+
+  [ -f "$inbox/handled/001.msg" ] \
+    || fail "launch did not acknowledge the stale CONFIG_REREAD notice"
+  [ -f "$inbox/handled/003.msg" ] \
+    || fail "launch did not acknowledge the stale remote reread notice"
+  [ -f "$inbox/handled/004.msg" ] \
+    || fail "launch did not acknowledge the stale CONFIG_REREAD repost"
+  [ -f "$inbox/002.msg" ] \
+    || fail "launch acknowledged a steer that is not a reread notice"
+  [ ! -e "$inbox/001.msg" ] \
+    || fail "the acknowledged CONFIG_REREAD record stayed in the inbox root"
+  pass "B30 spawn: a secondmate launch acknowledges stale config-reread notices and keeps other steers"
+}
+
 test_harness_resolution
 test_cursor_marker_detection
 test_secondmate_model_effort_tokens
@@ -3006,6 +3151,10 @@ test_config_reread_skips_when_unchanged_and_reads_after_push
 test_config_reread_bootstrap_path_and_spawn_flexibility
 test_bootstrap_respawns_before_config_reread
 test_spawn_quarantines_pending_rereads_on_cleanup_failure
+test_config_push_skips_reread_notice_for_parked_secondmate
+test_config_push_sends_reread_notice_without_park_marker
+test_bootstrap_config_reread_skips_parked_secondmate
+test_spawn_clears_stale_config_reread_notices_at_launch
 test_bootstrap_detect_only_does_not_create_state
 
 echo "# all fm-secondmate-harness tests passed"

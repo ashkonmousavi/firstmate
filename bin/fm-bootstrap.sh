@@ -580,7 +580,13 @@ secondmate_sync() {
     case " $SECONDMATE_RESPAWNED_IDS " in
       *" $id "*) reread_skip_pending=1 ;;
     esac
-    if [ "$reread_skip_pending" -eq 0 ] \
+    # A parked secondmate still receives the files themselves - its home must be
+    # current when it launches - but never the reread doorbell or any new reread
+    # obligation: a parked mate reads its configuration fresh at launch
+    # (fm_secondmate_parked).
+    mate_parked=0
+    fm_secondmate_parked "$STATE" "$id" && mate_parked=1
+    if [ "$mate_parked" -eq 0 ] && [ "$reread_skip_pending" -eq 0 ] \
       && fm_config_reread_retry_queue_is_full "$FM_HOME" "$id"; then
       fm_config_reread_retry_pending "$id" "$home_real" || true
       if fm_config_reread_retry_queue_is_full "$FM_HOME" "$id"; then
@@ -600,7 +606,9 @@ secondmate_sync() {
     else
       echo "SECONDMATE_SYNC: secondmate $id: skipped: inheritance failed"
     fi
-    if ! reread_out=$(FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
+    if [ "$mate_parked" -eq 1 ]; then
+      echo "secondmate $id: parked, skipped; it reads config at launch"
+    elif ! reread_out=$(FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" \
       FM_STATE_OVERRIDE="$STATE" \
       FM_CONFIG_REREAD_SKIP_PENDING="$reread_skip_pending" \
       fm_config_send_reread_nudge "$id" "$home_real" "$report" 2>&1); then
@@ -655,13 +663,24 @@ secondmate_sync() {
       return 0
     fi
     remote_marker=$(secondmate_nudge_marker_path "$id" 2>/dev/null || true)
+    # A parked secondmate still has its files converged below - its home must be
+    # current when it launches - but never receives the reread doorbell or keeps
+    # a retry marker: a parked mate reads its configuration fresh at launch
+    # (fm_secondmate_parked), which also discharges any reread a previous push
+    # left owed.
+    remote_parked=0
+    if fm_secondmate_parked "$STATE" "$id"; then
+      remote_parked=1
+      [ -z "$remote_marker" ] || rm -f "$remote_marker"
+    fi
     # Only a reread a previous attempt left owed carries over. The record is
     # written owed before any step can change the home (write-ahead), so a kill
     # at any point leaves it owed; an attempt whose outcome proves nothing
     # changed writes it back below (bin/fm-secondmate-nudge-lib.sh).
     remote_pending=0
-    if fm_secondmate_remote_nudge_owed "$STATE" "$id"; then remote_pending=1; fi
-    if ! secondmate_write_nudge_marker "$id" "$_home" "" remote \
+    if [ "$remote_parked" -eq 0 ] && fm_secondmate_remote_nudge_owed "$STATE" "$id"; then remote_pending=1; fi
+    if [ "$remote_parked" -eq 0 ] \
+      && ! secondmate_write_nudge_marker "$id" "$_home" "" remote \
       "$REMOTE_SECOND_MATE_NUDGE_MESSAGE" 1 1; then
       echo "NUDGE_SECONDMATES: secondmate $id: send failed: cannot record remote retry marker"
       fm_lock_release "$remote_lock" || true
@@ -708,7 +727,9 @@ secondmate_sync() {
       echo "SECONDMATE_SYNC: secondmate $id: skipped: remote inheritance failed on $remote_host: $(remote_inherit_failure_reason "$inherit_out")"
       converged=0
     fi
-    if [ "$converged" -eq 1 ] && [ "$nudge_needed" -eq 1 ]; then
+    if [ "$remote_parked" -eq 1 ]; then
+      echo "secondmate $id: parked, skipped; it reads config at launch"
+    elif [ "$converged" -eq 1 ] && [ "$nudge_needed" -eq 1 ]; then
       if out=$(FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \
         "$SCRIPT_DIR/fm-send.sh" "fm-$id" "$REMOTE_SECOND_MATE_NUDGE_MESSAGE" 2>&1); then
         rm -f "$remote_marker"

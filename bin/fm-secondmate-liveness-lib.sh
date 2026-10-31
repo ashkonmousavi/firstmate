@@ -50,6 +50,9 @@
 # The attempt ledger (.secondmate-relaunch-<id>, one line per attempt plus one
 # per outcome) is both the durable relaunch record and the input to the
 # watcher's relaunch bound; teardown removes it.
+# fm_secondmate_parked below is the one shared read of the parked state that
+# bound marker records, so every producer and consumer (the watcher tick, the
+# config-reread senders, teardown) agrees on what parked means.
 
 set -u
 
@@ -112,6 +115,23 @@ fm_secondmate_liveness_recent_attempts() {  # <id> <window-secs>
   awk -F '\t' -v cutoff="$cutoff" \
     '$2 == "rearmed" { n = 0; next } $1 ~ /^[0-9]+$/ && $1 >= cutoff && $2 == "attempt" { n++ } END { print n + 0 }' \
     "$ledger" 2>/dev/null
+}
+
+# Parked predicate: the single authoritative read of a mate's parked state.
+# Parked means the relaunch bound marker state/.secondmate-relaunch-bound-<id>
+# exists (this file's header and bin/fm-watch.sh's tick own writing and
+# clearing it; bin/fm-teardown.sh removes it at retirement). The watcher
+# parks a flapping mate behind it, and a deliberate park (fm-control exit with
+# work kept) records the same marker. A parked mate's agent is not running and
+# reads its configuration and AGENTS.md fresh at its next launch, so a config
+# push skips only the reread doorbell for it (bin/fm-config-push.sh,
+# bin/fm-bootstrap.sh). Doubt reads not parked: a state dir or marker that
+# cannot be read keeps the ordinary send behavior, never a silent skip.
+fm_secondmate_parked() {  # <state-dir> <id>
+  local state=$1 id=$2 marker
+  case "$id" in ''|*[!/A-Za-z0-9._-]*|*/*) return 1 ;; esac
+  marker="$state/.secondmate-relaunch-bound-$id"
+  [ -e "$marker" ] || [ -L "$marker" ]
 }
 
 # fm_secondmate_liveness_probe <meta> <id> <full|poll>

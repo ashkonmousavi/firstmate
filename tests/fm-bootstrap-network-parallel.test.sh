@@ -756,6 +756,43 @@ SH
   pass "a kill during the remote call keeps the mate's re-read owed"
 }
 
+# A parked secondmate still has its remote files converged - the home must be
+# current when it launches - but never receives the reread doorbell: a parked
+# mate reads its config at launch, so the owed marker a push left behind is
+# discharged rather than delivered (fm_secondmate_parked).
+test_parked_remote_mate_keeps_files_but_loses_the_reread_notice() {
+  local script out rc marker inherit_lines
+  for script in fm-config-push.sh fm-bootstrap.sh; do
+    convergence_fixture "$TMP_ROOT/parked-$script" sm:host-sm
+    marker="$CF_HOME/state/.secondmate-nudge-pending/sm.pending"
+    out=$(FM_REMOTE_INHERIT_PUSH_JOBS=1 FM_FAKE_ITEM_PUSHED=config/item-a \
+      FM_FAKE_ITEM_FAIL=config/item-b run_nudge_convergence "$script"); rc=$?
+    if [ "$script" = fm-config-push.sh ]; then
+      [ "$rc" -ne 0 ] || fail "$script: a push that fails after applying an item must fail: $out"
+    fi
+    assert_grep 'owed=1' "$marker" \
+      "$script: the failing push must first leave the re-read owed"
+
+    printf '%s\t%s\n' "$(date +%s)" dead \
+      > "$CF_HOME/state/.secondmate-relaunch-bound-sm"
+    : > "$CF_LOG"
+    out=$(run_nudge_convergence "$script"); rc=$?
+    expect_code 0 "$rc" "$script: a parked skip is not an error: $out"
+    assert_contains "$out" "secondmate sm: parked, skipped; it reads config at launch" \
+      "$script: the parked skip line must be printed"
+    [ ! -e "$marker" ] \
+      || fail "$script: a parked mate must not keep a reread retry marker"
+    assert_not_contains "$out" 'config-reread:' \
+      "$script: a parked mate must not be sent a reread notice"
+    assert_not_contains "$out" 'nudged remote fm-sm' \
+      "$script: a parked mate must not be nudged"
+    inherit_lines=$(grep -c 'START .* fm-remote-inherit.sh' "$CF_LOG" || true)
+    [ "${inherit_lines:-0}" -ge 1 ] \
+      || fail "$script: the parked mate's files must still converge: $(cat "$CF_LOG")"
+  done
+  pass "a parked remote secondmate keeps file convergence but receives no reread notice or marker"
+}
+
 test_remote_probe_scheduling_keeps_per_mate_lines parallel
 test_remote_probe_scheduling_keeps_per_mate_lines fallback
 test_remote_inheritance_failure_names_its_own_error_not_an_unchanged_item
@@ -768,4 +805,5 @@ test_config_push_partial_failure_keeps_the_reread_owed
 test_unknown_completion_keeps_the_reread_owed
 test_parallel_unknown_completion_overrides_known_failure
 test_kill_during_remote_call_keeps_the_reread_owed
+test_parked_remote_mate_keeps_files_but_loses_the_reread_notice
 echo "# all fm-bootstrap-network-parallel tests passed"

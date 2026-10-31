@@ -3806,6 +3806,16 @@ if [ "$KIND" = secondmate ]; then
       propagate_secondmate_inheritance "$FM_HOME" "$PROJ_ABS" "$CONFIG" "$DATA" ||
       echo "warning: secondmate $ID inheritance failed for $PROJ_ABS" >&2
   fi
+  # This launch re-reads inherited config (pushed just above, or by the parent
+  # before a remote host-local leg) and AGENTS.md fresh, so any config-reread
+  # notice still waiting in this mate's steering inbox is stale: acknowledge it
+  # here rather than leave an undeliverable doorbell behind a just-launched
+  # agent (bin/fm-secondmate-nudge-lib.sh owns the notice shapes).
+  if ! sm_clear_out=$(fm_secondmate_clear_stale_reread_notices "$STATE" "$ID" 2>&1); then
+    sm_clear_out=${sm_clear_out:-unknown error}
+    sm_clear_out=$(printf '%s\n' "$sm_clear_out" | sed -n '1p')
+    echo "warning: secondmate $ID stale config-reread notices could not be cleared: $sm_clear_out" >&2
+  fi
   if [ -f "$PROJ_ABS/data/charter.md" ]; then
     BRIEF="$PROJ_ABS/data/charter.md"
   else
