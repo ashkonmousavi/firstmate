@@ -1577,6 +1577,9 @@ After the answer, code applies all remaining checks and ranking:
 - The confidence floor and the matched rule's `approval` and `floor`.
 - Each candidate's `provider` and `floor`.
 - Every applicable account-wide and model/product row from one `quota-axi --json` snapshot.
+- The runway-feasibility gate: while at least one eligible, rankable candidate has known `through_reset` runway on every applicable row, an otherwise eligible candidate with a known, established `projected_exhaustion` row becomes ineligible.
+  Without such an alternative, this gate adds no refusals; existing exhaustion, zero-quota, and profile-floor vetoes still apply.
+  Projections with early, unknown, or missing confidence cannot justify a projected-exhaustion refusal; unknown runway alone neither refuses a candidate nor supplies a through-reset alternative.
 - The numeric `spendPriority` argmax over candidates, using each candidate's limiting row.
 
 The [shared quota library](../bin/fm-quota-axi-lib.sh) accepts schema 5 and schema 6 and implements the [account-matching contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
@@ -1620,7 +1623,9 @@ Every result above exits 0.
 **Firstmate retains the dispatch decision**
 
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
-By accepted design, a `clear` result does not enforce catalog/authentication, reasoning-class, or completion-runway gates.
+By accepted design, a `clear` result does not enforce catalog/authentication or reasoning-class gates, and its runway gate is the through-reset rule above rather than a completion-horizon estimate.
+The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` does not enforce it.
+Spawn-time enforcement is deferred because this branch lacks the dispatch guard library and off-table spawn check it builds on.
 
 Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
 

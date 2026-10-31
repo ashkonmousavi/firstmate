@@ -729,6 +729,90 @@ assert_contains "$out" '  status: escalate' "tie escalates"
 assert_contains "$out" '  reason: genuine spendPriority tie' "tie is named"
 pass "tie: equal spendPriority never breaks by array order"
 
+# --- runway feasibility: reorder, refusal, all-tight -------------------------------
+# write_runway_quota <path> <claude runway> <claude spendPriority> <cursor runway> <cursor spendPriority>
+# Each runway is through_reset, or short (an established projected_exhaustion).
+write_runway_quota() {
+  jq --arg cr "$2" --argjson cs "$3" --arg ur "$4" --argjson us "$5" '
+    def runway($r): if $r == "short"
+      then {status: "projected_exhaustion", usableRunwaySeconds: 3600, projectedExhaustedAt: "2030-01-01T01:00:00Z", projectionConfidence: "established"}
+      else {status: "through_reset", projectionConfidence: "established"} end;
+    (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability) =
+      [{scope: "all_models", status: "known", effectivePercentRemaining: 40, runway: runway($cr), selection: {spendPriority: $cs}}]
+    | (.providers[] | select(.provider == "cursor") | .quotaSemantics.effectiveAvailability) =
+      [{scope: "all_models", status: "known", effectivePercentRemaining: 40, runway: runway($ur), selection: {spendPriority: $us}}]
+  ' "$QUOTA" > "$1"
+}
+line_of() {  # <text> <fixed fragment>: first line number holding the fragment
+  printf '%s\n' "$1" | grep -nF -- "$2" | head -1 | cut -d: -f1
+}
+RUNWAY="$TMP_ROOT/runway.json"
+
+reset_log
+write_runway_quota "$RUNWAY" through_reset 0.1 through_reset 0.9
+write_response "$RESPONSE" rule_4 0.9
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$RUNWAY" run code out err "$BRIEF"
+assert_equals "$code" 0 "reorder exits 0"
+assert_contains "$out" '  status: clear' "two through-reset candidates resolve"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "the highest spendPriority wins over declared order"
+first=$(line_of "$out" 'candidate: cursor:')
+second=$(line_of "$out" 'candidate: claude:')
+third=$(line_of "$out" 'candidate: kimi:')
+[ -n "$first" ] && [ -n "$second" ] && [ -n "$third" ] && [ "$first" -lt "$second" ] && [ "$second" -lt "$third" ] \
+  || fail "candidates are listed by spendPriority, unranked after ranked: $out"
+assert_not_contains "$out" 'runs through its reset' "no runway refusal when every rankable candidate runs through its reset"
+pass "runway: matched candidates are reordered by spendPriority"
+
+reset_log
+write_runway_quota "$RUNWAY" short 0.9 through_reset 0.2
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$RUNWAY" run code out err "$BRIEF"
+assert_contains "$out" '  status: clear' "a runway-short top candidate does not block resolution"
+assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "the through-reset candidate wins over a higher-priority short one"
+assert_contains "$out" 'candidate: claude:sonnet  provider=claude  scope=all_models  remaining=40%  spendPriority=0.9  runway=projected_exhaustion  -> not eligible: runway projected_exhaustion at all_models ends 2030-01-01T01:00:00Z before its reset while cursor:cursor-grok-4.6-medium (spendPriority 0.2) runs through its reset' "the short candidate is refused naming the through-reset alternative"
+assert_contains "$out" 'candidate: kimi:kimi-code/k3  provider=kimi  -> eligible, unranked: provider kimi unmeasured (unknown): disclosed uncertainty' "missing quota data keeps a candidate eligible"
+[ "$(line_of "$out" 'candidate: cursor:')" -lt "$(line_of "$out" 'candidate: claude:')" ] \
+  || fail "the refused candidate is listed after the eligible ones: $out"
+EARLY="$TMP_ROOT/runway-early.json"
+jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[0].runway.projectionConfidence) = "early"' "$RUNWAY" > "$EARLY"
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$EARLY" run code out err "$BRIEF"
+assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "an early projection is uncertainty, never a refusal"
+pass "runway: a short candidate is refused when another runs through its reset"
+
+MIXED="$TMP_ROOT/runway-mixed.json"
+for scopes in 'all_models model:sonnet' 'model:sonnet all_models' 'all_products product:sonnet' 'product:sonnet all_products'; do
+  read -r weak_scope established_scope <<< "$scopes"
+  for confidence in early unknown missing; do
+    for order in forward reverse; do
+      jq --arg weak_scope "$weak_scope" --arg established_scope "$established_scope" \
+        --arg confidence "$confidence" --arg order "$order" '
+        (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability) =
+          ([{scope: $weak_scope, status: "known", effectivePercentRemaining: 40,
+             runway: ({status: "projected_exhaustion", projectedExhaustedAt: "2030-01-01T01:00:00Z"}
+                      + if $confidence == "missing" then {} else {projectionConfidence: $confidence} end),
+             selection: {spendPriority: 0.9}},
+            {scope: $established_scope, status: "known", effectivePercentRemaining: 40,
+             runway: {status: "projected_exhaustion", projectedExhaustedAt: "2030-01-01T02:00:00Z", projectionConfidence: "established"},
+             selection: {spendPriority: 0.95}}]
+           | if $order == "reverse" then reverse else . end)
+      ' "$RUNWAY" > "$MIXED"
+      TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$MIXED" run code out err "$BRIEF"
+      assert_equals "$code" 0 "mixed-confidence bounds resolve: $scopes $confidence $order"
+      assert_contains "$out" "  profile: --harness 'cursor' --model 'cursor-grok-4.6-medium'" "the through-reset alternative still wins"
+      assert_contains "$out" "-> not eligible: runway projected_exhaustion at $established_scope ends 2030-01-01T02:00:00Z before its reset while cursor:cursor-grok-4.6-medium (spendPriority 0.2) runs through its reset" "the established bound supplies the refusal scope and date: $confidence $order"
+      assert_not_contains "$out" "-> not eligible: runway projected_exhaustion at $weak_scope" "uncertain evidence cannot justify refusal"
+    done
+  done
+done
+pass "runway: refusal cites established evidence across scopes, confidence states, and row order"
+
+reset_log
+write_runway_quota "$RUNWAY" short 0.9 short 0.2
+TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$RUNWAY" run code out err "$BRIEF"
+assert_contains "$out" '  status: clear' "an all-tight set still resolves"
+assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "an all-tight set ranks by spendPriority"
+assert_not_contains "$out" 'not eligible' "nothing is refused in an all-tight set"
+pass "runway: an all-tight set refuses nothing and ranks by spendPriority"
+
 # --- nothing rankable escalates -------------------------------------------------
 reset_log
 NONE="$TMP_ROOT/none.json"
