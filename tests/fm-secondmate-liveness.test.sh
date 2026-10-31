@@ -869,6 +869,102 @@ test_remote_parked_requires_positive_agent_absence() {
   pass "remote parked skips require positive absence; live or uncertain agents retain notices"
 }
 
+parked_local() {
+  local state=$1; shift
+  env STATE="$state" FM_HOME="${state%/state}" "$@" \
+    bash -c '. "$0/bin/fm-secondmate-liveness-lib.sh"; fm_secondmate_parked "$STATE" sm' "$ROOT"
+}
+
+test_local_parked_requires_positive_agent_absence() {
+  local state="$TMP_ROOT/parked-local/state" fb command inventory verdict harness backend
+  mkdir -p "$state"
+  printf '123\tdead\n' > "$state/.secondmate-relaunch-bound-sm"
+  printf '123\tattempt\n' > "$state/.secondmate-relaunch-sm"
+  fm_write_secondmate_meta "$state/sm.meta" "${state%/state}/sm" sess:win alpha codex
+  for command in codex bash node; do
+    fb=$(make_probe_tmux "$TMP_ROOT/parked-tmux-$command" "$command")
+    verdict=send
+    if parked_local "$state" PATH="$fb:$BASE_PATH"; then verdict=skip; fi
+    case "$command:$verdict" in
+      bash:skip|codex:send|node:send) ;;
+      *) fail "local park marker with foreground $command unexpectedly chose $verdict" ;;
+    esac
+  done
+  for inventory in missing unreadable; do
+    fb=$(make_failed_probe_tmux "$TMP_ROOT/parked-tmux-$inventory" "$inventory")
+    verdict=send
+    if parked_local "$state" PATH="$fb:$BASE_PATH"; then verdict=skip; fi
+    case "$inventory:$verdict" in
+      missing:skip|unreadable:send) ;;
+      *) fail "local park marker with $inventory inventory unexpectedly chose $verdict" ;;
+    esac
+  done
+  fb=$(make_probe_tmux "$TMP_ROOT/parked-tmux-unverified" bash)
+  for harness in cursor unknown ''; do
+    fm_write_secondmate_meta "$state/sm.meta" "${state%/state}/sm" sess:win alpha codex
+    printf 'harness=%s\n' "$harness" >> "$state/sm.meta"
+    if parked_local "$state" PATH="$fb:$BASE_PATH"; then
+      fail "an unverified local recovery harness must not authorize a skip"
+    fi
+  done
+  for backend in zellij unknown; do
+    fm_write_secondmate_meta "$state/sm.meta" "${state%/state}/sm" sess:win alpha codex
+    printf 'backend=%s\n' "$backend" >> "$state/sm.meta"
+    if parked_local "$state" PATH="$fb:$BASE_PATH"; then
+      fail "unverified $backend backend must retain the notice"
+    fi
+  done
+  fm_write_secondmate_meta "$state/sm.meta" "${state%/state}/sm" invalid-target alpha codex
+  if parked_local "$state" PATH="$fb:$BASE_PATH"; then
+    fail "an unreadable local endpoint must retain the notice"
+  fi
+  fb=$(fm_fakebin "$TMP_ROOT/parked-herdr")
+  cat > "$fb/herdr" <<'SH'
+#!/usr/bin/env bash
+case "$1 ${2:-}" in
+  'pane get')
+    case "$FM_TEST_HERDR_STATE" in
+      missing) printf '{"error":{"code":"pane_not_found"}}\n' ;;
+      unreadable|stopped) printf '{}\n' ;;
+      *) printf '{"result":{"pane":{"pane_id":"w1:p1"}}}\n' ;;
+    esac
+    ;;
+  'agent get')
+    case "$FM_TEST_HERDR_STATE" in
+      dead) printf '{"error":{"code":"agent_not_found"}}\n' ;;
+      alive) printf '{"result":{"agent":{"agent_status":"idle"}}}\n' ;;
+    esac
+    ;;
+  'pane process-info')
+    printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"w1:p1","shell_pid":200,"foreground_processes":[{"pid":201,"name":"codex","argv":["codex"]}]}}}\n'
+    ;;
+  'status --json')
+    case "$FM_TEST_HERDR_STATE" in
+      stopped) printf '{"server":{"running":false}}\n' ;;
+      *) printf '{"server":{"running":true}}\n' ;;
+    esac
+    ;;
+  *) exit 99 ;;
+esac
+SH
+  chmod +x "$fb/herdr"
+  fm_write_secondmate_meta "$state/sm.meta" "${state%/state}/sm" sess:w1:p1 alpha codex
+  printf 'backend=herdr\n' >> "$state/sm.meta"
+  for command in alive dead missing unreadable stopped; do
+    verdict=send
+    if parked_local "$state" PATH="$fb:$BASE_PATH" FM_TEST_HERDR_STATE="$command"; then verdict=skip; fi
+    case "$command:$verdict" in
+      alive:send|unreadable:send|dead:skip|missing:skip|stopped:skip) ;;
+      *) fail "Herdr park marker with $command protocol state unexpectedly chose $verdict" ;;
+    esac
+  done
+  [ "$(cat "$state/.secondmate-relaunch-bound-sm")" = $'123\tdead' ] \
+    || fail "local read-only classification changed the bound record"
+  [ "$(cat "$state/.secondmate-relaunch-sm")" = $'123\tattempt' ] \
+    || fail "local read-only classification changed the recovery budget"
+  pass "local parked skips require positive tmux or Herdr absence; live and uncertain endpoints send"
+}
+
 test_rearm_only_resets_a_parked_mate() {
   local state="$TMP_ROOT/rearm-state"
   mkdir -p "$state"
@@ -925,6 +1021,7 @@ test_remote_poll_probe_maps_states
 test_remote_poll_probe_unreachable_preserves_route
 
 test_remote_parked_requires_positive_agent_absence
+test_local_parked_requires_positive_agent_absence
 test_rearm_only_resets_a_parked_mate
 
 echo "# all fm-secondmate-liveness tests passed"

@@ -129,8 +129,8 @@ fm_secondmate_liveness_rearm() {
 # rearm that record; a later live watcher probe also rearms it, and teardown
 # removes it at retirement. Deliberate fm-control exit records no park marker,
 # so it keeps the ordinary reread-send behavior. Missing or unreadable records
-# never authorize a skip. Remote skips also require a read-only poll proving
-# the destination agent is dead or missing; alive or uncertain keeps sending.
+# never authorize a skip. Skips also require a read-only poll proving
+# the recorded agent is dead or missing; alive or uncertain keeps sending.
 fm_secondmate_parked() (  # <state-dir> <id>
   local state=$1 id=$2 marker meta window
   case "$id" in ''|*[!/A-Za-z0-9._-]*|*/*) return 1 ;; esac
@@ -145,11 +145,11 @@ fm_secondmate_parked() (  # <state-dir> <id>
     remote:*)
       [ "$window" = "remote:$id" ] || return 1
       fm_backend_meta_exact_value "$meta" remote_host >/dev/null || return 1
-      fm_secondmate_liveness_probe "$meta" "$id" poll || return 1
-      [ "$FM_SM_LIVE_STATUS" = relaunchable ]
       ;;
-    *) [ -z "$(fm_meta_get "$meta" remote_host)" ] ;;
+    *) [ -z "$(fm_meta_get "$meta" remote_host)" ] || return 1 ;;
   esac
+  fm_secondmate_liveness_probe "$meta" "$id" poll || return 1
+  [ "$FM_SM_LIVE_STATUS" = relaunchable ]
 )
 
 # fm_secondmate_liveness_probe <meta> <id> <full|poll>
