@@ -37,8 +37,6 @@
 # allows it, acquisition continues and, after line 1 is verified, appends one
 # JSON object to state/.lock-handover.jsonl before the claim lock is released:
 # {"at":<epoch>,"from_pid":<n>,"from_session":"<id>","to_pid":<n>,"to_session":"<id>"}.
-# A failed append copies the previous line 1 back and leaves the sidecar
-# uncommitted, so the exit path removes it.
 #
 # Usage: fm-lock.sh           acquire; exit 1 unless ownership is verified
 #        fm-lock.sh status    print holder and liveness; always exits 0.
@@ -98,17 +96,19 @@ AUTOARM_LOCK_HELD=0
 # The live line-1 pid a same-session confirmation is moving off, or empty.
 REANCHOR=
 # Set together only after the idle fork-resume predicate passes, and cleared
-# when it does not. record_lock_handover is the only reader.
+# when it does not.
 TAKEOVER_FROM=
 TAKEOVER_SESSION=
 TAKEOVER_TO=
 TAKEOVER_LEASES_MOVED=0
-# PHASE 0: committed/none. 1: sidecar mutated, line 1 not written. 2: line 1 written, not verified.
+TAKEOVER_EVIDENCE=${FM_LOCK_TAKEOVER_INITIAL_EVIDENCE:-}
+# PHASE 0: committed/none. 1: PID unchanged. 2: PID publication uncommitted.
 # KIND 0: no backup. 1: restore $LOCK_SESSION_PREV. 2: sidecar was absent.
 LOCK_SESSION_PHASE=0
 LOCK_SESSION_KIND=0
 LOCK_SESSION_PREV="$STATE/.lock-session.prev"
 LOCK_LINE_PRE=
+LOCK_SESSION_TMP=
 release_autoarm_lock() {
   if [ "$AUTOARM_LOCK_HELD" -eq 1 ]; then
     fm_lock_release "$AUTOARM_LOCK"
@@ -146,13 +146,17 @@ commit_lock_session() {
   rm -f "$LOCK_SESSION_PREV" 2>/dev/null || true
 }
 on_lock_exit() {
-  if [ "$TAKEOVER_LEASES_MOVED" -eq 1 ] && [ "$LOCK_SESSION_PHASE" -ne 0 ]; then
+  if [ -n "$TAKEOVER_FROM" ] && [ "$LOCK_SESSION_PHASE" -eq 2 ] \
+    && [ -n "$LOCK_LINE_PRE" ] && [ -f "$LOCK_LINE_PRE" ]; then
     if cp -f "$LOCK_LINE_PRE" "$LOCK" 2>/dev/null; then
       LOCK_SESSION_PHASE=1
     fi
-    fm_lease_rekey_holder "$me" "$TAKEOVER_FROM" || true
+    if [ "$TAKEOVER_LEASES_MOVED" -eq 1 ]; then
+      fm_lease_rekey_holder "$me" "$TAKEOVER_FROM" || true
+    fi
   fi
   restore_uncommitted_lock_session
+  [ -z "$LOCK_SESSION_TMP" ] || rm -f "$LOCK_SESSION_TMP"
   [ -n "$LOCK_LINE_PRE" ] && rm -f "$LOCK_LINE_PRE"
   release_autoarm_lock
   release_lease_lock
@@ -185,7 +189,15 @@ publish_lock_session() {
     fi
     remember_lock_session || return 1
     tmp=$(mktemp "$STATE/.lock-session.XXXXXX" 2>/dev/null) || return 1
-    if ! { printf '%s\n' "$trusted" > "$tmp" && mv -f "$tmp" "$LOCK_SESSION"; } 2>/dev/null; then
+    LOCK_SESSION_TMP=$tmp
+    if ! printf '%s\n' "$trusted" > "$tmp"; then
+      rm -f "$tmp" 2>/dev/null
+      return 1
+    fi
+    if [ -n "$TAKEOVER_FROM" ]; then
+      allow_live_holder_takeover "$TAKEOVER_FROM"
+    fi
+    if ! mv -f "$tmp" "$LOCK_SESSION" 2>/dev/null; then
       rm -f "$tmp" 2>/dev/null
       return 1
     fi
@@ -224,7 +236,7 @@ confirm_own_lock() {  # <recorded-pid>
     waited=1
   fi
   recorded=$(cat "$LOCK" 2>/dev/null || true)
-  if [ "$recorded" = "$me" ] || fm_session_lock_owned_by_self "$STATE"; then
+  if fm_session_lock_owned_by_self "$STATE"; then
     if [ "$recorded" != "$me" ] && pids=$(fm_harness_ancestry_pids) \
       && ! fm_harness_pid_listed "$recorded" "$pids" \
       && fm_lock_acquire_wait_max "$LEASE_LOCK" "$LEASE_LOCK_WAIT"; then
@@ -257,13 +269,15 @@ refuse_live_owner() {  # <recorded-pid>
 # Continue acquisition when the live holder is an idle fork-resume predecessor.
 # Any other live holder is the ordinary refusal above.
 allow_live_holder_takeover() {  # <recorded-pid>
-  local recorded trusted
+  local recorded trusted initial=$TAKEOVER_EVIDENCE
   TAKEOVER_FROM=
   TAKEOVER_SESSION=
   TAKEOVER_TO=
   if fm_session_lock_idle_fork_takeover_allowed "$STATE" "$1"; then
     recorded=$(fm_session_lock_recorded_session_id "$STATE") || refuse_live_owner "$1"
     trusted=$(fm_session_lock_trusted_session_id) || refuse_live_owner "$1"
+    [ -z "$initial" ] || [ "$initial" = "$FM_LOCK_TAKEOVER_EVIDENCE" ] || refuse_live_owner "$1"
+    TAKEOVER_EVIDENCE=$FM_LOCK_TAKEOVER_EVIDENCE
     TAKEOVER_FROM=$1
     TAKEOVER_SESSION=$recorded
     TAKEOVER_TO=$trusted
@@ -297,11 +311,14 @@ record_lock_handover() {
 
 if [ -f "$LOCK" ] && [ ! -L "$LOCK" ]; then
   old=$(cat "$LOCK" 2>/dev/null || true)
-  if [ "$old" = "$me" ] || fm_session_lock_owned_by_self "$STATE"; then
+  preflight_rc=0
+  if [ "$old" = "$me" ] || fm_session_lock_owned_by_self "$STATE" 0; then
     confirm_own_lock "$old"
     old=$(cat "$LOCK" 2>/dev/null || true)
+  else
+    preflight_rc=$?
   fi
-  if [ -z "$REANCHOR" ] && fm_harness_pid_alive "$old"; then
+  if [ "$preflight_rc" -ne 2 ] && [ -z "$REANCHOR" ] && fm_harness_pid_alive "$old"; then
     allow_live_holder_takeover "$old"
   fi
 fi
@@ -345,15 +362,6 @@ if [ -n "$TAKEOVER_FROM" ]; then
   LEASE_LOCK_HELD=1
   allow_live_holder_takeover "$TAKEOVER_FROM"
 fi
-# The sidecar goes first: a fresh pid beside a previous session's id would let
-# that session's resume own this lock. If the sidecar changes before line 1 is
-# written, a failure restores the previous sidecar. If line 1 is written but
-# not yet verified, a failure removes the sidecar and leaves the lock
-# ancestry-only. After line 1 verifies as this session's anchor, a later
-# signal leaves the published pair in place, except on the re-anchor path:
-# there a HUP, INT, or TERM during the lease move or the bounded
-# .claude-autoarm.lock wait, before commit_lock_session, still runs
-# restore_uncommitted_lock_session with phase 2 and removes the sidecar.
 publish_lock_session_or_die
 if [ -f "$LOCK" ]; then
   LOCK_LINE_PRE=$(mktemp "$STATE/.lock.pre.XXXXXX") || {

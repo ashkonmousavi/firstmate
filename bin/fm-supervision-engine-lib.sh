@@ -192,10 +192,12 @@ fm_supervision_host_outcomes_drained() {
 # Needs bin/fm-wake-lib.sh sourced first.
 fm_supervision_host_main_key() {
   local pid identity
-  pid=$(sed -n '1p' "$1/.lock" 2>/dev/null)
+  _fm_wake_require_session_lock
+  fm_session_lock_read_record "$1" || return 1
+  pid=$FM_SESSION_LOCK_PID
   identity=$(fm_pid_identity "$pid" 2>/dev/null) && [ -n "$identity" ] || return 1
   printf '%s:%s:%s\n' "$pid" "$(printf '%s\n' "$identity" | cksum | awk '{ print $1 }')" \
-    "$(sed -n '1p' "$1/.lock-session" 2>/dev/null | cksum | awk '{ print $1 }')"
+    "$({ [ -z "$FM_SESSION_LOCK_SESSION" ] || printf '%s\n' "$FM_SESSION_LOCK_SESSION"; } | cksum | awk '{ print $1 }')"
 }
 
 # fm_supervision_host_health_key <state-dir>: the key the host's

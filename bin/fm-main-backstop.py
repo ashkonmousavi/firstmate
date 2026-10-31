@@ -561,17 +561,7 @@ def main():
             suppress_nudge = True
             report = None
         if report is not None:
-            try:
-                _pane, primary_pid = live_primary(home, env)
-            except (ProbeError, OSError, ValueError, KeyError, TypeError):
-                primary_pid = None
-            try:
-                same_holder = int(report['pid']) == int(primary_pid)
-            except (TypeError, ValueError):
-                same_holder = False
-            if same_holder:
-                trouble.append('watcher silent for %ds' % beat_age)
-            elif beat_age < HOLDER_ASK_AFTER:
+            if beat_age < HOLDER_ASK_AFTER:
                 audit('idle lock holder pid=%s tty=%s idle=%s; watcher silent %ds' % (
                     report['pid'], report['tty'], format_idle(report['idle_seconds']), beat_age))
                 suppress_nudge = True

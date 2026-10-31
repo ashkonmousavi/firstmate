@@ -1189,7 +1189,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertNotIn('BACKSTOP FAILURE', self.notes())
         self.assertIn('idle lock holder pid=%s' % pid, (self.state / '.main-backstop.log').read_text())
 
-    def test_foreign_holder_is_named_once_after_fifteen_minutes(self):
+    def test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes(self):
         pid = self.start_named_claude()
         (self.state / '.lock').write_text('%s\n' % pid)
         os.utime(self.state / '.last-watcher-beat', (4000, 4000))
@@ -1203,15 +1203,24 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertNotIn('BACKSTOP FAILURE', notes)
         self.assertEqual(self.sends(), [])
         self.assertIn('holder-%s' % pid, self.memory()['episodes'])
+        self.assertTrue((self.state / '.wake-queue').exists())
 
-    def test_primary_that_holds_the_lock_is_still_nudged(self):
+    def test_foreground_holder_is_also_queued_once_after_fifteen_minutes(self):
         pid = self.start_named_claude()
         (self.state / '.lock').write_text('%s\n' % pid)
         self.config['process_pid'] = pid
         self.config['process_cwd'] = str(self.home)
         self.run_guard()
-        self.assertEqual(len(self.sends()), 1)
+        self.assertEqual(self.sends(), [])
         self.assertNotIn('Idle lock holder', self.notes())
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % pid, self.notes())
+        self.assertIn('tty=', self.notes())
+        self.assertIn('idle=', self.notes())
 
 
 if __name__ == '__main__':

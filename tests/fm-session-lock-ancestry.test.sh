@@ -1246,6 +1246,12 @@ open(os.path.join(out, tag + '.rc'), 'w').write(str(proc.returncode) + '\n')
 open(os.path.join(out, tag + '.pid'), 'w').write(str(os.getpid()) + '\n')
 stop = os.path.join(out, 'stop-' + tag)
 while not os.path.exists(stop):
+    probe = os.path.join(out, 'probe-' + tag)
+    if os.path.exists(probe):
+        os.unlink(probe)
+        verdict = subprocess.run(['bash', '-c', '. "$1/bin/fm-session-lock-lib.sh"; fm_session_lock_owned_by_self "$2"',
+                                  'probe', os.environ['FM_LOCK_TEST_ROOT'], out]).returncode
+        open(os.path.join(out, 'verdict-' + tag), 'w').write(str(verdict))
     time.sleep(0.05)
 PY
   chmod +x "$IDLE_FORK_SHIM"
@@ -1278,6 +1284,7 @@ start_idle_fork_proc() {  # <tag> <session-id> <home> <config> <child> [argv...]
     HOME="$TMP_ROOT/home-$tag" \
     FM_HOME="$home" \
     FM_CHILD="$child" \
+    FM_LOCK_TEST_ROOT="$ROOT" \
     FM_OUT="$home/state" \
     FM_TAG="$tag" \
     FM_CLAUDE_AUTOARM_SYNC_WAIT_MS=0 \
@@ -1326,6 +1333,194 @@ assert_takeover_leases() {
 seed_takeover_leases() {
   printf 'branch\t%s\t1234\n' "$2" > "$1/state/.lease-takeover-branch"
   printf 'main\t%s\t1234\n' "$2" > "$1/state/.lease-takeover-main"
+}
+
+prepare_takeover_boundary() {
+  local dir=$1 stage=$2 mode=$3 config=$4
+  mkdir -p "$dir/state" "$dir/config" "$dir/shim"
+  git init -q "$dir"
+  git -C "$dir" commit -q --allow-empty -m init
+  : > "$dir/AGENTS.md"
+  : > "$dir/state/task.meta"
+  : > "$dir/config/supervision-host-off"
+  cp -R "$ROOT/bin" "$dir/bin"
+  mv "$dir/bin/fm-lock.sh" "$dir/bin/fm-lock-real.sh"
+  cat > "$dir/bin/fm-lock.sh" <<'SH'
+#!/usr/bin/env bash
+export FM_BOUNDARY_WRITER=$$
+if [ "$FM_BOUNDARY_STAGE" = delegation ]; then
+  printf '{"type":"user","uuid":"arrived-before-delegation","timestamp":1}\n' >> "$FM_BOUNDARY_TRANSCRIPT"
+fi
+exec "$FM_HOME/bin/fm-lock-real.sh"
+SH
+  printf '%s\n' "$stage" > "$dir/stage"
+  printf '%s\n' "$mode" > "$dir/mode"
+  printf '%s\n' "$config/projects/lab/$IDLE_FORK_HOLDER.jsonl" > "$dir/transcript"
+  cat > "$dir/bin/fm-watch-arm.sh" <<'SH'
+#!/usr/bin/env bash
+echo armed >> "$FM_HOME/state/arm-ran"
+printf 'pending:downtime:boundary\n' > "$FM_HOME/state/.watcher-down"
+touch "$FM_HOME/state/.last-watcher-beat"
+printf 'watcher: started pid=%s (beacon fresh)\nstale: boundary actionable\n' "$$"
+SH
+  cat > "$dir/claim" <<'SH'
+#!/usr/bin/env bash
+export FM_BOUNDARY_REAL_MV=$(command -v mv)
+export FM_BOUNDARY_REAL_CAT=$(command -v cat)
+export FM_BOUNDARY_REAL_CP=$(command -v cp)
+export FM_BOUNDARY_REAL_MKTEMP=$(command -v mktemp)
+export FM_BOUNDARY_REAL_DATE=$(command -v date)
+export FM_BOUNDARY_STAGE=$(cat "$FM_HOME/stage")
+export FM_BOUNDARY_TRANSCRIPT=$(cat "$FM_HOME/transcript")
+export FM_BOUNDARY_WRITER=$$
+mode=$(cat "$FM_HOME/mode")
+export PATH="$FM_HOME/shim:$PATH"
+printf '%s\n' "$CLAUDE_PID" > "$FM_HOME/state/succ-live-pid"
+if [ "$mode" = stop ]; then
+  exec "$FM_HOME/bin/fm-claude-stop-autoarm.sh"
+fi
+exec "$FM_HOME/bin/fm-lock.sh"
+SH
+  cat > "$dir/shim/mv" <<'SH'
+#!/usr/bin/env bash
+"$FM_BOUNDARY_REAL_MV" "$@" || exit "$?"
+target=${*: -1}
+case "$FM_BOUNDARY_STAGE:$target" in
+  gap:*/.lock-session)
+    rc=0
+    bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_session_lock_owned_by_self "$2"' \
+      probe "$FM_LOCK_TEST_ROOT" "$FM_HOME/state" || rc=$?
+    printf '%s\n' "$rc" > "$FM_HOME/state/succ-gap"
+    printf 'paused\n' > "$FM_HOME/state/gap"
+    for ((i=0; i<400; i++)); do
+      [ ! -e "$FM_HOME/state/release" ] || exit 0
+      sleep 0.05
+    done
+    exit 1
+    ;;
+  publication:*/.lock-session|leases:*/.lease-takeover-branch)
+    if [ ! -e "$FM_HOME/state/cancelled" ]; then
+      : > "$FM_HOME/state/cancelled"
+      kill -TERM "$FM_BOUNDARY_WRITER"
+    fi
+    ;;
+esac
+SH
+  cat > "$dir/shim/cat" <<'SH'
+#!/usr/bin/env bash
+if [ "$FM_BOUNDARY_STAGE" = verification ] && [ "$#" = 1 ] \
+  && [ "$1" = "$FM_HOME/state/.lock" ] \
+  && [ "$("$FM_BOUNDARY_REAL_CAT" "$1")" = "$CLAUDE_PID" ] \
+  && [ ! -e "$FM_HOME/state/cancelled" ]; then
+  : > "$FM_HOME/state/cancelled"
+  kill -TERM "$FM_BOUNDARY_WRITER"
+fi
+exec "$FM_BOUNDARY_REAL_CAT" "$@"
+SH
+  cat > "$dir/shim/mktemp" <<'SH'
+#!/usr/bin/env bash
+path=$("$FM_BOUNDARY_REAL_MKTEMP" "$@") || exit "$?"
+case "$FM_BOUNDARY_STAGE:${*: -1}" in
+  activity:*/.lock-session.XXXXXX|backdated:*/.lock-session.XXXXXX)
+    if [ "$FM_BOUNDARY_STAGE" = activity ]; then
+      stamp=$("$FM_BOUNDARY_REAL_DATE" +%s)
+    else
+      stamp=1
+    fi
+    printf '{"type":"user","uuid":"arrived-between-scans","timestamp":%s}\n' "$stamp" >> "$FM_BOUNDARY_TRANSCRIPT"
+    ;;
+esac
+printf '%s\n' "$path"
+SH
+  cat > "$dir/shim/cp" <<'SH'
+#!/usr/bin/env bash
+case "$FM_BOUNDARY_STAGE:${*: -1}" in
+  backup:*/.lock.pre.*)
+    : > "${*: -1}"
+    : > "$FM_HOME/state/cancelled"
+    kill -TERM "$FM_BOUNDARY_WRITER"
+    exit 1
+    ;;
+esac
+exec "$FM_BOUNDARY_REAL_CP" "$@"
+SH
+  cat > "$dir/shim/date" <<'SH'
+#!/usr/bin/env bash
+if [ "$FM_BOUNDARY_STAGE" = journal ] && [ ! -e "$FM_HOME/state/cancelled" ] \
+  && [ "$("$FM_BOUNDARY_REAL_CAT" "$FM_HOME/state/.lock")" = "$CLAUDE_PID" ]; then
+  : > "$FM_HOME/state/cancelled"
+  kill -TERM "$FM_BOUNDARY_WRITER"
+fi
+exec "$FM_BOUNDARY_REAL_DATE" "$@"
+SH
+  chmod +x "$dir/claim" "$dir/shim/"* "$dir/bin/fm-watch-arm.sh" "$dir/bin/fm-lock.sh"
+}
+
+test_takeover_boundaries_share_one_commit() {
+  local mode stage dir config holder succ launch rc old_verdict
+  prepare_idle_fork_shim
+  for mode in startup stop; do
+    for stage in gap activity backdated delegation backup publication verification leases journal; do
+      [ "$stage:$mode" != delegation:startup ] || continue
+      dir=$TMP_ROOT/boundary-$mode-$stage
+      config=$TMP_ROOT/boundary-config-$mode-$stage
+      prepare_takeover_boundary "$dir" "$stage" "$mode" "$config"
+      write_idle_fork_turns "$config" "$IDLE_FORK_HOLDER" 7200 holder-turn-aaa
+      start_idle_fork_proc holder "$IDLE_FORK_HOLDER" "$dir" "$config" "$ROOT/bin/fm-lock.sh"
+      holder=$(idle_fork_pid "$dir" holder)
+      seed_takeover_leases "$dir" "$holder"
+      if [ "$stage" = gap ]; then
+        start_idle_fork_proc succ "$IDLE_FORK_SUCC" "$dir" "$config" "$dir/claim" \
+          --fork-session --resume "$IDLE_FORK_HOLDER" &
+        launch=$!
+        BG_FIXTURE_PIDS+=("$launch")
+        wait_for_file "$dir/state/succ-live-pid" "the successor process identity"
+        BG_FIXTURE_PIDS+=("$(cat "$dir/state/succ-live-pid")")
+        wait_for_file "$dir/state/gap" "the split publication boundary"
+        kill -0 "$holder" || fail "the predecessor is not alive at publication"
+        [ "$(cat "$dir/state/.lock")" = "$holder" ] || fail "gap missed predecessor pid"
+        [ "$(cat "$dir/state/.lock-session")" = "$IDLE_FORK_SUCC" ] || fail "gap missed successor session"
+        FM_HOME="$dir" STATE="$dir/state" bash -c '
+          . "$1/bin/fm-wake-lib.sh"
+          identity=$(fm_pid_identity "$2")
+          printf "epoch=1 owner_pid=%s outcome=arming updated_at=1 session_pid=%s\n%s\n" "$2" "$2" "$identity" > "$STATE/.claude-autoarm-epoch"
+          fm_autoarm_claim_open "$STATE" 300
+        ' test "$ROOT" "$holder" || fail "a busy publication invalidated a live auto-arm claim"
+        : > "$dir/state/probe-holder"
+        wait_for_file "$dir/state/verdict-holder" "the predecessor ownership verdict"
+        old_verdict=$(cat "$dir/state/verdict-holder")
+        [ "$old_verdict" != 0 ] || [ "$(cat "$dir/state/succ-gap")" != 0 ] \
+          || fail "$mode: both sessions authorize during publication"
+        : > "$dir/state/release"
+        wait "$launch"
+        succ=$(idle_fork_pid "$dir" succ)
+        assert_takeover_leases "$dir" "$succ"
+        rm -f "$dir/state/verdict-holder"
+        : > "$dir/state/probe-holder"
+        : > "$dir/state/probe-succ"
+        wait_for_file "$dir/state/verdict-holder" "the retired holder verdict"
+        wait_for_file "$dir/state/verdict-succ" "the successor holder verdict"
+        expect_code 1 "$(cat "$dir/state/verdict-holder")" "$mode: retired predecessor still owns"
+        expect_code 0 "$(cat "$dir/state/verdict-succ")" "$mode: committed successor does not own"
+      else
+        start_idle_fork_proc succ "$IDLE_FORK_SUCC" "$dir" "$config" "$dir/claim" \
+          --fork-session --resume "$IDLE_FORK_HOLDER"
+        rc=$(cat "$dir/state/succ.rc")
+        if [ "$mode" = startup ]; then
+          expect_code 1 "$rc" "$stage: startup unexpectedly acquired"
+        else
+          expect_code 0 "$rc" "$stage: refused Stop should remain silent"
+        fi
+        [ "$(cat "$dir/state/.lock")" = "$holder" ] || fail "$mode/$stage: predecessor pid lost"
+        [ "$(cat "$dir/state/.lock-session")" = "$IDLE_FORK_HOLDER" ] || fail "$mode/$stage: predecessor session lost"
+        [ ! -e "$dir/state/.lock-handover.jsonl" ] || fail "$mode/$stage: aborted handover recorded"
+        [ ! -e "$dir/state/arm-ran" ] || fail "$mode/$stage: refused Stop armed"
+        assert_takeover_leases "$dir" "$holder"
+      fi
+      stop_idle_fork_procs "$dir" holder succ
+    done
+  done
+  pass "session-lock: startup and Stop serialize ownership, reject new turns, and roll back every interrupted takeover"
 }
 
 test_idle_fork_resume_of_a_quiet_holder_takes_the_lock() {
@@ -1673,3 +1868,4 @@ test_unreadable_holder_transcript_is_not_taken_over
 test_transcript_prefix_without_fork_argv_takes_the_lock
 test_stop_hook_of_an_idle_fork_successor_takes_the_lock
 test_repeated_remote_continue_switches_keep_one_holder
+test_takeover_boundaries_share_one_commit

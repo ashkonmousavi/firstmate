@@ -249,14 +249,38 @@ fm_session_lock_recorded_session_id() {  # <state>
   printf '%s\n' "$recorded"
 }
 
+fm_session_lock_read_record() {
+  local state=$1 STATE=$1 FM_STATE_OVERRIDE=$1 mutex=$1/.lock.acquire current acquired=0
+  FM_SESSION_LOCK_PID=
+  FM_SESSION_LOCK_SESSION=
+  [ -d "$state" ] || return 1
+  if ! command -v fm_lock_try_acquire >/dev/null 2>&1; then
+    # shellcheck source=/dev/null
+    . "${BASH_SOURCE[0]%/*}/fm-wake-lib.sh"
+  fi
+  fm_current_pid current || return 1
+  if [ "$(cat "$mutex/pid" 2>/dev/null || true)" != "$current" ]; then
+    fm_lock_acquire_wait_max "$mutex" "${2:-5}" || return 2
+    acquired=1
+  fi
+  if [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ]; then
+    FM_SESSION_LOCK_PID=$(cat "$state/.lock" 2>/dev/null || true)
+    FM_SESSION_LOCK_SESSION=$(fm_session_lock_recorded_session_id "$state" 2>/dev/null || true)
+  fi
+  if [ "$acquired" -eq 1 ]; then
+    fm_lock_release "$mutex"
+  fi
+  case "$FM_SESSION_LOCK_PID" in ''|*[!0-9]*) return 1 ;; esac
+}
+
 # True when the lock in state dir $1 was recorded by this same Claude session:
 # the trusted id equals the id recorded beside the lock. No trusted id, no
 # sidecar, or a different recorded id is false.
 fm_session_lock_same_session() {  # <state> [<ancestry-pids>]
-  local state=$1 trusted recorded
+  local state=$1 trusted
   trusted=$(fm_session_lock_trusted_session_id "${2:-}") || return 1
-  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
-  [ "$recorded" = "$trusted" ]
+  fm_session_lock_read_record "$state" || return 1
+  [ "$FM_SESSION_LOCK_SESSION" = "$trusted" ]
 }
 
 # Print the pid bin/fm-lock.sh records on lock line 1 for this session. For a
@@ -290,14 +314,13 @@ fm_session_lock_anchor_pid() {
 # held by a harness outside this ancestry under another (or no) session id, or
 # an ancestry that cannot be resolved all fail closed.
 fm_session_lock_owned_by_self() {
-  local state=$1 lock_pid pids
-  lock_pid=$(cat "$state/.lock" 2>/dev/null || true)
-  case "$lock_pid" in
-    ''|*[!0-9]*) return 1 ;;
-  esac
+  local state=$1 lock_pid pids trusted
+  fm_session_lock_read_record "$state" "${2:-5}" || return "$?"
+  lock_pid=$FM_SESSION_LOCK_PID
   pids=$(fm_harness_ancestry_pids) || return 1
   fm_harness_pid_listed "$lock_pid" "$pids" && return 0
-  fm_session_lock_same_session "$state" "$pids" || return 1
+  trusted=$(fm_session_lock_trusted_session_id "$pids") || return 1
+  [ "$trusted" = "$FM_SESSION_LOCK_SESSION" ] || return 1
   fm_harness_pid_alive "$lock_pid"
 }
 
@@ -309,17 +332,15 @@ fm_session_lock_owned_by_self() {
 # shellcheck disable=SC2034 # Output global, read by the sourcing guard caller.
 FM_SESSION_LOCK_FOREIGN_OWNER_PID=
 fm_session_lock_foreign_owner_live() {
-  local state=$1 lock_pid pids
+  local state=$1 lock_pid pids trusted
   FM_SESSION_LOCK_FOREIGN_OWNER_PID=
-  [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ] || return 1
-  lock_pid=$(cat "$state/.lock" 2>/dev/null || true)
-  case "$lock_pid" in
-    ''|*[!0-9]*) return 1 ;;
-  esac
+  fm_session_lock_read_record "$state" || return 1
+  lock_pid=$FM_SESSION_LOCK_PID
   fm_harness_pid_alive "$lock_pid" || return 1
   pids=$(fm_harness_ancestry_pids) || return 1
   fm_harness_pid_listed "$lock_pid" "$pids" && return 1
-  fm_session_lock_same_session "$state" "$pids" && return 1
+  trusted=$(fm_session_lock_trusted_session_id "$pids" 2>/dev/null || true)
+  [ -n "$trusted" ] && [ "$trusted" = "$FM_SESSION_LOCK_SESSION" ] && return 1
   # shellcheck disable=SC2034 # Output global, read by the sourcing guard caller.
   FM_SESSION_LOCK_FOREIGN_OWNER_PID=$lock_pid
   return 0
@@ -495,13 +516,13 @@ PY
   return 1
 }
 
-# Scan holder and successor transcripts. Prints one token:
+# Scan holder and successor transcripts. Prints a verdict and successful turn digest:
 # ok, unreadable, recent, after-fork, or not-fork.
 # User and assistant rows count; summary and other rows do not. A missing
 # timestamp refuses. Quiet is FM_LOCK_TAKEOVER_QUIET_SECONDS from this file.
 fm_session_lock_turn_verdict() {  # <holder-path> <successor-path-or-empty> <successor-state> <fork-epoch>
   python3 - "$1" "$2" "$3" "$4" "$FM_LOCK_TAKEOVER_QUIET_SECONDS" "$FM_LOCK_TAKEOVER_TRANSCRIPT_MAX" <<'PY'
-import datetime, json, os, stat, sys, time
+import datetime, hashlib, json, os, stat, sys, time
 holder_path, successor_path, successor_state, fork_s, quiet_s, cap_s = sys.argv[1:7]
 quiet = int(quiet_s)
 cap = int(cap_s)
@@ -509,6 +530,8 @@ fork_epoch = int(fork_s)
 now = time.time()
 
 def emit(token):
+    if token == 'ok':
+        token += ' ' + hashlib.sha256(json.dumps(holder).encode()).hexdigest()
     sys.stdout.write(token + '\n')
     sys.exit(0)
 
@@ -638,7 +661,10 @@ fm_session_lock_idle_fork_takeover_allowed() {  # <state> <holder-pid>
     ''|*[!0-9]*) return 1 ;;
   esac
   verdict=$(fm_session_lock_turn_verdict "$holder_file" "$succ_file" "$succ_state" "$fork_epoch") || return 1
-  [ "$verdict" = ok ]
+  case "$verdict" in
+    'ok '*) FM_LOCK_TAKEOVER_EVIDENCE=${verdict#ok }; return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 # Print pid, tty, and idle_seconds for the live harness holding state dir $1.
@@ -648,17 +674,15 @@ fm_session_lock_idle_fork_takeover_allowed() {  # <state> <holder-pid>
 fm_session_lock_holder_report() {  # <state>
   local state=$1 pid tty idle='' recorded file newest now etimes
   [ -f "$state/.lock" ] && [ ! -L "$state/.lock" ] || return 1
-  pid=$(head -n 1 "$state/.lock" 2>/dev/null) || return 1
-  case "$pid" in
-    ''|*[!0-9]*) return 1 ;;
-  esac
+  fm_session_lock_read_record "$state" || return 1
+  pid=$FM_SESSION_LOCK_PID
   fm_harness_pid_alive "$pid" || return 1
   tty=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d '[:space:]') || tty=
   case "$tty" in
     ''|'?'|*[!A-Za-z0-9_./-]*) tty=none ;;
   esac
-  if recorded=$(fm_session_lock_recorded_session_id "$state") \
-    && fm_session_lock_id_token "$recorded" \
+  recorded=$FM_SESSION_LOCK_SESSION
+  if fm_session_lock_id_token "$recorded" \
     && file=$(fm_session_lock_transcript_file "$recorded"); then
     newest=$(python3 - "$file" "$FM_LOCK_TAKEOVER_TRANSCRIPT_MAX" <<'PY'
 import datetime, json, os, stat, sys, time

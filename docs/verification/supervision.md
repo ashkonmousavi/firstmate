@@ -399,17 +399,26 @@ The fork is this process's `--fork-session` plus `--resume` of the recorded sess
 `bin/fm-lock.sh` records the handover after line 1 is verified; that script's header owns the JSON line.
 A holder with any turn in the last 30 minutes, or a holder whose transcript cannot be read, stays on the ordinary live-owner refusal.
 The Stop hook uses the same decision before it arms.
+Ownership and generation readers take `state/.lock.acquire` to snapshot the PID and session sidecar together, waiting at most five seconds before failing closed.
+Auto-arm claim inspection never waits on acquisition while holding its own mutex; an otherwise live claim remains deferred when acquisition is busy.
+The writer reuses its own mutex hold for confirmation; its preliminary nonblocking probe preserves the existing quick refusal while a startup sweep is finishing.
+Both startup and Stop acquisition use this same publication boundary.
+The final transcript scan runs under that mutex after staging the sidecar and immediately before its rename, comparing turn UUIDs and timestamps against the first scan.
+Any added turn aborts takeover, including a backdated row.
+UserPromptSubmit does not take the acquisition mutex: a normally sub-second scan-to-publication interval remains, and a scheduler stall can extend it; this is a revalidation bound, not atomic admission of physical input.
 Both acquisition paths serialize task-lease handover with lease commands and preserve the actor and epoch when moving leases to the new holder.
-A failed lease move rolls back the takeover before releasing lease serialization.
-When the watcher has been silent and a different live process holds the lock, `bin/fm-main-backstop.py` names that holder once after 15 minutes, with its pid, tty, and idle time, and does not send the silence nudge to the read-only session.
-A holder that is the session itself still gets the silence nudge.
+Every uncommitted takeover restores the predecessor PID and sidecar before releasing claim and lease serialization; reverse lease movement is needed only after leases started moving.
+When the watcher has been silent and a live process holds the lock, `bin/fm-main-backstop.py` queues one inbox ask after 15 minutes with its pid, tty, and idle time, suppressing the silence nudge.
+The working main session drains that inbox and tells the owner; queueing is not direct owner notification.
+A foreground terminal holder follows the same rule as a detached holder.
 Other harnesses have no trusted Claude session id, so they keep the ordinary refusal.
 The portable proof below uses Claude-shaped processes and fixture transcripts.
+The [current class inventory](../../tests/captures/fm-idle-holder-review-inventory.json) lists call paths, adapters, lifecycle transitions, regressions and evidence gaps.
 The [live idle-holder guard](runtime-backends.md#idle-holder-takeover-live-guard) exercises vendor-produced argv, hook identity and transcripts across startup and Stop takeover.
 A phone remote-continue is that fork-resume background copy of the idle terminal.
 A later fork-resume of the phone session takes the lock back when the phone transcript is quiet, and each completed switch leaves one recorded holder.
 A phone turn inside the last 30 minutes keeps the phone as that one holder.
-Idle fork-resume takeover and the one-time holder ask ran on 2026-10-31 on Linux with GNU bash 5.2.21 and Python 3.12.3:
+Idle fork-resume takeover and the one-time queued holder ask ran on 2026-10-31 on Linux with GNU bash 5.2.21 and Python 3.12.3:
 
 ```sh
 bash tests/fm-session-lock-ancestry.test.sh
@@ -426,10 +435,11 @@ ok - session-lock: a missing or symlinked holder transcript is not taken over
 ok - session-lock: a shared transcript prefix takes an idle lock, and a diverged transcript does not
 ok - session-lock: a Stop hook of an idle fork-resume successor takes the lock
 ok - session-lock: phone and terminal switches leave exactly one holder
-test_foreign_holder_is_named_once_after_fifteen_minutes ... ok
-test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked ... ok
-test_primary_that_holds_the_lock_is_still_nudged ... ok
-Ran 73 tests in 134.721s
+ok - session-lock: startup and Stop serialize ownership, reject new turns, and roll back every interrupted takeover
+test_foreground_holder_is_also_queued_once_after_fifteen_minutes (__main__.Backstop.test_foreground_holder_is_also_queued_once_after_fifteen_minutes) ... ok
+test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked (__main__.Backstop.test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked) ... ok
+test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes (__main__.Backstop.test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes) ... ok
+Ran 74 tests in 160.205s
 OK
 ```
 

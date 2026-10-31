@@ -206,6 +206,7 @@ fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
 # idle or away home remains byte-for-byte inert. Missing or malformed locks are
 # uncertainty rather than stale-owner evidence and remain inert.
 RECOVER_SESSION_LOCK=0
+RECOVER_TAKEOVER_EVIDENCE=
 if ! fm_session_lock_owned_by_self "$STATE"; then
   LOCK_PID=$(cat "$STATE/.lock" 2>/dev/null || true)
   case "$LOCK_PID" in
@@ -213,6 +214,7 @@ if ! fm_session_lock_owned_by_self "$STATE"; then
   esac
   if fm_harness_pid_alive "$LOCK_PID"; then
     if fm_session_lock_idle_fork_takeover_allowed "$STATE" "$LOCK_PID"; then
+      RECOVER_TAKEOVER_EVIDENCE=$FM_LOCK_TAKEOVER_EVIDENCE
       RECOVER_SESSION_LOCK=1
     else
       exit 0
@@ -236,7 +238,8 @@ need_supervision || exit 0
 # remain the single acquisition owner, then re-verify current-session identity
 # before touching any auto-arm state.
 if [ "$RECOVER_SESSION_LOCK" -eq 1 ]; then
-  "$SCRIPT_DIR/fm-lock.sh" >/dev/null 2>&1 || exit 0
+  FM_LOCK_TAKEOVER_INITIAL_EVIDENCE=$RECOVER_TAKEOVER_EVIDENCE \
+    "$SCRIPT_DIR/fm-lock.sh" >/dev/null 2>&1 || exit 0
   fm_session_lock_owned_by_self "$STATE" || exit 0
 fi
 

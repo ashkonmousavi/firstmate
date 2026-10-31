@@ -1,0 +1,219 @@
+{
+  "scope": {
+    "base": "4220467f622e1095bae46961814f305d27418b97",
+    "reviewed_head": "dc8c37ccad8d42b347a4126857e7c27b2628f5a3",
+    "working_tree": "Current review fixes on this head",
+    "date": "2026-10-31"
+  },
+  "provenance": "Current executable call paths independently inspected; the October 21 fm-main-backstop-review-inventory.json remains historical and is not the inventory for this change.",
+  "findings": {
+    "R2_review-1": {
+      "invariant": "Ownership and generation decisions observe one consistent PID/session record under the writer claim mutex.",
+      "cause": "Ownership readers bypassed the mutex while publication wrote the sidecar and PID separately.",
+      "resolution": "Use the existing acquisition mutex for a shared PID/session snapshot; actual mutex owners reuse their hold, ordinary readers wait at most five seconds, and timeout fails closed. Auto-arm claim inspection uses a zero wait to avoid lock-order inversion, and its busy status retains an otherwise live generation. The preliminary fm-lock admission probe also uses zero wait so the existing bounded-sweep fast refusal stays reachable; confirmation still owns the claim mutex. A busy preliminary snapshot skips live-holder classification and falls through to claim acquisition, preserving contended same-session confirmation and re-anchoring.",
+      "occurrences": [
+        "bin/fm-session-lock-lib.sh:read_record, same_session, owned_by_self, foreign_owner_live, holder_report",
+        "bin/fm-lock.sh:confirmation and publication",
+        "bin/fm-wake-lib.sh:claim_open, claim_next, midturn_healthy",
+        "bin/fm-supervision-engine-lib.sh:main_key",
+        "bin/fm-sessionstart-nudge.sh:lock_is_in_ancestry",
+        "bin/fm-turnend-guard-cursor.sh:current_session_still_ours"
+      ],
+      "regression": "tests/fm-session-lock-ancestry.test.sh:test_takeover_boundaries_share_one_commit pauses with old PID and new session, probes both real process trees, checks live claim deferral, then checks only the successor owns after commit."
+    },
+    "R3_review-2": {
+      "invariant": "A takeover aborts if holder turn evidence changes between its first scan and its final pre-publication scan.",
+      "cause": "The last scan preceded sidecar staging and did not retain evidence to detect even backdated added turns.",
+      "resolution": "Compare a digest of the holder turn UUID/timestamp list on every scan and re-scan after staging immediately before publication, under the claim mutex, for both startup and Stop. Stop carries its initial digest into the delegated acquisition as a restrictive comparison, including backdated additions before delegation.",
+      "occurrences": [
+        "bin/fm-session-lock-lib.sh:turn_verdict and idle_fork_takeover_allowed",
+        "bin/fm-lock.sh:allow_live_holder_takeover and publish_lock_session",
+        "bin/fm-claude-stop-autoarm.sh:recovery delegation to fm-lock.sh"
+      ],
+      "regression": "Boundary tests append a current or backdated user turn during sidecar staging and require unchanged ownership, no handover, no arm and intact leases for startup and Stop. The Stop delegation boundary also appends a backdated turn before fm-lock starts.",
+      "remaining_bound": "UserPromptSubmit is intentionally uncoupled. The normally sub-second interval after the final scan remains; scheduler stalls can extend it. This is revalidation, not an atomic physical-input admission guarantee."
+    },
+    "R4_R10": {
+      "invariant": "Every uncommitted takeover preserves predecessor ownership and task exclusion, regardless of whether lease migration began.",
+      "cause": "Rollback was gated on leases moving, and a newly allocated backup was not necessarily complete.",
+      "resolution": "Only phase 2 can have changed the PID; it starts after backup completion and restores the predecessor pair on abort. Phase 1 restores only the sidecar. Reverse rekeying alone depends on the lease-movement flag.",
+      "occurrences": [
+        "bin/fm-lock.sh:on_lock_exit, publication, verification, lease rekey, handover append",
+        "bin/fm-lease-lib.sh:rekey_holder, live, guard",
+        "bin/fm-claude-stop-autoarm.sh:recovery delegation"
+      ],
+      "regression": "Boundary tests cancel backup creation, session publication, PID verification, lease movement and journal preparation for startup and Stop; prior partial lease-move failure regression and both actor guards are retained."
+    },
+    "R5_review-3_R9": {
+      "invariant": "Every live holder of a watcher-silent home reaches one named inbox ask after fifteen minutes, without repeated silence nudges.",
+      "cause": "Foreground PID equality bypassed the holder ask, and documentation conflated queueing with owner notification.",
+      "resolution": "Remove foreground discovery/exemption from the holder branch, preserve existing durable inbox delivery and request deduplication, and describe the working main as the owner-notification actor.",
+      "occurrences": [
+        "bin/fm-main-backstop.py:main live-holder silence branch and deliver_alarm",
+        "tests/fm-main-backstop.test.py:queued holder ask and foreground-holder tests",
+        "docs/verification/supervision.md:idle-holder contract"
+      ],
+      "regression": "Backstop tests drive silence below and above fifteen minutes for foreign and foreground holders, assert one durable note and wake with PID/TTY/idle, and assert zero pane submissions."
+    },
+    "R6_R7_retained": {
+      "invariant": "Discovery consumers unpack pane/PID, and disabled capability cannot discover or submit to a primary.",
+      "resolution": "Prior tuple/PID live guard and capability-before-discovery fixes remain. Removing holder discovery also removes its extra return-shape consumer.",
+      "regression": [
+        "tests/fm-main-backstop-live-e2e.test.sh",
+        "tests/fm-main-backstop.test.py:test_disabled_capability_with_live_lock_defers_without_discovery"
+      ]
+    },
+    "R8": {
+      "invariant": "The next review and validation receive a current class inventory with executable regressions and explicit evidence limits.",
+      "resolution": "Current inventory retained here and linked from both verification records, with actual focused results, current real-Claude proof and explicit platform, transport, timing and fixture-cleanup gaps."
+    }
+  },
+  "axes": {
+    "call_paths": [
+      {
+        "path": "SessionStart -> fm-session-start.sh -> fm-lock.sh",
+        "proof": "Ancestry and live idle-holder guards cover acquisition; sessionstart-nudge tests cover run/reemit/nudge routing."
+      },
+      {
+        "path": "Claude Stop -> fm-claude-stop-autoarm.sh -> fm-lock.sh -> auto-arm claim",
+        "proof": "Both new boundary matrix modes plus retained Stop and live guards."
+      },
+      {
+        "path": "Cursor Stop/current owner, host and mirror admission, and generation keys",
+        "proof": "Shared snapshot boundary; Cursor stays ancestry-only and cannot enter Claude fork takeover. Existing primary-scope and generation predicates were inspected."
+      },
+      {
+        "path": "lease claim/release/guard and active host engine",
+        "proof": "Existing lease-command mutex already serializes lease consumers; both main/branch actors are tested across handover and rollback. Host waits for its active engine before releasing branch leases."
+      },
+      {
+        "path": "lock status, inbox ready, backstop read_lock_pid, trace correlation and lab observations",
+        "proof": "PID-only diagnostics do not authorize operations using a separate session sidecar. Holder report uses the shared snapshot because its idle transcript belongs to that session."
+      },
+      {
+        "path": "startup-network lock_unchanged and bootstrap network_mutation_authorized",
+        "proof": "Inspected existing serialization: cmd_run takes .lock.acquire, rechecks expected PID under it, retains it across fm_run_timed bootstrap, and releases only after the child completes. FM_BOOTSTRAP_NETWORK_LOCK_PID is set only at that guarded call. Their PID-only comparisons already run under the writer mutex; acquiring again in the child would wait on its parent, so those production paths remain unchanged."
+      }
+    ],
+    "task_kinds": {
+      "primary": "Startup and Stop positive paths tested.",
+      "secondmate": "Same per-FM_HOME mutex and marker-based primary scope; independent homes never share the claim or lease mutex.",
+      "ship_scout": "Primary scope and gate-agent refusal remain; worker processes do not gain a new takeover path.",
+      "leased_tasks": "Task IDs and both supervision actors retain the same lease format and command boundary."
+    },
+    "harnesses": {
+      "claude": "Only trusted Claude identity admits idle fork-resume takeover; portable and live guards cover it.",
+      "cursor": "Existing structural process classifier and native park remain; shared consistent ownership snapshot applies, Claude fork takeover remains ineligible.",
+      "codex_opencode_pi_pi-signed_grok_kimi_omp": "Existing ancestry ownership and liveness remain; no trusted Claude identity means no new takeover path. Codex discovery is covered by the retained live backstop guard.",
+      "muse_gemini_rovo_agy_devin_commandcode_polytoken": "Worker-only adapters; no supported primary takeover integration, so no new vendor classifier was added."
+    },
+    "backends": {
+      "herdr": "Backstop discovery/submission remains Herdr-only; foreground and detached lock holders now share the ask path. Prior explicit-session live discovery correction retained.",
+      "tmux_cmux_paseo_zellij_orca": "Shared ownership is process/home based and does not send backend commands. No backstop discovery or new delivery adapter was added for these backends."
+    },
+    "platforms": {
+      "linux": "Real processes, /proc argv fork proof, deterministic boundary matrix and current live guard scheduled in focused verification.",
+      "macos": "Existing BSD process-name fixtures and transcript-prefix fallback retained; no flock/Linux-only synchronization introduced. No current native macOS live run in this worktree.",
+      "other": "No new platform support claim; the existing Bash runtime and process-identity prerequisites still apply."
+    },
+    "accounts": {
+      "claude": "CLAUDE_CONFIG_DIR continues selecting the process account/transcript root; the mutex is per-home. The live guard copies existing credentials only into its worktree-local isolated config. No account pin or provider selection changes.",
+      "other": "No credential, account pin, dispatch profile, backend or provider selection changes."
+    },
+    "lifecycle": [
+      "free acquisition",
+      "dead-holder recovery",
+      "live unrelated/recent/unreadable refusal",
+      "same-session confirmation and clear rekey",
+      "same-session reanchor with leases and auto-arm identity",
+      "idle terminal -> detached fork -> terminal",
+      "startup and Stop last-turn abort",
+      "split publication observation",
+      "backup/publication/verification/lease/journal cancellation",
+      "failed partial lease move",
+      "AFK and no-need Stop inertness",
+      "disabled capability deferral and enable replay",
+      "foreground and detached holder fifteen-minute ask",
+      "deduplication and incident retirement"
+    ]
+  },
+  "search_scope": [
+    "bin/fm-lock.sh",
+    "bin/fm-session-lock-lib.sh",
+    "bin/fm-claude-stop-autoarm.sh",
+    "bin/fm-wake-lib.sh",
+    "bin/fm-supervision-engine-lib.sh",
+    "bin/fm-supervision-host.sh",
+    "bin/fm-bootstrap.sh",
+    "bin/fm-startup-network.sh",
+    "bin/fm-sessionstart-nudge.sh",
+    "bin/fm-sessionstart-run.sh",
+    "bin/fm-turnend-guard-cursor.sh",
+    "bin/fm-main-backstop.py",
+    "bin/fm-lease-lib.sh",
+    "bin/fm-lease.sh",
+    "bin/fm-trace-context-lib.sh",
+    "tests/fm-session-lock-ancestry.test.sh",
+    "tests/fm-main-backstop.test.py",
+    "tests/fm-session-lock-live.test.py"
+  ],
+  "verification": {
+    "status": "PASS: focused executable assertions; complete repository test/lint/CI gates remain owned by the outer executor.",
+    "commands": [
+      "bash tests/fm-session-lock-ancestry.test.sh",
+      "bash tests/fm-main-backstop.test.sh",
+      "bash tests/fm-sessionstart-nudge.test.sh",
+      "bash tests/fm-startup-network.test.sh",
+      "bash tests/fm-claude-stop-autoarm.test.sh",
+      "FM_SESSION_LOCK_LIVE=1 bash tests/fm-session-lock-live-e2e.test.sh"
+    ],
+    "oracle": "The owner-approved invariants, independently known holder processes/session IDs, persisted lock/lease/inbox protocols and real executable ownership verdicts; no source-string assertions.",
+    "gaps": [
+      "No physical phone/browser transport invocation; real detached Claude fork-resume is the specified background topology.",
+      "No current macOS live run or live non-Claude primary matrix.",
+      "User-input admission is intentionally not atomic; documented final-scan residual interval remains.",
+      "Watcher-arm transport in the live takeover guard is a fixture; portable Stop guards execute the actual auto-arm lifecycle.",
+      "The outer executor owns test/lint/CI gates and any additional live evidence refresh.",
+      "Startup-network assertions passed with exit 0, but its fixture emitted a nonfatal directory-not-empty cleanup warning. The fixture-owned remaining worker was retired before evidence cleanup; the underlying pre-existing test cleanup race is outside the lock ownership change.",
+      "The broad Stop lifecycle suite passed before the final nonblocking preliminary-probe policy adjustment; the complete boundary matrix and live Stop guard passed afterward."
+    ],
+    "results": [
+      {
+        "test": "fm-session-lock-ancestry.test.sh",
+        "exit": 0,
+        "seconds": 218.437
+      },
+      {
+        "test": "fm-main-backstop.test.sh",
+        "exit": 0,
+        "seconds": 160.318
+      },
+      {
+        "test": "fm-sessionstart-nudge.test.sh",
+        "exit": 0,
+        "seconds": 91.689
+      },
+      {
+        "test": "fm-startup-network.test.sh",
+        "exit": 0,
+        "seconds": 68.38
+      },
+      {
+        "test": "fm-claude-stop-autoarm.test.sh",
+        "exit": 0,
+        "seconds": 68.131
+      },
+      {
+        "test": "fm-session-lock-live-e2e.test.sh",
+        "exit": 0,
+        "seconds": 23.447
+      }
+    ],
+    "evidence_records": [
+      "docs/verification/runtime-backends.md#idle-holder-takeover-live-guard",
+      "docs/verification/supervision.md"
+    ],
+    "live_version": "Claude 2.1.316 (Claude Code), Linux, 2026-10-31",
+    "boundary_cases": 17
+  }
+}
