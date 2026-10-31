@@ -779,6 +779,33 @@ extra_release_verified_or_incomplete() {
   pass "extra verification: RELEASED only on a free seat; a held one is RELEASE_INCOMPLETE, woken once, still counted"
 }
 
+extra_unknown_seat_verification_becomes_incomplete() {
+  local dir out rc rows
+  dir=$(new_case extra-unknown-seat)
+  finished_ship "$dir" s1
+  : > "$dir/t/s1.keep-seat"
+  stub "$dir" s1 seat unknown
+  cycle "$dir" s1
+  [ ! -s "$dir/sweep3.out" ] || fail "the first unavailable-seat verification woke"
+  grep -qx 'rc=0' "$dir/home/state/s1.release.log" || fail "the exit did not succeed"
+  out=$(run_lr "$dir" 3300 sweep)
+  assert_contains "$out" 'RELEASE_INCOMPLETE s1' "two unverified sweeps must report an incomplete release"
+  assert_contains "$out" 'seat evidence unavailable' "the wake must name unavailable evidence"
+  case "$out" in *'still held'*) fail "unknown occupancy was reported as proven held" ;; esac
+  rows=$(awk -F '\t' '$1 == "RELEASE_INCOMPLETE" && $2 == "task=s1" && $7 == "verified=no" && $8 == "reason=seat evidence unavailable after exit" { n++ } END { print n + 0 }' "$dir/home/data/lane-release.ledger")
+  [ "$rows" = 1 ] || fail "the unavailable evidence was not ledgered once"
+  out=$(run_lr "$dir" 3700 sweep)
+  [ -z "$out" ] || fail "the incomplete release woke twice"
+  out=$(run_lr "$dir" 4000 --audit); rc=$?
+  expect_code 2 "$rc" "unavailable seat evidence keeps audit uncertain"$'\n'"$out"
+  assert_contains "$out" 'unknown s1' "audit must disclose uncertain occupancy"
+  assert_contains "$out" 'holders=1' "audit must keep the uncertain holder counted"
+  stub "$dir" s1 seat no
+  run_lr "$dir" 4100 sweep >/dev/null
+  assert_released "$dir" s1 merged-ship
+  pass "unknown seat evidence becomes incomplete after two sweeps, wakes once, and remains counted"
+}
+
 extra_switched_off_does_nothing_and_prints_nothing() {
   local dir out setting
   for setting in absent off; do
@@ -1358,6 +1385,7 @@ extra_open_pr_ship_is_kept_and_measured
 extra_two_done_lines_at_once_do_not_double_act
 extra_release_cap_per_sweep
 extra_release_verified_or_incomplete
+extra_unknown_seat_verification_becomes_incomplete
 extra_switched_off_does_nothing_and_prints_nothing
 extra_audit_setting_only_ledgers
 extra_invalid_setting_reports_once

@@ -640,7 +640,7 @@ action_validate_exit() {
 # Verify one releasing or incomplete marker; prints a wake line for a new
 # RELEASE_INCOMPLETE.
 verify_marker() {  # <id>
-  local id=$1 marker meta result rc class anchor released_at tries seat_rc
+  local id=$1 marker meta result rc class anchor released_at tries seat_rc reason detail
   marker=$(fm_lane_release_marker_path "$STATE" "$id")
   meta="$STATE/$id.meta"
   if [ ! -f "$meta" ]; then
@@ -681,7 +681,6 @@ verify_marker() {  # <id>
   fi
   seat_rc=0
   seat_held "$meta" "$id" || seat_rc=$?
-  case "$seat_rc" in 0|1) ;; *) return 0 ;; esac
   if [ "$seat_rc" = 1 ]; then
     marker_set_result "$id" released
     ledger_row RELEASED "$id" "$class" "$anchor" "$released_at" yes "seat free"
@@ -695,8 +694,15 @@ verify_marker() {  # <id>
   printf '%s\n' "$tries" > "$STATE/$id.release-verify"
   [ "$tries" -ge 2 ] || return 0
   marker_set_result "$id" release-incomplete
-  ledger_row RELEASE_INCOMPLETE "$id" "$class" "$anchor" "$released_at" no "seat still held after exit"
-  printf 'lane-release: RELEASE_INCOMPLETE %s - the worker was stopped but its seat is still held by a process in its local copy; the task stays counted (state/%s.release.log)\n' "$id" "$id"
+  if [ "$seat_rc" = 0 ]; then
+    reason='seat still held after exit'
+    detail='its seat is still held by a process in its local copy'
+  else
+    reason='seat evidence unavailable after exit'
+    detail='seat evidence unavailable'
+  fi
+  ledger_row RELEASE_INCOMPLETE "$id" "$class" "$anchor" "$released_at" no "$reason"
+  printf 'lane-release: RELEASE_INCOMPLETE %s - the worker was stopped but %s; the task stays counted (state/%s.release.log)\n' "$id" "$detail" "$id"
 }
 
 candidate_step() {  # <id> <class> <gen> <anchor> <seq> <mode>
@@ -806,7 +812,7 @@ action_audit() {
           [ "$age" -le "$AUDIT_MAX_AGE" ] || miss=1
           ;;
         1) printf 'released %s class=%s result=%s\n' "$id" "$FM_LANE_RELEASE_CLASS" "$FM_LANE_RELEASE_RESULT" ;;
-        *) unknown=1; printf 'unknown %s (release evidence unreadable; unknown is never counted as free)\n' "$id" ;;
+        *) holders=$((holders + 1)); unknown=1; printf 'unknown %s (release evidence unreadable; unknown is never counted as free)\n' "$id" ;;
       esac
       continue
     fi
