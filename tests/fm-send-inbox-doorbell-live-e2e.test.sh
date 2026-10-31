@@ -18,6 +18,9 @@
 # (the mv into handled/), failing loudly with the harness name and version.
 # The pending case requires no action or acknowledgement before the ring and
 # has no later fresh-send retry that could mask a failed recovery.
+# Each installed harness first runs lifecycle cases proving own-doorbell
+# clearing without submission and preservation of foreign drafts; an unreadable
+# composer instead must refuse exit without sending lifecycle input.
 #
 # Run explicitly with FM_SEND_INBOX_LIVE_E2E=1. This test spends a small
 # number of real model tokens per installed harness -
@@ -26,8 +29,12 @@
 # than passing vacuously. Restrict with
 # FM_SEND_INBOX_LIVE_HARNESSES="claude codex ..." when needed, and tune the
 # per-harness wait with FM_SEND_INBOX_LIVE_TIMEOUT (seconds, default 240).
-# Set FM_SEND_INBOX_LIVE_PENDING_ONLY=1 to run only pending-draft recovery.
-# FM_SEND_INBOX_LIVE_CLAUDE_MODES selects individual Claude cases; optional
+# Set FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY=1 to omit all delivery cases.
+# FM_SEND_INBOX_LIVE_PENDING_ONLY=1 omits fresh delivery cases after lifecycle.
+# FM_SEND_INBOX_LIVE_CLAUDE_MODES selects Claude delivery cases after lifecycle
+# and takes precedence over FM_SEND_INBOX_LIVE_PENDING_ONLY.
+# FM_SEND_INBOX_LIVE_READY_TIMEOUT extends the startup-only readiness budget.
+# FM_SEND_INBOX_LIVE_TRACE_READS=1 retains readback diagnostics on lifecycle failure.
 # FM_SEND_INBOX_LIVE_EVIDENCE_DIR retains CLI output and terminal captures.
 # Record the dated per-harness result in
 # docs/verification/runtime-backends.md ("Steering-inbox doorbell").
@@ -36,6 +43,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/lifecycle-input.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lifecycle-input.sh"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -67,6 +76,18 @@ mkdir -p "$SHIM_DIR"
 REAL_TMUX=$(command -v tmux)
 cat > "$SHIM_DIR/tmux" <<SH
 #!/usr/bin/env bash
+if [ -n "\${FM_LIFECYCLE_INPUT_LOG:-}" ] && [ "\${1:-}" = send-keys ]; then
+  case " \$* " in
+    *' -l '*) printf 'text=%s\\n' "\${!#}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
+    *) printf 'key=%s\\n' "\${!#}" >> "\$FM_LIFECYCLE_INPUT_LOG" ;;
+  esac
+fi
+if [ "\${FM_SEND_INBOX_LIVE_TRACE_READS:-0}" = 1 ] && [ -n "\${FM_LIFECYCLE_INPUT_LOG:-}" ] && [ "\${1:-}" = capture-pane ]; then
+  capture=\$("$REAL_TMUX" -L "$SOCKET" "\$@") || exit 1
+  printf '\\n--- composer read ---\\n%s\\n' "\$capture" >> "\$FM_LIFECYCLE_INPUT_LOG.reads"
+  printf '%s\\n' "\$capture"
+  exit 0
+fi
 if [ -n "\${FM_SEND_INBOX_LIVE_FAULT_DIR:-}" ]; then
   fault=\$FM_SEND_INBOX_LIVE_FAULT_DIR
   case "\${1:-}" in
@@ -101,6 +122,7 @@ PATH="$SHIM_DIR:$PATH"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-task-inbox-lib.sh"
 . "$ROOT/bin/fm-cursor-lib.sh"
+. "$ROOT/bin/fm-control-lib.sh"
 
 tmux -L "$SOCKET" new-session -d -s "$SESSION" -x 220 -y 50 -c "$ROOT"
 
@@ -114,6 +136,7 @@ harness_version() {  # <binary>
 launch_cmd() {  # <name> <home> <binary>
   local home=${2:-} binary=${3:-} config
   case "$1" in
+    claude) printf '%q --dangerously-skip-permissions --setting-sources user --settings %q' "$binary" '{"disableAllHooks":true,"feedbackDrafts":"off"}' ;;
     codex)
       printf 'codex -c check_for_update_on_startup=false --dangerously-bypass-approvals-and-sandbox --disable hooks -c %q -c %q' \
         "shell_environment_policy.set.FM_HOME=\"$home\"" \
@@ -122,7 +145,7 @@ launch_cmd() {  # <name> <home> <binary>
     opencode) printf '%s' "OPENCODE_CONFIG_CONTENT='{\"permission\":{\"*\":\"allow\"}}' opencode" ;;
     pi|pi-signed) printf '%s' "$1" ;;
     grok) printf '%s' 'grok --always-approve' ;;
-    kimi) printf '%s' 'kimi --auto' ;;
+    kimi) printf '%s' 'KIMI_CODE_NO_AUTO_UPDATE=1 KIMI_CLI_NO_AUTO_UPDATE=1 kimi --auto' ;;
     cursor) printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u GEMINI_CLI -u CURSOR_INVOKED_AS %q --trust --yolo' "$binary" ;;
     muse) printf '%s' 'MUSE_EXPERIMENTAL_FOREIGN_PERSONAL_CONTEXT_KILL=on muse --yolo' ;;
     omp)
@@ -134,7 +157,7 @@ launch_cmd() {  # <name> <home> <binary>
       config=$(jq -cn --arg lab "${home%/*}" '{toolPermissions:{allowedExternalPaths:[$lab]}}') || return 1
       printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS rovo run --yolo --config-override %q' "$config"
       ;;
-    agy) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS agy --dangerously-skip-permissions' ;;
+    agy) printf '%s' 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS AGY_CLI_DISABLE_AUTO_UPDATE=true agy --dangerously-skip-permissions' ;;
     devin)
       bash "$ROOT/bin/fm-devin-config.sh" "$home/state" live-devin 0 || return 1
       printf 'env -u CLAUDECODE -u PI_CODING_AGENT -u GROK_AGENT -u FM_PI_HARNESS -u FM_OMP_HARNESS -u ATLASSIAN_AGENT_TYPE -u ROVODEV_CLI -u NO_COLOR devin --permission-mode dangerous --respect-workspace-trust false --config %q' \
@@ -173,16 +196,37 @@ esac
 # and skips only on visibly pending text, so a harness whose idle screen the
 # classifier cannot positively identify still gets its doorbell (the composer
 # matrix guard, not this one, owns re-proving the classifier per release).
-wait_ready() {  # <window>
-  local win=$1 i=0 budget=60 verdict dismissed=0 screen trusted=0
+wait_ready() {  # <window> [harness]
+  local win=$1 harness=${2:-claude} i=0 budget=${FM_SEND_INBOX_LIVE_READY_TIMEOUT:-60} verdict=unknown dismissed=0 screen trusted=0
   while [ "$i" -lt "$budget" ]; do
-    verdict=$(fm_tmux_composer_state "$SESSION:$win")
-    [ "$verdict" = empty ] && return 0
     i=$((i + 1))
     screen=$(tmux -L "$SOCKET" capture-pane -p -t "$SESSION:$win" 2>/dev/null || true)
-    if [ "$trusted" = 0 ] && [[ "$screen" == *'Yes, I trust this folder'* ]]; then
-      tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Down Enter || return 1
+    if [ "$harness" = agy ] && [[ "$screen" == *'Welcome to Antigravity CLI!'* ]] \
+      && [[ "$screen" == *'Choose your color scheme:'* ]] && [[ "$screen" == *'[Next]'* ]]; then
+      tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Enter || return 1
+    elif [ "$harness" = agy ] && [[ "$screen" == *'Verbosity now defaults to medium'* ]] \
+      && [[ "$screen" == *'esc to dismiss'* ]]; then
+      tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Escape || return 1
+    elif [ "$trusted" = 0 ] && [[ "$screen" == *'Yes, I trust this folder'* ]]; then
+      if [ "$harness" = agy ]; then
+        tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Enter || return 1
+      else
+        tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Down Enter || return 1
+      fi
       trusted=1
+    elif [ "$trusted" = 0 ] && [[ "$screen" == *'Trust project folder?'* ]]; then
+      tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Enter || return 1
+      trusted=1
+    elif { [ "$harness" = codex ] || [ "$harness" = grok ]; } \
+      && { [[ "$screen" == *'Do you trust'* ]] || [[ "$screen" == *'Trust and continue'* ]]; }; then
+      tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Enter || return 1
+    elif [ "$harness" = kimi ] && [[ "$screen" == *'Trust this folder'* ]] && [[ "$screen" == *"Don't trust"* ]]; then
+      tmux -L "$SOCKET" send-keys -t "$SESSION:$win" Enter || return 1
+    else
+      verdict=$(fm_tmux_composer_state "$SESSION:$win")
+      [ "$verdict" = empty ] && return 0
+      if [ "$harness" = agy ] && [[ "$screen" == *'Antigravity CLI'* ]] \
+        && printf '%s\n' "$screen" | grep -q '^>[[:space:]]*$'; then return 2; fi
     fi
     # Dismiss one non-trust startup modal (update prompts), as the composer
     # matrix guard does; never Enter, which could accept an upgrade.
@@ -253,18 +297,129 @@ touch $(printf '%q' "$acted")" \
   pass "$name ($version): a doorbell submitted during a real foreground tool was acted on and acked without an idle re-ring"
 }
 
+check_lifecycle_composer() {
+  local name=$1 version=$2 home=$3 task=$4 target=$5 rec line draft output verb i binding sid port credential
+  local input_log="$3/lifecycle-input.log"
+  mkdir -p "$home/worktree"
+  printf 'worktree=%s\nproject=%s\n' "$home/worktree" "$home/worktree" >> "$home/state/$task.meta"
+  if [ "$name" = polytoken ]; then
+    . "$ROOT/bin/fm-polytoken-lib.sh"
+    binding=$(fm_polytoken_session_for_project polytoken "$home/polytoken-config" "$home/polytoken-sessions" "$ROOT") || return 1
+    [ -n "$binding" ] && [ "${binding#*$'\n'}" = "$binding" ] || return 1
+    IFS=$'\t' read -r sid port credential _ <<< "$binding"
+    [ -n "$sid" ] && [ -n "$port" ] && [ -r "$credential" ] || return 1
+    printf 'polytoken_session=%s\npolytoken_port=%s\npolytoken_credential=%s\n' "$sid" "$port" "$credential" >> "$home/state/$task.meta"
+  fi
+  rec=$(fm_task_inbox_write "$home/state" "$task" "Run touch $home/unexpected-submit, then acknowledge this record.") || return 1
+  line=$(fm_task_inbox_doorbell_line "$rec") || return 1
+  if [ "$name" = agy ]; then
+    for draft in 'An unsent human draft' "${line//$task.inbox/another-task.inbox}" "$line additional human text" "$line ctrl+c to stop" "$line"; do
+      tmux send-keys -t "$target" -l -- "$draft" || return 1
+      sleep 1
+      [ "$(fm_backend_composer_state tmux "$target")" = unknown ] || return 1
+      tmux capture-pane -p -t "$target" | grep -F -- "$draft" >/dev/null || return 1
+      : > "$input_log"
+      if output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$home" bash "$ROOT/bin/fm-control.sh" "$task" exit 2>&1); then
+        return 1
+      fi
+      case "$output" in *"composer state is 'unknown'"*) ;; *) printf '%s\n' "$output" >&2; return 1 ;; esac
+      [ ! -s "$input_log" ] || return 1
+      tmux capture-pane -p -t "$target" | grep -F -- "$draft" >/dev/null || return 1
+      [ "$(fm_backend_agent_state tmux "$target")" = alive ] || return 1
+      tmux send-keys -t "$target" C-e C-u || return 1
+      sleep 1
+      if tmux capture-pane -p -t "$target" | grep -F -- "$draft" >/dev/null; then return 1; fi
+    done
+    [ -f "$rec" ] && [ ! -e "$home/unexpected-submit" ] || return 1
+    CHECKED=$((CHECKED + 1))
+    pass "$name ($version): unreadable composer preserves own and foreign drafts and refuses exit without lifecycle input"
+    return 0
+  fi
+  for draft in 'An unsent human draft' "${line//$task.inbox/another-task.inbox}" "$line additional human text" "$line ctrl+c to stop"; do
+    tmux send-keys -t "$target" -l -- "$draft" || return 1
+    for i in 1 2 3 4 5; do
+      sleep 1
+      fm_task_inbox_composer_holds tmux "$target" "$draft" && break
+    done
+    fm_task_inbox_composer_holds tmux "$target" "$draft" || return 1
+    : > "$input_log"
+    if output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" exit 2>&1); then
+      printf 'not ok - %s (%s): exit accepted a foreign draft: %s\n' "$name" "$version" "$output" >&2
+      return 1
+    fi
+    case "$output" in *'composer visibly holds pending text'*) ;; *) printf '%s\n' "$output" >&2; return 1 ;; esac
+    fm_test_lifecycle_capture "$name" foreign-refused tmux "$target" "$output" "$input_log" || return 1
+    fm_task_inbox_composer_holds tmux "$target" "$draft" || return 1
+    [ ! -s "$input_log" ] || return 1
+    fm_backend_composer_clear tmux "$target" "$draft" || return 1
+  done
+  if [ "$name" = claude ]; then
+    tmux resize-window -t "$target" -x 20 -y 50 || return 1
+    sleep 1
+  fi
+  for verb in interrupt exit; do
+    tmux send-keys -t "$target" -l -- "$line" || return 1
+    for i in 1 2 3 4 5; do
+      sleep 1
+      fm_task_inbox_composer_holds_own tmux "$target" "$line" && break
+    done
+    fm_task_inbox_composer_holds_own tmux "$target" "$line" || return 1
+    if [ "$verb" = interrupt ]; then
+      tmux send-keys -t "$target" Left || return 1
+    else
+      tmux send-keys -t "$target" -N "$(( ${#line} / 2 ))" Left || return 1
+    fi
+    fm_test_lifecycle_capture "$name" "$verb-before" tmux "$target" || return 1
+    : > "$input_log"
+    output=$(FM_LIFECYCLE_INPUT_LOG="$input_log" FM_HOME="$home" FM_CONTROL_SETTLE_WAIT=0.2 bash "$ROOT/bin/fm-control.sh" "$task" "$verb" 2>&1) || {
+      printf '%s\n' "$output" >&2
+      fm_test_lifecycle_capture "$name" "$verb-failed" tmux "$target" "$output" "$input_log"
+      if [ -n "${FM_SEND_INBOX_LIVE_EVIDENCE_DIR:-}" ] && [ -f "$input_log.reads" ]; then
+        cp "$input_log.reads" "$FM_SEND_INBOX_LIVE_EVIDENCE_DIR/lifecycle-$name-$verb-reads.ansi"
+        {
+          local delay cy screen
+          for delay in 0 0.2 1; do
+            sleep "$delay"
+            cy=$(fm_tmux_composer_cursor_row "$target")
+            screen=$(fm_tmux_composer_capture "$target")
+            printf 'delay=%s cursor_y=%s cursor-verdict=%s cursorless-verdict=%s\n' "$delay" "$cy" \
+              "$(fm_composer_classify_screen "$(fm_tmux_composer_caps)" "$screen" "$cy")" \
+              "$(fm_composer_classify_screen $'styled=1\ncursor=0' "$screen")"
+          done
+        } > "$FM_SEND_INBOX_LIVE_EVIDENCE_DIR/lifecycle-$name-$verb-failure-probe.txt"
+      fi
+      return 1
+    }
+    fm_test_lifecycle_capture "$name" "$verb-after" tmux "$target" "$output" "$input_log" || return 1
+    fm_test_lifecycle_input "$input_log" "$verb" "$(fm_control_exit_command "$name")" || return 1
+    case "$verb" in
+      interrupt)
+        [ "$(fm_backend_agent_state tmux "$target")" = alive ] || return 1
+        [ "$(fm_backend_composer_state tmux "$target")" = empty ] || return 1
+        ;;
+      exit) [ "$(fm_backend_agent_state tmux "$target")" = dead ] || return 1 ;;
+    esac
+    fm_backend_target_exists tmux "$target" || return 1
+    [ -f "$rec" ] && [ ! -e "$home/unexpected-submit" ] || return 1
+  done
+  CHECKED=$((CHECKED + 1))
+  pass "$name ($version): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits"
+}
+
 check_harness_doorbell() {  # <name> <mode> <binary>
   local name=$1 mode=$2 binary=$3 version cmd win="hx-$1-$2" home task acted rec handled i ready_rc line seeded=0
   version=$(harness_version "$binary")
   home="$LAB/$name-$mode-home"
   mkdir -p "$home/state"
   cmd=$(launch_cmd "$name" "$home" "$binary") || { FAILED=1; printf 'not ok - %s (%s): launch recipe preparation failed\n' "$name" "$version" >&2; return 0; }
+  [ "$mode" != lifecycle ] || cmd="$cmd; exec bash --noprofile --norc"
   task="live-$name"
+  [ "$mode" != lifecycle ] || win="fm-$task"
   acted="$LAB/acted-$name-$mode"
   tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$win" -c "$ROOT" \
-    -- bash -lc "export FM_HOME=$(printf '%q' "$home") FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" \
+    -- bash --noprofile --norc -mc "export FM_HOME=$(printf '%q' "$home") FM_TASK_ID=$(printf '%q' "$task") FM_TASK_INBOX=$(printf '%q' "$home/state/$task.inbox"); $cmd" \
     || { FAILED=1; printf 'not ok - %s (%s): could not launch in the isolated tmux server\n' "$name" "$version" >&2; return 0; }
-  wait_ready "$win"; ready_rc=$?
+  wait_ready "$win" "$name"; ready_rc=$?
   if [ "$ready_rc" -eq 1 ]; then
     FAILED=1
     printf 'not ok - %s (%s): composer stayed visibly pending; the pane is not steerable\n' "$name" "$version" >&2
@@ -274,6 +429,15 @@ check_harness_doorbell() {  # <name> <mode> <binary>
   fi
   [ "$ready_rc" -eq 0 ] || note "$name ($version): idle composer never classified empty; proceeding as production does (advisory check skips only on pending)"
   printf 'window=%s:%s\nkind=ship\nharness=%s\n' "$SESSION" "$win" "$name" > "$home/state/$task.meta"
+  if [ "$mode" = lifecycle ]; then
+    if ! check_lifecycle_composer "$name" "$version" "$home" "$task" "$SESSION:$win"; then
+      FAILED=1
+      printf 'not ok - %s (%s): lifecycle composer guard failed\n' "$name" "$version" >&2
+      tmux capture-pane -p -t "$SESSION:$win" >&2
+    fi
+    tmux kill-window -t "$SESSION:$win" 2>/dev/null || true
+    return 0
+  fi
   if [ "$mode" = pending ]; then
     rec=$(fm_task_inbox_write "$home/state" "$task" \
       "Firstmate live check: run exactly this shell command now: touch $acted - then follow the mv instruction you were given for this message. Reply with one short line.") || {
@@ -533,6 +697,8 @@ for h in $HARNESSES; do
     *) binary=$(command -v "$h" 2>/dev/null) || binary= ;;
   esac
   if [ -n "$binary" ]; then
+    check_harness_doorbell "$h" lifecycle "$binary"
+    [ "${FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY:-0}" != 1 ] || continue
     if [ "$h" = claude ]; then
       if [ -n "${FM_SEND_INBOX_LIVE_CLAUDE_MODES:-}" ]; then
         for mode in $FM_SEND_INBOX_LIVE_CLAUDE_MODES; do check_claude_submit "$mode" "$binary"; done
