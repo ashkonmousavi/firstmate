@@ -1,0 +1,10 @@
+window=firstmate:fm-typed
+endpoint_task_id=typed
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/pool/.treehouse/scratch-a2d214/2/scratch
+project=~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/scratch
+harness=codex
+kind=scout
+tasktmp=/tmp/fm-typed
+model=gpt-6-astra
+effort=xhigh
+spawn_gen=s1793439562.3161425.12432

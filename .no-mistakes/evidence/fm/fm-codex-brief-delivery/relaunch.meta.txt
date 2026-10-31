@@ -1,0 +1,10 @@
+window=firstmate:fm-positional
+endpoint_task_id=positional
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/pool/.treehouse/scratch-a2d214/1/scratch
+project=~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/scratch
+harness=codex
+kind=scout
+tasktmp=/tmp/fm-positional
+model=default
+effort=default
+spawn_gen=s1793439554.3156376.5986

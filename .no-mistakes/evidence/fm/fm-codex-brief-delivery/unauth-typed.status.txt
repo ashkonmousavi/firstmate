@@ -1,0 +1,1 @@
+failed [at=1793439817]: codex did not take the brief: codex did not show a ready composer before brief delivery (a sign-in or first-run dialog is settled by the operator; it is never auto-answered)

@@ -1,0 +1,96 @@
+{
+  "oracle": "Explicit fixture reply markers and requested xhigh, checked against real Codex persisted session_meta, turn_context, and completed assistant messages.",
+  "records": [
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/pool/.treehouse/scratch-a2d214/1/scratch",
+      "final_replies": [
+        "LIVE_POSITIONAL_7419"
+      ],
+      "delivered_launch_bytes": 1990
+    },
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/pool/.treehouse/scratch-a2d214/1/scratch",
+      "final_replies": [
+        "LIVE_POSITIONAL_7419"
+      ],
+      "delivered_launch_bytes": 1990
+    },
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/pool/.treehouse/scratch-a2d214/2/scratch",
+      "final_replies": [
+        "LIVE_TYPED_9638"
+      ],
+      "delivered_launch_bytes": 226
+    },
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/hpool/.treehouse/scratch-project-eebc3f/1/scratch-project",
+      "final_replies": [
+        "codex-brief-ok"
+      ],
+      "delivered_launch_bytes": 271
+    },
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/pool/.treehouse/scratch-a2d214/1/scratch",
+      "final_replies": [
+        "LIVE_LONG_BRIEF_5382"
+      ],
+      "delivered_launch_bytes": 78148
+    },
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/pool/.treehouse/scratch-a2d214/1/scratch",
+      "final_replies": [
+        "LIVE_EXPLICIT_RELAUNCH_6385"
+      ],
+      "delivered_launch_bytes": 1991
+    },
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/hpool/.treehouse/scratch-project-eebc3f/1/scratch-project",
+      "final_replies": [
+        "codex-relaunch-ok"
+      ],
+      "delivered_launch_bytes": 272
+    },
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/hpool/.treehouse/scratch-project-24d426/1/scratch-project",
+      "final_replies": [
+        "codex-brief-ok"
+      ],
+      "delivered_launch_bytes": 1928
+    },
+    {
+      "version": "0.164.0",
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/hpool/.treehouse/scratch-project-24d426/1/scratch-project",
+      "final_replies": [
+        "codex-relaunch-ok"
+      ],
+      "delivered_launch_bytes": 1931
+    }
+  ],
+  "scope": "Accepted scenarios explicitly request xhigh. Earlier environment probes and relaunches without profile flags are omitted."
+}

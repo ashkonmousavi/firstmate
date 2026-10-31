@@ -1,0 +1,2 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/h
+stopped positional harness=codex backend=tmux endpoint=firstmate:fm-positional worktree=~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/pool/.treehouse/scratch-a2d214/1/scratch

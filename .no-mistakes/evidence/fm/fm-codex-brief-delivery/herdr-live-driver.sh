@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+# tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh - the live codex
+# launch-brief guard on Herdr (live-harness-optin family; it submits a brief,
+# so it spends codex tokens - run it with FM_CODEX_LIVE_E2E=1).
+#
+# bin/fm-spawn.sh hands codex its brief as the positional prompt by default
+# and confirms the first turn started within its bounded first-turn gate;
+# FM_CODEX_TYPED_LAUNCH=1 selects the typed path (bare launch, readiness gate
+# answering the trust and update dialogs, typed submit). Run this guard once
+# per transport. Per .agents/skills/firstmate-coding-guidelines
+# "Harness-dependent checks", both gates read vendor-rendered dialog,
+# composer, and busy text, so a stub can only confirm the assumptions
+# already written into it; this guard drives the REAL bin/fm-spawn.sh and the
+# REAL installed codex on an isolated Herdr lab session: a codex scout
+# spawned in a NEW folder (trust dialog answered by the gate) and in the SAME
+# now-TRUSTED folder (a relaunch, captured to prove no trust dialog rendered)
+# each start processing their launch brief within the spawn bound, and the
+# turn's reply lands. On failure the spawn itself reports "codex did not
+# take the brief" and this guard fails naming codex and `codex --version`.
+# Refresh docs/verification/runtime-backends.md ("Codex launch brief") from
+# this guard's output after any codex upgrade.
+#
+# Safety (2026-07-02 incident, see tests/herdr-test-safety.sh): every
+# lifecycle operation goes through bin/fm-herdr-lab.sh, which appends the
+# named session flag and verifies the default fleet session is unchanged
+# after teardown.
+set -u
+
+# shellcheck source=tests/lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+fm_live_gate opt-in FM_CODEX_LIVE_E2E codex herdr jq treehouse
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# shellcheck source=tests/herdr-test-safety.sh
+. "$ROOT/tests/herdr-test-safety.sh"
+
+# Every spawn below states its own launcher identity, so a pane inherited from
+# the terminal this suite was started in must not leak into any of them.
+herdr_forget_inherited_pane
+
+CODEX_VERSION=$(codex --version 2>/dev/null | head -1)
+TRANSPORT=positional
+[ "${FM_CODEX_TYPED_LAUNCH:-0}" != 1 ] || TRANSPORT=typed
+# The positional first turn waits on codex's own session startup, which took
+# up to 75 s on a machine with many MCP servers; the spawn's gate is bounded
+# at about 120 s, so the spawn bound sits just above it.
+SPAWN_BOUND=150
+
+fail() { printf 'not ok - %s\n' "$1" >&2; cleanup_all; exit 1; }
+pass() { printf 'ok - %s\n' "$1"; }
+
+HERDR_LAB_HELPER="$ROOT/bin/fm-herdr-lab.sh"
+HERDR_LAB_SESSION=$("$HERDR_LAB_HELPER" name fm-codex-brief-typed) || {
+  printf 'not ok - could not generate an isolated Herdr lab session name\n' >&2
+  exit 1
+}
+export HERDR_SESSION="$HERDR_LAB_SESSION"
+
+TMP_ROOT=$(mktemp -d "$(cd "${TMPDIR:-/tmp}" && pwd -P)/fm-codex-typed-e2e.XXXXXX")
+WORKTREES=()
+CLEANED=0
+cleanup_all() {
+  local wt status=0
+  [ "$CLEANED" = 0 ] || return 0
+  CLEANED=1
+  for wt in ${WORKTREES[@]+"${WORKTREES[@]}"}; do
+    [ -n "$wt" ] && treehouse return --force "$wt" >/dev/null 2>&1
+  done
+  WORKTREES=()
+  "$HERDR_LAB_HELPER" teardown "$HERDR_LAB_SESSION" || status=$?
+  find "$TMP_ROOT" -type d -exec chmod u+rwx {} + 2>/dev/null
+  rm -rf "$TMP_ROOT"
+  return "$status"
+}
+trap cleanup_all EXIT
+"$HERDR_LAB_HELPER" provision "$HERDR_LAB_SESSION" || fail "could not provision isolated Herdr lab session"
+
+lab() { "$HERDR_LAB_HELPER" run "$HERDR_LAB_SESSION" "$@"; }
+
+make_scratch_project() {  # <dir>
+  local dir=$1
+  mkdir -p "$dir"
+  git -C "$dir" init -q
+  printf '# scratch\n' > "$dir/README.md"
+  git -C "$dir" add README.md
+  git -C "$dir" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm initial
+  git clone --quiet --bare "$dir" "$dir.origin.git"
+  git -C "$dir" remote add origin "file://$dir.origin.git"
+}
+
+HOME_DIR="$TMP_ROOT/home"
+mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" "$HOME_DIR/data"
+printf 'off\n' > "$HOME_DIR/config/herdr-presentation-spaces"
+printf '999999 0\n' > "$HOME_DIR/config/lane-capacity"
+fm_test_machine_policy "$HOME_DIR/config"
+
+SCOUT=codex-typed-e2e
+mkdir -p "$HOME_DIR/data/$SCOUT"
+cat > "$HOME_DIR/data/$SCOUT/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Reply with exactly: codex-brief-ok, and nothing else.
+
+## Firstmate spec
+One reply, no tools, no file changes.
+EOF
+
+PROJ="$TMP_ROOT/scratch-project"
+make_scratch_project "$PROJ"
+
+# spawn_scout <id> [extra args...]: a REAL fm-spawn scout spawn on the lab
+# session's herdr backend. Sets SPAWN_RC, SPAWN_ELAPSED, and SPAWN_OUT in the
+# caller's shell (run directly, never inside a command substitution).
+SPAWN_OUT=; SPAWN_RC=; SPAWN_ELAPSED=
+spawn_scout() {  # <fm-spawn args...> (the exact args fm-spawn takes)
+  local start=$SECONDS
+  SPAWN_OUT=$(env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SOCKET_PATH \
+    HERDR_SESSION="$HERDR_LAB_SESSION" \
+    FM_SPAWN_NO_GUARD=1 FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
+    "$ROOT/bin/fm-spawn.sh" "$@" 2>&1)
+  SPAWN_RC=$?
+  SPAWN_ELAPSED=$((SECONDS - start))
+}
+
+record_worktree() {  # <id>
+  local wt
+  wt=$(grep '^worktree=' "$HOME_DIR/state/$1.meta" 2>/dev/null | cut -d= -f2-)
+  [ -n "$wt" ] && WORKTREES+=("$wt")
+  return 0
+}
+
+pane_capture() {  # <id>
+  local pane
+  pane=$(grep '^herdr_pane_id=' "$HOME_DIR/state/$1.meta" 2>/dev/null | cut -d= -f2-)
+  [ -n "$pane" ] || return 1
+  # --lines stays at the adapter's verified floor: herdr returns an empty
+  # read for a --lines below the pane's viewport height (bin/backends/herdr.sh).
+  lab pane read "$pane" --source recent --lines 400 2>/dev/null
+}
+
+pane_visible_capture() {
+  local target
+  target=$(grep '^herdr_pane_id=' "$HOME_DIR/state/$1.meta" 2>/dev/null | cut -d= -f2-)
+  [ -n "$target" ] || return 1
+  lab pane read "$target" --source visible 2>/dev/null
+}
+
+wait_for_pane_reply() {
+  local id=$1 reply=$2 max=$3 i=0
+  while [ "$i" -lt "$max" ]; do
+    pane_capture "$id" | awk -v reply="$reply" '
+      $1 == "•" && $2 == reply && NF == 2 { found=1 }
+      END { exit !found }
+    ' && return 0
+    i=$((i + 1))
+    sleep 1
+  done
+  return 1
+}
+
+# --- 1. NEW folder: the gate answers the trust dialog and delivers the brief -
+
+spawn_scout "$SCOUT" "$PROJ" --scout --harness codex --backend herdr --model gpt-6-astra --effort xhigh
+record_worktree "$SCOUT"
+if [ "$SPAWN_RC" -ne 0 ]; then
+  fail "a codex scout spawn in a new folder failed within ${SPAWN_ELAPSED}s"$'\n'"$SPAWN_OUT"
+fi
+[ -s "$HOME_DIR/state/$SCOUT.meta" ] || fail "the new-folder spawn left no task record"
+case "$SPAWN_OUT" in
+  *"spawned $SCOUT harness=codex"*) : ;;
+  *) fail "the new-folder spawn did not report success"$'\n'"$SPAWN_OUT" ;;
+esac
+[ "$SPAWN_ELAPSED" -le "$SPAWN_BOUND" ] || fail "the new-folder spawn took ${SPAWN_ELAPSED}s to start processing its brief (bound: ${SPAWN_BOUND}s)"
+pane_capture "$SCOUT" | grep -Fq 'FIRSTMATE_OP: v1 launch-brief' \
+  || fail "the new-folder pane never showed the $TRANSPORT launch-brief envelope"
+wait_for_pane_reply "$SCOUT" 'codex-brief-ok' 90 \
+  || fail "the new-folder scout never replied codex-brief-ok"$'\n'"$(pane_capture "$SCOUT" | tail -20)"
+pane_capture "$SCOUT" > "$E/herdr-new-$TRANSPORT.pane.txt"
+cp "$HOME_DIR/state/$SCOUT.meta" "$E/herdr-new-$TRANSPORT.meta.txt"
+pass "real codex $CODEX_VERSION on herdr: a new-folder scout starts processing its $TRANSPORT launch brief within ${SPAWN_ELAPSED}s and answers it"
+
+# --- 2. TRUSTED folder: a relaunch of the same worktree, captured to prove
+#        no trust dialog stood between launch and the brief -------------------
+
+sed 's/codex-brief-ok/codex-relaunch-ok/' "$HOME_DIR/data/$SCOUT/brief.md" >"$TMP_ROOT/relaunch-brief.md"
+cp "$TMP_ROOT/relaunch-brief.md" "$HOME_DIR/data/$SCOUT/brief.md"
+
+TRUST_POLL="$TMP_ROOT/trust-poll.log"
+( for _ in $(seq 1 200); do
+    pane_visible_capture "$SCOUT" >>"$TRUST_POLL" 2>/dev/null || :
+    sleep 0.3
+  done ) &
+TRUST_POLLER=$!
+
+env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SOCKET_PATH \
+  HERDR_SESSION="$HERDR_LAB_SESSION" \
+  FM_SPAWN_NO_GUARD=1 FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
+  "$ROOT/bin/fm-control.sh" "$SCOUT" exit >/dev/null 2>&1 \
+  || fail "the scout's codex agent could not be exited before the relaunch"
+
+spawn_scout "$SCOUT" --relaunch --model gpt-6-astra --effort xhigh
+kill "$TRUST_POLLER" 2>/dev/null || true
+wait "$TRUST_POLLER" 2>/dev/null || true
+if [ "$SPAWN_RC" -ne 0 ]; then
+  fail "a codex relaunch in the trusted folder failed within ${SPAWN_ELAPSED}s"$'\n'"$SPAWN_OUT"
+fi
+[ "$SPAWN_ELAPSED" -le "$SPAWN_BOUND" ] || fail "the trusted-folder relaunch took ${SPAWN_ELAPSED}s to start processing its brief (bound: ${SPAWN_BOUND}s)"
+wait_for_pane_reply "$SCOUT" 'codex-relaunch-ok' 90 \
+  || fail "the trusted-folder scout never replied codex-relaunch-ok"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
+[ -s "$TRUST_POLL" ] || fail "codex $CODEX_VERSION trusted-folder viewport was never observed"
+if grep -Fq 'Trust this folder' "$TRUST_POLL"; then
+  fail "codex $CODEX_VERSION showed a trust dialog in the trusted-folder case"
+fi
+pane_capture "$SCOUT" > "$E/herdr-relaunch-$TRANSPORT.pane.txt"
+cp "$TRUST_POLL" "$E/herdr-trust-$TRANSPORT.txt"
+pass "real codex $CODEX_VERSION on herdr: the trusted-folder relaunch rendered no trust dialog"
+pass "real codex $CODEX_VERSION on herdr: a trusted-folder relaunch starts processing its $TRANSPORT launch brief within ${SPAWN_ELAPSED}s"
+
+# --- 3. the failure report shape is the spawn's own --------------------------
+
+# (Proved by the portable suite; this guard only pins the success paths, to
+# keep real-codex launches to the two the DONE MEANS names.)
+
+cleanup_all
+trap - EXIT
+printf 'ok - real codex %s %s launch brief verified end to end on a herdr lab session\n' "$CODEX_VERSION" "$TRANSPORT"

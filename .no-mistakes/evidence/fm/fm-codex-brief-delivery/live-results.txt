@@ -1,0 +1,17 @@
+positional exit=0 elapsed=9s
+positional exit=0 elapsed=5s
+positional reply=LIVE_POSITIONAL_7419
+relaunch exit=0 elapsed=1s
+relaunch reply=LIVE_RELAUNCH_8247
+typed exit=0 elapsed=6s
+typed reply=LIVE_TYPED_9638
+unauth exit=1 elapsed=8s
+unauth2 exit=1 elapsed=13s
+unauthenticated launch was refused and failure persisted
+long exit=0 elapsed=4s
+long reply=LIVE_LONG_BRIEF_5382
+explicit-relaunch exit=0 elapsed=5s
+explicit-relaunch reply=LIVE_EXPLICIT_RELAUNCH_6385
+unauth-base exit=0 elapsed=4s
+unauth-typed exit=1 elapsed=14s
+unauthenticated launch was refused and failure persisted

@@ -1,0 +1,1 @@
+Real Codex 0.164.0 received a 78148-byte positional launch message and replied LIVE_LONG_BRIEF_5382 with effort xhigh. Oracle: unique required marker at the end of the disposable test brief; Codex persisted input and completed assistant output.

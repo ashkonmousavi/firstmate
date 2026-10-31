@@ -1,0 +1,1 @@
+failed [at=1793439624]: codex did not take the brief: the positional launch brief did not start a first turn within 8 s in window firstmate:fm-unauth2

@@ -1,0 +1,15 @@
+window=fm-lab-fm-codex-brief-t-3390768-19383:w1:p2
+endpoint_task_id=codex-typed-e2e
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/hpool/.treehouse/scratch-project-eebc3f/1/scratch-project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M68KXX3H4JNA1PRSRSK0RV34/.v/tmp/fm-codex-typed-e2e.G3QJj4/scratch-project
+harness=codex
+kind=scout
+tasktmp=/tmp/fm-codex-typed-e2e
+model=gpt-6-astra
+effort=xhigh
+spawn_gen=s1793439716.3390957.21691
+backend=herdr
+herdr_session=fm-lab-fm-codex-brief-t-3390768-19383
+herdr_workspace_id=w1
+herdr_tab_id=w1:t2
+herdr_pane_id=w1:p2
