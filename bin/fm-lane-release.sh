@@ -414,8 +414,9 @@ pred_nothing_since() {
   seq=-
   busy_rec=$(fm_busy_record_path "$STATE" "$id")
   if [ -f "$busy_rec" ]; then
-    read -r b_state b_source _ seq < <(fm_busy_record_read "$STATE" "$id") \
-      || { KEEP='busy-record-unreadable'; return 1; }
+    # A record that fails validation prints its reason as the only field, so
+    # it lands in b_state and is kept by the idle test below.
+    read -r b_state b_source _ seq <<< "$(fm_busy_record_read "$STATE" "$id")"
     [ "$b_state" = idle ] || { KEEP="busy-record-$b_state"; return 1; }
     [ "$b_source" != fm-interrupt ] || { KEEP='interrupted'; return 1; }
     ts=$(sed -n 's/.* ts=\([0-9][0-9]*\).*/\1/p' "$busy_rec" 2>/dev/null | head -n 1)

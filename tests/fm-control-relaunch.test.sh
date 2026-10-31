@@ -1772,6 +1772,56 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
   pass "fm-promote/fm-spawn --relaunch: the current ship contract supersedes stale scout delivery text"
 }
 
+# A scout its lane release stopped (an active marker, bin/fm-lane-release-lib.sh)
+# can still be promoted: fm-promote never checks liveness, and the relaunch into
+# the kept copy carries the ship contract and mints a new spawn_gen, which makes
+# the marker inactive.
+test_released_scout_promotes_and_relaunches_into_its_kept_copy() {
+  local dir home id brief out launch
+  id=rl-released-scout
+  dir=$(new_case released-scout "$id")
+  home="$dir/home"
+  fm_git_worktree "$dir/proj" "$dir/wt" "task-$id"
+  printf 'kept scratch\n' > "$dir/wt/scratch.txt"
+  FM_HOME="$home" "$BRIEF" "$id" firstmate --scout >/dev/null || fail "could not scaffold the scout brief"
+  brief="$home/data/$id/brief.md"
+  sed 's/{TASK}/Investigate the thing./; s/{FIRSTMATE_SPEC}/Report findings./' "$brief" > "$brief.filled"
+  mv "$brief.filled" "$brief"
+  {
+    echo "window=fmses:fm-$id"
+    echo "endpoint_task_id=$id"
+    echo "worktree=$dir/wt"
+    echo "project=$dir/proj"
+    echo "harness=claude"
+    echo "kind=scout"
+    echo "tasktmp=/tmp/fm-$id"
+    echo "model=default"
+    echo "effort=default"
+    echo "spawn_gen=s1000.1.1"
+  } > "$home/state/$id.meta"
+  printf 'fm-lane-release-v1\ntask=%s\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=scout\nresult=released\n' \
+    "$id" > "$home/state/$id.released"
+  printf '%s\n' "fm-$id" > "$dir/fake/windows"
+  printf '%s' "$dir/wt" > "$dir/fake/cwd"
+  printf 'zsh' > "$dir/fake/command"
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+    "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1) \
+    || fail "a released scout should still promote: $out"
+  out=$(run_spawn "$dir" "$id" --relaunch) || fail "the promoted released scout should relaunch: $out"
+  launch="$home/data/$id/launch-brief.md"
+  assert_grep "This task is now kind=ship with mode=direct-PR" "$launch" \
+    "the relaunch did not carry the promoted ship contract"
+  [ -f "$dir/wt/scratch.txt" ] || fail "the kept copy lost its files"
+  ! grep -qx 'spawn_gen=s1000.1.1' "$home/state/$id.meta" \
+    || fail "the relaunch did not mint a new spawn_gen"
+  (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-lane-release-lib.sh"
+    ! fm_lane_release_marker_active "$home/state" "$id"
+  ) || fail "the release marker is still active after the relaunch"
+  pass "fm-promote/fm-spawn --relaunch: a released scout promotes and relaunches into its kept copy, clearing the marker"
+}
+
 # fm-spawn arms per-task wiring on harness PREFIXES, because a task launched
 # from a raw command records that command's basename rather than the exact
 # adapter name. Retirement must resolve the same way, or a task recorded as
@@ -3347,6 +3397,7 @@ test_ship_relaunch_ignores_the_crew_harness_config
 test_spawn_relaunch_without_a_harness_reuses_the_recorded_one
 test_spawn_relaunch_of_promoted_scout_uses_the_recorded_branch
 test_promoted_scout_relaunch_receives_the_current_delivery_contract
+test_released_scout_promotes_and_relaunches_into_its_kept_copy
 test_prefixed_prior_harness_wiring_is_still_retired
 test_muse_session_binding_is_retired_on_a_harness_switch
 test_cursor_session_binding_is_retired_on_a_harness_switch
