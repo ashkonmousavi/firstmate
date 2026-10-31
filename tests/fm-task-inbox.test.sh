@@ -1870,6 +1870,38 @@ test_herdr_composer_clear_for_own_doorbell() {
   pass "fm_backend_composer_clear: herdr presses Ctrl+U until empty and refuses when it never empties"
 }
 
+test_composer_clear_stops_on_unreadable_readback() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/fm-backend.sh"; . "$0/bin/fm-composer-lib.sh"
+    fm_backend_source herdr
+    fm_backend_send_key() { [ "$3" != C-u ] || n=$((n + 1)); return 0; }
+    fm_backend_herdr_send_key() { fm_backend_send_key herdr "$@"; }
+    fm_backend_composer_state() {
+      if [ "$n" -ge 3 ]; then printf empty; else printf "%s" "$readback"; fi
+      return "$read_status"
+    }
+    fm_backend_herdr_composer_state() { fm_backend_composer_state; }
+    printf -v text "%010000d" 0
+    for backend in tmux herdr; do
+      for pair in unknown:0 :0 future-verdict:0 pending:1 empty:1; do
+        readback=${pair%:*}; read_status=${pair##*:}; n=0
+        if fm_backend_composer_clear "$backend" s:w:p "$text"; then exit 1; fi
+        [ "$n" -eq 1 ] || exit 1
+      done
+      read_status=0
+      for readback in pending pending-unproven; do
+        n=0
+        fm_backend_composer_clear "$backend" s:w:p "$text" || exit 1
+        [ "$n" -eq 3 ] || exit 1
+      done
+    done
+    printf stopped
+  ' "$ROOT") || fail "unreadable readback must stop deletion independently of payload length"
+  [ "$got" = stopped ] || fail "unreadable composer clear: $got"
+  pass "composer clear: tmux and Herdr stop after one edit on unreadable or failed readback"
+}
+
 test_composer_clear_at_narrow_widths() {
   local got
   got=$(bash -c '
@@ -1892,17 +1924,19 @@ test_composer_clear_at_narrow_widths() {
     fm_backend_herdr_composer_state() { fm_backend_composer_state; }
     for backend in tmux herdr; do
       for width in 1 20; do
-        for cursor in 0 90 179 180; do
-          printf -v remaining "%0180d" 0
-          fm_backend_composer_clear "$backend" s:w:p "$remaining" || exit 1
-          [ -z "$remaining" ] || exit 1
+        for length in 180 260; do
+          for cursor in 0 "$((length / 2))" "$((length - 1))" "$length"; do
+            printf -v remaining "%0*d" "$length" 0
+            fm_backend_composer_clear "$backend" s:w:p "$remaining" || exit 1
+            [ -z "$remaining" ] || exit 1
+          done
         done
       done
     done
     printf cleared
-  ' "$ROOT") || fail "a 180-character draft must clear even at one character per wrapped row"
+  ' "$ROOT") || fail "a draft must clear even beyond 200 one-character wrapped rows"
   [ "$got" = cleared ] || fail "narrow composer clear: $got"
-  pass "composer clear: tmux and Herdr finish 180-character drafts at widths 1 and 20 from every cursor position"
+  pass "composer clear: tmux and Herdr finish 180 and 260 characters at widths 1 and 20 from every cursor position"
 }
 
 test_watcher_escalates_when_every_ring_is_a_skip() {
@@ -2171,6 +2205,7 @@ test_watcher_retry_keeps_a_newer_mark
 test_watcher_escalates_once_after_budget
 test_herdr_recorded_capture_classifies_as_own_doorbell
 test_herdr_composer_clear_for_own_doorbell
+test_composer_clear_stops_on_unreadable_readback
 test_composer_clear_at_narrow_widths
 test_watcher_escalates_when_every_ring_is_a_skip
 test_watcher_dead_pane_escalates_once_without_ringing

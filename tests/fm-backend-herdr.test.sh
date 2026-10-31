@@ -5087,8 +5087,8 @@ test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix() {
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf %s\n' "$suffix" > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
-  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/7.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/8.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
@@ -5108,8 +5108,8 @@ test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown() {
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf %s\n' "$suffix" > "$resp/4.out"
-  cap=$(( 1500 / 40 + 8 ))
-  for ((n = 6; n <= 4 + 2 * cap; n += 2)); do
+  cap=1501
+  for ((n = 7; n <= 4 + 3 * cap; n += 3)); do
     printf '  \xe2\x9d\xaf %s\n' "$suffix" > "$resp/$n.out"
   done
   fb=$(make_herdr_fakebin "$dir")
@@ -5123,6 +5123,32 @@ test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown() {
   pass "fm_backend_herdr_send_text_submit: a refused suffix whose clear cannot be verified reports unknown, not send-failed"
 }
 
+test_send_text_submit_unreadable_clear_stops_after_one_edit() {
+  local kind dir log resp fb out text
+  text=$(herdr_long_payload 9992)
+  for kind in empty no-composer failed; do
+    dir="$TMP_ROOT/submit-unreadable-clear-$kind"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+    herdr_submit_claude_prefix "$resp" "$text"
+    printf '  \xe2\x9d\xaf TAIL\n' > "$resp/4.out"
+    case "$kind" in
+      empty) : > "$resp/7.out" ;;
+      no-composer) printf 'transcript without a composer\n' > "$resp/7.out" ;;
+      failed) printf '1\n' > "$resp/7.exit"; printf '1\n' > "$resp/8.exit" ;;
+    esac
+    fb=$(make_herdr_fakebin "$dir")
+    out=$(FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+      bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text")
+    [ "$out" = unknown ] || fail "$kind clear readback must leave the 10000-character send unconfirmed, got '$out'"
+    [ "$(herdr_ctrl_u_count "$log")" -eq 1 ] || fail "$kind clear readback must stop further deletion"
+    [ "$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")" -eq 0 ] || fail "an unreadable clear must never submit"
+    case "$kind" in
+      no-composer) assert_ring_reason "$dir/reason" composer-not-located ;;
+      *) assert_ring_reason "$dir/reason" clear-unverified ;;
+    esac
+  done
+  pass "fm_backend_herdr_send_text_submit: unreadable recovery of a 10000-character payload stops after one edit without Enter"
+}
+
 test_send_text_submit_clears_a_wrapped_suffix_one_row_per_press() {
   local dir log resp fb out enter_count text suffix drop
   dir="$TMP_ROOT/submit-long-suffix-wrapped"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
@@ -5130,7 +5156,7 @@ test_send_text_submit_clears_a_wrapped_suffix_one_row_per_press() {
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   for drop in 0 1 2 3 4 5; do
-    herdr_wrapped_composer "$suffix" 96 "$drop" > "$resp/$((4 + 2 * drop)).out"
+    herdr_wrapped_composer "$suffix" 96 "$drop" > "$resp/$((4 + 3 * drop)).out"
   done
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
@@ -5149,12 +5175,12 @@ test_send_text_submit_refused_suffix_then_clean_retry_submits_only_the_message()
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf %s\n' "$suffix" > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
-  printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/7.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/8.out"
-  printf '  \xe2\x9d\xaf %s\n' "$text" > "$resp/10.out"
-  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/11.out"
-  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/13.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
+  printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/8.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/9.out"
+  printf '  \xe2\x9d\xaf %s\n' "$text" > "$resp/11.out"
+  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/12.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/14.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"
@@ -5194,7 +5220,7 @@ test_send_text_submit_refuses_suffix_when_transcript_still_shows_the_head() {
     printf '%s\n' "$text"
     printf '  \xe2\x9d\xaf %s\n' "$suffix"
   } > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
@@ -5243,7 +5269,7 @@ test_send_text_submit_refuses_marked_digest_missing_its_head() {
   shown=${text//$'\xe2\x81\xa3'/}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf\xc2\xa0%s\n' "${shown: -480}" > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
@@ -5405,7 +5431,7 @@ test_send_text_submit_refuses_placeholder_followed_by_a_literal_remainder() {
   suffix=${text: -480}
   herdr_submit_claude_prefix "$resp" "$text"
   printf '  \xe2\x9d\xaf [Pasted text #1]%s\n' "$suffix" > "$resp/4.out"
-  printf '  \xe2\x9d\xaf\n' > "$resp/6.out"
+  printf '  \xe2\x9d\xaf\n' > "$resp/7.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
@@ -6446,6 +6472,7 @@ test_send_text_submit_unknown_on_busy_composer_capture_failure
 test_send_text_submit_long_literal_submits_when_composer_holds_every_byte
 test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix
 test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown
+test_send_text_submit_unreadable_clear_stops_after_one_edit
 test_send_text_submit_clears_a_wrapped_suffix_one_row_per_press
 test_send_text_submit_refused_suffix_then_clean_retry_submits_only_the_message
 test_send_text_submit_claude_refuses_to_type_into_a_nonempty_composer

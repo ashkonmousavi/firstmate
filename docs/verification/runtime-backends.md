@@ -1274,6 +1274,10 @@ Each clear iteration sends Ctrl+E before Ctrl+U, establishing the documented lin
 Busy exit clears an owned doorbell before delivering an interrupt that could change the draft.
 The exit path is shared with relaunch; this guard does not exercise replacement-agent launch.
 The portable `test_composer_clear_at_narrow_widths` in `tests/fm-task-inbox.test.sh` also requires both tmux and Herdr to clear 180 characters at widths 1 and 20 from cursor positions 0, 90, 179 and 180, modeling the editing contract documented by [Claude Code](https://code.claude.com/docs/en/interactive-mode#text-editing).
+It also clears 260 characters at those widths from the start, middle, penultimate and final cursor positions, preserving recovery beyond a fixed 200-press ceiling.
+Both clear loops stop immediately on an unreadable or failed readback; only readable pending text can continue toward the character bound.
+The Herdr adapter regressions require a 10,000-character direct send to stop clearing after its first unreadable readback, with no Enter and an unconfirmed result.
+These recovery-bound regressions passed on 2026-10-30 with `TMPDIR=/tmp bash tests/fm-backend-herdr.test.sh` and `bash tests/fm-task-inbox.test.sh`; the short Herdr temporary root keeps its Unix socket fixture within the platform path limit.
 An insufficient deletion budget or failure to position the cursor leaves observable pending text and fails that regression.
 AGY's bare `>` composer remains [unknown by design](agy.md#composer-unknown-by-design); its lifecycle case instead proves that exit refuses own and foreign drafts unchanged, with no lifecycle input and the agent still alive.
 No automatic clearing or successful exit is claimed for that unreadable surface.
@@ -1308,7 +1312,9 @@ ok - lifecycle transport oracle rejects submission even when immediately cancell
 ok - doorbell comparison preserves literal stop-hint bytes while extraction removes styled Cursor furniture
 ok - fm-control interrupt preserves literal stop-hint text on full and partial doorbell drafts
 ok - busy exit clears an own doorbell before adapters can change it during interrupt
-ok - composer clear: tmux and Herdr finish 180-character drafts at widths 1 and 20 from every cursor position
+ok - composer clear: tmux and Herdr finish 180 and 260 characters at widths 1 and 20 from every cursor position
+ok - composer clear: tmux and Herdr stop after one edit on unreadable or failed readback
+ok - fm_backend_herdr_send_text_submit: unreadable recovery of a 10000-character payload stops after one edit without Enter
 ok - cursor (2026.10.19-6bbf2c4): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
 ok - claude (2.1.314 (Claude Code)): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
 ok - codex (codex-cli 0.159.3): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits

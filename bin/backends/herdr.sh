@@ -3493,13 +3493,18 @@ fm_backend_herdr_composer_payload_shown() {  # <text> <after>
 # presses.
 # 0 only when the composer is verified empty again.
 fm_backend_herdr_composer_clear() {  # <target> <text>
-  local target=$1 text=$2 presses i=0
+  local target=$1 text=$2 presses i=0 verdict
   presses=$(( ${#text} + 1 ))
   while [ "$i" -lt "$presses" ]; do
     fm_backend_herdr_send_key "$target" C-e || return 1
     fm_backend_herdr_send_key "$target" C-u || return 1
     i=$((i + 1))
-    [ "$(fm_backend_herdr_composer_state "$target")" = empty ] && return 0
+    verdict=$(fm_backend_herdr_composer_state "$target") || return 1
+    case "$verdict" in
+      empty) return 0 ;;
+      pending|pending-unproven) ;;
+      *) return 1 ;;
+    esac
   done
   return 1
 }
