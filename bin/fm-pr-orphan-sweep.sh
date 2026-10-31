@@ -17,7 +17,8 @@
 # WHAT IS SWEPT. Every project in data/projects.md that is not local-only, has
 # no forge binding (bin/fm-project-mode.sh --forge reads none), has a non-empty
 # ship-branch prefix (bin/fm-project-mode.sh --branch-prefix), and whose clone
-# at projects/<name> has a github.com origin. For each, the open pull requests
+# at projects/<name> resolves to a github.com publication target through
+# fm_role_publication_target in bin/fm-role-lib.sh. For each, the open pull requests
 # that carry a label named conflict and whose head branch starts with that
 # prefix are candidates. A candidate is covered, and skipped, when a valid task
 # poll in this home names that exact pull request (fm_pr_poll_artifacts_valid in
@@ -88,6 +89,8 @@ REG="$DATA/projects.md"
 
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-role-lib.sh
+. "$SCRIPT_DIR/fm-role-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-parent-channel-lib.sh
@@ -135,24 +138,6 @@ registered_projects() {
     [ -n "$name" ] || continue
     printf '%s\n' "$name"
   done < "$REG"
-}
-
-# Print "<owner>/<repo>" for a github.com clone URL, or fail.
-github_path_from_origin() {  # <origin-url>
-  local url=$1 rest owner repo
-  case "$url" in
-    https://github.com/*) rest=${url#https://github.com/} ;;
-    ssh://git@github.com/*) rest=${url#ssh://git@github.com/} ;;
-    git@github.com:*) rest=${url#git@github.com:} ;;
-    *) return 1 ;;
-  esac
-  rest=${rest%/}
-  rest=${rest%.git}
-  owner=${rest%%/*}
-  repo=${rest#*/}
-  [ -n "$owner" ] && [ -n "$repo" ] && [ "$owner/$repo" = "$rest" ] || return 1
-  fm_pr_url_parse "https://github.com/$owner/$repo/pull/1" || return 1
-  printf '%s\n' "$FM_PR_PATH"
 }
 
 # Pull request URLs that a valid task poll in this home watches, one per line.
@@ -205,7 +190,7 @@ task_claimed_here() {  # <task-id>
 }
 
 sweep_project() {  # <name>
-  local name=$1 clone origin path mode forge prefix bound listing number head url
+  local name=$1 clone target path mode forge prefix bound listing number head url
   local result added task owner reason marker dir keep kept
   case "$name" in
     */*|.|..) return 0 ;;
@@ -218,8 +203,13 @@ sweep_project() {  # <name>
   [ "$forge" = none ] || return 0
   prefix=$("$SCRIPT_DIR/fm-project-mode.sh" --branch-prefix "$name" 2>/dev/null) || return 0
   [ -n "$prefix" ] || return 0
-  origin=$(git -C "$clone" remote get-url origin 2>/dev/null) || return 0
-  path=$(github_path_from_origin "$origin") || return 0
+  target=$(fm_role_publication_target "$clone") || return 0
+  case "$target" in
+    github.com/*) path=${target#github.com/} ;;
+    *) return 0 ;;
+  esac
+  fm_pr_url_parse "https://github.com/$path/pull/1" || return 0
+  path=$FM_PR_PATH
 
   bound=$(fm_checkpoint_budget "$BOUND") || return 0
   listing=$(fm_run_timed "$bound" "$GH" pr list -R "$path" --state open --label conflict \

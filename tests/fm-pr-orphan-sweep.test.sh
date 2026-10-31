@@ -26,6 +26,13 @@ cat > "$FAKEBIN/gh" <<'SH'
 printf '%s\n' "$*" >> "$FM_TEST_GH_LOG"
 case "${1:-} ${2:-}" in
   "pr list")
+    repo=
+    prev=
+    for arg in "$@"; do
+      [ "$prev" != -R ] || repo=$arg
+      prev=$arg
+    done
+    [ "$repo" = o/r ] || { printf 'unexpected repository: %s\n' "$repo" >&2; exit 91; }
     [ "${FM_TEST_LIST_FAIL:-0}" = 0 ] || { printf 'fixture listing failed\n' >&2; exit 41; }
     cat "$FM_TEST_PR_LIST"
     ;;
@@ -118,6 +125,80 @@ test_torn_down_task_conflict_wakes_once() {
   pass "a torn-down task's conflicted pull request wakes its home once per label episode"
 }
 
+test_publication_target_selection() {
+  local layout home clone out
+  for layout in upstream github marked-custom marked-origin upstream-only scp ssh local-hop; do
+    home=$TMP_ROOT/target-$layout
+    make_home "$home"
+    clone=$home/projects/proj
+    git -C "$clone" remote set-url origin https://github.com/personal/fork.git
+    case "$layout" in
+      upstream|upstream-only)
+        git -C "$clone" remote add upstream https://github.com/o/r.git
+        git -C "$clone" remote add github https://github.com/other/repo.git
+        [ "$layout" != upstream-only ] || git -C "$clone" remote remove origin
+        ;;
+      github)
+        git -C "$clone" remote add github https://github.com/o/r.git
+        ;;
+      marked-custom|marked-origin)
+        git -C "$clone" remote add upstream https://github.com/other/repo.git
+        if [ "$layout" = marked-custom ]; then
+          git -C "$clone" remote add destination ssh://git@github.com/O/R.git
+          git -C "$clone" config remote.destination.gh-resolved base
+        else
+          git -C "$clone" remote set-url origin https://github.com/o/r.git
+          git -C "$clone" config remote.origin.gh-resolved base
+        fi
+        ;;
+      scp)
+        git -C "$clone" remote set-url origin git@github.com:O/R.git
+        ;;
+      ssh)
+        git -C "$clone" remote set-url origin ssh://git@github.com/O/R.git
+        ;;
+      local-hop)
+        git init -q -b main "$home/destination"
+        git -C "$home/destination" remote add origin https://github.com/o/r.git
+        git -C "$clone" remote add upstream "$home/destination"
+        ;;
+    esac
+    out=$(run_sweep "$home" 2> "$home/err") || fail "$layout sweep failed"
+    case "$out" in
+      "check: pr-orphan-conflict: $URL "*) ;;
+      *) fail "$layout did not wake for the destination PR: [$out] $(cat "$home/err")" ;;
+    esac
+    [ "$(orphan_wakes "$home/state")" = 1 ] || fail "$layout did not queue the destination wake"
+    [ -f "$home/state/pr-orphan-conflict/github.com/o/r/7" ] || fail "$layout did not mark the destination episode"
+    grep -q "pr-orphan:$URL" "$home/state/.wake-queue" || fail "$layout queued the wrong PR identity"
+    grep -Fq "pr view $URL " "$home/gh.log" || fail "$layout polled the wrong PR"
+    grep -Fq 'api graphql --paginate -f owner=o -f repo=r -F number=7 ' "$home/gh.log" \
+      || fail "$layout read the wrong destination label"
+  done
+  pass "orphan discovery uses the documented publication target across fork layouts and remote forms"
+}
+
+test_unsupported_publication_targets_are_quiet() {
+  local layout home clone out
+  for layout in non-github malformed empty-marked no-remote; do
+    home=$TMP_ROOT/unsupported-$layout
+    make_home "$home"
+    clone=$home/projects/proj
+    case "$layout" in
+      non-github) git -C "$clone" remote add upstream https://gitlab.com/o/r.git ;;
+      malformed) git -C "$clone" remote add upstream https://github.com/o/r/extra.git ;;
+      empty-marked)
+        git -C "$clone" config remote.destination.gh-resolved base
+        ;;
+      no-remote) git -C "$clone" remote remove origin ;;
+    esac
+    out=$(run_sweep "$home" 2>&1) || fail "$layout sweep failed"
+    [ -z "$out" ] && [ ! -s "$home/gh.log" ] && [ "$(orphan_wakes "$home/state")" = 0 ] \
+      || fail "$layout queried or woke for an unsupported destination: $out"
+  done
+  pass "unsupported or unresolved publication targets never fall back to the fork"
+}
+
 test_young_label_is_quiet() {
   local home=$TMP_ROOT/young out
   make_home "$home"
@@ -135,6 +216,8 @@ test_young_label_is_quiet() {
 test_live_poll_covers_then_teardown_uncovers() {
   local home=$TMP_ROOT/covered out
   make_home "$home"
+  git -C "$home/projects/proj" remote set-url origin https://github.com/personal/fork.git
+  git -C "$home/projects/proj" remote add upstream https://github.com/o/r.git
   fm_write_meta "$home/state/lane.meta" 'kind=ship' "pr=$URL"
   if ! fm_pr_poll_prepare "$home/state" lane github "$URL" github.com o/r 7 "$POLL" \
     || ! fm_pr_poll_publish_prepared; then
@@ -211,6 +294,8 @@ test_unswept_projects_and_report_mode() {
 test_watcher_wakes_owner_home() {
   local home=$TMP_ROOT/watch pid i
   make_home "$home"
+  git -C "$home/projects/proj" remote set-url origin https://github.com/personal/fork.git
+  git -C "$home/projects/proj" remote add upstream https://github.com/o/r.git
   fm_test_track_watcher_state "$home/state"
   PATH="$FAKEBIN:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_TEST_GH_LOG="$home/gh.log" FM_TEST_PR_LIST="$home/pr-list.tsv" \
@@ -241,6 +326,8 @@ test_watcher_wakes_owner_home() {
 }
 
 test_torn_down_task_conflict_wakes_once
+test_publication_target_selection
+test_unsupported_publication_targets_are_quiet
 test_young_label_is_quiet
 test_live_poll_covers_then_teardown_uncovers
 test_label_removal_prunes_and_relabel_wakes_again
