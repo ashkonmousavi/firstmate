@@ -47,6 +47,7 @@ SH
 # exits $FM_T/<id>.verify (default 0, gate passed).
 cat > "$STUBS/hold" <<'SH'
 #!/usr/bin/env bash
+[ ! -e "$FM_T/$2.hold-hangs" ] || sleep 30
 case "$1" in
   open) exit "$(cat "$FM_T/$2.held" 2>/dev/null || printf 1)" ;;
   verify) exit "$(cat "$FM_T/$2.verify" 2>/dev/null || printf 0)" ;;
@@ -819,6 +820,19 @@ extra_held_control_lock_skips() {
   pass "extra lock: a held lifecycle lock skips the task for a later sweep"
 }
 
+extra_slow_gate_read_is_bounded_by_the_sweep_budget() {
+  local dir start took
+  dir=$(new_case extra-slow-gate)
+  finished_scout "$dir" sc
+  : > "$dir/t/sc.hold-hangs"
+  start=$(date +%s)
+  FM_LANE_RELEASE_BUDGET=2 run_lr "$dir" 2500 sweep >/dev/null
+  took=$(( $(date +%s) - start ))
+  [ "$took" -lt 10 ] || fail "a hanging gate read held the sweep for ${took}s"
+  assert_kept "$dir" sc hold-unreadable
+  pass "extra budget: a gate read that hangs is cut off inside the sweep budget and keeps the seat"
+}
+
 extra_local_only_ship_is_kept() {
   local dir
   dir=$(new_case extra-local)
@@ -917,6 +931,7 @@ extra_invalid_setting_reports_once
 extra_debounce_needs_two_sweeps_a_grace_apart
 extra_deferred_exit_retries_without_spinning
 extra_held_control_lock_skips
+extra_slow_gate_read_is_bounded_by_the_sweep_budget
 extra_local_only_ship_is_kept
 extra_audit_exit_codes
 extra_arm_registers_a_thin_check

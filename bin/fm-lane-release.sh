@@ -108,7 +108,9 @@
 # watcher runs it every FM_CHECK_INTERVAL (300 s) within its 30 s check bound.
 # A sweep holds state/.lane-release.lock (try-acquire; contention exits quietly),
 # visits in-flight tasks from a durable cursor within FM_LANE_RELEASE_BUDGET
-# (default 20 s), and starts at most FM_LANE_RELEASE_MAX (default 2) releases.
+# (default 20 s; every crew-state and captain-hold read inside it is bounded by
+# the time left, at most 10 s, and a read that times out keeps the seat), and
+# starts at most FM_LANE_RELEASE_MAX (default 2) releases.
 # It runs in every posture: neither away nor quiet mode skips it, and the
 # watcher's check sweep has no away gate. Stdout is the wake: a sweep prints
 # only RELEASE_INCOMPLETE lines and the invalid-setting line.
@@ -286,6 +288,18 @@ launch_epoch() {  # <spawn_gen>
 
 KEEP=
 OUT=
+DEADLINE=
+
+# Seconds a subprocess read may take: at most 10, never past the sweep's
+# deadline (at least 1, so the first task of a sweep is always read).
+read_bound() {
+  local left
+  [ -n "$DEADLINE" ] || { printf '10\n'; return 0; }
+  left=$((DEADLINE - $(date +%s)))
+  [ "$left" -le 10 ] || left=10
+  [ "$left" -ge 1 ] || left=1
+  printf '%s\n' "$left"
+}
 
 # pred_merged <meta> <id>: OUT is the merge anchor epoch.
 pred_merged() {
@@ -315,14 +329,21 @@ pred_scout_complete() {
       return 1
     fi
   done
-  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$HOLD_BIN" open "$id" --distinguish-absent >/dev/null 2>&1 || rc=$?
+  fm_run_timed "$(read_bound)" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+    "$HOLD_BIN" open "$id" --distinguish-absent >/dev/null 2>&1 || rc=$?
   case "$rc" in
     0) KEEP='held-for-captain'; return 1 ;;
     1|3) ;;
     *) KEEP='hold-unreadable'; return 1 ;;
   esac
-  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$HOLD_BIN" verify "$id" >/dev/null 2>&1 \
-    || { KEEP='completion-gate-not-passed'; return 1; }
+  rc=0
+  fm_run_timed "$(read_bound)" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+    "$HOLD_BIN" verify "$id" >/dev/null 2>&1 || rc=$?
+  case "$rc" in
+    0) ;;
+    124) KEEP='hold-unreadable'; return 1 ;;
+    *) KEEP='completion-gate-not-passed'; return 1 ;;
+  esac
 }
 
 # pred_done_line <status> <launch>: OUT is the done line's epoch.
@@ -362,7 +383,7 @@ pred_no_open_decision() {
 # pred_crew_state <id> <class>
 pred_crew_state() {
   local id=$1 class=$2 line state
-  line=$(fm_run_timed 10 env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+  line=$(fm_run_timed "$(read_bound)" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     FM_CREW_STATE_NO_FORGE=1 "$CREW_STATE_BIN" "$id" 2>/dev/null) || { KEEP='crew-state-unreadable'; return 1; }
   state=${line#state: }
   state=${state%% *}
@@ -643,6 +664,7 @@ action_sweep() {
   fm_lock_try_acquire "$SWEEP_LOCK" || return 0
   trap 'fm_lock_release "$SWEEP_LOCK" || true' EXIT
   deadline=$(( $(date +%s) + BUDGET ))
+  DEADLINE=$deadline
   for m in "$STATE"/*.released; do
     [ -f "$m" ] || continue
     verify_marker "$(basename "$m" .released)"
