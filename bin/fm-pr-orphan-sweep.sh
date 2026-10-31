@@ -12,15 +12,13 @@
 # Usage:
 #   fm-pr-orphan-sweep.sh            one bounded pass; bin/fm-watch.sh runs it in
 #                                    every check sweep and is its only writer
-#   fm-pr-orphan-sweep.sh --report   read-only: print what would wake, write nothing
 #
 # WHAT IS SWEPT. Every project in data/projects.md that is not local-only, has
-# no forge binding (bin/fm-project-mode.sh --forge reads none), has a non-empty
-# ship-branch prefix (bin/fm-project-mode.sh --branch-prefix), and whose clone
+# no forge binding (bin/fm-project-mode.sh --forge reads none), and whose clone
 # at projects/<name> resolves to a github.com publication target through
 # fm_role_publication_target in bin/fm-role-lib.sh. For each, the open pull requests
-# that carry a label named conflict and whose head branch starts with that
-# prefix are candidates. A candidate is covered, and skipped, when a valid task
+# that carry a label named conflict and whose head branch starts with literal
+# fm/ are candidates. A candidate is covered, and skipped, when a valid task
 # poll in this home names that exact pull request (fm_pr_poll_artifacts_valid in
 # bin/fm-pr-lib.sh): that poll owns its recovery.
 #
@@ -30,23 +28,29 @@
 # arrives on the first check sweep after that age, within one check interval
 # (FM_CHECK_INTERVAL in bin/fm-watch.sh) of the per-task path.
 #
-# OWNER ROUTING. The task id is the head branch with the prefix removed. When
+# OWNER ROUTING. The task id is the head branch with fm/ removed. When
 # this home's backlog holds that id (bin/fm-tasks-axi.sh show), the wake names it
 # as this home's task. Otherwise a main home still wakes, naming no owner, so
 # the main firstmate can route it; a secondmate home stays quiet, because the
 # pull request is not its work and its main home sweeps the same project when
 # registered there. A pull request body carries no home marker, so a home cannot
 # tell which other home opened an unclaimed pull request.
+# Coverage is local to this home: a pull request a secondmate home also watches
+# may receive a harmless duplicate wake in the main home.
+#
+# PASS LIMITS. Each pass lists at most 200 conflict-labeled pull requests per
+# project by default (FM_PR_ORPHAN_LIMIT) within a per-pass budget (90 seconds
+# by default). There is no continuation cursor, so capped listings or budget
+# exhaustion can leave candidates or later projects uninspected.
 #
 # ONE WAKE PER EPISODE. A wake is committed to the durable queue first, then the
 # episode marker state/pr-orphan-conflict/github.com/<owner>/<repo>/<number>
 # records its label added-at time, then the wake line is printed for the watcher
 # to surface; an interruption between them repeats a wake rather than losing it.
-# A marked candidate is not read again while it stays labeled and uncovered, so
-# a label removed and re-applied between two sweeps reads as the same episode.
-# After a successful listing, markers for that project's pull requests that are
-# no longer uncovered labeled candidates are removed, so a later label wakes
-# again. A failed listing leaves markers untouched.
+# Each uncovered candidate's current label timestamp is compared to the stored
+# timestamp, so removing and reapplying the label starts a new episode.
+# Markers survive temporary poll coverage, label removal, listing omissions,
+# and failed reads; only a wake for a different timestamp replaces a marker.
 #
 # DETECT AND WAKE ONLY. Nothing here comments on, labels, merges, rebases, or
 # pushes a pull request, and nothing steers or relaunches a worker.
@@ -74,15 +78,10 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 PROJECTS="${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}"
 export FM_HOME
 
-REPORT=0
-case "$#:${1:-}" in
-  0:) ;;
-  1:--report) REPORT=1 ;;
-  *)
-    echo "usage: fm-pr-orphan-sweep.sh [--report]" >&2
-    exit 2
-    ;;
-esac
+if [ "$#" -ne 0 ]; then
+  echo "usage: fm-pr-orphan-sweep.sh" >&2
+  exit 2
+fi
 
 REG="$DATA/projects.md"
 [ -f "$REG" ] && [ ! -L "$REG" ] || exit 0
@@ -148,7 +147,7 @@ covered_urls() {
     id=${data##*/}
     id=${id%.pr-poll}
     fm_pr_poll_artifacts_valid "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh" 2>/dev/null || continue
-    printf '%s\n' "$FM_PR_DATA_URL"
+    printf '%s\n' "$FM_PR_DATA_URL" | tr '[:upper:]' '[:lower:]'
   done
 }
 
@@ -190,8 +189,8 @@ task_claimed_here() {  # <task-id>
 }
 
 sweep_project() {  # <name>
-  local name=$1 clone target path mode forge prefix bound listing number head url
-  local result added task owner reason marker dir keep kept
+  local name=$1 clone target path mode forge bound listing number head url
+  local result added previous task owner reason marker dir
   case "$name" in
     */*|.|..) return 0 ;;
   esac
@@ -201,8 +200,6 @@ sweep_project() {  # <name>
   [ "${mode%% *}" != local-only ] || return 0
   forge=$("$SCRIPT_DIR/fm-project-mode.sh" --forge "$name" 2>/dev/null) || return 0
   [ "$forge" = none ] || return 0
-  prefix=$("$SCRIPT_DIR/fm-project-mode.sh" --branch-prefix "$name" 2>/dev/null) || return 0
-  [ -n "$prefix" ] || return 0
   target=$(fm_role_publication_target "$clone") || return 0
   case "$target" in
     github.com/*) path=${target#github.com/} ;;
@@ -220,12 +217,11 @@ sweep_project() {  # <name>
   }
 
   dir="$MARKERS/github.com/$path"
-  kept=
   while IFS=$'\t' read -r number head; do
     [ -n "$number" ] || continue
     case "$number" in *[!0-9]*) continue ;; esac
     case "$head" in
-      "$prefix"*) ;;
+      fm/*) ;;
       *) continue ;;
     esac
     fm_pr_url_parse "https://github.com/$path/pull/$number" || continue
@@ -233,14 +229,10 @@ sweep_project() {  # <name>
     if printf '%s\n' "$COVERED" | grep -Fqx -- "$url"; then
       continue
     fi
-    task=${head#"$prefix"}
+    task=${head#fm/}
     marker="$dir/$number"
-    kept="$kept $number"
-    if marker_added_at "$marker" >/dev/null; then
-      continue
-    fi
     if fm_checkpoint_expired; then
-      warn "pass budget spent before $url; the next sweep continues"
+      warn "pass budget spent before $url"
       continue
     fi
     if task_claimed_here "$task"; then
@@ -259,11 +251,9 @@ sweep_project() {  # <name>
       conflict:*) added=${result#conflict:} ;;
       *) continue ;;
     esac
+    previous=$(marker_added_at "$marker") || previous=
+    [ "$previous" != "$added" ] || continue
     reason="check: pr-orphan-conflict: $url (branch $head) has carried the conflict label since $added and no task poll watches it; owner: $owner"
-    if [ "$REPORT" = 1 ]; then
-      printf '%s\n' "$reason"
-      continue
-    fi
     fm_wake_append check "pr-orphan:$url" "$reason" || {
       warn "could not queue the wake for $url"
       continue
@@ -273,24 +263,13 @@ sweep_project() {  # <name>
   done <<EOF
 $listing
 EOF
-
-  [ "$REPORT" = 0 ] || return 0
-  [ -d "$dir" ] || return 0
-  for marker in "$dir"/*; do
-    [ -e "$marker" ] || [ -L "$marker" ] || continue
-    keep=${marker##*/}
-    case " $kept " in
-      *" $keep "*) continue ;;
-    esac
-    rm -f -- "$marker"
-  done
 }
 
 COVERED=$(covered_urls)
 while IFS= read -r project; do
   [ -n "$project" ] || continue
   if fm_checkpoint_expired; then
-    warn "pass budget spent before project $project; the next sweep continues"
+    warn "pass budget spent before project $project"
     break
   fi
   sweep_project "$project"

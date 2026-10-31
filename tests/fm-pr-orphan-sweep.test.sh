@@ -27,14 +27,16 @@ printf '%s\n' "$*" >> "$FM_TEST_GH_LOG"
 case "${1:-} ${2:-}" in
   "pr list")
     repo=
+    limit=
     prev=
     for arg in "$@"; do
       [ "$prev" != -R ] || repo=$arg
+      [ "$prev" != --limit ] || limit=$arg
       prev=$arg
     done
     [ "$repo" = o/r ] || { printf 'unexpected repository: %s\n' "$repo" >&2; exit 91; }
     [ "${FM_TEST_LIST_FAIL:-0}" = 0 ] || { printf 'fixture listing failed\n' >&2; exit 41; }
-    cat "$FM_TEST_PR_LIST"
+    head -n "$limit" "$FM_TEST_PR_LIST"
     ;;
   "pr view")
     printf '%s\n' "${FM_TEST_GH_STATE-OPEN}"
@@ -120,8 +122,8 @@ test_torn_down_task_conflict_wakes_once() {
   out=$(run_sweep "$home" 2>&1) || fail "second sweep failed"
   [ -z "$out" ] || fail "the same label episode woke twice: $out"
   [ "$(orphan_wakes "$home/state")" = 1 ] || fail "the same label episode queued a second wake"
-  [ "$(grep -c '^api graphql' "$home/gh.log")" = 1 ] \
-    || fail "a recorded episode was read from the forge again"
+  [ "$(grep -c '^api graphql' "$home/gh.log")" = 2 ] \
+    || fail "a recorded episode's current label timestamp was not checked again"
   pass "a torn-down task's conflicted pull request wakes its home once per label episode"
 }
 
@@ -214,44 +216,145 @@ test_young_label_is_quiet() {
 }
 
 test_live_poll_covers_then_teardown_uncovers() {
-  local home=$TMP_ROOT/covered out
-  make_home "$home"
-  git -C "$home/projects/proj" remote set-url origin https://github.com/personal/fork.git
-  git -C "$home/projects/proj" remote add upstream https://github.com/o/r.git
-  fm_write_meta "$home/state/lane.meta" 'kind=ship' "pr=$URL"
-  if ! fm_pr_poll_prepare "$home/state" lane github "$URL" github.com o/r 7 "$POLL" \
-    || ! fm_pr_poll_publish_prepared; then
-    fail "could not arm the task poll fixture"
-  fi
-  out=$(run_sweep "$home" 2>&1) || fail "sweep failed"
-  [ -z "$out" ] && [ "$(orphan_wakes "$home/state")" = 0 ] \
-    || fail "a pull request its task poll still watches woke the sweep: $out"
-  ! grep -q '^api graphql' "$home/gh.log" || fail "a covered pull request was read from the forge"
-  # Cleanup removes the record and its poll, as bin/fm-teardown.sh does.
-  rm -f "$home/state/lane.meta" "$home/state/lane.check.sh" "$home/state/lane.pr-poll" \
-    "$home/state/lane.pr-poll-registration"
-  out=$(run_sweep "$home" 2>&1) || fail "sweep failed"
-  [ "$(orphan_wakes "$home/state")" = 1 ] || fail "the pull request was not noticed after its poll was removed: $out"
-  pass "a live task poll owns its pull request and the sweep takes over once it is gone"
+  local home out path poll_url i=0
+  for path in o/r O/r o/R O/R; do
+    i=$((i + 1))
+    home=$TMP_ROOT/covered-$i
+    poll_url=https://github.com/$path/pull/7
+    make_home "$home"
+    git -C "$home/projects/proj" remote set-url origin https://github.com/personal/fork.git
+    git -C "$home/projects/proj" remote add upstream "https://github.com/$path.git"
+    fm_write_meta "$home/state/lane.meta" 'kind=ship' "pr=$poll_url"
+    if ! fm_pr_poll_prepare "$home/state" lane github "$poll_url" github.com "$path" 7 "$POLL" \
+      || ! fm_pr_poll_publish_prepared; then
+      fail "could not arm the task poll fixture"
+    fi
+    cp "$home/state/lane.pr-poll" "$home/poll.before"
+    cp "$home/state/lane.pr-poll-registration" "$home/registration.before"
+    cp "$home/state/lane.meta" "$home/meta.before"
+    out=$(run_sweep "$home" 2>&1) || fail "sweep failed"
+    [ -z "$out" ] && [ "$(orphan_wakes "$home/state")" = 0 ] \
+      || fail "$path's watched pull request woke the sweep: $out"
+    ! grep -q '^api graphql' "$home/gh.log" || fail "a covered pull request was read from the forge"
+    cmp -s "$home/state/lane.pr-poll" "$home/poll.before" || fail "coverage changed authenticated poll bytes"
+    cmp -s "$home/state/lane.pr-poll-registration" "$home/registration.before" || fail "coverage changed registration bytes"
+    cmp -s "$home/state/lane.meta" "$home/meta.before" || fail "coverage changed task metadata"
+    fm_pr_poll_artifacts_valid "$home/state" lane "$POLL" || fail "coverage invalidated poll authentication"
+    rm -f "$home/state/lane.meta" "$home/state/lane.check.sh" "$home/state/lane.pr-poll" \
+      "$home/state/lane.pr-poll-registration"
+    out=$(run_sweep "$home" 2>&1) || fail "sweep failed"
+    [ "$(orphan_wakes "$home/state")" = 1 ] || fail "the pull request was not noticed after its poll was removed: $out"
+  done
+  pass "authenticated polls cover the destination regardless of owner and repository case until teardown"
 }
 
-test_label_removal_prunes_and_relabel_wakes_again() {
-  local home=$TMP_ROOT/relabel out
+test_episode_survives_listing_gaps() {
+  local home=$TMP_ROOT/listing-gaps out i
   make_home "$home"
   run_sweep "$home" > /dev/null 2>&1 || fail "sweep failed"
   [ "$(orphan_wakes "$home/state")" = 1 ] || fail "first episode did not wake"
+  cp "$home/state/pr-orphan-conflict/github.com/o/r/7" "$home/marker.before"
   FM_TEST_LIST_FAIL=1 run_sweep "$home" > "$home/out" 2> "$home/err" || fail "a failed listing failed the sweep"
   grep -q 'could not list conflicted pull requests for proj (o/r)' "$home/err" \
     || fail "a failed listing was not reported: $(cat "$home/err")"
   [ -f "$home/state/pr-orphan-conflict/github.com/o/r/7" ] || fail "a failed listing pruned an episode"
   : > "$home/pr-list.tsv"
   run_sweep "$home" > /dev/null 2>&1 || fail "sweep failed"
-  [ ! -e "$home/state/pr-orphan-conflict/github.com/o/r/7" ] || fail "a removed label kept its episode"
+  cmp -s "$home/marker.before" "$home/state/pr-orphan-conflict/github.com/o/r/7" || fail "listing omission erased episode identity"
+  i=100
+  while [ "$i" -lt 300 ]; do
+    printf '%s\tdependabot/pkg/%s\n' "$i" "$i" >> "$home/pr-list.tsv"
+    i=$((i + 1))
+  done
+  printf '7\tfm/lane\n' >> "$home/pr-list.tsv"
+  run_sweep "$home" > /dev/null 2>&1 || fail "capped sweep failed"
+  cmp -s "$home/marker.before" "$home/state/pr-orphan-conflict/github.com/o/r/7" || fail "a capped listing erased episode identity"
+  printf '7\tfm/lane\n' > "$home/pr-list.tsv"
+  out=$(run_sweep "$home" 2>&1) || fail "sweep failed"
+  [ -z "$out" ] && [ "$(orphan_wakes "$home/state")" = 1 ] || fail "the same episode woke after a listing gap: $out"
+  pass "failed, empty, and capped listings preserve an episode without another wake"
+}
+
+test_relabel_between_sweeps_wakes_again() {
+  local home=$TMP_ROOT/relabel out old added
+  make_home "$home"
+  old=$(iso_ago 2400)
+  added=$(iso_ago 1200)
+  write_label_json "$home/label.json" "$old"
+  run_sweep "$home" > /dev/null 2>&1 || fail "first episode sweep failed"
+  [ "$(orphan_wakes "$home/state")" = 1 ] || fail "first episode did not wake"
+  write_label_json "$home/label.json" "$added"
+  out=$(run_sweep "$home" 2>&1) || fail "relabel sweep failed"
+  [ "$(orphan_wakes "$home/state")" = 2 ] || fail "a re-applied label between sweeps did not wake: $out"
+  [ "$(tail -1 "$home/state/pr-orphan-conflict/github.com/o/r/7")" = "$added" ] || fail "the new label timestamp was not recorded"
+  out=$(run_sweep "$home" 2>&1) || fail "repeat sweep failed"
+  [ -z "$out" ] && [ "$(orphan_wakes "$home/state")" = 2 ] || fail "the new episode woke twice: $out"
+  pass "a label reapplied between sweeps wakes once for its new timestamp"
+}
+
+test_episode_survives_temporary_coverage() {
+  local home=$TMP_ROOT/temporary-coverage out
+  make_home "$home"
+  run_sweep "$home" > /dev/null 2>&1 || fail "first episode sweep failed"
+  [ "$(orphan_wakes "$home/state")" = 1 ] || fail "first episode did not wake"
+  cp "$home/state/pr-orphan-conflict/github.com/o/r/7" "$home/marker.before"
+  fm_write_meta "$home/state/lane.meta" 'kind=ship' "pr=$URL"
+  if ! fm_pr_poll_prepare "$home/state" lane github "$URL" github.com o/r 7 "$POLL" \
+    || ! fm_pr_poll_publish_prepared; then
+    fail "could not arm the temporary poll fixture"
+  fi
+  out=$(run_sweep "$home" 2>&1) || fail "covered sweep failed"
+  [ -z "$out" ] || fail "temporary coverage woke: $out"
+  cmp -s "$home/marker.before" "$home/state/pr-orphan-conflict/github.com/o/r/7" || fail "coverage erased episode identity"
+  rm -f "$home/state/lane.meta" "$home/state/lane.check.sh" "$home/state/lane.pr-poll" \
+    "$home/state/lane.pr-poll-registration"
+  out=$(run_sweep "$home" 2>&1) || fail "uncovered sweep failed"
+  [ -z "$out" ] && [ "$(orphan_wakes "$home/state")" = 1 ] || fail "temporary coverage duplicated an episode wake: $out"
   printf '7\tfm/lane\n' > "$home/pr-list.tsv"
   write_label_json "$home/label.json" "$(iso_ago 1000)"
   out=$(run_sweep "$home" 2>&1) || fail "sweep failed"
   [ "$(orphan_wakes "$home/state")" = 2 ] || fail "a re-applied label did not wake again: $out"
-  pass "a removed label clears its episode, a failed listing keeps it, and a new label wakes again"
+  pass "temporary coverage preserves the episode while a different label timestamp wakes again"
+}
+
+test_episode_survives_quiet_and_failed_reads() {
+  local home=$TMP_ROOT/quiet-reads out
+  make_home "$home"
+  run_sweep "$home" > /dev/null 2>&1 || fail "first episode sweep failed"
+  [ "$(orphan_wakes "$home/state")" = 1 ] || fail "first episode did not wake"
+  cp "$home/state/pr-orphan-conflict/github.com/o/r/7" "$home/marker.before"
+  cp "$home/label.json" "$home/label.before"
+  out=$(FM_TEST_GH_STATE=CLOSED run_sweep "$home" 2>&1) || fail "closed PR sweep failed"
+  [ -z "$out" ] || fail "closed PR woke: $out"
+  printf 'invalid JSON\n' > "$home/label.json"
+  run_sweep "$home" > "$home/out" 2> "$home/err" || fail "failed lookup stopped the sweep"
+  grep -q 'could not read the conflict label age' "$home/err" || fail "lookup failure was not reported"
+  cmp -s "$home/marker.before" "$home/state/pr-orphan-conflict/github.com/o/r/7" || fail "a failed read changed episode identity"
+  write_label_json "$home/label.json" "$(iso_ago 300)"
+  out=$(run_sweep "$home" 2>&1) || fail "young label sweep failed"
+  [ -z "$out" ] && [ "$(orphan_wakes "$home/state")" = 1 ] || fail "a young replacement label woke: $out"
+  cmp -s "$home/marker.before" "$home/state/pr-orphan-conflict/github.com/o/r/7" || fail "a quiet read changed episode identity"
+  cp "$home/label.before" "$home/label.json"
+  out=$(run_sweep "$home" 2>&1) || fail "restored label sweep failed"
+  [ -z "$out" ] && [ "$(orphan_wakes "$home/state")" = 1 ] || fail "quiet or failed reads duplicated the original wake: $out"
+  pass "terminal, failed, and young-label observations preserve an existing episode"
+}
+
+test_literal_fm_prefix() {
+  local annotation home out
+  for annotation in 'direct-PR branch=custom/' 'direct-PR branch='; do
+    home=$TMP_ROOT/prefix-${annotation##*=}
+    make_home "$home" "$annotation"
+    printf '7\tfm/lane\n8\tcustom/lane\n9\tlane\n' > "$home/pr-list.tsv"
+    out=$(SHOW_CMD=true run_sweep "$home" 2>&1) || fail "prefix sweep failed"
+    case "$out" in
+      "check: pr-orphan-conflict: $URL (branch fm/lane) "*"owner: task lane in this home's backlog") ;;
+      *) fail "literal fm/ matching or task extraction failed: $out" ;;
+    esac
+    [ "$(orphan_wakes "$home/state")" = 1 ] || fail "branches outside fm/ woke"
+    [ "$(grep -c '^api graphql' "$home/gh.log")" = 1 ] || fail "branches outside fm/ were polled"
+  done
+  pass "only literal fm/ branches wake and resolve their task regardless of the registered prefix"
 }
 
 test_owner_routing() {
@@ -273,22 +376,13 @@ test_owner_routing() {
   pass "the wake names this home's task, a main home reports unclaimed work, and a secondmate only its own"
 }
 
-test_unswept_projects_and_report_mode() {
+test_unswept_projects_and_usage() {
   local home=$TMP_ROOT/local-only out
   make_home "$home" local-only
   out=$(run_sweep "$home" 2>&1) || fail "sweep failed"
   [ -z "$out" ] && [ ! -s "$home/gh.log" ] || fail "a local-only project was swept: $out"
-  home=$TMP_ROOT/report
-  make_home "$home"
-  out=$(run_sweep "$home" --report 2>&1) || fail "report failed"
-  case "$out" in
-    "check: pr-orphan-conflict: $URL "*) ;;
-    *) fail "report mode did not print the would-be wake: $out" ;;
-  esac
-  [ "$(orphan_wakes "$home/state")" = 0 ] && [ ! -e "$home/state/pr-orphan-conflict" ] \
-    || fail "report mode wrote a wake or an episode"
   run_sweep "$home" --bogus > /dev/null 2>&1 && fail "bad usage was accepted"
-  pass "local-only projects are not swept and report mode writes nothing"
+  pass "local-only projects are not swept and arguments are refused"
 }
 
 test_watcher_wakes_owner_home() {
@@ -330,7 +424,11 @@ test_publication_target_selection
 test_unsupported_publication_targets_are_quiet
 test_young_label_is_quiet
 test_live_poll_covers_then_teardown_uncovers
-test_label_removal_prunes_and_relabel_wakes_again
+test_episode_survives_listing_gaps
+test_relabel_between_sweeps_wakes_again
+test_episode_survives_temporary_coverage
+test_episode_survives_quiet_and_failed_reads
+test_literal_fm_prefix
 test_owner_routing
-test_unswept_projects_and_report_mode
+test_unswept_projects_and_usage
 test_watcher_wakes_owner_home
