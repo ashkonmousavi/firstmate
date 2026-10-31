@@ -3,6 +3,7 @@
 # real Claude Code through tmux: the status-row shell count and the persist
 # request's own shell-stopping sentence clearing it, so a later exit opens
 # no picker.
+# FM_RESTART_BG_SHELLS_LIVE_EVIDENCE_DIR optionally retains the real pane captures.
 set -eu
 
 # shellcheck source=tests/lib.sh
@@ -67,6 +68,10 @@ stop_request=$(printf '%s\n' "$FM_SECONDMATE_PERSIST_REQUEST" \
 [ -n "$stop_request" ] || fail "the persist request no longer asks the mate to stop its background shells"
 
 screen() { tmux capture-pane -p -t live:fm-bg -S -0; }
+record_screen() {
+  [ -z "${FM_RESTART_BG_SHELLS_LIVE_EVIDENCE_DIR:-}" ] \
+    || screen > "$FM_RESTART_BG_SHELLS_LIVE_EVIDENCE_DIR/$1.txt"
+}
 wait_for() {  # <seconds> <command...>
   local limit=$1 attempt
   shift
@@ -99,6 +104,7 @@ background_pid=$(cat "$lab/worktree/background.pid")
 kill -0 "$background_pid" 2>/dev/null || fail "$version: the background shell is not running"
 
 wait_for 10 shell_count_is 1 || { screen >&2; fail "$version: the status row does not report 1 running shell"; }
+record_screen shell-running
 pass "$version: the status row below the composer reports 1 running background shell"
 
 tmux send-keys -t live:fm-bg -l "$stop_request Then reply with one word."
@@ -108,10 +114,12 @@ background_pid=
 wait_for 60 composer_idle \
   || { screen >&2; fail "$version: the agent never returned to an idle composer"; }
 wait_for 10 no_shell_count || { screen >&2; fail "$version: the status row still reports a running shell"; }
+record_screen shell-stopped
 pass "$version: the persist request's sentence made the agent stop its own shell, and the status row cleared"
 
 tmux send-keys -t live:fm-bg -l /exit
 tmux send-keys -t live:fm-bg Enter
 wait_for 30 agent_dead \
   || { screen >&2; fail "$version: Claude did not exit after its shells were stopped"; }
+record_screen claude-exited
 pass "$version: with its shells stopped, /exit closed Claude without a picker"
