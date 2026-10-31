@@ -381,6 +381,10 @@ test_exhausted_capacity_defers_without_leaving_anything_behind() {
   assert_contains "$out" "task task-c was not launched and its backlog item stays queued" \
     "the deferral did not say the task stays queued"
   assert_nothing_created "$case_dir" "$home" task-c "$before" "$worktrees"
+  if [ -d "$home/state/spawn-deferred" ]; then
+    find "$home/state/spawn-deferred" -type f -print | grep -q . &&
+      fail "a project-capacity deferral recorded a machine-lane retry"
+  fi
   pass "a spawn beyond capacity is deferred before any record, brief, endpoint, worktree, or backlog move exists"
 }
 
@@ -864,6 +868,13 @@ test_machine_ceiling_across_projects() {
   assert_absent "$home/state/task-six.meta" 'deferred record'
   assert_absent "$home/data/task-six/launch-brief.md" 'deferred brief'
   [ "$HAVE_TASKS_AXI" != 1 ] || [ "$(row_state "$home" task-six)" = queued ] || fail 'backlog moved'
+  found=0
+  for n in "$home"/state/spawn-deferred/queue/*; do
+    [ -f "$n" ] || continue
+    task=$(sed -n 's/^task=//p' "$n" | head -1)
+    [ "$task" = task-six ] && found=1
+  done
+  [ "$found" = 1 ] || fail "machine deferral was not recorded for retry"
   pass 'sixth spawn across three projects stays queued at machine ceiling five'
 }
 

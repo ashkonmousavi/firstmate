@@ -107,6 +107,9 @@
 #                          sweep; the keyed decision it opened stays in OPEN
 #                          DECISIONS until the hold is released or re-held
 #                          (bin/fm-hold-release-lib.sh owns the contract)
+#   check: deferred-spawn: <line>[; <line>...]
+#                          a machine-lane deferral started, went stale, or
+#                          failed on this sweep (bin/fm-spawn-deferred.sh)
 #   check: process-event result captured: <keys>
 #                          a durably captured process-to-event result is queued
 #                          and has not been surfaced yet; reported once per
@@ -3432,6 +3435,43 @@ while :; do
       done <<EOF
 $hold_release_out
 EOF
+    fi
+    # Machine-lane deferrals retry in this same sweep. The helper owns the
+    # record, the free-lane budget, and the refusal rules; this loop only
+    # surfaces what it prints. Stderr is triage, same as hold release.
+    deferred_spawn_rc=0
+    deferred_spawn_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
+      "$SCRIPT_DIR/fm-spawn-deferred.sh" sweep 2>"$STATE/.spawn-deferred-sweep.err") || deferred_spawn_rc=$?
+    [ ! -s "$STATE/.spawn-deferred-sweep.err" ] || {
+      while IFS= read -r deferred_spawn_diag; do
+        [ -n "$deferred_spawn_diag" ] || continue
+        triage_log "$deferred_spawn_diag"
+      done < "$STATE/.spawn-deferred-sweep.err"
+      : > "$STATE/.spawn-deferred-sweep.err"
+    }
+    if [ "$deferred_spawn_rc" -ne 0 ]; then
+      triage_log "deferred-spawn sweep reported rc=$deferred_spawn_rc"
+    fi
+    if [ -n "$deferred_spawn_out" ]; then
+      deferred_spawn_joined=
+      while IFS= read -r deferred_spawn_line; do
+        [ -n "$deferred_spawn_line" ] || continue
+        if [ -z "$deferred_spawn_joined" ]; then
+          deferred_spawn_joined=$deferred_spawn_line
+        else
+          deferred_spawn_joined="$deferred_spawn_joined; $deferred_spawn_line"
+        fi
+      done <<EOF
+$deferred_spawn_out
+EOF
+      if [ -n "$deferred_spawn_joined" ]; then
+        reason="check: deferred-spawn: $deferred_spawn_joined"
+        if [ -n "$sweep_wake_reason" ]; then
+          sweep_wake_reason="$sweep_wake_reason; $reason"
+        else
+          sweep_wake_reason=$reason
+        fi
+      fi
     fi
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue

@@ -201,7 +201,8 @@
 #   Machine admission: fresh and relaunched workers share the live machine
 #   ceiling and memory check (fm-capacity-lib.sh). Refusal exits 75 without
 #   launching; persistent secondmate startup is exempt. No machine lock spans
-#   launch. Project capacity remains a separate project-identity transaction.
+#   launch. A machine-lane refusal is recorded for automatic retry by bin/fm-spawn-deferred.sh.
+#   Project capacity remains a separate project-identity transaction.
 #   Project capacity: when this machine declares how many workers a project
 #   admits at once (config/project-capacity; bin/fm-project-capacity-lib.sh owns
 #   the declaration, what holds a place, and the race argument), a fresh ship or
@@ -3828,6 +3829,10 @@ fi
 if [ "$KIND" != secondmate ]; then
   if ! fm_capacity_read "$FM_HOME" "$CONFIG" "$STATE" "$ID"; then
     echo "deferred: $FM_CAPACITY_ERROR; task $ID stays queued" >&2
+    if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
+      "$SCRIPT_DIR/fm-spawn-deferred.sh" record "$ID" -- "$SCRIPT_DIR/fm-spawn.sh" "$@"; then
+      echo "warning: deferred spawn for $ID was not recorded for automatic retry" >&2
+    fi
     exit 75
   fi
 fi
