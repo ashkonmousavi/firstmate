@@ -62,8 +62,8 @@
 #              `already-stopped` and `endpoint-gone` too,
 #              because a handed-off session outlives its pane. Another
 #              worktree's session is never touched.
-#   relaunch   Transactionally replace the running agent with a new one, in the
-#              SAME worktree - and the same endpoint whenever that endpoint
+#   relaunch   Transactionally replace the running agent with a new one, normally
+#              in the SAME worktree - and the same endpoint whenever that endpoint
 #              still exists - on the same or a newly chosen
 #              harness/model/effort - so switching harness is one ordinary use
 #              of this verb. When the recorded endpoint is instead proven gone -
@@ -103,8 +103,8 @@
 #              its <id>.released-copy sentinel) has no agent to stop: a
 #              released checkpoint proves the recorded release and an OPEN pull
 #              request, and the launch owner recreates the copy from the pull
-#              request's branch and only then writes the note, so a refusal or
-#              deferral changes nothing (docs/agent-control.md "Relaunching a
+#              request's branch and only then writes the note, so a preflight
+#              refusal or admission deferral changes nothing (docs/agent-control.md "Relaunching a
 #              released copy").
 #              --if-recoverable applies the startup eligibility decision from
 #              bin/fm-crew-recovery-lib.sh under the lifecycle lock. Exit 3
@@ -1388,10 +1388,9 @@ do_relaunch() {
 # do_relaunch_released: the relaunch of a record whose copy teardown released.
 # No agent runs, so nothing is stopped. The launch owner, bin/fm-spawn.sh
 # --relaunch, allocates the new copy and recreates the branch first, and only
-# then writes the progress note this transaction hands it, so a deferral or a
-# refusal leaves the brief, this journal and the prior-record copy exactly as
-# they were and a retry never adds a second note. The journal starts once the
-# launch owner has published the new record.
+# then writes the progress note this transaction hands it. Rollback follows
+# docs/agent-control.md "Relaunching a released copy"; the journal starts only
+# after the launch owner succeeds.
 do_relaunch_released() {
   local note_line=$1 note_stage prior_stage spawn_status state
   local -a spawn_args

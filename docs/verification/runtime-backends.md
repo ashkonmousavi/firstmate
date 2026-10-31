@@ -6,10 +6,10 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
-## Released-copy lifecycle validation handoff
+## Released-copy lifecycle coverage
 
 The [released-copy contract](../agent-control.md#relaunching-a-released-copy) owns the expected behavior.
-This inventory hands its affected classes to the designated validation phase; it is not a live verification result.
+This inventory identifies regression coverage and remaining live-proof gaps; it is not a live verification result.
 The executable regressions below use fake session providers and forge responses, with real Git repositories and a bare origin where applicable.
 Their presence and the earlier version-scoped evidence elsewhere in this record do not establish live proof for this lifecycle.
 
@@ -24,7 +24,7 @@ Each row identifies an observable contract rather than a source-text assertion.
 | Direct `fm-spawn --relaunch`; recovery dispatch through `fm-control` | `test_spawn_relaunch_of_a_released_copy_gates_its_endpoint`, `test_direct_spawn_relaunch_participates_in_the_lifecycle_lock`, and `test_recovery_rechecks_task_records_and_work`; both entry points reach the same allocation and rollback owner. | A released-record recovery rehearsal; current recovery fixtures do not prove that live combination. |
 | Released endpoint missing, existing shell, live agent, unreadable or ambiguous endpoint | `test_released_copy_relaunch_refuses_and_changes_nothing`, the direct-spawn endpoint case, and existing absence/refusal cases in the control and relaunch suites. | Refresh real liveness and absence evidence, including Herdr stale registrations; do not infer absence from a transport failure. |
 | Allocation: lane admission, project capacity, project lock, pool wait, isolation, slot claim | `test_released_copy_relaunch_defers_without_a_free_lane`, `test_released_pool_exhaustion_defers`, `test_concurrent_released_relaunches_serialise`, and `test_released_copy_frees_its_seat_and_the_relaunch_holds_one`; shared admission and isolation have [capacity](../../tests/fm-capacity.test.sh), [project-capacity](../../tests/fm-project-capacity.test.sh), and [worktree-settling](../../tests/fm-spawn-worktree-settle.test.sh) regressions. | Real pool exhaustion and claim return on tmux and Herdr; the dedicated released fixture does not exercise every admission failure. |
-| Fetch, ancestry check, branch checkout, upstream binding, clean-copy requirement | `test_released_copy_relaunch_returns_the_slot_when_the_branch_cannot_be_recreated` covers missing and rewritten heads; `test_released_fork_branch_uses_head_repository` covers a configured fork and differently named remote branch. | Descendant-head advancement, live push after recreation, and fork-only publication without a configured fork remote remain unproven here. |
+| Fetch, ancestry check, branch checkout, upstream binding, clean-copy requirement | `test_released_copy_relaunch_returns_the_slot_when_the_branch_cannot_be_recreated` covers missing and rewritten heads; `test_released_fork_branch_uses_head_repository` covers a configured fork and differently named remote branch. | Descendant-head advancement and live push after recreation remain unproven here; the configured-remote refusal is covered in the teardown row below. |
 | Literal-send or Enter failure after allocation/publication -> endpoint close, slot return, record/brief restoration -> retry | `test_released_launch_delivery_failure_rolls_back` runs both failures on both backends, checks that delivery was reached, preserves the sentinel and hold, and retries with one progress note. | `test_released_signals_roll_back_until_commit` covers HUP/TERM during delivery; `test_released_signals_defer_through_mutation_bookkeeping` covers endpoint creation, slot claiming and unhold on both backends; `test_released_rollback_retains_each_failed_restoration_backup` covers independent restore failures; `test_released_snapshot_signals_preserve_complete_brief_and_record` interrupts initialization of both snapshots; `test_released_rollback_preserves_new_work_and_unconfirmed_endpoints` covers dispatch failure with tracked, ignored or committed work and unconfirmed closure. Actual provider close/lease behavior and adapter-specific readiness failures still need live proof. |
 | Teardown merge hold -> launch delivery -> unhold/dispatch; other holds refuse | `test_released_relaunch_lifts_only_the_merge_hold_teardown_set` and the round trip cover teardown's external hold, a captain hold, and a failed launch. | Real backlog integration during a live round trip; the rollback preservation case exercises a failed final dispatch without claiming live proof. |
 | Teardown automatic classification or `--keep-open` -> release; later merged cleanup, including interrupted release | `test_release_refuses_when_the_head_is_only_on_the_gate_remote`, `test_release_records_the_head_it_proved`, `test_release_without_a_forge_head_reads_the_pull_request_remote`, `test_release_tracking_proof_uses_fork_head_branch`, `test_released_copy_completes_after_merge`, and `test_interrupted_release_completes_after_merge`. | `test_release_requires_a_configured_readable_head_remote`, `test_release_refuses_forge_mismatch_with_matching_tracking_ref`, `test_release_proof_survives_unconfirmed_close_and_reassignment`, and `test_release_retry_returns_the_unclaimed_reset_copy` cover the release prerequisite, strict mismatch rule, and durable proof. `test_release_retry_returns_the_copy_after_interrupted_proof_or_failed_return` checks that proof does not bypass an unfinished return or branch cleanup. Live forge equality and tracking proof remain unproven. |
@@ -61,9 +61,9 @@ The following inventory does not promote one mocked Claude launch into proof for
 | `devin`, `commandcode` | Existing executable checks, launch templates and hook/config wiring; Command Code already restricts placement to tmux/Herdr. | Respective signals guards; released launch/rollback pending for both. |
 | `polytoken` | Existing session daemon/readiness gate, isolated configuration, credentials, hooks and raw-launch distinctions. | Ordinary raw-launch and hook-retirement regressions plus Polytoken signals guard; released session-daemon failure and cleanup need live proof. |
 
-### Validation-phase live handoff
+### Live verification entry points
 
-Run the applicable guards below in the designated validation phase using `FM_LIVE=1 bash bin/fm-test-run.sh <test-path>`; this review phase does not execute them.
+Run the applicable guards below using `FM_LIVE=1 bash bin/fm-test-run.sh <test-path>`.
 Record absent tools/harnesses and skipped cases explicitly, and require a nonempty checked set before claiming coverage.
 Capture date, exact command, OS/architecture, backend and harness versions, account-selection label without secrets, output, and exit status in the corresponding section of this verification record.
 Respect each guard's isolated socket, home, and Herdr-lab contract; an incompatible workspace boundary is a reported gap, not permission to run against a live home.
@@ -78,7 +78,7 @@ Respect each guard's isolated socket, home, and Herdr-lab contract; an incompati
 | [PR-state live read](../../tests/fm-pr-state-live-e2e.test.sh) | GitHub's own jq engine for `fm-pr-state.sh`; it does not validate the new shared head-identity query or another forge. |
 
 No existing guard above proves a real teardown-to-relaunch transaction with actual Treehouse allocation, endpoint replacement, branch recreation, note delivery, rollback, and backlog-hold release together.
-The validation phase must perform that isolated rehearsal on tmux and Herdr, including no-slot and failed-delivery paths, before recording live proof for the released-copy guarantee.
+A live proof for the released-copy guarantee requires that isolated rehearsal on tmux and Herdr, including no-slot and failed-delivery paths.
 Keep the unexercised harnesses, platforms, accounts, forge fallbacks, and unresolved source-review cases visible if the available environment cannot cover them.
 
 ## Polytoken worker lifecycle

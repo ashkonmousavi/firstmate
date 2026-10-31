@@ -60,7 +60,7 @@
 #   steering inbox. This never rewrites a project's instruction files or a
 #   secondmate's charter.
 #        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>]
-#   --relaunch launches a replacement agent for an EXISTING task into that
+#   --relaunch normally launches a replacement agent for an EXISTING task into that
 #   task's own recorded worktree, reusing its recorded endpoint when that
 #   endpoint still exists, instead of creating either from scratch. It is
 #   the launch half of the control plane (bin/fm-control.sh relaunch), which
@@ -81,10 +81,12 @@
 #   merely unreachable from here. fm_control_endpoint_absence_verdict owns
 #   Herdr's session recheck and tmux's prior-boot generation proof. Unproven
 #   absence and an endpoint that turns out to have survived both refuse.
-#   The worktree is reused untouched either way; a
+#   For an existing copy the worktree is reused untouched either way; a
 #   rebind is a recovery, never a teardown. Only a crewmate or scout rebinds: a
 #   secondmate whose endpoint is gone is respawned by its own owner
 #   (`--secondmate`, driven by the session-start liveness sweep).
+#   For a released-copy record, use the recreation contract in
+#   docs/agent-control.md "Relaunching a released copy" instead.
 #   Every fresh ship/scout launch and replacement explicitly enters the recorded
 #   worktree immediately before trust setup and brief delivery, and a pre-launch
 #   cwd check refuses any endpoint that still reports another copy; a Herdr shell
@@ -1026,8 +1028,8 @@ case "$EFFORT" in
   ;;
 esac
 
-# --relaunch reuses an existing task's endpoint, worktree, project, and kind,
-# so every axis this block resolves for a fresh spawn instead comes from that
+# --relaunch takes identity from the existing task's record, including when
+# recreating a released copy, so the axes resolved for a fresh spawn come from that
 # task's own durable record below. Contradicting it on the command line is a
 # refusal rather than a silently-ignored flag.
 if [ "$RELAUNCH" -eq 1 ]; then
@@ -1544,7 +1546,7 @@ render_launch_brief() {
 # docs/agent-control.md "Relaunching a released copy" owns the contract. These
 # run before any allocation (preflight), then after the copy is allocated and
 # claimed (branch recreation, progress note); every refusal exits through the
-# abort path, which leaves the released record untouched.
+# abort path governed by that contract's safe-return and recovery rules.
 
 # Proves, before anything is allocated, what bin/fm-teardown.sh recorded at
 # release, and that the pull request is still OPEN through bin/fm-pr-lib.sh.
@@ -3944,9 +3946,9 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   # pre-scope briefs and relaunches. Charters never enter this worker path.
   # The overlap note is best-effort: the helper exits 0, and a failure still
   # must not refuse the launch.
-  # A released relaunch keeps the brief exactly as it was until launch delivery
-  # completes, so the abort path restores this copy over both the overlap
-  # note below and the progress note written after allocation.
+  # Keep a complete snapshot through launch delivery so a safe rollback can
+  # restore the brief over both the overlap note below and the progress note
+  # written after allocation.
   if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
     RELEASED_SOURCE_BRIEF=$BRIEF
     released_mutation_begin

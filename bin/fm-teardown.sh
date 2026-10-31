@@ -49,11 +49,10 @@
 # that closes the call.
 # REFUSES if the worktree holds commits that are not on a remote and have not
 # landed, because cleanup hard-resets/removes the worktree and kills its
-# processes. The local copy may be freed when the commits are reachable from
-# any remote-tracking branch (a fork counts as a remote, so upstream-contribution
-# PRs pushed to a fork satisfy this in any mode). That reachability is not a
-# landed close when the task's recorded pr= is OPEN or unreadable. A normal ship
-# task whose commits are not reachable has landed only when its PR is merged and
+# processes. Remote-tracking reachability is checked by work_is_landed below;
+# an OPEN recorded PR additionally requires the release proof below, and an
+# unreadable PR refuses. Reachability alone never closes either item. A normal
+# ship task whose commits are not reachable has landed only when its PR is merged and
 # GitHub reports a PR head that contains the current local work, or its content is
 # already present in the up-to-date default branch. This recognizes the common
 # squash-merge-then-delete-branch flow, where the branch's own commits live nowhere
@@ -100,7 +99,11 @@
 # The retained record uses worktree=<absolute-state-directory>/<id>.released-copy
 # as a sentinel, not an actual worktree. The released_head=, released_branch=
 # and released_pr= proof is persisted before returning the copy, retained across
-# failed endpoint closure and retries, and read by bin/fm-spawn.sh --relaunch
+# failed endpoint closure and retries. On retry this proof skips only HEAD
+# revalidation: a recorded copy that still exists and has not been reassigned
+# must still be returned, with branch detachment/deletion attempted first.
+# Proof alone never permits hiding an unfinished return behind the sentinel.
+# The proof is read by bin/fm-spawn.sh --relaunch
 # to recreate the copy from that branch (docs/agent-control.md
 # "Relaunching a released copy"). A later teardown
 # rechecks the PR and, once merged and accepted, retires the item's watch without
@@ -1799,12 +1802,8 @@ teardown_recorded_pr_class_cached() {
   fi
 }
 
-# The release rule (script header): a copy whose pull request is OPEN may be
-# freed only when its HEAD is the pull request's head on the forge. The head the
-# forge reported wins; when that forge answer carries none, the tracking ref of
-# the one remote holding the pull request (fm_pr_holding_remote), freshly
-# fetched, stands in. Any other remote - the no-mistakes gate, publicsrc, a
-# backup - is never proof. Sets TEARDOWN_RELEASED_HEAD and
+# Apply the release rule in the script header using the cached forge read.
+# Sets TEARDOWN_RELEASED_HEAD and
 # TEARDOWN_RELEASED_BRANCH for the sentinel record, or prints the refusal and
 # returns 1.
 teardown_release_head_proven() {
