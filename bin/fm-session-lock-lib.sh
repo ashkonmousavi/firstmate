@@ -251,6 +251,7 @@ fm_session_lock_recorded_session_id() {  # <state>
 }
 
 fm_session_lock_read_record() {
+  # shellcheck disable=SC2034 # Dynamic context for the lazily sourced wake library.
   local state=$1 STATE=$1 FM_STATE_OVERRIDE=$1 mutex=$1/.lock.acquire current acquired=0
   FM_SESSION_LOCK_PID=
   FM_SESSION_LOCK_SESSION=
@@ -684,7 +685,10 @@ fm_session_lock_idle_fork_takeover_allowed() {  # <state> <holder-pid>
   esac
   verdict=$(fm_session_lock_turn_verdict "$holder_file" "$succ_file" "$succ_state" "$fork_epoch" "$prior_file" "$proof_prior") || return 1
   case "$verdict" in
-    'ok '*) FM_LOCK_TAKEOVER_EVIDENCE=${verdict#ok }; return 0 ;;
+    'ok '*)
+      # shellcheck disable=SC2034 # Output read by startup and Stop takeover callers.
+      FM_LOCK_TAKEOVER_EVIDENCE=${verdict#ok }
+      return 0 ;;
     *) return 1 ;;
   esac
 }
