@@ -5101,6 +5101,55 @@ test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix() {
   pass "fm_backend_herdr_send_text_submit: a long payload whose Claude composer kept only the tail is not submitted, is cleared, and reports send-failed"
 }
 
+# Claude renders typed input asynchronously: on a loaded host the first send
+# into an idle Claude was measured live taking 2.8 s to appear, so a single
+# read after the settle saw an empty composer, cleared it, and reported
+# payload-not-shown. A composer still showing a prefix of the payload (empty
+# included) is re-read until it shows the payload.
+test_send_text_submit_waits_while_the_payload_is_still_rendering() {
+  local dir log resp fb out enter_count text reads
+  dir="$TMP_ROOT/submit-render-delay"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  text=": Firstmate instruction waiting: list \"\$FM_TASK_INBOX\"/*.msg in your 'q-server.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/."
+  herdr_submit_claude_prefix "$resp" "$text"
+  printf '  \xe2\x9d\xaf\n' > "$resp/4.out"
+  herdr_wrapped_composer "${text:0:70}" 60 0 > "$resp/5.out"
+  herdr_wrapped_composer "$text" 60 0 > "$resp/6.out"
+  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/7.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/9.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+    FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL=0.01 \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
+  [ "$out" = empty ] || fail "a payload that finishes rendering after the settle should be submitted, got '$out'"
+  enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+  [ "$enter_count" -eq 1 ] || fail "the rendered payload should be submitted once, sent $enter_count Enter(s)"
+  [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "a payload still rendering must not be cleared"
+  reads=$(sed -n '/send-text/,$p' "$log" | grep -c $'\x1f''pane'$'\x1f''read')
+  [ "$reads" -eq 3 ] || fail "the proof should read empty, prefix, then payload (3 reads), made $reads"
+  [ ! -s "$dir/reason" ] || fail "a proven payload must not name a failure, got $(cat "$dir/reason")"
+  pass "fm_backend_herdr_send_text_submit: a Claude composer still rendering the payload (empty, then a prefix) is re-read and the payload submitted"
+}
+
+# The wait is bounded: a composer that never shows the payload is refused
+# after FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS, cleared, and never submitted.
+test_send_text_submit_payload_wait_is_bounded() {
+  local dir log resp fb out text reads n
+  dir="$TMP_ROOT/submit-render-never"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  text=$(herdr_long_payload 200)
+  herdr_submit_claude_prefix "$resp" "$text"
+  for ((n = 4; n <= 40; n++)); do printf '  \xe2\x9d\xaf\n' > "$resp/$n.out"; done
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( FM_RING_REASON_SINK="$dir/reason" PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+    FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS=1 FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL=0.25 \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
+  [ "$out" = send-failed ] || fail "a composer that never shows the payload should report send-failed, got '$out'"
+  [ "$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")" -eq 0 ] || fail "an unproven payload must not be submitted"
+  reads=$(sed -n '/send-text/,/ctrl+e/p' "$log" | grep -c $'\x1f''pane'$'\x1f''read')
+  [ "$reads" -eq 4 ] || fail "a 1 s budget at 0.25 s spacing should read exactly 4 times, made $reads"
+  assert_ring_reason "$dir/reason" payload-not-shown
+  pass "fm_backend_herdr_send_text_submit: the wait for a rendering payload is bounded and an unshown payload is refused"
+}
+
 test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown() {
   local dir log resp fb out enter_count text suffix cap n
   dir="$TMP_ROOT/submit-long-suffix-stuck"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
@@ -6471,6 +6520,8 @@ test_send_text_submit_unknown_on_composer_capture_failure
 test_send_text_submit_unknown_on_busy_composer_capture_failure
 test_send_text_submit_long_literal_submits_when_composer_holds_every_byte
 test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix
+test_send_text_submit_waits_while_the_payload_is_still_rendering
+test_send_text_submit_payload_wait_is_bounded
 test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown
 test_send_text_submit_unreadable_clear_stops_after_one_edit
 test_send_text_submit_clears_a_wrapped_suffix_one_row_per_press
