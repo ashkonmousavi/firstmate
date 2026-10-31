@@ -1,0 +1,9 @@
+warning: herdr session-start projection cleanup: case47 preserved because its locked candidate snapshot was ambiguous
+warning: herdr session-start projection cleanup: case49 preserved because its locked candidate snapshot was ambiguous
+warning: herdr session-start projection cleanup: case50 preserved because its locked candidate snapshot was ambiguous
+warning: herdr session-start projection cleanup: case51 preserved because its pane is not a provably idle childless shell
+warning: herdr session-start projection cleanup: case52 preserved because its pane is not a provably idle childless shell
+warning: herdr session-start projection cleanup: case53 preserved because its locked candidate snapshot was ambiguous
+warning: herdr session-start projection cleanup: case53 preserved because its locked candidate snapshot was ambiguous
+warning: herdr session-start projection cleanup: case56 skipped because its task lock is busy
+warning: herdr session-start projection cleanup: case57 preserved because its locked candidate snapshot was ambiguous

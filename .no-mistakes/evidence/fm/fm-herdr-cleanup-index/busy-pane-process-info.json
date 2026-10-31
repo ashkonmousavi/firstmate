@@ -1,0 +1,55 @@
+{
+  "51": {
+    "id": "cli:pane:process_info",
+    "result": {
+      "process_info": {
+        "foreground_process_group_id": 1085086,
+        "foreground_processes": [
+          {
+            "argv": [
+              "sleep",
+              "300"
+            ],
+            "cmdline": "sleep 300",
+            "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M69TB417C7GV2DXZDSXZCFBW",
+            "name": "sleep",
+            "pid": 1085086
+          }
+        ],
+        "pane_id": "w1M:p1",
+        "shell_pid": 740670
+      },
+      "type": "pane_process_info"
+    },
+    "os_shell_children": [
+      "1085086"
+    ],
+    "os_child_processes": "1085086  740670 sleep\n"
+  },
+  "52": {
+    "id": "cli:pane:process_info",
+    "result": {
+      "process_info": {
+        "foreground_process_group_id": 740843,
+        "foreground_processes": [
+          {
+            "argv": [
+              "/bin/bash"
+            ],
+            "cmdline": "/bin/bash",
+            "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M69TB417C7GV2DXZDSXZCFBW",
+            "name": "bash",
+            "pid": 740843
+          }
+        ],
+        "pane_id": "w1N:p1",
+        "shell_pid": 740843
+      },
+      "type": "pane_process_info"
+    },
+    "os_shell_children": [
+      "1085112"
+    ],
+    "os_child_processes": "1085112  740843 sleep\n"
+  }
+}

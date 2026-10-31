@@ -1,0 +1,32 @@
+[
+  {
+    "case": "valid-v1",
+    "accepted": true,
+    "expected": true
+  },
+  {
+    "case": "unterminated-duplicate",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "case": "binary",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "case": "crlf",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "case": "duplicate-key",
+    "accepted": false,
+    "expected": false
+  },
+  {
+    "case": "invalid-utf8-duplicate",
+    "accepted": false,
+    "expected": false
+  }
+]

@@ -1,0 +1,6 @@
+{"name": "59 workspaces and 83 journals: no eligible pane, unchanged layout and journals", "seconds": 12.217941598995822, "workspaces": 59, "journals": 83, "result": "pass"}
+{"name": "Base commit comparison on identical live 59/83 workload", "seconds_at_least": 100, "result": "timeout"}
+{"name": "59/83 mixed workload: close exactly one stale v1 pane; preserve active target, metadata, duplicates, binary/unterminated journals, cross-home/session/endpoint, symlink, extra tab/pane, foreground/background jobs, malformed title and busy task lock", "seconds": 8.596358126000268, "remaining_workspaces": 58, "remaining_journals": 82, "focus": ["w1T", "w1T:t1", "w1T:p1"], "result": "pass"}
+{"name": "Exact v2 binding closes; previously active v1 pane closes only after focus leaves", "seconds": 8.859519235993503, "focus": ["w1", "w1:t1", "w1:p1"], "result": "pass"}
+{"name": "Duplicate journal published after discovery but during the real locked snapshot prevents stale-index closure", "seconds": 8.461089835007442, "result": "pass"}
+{"name": "Repeated mixed cleanup is idempotent for every preserved guard", "seconds": 8.208715371001745, "result": "pass"}
