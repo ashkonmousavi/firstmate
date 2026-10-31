@@ -762,6 +762,8 @@ SH
       no-origin) git -C "$w/main" remote remove origin ;;
       missing-branch)
         git -C "$w/main" checkout -q --detach
+        # Git 2.48+ otherwise recreates origin/HEAD during the updater's fetch.
+        git -C "$w/main" config remote.origin.followRemoteHEAD never
         git -C "$w/main" symbolic-ref --delete refs/remotes/origin/HEAD
         git -C "$w/main" branch -D main >/dev/null
         ;;

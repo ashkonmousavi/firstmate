@@ -1651,6 +1651,7 @@ chmod 700 "$WEDGE_HOME"
   # shellcheck source=bin/fm-remote-job-lib.sh
   . "$ROOT/bin/fm-remote-job-lib.sh"
   wedged=
+  # shellcheck disable=SC2329 # Invoked by the EXIT trap below.
   wedge_cleanup() {
     [ -z "$wedged" ] || kill -CONT "$wedged" 2>/dev/null || true
     [ ! -f "$WEDGE_STATE/worker.pid" ] || fm_remote_job_stop_worker_tree "$(cat "$WEDGE_STATE/worker.pid")" || true
