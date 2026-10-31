@@ -19,6 +19,9 @@
 # A task is relaunched only when every one of these is true:
 #   - the meta basename passes fm_task_id_creation_valid (bin/fm-pr-lib.sh);
 #   - kind is ship or scout (a secondmate is out of scope);
+#   - the task carries no active lane-release marker (bin/fm-lane-release-lib.sh):
+#     a released worker stopped on purpose and is left for acceptance or an
+#     explicit relaunch;
 #   - a recorded endpoint target exists (fm_backend_target_of_meta);
 #   - fm_backend_agent_state prints dead or missing (alive, ambiguous,
 #     unreadable, and unverified are left untouched);
@@ -63,6 +66,11 @@ fi
 if ! command -v fm_task_id_creation_valid >/dev/null 2>&1; then
   # shellcheck source=bin/fm-pr-lib.sh disable=SC1091
   . "$FM_CREW_RECOVERY_LIB_DIR/fm-pr-lib.sh"
+fi
+
+if ! command -v fm_lane_release_marker_active >/dev/null 2>&1; then
+  # shellcheck source=bin/fm-lane-release-lib.sh disable=SC1091
+  . "$FM_CREW_RECOVERY_LIB_DIR/fm-lane-release-lib.sh"
 fi
 
 fm_crew_recovery_need_classify() {
@@ -207,6 +215,7 @@ fm_crew_recovery_agent_state() {
     ship|scout) ;;
     *) return 1 ;;
   esac
+  fm_lane_release_marker_active "$state" "$id" && return 1
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || return 1
   backend=$(fm_backend_of_meta "$meta")

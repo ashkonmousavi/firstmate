@@ -1194,6 +1194,84 @@ test_busy_agent_is_interrupted_before_the_exit_command() {
   pass "fm-control exit: a busy agent receives interrupt delivery before the exit command"
 }
 
+# --if-idle is the unattended exit bin/fm-lane-release.sh drives: a busy or
+# unproven-idle agent, a held lifecycle lock, and a replaced incarnation each
+# exit 75 having sent nothing, and only an idle agent receives the exit command.
+arm_busy_as() {  # <case-dir> <busy|idle>
+  local dir=$1 want=$2 gen
+  gen=$("$ROOT/bin/fm-busy-event.sh" arm "$dir/home/state" t1)
+  printf 'busy_gen=%s\n' "$gen" >> "$dir/home/state/t1.meta"
+  if [ "$want" = idle ]; then
+    "$ROOT/bin/fm-busy-event.sh" apply "$dir/home/state" t1 idle --gen "$gen" \
+      --source claude-hook --event stop >/dev/null
+  fi
+}
+
+test_if_idle_exit_leaves_a_busy_agent_alone() {
+  local dir out rc
+  dir=$(new_case ifidle-busy)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  arm_busy_as "$dir" busy
+  out=$(run_control "$dir" t1 exit --if-idle); rc=$?
+  expect_code 75 "$rc" "a busy agent should defer the unattended exit"$'\n'"$out"
+  assert_contains "$out" "never interrupts" "the deferral should say why"
+  [ -z "$(keys_sent "$dir")" ] || fail "the unattended exit must not interrupt, got: $(keys_sent "$dir")"
+  [ -z "$(literals "$dir")" ] || fail "the unattended exit must type nothing into a busy agent"
+  pass "fm-control exit --if-idle: a busy agent is neither interrupted nor exited (75)"
+}
+
+test_if_idle_exit_defers_an_unproven_idle_verdict() {
+  local dir out rc
+  dir=$(new_case ifidle-unknown)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  out=$(run_control "$dir" t1 exit --if-idle); rc=$?
+  expect_code 75 "$rc" "an agent with no busy record is not proven idle"$'\n'"$out"
+  [ -z "$(literals "$dir")" ] || fail "an unproven-idle agent must receive no exit command"
+  pass "fm-control exit --if-idle: an unknown busy verdict defers (75) with nothing sent"
+}
+
+test_if_idle_exit_stops_an_idle_agent() {
+  local dir out rc
+  dir=$(new_case ifidle-idle)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  arm_busy_as "$dir" idle
+  out=$(run_control "$dir" t1 exit --if-idle --expect-spawn-gen s1.1.1 2>&1); rc=$?
+  expect_code 75 "$rc" "a record with no matching spawn_gen should defer"$'\n'"$out"
+  assert_contains "$out" "no longer records spawn_gen" "the deferral should name the replaced incarnation"
+  [ -z "$(literals "$dir")" ] || fail "a replaced incarnation must receive no exit command"
+  printf 'spawn_gen=s1.1.1\n' >> "$dir/home/state/t1.meta"
+  out=$(run_control "$dir" t1 exit --if-idle --expect-spawn-gen s1.1.1); rc=$?
+  expect_code 0 "$rc" "an idle agent of the expected incarnation should exit"$'\n'"$out"
+  [ -z "$(keys_sent "$dir")" ] || fail "an idle agent needs no interrupt"
+  [ "$(literals "$dir")" = "/exit" ] || fail "an idle agent should receive exactly its exit command"
+  pass "fm-control exit --if-idle: an idle agent of the expected incarnation exits; a replaced one defers"
+}
+
+test_if_idle_exit_defers_on_a_held_lifecycle_lock() {
+  local dir out rc lock holder i
+  dir=$(new_case ifidle-locked)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  arm_busy_as "$dir" idle
+  lock="$dir/home/state/.control-t1.lock"
+  hold_lifecycle_lock "$lock" &
+  holder=$!
+  i=0
+  while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
+  out=$(run_control "$dir" t1 exit --if-idle); rc=$?
+  kill "$holder" 2>/dev/null || true
+  wait "$holder" 2>/dev/null || true
+  expect_code 75 "$rc" "a held lifecycle lock should defer the unattended exit"
+  [ -z "$(literals "$dir")" ] || fail "a contended unattended exit must type nothing"
+  out=$(run_control "$dir" t1 interrupt --if-idle); rc=$?
+  expect_code 1 "$rc" "--if-idle should be refused on interrupt"
+  assert_contains "$out" "apply to 'exit' only" "the refusal should scope the flag"
+  pass "fm-control exit --if-idle: a held lifecycle lock defers (75); the flag is exit-only"
+}
+
 exit_picker_screen() {
   printf '%s\n' \
     'Background work is running' \
@@ -1569,6 +1647,10 @@ test_missing_tmux_endpoint_refuses_rather_than_claiming_a_stop
 test_interrupt_refuses_when_no_agent_runs
 test_ambiguous_endpoint_refuses
 test_busy_agent_is_interrupted_before_the_exit_command
+test_if_idle_exit_leaves_a_busy_agent_alone
+test_if_idle_exit_defers_an_unproven_idle_verdict
+test_if_idle_exit_stops_an_idle_agent
+test_if_idle_exit_defers_on_a_held_lifecycle_lock
 test_idle_agent_is_not_interrupted
 test_exit_drops_meta_busy_gen_with_the_sidecar
 test_exit_refuses_an_open_background_picker

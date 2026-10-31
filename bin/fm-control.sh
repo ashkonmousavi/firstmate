@@ -3,7 +3,7 @@
 # lifecycle verbs addressed to an exact task id.
 #
 # Usage: fm-control.sh <task-id> interrupt
-#        fm-control.sh <task-id> exit
+#        fm-control.sh <task-id> exit [--if-idle [--expect-spawn-gen <gen>]]
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
 #                                         [--effort <level>] [--if-recoverable]
 #                                         (--note <text> | --note-file <path>)
@@ -49,6 +49,13 @@
 #              takes the ordinary interrupt-then-exit path. A tmux `missing`
 #              requires the recorded spawn generation to predate the OS boot;
 #              otherwise absence remains unproven and the action refuses.
+#              --if-idle is the unattended form an automatic caller uses
+#              (bin/fm-lane-release.sh): it exits 75 instead of acting when
+#              another lifecycle action holds the task, when the agent reads
+#              anything but idle (it never interrupts a turn), or, with
+#              --expect-spawn-gen, when the task's recorded spawn_gen is no
+#              longer <gen> because a relaunch replaced the agent. Every other
+#              refusal keeps its ordinary exit status 1.
 #              A Claude exit has one more postcondition. Claude Code can hand a
 #              session with background work to a background session instead
 #              of exiting, so afterwards `claude agents --json --all` is read under
@@ -270,6 +277,9 @@ EFFORT_SET=0
 NOTE=
 NOTE_SET=0
 RECOVER_ONLY=0
+IF_IDLE=0
+EXPECT_GEN=
+EXPECT_GEN_SET=0
 control_want_value=
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
@@ -281,6 +291,7 @@ for control_arg in "$@"; do
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
+      expect_gen) EXPECT_GEN=$control_arg; EXPECT_GEN_SET=1 ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
         NOTE=$(cat "$control_arg")
@@ -292,6 +303,9 @@ for control_arg in "$@"; do
   fi
   case "$control_arg" in
     --if-recoverable) RECOVER_ONLY=1 ;;
+    --if-idle) IF_IDLE=1 ;;
+    --expect-spawn-gen) control_want_value=expect_gen ;;
+    --expect-spawn-gen=*) EXPECT_GEN=${control_arg#--expect-spawn-gen=}; EXPECT_GEN_SET=1 ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
@@ -318,6 +332,12 @@ if [ "$VERB" != relaunch ]; then
   [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] \
     || die "--harness, --model, --effort, --note, and --if-recoverable apply to 'relaunch' only"
 fi
+if [ "$VERB" != exit ]; then
+  [ "$IF_IDLE" = 0 ] && [ "$EXPECT_GEN_SET" = 0 ] \
+    || die "--if-idle and --expect-spawn-gen apply to 'exit' only"
+fi
+[ "$EXPECT_GEN_SET" = 0 ] || [ "$IF_IDLE" = 1 ] || die "--expect-spawn-gen requires --if-idle"
+[ "$EXPECT_GEN_SET" = 0 ] || [ -n "$EXPECT_GEN" ] || die "--expect-spawn-gen requires a non-empty value"
 [ "$HARNESS_SET" = 0 ] || [ -n "$NEW_HARNESS" ] || die "--harness requires a non-empty value"
 [ "$MODEL_SET" = 0 ] || [ -n "$NEW_MODEL" ] || die "--model requires a non-empty value"
 [ "$EFFORT_SET" = 0 ] || [ -n "$NEW_EFFORT" ] || die "--effort requires a non-empty value"
@@ -344,7 +364,7 @@ fm_lease_guard "$ID" "lifecycle control (fm-control)"
 CONTROL_LOCK="$STATE/.control-$ID.lock"
 trap control_cleanup EXIT
 if ! fm_lock_try_acquire "$CONTROL_LOCK"; then
-  if [ "$RECOVER_ONLY" = 1 ]; then
+  if [ "$RECOVER_ONLY" = 1 ] || [ "$IF_IDLE" = 1 ]; then
     echo "another lifecycle action is already running for task $ID" >&2
     exit 75
   fi
@@ -371,6 +391,10 @@ if [ ! -f "$META" ]; then
       ;;
   esac
   die "no task '$ID' in $STATE (fm-control resolves an exact task id only)"
+fi
+if [ "$EXPECT_GEN_SET" = 1 ] && [ "$(fm_meta_get "$META" spawn_gen)" != "$EXPECT_GEN" ]; then
+  echo "task $ID no longer records spawn_gen $EXPECT_GEN; a relaunch replaced the agent, so the unattended exit does not apply" >&2
+  exit 75
 fi
 
 # A remotely placed secondmate records its endpoint on ANOTHER host, so every
@@ -763,7 +787,7 @@ exit_background_check() {
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
-  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog
+  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -808,8 +832,20 @@ do_exit() {
       ;;
     *) die "task $ID's endpoint reads '$state' rather than a positively classified state; refusing to send a lifecycle command into an unattributed endpoint" ;;
   esac
-  # A busy agent is interrupted first before the exit command is submitted.
-  case "$(busy_verdict)" in
+  # A busy agent is interrupted first before the exit command is submitted,
+  # except under --if-idle, which acts only on a positively idle verdict and
+  # never interrupts a turn.
+  busy=$(busy_verdict)
+  if [ "$IF_IDLE" = 1 ]; then
+    case "$busy" in
+      idle*) ;;
+      *)
+        echo "task $ID reads '${busy%% *}', not idle; the unattended exit never interrupts or guesses" >&2
+        exit 75
+        ;;
+    esac
+  fi
+  case "$busy" in
     busy*)
       cancel=$(deliver_interrupt) || return $?
       state=$(agent_state)
