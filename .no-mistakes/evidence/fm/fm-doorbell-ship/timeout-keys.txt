@@ -1,0 +1,4 @@
+pane send-keys w1:p1 ctrl+e
+pane send-keys w1:p1 ctrl+u
+pane send-keys w1:p1 ctrl+e
+pane send-keys w1:p1 ctrl+u

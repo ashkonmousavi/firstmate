@@ -1,0 +1,30 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home
+VERSIONS: herdr 0.9.5
+2.1.316 (Claude Code)
+LAB session=fm-lab-dg pane=w1:p1 claude_pid=1008236
+RING 001.msg rc=0 reason=ok
+ACTION ordinary sentinel=ordinary acknowledgement=handled/001.msg
+Tl+
+VERIFIED_RENDER_STALL_SECONDS 1.9245392009906936
+RING 002.msg rc=0 reason=ok
+DELAYED_FIRST_PROOF composer_empty=true
+ACTION delayed sentinel=delayed acknowledgement=handled/002.msg
+RING 004.msg rc=1 reason=ring-in-flight
+RING 003.msg rc=0 reason=ok
+ACTION overlap-one sentinel=overlap-one acknowledgement=handled/003.msg
+ACTION overlap-two sentinel=overlap-two acknowledgement=handled/004.msg
+RING 005.msg rc=2 reason=payload-not-shown
+BOUNDED_REFUSAL elapsed=7s no_enter=true record_preserved=true sentinel_absent=true
+RING 005.msg rc=0 reason=ok
+ACTION never-submitted sentinel=never-submitted acknowledgement=handled/005.msg
+RECLAIM_GAP primary_absent=true steal_owner=1087659
+RING 007.msg rc=1 reason=ring-in-flight
+RING 006.msg rc=0 reason=ok
+ACTION reclaim-one sentinel=reclaim-one acknowledgement=handled/006.msg
+ACTION reclaim-two sentinel=reclaim-two acknowledgement=handled/007.msg
+RING 008.msg rc=1 reason=foreign-pending-draft
+FOREIGN_DRAFT preserved=true record_preserved=true sentinel_absent=true
+RING 008.msg rc=0 reason=ok
+ACTION foreign-protected sentinel=foreign-protected acknowledgement=handled/008.msg
+ALL_LIVE_SCENARIOS_PASSED
+TEARDOWN exit=0

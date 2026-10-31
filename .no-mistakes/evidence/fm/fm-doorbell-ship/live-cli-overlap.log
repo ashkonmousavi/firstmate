@@ -1,0 +1,18 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/cli-home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/cli-home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell skipped (another doorbell for this inbox is being delivered right now); the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/cli-home/state/doorbell.inbox/001.msg and the watcher will re-ring
+FM_SEND_EXIT=0
+schema=fm-task-inbox.v1
+at=2026-10-31T13:19:02Z
+request-id=aee213f072386ac3598f229d53c1e804
+--
+CLI overlapping delivery verification; preserve this durable record.rc=1 token=ring-in-flight
+CLI_SKIP durable_record=true retry_notice=true no_terminal_send=true
+TEARDOWN exit=0

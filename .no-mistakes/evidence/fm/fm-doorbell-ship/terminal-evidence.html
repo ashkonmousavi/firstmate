@@ -1,0 +1,220 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Live doorbell validation</title><style>body{background:#11151d;color:#e1e7ef;font:16px system-ui;margin:32px}h1{font-size:24px}h2{font-size:18px;margin-top:32px}pre{background:#192230;border:1px solid #37455a;border-radius:8px;padding:18px;overflow:auto;font:13px/1.5 monospace;white-space:pre}a{color:#8dc6ff}</style><h1>Live doorbell validation</h1><p>Actual terminal captures from disposable Herdr sessions, using Herdr 0.9.5 and Claude Code 2.1.316. Captures below are contiguous terminal excerpts, not reconstructed interface mockups.</p>
+<h2>Delayed rendering, overlap, timeout and reclamation transcript</h2><p><a href="live-doorbell.log">Raw capture</a></p><pre>~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home
+VERSIONS: herdr 0.9.5
+2.1.316 (Claude Code)
+LAB session=fm-lab-dg pane=w1:p1 claude_pid=1008236
+RING 001.msg rc=0 reason=ok
+ACTION ordinary sentinel=ordinary acknowledgement=handled/001.msg
+Tl+
+VERIFIED_RENDER_STALL_SECONDS 1.9245392009906936
+RING 002.msg rc=0 reason=ok
+DELAYED_FIRST_PROOF composer_empty=true
+ACTION delayed sentinel=delayed acknowledgement=handled/002.msg
+RING 004.msg rc=1 reason=ring-in-flight
+RING 003.msg rc=0 reason=ok
+ACTION overlap-one sentinel=overlap-one acknowledgement=handled/003.msg
+ACTION overlap-two sentinel=overlap-two acknowledgement=handled/004.msg
+RING 005.msg rc=2 reason=payload-not-shown
+BOUNDED_REFUSAL elapsed=7s no_enter=true record_preserved=true sentinel_absent=true
+RING 005.msg rc=0 reason=ok
+ACTION never-submitted sentinel=never-submitted acknowledgement=handled/005.msg
+RECLAIM_GAP primary_absent=true steal_owner=1087659
+RING 007.msg rc=1 reason=ring-in-flight
+RING 006.msg rc=0 reason=ok
+ACTION reclaim-one sentinel=reclaim-one acknowledgement=handled/006.msg
+ACTION reclaim-two sentinel=reclaim-two acknowledgement=handled/007.msg
+RING 008.msg rc=1 reason=foreign-pending-draft
+FOREIGN_DRAFT preserved=true record_preserved=true sentinel_absent=true
+RING 008.msg rc=0 reason=ok
+ACTION foreign-protected sentinel=foreign-protected acknowledgement=handled/008.msg
+ALL_LIVE_SCENARIOS_PASSED
+TEARDOWN exit=0
+</pre>
+<h2>Visible partial payload transcript</h2><p><a href="live-prefix.log">Raw capture</a></p><pre>~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home
+VERSIONS: herdr 0.9.5
+2.1.316 (Claude Code)
+LAB session=fm-lab-dg pane=w1:p1 claude_pid=1227045
+PREFIX_HOLD no_enter_before_remainder=true
+RING 001.msg rc=0 reason=ok
+PARTIAL_PROOF composer=: Firstmate instruction waiting: list &quot;$FM_TASK_INBOX&quot;/*.msg
+ACTION partial-prefix sentinel=partial-prefix acknowledgement=handled/001.msg
+PREFIX_LIVE_SCENARIO_PASSED
+TEARDOWN exit=0
+</pre>
+<h2>Public fm-send overlap notice</h2><p><a href="live-cli-overlap.log">Raw capture</a></p><pre>~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/cli-home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/cli-home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell &amp; for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &amp;.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell skipped (another doorbell for this inbox is being delivered right now); the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/cli-home/state/doorbell.inbox/001.msg and the watcher will re-ring
+FM_SEND_EXIT=0
+schema=fm-task-inbox.v1
+at=2026-10-31T13:19:02Z
+request-id=aee213f072386ac3598f229d53c1e804
+--
+CLI overlapping delivery verification; preserve this durable record.rc=1 token=ring-in-flight
+CLI_SKIP durable_record=true retry_notice=true no_terminal_send=true
+TEARDOWN exit=0
+</pre>
+<h2>Empty first proof while Claude was stopped</h2><p><a href="delayed-first-proof.ansi">Raw capture</a></p><pre>  Read 1 file, listed 1 directory (ctrl+o to expand)
+
+● This is a local sentinel write inside the doorbell lab, as my instructions allow.
+
+● Bash(printf &#x27;%s&#x27; &#x27;ordinary&#x27; &gt;
+      &#x27;~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/ordinary&#x27; &amp;&amp;
+      mkdir -p &quot;$FM_TASK_INBOX/h…)
+  ⎿  001.msg
+
+● DONE
+
+✻ Worked for 4s · done 6:14 AM
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · gh auth login for PR status · ← 3 agents        
+  You&#x27;ve used 82% of your weekly limit · resets Nov 2, 5am (America/Vancouver) · /usage-credits to keep using Claude…
+                                                                                                                  /rc</pre>
+<h2>Partial payload before remainder arrived</h2><p><a href="partial-prefix-first-proof.ansi">Raw capture</a></p><pre>oorbell.inbox CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBA
+CK=0 bash -c printf\ \&quot;%s\\n\&quot;\ \&quot;\$\$\&quot;\ \&gt;\ \&quot;\$1\&quot;\;\ shift\;\ exec\ \&quot;\$@\&quot; _ ~/.no-mistakes/worktrees/0
+49a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/claude.pid claude --dangerously-skip-permissions --setting-sources
+ user --strict-mcp-config --mcp-config \{\&quot;mcpServers\&quot;:\{\}\} --settings \{\&quot;disableAllHooks\&quot;:true\,\&quot;feedbackDrafts\
+&quot;:\&quot;off\&quot;\,\&quot;autoMemoryEnabled\&quot;:false\} --system-prompt You\ are\ an\ isolated\ doorbell\ verification\ worker.\ Only\
+ process\ explicitly\ supplied\ test\ requests.\ When\ told\ an\ instruction\ is\ waiting\,\ read\ all\ \*.msg\ files\ 
+in\ FM_TASK_INBOX\,\ carry\ out\ their\ specified\ local\ sentinel\ operations\,\ move\ each\ message\ to\ handled/\,\ 
+then\ reply\ DONE.\ Never\ access\ other\ files\,\ run\ fleet\ supervision\,\ spawn\ agents\,\ or\ use\ external\ servi
+ces\ besides\ this\ conversation.
+ ▐▛███▛█   Claude Code v2.1.316
+▝▜██████▀  Sonnet 5.5 with medium effort · Claude Ultra
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab
+
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ : Firstmate instruction waiting: list &quot;$FM_TASK_INBOX&quot;/*.msg
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · gh auth login for PR status                      ◐ medium · /effort
+                                                                                                                  /rc</pre>
+<h2>Claude action and acknowledgement after delayed rendering</h2><p><a href="delayed-pane.txt">Raw capture</a></p><pre>  Read 1 file, listed 1 directory (ctrl+o to expand)
+
+● This is a local sentinel write inside the doorbell lab, as my instructions allow.
+
+● Bash(printf &#x27;%s&#x27; &#x27;ordinary&#x27; &gt;
+      &#x27;~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/ordinary&#x27; &amp;&amp;
+      mkdir -p &quot;$FM_TASK_INBOX/h…)
+  ⎿  001.msg
+
+● DONE
+
+✻ Worked for 4s · done 6:14 AM
+
+❯ : Firstmate instruction waiting: list &quot;$FM_TASK_INBOX&quot;/*.msg in your &#x27;doorbell.inbox&#x27; steering inbox, read and act
+  on each in numeric order, then mv each into its handled/.
+
+● Bash(ls &quot;$FM_TASK_INBOX&quot;/*.msg 2&gt;&amp;1; for f in &quot;$FM_TASK_INBOX&quot;/*.msg; do echo &quot;== $f&quot;; cat &quot;$f&quot;; done)
+  ⎿  ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/state/doorbell
+     .inbox/002.msg
+     == ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/state/doorb
+     … +6 lines (ctrl+o to expand)
+
+● Bash(printf &#x27;%s&#x27; &#x27;delayed&#x27; &gt;
+      &#x27;~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/delayed&#x27; &amp;&amp; mv
+      &quot;$FM_TASK_INBOX/002.msg&quot;…)
+  ⎿  001.msg
+     002.msg
+
+● DONE
+
+✻ Churned for 4s · done 6:14 AM
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · gh auth login for PR status · ← 3 agents
+                                                 Advisor Tool (experimental) is on and may use more tokens · /advisor
+                                                                                                                  /rc
+</pre>
+<h2>Claude handles both overlapping records</h2><p><a href="overlap-two-pane.txt">Raw capture</a></p><pre>  ⎿  ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/state/doorbell
+     .inbox/002.msg
+     == ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/state/doorb
+     … +6 lines (ctrl+o to expand)
+
+● Bash(printf &#x27;%s&#x27; &#x27;delayed&#x27; &gt;
+      &#x27;~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/delayed&#x27; &amp;&amp; mv
+      &quot;$FM_TASK_INBOX/002.msg&quot;…)
+  ⎿  001.msg
+     002.msg
+
+● DONE
+
+✻ Churned for 4s · done 6:14 AM
+
+❯ : Firstmate instruction waiting: list &quot;$FM_TASK_INBOX&quot;/*.msg in your &#x27;doorbell.inbox&#x27; steering inbox, read and act
+  on each in numeric order, then mv each into its handled/.
+
+● Bash(for f in &quot;$FM_TASK_INBOX&quot;/*.msg; do echo &quot;== $f&quot;; cat &quot;$f&quot;; done)
+  ⎿  == ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/state/doorb
+     ell.inbox/003.msg
+     schema=fm-task-inbox.v1
+     … +11 lines (ctrl+o to expand)
+
+● Bash(H=~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home
+      printf &#x27;%s&#x27; &#x27;overlap-one&#x27; &gt; &quot;$H/overlap-one&quot; &amp;&amp; mv &quot;$FM_TASK_IN…)
+  ⎿  001.msg
+     002.msg
+     003.msg
+     004.msg
+
+● DONE
+
+✻ Brewed for 5s · done 6:15 AM
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · gh auth login for PR status · ← 3 agents                        /rc
+</pre>
+<h2>Foreign unsent draft remains intact</h2><p><a href="foreign-draft-pane.txt">Raw capture</a></p><pre>     ell.inbox/005.msg
+     schema=fm-task-inbox.v1
+     … +4 lines (ctrl+o to expand)
+
+● Bash(H=~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home
+      printf &#x27;%s&#x27; &#x27;never-submitted&#x27; &gt; &quot;$H/never-submitted&quot; &amp;&amp; mv &quot;$FM…)
+  ⎿  001.msg
+     002.msg
+     003.msg
+     … +2 lines (ctrl+o to expand)
+
+● DONE
+
+✻ Churned for 5s · done 6:15 AM
+
+❯ : Firstmate instruction waiting: list &quot;$FM_TASK_INBOX&quot;/*.msg in your &#x27;doorbell.inbox&#x27; steering inbox, read and act
+  on each in numeric order, then mv each into its handled/.
+
+● Bash(for f in &quot;$FM_TASK_INBOX&quot;/*.msg; do echo &quot;== $f&quot;; cat &quot;$f&quot;; done)
+  ⎿  == ~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home/state/doorb
+     ell.inbox/006.msg
+     schema=fm-task-inbox.v1
+     … +11 lines (ctrl+o to expand)
+
+● Bash(H=~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home
+      printf &#x27;%s&#x27; &#x27;reclaim-one&#x27; &gt; &quot;$H/reclaim-one&quot; &amp;&amp; mv &quot;$FM_TASK_IN…)
+  ⎿  001.msg
+     002.msg
+     003.msg
+     … +4 lines (ctrl+o to expand)
+
+● DONE
+
+✻ Cogitated for 5s · done 6:15 AM
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ MY UNSENT HUMAN DRAFT --literal
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · gh auth login for PR status                                     /rc
+</pre>
+</html>

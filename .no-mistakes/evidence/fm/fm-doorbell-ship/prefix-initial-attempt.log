@@ -1,0 +1,7 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M68YZ3V3MCTBD3KN3E967737/.doorbell-lab/home
+VERSIONS: herdr 0.9.5
+2.1.316 (Claude Code)
+LAB session=fm-lab-dg pane=w1:p1 claude_pid=1147498
+PREFIX_HOLD no_enter_before_remainder=true
+RING 001.msg rc=2 reason=payload-not-shown
+TEARDOWN exit=1
