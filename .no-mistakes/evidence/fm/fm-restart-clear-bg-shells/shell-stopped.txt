@@ -1,7 +1,7 @@
 
  ▐▛███▛█   Claude Code v2.1.316
 ▝▜██████▀  Haiku 5.5 with low effort · Claude Ultra
- ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M6A1RBDBTX6W12NDNV591RNK/.no-mistakes/restart-bg-shells-live.hAHtzr/worktree
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M6A537XCX37RCJF1C26J6ASG/.no-mistakes/restart-bg-shells-live.QtMeDB/worktree
 
   Get to finished work sooner with Opus 5.5. Switch anytime with /model.
 
@@ -12,7 +12,7 @@
 
 ● READY
 
-✻ Sautéed for 4s · done 4:05 PM
+✻ Crunched for 3s · done 4:38 PM
 
 ❯ Also stop every background shell you started that is still running, because a running one holds the exit open on a confirmation and the restart stops it anyway; leave any other
   background work alone. Then reply with one word.
@@ -20,9 +20,6 @@
 ● Stop Task
   ⎿  sh -c 'echo $$ > background.pid; exec sleep 300' · stopped
 
-● Stopped.
-
-✻ Baked for 3s · done 4:05 PM
 
 
 
@@ -38,8 +35,11 @@
 
 
 
+
+✽ Cerebrating… (4s · ↓ 228 tokens · thought for 1s)
+  ⎿  Tip: Working on a plan or design doc? Ask Claude to publish it as an artifact — a polished web page you can open in your browser.
                                                            You've used 87% of your weekly limit · resets Nov 2, 5am (America/Vancouver) · /usage-credits to keep using Claude Code
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ❯ 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  ⏵⏵ don't ask on (shift+tab to cycle)
+  ⏵⏵ don't ask on (shift+tab to cycle) · esc to interrupt

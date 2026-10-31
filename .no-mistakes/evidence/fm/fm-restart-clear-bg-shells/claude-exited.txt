@@ -1,7 +1,7 @@
-bash-5.2$ bash '~/.no-mistakes/worktrees/049a88734b0e/01M6A1RBDBTX6W12NDNV591RNK/.no-mistakes/restart-bg-shells-live.hAHtzr/launch.sh'
+bash-5.2$ bash '~/.no-mistakes/worktrees/049a88734b0e/01M6A537XCX37RCJF1C26J6ASG/.no-mistakes/restart-bg-shells-live.QtMeDB/launch.sh'
 
 Resume this session with:
-claude --resume 6080fba7-ff76-4b0c-bf69-f4253c1c00cd
+claude --resume 8fa998bd-d0ec-47ee-a7ab-7f95fea5ce30
 bash-5.2$
 
 

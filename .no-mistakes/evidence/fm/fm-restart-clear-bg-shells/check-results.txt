@@ -1,0 +1,8 @@
+Observed child exit statuses (all children awaited):
+composer portable regression: 0
+restart portable regression, repository-local TMPDIR: 1 (fixture home nesting rejected)
+restart portable regression, default test temporary directory: 0
+existing real Claude background-shell live guard: 0
+real Claude guard with isolated restart prerequisite probe: 0
+restart CLI within prerequisite probe: 3 (delivery refused by gate; not a cleanup-timeout verdict)
+Both live guards stopped their private tmux servers and removed lab homes through EXIT cleanup. No matching lab/test child remained at final process inspection. Repository-local temporary test/cache files and socket paths were removed. No source changes.

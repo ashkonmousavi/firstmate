@@ -1,0 +1,3 @@
+unreached: lab-bg: the request to write down its open work could not be delivered: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git); the re-read message could not be delivered either: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+restart CLI exit status: 3
