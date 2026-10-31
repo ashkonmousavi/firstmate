@@ -167,6 +167,7 @@ A relaunch of such a record recreates the copy instead of reusing one; the relea
   Only tmux and herdr recreate a released copy; Orca, cmux and zellij refuse by name.
 - **Admission and allocation.** `fm-spawn --relaunch` opens the new endpoint in the project and allocates the copy through the fresh path's `treehouse get`, isolation check and slot claim, under the same project capacity admission and Treehouse project lock a fresh worker takes.
   A full project or a held project lock defers with exit 75 and changes nothing.
+  The backlog item teardown held "awaiting merge <pull request>" (kind external) is accepted, and that exact hold is lifted at the launch commit point so the item goes back In flight only once the worker is launched; any other hold, including a captain hold, refuses as before.
 - **Branch.** The branch is fetched from the one remote whose URL addresses the pull request's project and must contain the released head; a tip that moved on is accepted only as a descendant of that head and, when the forge reports a head, only when it is that head.
   The copy is checked out on the branch itself, tracking that remote, and must be clean.
 - **Note and record.** Only after that does `fm-spawn` append the progress note, which says the copy was recreated from the branch at the commit actually checked out and that uncommitted files, ignored files and a no-mistakes run's local state were not carried over.

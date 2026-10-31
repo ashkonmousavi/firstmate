@@ -694,6 +694,54 @@ test_spawn_relaunch_of_a_released_copy_gates_its_endpoint() {
   pass "fm-spawn --relaunch of a released copy accepts its missing tmux window and refuses an existing or live one"
 }
 
+# Teardown held the released item "awaiting merge <pr>". The relaunch lifts
+# exactly that hold, and only once its worker is launched; any other hold
+# refuses, and a relaunch that fails first leaves the hold where it was.
+backlog_held() {  # <case-dir> <id>
+  tasks-axi show "$2" --file "$1/home/data/backlog.md" 2>/dev/null | sed -n 's/^  held: *//p' | head -1
+}
+
+test_released_relaunch_lifts_only_the_merge_hold_teardown_set() {
+  local dir out rc meta why
+  for why in teardown-hold captain-hold failed-launch; do
+    dir=$(new_case "released-hold-$why" rr11)
+    add_released_ship_task "$dir" rr11
+    seed_backlog "$dir" rr11 in_flight
+    case "$why" in
+      captain-hold)
+        tasks-axi hold rr11 --kind captain --reason "awaiting merge https://github.com/example/repo/pull/7" \
+          --file "$dir/home/data/backlog.md" >/dev/null
+        ;;
+      *)
+        tasks-axi hold rr11 --kind external --reason "awaiting merge https://github.com/example/repo/pull/7" \
+          --file "$dir/home/data/backlog.md" >/dev/null
+        ;;
+    esac
+    [ "$why" != failed-launch ] || git -C "$dir/origin.git" branch -q -D fm/rr11
+    meta=$(cat "$dir/home/state/rr11.meta")
+    out=$(run_control "$dir" rr11 relaunch --note "held"); rc=$?
+    case "$why" in
+      teardown-hold)
+        expect_code 0 "$rc" "teardown-hold: the released relaunch should lift teardown's own merge hold"$'\n'"$out"
+        [ "$(backlog_state "$dir" rr11)" = in_flight ] || fail "teardown-hold: the item is not In flight"
+        [ "$(backlog_held "$dir" rr11)" = no ] || fail "teardown-hold: the merge hold was not lifted"
+        ;;
+      captain-hold)
+        [ "$rc" -ne 0 ] || fail "captain-hold: a captain hold must refuse the released relaunch"
+        assert_contains "$out" "not dispatchable" "captain-hold: the refusal should name the hold"
+        [ "$(backlog_held "$dir" rr11)" = yes ] || fail "captain-hold: the captain hold was lifted"
+        [ "$(cat "$dir/home/state/rr11.meta")" = "$meta" ] || fail "captain-hold: the released record changed"
+        ;;
+      failed-launch)
+        [ "$rc" -ne 0 ] || fail "failed-launch: the relaunch should fail without its branch"
+        [ "$(backlog_held "$dir" rr11)" = yes ] || fail "failed-launch: a failed relaunch lifted the merge hold"
+        [ "$(cat "$dir/home/state/rr11.meta")" = "$meta" ] || fail "failed-launch: the released record changed"
+        ;;
+    esac
+  done
+  pass "a released relaunch lifts teardown's merge hold only at launch and refuses any other hold"
+}
+
 test_released_copy_frees_its_seat_and_the_relaunch_holds_one() {
   local dir out rc
   dir=$(new_case released-seat rr7)
@@ -3724,4 +3772,5 @@ test_released_copy_relaunch_retry_adds_no_second_note
 test_concurrent_released_relaunches_serialise
 test_spawn_relaunch_of_a_released_copy_gates_its_endpoint
 test_herdr_relaunch_of_a_released_copy_recreates_it
+test_released_relaunch_lifts_only_the_merge_hold_teardown_set
 test_released_copy_frees_its_seat_and_the_relaunch_holds_one

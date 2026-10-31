@@ -796,6 +796,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-relaunch-note-lib.sh
 . "$SCRIPT_DIR/fm-relaunch-note-lib.sh"
+# shellcheck source=bin/fm-hold-reason-lib.sh
+. "$SCRIPT_DIR/fm-hold-reason-lib.sh"
 # shellcheck source=bin/fm-dod-lib.sh
 . "$SCRIPT_DIR/fm-dod-lib.sh"
 # shellcheck source=bin/fm-role-lib.sh
@@ -1461,6 +1463,7 @@ RELEASED_BRANCH=
 RELEASED_PR=
 RELEASED_FORGE_HEAD=
 RELEASED_RECREATED_HEAD=
+RELEASED_LIFT_HOLD=0
 SPAWN_TASK_TMP_CREATED=0
 RELAUNCH_REPLACEMENT_PENDING=0
 RELAUNCH_REPLACEMENT_BUSY_GEN=
@@ -1598,6 +1601,24 @@ released_recreate_branch() {
     return 1
   fi
   RELEASED_RECREATED_HEAD=$tip
+}
+
+# Is this task's backlog item held by exactly the hold bin/fm-teardown.sh put
+# on it when it released the copy - kind external, reason "awaiting merge
+# <released pull request>" - and otherwise dispatchable? Any other hold,
+# including a captain hold, is not, and keeps refusing the relaunch.
+released_backlog_hold_is_teardown_own() {
+  local data out reason
+  case "$BACKLOG_ROW_STATE" in
+    'in_flight yes no' | 'queued yes no') ;;
+    *) return 1 ;;
+  esac
+  [ "$FM_BACKLOG_ROW_HOLD_KIND" = external ] || return 1
+  data=$(fm_backlog_data_absolute "$DATA") || return 1
+  out=$(fm_backlog_row_show "$data" "$ID") || return 1
+  reason=$(printf '%s\n' "$out" | fm_hold_reason_decode_stream toon | sed -n 's/^  hold_reason: *//p' | head -1)
+  case "$reason" in \"*\") reason=${reason#\"}; reason=${reason%\"} ;; esac
+  [ "$reason" = "awaiting merge $RELEASED_PR" ]
 }
 
 # Appends the progress note fm-control handed over, now that the copy exists
@@ -4377,6 +4398,10 @@ if fm_backlog_transition_applies "$CONFIG" "$DATA" "$KIND"; then
       echo "error: spawn refused - the supervision branch under the away-posture record may dispatch only queued unblocked work (already queued, or filed by the branch from the captain's away words); task $ID has no dispatchable backlog item in this home" >&2
       exit 1
     fi
+  elif [ "$RELAUNCH_FROM_RELEASED" = 1 ] && released_backlog_hold_is_teardown_own; then
+    # Lifted only at the commit point below, once the worker is launched, so
+    # every refusal before then leaves the item held exactly as teardown left it.
+    RELEASED_LIFT_HOLD=1
   elif ! fm_backlog_row_dispatchable "$BACKLOG_ROW_STATE"; then
     echo "error: this home's backlog item $ID is not dispatchable in state $BACKLOG_ROW_STATE; refusing before creating its endpoint or local copy" >&2
     exit 1
@@ -6198,6 +6223,15 @@ fi
 # point below so every earlier launch-delivery failure remains unwindable.
 spawn_commit_backlog_transition() {
   [ "$BACKLOG_TRANSITION" = 1 ] || return 0
+  if [ "$RELEASED_LIFT_HOLD" = 1 ]; then
+    # A released relaunch's worker is launched: lift teardown's own merge hold,
+    # rechecked under this meta lock, so the item can go back In flight.
+    fm_backlog_row_probe "$DATA" "$ID" || return 1
+    BACKLOG_ROW_STATE=$FM_BACKLOG_ROW_STATE
+    if released_backlog_hold_is_teardown_own; then
+      fm_backlog_mutate "$DATA" unhold "$ID" || return 1
+    fi
+  fi
   fm_backlog_atomic_transition dispatch "$STATE/$ID.meta" "$DATA" "$ID" "$STATE"
 }
 
