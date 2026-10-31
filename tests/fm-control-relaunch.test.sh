@@ -2922,6 +2922,10 @@ case "${1:-} ${2:-}" in
         : > "$D/herdr-agent-live" ;;
     esac
     exit 0 ;;
+  'pane run')
+    # A released relaunch allocates its copy through the pane's shell.
+    [ "${4:-}" != 'treehouse get' ] || [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd"
+    exit 0 ;;
   'workspace list')
     printf '{"result":{"workspaces":[]}}\n'
     exit 0 ;;
@@ -3018,6 +3022,36 @@ herdr_case_or_skip() {  # <name> <id> [session] [surviving-pane]
   add_herdr_ship_task "$HERDR_CASE_DIR" "$2" "${3:-fmlab}" "${4:-%7}"
   make_herdr_stub "$HERDR_CASE_DIR"
   return 0
+}
+
+test_herdr_relaunch_of_a_released_copy_recreates_it() {
+  local dir out rc=0 head
+  command -v jq >/dev/null 2>&1 || {
+    echo "skip - herdr relaunch needs jq (the herdr adapter parses JSON with it)"
+    return 0
+  }
+  dir=$(new_case released-herdr rr10)
+  add_released_ship_task "$dir" rr10
+  make_herdr_stub "$dir"
+  head=$(cat "$dir/fake/pr-head")
+  awk '
+    /^window=/ { print "window=fmlab:%7"; next }
+    /^pr=/ { print "backend=herdr"; print "herdr_session=fmlab"; print "herdr_workspace_id=ws1"
+             print "herdr_tab_id=tab1"; print "herdr_pane_id=%7" }
+    { print }
+  ' "$dir/home/state/rr10.meta" > "$dir/home/state/rr10.meta.new"
+  mv "$dir/home/state/rr10.meta.new" "$dir/home/state/rr10.meta"
+  # Teardown closed the pane: it does not come back with its server.
+  printf '%s' '%none' > "$dir/fake/herdr-pane"
+  : > "$dir/fake/herdr-log"
+  : > "$dir/fake/herdr-stopped"
+  out=$(run_control "$dir" rr10 relaunch --note "herdr pick-up") || rc=$?
+  expect_code 0 "$rc" "a released herdr copy should be recreated and relaunched"$'\n'"$out"
+  [ "$(meta_field "$dir" rr10 worktree)" = "$dir/pool/1/repo" ] || fail "the herdr record does not name the new copy"
+  [ "$(meta_field "$dir" rr10 herdr_pane_id)" = '%9' ] || fail "the herdr record does not name the new pane"
+  [ "$(git -C "$dir/pool/1/repo" rev-parse HEAD)" = "$head" ] || fail "the new herdr copy is not at the released head"
+  [ "$(released_note_count "$dir" rr10)" = 1 ] || fail "the herdr relaunch should leave exactly one recreated-copy note"
+  pass "herdr: relaunch of a released copy recreates it in a new pane and claimed slot"
 }
 
 test_herdr_relaunch_resumes_only_the_registered_pi_session() {
@@ -3689,4 +3723,5 @@ test_released_copy_relaunch_defers_without_a_free_lane
 test_released_copy_relaunch_retry_adds_no_second_note
 test_concurrent_released_relaunches_serialise
 test_spawn_relaunch_of_a_released_copy_gates_its_endpoint
+test_herdr_relaunch_of_a_released_copy_recreates_it
 test_released_copy_frees_its_seat_and_the_relaunch_holds_one
