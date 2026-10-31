@@ -25,13 +25,14 @@
 # bin/fm-remote-doctor.sh owns that host's readiness for Herdr.
 # docs/remote-secondmates.md owns why.
 #
-# With <parent-commit>, sync follows the PARENT PRIMARY's default-branch commit,
+# With <parent-commit>, sync follows the PARENT PRIMARY's fleet-branch commit
+# (selection: bin/fm-ff-lib.sh fleet_branch),
 # which the parent resolves on its own checkout and passes in, so a remote home
 # tracks the primary exactly like a local one instead of stopping at whatever
 # this host's Firstmate copy happens to hold. Omitting <parent-commit> targets
-# this host's own code-root HEAD instead, which is what /updatefirstmate wants
-# after it has refreshed that
-# code root from origin. With <branch> <commit>, update pins that refresh to the
+# this host's own code-root HEAD instead, as an unpinned host-local update does
+# after refreshing that code root from origin.
+# With <branch> <commit>, update pins that refresh to the
 # parent's update target, so the code root and this home land on the commit the
 # parent chose for its whole fleet (bin/fm-update.sh owns the target and the
 # handoff). Because this home is a standalone clone, the target

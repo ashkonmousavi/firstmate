@@ -526,7 +526,7 @@ It restarts every live second mate whose home the pass left on the target commit
 The target is one commit resolved once on the running repo through `bin/fm-ff-lib.sh`'s `fleet_branch`, and every home is held to that same commit.
 For a remote route, the configured code root updates from its own origin on that host to the parent's target commit before the persistent home fast-forwards to it, and each remote step is time-bounded so one unreachable host cannot hold the pass.
 The primary update is fast-forward only, while a clean secondmate divergence may reconcile with `reset --keep` only when a three-way temporary-index proof shows its complete local tree result is already present at the target, including after a squash merge.
-Dirty, uniquely diverged, offline, and off-default targets are reported and left untouched, and genuine secondmate divergence remains visible through a durable reconciliation record until a later successful convergence clears it.
+Dirty, uniquely diverged, offline, and wrong-branch targets are reported and left untouched, and genuine secondmate divergence remains visible through a durable reconciliation record until a later successful convergence clears it.
 Local homes share the guarded fast-forward helper, while remote updates delegate the same safety decision to the configured host through the generic transport.
 The procedure and outcome vocabulary are owned by the [`/updatefirstmate` skill](../.agents/skills/updatefirstmate/SKILL.md); the relevant script headers own the mechanics.
 

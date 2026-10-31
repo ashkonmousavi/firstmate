@@ -17,9 +17,9 @@
 # dirs (data/, state/, config/, projects/, .no-mistakes/), so a secondmate's
 # in-flight work is never disrupted. Worktrees of this repo share one object
 # store, so a single fetch refreshes them all; standalone-clone homes are
-# fetched on their own. Secondmate homes are leased at a detached HEAD on the
-# default branch, so a fast-forward there advances HEAD only and never touches
-# any other worktree's checkout or the shared `main` branch.
+# fetched on their own. Locally leased secondmate homes use a detached HEAD,
+# so a fast-forward there advances HEAD only and never touches
+# any other worktree's checkout or the shared fleet branch.
 #
 # The fast-forward mechanics live in bin/fm-ff-lib.sh (base_mode "origin" here);
 # the same library drives local and remote parent-targeted secondmate sync, so
@@ -31,10 +31,10 @@
 #   - one status line per target (updated/already current/skipped)
 #   - reread-firstmate: yes|no    (did the running firstmate's instructions change)
 #   - restart-secondmates: fm-<id>...|none (every live secondmate this pass left
-#     on origin's tip - advanced OR already there - whose recorded runtime can
+#     on the resolved target - advanced OR already there - whose recorded runtime can
 #     prove a restart)
 #   - nudge-secondmates: fm-<id>...|none   (the residual: live secondmates on
-#     that same tip whose runtime CANNOT prove a restart, so the older re-read
+#     that same target whose runtime CANNOT prove a restart, so the older re-read
 #     steer is all that is honest for them)
 #
 # The two sets are disjoint, and restart is UNCONDITIONAL on a successful update
@@ -76,6 +76,9 @@
 # FM_UPDATE_TARGET_BRANCH and FM_UPDATE_TARGET_COMMIT, set together, replace the
 # local target resolution with a parent's: bin/fm-remote-secondmate-control.sh
 # update passes the parent's target this way when it updates a host's code root.
+# If local target resolution fails, the pass exits before updating any home.
+# A host rejecting the pinned update with status 2 is named as requiring a
+# manual update; it receives no unpinned retry, restart, or nudge.
 #
 # Usage: fm-update.sh [--help]
 set -eu
@@ -150,7 +153,7 @@ if [ "$FF_STATUS" = "updated" ]; then
 fi
 
 # --- secondmates -----------------------------------------------------------
-# Every live secondmate this pass leaves on origin's tip is restarted, whether it
+# Every live secondmate this pass leaves on the resolved target is restarted, whether it
 # advanced or was already there. The header above owns why the git diff does not
 # gate that, and which two conditions - a skipped home, an unprovable runtime -
 # are the only ways a live mate stays out of the restart set.

@@ -32,10 +32,10 @@
 # happens after an upstream squash merge. Every other divergence stays put and
 # records an inspectable state/.secondmate-update-reconcile/<id>.pending marker
 # in the supervising home until a later successful convergence clears it.
-# Locally leased homes start at a detached HEAD on the default branch, so their
-# fast-forward advances HEAD only and never moves the shared default branch or
+# Locally leased homes use a detached HEAD, so their
+# fast-forward advances HEAD only and never moves the shared fleet branch or
 # any other worktree's checkout. A standalone remote home may instead advance
-# its checked-out default branch under the same guard.
+# its checked-out fleet branch under the same guard.
 
 SUB_HOME_MARKER="${SUB_HOME_MARKER:-.fm-secondmate-home}"
 # shellcheck source=bin/fm-secondmate-registry-lib.sh
@@ -63,6 +63,9 @@ default_branch() {
   return 1
 }
 
+# Fleet branch selection: use curated when this checkout is on curated;
+# otherwise use default_branch (origin/HEAD, then local main or master).
+# Feature branches are never selected, even with a same-named origin upstream.
 fleet_branch() {
   local dir=$1 cur
   cur=$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
