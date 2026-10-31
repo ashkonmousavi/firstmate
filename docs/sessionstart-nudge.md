@@ -100,7 +100,7 @@ So `clear` or `compact` cannot skip startup sweeps after a truncated run.
 - A trusted same-session Claude id.
 
 So a proven `clear` or `compact` re-emit re-verifies ownership and proceeds.
-A lock another live session took meanwhile still produces the ordinary read-only digest.
+A lock another live session took meanwhile produces the ordinary read-only digest unless [idle fork-resume takeover](verification/supervision.md#idle-fork-resume-lock-handover) succeeds.
 
 ### Nudge wrapper on a run-tier harness
 

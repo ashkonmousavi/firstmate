@@ -393,8 +393,11 @@ FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=43472
 ```
 
 The recycled-helper-chain topology is documented by the real process listings in issues #3902, #2314, #3398, and #4066; the coverage above is the structural predicate plus those executable fixtures, not a live pass of that topology.
+
+### Idle fork-resume lock handover
+
 An idle fork-resume successor may take that lock.
-A same-process `/clear` from A to B retains A on row 2 of `.lock-session`, with B on row 1; confirming B preserves both rows.
+The [`bin/fm-lock.sh` header](../../bin/fm-lock.sh) owns the sidecar format, including retention of the prior session after a same-process `/clear`.
 Both recorded histories must each be one readable regular transcript, with no user or assistant turn after the successor forked and none in the last 30 minutes.
 The fork is this process's `--fork-session` plus `--resume` of either recorded session, or both histories as prefixes of the successor transcript with at least one shared turn.
 `bin/fm-lock.sh` records the handover after line 1 is verified; that script's header owns the JSON line.
@@ -421,28 +424,21 @@ The [live idle-holder guard](runtime-backends.md#idle-holder-takeover-live-guard
 A phone remote-continue is that fork-resume background copy of the idle terminal.
 A later fork-resume of the phone session takes the lock back when the phone transcript is quiet, and each completed switch leaves one recorded holder.
 A phone turn inside the last 30 minutes keeps the phone as that one holder.
-Idle fork-resume takeover and the one-time queued holder ask ran on 2026-10-31 on Linux with GNU bash 5.2.21 and Python 3.12.3:
-
-```sh
-bash tests/fm-session-lock-ancestry.test.sh
-bash tests/fm-main-backstop.test.sh
-```
-
-Observed output, bounded to the lines this coverage adds:
+The portable acquisition-boundary regression pauses publication with the predecessor alive and successor session published, probes both ownership verdicts, and verifies committed ownership for startup and Stop.
+The focused portable checks ran on 2026-10-31 on Linux with GNU bash 5.2.21 and Python 3.12.3, after `mkdir -p .review-evidence/tmp`, using `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-ancestry.test.sh`, `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-main-backstop.test.sh` and `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-claude-stop-autoarm.test.sh` (all exit 0).
+The prior-session matrix covers 18 startup/Stop cases; the sweep regression separately checks Stop and generation admission after six-second holds.
+Their output included:
 
 ```text
-ok - session-lock: a fork-resume successor of an idle holder takes the lock and records the handover
-ok - session-lock: Linux /proc argv proves an idle fork-resume when the successor transcript is absent
-ok - session-lock: a holder with a turn in the last 30 minutes is not taken over
-ok - session-lock: a missing or symlinked holder transcript is not taken over
-ok - session-lock: a shared transcript prefix takes an idle lock, and a diverged transcript does not
-ok - session-lock: a Stop hook of an idle fork-resume successor takes the lock
+ok - session-lock: a partial lease move rolls back and keeps both actors excluded
 ok - session-lock: phone and terminal switches leave exactly one holder
 ok - session-lock: startup and Stop serialize ownership, reject new turns, and roll back every interrupted takeover
-test_foreground_holder_is_also_queued_once_after_fifteen_minutes (__main__.Backstop.test_foreground_holder_is_also_queued_once_after_fifteen_minutes) ... ok
-test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked (__main__.Backstop.test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked) ... ok
-test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes (__main__.Backstop.test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes) ... ok
-Ran 74 tests in 160.205s
+ok - session-lock: rekey A to empty B retains A; startup and Stop accept A or B and reject unrelated, recent, missing, or changed histories
+ok - session-lock: a bounded sweep longer than five seconds preserves Stop and generation admission
+test_handover_before_report_uses_reported_pid_for_deduplication (__main__.Backstop.test_handover_before_report_uses_reported_pid_for_deduplication) ... ok
+test_reused_nonharness_pid_keeps_stale_lock_recovery (__main__.Backstop.test_reused_nonharness_pid_keeps_stale_lock_recovery) ... ok
+test_unknown_holder_report_preserves_deduplicated_episode (__main__.Backstop.test_unknown_holder_report_preserves_deduplicated_episode) ... ok
+Ran 77 tests in 154.303s
 OK
 ```
 
