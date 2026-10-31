@@ -514,6 +514,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "docs/verification/machine-admission-psi-window.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "docs/verification/muse.md",
       "audience": "maintainer-verification"
     },

@@ -1361,6 +1361,8 @@ When `memory_full_avg300_max` is set, memory full PSI avg300 must also remain be
 Several workers running test suites at once raise avg60 for about a minute while avg300 and available memory stay healthy, so a policy without the five-minute limit refuses workers on those bursts.
 For example, `"memory_full_avg300_max": 5` with `"memory_full_avg60_max": 25` tolerates a test burst but still refuses pressure sustained over five minutes or a burst that stalls a quarter of the last minute, while the memory floor still refuses genuine shortage.
 Without the optional field the avg60 rule alone applies, unchanged.
+The [machine-admission PSI-window verification](verification/machine-admission-psi-window.md) records real-machine refusal comparisons, remaining laptop refusals, and the commands to repeat the measurement.
+The window change takes effect on a host only after its config adds `memory_full_avg300_max` and adjusts the avg60 ceiling.
 Missing or malformed policy, pressure or disk evidence refuses admission rather than treating the machine as healthy.
 CPU utilization and load average do not gate admission.
 The shared `bin/fm-machine-resources.py` reader bounds host MemAvailable by every finite cgroup memory.high/memory.max minus max(memory.current - inactive_file, 0), using the same hard-floor calculation as private consumers.
