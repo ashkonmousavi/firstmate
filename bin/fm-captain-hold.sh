@@ -19,6 +19,9 @@
 # directory the way bin/fm-backlog-transition-lib.sh does, which keeps main-home
 # and secondmate-home ownership aligned with the work that discovered the call.
 #
+# A wait that is firstmate's own (a date, a freeze, another task) is NOT a captain call: hold it with
+# `fm-tasks-axi.sh hold <id> --reason "<text>" --kind external --until YYYY-MM-DD`, never with this script.
+#
 # Usage:
 #   fm-captain-hold.sh hold <task-id> --reason <reason> \
 #     [--title <title>] [--repo <repo>] [--origin <origin-id>] \
