@@ -74,7 +74,28 @@ case "$1 $2" in
     touch "$DIR/terminal-closed"
     exit 0
     ;;
+  "terminal read")
+    # Once a codex launch line was sent, the pane shows codex's busy row: the
+    # first turn bin/fm-spawn.sh's positional first-turn gate waits for.
+    if [ -e "$DIR/codex-launched" ]; then
+      printf '{"ok":true,"result":{"text":"• Working (1s • esc to interrupt)"}}\n'
+    else
+      printf '{"ok":true,"result":{"text":""}}\n'
+    fi
+    exit 0
+    ;;
   "terminal send")
+    for a in "$@"; do
+      case "$a" in
+        *"'"*/launch.*)
+          staged=${a#*"'"}
+          staged=${staged%%"'"*}
+          if [ -f "$staged" ] && grep -q -e '--dangerously-bypass-approvals-and-sandbox' "$staged"; then
+            touch "$DIR/codex-launched"
+          fi
+          ;;
+      esac
+    done
     if [ -n "${FM_TEST_ORCA_LOG:-}" ]; then
       prev=
       for a in "$@"; do
@@ -292,6 +313,7 @@ for name in names:
  print('-'+name if value is None else name+'='+value)
 EOF
     chmod +x "$fb/tmux"
+    fm_test_codex_first_turn_wrap "$fb"
     out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" HOME="$case_dir/user-home" \
       FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
       FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
@@ -421,6 +443,7 @@ fi
 exec "$real_axi" "\$@"
 SH
   chmod +x "$fb/tmux" "$fb/tasks-axi"
+  fm_test_codex_first_turn_wrap "$fb"
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" HOME="$case_dir/user-home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
@@ -463,6 +486,7 @@ EOF
   fb=$(make_orca_fakebin "$case_dir")
   printf '#!/bin/sh\necho "GH_TOKEN=synthetic-token"\n' > "$fb/tmux"
   chmod +x "$fb/tmux"
+  fm_test_codex_first_turn_wrap "$fb"
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" HOME="$case_dir/user-home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
@@ -517,6 +541,7 @@ fi
 exec "$real_rm" "\$@"
 SH
   chmod +x "$fb/tmux" "$fb/rm"
+  fm_test_codex_first_turn_wrap "$fb"
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" HOME="$case_dir/user-home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
@@ -560,6 +585,7 @@ EOF
   fb=$(make_orca_fakebin "$case_dir")
   printf '#!/bin/sh\necho "GH_TOKEN=synthetic-token"\n' > "$fb/tmux"
   chmod +x "$fb/tmux"
+  fm_test_codex_first_turn_wrap "$fb"
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" HOME="$case_dir/user-home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
@@ -610,6 +636,7 @@ EOF
       fb=$(make_orca_fakebin "$case_dir")
       printf '#!/bin/sh\necho "GH_TOKEN=synthetic-interrupt-token"\n' > "$fb/tmux"
       chmod +x "$fb/tmux"
+      fm_test_codex_first_turn_wrap "$fb"
       # A background job ignores SIGINT on entry; restore the default so the
       # spawn receives INT as an interactive caller would deliver it.
       FM_ROOT_OVERRIDE='' FM_HOME="$home" HOME="$case_dir/user-home" \
@@ -709,6 +736,7 @@ fi
 exec /bin/sleep "\$@"
 SH
     chmod +x "$fb/tmux" "$fb/sleep"
+    fm_test_codex_first_turn_wrap "$fb"
     FM_ROOT_OVERRIDE='' FM_HOME="$home" HOME="$case_dir/user-home" \
       FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
       FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
@@ -756,6 +784,7 @@ test_orca_snapshot_keeps_raw_bytes_tmux_reports() {
 printf 'GH_TOKEN=raw-\377\376-'"'"'q\n'
 EOF
   chmod +x "$fb/tmux"
+  fm_test_codex_first_turn_wrap "$fb"
   printf 'raw-\377\376-'"'"'q' > "$case_dir/expected"
   # shellcheck disable=SC2016 # The child shell expands its own arguments.
   assignments=$(PATH="$fb:$PATH" bash -c '. "$1"; fm_backend_orca_launch_env_args scoped GH_TOKEN' _ "$ROOT/bin/backends/orca.sh") \

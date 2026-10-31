@@ -176,6 +176,7 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   fm_test_machine_policy "$FM_HOME/config"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_ROOT/fakebin/tmux"
   chmod +x "$TMP_ROOT/fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$TMP_ROOT/fakebin"
   mkfifo "$TMP_ROOT/shell-input" "$TMP_ROOT/shell-ready"
   exec 3<> "$TMP_ROOT/shell-input"
   bash -c 'cd "$1"; printf "ready\n"; read -r _' bash "$TMP_ROOT/shell-worktree" \
@@ -222,6 +223,7 @@ fi
 exec "${BASH_SOURCE[0]%/*}/tmux-original" "$@"
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   export FM_FAKE_PANE_COMMAND=bash FM_FAKE_LAUNCH_LOG="$case_dir/launch.log"
   out=$(fm_test_run_spawn "$relaunch_home" "$case_dir/wt-capacity-a" "$fakebin" \
     capacity-a "$case_dir/project-capacity-a" --mode no-mistakes --yolo off); rc=$?

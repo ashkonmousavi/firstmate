@@ -882,6 +882,105 @@ It captures the launch `bin/fm-spawn.sh` actually builds, replays those exact fl
 It spends no model tokens, so it runs by default wherever Codex is installed.
 The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the split the launch template makes: a crewmate launches hook-free while a secondmate, which runs a primary session on this repository's own project hooks, keeps them.
 
+## Codex launch brief
+
+Verified 2026-10-31 on codex-cli 0.164.0 and 0.166.0, Linux x86_64 (PC, WSL2), with the real installed Codex on an isolated tmux server (`tmux -L <private socket>`), launched with the crewmate template's flags and a 73 KB multi-line `launch-brief` envelope from `bin/fm-operational-input.sh encode launch-brief`:
+
+```text
+codex -m gpt-6-astra -c 'model_reasoning_effort="xhigh"' --dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[...]" "$(bin/fm-operational-input.sh encode launch-brief < brief.md)"
+```
+
+Codex runs the positional launch prompt as its first turn, but only after session startup (shell snapshot and MCP server startup) finishes.
+With this machine's MCP servers that took 37 s on 0.166.0 and 45 s on 0.164.0 in the probe, and 42 s and 74 s for two real Firstmate scout launches on 0.164.0, whose Codex session records show the full launch brief as turn 1 at `reasoning_effort=xhigh`.
+Until the first turn starts the pane shows an empty composer and the footer reads `<model> default`; the footer switches to the requested effort (`GPT-6-Astra xhigh`) when the turn starts, so `default` in that window is a placeholder, not the applied effort.
+A new folder first shows the trust dialog below; after Enter the positional prompt still runs.
+A positional launch never showed the update dialog, while a bare launch on 0.164.0 with an update pending did.
+
+A standard Codex launch therefore carries the brief positionally, and `bin/fm-spawn.sh`'s first-turn gate confirms it: it polls, bounded at about 120 s (`FM_CODEX_FIRST_TURN_POLLS` x `FM_CODEX_POLL_INTERVAL`), until the verified `esc to interrupt` busy row or a `Worked for <t>` turn summary appears, either one alone being enough.
+On a backend with viewport-bounded capture it answers the launch dialogs on the way (Enter for the trust dialog's preselected `1. Trust and continue`, Escape for the update dialog whose Enter would run `npm install -g @openai/codex`); a backend without it (Orca, cmux, or Paseo) is read through its bounded capture and never sent a key.
+Codex persists the folder-trust answer itself, so later launches in the same folder skip that dialog.
+Escape skips the update dialog for this launch only; the persistent `Skip until next version` choice remains the operator's own decision.
+The update gate matches the option rows rather than the `Update available` heading, because that heading also appears in the persistent post-skip banner over a ready composer.
+A timeout reports "codex did not take the brief".
+
+`FM_CODEX_TYPED_LAUNCH=1` selects the typed path instead (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict): codex starts bare, and the typed-brief gates wait (bounded, two consecutive empty-composer classifications through the shared classifier) for the ready composer, answering the same dialogs on the way.
+They then submit the one-line `\u2063FIRSTMATE_OP: v1 launch-brief: Read the brief at <data/<id>/launch-brief.md> and follow it exactly. Launch receipt: <unique-receipt>.` envelope through `fm_backend_send_text_submit`, and confirm the turn started from the busy footer appearing in the current viewport after readiness established an idle viewport, or a `Worked for <t>` completion row following this submission's unique launch receipt in the captured transcript.
+The typed path requires verified viewport-bounded capture and is refused at preflight on a backend without it.
+Its 2026-10-27 live result on codex-cli 0.163.0 (below) was taken with a fast session startup; on a machine whose startup takes tens of seconds the composer reads empty before the session is ready, which is why typed delivery is not the default.
+A secondmate uses the same transport choice for its charter while preserving its primary hooks; an unresolved hook-review modal times out instead of being answered.
+A caller-supplied raw launch command bypasses both gates and owns its own brief delivery.
+
+Herdr-lab e2e: NOT RUN as of 2026-10-27; provisioning refused before Codex launched.
+The recorded provisioning command and exact refusal are:
+
+```text
+/home/zcrew/fm-home2/bin/fm-herdr-lab.sh provision <fm-lab-* session>
+fm-herdr-lab: fleet-state tripwire requires exactly one running default session
+```
+
+Firstmate owns the deferred Herdr proof on MAIN, on a machine whose default Herdr session is running.
+No Herdr pass is claimed, and this work does not start or stop a default session.
+`FM_CODEX_LIVE_E2E=1 FM_CODEX_TYPED_LAUNCH=1 bash tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` remains the live guard for the typed path on Herdr.
+`tests/fm-codex-harness.test.sh` covers the positional first-turn gate (busy-only and summary-only confirmation, timeout), current busy frames, immediate completion after the current receipt, rejection of old completion and busy text, and secondmate delivery with primary hooks preserved.
+Portable fixture results do not replace the deferred real-Herdr proof.
+
+Typed-path live evidence retained from 2026-10-27, codex-cli 0.163.0 on an isolated tmux server, a fresh treehouse worktree nobody had trusted (`tests/fm-codex-brief-typed-live-e2e.test.sh`, `FM_CODEX_LIVE_E2E=1`):
+
+```text
+ok - real codex codex-cli 0.163.0 on tmux: a new-folder scout starts processing its typed launch brief within 9s and answers it
+ok - real codex codex-cli 0.163.0 on tmux: the trusted-folder relaunch rendered no trust dialog
+ok - real codex codex-cli 0.163.0 on tmux: a trusted-folder relaunch starts processing its typed launch brief within 5s
+ok - real codex codex-cli 0.163.0 typed launch brief verified end to end on an isolated tmux server
+```
+
+The turn's pane shows the delivered envelope, the working row, and the reply:
+
+```text
+› FIRSTMATE_OP: v1 launch-brief: Read the brief at <...>/launch-brief.md and follow it exactly.
+• Working (1s • esc to interrupt)
+• codex-brief-ok
+  Worked for 6s • 2:39 AM
+```
+
+The dialogs the gate answered on the way, captured from the same version:
+
+```text
+  Folder access
+  <worktree path>
+
+  Trust this folder? Codex can read, edit, and run files here, subject to your permission settings. ...
+
+› 1. Trust and continue
+  2. Quit
+
+  enter continue · esc quit
+```
+
+```text
+  Update available · 0.163.0 → 0.164.0
+  Release notes: https://github.com/openai/codex/releases/latest
+
+› 1. Update now (runs `npm install -g @openai/codex`)
+  2. Skip
+  3. Skip until next version
+
+  enter continue · esc skip
+```
+
+`tests/fm-codex-brief-typed-live-e2e.test.sh` (isolated tmux server; the default positional launch, and the typed path with `FM_CODEX_TYPED_LAUNCH=1`) and `tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` (isolated Herdr lab session) are the commands that refresh this record.
+Both submit a brief, so both are opt-in (`FM_CODEX_LIVE_E2E=1`).
+Positional-path live result, 2026-10-31, codex-cli 0.166.0 on the PC (`FM_CODEX_LIVE_E2E=1 bash tests/fm-codex-brief-typed-live-e2e.test.sh`, isolated tmux server, fresh treehouse worktree):
+
+```text
+ok - real codex codex-cli 0.166.0 on tmux: a new-folder scout starts processing its positional launch brief within 42s and answers it
+ok - real codex codex-cli 0.166.0 on tmux: the trusted-folder relaunch rendered no trust dialog
+ok - real codex codex-cli 0.166.0 on tmux: a trusted-folder relaunch starts processing its positional launch brief within 51s
+ok - real codex codex-cli 0.166.0 positional launch brief verified end to end on an isolated tmux server
+```
+
+The Herdr-lab guard was not run for the positional path.
+The portable half, `tests/fm-codex-harness.test.sh`, pins the gate logic - first-turn confirmation, dialog answers, partial-draw safety, envelope text, unconfirmed-submit refusal, processing confirmation, and the typed path's viewport-capture preflight - against a state-machine fake with no model tokens.
+
 ## 2026-10-20 Grok weekly-limit border coverage
 
 The dedicated token-free guard requires the real weekly-limit border before checking empty and unsent typed input through the tmux wrapper and styled/plain cursorless reads.

@@ -742,6 +742,7 @@ case "${1:-}" in
 esac
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   "$ROOT/bin/fm-busy-event.sh" arm "$state" mate >/dev/null \
     || fail "could not arm the mate's busy contract"
 
@@ -804,6 +805,7 @@ case "${1:-}" in
 esac
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   "$ROOT/bin/fm-busy-event.sh" arm "$state" mate >/dev/null \
     || fail "could not arm the mate's busy contract"
   # Backdate AFTER arming, so nothing the arm writes refreshes the launch record
@@ -883,6 +885,7 @@ case "${1:-}" in
 esac
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 }
 
 install_secondmate_stall_date() {  # <fakebin>
@@ -1006,6 +1009,7 @@ fi
 exec "$(dirname "$0")/tmux-alive" "$@"
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   mkfifo "$fifo"
   ( exec 3> "$fifo"; : > "$dir/capture-blocked"; exec sleep 30 ) &
   holder=$!
@@ -1193,6 +1197,7 @@ case "${1:-}" in
 esac
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 
   PATH="$fakebin:$PATH" FM_HOME="$dir" FM_ROOT_OVERRIDE="$ROOT" \
     FM_STATE_OVERRIDE="$state" FM_SECONDMATE_WAKE_STALL_SECS=1 FM_POLL=1 \
@@ -3133,6 +3138,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   make_fake_crew_state "$fakebin" >/dev/null
   printf '%s\n' "$dir"
 }
