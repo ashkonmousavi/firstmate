@@ -1,0 +1,392 @@
+{
+  "scenarios": [
+    {
+      "name": "New unsourced freeze, date and dependency waits are refused with the external-hold remedy and no task created",
+      "result": "pass",
+      "live": true,
+      "events": [
+        0,
+        3
+      ]
+    },
+    {
+      "name": "Existing tasks and legacy unsourced captain re-holds are refused without altering their body, reason or hold state",
+      "result": "pass",
+      "live": true,
+      "events": [
+        3,
+        8
+      ]
+    },
+    {
+      "name": "Owner-request attribution rejects origin-only, inherited unverified prose, and malformed acceptance records before mutation",
+      "result": "pass",
+      "live": true,
+      "events": [
+        8,
+        15
+      ]
+    },
+    {
+      "name": "Validated owner messages permit captain holds with explicit or omitted attribution and survive a deferred re-hold",
+      "result": "pass",
+      "live": true,
+      "events": [
+        15,
+        27
+      ]
+    },
+    {
+      "name": "Recorded decision compatibility: finding, pipeline and unattributed work origins, preserved origins and legacy callers remain accepted",
+      "result": "pass",
+      "live": true,
+      "events": [
+        27,
+        42
+      ]
+    },
+    {
+      "name": "The recommended plain external hold works, and trying to convert that unsourced wait into an owner ask is refused",
+      "result": "pass",
+      "live": true,
+      "events": [
+        42,
+        47
+      ]
+    }
+  ],
+  "events": [
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold freeze-wait --title freeze-wait --reason 'wait until the freeze ends'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold date-wait --title date-wait --reason 'revisit on 2099-01-01'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold dependency-wait --title dependency-wait --reason 'wait for the other task to finish'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh add existing-wait 'Existing task' --body 'Original work body'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ok: added existing-wait -> Queued\ntask:\n  id: existing-wait\n  title: Existing task\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: Original work body\nhelp[2]:\n  - Run `tasks-axi start existing-wait` to move it to in flight\n  - Run `tasks-axi block existing-wait --by <other>` to record a dependency\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold existing-wait --reason 'wait until freeze ends' --until 2099-01-01",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh hold existing-wait --reason 'legacy captain wait' --kind captain",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ok: hold existing-wait -> held (captain)\ntask:\n  id: existing-wait\n  title: Existing task\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: legacy captain wait\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: Original work body\nhelp[2]:\n  - Run `tasks-axi unhold existing-wait` to resume dispatch\n  - Run `tasks-axi ready --include-held` to review paused work\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold existing-wait --reason 'defer the old unsourced wait' --until 2099-02-01",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show existing-wait --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: existing-wait\n  title: Existing task\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: legacy captain wait\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: Original work body\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-new --title 'Missing source' --reason 'captain choice' --origin review-origin --origin-kind owner-request",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh add owner-prose 'Unverified owner prose' --body 'Owner message: lab-owner-message\nCaptain hold origin: review-origin\nCaptain hold origin-kind: owner-request'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ok: added owner-prose -> Queued\ntask:\n  id: owner-prose\n  title: Unverified owner prose\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Owner message: lab-owner-message\\nCaptain hold origin: review-origin\\nCaptain hold origin-kind: owner-request\"\nhelp[2]:\n  - Run `tasks-axi start owner-prose` to move it to in flight\n  - Run `tasks-axi block owner-prose --by <other>` to record a dependency\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-prose --reason 'captain choice'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-prose --reason 'captain choice' --origin new-origin",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh add owner-malformed 'Invalid acceptance' --body '```Owner request acceptance v1\n{}\n```'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ok: added owner-malformed -> Queued\ntask:\n  id: owner-malformed\n  title: Invalid acceptance\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"```Owner request acceptance v1\\n{}\\n```\"\nhelp[2]:\n  - Run `tasks-axi start owner-malformed` to move it to in flight\n  - Run `tasks-axi block owner-malformed --by <other>` to record a dependency\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-malformed --reason 'captain choice' --origin review-origin --origin-kind owner-request",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-malformed --reason 'captain choice'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh add owner-valid 'Bound request' --owner-request-file ~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f/owner-valid.json",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ok: added owner-valid -> Queued\ntask:\n  id: owner-valid\n  title: Bound request\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\\\",\\\"origin_task_id\\\":\\\"owner-valid\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"r1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"lab-owner-message\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Please explain the freeze exception and wait for my choice.\\n... (truncated, 834 chars total - use show owner-valid --full to see complete text)\"\nhelp[2]:\n  - Run `tasks-axi start owner-valid` to move it to in flight\n  - Run `tasks-axi block owner-valid --by <other>` to record a dependency\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show owner-valid --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: owner-valid\n  title: Bound request\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\\\",\\\"origin_task_id\\\":\\\"owner-valid\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"r1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"lab-owner-message\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Please explain the freeze exception and wait for my choice.\\\"}],\\\"sources\\\":[{\\\"file_ref\\\":\\\"disposable-conversation.json\\\",\\\"full_text\\\":\\\"Please explain the freeze exception and wait for my choice.\\\",\\\"full_text_sha256\\\":\\\"1849969db5c9e09068e8c92fc26c27e126dcfca0ffeb3482d21761480b52b259\\\",\\\"message_uuid\\\":\\\"lab-owner-message\\\",\\\"session_id\\\":\\\"disposable-session\\\",\\\"source_custody\\\":\\\"complete\\\"}],\\\"version\\\":1}\\n```\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-valid --reason 'captain choice on the bound request' --origin-kind owner-request",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "owner-valid\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show owner-valid --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: owner-valid\n  title: Bound request\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain choice on the bound request\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:15Z\\nCaptain hold origin-kind: owner-request\\n\\n```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\\\",\\\"origin_task_id\\\":\\\"owner-valid\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"r1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"lab-owner-message\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Please explain the freeze exception and wait for my choice.\\\"}],\\\"sources\\\":[{\\\"file_ref\\\":\\\"disposable-conversation.json\\\",\\\"full_text\\\":\\\"Please explain the freeze exception and wait for my choice.\\\",\\\"full_text_sha256\\\":\\\"1849969db5c9e09068e8c92fc26c27e126dcfca0ffeb3482d21761480b52b259\\\",\\\"message_uuid\\\":\\\"lab-owner-message\\\",\\\"session_id\\\":\\\"disposable-session\\\",\\\"source_custody\\\":\\\"complete\\\"}],\\\"version\\\":1}\\n```\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-valid --reason 'captain deferred the bound request' --until 2099-01-01",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "owner-valid\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show owner-valid --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: owner-valid\n  title: Bound request\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain deferred the bound request\"\n  hold_kind: captain\n  hold_until: 2099-01-01\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:15Z\\nCaptain hold origin-kind: owner-request\\n\\n```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\\\",\\\"origin_task_id\\\":\\\"owner-valid\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"r1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"lab-owner-message\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Please explain the freeze exception and wait for my choice.\\\"}],\\\"sources\\\":[{\\\"file_ref\\\":\\\"disposable-conversation.json\\\",\\\"full_text\\\":\\\"Please explain the freeze exception and wait for my choice.\\\",\\\"full_text_sha256\\\":\\\"1849969db5c9e09068e8c92fc26c27e126dcfca0ffeb3482d21761480b52b259\\\",\\\"message_uuid\\\":\\\"lab-owner-message\\\",\\\"session_id\\\":\\\"disposable-session\\\",\\\"source_custody\\\":\\\"complete\\\"}],\\\"version\\\":1}\\n```\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh add owner-unattributed 'Bound request' --owner-request-file ~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f/owner-unattributed.json",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ok: added owner-unattributed -> Queued\ntask:\n  id: owner-unattributed\n  title: Bound request\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\\\",\\\"origin_task_id\\\":\\\"owner-unattributed\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"r1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"lab-owner-message\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Please explain the freeze exception and wait for my \\n... (truncated, 841 chars total - use show owner-unattributed --full to see complete text)\"\nhelp[2]:\n  - Run `tasks-axi start owner-unattributed` to move it to in flight\n  - Run `tasks-axi block owner-unattributed --by <other>` to record a dependency\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show owner-unattributed --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: owner-unattributed\n  title: Bound request\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\\\",\\\"origin_task_id\\\":\\\"owner-unattributed\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"r1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"lab-owner-message\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Please explain the freeze exception and wait for my choice.\\\"}],\\\"sources\\\":[{\\\"file_ref\\\":\\\"disposable-conversation.json\\\",\\\"full_text\\\":\\\"Please explain the freeze exception and wait for my choice.\\\",\\\"full_text_sha256\\\":\\\"1849969db5c9e09068e8c92fc26c27e126dcfca0ffeb3482d21761480b52b259\\\",\\\"message_uuid\\\":\\\"lab-owner-message\\\",\\\"session_id\\\":\\\"disposable-session\\\",\\\"source_custody\\\":\\\"complete\\\"}],\\\"version\\\":1}\\n```\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-unattributed --reason 'captain choice on the bound request'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "owner-unattributed\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show owner-unattributed --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: owner-unattributed\n  title: Bound request\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain choice on the bound request\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:17Z\\n\\n```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\\\",\\\"origin_task_id\\\":\\\"owner-unattributed\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"r1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"lab-owner-message\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Please explain the freeze exception and wait for my choice.\\\"}],\\\"sources\\\":[{\\\"file_ref\\\":\\\"disposable-conversation.json\\\",\\\"full_text\\\":\\\"Please explain the freeze exception and wait for my choice.\\\",\\\"full_text_sha256\\\":\\\"1849969db5c9e09068e8c92fc26c27e126dcfca0ffeb3482d21761480b52b259\\\",\\\"message_uuid\\\":\\\"lab-owner-message\\\",\\\"session_id\\\":\\\"disposable-session\\\",\\\"source_custody\\\":\\\"complete\\\"}],\\\"version\\\":1}\\n```\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold owner-unattributed --reason 'captain deferred the bound request' --until 2099-01-01",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "owner-unattributed\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show owner-unattributed --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: owner-unattributed\n  title: Bound request\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain deferred the bound request\"\n  hold_kind: captain\n  hold_until: 2099-01-01\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:17Z\\n\\n```Owner request acceptance v1\\n{\\\"origin_home\\\":\\\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\\\",\\\"origin_task_id\\\":\\\"owner-unattributed\\\",\\\"requirements\\\":[{\\\"acceptance_level\\\":\\\"source\\\",\\\"disposition\\\":\\\"pending\\\",\\\"id\\\":\\\"r1\\\",\\\"kind\\\":\\\"explanation\\\",\\\"proof_kind\\\":\\\"reply\\\",\\\"proof_refs\\\":[],\\\"safe_text\\\":null,\\\"source_binding\\\":\\\"verified_complete\\\",\\\"source_message_uuid\\\":\\\"lab-owner-message\\\",\\\"superseded_by\\\":[],\\\"text_ref\\\":\\\"Please explain the freeze exception and wait for my choice.\\\"}],\\\"sources\\\":[{\\\"file_ref\\\":\\\"disposable-conversation.json\\\",\\\"full_text\\\":\\\"Please explain the freeze exception and wait for my choice.\\\",\\\"full_text_sha256\\\":\\\"1849969db5c9e09068e8c92fc26c27e126dcfca0ffeb3482d21761480b52b259\\\",\\\"message_uuid\\\":\\\"lab-owner-message\\\",\\\"session_id\\\":\\\"disposable-session\\\",\\\"source_custody\\\":\\\"complete\\\"}],\\\"version\\\":1}\\n```\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold finding-call --title finding-call --reason 'captain choice raised by review' --origin review-origin --origin-kind finding",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "finding-call\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show finding-call --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: finding-call\n  title: finding-call\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain choice raised by review\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: captain\n  repo: firstmate\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:19Z\\nCaptain hold origin: review-origin\\nCaptain hold origin-kind: finding\\n\\nOrigin: review-origin\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold finding-call --reason 'captain choice still pending'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "finding-call\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show finding-call --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: finding-call\n  title: finding-call\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain choice still pending\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: captain\n  repo: firstmate\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:19Z\\nCaptain hold origin: review-origin\\nCaptain hold origin-kind: finding\\n\\nOrigin: review-origin\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold pipeline-call --title pipeline-call --reason 'captain choice raised by review' --origin review-origin --origin-kind pipeline-outcome",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "pipeline-call\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show pipeline-call --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: pipeline-call\n  title: pipeline-call\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain choice raised by review\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: captain\n  repo: firstmate\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:20Z\\nCaptain hold origin: review-origin\\nCaptain hold origin-kind: pipeline-outcome\\n\\nOrigin: review-origin\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold pipeline-call --reason 'captain choice still pending'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "pipeline-call\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show pipeline-call --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: pipeline-call\n  title: pipeline-call\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain choice still pending\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: captain\n  repo: firstmate\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:20Z\\nCaptain hold origin: review-origin\\nCaptain hold origin-kind: pipeline-outcome\\n\\nOrigin: review-origin\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold ordinary-call --title ordinary-call --reason 'captain choice raised by review' --origin review-origin",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ordinary-call\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show ordinary-call --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: ordinary-call\n  title: ordinary-call\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain choice raised by review\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: captain\n  repo: firstmate\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:22Z\\nCaptain hold origin: review-origin\\n\\nOrigin: review-origin\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold ordinary-call --reason 'captain choice still pending'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ordinary-call\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show ordinary-call --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: ordinary-call\n  title: ordinary-call\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain choice still pending\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: captain\n  repo: firstmate\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:22Z\\nCaptain hold origin: review-origin\\n\\nOrigin: review-origin\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold finding-call --reason 'claim owner provenance' --origin-kind owner-request",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-decision-hold.sh hold review-origin merge-choice --title 'Merge choice' --reason 'captain route choice'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "review-origin-decision-merge-choice\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show review-origin-decision-merge-choice --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: review-origin-decision-merge-choice\n  title: Merge choice\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"captain route choice\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: captain\n  repo: firstmate\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:25Z\\nCaptain hold origin: review-origin\\n\\nOrigin: review-origin\"\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh add plain-freeze 'Wait for freeze' --body 'Work resumes after the freeze'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ok: added plain-freeze -> Queued\ntask:\n  id: plain-freeze\n  title: Wait for freeze\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: no\n  hold_reason: \"-\"\n  hold_kind: \"-\"\n  hold_until: \"-\"\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: Work resumes after the freeze\nhelp[2]:\n  - Run `tasks-axi start plain-freeze` to move it to in flight\n  - Run `tasks-axi block plain-freeze --by <other>` to record a dependency\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh hold plain-freeze --reason 'wait until the freeze ends' --kind external --until 2099-01-01",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "ok: hold plain-freeze -> held (external, until 2099-01-01)\ntask:\n  id: plain-freeze\n  title: Wait for freeze\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: wait until the freeze ends\n  hold_kind: external\n  hold_until: 2099-01-01\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: Work resumes after the freeze\nhelp[2]:\n  - Run `tasks-axi unhold plain-freeze` to resume dispatch\n  - Run `tasks-axi ready --include-held` to review paused work\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show plain-freeze --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: plain-freeze\n  title: Wait for freeze\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: wait until the freeze ends\n  hold_kind: external\n  hold_until: 2099-01-01\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: Work resumes after the freeze\n",
+      "stderr": ""
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh hold plain-freeze --reason 'misclassify the external wait'",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n"
+    },
+    {
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-tasks-axi.sh show plain-freeze --full",
+      "FM_HOME": "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f",
+      "exit": 0,
+      "stdout": "task:\n  id: plain-freeze\n  title: Wait for freeze\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: wait until the freeze ends\n  hold_kind: external\n  hold_until: 2099-01-01\n  kind: task\n  repo: \"-\"\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: Work resumes after the freeze\n",
+      "stderr": ""
+    },
+    {
+      "persisted_backlog": "## In flight\n\n## Queued\n- [ ] existing-wait - Existing task (since 2026-10-31) (hold: legacy captain wait) (hold-kind: captain)\n  Original work body\n- [ ] owner-prose - Unverified owner prose (since 2026-10-31)\n  Owner message: lab-owner-message\n  Captain hold origin: review-origin\n  Captain hold origin-kind: owner-request\n- [ ] owner-malformed - Invalid acceptance (since 2026-10-31)\n  ```Owner request acceptance v1\n  {}\n  ```\n- [ ] owner-valid - Bound request (since 2026-10-31) (hold: fm-hold-v1:Y2FwdGFpbiBkZWZlcnJlZCB0aGUgYm91bmQgcmVxdWVzdA==) (hold-kind: captain) (hold-until: 2099-01-01)\n  Captain hold set: 2026-10-31T13:46:15Z\n  Captain hold origin-kind: owner-request\n\n  ```Owner request acceptance v1\n  {\"origin_home\":\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\",\"origin_task_id\":\"owner-valid\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"lab-owner-message\",\"superseded_by\":[],\"text_ref\":\"Please explain the freeze exception and wait for my choice.\"}],\"sources\":[{\"file_ref\":\"disposable-conversation.json\",\"full_text\":\"Please explain the freeze exception and wait for my choice.\",\"full_text_sha256\":\"1849969db5c9e09068e8c92fc26c27e126dcfca0ffeb3482d21761480b52b259\",\"message_uuid\":\"lab-owner-message\",\"session_id\":\"disposable-session\",\"source_custody\":\"complete\"}],\"version\":1}\n  ```\n- [ ] owner-unattributed - Bound request (since 2026-10-31) (hold: fm-hold-v1:Y2FwdGFpbiBkZWZlcnJlZCB0aGUgYm91bmQgcmVxdWVzdA==) (hold-kind: captain) (hold-until: 2099-01-01)\n  Captain hold set: 2026-10-31T13:46:17Z\n\n  ```Owner request acceptance v1\n  {\"origin_home\":\"~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/.fm-lab-hold-nn1ql53f\",\"origin_task_id\":\"owner-unattributed\",\"requirements\":[{\"acceptance_level\":\"source\",\"disposition\":\"pending\",\"id\":\"r1\",\"kind\":\"explanation\",\"proof_kind\":\"reply\",\"proof_refs\":[],\"safe_text\":null,\"source_binding\":\"verified_complete\",\"source_message_uuid\":\"lab-owner-message\",\"superseded_by\":[],\"text_ref\":\"Please explain the freeze exception and wait for my choice.\"}],\"sources\":[{\"file_ref\":\"disposable-conversation.json\",\"full_text\":\"Please explain the freeze exception and wait for my choice.\",\"full_text_sha256\":\"1849969db5c9e09068e8c92fc26c27e126dcfca0ffeb3482d21761480b52b259\",\"message_uuid\":\"lab-owner-message\",\"session_id\":\"disposable-session\",\"source_custody\":\"complete\"}],\"version\":1}\n  ```\n- [ ] finding-call - finding-call (repo: firstmate) (kind: captain) (since 2026-10-31) (hold: fm-hold-v1:Y2FwdGFpbiBjaG9pY2Ugc3RpbGwgcGVuZGluZw==) (hold-kind: captain)\n  Captain hold set: 2026-10-31T13:46:19Z\n  Captain hold origin: review-origin\n  Captain hold origin-kind: finding\n\n  Origin: review-origin\n- [ ] pipeline-call - pipeline-call (repo: firstmate) (kind: captain) (since 2026-10-31) (hold: fm-hold-v1:Y2FwdGFpbiBjaG9pY2Ugc3RpbGwgcGVuZGluZw==) (hold-kind: captain)\n  Captain hold set: 2026-10-31T13:46:20Z\n  Captain hold origin: review-origin\n  Captain hold origin-kind: pipeline-outcome\n\n  Origin: review-origin\n- [ ] ordinary-call - ordinary-call (repo: firstmate) (kind: captain) (since 2026-10-31) (hold: fm-hold-v1:Y2FwdGFpbiBjaG9pY2Ugc3RpbGwgcGVuZGluZw==) (hold-kind: captain)\n  Captain hold set: 2026-10-31T13:46:22Z\n  Captain hold origin: review-origin\n\n  Origin: review-origin\n- [ ] review-origin-decision-merge-choice - Merge choice (repo: firstmate) (kind: captain) (since 2026-10-31) (hold: fm-hold-v1:Y2FwdGFpbiByb3V0ZSBjaG9pY2U=) (hold-kind: captain)\n  Captain hold set: 2026-10-31T13:46:25Z\n  Captain hold origin: review-origin\n\n  Origin: review-origin\n- [ ] plain-freeze - Wait for freeze (since 2026-10-31) (hold: wait until the freeze ends) (hold-kind: external) (hold-until: 2099-01-01)\n  Work resumes after the freeze\n## Done\n"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "version": "before",
+    "command": [
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/.fm-hold-before-mdar22te.sh",
+      "hold",
+      "freeze-wait",
+      "--title",
+      "Freeze wait",
+      "--reason",
+      "wait until freeze ends"
+    ],
+    "exit": 0,
+    "stdout": "freeze-wait\n",
+    "stderr": "",
+    "backlog_after": "## In flight\n\n## Queued\n- [ ] freeze-wait - Freeze wait (repo: firstmate) (kind: captain) (since 2026-10-31) (hold: fm-hold-v1:d2FpdCB1bnRpbCBmcmVlemUgZW5kcw==) (hold-kind: captain)\n  Captain hold set: 2026-10-31T13:46:43Z\n## Done\n"
+  },
+  {
+    "version": "before",
+    "show": "task:\n  id: freeze-wait\n  title: Freeze wait\n  state: queued\n  blocked: no\n  blocked_by: none\n  held: yes\n  hold_reason: \"wait until freeze ends\"\n  hold_kind: captain\n  hold_until: \"-\"\n  kind: captain\n  repo: firstmate\n  priority: \"-\"\n  created: 2026-10-31\n  closed: \"-\"\n  deps: none\n  links: none\n  body: \"Captain hold set: 2026-10-31T13:46:43Z\"\n"
+  },
+  {
+    "version": "after",
+    "command": [
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6934HCMHW02KE86NWS24NDZ/bin/fm-captain-hold.sh",
+      "hold",
+      "freeze-wait",
+      "--title",
+      "Freeze wait",
+      "--reason",
+      "wait until freeze ends"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": "fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`\n",
+    "backlog_after": "## In flight\n\n## Queued\n\n## Done\n"
+  }
+]
