@@ -113,16 +113,10 @@ run_spawn() {
   local home=$1 wt=$2 fakebin=$3 launchlog=$4
   shift 4
   : > "$launchlog"
-  # This suite asserts launch-command shapes through the fake pane, so its
-  # codex spawns keep the positional brief transport
-  # (FM_CODEX_POSITIONAL_LAUNCH=1): the typed-brief gates that replace it on
-  # real codex installs read a live ready composer and are covered by
-  # tests/fm-codex-harness.test.sh, not by this dispatch plumbing suite.
   # CLAUDE_CONFIG_DIR is forwarded onto claude launches by fm-spawn, so pin it
   # explicitly (empty by default) instead of leaking the invoking shell's value,
   # which would make launch assertions depend on the developer's environment.
   # A test opts in to the set case via FM_TEST_CLAUDE_CONFIG_DIR.
-  FM_CODEX_POSITIONAL_LAUNCH=1 \
   CLAUDE_CONFIG_DIR="${FM_TEST_CLAUDE_CONFIG_DIR:-}" \
     FM_FAKE_LAUNCH_LOG="$launchlog" FM_FAKE_PANE_LOG="${FM_TEST_PANE_LOG:-}" \
     FM_FAKE_PI_VERSION="${FM_TEST_PI_VERSION:-0.84.0}" \

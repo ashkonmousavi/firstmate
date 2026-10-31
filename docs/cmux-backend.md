@@ -115,7 +115,6 @@ Real tests share the captain's running app rather than creating an isolated cmux
 
 ## Active limits
 
-- Standard Codex launches are refused by the [typed-brief viewport requirement](verification/runtime-backends.md#codex-typed-launch-brief).
 - cmux is experimental, macOS-only, GUI-first, and requires the app running.
 - Socket access requires a one-time manual Settings change.
 - Secondmate spawns are unsupported until a per-home lifecycle design is verified.

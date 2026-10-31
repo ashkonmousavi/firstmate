@@ -55,11 +55,6 @@ EOF
 run_spawn() {
   local id=$1
   shift
-  # The pool stub pane renders no harness screens, so these codex spawns keep
-  # the positional brief transport; the typed-brief gates that replace it on
-  # real installs need a live ready composer and are covered by
-  # tests/fm-codex-harness.test.sh.
-  FM_CODEX_POSITIONAL_LAUNCH=1 \
   fm_test_run_spawn "$HOME_DIR" "$POOL_DIR" "$FAKEBIN_DIR" \
     "$id" "$PROJECT_DIR" "$@"
 }
@@ -824,6 +819,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 }
 
 # A launch refused after it claimed its slot must leave the pool and the task
@@ -926,6 +922,7 @@ fi
 exec '$FAKEBIN_DIR/tmux.world' "\$@"
 SH
   chmod +x "$FAKEBIN_DIR/tmux"
+  fm_test_codex_first_turn_wrap "$FAKEBIN_DIR"
   cat > "$FAKEBIN_DIR/polytoken" <<'SH'
 #!/usr/bin/env bash
 case "$*" in

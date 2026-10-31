@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Behavior tests for the verified Codex CLI crewmate adapter's typed launch
-# brief. codex-cli 0.163.0 never runs the positional launch prompt, so
-# bin/fm-spawn.sh starts codex bare and delivers `FIRSTMATE_OP: v1
-# launch-brief` through fm_backend_send_text_submit after a readiness gate
-# that answers codex's own launch dialogs (Enter for the folder-trust dialog,
-# Escape for the update dialog, whose Enter would run a global npm install).
-# These tests drive that whole gate against a state-machine fake tmux, the
-# same shape tests/fm-kimi-harness.test.sh uses for kimi's gates; the real
-# harness is proven by the opt-in live guard
-# tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh.
+# Behavior tests for the verified Codex CLI crewmate adapter's launch-brief
+# gates in bin/fm-spawn.sh. The default launch carries the brief as codex's
+# positional prompt and a first-turn gate confirms codex started it; the
+# typed path (FM_CODEX_TYPED_LAUNCH=1) starts codex bare and delivers
+# `FIRSTMATE_OP: v1 launch-brief` through fm_backend_send_text_submit after a
+# readiness gate. Both gates answer codex's own launch dialogs (Enter for the
+# folder-trust dialog, Escape for the update dialog, whose Enter would run a
+# global npm install). These tests drive both gates against a state-machine
+# fake tmux, the same shape tests/fm-kimi-harness.test.sh uses for kimi's
+# gates; the real harness is proven by the opt-in live guard
+# tests/fm-codex-brief-typed-live-e2e.test.sh.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -74,6 +75,18 @@ fake_screen() {
     trust)
       printf '%s\n' "$trust_dialog" ;;
     ready|typed|delivered|working|failed)
+      if [ "$state" = ready ] && [ -e "$FM_FAKE_CODEX_STATE.positional" ]; then
+        # A positional launch: codex submits the brief itself once startup
+        # finishes, so the screen after the dialogs is its first turn (or,
+        # for "none", a pane that never starts one).
+        case "${FM_FAKE_CODEX_POSITIONAL_TURN:-working}" in
+          working) printf '%s\n' '• Working (1s • esc to interrupt)' ;;
+          worked) printf '%s\n' '• Worked for 3s • 2:39 AM' ;;
+        esac
+        composer_row "${ESC}[2m${bg}${dim_placeholder}${ESC}[0m"
+        printf '\n%s\n%s\n' "$footer" '  ? for shortcuts'
+        return 0
+      fi
       printf '• Worked for 6s\n\n'
       case "$state" in
         ready) composer_row "${ESC}[2m${bg}${dim_placeholder}${ESC}[0m" ;;
@@ -159,6 +172,10 @@ case "${1:-}" in
       case "$literal" in
         *'--dangerously-bypass-approvals-and-sandbox'*|*'--prompt-interactive'*)
           printf '%s\n' "$literal" >> "$FM_FAKE_LAUNCH_LOG"
+          case "$literal" in
+            *'encode launch-brief'*) : > "$FM_FAKE_CODEX_STATE.positional" ;;
+            *) rm -f "$FM_FAKE_CODEX_STATE.positional" ;;
+          esac
           # The launch line itself is submitted by its own Enter; codex shows
           # its first screen only after that Enter, so an intermediate
           # 'launched' state keeps the launch's own Enter from being read as
@@ -270,6 +287,7 @@ Verify typed launch-brief delivery.
 EOF
   printf 'codex\n' > "$home/config/crew-harness"
   printf '999999 0\n' > "$home/config/lane-capacity"
+  fm_test_machine_policy "$home/config"
   fm_git_worktree "$proj" "$wt" "wt-$name"
   touch "$home/state/.last-watcher-beat"
   : > "$case_dir/launch.log"
@@ -305,6 +323,9 @@ run_spawn() {
     FM_FAKE_TMUX_VISIBLE_FAILS="${FM_FAKE_TMUX_VISIBLE_FAILS:-no}" \
     FM_FAKE_TMUX_CALL_LOG="$case_dir/tmux-calls.log" \
     FM_FAKE_BRIEF_REAL="$(cd "$home/data/$id" && pwd -P)/launch-brief.md" \
+    FM_CODEX_TYPED_LAUNCH="${FM_CODEX_TYPED_LAUNCH:-1}" \
+    FM_FAKE_CODEX_POSITIONAL_TURN="${FM_FAKE_CODEX_POSITIONAL_TURN:-working}" \
+    FM_CODEX_FIRST_TURN_POLLS="${FM_CODEX_FIRST_TURN_POLLS:-12}" \
     FM_CODEX_READY_POLLS="${FM_CODEX_READY_POLLS:-12}" FM_CODEX_PROCESSING_POLLS=6 \
     FM_CODEX_POLL_INTERVAL=0 FM_CODEX_SUBMIT_SLEEP=0 FM_CODEX_SUBMIT_SETTLE=0 \
     PATH="$fakebin:$BASE_PATH" \
@@ -355,23 +376,56 @@ test_codex_launches_bare_and_delivers_typed_brief() {
   pass "fm-spawn: codex launches bare, answers its dialogs, and types its launch brief"
 }
 
-test_codex_positional_probe_restores_the_positional_launch() {
-  local id rec out rc launch
-  id="codex-positional-z2-$$"
-  rec=$(make_spawn_case positional "$id")
+# The default codex launch: the brief rides the launch command, the gate
+# answers the launch dialogs, and either first-turn signal alone confirms it.
+test_codex_default_launch_is_positional_and_confirms_the_first_turn() {
+  local turn id rec out rc launch
+  for turn in working worked; do
+    id="codex-positional-$turn-z2-$$"
+    rec=$(make_spawn_case "positional-$turn" "$id")
+    read_spawn_record "$rec"
+    CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
+    rm -rf "$CODEX_RUNTIME_TASK_TMP"
+    out=$(FM_CODEX_TYPED_LAUNCH=0 FM_FAKE_CODEX_POSITIONAL_TURN="$turn" run_spawn \
+      "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+    rc=$?
+    expect_code 0 "$rc" "a positional launch whose first turn shows '$turn' should succeed"$'\n'"$out"
+    launch=$(cat "$CASE_DIR/launch.log")
+    assert_contains "$launch" "encode launch-brief" \
+      "the default codex launch did not carry the positional brief"
+    assert_contains "$launch" "--disable hooks" "the positional crewmate launch lost its hook disable"
+    [ ! -s "$CASE_DIR/typed.log" ] \
+      || fail "the typed gate ran on a positional launch: $(cat "$CASE_DIR/typed.log")"
+    [ "$(grep -cx trust "$CASE_DIR/enter.log")" -eq 1 ] \
+      || fail "the positional gate did not answer the trust dialog exactly once: $(cat "$CASE_DIR/enter.log")"
+    assert_no_grep '^update$' "$CASE_DIR/enter.log" "an Enter confirmed the update dialog's npm install"
+    [ ! -s "$CASE_DIR/stray-enter.log" ] \
+      || fail "a stray Enter reached the live composer: $(cat "$CASE_DIR/stray-enter.log")"
+  done
+  # The two signals were driven apart: the busy-only screen carried no turn
+  # summary and the summary-only screen carried no busy row, so neither case
+  # passed on the other's evidence.
+  pass "fm-spawn: codex launches positionally by default and either first-turn signal confirms the brief"
+}
+
+test_codex_positional_launch_without_a_first_turn_fails_loudly() {
+  local id rec out rc
+  id="codex-positional-none-z2b-$$"
+  rec=$(make_spawn_case positional-none "$id")
   read_spawn_record "$rec"
   CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
   rm -rf "$CODEX_RUNTIME_TASK_TMP"
-  out=$(FM_CODEX_POSITIONAL_LAUNCH=1 run_spawn \
-    "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+  # An empty composer under a "default" footer is exactly what codex shows
+  # while it is still starting; it must never read as a started turn.
+  out=$(FM_CODEX_TYPED_LAUNCH=0 FM_FAKE_CODEX_POSITIONAL_TURN=none FM_CODEX_FIRST_TURN_POLLS=4 \
+    run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
   rc=$?
-  expect_code 0 "$rc" "the positional probe launch should succeed without the typed gates"
-  launch=$(cat "$CASE_DIR/launch.log")
-  assert_contains "$launch" "encode launch-brief" \
-    "the positional probe launch did not carry the positional brief"
-  [ ! -s "$CASE_DIR/typed.log" ] \
-    || fail "the typed gate ran under the positional probe: $(cat "$CASE_DIR/typed.log")"
-  pass "fm-spawn: FM_CODEX_POSITIONAL_LAUNCH=1 keeps the positional launch and skips the typed gates"
+  [ "$rc" -ne 0 ] || fail "a positional launch whose first turn never started spawned anyway"
+  assert_contains "$out" "codex did not take the brief: the positional launch brief did not start a first turn within 0 s in window" \
+    "the first-turn timeout did not report that codex did not take the brief"
+  assert_grep "codex did not take the brief" "$HOME_DIR/state/$id.status" \
+    "the first-turn timeout did not record its failed status line"
+  pass "fm-spawn: a positional launch whose first turn never starts reports 'codex did not take the brief'"
 }
 
 test_codex_secondmate_uses_typed_delivery_and_preserves_hooks() {
@@ -389,7 +443,7 @@ test_codex_secondmate_uses_typed_delivery_and_preserves_hooks() {
     git -C "$sm" init -q -b main
     CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
     out=$(FM_SKIP_SECONDMATE_SYNC=1 FM_SKIP_SECONDMATE_INHERIT=1 \
-      FM_CODEX_POSITIONAL_LAUNCH="$([ "$delivery" = positional ] && printf 1 || printf 0)" \
+      FM_CODEX_TYPED_LAUNCH="$([ "$delivery" = positional ] && printf 0 || printf 1)" \
       FM_FAKE_CODEX_DELIVERY="$delivery" \
       run_spawn "$CASE_DIR" "$HOME_DIR" "$sm" "$sm" "$FAKEBIN_DIR" "$id" --secondmate)
     rc=$?
@@ -410,7 +464,7 @@ test_codex_secondmate_uses_typed_delivery_and_preserves_hooks() {
       assert_contains "$(cat "$CASE_DIR/typed.log")" "$sm/data/charter.md" "secondmate did not receive its own charter pointer"
     fi
   done
-  pass "fm-spawn: secondmates type their charter, preserve primary hooks, and honor the positional probe"
+  pass "fm-spawn: secondmates preserve primary hooks on both brief transports"
 }
 
 test_codex_never_ready_reports_codex_did_not_take_the_brief() {
@@ -589,11 +643,12 @@ test_codex_refuses_a_backend_without_a_viewport_capture() {
     "codex refusal did not name the backend and the missing viewport capability"
   [ ! -s "$CASE_DIR/launch.log" ] \
     || fail "codex was launched on a backend without a viewport capture"
-  pass "fm-spawn: codex refuses a backend that cannot read the viewport, before launching"
+  pass "fm-spawn: the typed codex path refuses a backend that cannot read the viewport, before launching"
 }
 
 test_codex_launches_bare_and_delivers_typed_brief
-test_codex_positional_probe_restores_the_positional_launch
+test_codex_default_launch_is_positional_and_confirms_the_first_turn
+test_codex_positional_launch_without_a_first_turn_fails_loudly
 test_codex_secondmate_uses_typed_delivery_and_preserves_hooks
 test_codex_never_ready_reports_codex_did_not_take_the_brief
 test_codex_answering_the_update_dialog_with_enter_never_readies

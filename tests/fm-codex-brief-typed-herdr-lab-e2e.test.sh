@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
-# tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh - the live codex typed
-# launch-brief guard (live-harness-optin family; it submits a brief, so it
-# spends codex tokens - run it with FM_CODEX_LIVE_E2E=1).
+# tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh - the live codex
+# launch-brief guard on Herdr (live-harness-optin family; it submits a brief,
+# so it spends codex tokens - run it with FM_CODEX_LIVE_E2E=1).
 #
-# codex-cli 0.163.0 never runs the positional launch prompt: the TUI opens at
-# an empty composer ("Ask Codex to do anything") and sits there, so a fresh
-# crewmate or scout never sees its brief. bin/fm-spawn.sh therefore starts
-# codex bare and delivers `FIRSTMATE_OP: v1 launch-brief` through
-# fm_backend_send_text_submit after a readiness gate that answers the
-# folder-trust dialog with Enter and skips the update dialog with Escape.
-# Per .agents/skills/firstmate-coding-guidelines "Harness-dependent checks",
-# that gate is built on vendor-rendered dialog and composer text, so a stub
-# can only confirm the assumptions already written into it; this guard drives
-# the REAL bin/fm-spawn.sh and the REAL installed codex on an isolated Herdr
-# lab session and proves both halves of the fix's DONE MEANS: a codex scout
+# bin/fm-spawn.sh hands codex its brief as the positional prompt by default
+# and confirms the first turn started within its bounded first-turn gate;
+# FM_CODEX_TYPED_LAUNCH=1 selects the typed path (bare launch, readiness gate
+# answering the trust and update dialogs, typed submit). Run this guard once
+# per transport. Per .agents/skills/firstmate-coding-guidelines
+# "Harness-dependent checks", both gates read vendor-rendered dialog,
+# composer, and busy text, so a stub can only confirm the assumptions
+# already written into it; this guard drives the REAL bin/fm-spawn.sh and the
+# REAL installed codex on an isolated Herdr lab session: a codex scout
 # spawned in a NEW folder (trust dialog answered by the gate) and in the SAME
 # now-TRUSTED folder (a relaunch, captured to prove no trust dialog rendered)
-# each start processing their launch brief within 60 s through the typed
-# submit, and the turn's reply lands. On failure the spawn itself reports
-# "codex did not take the brief" and this guard fails naming codex and
-# `codex --version`. Refresh docs/verification/runtime-backends.md ("Codex
-# typed launch brief") from this guard's output after any codex upgrade.
+# each start processing their launch brief within the spawn bound, and the
+# turn's reply lands. On failure the spawn itself reports "codex did not
+# take the brief" and this guard fails naming codex and `codex --version`.
+# Refresh docs/verification/runtime-backends.md ("Codex launch brief") from
+# this guard's output after any codex upgrade.
 #
 # Safety (2026-07-02 incident, see tests/herdr-test-safety.sh): every
 # lifecycle operation goes through bin/fm-herdr-lab.sh, which appends the
@@ -43,6 +41,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 herdr_forget_inherited_pane
 
 CODEX_VERSION=$(codex --version 2>/dev/null | head -1)
+TRANSPORT=positional
+[ "${FM_CODEX_TYPED_LAUNCH:-0}" != 1 ] || TRANSPORT=typed
+# The positional first turn waits on codex's own session startup, which took
+# up to 75 s on a machine with many MCP servers; the spawn's gate is bounded
+# at about 120 s, so the spawn bound sits just above it.
+SPAWN_BOUND=150
 
 fail() { printf 'not ok - %s\n' "$1" >&2; cleanup_all; exit 1; }
 pass() { printf 'ok - %s\n' "$1"; }
@@ -90,6 +94,7 @@ HOME_DIR="$TMP_ROOT/home"
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" "$HOME_DIR/data"
 printf 'off\n' > "$HOME_DIR/config/herdr-presentation-spaces"
 printf '999999 0\n' > "$HOME_DIR/config/lane-capacity"
+fm_test_machine_policy "$HOME_DIR/config"
 
 SCOUT=codex-typed-e2e
 mkdir -p "$HOME_DIR/data/$SCOUT"
@@ -164,15 +169,15 @@ case "$SPAWN_OUT" in
   *"spawned $SCOUT harness=codex"*) : ;;
   *) fail "the new-folder spawn did not report success"$'\n'"$SPAWN_OUT" ;;
 esac
-[ "$SPAWN_ELAPSED" -le 60 ] || fail "the new-folder spawn took ${SPAWN_ELAPSED}s to start processing its brief (bound: 60s)"
+[ "$SPAWN_ELAPSED" -le "$SPAWN_BOUND" ] || fail "the new-folder spawn took ${SPAWN_ELAPSED}s to start processing its brief (bound: ${SPAWN_BOUND}s)"
 pane_capture "$SCOUT" | grep -Fq 'FIRSTMATE_OP: v1 launch-brief' \
-  || fail "the new-folder pane never showed the typed launch-brief envelope"
+  || fail "the new-folder pane never showed the $TRANSPORT launch-brief envelope"
 wait_for_pane_text "$SCOUT" 'codex-brief-ok' 90 \
   || fail "the new-folder scout never replied codex-brief-ok"$'\n'"$(pane_capture "$SCOUT" | tail -20)"
-pass "real codex $CODEX_VERSION on herdr: a new-folder scout starts processing its typed launch brief within ${SPAWN_ELAPSED}s and answers it"
+pass "real codex $CODEX_VERSION on herdr: a new-folder scout starts processing its $TRANSPORT launch brief within ${SPAWN_ELAPSED}s and answers it"
 
 # --- 2. TRUSTED folder: a relaunch of the same worktree, captured to prove
-#        no trust dialog stood between launch and the typed brief -------------
+#        no trust dialog stood between launch and the brief -------------------
 
 sed 's/codex-brief-ok/codex-relaunch-ok/' "$HOME_DIR/data/$SCOUT/brief.md" >"$TMP_ROOT/relaunch-brief.md"
 cp "$TMP_ROOT/relaunch-brief.md" "$HOME_DIR/data/$SCOUT/brief.md"
@@ -196,7 +201,7 @@ wait "$TRUST_POLLER" 2>/dev/null || true
 if [ "$SPAWN_RC" -ne 0 ]; then
   fail "a codex relaunch in the trusted folder failed within ${SPAWN_ELAPSED}s"$'\n'"$SPAWN_OUT"
 fi
-[ "$SPAWN_ELAPSED" -le 60 ] || fail "the trusted-folder relaunch took ${SPAWN_ELAPSED}s to start processing its brief (bound: 60s)"
+[ "$SPAWN_ELAPSED" -le "$SPAWN_BOUND" ] || fail "the trusted-folder relaunch took ${SPAWN_ELAPSED}s to start processing its brief (bound: ${SPAWN_BOUND}s)"
 wait_for_pane_text "$SCOUT" 'codex-relaunch-ok' 90 \
   || fail "the trusted-folder scout never replied codex-relaunch-ok"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
 [ -s "$TRUST_POLL" ] || fail "codex $CODEX_VERSION trusted-folder viewport was never observed"
@@ -204,7 +209,7 @@ if grep -Fq 'Trust this folder' "$TRUST_POLL"; then
   fail "codex $CODEX_VERSION showed a trust dialog in the trusted-folder case"
 fi
 pass "real codex $CODEX_VERSION on herdr: the trusted-folder relaunch rendered no trust dialog"
-pass "real codex $CODEX_VERSION on herdr: a trusted-folder relaunch starts processing its typed launch brief within ${SPAWN_ELAPSED}s"
+pass "real codex $CODEX_VERSION on herdr: a trusted-folder relaunch starts processing its $TRANSPORT launch brief within ${SPAWN_ELAPSED}s"
 
 # --- 3. the failure report shape is the spawn's own --------------------------
 
@@ -213,4 +218,4 @@ pass "real codex $CODEX_VERSION on herdr: a trusted-folder relaunch starts proce
 
 cleanup_all
 trap - EXIT
-printf 'ok - real codex %s typed launch brief verified end to end on a herdr lab session\n' "$CODEX_VERSION"
+printf 'ok - real codex %s %s launch brief verified end to end on a herdr lab session\n' "$CODEX_VERSION" "$TRANSPORT"

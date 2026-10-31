@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# tests/fm-codex-brief-typed-live-e2e.test.sh - live guard for the codex typed
+# tests/fm-codex-brief-typed-live-e2e.test.sh - live guard for the codex
 # launch brief against the REAL installed codex on an isolated tmux server
 # (live-harness-optin family; it submits a brief, so it spends codex tokens -
 # run it with FM_CODEX_LIVE_E2E=1).
 #
-# codex-cli 0.163.0 never runs the positional launch prompt, so bin/fm-spawn.sh
-# starts codex bare and delivers `FIRSTMATE_OP: v1 launch-brief` through
-# fm_backend_send_text_submit after a readiness gate that answers the
-# folder-trust dialog with Enter and skips the update dialog with Escape.
-# Per .agents/skills/firstmate-coding-guidelines "Harness-dependent checks",
-# that gate is built on vendor-rendered dialog and composer text, so the
-# portable suite (tests/fm-codex-harness.test.sh) is not enough on its own:
-# this guard drives the REAL bin/fm-spawn.sh and the REAL installed codex and
-# proves both halves of the fix's DONE MEANS on the tmux backend - a codex
-# scout spawned in a NEW folder (trust dialog answered by the gate) and in the
-# SAME now-TRUSTED folder (a relaunch, captured to prove no trust dialog
-# rendered) each start processing their launch brief within 60 s through the
-# typed submit, and the turn's reply lands. The named herdr-lab proof is
+# bin/fm-spawn.sh hands codex its brief as the positional prompt by default
+# and confirms the first turn started within its bounded first-turn gate;
+# FM_CODEX_TYPED_LAUNCH=1 selects the typed path (bare launch, readiness gate
+# answering the trust and update dialogs, typed submit). Run this guard once
+# per transport. Per .agents/skills/firstmate-coding-guidelines
+# "Harness-dependent checks", both gates read vendor-rendered dialog,
+# composer, and busy text, so the portable suite
+# (tests/fm-codex-harness.test.sh) is not enough on its own: this guard drives
+# the REAL bin/fm-spawn.sh and the REAL installed codex on the tmux backend - a
+# codex scout spawned in a NEW folder (trust dialog answered by the gate) and
+# in the SAME now-TRUSTED folder (a relaunch, captured to prove no trust
+# dialog rendered) each start processing their launch brief within the
+# spawn bound, and the turn's reply lands. The named herdr-lab proof is
 # tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh; this guard covers every
 # machine with codex and tmux and no lab session. It fails naming codex and
 # `codex --version`. Refresh docs/verification/runtime-backends.md ("Codex
-# typed launch brief") from this guard's output after any codex upgrade.
+# launch brief") from this guard's output after any codex upgrade.
 #
 # Isolation: every tmux call, fm-spawn's own included, rides a PATH shim that
 # pins a private tmux server (the same pattern as
@@ -37,6 +37,12 @@ fm_live_gate opt-in FM_CODEX_LIVE_E2E codex tmux treehouse
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 CODEX_VERSION=$(codex --version 2>/dev/null | head -1)
+TRANSPORT=positional
+[ "${FM_CODEX_TYPED_LAUNCH:-0}" != 1 ] || TRANSPORT=typed
+# The positional first turn waits on codex's own session startup, which took
+# up to 75 s on a machine with many MCP servers; the spawn's gate is bounded
+# at about 120 s, so the spawn bound sits just above it.
+SPAWN_BOUND=150
 
 SOCKET="fm-codex-typed-$$"
 SHIM_DIR=$(mktemp -d "${TMPDIR:-/tmp}/fm-codex-typed-live.XXXXXX")
@@ -88,6 +94,7 @@ make_scratch_project() {  # <dir>
 HOME_DIR="$TMP_ROOT/home"
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" "$HOME_DIR/data"
 printf '999999 0\n' > "$HOME_DIR/config/lane-capacity"
+fm_test_machine_policy "$HOME_DIR/config"
 
 SCOUT=codex-typed-e2e
 mkdir -p "$HOME_DIR/data/$SCOUT"
@@ -159,15 +166,15 @@ case "$SPAWN_OUT" in
   *"spawned $SCOUT harness=codex"*) : ;;
   *) fail "the new-folder spawn did not report success"$'\n'"$SPAWN_OUT" ;;
 esac
-[ "$SPAWN_ELAPSED" -le 60 ] || fail "the new-folder spawn took ${SPAWN_ELAPSED}s to start processing its brief (bound: 60s)"
+[ "$SPAWN_ELAPSED" -le "$SPAWN_BOUND" ] || fail "the new-folder spawn took ${SPAWN_ELAPSED}s to start processing its brief (bound: ${SPAWN_BOUND}s)"
 pane_capture "$SCOUT" | grep -Fq 'FIRSTMATE_OP: v1 launch-brief' \
-  || fail "the new-folder pane never showed the typed launch-brief envelope"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
+  || fail "the new-folder pane never showed the $TRANSPORT launch-brief envelope"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
 wait_for_pane_text "$SCOUT" 'codex-brief-ok' 90 \
   || fail "the new-folder scout never replied codex-brief-ok"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
-pass "real codex $CODEX_VERSION on tmux: a new-folder scout starts processing its typed launch brief within ${SPAWN_ELAPSED}s and answers it"
+pass "real codex $CODEX_VERSION on tmux: a new-folder scout starts processing its $TRANSPORT launch brief within ${SPAWN_ELAPSED}s and answers it"
 
 # --- 2. TRUSTED folder: a relaunch of the same worktree, captured to prove
-#        no trust dialog stood between launch and the typed brief -------------
+#        no trust dialog stood between launch and the brief -------------------
 
 sed 's/codex-brief-ok/codex-relaunch-ok/' "$HOME_DIR/data/$SCOUT/brief.md" >"$TMP_ROOT/relaunch-brief.md"
 cp "$TMP_ROOT/relaunch-brief.md" "$HOME_DIR/data/$SCOUT/brief.md"
@@ -189,7 +196,7 @@ wait "$TRUST_POLLER" 2>/dev/null || true
 if [ "$SPAWN_RC" -ne 0 ]; then
   fail "a codex relaunch in the trusted folder failed within ${SPAWN_ELAPSED}s"$'\n'"$SPAWN_OUT"
 fi
-[ "$SPAWN_ELAPSED" -le 60 ] || fail "the trusted-folder relaunch took ${SPAWN_ELAPSED}s to start processing its brief (bound: 60s)"
+[ "$SPAWN_ELAPSED" -le "$SPAWN_BOUND" ] || fail "the trusted-folder relaunch took ${SPAWN_ELAPSED}s to start processing its brief (bound: ${SPAWN_BOUND}s)"
 wait_for_pane_text "$SCOUT" 'codex-relaunch-ok' 90 \
   || fail "the trusted-folder scout never replied codex-relaunch-ok"$'\n'"$(pane_capture "$SCOUT" | tail -25)"
 [ -s "$TRUST_POLL" ] || fail "codex $CODEX_VERSION trusted-folder viewport was never observed"
@@ -197,8 +204,8 @@ if grep -Fq 'Trust this folder' "$TRUST_POLL"; then
   fail "codex $CODEX_VERSION showed a trust dialog in the trusted-folder case"
 fi
 pass "real codex $CODEX_VERSION on tmux: the trusted-folder relaunch rendered no trust dialog"
-pass "real codex $CODEX_VERSION on tmux: a trusted-folder relaunch starts processing its typed launch brief within ${SPAWN_ELAPSED}s"
+pass "real codex $CODEX_VERSION on tmux: a trusted-folder relaunch starts processing its $TRANSPORT launch brief within ${SPAWN_ELAPSED}s"
 
 cleanup_all
 trap - EXIT
-printf 'ok - real codex %s typed launch brief verified end to end on an isolated tmux server\n' "$CODEX_VERSION"
+printf 'ok - real codex %s %s launch brief verified end to end on an isolated tmux server\n' "$CODEX_VERSION" "$TRANSPORT"

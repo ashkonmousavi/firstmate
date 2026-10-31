@@ -60,6 +60,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 
@@ -91,6 +92,7 @@ esac
 exit 1
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 
@@ -146,6 +148,7 @@ printf 'called\n' > "$FM_TEST_TMUX_MARKER"
 printf 'bash\n'
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 
   for target in sess sess: :win sess:win:extra; do
     out=$(PATH="$fakebin:$BASE_PATH" FM_TEST_TMUX_MARKER="$marker" \
@@ -274,20 +277,8 @@ make_liveness_tmux() {
 set -u
 mode=${FM_TEST_PANE_CMD:-zsh}
 windows="${FM_TMUX_CALL_LOG:?}.windows"
-brief_state="${FM_TMUX_CALL_LOG:?}.launch-brief"
 case "${1:-}" in
-  capture-pane)
-    printf '╭────╮\n│    │\n╰────╯\n'
-    [ ! -e "$brief_state.submitted" ] || printf '• Working (1s • esc to interrupt)\n'
-    exit 0 ;;
   send-keys)
-    for arg in "$@"; do
-      case "$arg" in
-        ". '"*"'") rm -f "$brief_state" "$brief_state.submitted" ;;
-        *'FIRSTMATE_OP: v1 launch-brief'*) : > "$brief_state" ;;
-        Enter) [ ! -e "$brief_state" ] || mv "$brief_state" "$brief_state.submitted" ;;
-      esac
-    done
     if [ -n "${FM_FAKE_LAUNCH_LOG:-}" ]; then
       for arg in "$@"; do
         case "$arg" in
@@ -300,7 +291,6 @@ case "${1:-}" in
   display-message)
     for a in "$@"; do
       case "$a" in
-        *cursor_y*) printf '1\n'; exit 0 ;;
         *pane_current_command*)
           case "$mode" in
             missing) printf '%s\n' node; exit 0 ;;
@@ -331,7 +321,6 @@ case "${1:-}" in
       sleep "$FM_TEST_NEW_WINDOW_PAUSE"
     fi
     if [ "${1:-}" = new-window ]; then
-      rm -f "$brief_state" "$brief_state.submitted"
       name=
       previous=
       for arg in "$@"; do
@@ -350,6 +339,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 

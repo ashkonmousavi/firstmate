@@ -66,23 +66,18 @@ case "${1:-}" in
         ". '"*"'")
           staged=${payload#". '"}
           staged=${staged%"'"}
-          if [ -f "$staged" ]; then
-            payload=$(cat "$staged")
-            rm -f "$D/brief-pending" "$D/brief-submitted"
-            cat "$D/becomes" > "$D/command.$target"
-          fi
+          [ ! -f "$staged" ] || payload=$(cat "$staged")
           ;;
       esac
       printf '%s\n' "$payload" >> "$D/literal"
       case "$payload" in
-        *'FIRSTMATE_OP: v1 launch-brief'*) : > "$D/brief-pending" ;;
         /exit|/quit)
-          rm -f "$D/brief-pending" "$D/brief-submitted"
           if [ -e "$D/remote-relaunch-start" ] && [ ! -e "$D/remote-relaunch-end" ]; then
             : > "$D/local-relaunch-during-remote"
           fi
           printf 'zsh' > "$D/command.$target"
           ;;
+        *'encode launch-brief'* | *'Firstmate operational input waiting: read'*) cat "$D/becomes" > "$D/command.$target" ;;
         ': Firstmate instruction waiting: list '*)
           printf 'doorbell\n' >> "$D/rings"
           if [ -x "$D/on-doorbell" ]; then
@@ -104,9 +99,6 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
-      if [ "$payload" = Enter ] && [ -e "$D/brief-pending" ]; then
-        mv "$D/brief-pending" "$D/brief-submitted"
-      fi
     fi
     exit 0 ;;
   display-message)
@@ -124,15 +116,13 @@ case "${1:-}" in
       prev=$a
     done
     printf 'fakepane\n'; exit 0 ;;
-  capture-pane)
-    printf '╭────╮\n│    │\n╰────╯\n'
-    [ ! -e "$D/brief-submitted" ] || printf '• Working (1s • esc to interrupt)\n'
-    exit 0 ;;
+  capture-pane) printf '╭────╮\n│    │\n╰────╯\n'; exit 0 ;;
   list-windows) [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
 esac
 exit 0
 SH
   chmod +x "$fb/tmux"
+  fm_test_codex_first_turn_wrap "$fb"
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in

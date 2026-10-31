@@ -223,14 +223,16 @@ test_spawn_isolation_abort() {
 make_spawn_record_fakebin() {
   local dir=$1 fakebin
   fakebin=$(fm_fakebin "$dir")
-  fm_test_fake_tmux_spawn "$fakebin"
-  mv "$fakebin/tmux" "$fakebin/tmux-spawn"
   cat > "$fakebin/tmux" <<'SH'
 #!/usr/bin/env bash
 set -u
 [ -n "${FM_TMUX_REC:-}" ] && printf 'tmux %s\n' "$*" >> "$FM_TMUX_REC"
 window_file="$(dirname "$0")/.spawn-window"
+case "$*" in
+  *"#{pane_current_path}"*) printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;;
+esac
 case "${1:-}" in
+  display-message) printf 'firstmate\n'; exit 0 ;;
   new-window)
     name=
     previous=
@@ -247,10 +249,12 @@ case "${1:-}" in
       *) [ ! -s "$window_file" ] || cat "$window_file" ;;
     esac
     exit 0 ;;
+  has-session|new-session|send-keys|set-window-option) exit 0 ;;
 esac
-exec "$(dirname "$0")/tmux-spawn" "$@"
+exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   fm_fake_exit0 "$fakebin" treehouse
   printf '%s\n' "$fakebin"
 }

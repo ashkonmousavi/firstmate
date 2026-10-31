@@ -257,21 +257,15 @@ case "${1:-}" in
           staged=${payload#". '"}
           staged=${staged%"'"}
           [ ! -f "$staged" ] || payload=$(cat "$staged")
-          printf '%s\n' "$payload" > "$D/launch"
-          printf 'codex' > "$D/command"
-          rm -f "$D/brief-pending" "$D/brief-submitted"
           ;;
       esac
       printf '%s\n' "$payload" >> "$D/literal"
       case "$payload" in
-        *'FIRSTMATE_OP: v1 launch-brief'*) : > "$D/brief-pending" ;;
         /exit|/quit) printf 'zsh' > "$D/command" ;;
+        *'encode launch-brief'*) printf 'codex' > "$D/command" ;;
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
-      if [ "$payload" = Enter ] && [ -e "$D/brief-pending" ]; then
-        mv "$D/brief-pending" "$D/brief-submitted"
-      fi
     fi
     exit 0 ;;
   display-message)
@@ -283,15 +277,13 @@ case "${1:-}" in
       esac
     done
     printf 'fakepane\n'; exit 0 ;;
-  capture-pane)
-    printf '╭────╮\n│    │\n╰────╯\n'
-    [ ! -e "$D/brief-submitted" ] || printf '• Working (1s • esc to interrupt)\n'
-    exit 0 ;;
+  capture-pane) printf '╭────╮\n│    │\n╰────╯\n'; exit 0 ;;
   list-windows) [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
 esac
 exit 0
 SH
   chmod +x "$fb/tmux"
+  fm_test_codex_first_turn_wrap "$fb"
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 exit 0
@@ -342,7 +334,7 @@ test_relaunch_rebuilds_the_switch() {
 
     grep -qx 'export COMPACT_ADVISER_DISABLE=1' "$dir/fake/keys" \
       || fail "relaunch with allowlist=$setting did not re-export the compact-adviser switch into the pane"
-    launch=$(cat "$dir/fake/launch")
+    launch=$(grep 'encode launch-brief' "$dir/fake/literal" | tail -1)
     [ -n "$launch" ] || fail "relaunch with allowlist=$setting sent no replacement launch command"
     install_env_probe "$dir/fakebin" codex
     preamble=$(grep '^export ' "$dir/fake/keys")

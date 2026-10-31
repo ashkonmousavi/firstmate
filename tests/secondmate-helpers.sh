@@ -26,7 +26,6 @@ make_fake_tmux() {
 #!/usr/bin/env bash
 set -u
 window_file="$(dirname "$0")/.spawn-windows"
-brief_state="$(dirname "$0")/.launch-brief"
 case "${1:-}" in
   has-session|new-session)
     printf '%s\n' "$*" >> "$FM_FAKE_TMUX_LOG"
@@ -34,7 +33,6 @@ case "${1:-}" in
     ;;
   new-window)
     printf '%s\n' "$*" >> "$FM_FAKE_TMUX_LOG"
-    rm -f "$brief_state" "$brief_state.submitted"
     name=
     previous=
     for arg in "$@"; do
@@ -64,11 +62,6 @@ case "${1:-}" in
     printf '%s\n' "$*" >> "$FM_FAKE_TMUX_LOG"
     prev=
     for arg in "$@"; do
-      case "$arg" in
-        ". '"*"'") rm -f "$brief_state" "$brief_state.submitted" ;;
-        *'FIRSTMATE_OP: v1 launch-brief'*) : > "$brief_state" ;;
-        Enter) [ ! -e "$brief_state" ] || mv "$brief_state" "$brief_state.submitted" ;;
-      esac
       if [ "$prev" = -l ]; then
         case "$arg" in
           ". '"*"'")
@@ -118,25 +111,14 @@ EOF
     ;;
   display-message)
     case "$*" in
-      *'#{cursor_y}'*)
-        if [ -e "$brief_state.submitted" ] || [ ! -f "$FM_FAKE_TMUX_CAPTURE" ]; then
-          printf '1\n'
-        else
-          printf '0\n'
-        fi ;;
+      *'#{cursor_y}'*) printf '0\n' ;;
       *) printf 'firstmate\n' ;;
     esac
     exit 0
     ;;
   capture-pane)
     printf '%s\n' "$*" >> "$FM_FAKE_TMUX_LOG"
-    if [ -e "$brief_state.submitted" ]; then
-      printf '╭────╮\n│    │\n╰────╯\n• Working (1s • esc to interrupt)\n'
-    elif [ -f "$FM_FAKE_TMUX_CAPTURE" ]; then
-      cat "$FM_FAKE_TMUX_CAPTURE"
-    else
-      printf '╭────╮\n│    │\n╰────╯\n'
-    fi
+    cat "$FM_FAKE_TMUX_CAPTURE"
     exit 0
     ;;
 esac
@@ -187,6 +169,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   chmod +x "$fakebin/treehouse"
   : > "$dir/tmux.log"
   printf '%s\n' "$fakebin"

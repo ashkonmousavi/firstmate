@@ -105,7 +105,6 @@ Durable history for a finished task therefore lives in the status log, the repor
 
 ## Active limits
 
-- Standard Codex launches are refused by the [typed-brief viewport requirement](verification/runtime-backends.md#codex-typed-launch-brief).
 - Paseo is experimental, macOS-only, GUI-first, and requires the app running.
 - Secondmate spawns are unsupported until a per-home lifecycle design is verified; select `tmux` for a home that needs them.
 - `paseo run --cwd` is ignored when `PASEO_AGENT_ID` is set (reported on the upstream issue thread); the adapter never uses `paseo run`, only `terminal create --cwd`, which honours the path.

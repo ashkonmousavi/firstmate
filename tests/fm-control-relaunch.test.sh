@@ -196,6 +196,7 @@ esac
 exit 0
 SH
   chmod +x "$fb/tmux"
+  fm_test_codex_first_turn_wrap "$fb"
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 [ -z "${FM_FAKE_LOCK_WAITING:-}" ] || : > "$FM_FAKE_LOCK_WAITING"
@@ -264,15 +265,11 @@ run_lifecycle_fixture() {
   # A claude spawn pre-registers workspace trust in the launching user's own
   # store (bin/fm-claude-trust.sh), and a relaunch reaches it through fm-control.sh, so this runs against a throwaway HOME;
   # without it this suite would write the developer's real ~/.claude.json.
-  # The stub pane renders no harness screens, so codex relaunches here keep
-  # the positional brief transport (FM_CODEX_POSITIONAL_LAUNCH=1); the
-  # typed-brief gates that replace it on real installs need a live ready
-  # composer and are covered by tests/fm-codex-harness.test.sh.
   mkdir -p "$dir/user-home"
   env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
     -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
-    HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' FM_CODEX_POSITIONAL_LAUNCH=1 \
+    HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_REAL_GIT="${FM_REAL_GIT:-}" FM_FAKE_GIT_FAILURE="${FM_FAKE_GIT_FAILURE:-}" \
@@ -318,15 +315,11 @@ run_spawn() {  # <case-dir> <args...>
   # A claude spawn pre-registers workspace trust in the launching user's own
   # store (bin/fm-claude-trust.sh), so it runs against a throwaway HOME;
   # without it this suite would write the developer's real ~/.claude.json.
-  # The stub pane renders no harness screens, so codex spawns here keep the
-  # positional brief transport (FM_CODEX_POSITIONAL_LAUNCH=1); the typed-brief
-  # gates that replace it on real installs need a live ready composer and are
-  # covered by tests/fm-codex-harness.test.sh.
   mkdir -p "$dir/user-home"
   env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
     -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
-    HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' FM_CODEX_POSITIONAL_LAUNCH=1 \
+    HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
     "$SPAWN" "$@" 2>&1
 }
@@ -2392,6 +2385,7 @@ test_spawn_relaunch_refuses_a_symlinked_task_record_before_inspection() {
 exec "$dir/fakebin/tmux-real" "\$@"
 SH
   chmod +x "$dir/fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$dir/fakebin"
 
   out=$(run_spawn "$dir" rl37 --relaunch --harness claude); rc=$?
   expect_code 1 "$rc" "relaunching from symlinked metadata should refuse"
@@ -2424,6 +2418,7 @@ fi
 exec "$dir/fakebin/tmux-real" "\$@"
 SH
   chmod +x "$dir/fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$dir/fakebin"
 
   out=$(run_spawn "$dir" rl38 --relaunch --harness claude); rc=$?
   expect_code 0 "$rc" "relaunch with one continuous meta lock should succeed"$'\n'"$out"

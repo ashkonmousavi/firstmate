@@ -603,18 +603,10 @@ make_noop_tmux() {
   cat > "$fakebin/tmux" <<'SH'
 #!/usr/bin/env bash
 window_file="$(dirname "$0")/.spawn-window"
-brief_state="$(dirname "$0")/.launch-brief"
 case "${1:-}" in
-  capture-pane)
-    printf '╭────╮\n│    │\n╰────╯\n'
-    [ ! -e "$brief_state.submitted" ] || printf '• Working (1s • esc to interrupt)\n'
-    exit 0 ;;
-  display-message)
-    case "$*" in *cursor_y*) printf '1\n'; exit 0 ;; esac
-    printf 'firstmate\n' ;;
+  display-message) printf 'firstmate\n' ;;
   list-windows) [ ! -s "$window_file" ] || cat "$window_file" ;;
   new-window)
-    rm -f "$brief_state" "$brief_state.submitted"
     name=
     previous=
     for arg in "$@"; do
@@ -624,19 +616,11 @@ case "${1:-}" in
     printf '%s\n' "$name" > "$window_file"
     ;;
   kill-window) : > "$window_file" ;;
-  send-keys)
-    for arg in "$@"; do
-      case "$arg" in
-        ". '"*"'") rm -f "$brief_state" "$brief_state.submitted" ;;
-        *'FIRSTMATE_OP: v1 launch-brief'*) : > "$brief_state" ;;
-        Enter) [ ! -e "$brief_state" ] || mv "$brief_state" "$brief_state.submitted" ;;
-      esac
-    done
-    ;;
 esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   # BASE_PATH deliberately omits the developer's node, which the trust
   # registration below needs, so link the real one in rather than presenting a
   # node-less spawn host no real fleet member looks like.
@@ -864,18 +848,10 @@ case "$*" in
   *"#{pane_current_path}"*) printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;;
 esac
 window_file="$(dirname "$0")/.spawn-window"
-brief_state="$(dirname "$0")/.launch-brief"
 case "${1:-}" in
-  capture-pane)
-    printf '╭────╮\n│    │\n╰────╯\n'
-    [ ! -e "$brief_state.submitted" ] || printf '• Working (1s • esc to interrupt)\n'
-    exit 0 ;;
-  display-message)
-    case "$*" in *cursor_y*) printf '1\n'; exit 0 ;; esac
-    printf 'firstmate\n'; exit 0 ;;
+  display-message) printf 'firstmate\n'; exit 0 ;;
   list-windows) [ ! -s "$window_file" ] || cat "$window_file"; exit 0 ;;
   new-window)
-    rm -f "$brief_state" "$brief_state.submitted"
     name=
     previous=
     for arg in "$@"; do
@@ -887,13 +863,6 @@ case "${1:-}" in
   kill-window) : > "$window_file"; exit 0 ;;
   has-session|new-session) exit 0 ;;
   send-keys)
-    for arg in "$@"; do
-      case "$arg" in
-        ". '"*"'") rm -f "$brief_state" "$brief_state.submitted" ;;
-        *'FIRSTMATE_OP: v1 launch-brief'*) : > "$brief_state" ;;
-        Enter) [ ! -e "$brief_state" ] || mv "$brief_state" "$brief_state.submitted" ;;
-      esac
-    done
     if [ -n "${FM_FAKE_LAUNCH_LOG:-}" ]; then
       prev=
       for a in "$@"; do
@@ -901,10 +870,7 @@ case "${1:-}" in
           case "$a" in
             ". '"*"'") staged=${a#". '"}; staged=${staged%"'"}; [ ! -f "$staged" ] || a=$(cat "$staged") ;;
           esac
-          case "$a" in
-            *'FIRSTMATE_OP: v1 launch-brief'*) ;;
-            *) printf '%s\n' "$a" >> "$FM_FAKE_LAUNCH_LOG" ;;
-          esac
+          printf '%s\n' "$a" >> "$FM_FAKE_LAUNCH_LOG"
         fi
         prev=$a
       done
@@ -915,6 +881,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   fm_fake_exit0 "$fakebin" pi
   # BASE_PATH deliberately omits the developer's node, which the trust
   # registration below needs, so link the real one in rather than presenting a
@@ -1418,6 +1385,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   cat > "$fakebin/gh" <<'SH'
 #!/usr/bin/env bash
 exit 0
@@ -2569,6 +2537,7 @@ esac
 exec "$fakebin/tmux.real" "\$@"
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 
   first_out="$w/first-push.out"
   (
@@ -2719,6 +2688,7 @@ esac
 exec "$fakebin/tmux.real" "\$@"
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   report="$w/empty-reread.report"
   : > "$report"
   log="$w/config-reread-order.tmux.log"
@@ -2899,6 +2869,7 @@ case "\$*" in
 esac
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   PATH="$fakebin:$BASE_PATH" FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/main" \
     FM_SEND_SETTLE=0 FM_FAKE_TMUX_LOG="$log" \
     "$ROOT/bin/fm-bootstrap.sh" >/dev/null 2>&1

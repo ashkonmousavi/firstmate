@@ -16,8 +16,6 @@
 # registered agent once anything has been typed into it, and submitting starts
 # one turn: the next agent read reports working and the pane settles back to
 # idle, which is the native transition the adapter confirms a submit with.
-# The Codex viewport starts with an empty composer and shows processing only
-# after the typed launch brief is submitted, independently of agent-status reads.
 #
 # Usage:
 #   . "$(dirname "${BASH_SOURCE[0]}")/remote-herdr-fixture.sh"
@@ -95,28 +93,34 @@ case "${1:-} ${2:-}" in
     jq_state --arg p "${3:-}" \
       '.tabs |= [.[]|select(.pane_id != $p)]
        | .typed |= with_entries(select(.key != $p))
-       | .working |= with_entries(select(.key != $p))
-       | .brief_draft |= with_entries(select(.key != $p))
-       | .processing |= with_entries(select(.key != $p))' | save ;;
+       | .codex = ((.codex // {}) | with_entries(select(.key != $p)))
+       | .working |= with_entries(select(.key != $p))' | save ;;
   "pane send-text")
     [ ! -f "$SEND_FAIL" ] || exit 1
-    brief=false
-    case "${4:-}" in *'FIRSTMATE_OP: v1 launch-brief'*) brief=true ;; esac
-    jq_state --arg p "${3:-}" --argjson brief "$brief" \
-      '.typed[$p] = true | .brief_draft[$p] = $brief | .processing[$p] = false' | save ;;
+    codex=false
+    text=${4:-}
+    case "$text" in
+      *--dangerously-bypass-approvals-and-sandbox*) codex=true ;;
+      *"'"*/launch.*)
+        staged=${text#*"'"}
+        staged=${staged%%"'"*}
+        if [ -f "$staged" ] && grep -q -e '--dangerously-bypass-approvals-and-sandbox' "$staged"; then
+          codex=true
+        fi
+        ;;
+    esac
+    jq_state --arg p "${3:-}" --argjson codex "$codex" \
+      '.typed[$p] = true | if $codex then .codex[$p] = true else . end' | save ;;
   "pane send-keys")
     [ ! -f "$SEND_FAIL" ] || exit 1
-    jq_state --arg p "${3:-}" --arg key "${4:-}" \
-      '.typed[$p] = true | .working[$p] = true
-       | if $key == "enter" then
-           .processing[$p] = (.brief_draft[$p] // false) | .brief_draft[$p] = false
-         else . end' | save ;;
+    jq_state --arg p "${3:-}" '.typed[$p] = true | .working[$p] = true' | save ;;
   "pane read")
-    if [ "$(jq_state -r --arg p "${3:-}" '.processing[$p] // false')" = true ]; then
-      jq_state --arg p "${3:-}" '.processing[$p] = false' | save
-      printf '%s\n' '• Working (1s • esc to interrupt)' '›'
+    # A pane a codex launch line was typed into shows codex's busy row, the
+    # first turn bin/fm-spawn.sh's positional first-turn gate waits for.
+    if [ "$(jq_state -r --arg p "${3:-}" '.codex[$p] // false')" = true ]; then
+      printf '%s\n' '• Working (1s • esc to interrupt)'
     else
-      printf '%s\n' '›'
+      printf '\n'
     fi
     ;;
   "pane process-info")
@@ -145,5 +149,5 @@ SH
 # reset_remote_herdr_fixture <state>: return the fake host to "no workspaces,
 # tabs, or panes", which is what a test means by "the previous endpoint is gone".
 reset_remote_herdr_fixture() { # <state>
-  printf '{"next":1,"workspaces":[],"tabs":[],"typed":{},"working":{},"brief_draft":{},"processing":{}}\n' > "$1"
+  printf '{"next":1,"workspaces":[],"tabs":[],"typed":{},"working":{}}\n' > "$1"
 }

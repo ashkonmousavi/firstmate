@@ -72,6 +72,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   fm_fake_exit0 "$fakebin" treehouse
   printf '%s\n' "$fakebin"
 }
@@ -117,11 +118,6 @@ EOF
 
 run_settle_spawn() {
   local id=$1
-  # The settle stub pane renders no harness screens, so this codex spawn
-  # keeps the positional brief transport; the typed-brief gates that replace
-  # it on real installs need a live ready composer and are covered by
-  # tests/fm-codex-harness.test.sh.
-  FM_CODEX_POSITIONAL_LAUNCH=1 \
   FM_ROOT_OVERRIDE='' FM_HOME="$HOME_DIR" \
     FM_STATE_OVERRIDE="$HOME_DIR/state" FM_DATA_OVERRIDE="$HOME_DIR/data" \
     FM_PROJECTS_OVERRIDE="$HOME_DIR/projects" FM_CONFIG_OVERRIDE="$HOME_DIR/config" \
