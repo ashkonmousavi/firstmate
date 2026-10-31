@@ -101,6 +101,11 @@ case "${1:-}" in
     else
       printf '%s\n' "$payload" >> "$D/keys"
       case "$payload" in
+        'treehouse get')
+          # A released relaunch allocates its copy through the pane's shell:
+          # model treehouse moving that shell into the pool slot.
+          [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd"
+          ;;
         'export GOTMPDIR='*)
           if [ -n "${FM_FAKE_TRACE_PREPARE:-}" ]; then
             : > "$FM_FAKE_TRACE_PREPARE"
@@ -184,7 +189,8 @@ case "${1:-}" in
     while [ $# -gt 0 ]; do
       case "$1" in
         -n) name=${2:-}; shift 2 ;;
-        -c|-t) shift 2 ;;
+        -c) printf '%s' "${2:-}" > "$D/cwd"; shift 2 ;;
+        -t) shift 2 ;;
         *) shift ;;
       esac
     done
@@ -421,6 +427,292 @@ SH
 }
 
 # --- 1. same-harness relaunch -----------------------------------------------
+
+# --- relaunch of a released copy ---------------------------------------------
+#
+# A released record names bin/fm-teardown.sh's <id>.released-copy sentinel and
+# the head, branch and pull request teardown proved. The fixture is a real round
+# trip on git: a bare origin the project reaches through the pull request's
+# GitHub URL (an insteadOf rewrite), the task branch pushed there, a Treehouse-
+# shaped pool slot the pane's `treehouse get` moves into, and a fake forge
+# answering for the pull request.
+
+# add_released_ship_task <case-dir> <id>: echoes nothing; sets up the record.
+add_released_ship_task() {
+  local dir=$1 id=$2 home="$1/home" proj="$1/proj" origin="$1/origin.git" pool="$1/pool" head
+  fm_git_init_commit "$proj"
+  git clone --quiet --bare "$proj" "$origin"
+  git -C "$proj" remote add origin https://github.com/example/repo.git
+  git -C "$proj" config "url.file://$origin.insteadOf" https://github.com/example/repo.git
+  git -C "$proj" checkout -q -b "fm/$id"
+  printf 'released work\n' > "$proj/work.txt"
+  git -C "$proj" add work.txt
+  git -C "$proj" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'released work'
+  head=$(git -C "$proj" rev-parse HEAD)
+  git -C "$proj" push -q origin "fm/$id"
+  # Teardown deleted the local branch when it released the copy.
+  git -C "$proj" checkout -q main
+  git -C "$proj" branch -q -D "fm/$id"
+  mkdir -p "$pool/1"
+  printf '{}\n' > "$pool/treehouse-state.json"
+  git -C "$proj" worktree add --quiet --detach "$pool/1/repo" main
+  printf '%s' "$pool/1/repo" > "$dir/fake/treehouse-slot"
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<EOF
+# Task
+## Captain's intent
+Exercise the relaunch of a released copy for $id.
+
+## Firstmate spec
+Recreate the copy from its pull request's branch.
+EOF
+  {
+    echo "window=fmses:fm-$id"
+    echo "endpoint_task_id=$id"
+    echo "worktree=$home/state/$id.released-copy"
+    echo "released_head=$head"
+    echo "released_branch=fm/$id"
+    echo "released_pr=https://github.com/example/repo/pull/7"
+    echo "project=$proj"
+    echo "harness=claude"
+    echo "kind=ship"
+    echo "mode=no-mistakes"
+    echo "yolo=off"
+    echo "branch=fm/$id"
+    echo "tasktmp=/tmp/fm-$id"
+    echo "model=default"
+    echo "effort=default"
+    echo "spawn_gen=s$(date +%s).1.1"
+    echo "pr=https://github.com/example/repo/pull/7"
+  } > "$home/state/$id.meta"
+  # Teardown closed the endpoint before writing the sentinel.
+  : > "$dir/fake/windows"
+  printf 'zsh' > "$dir/fake/command"
+  printf '%s' "$proj" > "$dir/fake/cwd"
+  printf '%s\n' "$head" > "$dir/fake/pr-head"
+  printf 'OPEN\n' > "$dir/fake/pr-state"
+  cat > "$dir/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+D=$FM_FAKE_DIR
+case "${1:-} ${2:-}" in
+  'api graphql')
+    [ ! -e "$D/pr-unreadable" ] || exit 1
+    state=$(cat "$D/pr-state")
+    merged=false
+    [ "$state" != MERGED ] || merged=true
+    printf 'state=%s\nmerged=%s\nhead=%s\n' "$state" "$merged" "$(cat "$D/pr-head")"
+    ;;
+  *) exit 1 ;;
+esac
+SH
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$dir/fakebin/gh-axi"
+  cat > "$dir/fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_FAKE_DIR/treehouse-log"
+exit 0
+SH
+  chmod +x "$dir/fakebin/gh" "$dir/fakebin/gh-axi" "$dir/fakebin/treehouse"
+  TASK_TMPS+=("/tmp/fm-$id")
+}
+
+released_note_count() {  # <case-dir> <id>
+  grep -c 'This task was relaunched on a recreated local copy' "$1/home/data/$2/brief.md"
+}
+
+# Refusals before or after allocation leave the released record, its brief and
+# the relaunch journal exactly as they were.
+assert_released_untouched() {  # <case-dir> <id> <meta-before> <brief-before> <what>
+  local dir=$1 id=$2 what=$5
+  [ "$(cat "$dir/home/state/$id.meta")" = "$3" ] || fail "$what: the released record changed"
+  [ "$(cat "$dir/home/data/$id/brief.md")" = "$4" ] || fail "$what: the brief changed"
+  assert_absent "$dir/home/state/$id.control-relaunch" "$what: a relaunch journal was written"
+  assert_absent "$dir/home/state/$id.control-relaunch.meta-prior" "$what: a prior-record copy was written"
+}
+
+test_released_copy_relaunch_recreates_the_branch_and_notes_it_once() {
+  local dir out rc head slot
+  dir=$(new_case released rr1)
+  add_released_ship_task "$dir" rr1
+  head=$(cat "$dir/fake/pr-head")
+  slot="$dir/pool/1/repo"
+  out=$(run_control "$dir" rr1 relaunch --note "picked back up after release"); rc=$?
+  expect_code 0 "$rc" "a released copy should be recreated and relaunched"$'\n'"$out"
+  assert_contains "$out" "recreated-from=released-copy" "the outcome should say the copy was recreated"
+  [ "$(meta_field "$dir" rr1 worktree)" = "$slot" ] \
+    || fail "the record should name the new copy, got '$(meta_field "$dir" rr1 worktree)'"
+  assert_no_grep 'released-copy' "$dir/home/state/rr1.meta" "the sentinel is still in the record"
+  assert_no_grep 'released_head=' "$dir/home/state/rr1.meta" "the released fields were kept after recreation"
+  [ "$(git -C "$slot" symbolic-ref --short HEAD)" = fm/rr1 ] || fail "the new copy is not on the task branch"
+  [ "$(git -C "$slot" rev-parse HEAD)" = "$head" ] || fail "the new copy is not at the released head"
+  [ "$(git -C "$slot" rev-parse --abbrev-ref '@{upstream}')" = origin/fm/rr1 ] \
+    || fail "the new copy's branch does not track the pull request's remote"
+  [ -z "$(git -C "$slot" status --porcelain --untracked-files=no)" ] || fail "the new copy is not clean"
+  assert_grep 'task=rr1' "$dir/pool/1/.fm-slot-owner" "the new copy's pool slot is not claimed for the task"
+  [ "$(released_note_count "$dir" rr1)" = 1 ] || fail "the brief should carry exactly one recreated-copy note"
+  assert_grep "$head" "$dir/home/data/rr1/brief.md" "the note does not name the recreated head"
+  assert_grep 'picked back up after release' "$dir/home/data/rr1/brief.md" "the note text is missing"
+  assert_grep 'were not carried' "$dir/home/data/rr1/brief.md" "the note does not say what was not carried over"
+  assert_grep 'This task was relaunched on a recreated local copy' "$dir/home/data/rr1/launch-brief.md" \
+    "the launch contract the worker reads does not carry the note"
+  [ "$(journal_field "$dir" rr1 phase)" = complete ] || fail "the relaunch journal should end complete"
+  assert_no_grep '/exit' "$dir/fake/literal" "no agent was running, so nothing should have been exited"
+  pass "relaunch of a released copy recreates the branch at its head in a claimed slot and notes it once"
+}
+
+test_released_copy_relaunch_refuses_and_changes_nothing() {
+  local dir out rc meta brief why
+  for why in merged unreadable alive window-exists; do
+    dir=$(new_case "released-refuse-$why" rr2)
+    add_released_ship_task "$dir" rr2
+    case "$why" in
+      merged) printf 'MERGED\n' > "$dir/fake/pr-state" ;;
+      unreadable) : > "$dir/fake/pr-unreadable" ;;
+      alive) printf 'fm-rr2\n' > "$dir/fake/windows"; printf 'claude' > "$dir/fake/command" ;;
+      window-exists) printf 'fm-rr2\n' > "$dir/fake/windows" ;;
+    esac
+    meta=$(cat "$dir/home/state/rr2.meta")
+    brief=$(cat "$dir/home/data/rr2/brief.md")
+    out=$(run_control "$dir" rr2 relaunch --note "should not land"); rc=$?
+    [ "$rc" -ne 0 ] || fail "$why: the released relaunch should refuse"$'\n'"$out"
+    case "$why" in
+      merged) assert_contains "$out" "needs cleanup" "merged: the refusal should send it to cleanup" ;;
+      unreadable) assert_contains "$out" "could not be read" "unreadable: the refusal should say the pull request could not be read" ;;
+      alive) assert_contains "$out" "no agent runs" "alive: the refusal should say an agent is running" ;;
+      window-exists) assert_contains "$out" "close that window first" "window-exists: the refusal should ask to close the window" ;;
+    esac
+    assert_released_untouched "$dir" rr2 "$meta" "$brief" "$why"
+    assert_no_grep 'treehouse get' "$dir/fake/keys" "$why: a copy was allocated before the refusal"
+  done
+  pass "a released relaunch refuses a merged or unreadable pull request and a live or existing endpoint, changing nothing"
+}
+
+test_released_copy_relaunch_returns_the_slot_when_the_branch_cannot_be_recreated() {
+  local dir out rc meta brief why
+  for why in branch-missing rewritten; do
+    dir=$(new_case "released-branch-$why" rr3)
+    add_released_ship_task "$dir" rr3
+    case "$why" in
+      branch-missing) git -C "$dir/origin.git" branch -q -D fm/rr3 ;;
+      rewritten)
+        git -C "$dir/proj" checkout -q -b rewrite main
+        git -C "$dir/proj" -c user.name=t -c user.email=t@t commit -q --allow-empty -m 'rewritten history'
+        git -C "$dir/proj" push -q -f origin rewrite:fm/rr3
+        git -C "$dir/proj" rev-parse HEAD > "$dir/fake/pr-head"
+        git -C "$dir/proj" checkout -q main
+        git -C "$dir/proj" branch -q -D rewrite
+        ;;
+    esac
+    meta=$(cat "$dir/home/state/rr3.meta")
+    brief=$(cat "$dir/home/data/rr3/brief.md")
+    out=$(run_control "$dir" rr3 relaunch --note "should not land"); rc=$?
+    [ "$rc" -ne 0 ] || fail "$why: the released relaunch should refuse"$'\n'"$out"
+    case "$why" in
+      branch-missing) assert_contains "$out" "does not exist on origin" "branch-missing: the refusal should name the missing branch" ;;
+      rewritten) assert_contains "$out" "does not contain task rr3's released head" "rewritten: the refusal should name the rewritten branch" ;;
+    esac
+    assert_released_untouched "$dir" rr3 "$meta" "$brief" "$why"
+    assert_grep 'treehouse get' "$dir/fake/keys" "$why: the refusal should come after allocation"
+    assert_grep "return --force $dir/pool/1/repo" "$dir/fake/treehouse-log" "$why: the allocated copy was not returned"
+    assert_absent "$dir/pool/1/.fm-slot-owner" "$why: the returned slot is still claimed"
+  done
+  pass "a released relaunch that cannot recreate the branch returns the slot and keeps the sentinel"
+}
+
+test_released_copy_relaunch_defers_without_a_free_lane() {
+  local dir out rc meta brief
+  dir=$(new_case released-defer rr4)
+  add_released_ship_task "$dir" rr4
+  printf '0 0\n' > "$dir/home/config/lane-capacity"
+  meta=$(cat "$dir/home/state/rr4.meta")
+  brief=$(cat "$dir/home/data/rr4/brief.md")
+  out=$(run_control "$dir" rr4 relaunch --note "should not land"); rc=$?
+  expect_code 75 "$rc" "a released relaunch with no free lane should defer"$'\n'"$out"
+  assert_released_untouched "$dir" rr4 "$meta" "$brief" "deferred"
+  assert_no_grep 'treehouse get' "$dir/fake/keys" "deferred: a copy was allocated"
+  pass "a released relaunch with no free lane defers and leaves the brief, journal and record unchanged"
+}
+
+test_released_copy_relaunch_retry_adds_no_second_note() {
+  local dir out rc
+  dir=$(new_case released-retry rr5)
+  add_released_ship_task "$dir" rr5
+  git -C "$dir/origin.git" branch -q -m fm/rr5 parked
+  out=$(run_control "$dir" rr5 relaunch --note "retry note"); rc=$?
+  [ "$rc" -ne 0 ] || fail "the first attempt should refuse while the branch is missing"
+  git -C "$dir/origin.git" branch -q -m parked fm/rr5
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  : > "$dir/fake/windows"
+  out=$(run_control "$dir" rr5 relaunch --note "retry note"); rc=$?
+  expect_code 0 "$rc" "the retry should recreate the copy"$'\n'"$out"
+  [ "$(released_note_count "$dir" rr5)" = 1 ] || fail "a retried released relaunch left $(released_note_count "$dir" rr5) notes"
+  pass "a retried released relaunch adds exactly one progress note"
+}
+
+# Two relaunches of one released copy never allocate two copies: the control
+# lock refuses the overlapping one, and one that starts after the first
+# finished finds an ordinary record and relaunches that copy instead.
+test_concurrent_released_relaunches_serialise() {
+  local dir rc1 rc2 p1 p2
+  dir=$(new_case released-race rr6)
+  add_released_ship_task "$dir" rr6
+  run_control "$dir" rr6 relaunch --note "first" > "$dir/out1" & p1=$!
+  run_control "$dir" rr6 relaunch --note "second" > "$dir/out2" & p2=$!
+  wait "$p1"; rc1=$?
+  wait "$p2"; rc2=$?
+  { [ "$rc1" -eq 0 ] || [ "$rc2" -eq 0 ]; } \
+    || fail "one of two concurrent released relaunches should win (rc $rc1 and $rc2)"$'\n'"$(cat "$dir/out1" "$dir/out2")"
+  [ "$(grep -c 'recreated-from=released-copy' "$dir/out1" "$dir/out2" | awk -F: '{ n += $2 } END { print n }')" = 1 ] \
+    || fail "exactly one relaunch should recreate the copy"$'\n'"$(cat "$dir/out1" "$dir/out2")"
+  [ "$(grep -cx 'treehouse get' "$dir/fake/keys")" = 1 ] || fail "two relaunches allocated two copies"
+  [ "$(released_note_count "$dir" rr6)" = 1 ] || fail "concurrent released relaunches left $(released_note_count "$dir" rr6) recreated-copy notes"
+  pass "two relaunches of one released copy serialise: one recreates it, and only one copy is allocated"
+}
+
+# The launch owner holds the same line on its own: for a released record a
+# missing tmux window is gone, while a window that still exists or a live
+# agent refuses before anything is allocated.
+test_spawn_relaunch_of_a_released_copy_gates_its_endpoint() {
+  local dir out rc meta why
+  for why in window-exists alive; do
+    dir=$(new_case "released-spawn-$why" rr8)
+    add_released_ship_task "$dir" rr8
+    printf 'fm-rr8\n' > "$dir/fake/windows"
+    [ "$why" != alive ] || printf 'claude' > "$dir/fake/command"
+    meta=$(cat "$dir/home/state/rr8.meta")
+    out=$(run_spawn "$dir" rr8 --relaunch); rc=$?
+    [ "$rc" -ne 0 ] || fail "$why: fm-spawn --relaunch of a released copy should refuse"$'\n'"$out"
+    [ "$why" != window-exists ] || assert_contains "$out" "close that window first" \
+      "window-exists: the refusal should ask to close the window"
+    [ "$(cat "$dir/home/state/rr8.meta")" = "$meta" ] || fail "$why: the released record changed"
+    assert_no_grep 'treehouse get' "$dir/fake/keys" "$why: a copy was allocated before the refusal"
+  done
+  dir=$(new_case released-spawn-missing rr8)
+  add_released_ship_task "$dir" rr8
+  out=$(run_spawn "$dir" rr8 --relaunch); rc=$?
+  expect_code 0 "$rc" "a released copy's missing tmux window is gone for its relaunch"$'\n'"$out"
+  [ "$(meta_field "$dir" rr8 worktree)" = "$dir/pool/1/repo" ] || fail "the direct relaunch did not recreate the copy"
+  pass "fm-spawn --relaunch of a released copy accepts its missing tmux window and refuses an existing or live one"
+}
+
+test_released_copy_frees_its_seat_and_the_relaunch_holds_one() {
+  local dir out rc
+  dir=$(new_case released-seat rr7)
+  add_released_ship_task "$dir" rr7
+  # shellcheck disable=SC2016 # Expand in the child shell.
+  if PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" bash -c '. "$1/bin/fm-backend.sh"; . "$1/bin/fm-project-capacity-lib.sh"
+      fm_task_record_holds_seat "$2" "$(cat "$2")" "$3"' _ "$ROOT" "$dir/home/state/rr7.meta" "$dir/home/state"; then
+    fail "a released record with no agent should hold no seat"
+  fi
+  out=$(run_control "$dir" rr7 relaunch --note "seat"); rc=$?
+  expect_code 0 "$rc" "the released relaunch should succeed"$'\n'"$out"
+  # shellcheck disable=SC2016 # Expand in the child shell.
+  PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" bash -c '. "$1/bin/fm-backend.sh"; . "$1/bin/fm-project-capacity-lib.sh"
+      fm_task_record_holds_seat "$2" "$(cat "$2")" "$3"' _ "$ROOT" "$dir/home/state/rr7.meta" "$dir/home/state" \
+    || fail "the relaunched worker should hold its seat"
+  [ "$(find "$dir/home/state" -maxdepth 1 -name '*.meta' | wc -l | tr -d ' ')" = 1 ] \
+    || fail "the relaunch should leave exactly one task record"
+  pass "a released record frees its seat and the relaunched worker holds exactly one"
+}
 
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   local dir out rc gen_before gen_after
@@ -3390,3 +3682,11 @@ test_herdr_rebind_failure_from_a_plain_shell_names_the_real_cause
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it
 test_relaunch_moves_a_drifted_item_back_in_flight
 test_away_branch_relaunch_accepts_existing_dispatchable_items
+test_released_copy_relaunch_recreates_the_branch_and_notes_it_once
+test_released_copy_relaunch_refuses_and_changes_nothing
+test_released_copy_relaunch_returns_the_slot_when_the_branch_cannot_be_recreated
+test_released_copy_relaunch_defers_without_a_free_lane
+test_released_copy_relaunch_retry_adds_no_second_note
+test_concurrent_released_relaunches_serialise
+test_spawn_relaunch_of_a_released_copy_gates_its_endpoint
+test_released_copy_frees_its_seat_and_the_relaunch_holds_one

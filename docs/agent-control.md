@@ -84,6 +84,7 @@ Pending deployment or acceptance proof follows [ship-landing](../.agents/skills/
    Ship and scout replacements also pass the [worker tool exclusion checks](configuration.md#worker-tool-exclusions-configcrew-exclude-tools) at this step.
 2. **Safe checkpoint.**
    The recorded worktree must exist and be a worktree root; its head and dirty state are recorded.
+   A record whose copy teardown released has no worktree and takes [its own path](#relaunching-a-released-copy) instead.
    For a `kind=secondmate` task, the home's identity marker must match and its child records must be readable, so a relaunch can never strand child work behind an unreadable home.
    A secondmate's own crewmates run in their own endpoints and outlive its relaunch; the relaunched secondmate reconciles them from its home's durable records at startup.
 3. **Record the note.**
@@ -153,6 +154,26 @@ The stray pane holds a bare shell - the harness is not delivered until after pub
 That self-heals only when the retry resolves the *same* workspace, which the placement rule above does not guarantee.
 The worktree and the task's records are unaffected either way.
 
+### Relaunching a released copy
+
+`bin/fm-teardown.sh` can free the local copy of a ship whose pull request is still open, under the release rule its header owns: only when the copy's HEAD is the pull request's head on the forge, never when the commits reached only the no-mistakes gate or another remote.
+The kept record then names `worktree=<state>/<id>.released-copy` and records `released_head=`, `released_branch=` and `released_pr=`.
+A relaunch of such a record recreates the copy instead of reusing one; the release itself stays a manual `bin/fm-teardown.sh <id> --keep-open` of an idle worker.
+
+- **Checkpoint.** `fm-control` runs a released checkpoint in place of the worktree checkpoint, with no git read of the sentinel: the task is a ship with its project and released head, branch and pull request recorded, its endpoint is missing, and the pull request reads OPEN through `bin/fm-pr-lib.sh`.
+  A merged pull request refuses because the task needs cleanup, a closed one because relaunching it needs a captain decision, and an unreadable one asks for a later retry.
+- **Endpoint.** Teardown writes the sentinel only after it closed and confirmed the endpoint, so for this record alone a tmux endpoint that reads `missing` is gone without the reboot evidence above; Herdr keeps its ordinary absence proof.
+  A window or pane that still exists refuses with "close that window first", and an alive, unreadable or ambiguous endpoint refuses as always.
+  Only tmux and herdr recreate a released copy; Orca, cmux and zellij refuse by name.
+- **Admission and allocation.** `fm-spawn --relaunch` opens the new endpoint in the project and allocates the copy through the fresh path's `treehouse get`, isolation check and slot claim, under the same project capacity admission and Treehouse project lock a fresh worker takes.
+  A full project or a held project lock defers with exit 75 and changes nothing.
+- **Branch.** The branch is fetched from the one remote whose URL addresses the pull request's project and must contain the released head; a tip that moved on is accepted only as a descendant of that head and, when the forge reports a head, only when it is that head.
+  The copy is checked out on the branch itself, tracking that remote, and must be clean.
+- **Note and record.** Only after that does `fm-spawn` append the progress note, which says the copy was recreated from the branch at the commit actually checked out and that uncommitted files, ignored files and a no-mistakes run's local state were not carried over.
+  A path-keyed session resume is not attempted, so the worker continues from its brief and that note.
+  `fm-spawn` alone republishes the record, naming the new copy and dropping the released fields.
+- **Failure.** Any refusal before that publication restores the brief, closes the endpoint it opened, returns the allocated copy and its claim to the pool, and leaves the released record, the journal and the prior-record copy untouched, so a retry adds no second note.
+
 ### Failure and rollback
 
 - A refusal **before** the agent is stopped leaves the durable record and the instructions byte-identical.
@@ -180,7 +201,7 @@ The worktree and the task's records are unaffected either way.
 - An ambiguous or unreadable endpoint state refuses.
   Only a positively classified state acts.
 - `exit`'s composer-empty check, above, is itself a fail-closed boundary that `relaunch` inherits by stopping the old agent through `exit`.
-- `fm-spawn --relaunch` independently refuses unless the endpoint is positively agent-free - either a `dead` endpoint that survives, or an endpoint proven gone by the absence proof above - so a replacement can never join a live agent.
+- `fm-spawn --relaunch` independently refuses unless the endpoint is positively agent-free - either a `dead` endpoint that survives, or an endpoint proven gone by the absence proof above, or a released copy's missing endpoint - so a replacement can never join a live agent.
   An `alive`, `ambiguous`, or `unreadable` verdict all refuse, and so does any endpoint whose absence is not provable; absence is claimed only from positive evidence of it.
   It also requires the shell to be in the recorded worktree: every backend but Orca (which owns its own task worktree with no current-path probe) gets one explicit `cd` to the recorded path, then a pre-launch path read that refuses before any harness starts unless it confirms the endpoint is sitting in the recorded copy.
 
@@ -203,7 +224,7 @@ The empirical basis for each adapter's value is the `harness-adapters` skill's v
 ## Verification
 
 - `tests/fm-control.test.sh` - the adapter contract for its verified-harness lane (adapters outside the lane pin their control mechanics in their own harness suites), the backend capability matrix, exact-id scoping, the closed verb list, the busy, idle, dead, and idempotent lifecycle cases, and marker non-regression, all against a stubbed session provider.
-- `tests/fm-control-relaunch.test.sh` - the relaunch transaction: identity preservation, harness switching, the progress note, checkpoint refusals, rollback after a failed launch, and the endpoint-absence proof both verbs share - Herdr reclaim, tmux reboot recovery, and refusal when absence remains unproven.
+- `tests/fm-control-relaunch.test.sh` - the relaunch transaction: identity preservation, harness switching, the progress note, checkpoint refusals, rollback after a failed launch, and the endpoint-absence proof both verbs share - Herdr reclaim, tmux reboot recovery, and refusal when absence remains unproven - plus the recreation of a released copy and its refusals.
   Startup cases also exercise eligibility rechecks under the lifecycle lock, attributed run ownership, the prevalidation handoff, and capacity through the real control and spawn paths with a stubbed backend.
 - `tests/fm-crew-recovery.test.sh` - the startup sweep's home scoping, worktree evidence, serial failure and deferral handling, and deferred-bootstrap composition.
 - `tests/fm-control-herdr-smoke.test.sh` - the second state-verified backend against the real herdr binary, on an isolated throwaway lab session.

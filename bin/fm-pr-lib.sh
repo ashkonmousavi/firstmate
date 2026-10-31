@@ -112,6 +112,8 @@ FM_PR_RETIRE_RECEIPT_HASH=
 FM_PR_RETIRE_RECEIPT_IDENTITY=
 FM_PR_RECORD_STATE=
 FM_PR_RECORD_MERGED=
+FM_PR_RECORD_HEAD=
+FM_PR_RECORD_CLASS=
 FM_PR_POLL_RETIREMENT_REJECTED=
 
 fm_task_id_path_safe() {
@@ -967,17 +969,21 @@ fm_pr_poll_retirement_receipt_valid() {
   FM_PR_RETIRE_RECEIPT_IDENTITY=$(fm_pr_file_identity "$receipt") || return 1
 }
 
+# The head commit is read in the same query as the state, so a caller that
+# needs both never pairs answers from two forge reads. A record without a
+# head line still reads; FM_PR_RECORD_HEAD is then empty.
 fm_pr_github_read_record_with_gh() {  # <owner> <repo> <number>
   local owner=$1 repo=$2 number=$3 fields line total=0 named=0
-  local state='' merged=''
+  local state='' merged='' head=''
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
+  FM_PR_RECORD_HEAD=
 
   # shellcheck disable=SC2016  # GraphQL variables are literal query syntax.
   if ! fields=$(gh api graphql \
-    -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged}}}' \
+    -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged headRefOid}}}' \
     -F "owner=$owner" -F "repo=$repo" -F "number=$number" \
-    --jq '.data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring)' \
+    --jq '.data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring), "head=" + (.headRefOid // "")' \
     2>/dev/null) || [ -z "$fields" ]; then
     return 1
   fi
@@ -986,6 +992,7 @@ fm_pr_github_read_record_with_gh() {  # <owner> <repo> <number>
     case "$line" in
       state=*) state=${line#state=} ;;
       merged=*) merged=${line#merged=} ;;
+      head=*) head=${line#head=}; total=$((total - 1)); continue ;;
       *) continue ;;
     esac
     named=$((named + 1))
@@ -996,6 +1003,7 @@ FIELDS
     || { [ "$merged" != true ] && [ "$merged" != false ]; }; then
     return 1
   fi
+  ! fm_pr_head_valid "$head" || FM_PR_RECORD_HEAD=$head
 
   # Consumed by bin/fm-crew-state.sh passed_pr_detail.
   # shellcheck disable=SC2034
@@ -1005,10 +1013,12 @@ FIELDS
   FM_PR_RECORD_MERGED=$merged
 }
 
+# gh-axi prints no head commit, so FM_PR_RECORD_HEAD stays empty here.
 fm_pr_github_read_record_with_gh_axi() {  # <owner> <repo> <number>
   local owner=$1 repo=$2 number=$3 output state
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
+  FM_PR_RECORD_HEAD=
   if ! output=$(gh-axi pr view "$number" --repo "$owner/$repo" 2>/dev/null); then
     return 1
   fi
@@ -1059,9 +1069,10 @@ fm_pr_github_read_record() {  # <owner> <repo> <number>
 
 fm_pr_gitlab_read_record() {  # <host> <path> <number>
   local host=$1 path=$2 number=$3 project_url json fields line
-  local total=0 named=0 state='' merged=''
+  local total=0 named=0 state='' merged='' head=''
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
+  FM_PR_RECORD_HEAD=
   command -v glab >/dev/null 2>&1 || return 1
   command -v jq >/dev/null 2>&1 || return 1
   project_url="https://$host/$path"
@@ -1073,7 +1084,8 @@ fm_pr_gitlab_read_record() {  # <host> <path> <number>
   if ! fields=$(printf '%s' "$json" | jq -r '
       if type == "object" and (.state | type == "string") and .state != "" then
         "state=" + .state,
-        "merged=" + (if .state == "merged" then "true" else "false" end)
+        "merged=" + (if .state == "merged" then "true" else "false" end),
+        "head=" + (if (.sha | type) == "string" then .sha else "" end)
       else
         error("invalid merge request state")
       end' 2>/dev/null); then
@@ -1084,6 +1096,7 @@ fm_pr_gitlab_read_record() {  # <host> <path> <number>
     case "$line" in
       state=*) state=${line#state=} ;;
       merged=*) merged=${line#merged=} ;;
+      head=*) head=${line#head=}; total=$((total - 1)); continue ;;
       *) continue ;;
     esac
     named=$((named + 1))
@@ -1094,6 +1107,7 @@ FIELDS
     || { [ "$merged" != true ] && [ "$merged" != false ]; }; then
     return 1
   fi
+  ! fm_pr_head_valid "$head" || FM_PR_RECORD_HEAD=$head
 
   # Consumed by bin/fm-crew-state.sh passed_pr_detail.
   # shellcheck disable=SC2034
@@ -1232,9 +1246,10 @@ fm_pr_gerrit_read_change() {  # <host> <number>
 # change and an approved-but-unsubmitted one report the same submit,
 # submittable, and blocked_on values, so only the status separates them.
 fm_pr_gerrit_read_record() {  # <host> <number>
-  local record state merged=false
+  local record state merged=false revision
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
+  FM_PR_RECORD_HEAD=
   record=$(fm_pr_gerrit_read_change "$1" "$2") || return 1
   state=$(printf '%s' "$record" | jq -r '
     if (.status | type) == "string" and .status != "" and (.status | test("\n") | not)
@@ -1243,6 +1258,9 @@ fm_pr_gerrit_read_record() {  # <host> <number>
     end' 2>/dev/null) || return 1
   [ -n "$state" ] || return 1
   [ "$state" != MERGED ] || merged=true
+  revision=$(printf '%s' "$record" | jq -r '
+    if (.revision | type) == "string" then .revision else "" end' 2>/dev/null) || revision=
+  ! fm_pr_head_valid "$revision" || FM_PR_RECORD_HEAD=$revision
 
   # Consumed by bin/fm-crew-state.sh passed_pr_detail.
   # shellcheck disable=SC2034
@@ -1268,6 +1286,78 @@ fm_pr_gerrit_read_revision() {  # <host> <number>
   # Consumed by bin/fm-dod-lib.sh fm_dod_gerrit_change_carries_head.
   # shellcheck disable=SC2034
   FM_PR_RECORD_REVISION=$revision
+}
+
+# One word for a recorded pull request, read once: merged, open, closed, or
+# unreadable, in FM_PR_RECORD_CLASS. merged=true wins, because Forgejo reports a
+# merged request as closed. FM_PR_RECORD_HEAD keeps the head commit the same
+# read returned, or stays empty when that forge answer carries none.
+# Shared by bin/fm-teardown.sh's close guard and release rule and by
+# bin/fm-spawn.sh's relaunch of a released copy.
+fm_pr_read_class() {  # <pr-url>
+  local state_lc
+  FM_PR_RECORD_CLASS=unreadable
+  FM_PR_RECORD_HEAD=
+  fm_pr_url_parse "${1-}" || return 0
+  case "$FM_PR_PROVIDER" in
+    github) fm_pr_github_read_record "$FM_PR_OWNER" "$FM_PR_REPO" "$FM_PR_NUMBER" || return 0 ;;
+    gitlab) fm_pr_gitlab_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || return 0 ;;
+    forgejo) fm_pr_forgejo_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || return 0 ;;
+    gerrit) fm_pr_gerrit_read_record "$FM_PR_HOST" "$FM_PR_NUMBER" || return 0 ;;
+    *) return 0 ;;
+  esac
+  if [ "$FM_PR_RECORD_MERGED" = true ]; then
+    FM_PR_RECORD_CLASS=merged
+    return 0
+  fi
+  state_lc=$(printf '%s' "$FM_PR_RECORD_STATE" | tr '[:upper:]' '[:lower:]')
+  case "$state_lc" in
+    merged) FM_PR_RECORD_CLASS=merged ;;
+    open|opened|new) FM_PR_RECORD_CLASS=open ;;
+    closed|abandoned) FM_PR_RECORD_CLASS=closed ;;
+  esac
+}
+
+# The one remote of <repo> whose configured URL addresses the forge project
+# of the pull request last parsed by fm_pr_url_parse. The URL is the raw
+# configured spelling (https, ssh, or scp-like), compared by host and path with
+# any user, port, trailing slash, and trailing .git removed; a Gerrit "/a/"
+# authenticated prefix is accepted. The no-mistakes gate remote and the
+# publicsrc mirror are never the pull request's remote, whatever their URL.
+# Prints the remote name; zero or several matches return 1.
+fm_pr_holding_remote() {  # <repo>
+  local repo=$1 name url rest host path found='' count=0
+  [ -n "$FM_PR_HOST" ] && [ -n "$FM_PR_PATH" ] || return 1
+  while IFS= read -r name; do
+    case "$name" in ''|no-mistakes|publicsrc) continue ;; esac
+    url=$(git -C "$repo" config --get "remote.$name.url" 2>/dev/null) || continue
+    case "$url" in
+      *://*)
+        rest=${url#*://}
+        host=${rest%%/*}
+        path=${rest#*/}
+        [ "$path" != "$rest" ] || continue
+        ;;
+      *:*)
+        host=${url%%:*}
+        path=${url#*:}
+        ;;
+      *) continue ;;
+    esac
+    host=${host##*@}
+    host=${host%%:*}
+    while [ "${path%/}" != "$path" ]; do path=${path%/}; done
+    path=${path%.git}
+    path=${path#/}
+    [ "$host" = "$FM_PR_HOST" ] || continue
+    [ "$path" = "$FM_PR_PATH" ] || [ "$path" = "a/$FM_PR_PATH" ] || continue
+    found=$name
+    count=$((count + 1))
+  done <<REMOTES
+$(git -C "$repo" remote 2>/dev/null)
+REMOTES
+  [ "$count" -eq 1 ] || return 1
+  printf '%s\n' "$found"
 }
 
 fm_pr_poll_retirement_data_valid() {

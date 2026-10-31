@@ -5336,6 +5336,9 @@ test_retained_sources_still_reach_the_ordinary_refusal() {
 
 # GitHub close-gate record. class is open, closed, merged, or error.
 # graphql is the reader the gate uses first; gh-axi is the fallback.
+# The graphql answer reports the pull request's head commit as the worktree's
+# current HEAD, so the forge and the copy agree, unless the case writes another
+# commit to <case>/forge-head or an empty <case>/forge-head for no head at all.
 install_github_pr_class() {
   local case_dir=$1 class=$2 gql_state gql_merged axi_state
   case "$class" in
@@ -5353,6 +5356,11 @@ install_github_pr_class() {
 case "\${1:-} \${2:-}" in
   "api graphql")
     printf '%s\n' 'state=$gql_state' 'merged=$gql_merged'
+    if [ -e '$case_dir/forge-head' ]; then
+      printf 'head=%s\n' "\$(cat '$case_dir/forge-head')"
+    elif [ -d '$case_dir/wt' ]; then
+      printf 'head=%s\n' "\$(git -C '$case_dir/wt' rev-parse HEAD)"
+    fi
     exit 0
     ;;
   "pr view")
@@ -5654,6 +5662,80 @@ SH
 
 test_interrupted_release_completes_after_merge() {
   test_released_copy_completes_after_merge 1
+}
+
+# The release rule: the no-mistakes gate is a remote, so a commit that reached
+# only the gate is "pushed" by --remotes, yet it is not on the forge.
+test_release_refuses_when_the_head_is_only_on_the_gate_remote() {
+  local case_dir mode before
+  for mode in auto keep-open; do
+    case_dir=$(prepare_recorded_github_pr "gate-only-head-$mode")
+    install_github_pr_class "$case_dir" open
+    git -C "$case_dir/wt" rev-parse HEAD > "$case_dir/forge-head"
+    git init -q --bare "$case_dir/gate.git"
+    git -C "$case_dir/project" remote add no-mistakes "$case_dir/gate.git"
+    wt_commit "$case_dir" "work only the gate has"
+    git -C "$case_dir/wt" push -q no-mistakes fm/task-x1
+    git -C "$case_dir/project" fetch -q no-mistakes
+    before=$(cat "$case_dir/state/task-x1.meta")
+    if [ "$mode" = keep-open ]; then
+      teardown_capture "$case_dir" --keep-open
+    else
+      teardown_capture "$case_dir"
+    fi
+    expect_code 1 "$TEARDOWN_CAPTURE_RC" "$mode gate-only: a head only on the no-mistakes remote must keep the copy"$'\n'"$(cat "$case_dir/stderr")"
+    assert_grep "has head $(cat "$case_dir/forge-head") on the forge" "$case_dir/stderr" \
+      "$mode gate-only: the refusal did not name the forge head"
+    assert_present "$case_dir/wt" "$mode gate-only: the copy holding the unforged commit was removed"
+    [ "$(cat "$case_dir/state/task-x1.meta")" = "$before" ] \
+      || fail "$mode gate-only: the refused release rewrote the task record"
+    [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+      || fail "$mode gate-only: the refused release moved the backlog item"
+  done
+  pass "a copy whose head is only on the no-mistakes remote is never released"
+}
+
+test_release_records_the_head_it_proved() {
+  local case_dir head
+  case_dir=$(prepare_recorded_github_pr released-head)
+  install_github_pr_class "$case_dir" open
+  push_task_branch "$case_dir"
+  head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  teardown_capture "$case_dir"
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "released-head: a head equal to the forge head should release"$'\n'"$(cat "$case_dir/stderr")"
+  assert_grep "worktree=$case_dir/state/task-x1.released-copy" "$case_dir/state/task-x1.meta" \
+    "released-head: the record does not name the released sentinel"
+  assert_grep "released_head=$head" "$case_dir/state/task-x1.meta" \
+    "released-head: the record does not carry the released head"
+  assert_grep 'released_branch=fm/task-x1' "$case_dir/state/task-x1.meta" \
+    "released-head: the record does not carry the released branch"
+  assert_grep 'released_pr=https://github.com/example/repo/pull/7' "$case_dir/state/task-x1.meta" \
+    "released-head: the record does not carry the released pull request"
+  pass "a released copy records the head, branch and pull request it proved"
+}
+
+# gh-axi carries no head, so the remote addressing the pull request's project
+# stands in, and a remote that does not address it never does.
+test_release_without_a_forge_head_reads_the_pull_request_remote() {
+  local case_dir head
+  case_dir=$(prepare_recorded_github_pr no-forge-head)
+  install_github_pr_class "$case_dir" open
+  : > "$case_dir/forge-head"
+  push_task_branch "$case_dir"
+  head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  teardown_capture "$case_dir"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "no-forge-head: with no head and no remote addressing the project the copy must stay"
+  assert_grep 'no single remote' "$case_dir/stderr" \
+    "no-forge-head: the refusal did not say no remote addresses the project"
+  assert_present "$case_dir/wt" "no-forge-head: the unproven copy was removed"
+
+  git -C "$case_dir/project" remote add upstream https://github.com/example/repo.git
+  git -C "$case_dir/project" config "url.$case_dir/origin.git.insteadOf" https://github.com/example/repo.git
+  teardown_capture "$case_dir"
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "no-forge-head: the pull request's remote at the same head should release"$'\n'"$(cat "$case_dir/stderr")"
+  assert_grep "released_head=$head" "$case_dir/state/task-x1.meta" \
+    "no-forge-head: the record does not carry the released head"
+  pass "without a forge head, only the remote addressing the pull request proves the head"
 }
 
 test_pushed_merged_pr_still_closes() {
@@ -6131,6 +6213,9 @@ test_pushed_open_pr_keeps_the_item_and_the_merge_watch
 test_pr_classification_is_reused_when_forge_becomes_unavailable
 test_released_copy_completes_after_merge
 test_interrupted_release_completes_after_merge
+test_release_refuses_when_the_head_is_only_on_the_gate_remote
+test_release_records_the_head_it_proved
+test_release_without_a_forge_head_reads_the_pull_request_remote
 test_pushed_merged_pr_still_closes
 test_closed_unmerged_pr_refuses_unless_force
 test_unreadable_pr_refuses_even_with_force

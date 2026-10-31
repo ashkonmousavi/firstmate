@@ -899,6 +899,41 @@ test_unverified_state_backends_refuse_stop_verbs() {
   pass "fm-control: a backend that cannot prove an agent stopped refuses exit and relaunch"
 }
 
+# Recreating a released copy needs the tmux or herdr endpoint proof, so a
+# released record on any other backend refuses by name, changing nothing.
+test_released_copy_relaunch_refuses_off_tmux_and_herdr() {
+  local dir out rc backend meta_before
+  for backend in zellij cmux orca; do
+    dir=$(new_case "released-$backend")
+    case "$backend" in
+      zellij)
+        add_task "$dir" t1 claude ship zellij "sess:7"
+        printf 'zellij_session=sess\nzellij_tab_id=1\nzellij_pane_id=7\n' >> "$dir/home/state/t1.meta"
+        ;;
+      cmux)
+        add_task "$dir" t1 claude ship cmux "ws1:surface1"
+        printf 'cmux_workspace_id=ws1\ncmux_surface_id=surface1\n' >> "$dir/home/state/t1.meta"
+        ;;
+      orca)
+        add_task "$dir" t1 claude ship orca "term-1"
+        sed 's|^window=.*|window=fm-t1|' "$dir/home/state/t1.meta" > "$dir/home/state/t1.meta.new"
+        printf 'terminal=term-1\norca_worktree_id=wt-1::/orca/wt-1\n' >> "$dir/home/state/t1.meta.new"
+        mv "$dir/home/state/t1.meta.new" "$dir/home/state/t1.meta"
+        ;;
+    esac
+    sed "s|^worktree=.*|worktree=$dir/home/state/t1.released-copy|" "$dir/home/state/t1.meta" > "$dir/home/state/t1.meta.new"
+    mv "$dir/home/state/t1.meta.new" "$dir/home/state/t1.meta"
+    meta_before=$(cat "$dir/home/state/t1.meta")
+    out=$(run_control "$dir" t1 relaunch --note x); rc=$?
+    expect_code 1 "$rc" "a released relaunch on $backend should refuse"$'\n'"$out"
+    assert_contains "$out" "supported on the tmux and herdr backends only" \
+      "the $backend refusal should name the supported backends"
+    [ "$(cat "$dir/home/state/t1.meta")" = "$meta_before" ] \
+      || fail "a refused released relaunch on $backend must leave the task record unchanged"
+  done
+  pass "fm-control: a released copy on Orca, cmux or zellij refuses its relaunch by name"
+}
+
 # bin/fm-spawn.sh refuses a Command Code launch off tmux and herdr, but only
 # after a relaunch has stopped the old agent, so fm-control must refuse a
 # relaunch onto commandcode there while the running agent is untouched.
@@ -1543,6 +1578,7 @@ test_backend_key_capability_matrix
 test_harness_kind_capability
 test_orca_refuses_an_escape_harness_interrupt
 test_unverified_state_backends_refuse_stop_verbs
+test_released_copy_relaunch_refuses_off_tmux_and_herdr
 test_commandcode_relaunch_off_tmux_and_herdr_refuses_before_stopping
 test_state_verified_backends_are_exactly_tmux_and_herdr
 test_window_label_is_refused_with_the_exact_id

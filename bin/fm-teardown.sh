@@ -79,16 +79,27 @@
 # item. Every ship with a recorded pr=, in every delivery mode, reads that pull
 # request through bin/fm-pr-lib.sh (gh, glab, tea, or gerrit-axi) before the
 # close. validate_worktree_teardown_safety owns that landed decision: an empty
-# `git log HEAD --not --remotes` means the copy may be freed, and it does not
-# mean the work has landed while the recorded pull request is OPEN.
+# `git log HEAD --not --remotes` does not mean the work has landed while the
+# recorded pull request is OPEN, and it is not by itself proof the copy may be
+# freed, because the no-mistakes gate and publicsrc remotes count as remotes.
 # MERGED allows closing cleanup after acceptance and retires the merge watch.
-# OPEN never closes the item. When the commits are already on a remote and the
-# worktree is clean, the local copy may still be freed: the item stays open,
-# held "awaiting merge
+# OPEN never closes the item. The local copy of an OPEN pull request may still
+# be freed - automatically when the commits are on a remote, or on --keep-open -
+# only under the release rule: the worktree is clean and its HEAD equals the
+# pull request's head commit as the forge reports it through bin/fm-pr-lib.sh,
+# or, when that forge answer carries no head (the gh-axi fallback), equals the
+# freshly fetched tracking ref of the one remote whose URL addresses the pull
+# request's project. The no-mistakes gate and publicsrc remotes never count.
+# A copy whose HEAD differs, has no branch, or cannot be proven that way is
+# kept and teardown refuses, naming both commits.
+# On release the item stays open, held "awaiting merge
 # <url>", the task record stays so the merge watch remains registered, and the
 # recorded worktree path is released so the pool slot is not still named here.
 # The retained record uses worktree=<absolute-state-directory>/<id>.released-copy
-# as a sentinel, not an actual worktree. A later teardown
+# as a sentinel, not an actual worktree, and records released_head=,
+# released_branch= and released_pr= with it, which bin/fm-spawn.sh --relaunch
+# reads to recreate the copy from that branch (docs/agent-control.md
+# "Relaunching a released copy"). A later teardown
 # rechecks the PR and, once merged and accepted, retires the item's watch without
 # removing the released copy again. Release is persisted before fallible parent
 # reporting or artifact retirement, so an interrupted cleanup can be retried.
@@ -463,6 +474,9 @@ TEARDOWN_KEEP_OPEN_HOLD=0
 TEARDOWN_KEEP_MERGE_WATCH=0
 TEARDOWN_PUSHED_OPEN_PR=0
 TEARDOWN_RECORDED_PR_CLASS=
+TEARDOWN_RECORDED_PR_HEAD=
+TEARDOWN_RELEASED_HEAD=
+TEARDOWN_RELEASED_BRANCH=
 TEARDOWN_DEPENDENTS=
 LEGACY_RECORD_GIVEN=0
 shift
@@ -1560,13 +1574,29 @@ teardown_recorded_copy_released() {
   [ "$(meta_value "$meta" worktree)" = "$state/$id.released-copy" ]
 }
 
+# Writes the sentinel, and with it the release rule's proof when this run made
+# one: released_head, released_branch, and released_pr name exactly what a
+# relaunch must recreate (bin/fm-spawn.sh --relaunch). They sit beside
+# worktree=, ahead of the trailing pr= block bin/fm-pr-lib.sh's metadata parse
+# requires. A rerun over an already released record keeps the proof the first
+# run wrote.
 teardown_release_recorded_copy() {
   [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ] || return 0
   local tmp line
   tmp=$(umask 077; mktemp "$STATE/.fm-teardown-release.XXXXXX") || return 1
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
-      worktree=*) printf 'worktree=%s\n' "$STATE/$ID.released-copy" ;;
+      worktree=*)
+        printf 'worktree=%s\n' "$STATE/$ID.released-copy"
+        if [ -n "$TEARDOWN_RELEASED_HEAD" ]; then
+          printf 'released_head=%s\n' "$TEARDOWN_RELEASED_HEAD"
+          printf 'released_branch=%s\n' "$TEARDOWN_RELEASED_BRANCH"
+          printf 'released_pr=%s\n' "$PR_URL"
+        fi
+        ;;
+      released_head=*|released_branch=*|released_pr=*)
+        [ -n "$TEARDOWN_RELEASED_HEAD" ] || printf '%s\n' "$line"
+        ;;
       *) printf '%s\n' "$line" ;;
     esac
   done < "$META" > "$tmp" || { rm -f "$tmp"; return 1; }
@@ -1745,58 +1775,67 @@ work_is_landed() {
   content_in_default
 }
 
-# One word for the recorded pull request: merged, open, closed, or unreadable.
-# merged=true wins, because Forgejo reports a merged request as closed.
-teardown_pr_class_from_record() {
-  local state_lc
-  if [ "$FM_PR_RECORD_MERGED" = true ]; then
-    printf 'merged\n'
-    return 0
-  fi
-  state_lc=$(printf '%s' "$FM_PR_RECORD_STATE" | tr '[:upper:]' '[:lower:]')
-  case "$state_lc" in
-    merged) printf 'merged\n' ;;
-    open|opened|new) printf 'open\n' ;;
-    closed|abandoned) printf 'closed\n' ;;
-    *) printf 'unreadable\n' ;;
-  esac
-}
-
-teardown_recorded_pr_class() {
-  local owner repo
-  if ! fm_pr_url_parse "$PR_URL"; then
-    printf 'unreadable\n'
-    return 0
-  fi
-  case "$FM_PR_PROVIDER" in
-    github)
-      owner=${FM_PR_PATH%%/*}
-      repo=${FM_PR_PATH#*/}
-      fm_pr_github_read_record "$owner" "$repo" "$FM_PR_NUMBER" || { printf 'unreadable\n'; return 0; }
-      ;;
-    gitlab)
-      fm_pr_gitlab_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || { printf 'unreadable\n'; return 0; }
-      ;;
-    forgejo)
-      fm_pr_forgejo_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || { printf 'unreadable\n'; return 0; }
-      ;;
-    gerrit)
-      fm_pr_gerrit_read_record "$FM_PR_HOST" "$FM_PR_NUMBER" || { printf 'unreadable\n'; return 0; }
-      ;;
-    *)
-      printf 'unreadable\n'
-      return 0
-      ;;
-  esac
-  teardown_pr_class_from_record
-}
-
-# One read per teardown. The landed test and the close guard both need the class,
-# and a second forge read must not be able to disagree with the first.
+# One read per teardown. The landed test, the close guard, and the release
+# rule all need the class, and a second forge read must not be able to
+# disagree with the first. bin/fm-pr-lib.sh's fm_pr_read_class owns the read;
+# the head commit it returned is kept beside the class for the release rule.
 teardown_recorded_pr_class_cached() {
   if [ -z "$TEARDOWN_RECORDED_PR_CLASS" ]; then
-    TEARDOWN_RECORDED_PR_CLASS=$(teardown_recorded_pr_class)
+    fm_pr_read_class "$PR_URL"
+    TEARDOWN_RECORDED_PR_CLASS=$FM_PR_RECORD_CLASS
+    TEARDOWN_RECORDED_PR_HEAD=$FM_PR_RECORD_HEAD
   fi
+}
+
+# The release rule (script header): a copy whose pull request is OPEN may be
+# freed only when its HEAD is the pull request's head on the forge. The head the
+# forge reported wins; when that forge answer carries none, the tracking ref of
+# the one remote holding the pull request (fm_pr_holding_remote), freshly
+# fetched, stands in. Any other remote - the no-mistakes gate, publicsrc, a
+# backup - is never proof. Sets TEARDOWN_RELEASED_HEAD and
+# TEARDOWN_RELEASED_BRANCH for the sentinel record, or prints the refusal and
+# returns 1.
+teardown_release_head_proven() {
+  local head branch remote tracking
+  TEARDOWN_RELEASED_HEAD=
+  TEARDOWN_RELEASED_BRANCH=
+  if ! head=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null); then
+    echo "REFUSED: cannot read the HEAD of $WT, so its copy cannot be proven to be the head of pull request $PR_URL." >&2
+    return 1
+  fi
+  branch=$(git -C "$WT" symbolic-ref --quiet --short HEAD 2>/dev/null) \
+    || branch=$(meta_value "$META" branch)
+  if [ -z "$branch" ]; then
+    echo "REFUSED: $WT has no branch, so a later relaunch could not recreate it; the copy of pull request $PR_URL is kept." >&2
+    return 1
+  fi
+  if [ -n "$TEARDOWN_RECORDED_PR_HEAD" ]; then
+    if [ "$head" != "$TEARDOWN_RECORDED_PR_HEAD" ]; then
+      echo "REFUSED: $WT is at $head, but pull request $PR_URL has head $TEARDOWN_RECORDED_PR_HEAD on the forge; the copy is kept until they match." >&2
+      echo "Push the branch to the pull request's remote (a commit only on the no-mistakes gate or another remote is not on the forge), then retry." >&2
+      return 1
+    fi
+  else
+    fm_pr_url_parse "$PR_URL" || {
+      echo "REFUSED: pull request $PR_URL cannot be parsed, so its head cannot be proven; the copy is kept." >&2
+      return 1
+    }
+    if ! remote=$(fm_pr_holding_remote "$WT"); then
+      echo "REFUSED: the forge did not report the head of pull request $PR_URL, and no single remote of $WT addresses that project; the copy is kept." >&2
+      return 1
+    fi
+    tracking="refs/remotes/$remote/$branch"
+    if ! git -C "$WT" fetch --quiet "$remote" "+refs/heads/$branch:$tracking" >/dev/null 2>&1; then
+      echo "REFUSED: could not fetch $branch from $remote to prove the head of pull request $PR_URL; the copy is kept." >&2
+      return 1
+    fi
+    if [ "$head" != "$(git -C "$WT" rev-parse --verify --quiet "$tracking" 2>/dev/null)" ]; then
+      echo "REFUSED: $WT is at $head, but $remote/$branch, which holds pull request $PR_URL, is not; the copy is kept until they match." >&2
+      return 1
+    fi
+  fi
+  TEARDOWN_RELEASED_HEAD=$head
+  TEARDOWN_RELEASED_BRANCH=$branch
 }
 
 # Ids of other open items whose blocked-by lists $1. List text is on stdin.
@@ -1904,10 +1943,18 @@ teardown_guard_unlanded_close() {
       if [ "$FORCE" = --force ]; then
         echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
         pr_refused=1
-      elif [ "$KEEP_OPEN" = 1 ] || [ "$TEARDOWN_PUSHED_OPEN_PR" = 1 ] \
-          || teardown_recorded_copy_released "$META" "$STATE" "$ID"; then
+      elif teardown_recorded_copy_released "$META" "$STATE" "$ID"; then
         TEARDOWN_KEEP_OPEN=1
         TEARDOWN_KEEP_MERGE_WATCH=1
+      elif [ "$KEEP_OPEN" = 1 ] || [ "$TEARDOWN_PUSHED_OPEN_PR" = 1 ]; then
+        # Freeing a copy this teardown still owns needs the release rule's
+        # proof first; a copy that is not here any more has nothing to strand.
+        if teardown_owns_worktree && [ -d "$WT" ] && ! teardown_release_head_proven; then
+          pr_refused=1
+        else
+          TEARDOWN_KEEP_OPEN=1
+          TEARDOWN_KEEP_MERGE_WATCH=1
+        fi
       else
         echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
         pr_refused=1
