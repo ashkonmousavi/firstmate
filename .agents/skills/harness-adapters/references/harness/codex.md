@@ -19,17 +19,8 @@ Verified on 2026-06-11 with codex-cli 0.139.0 unless a fact gives a newer versio
 
 ## Launch dialogs
 
-A directory trust dialog appears on the first run for a repository root.
-codex-cli 0.163.0 renders it as "Folder access" over the path, the question "Trust this folder? Codex can read, edit, and run files here, subject to your permission settings.", the preselected option `1. Trust and continue`, `2. Quit`, and the hint `enter continue · esc quit` (verified live 2026-10-27; 0.139.0 asked "Do you trust the contents of this directory?").
-Enter selects the preselected affirmative and codex saves the decision itself, so later launches in the same folder skip the dialog.
-`bin/fm-spawn.sh`'s first-turn and typed-brief gates answer it with Enter, the same preselected-safe-default answer the kimi and agy gates give their folder-trust dialogs.
-
-A second dialog, "Update available · <from> → <to>" with `1. Update now (runs \`npm install -g @openai/codex\`)`, `2. Skip`, `3. Skip until next version`, and the hint `enter confirm · esc skip`, renders on a launch without a positional prompt whenever an update is pending and the operator has not chosen "Skip until next version" (verified live 2026-10-27, 0.163.0 → 0.164.0; on 2026-10-31 0.164.0 showed it on a bare launch and never on a positional one).
-Enter would run a global npm install over the shared toolchain, so the gate answers it with Escape, which skips the dialog for that launch only and leaves the operator's update choice untouched.
-Option 3 persists a skip and is the operator's own choice to make.
-The dialog is matched on its option rows (`Update now`, `Skip until next version`), never on its "Update available" heading, because the persistent post-skip banner box carries that heading over a healthy ready composer.
-
-A third dialog, "Hooks need review", is covered below.
+Before answering a Codex startup dialog, read [Codex launch brief](../../../../../docs/verification/runtime-backends.md#codex-launch-brief) for the supported trust/update choices, backend capture limits, and dated dialog captures.
+Hook review follows its separate consent boundary below.
 
 ## Hook trust
 

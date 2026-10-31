@@ -898,6 +898,9 @@ A positional launch never showed the update dialog, while a bare launch on 0.164
 
 A standard Codex launch therefore carries the brief positionally, and `bin/fm-spawn.sh`'s first-turn gate confirms it: it polls, bounded at about 120 s (`FM_CODEX_FIRST_TURN_POLLS` x `FM_CODEX_POLL_INTERVAL`), until the verified `esc to interrupt` busy row or a `Worked for <t>` turn summary appears, either one alone being enough.
 On a backend with viewport-bounded capture it answers the launch dialogs on the way (Enter for the trust dialog's preselected `1. Trust and continue`, Escape for the update dialog whose Enter would run `npm install -g @openai/codex`); a backend without it (Orca, cmux, or Paseo) is read through its bounded capture and never sent a key.
+Codex persists the folder-trust answer itself, so later launches in the same folder skip that dialog.
+Escape skips the update dialog for this launch only; the persistent `Skip until next version` choice remains the operator's own decision.
+The update gate matches the option rows rather than the `Update available` heading, because that heading also appears in the persistent post-skip banner over a ready composer.
 A timeout reports "codex did not take the brief".
 
 `FM_CODEX_TYPED_LAUNCH=1` selects the typed path instead (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict): codex starts bare, and the typed-brief gates wait (bounded, two consecutive empty-composer classifications through the shared classifier) for the ready composer, answering the same dialogs on the way.
@@ -917,7 +920,7 @@ fm-herdr-lab: fleet-state tripwire requires exactly one running default session
 
 Firstmate owns the deferred Herdr proof on MAIN, on a machine whose default Herdr session is running.
 No Herdr pass is claimed, and this work does not start or stop a default session.
-`FM_CODEX_LIVE_E2E=1 bash tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` remains the live guard for the typed path on Herdr.
+`FM_CODEX_LIVE_E2E=1 FM_CODEX_TYPED_LAUNCH=1 bash tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` remains the live guard for the typed path on Herdr.
 `tests/fm-codex-harness.test.sh` covers the positional first-turn gate (busy-only and summary-only confirmation, timeout), current busy frames, immediate completion after the current receipt, rejection of old completion and busy text, and secondmate delivery with primary hooks preserved.
 Portable fixture results do not replace the deferred real-Herdr proof.
 

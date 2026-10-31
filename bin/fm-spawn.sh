@@ -5311,9 +5311,9 @@ CODEX_UPDATE_DIALOG_SKIP='Skip until next version'
 # trust gate: both dialogs are TUI frames, so a scrollback-backed capture
 # keeps reporting them after codex redrew past them - which would storm Enter
 # or Escape into a live composer and fail an already-cleared spawn. There is
-# deliberately no fallback to the bounded capture: the spawn refuses at
-# preflight on a backend that cannot read the viewport, a read that fails
-# outright fails readiness with its exit status, and only a successful empty
+# deliberately no fallback to the bounded capture in this reader: the typed
+# path refuses at preflight on a backend that cannot read the viewport, a read
+# that fails outright fails readiness with its exit status, and only a successful empty
 # read is absence of evidence, which the poll loop treats as a skipped poll.
 codex_visible_capture() {
   fm_backend_visible_capture "$BACKEND" "$T" "$W"
@@ -5534,7 +5534,8 @@ codex_spawn_typed_brief() {
     return 1
   fi
   # One printable line: the operational launch-brief header plus a pointer
-  # naming data/<id>/launch-brief.md, the rendered brief the scaffold owns.
+  # naming the rendered data/<id>/launch-brief.md for a ship or scout, or the
+  # selected charter/brief for a secondmate.
   # The full brief cannot be typed - a composer submits at every embedded
   # newline - and the pointer shape is the one kimi and rovo already deliver.
   receipt="fm-launch-${BASHPID:-$$}-$RANDOM-$RANDOM"
