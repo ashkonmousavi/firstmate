@@ -1,0 +1,349 @@
+$ tmux -L fm-lab new-session -d -s lab -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51 '/bin/bash --noprofile --norc'
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-shell /bin/bash
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-command '/bin/bash --noprofile --norc'
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g PATH ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/tools:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.codex/tmp/arg0/codex-arg0pYCQYM:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~/.composio:~/.local/bin:~/go/bin:~/.cargo/bin:~/.local/share/whisper-venv/bin:~/go/bin:~/.npm-global/bin:~/projects/openclaw/bin:~/.nvm/versions/node/v22.22.0/bin:~/.linuxbrew/bin:~/.linuxbrew/sbin:~/.local/bin:~/go/bin:~/.cargo/bin:~/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g XDG_CONFIG_HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/config
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g CODEX_HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/codex
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_GLOBAL ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/gitconfig
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_SYSTEM /dev/null
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_NOSYSTEM 1
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g TMPDIR ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/tmp
+
+[exit=0]
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/home
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/home
+
+[exit=0]
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo config user.name Lab
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo config user.email lab@example.invalid
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo add .
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo commit -qm base
+
+[exit=0]
+$ treehouse init
+Created ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo/treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo add treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo commit -qm 'pool config'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo remote add origin http://127.0.0.1:9660/labowner/liverefuse.git
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo config http.extraHeader 'Authorization: Basic [redacted disposable forge credential]'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo push -qu origin main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo checkout -qb fm/liverefuse
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo add work.txt
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo commit -qm 'task work'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo rev-parse HEAD
+15b830c3742a1cfc96ab2d0afe1af902f5215ff3
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo push -qu origin fm/liverefuse
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo checkout -q main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liverefuse/repo branch -D fm/liverefuse
+Deleted branch fm/liverefuse (was 15b830c).
+
+[exit=0]
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 29, in outcome
+    detail=fn(); results.append({'name':name,'result':'pass','live':True,'detail':detail});print('PASS '+name+': '+str(detail),flush=True)
+           ^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 60, in refusal_cases
+    f=fixture('liverefuse');d,h,p,be,head,url=f;mp=h/f'state/{d.name}.meta';before=snapshot(h,d.name);desc=[]
+      ^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 44, in fixture
+    pr=api('repos/labowner/'+id+'/pulls',{'head':'fm/'+id,'base':'main','title':'Disposable validation PR'})
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 22, in api
+    with urllib.request.urlopen(req,timeout=15) as r:return json.load(r)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 404: Not Found
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/home
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/home
+
+[exit=0]
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo config user.name Lab
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo config user.email lab@example.invalid
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo add .
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo commit -qm base
+
+[exit=0]
+$ treehouse init
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+Created ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo/treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo add treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo commit -qm 'pool config'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo remote add origin http://127.0.0.1:9660/labowner/livesafety.git
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo config http.extraHeader 'Authorization: Basic [redacted disposable forge credential]'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo push -qu origin main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo checkout -qb fm/livesafety
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo add work.txt
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo commit -qm 'task work'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo rev-parse HEAD
+5b3a5ce5c2e0d21f571b9070aa20f898b0282777
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo push -qu origin fm/livesafety
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo checkout -q main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/livesafety/repo branch -D fm/livesafety
+Deleted branch fm/livesafety (was 5b3a5ce).
+
+[exit=0]
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 29, in outcome
+    detail=fn(); results.append({'name':name,'result':'pass','live':True,'detail':detail});print('PASS '+name+': '+str(detail),flush=True)
+           ^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 74, in release_safety
+    f=fixture('livesafety',False);d,h,p,be,head,url=f;mp=h/f'state/{d.name}.meta';wt=pathlib.Path(fields(mp)['worktree']);before=snapshot(h,d.name)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 44, in fixture
+    pr=api('repos/labowner/'+id+'/pulls',{'head':'fm/'+id,'base':'main','title':'Disposable validation PR'})
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 22, in api
+    with urllib.request.urlopen(req,timeout=15) as r:return json.load(r)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 404: Not Found
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home
+
+[exit=0]
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo config user.name Lab
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo config user.email lab@example.invalid
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo add .
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo commit -qm base
+
+[exit=0]
+$ treehouse init
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+Created ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo/treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo add treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo commit -qm 'pool config'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo remote add origin http://127.0.0.1:9660/labowner/liveround.git
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo config http.extraHeader 'Authorization: Basic [redacted disposable forge credential]'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo push -qu origin main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo checkout -qb fm/liveround
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo add work.txt
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo commit -qm 'task work'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo rev-parse HEAD
+3a245e2e831bb9062af49a135b2cfc8c3abf5a42
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo push -qu origin fm/liveround
+remote: 
+remote: Create a new pull request for 'fm/liveround':        
+remote:   http://127.0.0.1:9660/labowner/liveround/compare/main...fm/liveround        
+remote: 
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo checkout -q main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo branch -D fm/liveround
+Deleted branch fm/liveround (was 3a245e2).
+
+[exit=0]
+$ treehouse get --lease --no-fetch
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/pool/.treehouse/repo-15901f/1/repo. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/pool/.treehouse/repo-15901f/1/repo' to release it.
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/pool/.treehouse/repo-15901f/1/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/pool/.treehouse/repo-15901f/1/repo checkout -qb fm/liveround origin/fm/liveround
+
+[exit=0]
+$ tmux -L fm-lab new-window -d -t lab: -n fm-liveround -c ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/pool/.treehouse/repo-15901f/1/repo
+
+[exit=0]
+$ bash bin/fm-teardown.sh liveround --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+teardown: reaping leaked worktree process(es) for liveround: 48208 49458
+teardown: force-killing leaked worktree process(es) for liveround: 48208
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/repo: already current
+teardown liveround complete (window lab:fm-liveround, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/pool/.treehouse/repo-15901f/1/repo)
+Backlog: keep liveround open in ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home/data/backlog.md and hold it awaiting merge https://127.0.0.1/labowner/liveround/pulls/1 (this home keeps no markdown backlog at ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home/data/backlog.md).
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-control.sh liveround relaunch --note 'Live lab recreation'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home/config/machine-admission.json: [Errno 2] No such file or directory: '~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home/config/machine-admission.json'; task liveround stays queued
+
+[exit=75]
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 29, in outcome
+    detail=fn(); results.append({'name':name,'result':'pass','live':True,'detail':detail});print('PASS '+name+': '+str(detail),flush=True)
+           ^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/drive.py", line 85, in roundtrip
+    a=relaunch(f);assert a.returncode==0,a.stdout
+                         ^^^^^^^^^^^^^^^
+AssertionError: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home/config/machine-admission.json: [Errno 2] No such file or directory: '~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround/home/config/machine-admission.json'; task liveround stays queued
+
+$ tmux -L fm-lab kill-server
+
+[exit=0]
+$ bash bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/socket-home
+
+[exit=0]

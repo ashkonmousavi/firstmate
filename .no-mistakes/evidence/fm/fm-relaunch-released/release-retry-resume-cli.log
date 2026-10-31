@@ -1,0 +1,65 @@
+$ tmux -L fm-lab new-session -d -s lab -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51 '/bin/bash --noprofile --norc'
+
+[exit=0]
+$ tmux -L fm-lab display-message -p -t lab '#{socket_path},#{pid},0'
+/tmp/fml.GkqW1M/tmux-1000/fm-lab,1231312,0
+
+[exit=0]
+$ tmux -L fm-lab set-option -gw automatic-rename off
+
+[exit=0]
+$ tmux -L fm-lab set-option -gw allow-rename off
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-terminal xterm-256color
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-shell /bin/bash
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-command '/bin/bash --noprofile --norc'
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g PATH ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/tools:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.codex/tmp/arg0/codex-arg0pYCQYM:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~/.composio:~/.local/bin:~/go/bin:~/.cargo/bin:~/.local/share/whisper-venv/bin:~/go/bin:~/.npm-global/bin:~/projects/openclaw/bin:~/.nvm/versions/node/v22.22.0/bin:~/.linuxbrew/bin:~/.linuxbrew/sbin:~/.local/bin:~/go/bin:~/.cargo/bin:~/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g XDG_CONFIG_HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/config
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g CODEX_HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/codex
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_GLOBAL ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/client-gitconfig
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_SYSTEM /dev/null
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_NOSYSTEM 1
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g TMPDIR ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/tmp
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-control.sh releaseretryedge relaunch --note 'Live lab recreation'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/releaseretryedge/home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/releaseretryedge/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/releaseretryedge/home/data/releaseretryedge/launch-brief.md records no ship branch; defaulting to legacy branch fm/releaseretryedge
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/releaseretryedge/home/data/releaseretryedge/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+relaunched releaseretryedge harness=codex from=codex model=default effort=default backend=tmux endpoint=lab:fm-releaseretryedge worktree=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/releaseretryedge/pool/.treehouse/repo-4dc1f6/1/repo recreated-from=released-copy
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/releaseretryedge/pool/.treehouse/repo-4dc1f6/1/repo rev-parse HEAD
+eb8ec3b45815d85a9ffe2e27747a9c63227427df
+
+[exit=0]
+$ tmux -L fm-lab kill-server
+
+[exit=0]
+$ bash bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/retry-resume-socket-home
+
+[exit=0]

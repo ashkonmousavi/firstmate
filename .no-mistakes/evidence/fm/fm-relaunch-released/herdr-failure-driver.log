@@ -1,0 +1,5 @@
+FAIL Herdr pool deferral and launch transport failure preserve state for retry: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdrfailure9/home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdrfailure9/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: memory PSI full avg60 refuses; task herdrfailure9 stays queued
+

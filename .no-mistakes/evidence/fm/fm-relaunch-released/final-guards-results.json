@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Unsupported backends and a captain hold refuse without changing released task state",
+    "result": "pass",
+    "live": true,
+    "detail": "valid Orca/cmux/zellij records refused with supported-backend message; captain hold preserved and dispatch refused"
+  },
+  {
+    "name": "Merged PR requires cleanup instead of recreating a copy",
+    "result": "pass",
+    "live": true,
+    "detail": "actual merged forge PR refused with needs-cleanup instruction and no state change"
+  }
+]

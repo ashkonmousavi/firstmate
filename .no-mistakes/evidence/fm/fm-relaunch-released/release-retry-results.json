@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Release retry retains publication proof until both copy return and endpoint close complete",
+    "result": "fail",
+    "live": true,
+    "detail": "fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/releaseretryedge/home\nfm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/releaseretryedge/home\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\ndeferred: memory PSI full avg60 refuses; task releaseretryedge stays queued\n"
+  }
+]

@@ -1,0 +1,139 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-herdr-lab.sh name released
+fm-lab-released-769062-30105
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-herdr-lab.sh provision fm-lab-released-769062-30105
+
+[exit=0]
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home
+
+[exit=0]
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo config user.name Lab
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo config user.email lab@example.invalid
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo add .
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo commit -qm base
+
+[exit=0]
+$ treehouse init
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+Created ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo/treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo add treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo commit -qm 'pool config'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo remote add origin http://127.0.0.1:9660/labowner/liveherdr7.git
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo config http.extraHeader '[redacted local fixture credential]'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo push -qu origin main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo checkout -qb fm/liveherdr7
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo add work.txt
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo commit -qm 'task work'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo rev-parse HEAD
+902d2411b812364283deccda2e033e7d23b95f3e
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo push -qu origin fm/liveherdr7
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo checkout -q main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/repo branch -D fm/liveherdr7
+Deleted branch fm/liveherdr7 (was 902d241).
+
+[exit=0]
+$ tasks-axi add liveherdr7 'Live release hold check' --kind ship --file ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home/data/backlog.md
+ok: added liveherdr7 (ship) -> Queued
+task:
+  id: liveherdr7
+  title: Live release hold check
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-30
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start liveherdr7 --file=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block liveherdr7 --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home/data/backlog.md` to record a dependency
+
+[exit=0]
+$ tasks-axi start liveherdr7 --file ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home/data/backlog.md
+ok: start liveherdr7 -> In flight
+help[1]:
+  - Run `tasks-axi done liveherdr7 --pr <url> --file=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home/data/backlog.md` when it ships
+
+[exit=0]
+$ treehouse get --lease --no-fetch
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/pool/.treehouse/repo-1e4b33/1/repo. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/pool/.treehouse/repo-1e4b33/1/repo' to release it.
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/pool/.treehouse/repo-1e4b33/1/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/pool/.treehouse/repo-1e4b33/1/repo checkout -qb fm/liveherdr7 origin/fm/liveherdr7
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-herdr-lab.sh run fm-lab-released-769062-30105 workspace create --cwd ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/pool/.treehouse/repo-1e4b33/1/repo --label firstmate --no-focus
+{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/pool/.treehouse/repo-1e4b33/1/repo","focused":true,"foreground_cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/pool/.treehouse/repo-1e4b33/1/repo","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":40},"tab_id":"w1:t1","terminal_id":"term_65f1d3521f24c1","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},"type":"workspace_created","workspace":{"active_tab_id":"w1:t1","agent_status":"unknown","focused":true,"label":"firstmate","number":1,"pane_count":1,"tab_count":1,"workspace_id":"w1"}}}
+
+[exit=0]
+$ bash bin/fm-teardown.sh liveherdr7 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home
+error: task liveherdr7's record has no spawn_gen that identifies one exact incarnation (task record ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home/state/liveherdr7.meta has 0 spawn generation fields; exactly one is required); refusing automatic teardown - relaunch the task to publish an unambiguous incarnation, then retry teardown, or pass --legacy-record once its recorded endpoint is confirmed dead or agent-less
+
+[exit=1]
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdr-drive.py", line 30, in outcome
+    detail=fn(); results.append({'name':name,'result':'pass','live':True,'detail':detail});print('PASS '+name+': '+str(detail),flush=True)
+           ^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdr-drive.py", line 139, in herdr_roundtrip
+    a=run(['bash','bin/fm-teardown.sh',d.name,'--keep-open'],custom=be,check=False);assert a.returncode==0,a.stdout
+                                                                                           ^^^^^^^^^^^^^^^
+AssertionError: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home
+error: task liveherdr7's record has no spawn_gen that identifies one exact incarnation (task record ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr7/home/state/liveherdr7.meta has 0 spawn generation fields; exactly one is required); refusing automatic teardown - relaunch the task to publish an unambiguous incarnation, then retry teardown, or pass --legacy-record once its recorded endpoint is confirmed dead or agent-less
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-herdr-lab.sh teardown fm-lab-released-769062-30105
+
+[exit=0]
+$ bash bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdr-socket-home3
+
+[exit=0]

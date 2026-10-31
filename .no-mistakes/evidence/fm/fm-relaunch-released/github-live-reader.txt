@@ -1,0 +1,8 @@
+Independent public REST oracle: https://github.com/kunchenguid/treehouse/pull/195
+Expected OPEN, SHA 6351bc0a3b9e3ae43a22cf54966417fe9f1e175a
+Product fm_pr_read_class:
+class=open
+head=6351bc0a3b9e3ae43a22cf54966417fe9f1e175a
+head_path=PabloSzx/treehouse
+head_branch=pablosaez/status-scan-efficiency
+exit=0

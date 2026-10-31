@@ -1,0 +1,143 @@
+$ tmux -L fm-lab new-session -d -s lab -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51 '/bin/bash --noprofile --norc'
+
+[exit=0]
+$ tmux -L fm-lab display-message -p -t lab '#{socket_path},#{pid},0'
+/tmp/fml.qafKyR/tmux-1000/fm-lab,1024281,0
+
+[exit=0]
+$ tmux -L fm-lab set-option -gw automatic-rename off
+
+[exit=0]
+$ tmux -L fm-lab set-option -gw allow-rename off
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-terminal xterm-256color
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-shell /bin/bash
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-command '/bin/bash --noprofile --norc'
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g PATH ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/tools:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.codex/tmp/arg0/codex-arg0pYCQYM:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~/.composio:~/.local/bin:~/go/bin:~/.cargo/bin:~/.local/share/whisper-venv/bin:~/go/bin:~/.npm-global/bin:~/projects/openclaw/bin:~/.nvm/versions/node/v22.22.0/bin:~/.linuxbrew/bin:~/.linuxbrew/sbin:~/.local/bin:~/go/bin:~/.cargo/bin:~/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g XDG_CONFIG_HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/config
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g CODEX_HOME ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/codex
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_GLOBAL ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/client-gitconfig
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_SYSTEM /dev/null
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g GIT_CONFIG_NOSYSTEM 1
+
+[exit=0]
+$ tmux -L fm-lab set-environment -g TMPDIR ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/tmp
+
+[exit=0]
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/home
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/home
+
+[exit=0]
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo config user.name Lab
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo config user.email lab@example.invalid
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo add .
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo commit -qm base
+
+[exit=0]
+$ treehouse init
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+Created ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo/treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo add treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo commit -qm 'pool config'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo remote add origin http://127.0.0.1:9660/labowner/deliveryedge.git
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo config http.extraHeader '[redacted local fixture credential]'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo push -qu origin main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo checkout -qb fm/deliveryedge
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo add work.txt
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo commit -qm 'task work'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo rev-parse HEAD
+21c93b5454b61beddb9226e93190df3d38565f40
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo push -qu origin fm/deliveryedge
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo checkout -q main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo branch -D fm/deliveryedge
+Deleted branch fm/deliveryedge (was 21c93b5).
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-control.sh deliveryedge relaunch --note 'Live lab recreation'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/home/data/deliveryedge/launch-brief.md records no ship branch; defaulting to legacy branch fm/deliveryedge
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/home/data/deliveryedge/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+error: the released copy of deliveryedge could not be recreated and relaunched on codex; its released record, instructions and journal are unchanged
+
+[exit=1]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/deliveryedge/repo branch --list fm/deliveryedge
+  fm/deliveryedge
+
+[exit=0]
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/delivery.py", line 31, in outcome
+    detail=fn(); results.append({'name':name,'result':'pass','live':True,'detail':detail});print('PASS '+name+': '+str(detail),flush=True)
+           ^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/delivery.py", line 116, in delivery_rollback
+    a=relaunch(f);assert a.returncode!=0 and (d/'reached').exists(),a.stdout;assert snapshot(h,d.name)==before;assert git(p,'branch','--list','fm/'+d.name)=='';assert 'fm-'+d.name not in tm('list-windows','-t','lab','-F','#{window_name}').stdout
+                                                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+$ tmux -L fm-lab kill-server
+
+[exit=0]
+$ bash bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/delivery-socket-home
+
+[exit=0]

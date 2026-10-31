@@ -1,0 +1,122 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-herdr-lab.sh name released
+fm-lab-released-687367-8150
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-herdr-lab.sh provision fm-lab-released-687367-8150
+
+[exit=0]
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/home
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/home
+
+[exit=0]
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo config user.name Lab
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo config user.email lab@example.invalid
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo add .
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo commit -qm base
+
+[exit=0]
+$ treehouse init
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+Created ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo/treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo add treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo commit -qm 'pool config'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo remote add origin http://127.0.0.1:9660/labowner/liveherdr5.git
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo config http.extraHeader '[redacted local fixture credential]'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo push -qu origin main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo checkout -qb fm/liveherdr5
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo add work.txt
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo commit -qm 'task work'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo rev-parse HEAD
+faa8dfda2c821739d35adf61931b33a41a3c7422
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo push -qu origin fm/liveherdr5
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo checkout -q main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/repo branch -D fm/liveherdr5
+Deleted branch fm/liveherdr5 (was faa8dfd).
+
+[exit=0]
+$ treehouse get --lease --no-fetch
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/pool/.treehouse/repo-e68327/1/repo. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/pool/.treehouse/repo-e68327/1/repo' to release it.
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/pool/.treehouse/repo-e68327/1/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/pool/.treehouse/repo-e68327/1/repo checkout -qb fm/liveherdr5 origin/fm/liveherdr5
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-herdr-lab.sh run fm-lab-released-687367-8150 workspace create --cwd ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/pool/.treehouse/repo-e68327/1/repo --label firstmate --no-focus
+{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/pool/.treehouse/repo-e68327/1/repo","focused":true,"foreground_cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/pool/.treehouse/repo-e68327/1/repo","pane_id":"w1:p1","revision":0,"scroll":{"max_offset_from_bottom":0,"offset_from_bottom":0,"viewport_rows":40},"tab_id":"w1:t1","terminal_id":"term_65f1d3220d94d1","workspace_id":"w1"},"tab":{"agent_status":"unknown","focused":true,"label":"1","number":1,"pane_count":1,"tab_id":"w1:t1","workspace_id":"w1"},"type":"workspace_created","workspace":{"active_tab_id":"w1:t1","agent_status":"unknown","focused":true,"label":"firstmate","number":1,"pane_count":1,"tab_count":1,"workspace_id":"w1"}}}
+
+[exit=0]
+$ bash bin/fm-teardown.sh liveherdr5 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labowner/liveherdr5/pulls/1 could not be read, so teardown will not close liveherdr5.
+
+[exit=1]
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdr-drive.py", line 30, in outcome
+    detail=fn(); results.append({'name':name,'result':'pass','live':True,'detail':detail});print('PASS '+name+': '+str(detail),flush=True)
+           ^^^^
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdr-drive.py", line 133, in herdr_roundtrip
+    a=run(['bash','bin/fm-teardown.sh',d.name,'--keep-open'],custom=be,check=False);assert a.returncode==0,a.stdout
+                                                                                           ^^^^^^^^^^^^^^^
+AssertionError: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveherdr5/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labowner/liveherdr5/pulls/1 could not be read, so teardown will not close liveherdr5.
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-herdr-lab.sh teardown fm-lab-released-687367-8150
+
+[exit=0]
+$ bash bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdr-socket-home2
+
+[exit=0]

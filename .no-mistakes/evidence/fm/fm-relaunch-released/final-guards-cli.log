@@ -1,0 +1,269 @@
+$ tmux -L fm-lab new-session -d -s lab -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51 '/bin/bash --noprofile --norc'
+
+[exit=0]
+$ tmux -L fm-lab display-message -p -t lab '#{socket_path},#{pid},0'
+/tmp/fml.0hLy8V/tmux-1000/fm-lab,1313908,0
+
+[exit=0]
+$ tmux -L fm-lab set-option -gw automatic-rename off
+
+[exit=0]
+$ tmux -L fm-lab set-option -gw allow-rename off
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-terminal xterm-256color
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-shell /bin/bash
+
+[exit=0]
+$ tmux -L fm-lab set-option -g default-command '/bin/bash --noprofile --norc'
+
+[exit=0]
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home
+
+[exit=0]
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo config user.name Lab
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo config user.email lab@example.invalid
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo add .
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo commit -qm base
+
+[exit=0]
+$ treehouse init
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+Created ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo/treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo add treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo commit -qm 'pool config'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo remote add origin http://127.0.0.1:9660/labowner/scopeedge.git
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo config http.extraHeader '[redacted local fixture credential]'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo push -qu origin main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo checkout -qb fm/scopeedge
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo add work.txt
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo commit -qm 'task work'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo rev-parse HEAD
+12c85c47a6bf28962e7212f8bd17affa96ae3023
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo push -qu origin fm/scopeedge
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo checkout -q main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/repo branch -D fm/scopeedge
+Deleted branch fm/scopeedge (was 12c85c4).
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-control.sh scopeedge relaunch --note 'Live lab recreation'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home
+error: task scopeedge's copy was released, and recreating a released copy is supported on the tmux and herdr backends only (this record is on orca); refusing to relaunch
+
+[exit=1]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-control.sh scopeedge relaunch --note 'Live lab recreation'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home
+error: task scopeedge's copy was released, and recreating a released copy is supported on the tmux and herdr backends only (this record is on cmux); refusing to relaunch
+
+[exit=1]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-control.sh scopeedge relaunch --note 'Live lab recreation'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home
+error: task scopeedge's copy was released, and recreating a released copy is supported on the tmux and herdr backends only (this record is on zellij); refusing to relaunch
+
+[exit=1]
+$ tasks-axi add scopeedge 'Captain hold guard' --kind ship --file ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md
+ok: added scopeedge (ship) -> Queued
+task:
+  id: scopeedge
+  title: Captain hold guard
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-30
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start scopeedge --file=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block scopeedge --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md` to record a dependency
+
+[exit=0]
+$ tasks-axi start scopeedge --file ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md
+ok: start scopeedge -> In flight
+help[1]:
+  - Run `tasks-axi done scopeedge --pr <url> --file=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md` when it ships
+
+[exit=0]
+$ tasks-axi hold scopeedge --kind captain --reason 'do not dispatch' --file ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md
+ok: hold scopeedge -> held (captain)
+task:
+  id: scopeedge
+  title: Captain hold guard
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: do not dispatch
+  hold_kind: captain
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-30
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold scopeedge --file=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md` to resume dispatch
+  - Run `tasks-axi ready --include-held --file=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md` to review paused work
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-control.sh scopeedge relaunch --note 'Live lab recreation'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/scopeedge/launch-brief.md records no ship branch; defaulting to legacy branch fm/scopeedge
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/scopeedge/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+error: this home's backlog item scopeedge is not dispatchable in state in_flight yes no; refusing before creating its endpoint or local copy
+error: the released copy of scopeedge could not be recreated and relaunched on codex; its released record, instructions and journal are unchanged
+
+[exit=1]
+$ tasks-axi show scopeedge --file ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/scopeedge/home/data/backlog.md
+task:
+  id: scopeedge
+  title: Captain hold guard
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: do not dispatch
+  hold_kind: captain
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-30
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+[exit=0]
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/home
+~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/home
+
+[exit=0]
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo config user.name Lab
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo config user.email lab@example.invalid
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo add .
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo commit -qm base
+
+[exit=0]
+$ treehouse init
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+Created ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo/treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo add treehouse.toml
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo commit -qm 'pool config'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo remote add origin http://127.0.0.1:9660/labowner/mergedguardedge.git
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo config http.extraHeader '[redacted local fixture credential]'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo push -qu origin main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo checkout -qb fm/mergedguardedge
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo add work.txt
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo commit -qm 'task work'
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo rev-parse HEAD
+b572dfd9db4464831c349a08d92981cd34a74fc7
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo push -qu origin fm/mergedguardedge
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo checkout -q main
+
+[exit=0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/repo branch -D fm/mergedguardedge
+Deleted branch fm/mergedguardedge (was b572dfd).
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/bin/fm-control.sh mergedguardedge relaunch --note 'Live lab recreation'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/mergedguardedge/home
+error: task mergedguardedge's pull request https://127.0.0.1/labowner/mergedguardedge/pulls/1 has merged; the task needs cleanup (bin/fm-teardown.sh mergedguardedge), not a relaunch
+
+[exit=1]
+$ tmux -L fm-lab kill-server
+
+[exit=0]
+$ bash bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/final-guards-socket-home
+
+[exit=0]

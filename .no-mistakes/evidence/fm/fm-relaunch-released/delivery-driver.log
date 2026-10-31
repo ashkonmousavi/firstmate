@@ -1,0 +1,1 @@
+PASS Failed launch delivery rolls back and retry adds exactly one progress note: real tmux literal-delivery fault closed the endpoint, returned its slot and detached its branch, restored original state; retry completed with one note

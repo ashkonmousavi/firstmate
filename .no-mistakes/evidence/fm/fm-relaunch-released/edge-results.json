@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Descendant remote head recreates a pushable task branch",
+    "result": "pass",
+    "live": true,
+    "detail": "accepted descendant 8b695932a1e7cb0a74129c4e3a1d927f35a324ce of released 4f347cdcaf473f988ca28adb281200d6a9f2818a; branch checkout and push succeeded"
+  },
+  {
+    "name": "Rewritten remote head returns resources and preserves released state",
+    "result": "pass",
+    "live": true,
+    "detail": "rewritten remote refused; original record, brief and journal preserved; endpoint and new branch absent"
+  },
+  {
+    "name": "Interrupted partial snapshot cannot overwrite original state",
+    "result": "pass",
+    "live": true,
+    "detail": "TERM during a partial brief snapshot preserved the complete original brief, record and journal"
+  },
+  {
+    "name": "Publicsrc alone cannot authorize release despite forge equality",
+    "result": "pass",
+    "live": true,
+    "detail": "forge equality plus publicsrc-only remote refused; copy preserved"
+  },
+  {
+    "name": "Real Treehouse pool exhaustion defers without durable changes",
+    "result": "pass",
+    "live": true,
+    "detail": "real single-slot pool exhausted: exit 75, no note/journal/record changes, new endpoint closed"
+  }
+]

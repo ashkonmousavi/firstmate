@@ -1,0 +1,86 @@
+[
+  {
+    "name": "tmux round trip, same branch/head, durable note and push",
+    "result": "pass",
+    "live": true,
+    "evidence": "tmux-roundtrip-final.txt; recreated-note.md; relaunch-journal.txt"
+  },
+  {
+    "name": "Herdr round trip, merge hold and lane deferral",
+    "result": "pass",
+    "live": true,
+    "evidence": "herdr-cli.log"
+  },
+  {
+    "name": "Dirty files and gate-only commits retained",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-attempt-4.log"
+  },
+  {
+    "name": "Publicsrc cannot authorize release",
+    "result": "pass",
+    "live": true,
+    "evidence": "edge-cli.log"
+  },
+  {
+    "name": "Existing window, lane, closed/unreadable PR refusals leave state unchanged",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-attempt-5.log"
+  },
+  {
+    "name": "Valid unsupported backends and captain holds refuse",
+    "result": "pass",
+    "live": true,
+    "evidence": "final-guards-cli.log"
+  },
+  {
+    "name": "Merged PR requires cleanup",
+    "result": "pass",
+    "live": true,
+    "evidence": "final-guards-cli.log"
+  },
+  {
+    "name": "Descendant remote accepted with pushable branch",
+    "result": "pass",
+    "live": true,
+    "evidence": "edge-cli.log"
+  },
+  {
+    "name": "Rewritten remote refused with resources returned",
+    "result": "pass",
+    "live": true,
+    "evidence": "edge-cli.log"
+  },
+  {
+    "name": "Real pool exhaustion on tmux and Herdr returns 75 unchanged",
+    "result": "pass",
+    "live": true,
+    "evidence": "edge-cli.log; herdr-failure-cli.log"
+  },
+  {
+    "name": "Transport failure rolls back; retry adds one note on both backends",
+    "result": "pass",
+    "live": true,
+    "evidence": "delivery-cli.log; herdr-transport-cli.log"
+  },
+  {
+    "name": "TERM during partial snapshot preserves original data",
+    "result": "pass",
+    "live": true,
+    "evidence": "edge-cli.log"
+  },
+  {
+    "name": "Failed copy return and failed close preserve proof; retry and recreation succeed",
+    "result": "pass",
+    "live": true,
+    "evidence": "release-retry-cli.log; release-retry-resume-cli.log"
+  },
+  {
+    "name": "Live GitHub PR reader agrees with independent REST head",
+    "result": "pass",
+    "live": true,
+    "evidence": "github-live-reader.txt"
+  }
+]

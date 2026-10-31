@@ -1,0 +1,9 @@
+Local Forgejo server process awaited: exit 0.
+All three targeted-regression children exited 0, with no gate skips.
+Every required live-check child was awaited and its retained result inspected.
+Each named Herdr lab was removed through fm-herdr-lab.sh with its default-session tripwire unchanged.
+Private tmux servers and helper socket directories were removed.
+No live-check driver process remained before fixture deletion.
+Generated read-only hooks were made owner-writable inside the disposable tree for cleanup.
+Downloaded tools, repositories, disposable credentials/configuration, and all worktree fixtures were removed.
+Final git status --short: empty.

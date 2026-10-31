@@ -1,0 +1,8 @@
+[
+  {
+    "name": "tmux release and relaunch recreate the pushed branch and durable note",
+    "result": "fail",
+    "live": true,
+    "detail": "{'task': 'liveround6', 'phase': 'complete', 'ts': '2026-10-31T06:41:07Z', 'backend': 'tmux', 'endpoint': 'lab:fm-liveround6', 'worktree': '~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/.treehouse/repo-711e1c/1/repo', 'kind': 'ship', 'from_harness': 'codex', 'from_model': 'default', 'from_effort': 'default', 'to_harness': 'codex', 'to_model': 'default', 'to_effort': 'default', 'worktree_head': 'released:63e4b22f1a581584d5152ccf88644aaf8f782af5', 'worktree_dirty': 'released', 'released_branch': 'fm/liveround6', 'note_file': '~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround6/home/state/liveround6.control-relaunch.note', 'exit_result': 'released-copy', 'exit_background': 'not-applicable'}"
+  }
+]

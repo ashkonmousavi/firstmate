@@ -1,0 +1,168 @@
+import os,sys,pathlib,subprocess,json,urllib.request,time,hashlib,shlex,traceback
+R=pathlib.Path.cwd(); L=R/'.validation-live'; E=pathlib.Path(os.environ['FM_LIVE_EVIDENCE']);E.mkdir(parents=True,exist_ok=True)
+con=json.load(open(L/'connection.json')); base=f"http://127.0.0.1:{con['port']}"; results=[]
+env=os.environ.copy()
+for k in list(env):
+ if k.startswith(('FM_','HERDR_')) or k in ['TMUX','TMUX_PANE','NO_MISTAKES_GATE','TASKS_AXI_FILE','TASKS_AXI_BACKEND','CLAUDECODE','CODEX_THREAD_ID']:env.pop(k,None)
+env.update(PATH=str(L/'tools')+':'+env['PATH'],HOME=str(L/'user'),XDG_CONFIG_HOME=str(L/'user/config'),CODEX_HOME=str(L/'user/codex'),GIT_CONFIG_GLOBAL=str(L/'user/client-gitconfig'),GIT_CONFIG_SYSTEM='/dev/null',GIT_CONFIG_NOSYSTEM='1',TMPDIR=str(L/'tmp'),TERM='xterm-256color',SHELL='/bin/bash',FM_CONTROL_EXIT_WAIT='3',FM_CONTROL_LAUNCH_WAIT='8',FM_CONTROL_POLL='.1',DISABLE_AUTOUPDATER='1')
+# Keep the Unix socket pathname short without writing outside the worktree.
+socket_home=L/'herdr-socket-home6'
+if not (socket_home/'.fm-lab-home').exists():subprocess.run(['bash',str(R/'bin/fm-lab-home.sh'),'create',str(socket_home)],check=True,capture_output=True)
+sock=subprocess.check_output(['bash',str(R/'bin/fm-lab-home.sh'),'tmux-dir',str(socket_home)],text=True).strip()
+env['TMUX_TMPDIR']=sock
+log=open(E/'herdr-transport-cli.log','w',buffering=1)
+def run(args,cwd=R,check=True,timeout=100,custom=None):
+ p=subprocess.run([str(x) for x in args],cwd=cwd,env=custom or env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=timeout)
+ safe=['[redacted local fixture credential]' if str(x).startswith('Authorization:') else x for x in args]
+ log.write('$ '+' '.join(shlex.quote(str(x)) for x in safe)+'\n'+p.stdout+f'\n[exit={p.returncode}]\n')
+ if check and p.returncode:raise RuntimeError(p.stdout)
+ return p
+
+def api(path,data=None,method=None):
+ req=urllib.request.Request(base+'/api/v1/'+path,data=None if data is None else json.dumps(data).encode(),headers={'Authorization':'token '+con['token'],'Content-Type':'application/json'},method=method)
+ with urllib.request.urlopen(req,timeout=15) as r:return json.load(r)
+def git(p,*args):return run(['git','-C',p,*args]).stdout.strip()
+def tm(*args,check=True):return run(['tmux','-L','fm-lab',*args],check=check)
+def fields(file):return dict(x.split('=',1) for x in file.read_text().splitlines() if '=' in x)
+def snapshot(h,id):return {str(p.relative_to(h)):p.read_bytes() for p in [h/f'state/{id}.meta',h/f'data/{id}/brief.md',h/f'state/{id}.control-relaunch'] if p.exists()}
+def outcome(name,fn):
+ try:
+  detail=fn(); results.append({'name':name,'result':'pass','live':True,'detail':detail});print('PASS '+name+': '+str(detail),flush=True)
+ except Exception as e:
+  results.append({'name':name,'result':'fail','live':True,'detail':str(e)});print('FAIL '+name+': '+str(e),flush=True);traceback.print_exc(file=log)
+ (E/'herdr-transport-results.json').write_text(json.dumps(results,indent=2))
+
+def fixture(id,released=True):
+ id=id+'9';d=L/id;d.mkdir(exist_ok=True);h=d/'home';run(['bash','bin/fm-lab-home.sh','create',h]);(h/'config/backend').write_text('tmux\n');(h/'config/lane-capacity').write_text('999999 0\n');(h/'config/machine-admission.json').write_text(json.dumps({'schema':'fm-machine-admission.v1','memory_floor_gib':3,'memory_full_avg60_max':5,'disk_floor_gib':1,'disk_paths':[str(h)]}));(h/'config/supervision-host-off').touch();(h/'config/herdr-presentation-spaces').write_text('off\n')
+ p=d/'repo';p.mkdir();run(['git','init','-q','-b','main',p]);git(p,'config','user.name','Lab');git(p,'config','user.email','lab@example.invalid');(p/'README.md').write_text('lab\n');git(p,'add','.');git(p,'commit','-qm','base')
+ # Treehouse uses an explicitly bounded per-project pool.
+ run(['treehouse','init'],cwd=p);(p/'treehouse.toml').write_text('max_trees = 1\nroot = '+json.dumps(str(d/'pool'))+'\n');git(p,'add','treehouse.toml');git(p,'commit','-qm','pool config')
+ api('user/repos',{'name':id,'private':False,'default_branch':'main'})
+ git(p,'remote','add','origin',base+'/labowner/'+id+'.git')
+ # git authentication is configured only for this disposable local repository.
+ git(p,'config','http.extraHeader','Authorization: Basic '+__import__('base64').b64encode(('labowner:'+con['token']).encode()).decode())
+ git(p,'push','-qu','origin','main');git(p,'checkout','-qb','fm/'+id);(p/'work.txt').write_text('pushed branch work\n');git(p,'add','work.txt');git(p,'commit','-qm','task work');head=git(p,'rev-parse','HEAD');git(p,'push','-qu','origin','fm/'+id);git(p,'checkout','-q','main');git(p,'branch','-D','fm/'+id)
+ for _ in range(60):
+  try:
+   if api('repos/labowner/'+id+'/branches/fm%2F'+id)['commit']['id']==head:break
+  except Exception:pass
+  time.sleep(.2)
+ pr=api('repos/labowner/'+id+'/pulls',{'head':'fm/'+id,'base':'main','title':'Disposable validation PR'})
+ # A canonical PR identity omits the port; tea's isolated login supplies transport.
+ url='https://127.0.0.1/labowner/'+id+'/pulls/'+str(pr['number'])
+ be=env.copy();be.update(FM_HOME=str(h),TREEHOUSE_ROOT=str(d/'pool'))
+ meta={'window':'lab:fm-'+id,'endpoint_task_id':id,'worktree':str(h/f'state/{id}.released-copy'),'released_head':head,'released_branch':'fm/'+id,'released_pr':url,'project':str(p),'harness':'codex','kind':'ship','mode':'no-mistakes','yolo':'off','branch':'fm/'+id,'model':'default','effort':'default','spawn_gen':f's{int(time.time())}.{os.getpid()}.1','pr':url}
+ (h/f'data/{id}').mkdir();(h/f'data/{id}/brief.md').write_text("# Task\n## Captain's intent\nValidate copy recreation.\n## Firstmate spec\nRead the relaunch progress note and respond with LAB_NOTE_RECEIVED. Do not edit files or run any commands.\n")
+ (h/f'state/{id}.meta').write_text(''.join(k+'='+v+'\n' for k,v in meta.items()))
+ if not released:
+  lease=run(['treehouse','get','--lease','--no-fetch'],cwd=p,custom=be).stdout.strip().splitlines()[-1];git(lease,'checkout','-qb','fm/'+id,'origin/fm/'+id);meta.pop('released_head');meta.pop('released_branch');meta.pop('released_pr');meta['worktree']=lease;(h/f'state/{id}.meta').write_text(''.join(k+'='+v+'\n' for k,v in meta.items()));tm('new-window','-d','-t','lab:','-n','fm-'+id,'-c',lease)
+ return d,h,p,be,head,url
+
+def relaunch(f,note='Live lab recreation'):
+ d,h,p,be,head,url=f
+ return run(['bash',R/'bin/fm-control.sh',d.name,'relaunch','--note',note],custom=be,check=False,timeout=110)
+
+def refusal_cases():
+ f=fixture('liverefuse');d,h,p,be,head,url=f;mp=h/f'state/{d.name}.meta';before=snapshot(h,d.name);desc=[]
+ # Existing idle shell is not considered an absent endpoint.
+ tm('new-window','-d','-t','lab:','-n','fm-'+d.name,'-c',p)
+ a=relaunch(f);assert a.returncode!=0 and 'close that window first' in a.stdout,a.stdout;assert before==snapshot(h,d.name);desc.append('existing shell refused unchanged');tm('kill-window','-t','lab:fm-'+d.name)
+ # Capacity deferral must not write either a note or a journal.
+ (h/'config/lane-capacity').write_text('0 0\n');a=relaunch(f);assert a.returncode==75,a.stdout;assert before==snapshot(h,d.name);desc.append('lane deferral=75 unchanged');(h/'config/lane-capacity').write_text('999999 0\n')
+ for backend in ['orca','cmux','zellij']:
+  text=mp.read_text();mp.write_text(text+'backend='+backend+'\n');prior=snapshot(h,d.name);a=relaunch(f);assert a.returncode!=0 and backend in a.stdout.lower(),a.stdout;assert prior==snapshot(h,d.name);mp.write_text(text);desc.append(backend+' refused')
+ # Real remote PR state drives closed / unreadable responses.
+ api('repos/labowner/'+d.name+'/pulls/1',{'state':'closed'},'PATCH');a=relaunch(f);assert a.returncode!=0 and 'closed without merging' in a.stdout,a.stdout;assert before==snapshot(h,d.name);desc.append('closed PR refused')
+ api('repos/labowner/'+d.name+'/pulls/1',{'state':'open'},'PATCH');text=mp.read_text();mp.write_text(text.replace('/pulls/1','/pulls/999'));prior=snapshot(h,d.name);a=relaunch(f);assert a.returncode!=0 and 'could not be read' in a.stdout,a.stdout;assert prior==snapshot(h,d.name);mp.write_text(text);desc.append('unreadable PR refused')
+ return '; '.join(desc)
+
+def release_safety():
+ f=fixture('livesafety',False);d,h,p,be,head,url=f;mp=h/f'state/{d.name}.meta';wt=pathlib.Path(fields(mp)['worktree']);before=snapshot(h,d.name)
+ (wt/'dirty.txt').write_text('uncommitted must survive');a=run(['bash','bin/fm-teardown.sh',d.name,'--keep-open'],custom=be,check=False);assert a.returncode!=0 and (wt/'dirty.txt').exists(),a.stdout;assert fields(mp)['worktree']==str(wt);(wt/'dirty.txt').unlink()
+ (wt/'unpublished.txt').write_text('local commit');git(wt,'add','unpublished.txt');git(wt,'commit','-qm','not published');local=git(wt,'rev-parse','HEAD')
+ gate=d/'gate.git';run(['git','init','--bare','-q',gate]);git(p,'remote','add','no-mistakes',str(gate));git(wt,'push','-q','no-mistakes','HEAD:fm/'+d.name)
+ a=run(['bash','bin/fm-teardown.sh',d.name,'--keep-open'],custom=be,check=False);assert a.returncode!=0,a.stdout;assert wt.exists() and git(wt,'rev-parse','HEAD')==local;assert fields(mp)['worktree']==str(wt)
+ return 'dirty files retained; commit held only by no-mistakes refused and retained at '+local
+
+def roundtrip():
+ f=fixture('liveround',False);d,h,p,be,head,url=f
+ a=run(['bash','bin/fm-teardown.sh',d.name,'--keep-open'],custom=be,check=False);assert a.returncode==0,a.stdout
+ m=fields(h/f'state/{d.name}.meta');assert m['worktree']==str(h/f'state/{d.name}.released-copy') and m['released_head']==head,m
+ a=relaunch(f)
+ cap=tm('capture-pane','-p','-t','lab:fm-'+d.name,'-S','-200',check=False).stdout;(E/'tmux-launch-attempt.txt').write_text(cap)
+ assert a.returncode==0,a.stdout+'\nPANE:\n'+cap
+ m=fields(h/f'state/{d.name}.meta');wt=pathlib.Path(m['worktree']);assert git(wt,'rev-parse','HEAD')==head;assert git(wt,'branch','--show-current')=='fm/'+d.name
+ assert git(wt,'status','--porcelain')=='',git(wt,'status','--porcelain')
+ brief=(h/f'data/{d.name}/brief.md').read_text();assert brief.count('This task was relaunched on a recreated local copy')==1,brief
+ journal=fields(h/f'state/{d.name}.control-relaunch');note=pathlib.Path(journal['note_file']);assert note.exists() and 'recreated' in note.read_text(),journal
+ time.sleep(3);cap=tm('capture-pane','-p','-t',m['window'],'-S','-120').stdout;(E/'tmux-recreated-worker.txt').write_text(cap)
+ assert 'resume ' not in cap,cap
+ # Actual push verifies branch and upstream remain usable (no changes sent).
+ git(wt,'push','origin','HEAD')
+ (E/'recreated-note.md').write_text(note.read_text());(E/'recreated-record.txt').write_text((h/f'state/{d.name}.meta').read_text())
+ return 'released and recreated branch fm/'+d.name+' at '+head+'; durable note published; actual push succeeded; worker transcript retained'
+# All Herdr calls, including those made by Firstmate, pass the guarded helper.
+xdg=f'/proc/{os.getpid()}/cwd/.validation-live/herdr-xdg'
+env.update(XDG_CONFIG_HOME=xdg,HERDR_CONFIG_PATH=xdg+'/herdr/config.toml',FM_HERDR_LAB_STATE_DIR=str(L/'herdr-state'),HERDR_ORIGINAL_PATH=env['PATH'])
+pathlib.Path(L/'herdr-xdg/herdr/config.toml').write_text('onboarding = false\n[terminal]\ndefault_shell = "/bin/bash"\nshell_mode = "non_login"\n[update]\nversion_check = false\nmanifest_check = false\n')
+helper=R/'bin/fm-herdr-lab.sh';name=run(['bash',helper,'name','released']).stdout.strip();env['HERDR_LAB_SESSION']=name;env['HERDR_LAB_HELPER']=str(helper)
+shim=L/'herdr-bin';shim.mkdir(exist_ok=True)
+(shim/'herdr').write_text('''#!/usr/bin/env python3
+import os,sys
+args=sys.argv[1:]
+if '--session' in args:
+ i=args.index('--session')
+ if args[i+1]!=os.environ['HERDR_LAB_SESSION']:raise SystemExit('refusing foreign session')
+ args[i:i+2]=[]
+flag=os.environ.get('FM_LAB_HERDR_FAULT')
+if flag and args[:2]==['pane','send-text'] and any('launch.' in a for a in args) and os.path.exists(flag):
+ os.unlink(flag);open(flag+'.reached','w').write('real Herdr send fault reached');raise SystemExit(70)
+e=os.environ.copy();e['PATH']=e['HERDR_ORIGINAL_PATH']
+os.execve('/bin/bash',['bash',e['HERDR_LAB_HELPER'],'run',e['HERDR_LAB_SESSION']]+args,e)
+''');(shim/'herdr').chmod(0o755)
+authenv={**env,'PATH':env['HERDR_ORIGINAL_PATH']}
+r=subprocess.run([str(L/'tools/tea'),'login','add','--name','lab','--url',base,'--token',con['token']],env=authenv,capture_output=True,text=True)
+if r.returncode:
+ r=subprocess.run([str(L/'tools/tea'),'api','--login','lab','/version'],env=authenv,capture_output=True,text=True)
+ assert r.returncode==0 and 'version' in r.stdout, 'isolated tea setup failed'
+prepared=False
+try:
+ run(['bash',helper,'provision',name],timeout=80);prepared=True
+ env['PATH']=str(shim)+':'+env['PATH']
+ def lab(*args,check=True):return run(['bash',helper,'run',name,*args],custom={**env,'PATH':env['HERDR_ORIGINAL_PATH']},check=check)
+ def herdr_roundtrip():
+  f=fixture('liveherdr');d,h,p,be,head,url=f
+  be['HERDR_SESSION']=name
+  backlog=h/'data/backlog.md';backlog.write_text('# Backlog\n\n## In flight\n\n## Queued\n\n## Done\n')
+  run(['tasks-axi','add',d.name,'Live release hold check','--kind','ship','--file',backlog],custom=be)
+  run(['tasks-axi','start',d.name,'--file',backlog],custom=be)
+  lease=run(['treehouse','get','--lease','--no-fetch'],cwd=p,custom=be).stdout.strip().splitlines()[-1];git(lease,'checkout','-qb','fm/'+d.name,'origin/fm/'+d.name)
+  raw=json.loads(lab('workspace','create','--cwd',lease,'--label','firstmate','--no-focus').stdout)['result'];wp=raw['workspace']['workspace_id'];pane=raw['root_pane']['pane_id'];tab=raw['tab']['tab_id'] if 'tab' in raw else raw['root_pane']['tab_id']
+  meta=fields(h/f'state/{d.name}.meta');meta.update(window=name+':'+pane,worktree=lease,backend='herdr',herdr_session=name,herdr_workspace_id=wp,herdr_pane_id=pane,herdr_tab_id=tab)
+  for k in ['released_head','released_branch','released_pr']:meta.pop(k,None)
+  (h/f'state/{d.name}.meta').write_text(''.join(k+'='+v+'\n' for k,v in meta.items()))
+  a=run(['bash','bin/fm-teardown.sh',d.name,'--keep-open'],custom=be,check=False);assert a.returncode==0,a.stdout
+  meta=fields(h/f'state/{d.name}.meta');assert meta['released_head']==head and meta['worktree'].endswith('.released-copy')
+  before=snapshot(h,d.name);(h/'config/lane-capacity').write_text('0 0\n');a=relaunch((d,h,p,be,head,url));assert a.returncode==75,a.stdout;assert snapshot(h,d.name)==before;(h/'config/lane-capacity').write_text('999999 0\n')
+  hold=run(['tasks-axi','show',d.name,'--file',backlog],custom=be).stdout;assert 'awaiting merge '+url in hold,hold
+  a=relaunch((d,h,p,be,head,url));m=fields(h/f'state/{d.name}.meta')
+  cap=lab('pane','read',m.get('herdr_pane_id',pane),'--source','recent','--lines','160','--format','text',check=False).stdout;(E/'herdr-launch.txt').write_text(cap)
+  assert a.returncode==0,a.stdout+'\nPANE:\n'+cap
+  wt=pathlib.Path(m['worktree']);assert git(wt,'rev-parse','HEAD')==head and git(wt,'branch','--show-current')=='fm/'+d.name
+  after=run(['tasks-axi','show',d.name,'--file',backlog],custom=be).stdout;assert 'awaiting merge '+url not in after,after
+  assert (h/f'data/{d.name}/brief.md').read_text().count('This task was relaunched on a recreated local copy')==1
+  return 'actual Herdr + Treehouse release/recreation at '+head+'; lane deferral preserved record and brief'
+ def herdr_failure_paths():
+  f=fixture('herdrfailure2');d,h,p,be,head,url=f;be['HERDR_SESSION']=name
+  raw=json.loads(lab('workspace','create','--cwd',p,'--label','firstmate','--no-focus').stdout)['result'];wp=raw['workspace']['workspace_id']
+  meta=fields(h/f'state/{d.name}.meta');meta.update(window=name+':%999999',backend='herdr',herdr_session=name,herdr_workspace_id=wp,herdr_pane_id='%999999',herdr_tab_id='tab-missing');mp=h/f'state/{d.name}.meta';mp.write_text(''.join(k+'='+v+'\n' for k,v in meta.items()));before=snapshot(h,d.name)
+  fault=d/'send-fault';fault.touch();be['FM_LAB_HERDR_FAULT']=str(fault)
+  a=relaunch((d,h,p,be,head,url));assert a.returncode!=0 and pathlib.Path(str(fault)+'.reached').exists(),a.stdout;assert snapshot(h,d.name)==before
+  assert not list((d/'pool').glob('.treehouse/*/*/.fm-slot-owner'))
+  a=relaunch((d,h,p,be,head,url));assert a.returncode==0,a.stdout;m=fields(mp);assert git(m['worktree'],'rev-parse','HEAD')==head;assert (h/f'data/{d.name}/brief.md').read_text().count('This task was relaunched on a recreated local copy')==1
+  cap=lab('pane','read',m['herdr_pane_id'],'--source','recent','--lines','140','--format','text').stdout;(E/'herdr-recreated-worker.txt').write_text(cap)
+  return 'actual Herdr launch send fault restored state and returned claim; retry completed with exactly one note'
+ outcome('Herdr launch transport failure preserves state and retry adds one note',herdr_failure_paths)
+finally:
+ if prepared:run(['bash',helper,'teardown',name],custom={**env,'PATH':env['HERDR_ORIGINAL_PATH']},timeout=80)
+ run(['bash','bin/fm-lab-home.sh','teardown',socket_home]);log.close()

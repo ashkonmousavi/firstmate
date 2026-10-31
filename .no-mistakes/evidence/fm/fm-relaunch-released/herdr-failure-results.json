@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Herdr pool deferral and launch transport failure preserve state for retry",
+    "result": "fail",
+    "live": true,
+    "detail": "fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdrfailure9/home\nfm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/herdrfailure9/home\nWARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.\ndeferred: memory PSI full avg60 refuses; task herdrfailure9 stays queued\n"
+  }
+]

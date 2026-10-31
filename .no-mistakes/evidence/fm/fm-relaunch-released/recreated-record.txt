@@ -1,0 +1,15 @@
+window=lab:fm-liveround6
+endpoint_task_id=liveround6
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/user/.treehouse/repo-711e1c/1/repo
+project=~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85JWZVGQT51/.validation-live/liveround6/repo
+harness=codex
+kind=ship
+mode=no-mistakes
+yolo=off
+branch=fm/liveround6
+tasktmp=/tmp/fm-liveround6
+model=default
+effort=default
+spawn_gen=s1793428865.697337.28379
+control_relaunch_tx=696506.20261031T064102Z.44
+pr=https://127.0.0.1/labowner/liveround6/pulls/1

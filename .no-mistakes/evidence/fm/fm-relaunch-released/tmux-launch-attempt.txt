@@ -1,0 +1,40 @@
+bash-5.2$ treehouse get
+A new version of treehouse is available: v3.1.4 → v3.1.8
+Run "treehouse update" to update
+
+🌳 Setting up worktree...
+🌳 Entered worktree at ~/.treehouse/repo-711e1c/1/repo. Type 'exit' to return.
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+tegris@Pulse:~/.treehouse/repo-711e1c/1/repo$ cd -- '~/.no-mistakes/worktrees/049a88734b0e/01M686061E2SDSA85J
+WZVGQT51/.validation-live/user/.treehouse/repo-711e1c/1/repo'
+tegris@Pulse:~/.treehouse/repo-711e1c/1/repo$ export GOTMPDIR=/tmp/fm-liveround6/gotmp
+tegris@Pulse:~/.treehouse/repo-711e1c/1/repo$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.treehouse/repo-711e1c/1/repo$ export FM_TASK_ID=liveround6
+tegris@Pulse:~/.treehouse/repo-711e1c/1/repo$ . '/tmp/fm-liveround6+b6460d5d706d09016a7723cd882a9e1ad48ab2069bb6cf4225d5
+a297a4e43fa7/launch.s1793428865.697337.28379.sh'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

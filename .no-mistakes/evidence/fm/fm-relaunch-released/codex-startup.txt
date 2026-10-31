@@ -1,0 +1,2 @@
+WARNING: TERM is set to "dumb". Codex's interactive TUI may not work in this terminal.
+Continue anyway? [y/N]: 

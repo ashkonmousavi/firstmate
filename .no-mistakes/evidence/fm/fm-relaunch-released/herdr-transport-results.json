@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Herdr launch transport failure preserves state and retry adds one note",
+    "result": "pass",
+    "live": true,
+    "detail": "actual Herdr launch send fault restored state and returned claim; retry completed with exactly one note"
+  }
+]
