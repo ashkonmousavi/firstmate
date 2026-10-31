@@ -1,0 +1,13 @@
+window=primary:fm-temp-retry
+endpoint_task_id=temp-retry
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/4/demo
+project=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/projects/demo
+harness=codex
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/temp-retry
+tasktmp=/tmp/fm-temp-retry
+model=default
+effort=default
+spawn_gen=s1793455387.3644942.18575

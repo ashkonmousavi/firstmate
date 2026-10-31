@@ -1,0 +1,13 @@
+window=primary:fm-occupant
+endpoint_task_id=occupant
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/1/demo
+project=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/projects/demo
+harness=codex
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/occupant
+tasktmp=/tmp/fm-occupant
+model=default
+effort=default
+spawn_gen=s1793454901.3167831.18684

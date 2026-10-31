@@ -1,0 +1,25 @@
+WARNING: watcher still down (same stale episode; last beat: 145s ago, grace 300s) - full banner already printed this episode.
+check: deferred-spawn: unreadable held cannot establish queued eligibility: this home keeps no markdown backlog at ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/backlog.md; unreadable blocked cannot establish queued eligibility: this home keeps no markdown backlog at ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/backlog.md
+watcher_exit=0
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 3745960.1793455468.zHseKY
+WARNING: watcher still down (same stale episode; last beat: 0s ago, grace 300s) - full banner already printed this episode.
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+check: deferred-spawn: unreadable held cannot establish queued eligibility: this home keeps no markdown backlog at ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/backlog.md; unreadable blocked cannot establish queued eligibility: this home keeps no markdown backlog at ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/backlog.md
+watcher_exit=0
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 3757617.1793455472.feDn2N
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+ASSERT missing backlog never supplies queued eligibility
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+check: deferred-spawn: stale held arguments changed
+watcher_exit=0
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 3766337.1793455474.NwXQWR
+WARNING: watcher still down (same stale episode; last beat: 0s ago, grace 300s) - full banner already printed this episode.
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+stale: primary:fm-manual
+watcher_exit=0
+1793455480	7	stale	primary:fm-manual	stale: primary:fm-manual
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 3775972.1793455480.gqGD00
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ASSERT tampered retry was reported stale and discarded without launching
+guards_exit=0

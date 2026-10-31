@@ -1,0 +1,24 @@
+error: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+error: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+error: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/older/launch-brief.md records no ship branch; defaulting to legacy branch fm/older
+notice: older ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned older harness=codex kind=ship mode=local-only yolo=off window=primary:fm-older worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/1/demo
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/younger/launch-brief.md records no ship branch; defaulting to legacy branch fm/younger
+notice: younger ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned younger harness=codex kind=ship mode=local-only yolo=off window=primary:fm-younger worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/1/demo
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/manual/launch-brief.md records no ship branch; defaulting to legacy branch fm/manual
+notice: manual ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned manual harness=codex kind=ship mode=local-only yolo=off window=primary:fm-manual worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/1/demo
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l
+WARNING: watcher still down (same stale episode; last beat: 5s ago, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/config/lane-capacity: lanes=4 target=2; no free machine lane; task slow-younger stays queued
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/slow-younger/launch-brief.md records no ship branch; defaulting to legacy branch fm/slow-younger
+notice: slow-younger ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned slow-younger harness=codex kind=ship mode=local-only yolo=off window=primary:fm-slow-younger worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/2/demo

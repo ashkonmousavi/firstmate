@@ -1,0 +1,13 @@
+window=primary:fm-slow-younger
+endpoint_task_id=slow-younger
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/2/demo
+project=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/projects/demo
+harness=codex
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/slow-younger
+tasktmp=/tmp/fm-slow-younger
+model=default
+effort=default
+spawn_gen=s1793455319.3562516.12219

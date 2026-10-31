@@ -1,0 +1,3 @@
+COMMAND: FM_HOME=<marked disposable lab> FM_DATA_OVERRIDE=<relocated worktree data> bin/fm-spawn.sh relocated-proof <lab project> --mode local-only --yolo off --harness codex
+error: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+exit=3

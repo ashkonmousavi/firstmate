@@ -1,0 +1,120 @@
+Cloning into '~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/projects/demo'...
+done.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m
+warning: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/data/cap-holder/launch-brief.md records no ship branch; defaulting to legacy branch fm/cap-holder
+notice: cap-holder ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned cap-holder harness=codex kind=ship mode=local-only yolo=off window=primary:fm-cap-holder worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/3/demo
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/config/lane-capacity: lanes=1 target=1; no free machine lane; task temp-retry stays queued
+Away posture recorded at 2026-10-31T14:02:36Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. Your away instructions are recorded verbatim; the away session will carry them out where it can, and a reserved ask, a destructive or irreversible action, a discard, or a merge it cannot settle waits for your return. Destructive and irreversible actions, and creating, revealing, or sharing a credential outside our own services, are never pre-authorizable, whatever the words say. Reusing an existing key between our own services is decided with the advisor and reported. Expected return: not given. Spend cap: 1 concurrent workers.
+Away posture (recorded):
+  entered: 2026-10-31T14:02:36Z
+  expected return: not given
+  spend cap: 1 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words (verbatim):
+    wait for disposable work
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+stale: primary:fm-cap-holder
+watcher_exit=0
+1793455360	1	stale	primary:fm-cap-holder	stale: primary:fm-cap-holder
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 3613453.1793455360.Vs13nC
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+watcher_exit=124
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 0s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+error: spawn refused - the away-posture record caps concurrent workers at 1 and 1 ordinary task(s) are live in this home; task temp-retry stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)
+ASSERT AFK cap refused the real retry without permanent suppression
+~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/state/afk-contracts/1793455356.afk-contract
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+check: rearm-resurface
+watcher_exit=0
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 3642043.1793455381.90ZiqI
+WARNING: watcher still down (same stale episode; last beat: 0s ago, grace 300s) - full banner already printed this episode.
+WARNING: watcher still down (same stale episode; last beat: 0s ago, grace 300s) - full banner already printed this episode.
+check: deferred-spawn: started temp-retry
+watcher_exit=0
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 3643275.1793455389.bMArQw
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  2 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window=primary:fm-temp-retry
+endpoint_task_id=temp-retry
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/4/demo
+project=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/projects/demo
+harness=codex
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/temp-retry
+tasktmp=/tmp/fm-temp-retry
+model=default
+effort=default
+spawn_gen=s1793455387.3644942.18575
+ASSERT deferred request started automatically after AFK cap cleared
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+deferred: /proc/meminfo MemAvailable=9522496 kB minus reserve=1048574951424 kB (~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/config/lane-capacity) gives headroom=-1048565428928 kB; task memory-refusal stays queued
+memory refusal exit=75
+ASSERT memory refusal was not recorded for automatic launch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m
+WARNING: watcher still down (same stale episode; last beat: 2s ago, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/config/lane-capacity reading 'invalid': expected <lane-ceiling> <memory-reserve-gb>; task config-refusal stays queued
+config refusal exit=75
+ASSERT config refusal was not recorded for automatic launch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+deferred: Required free disk floor not met; task disk-refusal stays queued
+disk refusal exit=75
+ASSERT disk refusal was not recorded for automatic launch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+error: --relaunch takes the task id only; its project or home comes from the task's own record
+relaunch full-machine exit=1
+refusals_exit=1
+Correcting driver argv: relaunch accepts the task id alone and resolves its recorded project
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m
+WARNING: watcher still down (same stale episode; last beat: 15s ago, grace 300s) - full banner already printed this episode.
+error: task temp-retry's endpoint reads 'alive'; a relaunch requires a positively agent-free endpoint (stop the agent first with bin/fm-control.sh temp-retry exit)
+relaunch full-machine exit=1
+relaunch_probe_exit=1
+Stop only this disposable worker through the lab socket, preserving its endpoint and worktree for relaunch preflight
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m
+WARNING: watcher still down (same stale episode; last beat: 47s ago, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/config/lane-capacity: lanes=1 target=0; no free machine lane; task temp-retry stays queued
+relaunch full-machine exit=75
+ASSERT relaunch refusal did not create an automatic request
+relaunch_stopped_probe_exit=0

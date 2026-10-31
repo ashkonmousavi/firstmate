@@ -1,0 +1,13 @@
+window=primary:fm-cap-holder
+endpoint_task_id=cap-holder
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/3/demo
+project=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.m/projects/demo
+harness=codex
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/cap-holder
+tasktmp=/tmp/fm-cap-holder
+model=default
+effort=default
+spawn_gen=s1793455353.3608460.25504

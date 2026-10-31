@@ -1,0 +1,98 @@
+ok: added slow-younger (ship) -> Queued
+task:
+  id: slow-younger
+  title: younger real transport check
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-31
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start slow-younger --file=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block slow-younger --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/data/backlog.md` to record a dependency
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l
+WARNING: watcher still down (same stale episode; last beat: 40s ago, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/config/lane-capacity: lanes=0 target=0; no free machine lane; task slow-younger stays queued
+registered: state/responsive.check.sh
+WARNING: watcher still down (same stale episode; last beat: 42s ago, grace 300s) - full banner already printed this episode.
+check: deferred-spawn: unreadable held cannot establish queued eligibility: config/backlog-backend selects manual editing; unreadable blocked cannot establish queued eligibility: config/backlog-backend selects manual editing; unreadable manual cannot establish queued eligibility: config/backlog-backend selects manual editing
+watcher_exit=0
+1793455251	2	check	~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh: lab-custom-check-responsive
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 3487587.1793455252.tK94Ti
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh: lab-custom-check-responsive
+watcher_exit=0
+1793455254	3	check	~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh: lab-custom-check-responsive
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 3 --recovery-generation 3492144.1793455254.3SECfa
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+Real Git upload-pack is waiting; deferred spawn is still in progress
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+check: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh: lab-custom-check-responsive
+watcher_exit=0
+1793455256	4	check	~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh: lab-custom-check-responsive
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 4 --recovery-generation 3494174.1793455256.SeDbGG
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ASSERT watcher returned in 2s during stalled real Git fetch; younger retry did not overlap
+task=manual
+Fixture adjustment: retained dead task records share a recycled live worktree and conservatively consume lanes. Increase disposable ceiling for the younger retry.
+WARNING: watcher still down (same stale episode; last beat: 57s ago, grace 300s) - full banner already printed this episode.
+check: deferred-spawn: started manual
+watcher_exit=0
+1793455314	5	check	~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh: lab-custom-check-responsive
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 5 --recovery-generation 3558668.1793455314.pgnh3k
+WARNING: watcher still down (same stale episode; last beat: 0s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+window=primary:fm-manual
+endpoint_task_id=manual
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/1/demo
+project=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/projects/demo
+harness=codex
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/manual
+tasktmp=/tmp/fm-manual
+model=default
+effort=default
+spawn_gen=s1793455258.3491110.22657
+window=primary:fm-slow-younger
+endpoint_task_id=slow-younger
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/2/demo
+project=~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/projects/demo
+harness=codex
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/slow-younger
+tasktmp=/tmp/fm-slow-younger
+model=default
+effort=default
+spawn_gen=s1793455319.3562516.12219
+codex codex ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS
+extended bash ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS
+fm-manual codex ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/1/demo
+fm-slow-younger codex ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/.treehouse/demo-497245/2/demo
+ASSERT recorded project and tmux backend survived FM_BACKEND=orca in the watcher
+WARNING: watcher still down (same stale episode; last beat: 9s ago, grace 300s) - full banner already printed this episode.
+check: deferred-spawn: started slow-younger
+watcher_exit=0
+1793455321	6	check	~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh	check: ~/.no-mistakes/worktrees/049a88734b0e/01M690FHSDPHD7GTKWFCKKZACS/.l/state/responsive.check.sh: lab-custom-check-responsive
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 6 --recovery-generation 3575312.1793455321.Z8M2km
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+unregistered: state/responsive.check.sh
+extended_exit=0

@@ -1,0 +1,1 @@
+Private fm-lab tmux server stopped. All recorded pane processes exited. No deferred claims or remaining lab processes. Disposable homes and drivers removed from the worktree; generated read-only hook directories made removable inside those homes.

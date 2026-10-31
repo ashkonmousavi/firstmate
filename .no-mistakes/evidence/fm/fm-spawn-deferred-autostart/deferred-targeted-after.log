@@ -1,0 +1,21 @@
+ok - manual and absent backlogs cannot establish automatic queued eligibility
+ok - AFK spend caps and raced holds or dependencies preserve retryability
+ok - the sweep returns during a hung spawn and reports completed launches once
+ok - home, task, and project contention preserve existing automatic retries
+ok - non-lane machine refusals do not create retry records
+ok - retries complete serially in deferred order
+ok - refused retries leave the free lane for younger ready work
+ok - retry preserves empty arguments and trailing newlines
+ok - oldest deferred request starts first, one start per free lane
+ok - a finished deferred request is not started twice
+ok - an in-progress claim consumes the free lane
+ok - a held task stays queued and does not take the free lane
+ok - a stale deferred request is reported and not started
+ok - in-flight, done, and missing tasks are removed without a start
+ok - a queued task that already holds a seat is left for the next sweep
+ok - a sweep with a busy lock starts nothing
+sed: can't read /tmp/fm-spawn-deferred.sLOAH2/real-lane-ship/home/state/spawn-deferred/claim/00000000000000000001: No such file or directory
+ok - a deferred spawn starts within five minutes of a lane freeing (1s)
+ok - a deferred spawn starts within five minutes of a lane freeing (3s)
+ok - a deferred spawn starts within five minutes of a lane freeing (3s)
+ok - a deferred spawn starts within five minutes of a lane freeing (3s)
