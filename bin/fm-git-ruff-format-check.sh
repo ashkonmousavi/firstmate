@@ -1,54 +1,19 @@
 #!/usr/bin/env bash
-# Per-task pre-push ruff format check for a project listed in
-# config/prepush-ruff-format (docs/configuration.md owns the list).
-#
-# Usage:
-#   fm-git-ruff-format-check.sh enabled <list-file> <project>
-#       Exit 0 when <project> is a line of <list-file>, nonzero when the file is
-#       absent or does not name it. Blank lines and #-comments are ignored.
-#   fm-git-ruff-format-check.sh <remote-name> <remote-url>
-#       Pre-push mode. Git's pre-push arguments are accepted and ignored, and
-#       git's "<local-ref> <local-oid> <remote-ref> <remote-oid>" lines arrive on
-#       stdin. For each pushed commit, runs `ruff format --check` on the .py
-#       files the push adds or changes, read from the pushed commit rather than
-#       the working tree. The comparison base is the merge base with the remote
-#       ref's current commit, or with the project's default branch
-#       (origin/HEAD, else origin/main or origin/master, else main or master)
-#       when the push creates the ref. Exits 0 to let the push proceed, nonzero
-#       naming each unformatted file and the exact `ruff format` fix command.
-#
-# bin/fm-git-strip-ai-trailers.sh install --ruff-format makes the pre-push
-# wrapper run this check beside the push guard (bin/fm-git-push-guard.sh); each
-# refuses on its own so neither hides the other.
-#
-# ruff is the project's own .venv/bin/ruff or venv/bin/ruff in the worker copy,
-# else ruff on PATH. With neither, or when ruff itself errors on a file, the
-# check prints one warning naming the problem and ALLOWS the push: a missing
-# tool never blocks work, and it is never skipped silently. The files are passed
-# with --force-exclude so the project's own ruff `exclude` settings apply the
-# way they do in CI's `ruff format --check .`.
+# Per-task pre-push Ruff format check for repositories declaring Ruff.
+# Usage: fm-git-ruff-format-check.sh <remote-name> <remote-url> (refs on stdin).
+# Checks committed .py, .pyi and .ipynb content and configuration with
+# --force-exclude. New refs use the default branch's merge base; without a
+# comparison base, every tracked supported file is checked.
 set -u
+set -o pipefail
+unset CDPATH
 
 ZERO_OID_RE='^0+$'
 
-warn() {  # <message>
-  printf 'fm-ruff-format: WARNING: %s\n' "$1" >&2
+refuse() {
+  printf 'fm-ruff-format: refused: %s\n' "$1" >&2
 }
 
-enabled() {  # <list-file> <project>
-  local list=$1 project=$2 line
-  [ -f "$list" ] && [ -r "$list" ] || return 1
-  while IFS= read -r line || [ -n "$line" ]; do
-    line=${line%$'\r'}
-    line=${line#"${line%%[![:space:]]*}"}
-    line=${line%"${line##*[![:space:]]}"}
-    case "$line" in '' | '#'*) continue ;; esac
-    [ "$line" != "$project" ] || return 0
-  done <"$list"
-  return 1
-}
-
-# Prints the default-branch ref a new branch is compared against, else nothing.
 default_base() {
   local ref
   ref=$(git symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null) || ref=
@@ -62,79 +27,123 @@ default_base() {
   return 1
 }
 
-# Sets RUFF to a runnable ruff, else returns nonzero.
+declares_ruff() {
+  local oid=$1 path content line declared=1
+  local requirement_re='^[[:space:]]*[Rr][Uu][Ff][Ff]([[:space:]]|[<>=!~;]|\[|$)'
+  local pin_re='^[[:space:]]*[Rr][Uu][Ff][Ff][[:space:]]*==[[:space:]]*([[:alnum:]_.+!-]+)([[:space:];#]|$)'
+  RUFF_PACKAGE=ruff
+  while IFS= read -r -d '' path; do
+    case "$path" in
+      ruff.toml | .ruff.toml | */ruff.toml | */.ruff.toml) declared=0 ;;
+      pyproject.toml | */pyproject.toml)
+        content=$(git show "$oid:$path") || return 2
+        if printf '%s\n' "$content" | grep -E '^[[:space:]]*\[[[:space:]]*tool\.ruff([.]|[[:space:]]*])' >/dev/null; then
+          declared=0
+        fi
+        ;;
+      requirements-dev.txt | */requirements-dev.txt)
+        content=$(git show "$oid:$path") || return 2
+        while IFS= read -r line || [ -n "$line" ]; do
+          if [[ "$line" =~ $requirement_re ]]; then
+            declared=0
+            if [[ "$line" =~ $pin_re ]]; then
+              RUFF_PACKAGE="ruff==${BASH_REMATCH[1]}"
+            fi
+          fi
+        done <<<"$content"
+        ;;
+    esac
+  done <"$SNAPSHOT/.git/files"
+  return "$declared"
+}
+
 find_ruff() {
-  local top candidate
-  top=$(git rev-parse --show-toplevel 2>/dev/null) || top=
+  local top candidate tool
+  top=$(git rev-parse --show-toplevel) || return 1
   for candidate in "$top/.venv/bin/ruff" "$top/venv/bin/ruff"; do
-    if [ -n "$top" ] && [ -x "$candidate" ]; then
-      RUFF=$candidate
+    if [ -x "$candidate" ]; then
+      RUFF=("$candidate")
       return 0
     fi
   done
-  RUFF=$(command -v ruff 2>/dev/null) || return 1
-  [[ "$RUFF" = /* ]] || RUFF="$PWD/$RUFF"
-  [ -n "$RUFF" ]
+  for tool in ruff uvx uv; do
+    if candidate=$(command -v "$tool"); then
+      [[ "$candidate" = /* ]] || candidate="$PWD/$candidate"
+      case "$tool" in
+        ruff) RUFF=("$candidate") ;;
+        uvx) RUFF=("$candidate" --from "$RUFF_PACKAGE" ruff) ;;
+        uv) RUFF=("$candidate" tool run --from "$RUFF_PACKAGE" ruff) ;;
+      esac
+      return 0
+    fi
+  done
+  refuse 'Ruff was not found in .venv, venv, PATH, uvx or uv tool run'
+  printf 'Install: python3 -m pip install %q\n' "$RUFF_PACKAGE" >&2
+  return 1
 }
 
-check_ref() {  # <local-oid> <remote-ref> <remote-oid>; appends to BAD
+check_ref() {
   local oid=$1 remote_ref=$2 remote_oid=$3 base='' default path out rc
-  git cat-file -e "$oid^{commit}" 2>/dev/null || return 0
-  if ! [[ "$remote_oid" =~ $ZERO_OID_RE ]] && git cat-file -e "$remote_oid^{commit}" 2>/dev/null; then
-    base=$(git merge-base "$remote_oid" "$oid" 2>/dev/null) || base=$remote_oid
-  else
-    if default=$(default_base); then
-      base=$(git merge-base "$default" "$oid" 2>/dev/null) || base=
-    fi
-    if [ -z "$base" ]; then
-      warn "cannot find the default branch to compare $remote_ref against, so its .py files were not format-checked and the push is allowed"
-      return 0
-    fi
+  git cat-file -e "$oid^{commit}" 2>/dev/null || {
+    refuse "could not read the pushed commit for $remote_ref"
+    return 1
+  }
+  SNAPSHOT=$(mktemp -d "${TMPDIR:-/tmp}/fm-ruff-format.XXXXXX") || return 1
+  SNAPSHOT=$(cd "$SNAPSHOT" && pwd -P) || return 1
+  if ! { mkdir "$SNAPSHOT/.git" && git ls-tree -rz --name-only "$oid" >"$SNAPSHOT/.git/files"; }; then
+    refuse "could not list the pushed tree for $remote_ref"
+    return 1
   fi
+  declares_ruff "$oid"
+  rc=$?
+  case "$rc" in
+    0) ;;
+    1) return 0 ;;
+    *) refuse "could not read Ruff declarations for $remote_ref"; return 1 ;;
+  esac
+  if ! { GIT_INDEX_FILE="$SNAPSHOT/.git/index" git read-tree "$oid" &&
+    GIT_INDEX_FILE="$SNAPSHOT/.git/index" git --work-tree="$SNAPSHOT" checkout-index --all --prefix="$SNAPSHOT/"; }; then
+    refuse "could not read the pushed tree for $remote_ref"
+    return 1
+  fi
+  if ! [[ "$remote_oid" =~ $ZERO_OID_RE ]]; then
+    if git cat-file -e "$remote_oid^{commit}" 2>/dev/null; then
+      base=$(git merge-base "$remote_oid" "$oid" 2>/dev/null) || base=
+    fi
+  elif default=$(default_base); then
+    base=$(git merge-base "$default" "$oid" 2>/dev/null) || base=
+  fi
+  if [ -n "$base" ]; then
+    git diff -z --name-only --no-renames --diff-filter=ACMR "$base" "$oid" -- '*.py' '*.pyi' '*.ipynb' >"$SNAPSHOT/.git/candidates" || return 1
+  else
+    GIT_INDEX_FILE="$SNAPSHOT/.git/index" git ls-files -z -- '*.py' '*.pyi' '*.ipynb' >"$SNAPSHOT/.git/candidates" || return 1
+  fi
+  [ -s "$SNAPSHOT/.git/candidates" ] || return 0
+  find_ruff || return 1
   while IFS= read -r -d '' path; do
-    if [ -z "${RUFF:-}" ] && ! find_ruff; then
-      warn "ruff was not found (no .venv or venv in this copy, none on PATH), so the format check was skipped and the push is allowed; install ruff to enforce it"
-      NO_RUFF=1
-      return 0
-    fi
-    if [ -z "$SNAPSHOT" ]; then
-      SNAPSHOT=$(mktemp -d "${TMPDIR:-/tmp}/fm-ruff-format.XXXXXX") || return 1
-      SNAPSHOT=$(cd "$SNAPSHOT" && pwd -P) || return 1
-      if ! { mkdir "$SNAPSHOT/.git" &&
-        GIT_INDEX_FILE="$SNAPSHOT/.git/index" git read-tree "$oid" &&
-        GIT_INDEX_FILE="$SNAPSHOT/.git/index" git --work-tree="$SNAPSHOT" checkout-index --all --prefix="$SNAPSHOT/"; }; then
-        printf 'fm-ruff-format: refused: could not read the pushed tree for %s\n' "$remote_ref" >&2
-        return 1
-      fi
-    fi
-    out=$(git show "$oid:$path" | (cd "$SNAPSHOT" && "$RUFF" format --check --force-exclude --stdin-filename "$path" -) 2>&1)
+    out=$(git show "$oid:$path" | (cd "$SNAPSHOT" && "${RUFF[@]}" format --check --force-exclude --stdin-filename "$path" -) 2>&1)
     rc=$?
     case "$rc" in
       0) ;;
       1) BAD+=("$path") ;;
-      *) warn "ruff could not check $path (exit $rc), so it was not format-checked and the push is allowed: $out" ;;
+      *)
+        refuse "Ruff could not check $path (exit $rc): $out"
+        printf 'Install: python3 -m pip install %q\n' "$RUFF_PACKAGE" >&2
+        CHECK_FAILED=1
+        ;;
     esac
-  done < <(git diff -z --name-only --no-renames --diff-filter=ACMR "$base" "$oid" -- '*.py')
-  if [ -n "$SNAPSHOT" ]; then
-    rm -rf -- "$SNAPSHOT"
-    SNAPSHOT=
-  fi
+  done <"$SNAPSHOT/.git/candidates"
 }
 
 case "${1:-}" in
-  enabled)
-    [ "$#" -eq 3 ] || { echo "usage: fm-git-ruff-format-check.sh enabled <list-file> <project>" >&2; exit 2; }
-    enabled "$2" "$3"
-    exit $?
-    ;;
   -h | --help)
-    echo "usage: fm-git-ruff-format-check.sh enabled <list-file> <project> | <remote-name> <remote-url> (refs on stdin)" >&2
+    echo 'usage: fm-git-ruff-format-check.sh <remote-name> <remote-url> (refs on stdin)' >&2
     exit 2
     ;;
 esac
 
-RUFF=
-NO_RUFF=0
+RUFF=()
+RUFF_PACKAGE=ruff
 CHECK_FAILED=0
 SNAPSHOT=
 trap '[ -z "$SNAPSHOT" ] || rm -rf -- "$SNAPSHOT"' EXIT
@@ -142,8 +151,11 @@ BAD=()
 while read -r _ local_oid remote_ref remote_oid; do
   [ -n "${local_oid:-}" ] || continue
   [[ "$local_oid" =~ $ZERO_OID_RE ]] && continue
-  [ "$NO_RUFF" = 0 ] || break
-  check_ref "$local_oid" "${remote_ref:-}" "${remote_oid:-0}" || { CHECK_FAILED=1; break; }
+  check_ref "$local_oid" "${remote_ref:-}" "${remote_oid:-0}" || CHECK_FAILED=1
+  if [ -n "$SNAPSHOT" ]; then
+    rm -rf -- "$SNAPSHOT"
+    SNAPSHOT=
+  fi
 done
 
 [ "${#BAD[@]}" -gt 0 ] || exit "$CHECK_FAILED"

@@ -5804,17 +5804,6 @@ EOF
 # home that keeps trailers gets a commit-msg wrapper that only chains.
 GIT_HOOKS_DIR="$STATE_REAL/$ID.git-hooks"
 GIT_HOOKS_INSTALLED=0
-# A ship on a project listed in config/prepush-ruff-format also gets the
-# directory, because its pre-push wrapper refuses a push that CI's ruff format
-# check would fail (bin/fm-git-ruff-format-check.sh owns the check; a home that
-# keeps trailers gets a commit-msg wrapper that only chains).
-RUFF_FORMAT_ARGS=()
-RUFF_FORMAT_ON=0
-if [ "$KIND" = ship ] && [ -n "${PROJ_NAME:-}" ] &&
-  "$FM_ROOT/bin/fm-git-ruff-format-check.sh" enabled "$CONFIG/prepush-ruff-format" "$PROJ_NAME"; then
-  RUFF_FORMAT_ARGS=(--ruff-format "$CONFIG/prepush-ruff-format" "$PROJ_NAME")
-  RUFF_FORMAT_ON=1
-fi
 if [ "$EXTERNAL_REVIEW" = 1 ]; then
   PUSH_GUARD_FILE="$STATE_REAL/$ID.push-guard"
   guard_args=("$PUSH_GUARD_FILE" "$WT" "$BRANCH" "$(fm_ship_branch_prefix "$BRANCH" "$ID")")
@@ -5823,15 +5812,15 @@ if [ "$EXTERNAL_REVIEW" = 1 ]; then
   [ "$KEEP_AI_TRAILERS" = 0 ] || strip_args=(--no-strip)
   { "$FM_ROOT/bin/fm-git-push-guard.sh" write "${guard_args[@]}" \
     && "$FM_ROOT/bin/fm-git-strip-ai-trailers.sh" install "${strip_args[@]+"${strip_args[@]}"}" \
-      --push-guard "$PUSH_GUARD_FILE" "${RUFF_FORMAT_ARGS[@]+"${RUFF_FORMAT_ARGS[@]}"}" "$GIT_HOOKS_DIR" "$WT"; } || {
+      --push-guard "$PUSH_GUARD_FILE" "$GIT_HOOKS_DIR" "$WT"; } || {
     echo "error: could not install the external-review push guard hooks for $ID" >&2
     exit 1
   }
   GIT_HOOKS_INSTALLED=1
-elif [ "$KEEP_AI_TRAILERS" = 0 ] || [ "$RUFF_FORMAT_ON" = 1 ]; then
+elif [ "$KEEP_AI_TRAILERS" = 0 ] || [ "$KIND" = ship ]; then
   strip_args=()
   [ "$KEEP_AI_TRAILERS" = 0 ] || strip_args=(--no-strip)
-  "$FM_ROOT/bin/fm-git-strip-ai-trailers.sh" install "${strip_args[@]+"${strip_args[@]}"}" "${RUFF_FORMAT_ARGS[@]+"${RUFF_FORMAT_ARGS[@]}"}" "$GIT_HOOKS_DIR" "$WT" || {
+  "$FM_ROOT/bin/fm-git-strip-ai-trailers.sh" install "${strip_args[@]+"${strip_args[@]}"}" "$GIT_HOOKS_DIR" "$WT" || {
     echo "error: could not install the AI-trailer strip hooks for $ID" >&2
     exit 1
   }

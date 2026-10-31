@@ -1297,19 +1297,21 @@ This applies only to agents Firstmate launches; the captain's own primary Firstm
 The optional local, gitignored `config/keep-ai-trailers` presence flag opts this home into keeping AI co-author trailers on its launched workers.
 With the flag absent, every Claude launch's inline `--settings` JSON carries `"attribution":{"commit":"","pr":"","sessionUrl":false}`, every Devin worker config sets `"attribution": false`, and every fleet launch appends a pane-scoped `GIT_CONFIG` `core.hooksPath` entry pointing at `state/<id>.git-hooks`, where git's `commit-msg` hook strips known AI trailers even when a runtime injects them after the typed message.
 The entry follows any `GIT_CONFIG_*` entries the worker inherits, so an inherited scoped `credential.helper` still applies to the worker and to the repository's own hooks, such as a git-lfs `pre-push`; an inherited `GIT_CONFIG_COUNT` that is not a decimal number, or that leaves no room for another entry within Git's signed int, stops the launch before the worker runs.
-When the flag is present, Claude launches omit those attribution-off settings, Devin worker configs keep the user config's `attribution` setting (Devin's default is on), and fleet launches do not install or select the strip hooks, so Git uses the repository's configured hooks directly.
+When the flag is present, Claude launches omit those attribution-off settings, Devin worker configs keep the user config's `attribution` setting (Devin's default is on), and ship launches retain the hooks directory for pre-push checks while their commit-msg wrapper only chains the repository's hook.
 `bin/fm-git-strip-ai-trailers.sh` owns the identities, the install, and chaining the hooks of whichever repository git is running in, including when `git -c core.hooksPath` supplies the pane's hook override, so a project hook such as husky still runs when stripping is enabled.
 A repository whose config sets `core.hooksPath` to the empty string runs no project hook, as in plain git; if the wrapper otherwise cannot resolve that repository's hooks directory, the git operation fails rather than silently skipping a project hook such as a pre-push guard.
 When stripping is enabled, the hooks directory is read-only, so a hook manager run inside a fleet pane (lefthook's npm postinstall, `pre-commit install`) fails instead of displacing the strip; install a project's hooks from outside the pane, where the wrappers chain them.
 The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
 Per-machine Cursor `cli-config.json` attribution-off is not this contract: it does not travel with Firstmate, defaults back to on when unset, and only feeds the CLI's request to the server, so it suppresses the trailer rather than preventing it.
 
-The optional local, gitignored `config/prepush-ruff-format` list names, one project per line as named in `projects/`, the projects whose ship workers get a `ruff format --check` on every push; blank lines and `#` comments are ignored, and an absent file means off.
-It is not inherited into secondmate homes: each home's own list decides for the ships it launches.
-A ship launched for a listed project installs the same `state/<id>.git-hooks` directory even under `config/keep-ai-trailers` (the commit-msg wrapper then only chains), and its `pre-push` wrapper refuses a push when `ruff format --check` would reformat a `.py` file the push adds or changes, naming each file and the exact `ruff format <files>` fix command.
-The push guard and this check each run and each refuse on their own, and the project's own `pre-push` hook runs only after both pass.
-`ruff` is the worker copy's `.venv/bin/ruff` or `venv/bin/ruff`, else `ruff` on `PATH`; with none, or when `ruff` itself errors on a file, the push prints one warning naming the problem and proceeds.
-`bin/fm-git-ruff-format-check.sh` owns the comparison base, the file selection, and the refusal text, with regression coverage in [`tests/fm-git-push-guard.test.sh`](../tests/fm-git-push-guard.test.sh).
+Every ship launch installs the same `state/<id>.git-hooks` directory, including under `config/keep-ai-trailers`, on every harness and runtime backend, locally and remotely.
+Its pre-push wrapper automatically checks repositories declaring Ruff through `ruff.toml`, `.ruff.toml`, a `pyproject.toml` Ruff section, or a Ruff requirement in `requirements-dev.txt`; repositories without a declaration are unaffected.
+The check refuses pushes that would reformat changed `.py`, `.pyi`, or `.ipynb` files, using each pushed commit's content and configuration with Ruff exclusions respected, and prints the exact `ruff format <files>` fix command.
+Without a comparison base it checks every tracked supported file.
+Ruff resolves from the worker copy's `.venv/bin/ruff` or `venv/bin/ruff`, then `PATH`, then `uvx` or `uv tool run`, using the version pinned in committed `requirements-dev.txt` when running through uv.
+A missing formatter or a Ruff error refuses the push and names the install command.
+The push guard and this check each run and each refuse on their own, and the project's own pre-push hook runs only after both pass.
+`bin/fm-git-ruff-format-check.sh` owns the comparison base, file selection, formatter resolution, and refusal text, with regression coverage in [`tests/fm-git-push-guard.test.sh`](../tests/fm-git-push-guard.test.sh).
 
 ## Machine capacity (config/lane-capacity)
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Behavior tests for bin/fm-git-push-guard.sh, the forge=external pre-push guard,
-# and bin/fm-git-ruff-format-check.sh, the config/prepush-ruff-format pre-push check.
+# and bin/fm-git-ruff-format-check.sh, the automatic Ruff pre-push check.
 # Every case pushes with real git through a hooks directory installed by
-# bin/fm-git-strip-ai-trailers.sh --push-guard or --ruff-format, the way a fleet
+# bin/fm-git-strip-ai-trailers.sh install, the way a fleet
 # pane does, and asserts both the exit status and which ref the bare remote ended
 # up holding. The ruff cases put a fake ruff on PATH that calls a file unformatted
 # when its text contains the word UNFORMATTED.
@@ -152,12 +152,8 @@ test_unreadable_guard_refuses_everything() {
   pass "push guard: an unreadable guard file refuses every push"
 }
 
-# ruff_fixture <name> [listed]: a worktree on fm/t1 whose hooks dir carries the
-# ruff format check when <listed> is "listed" (the project is a line of the list)
-# and an absent list otherwise, plus a fake ruff. Sets FX_WT, FX_HOOKS,
-# FX_ORIGIN, FX_BIN.
 ruff_fixture() {
-  local name=$1 listed=${2:-listed} dir list
+  local name=$1 declaration=${2:-declared} dir
   dir="$TMP_ROOT/$name"
   fm_git_worktree "$dir/repo" "$dir/wt" fm/t1
   FX_WT="$dir/wt"
@@ -179,12 +175,11 @@ fi
 exit 0
 EOF
   chmod +x "$FX_BIN/ruff"
-  list="$dir/prepush-ruff-format"
-  if [ "$listed" = listed ]; then
-    printf '# comment\n\nother-project\nproj\n' >"$list"
-  fi
   FX_HOOKS="$dir/hooks"
-  "$STRIP" install --ruff-format "$list" proj "$FX_HOOKS" "$FX_WT" || fail "install --ruff-format failed"
+  "$STRIP" install "$FX_HOOKS" "$FX_WT" || fail "install failed"
+  if [ "$declaration" = declared ]; then
+    ruff_commit 'declare Ruff' 'requirements-dev.txt=ruff'
+  fi
 }
 
 ruff_commit() {  # <message> <file>=<text>...; commits the files in FX_WT
@@ -193,9 +188,9 @@ ruff_commit() {  # <message> <file>=<text>...; commits the files in FX_WT
   for spec in "$@"; do
     mkdir -p "$(dirname "$FX_WT/${spec%%=*}")"
     printf '%s\n' "${spec#*=}" >"$FX_WT/${spec%%=*}"
-    git -C "$FX_WT" add "${spec%%=*}"
+    git -C "$FX_WT" add -f -- "${spec%%=*}" || fail "could not stage $spec"
   done
-  git -C "$FX_WT" commit -q -m "$msg"
+  git -C "$FX_WT" commit -q -m "$msg" || fail "could not commit $msg"
 }
 
 ruff_push() {  # <args...>; sets PUSH_OUT and PUSH_RC with the fake ruff on PATH
@@ -273,22 +268,93 @@ test_ruff_format_new_branch_uses_the_merge_base() {
   pass "ruff format check: a new branch is checked against its merge base with the default branch"
 }
 
-test_ruff_format_missing_ruff_warns_and_allows() {
+isolate_ruff_path() {
   local bare name
-  ruff_fixture ruff-missing
-  ruff_commit 'unformatted' 'a.py=x=UNFORMATTED'
-  bare="$TMP_ROOT/ruff-missing/path-without-ruff"
+  bare="$FX_WT/../isolated-bin"
   mkdir -p "$bare"
-  for name in git bash env sort cat sed sh dirname basename uname mktemp rm tr; do
-    ln -sf "$(command -v "$name")" "$bare/$name" 2>/dev/null || true
+  for name in git bash env sort cat sed sh dirname basename uname mktemp rm tr mkdir grep; do
+    ln -s "$(command -v "$name")" "$bare/$name" || fail "could not expose $name to the isolated PATH"
   done
-  PUSH_OUT=$(PATH="$bare" with_hooks "$FX_HOOKS" git -C "$FX_WT" push origin HEAD:refs/heads/fm/t1 2>&1)
+  FX_BIN="$bare"
+}
+
+isolated_ruff_push() {
+  PUSH_OUT=$(PATH="$FX_BIN" with_hooks "$FX_HOOKS" git -C "$FX_WT" push "$@" 2>&1)
   PUSH_RC=$?
-  [ "$PUSH_RC" -eq 0 ] || fail "a missing ruff blocked the push: $PUSH_OUT"
-  assert_contains "$PUSH_OUT" "fm-ruff-format: WARNING: ruff was not found" "a missing ruff was skipped silently"
-  assert_equals "$(git -C "$FX_WT" rev-parse HEAD)" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" \
-    "the push with no ruff did not reach the remote"
-  pass "ruff format check: with no ruff available it warns loudly and allows the push"
+}
+
+test_ruff_format_missing_ruff_refuses() {
+  ruff_fixture ruff-missing
+  ruff_commit 'unformatted with pinned Ruff' 'a.py=x=UNFORMATTED' 'requirements-dev.txt=ruff == 0.12.7 # CI formatter'
+  isolate_ruff_path
+  isolated_ruff_push origin HEAD:refs/heads/fm/t1
+  [ "$PUSH_RC" -ne 0 ] || fail "a missing Ruff let an unchecked push through"
+  assert_contains "$PUSH_OUT" 'fm-ruff-format: refused: Ruff was not found' 'missing Ruff was refused without naming the cause'
+  assert_contains "$PUSH_OUT" 'Install: python3 -m pip install ruff==0.12.7' 'missing Ruff did not name the pinned install command'
+  git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail 'a missing Ruff still let the remote advance'
+  pass 'ruff format check: missing Ruff refuses with the pinned install command'
+}
+
+test_ruff_format_uses_pinned_uv_tools() {
+  local tool expected
+  for tool in uvx uv; do
+    ruff_fixture "ruff-$tool"
+    ruff_commit 'pinned formatter' 'requirements-dev.txt=ruff==0.12.7' 'a.py=x=UNFORMATTED'
+    printf 'ruff==0.13.1\n' >"$FX_WT/requirements-dev.txt"
+    isolate_ruff_path
+    cat >"$FX_BIN/$tool" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >"$0.args"
+if grep -q UNFORMATTED; then exit 1; fi
+SH
+    chmod +x "$FX_BIN/$tool"
+    isolated_ruff_push origin HEAD:refs/heads/fm/t1
+    ruff_refused "a push checked by $tool" a.py
+    expected=$'--from\nruff==0.12.7\nruff\nformat\n--check\n--force-exclude\n--stdin-filename\na.py\n-'
+    [ "$tool" != uv ] || expected=$'tool\nrun\n'"$expected"
+    assert_equals "$expected" "$(cat "$FX_BIN/$tool.args")" "$tool did not receive the committed pin and the documented tool invocation"
+    git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail "$tool let unformatted code reach the remote"
+    ruff_commit 'formatted' 'a.py=x = 1'
+    isolated_ruff_push origin HEAD:refs/heads/fm/t1
+    [ "$PUSH_RC" -eq 0 ] || fail "$tool refused formatted code: $PUSH_OUT"
+    assert_equals "$(git -C "$FX_WT" rev-parse HEAD)" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" "$tool did not let the formatted commit reach the remote"
+  done
+  pass 'ruff format check: uvx and uv tool run receive the committed Ruff pin'
+}
+
+test_ruff_format_errors_refuse() {
+  local status
+  for status in 2 137; do
+    ruff_fixture "ruff-error-$status"
+    ruff_commit 'formatted' 'a.py=x = 1'
+    printf '#!/usr/bin/env bash\necho formatter-broken >&2\nexit %s\n' "$status" >"$FX_BIN/ruff"
+    ruff_push origin HEAD:refs/heads/fm/t1
+    [ "$PUSH_RC" -ne 0 ] || fail "Ruff exit $status let an unchecked push through"
+    assert_contains "$PUSH_OUT" "Ruff could not check a.py (exit $status)" 'Ruff failure did not name its status'
+    assert_contains "$PUSH_OUT" 'formatter-broken' 'Ruff failure hid the tool diagnostic'
+    git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail "Ruff exit $status still advanced the remote"
+  done
+  pass 'ruff format check: formatter errors and crashes refuse the push'
+}
+
+test_ruff_format_without_a_base_checks_every_supported_file() {
+  ruff_fixture ruff-no-base
+  ruff_commit 'unformatted old files' 'old.py=a=UNFORMATTED' 'api.pyi=b=UNFORMATTED' 'book.ipynb=UNFORMATTED'
+  ruff_commit 'formatted recent file' 'new.py=c = 1'
+  git -C "$FX_WT" update-ref refs/heads/main HEAD^
+  PUSH_OUT=$(printf 'refs/heads/fm/t1 %s refs/heads/fm/t1 %s\n' "$(git -C "$FX_WT" rev-parse HEAD)" 1111111111111111111111111111111111111111 | (
+    cd "$FX_WT" && PATH="$FX_BIN:$PATH" "$ROOT/bin/fm-git-ruff-format-check.sh" origin "file://$FX_ORIGIN"
+  ) 2>&1)
+  PUSH_RC=$?
+  ruff_refused 'a push whose remote tip is unavailable locally' old.py api.pyi book.ipynb
+  git -C "$FX_WT" update-ref -d refs/heads/main
+  ruff_push origin HEAD:refs/heads/fm/t1
+  ruff_refused 'a push with no comparison base' old.py api.pyi book.ipynb
+  git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail 'a push with no comparison base still advanced the remote'
+  ruff_commit 'format all' 'old.py=a = 1' 'api.pyi=b = 1' 'book.ipynb=formatted'
+  ruff_push origin HEAD:refs/heads/fm/t1
+  [ "$PUSH_RC" -eq 0 ] || fail "formatted files without a comparison base were refused: $PUSH_OUT"
+  pass 'ruff format check: no comparison base checks every tracked supported file'
 }
 
 test_ruff_format_prefers_the_project_venv() {
@@ -307,18 +373,29 @@ EOF
   pass "ruff format check: the project's own venv ruff is used before ruff on PATH"
 }
 
-test_ruff_format_is_off_unless_the_project_is_listed() {
-  ruff_fixture ruff-unlisted unlisted
-  ruff_commit 'unformatted' 'a.py=x=UNFORMATTED'
-  ruff_push origin HEAD:refs/heads/fm/t1
-  [ "$PUSH_RC" -eq 0 ] || fail "an absent list still refused an unformatted push: $PUSH_OUT"
-  printf 'other-project\n' >"$TMP_ROOT/ruff-unlisted/prepush-ruff-format"
-  "$STRIP" install --ruff-format "$TMP_ROOT/ruff-unlisted/prepush-ruff-format" proj "$TMP_ROOT/ruff-unlisted/hooks2" "$FX_WT" \
-    || fail "install --ruff-format failed for a list without the project"
-  FX_HOOKS="$TMP_ROOT/ruff-unlisted/hooks2"
-  ruff_push origin HEAD:refs/heads/fm/t2
-  [ "$PUSH_RC" -eq 0 ] || fail "a list without this project still refused an unformatted push: $PUSH_OUT"
-  pass "ruff format check: an absent list, or one that does not name the project, leaves pushes alone"
+test_ruff_format_uses_repository_declarations() {
+  local variant declaration
+  for variant in toml dot-toml pyproject pyproject-format requirements; do
+    ruff_fixture "ruff-declaration-$variant" undeclared
+    ruff_commit 'no Ruff declaration' 'a.py=x=UNFORMATTED' 'pyproject.toml=[project]
+name = "example"
+version = "1.0"'
+    ruff_push origin HEAD:refs/heads/fm/t1
+    [ "$PUSH_RC" -eq 0 ] || fail "a repository without Ruff was affected: $PUSH_OUT"
+    assert_not_contains "$PUSH_OUT" 'fm-ruff-format:' 'a repository without Ruff emitted a formatter diagnostic'
+    case "$variant" in
+      toml) declaration='ruff.toml=' ;;
+      dot-toml) declaration='.ruff.toml=' ;;
+      pyproject) declaration='pyproject.toml=[tool.ruff]' ;;
+      pyproject-format) declaration='pyproject.toml=[tool.ruff.format]' ;;
+      requirements) declaration='requirements-dev.txt=ruff>=0.12' ;;
+    esac
+    ruff_commit 'declare Ruff and change Python' "$declaration" 'a.py=y=UNFORMATTED'
+    ruff_push origin HEAD:refs/heads/fm/t1
+    ruff_refused "automatic enforcement from $variant" a.py
+    assert_not_equals "$(git -C "$FX_WT" rev-parse HEAD)" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" 'a refused declaration update advanced the remote'
+  done
+  pass 'ruff format check: repository declarations enable enforcement without home configuration'
 }
 
 test_ruff_format_and_push_guard_each_refuse_visibly() {
@@ -332,10 +409,9 @@ test_ruff_format_and_push_guard_each_refuse_visibly() {
   cp "$TMP_ROOT/ruff-refuse/bin/ruff" "$FX_BIN/ruff"
   guard="$dir/guard"
   "$GUARD" write "$guard" "$FX_WT" fm/t1 fm/ || fail "guard write failed"
-  printf 'proj\n' >"$dir/prepush-ruff-format"
   FX_HOOKS="$dir/hooks"
-  "$STRIP" install --push-guard "$guard" --ruff-format "$dir/prepush-ruff-format" proj "$FX_HOOKS" "$FX_WT" || fail "install failed"
-  ruff_commit 'unformatted' 'a.py=x=UNFORMATTED'
+  "$STRIP" install --push-guard "$guard" "$FX_HOOKS" "$FX_WT" || fail "install failed"
+  ruff_commit 'unformatted' 'requirements-dev.txt=ruff' 'a.py=x=UNFORMATTED'
   ruff_push origin HEAD:refs/heads/fm/t1
   [ "$PUSH_RC" -ne 0 ] || fail "a push both checks refuse was accepted"
   assert_contains "$PUSH_OUT" "fm-git-push-guard: refused:" "the format refusal hid the push guard refusal"
@@ -416,6 +492,29 @@ quote-style = "single"' "pkg/a.py=x = 'a'"
   pass 'ruff format check: each pushed ref and update uses its own committed configuration'
 }
 
+test_ruff_format_checks_stubs_notebooks_and_exclusions() {
+  local real_ruff notebook
+  real_ruff=$(command -v ruff) || { echo '# SKIP supported-file checks require real ruff'; return; }
+  ruff_fixture ruff-supported
+  ln -sf "$real_ruff" "$FX_BIN/ruff"
+  notebook='{"cells":[{"cell_type":"code","execution_count":null,"metadata":{},"outputs":[],"source":["x=1\n"]}],"metadata":{},"nbformat":4,"nbformat_minor":5}'
+  ruff_commit 'unformatted stubs and notebook' 'api.pyi=x=1' "book.ipynb=$notebook"
+  ruff_push origin HEAD:refs/heads/fm/t1
+  ruff_refused 'a push of unformatted stubs and notebooks' api.pyi book.ipynb
+  git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail 'unformatted supported files reached the remote'
+  (cd "$FX_WT" && "$real_ruff" format api.pyi book.ipynb) >/dev/null || fail 'could not format the supported-file fixture'
+  git -C "$FX_WT" add api.pyi book.ipynb
+  git -C "$FX_WT" commit -q -m 'format stubs and notebook'
+  ruff_push origin HEAD:refs/heads/fm/t1
+  [ "$PUSH_RC" -eq 0 ] || fail "formatted stubs and notebooks were refused: $PUSH_OUT"
+  ruff_commit 'exclude stubs from formatting' 'ruff.toml=[format]
+exclude = ["*.pyi"]' 'api.pyi=x=2'
+  ruff_push origin HEAD:refs/heads/fm/t1
+  [ "$PUSH_RC" -eq 0 ] || fail "a committed Ruff exclusion was ignored: $PUSH_OUT"
+  assert_equals "$(git -C "$FX_WT" rev-parse HEAD)" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" 'the formatted and excluded files did not reach the remote'
+  pass 'ruff format check: real Ruff checks stubs and notebooks and honors committed exclusions'
+}
+
 test_origin_pushes_are_refused
 test_backup_namespace_rules
 test_empty_prefix_still_refuses_the_task_branch
@@ -425,11 +524,15 @@ test_ruff_format_passes_formatted_files
 test_ruff_format_refuses_unformatted_files
 test_ruff_format_only_checks_the_pushed_changes
 test_ruff_format_new_branch_uses_the_merge_base
-test_ruff_format_missing_ruff_warns_and_allows
+test_ruff_format_missing_ruff_refuses
+test_ruff_format_uses_pinned_uv_tools
+test_ruff_format_errors_refuse
+test_ruff_format_without_a_base_checks_every_supported_file
 test_ruff_format_prefers_the_project_venv
-test_ruff_format_is_off_unless_the_project_is_listed
+test_ruff_format_uses_repository_declarations
 test_ruff_format_and_push_guard_each_refuse_visibly
 test_ruff_format_uses_committed_configuration
 test_ruff_format_uses_each_pushed_refs_configuration
+test_ruff_format_checks_stubs_notebooks_and_exclusions
 
 echo "# all fm-git-push-guard and ruff format check tests passed"
