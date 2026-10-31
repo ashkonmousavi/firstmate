@@ -10,7 +10,7 @@ metadata:
 
 # updatefirstmate
 
-Updates this firstmate repo's default branch and every local or remote secondmate through its guarded convergence path (never forced, never disruptive), then re-reads AGENTS.md and restarts every live second mate through the persist-gated restart, with a fallback re-read nudge only where a restart cannot be proven.
+Updates this firstmate repo's default branch and every local or remote secondmate through its guarded convergence path (never forced, never disruptive), then re-reads AGENTS.md and attempts a persist-gated restart of every eligible live second mate.
 
 Self-update firstmate in place.
 Firstmate is its own repo, behind the same no-mistakes gate as any project, so new tracked material (`AGENTS.md`, `bin/`, `.agents/skills/`, and public `skills/`) reaches `main` and then sits there until each running firstmate pulls it.
@@ -22,7 +22,7 @@ A running agent holds `AGENTS.md` and every skill it has already loaded frozen f
 A re-read cannot substitute: it appends a second copy of the mate's own job description with no defined precedence, and it cannot reach a skill that is already loaded.
 Replacing the agent is also the only thing that re-resolves the launch-time wiring - turn-end hooks, harness flags, per-harness feature switches - which the mate froze when it started and which nothing on disk describes.
 
-That is why **every live second mate is restarted after a successful update, including one that was already on the target commit.**
+That is why **every eligible live second mate is sent through the restart procedure after a successful update, including one that was already on the target commit.**
 Launch-time wiring is not derivable from a file diff, so an unchanged tracked surface is not evidence the running agent is already on the current behavior.
 Homes skipped by the update and mates the restart command cannot safely replace are not reported as reloaded; the command's header owns the refusal conditions.
 
