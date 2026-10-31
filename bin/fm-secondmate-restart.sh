@@ -39,7 +39,17 @@
 # A mate whose persist answer did not arrive or whose runtime cannot prove a
 # restart gets the ordinary re-read nudge and is reported as a nudge, never as a
 # clean reload. Once a relaunch is attempted, any failed or ambiguous result is
-# reported as unknown rather than attributing it to either incarnation.
+# reported as unknown rather than attributing it to either incarnation - except
+# when the old agent is proven stopped (old_agent_proven_stopped below owns that
+# evidence). Then a replacement can still come up, late from this attempt or from
+# another launch that won the spawn lock, so the pass waits, bounded, for the
+# same liveness probe the watcher uses to read the mate alive and reports
+# restarted, or unreached with the last endpoint reading after the bound.
+#
+# Liveness recovery never races the replacement: each restart holds the mate's
+# per-mate liveness lock from before the stop until that verdict (restart_mate
+# below), so the watcher and the session-start sweep skip the mate without
+# killing its endpoint or spending a relaunch attempt.
 #
 # Placement changes the transport and nothing else. A local mate is restarted
 # with bin/fm-control.sh <id> relaunch, which republishes this home's own
@@ -62,6 +72,11 @@
 # Environment knobs:
 #   FM_SECONDMATE_PERSIST_WAIT  seconds to wait for one mate's persist answer (900)
 #   FM_SECONDMATE_PERSIST_POLL  seconds between checks of that answer (5)
+#   FM_SECONDMATE_RESTART_LOCK_WAIT    seconds to wait for a running liveness
+#                                      recovery of the mate to finish (300)
+#   FM_SECONDMATE_RESTART_VERIFY_WAIT  seconds to wait for a replacement to read
+#                                      alive after a failed launch (120)
+#   FM_SECONDMATE_RESTART_VERIFY_POLL  seconds between those reads (2)
 #
 # Exit status: 0 every named mate restarted; 3 at least one was nudged or left
 # unreached and every mate was still accounted for; 1 the input itself is
@@ -72,7 +87,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 usage() {
-  sed -n '2,65{s/^# \{0,1\}//;p;}' "$0"
+  sed -n '2,83{s/^# \{0,1\}//;p;}' "$0"
 }
 
 case "${1:-}" in
@@ -94,11 +109,20 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
 # shellcheck source=bin/fm-pending-reply-lib.sh
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
+# shellcheck source=bin/fm-secondmate-liveness-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
+fm_sm_live_require_locks || { echo "error: the lock helpers could not be loaded" >&2; exit 1; }
 
 PERSIST_WAIT=${FM_SECONDMATE_PERSIST_WAIT:-900}
 PERSIST_POLL=${FM_SECONDMATE_PERSIST_POLL:-5}
 case "$PERSIST_WAIT" in ''|*[!0-9]*) echo "error: FM_SECONDMATE_PERSIST_WAIT must be a non-negative integer: $PERSIST_WAIT" >&2; exit 2 ;; esac
 case "$PERSIST_POLL" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_PERSIST_POLL must be a positive integer: $PERSIST_POLL" >&2; exit 2 ;; esac
+LOCK_WAIT=${FM_SECONDMATE_RESTART_LOCK_WAIT:-300}
+VERIFY_WAIT=${FM_SECONDMATE_RESTART_VERIFY_WAIT:-120}
+VERIFY_POLL=${FM_SECONDMATE_RESTART_VERIFY_POLL:-2}
+case "$LOCK_WAIT" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_RESTART_LOCK_WAIT must be a positive integer: $LOCK_WAIT" >&2; exit 2 ;; esac
+case "$VERIFY_WAIT" in ''|*[!0-9]*) echo "error: FM_SECONDMATE_RESTART_VERIFY_WAIT must be a non-negative integer: $VERIFY_WAIT" >&2; exit 2 ;; esac
+case "$VERIFY_POLL" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_RESTART_VERIFY_POLL must be a positive integer: $VERIFY_POLL" >&2; exit 2 ;; esac
 
 IDS=()
 for arg in "$@"; do
@@ -162,9 +186,80 @@ report_unreached() {  # <id> <reason>
   printf 'unreached: %s: %s\n' "$1" "$2"
 }
 
-restart_mate() {  # <array-index>
-  local i=$1 id restart_out restart_rc restart_reason ran_on
+# Fingerprint of the control plane's relaunch journal for <id>, or "absent".
+# Compared across one relaunch so a journal left by an earlier transaction is
+# never read as this attempt's evidence.
+relaunch_journal_print() {  # <id>
+  local journal="$STATE/$1.control-relaunch"
+  if [ -f "$journal" ]; then
+    cksum < "$journal" 2>/dev/null || printf 'unreadable\n'
+  else
+    printf 'absent\n'
+  fi
+}
+
+# After a failed relaunch, the replacement may still come up: the attempt's own
+# launch can confirm late, or another launch can win the spawn lock this one
+# lost. That is only a restart when the old agent is proven stopped, so a probe
+# reading alive cannot be the original agent on its original instructions.
+# The evidence is the local transaction journal's failed phase (exited or
+# launching: the stop was proven before the launch began), or, for either
+# placement, the spawn-lock refusal, which the launch reaches only after the
+# stop. A remote mate's journal lives on its host, so only the refusal applies
+# there.
+old_agent_proven_stopped() {  # <array-index> <journal-print-before> <restart-out>
+  local i=$1 before=$2 out=$3 id phase
   id=${IDS[$i]}
+  case "$out" in
+    *"another spawn is already creating task $id"*) return 0 ;;
+  esac
+  [ "${PLACEMENT[i]}" = local ] || return 1
+  [ "$(relaunch_journal_print "$id")" != "$before" ] || return 1
+  phase=$(sed -n 's/^phase=//p' "$STATE/$id.control-relaunch" 2>/dev/null | tail -1)
+  case "$phase" in
+    failed:exited|failed:launching) return 0 ;;
+  esac
+  return 1
+}
+
+# Wait, bounded, for an agent to come up at the mate's recorded endpoint, read
+# through the same probe the liveness recovery uses. Sets VERIFY_STATE to the
+# last state read.
+VERIFY_STATE=""
+await_live_mate() {  # <id>
+  local id=$1 deadline
+  deadline=$(($(date +%s) + VERIFY_WAIT))
+  while :; do
+    fm_secondmate_liveness_probe "$STATE/$id.meta" "$id" poll
+    VERIFY_STATE=$FM_SM_LIVE_STATE
+    [ "$FM_SM_LIVE_STATUS" != alive ] || return 0
+    [ "$(date +%s)" -lt "$deadline" ] || return 1
+    sleep "$VERIFY_POLL"
+  done
+}
+
+# The per-mate liveness lock is this restart's in-progress marker. Held from
+# before the old agent is stopped until the replacement is confirmed or the
+# verification bound passes, it makes the watcher tick and the session-start
+# sweep skip this mate without probing, killing, relaunching, or ledgering an
+# attempt (bin/fm-secondmate-liveness-lib.sh owns that lock). A dead holder is
+# reclaimed by the ordinary stale-owner rule, so a restarter that dies never
+# leaves the mate outside liveness recovery.
+restart_mate() {  # <array-index>
+  local i=$1 id
+  id=${IDS[$i]}
+  if ! fm_lock_acquire_wait_bounded "$STATE/.secondmate-liveness-$id.lock" "$LOCK_WAIT"; then
+    report_unreached "$id" "another liveness recovery of this mate still held its lock after ${LOCK_WAIT}s (holder pid ${FM_LOCK_HELD_PID:-unknown}), so nothing was stopped"
+    return
+  fi
+  restart_mate_locked "$i"
+  fm_secondmate_liveness_unlock "$id"
+}
+
+restart_mate_locked() {  # <array-index>
+  local i=$1 id restart_out restart_rc restart_reason ran_on journal_before
+  id=${IDS[$i]}
+  journal_before=$(relaunch_journal_print "$id")
   if [ "${PLACEMENT[i]}" = remote ]; then
     restart_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
       "$SCRIPT_DIR/fm-remote-secondmate-relaunch.sh" \
@@ -188,6 +283,17 @@ restart_mate() {  # <array-index>
 
   restart_reason=$(first_reported_line "$restart_out")
   [ -n "$restart_reason" ] || restart_reason="the restart failed without a reported reason"
+  if old_agent_proven_stopped "$i" "$journal_before" "$restart_out"; then
+    if await_live_mate "$id"; then
+      ran_on=$(fm_meta_get "$STATE/$id.meta" harness)
+      [ -n "$ran_on" ] || ran_on=${HARNESS[i]}
+      printf 'restarted: %s (%s); its own launch reported "%s", and the replacement was then confirmed running\n' \
+        "$id" "$ran_on" "$restart_reason"
+      return
+    fi
+    report_unreached "$id" "the old agent was stopped, but no replacement was confirmed running within ${VERIFY_WAIT}s (endpoint reads '${VERIFY_STATE:-unknown}'); its own launch reported: $restart_reason"
+    return
+  fi
   report_unreached "$id" "the restart outcome is unknown: $restart_reason"
 }
 
