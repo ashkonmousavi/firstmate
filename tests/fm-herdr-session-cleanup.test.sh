@@ -282,6 +282,105 @@ reset_fixture; : > "$FIXTURE_DIR/race"; assert_preserved "revalidation race"
 reset_fixture; printf '%s\n' "$TAB" > "$FIXTURE_DIR/active-tab"; assert_preserved "active target"
 reset_fixture; : > "$FIXTURE_DIR/focus-refuse"; assert_preserved "focus refusal"
 
+# Scale: 60 workspaces and 80 journals must cost one journal scan when nothing
+# is retirable, and exactly the two fresh re-reads more for one real candidate.
+scale_run() { # <with-candidate:0|1>
+  local with_candidate=$1 i name ws_json='' tabs_json='' panes_json='' started
+  reset_fixture
+  rm -f "$FM_STATE_OVERRIDE/$ID.herdr-presentation"
+  : > "$TMP_ROOT/scans"
+  scale_token() { printf 'Scale%017d' "$1"; }
+  scale_v1() { # <id> <token-number>
+    printf 'version=1\ntask_id=%s\nprojection_id=%s\n' "$1" "$(scale_token "$2")" \
+      > "$FM_STATE_OVERRIDE/$1.herdr-presentation"
+  }
+  scale_ws() { # <workspace> <label>
+    ws_json="$ws_json${ws_json:+,}{\"workspace_id\":\"$1\",\"label\":\"$2\",\"tab_count\":1,\"pane_count\":1}"
+    tabs_json="$tabs_json${tabs_json:+,}{\"tab_id\":\"$1:t1\",\"workspace_id\":\"$1\"}"
+    panes_json="$panes_json${panes_json:+,}{\"pane_id\":\"$1:p1\",\"tab_id\":\"$1:t1\",\"workspace_id\":\"$1\"}"
+  }
+  scale_ws w0 firstmate
+  scale_ws w99 notes
+  for i in $(seq 1 40); do
+    {
+      printf 'version=2\ntask_id=live%s\nprojection_id=%s\nhome=%s\nsession=test\n' "$i" "$(scale_token "$i")" "$FM_HOME"
+      printf 'workspace_id=w%s\ntab_id=w%s:t1\npane_id=w%s:p1\nparent_workspace_id=w0\nparent_label=firstmate\n' "$i" "$i" "$i"
+      printf 'workspace_label=└ live%s · p:%s\ntask_label=fm-live%s\n' "$i" "$(scale_token "$i")" "$i"
+    } > "$FM_STATE_OVERRIDE/live$i.herdr-presentation"
+    : > "$FM_STATE_OVERRIDE/live$i.meta"
+    scale_ws "w$i" "└ live$i · p:$(scale_token "$i")"
+  done
+  for i in $(seq 41 "$((56 - with_candidate))"); do scale_ws "w$i" "└ gone$i · p:$(scale_token "$((i + 500))")"; done
+  scale_v1 dup 57; scale_v1 fm-dup 57; scale_ws w57 "└ dup · p:$(scale_token 57)"
+  scale_v1 unread 58; scale_ws w58 "└ unread · p:$(scale_token 58)"
+  chmod 000 "$FM_STATE_OVERRIDE/unread.herdr-presentation"
+  [ -r "$FM_STATE_OVERRIDE/unread.herdr-presentation" ] \
+    && printf 'unreadable\n' > "$FM_STATE_OVERRIDE/unread.herdr-presentation"
+  for i in $(seq 59 95); do scale_v1 "dead$i" "$i"; done
+  if [ "$with_candidate" -eq 1 ]; then
+    rm -f "$FM_STATE_OVERRIDE/dead95.herdr-presentation"
+    scale_v1 cand 95
+    scale_ws w56 "└ cand · p:$(scale_token 95)"
+  fi
+  [ "$(printf '[%s]' "$ws_json" | jq length)" = 60 ] || fail "scale fixture must hold 60 workspaces"
+  [ "$(find "$FM_STATE_OVERRIDE" -maxdepth 1 -name '*.herdr-presentation' | wc -l | tr -d ' ')" = 80 ] \
+    || fail "scale fixture must hold 80 journals"
+  (
+    # shellcheck disable=SC2329 # invoked indirectly by the cleanup under test.
+    fm_backend_herdr_cli() {
+      local ws
+      shift
+      case "$1 $2" in
+        "workspace list") printf '{"result":{"workspaces":[%s]}}\n' "$ws_json" ;;
+        "api snapshot") printf '{"result":{"snapshot":{"focused_workspace_id":"w0","focused_tab_id":"w0:t1","focused_pane_id":"w0:p1","workspaces":[%s],"tabs":[%s],"panes":[%s]}}}\n' "$ws_json" "$tabs_json" "$panes_json" ;;
+        "workspace get") ws=$3; printf '{"result":{"workspace":{"workspace_id":"%s","label":"└ cand · p:%s","tab_count":1,"pane_count":1}}}\n' "$ws" "$(scale_token 95)" ;;
+        "tab list") ws=$4; printf '{"result":{"tabs":[{"tab_id":"%s:t1","workspace_id":"%s"}]}}\n' "$ws" "$ws" ;;
+        "pane list") ws=$4; printf '{"result":{"panes":[{"pane_id":"%s:p1","tab_id":"%s:t1","workspace_id":"%s"}]}}\n' "$ws" "$ws" "$ws" ;;
+        *) return 1 ;;
+      esac
+    }
+    # shellcheck disable=SC2329 # invoked indirectly by the cleanup under test.
+    fm_backend_herdr_pane_agent_state() { if grep -qx "test $2 no-agent" "$CLOSE_LOG"; then printf dead; else printf no-agent; fi; }
+    # shellcheck disable=SC2329 # invoked indirectly by the cleanup under test.
+    fm_backend_herdr_projection_focus_snapshot() { printf 'w0\tw0:t1'; }
+    eval "scale_orig_$(declare -f fm_herdr_cleanup_journal_scan)"
+    # shellcheck disable=SC2329 # invoked indirectly by the cleanup under test.
+    fm_herdr_cleanup_journal_scan() { printf 'scan\n' >> "$TMP_ROOT/scans"; scale_orig_fm_herdr_cleanup_journal_scan "$@"; }
+    started=$SECONDS
+    fm_herdr_session_cleanup >/dev/null 2>&1
+    [ $((SECONDS - started)) -lt 60 ] || fail "scale cleanup took $((SECONDS - started)) s"
+  ) || exit 1
+  chmod 600 "$FM_STATE_OVERRIDE/unread.herdr-presentation"
+  for i in 1 40; do
+    [ -f "$FM_STATE_OVERRIDE/live$i.herdr-presentation" ] || fail "scale cleanup retired a live task journal"
+  done
+  for name in dup fm-dup unread dead59; do
+    [ -f "$FM_STATE_OVERRIDE/$name.herdr-presentation" ] || fail "scale cleanup retired the $name journal"
+  done
+}
+
+scale_run 0
+[ "$(wc -l < "$TMP_ROOT/scans" | tr -d ' ')" = 1 ] \
+  || fail "60 workspaces x 80 journals with no candidate must scan the journals once, got $(wc -l < "$TMP_ROOT/scans" | tr -d ' ')"
+[ ! -s "$CLOSE_LOG" ] || fail "scale cleanup with no candidate closed a pane"
+[ "$(grep -c '/\.spawn-' "$LOCK_LOG")" = 40 ] \
+  || fail "scale cleanup locked other than the 40 live tasks' unique journal matches"
+if grep -q -e '/\.spawn-dup\.lock' -e '/\.spawn-unread\.lock' "$LOCK_LOG"; then
+  fail "scale cleanup locked a task without a unique journal match"
+fi
+pass "60 workspaces x 80 journals scan once; zero, duplicate, and unreadable journal matches preserve every candidate"
+
+scale_run 1
+[ "$(cat "$CLOSE_LOG")" = "test w56:p1 no-agent" ] || fail "scale cleanup did not close exactly the candidate pane: $(cat "$CLOSE_LOG")"
+[ ! -e "$FM_STATE_OVERRIDE/cand.herdr-presentation" ] || fail "scale cleanup kept the candidate journal"
+[ "$(find "$FM_STATE_OVERRIDE" -maxdepth 1 -name '*.herdr-presentation' | wc -l | tr -d ' ')" = 79 ] \
+  || fail "scale cleanup retired a journal other than the candidate's"
+[ "$(grep -A1 -Fx "$FM_STATE_OVERRIDE/.spawn-cand.lock" "$LOCK_LOG")" = "$FM_STATE_OVERRIDE/.spawn-cand.lock
+$TMP_ROOT/presentation.lock" ] || fail "scale candidate was not locked task-first then presentation"
+[ "$(wc -l < "$TMP_ROOT/scans" | tr -d ' ')" = 3 ] \
+  || fail "one real candidate must add exactly the revalidation and post-close fresh scans, got $(wc -l < "$TMP_ROOT/scans" | tr -d ' ')"
+pass "one real candidate among 60 workspaces x 80 journals is retired exactly as before, with fresh re-reads kept"
+
 INTEGRATION_ROOT="$TMP_ROOT/bootstrap-integration"
 mkdir -p "$INTEGRATION_ROOT/home/state" "$INTEGRATION_ROOT/home/data" "$INTEGRATION_ROOT/home/config"
 cp -R "$ROOT/bin" "$INTEGRATION_ROOT/bin"
