@@ -3340,7 +3340,9 @@ fm_backend_herdr_note_reason() {  # <token>
 # (Enter only, never retyped) until native agent-state, a cleared composer, or
 # fm_composer_queued_enter_verdict confirms delivery. When native identity is
 # Claude, text is typed only into an empty composer and Enter is sent only
-# after the composer shows the payload (fm_backend_herdr_composer_payload_shown).
+# after the composer shows the payload (fm_backend_herdr_composer_payload_shown),
+# waiting a bounded time while it still renders a prefix of it
+# (fm_backend_herdr_composer_payload_wait).
 # A missing read, a shorter suffix, or a paste placeholder followed by a
 # literal remainder does not press Enter: the composer is cleared back to
 # empty and the verdict is send-failed, or unknown when the clear cannot be
@@ -3466,6 +3468,18 @@ fm_backend_herdr_composer_content() {  # <target>
   FM_COMPOSER_GHOST_LUMA_MAX=0 fm_composer_extract_selected_content "$caps" "$cap"
 }
 
+# fm_backend_herdr_payload_normalize_var: the one comparison form both
+# payload checks use, in place through the named variable: Unicode spaces and
+# all whitespace removed, and U+2063 removed.
+fm_backend_herdr_payload_normalize_var() {  # <varname>
+  local __fmpn_name=$1 __fmpn_text
+  fm_composer_normalize_spaces_var "$__fmpn_name"
+  __fmpn_text=${!__fmpn_name}
+  __fmpn_text=${__fmpn_text//[$' \t\r\n\v\f']/}
+  __fmpn_text=${__fmpn_text//$'\xE2\x81\xA3'/}
+  printf -v "$__fmpn_name" '%s' "$__fmpn_text"
+}
+
 # fm_backend_herdr_composer_payload_shown: 0 when <after>, read from a
 # composer that was empty before the send, shows <text>.
 # Literal equality ignores whitespace, the same comparison zellij uses, so a
@@ -3480,12 +3494,8 @@ fm_backend_herdr_composer_content() {  # <target>
 # remainder, is the head-truncation shape and is not proof.
 fm_backend_herdr_composer_payload_shown() {  # <text> <after>
   local text=$1 after=$2 literal
-  fm_composer_normalize_spaces_var text
-  fm_composer_normalize_spaces_var after
-  text=${text//[$' \t\r\n\v\f']/}
-  text=${text//$'\xE2\x81\xA3'/}
-  after=${after//[$' \t\r\n\v\f']/}
-  after=${after//$'\xE2\x81\xA3'/}
+  fm_backend_herdr_payload_normalize_var text
+  fm_backend_herdr_payload_normalize_var after
   [ -n "$text" ] && [ -n "$after" ] || return 1
   [ "$after" = "$text" ] && return 0
   literal=$after
@@ -3493,6 +3503,43 @@ fm_backend_herdr_composer_payload_shown() {  # <text> <after>
     literal=${literal/"${BASH_REMATCH[0]}"/}
   done
   [ -z "$literal" ]
+}
+
+# fm_backend_herdr_composer_payload_arriving: 0 when <after> is a strict
+# prefix of <text>, empty included, under the same normalization as the
+# proof above: the typed payload has not finished rendering yet. A suffix, a
+# placeholder with a literal remainder, or any other text is not arriving.
+fm_backend_herdr_composer_payload_arriving() {  # <text> <after>
+  local text=$1 after=$2
+  fm_backend_herdr_payload_normalize_var text
+  fm_backend_herdr_payload_normalize_var after
+  [ "${#after}" -lt "${#text}" ] && [ "${text:0:${#after}}" = "$after" ]
+}
+
+# fm_backend_herdr_composer_payload_wait: 0 once the composer shows <text>.
+# Claude renders typed input asynchronously, so an early empty or partial
+# read is not proof of lost input. A strict prefix, empty included, is re-read every
+# FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL seconds (default 0.2), at most
+# FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS / interval times (default 6 s, so 30
+# reads; each read's own latency adds to the wall time). Any other content,
+# or an unreadable composer, fails at once: waiting cannot turn a suffix or
+# foreign text into the payload.
+FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS=${FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS:-6}
+FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL=${FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL:-0.2}
+fm_backend_herdr_composer_payload_wait() {  # <target> <text>
+  local target=$1 text=$2 content polls i=1 budget=$FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS
+  case "$budget" in ''|*[!0-9]*) budget=6 ;; esac
+  polls=$(LC_ALL=C awk -v b="$budget" -v s="$FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL" \
+    'BEGIN { s += 0; if (s <= 0) s = 0.2; printf "%d", b / s }' 2>/dev/null)
+  case "$polls" in ''|*[!0-9]*) polls=1 ;; esac
+  while :; do
+    content=$(fm_backend_herdr_composer_content "$target") || return 1
+    fm_backend_herdr_composer_payload_shown "$text" "$content" && return 0
+    fm_backend_herdr_composer_payload_arriving "$text" "$content" || return 1
+    [ "$i" -lt "$polls" ] || return 1
+    i=$((i + 1))
+    sleep "$FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL"
+  done
 }
 
 # fm_backend_herdr_composer_clear: after a refused proof, press Ctrl+U until
@@ -3546,8 +3593,7 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
     || { rc=$?; [ "$rc" != 75 ] || return 75; fm_backend_herdr_note_reason literal-send-failed; printf 'send-failed'; return 0; }
   sleep "$settle"
   if [ "$proof" = 1 ]; then
-    if ! content=$(fm_backend_herdr_composer_content "$target") \
-      || ! fm_backend_herdr_composer_payload_shown "$text" "$content"; then
+    if ! fm_backend_herdr_composer_payload_wait "$target" "$text"; then
       [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] || return 75
       if fm_backend_herdr_composer_clear "$target" "$text"; then
         fm_backend_herdr_note_reason payload-not-shown

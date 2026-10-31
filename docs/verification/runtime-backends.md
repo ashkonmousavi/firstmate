@@ -1892,6 +1892,49 @@ Observed 2026-08-19:
 ok - live Herdr submit confirm: Claude Code (2.1.236 (Claude Code)) on herdr 0.8.0 reports empty for a landed idle steer
 ```
 
+### Claude payload render latency
+
+Measured 2026-10-31 against Herdr 0.9.5 with Claude Code 2.1.312 (q-crew, 6 cores, load 10-23) and 2.1.316 (zb-crew, 16 cores, load 10-26), each in a private Herdr server with its own socket and XDG directories.
+
+Claude renders typed input asynchronously, so the pre-Enter payload proof can read the composer before the doorbell appears.
+Time from `pane send-text` of the real doorbell line to a composer read that proves it: 31-312 ms on a fresh idle pane with 2838 ms once (that read at 0.4 s saw an empty composer), up to 401 ms and 481 ms after 3 idle minutes, and 41-99 ms mid-turn.
+Every intermediate read on a mid-turn pane was a strict prefix of the payload.
+The previous proof read once after the caller's 0.3 s settle, which matched the intermittent `payload-not-shown` doorbell failures recorded on both hosts' remote secondmate inboxes.
+The current proof contract is documented in [Claude composer proof](../herdr-backend.md#claude-composer-proof).
+
+Counterfactual: pausing the lab Claude process for 1.5 s from the `send-text` call reproduced `payload-not-shown` with the previous proof on both hosts and left the doorbell in the composer; with the bounded wait, three such stalled `bin/fm-send.sh` steers and then three plain 1228-character steers each recorded `rc=0 token=ok` and were acted on (record moved into `handled/`) on both hosts.
+Refresh the render-stall proof with the maintained live guard:
+
+```sh
+FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash bin/fm-test-run.sh --jobs 1 --per-script-timeout-secs 600 tests/fm-herdr-submit-confirm-live-e2e.test.sh
+```
+
+The guard uses [stop and continue signals](https://man7.org/linux/man-pages/man7/signal.7.html) on only its launched Claude process, captures the real empty composer read after `send-text`, and verifies the process stays stopped for at least 1.5 seconds after typing before resuming it.
+It requires an Enter, `rc=0 token=ok`, the requested file action, and the record's move into `handled/`.
+It fails naming the Claude and Herdr versions if the delay, submission, action, or acknowledgement is missing.
+Refreshed 2026-10-31 on Linux with Claude Code 2.1.316 and Herdr 0.9.5, using a disposable `CLAUDE_CONFIG_DIR` with the existing account credentials and the documented `skipDangerousModePermissionPrompt` setting.
+The complete guard passed, including its ordinary submit, viewport, and lifecycle cases:
+
+```text
+ok - live Herdr render delay: Claude Code (2.1.316 (Claude Code)) on herdr 0.9.5 submits after a verified 1.861 s stall, acts and acknowledges
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=41618
+```
+
+Portable regressions:
+
+```sh
+bash tests/fm-backend-herdr.test.sh
+bash tests/fm-task-inbox.test.sh
+```
+
+The inbox suite also covers concurrent dead-owner reclamation in `test_ring_skips_during_dead_owner_reclamation`, requiring a contender with no visible holder PID to skip without typing, preserving both records and a later retry.
+
+```text
+ok - fm_backend_herdr_send_text_submit: a Claude composer still rendering the payload (empty, then a prefix) is re-read and the payload submitted
+ok - fm_backend_herdr_send_text_submit: the wait for a rendering payload is bounded and an unshown payload is refused
+ok - inbox: overlapping rings of one inbox type once, the other skips with ring-in-flight, and a dead ringer's lock is reclaimed
+```
+
 ### Composer viewport recovery
 
 The [Herdr socket API](https://herdr.dev/docs/socket-api/) defines `scroll.offset_from_bottom == 0` as the at-bottom state used by the recovery assertions.
