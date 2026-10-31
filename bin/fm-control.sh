@@ -474,6 +474,7 @@ answer_exit_picker() {  # <dialog-name>
   [ "$EXIT_PICKER_ANSWERED" = 0 ] || return 1
   EXIT_PICKER_ANSWERED=1
   fm_backend_send_key "$BACKEND" "$T" Enter "$LABEL" >/dev/null 2>&1 || return 1
+  : > "$FM_COMPOSER_DIALOG_SINK"
 }
 
 # rendered_matches <ere>: whether any row of the visible viewport matches.

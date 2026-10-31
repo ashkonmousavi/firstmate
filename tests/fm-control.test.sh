@@ -149,11 +149,9 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
-      # FM_FAKE_STOP_ON_ENTER=<n> models a picker whose nth Enter confirms the
-      # exit: the agent stops on that key and no earlier one.
       if [ -n "${FM_FAKE_STOP_ON_ENTER:-}" ] && [ "$payload" = Enter ] \
          && [ "$(grep -cx Enter "$D/keys")" -ge "$FM_FAKE_STOP_ON_ENTER" ]; then
-        printf 'zsh' > "$D/command"
+        printf '2' > "$D/stop-pending"
       fi
       printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
       if [ "$payload" = Escape ] && [ -f "$D/devin" ]; then
@@ -190,7 +188,17 @@ case "${1:-}" in
             printf '1\n'
           fi
           exit 0 ;;
-        *pane_current_command*) cat "$D/command"; printf '\n'; exit 0 ;;
+        *pane_current_command*)
+          if [ -f "$D/stop-pending" ]; then
+            remaining=$(cat "$D/stop-pending")
+            if [ "$remaining" -gt 0 ]; then
+              printf '%s' "$((remaining - 1))" > "$D/stop-pending"
+            else
+              printf 'zsh' > "$D/command"
+              rm "$D/stop-pending"
+            fi
+          fi
+          cat "$D/command"; printf '\n'; exit 0 ;;
         *pane_current_path*) cat "$D/cwd"; printf '\n'; exit 0 ;;
       esac
     done
@@ -896,10 +904,12 @@ exit_picker_screen() {
 }
 
 test_exit_answers_an_open_background_picker() {
-  local dir out rc enters
+  local dir out rc enters gen
   dir=$(new_case open-picker)
   add_task "$dir" t1 claude
   alive_as "$dir" claude
+  gen=$("$ROOT/bin/fm-busy-event.sh" arm "$dir/home/state" t1 --state idle --source fm-spawn --event seed)
+  printf 'busy_gen=%s\n' "$gen" >> "$dir/home/state/t1.meta"
   exit_picker_screen > "$dir/fake/pane"
   out=$(env FM_FAKE_STOP_ON_ENTER=1 PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" \
     FM_FAKE_DIR="$dir/fake" FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.5 \
@@ -909,6 +919,10 @@ test_exit_answers_an_open_background_picker() {
   [ ! -s "$dir/fake/literal" ] || fail "an open picker must not be typed into"
   enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
   [ "$enters" -eq 1 ] || fail "exactly one confirming Enter should be sent, got $enters"
+  [ ! -e "$dir/fake/stop-pending" ] || fail "exit must wait for delayed shutdown"
+  [ ! -e "$dir/home/state/t1.busy-gen" ] && [ ! -e "$dir/home/state/t1.busy-state" ] \
+    || fail "picker exit must retire busy state"
+  ! grep -q '^busy_gen=' "$dir/home/state/t1.meta" || fail "picker exit must retire the recorded generation"
   pass "fm-control exit: an already-open background-task picker gets one confirming Enter and no typed text"
 }
 
