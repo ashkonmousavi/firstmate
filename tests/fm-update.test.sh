@@ -714,6 +714,77 @@ SH
   pass "T15 a remote host that lands on another commit is skipped, not settled"
 }
 
+test_unresolved_target_leaves_all_homes_untouched() {
+  local mode w before out rc real_git home
+  real_git=$(command -v git)
+  for mode in transient-fetch no-origin missing-branch missing-ref; do
+    w=$(new_world "unresolved-$mode")
+    git -C "$w/seed" branch curated
+    git -C "$w/seed" push -q origin curated
+    git -C "$w/main" fetch -q origin
+    git -C "$w/main" checkout -q -b curated --track origin/curated
+    add_sm "$w" sm1
+    git -C "$w/main" worktree add -q --detach "$w/sm2" curated
+    git clone -q "$w/origin.git" "$w/sm3"
+    git -C "$w/sm3" checkout -q --detach origin/curated
+    printf -- '- sm2 - registry home (home: %s/sm2; scope: things; projects: p; added 2026-09-03)\n- sm3 - clone home (home: %s/sm3; scope: things; projects: p; added 2026-09-03)\n' "$w" "$w" \
+      > "$w/home/data/secondmates.md"
+    printf -- '- sm4 - remote domain (host: remote-box; root: /srv/fm; home: /srv/sm4; scope: things; projects: p; added 2026-09-03)\n' \
+      >> "$w/home/data/secondmates.md"
+    before=$(git -C "$w/main" rev-parse HEAD)
+    bump_origin "$w" readme
+    git -C "$w/seed" checkout -q curated
+    printf 'curated update\n' >> "$w/seed/README.md"
+    git -C "$w/seed" commit -qam curated-update
+    git -C "$w/seed" push -q origin curated
+    case "$mode" in
+      transient-fetch)
+        cat > "$w/fakebin/git" <<'SH'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [ "$arg" = fetch ]; then
+    printf 'fetch\n' >> "$FM_FAKE_DIR/fetches"
+    if [ ! -e "$FM_FAKE_DIR/failed-fetch" ]; then
+      touch "$FM_FAKE_DIR/failed-fetch"
+      exit 1
+    fi
+  fi
+done
+exec "$FM_TEST_REAL_GIT" "$@"
+SH
+        chmod +x "$w/fakebin/git"
+        ;;
+      no-origin) git -C "$w/main" remote remove origin ;;
+      missing-branch)
+        git -C "$w/main" config --unset branch.curated.remote
+        git -C "$w/main" symbolic-ref --delete refs/remotes/origin/HEAD
+        git -C "$w/main" branch -D main >/dev/null
+        ;;
+      missing-ref) git -C "$w/seed" push -q origin --delete curated ;;
+    esac
+    cat > "$w/fakebin/ssh" <<'SH'
+#!/usr/bin/env bash
+touch "$FM_FAKE_DIR/remote-called"
+exit 90
+SH
+    chmod +x "$w/fakebin/ssh"
+    rc=0
+    out=$(FM_TEST_REAL_GIT="$real_git" PATH="$w/fakebin:$PATH" FM_FAKE_DIR="$w/fake" \
+      FM_SSH_BIN="$w/fakebin/ssh" FM_ROOT_OVERRIDE="$w/main" FM_HOME="$w/home" \
+      "$UPDATE" 2>&1) || rc=$?
+    [ "$rc" -ne 0 ] || fail "$mode: unresolved target was accepted"
+    assert_contains "$out" "cannot resolve shared update target; no homes updated" "$mode: missing failure diagnostic"
+    for home in main sm1 sm2 sm3; do
+      [ "$(git -C "$w/$home" rev-parse HEAD)" = "$before" ] || fail "$mode: $home moved without a shared target"
+    done
+    [ ! -e "$w/fake/remote-called" ] || fail "$mode: remote was contacted without a shared target"
+    if [ "$mode" = transient-fetch ]; then
+      [ "$(wc -l < "$w/fake/fetches" | tr -d ' ')" -eq 1 ] || fail "failed target fetch was retried during the update pass"
+    fi
+  done
+  pass "unresolved targets abort before updating primary, live, registry, cloned or remote homes"
+}
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
@@ -733,5 +804,6 @@ test_primary_update_rebinds_local_watch
 test_curated_branch_is_the_update_target
 test_remote_steps_are_bounded
 test_remote_commit_mismatch_is_skipped
+test_unresolved_target_leaves_all_homes_untouched
 
 echo "# all fm-update tests passed"

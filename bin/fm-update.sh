@@ -113,9 +113,6 @@ REMOTE_UPDATE_SECONDS=$(positive_seconds "${FM_UPDATE_REMOTE_UPDATE_SECONDS:-}" 
 REMOTE_STATE_SECONDS=$(positive_seconds "${FM_UPDATE_REMOTE_STATE_SECONDS:-}" 60)
 
 # --- update target ---------------------------------------------------------
-# One branch and commit for the whole pass. A target that cannot be resolved here
-# (no origin, a failed fetch) leaves both empty, and each home then reports its
-# own skip reason exactly as before.
 
 TARGET_BRANCH=""
 TARGET_COMMIT=""
@@ -130,11 +127,12 @@ elif git -C "$FM_ROOT" remote get-url origin >/dev/null 2>&1 && fetch_once "$FM_
   if TARGET_BRANCH=$(fleet_branch "$FM_ROOT"); then
     TARGET_COMMIT=$(git -C "$FM_ROOT" rev-parse --verify --quiet "refs/remotes/origin/$TARGET_BRANCH^{commit}" 2>/dev/null || true)
   fi
-  [ -n "$TARGET_COMMIT" ] || TARGET_BRANCH=""
 fi
+[ -n "$TARGET_BRANCH" ] && [ -n "$TARGET_COMMIT" ] \
+  || { echo "error: cannot resolve shared update target; no homes updated" >&2; exit 1; }
 FF_TARGET_BRANCH=$TARGET_BRANCH
 FF_TARGET_COMMIT=$TARGET_COMMIT
-[ -z "$TARGET_COMMIT" ] || echo "update target: origin/$TARGET_BRANCH $TARGET_COMMIT"
+echo "update target: origin/$TARGET_BRANCH $TARGET_COMMIT"
 
 # --- main firstmate repo ---------------------------------------------------
 
@@ -232,14 +230,12 @@ fm_ff_after_secondmate_settled() {  # <id> <home> <window> <status> <instr>
 remote_update_step() {  # <id>
   local id=$1 rc=0
   REMOTE_UPDATE_OUT=""
-  if [ -n "$TARGET_COMMIT" ]; then
-    REMOTE_UPDATE_OUT=$(fm_run_timed "$REMOTE_UPDATE_SECONDS" "$SCRIPT_DIR/fm-on.sh" "$id" \
-      fm-remote-secondmate-control.sh update "$id" "$TARGET_BRANCH" "$TARGET_COMMIT" < /dev/null 2>&1) || rc=$?
-    # A host whose control script predates the target handoff exits with its
-    # usage status; ask it the old way and let the commit check below judge it.
-    [ "$rc" -eq 2 ] || return "$rc"
-    rc=0
-  fi
+  REMOTE_UPDATE_OUT=$(fm_run_timed "$REMOTE_UPDATE_SECONDS" "$SCRIPT_DIR/fm-on.sh" "$id" \
+    fm-remote-secondmate-control.sh update "$id" "$TARGET_BRANCH" "$TARGET_COMMIT" < /dev/null 2>&1) || rc=$?
+  # A host whose control script predates the target handoff exits with its
+  # usage status; ask it the old way and let the commit check below judge it.
+  [ "$rc" -eq 2 ] || return "$rc"
+  rc=0
   REMOTE_UPDATE_OUT=$(fm_run_timed "$REMOTE_UPDATE_SECONDS" "$SCRIPT_DIR/fm-on.sh" "$id" \
     fm-remote-secondmate-control.sh update "$id" < /dev/null 2>&1) || rc=$?
   return "$rc"
@@ -275,7 +271,7 @@ if [ -f "$SECONDMATES_MD" ]; then
         remote_reported=${remote_reported%% *}
         case "$remote_result" in
           synced:*|current:*)
-            if [ -n "$TARGET_COMMIT" ] && [ "$remote_reported" != "$TARGET_COMMIT" ]; then
+            if [ "$remote_reported" != "$TARGET_COMMIT" ]; then
               echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: host reports $remote_reported, not update target $TARGET_COMMIT" >&2
               remote_result="mismatch"
             fi
