@@ -4078,6 +4078,47 @@ test_released_journal_publishes_its_staged_note_after_success() {
   pass "failed launch preserves the prior note and completed relaunch publishes the journal's current note"
 }
 
+test_released_snapshot_signals_preserve_complete_brief_and_record() {
+  local dir backend signal snapshot completion out rc meta brief real_cp
+  real_cp=$(command -v cp)
+  for backend in tmux herdr; do
+    for signal in HUP TERM; do
+      for snapshot in brief meta; do
+        for completion in complete partial; do
+          dir=$(new_case "released-snapshot-$backend-$signal-$snapshot-$completion" rr21)
+          add_released_ship_task "$dir" rr21
+          [ "$backend" != herdr ] || released_use_herdr "$dir" rr21
+          meta=$(cat "$dir/home/state/rr21.meta")
+          brief=$(cat "$dir/home/data/rr21/brief.md")
+          cat > "$dir/fakebin/cp" <<SH
+#!/usr/bin/env bash
+case "\${!#}" in
+  */.rr21.$snapshot-prior.*)
+    if [ ! -e "\$FM_FAKE_DIR/snapshot-interrupted" ]; then
+      : > "\$FM_FAKE_DIR/snapshot-interrupted"
+      printf 'incomplete snapshot\\n' > "\${!#}"
+      kill -$signal "\$PPID"
+      [ "$completion" != partial ] || exit 1
+    fi
+    ;;
+esac
+exec "$real_cp" "\$@"
+SH
+          chmod +x "$dir/fakebin/cp"
+          out=$(run_control "$dir" rr21 relaunch --note 'snapshot interrupted'); rc=$?
+          [ "$rc" -ne 0 ] || fail "$backend/$signal/$snapshot: interrupted snapshot launched a worker"
+          assert_present "$dir/fake/snapshot-interrupted" "$backend/$signal/$snapshot: snapshot boundary was not reached"
+          assert_released_untouched "$dir" rr21 "$meta" "$brief" "$backend/$signal/$snapshot"
+          assert_absent "$dir/fake/created-windows" 'snapshot interruption opened an endpoint'
+          assert_absent "$dir/fake/herdr-created-tabs" 'snapshot interruption opened a pane'
+          assert_absent "$dir/pool/1/.fm-slot-owner" 'snapshot interruption claimed a copy'
+        done
+      done
+    done
+  done
+  pass "HUP and TERM during complete or partial snapshots preserve the brief and record on both backends"
+}
+
 # Reuse these hermetic fixtures in the pending-proof lifecycle regression.
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
 
@@ -4202,3 +4243,5 @@ test_released_rollback_preserves_new_work_and_unconfirmed_endpoints
 test_released_signals_defer_through_mutation_bookkeeping
 test_released_rollback_retains_each_failed_restoration_backup
 test_released_journal_publishes_its_staged_note_after_success
+
+test_released_snapshot_signals_preserve_complete_brief_and_record

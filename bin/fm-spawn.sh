@@ -3949,6 +3949,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   # note below and the progress note written after allocation.
   if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
     RELEASED_SOURCE_BRIEF=$BRIEF
+    released_mutation_begin
     RELEASED_BRIEF_PRIOR=$(umask 077; mktemp "$STATE/.$ID.brief-prior.XXXXXX") &&
       cp -p "$BRIEF" "$RELEASED_BRIEF_PRIOR" &&
       RELEASED_META_PRIOR=$(umask 077; mktemp "$STATE/.$ID.meta-prior.XXXXXX") &&
@@ -3960,6 +3961,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       echo "error: could not preserve task $ID's instructions before its released relaunch" >&2
       exit 1
     }
+    released_mutation_end
   fi
   "$FM_ROOT/bin/fm-pr-overlap.sh" --project "$PROJ_ABS" --brief "$BRIEF" || true
   SOURCE_BRIEF=$BRIEF

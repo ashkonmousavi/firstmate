@@ -6213,12 +6213,83 @@ SH
   assert_grep "worktree=$case_dir/state/task-x1.released-copy" "$case_dir/state/task-x1.meta" "retry did not write the sentinel"
   [ "$(sed -n '/^released_/p' "$case_dir/state/task-x1.meta")" = "$fields" ] || fail "retry lost the original release proof"
   [ "$(git -C "$slot" rev-parse HEAD)" = "$successor" ] || fail "retry touched the successor's work"
-  [ "$(wc -l < "$case_dir/treehouse.log" | tr -d ' ')" = 1 ] || fail "retry returned the already freed copy"
+  if [ "$mode" = reassigned ]; then
+    [ "$(wc -l < "$case_dir/treehouse.log" | tr -d ' ')" = 1 ] || fail "retry returned the reassigned copy"
+  else
+    [ "$(wc -l < "$case_dir/treehouse.log" | tr -d ' ')" = 2 ] || fail "retry hid an unclaimed copy without returning it"
+  fi
   pass "release proof survives failed close and retry with a $mode slot"
 }
 
-test_release_retry_skips_the_unclaimed_reset_copy() {
+test_release_retry_returns_the_unclaimed_reset_copy() {
   test_release_proof_survives_unconfirmed_close_and_reassignment unclaimed
+}
+
+test_release_retry_returns_the_copy_after_interrupted_proof_or_failed_return() {
+  local case_dir boundary head fields real_mv
+  real_mv=$(command -v mv)
+  for boundary in before-return return-failure; do
+    case_dir=$(prepare_recorded_github_pr "release-incomplete-$boundary")
+    install_github_pr_class "$case_dir" open
+    wt_commit "$case_dir" 'work awaiting release'
+    push_task_branch "$case_dir"
+    head=$(git -C "$case_dir/wt" rev-parse HEAD)
+    printf '%s\n' "$head" > "$case_dir/forge-head"
+    printf 'manual\n' > "$case_dir/config/backlog-backend"
+    add_lsof_no_holder "$case_dir"
+    if [ "$boundary" = before-return ]; then
+      cat > "$case_dir/fakebin/mv" <<SH
+#!/usr/bin/env bash
+"$real_mv" "\$@" || exit \$?
+for arg in "\$@"; do
+  case "\$arg" in
+    */.fm-teardown-release.*)
+      if [ ! -e '$case_dir/interrupted' ]; then
+        : > '$case_dir/interrupted'
+        kill -TERM "\$PPID"
+      fi
+      ;;
+  esac
+done
+exit 0
+SH
+      chmod +x "$case_dir/fakebin/mv"
+    else
+      : > "$case_dir/fail-return"
+    fi
+    cat > "$case_dir/fakebin/treehouse" <<SH
+#!/usr/bin/env bash
+printf '%s\\n' "\$*" >> '$case_dir/treehouse.log'
+if git -C '$case_dir/project' show-ref --verify --quiet refs/heads/fm/task-x1 ||
+  git -C '$case_dir/wt' symbolic-ref --quiet HEAD >/dev/null; then
+  : > '$case_dir/branch-not-detached-and-deleted'
+  exit 1
+fi
+[ ! -e '$case_dir/fail-return' ] || { echo 'return refused' >&2; exit 1; }
+git -C '$case_dir/wt' reset --hard -q main || exit 1
+: > '$case_dir/returned'
+SH
+    chmod +x "$case_dir/fakebin/treehouse"
+    teardown_capture "$case_dir" --keep-open
+    [ "$TEARDOWN_CAPTURE_RC" -ne 0 ] || fail "$boundary: incomplete release succeeded"
+    fields=$(printf 'released_head=%s\nreleased_branch=fm/task-x1\nreleased_pr=https://github.com/example/repo/pull/7' "$head")
+    [ "$(sed -n '/^released_/p' "$case_dir/state/task-x1.meta")" = "$fields" ] || fail "$boundary: release proof was not persisted"
+    assert_grep "worktree=$case_dir/wt" "$case_dir/state/task-x1.meta" "$boundary: incomplete return was hidden by the sentinel"
+    assert_absent "$case_dir/returned" "$boundary: the copy unexpectedly returned"
+    if [ "$boundary" = before-return ]; then
+      assert_present "$case_dir/interrupted" 'proof publication was not interrupted'
+      [ "$(git -C "$case_dir/wt" symbolic-ref --short HEAD)" = fm/task-x1 ] || fail 'the interruption did not leave the branch checked out'
+      assert_absent "$case_dir/treehouse.log" 'the interrupted release reached return'
+    fi
+    rm -f "$case_dir/fail-return"
+    teardown_capture "$case_dir" --keep-open
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$boundary: retry must finish the actual return: $(cat "$case_dir/stderr")"
+    assert_present "$case_dir/returned" "$boundary: retry published the sentinel without returning the copy"
+    assert_absent "$case_dir/branch-not-detached-and-deleted" "$boundary: return ran before branch cleanup"
+    assert_grep "worktree=$case_dir/state/task-x1.released-copy" "$case_dir/state/task-x1.meta" "$boundary: retry did not publish the sentinel"
+    [ "$(sed -n '/^released_/p' "$case_dir/state/task-x1.meta")" = "$fields" ] || fail "$boundary: retry changed the release proof"
+  done
+  pass "retry returns unfinished copies and detaches and deletes their branches before publishing the sentinel"
 }
 
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "teardown" ] || return 0
@@ -6382,4 +6453,6 @@ test_release_requires_a_configured_readable_head_remote
 test_release_refuses_forge_mismatch_with_matching_tracking_ref
 test_release_proof_survives_unconfirmed_close_and_reassignment
 
-test_release_retry_skips_the_unclaimed_reset_copy
+test_release_retry_returns_the_unclaimed_reset_copy
+
+test_release_retry_returns_the_copy_after_interrupted_proof_or_failed_return

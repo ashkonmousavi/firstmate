@@ -2921,7 +2921,6 @@ require_owned_task_worktree_slot() {
 
 teardown_owns_worktree() {
   [ "$TEARDOWN_SLOT_REASSIGNED" != 1 ] \
-    && [ "$TEARDOWN_RELEASE_PROOF_RECORDED" != 1 ] \
     && [ "$WT" != "$STATE/$ID.released-copy" ]
 }
 
