@@ -1,0 +1,21 @@
+ok - machine ceiling spans local homes and projects; handoffs count while live, secondmates excluded
+ok - activity, ledger and admission share facts; local walk markers do not bypass limits
+ok - memory reserve is fixed and refuses below zero headroom
+ok - missing and malformed machine facts refuse placement
+ok - inaccessible root and nested registry parents refuse admission and placement
+ok - published facts drive placement; unreadable and stale hosts refused
+ok - capacity counts live endpoints, frees dead records, and retains unknowns
+ok - public capacity command frees shell-only records and counts non-shell work
+ok - stopped A frees a ceiling-one seat for B; both relaunch entry points refuse A
+ok - upstream host probes remain visible and never replace shared admission facts
+ok - finite ancestor excludes file cache and leaves 8.8 GiB before reserve
+ok - all finite ancestors constrain admission and require readable statistics
+ok - cgroup statistics fail closed instead of falling back to host memory
+ok - all ancestors unlimited falls back to MemAvailable
+ok - root cgroup fallback and unreadable limit/statistics behave safely
+ok - shared admission enforces numeric policy without confusing floor and reserve
+unavailable: ~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.targeted-tests-_tlqhvyc/fm-capacity.oc0B1G/missing.json
+fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.targeted-tests-_tlqhvyc/fm-capacity.oc0B1G/cgroup/crew memory.high-(anon+shmem)=1048576 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.targeted-tests-_tlqhvyc/fm-capacity.oc0B1G/cgroup-home/config/lane-capacity) gives headroom=-3145728 kB
+fm-capacity: ~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.targeted-tests-_tlqhvyc/fm-capacity.oc0B1G/cgroup/crew memory.high-(anon+shmem)=-1048577 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.targeted-tests-_tlqhvyc/fm-capacity.oc0B1G/cgroup-home/config/lane-capacity) gives headroom=-5242881 kB
+
+exit_status=0

@@ -1,0 +1,31 @@
+1793488057.992 sample=0 full60=0.01 full300=0.04 MemAvailable_GiB=8.114
+1793488061.826 sample=1 full60=0.01 full300=0.04 MemAvailable_GiB=7.612
+1793488066.852 sample=2 full60=0.01 full300=0.04 MemAvailable_GiB=8.113
+1793488071.883 sample=3 full60=0.01 full300=0.04 MemAvailable_GiB=8.681
+1793488076.906 sample=4 full60=0.0 full300=0.04 MemAvailable_GiB=8.700
+1793488081.929 sample=5 full60=0.0 full300=0.04 MemAvailable_GiB=8.812
+1793488086.955 sample=6 full60=0.0 full300=0.04 MemAvailable_GiB=8.678
+1793488090.756 sample=7 full60=0.0 full300=0.04 MemAvailable_GiB=8.678
+1793488095.779 sample=8 full60=0.0 full300=0.03 MemAvailable_GiB=8.656
+1793488100.816 sample=9 full60=0.0 full300=0.03 MemAvailable_GiB=7.889
+1793488105.841 sample=10 full60=0.22 full300=0.08 MemAvailable_GiB=7.867
+legacy policy={"schema": "fm-machine-admission.v1", "memory_floor_gib": 3, "memory_full_avg60_max": 0.15, "disk_floor_gib": 0, "disk_paths": ["~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.live-burst-23m2man2/home"]}
+{"admitted": false, "cgroup_ancestors": [{"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/no-mistakes-daemon-3b6858c4.service", "working_set_bytes": 3147415552}, {"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice", "working_set_bytes": 4058349568}, {"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service", "working_set_bytes": 4066160640}, {"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice/user-1000.slice", "working_set_bytes": 4066193408}, {"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice", "working_set_bytes": 4105502720}], "disk_available_bytes": {"~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.live-burst-23m2man2/home": 463738212352}, "effective_available_bytes": 8475127808, "mem_available_bytes": 8475127808, "memory_floor_gib": 3, "memory_full_avg10": 1.03, "memory_full_avg300": 0.08, "memory_full_avg60": 0.22, "policy": {"disk_floor_gib": 0, "disk_paths": ["~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.live-burst-23m2man2/home"], "memory": {"limit": 0.15, "operator": "<"}, "memory_floor_gib": 3, "memory_full_avg60_max": 0.15, "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.live-burst-23m2man2/home/config/machine-admission.json", "schema": "fm-machine-admission.v1", "sha256": "6bbd21135fcf3fa69de2c57725a6deba3568fc2aec318f787205345b4c8897b0"}, "readable": true, "refusal_reasons": ["memory PSI full avg60 refuses"], "resource_policy_sha256": "6bbd21135fcf3fa69de2c57725a6deba3568fc2aec318f787205345b4c8897b0"}
+reader_exit=75
+capacity: free_lanes=0 reason=pressure lanes=0 target=5 secondmates=0 load1=3.37 cores=12 mem_free_pct=33 disk_free_mb=442255 mem_available_kb=8268444 reserve_kb=0 headroom_kb=8268444
+Lanes: 0 of 5; 0 open. Memory headroom: 8268444 kB.
+Host: load 3.37 on 12 cores, memory free 33%, disk free 442255 MB.
+fm-capacity: memory PSI full avg60 refuses
+capacity_exit=75
+windowed policy={"schema": "fm-machine-admission.v1", "memory_floor_gib": 3, "memory_full_avg60_max": 25, "memory_full_avg300_max": 0.15, "disk_floor_gib": 0, "disk_paths": ["~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.live-burst-23m2man2/home"]}
+{"admitted": true, "cgroup_ancestors": [{"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/no-mistakes-daemon-3b6858c4.service", "working_set_bytes": 3147440128}, {"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice", "working_set_bytes": 4058374144}, {"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service", "working_set_bytes": 4065927168}, {"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice/user-1000.slice", "working_set_bytes": 4065959936}, {"finite_limits_bytes": [], "path": "/sys/fs/cgroup/user.slice", "working_set_bytes": 4105527296}], "disk_available_bytes": {"~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.live-burst-23m2man2/home": 463738208256}, "effective_available_bytes": 8464822272, "mem_available_bytes": 8464822272, "memory_floor_gib": 3, "memory_full_avg10": 1.03, "memory_full_avg300": 0.08, "memory_full_avg60": 0.22, "policy": {"disk_floor_gib": 0, "disk_paths": ["~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.live-burst-23m2man2/home"], "memory": {"limit": 25, "operator": "<"}, "memory_floor_gib": 3, "memory_full_avg300_max": 0.15, "memory_full_avg60_max": 25, "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6A2KGQ90D23E4727C31QS5S/.live-burst-23m2man2/home/config/machine-admission.json", "schema": "fm-machine-admission.v1", "sha256": "65cb45d82d83872b869f2ceb9e4a603bb06088d29a6a0d012d399d121db3f6a9"}, "readable": true, "refusal_reasons": [], "resource_policy_sha256": "65cb45d82d83872b869f2ceb9e4a603bb06088d29a6a0d012d399d121db3f6a9"}
+reader_exit=0
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 load1=3.37 cores=12 mem_free_pct=33 disk_free_mb=442255 mem_available_kb=8257104 reserve_kb=0 headroom_kb=8257104
+Lanes: 0 of 5; 5 open. Memory headroom: 8257104 kB.
+Host: load 3.37 on 12 cores, memory free 33%, disk free 442255 MB.
+
+capacity_exit=0
+ACTUAL machine-admission.log:
+1793488105	no	1.03	0.22	0.08	8269956	8269956	6bbd21135fcf3fa69de2c57725a6deba3568fc2aec318f787205345b4c8897b0	memory PSI full avg60 refuses
+1793488106	yes	1.03	0.22	0.08	8259120	8259120	65cb45d82d83872b869f2ceb9e4a603bb06088d29a6a0d012d399d121db3f6a9
+CLEANUP: disposable lab home removed

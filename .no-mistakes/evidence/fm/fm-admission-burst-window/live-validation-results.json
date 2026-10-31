@@ -1,0 +1,48 @@
+[
+  {
+    "name": "Configured 5/25 policy admits real available capacity, reports five open lanes, publishes identical JSON, and records the policy hash",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Opting into avg300 accepts an actual short-window pressure burst that legacy avg60 refuses (thresholds scaled to live load)",
+    "result": "pass",
+    "live": true,
+    "reason": ""
+  },
+  {
+    "name": "A five-minute PSI ceiling below actual measured pressure still refuses admission and records the refusal",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "The one-minute emergency ceiling still refuses actual pressure even with the new window enabled",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "The independent memory floor still refuses when real available memory is below the configured floor",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "An invalid opt-in policy fails closed and records one unknown verdict without fabricated measurements",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Admission logging rotates at its configured cap and a failed log write leaves real admission successful",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Tolerating PSI bursts does not bypass the machine lane ceiling",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Legacy policy remains valid and reported PSI windows match independent real-kernel ancestor maxima",
+    "result": "pass",
+    "live": true
+  }
+]

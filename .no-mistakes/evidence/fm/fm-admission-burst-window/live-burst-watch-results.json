@@ -1,0 +1,6 @@
+{
+  "name": "Opting into avg300 accepts an actual short-window pressure burst that legacy avg60 refuses (thresholds scaled to live load)",
+  "result": "pass",
+  "live": true,
+  "reason": ""
+}
