@@ -1860,7 +1860,7 @@ _fm_composer_kimi_footer() {
   [[ "$row" =~ ^(Always\ Ask|Ask\ When\ Needed|Never\ Ask)[[:space:]]{2,}Kimi[[:space:]] ]] || return 1
   row=$(_fm_composer_screen_row "$((boundary + 2))" "$plain")
   fm_composer_normalize_trim_var row
-  [[ "$row" =~ ^context:\ [0-9]+%\ \([0-9]+/[0-9]+[kM]?\)$ ]] || return 1
+  [[ "$row" =~ ^context:\ [0-9]+%\ \([0-9]+([.][0-9]+)?[kM]?/[0-9]+([.][0-9]+)?[kM]?\)$ ]] || return 1
   row=$(_fm_composer_screen_row "$((boundary + 3))" "$plain")
   fm_composer_normalize_trim_var row
   [ -z "$row" ]

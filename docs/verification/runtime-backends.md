@@ -1300,6 +1300,7 @@ The tmux fixture enables Bash job control so vendor descendants do not remain in
 Readiness dismisses the current Codex folder-trust dialog before accepting an empty verdict.
 Kimi launches with both `KIMI_CODE_NO_AUTO_UPDATE=1` and its legacy alias `KIMI_CLI_NO_AUTO_UPDATE=1`, following the [vendor environment reference](https://github.com/MoonshotAI/kimi-code/blob/main/docs/en/configuration/env-vars.md).
 The composer tests also execute classification and ownership extraction against Kimi 2.4.1's complete two-row status footer, while rejecting contiguous unclaimed activity below it.
+The footer regression includes integer, decimal, `k` and `M` token counts in both fields, including the [vendor formatter's](https://raw.githubusercontent.com/MoonshotAI/kimi-code/@moonshot-ai/kimi-code@2.4.1/apps/kimi-code/src/utils/usage/usage-format.ts) `1% (1.5k/977k)` readout for 1536 used tokens; malformed counts remain unclaimed activity.
 All four portable files and both live guards passed; relevant output was:
 
 ```text
