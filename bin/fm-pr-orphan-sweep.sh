@@ -59,8 +59,6 @@
 # reported on stderr for the watcher's triage log); exit 2 on bad usage.
 #
 # Tunables (env), mainly for tests:
-#   FM_PR_ORPHAN_GH          gh replacement for the pull request listing
-#   FM_PR_ORPHAN_POLL        replacement for bin/fm-pr-poll.sh
 #   FM_PR_ORPHAN_SHOW_CMD    prefix command receiving <task-id>; exit 0 means
 #                            this home's backlog holds it
 #   FM_PR_ORPHAN_BOUND       per-forge-call bound in seconds (default 20)
@@ -97,8 +95,6 @@ REG="$DATA/projects.md"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 
-GH=${FM_PR_ORPHAN_GH:-gh}
-POLL=${FM_PR_ORPHAN_POLL:-$SCRIPT_DIR/fm-pr-poll.sh}
 BOUND=${FM_PR_ORPHAN_BOUND:-20}
 case "$BOUND" in ''|*[!0-9]*|0) BOUND=20 ;; esac
 BUDGET=${FM_PR_ORPHAN_BUDGET:-90}
@@ -209,7 +205,7 @@ sweep_project() {  # <name>
   path=$FM_PR_PATH
 
   bound=$(fm_checkpoint_budget "$BOUND") || return 0
-  listing=$(fm_run_timed "$bound" "$GH" pr list -R "$path" --state open --label conflict \
+  listing=$(fm_run_timed "$bound" gh pr list -R "$path" --state open --label conflict \
     --limit "$LIMIT" --json number,headRefName \
     --jq '.[] | "\(.number)\t\(.headRefName)"' 2>&1) || {
     warn "could not list conflicted pull requests for $name ($path): $(printf '%s' "$listing" | head -1)"
@@ -243,7 +239,7 @@ sweep_project() {  # <name>
       continue
     fi
     bound=$(fm_checkpoint_budget "$BOUND") || continue
-    result=$(fm_run_timed "$bound" "$POLL" --validated github "$url" github.com "$path" "$number" 2>/dev/null) || {
+    result=$(fm_run_timed "$bound" "$SCRIPT_DIR/fm-pr-poll.sh" --validated github "$url" github.com "$path" "$number" 2>/dev/null) || {
       warn "could not read the conflict label age of $url"
       continue
     }
