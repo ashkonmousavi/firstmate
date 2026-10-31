@@ -196,7 +196,7 @@ run_lr() {  # <dir> <now> <args...>
   shift 2
   env PATH="$STUBS:$PATH" FM_HOME="$dir/home" FM_T="$dir/t" FM_LANE_RELEASE_NOW="$now" FM_TEST_BUSY_EVENT="$ROOT/bin/fm-busy-event.sh" \
     FM_LANE_RELEASE_PROBE="$STUBS/probe" FM_LANE_RELEASE_CREW_STATE="$STUBS/crew-state" \
-    FM_LANE_RELEASE_CAPTAIN_HOLD="$STUBS/hold" FM_LANE_RELEASE_CONTROL="$STUBS/control" \
+    FM_LANE_RELEASE_CAPTAIN_HOLD="${FM_TEST_HOLD_BIN:-$STUBS/hold}" FM_LANE_RELEASE_CONTROL="$STUBS/control" \
     "${FM_LANE_RELEASE_RUNNER:-$LR}" "$@"
 }
 
@@ -871,9 +871,9 @@ extra_slow_gate_read_is_bounded_by_the_sweep_budget() {
   finished_scout "$dir" sc
   : > "$dir/t/sc.hold-hangs"
   start=$(date +%s)
-  FM_LANE_RELEASE_BUDGET=2 run_lr "$dir" 2500 sweep >/dev/null
+  run_lr "$dir" 2500 sweep >/dev/null
   took=$(( $(date +%s) - start ))
-  [ "$took" -lt 10 ] || fail "a hanging gate read held the sweep for ${took}s"
+  [ "$took" -lt 15 ] || fail "a hanging gate read held the sweep for ${took}s"
   assert_kept "$dir" sc hold-unreadable
   pass "extra budget: a gate read that hangs is cut off inside the sweep budget and keeps the seat"
 }
@@ -886,7 +886,11 @@ extra_local_only_ship_is_kept() {
   merged "$dir" s1 2100
   cycle "$dir"
   assert_kept "$dir" s1 local-only-unproven
-  pass "extra local-only: no per-task landed record exists, so the ship keeps its seat"
+  local out rc
+  out=$(run_lr "$dir" 9000 --audit); rc=$?
+  expect_code 0 "$rc" "an excluded local-only ship is reported separately"$'\n'"$out"
+  assert_contains "$out" 'kept-local-only s1' "audit must disclose the local-only exclusion"
+  pass "extra local-only: the excluded ship keeps its seat and appears in audit"
 }
 
 extra_audit_exit_codes() {
@@ -988,9 +992,9 @@ extra_all_external_reads_share_the_sweep_deadline() {
         ;;
     esac
     start=$(date +%s)
-    FM_LANE_RELEASE_BUDGET=2 run_lr "$dir" 2500 sweep >/dev/null
+    run_lr "$dir" 2500 sweep >/dev/null
     took=$(( $(date +%s) - start ))
-    [ "$took" -le 3 ] || fail "$what reads exceeded the shared 2s budget: ${took}s"
+    [ "$took" -le 22 ] || fail "$what reads exceeded the shared 20s budget: ${took}s"
     [ "$(control_calls "$dir")" = 0 ] || fail "a timed-out read still released a worker"
   done
   pass "agent, busy, composer, doorbell and marker seat reads stop at the sweep deadline"
@@ -1100,11 +1104,11 @@ extra_marker_verification_rotates_with_candidates() {
     : > "$dir/t/$id.seat-hangs"
   done
   finished_ship "$dir" z
-  for i in 0 1 2 3 4 5; do
+  for i in 0 1 2; do
     start=$(date +%s)
-    FM_LANE_RELEASE_BUDGET=2 run_lr "$dir" "$((2500 + 400 * i))" sweep >/dev/null
+    run_lr "$dir" "$((2500 + 400 * i))" sweep >/dev/null
     took=$(( $(date +%s) - start ))
-    [ "$took" -le 3 ] || fail "a rotating sweep exceeded its 2s budget: ${took}s"
+    [ "$took" -le 22 ] || fail "a rotating sweep exceeded its 20s budget: ${took}s"
   done
   wait_exit_log "$dir" z
   [ "$(control_calls "$dir")" = 1 ] || fail "slow markers starved the eligible candidate"
@@ -1125,6 +1129,7 @@ SH
       : > "$dir/t/transport"
       out=$(
         export PATH="$dir:$PATH" FM_GUARD_LOG="$dir/t/transport" FM_GUARD_MODE="$mode"
+        . "$ROOT/bin/fm-backend.sh"
         . "$ROOT/bin/backends/herdr.sh"
         fm_control_lane_release_guard() { [ "$FM_GUARD_MODE" != refuse ] && [ ! -e "$dir/t/reselected" ]; }
         fm_backend_herdr_client_select() { : > "$dir/t/reselected"; }
@@ -1150,6 +1155,168 @@ SH
   done
   pass "Herdr rechecks the release guard before each literal, key and protocol retry"
 }
+
+extra_no_turn_slack_and_fixed_grace() {
+  local dir id at
+  dir=$(new_case no-turn-slack)
+  for id in before equal after; do
+    finished_scout "$dir" "$id"
+    case "$id" in before) at=1999 ;; equal) at=2000 ;; after) at=2050 ;; esac
+    printf 'v1 gen=gfixture seq=7 state=idle source=claude-hook event=stop ts=%s\n' "$at" > "$dir/home/state/$id.busy-state"
+  done
+  run_lr "$dir" 2500 sweep >/dev/null
+  run_lr "$dir" 2799 sweep >/dev/null
+  [ "$(control_calls "$dir")" = 0 ] || fail "a candidate was released before 300 seconds"
+  run_lr "$dir" 2800 sweep >/dev/null
+  for id in before equal; do wait_exit_log "$dir" "$id"; done
+  run_lr "$dir" 2850 sweep >/dev/null
+  assert_released "$dir" before scout
+  assert_released "$dir" equal scout
+  assert_kept "$dir" after turn-since
+  pass "a 2050 chat turn after done at 2000 keeps its seat; unchanged records release after exactly 300 seconds"
+}
+
+extra_audit_requires_readable_completion_evidence() {
+  local dir kind out rc mode
+  for kind in scout merged open; do
+    dir=$(new_case "unstamped-$kind")
+    case "$kind" in
+      scout) finished_scout "$dir" sc ;;
+      merged) finished_ship "$dir" sc ;;
+      open) add_task "$dir" sc ship ;;
+    esac
+    status_lines "$dir" sc 'done: report ready'
+    out=$(run_lr "$dir" 9000 --audit); rc=$?
+    expect_code 2 "$rc" "unstamped $kind evidence must be unknown"$'\n'"$out"
+    assert_contains "$out" 'done-unstamped' "audit must name the unreadable timestamp"
+  done
+  cat > "$STUBS/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+mode=$(cat "$FM_T/tasks-mode")
+case "$mode" in unavailable) exit 127 ;; incompatible) echo 'tasks-axi 0.0.1'; exit 0 ;; esac
+case "$1" in
+  --version) echo 'tasks-axi 99.0.0' ;;
+  update) echo '--archive-body' ;;
+  mv) echo '[<id>...]' ;;
+  hold) [ "$mode" != bad-contract ] || exit 1; echo '--kind captain' ;;
+  show)
+    case "$mode" in
+      missing) echo 'code: NOT_FOUND' ;;
+      *) echo 'code: INTERNAL' ;;
+    esac
+    exit 1
+    ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$STUBS/tasks-axi"
+  for mode in unavailable incompatible bad-contract rejected read-error missing; do
+    dir=$(new_case "verify-$mode")
+    finished_scout "$dir" sc
+    printf 'backend = "markdown"\n[markdown]\npath = "data/backlog.md"\n' > "$dir/home/.tasks.toml"
+    printf '%s\n' "$mode" > "$dir/t/tasks-mode"
+    case "$mode" in
+      read-error|missing) printf 'decisions_reviewed=1\ndecision_keys=held-task\n' >> "$dir/home/state/sc.meta" ;;
+    esac
+    out=$(FM_TEST_HOLD_BIN="$ROOT/bin/fm-captain-hold.sh" run_lr "$dir" 9000 --audit); rc=$?
+    case "$mode" in
+      rejected|missing) expect_code 0 "$rc" "a readable gate rejection retains the worker without inventing a read error"$'\n'"$out" ;;
+      *)
+        expect_code 2 "$rc" "unreadable $mode completion evidence must be unknown"$'\n'"$out"
+        assert_contains "$out" 'hold-unreadable' "audit must disclose unavailable verification"
+        ;;
+    esac
+    [ "$(control_calls "$dir")" = 0 ] || fail "an unreadable completion gate stopped the worker"
+  done
+  rm "$STUBS/tasks-axi"
+  pass "all done timestamps and real completion-gate dependency/read failures propagate unknown to audit"
+}
+
+extra_internal_exit_stays_inert_when_switched_off() {
+  local dir out rc
+  dir=$(new_case internal-off off)
+  finished_ship "$dir" s1
+  out=$(run_lr "$dir" 2900 exit-worker s1 s1000.1.1); rc=$?
+  expect_code 0 "$rc" "an off home's detached exit stays inert"$'\n'"$out"
+  [ -z "$out" ] && [ ! -e "$dir/home/state/s1.release.log" ] || fail "the off home emitted release output"
+  [ "$(control_calls "$dir")" = 0 ] || fail "the off home stopped a worker"
+  out=$(run_lr "$dir" 2900 audit 2>&1); rc=$?
+  expect_code 2 "$rc" "the bare audit alias is not an interface"$'\n'"$out"
+  pass "off homes stay inert and only --audit is accepted"
+}
+
+extra_herdr_release_preserves_foreign_composer_text() {
+  local dir release_identity mode out rc
+  dir=$(new_case herdr-composer-release)
+  cat > "$dir/herdr" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_GUARD_LOG"
+case "$1:$2" in
+  pane:send-text) printf '%s' "$4" > "$FM_DRAFT" ;;
+  pane:send-keys)
+    case "$4" in enter) : > "$FM_DRAFT" ;; *) echo 'unexpected cleanup key' >&2; exit 1 ;; esac
+    ;;
+esac
+SH
+  chmod +x "$dir/herdr"
+  for release_identity in claude pi; do
+    for mode in success initial pretype append unreadable; do
+      : > "$dir/t/transport"
+      : > "$dir/t/draft"
+      printf '0\n' > "$dir/t/reads"
+      [ "$mode" != initial ] || printf 'owner draft' > "$dir/t/draft"
+      out=$(
+        export PATH="$dir:$PATH" FM_HOME="$dir/home" FM_CONTROL_LANE_RELEASE=1
+        export FM_GUARD_LOG="$dir/t/transport" FM_DRAFT="$dir/t/draft"
+        . "$ROOT/bin/fm-backend.sh"
+        fm_backend_source herdr || exit 1
+        fm_backend_herdr_target_ready() { fm_backend_herdr_parse_target "$1"; }
+        fm_backend_herdr_agent_identity_raw() { printf '%s\n' "$release_identity"; }
+        fm_backend_herdr_agent_status_raw() { echo idle; }
+        fm_backend_herdr_wait_for_working() { echo idle; }
+        fm_backend_herdr_composer_content() {
+          [ "$mode" != unreadable ] || [ ! -s "$FM_DRAFT" ] || return 1
+          cat "$FM_DRAFT"
+        }
+        fm_backend_herdr_composer_state() { fm_backend_composer_state; }
+        fm_backend_composer_state() {
+          local count
+          count=$(cat "$dir/t/reads")
+          count=$((count + 1)); printf '%s\n' "$count" > "$dir/t/reads"
+          if [ "$mode" = pretype ] && [ "$count" -eq 2 ]; then printf 'owner draft' > "$FM_DRAFT"; fi
+          if [ -s "$FM_DRAFT" ]; then echo pending; else echo empty; fi
+        }
+        sleep() {
+          if [ -s "$FM_DRAFT" ] && [ "$mode" = append ]; then printf '/quit owner note' > "$FM_DRAFT"; fi
+        }
+        fm_backend_send_text_submit herdr test:p1 /quit 2 0.01 0.01
+      ); rc=$?
+      if [ "$mode" = success ]; then
+        expect_code 0 "$rc" "an unchanged $release_identity composer permits release"$'\n'"$out"
+        [ "$out" = empty ] || fail "the ordinary exit submission was not confirmed: $out"
+        [ ! -s "$dir/t/draft" ] || fail "the ordinary exit draft was not submitted"
+        grep -q 'send-keys p1 enter' "$dir/t/transport" || fail "the ordinary release sent no Enter"
+      else
+        expect_code 75 "$rc" "$release_identity $mode text must defer release"$'\n'"$out"
+        case "$mode" in
+          initial|pretype)
+            [ ! -s "$dir/t/transport" ] || fail "foreign text received literal input"
+            [ "$(cat "$dir/t/draft")" = 'owner draft' ] || fail "foreign text was erased"
+            ;;
+          append) [ "$(cat "$dir/t/draft")" = '/quit owner note' ] || fail "the owner's exit-draft addition was erased" ;;
+          unreadable) [ "$(cat "$dir/t/draft")" = /quit ] || fail "the unreadable exit draft was cleared" ;;
+        esac
+        grep -q 'send-keys' "$dir/t/transport" && fail "changed or unreadable text received Enter or cleanup"
+      fi
+    done
+  done
+  pass "Claude and other Herdr releases preserve foreign, changed and unreadable composer text"
+}
+
+if [ -n "${FM_TEST_ONLY:-}" ]; then
+  "$FM_TEST_ONLY"
+  exit $?
+fi
 
 edge_trigger_is_a_confirmed_done_never_an_exited_or_quiet_pane
 edge_stopped_but_not_done_never_frees
@@ -1212,3 +1379,9 @@ extra_open_pr_audit_requires_readable_positive_evidence
 extra_marker_verification_rotates_with_candidates
 
 extra_herdr_checks_release_guard_at_each_transport
+
+extra_no_turn_slack_and_fixed_grace
+extra_audit_requires_readable_completion_evidence
+extra_internal_exit_stays_inert_when_switched_off
+
+extra_herdr_release_preserves_foreign_composer_text

@@ -1758,7 +1758,9 @@ wedge_dead_record() {  # <window> <since-file> <triage-label> <idle-age> <pane-h
   fi
   reason="stale: $win (idle ${age}s, agent $agent_state - $detail, so this is not a wedge; reported once and not re-escalated while it stays that way - reconcile this record, and check for unlanded work before any cleanup)"
   if [ -n "$task" ] && fm_lane_release_marker_active "$STATE" "$task"; then
-    reason="stale: $win (idle ${age}s, agent $agent_state - $(fm_lane_release_phrase); reported once and not re-escalated while it stays that way - accept or relaunch it when needed)"
+    triage_log "absorbed $label (idle ${age}s, agent $agent_state - $(fm_lane_release_phrase)): $win"
+    clear_write_tracking "$key"
+    return 0
   fi
   # Append before the marker, for the reason stale_wait_record gives: a marker
   # written ahead of a failed append outlives it, and the next sighting would then

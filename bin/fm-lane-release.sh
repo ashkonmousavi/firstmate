@@ -34,7 +34,7 @@
 #                released on the merge anchor alone.
 #   scout        a scout whose data/<id>/report.md exists, whose completion gate
 #                passes (`bin/fm-captain-hold.sh verify <id>` exits 0; it exits 1
-#                on any failed check and needs compatible tasks-axi), that is not
+#                on a failed gate and 2 on unreadable evidence), that is not
 #                held for the captain (`fm-captain-hold.sh open <id>` exit 0 means
 #                held: a decision, promotion included, is still pending), that
 #                hosts no task-owned Lavish board (no state/procevent/*.source
@@ -64,9 +64,7 @@
 #                 or not, newer than it and none unhandled; the incarnation
 #                 launched before it; the busy record (bin/fm-busy-lib.sh) is
 #                 idle, was not written by fm-interrupt, and is no newer than the
-#                 anchor plus FM_LANE_RELEASE_TURN_SLACK (default 120 s, the
-#                 turn that wrote the done line ending a little after it); the
-#                 live busy verdict is idle; the composer reads `empty`. A source
+#                 anchor; the live busy verdict is idle; the composer reads `empty`. A source
 #                 that cannot be read is "cannot prove" and keeps the seat.
 #                 A busy record's seq that moves between two sweeps restarts the
 #                 debounce, so a whole turn between sweeps is never missed.
@@ -75,9 +73,8 @@
 #                 `stuck-composer`, reported, and never released.
 #   debounce      a task becomes a candidate on one sweep and is released on a
 #                 later sweep only when it is still finished with the same
-#                 incarnation, anchor, and busy seq, at least
-#                 FM_LANE_RELEASE_GRACE (default 300 s) after both the first
-#                 sighting and the anchor.
+#                 incarnation, anchor, and busy seq, at least 300 s after both
+#                 the first sighting and the anchor.
 #
 # STATE MACHINE AND MARKER. LIVE -> FINISHED -> RELEASING -> RELEASED or
 # RELEASE_INCOMPLETE. bin/fm-lane-release-lib.sh owns the marker format, the
@@ -107,13 +104,13 @@
 # (it only execs `sweep`) and binds it with bin/fm-check-register.sh, so the
 # watcher runs it every FM_CHECK_INTERVAL (300 s) within its 30 s check bound.
 # A sweep holds state/.lane-release.lock (try-acquire; contention exits quietly),
-# visits in-flight tasks from a durable cursor within FM_LANE_RELEASE_BUDGET
-# (default 20 s; every external read inside it is bounded by
-# the time left, at most 10 s, and a read that times out keeps the seat), and
-# starts at most FM_LANE_RELEASE_MAX (default 2) releases.
+# visits in-flight tasks from a durable cursor within 20 s; every external
+# read inside it is bounded by
+# the time left, at most 10 s, and a read that times out keeps the seat.
+# A sweep starts at most 2 releases.
 # It runs in every posture: neither away nor quiet mode skips it, and the
 # watcher's check sweep has no away gate. Stdout is the wake: a sweep prints
-# only RELEASE_INCOMPLETE lines and the invalid-setting line.
+# only the permitted RELEASE_INCOMPLETE lines and single invalid-setting report.
 #
 # LEDGER. data/lane-release.ledger, append-only, one tab-separated row per
 # RELEASED, RELEASE_INCOMPLETE, or (audit setting) WOULD_RELEASE event:
@@ -127,7 +124,7 @@
 # seat-hours (open-PR ships with a live agent, a done line, no unread steer and
 # no open conflict episode, each capped at 7 days; red checks and review
 # findings are forge facts this local read does not see). Exit 0 when no holder
-# is older than FM_LANE_RELEASE_AUDIT_MAX_AGE (default 1800 s), 1 when one is,
+# is older than 1800 s, 1 when one is,
 # 2 when a needed read failed (unknown is never counted as free).
 #
 # Test hooks: FM_LANE_RELEASE_CREW_STATE, FM_LANE_RELEASE_CONTROL,
@@ -178,11 +175,10 @@ esac
 CREW_STATE_BIN=${FM_LANE_RELEASE_CREW_STATE:-$SCRIPT_DIR/fm-crew-state.sh}
 CONTROL_BIN=${FM_LANE_RELEASE_CONTROL:-$SCRIPT_DIR/fm-control.sh}
 HOLD_BIN=${FM_LANE_RELEASE_CAPTAIN_HOLD:-$SCRIPT_DIR/fm-captain-hold.sh}
-GRACE=${FM_LANE_RELEASE_GRACE:-300}
-TURN_SLACK=${FM_LANE_RELEASE_TURN_SLACK:-120}
-BUDGET=${FM_LANE_RELEASE_BUDGET:-20}
-MAX_RELEASES=${FM_LANE_RELEASE_MAX:-2}
-AUDIT_MAX_AGE=${FM_LANE_RELEASE_AUDIT_MAX_AGE:-1800}
+GRACE=300
+BUDGET=20
+MAX_RELEASES=2
+AUDIT_MAX_AGE=1800
 EXIT_BOUND=60
 CHECK_ID=lane-release
 CHECK_SHIM="$STATE/$CHECK_ID.check.sh"
@@ -476,7 +472,7 @@ pred_nothing_since() {
   [ "$b_source" != fm-interrupt ] || { KEEP='interrupted'; return 1; }
   ts=$(sed -n 's/.* ts=\([0-9][0-9]*\).*/\1/p' "$busy_rec" 2>/dev/null | head -n 1)
   [ -n "$ts" ] || { KEEP='busy-record-unreadable'; return 1; }
-  [ "$ts" -le $((anchor + TURN_SLACK)) ] || { KEEP='turn-since'; return 1; }
+  [ "$ts" -le "$anchor" ] || { KEEP='turn-since'; return 1; }
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || { KEEP='no-endpoint'; return 1; }
   case "$(read_agent "$meta" "$id")" in
@@ -621,6 +617,7 @@ start_release() {  # <id> <class> <gen> <anchor>
 
 action_exit_worker() {  # <id> <gen>
   local id=$1 gen=$2 log rc=0
+  [ "$(setting)" = on ] || return 0
   log="$STATE/$id.release.log"
   fm_run_timed "$EXIT_BOUND" env FM_HOME="$FM_HOME" FM_CONTROL_LANE_RELEASE=1 \
     "$CONTROL_BIN" "$id" exit --if-idle --expect-spawn-gen "$gen" > "$log.tmp" 2>&1 || rc=$?
@@ -630,6 +627,7 @@ action_exit_worker() {  # <id> <gen>
 
 action_validate_exit() {
   local id=$1 gen=$2 marker expected
+  [ "$(setting)" = on ] || return 75
   fm_lane_release_marker_active "$STATE" "$id" || return 75
   [ "$FM_LANE_RELEASE_RESULT" = releasing ] || return 75
   marker=$(fm_lane_release_marker_path "$STATE" "$id")
@@ -829,9 +827,18 @@ action_audit() {
             stuck=$((stuck + 1))
             printf 'stuck-composer %s (its own steering doorbell sits unsubmitted; never released)\n' "$id"
             ;;
-          crew-state-unreadable|endpoint-unreadable|status-unreadable|busy-record-unreadable|busy-unreadable|composer-unknown|inbox-unreadable|hold-unreadable|merge-record-unreadable)
+          crew-state-unreadable|endpoint-unreadable|status-unreadable|done-unstamped|busy-record-unreadable|busy-unreadable|composer-unknown|inbox-unreadable|hold-unreadable|merge-record-unreadable)
             unknown=1
             printf 'unknown %s (%s; unknown is never counted as free)\n' "$id" "$KEEP"
+            ;;
+          local-only-unproven)
+            rc=0
+            seat_held "$meta" "$id" || rc=$?
+            case "$rc" in
+              0) printf 'kept-local-only %s (excluded from automatic lane release)\n' "$id" ;;
+              1) ;;
+              *) unknown=1; printf 'unknown %s (local-only seat unreadable; unknown is never counted as free)\n' "$id" ;;
+            esac
             ;;
           kept-open-pr)
             status="$STATE/$id.status"
@@ -927,7 +934,7 @@ case "${1:-}" in
     ;;
   validate-exit) action_validate_exit "$2" "$3" ;;
   sweep) action_sweep ;;
-  --audit|audit) action_audit ;;
+  --audit) action_audit ;;
   arm) action_arm ;;
   disarm) action_disarm ;;
   exit-worker)

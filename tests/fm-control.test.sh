@@ -137,8 +137,9 @@ case "${1:-}" in
     payload=${1:-}
     if [ "$literal" = 1 ]; then
       printf '%s\n' "$payload" >> "$D/literal"
+      if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then printf '%s' "$payload" > "$D/draft"; fi
       if [ -z "${FM_FAKE_NEVER_DIES:-}" ] \
-         && [ "${FM_RELEASE_TEST_RACE:-}" != settle ] \
+         && [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] \
          && { [ "$payload" = /exit ] || [ "$payload" = /quit ]; }; then
         printf 'zsh' > "$D/command"
       fi
@@ -147,6 +148,15 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
+      if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] && [ "$payload" = Enter ]; then
+        if [ "${FM_RELEASE_TEST_RACE:-}" = composer-retry ] && [ ! -e "$D/first-enter" ]; then
+          : > "$D/first-enter"
+          printf '/exit owner note' > "$D/draft"
+        else
+          printf zsh > "$D/command"
+          rm -f "$D/draft"
+        fi
+      fi
       printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
       if [ "$payload" = Escape ] && [ -f "$D/devin" ]; then
         case "$(cat "$D/devin")" in
@@ -186,6 +196,10 @@ case "${1:-}" in
     done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    if [ "${FM_RELEASE_TEST_RACE:-}" = composer-preflight ] && [ -e "$FM_HOME/probe-composer-read" ]; then
+      rm "$FM_HOME/probe-composer-read"
+      printf 'owner draft' > "$D/draft"
+    fi
     if [ "${FM_RELEASE_TEST_RACE:-}" = preflight ] && [ -e "$FM_HOME/probe-composer-read" ]; then
       rm "$FM_HOME/probe-composer-read"
       "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
@@ -203,6 +217,10 @@ case "${1:-}" in
         exit 0
       fi
     fi
+    if [ -f "$D/draft" ]; then
+      printf '╭────╮\n│ %s │\n╰────╯\n' "$(cat "$D/draft")"
+      exit 0
+    fi
     if [ -f "$D/devin" ]; then devin_screen "$(cat "$D/devin")"; elif [ -f "$D/pane" ]; then cat "$D/pane"; else printf '╭────╮\n│    │\n╰────╯\n'; fi
     exit 0 ;;
   list-windows)
@@ -215,6 +233,9 @@ SH
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 if [ -f "$FM_FAKE_DIR/devin" ]; then exec /bin/sleep "$@"; fi
+if [ "${FM_RELEASE_TEST_RACE:-}" = composer-settle ] && [ "$1" = 1.2 ]; then
+  printf '/exit owner note' > "$FM_FAKE_DIR/draft"
+fi
 if [ "${FM_RELEASE_TEST_RACE:-}" = settle ] && [ "$1" = 1.2 ]; then
   "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
   "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
@@ -1257,6 +1278,8 @@ test_if_idle_exit_stops_an_idle_agent() {
   expect_code 0 "$rc" "an idle agent of the expected incarnation should exit"$'\n'"$out"
   [ -z "$(keys_sent "$dir")" ] || fail "an idle agent needs no interrupt"
   [ "$(literals "$dir")" = "/exit" ] || fail "an idle agent should receive exactly its exit command"
+  out=$(run_control "$dir" t1 exit --if-idle --expect-spawn-gen=s1.1.1); rc=$?
+  expect_code 1 "$rc" "the equals form is not an accepted control argument"$'\n'"$out"
   pass "fm-control exit --if-idle: an idle agent of the expected incarnation exits; a replaced one defers"
 }
 
@@ -1617,8 +1640,9 @@ EOF
 
 test_lane_release_revalidates_under_the_inbox_lock() {
   local dir change out rc at gen seq kind class
-  for change in none unread status decision report gate hold board promotion sequence lock live-busy live-composer preflight settle no-record ship-none ship-unread ship-status ship-merge ship-sequence; do
+  for change in none unread status decision report gate hold board promotion sequence lock live-busy live-composer preflight settle composer-preflight composer-settle composer-retry off no-record ship-none ship-unread ship-status ship-merge ship-sequence; do
     dir=$(new_case "release-final-$change")
+    printf 'on\n' > "$dir/home/config/lane-release"
     kind=scout
     class=scout
     case "$change" in ship-*) kind=ship; class=merged-ship ;; esac
@@ -1662,7 +1686,7 @@ if [ "${FM_RELEASE_TEST_RACE:-}" = "live-$1" ]; then
   "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
   "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
 fi
-if [ "${FM_RELEASE_TEST_RACE:-}" = preflight ] && [ "$1" = composer ]; then : > "$FM_HOME/probe-composer-read"; fi
+case "${FM_RELEASE_TEST_RACE:-}:$1" in preflight:composer|composer-preflight:composer) : > "$FM_HOME/probe-composer-read" ;; esac
 case "$1" in agent) echo alive ;; busy) echo idle ;; composer) echo empty ;; doorbell) echo no ;; esac
 SH
     chmod +x "$dir/fakebin/release-crew" "$dir/fakebin/release-hold" "$dir/fakebin/release-probe"
@@ -1682,6 +1706,7 @@ SH
       promotion) : > "$dir/home/data/t1/ship-instructions.md" ;;
       sequence|ship-sequence) printf 'v1 gen=%s seq=8 state=idle source=claude-hook event=stop ts=%s\n' "$gen" "$at" > "$dir/home/state/t1.busy-state" ;;
       ship-merge) rm "$dir/home/state/t1.pr-poll-merge-notified" ;;
+      off) printf 'off\n' > "$dir/home/config/lane-release" ;;
       no-record) rm "$dir/home/state/t1.busy-state" "$dir/home/state/t1.busy-gen" ;;
       lock) mkdir "$dir/home/state/.meta-t1.lock"; printf '%s\n' "$$" > "$dir/home/state/.meta-t1.lock/pid" ;;
     esac
@@ -1695,13 +1720,21 @@ SH
       [ ! -e "$dir/home/state/t1.busy-gen" ] || fail "the ordinary release did not retire the busy generation"
     else
       expect_code 75 "$rc" "$change must defer final release"$'\n'"$out"
-      if [ "$change" = settle ]; then
+      if [ "$change" = settle ] || [ "$change" = composer-settle ] || [ "$change" = composer-retry ]; then
         [ "$(literals "$dir")" = /exit ] || fail "the settle case did not reach the draft stage"
-        [ ! -s "$dir/fake/keys" ] || fail "a turn during settle still received Enter"
+        if [ "$change" = composer-retry ]; then
+          [ "$(cat "$dir/fake/keys")" = Enter ] || fail "a changed draft received another Enter"
+        else
+          [ ! -s "$dir/fake/keys" ] || fail "a changed composer or turn still received Enter"
+        fi
       else
         [ -z "$(literals "$dir")" ] || fail "$change still received exit"
       fi
     fi
+    case "$change" in
+      composer-preflight) [ "$(cat "$dir/fake/draft")" = 'owner draft' ] || fail "the owner draft changed" ;;
+      composer-settle|composer-retry) [ "$(cat "$dir/fake/draft")" = '/exit owner note' ] || fail "the changed exit draft was erased" ;;
+    esac
     if [ "$change" != lock ]; then
       [ ! -e "$dir/home/state/.meta-t1.lock" ] || fail "final validation leaked the metadata lock"
     fi

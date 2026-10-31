@@ -4234,7 +4234,7 @@ test_wedge_guard_never_defers_a_gone_endpoint() {
 }
 
 # A worker its lane release stopped on purpose (an active marker,
-# bin/fm-lane-release-lib.sh) is reported once as released, never as a dead
+# bin/fm-lane-release-lib.sh) is absorbed as released, never as a dead
 # worker to recover.
 test_gone_endpoint_of_a_released_worker_reads_released() {
   local dir state fakebin out capture window
@@ -4246,15 +4246,24 @@ test_gone_endpoint_of_a_released_worker_reads_released() {
   printf 'fm-lane-release-v1\ntask=wedge\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=merged-ship\nresult=released\n' \
     > "$state/wedge.released"
   gone_endpoint_env dead; export FM_TEST_PANE_COMMAND FM_TEST_TMUX_WINDOWS
-  wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$done_line" exit \
-    || fail "the released worker's stopped endpoint was never reported: $(cat "$out")"
-  ack_stopped_cycle "$state" || fail "could not acknowledge the released report"
+  wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$done_line" absorb \
+    || fail "the released worker caused a stale wake: $(cat "$out")"
+  [ ! -s "$state/.wake-queue" ] || fail "the released worker queued a stale wake: $(cat "$state/.wake-queue")"
+  grep -F 'released by lane release (merged-ship, released)' "$state/.watch-triage.log" >/dev/null \
+    || fail "a released worker was not logged as released: $(cat "$state/.watch-triage.log")"
+  (
+    . "$ROOT/bin/fm-task-inbox-lib.sh"
+    fm_task_inbox_write "$state" wedge "please continue"
+  ) >/dev/null || fail "could not publish the released worker's continuation"
+  FM_TASK_INBOX_GRACE_SECS=1 wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$done_line" exit \
+    || fail "a new instruction for the released worker was absorbed: $(cat "$out")"
+  grep -F 'unread firstmate instruction:' "$state/.wake-queue" >/dev/null \
+    || fail "the new instruction did not queue an actionable wake"
+  grep -F 'relaunch it into its kept copy' "$state/.wake-queue" >/dev/null \
+    || fail "the instruction wake did not name the released worker's continuation path"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the new instruction wake"
   unset FM_TEST_PANE_COMMAND FM_TEST_TMUX_WINDOWS
-  grep -F 'released by lane release (merged-ship, released)' "$out" >/dev/null \
-    || fail "a released worker was not reported as released: $(cat "$out")"
-  grep -F 'check for unlanded work before any cleanup' "$out" >/dev/null \
-    && fail "a released worker was reported as a dead worker to recover: $(cat "$out")"
-  pass "a released worker's stopped endpoint is reported once as released, not as dead"
+  pass "a released endpoint absorbs stale wakes and escalates new unread steers"
 }
 
 # Reporting once must not mean reporting once forever: a replacement launched into

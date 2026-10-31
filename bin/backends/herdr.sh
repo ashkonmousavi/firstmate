@@ -401,7 +401,7 @@ fm_backend_herdr_cli() {  # <session> <herdr-subcommand-and-args...>
   fi
   case "${1:-}:${2:-}" in
     pane:send-text|pane:send-keys)
-      if declare -F fm_control_lane_release_guard >/dev/null; then fm_control_lane_release_guard || return 75; fi
+      if declare -F fm_backend_lane_release_guard >/dev/null; then fm_backend_lane_release_guard herdr "$session:${3:-}" "$2" "${4:-}" || return 75; fi
       ;;
   esac
   failed_bin=$client_bin
@@ -414,7 +414,7 @@ fm_backend_herdr_cli() {  # <session> <herdr-subcommand-and-args...>
         if [ "$selected_bin" != "$failed_bin" ]; then
           case "${1:-}:${2:-}" in
             pane:send-text|pane:send-keys)
-              if declare -F fm_control_lane_release_guard >/dev/null; then fm_control_lane_release_guard || return 75; fi
+              if declare -F fm_backend_lane_release_guard >/dev/null; then fm_backend_lane_release_guard herdr "$session:${3:-}" "$2" "${4:-}" || return 75; fi
               ;;
           esac
           HERDR_SESSION="$session" "$selected_bin" "$@" --session "$session"
@@ -3554,6 +3554,7 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
   if [ "$proof" = 1 ]; then
     if ! content=$(fm_backend_herdr_composer_content "$target") \
       || ! fm_backend_herdr_composer_payload_shown "$text" "$content"; then
+      [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] || return 75
       if fm_backend_herdr_composer_clear "$target" "$text"; then
         fm_backend_herdr_note_reason payload-not-shown
         printf 'send-failed'

@@ -305,7 +305,6 @@ for control_arg in "$@"; do
     --if-recoverable) RECOVER_ONLY=1 ;;
     --if-idle) IF_IDLE=1 ;;
     --expect-spawn-gen) control_want_value=expect_gen ;;
-    --expect-spawn-gen=*) EXPECT_GEN=${control_arg#--expect-spawn-gen=}; EXPECT_GEN_SET=1 ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
