@@ -26,7 +26,7 @@
 #       nonzero rather than skipping the repository's hook. Does not touch the
 #       project's git config; the caller prefixes the pane with env-file below.
 #       --no-strip writes a commit-msg wrapper that only chains, for a home that
-#       keeps trailers but still needs the directory for the push guard.
+#       keeps trailers but still needs the directory for pre-push checks.
 #       --push-guard copies <guard-file> into <hooks-dir> read-only and makes
 #       the pre-push wrapper run bin/fm-git-push-guard.sh on it first, with
 #       git's arguments and ref lines, chaining to the repository's pre-push

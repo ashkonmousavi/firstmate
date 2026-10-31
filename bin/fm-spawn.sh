@@ -5791,17 +5791,17 @@ EOF
   esac
 
 # Per-task git hooksPath that strips AI commit trailers at the commit object.
-# Installed for every kind, including secondmate, unless the home opts in to
-# keeping trailers. Cursor and other non-Claude runtimes inject the trailer
+# Installed for every kind, including secondmate, when stripping is enabled.
+# Cursor and other non-Claude runtimes inject the trailer
 # after the typed message, so the typed message is not the object. When
 # installed, the pane receives this directory via GIT_CONFIG_* below, which
 # overrides a project's husky core.hooksPath without rewriting it; the installer
 # chains the previous hooks so they still run. Real secondmate
 # homes are firstmate clones; a launch whose worktree is not git fails closed
 # rather than shipping a runtime that cannot strip.
-# A forge=external ship always gets this directory, because its pre-push
-# wrapper carries the guard that keeps task branches off the shared origin; a
-# home that keeps trailers gets a commit-msg wrapper that only chains.
+# Every ship gets this directory for the shared pre-push checks, even when
+# keeping trailers; the commit-msg wrapper then only chains. The installer
+# owns check chaining, including the additional forge=external push guard.
 GIT_HOOKS_DIR="$STATE_REAL/$ID.git-hooks"
 GIT_HOOKS_INSTALLED=0
 if [ "$EXTERNAL_REVIEW" = 1 ]; then
@@ -6239,9 +6239,9 @@ esac
 LAUNCH_DIR="/tmp/fm-$ID+$LAUNCH_HOME_TOKEN"
 # Pane-scoped override: git in this worker reads our commit-msg strip without
 # rewriting the project's core.hooksPath. GIT_CONFIG_* takes precedence over
-# config files and is inherited by child git processes. When the home opts in
-# to keeping trailers, leave core.hooksPath alone so the repository's hooks run
-# directly. An export statement inside the pane command carries the override
+# config files and is inherited by child git processes. Without an installed
+# per-task hooks directory, the repository's hooks run directly. An export
+# statement inside the pane command carries the override
 # across every step of a compound raw launch while firstmate's own git is unchanged.
 # The helper appends after the GIT_CONFIG_COUNT entries the worker actually
 # inherits (after any launch environment filtering), so credential.helper and
