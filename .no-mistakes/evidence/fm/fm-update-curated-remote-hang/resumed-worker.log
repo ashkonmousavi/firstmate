@@ -1,0 +1,8 @@
+worker 2342821: readiness stale during stopped serving loop
+worker 2342821: readiness resumed; ensure reused the same owner
+remote-job-worker: serving loop made no progress for 2s; withholding readiness
+Terminated
+Terminated
+Terminated
+remote-job-worker: serving loop made no progress for 2s; withholding readiness
+remote-job-worker: serving loop progressed again; readiness resumed

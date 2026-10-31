@@ -1,0 +1,17 @@
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/before-primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/before-primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+firstmate: skipped: on curated, expected main
+secondmate before-home: updated 131318e..7499d8a
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+BASELINE REPRODUCED: curated primary skipped at 131318eebf33ec40ecd781fe98a4879e29b39741; detached home moved to main 7499d8a20e4c16d653fa825c3de812353524e59c
+BASELINE REPRODUCED: stopped serving PID 2571385 still probes ready after 15s; ensure reuses it; job job-yLkNt8 remains queued
+~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/before-code/bin/fm-remote-job-lib.sh: line 1077: 2571206 Killed                  nohup env HOME="$account_home" FM_ROOT_OVERRIDE="$root" FM_REMOTE_JOB_STATE_ROOT="$FM_REMOTE_JOB_STATE" FM_REMOTE_JOB_PLATFORM_OVERRIDE="${FM_REMOTE_JOB_PLATFORM_OVERRIDE:-}" "$worker" >> "$FM_REMOTE_JOB_STATE/logs/$FM_REMOTE_JOB_LABEL.log" 2>&1 < /dev/null

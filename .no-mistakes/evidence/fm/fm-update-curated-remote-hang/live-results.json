@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Curated fleet updates primary, detached clones and remote root/home to one commit, preserving unsafe homes",
+    "result": "pass",
+    "detail": "curated=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41; origin/main=7499d8a20e4c16d653fa825c3de812353524e59c; dirty and unique divergence preserved"
+  },
+  {
+    "name": "Pinned remote control updates a separate persistent home from its configured root",
+    "result": "pass",
+    "detail": "root=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41; home=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41"
+  },
+  {
+    "name": "Published feature branch is skipped and its commit is never propagated",
+    "result": "pass",
+    "detail": "feature=e5a003d7c4cf20e24e3eff436857e8e7fd11ceb2; primary sync chose main=131318eebf33ec40ecd781fe98a4879e29b39741; existing detached divergent home preserved"
+  },
+  {
+    "name": "Unresolvable shared target aborts before mutating any home",
+    "result": "pass",
+    "detail": "{\"primary\": \"dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41\", \"local\": \"dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41\", \"remote\": \"dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41\", \"remote-home\": \"dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41\"}"
+  },
+  {
+    "name": "Legacy host rejects pinned arguments and receives no unpinned retry",
+    "result": "pass",
+    "detail": "legacy HEAD stayed b10a8f72a6d2fbb21a690a52b325cd2e9c7b9345; SSH request transcript records one update request"
+  },
+  {
+    "name": "Hung remote SSH update is named and bounded while the next host is still processed",
+    "result": "pass",
+    "detail": "elapsed=6.36s; budget=4s; following remote home current at dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41"
+  },
+  {
+    "name": "Live heartbeat cannot mask a wedged serving loop; replacement drains queued remote work",
+    "result": "pass",
+    "detail": "old PID=2046934; replacement PID=2159568; queued sync completed on dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41"
+  },
+  {
+    "name": "Healthy serving worker accepts concurrent jobs without replacement",
+    "result": "pass",
+    "detail": "both sync requests completed; PID remained 2159568"
+  }
+]

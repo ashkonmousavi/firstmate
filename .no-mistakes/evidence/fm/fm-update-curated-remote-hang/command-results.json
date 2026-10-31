@@ -1,0 +1,34 @@
+[
+  {
+    "command": "TMPDIR=\"$PWD/.live-validation/tmp\" bash tests/fm-update.test.sh",
+    "exit_status": 0
+  },
+  {
+    "command": "TMPDIR=\"$PWD/.live-validation/tmp\" bash tests/fm-secondmate-sync.test.sh",
+    "exit_status": 0
+  },
+  {
+    "command": "TMPDIR=\"$PWD/.live-validation/tmp\" bash tests/fm-remote-job.test.sh",
+    "exit_status": 0
+  },
+  {
+    "command": ".live-validation/venv/bin/python .live-validation/live.py",
+    "exit_status": 0
+  },
+  {
+    "command": "bash .live-validation/resume.sh",
+    "exit_status": 0
+  },
+  {
+    "command": ".live-validation/venv/bin/python .live-validation/supplement.py",
+    "exit_status": 0
+  },
+  {
+    "command": "bash .live-validation/baseline.sh",
+    "exit_status": 0
+  },
+  {
+    "command": ".live-validation/venv/bin/python .live-validation/mismatch.py",
+    "exit_status": 0
+  }
+]

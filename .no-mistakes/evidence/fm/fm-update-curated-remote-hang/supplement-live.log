@@ -1,0 +1,74 @@
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary rev-parse HEAD
+dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+exit=0
+SSH request fm-remote-secondmate-control.sh update remote-home curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/seed checkout -q curated
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/seed add .
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/seed commit -qm 'advance after parent resolution'
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/seed push -q origin curated
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+firstmate: already current
+remote secondmate remote-home: already current on lab (dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41)
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/seed rev-parse curated
+8d91ae1a3fa25df50f193ec2174bc931ec6b02bb
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary rev-parse HEAD
+dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/remote rev-parse HEAD
+dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/remote-home rev-parse HEAD
+dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+exit=0
+PASS origin moved to 8d91ae1a3fa25df50f193ec2174bc931ec6b02bb; primary, remote root and home stayed pinned to dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+SSH request fm-remote-secondmate-control.sh update remote-home curated 8d91ae1a3fa25df50f193ec2174bc931ec6b02bb
+SSH request fm-remote-secondmate-control.sh state remote-home
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/curated 8d91ae1a3fa25df50f193ec2174bc931ec6b02bb
+firstmate: updated dc2057f..8d91ae1
+no watches registered
+remote secondmate remote-home: updated on lab (8d91ae1a3fa25df50f193ec2174bc931ec6b02bb)
+remote secondmate remote-home: skipped on lab: state step timed out after 3s
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+exit=0
+PASS live SSH state request timed out in 5.40s; no restart/nudge selected
+$ bash -c '. "$1/bin/fm-remote-job-lib.sh"; fm_remote_job_stop_worker_tree "$(cat "$2/worker.pid")"' _ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/queue-supplement
+exit=0
+Server, request children and worker stopped.

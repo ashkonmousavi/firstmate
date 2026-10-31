@@ -1,0 +1,52 @@
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary rev-parse HEAD
+8d91ae1a3fa25df50f193ec2174bc931ec6b02bb
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/seed rev-list --max-parents=0 HEAD
+131318eebf33ec40ecd781fe98a4879e29b39741
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/seed rev-parse main
+7499d8a20e4c16d653fa825c3de812353524e59c
+exit=0
+$ git clone -q ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/origin.git ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/mismatch-root
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/mismatch-root checkout -q main
+exit=0
+$ git clone -q ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/origin.git ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/mismatch-home
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/mismatch-home checkout -q main
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/mismatch-root reset --hard 131318eebf33ec40ecd781fe98a4879e29b39741
+HEAD is now at 131318e lab product baseline
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/mismatch-home checkout -q --detach 131318eebf33ec40ecd781fe98a4879e29b39741
+exit=0
+SSH requested fm-remote-secondmate-control.sh update mismatch-home curated 8d91ae1a3fa25df50f193ec2174bc931ec6b02bb
+SSH fault-injected argv fm-remote-secondmate-control.sh update mismatch-home main 7499d8a20e4c16d653fa825c3de812353524e59c
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+update target: origin/curated 8d91ae1a3fa25df50f193ec2174bc931ec6b02bb
+firstmate: already current
+remote secondmate mismatch-home: skipped on lab: host reports 7499d8a20e4c16d653fa825c3de812353524e59c, not update target 8d91ae1a3fa25df50f193ec2174bc931ec6b02bb
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/mismatch-root rev-parse HEAD
+7499d8a20e4c16d653fa825c3de812353524e59c
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/mismatch-home rev-parse HEAD
+7499d8a20e4c16d653fa825c3de812353524e59c
+exit=0
+PASS independent remote request fault landed real root/home at main=7499d8a20e4c16d653fa825c3de812353524e59c; parent rejected the mismatching result against curated=8d91ae1a3fa25df50f193ec2174bc931ec6b02bb and selected no action
+$ bash -c '. "$1/bin/fm-remote-job-lib.sh"; fm_remote_job_stop_worker_tree "$(cat "$2/worker.pid")"' _ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/queue-mismatch
+exit=0
+Server, request children and worker stopped.

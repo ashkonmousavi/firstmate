@@ -1,0 +1,160 @@
+SSH request remote fm-remote-secondmate-control.sh update remote curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+firstmate: updated 131318e..dc2057f
+no watches registered
+secondmate local: updated 131318e..dc2057f
+secondmate clone: updated 131318e..dc2057f
+secondmate dirty: skipped: dirty working tree
+secondmate diverged: skipped: diverged from origin/curated; reconciliation required (record: ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/parent/state/.secondmate-update-reconcile/diverged.pending)
+remote secondmate remote: already current on lab (dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41)
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+exit=0
+primary HEAD=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+local HEAD=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+clone HEAD=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+remote HEAD=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+SCENARIO PASS: Curated fleet updates primary, detached clones and remote root/home to one commit, preserving unsafe homes
+curated=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41; origin/main=7499d8a20e4c16d653fa825c3de812353524e59c; dirty and unique divergence preserved
+SSH request remote fm-remote-secondmate-control.sh update remote-home curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+firstmate: already current
+remote secondmate remote-home: updated on lab (dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41)
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+exit=0
+SCENARIO PASS: Pinned remote control updates a separate persistent home from its configured root
+root=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41; home=dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'feature/wip', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'feature/wip' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'feature/wip' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/main 7499d8a20e4c16d653fa825c3de812353524e59c
+firstmate: skipped: on feature/wip, expected main
+secondmate clone: skipped: diverged from origin/main; reconciliation required (record: ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/parent/state/.secondmate-update-reconcile/clone.pending)
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+exit=0
+SCENARIO PASS: Published feature branch is skipped and its commit is never propagated
+feature=e5a003d7c4cf20e24e3eff436857e8e7fd11ceb2; primary sync chose main=131318eebf33ec40ecd781fe98a4879e29b39741; existing detached divergent home preserved
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: cannot resolve shared update target; no homes updated
+exit=1
+SCENARIO PASS: Unresolvable shared target aborts before mutating any home
+{"primary": "dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41", "local": "dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41", "remote": "dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41", "remote-home": "dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41"}
+SSH request legacy fm-remote-secondmate-control.sh update legacy curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+firstmate: already current
+remote secondmate legacy: skipped on lab: pinned update rejected; manual update required
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+exit=0
+SCENARIO PASS: Legacy host rejects pinned arguments and receives no unpinned retry
+legacy HEAD stayed b10a8f72a6d2fbb21a690a52b325cd2e9c7b9345; SSH request transcript records one update request
+SSH request blackhole fm-remote-secondmate-control.sh update local curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+SSH request remote fm-remote-secondmate-control.sh update remote-home curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/bin/fm-update.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH
+●  ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary is on 'curated', not its default branch 'main'.
+●  A crewmate likely branched/committed in the primary instead of its own worktree.
+●  The work is SAFE on the 'curated' ref.
+●  Restore the primary to 'main':
+●      git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/primary checkout main
+●  then re-validate 'curated' in a proper isolated worktree.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/curated dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+firstmate: already current
+remote secondmate local: skipped on lab: update step timed out after 4s
+remote secondmate remote-home: already current on lab (dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41)
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+exit=0
+SCENARIO PASS: Hung remote SSH update is named and bounded while the next host is still processed
+elapsed=6.36s; budget=4s; following remote home current at dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+$ bash -c set -eu
+. "$1/bin/fm-remote-job-lib.sh"
+fm_remote_job_stage "$2" "$3" "$4" fm-remote-secondmate-control.sh sync remote-home "$5" </dev/null >/dev/null
+printf 'queued job=%s state=%s\n' "$FM_REMOTE_JOB_ID" "$(fm_remote_job_read_state "$FM_REMOTE_JOB_JOBS/$FM_REMOTE_JOB_ID")"
+for ((i=0;i<250;i++)); do fm_remote_job_probe "$2" || break; sleep .1; done
+! fm_remote_job_probe "$2"
+printf 'stale readiness observed while old worker still alive\n'
+fm_remote_job_ensure_worker "$3" "$2" || { echo "$FM_REMOTE_JOB_ERROR"; exit 1; }
+fm_remote_job_wait "$2" "$FM_REMOTE_JOB_ID"
+cat "$FM_REMOTE_JOB_STDOUT" "$FM_REMOTE_JOB_STDERR"
+[ "$FM_REMOTE_JOB_EXIT" -eq 0 ]
+printf 'replacement worker=%s job result=%s\n' "$(cat "$FM_REMOTE_JOB_STATE/worker.pid")" "$FM_REMOTE_JOB_EXIT"
+fm_remote_job_reap "$2" "$FM_REMOTE_JOB_ID"
+ _ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/account-remote ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/remote ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/remote-home dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+queued job=job-X4HKM8 state=queued
+stale readiness observed while old worker still alive
+remote-job: replacing worker 2046934: verified lock owner is alive but not ready
+current: dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+replacement worker=2159568 job result=0
+exit=0
+remote-job-worker: serving loop made no progress for 2s; withholding readiness
+Terminated
+
+SCENARIO PASS: Live heartbeat cannot mask a wedged serving loop; replacement drains queued remote work
+old PID=2046934; replacement PID=2159568; queued sync completed on dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+current: dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+
+current: dc2057f51af36c5bd75a4b6ab2c1b39d8a3ace41
+
+SCENARIO PASS: Healthy serving worker accepts concurrent jobs without replacement
+both sync requests completed; PID remained 2159568
+$ bash -c . "$1/bin/fm-remote-job-lib.sh"; fm_remote_job_stop_worker_tree "$(cat "$2/worker.pid")" _ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/queue-remote
+exit=0
+$ bash -c . "$1/bin/fm-remote-job-lib.sh"; fm_remote_job_stop_worker_tree "$(cat "$2/worker.pid")" _ ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V ~/.no-mistakes/worktrees/049a88734b0e/01M69RB4TAK0F6YXBXEYRM564V/.live-validation/world/queue-legacy
+exit=0
+Disposable SSH server, request children and worker trees stopped.
