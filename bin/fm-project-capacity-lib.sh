@@ -180,6 +180,8 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
 # Use teardown's bounded cwd scan, never a recursive file-tree walk.
 # A live agent, unknown liveness, a missing or unreadable worktree, or missing,
 # unreadable or malformed process evidence keeps the seat.
+# FM_TASK_RECORD_SEAT_KNOWN distinguishes proven occupancy or vacancy (1)
+# from a conservative hold caused by unreadable or uncertain evidence (0).
 fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
   local meta=$1 raw=$2 dir=$3 backend target worktree processes line pid path
   local holds name args argv0

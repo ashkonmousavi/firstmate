@@ -9,15 +9,18 @@
 #   fm-lane-release.sh exit-worker <id> <spawn_gen>
 #                                       internal: the detached exit a sweep starts
 #
-# Setting: config/lane-release, one word, per home and never inherited
+# Setting: config/lane-release, exactly one line containing off, audit, or on
+# with no surrounding whitespace, per home and never inherited
 # (it is deliberately absent from FM_INHERITABLE_CONFIG in
 # bin/fm-config-inherit-lib.sh):
 #   off    (also: file absent) `sweep` and the check do nothing and print nothing.
 #   audit  `sweep` evaluates every worker and appends a WOULD_RELEASE ledger row
-#          once per finished incarnation, but never stops a worker.
+#          once per unchanged candidate, but never stops a worker.
 #   on     `sweep` releases finished-and-landed workers.
-# Any other value: `sweep` releases nothing and prints one line the first time
-# that value is seen. `--audit` is an explicit read-only query and runs in any
+# Any other value, including an empty or blank file: `sweep` releases nothing
+# and reports the value once while unchanged, with newlines and carriage returns
+# escaped so the report occupies one line.
+# `--audit` is an explicit read-only query and runs in any
 # setting; its first line names the setting.
 #
 # WHAT IS RELEASED (the promise). Only two classes, and only while the agent is
@@ -38,7 +41,9 @@
 #                held for the captain (`fm-captain-hold.sh open <id>` exit 0 means
 #                held: a decision, promotion included, is still pending), that
 #                hosts no task-owned Lavish board (no state/procevent/*.source
-#                with owner_task=<id>), and whose promotion has not begun
+#                with owner_task=<id>; an absent registry means no board,
+#                unreadable registry or source evidence keeps the seat and is
+#                unknown in audit), and whose promotion has not begun
 #                (no data/<id>/ship-instructions.md).
 # Everything else keeps its seat: an open-PR ship (reported by --audit as
 # kept-open-pr), a local-only ship (bin/fm-merge-local.sh writes no per-task
@@ -100,7 +105,8 @@
 # seat is verified like a success; 2 usage. The next sweep reads the log and
 # verifies the seat with fm_task_record_holds_seat (bin/fm-project-capacity-lib.sh,
 # the shared seat rule): free -> RELEASED; still held after two verification
-# sweeps -> RELEASE_INCOMPLETE, one printed wake line, and the task stays
+# sweeps, or seat evidence still unknown after two verification sweeps ->
+# RELEASE_INCOMPLETE, one printed wake line, and the task stays
 # counted. A second sweep or second process on the same task is a no-op: the
 # sweep lock, the control lock, and the marker.
 #
@@ -571,7 +577,7 @@ evaluate() {
 
 # --- release ----------------------------------------------------------------
 
-marker_write() {  # <id> <gen> <released_at> <anchor> <class> <result>
+marker_write() {  # <id> <gen> <released_at> <anchor> <class> <result> <busy-gen:seq>
   local marker tmp
   marker=$(fm_lane_release_marker_path "$STATE" "$1")
   tmp=$(mktemp "$STATE/.lane-release-marker.XXXXXX") || return 1
@@ -594,7 +600,7 @@ marker_remove() {  # <id>
   rm -f -- "$(fm_lane_release_marker_path "$STATE" "$1")" "$STATE/$1.release.log" "$STATE/$1.release-verify"
 }
 
-start_release() {  # <id> <class> <gen> <anchor>
+start_release() {  # <id> <class> <gen> <anchor> <busy-gen:seq>
   local id=$1 class=$2 gen=$3 anchor=$4 seq=$5 lock
   lock="$STATE/.control-$id.lock"
   if ! fm_lock_try_acquire "$lock"; then

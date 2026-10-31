@@ -665,18 +665,19 @@ See [Machine capacity](#machine-capacity-configlane-capacity) for machine admiss
 
 The optional local, gitignored `config/lane-release` holds one word that decides whether this home frees the seat of a worker whose job is finished and landed: `off` (the default, also when the file is absent), `audit`, or `on`.
 Only two classes are ever released: a ship whose pull request has merged, and a scout whose report exists and whose completion gate has passed with no captain hold, Lavish board, or promotion pending.
-A release stops the agent through `bin/fm-control.sh <id> exit --if-idle`, which never interrupts a turn, and keeps the local copy, so `bin/fm-control.sh <id> relaunch` continues the same task there.
+A release stops the agent through the [unattended control-plane exit](agent-control.md#verbs) and keeps the local copy; a continuation uses the [relaunch transaction](agent-control.md#transactional-relaunch) with its required progress note.
 Every other worker keeps its seat, including a ship with an open pull request and any worker that is not proven idle with nothing new since it finished.
 Local-only ships are explicitly excluded from automatic lane release, retain their seats, and appear as `kept-local-only` holders in `--audit`.
 
-With the word absent or `off`, the sweep does nothing and prints nothing.
+With the file absent or set to `off`, the sweep does nothing and prints nothing.
+Empty, blank, padded, or split-line values are invalid; the [script header](../bin/fm-lane-release.sh) owns parsing and the single-line invalid-setting report.
 `audit` records what would be released in `data/lane-release.ledger` without stopping anything; `on` releases.
 The sweep permits wakes only for RELEASE_INCOMPLETE and the single report of an invalid setting; ordinary stale observations of an actively released worker are absorbed, while new unread steers still escalate.
 Arm the sweep once per home with `bin/fm-lane-release.sh arm`, which writes `state/lane-release.check.sh` and binds it with `bin/fm-check-register.sh`, so the watcher runs it on its ordinary check cadence in every posture; `bin/fm-lane-release.sh disarm` removes it.
 `bin/fm-lane-release.sh --audit` is a read-only report of seats held by finished work and open-PR seat-hours, and runs in any setting.
 
 The word is a per-home choice and is deliberately not inherited by secondmate homes, so each home moves from `off` to `audit` to `on` on its own schedule.
-A worker its release stopped is reported as released, never as dead, and is never relaunched automatically; [`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns that marker and its reader rule.
+[`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns the marker and the reader rule for reporting and recovery.
 The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the ledger, the audit exit codes, and the fixed limits.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)

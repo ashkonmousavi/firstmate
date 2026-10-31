@@ -14,6 +14,7 @@
 #   anchor=<epoch of the finished-and-landed evidence>
 #   class=<merged-ship|scout>
 #   result=<releasing|released|release-incomplete>
+#   busy_seq=<busy-generation>:<sequence captured at candidate evaluation>
 #
 # A marker is ACTIVE only while its spawn_gen equals the task meta's current
 # non-empty spawn_gen. Any relaunch mints a new spawn_gen (bin/fm-spawn.sh), so
@@ -21,9 +22,10 @@
 # here and removed by the next sweep.
 #
 # Rule for every reader: a task with an active marker is never relaunched
-# automatically, and is reported as `released` (seat freed, local copy kept),
+# automatically, and is reported as `released` (local copy kept),
 # never as dead or as needing recovery. An explicit person-driven
 # `bin/fm-control.sh <id> relaunch` is the continuation path and is not a reader.
+# Seat verification belongs to the release state machine, not marker presence.
 #
 # Sourced; no side effects on source.
 

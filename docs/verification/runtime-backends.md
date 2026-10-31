@@ -3034,7 +3034,7 @@ Local ships and scouts are the release subjects; an absent kind retains the exis
 Secondmates and remotely placed task records are excluded before release evaluation, because their lifecycle belongs to the owning home.
 Merged ships require an identity-matching merge receipt; open PRs and closed-unmerged ships retain their seats.
 Scouts require a report, successful completion verification, no captain hold, no task-owned board and no promotion artifact.
-The existing local-only landing exclusion remains an intent gap outside this round's assigned fixes; it is not covered by a merged-PR success claim.
+Local-only coverage checks the [documented exclusion](../configuration.md#lane-release-configlane-release), rather than a merged-PR success path.
 
 | Transition or backend axis | Coverage or inspected disposition |
 | --- | --- |

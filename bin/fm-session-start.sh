@@ -51,8 +51,10 @@
 #   6. fleet digest   - a compact data/backlog.md identity/metadata listing,
 #                       every state/*.meta, a bounded state/*.status tail,
 #                       the away posture (state/.afk-contract and the legacy
-#                       state/.afk daemon flag), and a cheap per-task
-#                       endpoint-liveness read, each bounded and crash-
+#                       state/.afk daemon flag), and per-task endpoint evidence
+#                       under bin/fm-lane-release-lib.sh's reader contract.
+#                       Other tasks get a cheap endpoint-liveness read,
+#                       each bounded and crash-
 #                       isolated so one task's read can never abort the
 #                       digest: read-only, always runs. The per-task reads
 #                       run serially, so with a wedged backend the stage's

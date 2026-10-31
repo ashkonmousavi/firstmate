@@ -51,8 +51,8 @@
 #              otherwise absence remains unproven and the action refuses.
 #              --if-idle is the unattended form an automatic caller uses
 #              (bin/fm-lane-release.sh): it exits 75 instead of acting when
-#              another lifecycle action holds the task, when the agent reads
-#              anything but idle (it never interrupts a turn), or, with
+#              another lifecycle action holds the task, when a running agent's
+#              busy verdict is anything but idle (it never interrupts a turn), or, with
 #              --expect-spawn-gen, when the task's recorded spawn_gen is no
 #              longer <gen> because a relaunch replaced the agent. Every other
 #              refusal keeps its ordinary exit status 1.
