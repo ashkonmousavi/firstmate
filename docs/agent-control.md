@@ -50,11 +50,17 @@ Command Code cancels a running turn on one Escape and its own busy mod records t
 [`bin/fm-control-lib.sh`](../bin/fm-control-lib.sh) owns the arm signal, press gap, and picker signal.
 muse's session log records `terminal=cancelled` for the interrupted run, so the control plane reports `cancel=confirmed` only after observing that exact acknowledgement.
 
-An interrupt is not complete until the composer is empty.
+Interrupt also applies any adapter-required composer clear.
 muse is the one verified adapter that restores the cancelled prompt back into its composer as real text, so its interrupt key is followed by a Ctrl+U clear; without it the next submitted line - including this plane's own exit command - would concatenate onto the restored prompt and submit both as one line.
 The clear is refused before anything is sent when the recorded backend cannot deliver it.
 
-`exit` reads the composer's state before typing the exit command and requires the exact `empty` verdict; a `pending` verdict refuses by naming the pending text, and any other verdict (`unknown`, `pending-unproven`, or an unreadable read) refuses as not proven empty, matching the fail-safe contract every other consumer that can overwrite composer input follows.
+Before delivering an interrupt or typing an exit command, the control plane attempts to clear this task's own unsubmitted steering-inbox doorbell where the backend supports Ctrl+E and Ctrl+U.
+Ownership requires a whitespace-normalized match to the doorbell built by `fm_task_inbox_doorbell_line`, or a visible wrapped prefix reaching through the task's quoted inbox name and the following `steering inbox,` text; [`fm_task_inbox_composer_holds_own`](../bin/fm-task-inbox-lib.sh) owns that check.
+Another task's doorbell, an arbitrary draft, or additional nonmatching typed text does not qualify for this clear.
+Clearing never submits the doorbell or acknowledges its unread inbox records, and a clear that does not read back empty refuses the lifecycle action before further input.
+An unrecognized or unreadable draft skips this ownership-based clear; interrupt retains its adapter sequence, while exit retains the composer gate below.
+
+`exit` reads the composer's state before typing the exit command and requires the exact `empty` verdict, including after clearing an own doorbell; any other `pending` draft refuses by naming the pending text, and any other verdict (`unknown`, `pending-unproven`, or an unreadable read) refuses as not proven empty, matching the fail-safe contract every other consumer that can overwrite composer input follows.
 `exit` also refuses, naming the dialog as `blocked on a prompt`, when the screen shows a recognised dialog that a further Enter would answer, whether the dialog was open before the exit command was typed or the submitting Enter opened it; it sends no Escape and chooses no option, so closing the dialog is left to the operator.
 A stopped agent whose pane still shows the dialog text is not refused.
 [`fm_composer_blocking_dialog`](../bin/fm-composer-lib.sh) owns the recognised set, which today is only Claude's background-task exit picker; [its verification record](verification/runtime-backends.md#claude-background-task-exit-picker) lists the dialogs that are not covered.
@@ -208,16 +214,7 @@ A relaunch of such a record recreates the copy instead of reusing one; the relea
 
 ## Capability matrix
 
-Backend capability comes from each adapter's real surface, not from a policy choice.
-
-| Backend | Escape | Enter | Ctrl+C | Ctrl+U | Recovery-grade agent state |
-| --- | --- | --- | --- | --- | --- |
-| tmux | yes | yes | yes | yes | yes |
-| herdr | yes | yes | yes | yes | yes |
-| zellij | yes | yes | yes | yes | no |
-| cmux | yes | yes | yes | yes | no |
-| orca | no | yes | yes | no | no |
-| paseo | yes | yes | yes | yes | no |
+Backend key support and recovery-grade agent-state capabilities come from each adapter's real surface and are defined by `fm_control_backend_supports_key` and `fm_control_backend_state_verified` in [`bin/fm-control-lib.sh`](../bin/fm-control-lib.sh).
 
 Per-harness interrupt keys, repeat counts, composer clears, exit commands, and supported task kinds live in `bin/fm-control-lib.sh` and are exercised for every verified harness by `tests/fm-control.test.sh`, with adapters outside its lane pinning their control mechanics in their own harness suites.
 The empirical basis for each adapter's value is the `harness-adapters` skill's verification record for that adapter.
@@ -229,3 +226,5 @@ The empirical basis for each adapter's value is the `harness-adapters` skill's v
   Startup cases also exercise eligibility rechecks under the lifecycle lock, attributed run ownership, the prevalidation handoff, and capacity through the real control and spawn paths with a stubbed backend.
 - `tests/fm-crew-recovery.test.sh` - the startup sweep's home scoping, worktree evidence, serial failure and deferral handling, and deferred-bootstrap composition.
 - `tests/fm-control-herdr-smoke.test.sh` - the second state-verified backend against the real herdr binary, on an isolated throwaway lab session.
+
+[Lifecycle clearing verification](verification/runtime-backends.md#lifecycle-clearing) records the own-doorbell regressions, live guards, dated harness results, and coverage limits.

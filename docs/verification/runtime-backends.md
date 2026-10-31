@@ -1243,7 +1243,7 @@ The Cursor-only pending recovery refresh uses the default 240-second action-and-
 env -u FM_SEND_INBOX_LIVE_TIMEOUT FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_HARNESSES=cursor FM_SEND_INBOX_LIVE_PENDING_ONLY=1 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
 ```
 
-`FM_SEND_INBOX_LIVE_PENDING_ONLY=1` omits the fresh-send case; without it, the guard retains both cases for each selected installed harness.
+Case-selection flags are documented in the [live guard's header](../../tests/fm-send-inbox-doorbell-live-e2e.test.sh).
 A pending record, doorbell-construction or seed failure marks the guard failed, names the harness and version, cleans up its window, and returns to the loop so later harnesses are still reported.
 
 On 2026-10-22, this pending-only command passed on Cursor 2026.10.19-6bbf2c4 with tmux 3.4 from the repository worktree, using the default 240-second limit after clearing the timeout override.
@@ -1261,6 +1261,98 @@ All three returned control to the caller with `FAILED=1`, `CHECKED=0`, a harness
 Those are failure-path checks, not live-harness proof; their oracle is that a failing case cannot terminate enumeration or count as a successful case.
 Shell syntax validation of the changed guard passed.
 Scratch pane captures, generated fixtures and logs belong in PR evidence, outside the tracked source change.
+
+#### Lifecycle clearing
+
+The lifecycle mode of `tests/fm-send-inbox-doorbell-live-e2e.test.sh` exercises real `fm-control.sh` interrupt and exit calls against each selected installed harness.
+Its oracle requires a human draft, another task's doorbell and an own doorbell with appended human text to survive refused exits unchanged; an own doorbell must clear without submitting its unread record, interrupt must preserve the agent, and exit must stop it while preserving the endpoint.
+The appended-text cases include literal `ctrl+c to stop` bytes, which are user input unless composer extraction proves they are styled Cursor furniture.
+Both live guards record the real transport input forwarded by their isolated CLI wrappers and reject any submission before the bare exit command, including submission immediately followed by cancellation.
+The tmux guard narrows Claude's lifecycle cases to 20 columns.
+The tmux guard moves the cursor left once before interrupt and halfway through the doorbell before exit; the Herdr guard moves it left once before both verbs.
+Each clear iteration sends Ctrl+E before Ctrl+U, establishing the documented line-end position before deleting text before the cursor.
+Busy exit clears an owned doorbell before delivering an interrupt that could change the draft.
+The exit path is shared with relaunch; this guard does not exercise replacement-agent launch.
+The portable `test_composer_clear_at_narrow_widths` in `tests/fm-task-inbox.test.sh` also requires both tmux and Herdr to clear 180 characters at widths 1 and 20 from cursor positions 0, 90, 179 and 180, modeling the editing contract documented by [Claude Code](https://code.claude.com/docs/en/interactive-mode#text-editing).
+It also clears 260 characters at those widths from the start, middle, penultimate and final cursor positions, preserving recovery beyond a fixed 200-press ceiling.
+Both clear loops retry unknown readbacks at most five times with 0.1-second waits, sending no further keys until pending text is readable; failed reads or exhausted retries refuse clearing.
+The portable `test_composer_clear_waits_for_redraw` in `tests/fm-task-inbox.test.sh` requires read-only retries through transient redraws before another deletion or success.
+On 2026-10-30, Claude Code 2.1.314 passed the 20-column interrupt and exit cases with `FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY=1 FM_SEND_INBOX_LIVE_HARNESSES=claude bash tests/fm-send-inbox-doorbell-live-e2e.test.sh`, reporting `ok - live steering-inbox doorbell guard: 1 cases honored the doorbell contract`.
+The Herdr adapter regressions require a 10,000-character direct send to stop clearing after its first unreadable readback, with no Enter and an unconfirmed result.
+These recovery-bound regressions passed on 2026-10-30 with `TMPDIR=/tmp bash tests/fm-backend-herdr.test.sh` and `bash tests/fm-task-inbox.test.sh`; the short Herdr temporary root keeps its Unix socket fixture within the platform path limit.
+An insufficient deletion budget or failure to position the cursor leaves observable pending text and fails that regression.
+AGY's bare `>` composer remains [unknown by design](agy.md#composer-unknown-by-design); its lifecycle case instead proves that exit refuses own and foreign drafts unchanged, with no lifecycle input and the agent still alive.
+No automatic clearing or successful exit is claimed for that unreadable surface.
+
+Verified 2026-10-30 on Linux with tmux 3.4 and Herdr 0.9.5 using the following commands; the output below records each installed harness version:
+
+```sh
+export HOME="$PWD/.rv/h" CLAUDE_CONFIG_DIR="$PWD/.rv/c" TMPDIR="$PWD/.rv/t"
+export DISABLE_AUTOUPDATER=1 CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false
+unset FM_SEND_INBOX_LIVE_HARNESSES
+bash tests/lifecycle-input.test.sh
+bash tests/fm-composer-lib.test.sh
+bash tests/fm-control.test.sh
+bash tests/fm-task-inbox.test.sh
+FM_SEND_INBOX_LIVE_E2E=1 FM_SEND_INBOX_LIVE_LIFECYCLE_ONLY=1 \
+bash tests/fm-send-inbox-doorbell-live-e2e.test.sh
+FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash tests/fm-herdr-submit-confirm-live-e2e.test.sh
+```
+
+The disposable directories were prepared inside the checkout, with existing account credentials, workspace trust and launch settings copied into disposable configurations.
+AGY's disposable onboarding was completed with interaction-data collection unchecked.
+The original configuration was not changed.
+The tmux fixture enables Bash job control so vendor descendants do not remain in the shell's foreground process group after exit.
+Readiness dismisses the current Codex folder-trust dialog before accepting an empty verdict.
+Kimi launches with both `KIMI_CODE_NO_AUTO_UPDATE=1` and its legacy alias `KIMI_CLI_NO_AUTO_UPDATE=1`, following the [vendor environment reference](https://github.com/MoonshotAI/kimi-code/blob/main/docs/en/configuration/env-vars.md).
+The composer tests also execute classification and ownership extraction against Kimi 2.4.1's complete two-row status footer, while rejecting contiguous unclaimed activity below it.
+The footer regression includes integer, decimal, `k` and `M` token counts in both fields, including the [vendor formatter's](https://raw.githubusercontent.com/MoonshotAI/kimi-code/@moonshot-ai/kimi-code@2.4.1/apps/kimi-code/src/utils/usage/usage-format.ts) `1% (1.5k/977k)` readout for 1536 used tokens; malformed counts remain unclaimed activity.
+All four portable files and both live guards passed; relevant output was:
+
+```text
+ok - lifecycle transport oracle rejects submission even when immediately cancelled
+ok - doorbell comparison preserves literal stop-hint bytes while extraction removes styled Cursor furniture
+ok - fm-control interrupt preserves literal stop-hint text on full and partial doorbell drafts
+ok - busy exit clears an own doorbell before adapters can change it during interrupt
+ok - composer clear: tmux and Herdr finish 180 and 260 characters at widths 1 and 20 from every cursor position
+ok - composer clear: tmux and Herdr stop after one edit on unreadable or failed readback
+ok - fm_backend_herdr_send_text_submit: unreadable recovery of a 10000-character payload stops after one edit without Enter
+ok - cursor (2026.10.19-6bbf2c4): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - claude (2.1.314 (Claude Code)): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - codex (codex-cli 0.159.3): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - pi (1.0.0): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - grok (grok 1.0.70 (f50904eaee6c)): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - kimi (2.4.1): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - omp (omp/18.2.7): lifecycle clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - agy (1.4.12): unreadable composer preserves own and foreign drafts and refuses exit without lifecycle input
+# harness absent, not verified here: polytoken
+ok - live steering-inbox doorbell guard: 8 cases honored the doorbell contract
+ok - live Herdr lifecycle: Claude Code (2.1.314 (Claude Code)) on herdr 0.9.5 clears its own doorbell from a moved cursor without submitting, preserves foreign drafts, interrupts and exits
+ok - live Herdr submit confirm: Claude Code (2.1.314 (Claude Code)) on herdr 0.9.5 proves and submits a typed /exit behind its command popup
+```
+
+The default enumeration refreshed every installed harness.
+OpenCode, Pi-signed, Muse, Gemini, Rovo, Devin, Command Code and Polytoken were absent from PATH and explicitly reported as unverified.
+Polytoken's production session-binding fixture was inspected, but its real lifecycle case remains unverified.
+AGY reported account location ineligibility; its result proves local draft-preserving refusal only, with no submitted model turn.
+`FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash tests/fm-herdr-submit-confirm-live-e2e.test.sh` now exercises the same lifecycle cases against real Claude on Herdr before its final exit proof.
+The Herdr guard owns a private server process, socket, configuration and state inside the checkout, using the same isolation pattern as the main-backstop discovery guard.
+It claims an absent `.x` directory for its private XDG namespace and addresses that namespace's default session; the operator's Herdr namespace is never selected.
+Its worker receives the test's `FM_TASK_INBOX` before launch.
+
+#### Lifecycle class inventory
+
+| Axis | Affected paths and coverage |
+| --- | --- |
+| Ownership consumers | Exact comparison serves `fm_task_inbox_composer_holds`, inbox ringing and watcher/mate authorization; exact-or-prefix comparison serves `fm_task_inbox_composer_holds_own` and lifecycle clearing; `tests/fm-composer-lib.test.sh` covers literal hint text before, inside and after a doorbell, full and prefix drafts, Claude extraction and styled Cursor furniture; `tests/fm-task-inbox.test.sh` covers Cursor ringing and the recorded Herdr ANSI capture. |
+| Lifecycle transitions | `do_interrupt` clears an own draft before cancellation; `do_exit` clears before a busy interrupt and before its exit command; relaunch calls that same exit path before replacement; own-doorbell recovery rejects foreign drafts; empty, unreadable and failed-clear paths retain their existing gates; `tests/fm-control.test.sh` covers own, partial, foreign, busy-exit and failed-clear cases; `tests/fm-control-relaunch.test.sh` owns replacement launch; live guards cover interrupt and exit only. |
+| Task kinds | Ships, scouts and secondmates share the same metadata-bound inbox and clear helper; the existing harness-kind gate rejects secondmates on worker-only harnesses; no task-kind-specific ownership branch exists. |
+| Harnesses | Claude, Codex, OpenCode, Pi, Pi-signed, Grok, Kimi, Cursor, Gemini, Muse, Rovo, omp, AGY, Devin, Command Code and Polytoken share comparison after extraction; Cursor's styled hint is removed during extraction and literal hint text is preserved; Kimi's complete status footer leaves its boxed draft selectable; AGY's unreadable bare prompt remains excluded from clearing; the tmux guard enumerates all installed harnesses by default; Polytoken binds its REST port and credential through production session lookup; aliases continue through `fm_control_harness_family`. |
+| Backends and representations | tmux uses styled capture; Herdr uses styled visible capture with its existing plain fallback; both clear loops position the cursor with Ctrl+E before each Ctrl+U and require empty readback; zellij, cmux and paseo normalize these keys for generic interrupt clearing and still refuse exit/relaunch without verified agent-state proof; Orca cannot send either editing key, making lifecycle clearing inapplicable; whitespace normalization and the inbox-name-bearing prefix boundary are unchanged. |
+| Platforms | Ownership comparison and the transport oracle share Bash/awk logic on Linux and macOS; no platform-specific branch was added; these live results are Linux-only and do not establish native Windows proof. |
+| Accounts | Existing recorded config selection and launch/account rules are unchanged; guards use disposable configurations seeded from existing accounts; AGY's account could not run a model turn, so only its local refusal is verified; Polytoken discovers only the session matching its private session root and launch cwd and records its production session/port/credential fields without creating or disclosing a credential; other pinned accounts were not refreshed. |
+
+The current live refresh commands are the two guards above; selecting fewer harnesses does not establish live proof for the others.
 
 ## Waiting-worker command ceilings
 

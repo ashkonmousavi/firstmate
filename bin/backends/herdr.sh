@@ -3135,6 +3135,7 @@ fm_backend_herdr_normalize_key() {  # <key>
     # C-u clears a composer line. fm-send.sh's muse interrupt path needs it to
     # drop the prompt muse restores into the composer after Escape.
     C-u|c-u|ctrl+u|Ctrl+U) printf 'ctrl+u' ;;
+    C-e|c-e|ctrl+e|Ctrl+E) printf 'ctrl+e' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -3425,24 +3426,6 @@ fm_backend_herdr_queued_enter_busy() {  # <target> <allow-rendered> [busy-harnes
   fi
 }
 
-# fm_backend_herdr_proof_lines: how many composer rows a refused leftover may
-# occupy, bounding the Ctrl+U presses a verified clear may need. A literal
-# payload wraps, and clearing a multi-row leftover is one press per rendered
-# row (live Claude deletes one wrapped row per press). The composer read
-# itself is the full visible viewport (fm_backend_herdr_composer_content), so
-# this bound no longer sizes a capture.
-fm_backend_herdr_proof_lines() {  # <text>
-  local text=$1 lines
-  lines=$(( (${#text} / 40) + 8 ))
-  if [ "$lines" -lt "$FM_COMPOSER_CAPTURE_LINES" ]; then
-    lines=$FM_COMPOSER_CAPTURE_LINES
-  fi
-  if [ "$lines" -gt 200 ]; then
-    lines=200
-  fi
-  printf '%s' "$lines"
-}
-
 # fm_backend_herdr_composer_content: the selected composer's visible text.
 # The capture is the FULL VISIBLE VIEWPORT, never a bounded tail: an overlay
 # rendered between the composer and the pane bottom - Claude Code's
@@ -3507,16 +3490,27 @@ fm_backend_herdr_composer_payload_shown() {  # <text> <after>
 # as delete-to-line-start, repeated across lines of a multiline draft; Ctrl+C
 # is not used because it interrupts a running turn. Live Claude deletes one
 # wrapped screen row per press, so a single-line leftover can need several
-# presses. The press count comes from fm_backend_herdr_proof_lines, which
-# sizes it from the payload length, not from the viewport read.
+# presses.
 # 0 only when the composer is verified empty again.
 fm_backend_herdr_composer_clear() {  # <target> <text>
-  local target=$1 text=$2 presses i=0
-  presses=$(fm_backend_herdr_proof_lines "$text")
+  local target=$1 text=$2 presses i=0 verdict read_try
+  presses=$(( ${#text} + 1 ))
   while [ "$i" -lt "$presses" ]; do
+    fm_backend_herdr_send_key "$target" C-e || return 1
     fm_backend_herdr_send_key "$target" C-u || return 1
     i=$((i + 1))
-    [ "$(fm_backend_herdr_composer_state "$target")" = empty ] && return 0
+    # A redraw can briefly invalidate the cursor/screen pair. Retry reads,
+    # never edits, until the next deletion has a readable pending verdict.
+    for read_try in 1 2 3 4 5; do
+      verdict=$(fm_backend_herdr_composer_state "$target") || return 1
+      [ "$verdict" = unknown ] && [ "$read_try" -lt 5 ] || break
+      sleep 0.1
+    done
+    case "$verdict" in
+      empty) return 0 ;;
+      pending|pending-unproven) ;;
+      *) return 1 ;;
+    esac
   done
   return 1
 }

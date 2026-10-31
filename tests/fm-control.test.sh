@@ -147,6 +147,11 @@ case "${1:-}" in
     else
       printf '%s\n' "$payload" >> "$D/keys"
       printf '%s %s\n' "$(perl -MTime::HiRes=time -e 'printf "%.3f", time')" "$payload" >> "$D/key-times"
+      # pane-after-c-u models a composer that a Ctrl+U empties; without it the
+      # pane never changes, which is a clear that does not take.
+      if [ "$payload" = C-u ] && [ -f "$D/pane-after-c-u" ]; then
+        cp "$D/pane-after-c-u" "$D/pane"
+      fi
       if [ "$payload" = Escape ] && [ -f "$D/devin" ]; then
         case "$(cat "$D/devin")" in
           running) printf armed > "$D/devin" ;;
@@ -811,7 +816,7 @@ test_backend_key_capability_matrix() {
   for backend in tmux herdr zellij cmux paseo; do
     # C-u is the composer clear muse's interrupt needs; every session provider
     # but Orca normalizes it (bin/backends/*.sh).
-    for key in Escape Enter C-c C-u; do
+    for key in Escape Enter C-c C-u C-e; do
       fm_control_backend_supports_key "$backend" "$key" \
         || fail "$backend should be able to deliver $key"
     done
@@ -820,9 +825,23 @@ test_backend_key_capability_matrix() {
     && fail "orca's terminal API has no Escape and must not claim it"
   fm_control_backend_supports_key orca C-u \
     && fail "orca's terminal API has no composer clear and must not claim one"
+  fm_control_backend_supports_key orca C-e \
+    && fail "orca's terminal API has no cursor-end key and must not claim one"
   fm_control_backend_supports_key orca C-c || fail "orca should deliver C-c"
   fm_control_backend_supports_key orca Enter || fail "orca should deliver Enter"
   pass "fm-control-lib: the backend key matrix matches each adapter's real send-key surface"
+}
+
+test_backend_cursor_end_normalization() {
+  local got
+  got=$(bash -c '
+    . "$0/bin/backends/herdr.sh"
+    . "$0/bin/backends/zellij.sh"
+    . "$0/bin/backends/cmux.sh"
+    printf "%s|%s|%s" "$(fm_backend_herdr_normalize_key C-e)" "$(fm_backend_zellij_normalize_key C-e)" "$(fm_backend_cmux_normalize_key C-e)"
+  ' "$ROOT") || fail "could not normalize the cursor-end key"
+  [ "$got" = 'ctrl+e|Ctrl e|ctrl-e' ] || fail "cursor-end keys must use each provider's key vocabulary: $got"
+  pass "cursor-end keys use the Herdr, zellij and cmux key vocabularies"
 }
 
 # A verified adapter is not automatically verified for every task kind, and the
@@ -1481,6 +1500,157 @@ test_recorded_harness_capabilities() {
 
 # --- 6. marker non-regression -----------------------------------------------
 
+# --- Firstmate's own unsubmitted doorbell in the composer ------------------
+
+# own_doorbell_line <case-dir> <id>: the exact doorbell line for the task.
+own_doorbell_line() {
+  bash -c '. "$0/bin/fm-task-inbox-lib.sh"; fm_task_inbox_doorbell_line "$1"' "$ROOT" "$1/home/state/$2.inbox/1.msg"
+}
+
+# claude_composer_screen <draft>: a Claude-shaped screen whose prompt row holds <draft>.
+claude_composer_screen() {
+  local rule='────────────────────────────────────────────────────────────'
+  printf '%s\n❯ %s\n%s\n  ⏵⏵ bypass permissions on (shift+tab to cycle)\n' "$rule" "$1" "$rule"
+}
+
+test_exit_clears_own_doorbell_then_proceeds() {
+  local dir out rc line
+  dir=$(new_case own-doorbell)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "$line" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "exit should clear its own doorbell and proceed: $out"
+  grep -qx C-u "$dir/fake/keys" || fail "the doorbell should be cleared with Ctrl+U"
+  [ "$(literals "$dir")" = /exit ] || fail "only the exit command should be typed after the clear"
+  pass "fm-control exit: an unsubmitted doorbell for this task is cleared, then exit proceeds"
+}
+
+test_busy_exit_clears_own_doorbell_before_interrupt() {
+  local dir out line gen harness root log
+  for harness in claude muse; do
+    dir=$(new_case "own-doorbell-busy-$harness")
+    add_task "$dir" t1 "$harness"
+    alive_as "$dir" "$harness"
+    line=$(own_doorbell_line "$dir" t1)
+    claude_composer_screen "$line" > "$dir/fake/pane"
+    claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+    log=
+    if [ "$harness" = muse ]; then
+      root="$dir/muse-sessions"
+      log="$root/2026/08/08/session-1/session.jsonl"
+      mkdir -p "$(dirname "$log")"
+      printf '%s\n' \
+        "{\"schema_version\":1,\"payload_type\":\"runtime.session.metadata\",\"payload\":{\"kind\":\"metadata\",\"record\":{\"workspace_root\":\"$dir/wt-t1\"}}}" \
+        '{"schema_version":1,"payload_type":"runtime.session","payload":{"kind":"run","run_id":"run-1","event":{"kind":"started","prompt":"work"}}}' > "$log"
+      printf 'sessions_root=%s\nworkspace_root=%s\nbinding_id=test\n' \
+        "$root" "$dir/wt-t1" > "$dir/home/state/t1.muse-session"
+    else
+      gen=$("$ROOT/bin/fm-busy-event.sh" arm "$dir/home/state" t1)
+      printf 'busy_gen=%s\n' "$gen" >> "$dir/home/state/t1.meta"
+    fi
+    out=$(FM_FAKE_MUSE_LOG="$log" run_control "$dir" t1 exit) || fail "busy exit should recover its own doorbell: $out"
+    [ "$(head -3 "$dir/fake/keys")" = $'C-e\nC-u\nEscape' ] \
+      || fail "$harness must clear its own doorbell before interrupt delivery"
+    [ "$(literals "$dir")" = /exit ] || fail "only the exit command should follow the clear"
+  done
+  pass "busy exit clears an own doorbell before adapters can change it during interrupt"
+}
+
+test_exit_clears_wrapped_first_row_of_own_doorbell() {
+  local dir out rc line
+  dir=$(new_case own-doorbell-wrapped)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  # The composer draws only the first row of the wrapped doorbell, as recorded.
+  claude_composer_screen "${line%% read and act*} read and" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 0 "$rc" "a wrapped first row of the doorbell should clear: $out"
+  grep -qx C-u "$dir/fake/keys" || fail "the wrapped doorbell should be cleared with Ctrl+U"
+  pass "fm-control exit: the visible first row of a wrapped own doorbell is cleared"
+}
+
+test_exit_refuses_doorbell_with_typed_text() {
+  local dir out rc line draft
+  dir=$(new_case doorbell-typed)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  for draft in "$line please also fix" "$line ctrl+c to stop" "${line%% read and act*} ctrl+c to stop"; do
+    claude_composer_screen "$draft" > "$dir/fake/pane"
+    out=$(run_control "$dir" t1 exit); rc=$?
+    expect_code 1 "$rc" "doorbell plus typed text must refuse"
+    assert_contains "$out" "composer visibly holds pending text" "the existing refusal should stand"
+    ! grep -qx C-u "$dir/fake/keys" || fail "typed text must never be cleared"
+    [ -z "$(literals "$dir")" ] || fail "nothing may be typed onto the draft"
+  done
+  pass "fm-control exit: a doorbell followed by typed text still refuses"
+}
+
+test_exit_refuses_other_tasks_doorbell() {
+  local dir out rc line
+  dir=$(new_case doorbell-other)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "${line//t1.inbox/t2.inbox}" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "another task's doorbell must refuse"
+  assert_contains "$out" "composer visibly holds pending text" "the existing refusal should stand"
+  ! grep -qx C-u "$dir/fake/keys" || fail "another task's doorbell must not be cleared"
+  pass "fm-control exit: a doorbell for another task still refuses"
+}
+
+test_exit_refuses_when_own_doorbell_clear_does_not_take() {
+  local dir out rc line
+  dir=$(new_case doorbell-stuck)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "$line" > "$dir/fake/pane"
+  out=$(run_control "$dir" t1 exit); rc=$?
+  expect_code 1 "$rc" "an unverified clear must refuse"
+  assert_contains "$out" "clearing it did not leave the composer empty" "the refusal should say the clear did not verify"
+  [ -z "$(literals "$dir")" ] || fail "nothing may be typed after a clear that did not take"
+  pass "fm-control exit: a clear that does not read back empty refuses"
+}
+
+test_interrupt_clears_own_doorbell_first() {
+  local dir out rc line
+  dir=$(new_case doorbell-interrupt)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  claude_composer_screen "$line" > "$dir/fake/pane"
+  claude_composer_screen '' > "$dir/fake/pane-after-c-u"
+  out=$(run_control "$dir" t1 interrupt); rc=$?
+  expect_code 0 "$rc" "interrupt should proceed after clearing: $out"
+  [ "$(head -1 "$dir/fake/keys")" = C-e ] || fail "the cursor should move to line end before clearing"
+  grep -qx Escape "$dir/fake/keys" || fail "the interrupt key should still be delivered"
+  pass "fm-control interrupt: an own doorbell is cleared before the interrupt key"
+}
+
+test_interrupt_preserves_literal_stop_hint() {
+  local dir out line draft
+  dir=$(new_case doorbell-interrupt-foreign)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  line=$(own_doorbell_line "$dir" t1)
+  for draft in "$line ctrl+c to stop" "${line%% read and act*} ctrl+c to stop"; do
+    claude_composer_screen "$draft" > "$dir/fake/pane"
+    out=$(run_control "$dir" t1 interrupt) || fail "interrupt should still deliver its key: $out"
+    ! grep -qx C-u "$dir/fake/keys" || fail "interrupt must not erase a draft containing literal stop-hint bytes"
+    [ -z "$(literals "$dir")" ] || fail "interrupt must not submit a foreign draft"
+  done
+  pass "fm-control interrupt preserves literal stop-hint text on full and partial doorbell drafts"
+}
+
 test_secondmate_control_command_carries_no_marker() {
   local dir out rc typed home
   dir=$(new_case sm-marker)
@@ -1575,6 +1745,7 @@ test_harness_family_resolution
 test_relaunch_resume_flag_is_per_adapter_and_reference_owner
 test_prefixed_recorded_harness_reaches_each_control_verb
 test_backend_key_capability_matrix
+test_backend_cursor_end_normalization
 test_harness_kind_capability
 test_orca_refuses_an_escape_harness_interrupt
 test_unverified_state_backends_refuse_stop_verbs
@@ -1620,3 +1791,11 @@ test_grok_idle_footer_does_not_confirm_cancellation
 test_recorded_harness_capabilities
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task
+test_exit_clears_own_doorbell_then_proceeds
+test_busy_exit_clears_own_doorbell_before_interrupt
+test_exit_clears_wrapped_first_row_of_own_doorbell
+test_exit_refuses_doorbell_with_typed_text
+test_exit_refuses_other_tasks_doorbell
+test_exit_refuses_when_own_doorbell_clear_does_not_take
+test_interrupt_clears_own_doorbell_first
+test_interrupt_preserves_literal_stop_hint

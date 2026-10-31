@@ -197,6 +197,10 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
+# shellcheck source=bin/fm-composer-lib.sh
+. "$SCRIPT_DIR/fm-composer-lib.sh"
+# shellcheck source=bin/fm-task-inbox-lib.sh
+. "$SCRIPT_DIR/fm-task-inbox-lib.sh"
 # shellcheck source=bin/fm-polytoken-lib.sh
 . "$SCRIPT_DIR/fm-polytoken-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
@@ -630,13 +634,16 @@ verify_interrupt_running() {
     after=$(agent_state)
     [ "$after" = alive ] \
       || die "task $ID's agent is '$after' after its interrupt key; an interrupt must leave the agent running"
-    proof=agent-alive
+    proof='agent-alive'
   fi
   printf '%s' "$proof"
 }
 
 do_interrupt() {
   local proof cancel
+  # Esc on a composer holding our own unsent doorbell does not cancel the turn
+  # it was meant for; clear that text first, and leave anything else alone.
+  clear_own_doorbell || true
   cancel=$(deliver_interrupt) || return $?
   proof=$(verify_interrupt_running) || return $?
   printf '%s cancel=%s' "$proof" "$cancel"
@@ -774,6 +781,23 @@ exit_background_check() {
   printf 'background-sessions=stopped:%s' "$(IFS=,; printf '%s' "${stopped[*]}")"
 }
 
+# clear_own_doorbell: when the composer holds nothing but this task's own
+# unsubmitted doorbell (bin/fm-task-inbox-lib.sh builds the line), clear it so
+# the lifecycle action does not refuse Firstmate's own text. Returns 0 when it
+# did, and 1 (sending nothing) when the composer
+# holds anything else (including another task's doorbell or a doorbell with
+# typed characters after it) or cannot be read, and dies when the text is ours
+# but the clear does not read back empty.
+clear_own_doorbell() {
+  local line
+  fm_control_backend_supports_key "$BACKEND" C-u || return 1
+  fm_control_backend_supports_key "$BACKEND" C-e || return 1
+  line=$(fm_task_inbox_doorbell_line "$STATE/$ID.inbox/clear.msg") || return 1
+  fm_task_inbox_composer_holds_own "$BACKEND" "$T" "$line" "$LABEL" || return 1
+  fm_backend_composer_clear "$BACKEND" "$T" "$line" "$LABEL" \
+    || die "task $ID's composer holds Firstmate's own unsubmitted doorbell, but clearing it did not leave the composer empty; refusing to send lifecycle input onto it. Clear the composer, then retry '$VERB'"
+}
+
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
@@ -825,6 +849,7 @@ do_exit() {
   # A busy agent is interrupted first before the exit command is submitted.
   case "$(busy_verdict)" in
     busy*)
+      clear_own_doorbell || true
       cancel=$(deliver_interrupt) || return $?
       state=$(agent_state)
       case "$state" in
@@ -857,7 +882,14 @@ do_exit() {
   case "$composer_state" in
     empty) ;;
     pending)
-      die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
+      if clear_own_doorbell; then
+        composer_state=$(fm_backend_composer_state "$BACKEND" "$T" "$LABEL" 2>/dev/null) \
+          || composer_state=unknown
+        [ "$composer_state" = empty ] \
+          || die "task $ID's composer holds Firstmate's own unsubmitted doorbell and it was cleared, but the composer then reads '$composer_state', not proven empty; refusing to type the $cmd exit command. Retry '$VERB'"
+      else
+        die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
+      fi
       ;;
     *)
       die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"

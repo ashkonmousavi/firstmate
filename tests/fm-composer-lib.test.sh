@@ -1221,6 +1221,30 @@ test_matrix_kimi_bordered_shell_glyph_box() {
   assert_screen "kimi idle on cmux/orca" empty "$CAPS_PLAIN" "$screen"
   assert_screen "kimi idle on herdr" empty "$CAPS_STYLED" "$screen"
   assert_screen "kimi idle on zellij" empty "$CAPS_STYLED_NOID" "$screen"
+  local footer caps draft out usage line rule own
+  draft=$'╭────────────────────────╮\n│ > human draft          │\n╰────────────────────────╯'
+  line=": Firstmate instruction waiting in 't1.inbox' steering inbox, read and act"
+  printf -v rule '%080d' 0
+  rule=${rule//0/─}
+  own=$(printf '╭%s╮\n│ > %-77s│\n╰%s╯' "$rule" "$line" "$rule")
+  for caps in "$CAPS_PLAIN" "$CAPS_STYLED" "$CAPS_STYLED_NOID"; do
+    for usage in '0% (0/977k)' '1% (1.5k/977k)' '67% (1k/1.5k)' '96% (977k/1M)' '67% (1M/1.5M)' '75% (1.5M/2M)' '100% (999/999)'; do
+      printf -v footer '\n Never Ask  Kimi K3  …/worktrees/review  /theme to switch the terminal UI theme\n context: %s\n' "$usage"
+      assert_screen "kimi footer $usage preserves idle box" empty "$caps" "$screen$footer"
+      assert_screen "kimi footer $usage preserves typed box" pending "$caps" "$draft$footer"
+      out=$(fm_composer_extract_selected_content "$caps" "$draft$footer")
+      [ "$out" = 'human draft' ] || fail "kimi footer $usage obscured the draft: $out"
+      out=$(fm_composer_extract_selected_content "$caps" "$own$footer") || fail "kimi footer $usage hid the own doorbell"
+      [ "$out" = "$line" ] || fail "kimi footer $usage changed the own doorbell"
+      fm_composer_text_is_own_doorbell "$out" "$line" || fail "kimi footer $usage blocked doorbell ownership"
+      assert_screen "kimi footer cannot hide contiguous activity" unknown "$caps" "$screen${footer}Working on request..."
+    done
+    for usage in '1% (1..5k/977k)' '1% (1.5k/9..7M)' '1% (draft/977k)' '1% (1.5k/draft)'; do
+      printf -v footer '\n Never Ask  Kimi K3  …/worktrees/review  /theme to switch the terminal UI theme\n context: %s\n' "$usage"
+      assert_screen "malformed kimi footer $usage remains unclaimed activity" unknown "$caps" "$screen$footer"
+    done
+  done
+  pass "kimi formatter counts preserve composer extraction and doorbell ownership in plain and styled captures"
   pass "matrix: kimi's bordered shell-glyph box reads empty through the shared owner (spawn's fourth copy retired)"
 }
 
@@ -1743,3 +1767,27 @@ test_long_composer_input_remains_selectable() {
 }
 
 test_long_composer_input_remains_selectable
+
+test_doorbell_comparison_preserves_literal_stop_hints() {
+  local line=": Firstmate instruction waiting in 't1.inbox' steering inbox, read and act" prefix draft held screen
+  prefix=${line% and act}
+  for draft in "$line" "$prefix"; do
+    fm_composer_text_is_own_doorbell_partial "$draft" "$line" || fail "an own doorbell or its visible prefix must match"
+  done
+  fm_composer_text_is_own_doorbell "$line" "$line" || fail "the exact own doorbell must match"
+  for draft in "$line ctrl+c to stop" "ctrl+c to stop $line" "${line/steering/ctrl+c to stop steering}" "$prefix ctrl+c to stop"; do
+    fm_composer_text_is_own_doorbell "$draft" "$line" && fail "literal stop-hint bytes are foreign input"
+    fm_composer_text_is_own_doorbell_partial "$draft" "$line" && fail "literal stop-hint bytes cannot turn a foreign draft into an own prefix"
+    screen=$(printf '────────────────────────\n❯ %s\n────────────────────────\n' "$draft")
+    held=$(fm_composer_extract_selected_content styled=1 "$screen") || fail "could not read the Claude draft"
+    [ "$held" = "$draft" ] || fail "extracting a Claude draft removed literal bytes"
+  done
+  for draft in "$line" "$line ctrl+c to stop"; do
+    screen=$(printf ' ▄▄▄▄▄▄▄▄\n  → %s\033[2m ctrl+c to stop\033[0m\n ▀▀▀▀▀▀▀▀\n' "$draft")
+    held=$(fm_composer_extract_selected_content styled=1 "$screen") || fail "could not read the Cursor draft"
+    [ "$held" = "$draft" ] || fail "only styled Cursor furniture may disappear"
+  done
+  pass "doorbell comparison preserves literal stop-hint bytes while extraction removes styled Cursor furniture"
+}
+
+test_doorbell_comparison_preserves_literal_stop_hints

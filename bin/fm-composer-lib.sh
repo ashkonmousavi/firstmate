@@ -1850,6 +1850,22 @@ _fm_composer_bare_rule_sandwich() {  # <plain-screen> <row>
   _fm_composer_titled_rule_row "$above" "${below//─/ }"
 }
 
+_fm_composer_kimi_footer() {
+  local plain=$1 first=$2 boundary=$3 row
+  row=$(_fm_composer_screen_row "$first" "$plain")
+  row=$(_fm_composer_row_content "$row" 0)
+  case "$row" in '>'|'>'[[:space:]]*) ;; *) return 1 ;; esac
+  row=$(_fm_composer_screen_row "$((boundary + 1))" "$plain")
+  fm_composer_normalize_trim_var row
+  [[ "$row" =~ ^(Always\ Ask|Ask\ When\ Needed|Never\ Ask)[[:space:]]{2,}Kimi[[:space:]] ]] || return 1
+  row=$(_fm_composer_screen_row "$((boundary + 2))" "$plain")
+  fm_composer_normalize_trim_var row
+  [[ "$row" =~ ^context:\ [0-9]+%\ \([0-9]+([.][0-9]+)?[kM]?/[0-9]+([.][0-9]+)?[kM]?\)$ ]] || return 1
+  row=$(_fm_composer_screen_row "$((boundary + 3))" "$plain")
+  fm_composer_normalize_trim_var row
+  [ -z "$row" ]
+}
+
 _fm_composer_select_cursorless() {
   local plain=$1 generic=-1 next boundary raw trimmed glyph bare footer=0
   FM_COMPOSER_SELECTED_KIND=
@@ -1956,7 +1972,9 @@ _fm_composer_select_cursorless() {
     raw=$(_fm_composer_screen_row "$next" "$plain")
     trimmed=$raw
     fm_composer_normalize_trim_var trimmed
-    if [ -n "$trimmed" ] && ! fm_composer_row_has_edge "$trimmed"; then
+    if [ -n "$trimmed" ] && ! fm_composer_row_has_edge "$trimmed" \
+       && ! { [ "$FM_COMPOSER_SELECTED_KIND" = box ] \
+              && _fm_composer_kimi_footer "$plain" "$FM_COMPOSER_SELECTED_FIRST" "$boundary"; }; then
       FM_COMPOSER_SELECTED_KIND=
       return 1
     fi
@@ -2060,17 +2078,32 @@ EOF
 }
 
 # fm_composer_text_is_own_doorbell: 0 when <text> is exactly <line>.
-# Whitespace is ignored, so a wrapped composer row still matches. Cursor draws
-# `ctrl+c to stop` on the same composer row as the draft; that hint is not
-# part of the draft, and removing it is what lets an unsubmitted doorbell
-# match. Any other remaining text is a foreign draft and does not match.
+# Whitespace is ignored, so a wrapped composer row still matches.
 fm_composer_text_is_own_doorbell() {  # <text> <line>
-  local text=$1 line=$2 hint
-  hint=$(printf '%s' 'ctrl+c to stop' | tr -d '[:space:]')
+  local text=$1 line=$2
   text=$(printf '%s' "$text" | tr -d '[:space:]')
   line=$(printf '%s' "$line" | tr -d '[:space:]')
-  text=${text//"$hint"/}
   [ -n "$line" ] && [ "$text" = "$line" ]
+}
+
+# fm_composer_text_is_own_doorbell_partial: 0 when <text> is a leading part of
+# <line> that is long enough to carry the task's inbox name. A composer can
+# show only the first row of a wrapped doorbell (recorded on a Claude Code
+# composer in a Herdr pane: the row ends at `read and` and the wrapped rest is
+# never drawn), so the full-line match misses a doorbell that is ours. Whitespace
+# is ignored as in fm_composer_text_is_own_doorbell. The text must reach the end
+# of `steering inbox,`, which follows the quoted `<task>.inbox` name, so another
+# task's doorbell, or any short fragment a person typed, never qualifies; extra
+# characters after a prefix break the prefix and do not match.
+fm_composer_text_is_own_doorbell_partial() {  # <text> <line>
+  local text=$1 line=$2 anchor='steeringinbox,' tail
+  text=$(printf '%s' "$text" | tr -d '[:space:]')
+  line=$(printf '%s' "$line" | tr -d '[:space:]')
+  [ -n "$line" ] && [ -n "$text" ] || return 1
+  case "$line" in *"$anchor"*) ;; *) return 1 ;; esac
+  tail=${line#*"$anchor"}
+  [ "${#text}" -ge $(( ${#line} - ${#tail} )) ] || return 1
+  [ "${line#"$text"}" != "$line" ]
 }
 
 # fm_composer_blocking_dialog: name a screen whose next Enter would answer it.
