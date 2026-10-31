@@ -13,11 +13,6 @@
 # attempt whose outcome proves nothing changed, with no earlier reread owed, is
 # written back to owed=0 when it failed or removed when it converged; an owed
 # reread survives unchanged retries until a successful send.
-# A parked secondmate (bin/fm-secondmate-liveness-lib.sh's fm_secondmate_parked)
-# is never sent this notice by a config push: a parked mate reads its config at
-# launch, so the senders skip the notice, drop any retry marker they own, and
-# fm_secondmate_clear_stale_reread_notices acknowledges notices a launch makes
-# stale.
 
 FM_SECOND_MATE_NUDGE_MESSAGE='firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.'
 FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE='Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files before further work.'
@@ -93,71 +88,6 @@ fm_secondmate_remote_nudge_owed() { # <state> <id>
   [ "$remote" = 1 ] || return 1
   owed=$(sed -n 's/^owed=//p' "$marker" | head -1)
   [ "$owed" != 0 ]
-}
-
-# fm_secondmate_reread_notice_is: true when one steering-inbox record's first
-# body line is a config-reread notice this library's consumers send - the
-# literal-content pointer (CONFIG_REREAD: <path>, written by
-# bin/fm-config-inherit-lib.sh) or the remote reread nudge message
-# (FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE), each possibly behind the
-# from-firstmate marker and corr token fm-send adds, or inside the
-# pending-reply repost wrapper of either. bin/fm-spawn.sh uses this to
-# acknowledge notices a secondmate launch makes stale, because a launch
-# re-reads inherited config (and AGENTS.md) fresh.
-fm_secondmate_reread_notice_is() {  # <first-body-line>
-  local line=$1 sep=$'\xE2\x81\xA3'
-  line=${line#"[fm-from-firstmate]$sep"}
-  line=$(printf '%s' "$line" | sed -E 's/^corr=[0-9a-f]+ //')
-  case "$line" in
-    'CONFIG_REREAD: '*) return 0 ;;
-    "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE"*) return 0 ;;
-    *'Original request: CONFIG_REREAD: '*) return 0 ;;
-    *"Original request: $FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE"*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-# Acknowledge every config-reread notice still waiting in <state>/<id>.inbox
-# by moving its record to handled/ (the inbox's own acknowledgement contract,
-# bin/fm-task-inbox-lib.sh), taking that inbox's sequence lock so a concurrent
-# fm-send write cannot observe a half-cleared inbox. Other steers are left
-# untouched. Prints nothing; returns non-zero only when the inbox exists but a
-# reread notice could not be acknowledged; an empty or absent inbox is a
-# no-op success.
-fm_secondmate_clear_stale_reread_notices() {  # <state-dir> <id>
-  local state=$1 id=$2 lib_dir dir rec body body_first lock recs="" moved=0
-  case "$id" in ''|*[!/A-Za-z0-9._-]*|*/*) return 1 ;; esac
-  dir="$state/$id.inbox"
-  [ -d "$dir" ] || return 0
-  if ! command -v fm_task_inbox_body >/dev/null 2>&1; then
-    lib_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-    # shellcheck source=/dev/null
-    . "$lib_dir/fm-task-inbox-lib.sh"
-  fi
-  for rec in "$dir"/*.msg; do
-    [ -f "$rec" ] && [ ! -L "$rec" ] || continue
-    body=$(fm_task_inbox_body "$rec" 2>/dev/null) || continue
-    body_first=${body%%$'\n'*}
-    fm_secondmate_reread_notice_is "$body_first" || continue
-    recs+="$rec"$'\n'
-  done
-  [ -n "$recs" ] || return 0
-  mkdir -p "$dir/handled" || return 1
-  lock="$dir/.seq.lock"
-  fm_task_inbox_lock_acquire "$lock" || return 1
-  while IFS= read -r rec; do
-    [ -n "$rec" ] || continue
-    [ -f "$rec" ] && [ ! -L "$rec" ] || continue
-    body=$(fm_task_inbox_body "$rec" 2>/dev/null) || { fm_lock_release "$lock"; return 1; }
-    body_first=${body%%$'\n'*}
-    fm_secondmate_reread_notice_is "$body_first" || continue
-    mv -f -- "$rec" "$dir/handled/" || { fm_lock_release "$lock"; return 1; }
-    moved=$((moved + 1))
-  done <<EOF
-$recs
-EOF
-  fm_lock_release "$lock" || return 1
-  [ "$moved" -gt 0 ]
 }
 
 # True when one remote home sync result changed what its running agent reads:

@@ -50,9 +50,6 @@
 # The attempt ledger (.secondmate-relaunch-<id>, one line per attempt plus one
 # per outcome) is both the durable relaunch record and the input to the
 # watcher's relaunch bound; teardown removes it.
-# fm_secondmate_parked below is the one shared read of the parked state that
-# bound marker records, so every producer and consumer (the watcher tick, the
-# config-reread senders, teardown) agrees on what parked means.
 
 set -u
 
@@ -117,21 +114,18 @@ fm_secondmate_liveness_recent_attempts() {  # <id> <window-secs>
     "$ledger" 2>/dev/null
 }
 
-# Parked predicate: the single authoritative read of a mate's parked state.
-# Parked means the relaunch bound marker state/.secondmate-relaunch-bound-<id>
-# exists (this file's header and bin/fm-watch.sh's tick own writing and
-# clearing it; bin/fm-teardown.sh removes it at retirement). The watcher
-# parks a flapping mate behind it, and a deliberate park (fm-control exit with
-# work kept) records the same marker. A parked mate's agent is not running and
-# reads its configuration and AGENTS.md fresh at its next launch, so a config
-# push skips only the reread doorbell for it (bin/fm-config-push.sh,
-# bin/fm-bootstrap.sh). Doubt reads not parked: a state dir or marker that
-# cannot be read keeps the ordinary send behavior, never a silent skip.
+# fm_secondmate_parked reads the watcher's relaunch-bound record.
+# Successful local and remote secondmate launches remove that record in
+# bin/fm-spawn.sh; a later live watcher probe also clears it, and teardown
+# removes it at retirement. Deliberate fm-control exit records no park marker,
+# so it keeps the ordinary reread-send behavior. Missing or unreadable records
+# never authorize a skip.
 fm_secondmate_parked() {  # <state-dir> <id>
   local state=$1 id=$2 marker
   case "$id" in ''|*[!/A-Za-z0-9._-]*|*/*) return 1 ;; esac
   marker="$state/.secondmate-relaunch-bound-$id"
-  [ -e "$marker" ] || [ -L "$marker" ]
+  [ -f "$marker" ] && [ -r "$marker" ] && [ ! -L "$marker" ] || return 1
+  awk -F '\t' 'NR != 1 || NF != 2 || $1 !~ /^[0-9]+$/ || ($2 != "dead" && $2 != "missing") { bad = 1 } END { exit (bad || NR != 1) }' "$marker" 2>/dev/null
 }
 
 # fm_secondmate_liveness_probe <meta> <id> <full|poll>

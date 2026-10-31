@@ -1408,6 +1408,12 @@ spawn_remote_secondmate() {
     echo "error: remote secondmate $id launched, but its task record could not be published ($FM_BACKLOG_TRANSITION_ERROR)" >&2
     return 1
   fi
+  rm -f -- "$STATE/.secondmate-relaunch-bound-$id" || {
+    fm_lock_release "$remote_lock" || true
+    fm_lock_release "$registry_lock" || true
+    fm_lock_release "$SPAWN_TASK_LOCK" || true
+    return 1
+  }
   if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
     SPAWN_TASK_SET_LOCK_HELD=0
     fm_lock_release "$SPAWN_TASK_SET_LOCK"
@@ -3805,16 +3811,6 @@ if [ "$KIND" = secondmate ]; then
     FM_CONFIG_INHERIT_LIVE=1 \
       propagate_secondmate_inheritance "$FM_HOME" "$PROJ_ABS" "$CONFIG" "$DATA" ||
       echo "warning: secondmate $ID inheritance failed for $PROJ_ABS" >&2
-  fi
-  # This launch re-reads inherited config (pushed just above, or by the parent
-  # before a remote host-local leg) and AGENTS.md fresh, so any config-reread
-  # notice still waiting in this mate's steering inbox is stale: acknowledge it
-  # here rather than leave an undeliverable doorbell behind a just-launched
-  # agent (bin/fm-secondmate-nudge-lib.sh owns the notice shapes).
-  if ! sm_clear_out=$(fm_secondmate_clear_stale_reread_notices "$STATE" "$ID" 2>&1); then
-    sm_clear_out=${sm_clear_out:-unknown error}
-    sm_clear_out=$(printf '%s\n' "$sm_clear_out" | sed -n '1p')
-    echo "warning: secondmate $ID stale config-reread notices could not be cleared: $sm_clear_out" >&2
   fi
   if [ -f "$PROJ_ABS/data/charter.md" ]; then
     BRIEF="$PROJ_ABS/data/charter.md"
@@ -6979,6 +6975,9 @@ if [ -n "$SPAWN_DEFERRED_SIGNAL" ]; then
   trap - HUP INT TERM
   echo "error: spawn of $ID was interrupted after launch delivery began; $SPAWN_PRESERVED_CLAIM" >&2
   exit "$SPAWN_DEFERRED_SIGNAL_STATUS"
+fi
+if [ "$KIND" = secondmate ]; then
+  rm -f -- "$STATE/.secondmate-relaunch-bound-$ID" || exit 1
 fi
 fm_lock_release "$SPAWN_META_LOCK"
 SPAWN_META_LOCK_HELD=0
