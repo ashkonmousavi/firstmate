@@ -1572,6 +1572,22 @@ test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops() {
   pass "fm-control relaunch: an explicit harness with too little quota refuses before the agent stops and names the best alternative"
 }
 
+test_secondmate_quota_relaunch_names_a_supported_alternative() {
+  local dir out rc id=rl-quota-secondmate
+  dir=$(quota_relaunch_case quota-secondmate "$id" exhausted)
+  sed -i.bak 's/^kind=ship$/kind=secondmate/' "$dir/home/state/$id.meta"
+  printf '%s\n' '{"default":[{"harness":"agy","provider":"codex"},{"harness":"claude"}]}' \
+    > "$dir/home/config/crew-dispatch.json"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok); rc=$?
+  expect_code 1 "$rc" "an exhausted secondmate relaunch must refuse"$'\n'"$out"
+  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude.' \
+    "secondmate relaunch must skip higher-ranked AGY"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a quota refusal stopped the running secondmate"
+  [ ! -s "$dir/fake/literal" ] || fail "a quota refusal sent secondmate lifecycle input"
+  [ "$(meta_field "$dir" "$id" harness)" = claude ] || fail "a quota refusal changed the secondmate record"
+  pass "secondmate relaunch quota refusals recommend a supported harness before stopping the agent"
+}
+
 test_quota_override_relaunches_and_is_recorded() {
   local dir out rc id=rl-quota-override
   dir=$(quota_relaunch_case quota-override "$id" exhausted)
@@ -4267,6 +4283,7 @@ test_secondmate_account_pin_follows_relaunch_and_refuses_before_stop
 test_pi_exclude_tools_follow_the_relaunch
 test_exclude_tools_refusals_happen_before_the_agent_stops
 test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops
+test_secondmate_quota_relaunch_names_a_supported_alternative
 test_quota_override_relaunches_and_is_recorded
 test_explicit_model_wins_over_the_recorded_one
 test_relaunch_onto_an_unverified_harness_is_refused

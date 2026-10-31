@@ -179,7 +179,7 @@ FM_QUOTA_EVAL_JQ='
 #       usableRunwaySeconds. A harness with no provider, a provider or account
 #       with no row, an unmeasured row, or a projection with no end time is
 #       disclosed uncertainty: verdict notice, never refuse.
-#   quota_gate_alternatives($q; $pmap; $cands; $now)
+#   quota_gate_alternatives($q; $pmap; $cands; $now; $kind; $backend)
 #       the candidates whose own verdict is pass with a known spendPriority,
 #       highest first.
 FM_QUOTA_GATE_HORIZON_SECONDS=10800
@@ -217,8 +217,12 @@ FM_QUOTA_GATE_JQ='
         $e + {verdict: "notice"}
       else $e + {verdict: "pass"} end
     end;
-  def quota_gate_alternatives($q; $pmap; $cands; $now):
-    [$cands[] | quota_gate_verdict($q; $pmap; .; $now)
+  def quota_gate_alternatives($q; $pmap; $cands; $now; $kind; $backend):
+    [$cands[]
+     | select($kind != "secondmate" or
+         (.harness as $h | ["muse", "gemini", "agy", "devin", "commandcode", "polytoken", "rovo"] | index($h) == null))
+     | select(.harness != "commandcode" or $backend == "tmux" or $backend == "herdr")
+     | quota_gate_verdict($q; $pmap; .; $now)
      | select(.verdict == "pass" and (.spendPriority | type) == "number")]
     | sort_by(-.spendPriority);
 '
@@ -244,7 +248,7 @@ fm_quota_gate_snapshot() {
   fm_quota_json_valid <"$out" || { printf 'quota-axi returned an invalid snapshot\n'; return 1; }
 }
 
-# fm_quota_gate_explicit <harness> <model> <rules-file> <snapshot-file>
+# fm_quota_gate_explicit <harness> <model> <rules-file> <snapshot-file> <kind> <backend>
 # Gates one explicitly named harness and model (empty model: the harness
 # default) against <snapshot-file>, from fm_quota_gate_snapshot.
 # The provider is the profile `provider` that config/crew-dispatch.json
@@ -258,7 +262,7 @@ fm_quota_gate_snapshot() {
 # [--effort <e>]` plus its provider and spendPriority) or `none`.
 # Returns 1 on refuse, 0 otherwise; an evaluation failure is a notice.
 fm_quota_gate_explicit() {
-  local harness=$1 model=$2 rules=$3 snap=$4 cands pmap requested out h p
+  local harness=$1 model=$2 rules=$3 snap=$4 kind=$5 backend=$6 cands pmap requested out h p
   if [ -f "$rules" ] && jq -e 'type == "object"' "$rules" >/dev/null 2>&1; then
     cands=$(jq -c '
       def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
@@ -283,6 +287,7 @@ fm_quota_gate_explicit() {
   }
   out=$(FM_QUOTA_GATE_HORIZON_SECONDS=$FM_QUOTA_GATE_HORIZON_SECONDS jq -r -n \
     --slurpfile quota "$snap" --argjson pmap "$pmap" --argjson c "$requested" --argjson cands "$cands" \
+    --arg kind "$kind" --arg backend "$backend" \
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'
     def flat: tostring | gsub("[\t\r\n]"; " ");
     # Profiles tied on the best spendPriority are named together, grouped by
@@ -296,7 +301,7 @@ fm_quota_gate_explicit() {
     ($quota[0]) as $q | now as $now |
     quota_gate_verdict($q; $pmap; $c; $now) as $v |
     ($cands | map(select(.harness != $c.harness or (.model // "") != ($c.model // "")))) as $others |
-    (quota_gate_alternatives($q; $pmap; $others; $now)) as $alts |
+    (quota_gate_alternatives($q; $pmap; $others; $now; $kind; $backend)) as $alts |
     $v.verdict,
     (($v.reason // "ok") | flat),
     (if ($alts | length) == 0 then "none"
@@ -309,7 +314,7 @@ fm_quota_gate_explicit() {
   [ "$(printf '%s\n' "$out" | head -1)" != refuse ]
 }
 
-# fm_quota_gate_run <harness> <model> <rules-file> <override-reason> <who>
+# fm_quota_gate_run <harness> <model> <rules-file> <override-reason> <who> <kind> <backend>
 # The one caller-facing gate step. Takes the snapshot, gates, and prints the
 # outcome on stderr. Sets FM_QUOTA_GATE_EVIDENCE to the one-line verdict and
 # FM_QUOTA_GATE_SNAPSHOT_PATH to the snapshot it read (empty when none), so a
@@ -318,7 +323,7 @@ fm_quota_gate_explicit() {
 # a notice naming it.
 # shellcheck disable=SC2034  # FM_QUOTA_GATE_* results are read by the sourcing callers
 fm_quota_gate_run() {
-  local harness=$1 model=$2 rules=$3 override=$4 who=$5 snap cause verdict reason alt out
+  local harness=$1 model=$2 rules=$3 override=$4 who=$5 kind=$6 backend=$7 snap cause verdict reason alt out
   FM_QUOTA_GATE_EVIDENCE=
   FM_QUOTA_GATE_SNAPSHOT_PATH=
   snap=$(mktemp "${TMPDIR:-/tmp}/fm-quota-gate.XXXXXX") || {
@@ -332,7 +337,7 @@ fm_quota_gate_run() {
     return 0
   fi
   FM_QUOTA_GATE_SNAPSHOT_PATH=$snap
-  out=$(fm_quota_gate_explicit "$harness" "$model" "$rules" "$snap")
+  out=$(fm_quota_gate_explicit "$harness" "$model" "$rules" "$snap" "$kind" "$backend")
   verdict=$(printf '%s\n' "$out" | sed -n 1p)
   reason=$(printf '%s\n' "$out" | sed -n 2p)
   alt=$(printf '%s\n' "$out" | sed -n 3p)

@@ -1259,7 +1259,7 @@ resolve_relaunch_profile() {
   if [ "$HARNESS_SET" = 1 ]; then
     local quota_rc=0
     fm_quota_gate_run "$TARGET_HARNESS" "$account_model" \
-      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-control || quota_rc=$?
+      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-control "$KIND" "$BACKEND" || quota_rc=$?
     [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
     [ "$quota_rc" = 0 ] || return 1
     QUOTA_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE

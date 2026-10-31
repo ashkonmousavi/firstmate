@@ -1844,6 +1844,69 @@ test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative() {
   pass "an explicit grok spawn refuses on exhausted_now or under-three-hour runway and names the best alternative"
 }
 
+test_quota_alternatives_obey_launch_capabilities() {
+  . "$ROOT/bin/fm-quota-axi-lib.sh"
+  local dir harness kind backend out status expected
+  dir="$TMP_ROOT/quota-capabilities"
+  mkdir -p "$dir"
+  fm_test_quota_snapshot "$dir/quota.json" exhausted
+  for harness in muse gemini agy devin commandcode polytoken rovo; do
+    jq -n --arg h "$harness" '{rules: [], default: [
+      {harness: $h, provider: "codex"}, {harness: "claude"}
+    ]}' > "$dir/rules.json"
+    for kind in ship scout secondmate; do
+      for backend in tmux herdr zellij cmux orca paseo; do
+        expected="provider codex (spendPriority 0.85): --harness $harness"
+        if [ "$kind" = secondmate ]; then
+          expected='provider claude (spendPriority -0.39): --harness claude'
+        elif [ "$harness" = commandcode ] && [ "$backend" != tmux ] && [ "$backend" != herdr ]; then
+          expected='provider claude (spendPriority -0.39): --harness claude'
+        fi
+        out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" "$kind" "$backend"); status=$?
+        expect_code 1 "$status" "exhausted Grok must refuse for $harness/$kind/$backend"
+        [ "$(printf '%s\n' "$out" | sed -n 3p)" = "$expected" ] \
+          || fail "launch capability contract picked the wrong alternative for $harness/$kind/$backend: $out"
+      done
+    done
+  done
+  printf '%s\n' '{"default":[{"harness":"agy","provider":"codex"},{"harness":"claude","provider":"codex"}]}' > "$dir/rules.json"
+  out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" secondmate tmux)
+  [ "$(printf '%s\n' "$out" | sed -n 3p)" = 'provider codex (spendPriority 0.85): --harness claude' ] \
+    || fail "an ineligible tied candidate survived filtering: $out"
+  printf '%s\n' '{"default":{"harness":"agy","provider":"codex"}}' > "$dir/rules.json"
+  out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" secondmate tmux)
+  [ "$(printf '%s\n' "$out" | sed -n 3p)" = none ] || fail "an ineligible-only pool must name no alternative: $out"
+  jq '.providers += [.providers[] | select(.provider == "codex") | .provider = "agy" | .quotaSemantics.effectiveAvailability[].selection.spendPriority = 9]' \
+    "$dir/quota.json" > "$dir/fallback.json"
+  for kind in ship secondmate; do
+    out=$(fm_quota_gate_explicit grok '' "$dir/no-rules.json" "$dir/fallback.json" "$kind" tmux)
+    if [ "$kind" = ship ]; then
+      assert_contains "$out" 'provider agy (spendPriority 9): --harness agy' "eligible fallback should win"
+    else
+      assert_contains "$out" 'provider codex (spendPriority 0.85): --harness codex' "fallback must honor secondmate eligibility"
+    fi
+  done
+  pass "quota alternatives obey launch capabilities before ranking, including ties and fallback profiles"
+}
+
+test_secondmate_quota_refusal_names_a_supported_alternative() {
+  local id=quota-secondmate-z30 out status sm
+  quota_gate_case "$id" grok "$id" exhausted
+  printf '%s\n' '{"default":[{"harness":"agy","provider":"codex"},{"harness":"claude"}]}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$sm" --secondmate --harness grok)
+  status=$?
+  expect_code 1 "$status" "an exhausted secondmate spawn must refuse"$'\n'"$out"
+  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude.' \
+    "secondmate spawn must skip higher-ranked AGY"
+  [ ! -s "$LAUNCH_LOG" ] || fail "a refused secondmate launched a worker"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "a refused secondmate wrote a task record"
+  pass "secondmate spawn quota refusals recommend a supported harness"
+}
+
 test_quota_gate_passes_healthy_and_long_runway_harnesses() {
   local id out status
   id=quota-pass-codex-z31
@@ -2584,6 +2647,8 @@ test_claude_haiku_launch_gets_an_opus_advisor
 test_claude_non_haiku_launch_gets_no_advisor
 test_claude_long_launch_is_delivered_intact
 test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative
+test_quota_alternatives_obey_launch_capabilities
+test_secondmate_quota_refusal_names_a_supported_alternative
 test_quota_gate_passes_healthy_and_long_runway_harnesses
 test_quota_gate_unknown_provider_passes_with_notice
 test_quota_gate_override_passes_and_is_recorded
