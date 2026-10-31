@@ -453,7 +453,36 @@ test_refused_restart_falls_back_without_claiming_a_reload() {
 setup_remote_case() {  # <case-dir> <id> <ssh-mode>
   local dir=$1 id=$2 mode=$3
   local fb="$dir/fakebin"
-  mkdir -p "$dir/$id-home"
+  mkdir -p "$dir/$id-home/bin" "$dir/$id-home/state/parent-route"
+  printf '%s\n' "$id" > "$dir/$id-home/.fm-secondmate-home"
+  : > "$dir/$id-home/AGENTS.md"
+  fm_write_meta "$dir/$id-home/state/parent-route/$id.meta" \
+    'backend=herdr' 'window=fm-remote:w1:p1' "endpoint_task_id=$id" \
+    "worktree=$dir/$id-home" "project=$dir/$id-home" \
+    'herdr_session=fm-remote' 'herdr_workspace_id=w1' \
+    'herdr_tab_id=w1:t1' 'herdr_pane_id=w1:p1'
+  export FM_FAKE_REMOTE_HOME="$dir/$id-home"
+  export FM_FAKE_REMOTE_CONTROL="$ROOT/bin/fm-remote-secondmate-control.sh"
+  cat > "$fb/herdr" <<'SH'
+#!/usr/bin/env bash
+set -u
+D=$FM_FAKE_DIR
+printf '%s\n' "$*" >> "$D/herdr.log"
+case "${1:-} ${2:-}" in
+  'status --json') printf '{"server":{"running":true}}\n' ;;
+  'pane read')
+    [ ! -e "$D/capture-unreadable" ] || exit 1
+    if [ -f "$D/capture-text" ]; then
+      cat "$D/capture-text"
+    elif [ -s "$D/bg-reads" ] && [ "$(cat "$D/bg-reads")" -gt 0 ]; then
+      printf '%s\n' "$(( $(cat "$D/bg-reads") - 1 ))" > "$D/bg-reads"
+      printf '%s\n' '────' '❯ ' '────' '  1 shell · ↓ to manage'
+    fi
+    ;;
+  *) exit 90 ;;
+esac
+SH
+  chmod +x "$fb/herdr"
   {
     echo "window=remote:$id"
     echo "endpoint_task_id=$id"
@@ -499,11 +528,7 @@ case "${rargs[1]:-}" in
     fi
     ;;
   capture)
-    [ ! -e "$FM_FAKE_DIR/capture-unreadable" ] || exit 1
-    if [ -s "$FM_FAKE_DIR/bg-reads" ] && [ "$(cat "$FM_FAKE_DIR/bg-reads")" -gt 0 ]; then
-      printf '%s\n' "$(( $(cat "$FM_FAKE_DIR/bg-reads") - 1 ))" > "$FM_FAKE_DIR/bg-reads"
-      printf '%s\n' '────' '❯ ' '────' '  1 shell · ↓ to manage'
-    fi
+    FM_HOME="$FM_FAKE_REMOTE_HOME" exec bash "$FM_FAKE_REMOTE_CONTROL" capture "${rargs[2]}" "${rargs[3]:-20}"
     ;;
   relaunch)
     case "${FM_FAKE_SSH_MODE:-ok}" in
@@ -935,6 +960,8 @@ test_incomplete_background_shell_cleanup_blocks_restart() {
       if [ "$placement" = remote ]; then
         assert_grep 'fm-remote-secondmate-control.sh capture ' "$dir/ssh.log" \
           "the remote screen must be checked"
+        assert_grep 'pane read w1:p1' "$dir/fake/herdr.log" \
+          "the host capture command must attempt the backend pane read"
         assert_no_grep 'fm-remote-secondmate-control.sh relaunch ' "$dir/ssh.log" \
           "incomplete cleanup must not relaunch remotely"
         assert_no_grep 'fm-remote-secondmate-control.sh key ' "$dir/ssh.log" \
@@ -966,6 +993,37 @@ test_remote_background_shells_are_waited_out_before_relaunch() {
   pass "T19 a remote mate's background shells clear before relaunch"
 }
 
+test_host_capture_preserves_successful_output_and_byte_bound() {
+  local dir rc expected
+  dir=$(new_case host-capture)
+  setup_remote_case "$dir" sm1 ok
+  expected=$'first line\nsecond line'
+  printf '%s' "$expected" > "$dir/fake/capture-text"
+
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/sm1-home" FM_FAKE_DIR="$dir/fake" \
+    bash "$ROOT/bin/fm-remote-secondmate-control.sh" capture sm1 60 > "$dir/capture.out"; rc=$?
+
+  expect_code 0 "$rc" "a readable remote pane must be captured successfully"
+  cmp -s "$dir/fake/capture-text" "$dir/capture.out" || fail "the host capture changed the pane text"
+  head -c 70000 /dev/zero | tr '\000' x > "$dir/fake/capture-text"
+  head -c 65536 "$dir/fake/capture-text" > "$dir/capture.expected"
+
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/sm1-home" FM_FAKE_DIR="$dir/fake" \
+    bash "$ROOT/bin/fm-remote-secondmate-control.sh" capture sm1 60 > "$dir/capture.out"; rc=$?
+
+  expect_code 0 "$rc" "a readable oversized capture must still succeed"
+  cmp -s "$dir/capture.expected" "$dir/capture.out" \
+    || fail "the host capture must return exactly its 65536-byte prefix"
+  : > "$dir/fake/capture-text"
+
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/sm1-home" FM_FAKE_DIR="$dir/fake" \
+    bash "$ROOT/bin/fm-remote-secondmate-control.sh" capture sm1 60 > "$dir/capture.out"; rc=$?
+
+  expect_code 0 "$rc" "a readable empty pane must remain a successful capture"
+  [ ! -s "$dir/capture.out" ] || fail "an empty pane must produce no capture bytes"
+  pass "T20 host capture preserves readable text, empty output, and the 65536-byte cap"
+}
+
 test_persist_gates_and_asks_only_for_open_records
 test_persist_precedes_restart
 test_arrived_answer_precedes_deadline_check
@@ -988,5 +1046,6 @@ test_already_current_unprovable_mate_stays_on_the_nudge_path
 test_background_shells_are_waited_out_before_exit
 test_incomplete_background_shell_cleanup_blocks_restart
 test_remote_background_shells_are_waited_out_before_relaunch
+test_host_capture_preserves_successful_output_and_byte_bound
 
 echo "# all fm-secondmate-restart tests passed"
