@@ -1796,7 +1796,7 @@ teardown_recorded_pr_class_cached() {
 # TEARDOWN_RELEASED_BRANCH for the sentinel record, or prints the refusal and
 # returns 1.
 teardown_release_head_proven() {
-  local head branch remote tracking
+  local head branch remote tracking remote_branch
   TEARDOWN_RELEASED_HEAD=
   TEARDOWN_RELEASED_BRANCH=
   if ! head=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null); then
@@ -1824,13 +1824,14 @@ teardown_release_head_proven() {
       echo "REFUSED: the forge did not report the head of pull request $PR_URL, and no single remote of $WT addresses that project; the copy is kept." >&2
       return 1
     fi
-    tracking="refs/remotes/$remote/$branch"
-    if ! git -C "$WT" fetch --quiet "$remote" "+refs/heads/$branch:$tracking" >/dev/null 2>&1; then
-      echo "REFUSED: could not fetch $branch from $remote to prove the head of pull request $PR_URL; the copy is kept." >&2
+    remote_branch=$FM_PR_RECORD_HEAD_BRANCH
+    tracking="refs/remotes/$remote/$remote_branch"
+    if ! git -C "$WT" fetch --quiet "$remote" "+refs/heads/$remote_branch:$tracking" >/dev/null 2>&1; then
+      echo "REFUSED: could not fetch $remote_branch from $remote to prove the head of pull request $PR_URL; the copy is kept." >&2
       return 1
     fi
     if [ "$head" != "$(git -C "$WT" rev-parse --verify --quiet "$tracking" 2>/dev/null)" ]; then
-      echo "REFUSED: $WT is at $head, but $remote/$branch, which holds pull request $PR_URL, is not; the copy is kept until they match." >&2
+      echo "REFUSED: $WT is at $head, but $remote/$remote_branch, which holds pull request $PR_URL, is not; the copy is kept until they match." >&2
       return 1
     fi
   fi

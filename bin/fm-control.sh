@@ -1410,8 +1410,7 @@ do_relaunch_released() {
   FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
   rm -f "$note_stage"
-  if [ "$spawn_status" -ne 0 ] \
-     && [ "$(fm_meta_get "$META" control_relaunch_tx)" != "$RELAUNCH_TX" ]; then
+  if [ "$spawn_status" -ne 0 ]; then
     rm -f "$prior_stage"
     [ "$spawn_status" -ne 75 ] || exit 75
     die "the released copy of $ID could not be recreated and relaunched on $TARGET_HARNESS; its released record, instructions and journal are unchanged"
@@ -1422,8 +1421,6 @@ do_relaunch_released() {
   WT=$(fm_meta_get "$META" worktree)
   RELAUNCH_ACTIVE=1
   journal_write launching "${CHECKPOINT_LINES[@]}" "$note_line" "relaunch_tx=$RELAUNCH_TX"
-  [ "$spawn_status" -eq 0 ] \
-    || die "the released copy of $ID was recreated, but its replacement agent could not be launched on $TARGET_HARNESS"
   if fm_backend_validate_task_endpoint "$META" "$ID" >/dev/null \
      && [ -n "$FM_BACKEND_VALIDATED_TARGET" ]; then
     T=$FM_BACKEND_VALIDATED_TARGET

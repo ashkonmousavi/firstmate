@@ -94,12 +94,15 @@ case "${1:-}" in
           ;;
         *'encode launch-brief'* | *'Firstmate operational input waiting: read'*)
           cat "$D/becomes" > "$D/command"
+          : > "$D/launch-typed"
+          [ ! -e "$D/fail-launch-literal" ] || exit 1
           [ -z "${FM_FAKE_CAPACITY_AFTER_LAUNCH:-}" ] || printf '0 0\n' > "$FM_FAKE_CAPACITY_AFTER_LAUNCH"
           [ -z "${FM_FAKE_LAUNCH_TRANSPORT_FAIL_AFTER_START:-}" ] || exit 1
           ;;
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
+      if [ "$payload" = Enter ] && [ -e "$D/launch-typed" ] && [ -e "$D/fail-launch-enter" ]; then exit 1; fi
       case "$payload" in
         'treehouse get')
           # A released relaunch allocates its copy through the pane's shell:
@@ -179,6 +182,10 @@ case "${1:-}" in
     printf '%s\n' "$ses" >> "$D/created-sessions"
     rm -f "$D/server-dead" "$D/session-missing"
     : > "$D/windows"
+    exit 0 ;;
+  kill-window)
+    : > "$D/windows"
+    printf 'zsh' > "$D/command"
     exit 0 ;;
   new-window)
     # Model the one thing an endpoint re-creation depends on: the window now
@@ -491,6 +498,8 @@ EOF
   printf '%s' "$proj" > "$dir/fake/cwd"
   printf '%s\n' "$head" > "$dir/fake/pr-head"
   printf 'OPEN\n' > "$dir/fake/pr-state"
+  printf 'example/repo\n' > "$dir/fake/pr-head-path"
+  printf 'fm/%s\n' "$id" > "$dir/fake/pr-head-branch"
   cat > "$dir/fakebin/gh" <<'SH'
 #!/usr/bin/env bash
 D=$FM_FAKE_DIR
@@ -500,7 +509,7 @@ case "${1:-} ${2:-}" in
     state=$(cat "$D/pr-state")
     merged=false
     [ "$state" != MERGED ] || merged=true
-    printf 'state=%s\nmerged=%s\nhead=%s\n' "$state" "$merged" "$(cat "$D/pr-head")"
+    printf 'state=%s\nmerged=%s\nhead=%s\nhead_path=%s\nhead_branch=%s\n' "$state" "$merged" "$(cat "$D/pr-head")" "$(cat "$D/pr-head-path")" "$(cat "$D/pr-head-branch")"
     ;;
   *) exit 1 ;;
 esac
@@ -2921,6 +2930,9 @@ if [ -f "$D/herdr-stopped" ]; then
   exit 1
 fi
 case "${1:-} ${2:-}" in
+  'session list')
+    printf '{"sessions":[{"name":"%s","running":true,"socket_path":"%s/herdr.sock"}]}\n' "${HERDR_SESSION:-fmlab}" "$D"
+    exit 0 ;;
   'pane get')
     if [ "${3:-}" = "$(cat "$D/herdr-pane")" ]; then
       printf '{"result":{"pane":{"pane_id":"%s","foreground_cwd":"%s"}}}\n' \
@@ -2967,8 +2979,17 @@ case "${1:-} ${2:-}" in
     case "$payload" in
       *'encode launch-brief'* | *'Firstmate operational input waiting: read'*)
         printf '%s\n' "$payload" > "$D/launched-command"
-        : > "$D/herdr-agent-live" ;;
+        : > "$D/herdr-agent-live"
+        : > "$D/launch-typed"
+        [ ! -e "$D/fail-launch-literal" ] || exit 1 ;;
     esac
+    exit 0 ;;
+  'pane send-keys')
+    if [ "${4:-}" = enter ] && [ -e "$D/launch-typed" ] && [ -e "$D/fail-launch-enter" ]; then exit 1; fi
+    exit 0 ;;
+  'pane close')
+    printf '%s' '%none' > "$D/herdr-pane"
+    rm -f "$D/herdr-agent-live"
     exit 0 ;;
   'pane run')
     # A released relaunch allocates its copy through the pane's shell.
@@ -3072,6 +3093,22 @@ herdr_case_or_skip() {  # <name> <id> [session] [surviving-pane]
   return 0
 }
 
+released_use_herdr() {
+  local dir=$1 id=$2
+  make_herdr_stub "$dir"
+  awk '
+    /^window=/ { print "window=fmlab:%7"; next }
+    /^pr=/ { print "backend=herdr"; print "herdr_session=fmlab"; print "herdr_workspace_id=ws1"
+             print "herdr_tab_id=tab1"; print "herdr_pane_id=%7" }
+    { print }
+  ' "$dir/home/state/$id.meta" > "$dir/home/state/$id.meta.new"
+  mv "$dir/home/state/$id.meta.new" "$dir/home/state/$id.meta"
+  # Teardown closed the pane: it does not come back with its server.
+  printf '%s' '%none' > "$dir/fake/herdr-pane"
+  : > "$dir/fake/herdr-log"
+  : > "$dir/fake/herdr-stopped"
+}
+
 test_herdr_relaunch_of_a_released_copy_recreates_it() {
   local dir out rc=0 head
   command -v jq >/dev/null 2>&1 || {
@@ -3080,19 +3117,8 @@ test_herdr_relaunch_of_a_released_copy_recreates_it() {
   }
   dir=$(new_case released-herdr rr10)
   add_released_ship_task "$dir" rr10
-  make_herdr_stub "$dir"
+  released_use_herdr "$dir" rr10
   head=$(cat "$dir/fake/pr-head")
-  awk '
-    /^window=/ { print "window=fmlab:%7"; next }
-    /^pr=/ { print "backend=herdr"; print "herdr_session=fmlab"; print "herdr_workspace_id=ws1"
-             print "herdr_tab_id=tab1"; print "herdr_pane_id=%7" }
-    { print }
-  ' "$dir/home/state/rr10.meta" > "$dir/home/state/rr10.meta.new"
-  mv "$dir/home/state/rr10.meta.new" "$dir/home/state/rr10.meta"
-  # Teardown closed the pane: it does not come back with its server.
-  printf '%s' '%none' > "$dir/fake/herdr-pane"
-  : > "$dir/fake/herdr-log"
-  : > "$dir/fake/herdr-stopped"
   out=$(run_control "$dir" rr10 relaunch --note "herdr pick-up") || rc=$?
   expect_code 0 "$rc" "a released herdr copy should be recreated and relaunched"$'\n'"$out"
   [ "$(meta_field "$dir" rr10 worktree)" = "$dir/pool/1/repo" ] || fail "the herdr record does not name the new copy"
@@ -3661,12 +3687,133 @@ test_serial_recovery_rereads_capacity_before_each_launch() {
   pass "serial recovery rereads capacity and stops at the first deferred launch"
 }
 
+
+test_released_launch_delivery_failure_rolls_back() {
+  local dir backend failure out rc meta brief
+  for backend in tmux herdr; do
+    for failure in literal enter; do
+      dir=$(new_case "released-delivery-$backend-$failure" rr12)
+      add_released_ship_task "$dir" rr12
+      [ "$backend" != herdr ] || released_use_herdr "$dir" rr12
+      seed_backlog "$dir" rr12 in_flight
+      tasks-axi hold rr12 --kind external --reason "awaiting merge https://github.com/example/repo/pull/7" \
+        --file "$dir/home/data/backlog.md" >/dev/null
+      : > "$dir/fake/fail-launch-$failure"
+      meta=$(cat "$dir/home/state/rr12.meta")
+      brief=$(cat "$dir/home/data/rr12/brief.md")
+      printf 'sentinel contents\n' > "$dir/home/state/rr12.released-copy"
+      out=$(run_control "$dir" rr12 relaunch --note "delivery retry"); rc=$?
+      [ "$rc" -ne 0 ] || fail "$backend/$failure: failed delivery should refuse"$'\n'"$out"
+      assert_present "$dir/fake/launch-typed" "$backend/$failure: the failure did not reach launch delivery"
+      assert_released_untouched "$dir" rr12 "$meta" "$brief" "$backend/$failure"
+      [ "$(cat "$dir/home/state/rr12.released-copy")" = 'sentinel contents' ] || fail "the sentinel was touched"
+      [ "$(backlog_held "$dir" rr12)" = yes ] || fail "$backend/$failure: the merge hold was lifted"
+      assert_absent "$dir/pool/1/.fm-slot-owner" "$backend/$failure: the slot is still claimed"
+      assert_grep "return --force $dir/pool/1/repo" "$dir/fake/treehouse-log" "$backend/$failure: the copy was not returned"
+      if [ "$backend" = tmux ]; then
+        [ ! -s "$dir/fake/windows" ] || fail "the failed launch left its window open"
+      else
+        [ "$(cat "$dir/fake/herdr-pane")" = '%none' ] || fail "the failed launch left its pane open"
+      fi
+      rm "$dir/fake/fail-launch-$failure" "$dir/fake/launch-typed"
+      printf '%s' "$dir/proj" > "$dir/fake/cwd"
+      out=$(run_control "$dir" rr12 relaunch --note "delivery retry"); rc=$?
+      expect_code 0 "$rc" "$backend/$failure: the retry should succeed"$'\n'"$out"
+      [ "$(released_note_count "$dir" rr12)" = 1 ] || fail "the retry duplicated the progress note"
+      [ "$(backlog_held "$dir" rr12)" = no ] || fail "the successful retry left the merge hold"
+    done
+  done
+  pass "released relaunch delivery failures restore state and return resources on both backends"
+}
+
+test_released_pool_exhaustion_defers() {
+  local backend dir out rc meta brief
+  for backend in tmux herdr; do
+    dir=$(new_case "released-pool-$backend" rr13)
+    add_released_ship_task "$dir" rr13
+    [ "$backend" != herdr ] || released_use_herdr "$dir" rr13
+    printf '%s' "$dir/proj" > "$dir/fake/treehouse-slot"
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$dir/fakebin/sleep"
+    chmod +x "$dir/fakebin/sleep"
+    meta=$(cat "$dir/home/state/rr13.meta")
+    brief=$(cat "$dir/home/data/rr13/brief.md")
+    out=$(run_control "$dir" rr13 relaunch --note "no slot"); rc=$?
+    expect_code 75 "$rc" "$backend: an exhausted pool should defer"$'\n'"$out"
+    assert_released_untouched "$dir" rr13 "$meta" "$brief" "$backend pool exhaustion"
+    assert_absent "$dir/pool/1/.fm-slot-owner" "$backend: no slot should be claimed"
+    if [ "$backend" = tmux ]; then
+      [ ! -s "$dir/fake/windows" ] || fail "the deferred launch left its window open"
+    else
+      [ "$(cat "$dir/fake/herdr-pane")" = '%none' ] || fail "the deferred launch left its pane open"
+    fi
+  done
+  pass "an exhausted pool defers with exit 75 and closes the endpoint on both backends"
+}
+
+test_released_fork_branch_uses_head_repository() {
+  local dir out rc head
+  dir=$(new_case released-fork rr14)
+  add_released_ship_task "$dir" rr14
+  head=$(cat "$dir/fake/pr-head")
+  git clone --quiet --bare "$dir/origin.git" "$dir/fork.git"
+  git -C "$dir/fork.git" branch -m fm/rr14 topic
+  git -C "$dir/origin.git" branch -D fm/rr14 >/dev/null
+  git -C "$dir/proj" remote add fork https://github.com/contributor/repo.git
+  git -C "$dir/proj" config "url.file://$dir/fork.git.insteadOf" https://github.com/contributor/repo.git
+  printf 'contributor/repo\n' > "$dir/fake/pr-head-path"
+  printf 'topic\n' > "$dir/fake/pr-head-branch"
+  out=$(run_control "$dir" rr14 relaunch --note "fork pickup"); rc=$?
+  expect_code 0 "$rc" "the branch must be fetched from the fork, not the base repo"$'\n'"$out"
+  [ "$(git -C "$dir/pool/1/repo" rev-parse HEAD)" = "$head" ] || fail "the fork head was not recreated"
+  [ "$(git -C "$dir/pool/1/repo" symbolic-ref --short HEAD)" = fm/rr14 ] || fail "the local task branch changed"
+  [ "$(git -C "$dir/pool/1/repo" rev-parse --abbrev-ref '@{upstream}')" = fork/topic ] || fail "the recreated branch tracks the wrong remote branch"
+  pass "a fork relaunch fetches the PR head repository and branch"
+}
+
+test_teardown_to_relaunch_round_trip() {
+  local dir out rc slot head
+  dir=$(new_case released-roundtrip rr15)
+  add_released_ship_task "$dir" rr15
+  seed_backlog "$dir" rr15 in_flight
+  slot="$dir/pool/1/repo"
+  head=$(cat "$dir/fake/pr-head")
+  git -C "$slot" checkout -q -b fm/rr15 origin/fm/rr15
+  awk -v slot="$slot" '/^released_/ { next } /^worktree=/ { print "worktree=" slot; next } { print }' \
+    "$dir/home/state/rr15.meta" > "$dir/active.meta"
+  mv "$dir/active.meta" "$dir/home/state/rr15.meta"
+  printf 'fm-rr15\n' > "$dir/fake/windows"
+  printf '%s' "$slot" > "$dir/fake/cwd"
+  make_recovery_nm_stub "$dir"
+  cat > "$dir/fakebin/lsof" <<'SH'
+#!/usr/bin/env bash
+case " $* " in *' -d cwd '*) exit 0 ;; esac
+exit 1
+SH
+  chmod +x "$dir/fakebin/lsof"
+  out=$(run_lifecycle_fixture "$dir" bash "$ROOT/bin/fm-teardown.sh" rr15); rc=$?
+  expect_code 0 "$rc" "teardown should release the real pushed copy"$'\n'"$out"
+  [ "$(meta_field "$dir" rr15 worktree)" = "$dir/home/state/rr15.released-copy" ] || fail "teardown did not release the record"
+  [ "$(meta_field "$dir" rr15 released_head)" = "$head" ] || fail "teardown recorded the wrong head"
+  [ "$(backlog_held "$dir" rr15)" = yes ] || fail "teardown did not apply its merge hold"
+  git -C "$dir/proj" show-ref --verify --quiet refs/heads/fm/rr15 && fail "teardown left the task branch checked out"
+  out=$(run_control "$dir" rr15 relaunch --note "after real release"); rc=$?
+  expect_code 0 "$rc" "relaunch should consume teardown's record and hold"$'\n'"$out"
+  [ "$(meta_field "$dir" rr15 worktree)" = "$slot" ] || fail "the round trip did not allocate the slot"
+  [ "$(git -C "$slot" symbolic-ref --short HEAD)" = fm/rr15 ] || fail "the round trip changed branches"
+  [ "$(git -C "$slot" rev-parse HEAD)" = "$head" ] || fail "the round trip changed the head"
+  [ "$(backlog_held "$dir" rr15)" = no ] || fail "the round trip did not lift the merge hold"
+  [ "$(backlog_state "$dir" rr15)" = in_flight ] || fail "the round trip left the task out of flight"
+  [ "$(released_note_count "$dir" rr15)" = 1 ] || fail "the round trip did not deliver exactly one progress note"
+  pass "real teardown and relaunch round trip preserves the pushed branch and lifts the release hold"
+}
+
 # Reuse these hermetic fixtures in the pending-proof lifecycle regression.
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
 
 test_reboot_recovery_uses_the_real_control_and_spawn_paths
 test_tmux_absence_needs_prior_boot_evidence
 test_recovery_respects_reconciled_run_ownership
+
 test_recovery_relaunches_the_prevalidation_done_handoff
 test_serial_recovery_rereads_capacity_before_each_launch
 
@@ -3774,3 +3921,7 @@ test_spawn_relaunch_of_a_released_copy_gates_its_endpoint
 test_herdr_relaunch_of_a_released_copy_recreates_it
 test_released_relaunch_lifts_only_the_merge_hold_teardown_set
 test_released_copy_frees_its_seat_and_the_relaunch_holds_one
+test_released_launch_delivery_failure_rolls_back
+test_released_pool_exhaustion_defers
+test_released_fork_branch_uses_head_repository
+test_teardown_to_relaunch_round_trip

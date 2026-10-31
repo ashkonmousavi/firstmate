@@ -5356,6 +5356,11 @@ install_github_pr_class() {
 case "\${1:-} \${2:-}" in
   "api graphql")
     printf '%s\n' 'state=$gql_state' 'merged=$gql_merged'
+    if [ -f '$case_dir/forge-head-path' ]; then
+      printf 'head_path=%s\nhead_branch=%s\n' "\$(cat '$case_dir/forge-head-path')" "\$(cat '$case_dir/forge-head-branch')"
+    else
+      printf '%s\n' 'head_path=example/repo' 'head_branch=fm/task-x1'
+    fi
     if [ -e '$case_dir/forge-head' ]; then
       printf 'head=%s\n' "\$(cat '$case_dir/forge-head')"
     elif [ -d '$case_dir/wt' ]; then
@@ -5716,6 +5721,39 @@ test_release_records_the_head_it_proved() {
 
 # gh-axi carries no head, so the remote addressing the pull request's project
 # stands in, and a remote that does not address it never does.
+
+test_release_tracking_proof_uses_fork_head_branch() {
+  local case_dir outcome head
+  for outcome in matching different; do
+    case_dir=$(prepare_recorded_github_pr "fork-head-$outcome")
+    install_github_pr_class "$case_dir" open
+    push_task_branch "$case_dir"
+    head=$(git -C "$case_dir/wt" rev-parse HEAD)
+    git clone --quiet --bare "$case_dir/origin.git" "$case_dir/fork.git"
+    git -C "$case_dir/fork.git" branch -m fm/task-x1 topic
+    if [ "$outcome" = different ]; then
+      git -C "$case_dir/fork.git" branch -f topic main
+    fi
+    git -C "$case_dir/project" remote add upstream https://github.com/example/repo.git
+    git -C "$case_dir/project" config "url.$case_dir/origin.git.insteadOf" https://github.com/example/repo.git
+    git -C "$case_dir/project" remote add fork https://github.com/contributor/repo.git
+    git -C "$case_dir/project" config "url.$case_dir/fork.git.insteadOf" https://github.com/contributor/repo.git
+    printf 'contributor/repo\n' > "$case_dir/forge-head-path"
+    printf 'topic\n' > "$case_dir/forge-head-branch"
+    : > "$case_dir/forge-head"
+    teardown_capture "$case_dir"
+    if [ "$outcome" = matching ]; then
+      expect_code 0 "$TEARDOWN_CAPTURE_RC" "the fork's differently named head branch should prove the release"$'\n'"$(cat "$case_dir/stderr")"
+      assert_grep "released_head=$head" "$case_dir/state/task-x1.meta" "the fork proof did not record the head"
+    else
+      expect_code 1 "$TEARDOWN_CAPTURE_RC" "the base repository cannot prove a head absent from the fork"$'\n'"$(cat "$case_dir/stderr")"
+      assert_present "$case_dir/wt" "the unproven fork copy was released"
+      assert_no_grep 'released_head=' "$case_dir/state/task-x1.meta" "the refused fork copy was marked released"
+    fi
+  done
+  pass "tracking-ref release proof follows the PR head repository and branch"
+}
+
 test_release_without_a_forge_head_reads_the_pull_request_remote() {
   local case_dir head
   case_dir=$(prepare_recorded_github_pr no-forge-head)
@@ -6230,3 +6268,4 @@ test_merge_hold_preserves_lifecycle_locks
 test_merge_wait_preserves_existing_captain_hold
 test_pr_refusals_apply_without_automatic_backlog
 test_keep_open_without_automatic_backlog_requests_merge_hold
+test_release_tracking_proof_uses_fork_head_branch

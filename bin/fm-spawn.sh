@@ -1457,6 +1457,9 @@ SPAWN_FRESH_WIRING_PENDING=0
 RELAUNCH_FROM_RELEASED=0
 RELEASED_ENDPOINT_OPENED=0
 RELEASED_BRIEF_PRIOR=
+RELEASED_META_PRIOR=
+RELEASED_COMMITTED=0
+RELEASED_HOLD_LIFTED=0
 RELEASED_SOURCE_BRIEF=
 RELEASED_HEAD=
 RELEASED_BRANCH=
@@ -1567,31 +1570,31 @@ released_relaunch_preflight() {
 # as a descendant of that head, and when the forge reports a head the tip must
 # be it. The copy ends on the branch itself, tracking that remote, and clean.
 released_recreate_branch() {
-  local remote tracking tip
-  fm_pr_url_parse "$RELEASED_PR" && remote=$(fm_pr_holding_remote "$WT") || {
+  local remote tracking tip remote_branch=$FM_PR_RECORD_HEAD_BRANCH
+  remote=$(fm_pr_holding_remote "$WT") || {
     echo "error: no single remote of $PROJ_ABS addresses pull request $RELEASED_PR, so task $ID's branch cannot be recreated; $(spawn_endpoint_hint)" >&2
     return 1
   }
-  tracking="refs/remotes/$remote/$RELEASED_BRANCH"
-  if ! git -C "$WT" fetch --quiet "$remote" "+refs/heads/$RELEASED_BRANCH:$tracking" >/dev/null 2>&1; then
-    echo "error: branch $RELEASED_BRANCH does not exist on $remote or could not be fetched from it, so task $ID's released copy cannot be recreated; refusing to relaunch" >&2
+  tracking="refs/remotes/$remote/$remote_branch"
+  if ! git -C "$WT" fetch --quiet "$remote" "+refs/heads/$remote_branch:$tracking" >/dev/null 2>&1; then
+    echo "error: branch $remote_branch does not exist on $remote or could not be fetched from it, so task $ID's released copy cannot be recreated; refusing to relaunch" >&2
     return 1
   fi
   tip=$(git -C "$WT" rev-parse --verify --quiet "$tracking^{commit}" 2>/dev/null) || tip=
   if [ -z "$tip" ]; then
-    echo "error: branch $RELEASED_BRANCH does not exist on $remote, so task $ID's released copy cannot be recreated; refusing to relaunch" >&2
+    echo "error: branch $remote_branch does not exist on $remote, so task $ID's released copy cannot be recreated; refusing to relaunch" >&2
     return 1
   fi
   if ! git -C "$WT" merge-base --is-ancestor "$RELEASED_HEAD" "$tip" 2>/dev/null; then
-    echo "error: $remote/$RELEASED_BRANCH is at $tip, which does not contain task $ID's released head $RELEASED_HEAD; the branch was rewritten since release, so it is not recreated" >&2
+    echo "error: $remote/$remote_branch is at $tip, which does not contain task $ID's released head $RELEASED_HEAD; the branch was rewritten since release, so it is not recreated" >&2
     return 1
   fi
   if [ -n "$RELEASED_FORGE_HEAD" ] && [ "$RELEASED_FORGE_HEAD" != "$tip" ]; then
-    echo "error: pull request $RELEASED_PR has head $RELEASED_FORGE_HEAD on the forge but $remote/$RELEASED_BRANCH is at $tip; retry the relaunch once they agree" >&2
+    echo "error: pull request $RELEASED_PR has head $RELEASED_FORGE_HEAD on the forge but $remote/$remote_branch is at $tip; retry the relaunch once they agree" >&2
     return 1
   fi
   if ! git -C "$WT" checkout -q -B "$RELEASED_BRANCH" "$tip" 2>/dev/null ||
-    ! git -C "$WT" branch -q --set-upstream-to="$remote/$RELEASED_BRANCH" "$RELEASED_BRANCH" 2>/dev/null; then
+    ! git -C "$WT" branch -q --set-upstream-to="$remote/$remote_branch" "$RELEASED_BRANCH" 2>/dev/null; then
     echo "error: branch $RELEASED_BRANCH could not be checked out in the new copy $WT for task $ID; $(spawn_endpoint_hint)" >&2
     return 1
   fi
@@ -1672,6 +1675,7 @@ spawn_orca_reclaim_launch_file() {
 spawn_abort_cleanup() {
   local status=$?
   if [ "$RELAUNCH_REPLACEMENT_PENDING" = 1 ] &&
+    [ "$RELAUNCH_FROM_RELEASED" = 0 ] &&
     [ "$SPAWN_META_PUBLISH_STARTED" = 1 ] &&
     [ -n "$SPAWN_META_TMP" ] &&
     [ ! -e "$SPAWN_META_TMP" ] &&
@@ -1762,10 +1766,6 @@ spawn_abort_cleanup() {
       [ "$status" -ne 0 ] || status=1
     fi
   fi
-  if [ "$SPAWN_META_LOCK_HELD" = 1 ]; then
-    SPAWN_META_LOCK_HELD=0
-    fm_lock_release "$SPAWN_META_LOCK" || true
-  fi
   # A fresh polytoken spawn that fails and leaves no record must leave the pool
   # as it found it. Before its launch is delivered, the endpoint it opened holds nothing but
   # the shell whose `treehouse get` leases the slot, so closing it returns the
@@ -1816,13 +1816,21 @@ spawn_abort_cleanup() {
       fi
     fi
   fi
-  # A released relaunch that fails before its new record is published leaves
+  # A released relaunch that fails leaves
   # the released record exactly as it was: the brief is restored without the
   # progress note, the endpoint it opened in the project is closed, and the
   # copy it allocated goes back to the pool with its claim, while the project
   # lock that allocated it is still held. The sentinel is never touched.
   if [ "$status" -ne 0 ] && [ "$RELAUNCH_FROM_RELEASED" = 1 ] &&
-    [ "$(fm_meta_get "$STATE/$ID.meta" worktree 2>/dev/null)" = "$STATE/$ID.released-copy" ]; then
+    [ "$RELEASED_COMMITTED" = 0 ]; then
+    if [ -n "$RELEASED_META_PRIOR" ] && [ -f "$RELEASED_META_PRIOR" ]; then
+      mv -f "$RELEASED_META_PRIOR" "$STATE/$ID.meta" ||
+        echo "warning: could not restore task $ID's released record from $RELEASED_META_PRIOR" >&2
+    fi
+    if [ "$RELEASED_HOLD_LIFTED" = 1 ]; then
+      fm_backlog_mutate "$DATA" hold "$ID" --kind external --reason "awaiting merge $RELEASED_PR" ||
+        echo "warning: could not restore task $ID's merge hold" >&2
+    fi
     if [ -n "$RELEASED_BRIEF_PRIOR" ] && [ -f "$RELEASED_BRIEF_PRIOR" ]; then
       cp -p "$RELEASED_BRIEF_PRIOR" "$RELEASED_SOURCE_BRIEF" 2>/dev/null ||
         echo "warning: could not restore $RELEASED_SOURCE_BRIEF after the failed relaunch of $ID; restore it from $RELEASED_BRIEF_PRIOR" >&2
@@ -1847,6 +1855,11 @@ spawn_abort_cleanup() {
     fi
   fi
   [ -z "$RELEASED_BRIEF_PRIOR" ] || rm -f -- "$RELEASED_BRIEF_PRIOR" 2>/dev/null || true
+  [ -z "$RELEASED_META_PRIOR" ] || rm -f -- "$RELEASED_META_PRIOR" 2>/dev/null || true
+  if [ "$SPAWN_META_LOCK_HELD" = 1 ]; then
+    SPAWN_META_LOCK_HELD=0
+    fm_lock_release "$SPAWN_META_LOCK" || true
+  fi
   # A spawn that aborts after claiming its slot but before its record survives
   # must not leave a claim naming a task no record describes. The release is a
   # read-then-remove, so it runs only while the project lock that wrote the
@@ -3889,13 +3902,19 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   # pre-scope briefs and relaunches. Charters never enter this worker path.
   # The overlap note is best-effort: the helper exits 0, and a failure still
   # must not refuse the launch.
-  # A released relaunch keeps the brief exactly as it was until its new record
-  # is published, so the abort path restores this copy over both the overlap
+  # A released relaunch keeps the brief exactly as it was until launch delivery
+  # completes, so the abort path restores this copy over both the overlap
   # note below and the progress note written after allocation.
   if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
     RELEASED_SOURCE_BRIEF=$BRIEF
     RELEASED_BRIEF_PRIOR=$(umask 077; mktemp "$STATE/.$ID.brief-prior.XXXXXX") &&
-      cp -p "$BRIEF" "$RELEASED_BRIEF_PRIOR" || {
+      cp -p "$BRIEF" "$RELEASED_BRIEF_PRIOR" &&
+      RELEASED_META_PRIOR=$(umask 077; mktemp "$STATE/.$ID.meta-prior.XXXXXX") &&
+      cp -p "$RELAUNCH_META" "$RELEASED_META_PRIOR" || {
+      [ -z "$RELEASED_BRIEF_PRIOR" ] || rm -f -- "$RELEASED_BRIEF_PRIOR"
+      [ -z "$RELEASED_META_PRIOR" ] || rm -f -- "$RELEASED_META_PRIOR"
+      RELEASED_BRIEF_PRIOR=
+      RELEASED_META_PRIOR=
       echo "error: could not preserve task $ID's instructions before its released relaunch" >&2
       exit 1
     }
@@ -5365,6 +5384,7 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   done
   if [ -z "$WT" ]; then
     echo "error: treehouse get did not enter an isolated worktree within 60s (last seen '${last_seen:-none}': $last_reason; spawning project '$PROJ_ABS'); $(spawn_endpoint_hint)" >&2
+    [ "$RELAUNCH_FROM_RELEASED" = 0 ] || exit 75
     exit 1
   fi
 
@@ -6230,6 +6250,7 @@ spawn_commit_backlog_transition() {
     BACKLOG_ROW_STATE=$FM_BACKLOG_ROW_STATE
     if released_backlog_hold_is_teardown_own; then
       fm_backlog_mutate "$DATA" unhold "$ID" || return 1
+      RELEASED_HOLD_LIFTED=1
     fi
   fi
   fm_backlog_atomic_transition dispatch "$STATE/$ID.meta" "$DATA" "$ID" "$STATE"
@@ -6279,7 +6300,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
     echo "error: replacement task record for $ID could not be published ($FM_BACKLOG_TRANSITION_ERROR)" >&2
     exit 1
   fi
-  RELAUNCH_REPLACEMENT_PENDING=0
+  [ "$RELAUNCH_FROM_RELEASED" = 1 ] || RELAUNCH_REPLACEMENT_PENDING=0
   SPAWN_META_PUBLISH_STARTED=0
   SPAWN_META_TMP=
 fi
@@ -6289,7 +6310,7 @@ fi
 # still being delivered, cannot observe or complete a fresh provisional record
 # between its state check and `tasks-axi start`, and a delivery failure cannot
 # follow a committed In-flight transition.
-if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ]; then
+if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
   fm_lock_release "$SPAWN_TREEHOUSE_PROJECT_LOCK"
 fi
@@ -6874,6 +6895,8 @@ trap - HUP INT TERM
 if [ "$SPAWN_BACKLOG_COMMIT_STATUS" -ne 0 ]; then
   exit "$SPAWN_BACKLOG_COMMIT_STATUS"
 fi
+RELEASED_COMMITTED=1
+RELAUNCH_REPLACEMENT_PENDING=0
 if [ -n "$SPAWN_DEFERRED_SIGNAL" ]; then
   case "$SPAWN_DEFERRED_SIGNAL" in
   HUP) SPAWN_DEFERRED_SIGNAL_STATUS=129 ;;

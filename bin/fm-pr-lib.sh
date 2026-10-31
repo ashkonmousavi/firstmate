@@ -978,12 +978,14 @@ fm_pr_github_read_record_with_gh() {  # <owner> <repo> <number>
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
   FM_PR_RECORD_HEAD=
+  FM_PR_RECORD_HEAD_PATH=
+  FM_PR_RECORD_HEAD_BRANCH=
 
   # shellcheck disable=SC2016  # GraphQL variables are literal query syntax.
   if ! fields=$(gh api graphql \
-    -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged headRefOid}}}' \
+    -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged headRefOid headRefName headRepository{nameWithOwner}}}}' \
     -F "owner=$owner" -F "repo=$repo" -F "number=$number" \
-    --jq '.data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring), "head=" + (.headRefOid // "")' \
+    --jq '.data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring), "head=" + (.headRefOid // ""), "head_path=" + (.headRepository.nameWithOwner // ""), "head_branch=" + (.headRefName // "")' \
     2>/dev/null) || [ -z "$fields" ]; then
     return 1
   fi
@@ -992,6 +994,8 @@ fm_pr_github_read_record_with_gh() {  # <owner> <repo> <number>
     case "$line" in
       state=*) state=${line#state=} ;;
       merged=*) merged=${line#merged=} ;;
+      head_path=*) FM_PR_RECORD_HEAD_PATH=${line#head_path=}; total=$((total - 1)); continue ;;
+      head_branch=*) FM_PR_RECORD_HEAD_BRANCH=${line#head_branch=}; total=$((total - 1)); continue ;;
       head=*) head=${line#head=}; total=$((total - 1)); continue ;;
       *) continue ;;
     esac
@@ -1019,6 +1023,8 @@ fm_pr_github_read_record_with_gh_axi() {  # <owner> <repo> <number>
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
   FM_PR_RECORD_HEAD=
+  FM_PR_RECORD_HEAD_PATH=
+  FM_PR_RECORD_HEAD_BRANCH=
   if ! output=$(gh-axi pr view "$number" --repo "$owner/$repo" 2>/dev/null); then
     return 1
   fi
@@ -1068,11 +1074,13 @@ fm_pr_github_read_record() {  # <owner> <repo> <number>
 }
 
 fm_pr_gitlab_read_record() {  # <host> <path> <number>
-  local host=$1 path=$2 number=$3 project_url json fields line
+  local host=$1 path=$2 number=$3 project_url json fields line source_id
   local total=0 named=0 state='' merged='' head=''
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
   FM_PR_RECORD_HEAD=
+  FM_PR_RECORD_HEAD_PATH=
+  FM_PR_RECORD_HEAD_BRANCH=
   command -v glab >/dev/null 2>&1 || return 1
   command -v jq >/dev/null 2>&1 || return 1
   project_url="https://$host/$path"
@@ -1108,6 +1116,12 @@ FIELDS
     return 1
   fi
   ! fm_pr_head_valid "$head" || FM_PR_RECORD_HEAD=$head
+  FM_PR_RECORD_HEAD_BRANCH=$(printf '%s' "$json" | jq -r '.source_branch // empty')
+  source_id=$(printf '%s' "$json" | jq -r '.source_project_id // empty')
+  case "$source_id" in
+    ''|*[!0-9]*) ;;
+    *) FM_PR_RECORD_HEAD_PATH=$(GITLAB_HOST="$host" glab api "projects/$source_id" --jq '.path_with_namespace // empty' 2>/dev/null) || FM_PR_RECORD_HEAD_PATH= ;;
+  esac
 
   # Consumed by bin/fm-crew-state.sh passed_pr_detail.
   # shellcheck disable=SC2034
@@ -1159,6 +1173,8 @@ fm_pr_forgejo_read_record() {  # <host> <path> <number>
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
   FM_PR_RECORD_HEAD=
+  FM_PR_RECORD_HEAD_PATH=
+  FM_PR_RECORD_HEAD_BRANCH=
   command -v jq >/dev/null 2>&1 || return 1
   case "$number" in
     ''|*[!0-9]*) return 1 ;;
@@ -1207,6 +1223,8 @@ FIELDS
   # Consumed by bin/fm-teardown.sh pr_is_merged.
   # shellcheck disable=SC2034
   FM_PR_RECORD_HEAD=$head
+  FM_PR_RECORD_HEAD_PATH=$(printf '%s' "$json" | jq -r '.head.repo.full_name // empty')
+  FM_PR_RECORD_HEAD_BRANCH=$(printf '%s' "$json" | jq -r '.head.ref // empty')
 }
 
 # gerrit-axi resolves its server from the current directory's origin remote
@@ -1250,6 +1268,8 @@ fm_pr_gerrit_read_record() {  # <host> <number>
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
   FM_PR_RECORD_HEAD=
+  FM_PR_RECORD_HEAD_PATH=
+  FM_PR_RECORD_HEAD_BRANCH=
   record=$(fm_pr_gerrit_read_change "$1" "$2") || return 1
   state=$(printf '%s' "$record" | jq -r '
     if (.status | type) == "string" and .status != "" and (.status | test("\n") | not)
@@ -1261,6 +1281,8 @@ fm_pr_gerrit_read_record() {  # <host> <number>
   revision=$(printf '%s' "$record" | jq -r '
     if (.revision | type) == "string" then .revision else "" end' 2>/dev/null) || revision=
   ! fm_pr_head_valid "$revision" || FM_PR_RECORD_HEAD=$revision
+  FM_PR_RECORD_HEAD_PATH=$(printf '%s' "$record" | jq -r '.project // empty')
+  FM_PR_RECORD_HEAD_BRANCH=$(printf '%s' "$record" | jq -r '.branch // empty')
 
   # Consumed by bin/fm-crew-state.sh passed_pr_detail.
   # shellcheck disable=SC2034
@@ -1298,6 +1320,8 @@ fm_pr_read_class() {  # <pr-url>
   local state_lc
   FM_PR_RECORD_CLASS=unreadable
   FM_PR_RECORD_HEAD=
+  FM_PR_RECORD_HEAD_PATH=
+  FM_PR_RECORD_HEAD_BRANCH=
   fm_pr_url_parse "${1-}" || return 0
   case "$FM_PR_PROVIDER" in
     github) fm_pr_github_read_record "$FM_PR_OWNER" "$FM_PR_REPO" "$FM_PR_NUMBER" || return 0 ;;
@@ -1319,7 +1343,7 @@ fm_pr_read_class() {  # <pr-url>
 }
 
 # The one remote of <repo> whose configured URL addresses the forge project
-# of the pull request last parsed by fm_pr_url_parse. The URL is the raw
+# of the pull request head last read by fm_pr_read_class. The URL is the raw
 # configured spelling (https, ssh, or scp-like), compared by host and path with
 # any user, port, trailing slash, and trailing .git removed; a Gerrit "/a/"
 # authenticated prefix is accepted. The no-mistakes gate remote and the
@@ -1327,7 +1351,8 @@ fm_pr_read_class() {  # <pr-url>
 # Prints the remote name; zero or several matches return 1.
 fm_pr_holding_remote() {  # <repo>
   local repo=$1 name url rest host path found='' count=0
-  [ -n "$FM_PR_HOST" ] && [ -n "$FM_PR_PATH" ] || return 1
+  [ -n "$FM_PR_HOST" ] && [ -n "${FM_PR_RECORD_HEAD_PATH:-}" ] &&
+    git check-ref-format --branch "${FM_PR_RECORD_HEAD_BRANCH:-}" >/dev/null 2>&1 || return 1
   while IFS= read -r name; do
     case "$name" in ''|no-mistakes|publicsrc) continue ;; esac
     url=$(git -C "$repo" config --get "remote.$name.url" 2>/dev/null) || continue
@@ -1350,7 +1375,7 @@ fm_pr_holding_remote() {  # <repo>
     path=${path%.git}
     path=${path#/}
     [ "$host" = "$FM_PR_HOST" ] || continue
-    [ "$path" = "$FM_PR_PATH" ] || [ "$path" = "a/$FM_PR_PATH" ] || continue
+    [ "$path" = "$FM_PR_RECORD_HEAD_PATH" ] || [ "$path" = "a/$FM_PR_RECORD_HEAD_PATH" ] || continue
     found=$name
     count=$((count + 1))
   done <<REMOTES
