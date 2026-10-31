@@ -1324,8 +1324,11 @@ quiet_heartbeat_stays_fresh() { # <state> <account-home> <label>
 quiet_stage_completes() { # <state> <account-home> <touched> <label>
   local began=$SECONDS elapsed
   (
+    # shellcheck disable=SC2030 # This state override is local to the quiet-stage fixture.
     FM_REMOTE_JOB_STATE_ROOT="$1"
+    # shellcheck disable=SC2030 # This queue bound is local to the quiet-stage fixture.
     FM_REMOTE_JOB_QUEUE_TIMEOUT=60
+    # shellcheck disable=SC2030 # This job bound is local to the quiet-stage fixture.
     FM_REMOTE_JOB_TIMEOUT=30
     fm_remote_job_stage "$2" "$REMOTE_ROOT" "$REMOTE_HOME" fm-touch-job.sh "$3" \
       < /dev/null > /dev/null || exit 1
@@ -1641,7 +1644,9 @@ mkdir -p "$WEDGE_HOME"
 chmod 700 "$WEDGE_HOME"
 (
   set -u
+  # shellcheck disable=SC2031 # Earlier state overrides stayed in their fixture subshells.
   export HOME="$WEDGE_HOME" FM_REMOTE_JOB_STATE_ROOT="$WEDGE_STATE"
+  # shellcheck disable=SC2031 # Earlier timeout overrides stayed in their fixture subshells.
   export FM_REMOTE_JOB_PROGRESS_STALL_SECONDS=2 FM_REMOTE_JOB_QUEUE_TIMEOUT=120 FM_REMOTE_JOB_TIMEOUT=30
   # shellcheck source=bin/fm-remote-job-lib.sh
   . "$ROOT/bin/fm-remote-job-lib.sh"
