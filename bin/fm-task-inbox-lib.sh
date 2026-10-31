@@ -556,23 +556,18 @@ fm_task_inbox_confirmed_enter() {
 # finds another live ring in flight skips with rc 1 and token ring-in-flight;
 # the in-flight doorbell already points the worker at every record. Like a
 # foreign-draft skip, that rc 1 counts as a ladder attempt for the watcher and
-# the remote inbox verb. A dead ringer's lock is reclaimed by fm_lock_try_acquire;
-# an existing lock that cannot be acquired or reclaimed also skips, and the
-# ladder's escalation surfaces a permanently stuck one as ring-in-flight. A
-# lock that cannot be created at all (no lock path appears) does not block the ring.
+# the remote inbox verb. A dead ringer's lock is reclaimed by fm_lock_try_acquire.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness] [clear-busy]
-  local rc=0 lock locked=0
+  local rc=0 lock
   FM_TASK_INBOX_RING_REASON=
   lock="${3%/*}/.ring.lock"
-  if fm_lock_try_acquire "$lock" 2>/dev/null; then
-    locked=1
-  elif [ -n "${FM_LOCK_HELD_PID:-}" ] || [ -e "$lock" ] || [ -L "$lock" ]; then
+  if ! fm_lock_try_acquire "$lock" 2>/dev/null; then
     FM_TASK_INBOX_RING_REASON=ring-in-flight
     fm_task_inbox_note_reason "$3" 1 "$FM_TASK_INBOX_RING_REASON"
     return 1
   fi
   _fm_task_inbox_ring_step "$@" || rc=$?
-  [ "$locked" = 0 ] || fm_lock_release "$lock" 2>/dev/null || true
+  fm_lock_release "$lock" 2>/dev/null || true
   fm_task_inbox_note_reason "$3" "$rc" "$FM_TASK_INBOX_RING_REASON"
   return "$rc"
 }

@@ -369,7 +369,11 @@ CASES
 # ring-in-flight. A lock left by a killed ringer does not block later rings.
 test_ring_serializes_overlapping_rings_per_inbox() (
   local dir state rec1 rec2 log a= b= holder= i
-  trap 'for pid in "$a" "$b" "$holder"; do [ -z "$pid" ] || { kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; }; done' EXIT
+  trap '
+    : > "$dir/b.done"
+    for pid in "$a" "$b"; do [ -z "$pid" ] || wait "$pid" 2>/dev/null || true; done
+    [ -z "$holder" ] || { kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true; }
+  ' EXIT
   dir="$TMP_ROOT/ring-overlap"; state="$dir/state"; mkdir -p "$state/tmp"; log="$dir/sends"; : > "$log"
   rec1=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "first steer")
   rec2=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "second steer")
@@ -425,6 +429,76 @@ test_ring_serializes_overlapping_rings_per_inbox() (
   holder=
   [ "$(ring_overlap "$rec1")" = "0 ok" ] || fail "a lock left by a killed ringer must not block the next ring"
   pass "inbox: overlapping rings of one inbox type once, the other skips with ring-in-flight, and a dead ringer's lock is reclaimed"
+)
+
+test_ring_skips_during_dead_owner_reclamation() (
+  local dir state rec1 rec2 lock log real_rm a= b= i
+  dir="$TMP_ROOT/ring-reclaim"; state="$dir/state"; log="$dir/sends"
+  mkdir -p "$state/tmp" "$dir/fakebin"
+  : > "$log"
+  trap ': > "$dir/release"; for pid in "$a" "$b"; do [ -z "$pid" ] || wait "$pid" 2>/dev/null || true; done' EXIT
+  rec1=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "first steer")
+  rec2=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "second steer")
+  lock="$state/t1.inbox/.ring.lock"
+  inbox_lib "$state" fm_lock_try_acquire "$lock" || fail "could not seed the dead ring owner"
+  [ -s "$lock/pid" ] && ! kill -0 "$(cat "$lock/pid")" 2>/dev/null \
+    || fail "the seeded ring owner must have exited"
+  real_rm=$(command -v rm)
+  cat > "$dir/fakebin/rm" <<'SH'
+#!/usr/bin/env bash
+set -u
+"$FM_REAL_RM" "$@" || exit $?
+if [ "${FM_RING_RECLAIMER:-0}" = 1 ] && [ "${!#}" = "$FM_RING_LOCK" ] && [ ! -e "$FM_RING_GATE/gap" ]; then
+  : > "$FM_RING_GATE/gap"
+  for ((i=0; i<900; i++)); do
+    [ ! -e "$FM_RING_GATE/release" ] || exit 0
+    sleep 0.1
+  done
+  exit 1
+fi
+SH
+  chmod +x "$dir/fakebin/rm"
+  reclaim_ring() {
+    exec env FM_STATE_OVERRIDE="$state" TMPDIR="$state/tmp" PATH="$dir/fakebin:$PATH" \
+      FM_REAL_RM="$real_rm" FM_RING_LOCK="$lock" FM_RING_GATE="$dir" FM_RING_RECLAIMER="$2" \
+      bash -c '
+        . "$1"
+        sends=$3
+        fm_backend_agent_state() { printf "idle"; }
+        fm_backend_composer_state() { printf "empty"; }
+        fm_task_inbox_signal_prepare() { :; }
+        fm_backend_send_text_submit() { printf "send\n" >> "$sends"; printf "empty"; }
+        rc=0
+        fm_task_inbox_ring herdr w:p "$2" fm-t1 || rc=$?
+        printf "%s %s holder=%s" "$rc" "$FM_TASK_INBOX_RING_REASON" "${FM_LOCK_HELD_PID:-}"
+      ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$1" "$log"
+  }
+  reclaim_ring "$rec1" 1 > "$dir/reclaimer" &
+  b=$!
+  for ((i=0; i<300; i++)); do [ -e "$dir/gap" ] && break; sleep 0.1; done
+  [ -e "$dir/gap" ] || fail "the reclaimer never removed the dead owner's primary lock"
+  [ ! -e "$lock" ] && [ ! -L "$lock" ] && [ "$(cat "$lock.steal/pid")" = "$b" ] \
+    || fail "reclamation must expose an absent primary lock behind a live steal mutex"
+  reclaim_ring "$rec2" 0 > "$dir/contender" &
+  a=$!
+  for ((i=0; i<300; i++)); do [ -s "$dir/contender" ] && break; sleep 0.1; done
+  [ -s "$dir/contender" ] || fail "the contender did not return during dead-owner reclamation"
+  wait "$a" || fail "the contender process failed"
+  a=
+  [ "$(cat "$dir/contender")" = '1 ring-in-flight holder=' ] \
+    || fail "a failed acquisition with no holder PID must skip, got: $(cat "$dir/contender")"
+  [ ! -s "$log" ] || fail "a ring typed without acquiring the inbox lock during reclamation"
+  [ -f "$rec1" ] && [ -f "$rec2" ] \
+    && [ "$(cat "${rec2%.msg}.ring-reason")" = 'rc=1 token=ring-in-flight' ] \
+    || fail "the skipped ring must preserve both records and persist its skip reason"
+  : > "$dir/release"
+  wait "$b" || fail "the reclaimer process failed"
+  b=
+  [ "$(cat "$dir/reclaimer")" = '0 ok holder=' ] && [ "$(wc -l < "$log")" -eq 1 ] \
+    || fail "only the ring that acquired the reclaimed lock may send"
+  [ "$(reclaim_ring "$rec2" 0)" = '0 ok holder=' ] && [ "$(wc -l < "$log")" -eq 2 ] \
+    || fail "the skipped record must be ringable after reclamation finishes"
+  pass "inbox: concurrent dead-owner reclamation skips a ring with no holder PID, types only under the reclaimed lock, and preserves retry"
 )
 
 # A fake tmux whose pane is a Claude-style composer that keeps its content in
@@ -2284,7 +2358,8 @@ test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
 test_ring_records_the_failing_step_without_changing_codes
-test_ring_serializes_overlapping_rings_per_inbox
+test_ring_serializes_overlapping_rings_per_inbox || exit 1
+test_ring_skips_during_dead_owner_reclamation || exit 1
 test_existing_doorbell_confirmation_reasons
 test_ring_preflight_failure_reasons
 test_ring_submits_its_own_stuck_doorbell
