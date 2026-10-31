@@ -357,7 +357,7 @@ EOF
 # test above: an actionable report (here, a MISSING: line bootstrap-diagnostics
 # would load a skill for) still reaches the wake queue even when unclaimed.
 test_an_actionable_successful_result_still_queues_a_wake() {
-  local rec home root log claimant
+  local rec home root log claimant file
   rec=$(new_world actionable-result-wakes)
   IFS='|' read -r home root log <<EOF
 $rec
@@ -371,8 +371,15 @@ EOF
   kill "$claimant" 2>/dev/null || true
   wait "$claimant" 2>/dev/null || true
 
-  wait_for_startup_network_wake "$home" \
-    || fail "an actionable successful (state=done) result never queued a wake"
+  wait_for_startup_network_wake "$home" || {
+    for file in .startup-network.status .startup-network.report .startup-network.claim .startup-network.delivered .wake-queue; do
+      if [ -f "$home/state/$file" ]; then
+        printf '%s:\n' "$file" >&2
+        cat "$home/state/$file" >&2
+      fi
+    done
+    fail "an actionable successful (state=done) result never queued a wake"
+  }
   assert_grep 'check	startup-network' "$home/state/.wake-queue" \
     "an actionable result did not reach the wake queue"
 

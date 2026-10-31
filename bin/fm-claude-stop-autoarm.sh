@@ -15,10 +15,10 @@
 #     ancestor, or a live lock was recorded under this same trusted Claude
 #     session id (which is what keeps a background session arming after its
 #     transient helper chain is recycled).
-#     When an existing numeric owner fails the shared harness-liveness predicate,
-#     the hook delegates guarded recovery to bin/fm-lock.sh and then re-verifies
-#     ownership. A live owner, missing lock, malformed lock, or unresolved
-#     ancestry remains inert, so a competing session never arms or rewakes.
+#     Recovery eligibility is owned by the shared session-lock library; see
+#     docs/watcher-continuity.md, "Claude session-lock ownership". The hook
+#     delegates acquisition to bin/fm-lock.sh and then re-verifies ownership
+#     before it may arm or rewake.
 #   - AFK: while state/.afk exists the away daemon owns the watcher and triage;
 #     this hook exits 0 and NEVER rewakes the primary (checked again at
 #     translation time so a mid-cycle AFK transition is honored).
@@ -200,17 +200,28 @@ fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
 # --- identity: only the lock-owning session's hooks may arm ------------------
 # A prior session may have died after leaving its numeric harness pid in .lock.
 # Use the shared liveness predicate to recognize only that stale-owner case.
+# A live pid is recovered only when fm_session_lock_idle_fork_takeover_allowed
+# in bin/fm-session-lock-lib.sh says this Stop is its idle fork-resume successor.
 # Defer the mutating claim until after the unchanged AFK and need gates, so an
 # idle or away home remains byte-for-byte inert. Missing or malformed locks are
 # uncertainty rather than stale-owner evidence and remain inert.
 RECOVER_SESSION_LOCK=0
+RECOVER_TAKEOVER_EVIDENCE=
 if ! fm_session_lock_owned_by_self "$STATE"; then
   LOCK_PID=$(cat "$STATE/.lock" 2>/dev/null || true)
   case "$LOCK_PID" in
     ''|*[!0-9]*) exit 0 ;;
   esac
-  fm_harness_pid_alive "$LOCK_PID" && exit 0
-  RECOVER_SESSION_LOCK=1
+  if fm_harness_pid_alive "$LOCK_PID"; then
+    if fm_session_lock_idle_fork_takeover_allowed "$STATE" "$LOCK_PID"; then
+      RECOVER_TAKEOVER_EVIDENCE=$FM_LOCK_TAKEOVER_EVIDENCE
+      RECOVER_SESSION_LOCK=1
+    else
+      exit 0
+    fi
+  else
+    RECOVER_SESSION_LOCK=1
+  fi
 fi
 
 # --- AFK: the away daemon owns the watcher and triage; never rewake ----------
@@ -227,7 +238,8 @@ need_supervision || exit 0
 # remain the single acquisition owner, then re-verify current-session identity
 # before touching any auto-arm state.
 if [ "$RECOVER_SESSION_LOCK" -eq 1 ]; then
-  "$SCRIPT_DIR/fm-lock.sh" >/dev/null 2>&1 || exit 0
+  FM_LOCK_TAKEOVER_INITIAL_EVIDENCE=$RECOVER_TAKEOVER_EVIDENCE \
+    "$SCRIPT_DIR/fm-lock.sh" >/dev/null 2>&1 || exit 0
   fm_session_lock_owned_by_self "$STATE" || exit 0
 fi
 

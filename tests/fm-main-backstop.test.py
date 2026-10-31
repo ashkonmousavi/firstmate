@@ -1150,6 +1150,135 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertFalse(any(c[:2] == ['pane','send-text'] for c in self.commands()))
         self.assertIn('BACKSTOP FAILURE', self.notes())
 
+    def start_named_claude(self):
+        path = self.base / 'holder-bin' / 'claude'
+        path.parent.mkdir(exist_ok=True)
+        if not path.exists():
+            path.symlink_to('/bin/sleep')
+        proc = subprocess.Popen([str(path), '30'])
+        self.addCleanup(proc.wait)
+        self.addCleanup(proc.kill)
+        return proc.pid
+
+    def test_reused_nonharness_pid_keeps_stale_lock_recovery(self):
+        holder = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % holder)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.assertIn('holder-%s' % holder, self.memory()['episodes'])
+        sleeper = subprocess.Popen(['/bin/sleep', '30'])
+        self.addCleanup(sleeper.wait)
+        self.addCleanup(sleeper.kill)
+        (self.state / '.lock').write_text('%s\n' % sleeper.pid)
+        self.run_guard()
+        self.assertEqual(len(self.sends()), 1)
+        self.assertNotIn('holder-%s' % holder, self.memory()['episodes'])
+        self.assertNotIn('holder-%s' % sleeper.pid, self.memory()['episodes'])
+
+    def test_unknown_holder_report_preserves_deduplicated_episode(self):
+        holder = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % holder)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        incident = self.memory()['episodes']['holder-%s' % holder]
+        self.executable(self.fake / 'ps', '#!/bin/sh\nexit 1\n')
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+        (self.state / '.lock').write_text('2147483647\n')
+        self.executable(self.fake / 'ps', '#!/bin/sh\nexit 127\n')
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+        (self.state / '.lock').write_text('%s\n' % holder)
+        (self.fake / 'ps').unlink()
+        self.run_guard()
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+
+    def test_handover_before_report_uses_reported_pid_for_deduplication(self):
+        predecessor = self.start_named_claude()
+        successor = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % predecessor)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.env['BACKSTOP_NEXT_HOLDER'] = str(successor)
+        self.executable(self.fake / 'bash', '''#!/bin/bash
+if [ "${3:-}" = holder-report ]; then
+  tmp=$(mktemp "$5/.lock-transition.XXXXXX") || exit 1
+  printf '%s\\n' "$BACKSTOP_NEXT_HOLDER" > "$tmp"
+  mv -f "$tmp" "$5/.lock"
+fi
+exec /bin/bash "$@"
+''')
+        self.run_guard()
+        self.run_guard()
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % successor, self.notes())
+        self.assertIn('holder-%s' % successor, self.memory()['episodes'])
+        self.assertNotIn('holder-%s' % predecessor, self.memory()['episodes'])
+
+    def test_disabled_capability_with_live_lock_defers_without_discovery(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        selected = self.select_send_file()
+        for content in (None, b'invalid\n'):
+            with self.subTest(content=content):
+                if content is None:
+                    selected.unlink()
+                else:
+                    selected.write_bytes(content)
+                self.run_guard()
+                self.assert_observe_only()
+                incident = self.memory()['episodes']['recovery']
+                self.assertIn(incident, self.memory()['deferred_alarms'])
+        selected.write_bytes(b'enabled\n')
+        selected.chmod(0o600)
+        self.run_guard()
+        self.assertIn(incident, self.notes())
+        self.assertNotIn(incident, self.memory()['deferred_alarms'])
+
+    def test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('Idle lock holder', self.notes())
+        self.assertNotIn('BACKSTOP FAILURE', self.notes())
+        self.assertIn('idle lock holder pid=%s' % pid, (self.state / '.main-backstop.log').read_text())
+
+    def test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.run_guard()
+        notes = self.notes()
+        self.assertEqual(notes.count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % pid, notes)
+        self.assertIn('tty=', notes)
+        self.assertIn('idle=', notes)
+        self.assertNotIn('BACKSTOP FAILURE', notes)
+        self.assertEqual(self.sends(), [])
+        self.assertIn('holder-%s' % pid, self.memory()['episodes'])
+        self.assertTrue((self.state / '.wake-queue').exists())
+
+    def test_foreground_holder_is_also_queued_once_after_fifteen_minutes(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        self.config['process_pid'] = pid
+        self.config['process_cwd'] = str(self.home)
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('Idle lock holder', self.notes())
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % pid, self.notes())
+        self.assertIn('tty=', self.notes())
+        self.assertIn('idle=', self.notes())
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

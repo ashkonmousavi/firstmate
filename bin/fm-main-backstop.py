@@ -6,6 +6,12 @@ Usage: fm-main-backstop.py --home PATH [--code-root PATH] [--mate ID ...]
 Run every three minutes. After a five-minute watcher silence with supervision
 work and no state/.afk record, discover a unique live Claude/Codex primary in
 this exact home and nudge it so its own turn-end owner re-arms.
+When that silence has a verified live lock holder, suppress the silence nudge.
+After fifteen minutes queue one inbox ask naming its pid, tty and idle time;
+the working main session drains the inbox and tells the owner. A stale lock
+retains normal primary recovery; an unknown report preserves the episode and
+suppresses nudges. fm_session_lock_holder_report in bin/fm-session-lock-lib.sh
+supplies one classified holder snapshot for each pass.
 Successful nudges are at least five minutes apart.
 Nudges require the shared composer classifier to prove the input empty;
 occupied or unknown input is preserved and reported as a recovery failure.
@@ -109,6 +115,8 @@ DELTA_PREEMPT_REREADS = 3
 # moment; a few short re-reads read around it while keeping a pass bounded.
 RUNNER_REREADS = 5
 RUNNER_REREAD_DELAY = 0.02
+SILENCE_NUDGE_AFTER = 300
+HOLDER_ASK_AFTER = 900
 
 
 def send_capability_enabled(home, path):
@@ -357,13 +365,52 @@ def live_primary(home, env):
         processes = info['result']['process_info']['foreground_processes']
         # Herdr's live foreground process observation is required in addition
         # to display metadata. A stale agent label over bash is not an agent.
-        running = any(p.get('pid', 0) > 0 and p.get('name') == agent
-                      and p.get('cwd') == str(home) for p in processes)
-        if running:
+        if any(proc.get('pid', 0) > 0 and proc.get('name') == agent
+               and proc.get('cwd') == str(home) for proc in processes):
             candidates.append(pane_id)
     if len(candidates) != 1:
         raise ProbeError('no verified live primary (or multiple candidates)')
     return candidates[0]
+
+
+def format_idle(seconds):
+    seconds = max(0, int(seconds))
+    if seconds < 60:
+        return '%ds' % seconds
+    minutes, sec = divmod(seconds, 60)
+    if minutes < 60:
+        return '%dm%ds' % (minutes, sec) if sec else '%dm' % minutes
+    hours, minutes = divmod(minutes, 60)
+    return '%dh%dm' % (hours, minutes)
+
+
+def holder_report(state, env):
+    """pid, tty, and idle_seconds from the session-lock lib, or ProbeError."""
+    lib = Path(__file__).resolve().parent / 'fm-session-lock-lib.sh'
+    rc, out, _err = run_status(
+        ['bash', '-c', '. "$1" || exit 1\nfm_session_lock_holder_report "$2"\n',
+         'holder-report', str(lib), str(state)], env, timeout=5)
+    if rc != 0:
+        raise ProbeError('holder report failed')
+    fields = {}
+    for part in out.decode('utf-8', 'replace').split():
+        if '=' not in part:
+            raise ProbeError('holder report failed')
+        key, value = part.split('=', 1)
+        fields[key] = value
+    if fields.get('state') not in ('held', 'free', 'stale', 'unknown'):
+        raise ProbeError('holder report failed')
+    if fields['state'] == 'held':
+        if not {'pid', 'tty', 'idle_seconds'} <= set(fields):
+            raise ProbeError('holder report failed')
+        try:
+            pid, idle = int(fields['pid']), int(fields['idle_seconds'])
+        except ValueError as error:
+            raise ProbeError('holder report failed') from error
+        if pid <= 0 or idle < 0:
+            raise ProbeError('holder report failed')
+        fields['pid'] = str(pid)
+    return fields
 
 
 def runner_alive(path, mate):
@@ -488,8 +535,31 @@ def main():
     need = (any(state.glob('*.meta')) or any(state.glob('*.check.sh'))
             or any((state / 'procevent').glob('*.source')))
     trouble = []
-    if need and beat_age >= 300 and not (state / '.afk').exists():
-        trouble.append('watcher silent for %ds' % beat_age)
+    suppress_nudge = False
+    try:
+        report = holder_report(state, env)
+    except ProbeError:
+        report = {'state': 'unknown'}
+    holder_key = 'holder-%s' % report['pid'] if report['state'] == 'held' else None
+    silence = need and beat_age >= SILENCE_NUDGE_AFTER and not (state / '.afk').exists()
+    if silence and not send_enabled():
+        alarm('recovery', 'BACKSTOP HELD: watcher silent for %ds' % beat_age)
+        suppress_nudge = True
+    elif silence:
+        if report['state'] == 'held':
+            if beat_age < HOLDER_ASK_AFTER:
+                audit('idle lock holder pid=%s tty=%s idle=%s; watcher silent %ds' % (
+                    report['pid'], report['tty'], format_idle(report['idle_seconds']), beat_age))
+            else:
+                alarm(holder_key,
+                      'Idle lock holder pid=%s tty=%s idle=%s. Watcher has been silent for %ds. Clear that holder so monitoring can arm.' % (
+                          report['pid'], report['tty'], format_idle(report['idle_seconds']), beat_age))
+            suppress_nudge = True
+        elif report['state'] in ('free', 'stale'):
+            trouble.append('watcher silent for %ds' % beat_age)
+        else:
+            audit('lock holder report unavailable; suppressing the nudge')
+            suppress_nudge = True
     read_fails = memory.setdefault('read_fails', {})
     runner_fails = memory.setdefault('runner_fails', {})
     lag_oldest = memory.setdefault('lag_oldest', {})
@@ -540,7 +610,9 @@ def main():
             else:
                 audit('read failed once, tolerating one pass: ' + mate)
                 save()
-    if trouble and not send_enabled():
+    if suppress_nudge:
+        pass
+    elif trouble and not send_enabled():
         alarm('recovery', 'BACKSTOP HELD: ' + '; '.join(trouble))
     elif trouble:
         try:
@@ -575,6 +647,10 @@ fm_backend_send_text_submit herdr "$2" "$3" 2 0.4 0.3
             alarm('recovery', 'BACKSTOP FAILURE: %s; %s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.' % (detail, '; '.join(trouble)))
     elif all(mate not in read_fails and mate not in runner_fails for mate in mates):
         resolve_episode('recovery')
+    if report['state'] != 'unknown':
+        for key in list(episodes):
+            if key.startswith('holder-') and key != holder_key:
+                resolve_episode(key)
     save()
     audit('checked watcher_age=%ds alarms=%d' % (beat_age, len(active)))
 

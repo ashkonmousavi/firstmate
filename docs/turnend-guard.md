@@ -108,7 +108,7 @@ That second signal keeps a background Claude session owning its own lock after t
 The library's header owns the trust gate (`CLAUDE_PID` must be a Claude-shaped member of the current run).
 `bin/fm-lock.sh` owns the sidecar and the line-1 anchor it records for such a session.
 
-A Claude session that does not own the lock cannot arm or repair the home without stealing the live owner's lock, so blocking it would create an unbounded loop.
+A Claude session that still does not own the lock after the Stop hook's [guarded recovery](watcher-continuity.md#claude-session-lock-ownership) cannot arm or repair the home, so blocking it would create an unbounded loop.
 The lock-owning session remains responsible for restoring supervision.
 
 The exception has these limits:
@@ -346,6 +346,7 @@ A claim is open while all of these hold:
 Stuck means the entry and the watcher beacon are both older than the guard grace, which proves the owner hung mid-arm.
 A healthy hours-long foregrounded cycle keeps the beacon beating, and every arming phase with no watcher is bounded in seconds.
 A missing or malformed lock means no session can receive a rewake, so such a claim is never open.
+Claim inspection defers to an otherwise live claim while the session-lock acquisition mutex is busy, without waiting under the auto-arm mutex; [the lock reference](verification/supervision.md#idle-fork-resume-lock-handover) owns the snapshot and contention rules.
 The reachability test is what makes an open claim deliverable: a hook whose session exited mid-cycle stays alive with no parent to receive its exit 2, so deferring to it would leave the replacement session deaf until a captain turn.
 The session-id signal is the second one the claiming hook's own admission accepts, so a background session whose bridge is recycled mid-cycle - breaking the ancestry to its still-live lock owner - keeps its live claim instead of being double-armed.
 Pinning that signal to the lock holder's pid-identity recorded at claim time is what keeps a resumed session, which carries the same conversation id in a new process, from reading its own dead predecessor's orphan as open - a reused pid number is a different identity, so it does not match.
