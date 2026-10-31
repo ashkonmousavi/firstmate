@@ -6015,7 +6015,8 @@ test_merge_wait_preserves_existing_captain_hold() {
   for variant in alone dependent; do
     case_dir=$(prepare_recorded_github_pr "captain-merge-$variant")
     install_github_pr_class "$case_dir" open
-    FM_HOME="$case_dir" bash "$ROOT/bin/fm-captain-hold.sh" hold task-x1 --reason "$reason" >/dev/null \
+    FM_HOME="$case_dir" bash "$ROOT/bin/fm-captain-hold.sh" hold task-x1 --reason "$reason" \
+      --origin hold-fixture >/dev/null \
       || fail "could not seed the captain hold"
     before_body=$(tasks-axi show task-x1 --full --file "$case_dir/data/backlog.md" | sed -n 's/^  body: //p')
     before_identity=$(FM_HOME="$case_dir" bash "$ROOT/bin/fm-captain-hold.sh" open task-x1 --identity) \

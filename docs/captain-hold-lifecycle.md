@@ -49,7 +49,7 @@ It never reads report bodies, review artifacts, terminal output, or chat.
 The `hold` subcommand is the mandatory captain-hold creation path.
 It works in this order:
 
-1. It uses an existing task, or creates one when nothing exists to hold.
+1. It checks hold provenance, then uses an existing task or creates one when nothing exists to hold.
 2. It records the task's UTC hold-set timestamp as the leading line of the task body.
 3. It records any supplied originating-task association and attribution metadata before publishing the hold.
 4. It invokes the underlying tasks-axi hold operation.
@@ -66,7 +66,7 @@ Repeat and edge cases:
 - Optional structured release conditions use the shared [hold-release contract](../bin/fm-hold-release-lib.sh).
 - Before the backend hold runs, `--origin` records the origin the call is held for on its own `Captain hold origin:` body line, which `complete` and `verify` check using backend identities rather than alias spellings.
   If that write fails, the backend hold is not attempted.
-- [`bin/fm-captain-hold.sh`'s header and `--help`](../bin/fm-captain-hold.sh) own the optional attribution flag's values, storage, re-hold behavior, and rollback contract.
+- [`bin/fm-captain-hold.sh`'s header and `--help`](../bin/fm-captain-hold.sh) own the hold-provenance requirements, the attribution flag's values, storage, re-hold behavior, and rollback contract.
 - The reason may contain parentheses, semicolons, quotes, and line breaks.
   [`bin/fm-hold-reason-lib.sh`](../bin/fm-hold-reason-lib.sh) owns the storage encoding and compatibility rules; [`bin/fm-tasks-axi.sh --help`](../bin/fm-tasks-axi.sh) owns the public read commands and output contract.
 
