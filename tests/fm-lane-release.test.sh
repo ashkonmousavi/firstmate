@@ -707,13 +707,13 @@ extra_release_cap_per_sweep() {
   finished_ship "$dir" c3
   run_lr "$dir" 2500 sweep >/dev/null
   run_lr "$dir" 2900 sweep >/dev/null
-  [ "$(ls "$dir/home/state"/*.released 2>/dev/null | wc -l | tr -d ' ')" = 2 ] \
+  [ "$(find "$dir/home/state" -maxdepth 1 -name '*.released' | wc -l | tr -d ' ')" = 2 ] \
     || fail "one sweep started more than two releases"
   pass "extra budget: one sweep starts at most two releases"
 }
 
 extra_release_verified_or_incomplete() {
-  local dir
+  local dir out rc
   dir=$(new_case extra-incomplete)
   finished_ship "$dir" s1
   : > "$dir/t/s1.keep-seat"

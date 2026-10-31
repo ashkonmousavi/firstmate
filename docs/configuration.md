@@ -78,6 +78,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Project and secondmate registries.
 - Captain preferences and optional shared captain preferences.
 - Learnings, backlog, briefs, scout reports, and the optional per-task no-mistakes pipeline-spend ledger.
+- The append-only lane-release ledger `data/lane-release.ledger` ([Lane release](#lane-release-configlane-release)).
 - Explicitly installed content-addressed extension packages under `data/extensions/packages/`.
 
 `state/` holds runtime records:
@@ -93,6 +94,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
 - Rebuildable hold-release disposition caches under `state/hold-releases/` (`bin/fm-hold-release-lib.sh`); the backlog hold owns the condition.
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
+- Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -658,6 +660,22 @@ The file is a home-local site choice and is not inherited by secondmate homes; `
 ## Lane capacity (config/lane-capacity)
 
 See [Machine capacity](#machine-capacity-configlane-capacity) for machine admission, reporting and placement.
+
+## Lane release (config/lane-release)
+
+The optional local, gitignored `config/lane-release` holds one word that decides whether this home frees the seat of a worker whose job is finished and landed: `off` (the default, also when the file is absent), `audit`, or `on`.
+Only two classes are ever released: a ship whose pull request has merged, and a scout whose report exists and whose completion gate has passed with no captain hold, Lavish board, or promotion pending.
+A release stops the agent through `bin/fm-control.sh <id> exit --if-idle`, which never interrupts a turn, and keeps the local copy, so `bin/fm-control.sh <id> relaunch` continues the same task there.
+Every other worker keeps its seat, including a ship with an open pull request, a local-only ship, and any worker that is not proven idle with nothing new since it finished.
+
+With the word absent or `off`, the sweep does nothing and prints nothing.
+`audit` records what would be released in `data/lane-release.ledger` without stopping anything; `on` releases.
+Arm the sweep once per home with `bin/fm-lane-release.sh arm`, which writes `state/lane-release.check.sh` and binds it with `bin/fm-check-register.sh`, so the watcher runs it on its ordinary check cadence in every posture; `bin/fm-lane-release.sh disarm` removes it.
+`bin/fm-lane-release.sh --audit` is a read-only report of seats held by finished work and open-PR seat-hours, and runs in any setting.
+
+The word is a per-home choice and is deliberately not inherited by secondmate homes, so each home moves from `off` to `audit` to `on` on its own schedule.
+A worker its release stopped is reported as released, never as dead, and is never relaunched automatically; [`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns that marker and its reader rule.
+The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the ledger, the audit exit codes, and the tunables.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
