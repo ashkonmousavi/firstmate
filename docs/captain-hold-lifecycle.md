@@ -66,7 +66,8 @@ Repeat and edge cases:
 - Optional structured release conditions use the shared [hold-release contract](../bin/fm-hold-release-lib.sh).
 - Before the backend hold runs, `--origin` records the origin the call is held for on its own `Captain hold origin:` body line, which `complete` and `verify` check using backend identities rather than alias spellings.
   If that write fails, the backend hold is not attempted.
-- [`bin/fm-captain-hold.sh`'s header and `--help`](../bin/fm-captain-hold.sh) own the optional attribution flag's values, storage, re-hold behavior, and rollback contract.
+- A call with no owner-message reference is refused before any mutation.
+  [`bin/fm-captain-hold.sh`'s header and `--help`](../bin/fm-captain-hold.sh) own that check, the attribution flag's values, storage, re-hold behavior, and rollback contract.
 - The reason may contain parentheses, semicolons, quotes, and line breaks.
   [`bin/fm-hold-reason-lib.sh`](../bin/fm-hold-reason-lib.sh) owns the storage encoding and compatibility rules; [`bin/fm-tasks-axi.sh --help`](../bin/fm-tasks-axi.sh) owns the public read commands and output contract.
 

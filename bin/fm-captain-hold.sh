@@ -57,8 +57,17 @@
 # finding), or `pipeline-outcome` (a delivery-pipeline outcome) - on its own
 # `Captain hold origin-kind:` body line. Supplied values replace recorded ones;
 # omitted origin and attribution fields preserve their recorded values, and a
-# refused backend hold restores both previous fields. Attribution is optional
-# metadata and no command gates on it. The reason may hold
+# refused backend hold restores both previous fields.
+# A hold with no owner-message reference is refused before any mutation.
+# The reference is `--origin`, an origin already recorded on the task, or an
+# owner-request acceptance section already on the task that
+# bin/fm-request-acceptance.py validates.
+# `--origin-kind owner-request` counts only when that section validates,
+# because the section is the owner's message.
+# The refusal says a wait that is firstmate's own is not a captain call and
+# names the plain external hold:
+# `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`.
+# The reason may hold
 # parentheses and line breaks:
 # tasks-axi refuses them, so `hold` escapes them where it writes the reason and
 # readers decode them (bin/fm-hold-reason-lib.sh owns the encoding).
@@ -885,6 +894,53 @@ task_identity() {
   printf '%s' "$id"
 }
 
+# The sentence below is the refusal callers see. --help states the same pointer.
+unsourced_captain_hold_message() {
+  printf '%s\n' "a wait that is firstmate's own is not a captain call; use \`fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD\`"
+}
+
+# An owner-request acceptance section is a source reference this helper can
+# check. Any other body prose is not. bin/fm-request-acceptance.py owns the
+# section's shape, including each source message_uuid.
+owner_request_source_ok() {  # <task-id> <show-output>
+  local id=$1 show=$2 body
+  body=$(show_field_value "$show" body) || return 1
+  case "$body" in
+    *'```Owner request acceptance v1'*) ;;
+    *) return 1 ;;
+  esac
+  printf '%s\n' "$show" | "$SCRIPT_DIR/fm-request-acceptance.py" validate-show \
+    --task-id "$id" --home "$FM_HOME" >/dev/null 2>&1
+}
+
+# Refuse before any hold mutation when this call names no owner message.
+# An origin flag or a recorded origin is that reference, except owner-request,
+# which still needs the acceptance section. A bound owner request with no
+# origin flag is accepted because the section itself is the reference.
+assert_owner_message_reference() {  # <task-id> <show-or-empty> <origin> <origin-kind>
+  local id=$1 show=$2 origin=$3 origin_kind=$4
+  local effective_origin=$origin effective_kind=$origin_kind source_ok=0 body
+  if [ -n "$show" ]; then
+    body=$(show_field_value "$show" body) \
+      || fail "could not decode the existing body for $id"
+    [ -n "$effective_origin" ] || effective_origin=$(body_hold_origin "$body")
+    [ -n "$effective_kind" ] || effective_kind=$(body_hold_origin_kind "$body")
+    if owner_request_source_ok "$id" "$show"; then
+      source_ok=1
+    fi
+  fi
+  case "$effective_kind" in
+    owner-request)
+      [ "$source_ok" = 1 ] || fail "$(unsourced_captain_hold_message)"
+      ;;
+    *)
+      if [ -z "$effective_origin" ] && [ "$source_ok" != 1 ]; then
+        fail "$(unsourced_captain_hold_message)"
+      fi
+      ;;
+  esac
+}
+
 write_hold_origin() {  # <task-id> <shown-body> <origin-or-empty> [<origin-kind-or-empty>]
   local id=$1 body=$2 origin=$3 origin_kind=${4:-} stamp rest new_body tmp
   body=$(decode_shown_value "$body") \
@@ -1036,7 +1092,11 @@ command_hold_locked() {
       existing_title=$(show_field_value "$show" title)
       [ "$existing_title" = "$title" ] || fail "existing task $id has a different title"
     fi
+    assert_owner_message_reference "$id" "$show" "$origin" "$origin_kind"
   else
+    if printf '%s\n' "$TASK_SHOW_OUTPUT" | grep -q '^code: NOT_FOUND$'; then
+      assert_owner_message_reference "$id" "" "$origin" "$origin_kind"
+    fi
     [ -n "$title" ] || fail "--title is required to create task $id"
     validate_one_line title "$title"
     if [ -z "$repo" ] && [ -n "$origin" ] && [ -f "$STATE/$origin.meta" ]; then
