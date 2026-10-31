@@ -4790,7 +4790,7 @@ test_hold_refuses_a_call_with_no_owner_message_reference() {
   assert_contains "$show" "Captain hold origin-kind: finding" \
     "a finding hold did not record its attribution"
 
-  id=owner-sourced-call
+  id="owner-sourced-call"
   python3 - "$home" "$home/packet.json" "$id" <<'PY'
 import hashlib, json, os, sys
 home, path, task = sys.argv[1], sys.argv[2], sys.argv[3]
