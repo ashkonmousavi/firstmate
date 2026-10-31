@@ -148,6 +148,27 @@
           }
         ]
       }
+    },
+    {
+      "provider": "zai",
+      "quotaSemantics": {
+        "status": "known",
+        "effectiveAvailability": [
+          {
+            "scope": "all_models",
+            "status": "known",
+            "effectivePercentRemaining": 80,
+            "runway": {
+              "status": "through_reset",
+              "projectionConfidence": "established"
+            },
+            "selection": {
+              "status": "known",
+              "spendPriority": 1
+            }
+          }
+        ]
+      }
     }
   ]
 }

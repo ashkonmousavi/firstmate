@@ -1937,15 +1937,15 @@ test_quota_gate_passes_healthy_and_long_runway_harnesses() {
   pass "a healthy harness and a runway longer than three hours pass the quota gate"
 }
 
-test_quota_gate_unknown_provider_passes_with_notice() {
+test_quota_gate_unresolved_catalog_refuses_and_missing_reading_notices() {
   local id out status
   id=quota-unknown-pi-z32
   quota_gate_case "$id" pi "$id" exhausted
   out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" --harness pi --model some-undeclared-model)
   status=$?
-  expect_code 0 "$status" "a harness with no authoritative provider must not refuse"$'\n'"$out"
-  assert_contains "$out" "notice: fm-spawn quota check for pi some-undeclared-model is uncertain, launching anyway: the harness catalog could not resolve pi some-undeclared-model" \
+  expect_code 1 "$status" "an unresolved catalog must refuse without an override"$'\n'"$out"
+  assert_contains "$out" "fm-spawn refuses explicit harness pi model some-undeclared-model: the harness catalog could not resolve pi some-undeclared-model" \
     "an unmodeled provider must be disclosed"
 
   id=quota-unreadable-z32
@@ -1955,7 +1955,7 @@ test_quota_gate_unknown_provider_passes_with_notice() {
   status=$?
   expect_code 0 "$status" "a missing quota reading must not refuse"$'\n'"$out"
   assert_contains "$out" "notice: fm-spawn launches grok without the quota check" "a missing reading must be disclosed"
-  pass "an unmodeled provider or a missing reading passes with a notice"
+  pass "an unresolved catalog refuses and a missing quota reading is disclosed"
 }
 
 test_quota_gate_override_passes_and_is_recorded() {
@@ -2662,7 +2662,7 @@ test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative
 test_quota_alternatives_obey_launch_capabilities
 test_secondmate_quota_refusal_names_a_supported_alternative
 test_quota_gate_passes_healthy_and_long_runway_harnesses
-test_quota_gate_unknown_provider_passes_with_notice
+test_quota_gate_unresolved_catalog_refuses_and_missing_reading_notices
 test_quota_gate_override_passes_and_is_recorded
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_keep_ai_trailers_preserves_attribution_and_format_checks

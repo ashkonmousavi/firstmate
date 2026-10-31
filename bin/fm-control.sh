@@ -1261,7 +1261,7 @@ resolve_relaunch_profile() {
     fm_quota_gate_run "$TARGET_HARNESS" "$account_model" \
       "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-control "$KIND" "$BACKEND" \
       "$([ "$RELEASED" != 1 ] && printf '%s' "$WT" || fm_meta_get "$META" project)" \
-      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" || quota_rc=$?
+      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" "$([ "$RELEASED" != 1 ] && printf '%s' "$T")" || quota_rc=$?
     [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
     [ "$quota_rc" = 0 ] || return 1
     QUOTA_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE

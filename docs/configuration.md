@@ -1432,10 +1432,14 @@ Firstmate resolves the rule's profile object or array under `AGENTS.md` section 
 This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-lib.sh` owns its mechanics.
 
 - A spawn that names its adapter explicitly (`--harness` or the positional) and an `fm-control.sh relaunch --harness` read one `quota-axi --json` snapshot before anything is created or stopped, whether or not this file exists.
-- The gate resolves the effective model, including defaults and aliases, through the adapter's own catalog before matching quota. Catalog provider identities use the existing provider mapping in `bin/fm-quota-axi-lib.sh`; an unresolvable model produces an uncertainty notice rather than a refusal.
+- The gate resolves the effective model, including defaults and aliases, through the adapter's own catalog before matching quota.
+  The catalog's account identity joins the profile's declared quota family using the same family/account relation as typed dispatch; it never replaces that family.
+  Native single-provider adapters use the existing family declaration.
+  An unresolved catalog model or family refuses unless explicitly overridden.
+  Resolution uses the launch project configuration, worker account root and provider pin, and the registered Pi session on an ordinary Herdr relaunch.
 - The gate refuses when an applicable row of that provider is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends within three hours of now, whatever its projection confidence.
-- The refusal names the best alternative: the profiles in this file (rules and default), or each single-provider harness on its default model when the file is absent, that resolve through their own catalogs, satisfy task-kind, backend, and worker tool-exclusion restrictions, and pass the same gate with a known `spendPriority`, highest first, with ties named together.
-- A harness with no provider, a provider or account with no row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and the launch proceeds.
+- The refusal names the best alternative: the profiles in this file (rules and default), or each single-provider harness on its default model when the file is absent, that resolve through their own catalogs, satisfy task-kind, backend, worker tool-exclusion, and account-pin restrictions (including per-secondmate provider permissions), and pass the same gate with a known `spendPriority`, highest first, with ties named together.
+- A resolved provider or account with no row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and the launch proceeds.
 - `--quota-override <reason>` launches the refused adapter anyway and records `quota_override=<reason>` and `quota_override_evidence=<the refusal and alternative>` in `state/<id>.meta`; a later relaunch without the flag drops both.
 - A relaunch is gated in `fm-control.sh` before the old agent stops, and the delegated launch is not gated again; a relaunch with no explicit harness, a raw launch command, and the session-start secondmate respawn are not gated.
 

@@ -3133,7 +3133,8 @@ elif [ -n "$ARG3" ] && [ "$RAW_LAUNCH" -eq 0 ]; then
     QUOTA_GATE_CWD=$RELAUNCH_WT
   fi
   fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" \
-    "$QUOTA_GATE_CWD" "$CONFIG" "$([ "$KIND" != secondmate ] || printf '%s' "$ID")" || {
+    "$QUOTA_GATE_CWD" "$CONFIG" "$([ "$KIND" != secondmate ] || printf '%s' "$ID")" \
+    "$([ "$RELAUNCH" != 1 ] || [ "$RELAUNCH_FROM_RELEASED" != 0 ] || printf '%s' "$RELAUNCH_TARGET")" || {
     [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
     exit 1
   }
@@ -3449,15 +3450,10 @@ muse_credential_present() {
 # fresh-session launch rather than refusing, because nothing here is a safety
 # property; it preserves a display and supervision signal.
 relaunch_resume_args() {  # <harness> <backend> <target>
-  local harness=${1-} backend=${2-} target=${3-} identity agent ref flag
-  [ "$backend" = herdr ] || return 0
-  [ -n "$target" ] || return 0
-  fm_backend_herdr_parse_target "$target" || return 0
-  identity=$(fm_backend_herdr_pane_agent_session_ref "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE") || return 0
-  agent=${identity%%$'\t'*}
-  ref=${identity#*$'\t'}
-  flag=$(fm_control_relaunch_resume_flag "$harness" "$agent") || return 0
-  [ -n "$flag" ] && [ -n "$ref" ] || return 0
+  local harness=${1-} backend=${2-} target=${3-} ref flag
+  ref=$(fm_control_relaunch_resume_ref "$harness" "$backend" "$target") || return 0
+  [ -n "$ref" ] || return 0
+  flag=$(fm_control_relaunch_resume_flag "$harness" pi) || return 0
   printf -- ' %s %s' "$flag" "$(shell_quote "$ref")"
 }
 
