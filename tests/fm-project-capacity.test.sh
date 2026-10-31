@@ -382,6 +382,10 @@ test_exhausted_capacity_defers_without_leaving_anything_behind() {
   assert_contains "$out" "task task-c was not launched and its backlog item stays queued" \
     "the deferral did not say the task stays queued"
   assert_nothing_created "$case_dir" "$home" task-c "$before" "$worktrees"
+  if [ -d "$home/state/spawn-deferred" ]; then
+    find "$home/state/spawn-deferred" -type f -print | grep -q . &&
+      fail "a project-capacity deferral recorded a machine-lane retry"
+  fi
   pass "a spawn beyond capacity is deferred before any record, brief, endpoint, worktree, or backlog move exists"
 }
 
@@ -831,10 +835,10 @@ SH
     --backend orca --mode no-mistakes --yolo off) || rc2=$?
   : > "$case_dir/holder.release"
   wait "$holder" || true
-  expect_code 1 "$rc" "an Orca spawn ignored a held project lock: $out"
+  expect_code "$DEFER_EXIT" "$rc" "an Orca spawn did not defer at a held project lock: $out"
   assert_contains "$out" "another spawn or cleanup holds the shared project lock for $case_dir/project; refusing to race its capacity admission" \
     "the Orca spawn did not refuse on the shared project lock"
-  expect_code 1 "$rc2" "an Orca spawn from an uncapped same-origin clone ignored the held project lock: $out2"
+  expect_code "$DEFER_EXIT" "$rc2" "an Orca spawn from an uncapped same-origin clone did not defer at the held project lock: $out2"
   assert_contains "$out2" "another spawn or cleanup holds the shared project lock for $case_dir/project-2" \
     "the uncapped same-origin clone's Orca spawn did not refuse on the shared project lock"
   assert_absent "$home/state/task-o.meta" "the uncapped clone's Orca spawn published a record while the lock was held"
@@ -865,6 +869,13 @@ test_machine_ceiling_across_projects() {
   assert_absent "$home/state/task-six.meta" 'deferred record'
   assert_absent "$home/data/task-six/launch-brief.md" 'deferred brief'
   [ "$HAVE_TASKS_AXI" != 1 ] || [ "$(row_state "$home" task-six)" = queued ] || fail 'backlog moved'
+  found=0
+  for n in "$home"/state/spawn-deferred/queue/*; do
+    [ -f "$n" ] || continue
+    task=$(sed -n 's/^task=//p' "$n" | head -1)
+    [ "$task" = task-six ] && found=1
+  done
+  [ "$found" = 1 ] || fail "machine deferral was not recorded for retry"
   pass 'sixth spawn across three projects stays queued at machine ceiling five'
 }
 

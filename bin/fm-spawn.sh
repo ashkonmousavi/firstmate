@@ -201,7 +201,9 @@
 #   Machine admission: fresh and relaunched workers share the live machine
 #   ceiling and memory check (fm-capacity-lib.sh). Refusal exits 75 without
 #   launching; persistent secondmate startup is exempt. No machine lock spans
-#   launch. Project capacity remains a separate project-identity transaction.
+#   launch. bin/fm-spawn-deferred.sh owns automatic retry of fresh spawns
+#   refused with "no free machine lane".
+#   Project capacity remains a separate project-identity transaction.
 #   Project capacity: when this machine declares how many workers a project
 #   admits at once (config/project-capacity; bin/fm-project-capacity-lib.sh owns
 #   the declaration, what holds a place, and the race argument), a fresh ship or
@@ -851,6 +853,7 @@ RELAUNCH=0
 # Absent/unset keeps upstream refuse-on-contention. See header.
 HERDR_RESUME_LOCK_WAIT=0
 POS=()
+SPAWN_OPTIONS=()
 want_value=
 for a in "$@"; do
   if [ -n "$want_value" ]; then
@@ -906,6 +909,7 @@ for a in "$@"; do
       exit 1
       ;;
     esac
+    [ "$want_value" = backend ] || SPAWN_OPTIONS+=("$a")
     want_value=
     continue
   fi
@@ -935,10 +939,11 @@ for a in "$@"; do
     EFFORT=${a#--effort=}
     EFFORT_SET=1
     ;;
-  --backend) want_value=backend ;;
+  --backend) want_value=backend; continue ;;
   --backend=*)
     BACKEND_ARG=${a#--backend=}
     BACKEND_SET=1
+    continue
     ;;
   --mode) want_value=mode ;;
   --mode=*)
@@ -970,8 +975,9 @@ for a in "$@"; do
     TRACEPARENT_ARG=${a#--traceparent=}
     TRACEPARENT_SET=1
     ;;
-  *) POS+=("$a") ;;
+  *) POS+=("$a"); continue ;;
   esac
+  SPAWN_OPTIONS+=("$a")
 done
 [ -z "$want_value" ] || {
   echo "error: --$want_value requires a value" >&2
@@ -2163,12 +2169,12 @@ spawn_refuse_if_away_spend_cap() {
   case "$live" in
   '' | *[!0-9]*)
     echo "error: spawn refused - the away-posture record caps concurrent workers at $cap and this home's live ordinary task count could not be read; task $ID stays queued (spend cap: bin/fm-afk-contract.sh)" >&2
-    exit 1
+    exit 75
     ;;
   esac
   if [ "$live" -ge "$cap" ]; then
     echo "error: spawn refused - the away-posture record caps concurrent workers at $cap and $live ordinary task(s) are live in this home; task $ID stays queued for the captain's return or for a worker to finish (spend cap: bin/fm-afk-contract.sh)" >&2
-    exit 1
+    exit 75
   fi
 }
 # Spend cap (bin/fm-afk-contract.sh's spend_max_concurrent_workers): while an
@@ -2193,6 +2199,9 @@ spawn_require_relocated_queued_work() {
   fm_lease_forbid_branch "new-task spawn (fm-spawn)" --away-relocated
   if ! fm_backlog_row_probe "$DATA" "$ID" || [ "$FM_BACKLOG_ROW_STATE" != "queued no no" ]; then
     echo "error: spawn refused - the supervision branch under the away-posture record may dispatch only queued unblocked work (already queued, or filed by the branch from the captain's away words); task $ID has no dispatchable backlog item in this home" >&2
+    if [ "$FM_BACKLOG_ROW_RESULT" = error ] || [ "${FM_BACKLOG_ROW_STATE%% *}" = queued ]; then
+      exit 75
+    fi
     exit 1
   fi
 }
@@ -2256,7 +2265,7 @@ if [ "$RELAUNCH" -eq 0 ]; then
         echo "error: this home's task set is locked by another operation; refusing to create task $ID rather than racing it" >&2
         ;;
     esac
-    exit 1
+    exit 75
   fi
   if ! fm_lock_set_role "$SPAWN_TASK_SET_LOCK" task-spawn; then
     fm_lock_release "$SPAWN_TASK_SET_LOCK" || true
@@ -2331,6 +2340,7 @@ fi
 SPAWN_TASK_LOCK="$STATE/.spawn-$ID.lock"
 if ! fm_lock_try_acquire "$SPAWN_TASK_LOCK"; then
   echo "error: another spawn is already creating task $ID" >&2
+  [ "$RELAUNCH" -ne 0 ] || exit 75
   exit 1
 fi
 SPAWN_TASK_LOCK_HELD=1
@@ -3863,6 +3873,13 @@ fi
 if [ "$KIND" != secondmate ]; then
   if ! fm_capacity_read "$FM_HOME" "$CONFIG" "$STATE" "$ID"; then
     echo "deferred: $FM_CAPACITY_ERROR; task $ID stays queued" >&2
+    if [ "$RELAUNCH" -eq 0 ] && [ "$FM_CAPACITY_REASON" = full ]; then
+      POS[1]=$PROJ_ABS
+      if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
+        "$SCRIPT_DIR/fm-spawn-deferred.sh" record "$ID" -- "$SCRIPT_DIR/fm-spawn.sh" "${POS[@]}" "${SPAWN_OPTIONS[@]+"${SPAWN_OPTIONS[@]}"}" --backend "$BACKEND"; then
+        echo "warning: deferred spawn for $ID was not recorded for automatic retry" >&2
+      fi
+    fi
     exit 75
   fi
 fi
@@ -3904,7 +3921,7 @@ if { [ "$RELAUNCH" -eq 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } && [ "$KIND" 
     else
       echo "error: another Treehouse slot allocation or return is in progress for $PROJ_ABS; refusing to race it" >&2
     fi
-    exit 1
+    exit 75
   fi
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
 fi
@@ -4490,12 +4507,13 @@ if fm_backlog_transition_applies "$CONFIG" "$DATA" "$KIND"; then
     exit 1
   else
     echo "error: task $ID's backlog item could not be read before dispatch ($FM_BACKLOG_ROW_ERROR)" >&2
-    exit 1
+    exit 75
   fi
   spawn_preflight_actor=$(fm_lease_actor) || exit "$FM_LEASE_REFUSE_EXIT"
   if [ "$RELAUNCH" -ne 1 ] && [ "$spawn_preflight_actor" = branch ] && fm_lease_away_relocated; then
     if [ "$BACKLOG_ROW_STATE" != "queued no no" ]; then
       echo "error: spawn refused - the supervision branch under the away-posture record may dispatch only queued unblocked work (already queued, or filed by the branch from the captain's away words); task $ID has no dispatchable backlog item in this home" >&2
+      [ "${BACKLOG_ROW_STATE%% *}" != queued ] || exit 75
       exit 1
     fi
   elif [ "$RELAUNCH_FROM_RELEASED" = 1 ] && released_backlog_hold_is_teardown_own; then
@@ -4504,6 +4522,7 @@ if fm_backlog_transition_applies "$CONFIG" "$DATA" "$KIND"; then
     RELEASED_LIFT_HOLD=1
   elif ! fm_backlog_row_dispatchable "$BACKLOG_ROW_STATE"; then
     echo "error: this home's backlog item $ID is not dispatchable in state $BACKLOG_ROW_STATE; refusing before creating its endpoint or local copy" >&2
+    [ "$RELAUNCH" -ne 0 ] || [ "${BACKLOG_ROW_STATE%% *}" != queued ] || exit 75
     exit 1
   fi
 else

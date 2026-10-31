@@ -1372,6 +1372,10 @@ Tracked self-update preserves these ignored host declarations.
 
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
 It exits 75 when room cannot be proved and does not change task state.
+A fresh ship or scout spawn deferred with `no free machine lane` is recorded for automatic retry when a lane frees, oldest eligible request first within that home; ordering is not machine-wide.
+Automatic retry requires a readable backlog row proving the task is still queued, not held, and not blocked; manual-backlog homes and unreadable rows never launch automatically.
+Relaunches and other admission refusals are not recorded for automatic retry.
+The [`bin/fm-spawn-deferred.sh` header](../bin/fm-spawn-deferred.sh) owns eligibility, retry timing, saved launch arguments, failure handling, and state mechanics.
 `bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
 External activity and CI-runner tools should consume this API instead of retaining ceiling or reserve constants.
 
