@@ -1304,6 +1304,13 @@ When stripping is enabled, the hooks directory is read-only, so a hook manager r
 The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
 Per-machine Cursor `cli-config.json` attribution-off is not this contract: it does not travel with Firstmate, defaults back to on when unset, and only feeds the CLI's request to the server, so it suppresses the trailer rather than preventing it.
 
+The optional local, gitignored `config/prepush-ruff-format` list names, one project per line as named in `projects/`, the projects whose ship workers get a `ruff format --check` on every push; blank lines and `#` comments are ignored, and an absent file means off.
+It is not inherited into secondmate homes: each home's own list decides for the ships it launches.
+A ship launched for a listed project installs the same `state/<id>.git-hooks` directory even under `config/keep-ai-trailers` (the commit-msg wrapper then only chains), and its `pre-push` wrapper refuses a push when `ruff format --check` would reformat a `.py` file the push adds or changes, naming each file and the exact `ruff format <files>` fix command.
+The push guard and this check each run and each refuse on their own, and the project's own `pre-push` hook runs only after both pass.
+`ruff` is the worker copy's `.venv/bin/ruff` or `venv/bin/ruff`, else `ruff` on `PATH`; with none, or when `ruff` itself errors on a file, the push prints one warning naming the problem and proceeds.
+`bin/fm-git-ruff-format-check.sh` owns the comparison base, the file selection, and the refusal text, with regression coverage in [`tests/fm-git-push-guard.test.sh`](../tests/fm-git-push-guard.test.sh).
+
 ## Machine capacity (config/lane-capacity)
 
 Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch or relaunch.
