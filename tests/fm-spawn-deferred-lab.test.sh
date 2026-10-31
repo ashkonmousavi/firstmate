@@ -3,6 +3,7 @@
 # relocated data is refused. Reject a retry helper inventing an override that
 # makes an otherwise permitted stock-home retry fail before launch.
 set -u
+# shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 TMP=$(fm_test_tmproot fm-deferred-lab)
 command -v tasks-axi >/dev/null 2>&1 || fail 'tasks-axi is required'
