@@ -28,8 +28,12 @@
 #   candidate binds to one row through quota_row in
 #   bin/fm-quota-axi-lib.sh, so a Pi lane such as openai-codex-work/...
 #   reads its own account's row and an expanded provider with no row for the
-#   candidate is unmeasured, never blocked), and the spendPriority argmax over
-#   the eligible candidates. The model never sees quota, catalogs, approvals,
+#   candidate is unmeasured, never blocked), the runway-feasibility gate
+#   (quota_runway_gate in bin/fm-quota-axi-lib.sh: while an eligible, rankable
+#   candidate runs through its reset, a candidate whose runway ends before its
+#   reset is not eligible; an all-tight set refuses nothing), and the
+#   spendPriority argmax over the eligible candidates, which are printed in
+#   that ranked order. The model never sees quota, catalogs, approvals,
 #   confidence floors, `why`, or `use`. With no rules, it returns a non-clear
 #   result so firstmate keeps using the existing intake.
 #   docs/configuration.md "Crew dispatch profiles" owns the declared fields and
@@ -51,9 +55,13 @@
 #     model/latency_ms/tokens, rule (when excerpt) and confidence, probabilities
 #     fallback: <runner-up rule taken when the picked rule missed its own floor>
 #     reason: <why the status is not clear>
+#     note: <no rule matched, unranked candidates, or an all-tight runway set>
 #     candidate: <harness>:<model> provider=.. scope=.. remaining=..% spendPriority=.. runway=.. -> eligible | eligible, unranked: <reason> | not eligible: <reason>
+#                (ranked eligible by spendPriority first, then unranked, then not eligible)
 #     profile: --harness <h> [--model <m>] [--effort <e>]     (status clear only)
-#   clear     -> pass the profile line to fm-spawn.sh unless you state a reason to override
+#   clear     -> pass the profile line, the highest spendPriority candidate
+#                after the runway gate, to fm-spawn.sh unless you state a
+#                reason to override
 #   ambiguous -> confidence below the floor; decide as today from the probabilities
 #   escalate  -> the rule requires captain approval, no candidate is rankable, or a genuine tie
 #   error     -> API, network, response, or quota-axi failure; decide as today
@@ -218,15 +226,7 @@ if [ -n "$missing_provider" ]; then
 fi
 
 # ---- harness -> provider map, from the single owner in fm-quota-axi-lib.sh -----
-PMAP='{}'
-while IFS= read -r h; do
-  [ -n "$h" ] || continue
-  p=$(fm_quota_single_provider_for_harness "$h" 2>/dev/null) || p=''
-  PMAP=$(jq -c --arg h "$h" --arg p "$p" '. + {($h): (if $p == "" then null else $p end)}' <<<"$PMAP")
-done < <(jq -r '
-  def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
-  ([((.rules // [])[]) | profiles(.use)[]] + profiles(.default // null))
-  | map(.harness) | unique | .[]' "$RULES")
+PMAP=$(fm_quota_provider_map "$RULES") || die "could not map rule harnesses to providers"
 
 RULE_COUNT=$(jq -r '(.rules // []) | length' "$RULES")
 
@@ -352,77 +352,13 @@ fm_quota_json_valid < "$QUOTA" || emit_error "quota-axi --json returned an inval
 
 # ---- resolution: declared gates + quota evidence + argmax, all in jq ------------
 RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" \
-  --slurpfile resp "$RESP_FILE" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" "$FM_QUOTA_ROW_JQ"'
+  --slurpfile resp "$RESP_FILE" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ"'
   ($resp[0]) as $r | ($rules[0]) as $cfg | ($quota[0]) as $q | ($r.answers.rule) as $a |
   def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
-  def prov($p; $lane): quota_row($q; $p; $lane);
-  def rows($p; $lane): (prov($p; $lane) | .quotaSemantics.effectiveAvailability // []);
-  def bare($m): ($m | split("/") | last);
-  def provider_of($c): ($c.provider // $pmap[$c.harness] // null);
-  def lane_of($c): quota_lane($c.harness; $c.model);
-  def measured($p; $lane):
-    (prov($p; $lane) != null and (["known", "partial"] | index(prov($p; $lane).quotaSemantics.status)) != null);
-  def applicable($p; $lane; $m):
-    (bare($m)) as $bare |
-    [rows($p; $lane)[] | select(
-      .scope == "all_models" or .scope == "all_products" or
-      ($m != "" and (.scope == ("model:" + $bare) or .scope == ("product:" + $bare)))
-    )];
-  def floor_state($f; $p; $lane):
-    if $f == null then "none"
-    elif prov($p; $lane) == null or (measured($p; $lane) | not) then "unknown"
-    else [rows($p; $lane)[] | select(.scope == $f.scope)] as $matches
-      | if ($matches | length) == 0 or any($matches[]; .status != "known") then "unknown"
-        elif any($matches[]; .effectivePercentRemaining < $f.min_percent) then "below"
-        else "ok"
-        end
-    end;
-  def evidence($rows):
-    $rows | map({scope, status, pct: (.effectivePercentRemaining // null), runway: (.runway.status // null), spendPriority: (.selection.spendPriority // null)});
-  def evaluate($c):
-    (provider_of($c)) as $p | (lane_of($c)) as $lane |
-    if $p == null then {profile: $c, eligible: false, reason: "no provider family for harness \($c.harness); declare provider on the profile"}
-    elif prov($p; $lane) == null then
-      {profile: $c, provider: $p, eligible: true, unranked: true,
-       reason: (if any($q.providers[]; .provider == $p)
-                then "provider \($p) has no quota row for account \(if $lane == "" then "default" else $lane end)"
-                else "provider \($p) not in the quota snapshot" end)}
-    else
-      (applicable($p; $lane; ($c.model // ""))) as $rows |
-      (evidence($rows)) as $bounds |
-      (floor_state($c.floor; $p; $lane)) as $profile_floor_state |
-      if any($rows[]; (.runway.status // "") == "exhausted_now") then
-        ($rows | map(select((.runway.status // "") == "exhausted_now")) | first) as $bad |
-        {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, pct: ($bad.effectivePercentRemaining // null), runway: $bad.runway.status, eligible: false, reason: "runway exhausted_now at \($bad.scope)"}
-      elif any($rows[]; .status == "known" and (.effectivePercentRemaining | type) == "number" and .effectivePercentRemaining <= 0) then
-        ($rows | map(select(.status == "known" and (.effectivePercentRemaining | type) == "number" and .effectivePercentRemaining <= 0)) | first) as $bad |
-        {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, pct: $bad.effectivePercentRemaining, runway: $bad.runway.status, eligible: false, reason: "0% remaining at \($bad.scope)"}
-      elif $profile_floor_state == "below" then
-        ([rows($p; $lane)[] | select(
-          .scope == $c.floor.scope and
-          .effectivePercentRemaining < $c.floor.min_percent
-        )] | first) as $floor_row |
-        {profile: $c, provider: $p, bounds: $bounds, scope: ($floor_row.scope // $c.floor.scope), pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: false, reason: "profile floor \($c.floor.scope) below \($c.floor.min_percent)%"}
-      elif (measured($p; $lane) | not) then
-        ($rows | first) as $row |
-        {profile: $c, provider: $p, bounds: $bounds, scope: ($row.scope // null), pct: ($row.effectivePercentRemaining // null), runway: ($row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "provider \($p) unmeasured (\(prov($p; $lane).quotaSemantics.status))"}
-      elif ($rows | length) == 0 then
-        {profile: $c, provider: $p, bounds: $bounds, eligible: true, unranked: true, unknown: true, reason: "no applicable quota row for provider \($p)"}
-      elif $profile_floor_state == "unknown" then
-        ([rows($p; $lane)[] | select(.scope == $c.floor.scope)] | first) as $floor_row |
-        {profile: $c, provider: $p, bounds: $bounds, scope: $c.floor.scope, pct: ($floor_row.effectivePercentRemaining // null), runway: ($floor_row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "profile floor \($c.floor.scope) is unverifiable: not rankable"}
-      elif any($rows[]; .status != "known") then
-        ($rows | map(select(.status != "known")) | first) as $bad |
-        {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, eligible: true, unranked: true, unknown: true, reason: "quota row \($bad.scope) unknown: not rankable"}
-      elif any($rows[]; (.selection.spendPriority | type) != "number") then
-        ($rows | map(select((.selection.spendPriority | type) != "number")) | first) as $bad |
-        {profile: $c, provider: $p, bounds: $bounds, scope: $bad.scope, pct: $bad.effectivePercentRemaining, runway: $bad.runway.status, eligible: true, unranked: true, reason: "spendPriority missing or non-numeric at \($bad.scope): not rankable"}
-      else
-        ($rows | min_by(.selection.spendPriority)) as $limiting |
-        {profile: $c, provider: $p, bounds: $bounds, scope: $limiting.scope, pct: $limiting.effectivePercentRemaining,
-         spendPriority: $limiting.selection.spendPriority, runway: $limiting.runway.status, eligible: true, reason: "ok"}
-      end
-    end;
+  def floor_state($f; $p; $lane): quota_floor_state($q; $f; $p; $lane);
+  # Evaluate, apply the runway-feasibility gate, then order by spendPriority,
+  # all through the one owner in bin/fm-quota-axi-lib.sh.
+  def assess($use): quota_rank_order(quota_runway_gate($use | map(quota_evaluate($q; $pmap; .))));
   def rule_at($c):
     if ($c | test("^rule_[1-9][0-9]*$")) then
       ($c | ltrimstr("rule_") | tonumber) as $n |
@@ -472,22 +408,25 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   as $ev |
   if $sel.invalid then $ev + {status: "error", reason: $sel.invalid}
   elif $fb.below and $fb.global then
-    $ev + {status: "ambiguous", reason: "confidence \($a.confidence) below floor \($floor)", candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "ambiguous", reason: "confidence \($a.confidence) below floor \($floor)", candidates: assess($answer_use)}
   elif $fb.below and ($fb.to | not) then
-    $ev + {status: "ambiguous", reason: "\($picked) probability \($a.probabilities[$picked]) below its floor \($picked_floor); \($fb.why)", candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "ambiguous", reason: "\($picked) probability \($a.probabilities[$picked]) below its floor \($picked_floor); \($fb.why)", candidates: assess($answer_use)}
   elif $sel.escalate then
-    $ev + {status: "escalate", reason: $sel.escalate, candidates: ($answer_use | map(evaluate(.)))}
+    $ev + {status: "escalate", reason: $sel.escalate, candidates: assess($answer_use)}
   elif ($sel.use | length) == 0 then $ev + {status: "escalate", reason: "no profiles configured for \($sel.source)", note: $sel.note, candidates: []}
   else
-    ($sel.use | map(evaluate(.))) as $cands |
+    assess($sel.use) as $cands |
     ([$cands[] | select(.eligible and ((.unranked // false) | not))]) as $elig |
     ([$cands[] | select(.unranked)]) as $unranked |
+    (if any($elig[]; .runway_class == "short") and (quota_through($elig) | length) == 0
+     then {runway_note: "every rankable candidate is tight (runway ends before its reset) and none runs through its reset: ranked by spendPriority with no runway refusal"}
+     else {} end) as $tight |
     if ($elig | length) == 0 then $ev + {status: "escalate", reason: "no rankable eligible candidate", note: $sel.note, candidates: $cands}
     else
       ($elig | max_by(.spendPriority)) as $best |
       ([$elig[] | select(.spendPriority == $best.spendPriority)] | length) as $ties |
-      if $ties > 1 then $ev + {status: "escalate", reason: "genuine spendPriority tie", note: $sel.note, candidates: $cands}
-      else $ev + {status: "clear", note: $sel.note, candidates: $cands, chosen: $best}
+      if $ties > 1 then $ev + {status: "escalate", reason: "genuine spendPriority tie", note: $sel.note, candidates: $cands} + $tight
+      else $ev + {status: "clear", note: $sel.note, candidates: $cands, chosen: $best} + $tight
         + (if ($unranked | length) > 0 then
              {unranked_note: "\($unranked | length) eligible candidate(s) unranked (\([$unranked[].provider] | unique | join(", ")))"}
            else {} end)
@@ -508,6 +447,7 @@ TEXT=$(jq -r '
   (if .reason then "  reason: \(.reason | flat)" else empty end),
   (if .note then "  note: \(.note | flat)" else empty end),
   (if .unranked_note then "  note: \(.unranked_note | flat)" else empty end),
+  (if .runway_note then "  note: \(.runway_note | flat)" else empty end),
   (.candidates[]? | "  candidate: \(.profile.harness | flat):\(show(.profile.model))"
       + (if .provider then "  provider=\(.provider | flat)" else "" end)
       + (if .scope then "  scope=\(.scope | flat)  remaining=\(show(.pct))%  spendPriority=\(show(.spendPriority))  runway=\(show(.runway))" else "" end)
