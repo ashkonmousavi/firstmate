@@ -60,4 +60,71 @@ for broken in ['{}','{"schema":"fm-machine-admission.v1","schema":"fm-machine-ad
     except ValueError:pass
     else:raise AssertionError('malformed policy accepted')
 print('ok - missing, duplicate, boolean and nonfinite numeric fields refuse')
+def psi_text(a10,a60,a300):
+    return f'some avg10={a10:.2f} avg60={a60:.2f} avg300={a300:.2f} total=0\nfull avg10={a10:.2f} avg60={a60:.2f} avg300={a300:.2f} total=0\n'
+burst,sustained=psi_text(30,12,2),psi_text(9,9,6)
+legacy={**data,'memory_floor_gib':3}
+windowed={**legacy,'memory_full_avg60_max':25,'memory_full_avg300_max':5}
+def verdict(policy_data,host,meminfo_gib=64,ancestor=None):
+    policy.write_text(json.dumps(policy_data));psi.write_text(host)
+    mem.write_text(f'MemAvailable: {meminfo_gib*g//1024} kB\n')
+    (cg/'crew/memory.max').write_text(str(17*g));(cg/'crew/memory.current').write_text(str(20*g))
+    (cg/'crew/memory.pressure').write_text(ancestor or quiet)
+    return m.measure(m.policy(policy),**options)
+for host,expected in [(quiet,[]),(burst,['memory PSI full avg60 refuses']),(sustained,['memory PSI full avg60 refuses'])]:
+    facts=verdict(legacy,host)
+    assert facts['refusal_reasons']==expected,(host,facts['refusal_reasons'])
+print('ok - a policy without memory_full_avg300_max keeps the avg60-only verdicts')
+facts=verdict(windowed,burst)
+assert facts['admitted'] and (facts['memory_full_avg10'],facts['memory_full_avg60'],facts['memory_full_avg300'])==(30,12,2),facts
+assert facts['mem_available_bytes']==64*g,facts
+print('ok - a short burst with ample memory admits under the five-minute window')
+facts=verdict(windowed,sustained)
+assert facts['refusal_reasons']==['memory PSI full avg300 refuses'],facts
+policy.write_text(json.dumps(windowed));psi.write_text(sustained)
+reading=capacity()
+assert reading['reason']=='pressure' and reading['free_lanes']==0,reading
+print('ok - sustained pressure refuses through the public consumer')
+assert verdict(windowed,psi_text(60,30,3))['refusal_reasons']==['memory PSI full avg60 refuses']
+print('ok - a burst above the avg60 ceiling still refuses')
+assert verdict(windowed,quiet,ancestor=sustained)['refusal_reasons']==['memory PSI full avg300 refuses']
+print('ok - enclosing cgroup avg300 refuses despite a quiet host')
+facts=verdict(windowed,burst,meminfo_gib=2)
+assert facts['refusal_reasons']==['Required cache-aware effective memory floor not met'],facts
+print('ok - low MemAvailable refuses during a tolerated burst')
+for broken in ['full avg10=1.00 avg60=1.00 total=0\n','some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n','full avg10=1.00 avg60=1.00 avg300=x total=0\n']:
+    for rules in (legacy,windowed):
+        policy.write_text(json.dumps(rules));psi.write_text(broken)
+        p=subprocess.run([sys.executable,str(r/'bin/fm-machine-resources.py'),'--policy',str(policy)],env=env,capture_output=True,text=True)
+        out=json.loads(p.stdout)
+        assert p.returncode==75 and out['readable'] is False and not out['admitted'],(broken,p.stdout)
+print('ok - unreadable or partial PSI is reported unknown, not healthy')
+for bad in [0,101,True,'5',float('inf')]:
+    policy.write_text(json.dumps({**windowed,'memory_full_avg300_max':bad}))
+    try:m.policy(policy)
+    except ValueError:pass
+    else:raise AssertionError('invalid memory_full_avg300_max accepted: '+repr(bad))
+print('ok - invalid memory_full_avg300_max refuses')
+log=home/'state/machine-admission.log'
+for path in (log,Path(str(log)+'.1')):
+    path.unlink(missing_ok=True)
+policy.write_text(json.dumps(windowed));mem.write_text(f'MemAvailable: {64*g//1024} kB\n')
+psi.write_text(burst);capacity()
+psi.write_text(sustained);capacity()
+psi.write_text('full avg10=1.00 total=0\n');subprocess.run(['bash',str(r/'bin/fm-capacity.sh'),'--json'],env=env,capture_output=True,text=True)
+rows=[line.split('\t') for line in log.read_text().splitlines()]
+assert [len(row) for row in rows]==[9,9,9],rows
+assert [row[1] for row in rows]==['yes','no','unknown'],rows
+assert [float(v) for v in rows[0][2:5]]==[30,12,2] and rows[0][5]==str(64*g//1024) and rows[1][8]=='memory PSI full avg300 refuses',rows
+assert rows[2][2:8]==['']*6 and 'avg60' in rows[2][8],rows
+print('ok - every verdict is logged with its PSI windows and MemAvailable')
+psi.write_text(burst)
+small={**env,'FM_ADMISSION_LOG_MAX_BYTES':'1'}
+subprocess.run(['bash',str(r/'bin/fm-capacity.sh'),'--json'],env=small,capture_output=True,text=True,check=True)
+assert not log.exists() and len(Path(str(log)+'.1').read_text().splitlines())==4
+print('ok - the sample log rotates once it exceeds its byte cap')
+log.mkdir()
+assert capacity()['reason']=='ok'
+log.rmdir()
+print('ok - an unwritable sample log never changes the verdict')
 PY
