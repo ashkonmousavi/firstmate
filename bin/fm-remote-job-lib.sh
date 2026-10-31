@@ -964,6 +964,7 @@ fm_remote_job_launchagent_loaded() { # <remote-root> <account-home> <uid>
 
 fm_remote_job_worker_pid_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.pid"; }
 fm_remote_job_worker_ready_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.ready"; }
+fm_remote_job_worker_progress_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.progress"; }
 fm_remote_job_worker_identity_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.identity"; }
 fm_remote_job_worker_lock_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.lock"; }
 
@@ -1445,7 +1446,7 @@ fm_remote_job_ensure_launchagent() { # <remote-root> <account-home> <uid>
 }
 
 fm_remote_job_start_linux_worker() { # <remote-root> <account-home>
-  local root=$1 account_home=$2 worker pid
+  local root=$1 account_home=$2 worker pid i
   worker="$root/bin/fm-remote-job-worker.sh"
   [ -f "$worker" ] && [ ! -L "$worker" ] && [ -x "$worker" ] || {
     FM_REMOTE_JOB_ERROR="remote job worker is not a genuine executable in the configured code root"
@@ -1464,6 +1465,30 @@ fm_remote_job_start_linux_worker() { # <remote-root> <account-home>
     }
     wait "$pid" 2>/dev/null || true
     FM_REMOTE_JOB_REPAIRED=1
+  elif [ ! -e "$(fm_remote_job_worker_lock_path)/quarantine" ] && [ ! -L "$(fm_remote_job_worker_lock_path)/quarantine" ] \
+    && fm_remote_job_lock_owner_matches_process "$account_home"; then
+    # A verified live owner whose readiness is stale: either its heartbeat died
+    # with a serving loop too stuck to replace it, or the heartbeat is
+    # withholding readiness because the loop stopped making progress (the
+    # worker header owns that bound). Give a just-started or briefly slow owner
+    # a short grace, then stop that same owner's tree, or a new supervisor
+    # would only lose the ownership race to it while queued jobs wait forever.
+    pid=$FM_REMOTE_JOB_OWNER_PID
+    i=0
+    while [ "$i" -lt 50 ]; do
+      fm_remote_job_probe "$account_home" && return 0
+      i=$((i + 1))
+      sleep 0.1
+    done
+    if fm_remote_job_lock_owner_matches_process "$account_home" && [ "$FM_REMOTE_JOB_OWNER_PID" = "$pid" ]; then
+      printf 'remote-job: replacing worker %s: verified lock owner is alive but not ready\n' "$pid" >&2
+      fm_remote_job_stop_worker_tree "$pid" || {
+        FM_REMOTE_JOB_ERROR="unready remote job worker did not stop safely"
+        return 1
+      }
+      wait "$pid" 2>/dev/null || true
+      FM_REMOTE_JOB_REPAIRED=1
+    fi
   fi
   # Job control puts the worker tree in its own process group, so a later stop
   # can signal every descendant at once without ever reaching the caller's own

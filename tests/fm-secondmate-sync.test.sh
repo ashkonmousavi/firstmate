@@ -1426,7 +1426,58 @@ test_remote_launch_does_not_retarget_host_copy() {
   pass "R9 a remote launch leaves the home on the parent's commit while an ordinary spawn follows its own checkout"
 }
 
+# --- T1b: a curated fleet follows the branch its primary tracks on origin ----
+# A fork fleet checks out its curated branch with origin's curated as upstream,
+# while origin/HEAD (here: no origin at all) still resolves to main. The sync
+# target is curated's tip, and a standalone home checked out on that tracked
+# branch is accepted rather than refused as "on curated, expected main". A
+# branch merely created in the primary, with no such upstream, is not followed.
+test_curated_primary_is_followed() {
+  local w c1 curated_tip main_tip base
+  w=$(new_world ff-curated)
+  c1=$(head_of "$w/main")
+  main_tip=$c1
+  git -C "$w/main" checkout -q -b curated
+  bump_primary "$w" instr
+  curated_tip=$(head_of "$w/main")
+  git -C "$w/main" config branch.curated.remote origin
+  git -C "$w/main" config branch.curated.merge refs/heads/curated
+  git -C "$w/main" worktree add -q --detach "$w/sm" "$c1"
+
+  base=$(primary_head_commit "$w/main")
+  [ "$base" = "$curated_tip" ] || fail "the sync target was $base, not the tracked curated tip $curated_tip"
+  run_ff "$w/sm" "$base"
+  [ "$FF_STATUS" = updated ] || fail "the detached home did not follow curated: $FF_OUT"
+
+  git clone -q "$w/main" "$w/standalone"
+  git -C "$w/standalone" checkout -q -B curated "$c1"
+  git -C "$w/standalone" config branch.curated.remote origin
+  git -C "$w/standalone" config branch.curated.merge refs/heads/curated
+  printf 'sm\n' > "$w/standalone/.fm-secondmate-home"
+  run_ff "$w/standalone" "$curated_tip"
+  [ "$FF_STATUS" = updated ] || fail "a home checked out on its tracked curated branch was refused: $FF_OUT"
+
+  git -C "$w/main" checkout -q -b feature/wip
+  [ "$(primary_head_commit "$w/main")" = "$main_tip" ] \
+    || fail "a primary on an untracked feature branch did not fall back to its default branch"
+  git -C "$w/main" config branch.feature/wip.remote origin
+  git -C "$w/main" config branch.feature/wip.merge refs/heads/other
+  [ "$(primary_head_commit "$w/main")" = "$main_tip" ] \
+    || fail "a branch tracking a differently named upstream was followed"
+  git init -q --bare "$w/origin.git"
+  git -C "$w/main" remote add origin "$w/origin.git"
+  git -C "$w/main" push -qu origin feature/wip
+  [ "$(fleet_branch "$w/main")" = main ] || fail "a tracked feature branch became a fleet target"
+  [ "$(primary_head_commit "$w/main")" = "$main_tip" ] \
+    || fail "a primary's pushed feature commits were selected for secondmate sync"
+  run_ff "$w/main" "$curated_tip"
+  [ "$FF_STATUS" = skipped ] || fail "a tracked feature checkout was accepted as a home branch"
+  [ "$(head_of "$w/main")" = "$curated_tip" ] || fail "the skipped feature checkout moved"
+  pass "T1b curated is followed and feature branches are excluded even with an origin upstream"
+}
+
 test_ff_updated
+test_curated_primary_is_followed
 test_ff_current
 test_ff_dirty
 test_scratchpad2_does_not_dirty_home

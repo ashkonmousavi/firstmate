@@ -27,7 +27,8 @@
 #                 "CREW_RECOVERY: <id>: relaunch deferred after <state>: <detail>",
 #                 "FMX: X mode on ..." or "FMX: X mode off ...".
 #          When a RUNNING secondmate home is fast-forwarded, its target is
-#          firstmate's own current default-branch commit. A local worktree uses
+#          firstmate's own current fleet-branch commit (fm-ff-lib.sh fleet_branch).
+#          A local worktree uses
 #          a purely local fast-forward with no origin fetch; a remote route hands
 #          the same commit to its host, which imports that commit into the home
 #          without moving the host's Firstmate copy. If either placement changes
@@ -397,7 +398,8 @@ secondmate_sync() {
   # shellcheck source=bin/fm-wake-lib.sh disable=SC1091
   . "$SCRIPT_DIR/fm-wake-lib.sh"
   # Placement-specific secondmate sync: EVERY home, local or remote, follows the
-  # primary checkout's current default-branch commit. The local path is purely
+  # primary checkout's current fleet-branch commit (fm-ff-lib.sh fleet_branch).
+  # The local path is purely
   # LOCAL - no fetch, no origin dependency: a linked-worktree home already holds
   # the primary's commit (fm-ff-lib.sh), while a standalone clone without it is
   # skipped until /updatefirstmate refreshes it from origin. A remote home is on
