@@ -5,11 +5,11 @@
 #   fm-spawn-deferred.sh record <task-id> -- <spawn-program> <task-id> [args...]
 #   fm-spawn-deferred.sh sweep
 #
-# bin/fm-spawn.sh calls record only when machine admission refuses a ship, scout,
-# or relaunch (exit 75, "no free machine lane" and the other fm_capacity_read
-# refusals). Project-capacity deferral and the treehouse project lock are not
-# recorded here. Persistent secondmate startup is exempt from machine admission
-# and is never recorded.
+# bin/fm-spawn.sh calls record only when machine admission refuses a fresh ship
+# or scout with FM_CAPACITY_REASON=full (exit 75, "no free machine lane").
+# Relaunches, other machine-admission refusals, project-capacity deferral, and
+# project-lock contention are not recorded here. Persistent secondmate startup
+# is exempt from machine admission and is never recorded.
 #
 # One record per task lives under state/spawn-deferred/queue, named only by the
 # zero-padded order in which it was first deferred. The body is schema
@@ -20,9 +20,11 @@
 # and the directory is mode 700.
 #
 # sweep runs from the supervision check sweep (bin/fm-watch.sh), whose default
-# period is five minutes. It asks bin/fm-capacity.sh for free_lanes once. Each
+# period is five minutes. Its detached retry worker asks bin/fm-capacity.sh
+# for free_lanes once. Each
 # claim already running prevents another launch, and only a successful launch
-# spends a free lane. The oldest queued request that is still eligible starts first.
+# spends a free lane. The oldest eligible queued request in this home starts first.
+# Ordering is per home; there is no machine-wide sequencing or shared queue.
 # Eligible means the backlog row is exactly queued, not held and not blocked,
 # when the backlog gate applies (bin/fm-backlog-transition-lib.sh), and the task
 # record does not already hold a machine seat (bin/fm-project-capacity-lib.sh).
@@ -42,7 +44,9 @@
 # A claim directory entry is the in-progress mark, taken while the sweep lock
 # state/.spawn-deferred.lock is held. The spawn itself runs after that lock is
 # released, so a retried spawn can record another deferral without deadlocking
-# the sweep. Tests set FM_SPAWN_DEFERRED_CAPACITY_BIN to replace the capacity
+# the detached retry worker. sweep returns without waiting for a spawn and
+# publishes completed retry outcomes on a later sweep.
+# Tests set FM_SPAWN_DEFERRED_CAPACITY_BIN to replace the capacity
 # command. This hook applies only when FM_TEST_SEAM=1.
 # sweep prints nothing and exits 0 when there is nothing to report, the lock
 # is busy, or the machine is full.
@@ -82,6 +86,7 @@ QUEUE="$STORE/queue"
 CLAIM="$STORE/claim"
 LOCK="$STATE/.spawn-deferred.lock"
 RETRY_LOG="$STORE/retry.log"
+REPORT="$STORE/report"
 DEFERRED_SCHEMA=fm-deferred-spawn.v1
 
 deferred_task_id_valid() { # <id> - same character rule as fm_pr_task_id_valid
@@ -517,6 +522,7 @@ deferred_finish_claim() { # <claim> <rc> <sync|async>
   if [ "$rc" -eq 0 ]; then
     if deferred_task_id_valid "$id"; then
       deferred_remove_task "$id"
+      printf 'started %s\n' "$id"
     else
       rm -f -- "$claim" "${claim}.pid" "${claim}.rc"
     fi
@@ -634,11 +640,9 @@ deferred_capacity_free() { # prints free_lanes or fails
   printf '%s' "$free"
 }
 
-deferred_sweep() {
+deferred_retry() {
   local f claim budget free
-  if ! fm_lock_try_acquire "$LOCK"; then
-    return 0
-  fi
+  fm_lock_acquire_wait "$LOCK" || return 1
   deferred_ensure_dirs || return 1
   deferred_reap || return 1
   if ! deferred_each_order_file "$QUEUE" | grep -q .; then
@@ -676,7 +680,6 @@ deferred_sweep() {
     [ "$budget" -ge 1 ] || continue
     claim="$CLAIM/$(basename -- "$f")"
     mv -f -- "$f" "$claim" || continue
-    printf 'started %s\n' "$DEFERRED_TASK"
     deferred_run_claim "$claim" || return 1
     if [ "$DEFERRED_LAUNCH_RC" -eq 0 ]; then
       budget=$((budget - 1))
@@ -684,6 +687,25 @@ deferred_sweep() {
   done <<EOF
 $(deferred_each_order_file "$QUEUE")
 EOF
+}
+
+deferred_sweep() {
+  fm_lock_try_acquire "$LOCK" || return 0
+  deferred_ensure_dirs || return 1
+  if [ -s "$REPORT" ]; then
+    cat -- "$REPORT" || return 1
+    : > "$REPORT" || return 1
+  fi
+  deferred_reap || return 1
+  [ "$IN_PROGRESS" -eq 0 ] || return 0
+  deferred_each_order_file "$QUEUE" | grep -q . || return 0
+  fm_lock_release "$LOCK" || return 1
+  umask 077
+  if command -v setsid >/dev/null 2>&1; then
+    setsid nohup "$0" retry >> "$REPORT" 2>> "$RETRY_LOG" </dev/null &
+  else
+    nohup "$0" retry >> "$REPORT" 2>> "$RETRY_LOG" </dev/null &
+  fi
 }
 
 case "${1:-}" in
@@ -696,6 +718,9 @@ case "${1:-}" in
     ;;
   sweep)
     deferred_sweep
+    ;;
+  retry)
+    deferred_retry
     ;;
   *)
     echo 'usage: fm-spawn-deferred.sh record <task-id> -- <argv...> | sweep' >&2

@@ -1370,7 +1370,7 @@ Tracked self-update preserves these ignored host declarations.
 
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
 It exits 75 when room cannot be proved and does not change task state.
-A spawn deferred because no machine lane is free is recorded by [`bin/fm-spawn-deferred.sh`](../bin/fm-spawn-deferred.sh) and retried, oldest first, when the supervision check sweep sees a free lane.
+A spawn deferred because no machine lane is free is recorded by [`bin/fm-spawn-deferred.sh`](../bin/fm-spawn-deferred.sh) and retried, oldest first within that home, when the supervision check sweep sees a free lane.
 `bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
 External activity and CI-runner tools should consume this API instead of retaining ceiling or reserve constants.
 

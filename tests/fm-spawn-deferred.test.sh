@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # A spawn deferred because the machine has no free lane is recorded and
 # retried, oldest first, when a later sweep sees a free lane.
-# Cases drive bin/fm-spawn-deferred.sh record and sweep with a fake capacity
-# command and a fake spawn program. One case drives the real fm-spawn.sh
-# against an isolated home.
+# Cases drive bin/fm-spawn-deferred.sh record, retry, and sweep with a fake
+# capacity command and a fake spawn program, and drive the real fm-spawn.sh
+# against isolated homes.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -64,14 +64,14 @@ record_task() { # <home> <case-dir> <id>
     "$ROOT_BIN" record "$id" -- "$case_dir/spawn" "$id"
 }
 
-sweep_home() { # <home> <case-dir>
-  local home=$1 case_dir=$2
+deferred_home() { # <action> <home> <case-dir>
+  local action=$1 home=$2 case_dir=$3
   FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" \
     FM_SPAWN_DEFERRED_CAPACITY_BIN="$case_dir/capacity" \
     FM_SPAWN_DEFERRED_FREE_FILE="$case_dir/free" \
     FM_DEFERRED_TEST_LOG="$case_dir/spawn.log" \
-    "$ROOT_BIN" sweep
+    "$ROOT_BIN" "$action"
 }
 
 queue_has() { # <home> <id>
@@ -112,7 +112,7 @@ test_oldest_and_one_per_free_lane() {
   record_task "$home" "$case_dir" b-two
   record_task "$home" "$case_dir" c-three
   printf '1\n' > "$case_dir/free"
-  out=$(sweep_home "$home" "$case_dir")
+  out=$(deferred_home retry "$home" "$case_dir")
   assert_contains "$out" "started a-one" "the oldest deferred request did not start"
   assert_not_contains "$out" "started b-two" "a younger request started while only one lane was free"
   assert_not_contains "$out" "started c-three" "a third request started while only one lane was free"
@@ -121,7 +121,7 @@ test_oldest_and_one_per_free_lane() {
   queue_has "$home" b-two || fail "the younger request was dropped"
   queue_has "$home" c-three || fail "the youngest request was dropped"
   printf '2\n' > "$case_dir/free"
-  out=$(sweep_home "$home" "$case_dir")
+  out=$(deferred_home retry "$home" "$case_dir")
   assert_contains "$out" "started b-two" "the next oldest request did not start"
   assert_contains "$out" "started c-three" "the second free lane did not start the next request"
   assert_equals "$(printf '%s\n' a-one b-two c-three)" "$(cat "$case_dir/spawn.log")" \
@@ -136,8 +136,8 @@ test_no_double_start() {
   home="$case_dir/home"
   record_task "$home" "$case_dir" only-one
   printf '1\n' > "$case_dir/free"
-  sweep_home "$home" "$case_dir" >/dev/null
-  sweep_home "$home" "$case_dir" >/dev/null
+  deferred_home retry "$home" "$case_dir" >/dev/null
+  deferred_home retry "$home" "$case_dir" >/dev/null
   assert_equals "only-one" "$(cat "$case_dir/spawn.log")" "a second sweep started the same request again"
   queue_has "$home" only-one && fail "a finished request was recorded again"
   pass "a finished deferred request is not started twice"
@@ -152,7 +152,7 @@ test_in_progress_claim_consumes_the_lane() {
   record_task "$home" "$case_dir" next-one
   printf '2\n' > "$case_dir/free"
   set +m
-  FM_DEFERRED_SLEEP_ID=sleep-one sweep_home "$home" "$case_dir" >/dev/null &
+  FM_DEFERRED_SLEEP_ID=sleep-one deferred_home retry "$home" "$case_dir" >/dev/null &
   first=$!
   i=0
   while [ ! -s "$case_dir/spawn.log.child" ]; do
@@ -160,7 +160,7 @@ test_in_progress_claim_consumes_the_lane() {
     [ "$i" -lt 100 ] || fail "the in-progress spawn did not reach its wait"
     sleep 0.05
   done
-  sweep_home "$home" "$case_dir" >/dev/null
+  deferred_home retry "$home" "$case_dir" >/dev/null
   assert_equals "sleep-one" "$(cat "$case_dir/spawn.log")" \
     "a second sweep started another request while the free lane was already claimed"
   queue_has "$home" next-one || fail "the waiting request was dropped while a claim was in progress"
@@ -182,7 +182,7 @@ test_held_task_is_skipped() {
   tasks-axi hold held-one --reason "captain decision pending" --kind captain \
     --file "$home/data/backlog.md" >/dev/null
   printf '1\n' > "$case_dir/free"
-  out=$(sweep_home "$home" "$case_dir")
+  out=$(deferred_home retry "$home" "$case_dir")
   assert_not_contains "$out" "started held-one" "a held task was started"
   assert_contains "$out" "started young-one" "a held older task blocked a younger queued task"
   assert_equals "young-one" "$(cat "$case_dir/spawn.log")" "the spawn log included the held task"
@@ -200,7 +200,7 @@ test_stale_request_is_reported() {
   [ -n "$f" ] || fail "the deferred request was not recorded"
   sed -i 's/^argv_sha256=.*/argv_sha256=0000000000000000000000000000000000000000000000000000000000000000/' "$f"
   printf '1\n' > "$case_dir/free"
-  out=$(sweep_home "$home" "$case_dir")
+  out=$(deferred_home retry "$home" "$case_dir")
   assert_contains "$out" "stale stale-one" "a tampered request was not reported stale"
   assert_equals "" "$(cat "$case_dir/spawn.log")" "a stale request was executed"
   queue_has "$home" stale-one && fail "a stale request was left queued"
@@ -220,7 +220,7 @@ test_closed_rows_are_removed_without_a_start() {
   tasks-axi done done-one --file "$home/data/backlog.md" >/dev/null
   tasks-axi rm gone-one --file "$home/data/backlog.md" >/dev/null
   printf '3\n' > "$case_dir/free"
-  sweep_home "$home" "$case_dir" >/dev/null
+  deferred_home retry "$home" "$case_dir" >/dev/null
   assert_equals "" "$(cat "$case_dir/spawn.log")" "a task that is not queued was started"
   queue_has "$home" fly-one && fail "an in-flight request was kept"
   queue_has "$home" done-one && fail "a done request was kept"
@@ -245,7 +245,7 @@ test_seat_already_held_is_skipped() {
     "yolo=off" \
     "spawn_gen=s-seat-one"
   printf '1\n' > "$case_dir/free"
-  sweep_home "$home" "$case_dir" >/dev/null
+  deferred_home retry "$home" "$case_dir" >/dev/null
   assert_equals "" "$(cat "$case_dir/spawn.log")" "a task that already holds a seat was started"
   queue_has "$home" seat-one || fail "a seated request was removed while it was still queued"
   pass "a queued task that already holds a seat is left for the next sweep"
@@ -275,7 +275,7 @@ test_busy_lock_starts_nothing() {
     [ "$i" -lt 100 ] || fail "the lock holder did not take the lock"
     sleep 0.05
   done
-  out=$(sweep_home "$home" "$case_dir")
+  out=$(deferred_home sweep "$home" "$case_dir")
   assert_equals "" "$out" "a sweep whose lock was busy produced a report"
   assert_equals "" "$(cat "$case_dir/spawn.log")" "a sweep whose lock was busy started a request"
   queue_has "$home" lock-one || fail "a busy sweep dropped the queued request"
@@ -336,10 +336,37 @@ SH
   printf '%s\n' "$fakebin"
 }
 
+real_command() {
+  local case_dir=$1
+  shift
+  FM_ROOT_OVERRIDE='' FM_HOME="$case_dir/home" \
+    FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' \
+    FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_BACKEND=tmux \
+    FM_FAKE_PANE_PATH="$case_dir/wt-retry" FM_FAKE_CALL_LOG="$case_dir/calls.log" \
+    PATH="$case_dir/fakebin:$PATH" "$@"
+}
+
+wait_for_task_completion() {
+  local home=$1 id=$2 i f active
+  for ((i=0; i<200; i++)); do
+    active=0
+    for f in "$home"/state/spawn-deferred/claim/*; do
+      [ -f "$f" ] || continue
+      [ "$(sed -n 's/^task=//p' "$f" | head -1)" != "$id" ] || active=1
+    done
+    if ! queue_has "$home" "$id" && [ "$active" -eq 0 ]; then
+      return 0
+    fi
+    sleep 0.05
+  done
+  fail "the detached retry of $id did not complete"
+}
+
 test_real_spawn_starts_after_a_lane_frees() {
-  local case_dir home fakebin project out rc=0 began ended elapsed proof
+  local variant=${1:-ship} case_dir home fakebin project out rc=0 began ended elapsed proof
+  local args=()
   require_tasks || return 0
-  case_dir=$(new_case real-lane)
+  case_dir=$(new_case "real-lane-$variant")
   home="$case_dir/home"
   fakebin=$(install_real_fakes "$case_dir")
   project="$case_dir/project"
@@ -362,13 +389,18 @@ test_real_spawn_starts_after_a_lane_frees() {
     "mode=no-mistakes" \
     "yolo=off" \
     "spawn_gen=s-occupant"
+  case "$variant" in
+    ship) args=(retry-one "$project" --mode no-mistakes --yolo off) ;;
+    scout) args=(--scout retry-one "$project") ;;
+    flags) args=(--harness codex --mode=no-mistakes --yolo off retry-one "$project") ;;
+  esac
   rc=0
   out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" \
     FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' \
     FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" FM_BACKEND=tmux \
     FM_FAKE_PANE_PATH="$case_dir/wt-retry" FM_FAKE_CALL_LOG="$case_dir/calls.log" \
     PATH="$fakebin:$PATH" \
-    "$SPAWN" retry-one "$project" --mode no-mistakes --yolo off 2>&1) || rc=$?
+    "$SPAWN" "${args[@]}" 2>&1) || rc=$?
   [ "$rc" -eq 75 ] || fail "the occupied machine did not defer the spawn (exit $rc): $out"
   queue_has "$home" retry-one || fail "the real deferred spawn was not recorded"
   rm -f -- "$home/state/occupant.meta"
@@ -380,12 +412,15 @@ test_real_spawn_starts_after_a_lane_frees() {
     FM_FAKE_PANE_PATH="$case_dir/wt-retry" FM_FAKE_CALL_LOG="$case_dir/calls.log" \
     PATH="$fakebin:$PATH" \
     "$ROOT_BIN" sweep 2>&1) || rc=$?
+  wait_for_task_completion "$home" retry-one
+  out="$out$(real_command "$case_dir" "$ROOT_BIN" sweep)"
   ended=$(date +%s)
   elapsed=$((ended - began))
   [ "$rc" -eq 0 ] || fail "the retry sweep failed (exit $rc): $out"
   assert_contains "$out" "started retry-one" "the deferred task did not start after the lane freed"
   [ -f "$home/state/retry-one.meta" ] || fail "the retried spawn did not publish a task record: $out"
   queue_has "$home" retry-one && fail "the started request was left queued"
+  assert_equals "${variant/flags/ship}" "$(sed -n 's/^kind=//p' "$home/state/retry-one.meta")" "retry changed the worker kind"
   [ "$elapsed" -lt 300 ] || fail "the retry took ${elapsed}s, which is not within five minutes"
   proof=${FM_SPAWN_DEFERRED_PROOF_DIR:-}
   if [ -n "$proof" ]; then
@@ -428,7 +463,7 @@ SH
   record_task "$home" "$case_dir" first-one
   record_task "$home" "$case_dir" second-one
   printf '2\n' > "$case_dir/free"
-  out=$(sweep_home "$home" "$case_dir")
+  out=$(deferred_home retry "$home" "$case_dir")
   assert_contains "$out" "started second-one" "the second serial retry did not start"
   assert_equals "$(printf '%s\n' 'first-one begin' 'first-one end' 'second-one begin' 'second-one end')" \
     "$(cat "$case_dir/spawn.log")" "retries overlapped or ran out of order"
@@ -458,8 +493,9 @@ SH
     record_task "$home" "$case_dir" ready-one
     record_task "$home" "$case_dir" third-one
     printf '1\n' > "$case_dir/free"
-    out=$(FM_DEFERRED_TEST_RC="$rc" FM_DEFERRED_TEST_BIN="$ROOT_BIN" sweep_home "$home" "$case_dir")
+    out=$(FM_DEFERRED_TEST_RC="$rc" FM_DEFERRED_TEST_BIN="$ROOT_BIN" deferred_home retry "$home" "$case_dir")
     assert_contains "$out" "started ready-one" "the younger request was not launched after refusal"
+    assert_not_contains "$out" "started blocked-one" "a refused request was reported as started"
     assert_equals "$(printf '%s\n' blocked-one ready-one)" "$(cat "$case_dir/spawn.log")" \
       "exit $rc consumed the lane or prevented the younger ready task from starting"
     queue_has "$home" blocked-one || fail "the refused request lost its queue record"
@@ -483,13 +519,137 @@ SH
     "$ROOT_BIN" record bytes-one -- "$case_dir/spawn" bytes-one '' $'\n' $'printf hello\n\n' trailing-x
   printf '%s\0' bytes-one '' $'\n' $'printf hello\n\n' trailing-x > "$case_dir/expected.argv"
   printf '1\n' > "$case_dir/free"
-  out=$(sweep_home "$home" "$case_dir")
+  out=$(deferred_home retry "$home" "$case_dir")
   [ -f "$case_dir/spawn.log.argv" ] || fail "the byte-preserving request was discarded instead of executed: $out"
   cmp -s "$case_dir/expected.argv" "$case_dir/spawn.log.argv" || fail "retry changed the argument bytes"
   queue_has "$home" bytes-one && fail "the byte-preserving request stayed queued after success"
   pass "retry preserves empty arguments and trailing newlines"
 }
 
+test_sweep_returns_while_spawn_is_hung() {
+  local case_dir home first i out
+  require_tasks || return 0
+  case_dir=$(new_case detached sleep-one next-one)
+  home="$case_dir/home"
+  record_task "$home" "$case_dir" sleep-one
+  record_task "$home" "$case_dir" next-one
+  printf '2\n' > "$case_dir/free"
+  (
+    FM_DEFERRED_SLEEP_ID=sleep-one deferred_home sweep "$home" "$case_dir" > "$case_dir/sweep.out"
+    : > "$case_dir/returned"
+  ) &
+  first=$!
+  for ((i=0; i<100; i++)); do
+    [ ! -f "$case_dir/returned" ] || [ ! -s "$case_dir/spawn.log.child" ] || break
+    sleep 0.05
+  done
+  if [ ! -f "$case_dir/returned" ]; then
+    : > "$case_dir/spawn.log.release"
+    wait "$first" || true
+    fail "the watcher-facing sweep waited for the hung spawn"
+  fi
+  wait "$first" || fail "the detached sweep failed"
+  [ -s "$case_dir/spawn.log.child" ] || fail "the detached spawn did not reach its wait"
+  kill -0 "$(cat "$case_dir/spawn.log.child")" 2>/dev/null || fail "the spawn was not still running when sweep returned"
+  assert_not_contains "$(cat "$case_dir/sweep.out")" "started sleep-one" "the hung attempt was reported as started"
+  out=$(deferred_home sweep "$home" "$case_dir")
+  assert_equals "sleep-one" "$(cat "$case_dir/spawn.log")" "overlapping sweeps ran concurrent retries"
+  assert_not_contains "$out" "started sleep-one" "an overlapping sweep reported an unfinished launch"
+  : > "$case_dir/spawn.log.release"
+  wait_for_task_completion "$home" next-one
+  out=$(deferred_home sweep "$home" "$case_dir")
+  assert_equals "$(printf '%s\n' 'started sleep-one' 'started next-one')" "$out" "completed launches were not reported in order"
+  assert_equals "" "$(deferred_home sweep "$home" "$case_dir")" "completed launches were reported twice"
+  pass "the sweep returns during a hung spawn and reports completed launches once"
+}
+
+test_only_full_machine_refusals_are_recorded() {
+  local case_dir home project fakebin out rc reason
+  require_tasks || return 0
+  for reason in memory unreadable pressure disk config; do
+    case_dir=$(new_case "not-full-$reason" retry-one)
+    home="$case_dir/home"
+    project="$case_dir/project"
+    fm_git_init_commit "$project"
+    fakebin=$(install_real_fakes "$case_dir")
+    write_brief "$home" retry-one
+    printf '5 3\n' > "$home/config/lane-capacity"
+    cp "$FM_CAPACITY_MEMINFO" "$case_dir/meminfo"
+    cp "$FM_CAPACITY_PRESSURE_FILE" "$case_dir/pressure"
+    case "$reason" in
+      memory) printf 'MemAvailable: 1 kB\n' > "$case_dir/meminfo" ;;
+      unreadable) printf 'MemAvailable: unknown kB\n' > "$case_dir/meminfo" ;;
+      pressure) printf 'full avg10=0.00 avg60=100.00 avg300=0.00 total=0\n' > "$case_dir/pressure" ;;
+      disk) jq '.disk_floor_gib=1000000000' "$home/config/machine-admission.json" > "$case_dir/policy"; mv "$case_dir/policy" "$home/config/machine-admission.json" ;;
+      config) printf 'broken\n' > "$home/config/lane-capacity" ;;
+    esac
+    rc=0
+    out=$(FM_CAPACITY_MEMINFO="${case_dir}/meminfo" \
+      FM_CAPACITY_PRESSURE_FILE="${case_dir}/pressure" \
+      PATH="$fakebin:$PATH" real_command "$case_dir" "$SPAWN" retry-one "$project" --mode no-mistakes --yolo off 2>&1) || rc=$?
+    [ "$rc" -eq 75 ] || fail "$reason was not an admission refusal (exit $rc): $out"
+    case "$reason" in
+      memory) assert_contains "$out" "headroom=-" "the low-memory fixture did not reach memory admission" ;;
+      unreadable) assert_contains "$out" "$case_dir/meminfo" "the unreadable fixture did not reach its input" ;;
+      pressure) assert_contains "$out" "memory PSI full avg60" "the pressure fixture did not reach PSI admission" ;;
+      disk) assert_contains "$out" "disk" "the disk fixture did not reach disk admission" ;;
+      config) assert_contains "$out" "lane-capacity" "the invalid configuration did not reach admission" ;;
+    esac
+    queue_has "$home" retry-one && fail "$reason refusal created an automatic retry"
+  done
+  pass "non-lane machine refusals do not create retry records"
+}
+
+test_lock_contention_keeps_existing_retries() {
+  local axis case_dir home project fakebin holder i out
+  require_tasks || return 0
+  for axis in task-set task project; do
+    case_dir=$(new_case "contention-$axis" retry-one)
+    home="$case_dir/home"
+    project="$case_dir/project"
+    fakebin=$(install_real_fakes "$case_dir")
+    fm_git_init_commit "$project"
+    fm_git_add_origin "$project" "$case_dir/project.origin.git"
+    git -C "$project" worktree add --quiet -b wt-retry "$case_dir/wt-retry"
+    write_brief "$home" retry-one
+    real_command "$case_dir" "$ROOT_BIN" record retry-one -- "$SPAWN" retry-one "$project" --mode no-mistakes --yolo off
+    cat > "$case_dir/hold" <<'SH'
+#!/usr/bin/env bash
+. "$1/bin/fm-wake-lib.sh"
+case "$3" in
+  task-set) lock=$(fm_task_set_lock_path "$2/home/state") ;;
+  task) lock="$2/home/state/.spawn-retry-one.lock" ;;
+  project) lock=$(fm_treehouse_project_lock_path "$2/project") ;;
+esac
+fm_lock_acquire_wait "$lock" || exit 1
+fm_lock_set_role "$lock" task-spawn || exit 1
+: > "$2/holder.ready"
+while [ ! -f "$2/holder.release" ]; do sleep 0.05; done
+fm_lock_release "$lock"
+SH
+    FM_HOME="$home" bash "$case_dir/hold" "$ROOT" "$case_dir" "$axis" >/dev/null 2>&1 &
+    holder=$!
+    for ((i=0; i<100; i++)); do
+      [ ! -f "$case_dir/holder.ready" ] || break
+      sleep 0.05
+    done
+    [ -f "$case_dir/holder.ready" ] || fail "$axis lock was not acquired"
+    out=$(PATH="$fakebin:$PATH" real_command "$case_dir" "$ROOT_BIN" retry)
+    : > "$case_dir/holder.release"
+    wait "$holder" || fail "the $axis lock holder failed"
+    assert_not_contains "$out" "started retry-one" "$axis contention was reported as a launch"
+    assert_not_contains "$out" "failed retry-one" "$axis contention permanently suppressed the retry"
+    queue_has "$home" retry-one || fail "$axis contention dropped the deferred request"
+    out=$(real_command "$case_dir" "$ROOT_BIN" retry)
+    assert_contains "$out" "started retry-one" "$axis contention prevented retry after the lock was released"
+    [ -f "$home/state/retry-one.meta" ] || fail "$axis retry did not create a worker record"
+  done
+  pass "home, task, and project contention preserve existing automatic retries"
+}
+
+test_sweep_returns_while_spawn_is_hung
+test_lock_contention_keeps_existing_retries
+test_only_full_machine_refusals_are_recorded
 test_retries_are_serial
 test_refusal_preserves_launch_budget
 test_argument_bytes_survive_retry
@@ -501,4 +661,6 @@ test_stale_request_is_reported
 test_closed_rows_are_removed_without_a_start
 test_seat_already_held_is_skipped
 test_busy_lock_starts_nothing
-test_real_spawn_starts_after_a_lane_frees
+test_real_spawn_starts_after_a_lane_frees ship
+test_real_spawn_starts_after_a_lane_frees scout
+test_real_spawn_starts_after_a_lane_frees flags

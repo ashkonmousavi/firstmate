@@ -850,6 +850,7 @@ RELAUNCH=0
 # Absent/unset keeps upstream refuse-on-contention. See header.
 HERDR_RESUME_LOCK_WAIT=0
 POS=()
+SPAWN_OPTIONS=()
 want_value=
 for a in "$@"; do
   if [ -n "$want_value" ]; then
@@ -906,6 +907,7 @@ for a in "$@"; do
       ;;
     esac
     want_value=
+    SPAWN_OPTIONS+=("$a")
     continue
   fi
   case "$a" in
@@ -969,8 +971,9 @@ for a in "$@"; do
     TRACEPARENT_ARG=${a#--traceparent=}
     TRACEPARENT_SET=1
     ;;
-  *) POS+=("$a") ;;
+  *) POS+=("$a"); continue ;;
   esac
+  SPAWN_OPTIONS+=("$a")
 done
 [ -z "$want_value" ] || {
   echo "error: --$want_value requires a value" >&2
@@ -2255,7 +2258,7 @@ if [ "$RELAUNCH" -eq 0 ]; then
         echo "error: this home's task set is locked by another operation; refusing to create task $ID rather than racing it" >&2
         ;;
     esac
-    exit 1
+    exit 75
   fi
   if ! fm_lock_set_role "$SPAWN_TASK_SET_LOCK" task-spawn; then
     fm_lock_release "$SPAWN_TASK_SET_LOCK" || true
@@ -2330,6 +2333,7 @@ fi
 SPAWN_TASK_LOCK="$STATE/.spawn-$ID.lock"
 if ! fm_lock_try_acquire "$SPAWN_TASK_LOCK"; then
   echo "error: another spawn is already creating task $ID" >&2
+  [ "$RELAUNCH" -ne 0 ] || exit 75
   exit 1
 fi
 SPAWN_TASK_LOCK_HELD=1
@@ -3829,9 +3833,11 @@ fi
 if [ "$KIND" != secondmate ]; then
   if ! fm_capacity_read "$FM_HOME" "$CONFIG" "$STATE" "$ID"; then
     echo "deferred: $FM_CAPACITY_ERROR; task $ID stays queued" >&2
-    if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
-      "$SCRIPT_DIR/fm-spawn-deferred.sh" record "$ID" -- "$SCRIPT_DIR/fm-spawn.sh" "$@"; then
-      echo "warning: deferred spawn for $ID was not recorded for automatic retry" >&2
+    if [ "$RELAUNCH" -eq 0 ] && [ "$FM_CAPACITY_REASON" = full ]; then
+      if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
+        "$SCRIPT_DIR/fm-spawn-deferred.sh" record "$ID" -- "$SCRIPT_DIR/fm-spawn.sh" "${POS[@]}" "${SPAWN_OPTIONS[@]+"${SPAWN_OPTIONS[@]}"}"; then
+        echo "warning: deferred spawn for $ID was not recorded for automatic retry" >&2
+      fi
     fi
     exit 75
   fi
@@ -3874,7 +3880,7 @@ if { [ "$RELAUNCH" -eq 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } && [ "$KIND" 
     else
       echo "error: another Treehouse slot allocation or return is in progress for $PROJ_ABS; refusing to race it" >&2
     fi
-    exit 1
+    exit 75
   fi
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
 fi
