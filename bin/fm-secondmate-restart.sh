@@ -42,14 +42,10 @@
 # shells, and before the relaunch a Claude mate's screen is read through its
 # placement's own route (the backend locally, fm-remote-secondmate-control.sh
 # capture remotely) and the restart waits, bounded, while it still reports
-# running shells. The wait never blocks the restart: the control plane's exit
-# still meets any picker that opens. If a relaunch is nevertheless refused on
-# that picker with no confirming Enter sent (a control plane that predates
-# answering it), this pass presses one Enter itself, and only when the
-# recognised picker lists nothing but background shells
-# (bin/fm-composer-lib.sh fm_composer_exit_picker_shells_only); it then
-# proves the old agent stopped and relaunches once. Any other picker, any
-# other refusal, and a picker that survives that Enter are reported as before.
+# running shells. If they outlast the wait or the screen cannot be read, the
+# mate is reported as unreached and left running without attempting relaunch. The
+# restart does not confirm exit pickers. It leaves exit handling to the control
+# plane after this prevention step completes.
 #
 # A mate whose persist answer did not arrive or whose runtime cannot prove a
 # restart gets the ordinary re-read nudge and is reported as a nudge, never as a
@@ -79,7 +75,7 @@
 #   FM_SECONDMATE_PERSIST_POLL  seconds between checks of that answer, and of a
 #                               Claude mate's background shells (5)
 #   FM_SECONDMATE_BG_SHELL_WAIT seconds to wait for a Claude mate's background
-#                               shells to stop before relaunching it anyway (120)
+#                               shells to stop before refusing the restart (120)
 #
 # Exit status: 0 every named mate restarted; 3 at least one was nudged or left
 # unreached and every mate was still accounted for; 1 the input itself is
@@ -188,11 +184,6 @@ report_unreached() {  # <id> <reason>
   printf 'unreached: %s: %s\n' "$1" "$2"
 }
 
-# The refusal a control plane prints when it met the Claude exit picker and
-# typed nothing into it. A control plane that already pressed Enter says the
-# Enter did not clear it instead, and any other text earns no press here.
-UNANSWERED_PICKER_REFUSAL='is blocked on a prompt: Claude background-task exit picker. Refusing to type Enter into it.'
-
 # The mate's current screen, read through the route its placement uses for
 # everything else: the viewport locally, so nothing scrolled away is read as
 # the live screen, and the host's bounded capture remotely. Returns 1 when it
@@ -209,66 +200,22 @@ mate_screen() {  # <array-index>
   fm_backend_visible_capture "$FM_BACKEND_VALIDATED_BACKEND" "$FM_BACKEND_VALIDATED_TARGET" "fm-$id" 2>/dev/null
 }
 
-# The mate's recovery-grade agent state, through the same route.
-mate_agent_state() {  # <array-index>
-  local i=$1 id
-  id=${IDS[$i]}
-  if [ "${PLACEMENT[i]}" = remote ]; then
-    FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-on.sh" "$id" \
-      fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null | tail -1
-    return
-  fi
-  fm_backend_validate_task_endpoint "$STATE/$id.meta" "$id" 2>/dev/null || { printf 'unreadable'; return; }
-  fm_backend_agent_state "$FM_BACKEND_VALIDATED_BACKEND" "$FM_BACKEND_VALIDATED_TARGET" 2>/dev/null
-}
-
-# Wait, bounded, while a Claude mate's screen still reports running background
-# shells. Prints `running` when they outlast the bound and nothing otherwise;
-# an unreadable screen ends the wait without a verdict. The relaunch follows
-# either way, because the control plane's exit still meets any picker.
 wait_out_background_shells() {  # <array-index>
   local i=$1 deadline screen
   [ "${RUNNING_HARNESS[i]}" = claude ] || return 0
   deadline=$(($(date +%s) + BG_SHELL_WAIT))
-  while screen=$(mate_screen "$i") \
-    && fm_composer_claude_background_shells "$screen" >/dev/null; do
+  while :; do
+    screen=$(mate_screen "$i") || {
+      printf 'its screen could not be read'
+      return 1
+    }
+    fm_composer_claude_background_shells "$screen" >/dev/null || return 0
     if [ "$(date +%s)" -ge "$deadline" ]; then
-      printf 'running'
-      return 0
-    fi
-    sleep "$PERSIST_POLL"
-  done
-}
-
-# A relaunch refused on the Claude exit picker with no Enter typed into it:
-# press one Enter only when the recognised picker lists nothing but background
-# shells, then wait for the old agent to read dead. Returns 0 only with that
-# proof; prints why it did not act otherwise.
-answer_shells_only_picker() {  # <array-index> <relaunch-output>
-  local i=$1 out=$2 id screen deadline state send_out
-  id=${IDS[$i]}
-  case "$out" in *"$UNANSWERED_PICKER_REFUSAL"*) ;; *) return 1 ;; esac
-  screen=$(mate_screen "$i") || { printf 'its screen could not be read to check the exit picker'; return 1; }
-  if ! fm_composer_exit_picker_shells_only "$screen"; then
-    printf 'its exit picker is not shown with only background shells listed, so it was left unanswered'
-    return 1
-  fi
-  if ! send_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
-    "$SCRIPT_DIR/fm-send.sh" "$id" --key Enter < /dev/null 2>&1); then
-    printf 'the Enter for its shells-only exit picker could not be delivered: %s' "$(first_reported_line "$send_out")"
-    return 1
-  fi
-  deadline=$(($(date +%s) + BG_SHELL_WAIT))
-  while state=$(mate_agent_state "$i") && [ "$state" != dead ]; do
-    if [ "$(date +%s)" -ge "$deadline" ]; then
-      printf 'one Enter was pressed on its shells-only exit picker, but the agent still reads %s; nothing more was typed' "${state:-unreadable}"
+      printf 'its background shells were still running after %ss' "$BG_SHELL_WAIT"
       return 1
     fi
     sleep "$PERSIST_POLL"
   done
-  [ "$state" = dead ] && return 0
-  printf 'one Enter was pressed on its shells-only exit picker, but its agent state could not be read; nothing more was typed'
-  return 1
 }
 
 run_relaunch() {  # <array-index>; sets restart_out and restart_rc
@@ -287,28 +234,20 @@ run_relaunch() {  # <array-index>; sets restart_out and restart_rc
 }
 
 restart_mate() {  # <array-index>
-  local i=$1 id restart_out restart_rc restart_reason ran_on shells note picker_reason
+  local i=$1 id restart_out restart_rc restart_reason ran_on cleanup_reason
   id=${IDS[$i]}
-  note=
-  shells=$(wait_out_background_shells "$i")
-  [ "$shells" != running ] \
-    || note="; its background shells were still running after ${BG_SHELL_WAIT}s, so they stopped with the old agent"
-  run_relaunch "$i"
-  if [ "$restart_rc" -ne 0 ] && [ "${RUNNING_HARNESS[i]}" = claude ]; then
-    if picker_reason=$(answer_shells_only_picker "$i" "$restart_out"); then
-      note="; its exit picker listed only its own background shells, so this restart confirmed it once"
-      run_relaunch "$i"
-    elif [ -n "$picker_reason" ]; then
-      restart_out="$(first_reported_line "$restart_out"); $picker_reason"
-    fi
+  if ! cleanup_reason=$(wait_out_background_shells "$i"); then
+    report_unreached "$id" "background-shell cleanup incomplete: $cleanup_reason; relaunch was not attempted"
+    return
   fi
+  run_relaunch "$i"
   if [ "$restart_rc" -eq 0 ]; then
     ran_on=$(printf '%s\n' "$restart_out" | sed -n 's/^relaunched .* harness=\([^ ]*\).*/\1/p' | tail -1)
     [ -n "$ran_on" ] || ran_on=${HARNESS[i]}
     if [ "${PLACEMENT[i]}" = remote ]; then
-      printf 'restarted: %s on %s (%s)%s\n' "$id" "${HOST[i]}" "$ran_on" "$note"
+      printf 'restarted: %s on %s (%s)\n' "$id" "${HOST[i]}" "$ran_on"
     else
-      printf 'restarted: %s (%s)%s\n' "$id" "$ran_on" "$note"
+      printf 'restarted: %s (%s)\n' "$id" "$ran_on"
     fi
     return
   fi

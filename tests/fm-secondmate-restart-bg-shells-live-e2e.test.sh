@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Live guard for the second-mate restart's background-shell handling against
-# real Claude Code through tmux: the status-row shell count, the shells-only
-# exit picker, and the persist request's own shell-stopping sentence clearing
-# both, so a later exit opens no picker.
+# real Claude Code through tmux: the status-row shell count and the persist
+# request's own shell-stopping sentence clearing it, so a later exit opens
+# no picker.
 set -eu
 
 # shellcheck source=tests/lib.sh
@@ -78,8 +78,6 @@ wait_for() {  # <seconds> <command...>
 }
 shell_count_is() { [ "$(fm_composer_claude_background_shells "$(screen)" || true)" = "$1" ]; }
 no_shell_count() { ! fm_composer_claude_background_shells "$(screen)" >/dev/null; }
-picker_open() { [ "$(fm_composer_blocking_dialog "$(screen)" || true)" = 'Claude background-task exit picker' ]; }
-picker_closed() { ! picker_open; }
 idle_with_word() { [ "$(fm_tmux_composer_state live:fm-bg)" = empty ] && screen | grep -q "$1"; }
 background_dead() { ! kill -0 "$background_pid" 2>/dev/null; }
 composer_idle() { [ "$(fm_tmux_composer_state live:fm-bg)" = empty ]; }
@@ -102,15 +100,6 @@ kill -0 "$background_pid" 2>/dev/null || fail "$version: the background shell is
 
 wait_for 10 shell_count_is 1 || { screen >&2; fail "$version: the status row does not report 1 running shell"; }
 pass "$version: the status row below the composer reports 1 running background shell"
-
-tmux send-keys -t live:fm-bg -l /exit
-tmux send-keys -t live:fm-bg Enter
-wait_for 30 picker_open || { screen >&2; fail "$version: exit picker not rendered"; }
-fm_composer_exit_picker_shells_only "$(screen)" \
-  || { screen >&2; fail "$version: the exit picker over one background shell does not read as shells only"; }
-pass "$version: the exit picker over one background shell reads as shells only"
-tmux send-keys -t live:fm-bg Escape
-wait_for 15 picker_closed || { screen >&2; fail "$version: Esc did not close the exit picker"; }
 
 tmux send-keys -t live:fm-bg -l "$stop_request Then reply with one word."
 tmux send-keys -t live:fm-bg Enter

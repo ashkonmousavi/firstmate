@@ -1888,29 +1888,6 @@ fm_composer_blocking_dialog() {  # <screen> -> dialog name
   return 1
 }
 
-# fm_composer_exit_picker_shells_only: whether a screen is the Claude
-# background-task exit picker AND every task it says will stop is a background
-# shell. The listed rows are the non-option rows below "The following will
-# stop when you exit:"; each must start with "shell · ". Any other row - a
-# subagent, a monitor, a workflow, or a long command wrapped onto a second row -
-# fails, so an unrecognised task is never stopped by a caller that confirms on
-# this verdict. Recorded 2026-10-31 on Claude Code 2.1.316: the list sits
-# between that line and "❯ 1. Exit and stop tasks", one row per task, such as
-# "shell · sh -c 'echo $$ > background.pid; exec sleep 300'".
-fm_composer_exit_picker_shells_only() {  # <screen>
-  [ "$(fm_composer_blocking_dialog "${1-}")" = 'Claude background-task exit picker' ] || return 1
-  printf '%s\n' "$1" | fm_composer_strip_ansi | LC_ALL=C awk '
-    /^[ \t]*Background work is running[ \t\r]*$/ { heading = 1; listing = 0; next }
-    heading && /^[ \t]*The following will stop when you exit:[ \t\r]*$/ { listing = 1; next }
-    !listing { next }
-    /^[ \t]*Enter to confirm · Esc to cancel[ \t\r]*$/ { listing = 0; next }
-    /^[ \t]*(❯ )?[0-9]+\. / { next }
-    !/[^ \t\r]/ { next }
-    { tasks++; if ($0 !~ /^[ \t]*shell · [^ \t\r]/) other = 1 }
-    END { exit !(tasks > 0 && !other) }
-  '
-}
-
 # fm_composer_claude_background_shells: print the running background-shell
 # count a Claude screen reports below its composer, and return 0; return 1
 # when no such count is shown. Only the rows after the screen's last full-width

@@ -23,9 +23,7 @@
 #      whose runtime cannot prove a restart keeps the honest re-read path with
 #      its agent left running.
 #   7. A Claude mate's running background shells are waited out before the
-#      exit, and a relaunch refused on an unanswered exit picker earns one
-#      Enter only when the picker, read from a fake pane, lists nothing but
-#      background shells.
+#      exit, and incomplete cleanup leaves it running without a relaunch.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -124,6 +122,10 @@ case "${1:-}" in
     done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
+    if [ -e "$D/capture-unreadable" ] && [ -s "$D/answer-status" ] \
+      && [ -s "$(cat "$D/answer-status")" ]; then
+      exit 1
+    fi
     # While bg-reads counts down, a viewport read sees Claude's idle screen
     # with one running background shell, recorded on Claude Code 2.1.316.
     if [ "${*: -1}" = -0 ] && [ -s "$D/bg-reads" ] && [ "$(cat "$D/bg-reads")" -gt 0 ]; then
@@ -497,30 +499,14 @@ case "${rargs[1]:-}" in
     fi
     ;;
   capture)
-    [ ! -e "$FM_FAKE_DIR/picker-open" ] || cat "$FM_FAKE_DIR/picker-screen"
-    ;;
-  key)
-    rm -f "$FM_FAKE_DIR/picker-open"
-    : > "$FM_FAKE_DIR/agent-dead"
-    ;;
-  state)
-    if [ -e "$FM_FAKE_DIR/agent-dead" ]; then printf 'dead\n'; else printf 'alive\n'; fi
+    [ ! -e "$FM_FAKE_DIR/capture-unreadable" ] || exit 1
+    if [ -s "$FM_FAKE_DIR/bg-reads" ] && [ "$(cat "$FM_FAKE_DIR/bg-reads")" -gt 0 ]; then
+      printf '%s\n' "$(( $(cat "$FM_FAKE_DIR/bg-reads") - 1 ))" > "$FM_FAKE_DIR/bg-reads"
+      printf '%s\n' '────' '❯ ' '────' '  1 shell · ↓ to manage'
+    fi
     ;;
   relaunch)
     case "${FM_FAKE_SSH_MODE:-ok}" in
-      picker-unanswered|picker-answered-already)
-        # The first relaunch meets the exit picker on the host and is refused
-        # with the pane left on that picker.
-        if [ ! -e "$FM_FAKE_DIR/agent-dead" ]; then
-          : > "$FM_FAKE_DIR/picker-open"
-          if [ "$FM_FAKE_SSH_MODE" = picker-unanswered ]; then
-            printf 'error: task %s is blocked on a prompt: Claude background-task exit picker. Refusing to type Enter into it.\n' "${rargs[2]}" >&2
-          else
-            printf 'error: task %s is blocked on the Claude background-task exit picker and Enter did not clear it. Refusing to type Enter into it again.\n' "${rargs[2]}" >&2
-          fi
-          exit 1
-        fi
-        ;;
       slow-relaunch)
         : > "$FM_FAKE_DIR/remote-relaunch-start"
         /bin/sleep 2
@@ -908,89 +894,76 @@ test_background_shells_are_waited_out_before_exit() {
   pass "T17 a Claude mate's running background shells are waited out before the exit"
 }
 
-# --- T18: shells that outlast the bound do not block the restart -------------
-test_background_shells_past_the_bound_are_reported() {
-  local dir out rc
-  dir=$(new_case bg-expire)
-  add_local_mate "$dir" sm1
-  arm_answer "$dir" sm1
-  printf '1\n' > "$dir/fake/bg-reads"
+test_incomplete_background_shell_cleanup_blocks_restart() {
+  local dir out rc placement failure before
+  for placement in local remote; do
+    for failure in running unreadable; do
+      dir=$(new_case "bg-$placement-$failure")
+      if [ "$placement" = remote ]; then
+        setup_remote_case "$dir" sm1 ok
+        export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm1.status"
+      else
+        add_local_mate "$dir" sm1
+        arm_answer "$dir" sm1
+      fi
+      if [ "$failure" = running ]; then
+        printf '100\n' > "$dir/fake/bg-reads"
+      else
+        : > "$dir/fake/capture-unreadable"
+      fi
+      before=$(cat "$dir/fake/command")
 
-  out=$(FM_SECONDMATE_BG_SHELL_WAIT=0 run_restart "$dir" sm1); rc=$?
+      out=$(FM_SECONDMATE_BG_SHELL_WAIT=0 run_restart "$dir" sm1); rc=$?
+      unset FM_FAKE_ANSWER_STATUS
 
-  expect_code 0 "$rc" "shells past the bound must not block the restart"$'\n'"$out"
-  assert_contains "$out" "restarted: sm1 (claude); its background shells were still running after 0s" \
-    "the report must say the shells outlasted the wait"
-  pass "T18 background shells past the bound are reported, not waited on forever"
+      expect_code 3 "$rc" "$placement $failure cleanup must block the restart"$'\n'"$out"
+      assert_contains "$out" "unreached: sm1: background-shell cleanup incomplete:" \
+        "the mate must be reported with an incomplete-cleanup reason"
+      if [ "$failure" = running ]; then
+        assert_contains "$out" "background shells were still running after 0s" \
+          "the report must say the shells outlasted the wait"
+      else
+        assert_contains "$out" "screen could not be read" \
+          "the report must identify the unreadable capture"
+      fi
+      assert_contains "$out" "summary: 0 of 1 restarted, 0 nudged, 1 unreached" \
+        "incomplete cleanup must not count as restarted"
+      assert_not_contains "$out" "restarted: sm1" "the mate must not be reported as restarted"
+      assert_no_grep '/exit' "$dir/fake/literal" "incomplete cleanup must not send /exit"
+      assert_no_grep '/quit' "$dir/fake/literal" "incomplete cleanup must not send /quit"
+      [ "$(cat "$dir/fake/command")" = "$before" ] || fail "incomplete cleanup stopped the agent"
+      if [ "$placement" = remote ]; then
+        assert_grep 'fm-remote-secondmate-control.sh capture ' "$dir/ssh.log" \
+          "the remote screen must be checked"
+        assert_no_grep 'fm-remote-secondmate-control.sh relaunch ' "$dir/ssh.log" \
+          "incomplete cleanup must not relaunch remotely"
+        assert_no_grep 'fm-remote-secondmate-control.sh key ' "$dir/ssh.log" \
+          "incomplete cleanup must not type keys remotely"
+      fi
+      pass "T18 $placement $failure cleanup leaves the mate running without relaunch"
+    done
+  done
 }
 
-picker_screen() {  # <task-row>
-  printf '%s\n' \
-    'Background work is running' \
-    'The following will stop when you exit:' \
-    "$1" \
-    '❯ 1. Exit and stop tasks' \
-    '  2. Stay' \
-    'Enter to confirm · Esc to cancel'
-}
-
-# --- T19: an unanswered shells-only picker gets exactly one Enter -------------
-test_unanswered_shells_only_picker_is_confirmed_once() {
+test_remote_background_shells_are_waited_out_before_relaunch() {
   local dir out rc
-  dir=$(new_case picker-shells)
-  setup_remote_case "$dir" sm4 picker-unanswered
-  export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm4.status"
-  picker_screen "shell · grep -l harness= state/*.meta" > "$dir/fake/picker-screen"
+  dir=$(new_case bg-remote-wait)
+  setup_remote_case "$dir" sm1 ok
+  export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm1.status"
+  printf '2\n' > "$dir/fake/bg-reads"
 
-  out=$(run_restart "$dir" sm4); rc=$?
+  out=$(run_restart "$dir" sm1); rc=$?
   unset FM_FAKE_ANSWER_STATUS
 
-  expect_code 0 "$rc" "a shells-only picker should be confirmed and the mate restarted"$'\n'"$out"
-  assert_contains "$out" "restarted: sm4 on remote-mac (claude); its exit picker listed only its own background shells" \
-    "the report must say the restart confirmed a shells-only picker"
-  [ "$(grep -c '^fm-remote-secondmate-control.sh key sm4 Enter$' "$dir/ssh.log")" = 1 ] \
-    || fail "exactly one Enter should cross to the picker"$'\n'"$(cat "$dir/ssh.log")"
-  [ "$(grep -c '^fm-remote-secondmate-control.sh relaunch' "$dir/ssh.log")" = 2 ] \
-    || fail "the relaunch should run once more after the old agent stopped"$'\n'"$(cat "$dir/ssh.log")"
-  [ "$(grep -n '^fm-remote-secondmate-control.sh key' "$dir/ssh.log" | cut -d: -f1)" \
-     -gt "$(grep -n '^fm-remote-secondmate-control.sh capture' "$dir/ssh.log" | tail -1 | cut -d: -f1)" ] \
-    || fail "the Enter was pressed before the picker was read"$'\n'"$(cat "$dir/ssh.log")"
-  pass "T19 an unanswered picker listing only background shells is confirmed once"
-}
-
-# --- T20: a picker that lists anything else is never confirmed ---------------
-test_picker_with_other_work_is_left_alone() {
-  local dir out rc
-  dir=$(new_case picker-agent)
-  setup_remote_case "$dir" sm4 picker-unanswered
-  export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm4.status"
-  picker_screen "agent · review the open pull request" > "$dir/fake/picker-screen"
-
-  out=$(run_restart "$dir" sm4); rc=$?
-  unset FM_FAKE_ANSWER_STATUS
-
-  expect_code 3 "$rc" "a picker listing other work must not be confirmed"$'\n'"$out"
-  assert_contains "$out" "unreached: sm4: the restart outcome is unknown:" "the refusal must be reported as before"
-  assert_contains "$out" "not shown with only background shells listed" "the report must say why the picker was left"
-  assert_no_grep ' key ' "$dir/ssh.log" "no key may reach a picker that lists other work"
-  pass "T20 a picker listing anything but background shells is left unanswered"
-}
-
-# --- T21: a picker the control plane already pressed is never pressed again --
-test_picker_already_pressed_is_not_pressed_again() {
-  local dir out rc
-  dir=$(new_case picker-pressed)
-  setup_remote_case "$dir" sm4 picker-answered-already
-  export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm4.status"
-  picker_screen "shell · sleep 300" > "$dir/fake/picker-screen"
-
-  out=$(run_restart "$dir" sm4); rc=$?
-  unset FM_FAKE_ANSWER_STATUS
-
-  expect_code 3 "$rc" "a picker that survived its Enter must not be pressed again"$'\n'"$out"
-  assert_contains "$out" "Enter did not clear it" "the control plane's own refusal must be reported"
-  assert_no_grep ' key ' "$dir/ssh.log" "a second Enter reached a picker that survived the first"
-  pass "T21 a picker the control plane already pressed is never pressed again"
+  expect_code 0 "$rc" "a remote mate whose shells finish should restart"$'\n'"$out"
+  assert_contains "$out" "restarted: sm1 on remote-mac (claude)" "the remote mate should restart"
+  [ "$(cat "$dir/fake/bg-reads")" = 0 ] || fail "the remote shells were not waited out"
+  [ "$(grep -c '^fm-remote-secondmate-control.sh capture ' "$dir/ssh.log")" = 3 ] \
+    || fail "the remote screen must be read until its shell count clears"
+  [ "$(grep -n '^fm-remote-secondmate-control.sh capture ' "$dir/ssh.log" | tail -1 | cut -d: -f1)" \
+     -lt "$(grep -n '^fm-remote-secondmate-control.sh relaunch ' "$dir/ssh.log" | cut -d: -f1)" ] \
+    || fail "the remote mate was relaunched before its shells cleared"
+  pass "T19 a remote mate's background shells clear before relaunch"
 }
 
 test_persist_gates_and_asks_only_for_open_records
@@ -1013,9 +986,7 @@ test_result_published_while_reaping_is_honored
 test_already_current_mate_restarts_end_to_end
 test_already_current_unprovable_mate_stays_on_the_nudge_path
 test_background_shells_are_waited_out_before_exit
-test_background_shells_past_the_bound_are_reported
-test_unanswered_shells_only_picker_is_confirmed_once
-test_picker_with_other_work_is_left_alone
-test_picker_already_pressed_is_not_pressed_again
+test_incomplete_background_shell_cleanup_blocks_restart
+test_remote_background_shells_are_waited_out_before_relaunch
 
 echo "# all fm-secondmate-restart tests passed"

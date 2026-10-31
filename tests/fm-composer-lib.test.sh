@@ -1328,42 +1328,6 @@ test_codex_daemon_dialog_is_named_and_quotes_are_not() {
   pass "the recorded Codex background-server dialog is named; quoted or partial text is not"
 }
 
-# The exit picker as Claude Code 2.1.316 rendered it on 2026-10-31, task list
-# above the options, inside a pane that also shows a usage banner.
-recorded_shells_picker_screen() {
-  printf '%s\n' \
-    '● READY' \
-    "▔▔▔▔ You've used 86% of your weekly limit ▔" \
-    '   Background work is running' \
-    '   The following will stop when you exit:' \
-    "   shell · sh -c 'echo \$\$ > background.pid; exec sleep 300'" \
-    '   ❯ 1. Exit and stop tasks' \
-    '     2. Stay' \
-    '   Enter to confirm · Esc to cancel'
-}
-
-test_shells_only_exit_picker_is_recognised_and_other_work_is_not() {
-  local screen
-  screen=$(recorded_shells_picker_screen)
-  fm_composer_exit_picker_shells_only "$screen" || fail "the recorded shells-only picker should be recognised"
-  fm_composer_exit_picker_shells_only "$(exit_picker_screen)" \
-    || fail "the earlier layout, list below option 1, should be recognised"
-  fm_composer_exit_picker_shells_only "$(printf '%s\n' "$screen" | sed 's/^   shell · sh/   agent · sh/')" \
-    && fail "a listed subagent must not read as shells only"
-  fm_composer_exit_picker_shells_only "$(printf '%s\n' "$screen" | sed '/following will stop/a\
-   shell · sleep 1\
-   monitor · tail -f build.log')" \
-    && fail "one non-shell row among shells must not read as shells only"
-  fm_composer_exit_picker_shells_only "$(printf '%s\n' "$screen" | sed "/^   shell · /a\\
-   --flag-wrapped-onto-the-next-row")" \
-    && fail "a wrapped continuation row must fail closed"
-  fm_composer_exit_picker_shells_only "$(printf '%s\n' "$screen" | sed '/following will stop/d;/^   shell · /d')" \
-    && fail "a picker with no listed task must not read as shells only"
-  fm_composer_exit_picker_shells_only "$(quoted_exit_picker_screen)" \
-    && fail "quoted picker text above a composer is not the picker"
-  pass "a shells-only exit picker is recognised; any other listed work, a wrap, or quoted text is not"
-}
-
 test_claude_background_shell_count_is_read_below_the_composer() {
   local out rc
   out=$(fm_composer_claude_background_shells "$(printf '%s\n' \
@@ -1377,14 +1341,13 @@ test_claude_background_shell_count_is_read_below_the_composer() {
     && fail "transcript rows above the composer must not count, nor an empty status row"
   fm_composer_claude_background_shells "$(printf '%s\n' '  ⏵⏵ on · 1 shell · ↓ to manage')" \
     && fail "a screen with no composer border has no verdict"
-  fm_composer_claude_background_shells "$(recorded_shells_picker_screen)" \
+  fm_composer_claude_background_shells "$(exit_picker_screen)" \
     && fail "the picker screen carries no composer status row"
   pass "the Claude background-shell count is read only from the status rows below the composer"
 }
 
 test_background_exit_picker_stays_pending_and_blocks_retry
 test_codex_daemon_dialog_is_named_and_quotes_are_not
-test_shells_only_exit_picker_is_recognised_and_other_work_is_not
 test_claude_background_shell_count_is_read_below_the_composer
 test_dialog_heading_and_footer_must_be_the_recorded_lines
 test_dialog_note_skips_the_match_when_no_sink_is_set
