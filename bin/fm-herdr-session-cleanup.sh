@@ -65,13 +65,31 @@ fm_herdr_cleanup_home_identity() {
   (cd "$FM_HOME" 2>/dev/null && pwd -P)
 }
 
+# A journal can match <title> only when the title ends with "p:<v>" for one of
+# its "projection_id=<v>" lines, because the expected title ends with the
+# journal's projection id. Builtins only; it can exclude only journals that
+# full validation would not match.
+fm_herdr_cleanup_journal_may_match() { # <journal> <title>
+  local title=$2 line
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      projection_id=*) [[ "$title" == *"p:${line#projection_id=}" ]] && return 0 ;;
+    esac
+  done 2>/dev/null < "$1"
+  return 1
+}
+
 # Print "<expected-title>\t<journal>\t<task-id>\t<token>" for every valid
-# home-local journal of this session.
-fm_herdr_cleanup_journal_scan() { # <session> <home-real>
+# home-local journal of this session, or with <title> only for journals that
+# can match it.
+fm_herdr_cleanup_journal_scan() { # <session> <home-real> [<title>]
   local session=$1 home_real=$2 journal id expected journal_home
   [ -d "$STATE" ] && [ ! -L "$STATE" ] || return 1
   for journal in "$STATE"/*"$FM_BACKEND_HERDR_PRESENTATION_JOURNAL_SUFFIX"; do
     [ -f "$journal" ] && [ ! -L "$journal" ] || continue
+    if [ "$#" -ge 3 ]; then
+      fm_herdr_cleanup_journal_may_match "$journal" "$3" || continue
+    fi
     id=${journal##*/}
     id=${id%"$FM_BACKEND_HERDR_PRESENTATION_JOURNAL_SUFFIX"}
     fm_task_id_creation_valid "$id" || continue
@@ -101,7 +119,7 @@ fm_herdr_cleanup_records_for_title() { # <title> <scan-records>
 
 fm_herdr_cleanup_journal_matches() { # <title> <session> <home-real>
   local scan
-  scan=$(fm_herdr_cleanup_journal_scan "$2" "$3") || return 1
+  scan=$(fm_herdr_cleanup_journal_scan "$2" "$3" "$1") || return 1
   fm_herdr_cleanup_records_for_title "$1" "$scan"
 }
 

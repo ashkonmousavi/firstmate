@@ -170,6 +170,7 @@ fm_backend_herdr_cli() {
       ;;
     "api snapshot")
       : > "$FIXTURE_DIR/snapshotted"
+      [ ! -e "$FIXTURE_DIR/late-duplicate" ] || write_v1 fm-task
       printf '{"result":{"snapshot":{"focused_workspace_id":"w1","focused_tab_id":"%s","focused_pane_id":"w1:p1","workspaces":' "$(cat "$FIXTURE_DIR/active-tab")"
       fixture_workspaces
       printf ',"tabs":'; fixture_tabs
@@ -279,6 +280,7 @@ reset_fixture; : > "$FIXTURE_DIR/process-unsafe"; assert_preserved "child proces
 reset_fixture; : > "$FIXTURE_DIR/error-api-snapshot"; assert_preserved "unreadable snapshot"
 reset_fixture; : > "$FIXTURE_DIR/error-workspace-get"; assert_preserved "unreadable topology check"
 reset_fixture; : > "$FIXTURE_DIR/race"; assert_preserved "revalidation race"
+reset_fixture; : > "$FIXTURE_DIR/late-duplicate"; assert_preserved "duplicate journal published after discovery"
 reset_fixture; printf '%s\n' "$TAB" > "$FIXTURE_DIR/active-tab"; assert_preserved "active target"
 reset_fixture; : > "$FIXTURE_DIR/focus-refuse"; assert_preserved "focus refusal"
 
@@ -288,7 +290,7 @@ scale_run() { # <with-candidate:0|1>
   local with_candidate=$1 i name ws_json='' tabs_json='' panes_json='' started
   reset_fixture
   rm -f "$FM_STATE_OVERRIDE/$ID.herdr-presentation"
-  : > "$TMP_ROOT/scans"
+  : > "$TMP_ROOT/scans"; : > "$TMP_ROOT/validations"
   scale_token() { printf 'Scale%017d' "$1"; }
   scale_v1() { # <id> <token-number>
     printf 'version=1\ntask_id=%s\nprojection_id=%s\n' "$1" "$(scale_token "$2")" \
@@ -346,6 +348,9 @@ scale_run() { # <with-candidate:0|1>
     eval "scale_orig_$(declare -f fm_herdr_cleanup_journal_scan)"
     # shellcheck disable=SC2329 # invoked indirectly by the cleanup under test.
     fm_herdr_cleanup_journal_scan() { printf 'scan\n' >> "$TMP_ROOT/scans"; scale_orig_fm_herdr_cleanup_journal_scan "$@"; }
+    eval "scale_orig_$(declare -f fm_backend_herdr_projection_journal_snapshot)"
+    # shellcheck disable=SC2329 # invoked indirectly by the cleanup under test.
+    fm_backend_herdr_projection_journal_snapshot() { printf '%s\n' "$1" >> "$TMP_ROOT/validations"; scale_orig_fm_backend_herdr_projection_journal_snapshot "$@"; }
     started=$SECONDS
     fm_herdr_session_cleanup >/dev/null 2>&1
     [ $((SECONDS - started)) -lt 60 ] || fail "scale cleanup took $((SECONDS - started)) s"
@@ -379,6 +384,10 @@ scale_run 1
 $TMP_ROOT/presentation.lock" ] || fail "scale candidate was not locked task-first then presentation"
 [ "$(wc -l < "$TMP_ROOT/scans" | tr -d ' ')" = 3 ] \
   || fail "one real candidate must add exactly the revalidation and post-close fresh scans, got $(wc -l < "$TMP_ROOT/scans" | tr -d ' ')"
+[ "$(grep -c '/dead59\.herdr-presentation$' "$TMP_ROOT/validations")" = 1 ] \
+  || fail "fresh re-reads fully validated journals that cannot match the candidate title"
+[ "$(grep -c '/cand\.herdr-presentation$' "$TMP_ROOT/validations")" -ge 3 ] \
+  || fail "fresh re-reads did not validate the candidate journal again"
 pass "one real candidate among 60 workspaces x 80 journals is retired exactly as before, with fresh re-reads kept"
 
 INTEGRATION_ROOT="$TMP_ROOT/bootstrap-integration"
