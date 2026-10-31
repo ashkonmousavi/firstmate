@@ -1,7 +1,5 @@
 # Machine-admission PSI-window verification
 
-Audience: maintainer verification.
-
 The [machine-capacity policy](../configuration.md#machine-capacity-configlane-capacity) owns configuration guidance, and the [resource reader](../../bin/fm-machine-resources.py) owns policy validation and refusal decisions.
 This record distinguishes real-machine replay evidence from the synthetic behavioral cases in `tests/fm-machine-resources.test.sh`.
 
@@ -120,7 +118,7 @@ PC had no refusals under either policy.
 
 ## Live follow-up
 
-The change takes effect only once a host's `config/machine-admission.json` adds `memory_full_avg300_max`, with `memory_full_avg60_max` raised to the intended burst ceiling.
+Host policy opt-in is described in the [machine-capacity configuration](../configuration.md#machine-capacity-configlane-capacity).
 After merge, the per-verdict `state/machine-admission.log` is the source for a live day's before/after table of policy hashes, refusal counts, PSI windows, and available memory.
 The [capacity library](../../bin/fm-capacity-lib.sh) owns the log columns and rotation limit; retain both the current file and `.1` when collecting a day's evidence before rotation discards older samples.
 
