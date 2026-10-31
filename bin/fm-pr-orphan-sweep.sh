@@ -6,8 +6,8 @@
 # never existed or was lost - a record removed before cleanup kept open-PR
 # watches, a rebuilt home, a worker that never recorded its pull request - has
 # nothing watching it, so a conflict on it would never reach anyone. This sweep
-# is the home-level net under that per-task path: it reads the forge, not task
-# records, so it does not depend on any task record surviving.
+# is the home-level net under that per-task path: it discovers candidates from
+# the forge, so discovery does not depend on any task record surviving.
 #
 # Usage:
 #   fm-pr-orphan-sweep.sh            one bounded pass; bin/fm-watch.sh runs it in
@@ -24,9 +24,10 @@
 #
 # WHEN IT WAKES. The label-age rule has one owner: each uncovered candidate is
 # read through `bin/fm-pr-poll.sh --validated`, which reports conflict:<added-at>
-# only once the label has been applied for at least 15 minutes. So the wake
-# arrives on the first check sweep after that age, within one check interval
-# (FM_CHECK_INTERVAL in bin/fm-watch.sh) of the per-task path.
+# only once the label has been applied for at least 15 minutes. This shares the
+# per-task eligibility threshold; check cadence (FM_CHECK_INTERVAL in
+# bin/fm-watch.sh), forge reads, and the pass limits below affect when an eligible
+# candidate is inspected.
 #
 # OWNER ROUTING. The task id is the head branch with fm/ removed. When
 # this home's backlog holds that id (bin/fm-tasks-axi.sh show), the wake names it
