@@ -1557,7 +1557,22 @@ The Herdr lab was not running, so the Herdr path is covered by the existing fake
 Typing `/exit` while a background shell is still running opens a picker whose selected row is "Exit and stop tasks" and whose footer is "Enter to confirm · Esc to cancel".
 That screen still classifies as pending, the same verdict as unsubmitted composer text.
 A second Enter would confirm the selected row.
-[`fm_composer_blocking_dialog`](../../bin/fm-composer-lib.sh) owns the structural recognition and quoted-text exclusions; [agent control](../agent-control.md#verbs) owns submit and exit refusal, and [event-driven supervision](../architecture.md#event-driven-supervision) owns secondmate dialog monitoring.
+[`fm_composer_blocking_dialog`](../../bin/fm-composer-lib.sh) owns the structural recognition and quoted-text exclusions; [agent control](../agent-control.md#verbs) owns typed-submit safeguards and exit handling, and [event-driven supervision](../architecture.md#event-driven-supervision) owns secondmate dialog monitoring.
+The [agent-control exception](../agent-control.md#verbs) is exercised by [`fm-control-exit-picker-live-e2e.test.sh`](../../tests/fm-control-exit-picker-live-e2e.test.sh), which confirms an already-open picker and one opened by the exit command against real Claude Code through tmux.
+Run `FM_EXIT_PICKER_LIVE=1 bash tests/fm-control-exit-picker-live-e2e.test.sh` to refresh confirmation evidence after an upgrade.
+The opt-in guard submits model prompts in a disposable worktree with isolated Claude configuration and reused authentication; it requires both Claude and the background shell task to stop while preserving the terminal endpoint, worktree, index, and exact staged, unstaged, and untracked file bytes.
+[`fm-control.test.sh`](../../tests/fm-control.test.sh) covers asynchronous shutdown for initially open, submit-opened, and late-rendering pickers, busy-generation retirement, and refusal to confirm a surviving picker twice.
+Confirmation measured 2026-10-31 with Claude Code 2.1.316 and tmux 3.4 using `FM_EXIT_PICKER_LIVE=1 bash tests/fm-control-exit-picker-live-e2e.test.sh`.
+Exact result lines:
+
+```text
+# harness: 2.1.316 (Claude Code); transport: tmux 3.4
+ok - 2.1.316 (Claude Code): already-open: Claude and background task stopped; endpoint, worktree, index and file changes preserved
+ok - 2.1.316 (Claude Code): submit-opens: Claude and background task stopped; endpoint, worktree, index and file changes preserved
+```
+
+The background-task stop expectation agrees with [Claude's documented exit cleanup](https://code.claude.com/docs/en/interactive-mode#background-bash-commands); file preservation is checked independently against the guard's fixture bytes and Git index.
+Herdr confirmation was not remeasured by this tmux guard.
 No recorded screen was available for a model-downgrade confirmation, an MCP approval, or a Claude exit confirmation other than this picker, so those dialogs are not covered.
 The read-only refresh guard for this picker and the Codex dialog is [`fm-composer-dialog-live-e2e.test.sh`](../../tests/fm-composer-dialog-live-e2e.test.sh).
 Supply operator-prepared, isolated tmux pane IDs in `FM_DIALOG_CLAUDE_DIALOG`, `FM_DIALOG_CLAUDE_IDLE`, `FM_DIALOG_CLAUDE_PENDING`, and `FM_DIALOG_CLAUDE_WORKING`, and the corresponding `FM_DIALOG_CODEX_*` variables for every installed harness, plus `FM_DIALOG_UNKNOWN` for an unrecognized shell pane.
