@@ -1234,6 +1234,26 @@ assert_contains "$UPDATE_OUT" 'synced:' "remote update did not report a host-loc
 assert_present "$REMOTE_HOME/REMOTE_UPDATE_PROBE" "remote update did not materialize the code-root commit"
 pass "remote update imports and fast-forwards the persistent home on its configured host"
 
+# Given the parent's target, the host updates its code root and the home to that
+# commit even when its own origin has already moved past it, so the whole fleet
+# lands on the one commit the parent chose.
+printf 'pinned target\n' > "$REMOTE_SEED/REMOTE_PINNED_PROBE"
+git -C "$REMOTE_SEED" add REMOTE_PINNED_PROBE
+git -C "$REMOTE_SEED" commit -qm 'parent update target'
+PINNED_TARGET=$(git -C "$REMOTE_SEED" rev-parse HEAD)
+printf 'later\n' > "$REMOTE_SEED/REMOTE_LATER_PROBE"
+git -C "$REMOTE_SEED" add REMOTE_LATER_PROBE
+git -C "$REMOTE_SEED" commit -qm 'origin moved past the target'
+git -C "$REMOTE_SEED" push -q origin main
+UPDATE_OUT=$(remote_env "$ROOT/bin/fm-on.sh" ios fm-remote-secondmate-control.sh update ios main "$PINNED_TARGET")
+assert_contains "$UPDATE_OUT" "synced: $PINNED_TARGET" "the pinned remote update did not report the parent's target"
+[ "$(git -C "$REMOTE_ROOT" rev-parse HEAD)" = "$PINNED_TARGET" ] \
+  || fail "the remote code root did not land on the parent's target"
+[ "$(git -C "$REMOTE_HOME" rev-parse HEAD)" = "$PINNED_TARGET" ] \
+  || fail "the remote home did not land on the parent's target"
+assert_absent "$REMOTE_HOME/REMOTE_LATER_PROBE" "the remote home moved past the parent's target"
+pass "a pinned remote update lands the code root and home on the parent's target"
+
 # The remote restart verb is not a second implementation: its host-local leg runs
 # the ORDINARY control plane against a record that is plain and local on that
 # host. These two refusals can only come from that plane's own pre-stop

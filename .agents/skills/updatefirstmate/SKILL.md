@@ -41,7 +41,8 @@ This touches only the firstmate repo and its own worktrees, never anything under
    ```sh
    bin/fm-update.sh
    ```
-   It fast-forwards this firstmate repo's default branch from origin, then updates every registered local or remote secondmate home through its placement-specific guarded path.
+   It resolves one update target (the first line, `update target: origin/<branch> <commit>`: the fork's tracked fleet branch, such as curated, or origin's default branch), fast-forwards this firstmate repo to it, then updates every registered local or remote secondmate home to that same commit through its placement-specific guarded path.
+   A remote step that hangs is cut off at its bound and reported as `skipped on <host>: <step> step timed out after <n>s`; the script header owns the bounds.
    It prints one status line per target (`updated <old>..<new>` / `reconciled redundant divergence <old>..<new>` / `already current` / `skipped: <reason>`), followed by three action lines that tell you exactly what to do next:
    - `reread-firstmate: yes|no`
    - `restart-secondmates: fm-<id>...|none`

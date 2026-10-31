@@ -1629,4 +1629,58 @@ assert_grep "remote job worker exited 3 times; stopping the supervisor" "$TMP_RO
   "the restart guard did not explain why it stopped"
 pass "barely healthy worker failures remain bounded by the restart guard"
 
+# A serving loop wedged in a wait (observed: the main process blocked with its
+# heartbeat child still touching worker.ready every second) must stop looking
+# ready, and ensure must replace that verified owner so queued jobs drain.
+# SIGSTOP stands in for the wedge: the serving process makes no pass while its
+# heartbeat keeps running.
+WEDGE_HOME="$TMP_ROOT/wedge-account"
+WEDGE_STATE="$TMP_ROOT/wedge-state"
+WEDGE_TOUCHED="$TMP_ROOT/wedge-touched"
+mkdir -p "$WEDGE_HOME"
+chmod 700 "$WEDGE_HOME"
+(
+  set -u
+  export HOME="$WEDGE_HOME" FM_REMOTE_JOB_STATE_ROOT="$WEDGE_STATE"
+  export FM_REMOTE_JOB_PROGRESS_STALL_SECONDS=2 FM_REMOTE_JOB_QUEUE_TIMEOUT=120 FM_REMOTE_JOB_TIMEOUT=30
+  # shellcheck source=bin/fm-remote-job-lib.sh
+  . "$ROOT/bin/fm-remote-job-lib.sh"
+  wedged=
+  wedge_cleanup() {
+    [ -z "$wedged" ] || kill -CONT "$wedged" 2>/dev/null || true
+    [ ! -f "$WEDGE_STATE/worker.pid" ] || fm_remote_job_stop_worker_tree "$(cat "$WEDGE_STATE/worker.pid")" || true
+    [ -z "$wedged" ] || kill -KILL "$wedged" 2>/dev/null || true
+  }
+  trap wedge_cleanup EXIT
+  fm_remote_job_ensure_worker "$REMOTE_ROOT" "$WEDGE_HOME" || fail "$FM_REMOTE_JOB_ERROR"
+  wedged=$(cat "$WEDGE_STATE/worker.pid")
+  kill -STOP "$wedged"
+  fm_remote_job_stage "$WEDGE_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" fm-touch-job.sh "$WEDGE_TOUCHED" < /dev/null > /dev/null \
+    || fail "the wedge fixture could not stage a job"
+  job_id=$FM_REMOTE_JOB_ID
+  # The heartbeat lives on, so only the progress guard can make readiness stale.
+  for _ in $(seq 1 400); do
+    fm_remote_job_probe "$WEDGE_HOME" || break
+    sleep 0.1
+  done
+  ! fm_remote_job_probe "$WEDGE_HOME" || fail "a wedged serving loop still looked ready"
+  [ -n "$(ps -ax -o pid= -o ppid= | awk -v owner="$wedged" '$2 == owner')" ] \
+    || fail "the wedge fixture lost its heartbeat, so the stale readiness is vacuous"
+  [ "$(fm_remote_job_read_state "$WEDGE_STATE/jobs/$job_id")" = queued ] \
+    || fail "the wedge fixture's job was not left queued"
+  assert_grep "serving loop made no progress for 2s; withholding readiness" \
+    "$WEDGE_STATE/logs/$FM_REMOTE_JOB_LABEL.log" "the worker did not explain why it withheld readiness"
+  fm_remote_job_ensure_worker "$REMOTE_ROOT" "$WEDGE_HOME" 2> "$TMP_ROOT/wedge-ensure.err" \
+    || fail "ensure did not replace the wedged worker: $FM_REMOTE_JOB_ERROR"
+  ! kill -0 "$wedged" 2>/dev/null || fail "ensure left the wedged worker alive"
+  [ "$(cat "$WEDGE_STATE/worker.pid")" != "$wedged" ] || fail "ensure kept the wedged worker's pid"
+  assert_grep "verified lock owner is alive but not ready" "$TMP_ROOT/wedge-ensure.err" \
+    "ensure did not report why it replaced the worker"
+  fm_remote_job_wait "$WEDGE_HOME" "$job_id" || fail "$FM_REMOTE_JOB_ERROR"
+  [ "$FM_REMOTE_JOB_EXIT" -eq 0 ] || fail "the queued job did not run after the replacement"
+  assert_present "$WEDGE_TOUCHED" "the queued job did not run after the replacement"
+  fm_remote_job_reap "$WEDGE_HOME" "$job_id" || fail "the wedge job could not be reaped"
+) || exit 1
+pass "a wedged serving loop stops looking ready and ensure replaces it so queued work drains"
+
 echo "ALL TESTS PASSED"

@@ -82,6 +82,8 @@ On macOS the worker is `dev.firstmate.remote-job`, an Aqua-scoped LaunchAgent at
 After that bootstrap, every non-doctor `fm-on.sh` target runs through that worker in the remote account's GUI session.
 It never runs in the SSH process or a Herdr pane.
 Linux uses the same queue and worker protocol without the Aqua-session requirement.
+Readiness means the serving loop is still making progress, not only that its heartbeat process lives: a loop that stops passing stops looking ready after a bounded stall, and on Linux ensure stops a verified lock owner whose readiness stays stale after a short grace and starts a fresh worker, so queued jobs are not left behind a wedged owner.
+The [`fm-remote-job-worker.sh` header](../bin/fm-remote-job-worker.sh) owns the stall bound and its override.
 Linux ownership records use the clock-stable `/proc` starttime when it is available, because `ps` start times can drift on hosts such as WSL2 and would otherwise make a healthy worker look dead.
 A pre-update worker whose lock records C-locale or older bare `ps` lstart still verifies against that rendering, so ensure does not treat the live owner as dead and pile another supervisor beside it; when the configured code root's identity is stale, the ordinary code-identity path stops that one worker and replaces it once.
 [`bin/fm-remote-job-lib.sh`](../bin/fm-remote-job-lib.sh) owns the start identity format and the legacy comparison.

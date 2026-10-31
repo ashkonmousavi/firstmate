@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # Self-update a running firstmate and its secondmates to the latest origin.
 #
-# Mechanical half of the /updatefirstmate skill. Fast-forwards the running
-# firstmate repo's default branch from origin, then fast-forwards every
-# registered secondmate home. Local homes are treehouse worktrees or standalone
-# clones; remote routes update their configured code root on that host and then
-# fast-forward the persistent home to that root. FAST-FORWARD ONLY, exactly like
+# Mechanical half of the /updatefirstmate skill. Resolves ONE update target on the
+# running firstmate repo - origin's tip of its fleet branch (bin/fm-ff-lib.sh
+# fleet_branch: the checked-out branch when it tracks origin's same-named branch,
+# as a curated fork fleet does, otherwise origin's default branch) - prints it as
+# `update target: origin/<branch> <commit>`, and fast-forwards the running repo
+# and every registered secondmate home to that same commit. Local homes are
+# treehouse worktrees or standalone clones; remote routes receive the branch and
+# commit, update their configured code root on that host to it, and then
+# fast-forward the persistent home to that root. A remote host that reports any
+# other commit is reported as skipped, not settled. FAST-FORWARD ONLY, exactly like
 # fm-fleet-sync.sh: never force, never create a merge commit, never stash.
 # A secondmate divergence whose complete local tree result is already present at
 # the target is reconciled with reset --keep; every other unsafe target is
@@ -62,6 +67,20 @@
 # fm-procevent-when.sh rebind-all to republish those bindings against the new
 # bytes; a failure there is swallowed rather than failing the update.
 #
+# Each remote step is bounded, so one unreachable or wedged host cannot hold the
+# whole update: the remote update step gets FM_UPDATE_REMOTE_UPDATE_SECONDS
+# (default 300) and the remote agent-state read FM_UPDATE_REMOTE_STATE_SECONDS
+# (default 60), through bin/fm-timeout-lib.sh. A step that hits its bound is
+# reported by name (`remote secondmate <id>: skipped on <host>: <step> step timed
+# out after <n>s`) and that mate gets no action; the update continues with the
+# next home. A host whose control script predates the target handoff refuses the
+# extra arguments with its usage status 2, and is asked once more without them,
+# then held to the same commit check.
+#
+# FM_UPDATE_TARGET_BRANCH and FM_UPDATE_TARGET_COMMIT, set together, replace the
+# local target resolution with a parent's: bin/fm-remote-secondmate-control.sh
+# update passes the parent's target this way when it updates a host's code root.
+#
 # Usage: fm-update.sh [--help]
 set -eu
 
@@ -74,6 +93,8 @@ SECONDMATES_MD="$FM_HOME/data/secondmates.md"
 . "$SCRIPT_DIR/fm-ff-lib.sh"
 # shellcheck source=bin/fm-secondmate-restart-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-restart-lib.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$SCRIPT_DIR/fm-timeout-lib.sh"
 
 "$SCRIPT_DIR/fm-guard.sh" || true
 
@@ -84,6 +105,36 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   exit 0
 fi
 [ $# -eq 0 ] || { usage; exit 1; }
+
+positive_seconds() {  # <value> <default>
+  case "$1" in ''|*[!0-9]*|0) printf '%s\n' "$2" ;; *) printf '%s\n' "$1" ;; esac
+}
+REMOTE_UPDATE_SECONDS=$(positive_seconds "${FM_UPDATE_REMOTE_UPDATE_SECONDS:-}" 300)
+REMOTE_STATE_SECONDS=$(positive_seconds "${FM_UPDATE_REMOTE_STATE_SECONDS:-}" 60)
+
+# --- update target ---------------------------------------------------------
+# One branch and commit for the whole pass. A target that cannot be resolved here
+# (no origin, a failed fetch) leaves both empty, and each home then reports its
+# own skip reason exactly as before.
+
+TARGET_BRANCH=""
+TARGET_COMMIT=""
+if [ -n "${FM_UPDATE_TARGET_BRANCH:-}${FM_UPDATE_TARGET_COMMIT:-}" ]; then
+  TARGET_BRANCH=${FM_UPDATE_TARGET_BRANCH:-}
+  TARGET_COMMIT=${FM_UPDATE_TARGET_COMMIT:-}
+  git check-ref-format --branch "$TARGET_BRANCH" >/dev/null 2>&1 \
+    || { echo "error: FM_UPDATE_TARGET_BRANCH is not a valid branch name: $TARGET_BRANCH" >&2; exit 1; }
+  case "$TARGET_COMMIT" in *[!0-9a-f]*|'') echo "error: FM_UPDATE_TARGET_COMMIT must be a full commit id" >&2; exit 1 ;; esac
+  [ "${#TARGET_COMMIT}" -eq 40 ] || { echo "error: FM_UPDATE_TARGET_COMMIT must be a full commit id" >&2; exit 1; }
+elif git -C "$FM_ROOT" remote get-url origin >/dev/null 2>&1 && fetch_once "$FM_ROOT"; then
+  if TARGET_BRANCH=$(fleet_branch "$FM_ROOT"); then
+    TARGET_COMMIT=$(git -C "$FM_ROOT" rev-parse --verify --quiet "refs/remotes/origin/$TARGET_BRANCH^{commit}" 2>/dev/null || true)
+  fi
+  [ -n "$TARGET_COMMIT" ] || TARGET_BRANCH=""
+fi
+FF_TARGET_BRANCH=$TARGET_BRANCH
+FF_TARGET_COMMIT=$TARGET_COMMIT
+[ -z "$TARGET_COMMIT" ] || echo "update target: origin/$TARGET_BRANCH $TARGET_COMMIT"
 
 # --- main firstmate repo ---------------------------------------------------
 
@@ -119,11 +170,16 @@ FF_RESTART_WINDOWS=""
 FF_STEER_WINDOWS=""
 
 secondmate_agent_may_be_alive() {  # <id>
-  local id=$1 meta="$STATE/$1.meta" remote_host state=unreadable
+  local id=$1 meta="$STATE/$1.meta" remote_host state=unreadable rc=0
   remote_host=$(fm_meta_get "$meta" remote_host)
   if [ -n "$remote_host" ]; then
-    state=$("$SCRIPT_DIR/fm-on.sh" "$id" \
-      fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null) || state=unreadable
+    state=$(fm_run_timed "$REMOTE_STATE_SECONDS" "$SCRIPT_DIR/fm-on.sh" "$id" \
+      fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null) || rc=$?
+    if [ "$rc" -ne 0 ] && fm_timed_out "$rc"; then
+      echo "remote secondmate $id: skipped on $remote_host: state step timed out after ${REMOTE_STATE_SECONDS}s" >&2
+      return 1
+    fi
+    [ "$rc" -eq 0 ] || state=unreadable
   elif fm_backend_validate_task_endpoint "$meta" "$id" >/dev/null 2>&1; then
     state=$(fm_backend_agent_state "$FM_BACKEND_VALIDATED_BACKEND" \
       "$FM_BACKEND_VALIDATED_TARGET" 2>/dev/null) || state=unreadable
@@ -171,6 +227,24 @@ fm_ff_after_secondmate_settled() {  # <id> <home> <window> <status> <instr>
   claim_settled_secondmate "$1"
 }
 
+# Run the remote update step under its bound, handing the host this pass's target.
+# Sets REMOTE_UPDATE_OUT; returns the step's status, 124 when the bound was hit.
+remote_update_step() {  # <id>
+  local id=$1 rc=0
+  REMOTE_UPDATE_OUT=""
+  if [ -n "$TARGET_COMMIT" ]; then
+    REMOTE_UPDATE_OUT=$(fm_run_timed "$REMOTE_UPDATE_SECONDS" "$SCRIPT_DIR/fm-on.sh" "$id" \
+      fm-remote-secondmate-control.sh update "$id" "$TARGET_BRANCH" "$TARGET_COMMIT" < /dev/null 2>&1) || rc=$?
+    # A host whose control script predates the target handoff exits with its
+    # usage status; ask it the old way and let the commit check below judge it.
+    [ "$rc" -eq 2 ] || return "$rc"
+    rc=0
+  fi
+  REMOTE_UPDATE_OUT=$(fm_run_timed "$REMOTE_UPDATE_SECONDS" "$SCRIPT_DIR/fm-on.sh" "$id" \
+    fm-remote-secondmate-control.sh update "$id" < /dev/null 2>&1) || rc=$?
+  return "$rc"
+}
+
 # Live direct reports first: state/<id>.meta with kind=secondmate carries the
 # authoritative home= path.
 sweep_live_secondmate_metas "$STATE" origin yes
@@ -190,8 +264,23 @@ if [ -f "$SECONDMATES_MD" ]; then
     id=$SECONDMATE_REGISTRY_ID
     home=$SECONDMATE_REGISTRY_HOME
     if [ "$SECONDMATE_REGISTRY_REMOTE" -eq 1 ]; then
-      if remote_out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh update "$id" < /dev/null 2>&1); then
+      remote_rc=0
+      remote_update_step "$id" || remote_rc=$?
+      remote_out=$REMOTE_UPDATE_OUT
+      if [ "$remote_rc" -ne 0 ] && fm_timed_out "$remote_rc"; then
+        echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: update step timed out after ${REMOTE_UPDATE_SECONDS}s" >&2
+      elif [ "$remote_rc" -eq 0 ]; then
         remote_result=$(printf '%s\n' "$remote_out" | tail -1)
+        remote_reported=${remote_result#*: }
+        remote_reported=${remote_reported%% *}
+        case "$remote_result" in
+          synced:*|current:*)
+            if [ -n "$TARGET_COMMIT" ] && [ "$remote_reported" != "$TARGET_COMMIT" ]; then
+              echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: host reports $remote_reported, not update target $TARGET_COMMIT" >&2
+              remote_result="mismatch"
+            fi
+            ;;
+        esac
         case "$remote_result" in
           synced:*)
             remote_detail=${remote_result#synced: }
@@ -224,6 +313,7 @@ if [ -f "$SECONDMATES_MD" ]; then
               claim_settled_secondmate "$id"
             fi
             ;;
+          mismatch) ;;
           *) echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: malformed update result" >&2 ;;
         esac
       else
