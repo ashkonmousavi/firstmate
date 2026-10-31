@@ -616,6 +616,71 @@ PY
   pass 'pre-push chaining: project hooks receive EOF for empty pushes and every record for changed pushes'
 }
 
+test_ruff_format_large_excluded_files_do_not_refuse() {
+  local real_ruff exclusion comparison prefix config before path
+  real_ruff=$(command -v ruff) || { echo '# SKIP large exclusion checks require real ruff'; return; }
+  for exclusion in root root-format nested nested-format extended; do
+    for comparison in changed all; do
+      ruff_fixture "ruff-large-$exclusion-$comparison"
+      ln -sf "$real_ruff" "$FX_BIN/ruff"
+      prefix= config=ruff.toml
+      case "$exclusion" in
+        nested*) prefix=pkg/; config=pkg/ruff.toml ;;
+      esac
+      case "$exclusion" in
+        *-format) ruff_commit 'format exclusions' "$config=[format]
+exclude = [\"large.py\", \"large.pyi\", \"large.ipynb\"]" ;;
+        extended) ruff_commit 'extended exclusions' "$config=extend-exclude = [\"large.py\", \"large.pyi\", \"large.ipynb\"]" ;;
+        *) ruff_commit 'general exclusions' "$config=exclude = [\"large.py\", \"large.pyi\", \"large.ipynb\"]" ;;
+      esac
+      python3 - "$FX_WT/$prefix" <<'PY'
+from pathlib import Path
+import sys
+
+directory = Path(sys.argv[1])
+directory.mkdir(parents=True, exist_ok=True)
+for suffix in ("py", "pyi", "ipynb"):
+    (directory / f"large.{suffix}").write_bytes(b"x=UNFORMATTED\n" * 200000)
+PY
+      git -C "$FX_WT" add -f -- "${prefix}large.py" "${prefix}large.pyi" "${prefix}large.ipynb"
+      ruff_commit 'large excluded files and formatted code' 'included.py=x = 1'
+      [ "$comparison" != all ] || git -C "$FX_WT" update-ref -d refs/heads/main
+      ruff_push origin HEAD:refs/heads/fm/t1
+      [ "$PUSH_RC" -eq 0 ] || fail "large $exclusion exclusions refused a $comparison push: $PUSH_OUT"
+      before=$(git -C "$FX_WT" rev-parse HEAD)
+      assert_equals "$before" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" 'excluded large files did not reach the remote'
+      for path in "${prefix}large.py" "${prefix}large.pyi" "${prefix}large.ipynb"; do
+        printf '\n' >>"$FX_WT/$path"
+        git -C "$FX_WT" add -f -- "$path"
+      done
+      ruff_commit 'change excluded files beside unformatted code' 'included.py=x=2'
+      ruff_push origin HEAD:refs/heads/fm/t1
+      ruff_refused 'unformatted included code beside large excluded files' included.py
+      assert_not_contains "$PUSH_OUT" 'Ruff could not check' 'an excluded file still caused a formatter error'
+      assert_equals "$before" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" 'unformatted included code advanced the remote'
+      ruff_commit 'format included code' 'included.py=x = 2'
+      ruff_push origin HEAD:refs/heads/fm/t1
+      [ "$PUSH_RC" -eq 0 ] || fail "formatted code beside large excluded files was refused: $PUSH_OUT"
+    done
+  done
+  pass 'ruff format check: large excluded py, pyi and ipynb files pass under root, nested, format and extended exclusions with or without a base'
+}
+
+test_ruff_format_unreadable_committed_content_refuses() {
+  local real_git
+  ruff_fixture ruff-unreadable-content
+  ruff_commit 'formatted' 'a.py=x = 1'
+  real_git=$(command -v git)
+  printf '#!/usr/bin/env bash\nif [ "${1:-}" = show ] && [[ "${2:-}" = *:a.py ]]; then echo object-read-failed >&2; exit 42; fi\nexec %q "$@"\n' "$real_git" >"$FX_BIN/git"
+  chmod +x "$FX_BIN/git"
+  GIT_EXEC_PATH="$FX_BIN" ruff_push origin HEAD:refs/heads/fm/t1
+  [ "$PUSH_RC" -ne 0 ] || fail 'unreadable committed content let an unchecked push through'
+  assert_contains "$PUSH_OUT" 'fm-ruff-format: refused: could not read committed content for a.py' 'the refusal did not name the unreadable committed file'
+  assert_contains "$PUSH_OUT" 'object-read-failed' 'the refusal hid the object-read failure'
+  git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail 'unreadable committed content advanced the remote'
+  pass 'ruff format check: failure to materialize committed content refuses the push'
+}
+
 test_origin_pushes_are_refused
 test_backup_namespace_rules
 test_empty_prefix_still_refuses_the_task_branch
@@ -637,5 +702,7 @@ test_ruff_format_uses_each_pushed_refs_configuration
 test_ruff_format_checks_stubs_notebooks_and_exclusions
 test_ruff_format_ignores_external_configuration
 test_pre_push_chaining_preserves_empty_and_nonempty_input
+test_ruff_format_large_excluded_files_do_not_refuse
+test_ruff_format_unreadable_committed_content_refuses
 
 echo "# all fm-git-push-guard and ruff format check tests passed"

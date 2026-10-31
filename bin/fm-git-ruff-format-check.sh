@@ -129,7 +129,11 @@ check_ref() {
   [ -s "$SNAPSHOT/.git/candidates" ] || return 0
   find_ruff || return 1
   while IFS= read -r -d '' path; do
-    out=$(git show "$oid:$path" | (cd "$SNAPSHOT" && "${RUFF[@]}" format --check --force-exclude --stdin-filename "$path" -) 2>&1)
+    if ! git show "$oid:$path" >"$SNAPSHOT/.git/input"; then
+      refuse "could not read committed content for $path"
+      return 1
+    fi
+    out=$(cd "$SNAPSHOT" && "${RUFF[@]}" format --check --force-exclude --stdin-filename "$path" - <.git/input 2>&1)
     rc=$?
     case "$rc" in
       0) ;;
