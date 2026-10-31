@@ -101,6 +101,11 @@
 #   check: <script>: <out> authenticated check result, always actionable;
 #                          docs/configuration.md's FM_CHECK_TIMEOUT default
 #                          owns custom-check failure and timeout wake formats
+#   check: pr-orphan-conflict: <url> (branch <head>) ...; owner: <owner>
+#                          an open pull request has carried the conflict label
+#                          for at least 15 minutes and no task poll in this home
+#                          watches it; once per label episode
+#                          (bin/fm-pr-orphan-sweep.sh owns the contract)
 #   check: hold-release: hold condition met: <task-id> <condition>
 #                          a held row's structured release condition (its
 #                          --release-on pr:/marker:) was found met by this
@@ -3431,6 +3436,26 @@ while :; do
         [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$reason
       done <<EOF
 $hold_release_out
+EOF
+    fi
+    # Conflicted pull requests no task poll watches: bin/fm-pr-orphan-sweep.sh
+    # owns the contract, queues each wake itself before printing it, and
+    # bounds its own forge reads; its diagnostics are triage, not wakes.
+    orphan_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+      "$SCRIPT_DIR/fm-pr-orphan-sweep.sh" 2>"$STATE/.pr-orphan-sweep.err")
+    [ ! -s "$STATE/.pr-orphan-sweep.err" ] || {
+      while IFS= read -r orphan_diag; do
+        [ -n "$orphan_diag" ] || continue
+        triage_log "$orphan_diag"
+      done < "$STATE/.pr-orphan-sweep.err"
+      : > "$STATE/.pr-orphan-sweep.err"
+    }
+    if [ -n "$orphan_out" ]; then
+      while IFS= read -r orphan_line; do
+        [ -n "$orphan_line" ] || continue
+        [ -n "$sweep_wake_reason" ] || sweep_wake_reason=$orphan_line
+      done <<EOF
+$orphan_out
 EOF
     fi
     for c in "$STATE"/*.check.sh; do
