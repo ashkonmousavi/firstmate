@@ -1966,6 +1966,45 @@ test_projection_journal_v2_binds_and_advances_exact_endpoint() {
   pass "herdr presentation journal: version 2 binds exact home/endpoint/parent identities and advances atomically"
 }
 
+test_projection_journal_rejects_malformed_bytes_and_lines() {
+  local dir state journal probe token=AbCdEfGhIjKlMnOpQrStUv
+  dir="$TMP_ROOT/projection-journal-bytes"; state="$dir/state"; mkdir -p "$state"
+  journal="$state/task-b1.herdr-presentation"
+  snapshot_ok() {
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_projection_journal_snapshot "$1" task-b1 && printf "%s" "$FM_BACKEND_HERDR_JOURNAL_PROJECTION_ID"' \
+      "$ROOT" "$journal" 2>/dev/null
+  }
+  printf 'version=1\ntask_id=task-b1\nprojection_id=%s\n' "$token" > "$journal"
+  [ "$(snapshot_ok)" = "$token" ] || fail "a well-formed version 1 journal must be accepted"
+  printf 'version=1\ntask_id=task-b1\nprojection_id=%s\nprojection_id=%s' "$token" "$token" > "$journal"
+  if snapshot_ok >/dev/null; then
+    fail "an unterminated duplicate field line must stay ambiguous even though the newline count is unchanged"
+  fi
+  printf 'version=1\ntask_id=task-b1\nprojection_id=%s\n\0\n' "$token" > "$journal"
+  if snapshot_ok >/dev/null; then
+    fail "a journal holding a NUL byte must be rejected as unreadable"
+  fi
+  printf 'version=1\r\ntask_id=task-b1\r\nprojection_id=%s\r\n' "$token" > "$journal"
+  if snapshot_ok >/dev/null; then
+    fail "a CRLF journal must not be normalized into a match"
+  fi
+  # Where grep treats an invalid UTF-8 field line as binary, it prints the
+  # earlier lines and only a diagnostic for the rest; that partial read must
+  # not hide the duplicate field behind it.
+  printf 'version=1\ntask_id=task-b1\nprojection_id=%s\nprojection_id=\377' "$token" > "$journal"
+  probe=$(printf 'k=\377\n' | LC_ALL=C.UTF-8 grep '^k=' 2>/dev/null)
+  if [ -z "$probe" ] && LC_ALL=C.UTF-8 snapshot_ok >/dev/null; then
+    fail "a duplicate field hidden behind grep's binary-file cutoff must stay ambiguous"
+  fi
+  printf 'version=1\ntask_id=task-b1\nprojection_id=%s\n' "$token" > "$journal"
+  chmod 000 "$journal"
+  if [ ! -r "$journal" ] && snapshot_ok >/dev/null; then
+    fail "an unreadable journal must be rejected"
+  fi
+  chmod 600 "$journal"
+  pass "herdr presentation journal: single-read parser keeps duplicate, binary, CRLF, and unreadable journals ambiguous"
+}
+
 test_projection_create_uses_exact_response_ids_and_leaves_one_task_pane() {
   local dir state log resp fb out token journal
   dir="$TMP_ROOT/projection-create"; state="$dir/state"; mkdir -p "$dir/responses" "$state"
@@ -6396,6 +6435,7 @@ test_release_floor_verdict_survives_losing_either_signal
 test_presentation_preference_reports_three_distinct_states
 test_projection_journal_is_atomic_and_uses_128_bit_token
 test_projection_journal_v2_binds_and_advances_exact_endpoint
+test_projection_journal_rejects_malformed_bytes_and_lines
 test_projection_create_uses_exact_response_ids_and_leaves_one_task_pane
 test_projection_create_never_closes_a_concurrent_same_label_tab
 test_projection_focus_snapshot_requires_exact_workspace_and_tab
