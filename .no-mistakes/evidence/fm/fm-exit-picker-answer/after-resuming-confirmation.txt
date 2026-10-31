@@ -1,0 +1,45 @@
+bash-5.2$ set +m; bash '~/.no-mistakes/worktrees/049a88734b0e/01M68P0P3YHBVJF2JJFA12JV05/.no-mistakes/exit-picker-live.YJGMKj/launch.sh'
+
+Resume this session with:
+claude --resume bbfec935-337b-43d8-a6db-c2923ead6746
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

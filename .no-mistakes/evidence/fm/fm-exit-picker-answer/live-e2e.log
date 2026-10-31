@@ -1,0 +1,5 @@
+# harness: 2.1.316 (Claude Code); transport: tmux 3.4
+stopped picker harness=claude backend=tmux endpoint=live:fm-picker worktree=~/.no-mistakes/worktrees/049a88734b0e/01M68P0P3YHBVJF2JJFA12JV05/.no-mistakes/exit-picker-live.U55qKG/worktree
+ok - 2.1.316 (Claude Code): already-open: Claude and background task stopped; endpoint, worktree, index and file changes preserved
+stopped picker harness=claude backend=tmux endpoint=live:fm-picker worktree=~/.no-mistakes/worktrees/049a88734b0e/01M68P0P3YHBVJF2JJFA12JV05/.no-mistakes/exit-picker-live.U55qKG/worktree
+ok - 2.1.316 (Claude Code): submit-opens: Claude and background task stopped; endpoint, worktree, index and file changes preserved

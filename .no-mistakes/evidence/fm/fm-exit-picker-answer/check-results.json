@@ -1,0 +1,22 @@
+{
+  "fm-control.test.sh": {
+    "exit_code": 0
+  },
+  "fm-control-exit-picker-live-e2e.test.sh": {
+    "exit_code": 0,
+    "harness": "Claude Code 2.1.316",
+    "transport": "tmux 3.4"
+  },
+  "adversarial-live.test.sh": {
+    "exit_code": 0,
+    "recorded_send_keys": [
+      [
+        "send-keys",
+        "-t",
+        "live:fm-picker",
+        "Enter"
+      ]
+    ]
+  },
+  "notes": "Adversarial driver corrected for interrupt delivery semantics, delayed Escape interpretation, tmux auto-continuation, and stderr-prefixed result output. Final run completed all assertions."
+}

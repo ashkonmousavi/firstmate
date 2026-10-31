@@ -1,0 +1,19 @@
+# Exit-picker validation research
+
+Oracle: the owner requires one confirming Enter on the selected Exit and stop tasks row; all worktree changes must survive.
+
+The existing project research book entry `claude-exit-backgrounds.md` warns that moving a session to the background does not stop its work. This check must prove Claude and its actual background process stop, rather than only observing a successful key send.
+
+Exa search of first-party Claude documentation on 2026-10-31 found https://code.claude.com/docs/en/interactive-mode#background-bash-commands and https://code.claude.com/docs/en/tools-reference. Claude documents that background tasks are cleaned up on exit; backgrounding the session leaves tasks running. The executable live regression creates a background sleep through real Claude, independently compares staged/unstaged/untracked bytes and the Git index, and verifies the background PID disappears.
+
+All research and validation records are kept in this evidence directory under the workspace boundary.
+
+The first adversarial driver incorrectly expected `interrupt` to refuse. Actual product evidence returned `interrupt-delivered ... verified=agent-alive cancel=unconfirmed`. The documented interrupt contract is to deliver Escape and leave the agent alive; the change does not alter this path. Revised hypothesis: Escape cancels the picker without stopping Claude or its background shell. The revised driver must observe the dismissed picker and both live processes, then reopen the picker for the single-Enter timeout check. A stopped process or still-open picker disproves this hypothesis.
+
+The immediate post-interrupt capture was too early to prove Escape had been interpreted: `interrupt` promises delivery and agent liveness, and explicitly labels cancellation unconfirmed. tmux's upstream issue https://github.com/tmux/tmux/issues/3843 documents delayed Escape decoding (tmux 3.4 predates the lower default discussed in https://github.com/tmux/tmux/issues/3844). Do not infer cancellation from an immediate capture. A bounded wait for the real picker to disappear tests the footer's Esc-to-cancel contract; the new evidence is the successful delivery result alongside the still-visible immediate frame.
+
+Independent read-only review identified a second orchestration issue before the one-Enter check: stopping Claude alone lets its interactive parent shell reclaim the terminal, so the backend correctly reports the foreground shell as already stopped. The third attempt's `already-stopped` result confirms that setup problem; it is not an exit-picker product failure. Revised setup stops the isolated waiting shell first, then Claude's foreground group, and proves both stopped process states plus backend `alive` and the safe picker before exercising exit. Cleanup resumes both processes.
+
+Root cause confirmed against upstream tmux evidence: https://github.com/tmux/tmux/issues/5568 and https://github.com/tmux/tmux/issues/1520 document the server automatically continuing its stopped direct pane child. Our isolated shell probe confirmed stopping the whole pane group does not hold. A second probe proved a working isolation: disable job control only in the disposable shell, stop only its child (not the pane shell or its process group), and confirm the child remains T while the shell/child retain their shared terminal foreground group. The product driver now uses that measured setup and checks all preconditions before invoking exit.
+
+The real stalled-picker check succeeded: the transport recorded exactly one actual Enter, exit refused a second confirmation, and resuming Claude consumed that key and stopped the agent. The remaining driver assertion incorrectly treated combined stdout/stderr as starting with `already-stopped`; the marked-home guard emits a permitted-lifecycle notice on stderr first. Revised assertion checks the actual public result line, preserving stderr evidence. No product change was needed.

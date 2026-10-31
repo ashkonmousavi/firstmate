@@ -1,0 +1,4 @@
+Disposable shell setup only; not product evidence. Stop only child under no-job-control shell.
+    PID    PPID    PGID   TPGID STAT COMMAND
+1847188 1847181 1847188 1847188 Ss+  bash
+1847198 1847188 1847188 1847188 T+   sleep

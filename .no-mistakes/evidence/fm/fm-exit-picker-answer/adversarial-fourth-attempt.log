@@ -1,0 +1,14 @@
+# harness: 2.1.316 (Claude Code); transport: tmux 3.4
+pending-draft rc=1: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68P0P3YHBVJF2JJFA12JV05/.no-mistakes/exit-picker-live.gMGvKf/home
+error: task picker's composer visibly holds pending text; refusing to type the /exit exit command because it would concatenate onto that text. Clear or submit the pending text, then retry 'exit'
+pre-fix rc=1: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68P0P3YHBVJF2JJFA12JV05/.no-mistakes/exit-picker-live.gMGvKf/home
+error: task picker is blocked on a prompt: Claude background-task exit picker. Refusing to type Enter into it.
+alternate-row rc=1: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68P0P3YHBVJF2JJFA12JV05/.no-mistakes/exit-picker-live.gMGvKf/home
+error: task picker's composer visibly holds pending text; refusing to type the /exit exit command because it would concatenate onto that text. Clear or submit the pending text, then retry 'exit'
+interrupt-picker rc=0: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68P0P3YHBVJF2JJFA12JV05/.no-mistakes/exit-picker-live.gMGvKf/home
+interrupt-delivered picker harness=claude backend=tmux verified=agent-alive cancel=unconfirmed
+interrupt-picker: Escape cancelled the picker, Claude and background task stayed alive
+    PID    PPID    PGID   TPGID STAT COMMAND
+1724080 1724076 1724080 1724080 Ss+  bash
+1724096 1724080 1724096 1724080 Tl   claude
+not ok - shell did not stop

@@ -1,0 +1,9 @@
+Disposable shell job-control probe only (not product evidence)
+Before:
+    PID    PPID    PGID   TPGID STAT COMMAND
+1791407 1791402 1791407 1791407 Ss+  bash
+1791417 1791407 1791407 1791407 S+   sleep
+After:
+    PID    PPID    PGID   TPGID STAT COMMAND
+1791407 1791402 1791407 1791407 Ss+  bash
+1791417 1791407 1791407 1791407 S+   sleep
