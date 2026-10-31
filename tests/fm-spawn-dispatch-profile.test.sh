@@ -1806,6 +1806,110 @@ test_claude_long_launch_is_delivered_intact() {
   pass "fm-spawn: a Claude launch longer than 1024 bytes is delivered intact through the staging path"
 }
 
+# The explicit-harness quota gate (bin/fm-quota-axi-lib.sh fm_quota_gate_run).
+# Each case feeds a canned quota-axi reading through FM_QUOTA_SNAPSHOT_FILE and
+# a dispatch file whose profiles are the alternatives the refusal may name.
+enable_quota_profiles() {
+  local home=$1
+  printf '%s\n' '{"rules":[{"when":"fix","use":[{"harness":"grok","model":"grok-4.7"},{"harness":"codex","model":"gpt-6.1-sol","effort":"medium"},{"harness":"pi","model":"glm-5.3","effort":"high","provider":"zai"},{"harness":"cursor","model":"grok-4.7-high"}]}],"default":{"harness":"claude","model":"claude-sonnet-5-5"}}' \
+    > "$home/config/crew-dispatch.json"
+}
+
+quota_gate_case() {  # <name> <harness> <id> <grok-state>
+  local rec
+  rec=$(make_spawn_case "$1" "$2" "$3")
+  read_case_record "$rec"
+  enable_quota_profiles "$HOME_DIR"
+  fm_test_quota_snapshot "$CASE_DIR/quota.json" "$4"
+}
+
+test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative() {
+  local state id out status
+  for state in short:7200 exhausted; do
+    id="quota-refuse-${state%%:*}-z30"
+    quota_gate_case "$id" grok "$id" "$state"
+    out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+      "$id" "$PROJ_DIR" --harness grok --model grok-4.7)
+    status=$?
+    expect_code 1 "$status" "grok with $state quota must refuse the spawn"$'\n'"$out"
+    assert_contains "$out" "fm-spawn refuses explicit harness grok model grok-4.7: provider grok" \
+      "the $state refusal must name the harness, model and provider"
+    assert_contains "$out" "Best alternative: provider codex (spendPriority 0.85): --harness codex --model gpt-6.1-sol." \
+      "the $state refusal must name the best-spendPriority alternative"
+    assert_contains "$out" "Pass --quota-override <reason>" "the $state refusal must name the override"
+    [ ! -s "$LAUNCH_LOG" ] || fail "grok with $state quota still launched a worker"
+    [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "grok with $state quota still wrote a task record"
+  done
+  assert_contains "$out" "runway exhausted_now at all_products" "the exhausted refusal must name the exhausted row"
+  pass "an explicit grok spawn refuses on exhausted_now or under-three-hour runway and names the best alternative"
+}
+
+test_quota_gate_passes_healthy_and_long_runway_harnesses() {
+  local id out status
+  id=quota-pass-codex-z31
+  quota_gate_case "$id" codex "$id" short:7200
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness codex --model gpt-6.1-sol)
+  status=$?
+  expect_code 0 "$status" "a healthy codex spawn must pass the quota gate"$'\n'"$out"
+  assert_not_contains "$out" "quota check" "a healthy harness must pass silently"
+  assert_no_grep 'quota_override' "$HOME_DIR/state/$id.meta" "a gate pass must record no override"
+
+  id=quota-pass-grok-long-z31
+  quota_gate_case "$id" grok "$id" short:42004
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4.7)
+  status=$?
+  expect_code 0 "$status" "grok whose runway outlasts three hours must pass"$'\n'"$out"
+  pass "a healthy harness and a runway longer than three hours pass the quota gate"
+}
+
+test_quota_gate_unknown_provider_passes_with_notice() {
+  local id out status
+  id=quota-unknown-pi-z32
+  quota_gate_case "$id" pi "$id" exhausted
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness pi --model some-undeclared-model)
+  status=$?
+  expect_code 0 "$status" "a harness with no authoritative provider must not refuse"$'\n'"$out"
+  assert_contains "$out" "notice: fm-spawn quota check for pi some-undeclared-model is uncertain, launching anyway: harness pi has no authoritative quota provider" \
+    "an unmodeled provider must be disclosed"
+
+  id=quota-unreadable-z32
+  quota_gate_case "$id" grok "$id" exhausted
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/missing.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok)
+  status=$?
+  expect_code 0 "$status" "a missing quota reading must not refuse"$'\n'"$out"
+  assert_contains "$out" "notice: fm-spawn launches grok without the quota check" "a missing reading must be disclosed"
+  pass "an unmodeled provider or a missing reading passes with a notice"
+}
+
+test_quota_gate_override_passes_and_is_recorded() {
+  local id out status meta
+  id=quota-override-z33
+  quota_gate_case "$id" grok "$id" short:7200
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4.7 --quota-override "captain chose grok for this review")
+  status=$?
+  expect_code 0 "$status" "an explicit override must launch the refused harness"$'\n'"$out"
+  meta="$HOME_DIR/state/$id.meta"
+  [ "$(sed -n 's/^quota_override=//p' "$meta")" = "captain chose grok for this review" ] \
+    || fail "the override reason must be recorded: $(cat "$meta")"
+  grep -Eq '^quota_override_evidence=refuse: provider grok runway at all_products \(4% remaining\) ends .*; best alternative: provider codex' "$meta" \
+    || fail "the overridden refusal must be recorded: $(cat "$meta")"
+  assert_contains "$out" "proceeding under --quota-override" "the override must be announced"
+
+  id=quota-override-unneeded-z33
+  quota_gate_case "$id" claude "$id" short:7200
+  rm -f "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --quota-override "no harness named")
+  status=$?
+  expect_code 1 "$status" "an override with no explicit harness must refuse"
+  assert_contains "$out" "--quota-override applies only to an explicitly named adapter" "the refusal must say why"
+  pass "--quota-override launches a refused harness and records the reason and evidence"
+}
+
 test_claude_crewmate_launch_carries_the_attribution_policy() {
   local rec id out status launch
   id=profile-claude-attribution-z22
@@ -2479,6 +2583,10 @@ test_claude_launches_disable_background_exit_handoff_and_agent_view
 test_claude_haiku_launch_gets_an_opus_advisor
 test_claude_non_haiku_launch_gets_no_advisor
 test_claude_long_launch_is_delivered_intact
+test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative
+test_quota_gate_passes_healthy_and_long_runway_harnesses
+test_quota_gate_unknown_provider_passes_with_notice
+test_quota_gate_override_passes_and_is_recorded
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_keep_ai_trailers_preserves_attribution_and_format_checks
 test_keep_ai_trailers_reaches_secondmate_crew_launches

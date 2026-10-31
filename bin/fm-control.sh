@@ -6,6 +6,7 @@
 #        fm-control.sh <task-id> exit [--if-idle [--expect-spawn-gen <gen>]]
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
 #                                         [--effort <level>] [--if-recoverable]
+#                                         [--quota-override <reason>]
 #                                         (--note <text> | --note-file <path>)
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
@@ -96,6 +97,12 @@
 #              The same pre-stop refusal applies to this home's worker tool
 #              exclusions (bin/fm-exclude-tools-lib.sh): a malformed list, or a
 #              replacement runtime that cannot hide the listed tools.
+#              An explicit --harness also passes the spawn quota gate here,
+#              before the old agent stops (fm_quota_gate_run in
+#              bin/fm-quota-axi-lib.sh; docs/configuration.md "Crew dispatch
+#              profiles" owns the contract). A refusal names the best
+#              alternative; --quota-override <reason> relaunches anyway, and
+#              the launch owner records it in the task record.
 #              --note is required for a ship or scout, whose replacement
 #              inherits the local copy but none of the conversation; a
 #              secondmate reconciles its own home's records at startup, so its
@@ -220,6 +227,10 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # shellcheck source=bin/fm-exclude-tools-lib.sh
 . "$SCRIPT_DIR/fm-exclude-tools-lib.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$SCRIPT_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-quota-axi-lib.sh
+. "$SCRIPT_DIR/fm-quota-axi-lib.sh"
 
 POLL=${FM_CONTROL_POLL:-0.5}
 SETTLE_WAIT=${FM_CONTROL_SETTLE_WAIT:-5}
@@ -289,6 +300,9 @@ MODEL_SET=0
 EFFORT_SET=0
 NOTE=
 NOTE_SET=0
+QUOTA_OVERRIDE=
+QUOTA_OVERRIDE_SET=0
+QUOTA_EVIDENCE=
 RECOVER_ONLY=0
 IF_IDLE=0
 EXPECT_GEN=
@@ -304,6 +318,7 @@ for control_arg in "$@"; do
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
+      quota_override) QUOTA_OVERRIDE=$control_arg; QUOTA_OVERRIDE_SET=1 ;;
       expect_gen) EXPECT_GEN=$control_arg; EXPECT_GEN_SET=1 ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
@@ -326,6 +341,8 @@ for control_arg in "$@"; do
     --effort=*) NEW_EFFORT=${control_arg#--effort=}; EFFORT_SET=1 ;;
     --note) control_want_value=note ;;
     --note=*) NOTE=${control_arg#--note=}; NOTE_SET=1 ;;
+    --quota-override) control_want_value=quota_override ;;
+    --quota-override=*) QUOTA_OVERRIDE=${control_arg#--quota-override=}; QUOTA_OVERRIDE_SET=1 ;;
     --note-file) control_want_value=note_file ;;
     --note-file=*)
       [ -f "${control_arg#--note-file=}" ] || die "--note-file '${control_arg#--note-file=}' is not a readable file"
@@ -337,12 +354,19 @@ for control_arg in "$@"; do
 done
 if [ -n "$control_want_value" ]; then
   [ "$control_want_value" = note_file ] && die "--note-file requires a value"
+  [ "$control_want_value" = quota_override ] && die "--quota-override requires a value"
   die "--$control_want_value requires a value"
+fi
+if [ "$QUOTA_OVERRIDE_SET" = 1 ]; then
+  case "$QUOTA_OVERRIDE" in
+    '' | *[[:cntrl:]]*) die "--quota-override requires a non-empty one-line reason" ;;
+  esac
+  [ "$HARNESS_SET" = 1 ] || die "--quota-override applies only to a relaunch with an explicit --harness, the only relaunch the quota check gates"
 fi
 
 if [ "$VERB" != relaunch ]; then
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] \
-    || die "--harness, --model, --effort, --note, and --if-recoverable apply to 'relaunch' only"
+  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] && [ "$QUOTA_OVERRIDE_SET" = 0 ] \
+    || die "--harness, --model, --effort, --note, --quota-override, and --if-recoverable apply to 'relaunch' only"
 fi
 if [ "$VERB" != exit ]; then
   [ "$IF_IDLE" = 0 ] && [ "$EXPECT_GEN_SET" = 0 ] \
@@ -1229,6 +1253,17 @@ resolve_relaunch_profile() {
   if [ "$KIND" != secondmate ]; then
     fm_exclude_tools_check "$TARGET_HARNESS" 0 "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" >/dev/null || return 1
   fi
+  # Likewise the spawn quota gate for an explicitly chosen harness. The launch
+  # owner does not gate a relaunch this transaction drives, so this is the one
+  # decision; its evidence is handed on for the task record.
+  if [ "$HARNESS_SET" = 1 ]; then
+    local quota_rc=0
+    fm_quota_gate_run "$TARGET_HARNESS" "$account_model" \
+      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-control || quota_rc=$?
+    [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+    [ "$quota_rc" = 0 ] || return 1
+    QUOTA_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
+  fi
 }
 
 # safe_checkpoint: prove, before anything is stopped, that the work a relaunch
@@ -1409,7 +1444,8 @@ do_relaunch() {
   spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
-  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \
+  [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
+  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
     # $T was resolved from the record before the launch. When the recorded
@@ -1469,8 +1505,10 @@ do_relaunch_released() {
   spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
+  [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
   spawn_status=0
   FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
+    FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
   if [ "$spawn_status" -ne 0 ]; then
     rm -f "$note_stage"

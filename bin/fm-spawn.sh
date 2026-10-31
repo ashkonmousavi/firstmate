@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--herdr-resume-lock-wait]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--herdr-resume-lock-wait]
-#        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] --secondmate
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--base-branch <branch>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] [--herdr-resume-lock-wait]
+#        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--quota-override <reason>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
 #   per task at intake (AGENTS.md section 7); data/projects.md holds the captain's
@@ -59,7 +59,7 @@
 #   first in the private launch-brief overlay, including the exact task-owned
 #   steering inbox. This never rewrites a project's instruction files or a
 #   secondmate's charter.
-#        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>]
+#        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>] [--quota-override <reason>]
 #   --relaunch normally launches a replacement agent for an EXISTING task into that
 #   task's own recorded worktree, reusing its recorded endpoint when that
 #   endpoint still exists, instead of creating either from scratch. It is
@@ -225,7 +225,16 @@
 #   harness (config/secondmate-harness -> config/crew-harness -> own), so the
 #   secondmate-vs-crewmate split is DURABLE across every respawn (recovery,
 #   /updatefirstmate, restart). A bare adapter name (claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|agy|devin|commandcode)
-#   overrides it for this spawn (either kind). A non-flag string containing
+#   overrides it for this spawn (either kind). An explicitly named adapter
+#   (--harness or the positional) also passes the quota gate before anything is
+#   created: fm_quota_gate_run in bin/fm-quota-axi-lib.sh refuses it, naming the
+#   best alternative, when its own quota-axi row is exhausted_now or its runway
+#   ends within three hours (docs/configuration.md "Crew dispatch profiles" owns
+#   the contract). --quota-override <reason> launches anyway and records
+#   quota_override= and quota_override_evidence= in state/<id>.meta. A relaunch
+#   driven by bin/fm-control.sh is gated there, before the old agent stops, and
+#   is not gated again here. A raw launch command is not gated. A non-flag
+#   string containing
 #   whitespace is treated as a RAW launch command - the escape hatch for verifying
 #   new adapters. For pi and pi-signed, fm-spawn resolves the selected executable
 #   name from PATH once, probes that concrete path with --help, and launches the
@@ -814,6 +823,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-remote-readiness-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-quota-axi-lib.sh
+. "$SCRIPT_DIR/fm-quota-axi-lib.sh"
 # shellcheck source=bin/fm-project-capacity-lib.sh
 . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
 # shellcheck source=bin/fm-capacity-lib.sh
@@ -848,6 +859,8 @@ BASE_BRANCH_SET=0
 UPSTREAM_CONSENT=
 UPSTREAM_CONSENT_SET=0
 TRACEPARENT_SET=0
+QUOTA_OVERRIDE=
+QUOTA_OVERRIDE_SET=0
 RELAUNCH=0
 # Opt-in only: exact-resume presentation-order lock waits instead of refusing.
 # Absent/unset keeps upstream refuse-on-contention. See header.
@@ -903,6 +916,10 @@ for a in "$@"; do
     traceparent)
       TRACEPARENT_ARG=$a
       TRACEPARENT_SET=1
+      ;;
+    quota-override)
+      QUOTA_OVERRIDE=$a
+      QUOTA_OVERRIDE_SET=1
       ;;
     *)
       echo "error: internal parser state for --$want_value" >&2
@@ -975,6 +992,11 @@ for a in "$@"; do
     TRACEPARENT_ARG=${a#--traceparent=}
     TRACEPARENT_SET=1
     ;;
+  --quota-override) want_value=quota-override ;;
+  --quota-override=*)
+    QUOTA_OVERRIDE=${a#--quota-override=}
+    QUOTA_OVERRIDE_SET=1
+    ;;
   *) POS+=("$a"); continue ;;
   esac
   SPAWN_OPTIONS+=("$a")
@@ -1015,6 +1037,14 @@ done
   echo "error: --traceparent requires a non-empty value" >&2
   exit 1
 }
+if [ "$QUOTA_OVERRIDE_SET" -eq 1 ]; then
+  case "$QUOTA_OVERRIDE" in
+  '' | *[[:cntrl:]]*)
+    echo "error: --quota-override requires a non-empty one-line reason" >&2
+    exit 1
+    ;;
+  esac
+fi
 # A parent-delivered carrier replaces this home's own resolution, so it is
 # refused unless it is a secondmate spawn carrying a strictly valid W3C value.
 # Nothing else may reach the pane's TRACEPARENT export.
@@ -3062,6 +3092,25 @@ fi
 # there the composer would never read empty and steering would stall.
 if [ "$HARNESS" = commandcode ] && [ "$BACKEND" != tmux ] && [ "$BACKEND" != herdr ]; then
   echo "error: commandcode is verified on the tmux and herdr backends only; backend=$BACKEND cannot prove its composer empty. Select backend tmux or herdr." >&2
+  exit 1
+fi
+
+# Quota gate for an explicitly named adapter (header above). A relaunch whose
+# fm-control parent holds the control lock was gated there before the old agent
+# stopped; refusing here instead would strand a stopped task, so the parent's
+# decision and its evidence are recorded as handed on.
+QUOTA_GATE_EVIDENCE=
+if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" = 1 ]; then
+  QUOTA_GATE_EVIDENCE=${FM_CONTROL_QUOTA_EVIDENCE:-}
+elif [ -n "$ARG3" ] && [ "$RAW_LAUNCH" -eq 0 ]; then
+  fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn || {
+    [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+    exit 1
+  }
+  [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+  QUOTA_GATE_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
+elif [ -n "$QUOTA_OVERRIDE" ]; then
+  echo "error: --quota-override applies only to an explicitly named adapter, the only launch the quota check gates" >&2
   exit 1
 fi
 
@@ -6548,7 +6597,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort account account_provider claude_config_dir busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential released_head released_branch released_pr", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch upstream_consent forge backup_remote backup_prefix model effort account account_provider quota_override quota_override_evidence claude_config_dir busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id paseo_terminal_id paseo_workspace_id home projects control_relaunch_tx polytoken_session polytoken_port polytoken_credential released_head released_branch released_pr", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -6577,6 +6626,11 @@ preserve_relaunch_meta() {
   # unpinned launch roots for background-session cleanup.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
+  # Present only when this incarnation launched under --quota-override.
+  if [ -n "$QUOTA_OVERRIDE" ]; then
+    echo "quota_override=$QUOTA_OVERRIDE"
+    printf 'quota_override_evidence=%s\n' "$(printf '%s' "${QUOTA_GATE_EVIDENCE:-not evaluated}" | tr '\t\r\n' '   ')"
+  fi
   if [ "$WORKER_ACCOUNT_HARNESS" = claude ] || [ "$RAW_LAUNCH" = 1 ]; then
     printf 'claude_config_dir=%s\n' "${CLAUDE_CONFIG_DIR:-}"
   fi

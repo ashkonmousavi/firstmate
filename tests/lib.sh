@@ -52,6 +52,13 @@ export FM_GATE_REFUSE_BYPASS=1
 # leaked harness pin alone stays inert outside a suite.
 export FM_TEST_SEAM=1
 
+# Pin the explicit-harness quota gate (bin/fm-quota-axi-lib.sh) to a reading
+# with no providers, so a suite that names a harness never reads the
+# developer's live quota-axi and every gate reads as disclosed uncertainty. A
+# case that exercises the gate points FM_QUOTA_SNAPSHOT_FILE at its own fixture.
+FM_QUOTA_SNAPSHOT_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/quota-axi-empty.json"
+export FM_QUOTA_SNAPSHOT_FILE
+
 # Clear the task-worker marker bin/fm-spawn.sh exports into ship and scout
 # panes. This suite builds git-init fixture repositories whose primary checkout
 # it runs a copied bin/fm-test-run.sh in, and that runner refuses the primary

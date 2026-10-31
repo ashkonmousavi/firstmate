@@ -1427,6 +1427,18 @@ Firstmate resolves the rule's profile object or array under `AGENTS.md` section 
 - Batch spawns satisfy the same requirement with a shared `--harness`.
 - Secondmate spawns are exempt and resolve through `config/secondmate-harness` using the registered mate's id; see [Choose the secondmate harness](#choose-the-secondmate-harness) for pin precedence and legacy parsing.
 
+**Explicit-harness quota gate**
+
+This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-lib.sh` owns its mechanics.
+
+- A spawn that names its adapter explicitly (`--harness` or the positional) and an `fm-control.sh relaunch --harness` read one `quota-axi --json` snapshot before anything is created or stopped, whether or not this file exists.
+- The adapter's provider is the `provider` this file declares on the profile with exactly that harness and model, else the resolver's single-provider table below; nothing is inferred from a harness, model, or account name.
+- The gate refuses when an applicable row of that provider is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends within three hours of now, whatever its projection confidence.
+- The refusal names the best alternative: the profiles in this file (rules and default), or each single-provider harness on its default model when the file is absent, that pass the same gate with a known `spendPriority`, highest first, with ties named together.
+- A harness with no provider, a provider or account with no row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and the launch proceeds.
+- `--quota-override <reason>` launches the refused adapter anyway and records `quota_override=<reason>` and `quota_override_evidence=<the refusal and alternative>` in `state/<id>.meta`; a later relaunch without the flag drops both.
+- A relaunch is gated in `fm-control.sh` before the old agent stops, and the delegated launch is not gated again; a relaunch with no explicit harness, a raw launch command, and the session-start secondmate respawn are not gated.
+
 **Contract owners**
 
 This section is the single owner of the canonical schema and its per-field semantics.
@@ -1630,8 +1642,7 @@ Every result above exits 0.
 
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
 By accepted design, a `clear` result does not enforce catalog/authentication or reasoning-class gates, and its runway gate is the through-reset rule above rather than a completion-horizon estimate.
-The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` does not enforce it.
-Spawn-time enforcement is deferred because this branch lacks the dispatch guard library and off-table spawn check it builds on.
+The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` enforces only the fixed-horizon [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson).
 
 Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
 
@@ -2717,6 +2728,8 @@ FM_STATE_OVERRIDE=       # alternate state dir, mainly for tests
 FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
+FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
+FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds
 FM_PROC_ROOT_OVERRIDE=   # alternate /proc root for Linux process-identity reads in fm-wake-lib.sh and fm-teardown.sh, mainly for tests
 FM_BACKEND=             # optional runtime backend override for new spawns; tmux/herdr/zellij/orca/cmux/paseo support ship/scout spawns, codex-app is not accepted
 FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context propagation"

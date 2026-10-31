@@ -44,10 +44,10 @@ FM_QUOTA_ROW_JQ='
     end;
 '
 
-# Candidate evaluation for the typed resolver (bin/fm-dispatch-resolve.sh).
-# Operator scope decision: resolver-only on this curated branch.
-# Spawn-time (bin/fm-spawn.sh) runway-gate enforcement is deferred because this
-# branch lacks the dispatch guard library and off-table spawn check it builds on.
+# Candidate evaluation for the typed resolver (bin/fm-dispatch-resolve.sh) and
+# the explicit-harness spawn gate below (fm_quota_gate_explicit).
+# The resolver's through-reset gate stays resolver-only; the spawn gate applies
+# its own fixed horizon instead.
 # Prepend after FM_QUOTA_ROW_JQ:
 #   quota_evaluate($q; $pmap; $profile)
 #       one candidate's eligibility and quota evidence; $pmap is the
@@ -87,6 +87,7 @@ FM_QUOTA_EVAL_JQ='
   def quota_evidence($rows):
     $rows | map({scope, status, pct: (.effectivePercentRemaining // null), runway: (.runway.status // null),
                  projectionConfidence: (.runway.projectionConfidence // null),
+                 runwaySeconds: (.runway.usableRunwaySeconds // null),
                  exhaustsAt: (.runway.projectedExhaustedAt // null), spendPriority: (.selection.spendPriority // null)});
   def quota_runway_class($bounds):
     if ($bounds | length) == 0 then "unknown"
@@ -166,6 +167,193 @@ FM_QUOTA_EVAL_JQ='
     + [$cands[] | select(.eligible and (.unranked // false))]
     + [$cands[] | select(.eligible | not)];
 '
+
+# Explicit-harness spawn gate (bin/fm-spawn.sh, bin/fm-control.sh relaunch).
+# docs/configuration.md "Crew dispatch profiles" owns the operator contract;
+# this block owns the mechanics.
+#   quota_gate_verdict($q; $pmap; $c; $now)
+#       refuse when an applicable row of the candidate's own provider row is
+#       exhausted_now or at 0%, or when a known projected_exhaustion row ends
+#       within FM_QUOTA_GATE_HORIZON_SECONDS of $now regardless of projection
+#       confidence. The end is projectedExhaustedAt, else generatedAt plus
+#       usableRunwaySeconds. A harness with no provider, a provider or account
+#       with no row, an unmeasured row, or a projection with no end time is
+#       disclosed uncertainty: verdict notice, never refuse.
+#   quota_gate_alternatives($q; $pmap; $cands; $now)
+#       the candidates whose own verdict is pass with a known spendPriority,
+#       highest first.
+FM_QUOTA_GATE_HORIZON_SECONDS=10800
+# shellcheck disable=SC2016,SC2034  # jq program text, not shell expansion; read by the sourcing consumers
+FM_QUOTA_GATE_JQ='
+  def quota_gate_time($s):
+    if ($s | type) == "string" then ($s | sub("\\.[0-9]+Z$"; "Z") | try fromdateiso8601 catch null) else null end;
+  def quota_gate_end($q; $b):
+    (quota_gate_time($b.exhaustsAt)) as $at |
+    if $at != null then $at
+    elif ($b.runwaySeconds | type) == "number" and quota_gate_time($q.generatedAt) != null
+    then quota_gate_time($q.generatedAt) + $b.runwaySeconds
+    else null end;
+  def quota_gate_hm($s): ($s | if . < 0 then 0 else . end | floor) as $t |
+    "\($t / 3600 | floor)h\((($t % 3600) / 60) | floor)m";
+  def quota_gate_verdict($q; $pmap; $c; $now):
+    ($c | del(.floor)) as $c |
+    ($c.provider // $pmap[$c.harness] // null) as $p |
+    if $p == null then
+      {verdict: "notice", profile: $c, reason: "harness \($c.harness) has no authoritative quota provider (declare provider on its dispatch profile)"}
+    else
+      quota_evaluate($q; $pmap; $c) as $e |
+      ([($e.bounds // [])[] | select(.status == "known" and .runway == "projected_exhaustion")
+        | . + {end: quota_gate_end($q; .)}]) as $proj |
+      ([$proj[] | select(.end != null and (.end - $now) < ($ENV.FM_QUOTA_GATE_HORIZON_SECONDS | tonumber))]
+        | sort_by(.end) | first) as $short |
+      if $e.eligible == false then
+        $e + {verdict: "refuse", reason: "provider \($p) \($e.reason)"}
+      elif $short != null then
+        $e + {verdict: "refuse", scope: $short.scope, pct: $short.pct,
+              reason: "provider \($p) runway at \($short.scope) (\($short.pct // "-")% remaining) ends \($short.end | todate), \(quota_gate_hm($short.end - $now)) from now, within the \(quota_gate_hm($ENV.FM_QUOTA_GATE_HORIZON_SECONDS | tonumber)) spawn horizon"}
+      elif any($proj[]; .end == null) then
+        $e + {verdict: "notice", reason: "provider \($p) projects exhaustion at \([$proj[] | select(.end == null) | .scope] | join(", ")) with no end time"}
+      elif ($e.unranked // false) then
+        $e + {verdict: "notice"}
+      else $e + {verdict: "pass"} end
+    end;
+  def quota_gate_alternatives($q; $pmap; $cands; $now):
+    [$cands[] | quota_gate_verdict($q; $pmap; .; $now)
+     | select(.verdict == "pass" and (.spendPriority | type) == "number")]
+    | sort_by(-.spendPriority);
+'
+
+# fm_quota_gate_snapshot <out-file>
+# Writes one validated quota-axi --json snapshot. FM_QUOTA_SNAPSHOT_FILE, when
+# set, names an already-captured snapshot to reuse instead of running
+# quota-axi: the test seam, and how fm-control hands the reading its pre-stop
+# check used to the launch it delegates. FM_QUOTA_GATE_TIMEOUT bounds the live
+# read (default 30 seconds). Fails, printing the cause, when no valid snapshot
+# can be produced; callers treat that as disclosed uncertainty.
+fm_quota_gate_snapshot() {
+  local out=$1 src=${FM_QUOTA_SNAPSHOT_FILE:-}
+  if [ -n "$src" ]; then
+    [ -f "$src" ] && [ ! -L "$src" ] || { printf 'snapshot %s is not a regular file\n' "$src"; return 1; }
+    cp -- "$src" "$out" 2>/dev/null || { printf 'snapshot %s is unreadable\n' "$src"; return 1; }
+  else
+    command -v quota-axi >/dev/null 2>&1 || { printf 'quota-axi is not installed\n'; return 1; }
+    [ "$(type -t fm_run_timed)" = function ] || { printf 'no bounded runner for quota-axi\n'; return 1; }
+    fm_run_timed "${FM_QUOTA_GATE_TIMEOUT:-30}" quota-axi --json >"$out" 2>/dev/null </dev/null \
+      || { printf 'quota-axi --json failed or timed out\n'; return 1; }
+  fi
+  fm_quota_json_valid <"$out" || { printf 'quota-axi returned an invalid snapshot\n'; return 1; }
+}
+
+# fm_quota_gate_explicit <harness> <model> <rules-file> <snapshot-file>
+# Gates one explicitly named harness and model (empty model: the harness
+# default) against <snapshot-file>, from fm_quota_gate_snapshot.
+# The provider is the profile `provider` that config/crew-dispatch.json
+# declares for exactly this harness and model, else the authoritative
+# single-provider table below; nothing is inferred from a name.
+# Alternatives are every distinct profile in <rules-file> (rules and default),
+# or, when it is absent or unreadable, each single-provider harness on its
+# default model; the requested profile itself is excluded.
+# Prints three lines: the verdict (pass, notice, or refuse), its one-line
+# reason, and the best alternative as a profile (`--harness <h> [--model <m>]
+# [--effort <e>]` plus its provider and spendPriority) or `none`.
+# Returns 1 on refuse, 0 otherwise; an evaluation failure is a notice.
+fm_quota_gate_explicit() {
+  local harness=$1 model=$2 rules=$3 snap=$4 cands pmap requested out h p
+  if [ -f "$rules" ] && jq -e 'type == "object"' "$rules" >/dev/null 2>&1; then
+    cands=$(jq -c '
+      def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
+      [((.rules // [])[] | profiles(.use)[]), profiles(.default // null)[]]
+      | map(select(type == "object" and (.harness | type) == "string")) | unique' "$rules" 2>/dev/null) || cands='[]'
+    pmap=$(fm_quota_provider_map "$rules" 2>/dev/null) || pmap='{}'
+  else
+    cands='[]' pmap='{}'
+    while read -r h p; do
+      cands=$(jq -c --arg h "$h" '. + [{harness: $h}]' <<<"$cands")
+      pmap=$(jq -c --arg h "$h" --arg p "$p" '. + {($h): $p}' <<<"$pmap")
+    done < <(fm_quota_single_provider_table)
+  fi
+  p=$(fm_quota_single_provider_for_harness "$harness" 2>/dev/null) || p=''
+  requested=$(jq -c -n --arg h "$harness" --arg m "$model" --argjson cands "$cands" --arg p "$p" '
+    ($cands | map(select(.harness == $h and (.model // "") == $m and (.provider | type) == "string"))
+      | first | .provider // null) as $declared |
+    {harness: $h} + (if $m == "" then {} else {model: $m} end)
+    + (if $declared != null then {provider: $declared} elif $p != "" then {provider: $p} else {} end)') || {
+    printf 'notice\nthe quota check could not evaluate %s\nnone\n' "$harness"
+    return 0
+  }
+  out=$(FM_QUOTA_GATE_HORIZON_SECONDS=$FM_QUOTA_GATE_HORIZON_SECONDS jq -r -n \
+    --slurpfile quota "$snap" --argjson pmap "$pmap" --argjson c "$requested" --argjson cands "$cands" \
+    "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'
+    def flat: tostring | gsub("[\t\r\n]"; " ");
+    # Profiles tied on the best spendPriority are named together, grouped by
+    # provider, so no declared order picks one of them.
+    def best_line($best):
+      $best | group_by(.provider) | map(
+        "provider \(.[0].provider) (spendPriority \(.[0].spendPriority)): "
+        + (map("--harness \(.profile.harness)" + (if .profile.model then " --model \(.profile.model)" else "" end))
+           | unique | join(", ")))
+      | join("; ");
+    ($quota[0]) as $q | now as $now |
+    quota_gate_verdict($q; $pmap; $c; $now) as $v |
+    ($cands | map(select(.harness != $c.harness or (.model // "") != ($c.model // "")))) as $others |
+    (quota_gate_alternatives($q; $pmap; $others; $now)) as $alts |
+    $v.verdict,
+    (($v.reason // "ok") | flat),
+    (if ($alts | length) == 0 then "none"
+     else (best_line([$alts[] | select(.spendPriority == $alts[0].spendPriority)]) | flat)
+     end)' 2>/dev/null) || {
+    printf 'notice\nthe quota check could not evaluate %s\nnone\n' "$harness"
+    return 0
+  }
+  printf '%s\n' "$out"
+  [ "$(printf '%s\n' "$out" | head -1)" != refuse ]
+}
+
+# fm_quota_gate_run <harness> <model> <rules-file> <override-reason> <who>
+# The one caller-facing gate step. Takes the snapshot, gates, and prints the
+# outcome on stderr. Sets FM_QUOTA_GATE_EVIDENCE to the one-line verdict and
+# FM_QUOTA_GATE_SNAPSHOT_PATH to the snapshot it read (empty when none), so a
+# caller can record or hand on exactly what it decided from. Returns 1 when
+# the gate refuses and <override-reason> is empty; an override proceeds with
+# a notice naming it.
+# shellcheck disable=SC2034  # FM_QUOTA_GATE_* results are read by the sourcing callers
+fm_quota_gate_run() {
+  local harness=$1 model=$2 rules=$3 override=$4 who=$5 snap cause verdict reason alt out
+  FM_QUOTA_GATE_EVIDENCE=
+  FM_QUOTA_GATE_SNAPSHOT_PATH=
+  snap=$(mktemp "${TMPDIR:-/tmp}/fm-quota-gate.XXXXXX") || {
+    echo "notice: $who could not stage a quota reading for $harness; launching without the quota check" >&2
+    return 0
+  }
+  if ! cause=$(fm_quota_gate_snapshot "$snap"); then
+    rm -f "$snap"
+    FM_QUOTA_GATE_EVIDENCE="unchecked: $cause"
+    echo "notice: $who launches $harness without the quota check: $cause" >&2
+    return 0
+  fi
+  FM_QUOTA_GATE_SNAPSHOT_PATH=$snap
+  out=$(fm_quota_gate_explicit "$harness" "$model" "$rules" "$snap")
+  verdict=$(printf '%s\n' "$out" | sed -n 1p)
+  reason=$(printf '%s\n' "$out" | sed -n 2p)
+  alt=$(printf '%s\n' "$out" | sed -n 3p)
+  FM_QUOTA_GATE_EVIDENCE="$verdict: $reason"
+  case "$verdict" in
+    pass) return 0 ;;
+    refuse) ;;
+    *)
+      echo "notice: $who quota check for $harness${model:+ $model} is uncertain, launching anyway: $reason" >&2
+      return 0
+      ;;
+  esac
+  [ "$alt" != none ] || alt='none with known runway and spendPriority in this reading'
+  FM_QUOTA_GATE_EVIDENCE="$FM_QUOTA_GATE_EVIDENCE; best alternative: $alt"
+  if [ -n "$override" ]; then
+    echo "notice: $who quota check refuses $harness${model:+ $model} ($reason); proceeding under --quota-override: $override (best alternative was: $alt)" >&2
+    return 0
+  fi
+  echo "error: $who refuses explicit harness $harness${model:+ model $model}: $reason. Best alternative: $alt. Pass --quota-override <reason> to launch $harness anyway; the override is recorded in the task record." >&2
+  return 1
+}
 
 # fm_quota_provider_map <rules-file>
 # Prints the harness -> provider JSON object quota_evaluate reads, from the
