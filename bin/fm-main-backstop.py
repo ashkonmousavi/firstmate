@@ -59,11 +59,14 @@ cursor progress for the next pass.
 The bin/fm-remote-job-lib.sh header owns the lane preemption contract.
 Output bodies are never logged. A read failing
 on two consecutive passes alarms instead of claiming caught-up; a single
-failed pass is audited as transport noise. A live runner removes its .runner
-pid record while it applies each captured reply and rewrites it by
-truncate-then-write on every poll, so an empty record is re-read briefly and a
-runner read as not alive on a single pass is audited as transient. No remote
-source is changed or live runner reconciled.
+failed pass is audited as transport noise. Reply-runner liveness is the
+process-event claim owner reported by fm-procevent.sh list: owner live, or a
+task-owned listening owner. The .runner pid file is removed while that owner
+applies a captured reply, so an absent or empty file is not a dead runner.
+That list read is marked in-runner so it does not refresh the home owner
+lease. A list that fails or omits the source counts as not alive. A runner
+read as not alive on a single pass is audited as transient. No remote source
+is changed and no live runner is reconciled from this backstop.
 Notes deduplicate for an incident until a healthy observation clears it.
 Runner identity requires Linux /proc process state and command-line records.
 Private state: .main-backstop.json (incident ids, deferred alarms when gated,
@@ -111,10 +114,6 @@ DELTA_READ_BUDGET = 4
 # legitimately wait a full window behind it before its own bounded read.
 DELTA_TIMEOUT = 90
 DELTA_PREEMPT_REREADS = 3
-# The runner's truncate-then-write rewrite leaves its pid record empty for a
-# moment; a few short re-reads read around it while keeping a pass bounded.
-RUNNER_REREADS = 5
-RUNNER_REREAD_DELAY = 0.02
 SILENCE_NUDGE_AFTER = 300
 HOLDER_ASK_AFTER = 900
 
@@ -413,29 +412,27 @@ def holder_report(state, env):
     return fields
 
 
-def runner_alive(path, mate):
+def owner_alive(code, env, mate):
+    """True when this reply source's claim owner is live.
+
+    fm-procevent.sh list is the ownership classifier. The .runner pid file is
+    not consulted: a live owner removes it while applying a reply. The
+    in-runner marker keeps this read from refreshing the home owner lease.
+    """
+    source_id = 'remote-reply-' + mate
+    quiet = dict(env)
+    quiet['FM_PROCEVENT_IN_RUNNER'] = '1'
     try:
-        text = path.read_text().strip()
-        for _ in range(RUNNER_REREADS):
-            if text:
-                break
-            time.sleep(RUNNER_REREAD_DELAY)
-            text = path.read_text().strip()
-        pid = int(text)
-        if pid <= 1:
-            return False
-        os.kill(pid, 0)
-        # Linux is the deployment target. Never mistake a zombie/reused pid
-        # for a registered runner. No environment or credential files are read.
-        proc = Path('/proc') / str(pid)
-        if proc.exists():
-            if (proc / 'stat').read_text().split(') ', 1)[1].split()[0] == 'Z':
-                return False
-            args = (proc / 'cmdline').read_bytes().split(b'\0')
-            return b'_start' in args and ('remote-reply-' + mate).encode() in args
+        listing = run([str(code / 'bin/fm-procevent.sh'), 'list'], quiet)
+    except ProbeError:
         return False
-    except (OSError, ValueError, IndexError):
-        return False
+    for line in listing.splitlines():
+        fields = line.split()
+        if len(fields) < 3 or fields[0] != source_id:
+            continue
+        owner = fields[2]
+        return owner == 'live' or owner.endswith('/listening')
+    return False
 
 
 def main():
@@ -565,10 +562,9 @@ def main():
     lag_oldest = memory.setdefault('lag_oldest', {})
     for mate in mates:
         source = state / 'procevent' / ('remote-reply-' + mate + '.source')
-        if source.exists() and not runner_alive(source.with_suffix('.runner'), mate):
-            # A live runner's record is absent for seconds while it applies
-            # each captured reply; two consecutive not-alive passes are a
-            # genuinely missing runner.
+        if source.exists() and not owner_alive(code, env, mate):
+            # A live claim owner stays quiet while its runner record is absent.
+            # Two consecutive misses mean the owner is genuinely gone.
             repeated = mate in runner_fails
             runner_fails[mate] = now
             if repeated:
