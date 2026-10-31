@@ -3952,17 +3952,17 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
     RELEASED_SOURCE_BRIEF=$BRIEF
     released_mutation_begin
-    RELEASED_BRIEF_PRIOR=$(umask 077; mktemp "$STATE/.$ID.brief-prior.XXXXXX") &&
-      cp -p "$BRIEF" "$RELEASED_BRIEF_PRIOR" &&
-      RELEASED_META_PRIOR=$(umask 077; mktemp "$STATE/.$ID.meta-prior.XXXXXX") &&
-      cp -p "$RELAUNCH_META" "$RELEASED_META_PRIOR" || {
+    if ! RELEASED_BRIEF_PRIOR=$(umask 077; mktemp "$STATE/.$ID.brief-prior.XXXXXX") ||
+      ! cp -p "$BRIEF" "$RELEASED_BRIEF_PRIOR" ||
+      ! RELEASED_META_PRIOR=$(umask 077; mktemp "$STATE/.$ID.meta-prior.XXXXXX") ||
+      ! cp -p "$RELAUNCH_META" "$RELEASED_META_PRIOR"; then
       [ -z "$RELEASED_BRIEF_PRIOR" ] || rm -f -- "$RELEASED_BRIEF_PRIOR"
       [ -z "$RELEASED_META_PRIOR" ] || rm -f -- "$RELEASED_META_PRIOR"
       RELEASED_BRIEF_PRIOR=
       RELEASED_META_PRIOR=
       echo "error: could not preserve task $ID's instructions before its released relaunch" >&2
       exit 1
-    }
+    fi
     released_mutation_end
   fi
   "$FM_ROOT/bin/fm-pr-overlap.sh" --project "$PROJ_ABS" --brief "$BRIEF" || true

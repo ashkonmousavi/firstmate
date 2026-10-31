@@ -1399,8 +1399,10 @@ do_relaunch_released() {
     || die "could not stage task $ID's progress note"
   prior_stage=$(umask 077; mktemp "$STATE/.$ID.relaunch-prior.XXXXXX") \
     || { rm -f "$note_stage"; die "could not stage task $ID's durable record"; }
-  printf '%s\n' "$NOTE" > "$note_stage" && cp -p "$META" "$prior_stage" \
-    || { rm -f "$note_stage" "$prior_stage"; die "could not stage task $ID's progress note and durable record"; }
+  if ! printf '%s\n' "$NOTE" > "$note_stage" || ! cp -p "$META" "$prior_stage"; then
+    rm -f "$note_stage" "$prior_stage"
+    die "could not stage task $ID's progress note and durable record"
+  fi
   RELAUNCH_TX="${BASHPID:-$$}.$(date -u +%Y%m%dT%H%M%SZ).$RANDOM"
   spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
