@@ -22,6 +22,16 @@ document:
     evidence destination, and unique safety facts, then review the complete
     branch diff again after every documentation or lint fix.
 
+# Review rules so rounds stop repeating themselves and say what the named checks miss.
+review:
+  path_instructions:
+    - path: "*"
+      instructions: >-
+        Never repeat a finding that an earlier round already raised or resolved.
+        End the report with one short paragraph naming what the checks the pull request names
+        (tests, lint, CI legs) would miss.
+        In a later round, re-check only the fix diff and the class sites of the earlier findings.
+
 # Skip duplicate local lint with an explicit successful command; an empty
 # commands.lint would trigger agent-driven lint instead.
 # https://kunchenguid.github.io/no-mistakes/reference/repo-config/#commandslint
