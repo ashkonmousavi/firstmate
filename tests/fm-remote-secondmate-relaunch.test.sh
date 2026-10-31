@@ -65,14 +65,17 @@ argv_b64=$4
 command_fields=$(perl -MMIME::Base64=decode_base64 -e '
   my $data=decode_base64($ARGV[0]);
   my @args=split(/\0/, $data);
-  print join("\t", map { defined $_ ? $_ : "" } @args[0..5]);
+  print join("\t", map { defined $_ ? $_ : "" } @args[0..7]);
 ' "$argv_b64")
-IFS=$'\t' read -r cmd action id harness model effort <<EOF
+IFS=$'\t' read -r cmd action id harness model effort quota_flag quota_reason <<EOF
 $command_fields
 EOF
 [ "$cmd" = fm-remote-secondmate-control.sh ] || exit 93
 [ "$action" = relaunch ] || exit 94
 case "$FM_FAKE_RELAUNCH_MODE" in
+  quota)
+    [ "$quota_flag" = --quota-override ] && [ -n "$quota_reason" ] || { echo 'error: exhausted_now'; exit 1; }
+    ;;
   refuse)
     printf 'error: unverified remote secondmate harness: %s\n' "$harness" >&2
     exit 1
@@ -92,6 +95,9 @@ printf 'herdr_session=fm-remote\n'
 printf 'harness=%s\n' "$harness"
 printf 'model=%s\n' "$model"
 printf 'effort=%s\n' "$effort"
+if [ "$FM_FAKE_RELAUNCH_MODE" = quota ]; then
+  printf 'quota_override=%s\nquota_override_evidence=refuse: exhausted_now; best alternative: codex\n' "$quota_reason"
+fi
 SH
 chmod +x "$FAKEBIN/fake-ssh"
 
@@ -188,5 +194,19 @@ expect_code 0 "$RC" "a confirmed remote relaunch should succeed with an armed PR
 fm_pr_poll_artifacts_valid "$HOME_DIR/state" ios "$ROOT/bin/fm-pr-poll.sh" \
   || fail "a remote relaunch broke PR poll authentication by writing harness/model/effort after pr="
 pass "a remote relaunch keeps an already-armed PR poll authenticating"
+
+reset_meta
+cp "$HOME_DIR/state/ios.meta" "$TMP/before-quota.meta"
+OUT=$(FM_FAKE_RELAUNCH_MODE=quota run_relaunch ios grok - -); RC=$?
+expect_code 1 "$RC" "remote relaunch must preserve a host quota refusal"
+cmp -s "$HOME_DIR/state/ios.meta" "$TMP/before-quota.meta" || fail "refusal changed parent metadata"
+OUT=$(FM_FAKE_RELAUNCH_MODE=quota run_relaunch ios grok - - --quota-override 'review override'); RC=$?
+expect_code 0 "$RC" "remote relaunch must forward the explicit override"$'\n'"$OUT"
+grep -Fxq 'quota_override=review override' "$HOME_DIR/state/ios.meta" || fail "parent lost confirmed override"
+grep -Fxq 'quota_override_evidence=refuse: exhausted_now; best alternative: codex' "$HOME_DIR/state/ios.meta" || fail "parent lost confirmed evidence"
+OUT=$(run_relaunch ios claude claude-opus-5-5 medium); RC=$?
+expect_code 0 "$RC" "later relaunch should succeed"
+assert_no_grep 'quota_override' "$HOME_DIR/state/ios.meta" "later relaunch inherited stale override evidence"
+pass "remote relaunch forwards explicit quota overrides and mirrors confirmed evidence"
 
 echo "ALL TESTS PASSED"

@@ -1169,7 +1169,7 @@ fi
 spawn_remote_secondmate() {
   local id=$1 remote host root home harness positional model effort backend out rc meta tmp
   local remote_backend remote_target remote_harness remote_herdr_session registry_lock remote_lock remote_generation
-  local remote_traceparent remote_recorded_traceparent sm_primary_head sync_out sync_rc account_config
+  local remote_traceparent remote_recorded_traceparent sm_primary_head sync_out sync_rc account_config remote_quota_override remote_quota_evidence
   local -a launch_args
   id=${POS[0]:-}
   fm_task_id_creation_valid "$id" || {
@@ -1364,6 +1364,7 @@ spawn_remote_secondmate() {
   fi
   launch_args=("$id" "$harness" "$model" "$effort" "$backend")
   [ -z "$remote_traceparent" ] || launch_args+=("$remote_traceparent")
+  [ -z "$QUOTA_OVERRIDE" ] || launch_args+=(--quota-override "$QUOTA_OVERRIDE")
   if out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh launch \
     "${launch_args[@]}" </dev/null 2>&1); then
     rc=0
@@ -1413,6 +1414,8 @@ spawn_remote_secondmate() {
   # reports it here so the parent does not deny the agent's actual identity.
   remote_recorded_traceparent=$(printf '%s\n' "$out" | sed -n 's/^traceparent=//p' | tail -1)
   fm_trace_context_valid "$remote_recorded_traceparent" || remote_recorded_traceparent=
+  remote_quota_override=$(printf '%s\n' "$out" | sed -n 's/^quota_override=//p' | tail -1)
+  remote_quota_evidence=$(printf '%s\n' "$out" | sed -n 's/^quota_override_evidence=//p' | tail -1)
   tmp="$meta.tmp.$$"
   {
     echo "window=remote:$id"
@@ -1434,6 +1437,9 @@ spawn_remote_secondmate() {
     echo "remote_herdr_session=$remote_herdr_session"
     echo "remote_target=$remote_target"
     [ -z "$remote_recorded_traceparent" ] || echo "traceparent=$remote_recorded_traceparent"
+    if [ -n "$remote_quota_override" ]; then
+      printf 'quota_override=%s\nquota_override_evidence=%s\n' "$remote_quota_override" "$remote_quota_evidence"
+    fi
   } >"$tmp"
   if ! fm_backlog_atomic_transition publish "$tmp" "$meta" "task record" "$STATE"; then
     if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
@@ -3095,6 +3101,23 @@ if [ "$HARNESS" = commandcode ] && [ "$BACKEND" != tmux ] && [ "$BACKEND" != her
   exit 1
 fi
 
+secondmate_registry_value() {
+  secondmate_registry_field "$DATA/secondmates.md" "$1" "$2"
+}
+
+if [ "$KIND" = secondmate ]; then
+  if [ -z "$FIRSTMATE_HOME" ] && { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; }; then
+    fm_backlog_record_present "$STATE/$ID.meta" "task record" "$STATE" || {
+      echo "error: secondmate task record is unsafe: $FM_BACKLOG_TRANSITION_ERROR" >&2
+      exit 1
+    }
+    FIRSTMATE_HOME=$(grep '^home=' "$STATE/$ID.meta" | cut -d= -f2- || true)
+  fi
+  if [ -z "$FIRSTMATE_HOME" ]; then
+    FIRSTMATE_HOME=$(secondmate_registry_value "$ID" home || true)
+  fi
+fi
+
 # Quota gate for an explicitly named adapter (header above). A relaunch whose
 # fm-control parent holds the control lock was gated there before the old agent
 # stopped; refusing here instead would strand a stopped task, so the parent's
@@ -3103,7 +3126,14 @@ QUOTA_GATE_EVIDENCE=
 if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" = 1 ]; then
   QUOTA_GATE_EVIDENCE=${FM_CONTROL_QUOTA_EVIDENCE:-}
 elif [ -n "$ARG3" ] && [ "$RAW_LAUNCH" -eq 0 ]; then
-  fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" || {
+  QUOTA_GATE_CWD=$PROJ
+  if [ "$KIND" = secondmate ]; then
+    QUOTA_GATE_CWD=$FIRSTMATE_HOME
+  elif [ "$RELAUNCH" -eq 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
+    QUOTA_GATE_CWD=$RELAUNCH_WT
+  fi
+  fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" \
+    "$QUOTA_GATE_CWD" "$CONFIG" "$([ "$KIND" != secondmate ] || printf '%s' "$ID")" || {
     [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
     exit 1
   }
@@ -3275,9 +3305,6 @@ if [ "$RAW_LAUNCH" = 1 ] && { [ "$WORKER_ACCOUNT_HARNESS" != claude ] || [ -z "$
   fi
 fi
 
-secondmate_registry_value() {
-  secondmate_registry_field "$DATA/secondmates.md" "$1" "$2"
-}
 
 resolve_kimi_binary() {
   local candidate dir fallback
@@ -3826,18 +3853,6 @@ validate_firstmate_operational_dirs() {
   done
 }
 
-if [ "$KIND" = secondmate ]; then
-  if [ -z "$FIRSTMATE_HOME" ] && { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; }; then
-    fm_backlog_record_present "$STATE/$ID.meta" "task record" "$STATE" || {
-      echo "error: secondmate task record is unsafe: $FM_BACKLOG_TRANSITION_ERROR" >&2
-      exit 1
-    }
-    FIRSTMATE_HOME=$(grep '^home=' "$STATE/$ID.meta" | cut -d= -f2- || true)
-  fi
-  if [ -z "$FIRSTMATE_HOME" ]; then
-    FIRSTMATE_HOME=$(secondmate_registry_value "$ID" home || true)
-  fi
-fi
 
 if [ "$KIND" = secondmate ]; then
   [ -n "$FIRSTMATE_HOME" ] || {

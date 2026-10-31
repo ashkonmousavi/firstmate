@@ -108,6 +108,15 @@ SH
 chmod +x "$REMOTE_ROOT/bin/tmux"
 install_remote_herdr_fixture "$REMOTE_ROOT" "$HERDR_STATE" "$HERDR_LOG" \
   "$TMP_ROOT/herdr-send-fail" "$TMP_ROOT/herdr.sock"
+cp "$FM_QUOTA_SNAPSHOT_FILE" "$TMP_ROOT/remote-quota.json"
+mv "$REMOTE_ROOT/bin/fm-remote-secondmate-control.sh" "$REMOTE_ROOT/bin/fm-remote-secondmate-control-actual.sh"
+{
+  printf '#!/usr/bin/env bash\n'
+  printf 'export FM_TEST_SEAM=1\nexport FM_QUOTA_SNAPSHOT_FILE=%q\nexport FM_QUOTA_MODEL_CATALOG_FILE=%q\n' \
+    "$TMP_ROOT/remote-quota.json" "$REMOTE_ROOT/tests/fixtures/quota-model-catalog.json"
+  printf 'exec %q "$@"\n' "$REMOTE_ROOT/bin/fm-remote-secondmate-control-actual.sh"
+} > "$REMOTE_ROOT/bin/fm-remote-secondmate-control.sh"
+chmod +x "$REMOTE_ROOT/bin/fm-remote-secondmate-control.sh"
 git -C "$REMOTE_ROOT" init -q -b main
 git -C "$REMOTE_ROOT" config user.email test@example.com
 git -C "$REMOTE_ROOT" config user.name Test
@@ -328,5 +337,23 @@ try_flag 'requires a non-empty value' \
   "an empty carrier must be refused rather than silently ignored" \
   --secondmate --traceparent=
 pass "delivery: a parent-supplied carrier is accepted only for a secondmate launch and only as a strict W3C value"
+
+reset_remote_herdr_fixture "$HERDR_STATE"
+jq '(.providers[] | select(.provider == "codex").quotaSemantics.effectiveAvailability[]) |=
+  (.effectivePercentRemaining=0 | .runway.status="exhausted_now")' \
+  "$FM_QUOTA_SNAPSHOT_FILE" > "$TMP_ROOT/exhausted.json"
+cp "$TMP_ROOT/exhausted.json" "$TMP_ROOT/remote-quota.json"
+cp "$PARENT/state/ios2.meta" "$TMP_ROOT/parent-before-quota.meta"
+OUT=$(FM_QUOTA_SNAPSHOT_FILE="$TMP_ROOT/exhausted.json" remote_env "$ROOT/bin/fm-spawn.sh" ios2 --secondmate --harness codex 2>&1); RC=$?
+expect_code 1 "$RC" "remote spawn must propagate a host quota refusal: $OUT"
+cmp -s "$PARENT/state/ios2.meta" "$TMP_ROOT/parent-before-quota.meta" || fail "refused remote spawn rewrote parent metadata"
+OUT=$(FM_QUOTA_SNAPSHOT_FILE="$TMP_ROOT/exhausted.json" remote_env "$ROOT/bin/fm-spawn.sh" ios2 --secondmate --harness codex \
+  --quota-override 'explicit remote spawn override' 2>&1); RC=$?
+expect_code 0 "$RC" "remote spawn must forward its explicit override with trace context: $OUT"
+for meta in "$PARENT/state/ios2.meta" "$SECOND_HOME/state/parent-route/ios2.meta"; do
+  grep -Fxq 'quota_override=explicit remote spawn override' "$meta" || fail "remote spawn lost the confirmed override"
+  assert_grep 'quota_override_evidence=refuse: provider codex' "$meta" "remote spawn lost the confirmed quota evidence"
+done
+pass "remote spawn forwards an explicit quota override alongside trace context and records host-confirmed evidence at both ends"
 
 echo "ALL TESTS PASSED"
