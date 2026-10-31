@@ -399,7 +399,6 @@ When the automatic transition gate applies, `bin/fm-spawn.sh` owns dispatch and 
 Keep filing, ownership, decisions and acceptance evidence current; `docs/configuration.md` owns gate applicability and the manual-backend exception.
 Re-evaluate queued work after every teardown and heartbeat, and also after a recorded PR-ready handoff when `config/project-capacity` caps that project, dispatching items only when dependencies, time gates, and project capacity have cleared.
 Use `bin/fm-capacity.sh` for that re-evaluation under the [machine admission requirements](docs/configuration.md#machine-capacity-configlane-capacity).
-A spawn deferred because the machine has no free lane is retried by the supervision check sweep, oldest deferred first, and a second hand retry is unnecessary because a live endpoint is refused and the in-progress claim hides that request until the attempt finishes.
 
 `.tasks.toml`, `docs/configuration.md`, and current `tasks-axi --help` own the backlog schema, compatibility, retention, and routine command syntax.
 Use compatible `tasks-axi` when the configured backend selects it, always through `bin/fm-tasks-axi.sh` so the call reaches this home's backlog from any directory, and the documented manual path otherwise; keep only the configured recent Done entries.

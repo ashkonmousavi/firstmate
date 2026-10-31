@@ -67,7 +67,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-remote-readiness-lib.sh` | Shared remote second-mate readiness gate: check and, when needed, repair then re-check through `fm-remote-doctor.sh` |
 | [`fm-project-origin-lib.sh`](../bin/fm-project-origin-lib.sh) | Accepted origin-form owner shared by both remote provisioning boundaries |
 | `fm-spawn.sh`            | Spawn crewmates, scouts, `id=repo` batches, and secondmates on the resolved harness and runtime backend |
-| `fm-spawn-deferred.sh`   | Record a machine-lane deferral and retry the oldest queued request when a lane is free |
+| [`fm-spawn-deferred.sh`](../bin/fm-spawn-deferred.sh) | Manage automatic retries of machine-lane deferrals; its header owns eligibility and replay |
 | `fm-git-strip-ai-trailers.sh` | Strip known AI commit trailers at commit-msg time and install that hook, the Ruff format check, and any forge=external push guard for a fleet launch |
 | `fm-git-ruff-format-check.sh` | Automatically check committed `.py`, `.pyi`, and `.ipynb` files in repositories declaring Ruff; refuse formatting failures or unchecked pushes |
 | `fm-git-push-guard.sh`  | Refuse a forge=external task's pushes to the shared origin and of task-prefixed branches, and write its per-task guard record ([design](external-review-forge.md)) |

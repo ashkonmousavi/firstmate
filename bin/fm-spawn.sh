@@ -201,7 +201,8 @@
 #   Machine admission: fresh and relaunched workers share the live machine
 #   ceiling and memory check (fm-capacity-lib.sh). Refusal exits 75 without
 #   launching; persistent secondmate startup is exempt. No machine lock spans
-#   launch. A machine-lane refusal is recorded for automatic retry by bin/fm-spawn-deferred.sh.
+#   launch. bin/fm-spawn-deferred.sh owns automatic retry of fresh spawns
+#   refused with "no free machine lane".
 #   Project capacity remains a separate project-identity transaction.
 #   Project capacity: when this machine declares how many workers a project
 #   admits at once (config/project-capacity; bin/fm-project-capacity-lib.sh owns

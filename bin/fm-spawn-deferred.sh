@@ -21,26 +21,28 @@
 #
 # sweep runs from the supervision check sweep (bin/fm-watch.sh), whose default
 # period is five minutes. Its detached retry worker asks bin/fm-capacity.sh
-# for free_lanes once. Each
-# claim already running prevents another launch, and only a successful launch
-# spends a free lane. The oldest eligible queued request in this home starts first.
+# for free_lanes once. A running claim prevents another launch; only a
+# successful launch spends a free lane. The oldest eligible queued request
+# in this home starts first.
 # Ordering is per home; there is no machine-wide sequencing or shared queue.
 # Eligible means a readable backlog row is exactly queued, not held and not
 # blocked (bin/fm-backlog-transition-lib.sh), and the task record does not hold
 # a machine seat (bin/fm-project-capacity-lib.sh). Manual-backlog homes, absent
 # backlogs, and unreadable rows report "cannot establish queued eligibility"
 # and never launch automatically. A held or blocked row stays queued and does
-# not block a younger request. A row that is in flight, done, cancelled, or
-# missing is removed without a launch.
+# not block a younger request. A retryable record whose row is in flight,
+# done, cancelled, or missing is removed without a launch.
 #
 # The recorded program is executed with the recorded arguments and working
-# directory. The environment is the sweep's environment, not a snapshot from
-# the deferral. A record whose checksum, task identity, program, or working
+# directory. fm-spawn.sh saves the resolved backend and absolute project path
+# in argv so a retry cannot select a different runtime or project from its
+# environment. The remaining environment comes from the sweep, not a snapshot
+# from the deferral. A record whose checksum, task identity, program, or working
 # directory no longer matches is removed and reported as stale; it is not
 # started. Exit 0 removes the record. Exit 75, including the record() call the
 # retried spawn makes, returns the request to the queue at its original order.
-# Any other exit is reported once and is not launched again until a new
-# deferral rewrites the record or the row leaves the queue.
+# Any other exit is reported once and suppresses automatic retries until a
+# new deferral rewrites the record.
 #
 # A claim directory entry is the in-progress mark, taken while the sweep lock
 # state/.spawn-deferred.lock is held. The spawn itself runs after that lock is
@@ -60,7 +62,14 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
-export FM_HOME FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG"
+export FM_HOME FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG"
+# Stock data needs no override; keep marked lab retries inside the lifecycle
+# guard's stock-home contract while retaining explicitly relocated data.
+if [ "$DATA" = "$FM_HOME/data" ]; then
+  unset FM_DATA_OVERRIDE
+else
+  export FM_DATA_OVERRIDE="$DATA"
+fi
 
 case "${1:-}" in
   -h|--help)

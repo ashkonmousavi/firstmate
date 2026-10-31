@@ -834,10 +834,10 @@ SH
     --backend orca --mode no-mistakes --yolo off) || rc2=$?
   : > "$case_dir/holder.release"
   wait "$holder" || true
-  expect_code 1 "$rc" "an Orca spawn ignored a held project lock: $out"
+  expect_code "$DEFER_EXIT" "$rc" "an Orca spawn did not defer at a held project lock: $out"
   assert_contains "$out" "another spawn or cleanup holds the shared project lock for $case_dir/project; refusing to race its capacity admission" \
     "the Orca spawn did not refuse on the shared project lock"
-  expect_code 1 "$rc2" "an Orca spawn from an uncapped same-origin clone ignored the held project lock: $out2"
+  expect_code "$DEFER_EXIT" "$rc2" "an Orca spawn from an uncapped same-origin clone did not defer at the held project lock: $out2"
   assert_contains "$out2" "another spawn or cleanup holds the shared project lock for $case_dir/project-2" \
     "the uncapped same-origin clone's Orca spawn did not refuse on the shared project lock"
   assert_absent "$home/state/task-o.meta" "the uncapped clone's Orca spawn published a record while the lock was held"

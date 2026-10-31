@@ -108,8 +108,9 @@
 #                          DECISIONS until the hold is released or re-held
 #                          (bin/fm-hold-release-lib.sh owns the contract)
 #   check: deferred-spawn: <line>[; <line>...]
-#                          a machine-lane deferral started, went stale, or
-#                          failed on this sweep (bin/fm-spawn-deferred.sh)
+#                          a deferred request started, went stale, failed, or
+#                          could not prove queued eligibility; detached retry
+#                          outcomes arrive on a later sweep (bin/fm-spawn-deferred.sh)
 #   check: process-event result captured: <keys>
 #                          a durably captured process-to-event result is queued
 #                          and has not been surfaced yet; reported once per
@@ -3436,9 +3437,9 @@ while :; do
 $hold_release_out
 EOF
     fi
-    # Machine-lane deferrals retry in this same sweep. The helper owns the
-    # record, the free-lane budget, and the refusal rules; this loop only
-    # surfaces what it prints. Stderr is triage, same as hold release.
+    # The helper starts detached machine-lane retries and returns prior
+    # outcomes without waiting for a spawn. It owns the record, free-lane
+    # budget, and refusal rules. Stderr is triage, same as hold release.
     deferred_spawn_rc=0
     deferred_spawn_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" \
       "$SCRIPT_DIR/fm-spawn-deferred.sh" sweep 2>"$STATE/.spawn-deferred-sweep.err") || deferred_spawn_rc=$?
