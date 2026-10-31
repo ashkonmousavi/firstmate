@@ -27,6 +27,7 @@
 #   <task>.inbox/handled/      the worker's `mv` here IS the acknowledgement
 #   <task>.inbox/.seq.lock     serializes sequence allocation across writers
 #                              (the session and the away daemon)
+#   <task>.inbox/.ring.lock    per-inbox ring exclusion (fm_task_inbox_ring below)
 #   <task>.inbox/.ring-state   watcher re-ring ladder: "<msg>\t<count>\t<epoch>"
 #   <task>.inbox/.busy-state   consecutive busy deferrals: "<msg>\t<count>"
 #   <task>.inbox/NNN.ring-reason   last ring result (fm_task_inbox_ring owns the format)
@@ -512,8 +513,8 @@ fm_task_inbox_confirmed_enter() {
 # an unknown or unreadable composer ends confirmation without another blind
 # Enter. Backend-specific confirmation boundaries live in docs/tmux-backend.md
 # and docs/herdr-backend.md.
-# Returns 0 submit confirmed, 1 foreign or busy non-queue draft skipped, 2 backend send
-# failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed,
+# Returns 0 submit confirmed, 1 ring lock not acquired or foreign/busy non-queue
+# draft skipped, 2 backend send failed, 3 positively dead/missing endpoint skipped, 4 submit unconfirmed,
 # 5 optional clear-busy reset failed before delivery.
 # Optional clear-busy consumes the owed follow-up only after the endpoint check
 # and before delivery, so a dead/missing endpoint retains its busy debt.
@@ -550,13 +551,16 @@ fm_task_inbox_confirmed_enter() {
 # One ring per inbox at a time: <inbox>/.ring.lock serializes every ringer
 # (fm-send's enqueue ring, the watcher ladder, the remote inbox verb). Two
 # overlapping rings can each see an empty composer, both type, and each
-# payload proof then reads the other's text (reproduced in a Herdr lab; q-crew
-# records 1707 and 1708 failed that way 4 s apart).
-# Every record of one inbox rings the same doorbell line, so a ring that
-# finds another live ring in flight skips with rc 1 and token ring-in-flight;
-# the in-flight doorbell already points the worker at every record. Like a
-# foreign-draft skip, that rc 1 counts as a ladder attempt for the watcher and
-# the remote inbox verb. A dead ringer's lock is reclaimed by fm_lock_try_acquire.
+# payload proof then reads the other's text.
+# Every record of one inbox rings the same doorbell line, so an in-flight
+# doorbell already points the worker at every record.
+# A ring requires successful lock acquisition; any acquisition failure skips
+# with rc 1 and token ring-in-flight, even if dead-owner reclamation leaves
+# no holder PID visible. Like a foreign-draft skip, that rc 1 counts as a
+# ladder attempt for the watcher and the remote inbox verb.
+# A dead ringer's lock is reclaimed by fm_lock_try_acquire.
+# tests/fm-task-inbox.test.sh covers ordinary overlap and concurrent dead-owner
+# reclamation, including the absent-primary-lock window.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness] [clear-busy]
   local rc=0 lock
   FM_TASK_INBOX_RING_REASON=

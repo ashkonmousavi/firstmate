@@ -3517,11 +3517,8 @@ fm_backend_herdr_composer_payload_arriving() {  # <text> <after>
 }
 
 # fm_backend_herdr_composer_payload_wait: 0 once the composer shows <text>.
-# Claude renders typed input asynchronously, and on a loaded host the first
-# send into an idle Claude was measured live taking 2.8 s to appear (Claude
-# 2.1.316, Herdr 0.9.5, load 16 on 16 cores) while the read after a 0.3 s
-# settle saw an empty composer. So a composer that shows a strict prefix of
-# the payload, empty included, is re-read every
+# Claude renders typed input asynchronously, so an early empty or partial
+# read is not proof of lost input. A strict prefix, empty included, is re-read every
 # FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL seconds (default 0.2), at most
 # FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS / interval times (default 6 s, so 30
 # reads; each read's own latency adds to the wall time). Any other content,

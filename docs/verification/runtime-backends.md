@@ -1801,7 +1801,7 @@ Claude renders typed input asynchronously, so the pre-Enter payload proof can re
 Time from `pane send-text` of the real doorbell line to a composer read that proves it: 31-312 ms on a fresh idle pane with 2838 ms once (that read at 0.4 s saw an empty composer), up to 401 ms and 481 ms after 3 idle minutes, and 41-99 ms mid-turn.
 Every intermediate read on a mid-turn pane was a strict prefix of the payload.
 The previous proof read once after the caller's 0.3 s settle, which matched the intermittent `payload-not-shown` doorbell failures recorded on both hosts' remote secondmate inboxes.
-`fm_backend_herdr_composer_payload_wait` now re-reads while the composer shows a strict prefix of the payload, bounded by `FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS`.
+The current proof contract is documented in [Claude composer proof](../herdr-backend.md#claude-composer-proof).
 
 Counterfactual: pausing the lab Claude process for 1.5 s from the `send-text` call reproduced `payload-not-shown` with the previous proof on both hosts and left the doorbell in the composer; with the bounded wait, three such stalled `bin/fm-send.sh` steers and then three plain 1228-character steers each recorded `rc=0 token=ok` and were acted on (record moved into `handled/`) on both hosts.
 Refresh the render-stall proof with the maintained live guard:
@@ -1827,6 +1827,8 @@ Portable regressions:
 bash tests/fm-backend-herdr.test.sh
 bash tests/fm-task-inbox.test.sh
 ```
+
+The inbox suite also covers concurrent dead-owner reclamation in `test_ring_skips_during_dead_owner_reclamation`, requiring a contender with no visible holder PID to skip without typing, preserving both records and a later retry.
 
 ```text
 ok - fm_backend_herdr_send_text_submit: a Claude composer still rendering the payload (empty, then a prefix) is re-read and the payload submitted
