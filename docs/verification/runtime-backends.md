@@ -3317,6 +3317,16 @@ ok - codex (codex-cli 0.160.0): exact-home discovery, wrong-home and stale-label
 
 This proves live process discovery and shell refusal, including startup interfaces without a submitted prompt.
 It does not prove prompt delivery or turn-end watcher recovery.
+The guard scopes its server and every CLI call with the same explicit session, and uses a relative private XDG config path from its temporary working directory to keep Unix socket names short in deep worktrees.
+Explicit `--session` takes precedence over `HERDR_SOCKET_PATH` in the [Herdr socket contract](https://herdr.dev/docs/socket-api/).
+Refreshed on 2026-10-31 with `env FM_MAIN_BACKSTOP_LIVE=1 TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-main-backstop-live-e2e.test.sh` after `mkdir -p .review-evidence/tmp` (exit 0):
+
+```text
+# herdr 0.9.5
+ok - claude (2.1.316 (Claude Code)): exact-home discovery, wrong-home and stale-label shell refusal
+ok - codex (codex-cli 0.166.0): exact-home discovery, wrong-home and stale-label shell refusal
+```
+
 
 
 ## Lane release class inventory for validation
@@ -3382,3 +3392,39 @@ Provider reads retain their existing host/login/account selection; the audit doe
 No live guard, credentialed session, or installed-harness version is claimed by this inspection handoff.
 The terminal adapters expose separate reads and input calls, not an atomic conditional-exit protocol; action guards reject observed generation/sequence changes, and do not claim atomic exclusion of arbitrary concurrent physical keyboard input.
 Validation must retain current real-harness evidence for the installed eligible adapters, explicitly name unavailable adapters, and leave unsupported turn-history sources ineligible.
+
+## Idle-holder takeover live guard
+
+`FM_SESSION_LOCK_LIVE=1 bash tests/fm-session-lock-live-e2e.test.sh` refreshes the Claude-specific fork-resume evidence.
+The prompt-submitting guard belongs to `live-harness-optin` and uses `fm_live_gate` with the opt-in policy.
+It starts real Claude stream-JSON sessions with a controlling terminal, a detached background fork, and a return terminal fork, while keeping both predecessors alive.
+The hook identities, argv and user/assistant transcript rows come from Claude; the guard never rewrites those rows.
+Each fork first attempts acquisition against the recent predecessor and must refuse.
+The guard then advances only the lock-check clock by 3600 seconds to exercise quiet-holder startup acquisition and Stop recovery without a 30-minute sleep.
+It checks the completed lock pairs, the two recorded handovers and the Stop-owned arm against the independently known session ids and live process ids.
+The watcher-arm transport is a fixture; continuous ownership during publication and real phone transport are outside this guard's proof.
+Other supported harnesses do not expose the trusted Claude identity used by this takeover path and retain ordinary live-owner refusal.
+The portable lease and disabled-capability regressions are `bash tests/fm-session-lock-ancestry.test.sh` and `bash tests/fm-main-backstop.test.sh`.
+The vendor CLI contract is documented in [Claude's CLI reference](https://code.claude.com/docs/en/cli-reference) and [Remote Control documentation](https://code.claude.com/docs/en/remote-control).
+
+Observed on 2026-10-31 with `env FM_SESSION_LOCK_LIVE=1 TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-live-e2e.test.sh` after `mkdir -p .review-evidence/tmp` (exit 0):
+
+```text
+# 2026-10-31 Claude 2.1.316 (Claude Code)
+ok - terminal holder pid=1720414 tty=pts/48
+ok - phone holder pid=1725406 tty=?
+ok - return holder pid=1742674 tty=pts/58
+ok - live fork-resume terminal -> background phone -> terminal: two recorded handovers; recent-turn refusal; Stop recovery armed; predecessor processes stayed live; classifier clock advanced 3600s, vendor transcripts unmodified
+```
+
+The focused portable checks on the same date also passed with `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-ancestry.test.sh` and `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-main-backstop.test.sh` (both exit 0).
+Their output included:
+
+```text
+ok - session-lock: a partial lease move rolls back and keeps both actors excluded
+ok - session-lock: a Stop hook of an idle fork-resume successor takes the lock
+ok - session-lock: phone and terminal switches leave exactly one holder
+test_disabled_capability_with_live_lock_defers_without_discovery (__main__.Backstop.test_disabled_capability_with_live_lock_defers_without_discovery) ... ok
+Ran 74 tests in 143.029s
+OK
+```

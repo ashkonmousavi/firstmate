@@ -1160,6 +1160,26 @@ os.execv(real,[command]+sys.argv[3:])
         self.addCleanup(proc.kill)
         return proc.pid
 
+    def test_disabled_capability_with_live_lock_defers_without_discovery(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        selected = self.select_send_file()
+        for content in (None, b'invalid\n'):
+            with self.subTest(content=content):
+                if content is None:
+                    selected.unlink()
+                else:
+                    selected.write_bytes(content)
+                self.run_guard()
+                self.assert_observe_only()
+                incident = self.memory()['episodes']['recovery']
+                self.assertIn(incident, self.memory()['deferred_alarms'])
+        selected.write_bytes(b'enabled\n')
+        selected.chmod(0o600)
+        self.run_guard()
+        self.assertIn(incident, self.notes())
+        self.assertNotIn(incident, self.memory()['deferred_alarms'])
+
     def test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked(self):
         pid = self.start_named_claude()
         (self.state / '.lock').write_text('%s\n' % pid)

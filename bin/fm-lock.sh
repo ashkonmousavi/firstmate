@@ -102,6 +102,7 @@ REANCHOR=
 TAKEOVER_FROM=
 TAKEOVER_SESSION=
 TAKEOVER_TO=
+TAKEOVER_LEASES_MOVED=0
 # PHASE 0: committed/none. 1: sidecar mutated, line 1 not written. 2: line 1 written, not verified.
 # KIND 0: no backup. 1: restore $LOCK_SESSION_PREV. 2: sidecar was absent.
 LOCK_SESSION_PHASE=0
@@ -145,6 +146,12 @@ commit_lock_session() {
   rm -f "$LOCK_SESSION_PREV" 2>/dev/null || true
 }
 on_lock_exit() {
+  if [ "$TAKEOVER_LEASES_MOVED" -eq 1 ] && [ "$LOCK_SESSION_PHASE" -ne 0 ]; then
+    if cp -f "$LOCK_LINE_PRE" "$LOCK" 2>/dev/null; then
+      LOCK_SESSION_PHASE=1
+    fi
+    fm_lease_rekey_holder "$me" "$TAKEOVER_FROM" || true
+  fi
   restore_uncommitted_lock_session
   [ -n "$LOCK_LINE_PRE" ] && rm -f "$LOCK_LINE_PRE"
   release_autoarm_lock
@@ -330,6 +337,14 @@ if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
     fi
   fi
 fi
+if [ -n "$TAKEOVER_FROM" ]; then
+  if ! fm_lock_acquire_wait_max "$LEASE_LOCK" "$LEASE_LOCK_WAIT"; then
+    echo "error: task lease command is still running; operate read-only until resolved" >&2
+    exit 1
+  fi
+  LEASE_LOCK_HELD=1
+  allow_live_holder_takeover "$TAKEOVER_FROM"
+fi
 # The sidecar goes first: a fresh pid beside a previous session's id would let
 # that session's resume own this lock. If the sidecar changes before line 1 is
 # written, a failure restores the previous sidecar. If line 1 is written but
@@ -375,6 +390,13 @@ written=$(cat "$LOCK" 2>/dev/null) || {
 if [ ! -f "$LOCK" ] || [ -L "$LOCK" ] || [ "$written" != "$me" ]; then
   echo "error: session lock ownership verification failed; operate read-only until resolved" >&2
   exit 1
+fi
+if [ -n "$TAKEOVER_FROM" ]; then
+  TAKEOVER_LEASES_MOVED=1
+  if ! fm_lease_rekey_holder "$TAKEOVER_FROM" "$me"; then
+    echo "error: cannot move task leases to the successor; operate read-only until resolved" >&2
+    exit 1
+  fi
 fi
 if ! record_lock_handover; then
   if [ -n "$LOCK_LINE_PRE" ] && [ -f "$LOCK_LINE_PRE" ]; then

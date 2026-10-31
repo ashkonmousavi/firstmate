@@ -550,7 +550,10 @@ def main():
     suppress_nudge = False
     live_lock_pid = read_lock_pid(state)
     silence = need and beat_age >= SILENCE_NUDGE_AFTER and not (state / '.afk').exists()
-    if silence and live_lock_pid is not None:
+    if silence and not send_enabled():
+        alarm('recovery', 'BACKSTOP HELD: watcher silent for %ds' % beat_age)
+        suppress_nudge = True
+    elif silence and live_lock_pid is not None:
         try:
             report = holder_report(state, env)
         except ProbeError:

@@ -392,19 +392,22 @@ ok - a claim pinned before a re-anchor records the live lock holder; a dead pin 
 FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=43472
 ```
 
-No live unattended Claude background session ran on the verifying machine: that topology is documented by the real process listings in issues #3902, #2314, #3398, and #4066, and the coverage above is the structural predicate plus those executable fixtures, not a live pass.
+The recycled-helper-chain topology is documented by the real process listings in issues #3902, #2314, #3398, and #4066; the coverage above is the structural predicate plus those executable fixtures, not a live pass of that topology.
 An idle fork-resume successor may take that lock.
 The holder transcript must be the one readable file for the recorded session, with no user or assistant turn after the successor forked from it and none in the last 30 minutes.
 The fork is this process's `--fork-session` plus `--resume` of the recorded session, or the holder's turn uuids as a prefix of the successor transcript.
 `bin/fm-lock.sh` records the handover after line 1 is verified; that script's header owns the JSON line.
 A holder with any turn in the last 30 minutes, or a holder whose transcript cannot be read, stays on the ordinary live-owner refusal.
 The Stop hook uses the same decision before it arms.
+Both acquisition paths serialize task-lease handover with lease commands and preserve the actor and epoch when moving leases to the new holder.
+A failed lease move rolls back the takeover before releasing lease serialization.
 When the watcher has been silent and a different live process holds the lock, `bin/fm-main-backstop.py` names that holder once after 15 minutes, with its pid, tty, and idle time, and does not send the silence nudge to the read-only session.
 A holder that is the session itself still gets the silence nudge.
 Other harnesses have no trusted Claude session id, so they keep the ordinary refusal.
-This proof uses Claude-shaped processes and fixture transcripts, not a live Claude prompt.
+The portable proof below uses Claude-shaped processes and fixture transcripts.
+The [live idle-holder guard](runtime-backends.md#idle-holder-takeover-live-guard) exercises vendor-produced argv, hook identity and transcripts across startup and Stop takeover.
 A phone remote-continue is that fork-resume background copy of the idle terminal.
-A later fork-resume of the phone session takes the lock back when the phone transcript is quiet, and each switch leaves exactly one holder.
+A later fork-resume of the phone session takes the lock back when the phone transcript is quiet, and each completed switch leaves one recorded holder.
 A phone turn inside the last 30 minutes keeps the phone as that one holder.
 Idle fork-resume takeover and the one-time holder ask ran on 2026-10-31 on Linux with GNU bash 5.2.21 and Python 3.12.3:
 

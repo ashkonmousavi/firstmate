@@ -1300,6 +1300,34 @@ idle_fork_pid() {  # <home> <tag>
   tr -d '[:space:]' < "$1/state/$2.pid"
 }
 
+assert_takeover_leases() {
+  local dir=$1 pid=$2 actor task rc
+  for actor in branch main; do
+    task=takeover-$actor
+    [ "$(cat "$dir/state/.lease-$task")" = "$(printf '%s\t%s\t1234' "$actor" "$pid")" ] \
+      || fail "takeover changed lease actor/epoch or lost its holder: $task"
+    rc=0
+    FM_HOME="$dir" STATE="$dir/state" FM_SUPERVISION_ACTOR="$actor" bash -c '
+      . "$1/bin/fm-lease-lib.sh"
+      fm_lease_guard "$2" takeover-test
+      fm_lease_guard_release
+    ' bash "$ROOT" "$task" >/dev/null 2>&1 || rc=$?
+    expect_code 0 "$rc" "the existing $actor actor lost its lease"
+    rc=0
+    FM_HOME="$dir" STATE="$dir/state" FM_SUPERVISION_ACTOR="$actor" bash -c '
+      . "$1/bin/fm-lease-lib.sh"
+      fm_lease_guard "$2" takeover-test
+      fm_lease_guard_release
+    ' bash "$ROOT" "takeover-$([ "$actor" = main ] && echo branch || echo main)" >/dev/null 2>&1 || rc=$?
+    expect_code 6 "$rc" "takeover allowed the $actor actor to enter the other actor lease"
+  done
+}
+
+seed_takeover_leases() {
+  printf 'branch\t%s\t1234\n' "$2" > "$1/state/.lease-takeover-branch"
+  printf 'main\t%s\t1234\n' "$2" > "$1/state/.lease-takeover-main"
+}
+
 test_idle_fork_resume_of_a_quiet_holder_takes_the_lock() {
   local dir config holder succ
   prepare_idle_fork_shim
@@ -1314,6 +1342,7 @@ test_idle_fork_resume_of_a_quiet_holder_takes_the_lock() {
   holder=$(idle_fork_pid "$dir" holder)
   [ "$(tr -d '[:space:]' < "$dir/state/.lock")" = "$holder" ] \
     || fail "the holder lock is $(cat "$dir/state/.lock"), expected $holder"
+  seed_takeover_leases "$dir" "$holder"
   start_idle_fork_proc succ "$IDLE_FORK_SUCC" "$dir" "$config" "$ROOT/bin/fm-lock.sh" \
     --fork-session --resume "$IDLE_FORK_HOLDER"
   expect_code 0 "$(tr -d '[:space:]' < "$dir/state/succ.rc")" \
@@ -1332,8 +1361,42 @@ test_idle_fork_resume_of_a_quiet_holder_takes_the_lock() {
     || fail "the handover does not name the successor pid: $(cat "$dir/state/.lock-handover.jsonl")"
   grep -q "\"to_session\":\"$IDLE_FORK_SUCC\"" "$dir/state/.lock-handover.jsonl" \
     || fail "the handover does not name the successor session: $(cat "$dir/state/.lock-handover.jsonl")"
+  assert_takeover_leases "$dir" "$succ"
   stop_idle_fork_procs "$dir" holder succ
   pass "session-lock: a fork-resume successor of an idle holder takes the lock and records the handover"
+}
+
+test_failed_takeover_lease_move_preserves_exclusion() {
+  local dir config holder rc
+  prepare_idle_fork_shim
+  dir=$TMP_ROOT/idle-fork-lease-failure
+  config=$TMP_ROOT/idle-fork-lease-failure-config
+  mkdir -p "$dir/state" "$dir/shim"
+  write_idle_fork_turns "$config" "$IDLE_FORK_HOLDER" 7200 holder-turn-aaa
+  start_idle_fork_proc holder "$IDLE_FORK_HOLDER" "$dir" "$config" "$ROOT/bin/fm-lock.sh"
+  holder=$(idle_fork_pid "$dir" holder)
+  seed_takeover_leases "$dir" "$holder"
+  cat > "$dir/shim/mv" <<'SH'
+#!/usr/bin/env bash
+case "${*: -1}" in */.lease-takeover-main) exit 1 ;; esac
+exec /bin/mv "$@"
+SH
+  cat > "$dir/claim" <<'SH'
+#!/usr/bin/env bash
+export PATH="$FM_HOME/shim:$PATH"
+exec "$FM_LOCK_TEST_ROOT/bin/fm-lock.sh"
+SH
+  chmod +x "$dir/shim/mv" "$dir/claim"
+  FM_LOCK_TEST_ROOT="$ROOT" start_idle_fork_proc succ "$IDLE_FORK_SUCC" "$dir" "$config" "$dir/claim" \
+    --fork-session --resume "$IDLE_FORK_HOLDER"
+  rc=$(tr -d '[:space:]' < "$dir/state/succ.rc")
+  expect_code 1 "$rc" "a failed lease move completed the takeover"
+  [ "$(cat "$dir/state/.lock")" = "$holder" ] || fail "a failed lease move retired the holder"
+  [ "$(cat "$dir/state/.lock-session")" = "$IDLE_FORK_HOLDER" ] || fail "a failed lease move lost the holder session"
+  [ ! -e "$dir/state/.lock-handover.jsonl" ] || fail "a failed lease move recorded a handover"
+  assert_takeover_leases "$dir" "$holder"
+  stop_idle_fork_procs "$dir" holder succ
+  pass "session-lock: a partial lease move rolls back and keeps both actors excluded"
 }
 
 test_idle_fork_resume_without_a_successor_transcript_takes_the_lock_on_linux() {
@@ -1491,6 +1554,7 @@ SH
   expect_code 0 "$(tr -d '[:space:]' < "$dir/state/holder.rc")" \
     "the stop-hook holder could not acquire the lock: $(cat "$dir/state/holder.out")"
   holder=$(idle_fork_pid "$dir" holder)
+  seed_takeover_leases "$dir" "$holder"
   start_idle_fork_proc succ "$IDLE_FORK_SUCC" "$dir" "$config" "$dir/bin/fm-claude-stop-autoarm.sh" \
     --fork-session --resume "$IDLE_FORK_HOLDER"
   succ=$(idle_fork_pid "$dir" succ)
@@ -1500,6 +1564,7 @@ SH
   [ "$(tr -d '[:space:]' < "$dir/state/.lock")" = "$succ" ] \
     || fail "the Stop hook left the lock at $(cat "$dir/state/.lock"), expected $succ"
   [ -e "$dir/state/arm-ran" ] || fail "the Stop hook took the lock but did not arm"
+  assert_takeover_leases "$dir" "$succ"
   stop_idle_fork_procs "$dir" holder succ
   pass "session-lock: a Stop hook of an idle fork-resume successor takes the lock"
 }
@@ -1524,6 +1589,7 @@ test_repeated_remote_continue_switches_keep_one_holder() {
   [ "$(wc -l < "$dir/state/.lock" | tr -d ' ')" = 1 ] || fail "the terminal lock is not one line"
   [ "$(tr -d '[:space:]' < "$dir/state/.lock")" = "$term" ] || fail "the terminal is not the only holder"
 
+  seed_takeover_leases "$dir" "$term"
   start_idle_fork_proc phone phone22222 "$dir" "$config" "$ROOT/bin/fm-lock.sh" \
     --fork-session --resume term11111
   expect_code 0 "$(tr -d '[:space:]' < "$dir/state/phone.rc")" \
@@ -1537,6 +1603,7 @@ test_repeated_remote_continue_switches_keep_one_holder() {
   [ "$(grep -c '"to_pid":' "$dir/state/.lock-handover.jsonl")" = 1 ] \
     || fail "the phone switch did not record exactly one handover"
 
+  assert_takeover_leases "$dir" "$phone"
   start_idle_fork_proc term2 term33333 "$dir" "$config" "$ROOT/bin/fm-lock.sh" \
     --fork-session --resume phone22222
   expect_code 0 "$(tr -d '[:space:]' < "$dir/state/term2.rc")" \
@@ -1550,6 +1617,7 @@ test_repeated_remote_continue_switches_keep_one_holder() {
   kill -0 "$phone" 2>/dev/null || fail "the phone exited during the return"
   [ "$(grep -c '"to_pid":' "$dir/state/.lock-handover.jsonl")" = 2 ] \
     || fail "the round trip did not record exactly two handovers"
+  assert_takeover_leases "$dir" "$(idle_fork_pid "$dir" term2)"
   stop_idle_fork_procs "$dir" term phone term2
 
   dir=$TMP_ROOT/remote-continue-recent-return
@@ -1598,6 +1666,7 @@ test_verified_reclaim_keeps_new_sidecar
 test_reanchor_keeps_task_leases_live
 test_reanchor_keeps_autoarm_midturn_healthy
 test_idle_fork_resume_of_a_quiet_holder_takes_the_lock
+test_failed_takeover_lease_move_preserves_exclusion
 test_idle_fork_resume_without_a_successor_transcript_takes_the_lock_on_linux
 test_holder_turn_within_thirty_minutes_is_not_taken_over
 test_unreadable_holder_transcript_is_not_taken_over
