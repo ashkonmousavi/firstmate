@@ -4233,6 +4233,30 @@ test_wedge_guard_never_defers_a_gone_endpoint() {
   pass "a gone endpoint is reported before any guard is asked, so a guard never defers it"
 }
 
+# A worker its lane release stopped on purpose (an active marker,
+# bin/fm-lane-release-lib.sh) is reported once as released, never as a dead
+# worker to recover.
+test_gone_endpoint_of_a_released_worker_reads_released() {
+  local dir state fakebin out capture window
+  local done_line='state: done · source: run-step · run passed: PR merged'
+  window="test:fm-wedge"
+  dir=$(wedge_threshold_fixture gone-released 'working: still compiling' 0)
+  state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"; capture="$dir/pane.txt"
+  printf 'spawn_gen=s1000.1.1\n' >> "$state/wedge.meta"
+  printf 'fm-lane-release-v1\ntask=wedge\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=merged-ship\nresult=released\n' \
+    > "$state/wedge.released"
+  gone_endpoint_env dead; export FM_TEST_PANE_COMMAND FM_TEST_TMUX_WINDOWS
+  wedge_threshold_round "$state" "$fakebin" "$out" "$capture" "$window" "$done_line" exit \
+    || fail "the released worker's stopped endpoint was never reported: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the released report"
+  unset FM_TEST_PANE_COMMAND FM_TEST_TMUX_WINDOWS
+  grep -F 'released by lane release (merged-ship, released)' "$out" >/dev/null \
+    || fail "a released worker was not reported as released: $(cat "$out")"
+  grep -F 'check for unlanded work before any cleanup' "$out" >/dev/null \
+    && fail "a released worker was reported as a dead worker to recover: $(cat "$out")"
+  pass "a released worker's stopped endpoint is reported once as released, not as dead"
+}
+
 # Reporting once must not mean reporting once forever: a replacement launched into
 # the same window has to get the full alarm back, and its own later death has to be
 # reported again rather than silenced by the record of the first one.
@@ -8315,6 +8339,7 @@ test_wedge_guard_critical_defers_one_window_at_a_time_up_to_the_cap
 test_wedge_guard_failures_fail_open
 test_wedge_guard_never_defers_a_gone_endpoint
 test_gone_report_rearms_when_the_endpoint_comes_back
+test_gone_endpoint_of_a_released_worker_reads_released
 test_second_death_after_a_same_window_relaunch_reports_in_full
 test_identical_dead_display_of_a_successor_still_reports
 test_term_stops_a_watcher_blocked_inside_a_poll

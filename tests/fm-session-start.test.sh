@@ -1383,6 +1383,34 @@ EOF
 
 # --- endpoint liveness: tmux and herdr, live and dead ------------------------
 
+# A worker its lane release stopped on purpose (an active marker,
+# bin/fm-lane-release-lib.sh) reads released, never dead; a stale marker from an
+# earlier incarnation changes nothing.
+test_endpoint_of_a_released_worker_reads_released() {
+  local rec root home fakebin out
+  rec=$(new_world liveness-released)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  make_fake_tmux "$fakebin" "fm-sess:live-window"
+
+  printf 'window=fm-sess:gone-a\nkind=ship\nspawn_gen=s1000.1.1\n' > "$home/state/task-released.meta"
+  printf 'fm-lane-release-v1\ntask=task-released\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=scout\nresult=released\n' \
+    > "$home/state/task-released.released"
+  printf 'window=fm-sess:gone-b\nkind=ship\nspawn_gen=s3000.1.1\n' > "$home/state/task-relaunched.meta"
+  printf 'fm-lane-release-v1\ntask=task-relaunched\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=scout\nresult=released\n' \
+    > "$home/state/task-relaunched.released"
+
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "endpoint: released (backend=tmux window=fm-sess:gone-a - released by lane release (scout, released)" \
+    "an actively released worker should read released"
+  assert_contains "$out" "endpoint: dead (backend=tmux window=fm-sess:gone-b)" \
+    "a marker from an earlier incarnation must not hide a dead endpoint"
+  pass "session start: a released worker reads released, and a stale marker changes nothing"
+}
+
 test_endpoint_liveness_tmux() {
   local rec root home fakebin out
   rec=$(new_world liveness-tmux)
@@ -3066,6 +3094,7 @@ test_status_tail_bounding
 test_status_tail_line_cap
 test_orphan_status_logs_are_printed
 test_endpoint_liveness_tmux
+test_endpoint_of_a_released_worker_reads_released
 test_endpoint_liveness_herdr
 test_endpoint_read_death_is_isolated_and_reported
 test_endpoint_read_hang_is_bounded_and_reported

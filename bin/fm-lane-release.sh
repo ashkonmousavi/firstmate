@@ -129,7 +129,11 @@
 #
 # Test hooks: FM_LANE_RELEASE_CREW_STATE, FM_LANE_RELEASE_CONTROL,
 # FM_LANE_RELEASE_CAPTAIN_HOLD replace the crew-state, control, and captain-hold
-# programs; FM_LANE_RELEASE_NOW fixes the clock.
+# programs; FM_LANE_RELEASE_PROBE replaces the live endpoint reads, called as
+# `<probe> agent|busy|composer|doorbell|seat <id>` and answering on stdout
+# exactly what the real read would (agent: alive|dead|missing|..., busy: the
+# fm_busy_classify_meta line, composer: empty|pending|unknown, doorbell and
+# seat: yes|no); FM_LANE_RELEASE_NOW fixes the clock.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -183,6 +187,40 @@ SWEEP_LOCK="$STATE/.lane-release.lock"
 CURSOR_FILE="$STATE/.lane-release-cursor"
 COUNTERS="$STATE/lane-release.counters"
 LEDGER="$DATA/lane-release.ledger"
+
+# Live endpoint reads, each replaceable by FM_LANE_RELEASE_PROBE.
+probe() {  # <what> <id>
+  "$FM_LANE_RELEASE_PROBE" "$1" "$2" 2>/dev/null
+}
+
+read_agent() {  # <meta> <id>
+  if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then probe agent "$2"; return; fi
+  fm_backend_agent_state "$(fm_backend_of_meta "$1")" "$(fm_backend_target_of_meta "$1")" 2>/dev/null
+}
+
+read_busy() {  # <meta> <id>
+  if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then probe busy "$2"; return; fi
+  fm_busy_classify_meta "$1" "$2" "$STATE" 2>/dev/null
+}
+
+read_composer() {  # <meta> <id>
+  if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then probe composer "$2"; return; fi
+  fm_backend_composer_state "$(fm_backend_of_meta "$1")" "$(fm_backend_target_of_meta "$1")" "fm-$2" 2>/dev/null
+}
+
+# 0 when the composer holds exactly <line>, the task's own doorbell.
+composer_holds_doorbell() {  # <meta> <id> <line>
+  if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then [ "$(probe doorbell "$2")" = yes ]; return; fi
+  fm_task_inbox_composer_holds "$(fm_backend_of_meta "$1")" "$(fm_backend_target_of_meta "$1")" "$3" "fm-$2" 2>/dev/null
+}
+
+# 0 while the task record still holds a seat under the shared seat rule.
+seat_held() {  # <meta> <id>
+  local raw
+  if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then [ "$(probe seat "$2")" = yes ]; return; fi
+  raw=$(cat "$1" 2>/dev/null) || return 0
+  fm_task_record_holds_seat "$1" "$raw" "$STATE"
+}
 
 now() {
   if [ -n "${FM_LANE_RELEASE_NOW:-}" ]; then
@@ -350,10 +388,9 @@ pred_nothing_since() {
       return 1
     fi
   fi
-  backend=$(fm_backend_of_meta "$meta")
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || { KEEP='no-endpoint'; return 1; }
-  case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null)" in
+  case "$(read_agent "$meta" "$id")" in
     alive) ;;
     dead|missing) KEEP='agent-not-live'; return 1 ;;
     *) KEEP='endpoint-unreadable'; return 1 ;;
@@ -362,7 +399,7 @@ pred_nothing_since() {
   rec=$(fm_task_inbox_oldest_unhandled "$STATE" "$id" 2>/dev/null || true)
   if [ -n "$rec" ]; then
     line=$(fm_task_inbox_doorbell_line "$rec" 2>/dev/null || true)
-    if [ -n "$line" ] && fm_task_inbox_composer_holds "$backend" "$target" "$line" "fm-$id" 2>/dev/null; then
+    if [ -n "$line" ] && composer_holds_doorbell "$meta" "$id" "$line"; then
       KEEP='stuck-composer'
     else
       KEEP='unread-steer'
@@ -385,12 +422,12 @@ pred_nothing_since() {
     [ -n "$ts" ] || { KEEP='busy-record-unreadable'; return 1; }
     [ "$ts" -le $((anchor + TURN_SLACK)) ] || { KEEP='turn-since'; return 1; }
   fi
-  verdict=$(fm_busy_classify_meta "$meta" "$id" "$STATE" 2>/dev/null) || verdict=unknown
+  verdict=$(read_busy "$meta" "$id") || verdict=unknown
   case "$verdict" in
     idle*) ;;
     *) KEEP="busy-${verdict%% *}"; return 1 ;;
   esac
-  composer=$(fm_backend_composer_state "$backend" "$target" "fm-$id" 2>/dev/null) || composer=unknown
+  composer=$(read_composer "$meta" "$id") || composer=unknown
   case "$composer" in
     empty) ;;
     pending*) KEEP='pending-composer'; return 1 ;;
@@ -533,8 +570,6 @@ verify_marker() {  # <id>
     else
       rc=$(sed -n 's/^rc=//p' "$STATE/$id.release.log" | tail -n 1)
     fi
-    backend=$(fm_backend_of_meta "$meta")
-    target=$(fm_backend_target_of_meta "$meta")
     case "$rc" in
       75)
         marker_remove "$id"
@@ -543,7 +578,7 @@ verify_marker() {  # <id>
         ;;
       0|unknown) ;;
       *)
-        if [ "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null)" = alive ]; then
+        if [ "$(read_agent "$meta" "$id")" = alive ]; then
           marker_remove "$id"
           counter_bump exit-refused
           return 0
@@ -551,8 +586,7 @@ verify_marker() {  # <id>
         ;;
     esac
   fi
-  raw=$(cat "$meta" 2>/dev/null) || return 0
-  if ! fm_task_record_holds_seat "$meta" "$raw" "$STATE"; then
+  if ! seat_held "$meta" "$id"; then
     marker_set_result "$id" released
     ledger_row RELEASED "$id" "$class" "$anchor" "$released_at" yes "seat free"
     rm -f -- "$STATE/$id.release-verify"
@@ -687,9 +721,7 @@ action_audit() {
             status="$STATE/$id.status"
             gen=$(meta_field "$meta" spawn_gen)
             launch=$(launch_epoch "$gen" 2>/dev/null) || launch=0
-            backend=$(fm_backend_of_meta "$meta")
-            target=$(fm_backend_target_of_meta "$meta")
-            agent=$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || printf unknown)
+            agent=$(read_agent "$meta" "$id" || printf unknown)
             if [ "$agent" = alive ] && pred_done_line "$status" "$launch" && done_at=$OUT \
               && [ -z "$(fm_task_inbox_oldest_unhandled "$STATE" "$id" 2>/dev/null)" ] \
               && [ ! -e "$(fm_pr_conflict_episode_path "$STATE" "$id")" ]; then

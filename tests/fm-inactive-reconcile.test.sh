@@ -172,6 +172,24 @@ test_main_direct_terminal_presentation_receipt() {
   pass "main direct terminal presentation has a durable receipt"
 }
 
+# A worker its lane release stopped on purpose (an active marker,
+# bin/fm-lane-release-lib.sh) still yields its one fingerprinted terminal
+# outcome, tagged released, and a second scan adds nothing: the reconciliation
+# never relaunches or re-reports it.
+test_main_terminal_outcome_of_a_released_worker_is_tagged_released() {
+  make_world main-released
+  write_child "$MAIN" child 'done: PR https://example.test/owner/repo/pull/1 checks green' s1000.1.1
+  printf 'fm-lane-release-v1\ntask=child\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=merged-ship\nresult=released\n' \
+    > "$MAIN/state/child.released"
+  FM_FAKE_CREW_STATE='done' run_reconcile "$MAIN" --startup
+  [ "$(wake_count "$MAIN" 'inactive-outcome:')" = 1 ] || fail "main did not queue the released worker's terminal outcome"
+  grep -F 'released=merged-ship' "$MAIN/state/.wake-queue" >/dev/null \
+    || fail "the released worker's outcome was not tagged released: $(cat "$MAIN/state/.wake-queue")"
+  FM_FAKE_CREW_STATE='done' run_reconcile "$MAIN" --startup
+  [ "$(wake_count "$MAIN" 'inactive-outcome:')" = 1 ] || fail "a second scan re-reported the released worker"
+  pass "a released worker's terminal outcome is reported once, tagged released"
+}
+
 # Away-posture regression: a branch-actor drain that consumes an
 # inactive-outcome check row must retire its terminal-outcome receipt exactly
 # like a main ack does. The 2026-09-25 away window on the supervision host
@@ -1603,6 +1621,7 @@ PYJSON
 }
 
 test_main_direct_terminal_presentation_receipt
+test_main_terminal_outcome_of_a_released_worker_is_tagged_released
 test_branch_ack_retires_inactive_outcome_receipt
 test_unpushed_ci_ready_done_is_not_published
 test_nm_handoff_done_is_not_published

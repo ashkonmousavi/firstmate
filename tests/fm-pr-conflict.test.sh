@@ -317,6 +317,37 @@ SH
   pass "an exited worker is relaunched once and not steered"
 }
 
+# A worker its lane release stopped on purpose (an active marker,
+# bin/fm-lane-release-lib.sh) is never relaunched by a conflict: the
+# conflict wakes the supervisor instead, even when no done line exists (a ship
+# merged while idle never wrote one).
+test_released_worker_conflict_wakes_instead_of_relaunching() {
+  local state decision relaunch_log
+  reset_lib
+  state="$TMP_ROOT/released-state"
+  relaunch_log="$TMP_ROOT/released-relaunch.log"
+  rm -rf "$state" "$relaunch_log"
+  setup_task "$state"
+  : > "$state/lane.status"
+  printf 'spawn_gen=s1000.1.1\n' >> "$state/lane.meta"
+  printf 'fm-lane-release-v1\ntask=lane\nspawn_gen=s1000.1.1\nreleased_at=2000\nanchor=1900\nclass=merged-ship\nresult=released\n' \
+    > "$state/lane.released"
+  cat > "$TMP_ROOT/released-relaunch.sh" <<SH
+#!/usr/bin/env bash
+printf 'CALLED\\n' >> "$relaunch_log"
+SH
+  chmod +x "$TMP_ROOT/released-relaunch.sh"
+  # shellcheck disable=SC2034 # read by fm_pr_conflict_relaunch
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/released-relaunch.sh
+  # shellcheck disable=SC2329 # replaced for this case; fm_pr_conflict_handle calls it
+  fm_pr_conflict_posture() { printf 'exited\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] || fail "a released worker's conflict must wake, got: $decision"
+  [ ! -e "$relaunch_log" ] || fail "a released worker was relaunched by a conflict"
+  pass "a released worker's conflict wakes the supervisor and never relaunches it"
+}
+
 test_steered_worker_exit_recovers() {
   local state decision
   reset_lib
@@ -1343,6 +1374,7 @@ test_old_label_wakes_once_and_clear_removes_it
 test_young_label_is_quiet
 test_live_worker_is_steered_once
 test_exited_worker_is_relaunched
+test_released_worker_conflict_wakes_instead_of_relaunching
 test_steered_worker_exit_recovers
 test_action_failures_preserve_decision_protocol
 test_legacy_poll_authentication
