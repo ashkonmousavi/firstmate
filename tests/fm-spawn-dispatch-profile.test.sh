@@ -1821,7 +1821,28 @@ test_claude_crewmate_launch_carries_the_attribution_policy() {
   pass "a claude crewmate launch carries the attribution-off policy in its own settings"
 }
 
-test_keep_ai_trailers_omits_attribution_settings_and_strip_hooks() {
+assert_ship_keeps_trailers_and_checks_format() {
+  local launch=$1 prefix out status body
+  prefix=$(fm_test_launch_git_prefix "$launch")
+  printf 'ruff\n' >"$WT_DIR/requirements-dev.txt"
+  printf 'x=1\n' >"$WT_DIR/a.py"
+  git -C "$WT_DIR" add requirements-dev.txt a.py
+  printf '#!/usr/bin/env bash\ncat >/dev/null\nexit 1\n' >"$FAKEBIN_DIR/ruff"
+  chmod +x "$FAKEBIN_DIR/ruff"
+  out=$(cd "$WT_DIR" && PATH="$FAKEBIN_DIR:$PATH" bash -c "${prefix}"'git -c user.name=Test -c user.email=test@example.invalid commit -q -m change --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>"')
+  status=$?
+  expect_code 0 "$status" "the emitted ship environment refused a commit: $out"
+  body=$(git -C "$WT_DIR" log -1 --format=%B)
+  assert_contains "$body" 'Co-authored-by: Cursor <cursoragent@cursor.com>' 'the ship stripped a trailer despite keep-ai-trailers'
+  out=$(cd "$WT_DIR" && PATH="$FAKEBIN_DIR:$PATH" bash -c "${prefix}"'git push origin HEAD:refs/heads/ruff-check' 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail 'the emitted ship environment let unformatted code reach origin'
+  assert_contains "$out" 'fm-ruff-format: refused:' 'the emitted ship environment did not enforce Ruff'
+  git -C "$PROJ_DIR.origin.git" rev-parse --verify --quiet refs/heads/ruff-check >/dev/null && fail 'the emitted ship environment advanced the remote despite refusal'
+  return 0
+}
+
+test_keep_ai_trailers_preserves_attribution_and_format_checks() {
   local rec id out status launch
   id=profile-claude-keep-attribution-z25
   rec=$(make_spawn_case profile-claude-keep-attribution claude "$id")
@@ -1833,11 +1854,8 @@ test_keep_ai_trailers_omits_attribution_settings_and_strip_hooks() {
   expect_code 0 "$status" "claude spawn with keep-ai-trailers should succeed"$'\n'"$out"
   launch=$(cat "$LAUNCH_LOG")
   assert_attribution_policy_absent "$launch" "opted-in claude"
-  assert_not_contains "$launch" 'fm-git-strip-ai-trailers.sh' \
-    "opted-in launch still overrides the repository hooksPath"
-  [ ! -e "$HOME_DIR/state/$id.git-hooks" ] \
-    || fail "opted-in launch installed AI trailer strip hooks"
-  pass "keep-ai-trailers omits Claude attribution settings and the pane strip hooks"
+  assert_ship_keeps_trailers_and_checks_format "$launch"
+  pass "keep-ai-trailers preserves trailers and enforces Ruff in the ship environment"
 }
 
 test_keep_ai_trailers_reaches_secondmate_crew_launches() {
@@ -1863,10 +1881,7 @@ test_keep_ai_trailers_reaches_secondmate_crew_launches() {
   expect_code 0 "$status" "secondmate crew spawn should succeed"$'\n'"$out"
   launch=$(cat "$LAUNCH_LOG")
   assert_attribution_policy_absent "$launch" "secondmate crew claude"
-  assert_not_contains "$launch" 'fm-git-strip-ai-trailers.sh' \
-    "secondmate crew launch still overrides the repository hooksPath"
-  [ ! -e "$HOME_DIR/state/$crew_id.git-hooks" ] \
-    || fail "secondmate crew launch installed AI trailer strip hooks"
+  assert_ship_keeps_trailers_and_checks_format "$launch"
   pass "keep-ai-trailers is inherited so a secondmate's crew launch keeps AI trailers"
 }
 
@@ -2465,7 +2480,7 @@ test_claude_haiku_launch_gets_an_opus_advisor
 test_claude_non_haiku_launch_gets_no_advisor
 test_claude_long_launch_is_delivered_intact
 test_claude_crewmate_launch_carries_the_attribution_policy
-test_keep_ai_trailers_omits_attribution_settings_and_strip_hooks
+test_keep_ai_trailers_preserves_attribution_and_format_checks
 test_keep_ai_trailers_reaches_secondmate_crew_launches
 test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
