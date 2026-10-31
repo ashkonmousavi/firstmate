@@ -327,7 +327,11 @@ refs=\$(cat)
 feed() { if [ -n "\$refs" ]; then printf '%s\\n' "\$refs"; fi; }
 bad=0
 ${checks_line}[ "\$bad" = 0 ] || exit 1
-exec 0<<<"\$refs"
+if [ -n "\$refs" ]; then
+  exec 0<<<"\$refs"
+else
+  exec 0</dev/null
+fi
 $(runtime_chain_body "$hooks_dir")
 EOF
 

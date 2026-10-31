@@ -515,6 +515,107 @@ exclude = ["*.pyi"]' 'api.pyi=x=2'
   pass 'ruff format check: real Ruff checks stubs and notebooks and honors committed exclusions'
 }
 
+test_ruff_format_ignores_external_configuration() {
+  local real_ruff variant user_config snapshots config section notebook
+  real_ruff=$(command -v ruff) || { echo '# SKIP external configuration checks require real ruff'; return; }
+  for variant in user-dot user-toml user-pyproject user-exclude parent; do
+    ruff_fixture "ruff-external-$variant"
+    ln -sf "$real_ruff" "$FX_BIN/ruff"
+    user_config="$FX_WT/../user-config"
+    snapshots="$FX_WT/../snapshots"
+    mkdir -p "$user_config/ruff" "$snapshots"
+    config="$user_config/ruff/ruff.toml" section='[format]'
+    case "$variant" in
+      user-dot) config="$user_config/ruff/.ruff.toml" ;;
+      user-pyproject) config="$user_config/ruff/pyproject.toml" section='[tool.ruff.format]' ;;
+      parent) config="$snapshots/.ruff.toml" ;;
+    esac
+    if [ "$variant" = user-exclude ]; then
+      printf 'exclude = ["*.py", "*.pyi", "*.ipynb"]\n' >"$config"
+    else
+      printf '%s\nquote-style = "single"\n' "$section" >"$config"
+    fi
+    notebook="{\"cells\":[{\"cell_type\":\"code\",\"execution_count\":null,\"metadata\":{},\"outputs\":[],\"source\":[\"x = 'a'\\n\"]}],\"metadata\":{},\"nbformat\":4,\"nbformat_minor\":5}"
+    ruff_commit 'default formatting and committed nested settings' \
+      'pyproject.toml=[project]
+name = "example"
+version = "1.0"' \
+      'settings.toml=[format]
+quote-style = "single"
+exclude = ["excluded.py"]' \
+      'pkg/ruff.toml=extend = "../settings.toml"' \
+      "pkg/valid.py=x = 'a'" 'pkg/excluded.py=x=UNFORMATTED' \
+      "a.py=x = 'a'" "api.pyi=x = 'a'" "book.ipynb=$notebook"
+    TMPDIR="$snapshots" XDG_CONFIG_HOME="$user_config" ruff_push origin HEAD:refs/heads/fm/t1
+    ruff_refused "a push with $variant external Ruff settings" a.py api.pyi book.ipynb
+    assert_not_contains "$PUSH_OUT" '  pkg/valid.py' 'the default root configuration replaced committed nested settings'
+    assert_not_contains "$PUSH_OUT" '  pkg/excluded.py' 'the default root configuration replaced committed inherited exclusions'
+    git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null && fail 'external settings let incorrectly quoted files reach the remote'
+    (cd "$FX_WT" && "$real_ruff" format --isolated a.py api.pyi book.ipynb) >/dev/null || fail 'could not apply default formatting to the fixture'
+    git -C "$FX_WT" add a.py api.pyi book.ipynb
+    git -C "$FX_WT" commit -q -m 'apply default formatting'
+    TMPDIR="$snapshots" XDG_CONFIG_HOME="$user_config" ruff_push origin HEAD:refs/heads/fm/t1
+    [ "$PUSH_RC" -eq 0 ] || fail "committed settings and defaults were refused under $variant: $PUSH_OUT"
+    assert_equals "$(git -C "$FX_WT" rev-parse HEAD)" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" 'correct formatting did not reach the remote'
+  done
+  pass 'ruff format check: user and parent configuration cannot replace defaults or committed nested settings'
+}
+
+test_pre_push_chaining_preserves_empty_and_nonempty_input() {
+  local mode stripping hook_kind hooks record guard commit args
+  for mode in format guard; do
+    for stripping in strip keep; do
+      for hook_kind in default configured; do
+        ruff_fixture "ruff-stdin-$mode-$stripping-$hook_kind"
+        ruff_commit 'formatted' 'a.py=x = 1'
+        git init -q --bare "$FX_WT/../backup.git"
+        git -C "$FX_WT" remote add backup "file://$FX_WT/../backup.git"
+        args=()
+        [ "$stripping" != keep ] || args+=(--no-strip)
+        if [ "$mode" = guard ]; then
+          guard="$FX_WT/../guard"
+          "$GUARD" write "$guard" "$FX_WT" fm/t1 fm/ backup backup/ || fail 'could not write the push guard'
+          args+=(--push-guard "$guard")
+        fi
+        "$STRIP" install "${args[@]+"${args[@]}"}" "$FX_HOOKS" "$FX_WT" || fail 'could not install pre-push hooks'
+        if [ "$hook_kind" = configured ]; then
+          hooks="$FX_WT/.project-hooks"
+          git -C "$FX_WT" config core.hooksPath "$hooks"
+        else
+          hooks=$(git -C "$FX_WT" rev-parse --path-format=absolute --git-path hooks)
+        fi
+        mkdir -p "$hooks"
+        record="$hooks/pre-push.input"
+        cat >"$hooks/pre-push" <<'PY'
+#!/usr/bin/env python3
+import pathlib
+import sys
+
+data = sys.stdin.buffer.read()
+for line in data.decode().splitlines():
+    local_ref, local_oid, remote_ref, remote_oid = line.rsplit(maxsplit=3)
+pathlib.Path(__file__ + ".input").write_bytes(data)
+PY
+        chmod +x "$hooks/pre-push"
+        ruff_push backup HEAD:refs/heads/backup/t1 HEAD:refs/heads/backup/t2
+        [ "$PUSH_RC" -eq 0 ] || fail "the chained hook rejected ref records for $mode/$stripping/$hook_kind: $PUSH_OUT"
+        assert_equals 2 "$(wc -l <"$record" | tr -d ' ')" 'the chained hook did not receive both ref records'
+        commit=$(git -C "$FX_WT" rev-parse HEAD)
+        ruff_push backup HEAD:refs/heads/backup/t1 HEAD:refs/heads/backup/t2
+        [ "$PUSH_RC" -eq 0 ] || fail "an up-to-date push was refused for $mode/$stripping/$hook_kind: $PUSH_OUT"
+        assert_equals 0 "$(wc -c <"$record" | tr -d ' ')" 'the chained hook received bytes instead of EOF for an up-to-date push'
+        assert_equals "$commit" "$(git -C "$FX_WT/../backup.git" rev-parse refs/heads/backup/t1)" 'the up-to-date push changed the remote ref'
+        ruff_commit 'another formatted change' 'a.py=x = 2'
+        ruff_push backup HEAD:refs/heads/backup/t1 HEAD:refs/heads/backup/t2
+        [ "$PUSH_RC" -eq 0 ] || fail "a changed push after an up-to-date push was refused: $PUSH_OUT"
+        assert_equals 2 "$(wc -l <"$record" | tr -d ' ')" 'nonempty records stopped reaching the chained hook'
+        assert_equals "$(git -C "$FX_WT" rev-parse HEAD)" "$(git -C "$FX_WT/../backup.git" rev-parse refs/heads/backup/t2)" 'the changed push did not reach the remote'
+      done
+    done
+  done
+  pass 'pre-push chaining: project hooks receive EOF for empty pushes and every record for changed pushes'
+}
+
 test_origin_pushes_are_refused
 test_backup_namespace_rules
 test_empty_prefix_still_refuses_the_task_branch
@@ -534,5 +635,7 @@ test_ruff_format_and_push_guard_each_refuse_visibly
 test_ruff_format_uses_committed_configuration
 test_ruff_format_uses_each_pushed_refs_configuration
 test_ruff_format_checks_stubs_notebooks_and_exclusions
+test_ruff_format_ignores_external_configuration
+test_pre_push_chaining_preserves_empty_and_nonempty_input
 
 echo "# all fm-git-push-guard and ruff format check tests passed"

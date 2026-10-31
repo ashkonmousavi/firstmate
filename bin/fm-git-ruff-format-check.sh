@@ -27,6 +27,10 @@ default_base() {
   return 1
 }
 
+has_ruff_settings() {
+  grep -E '^[[:space:]]*\[[[:space:]]*tool\.ruff([.]|[[:space:]]*])' >/dev/null
+}
+
 declares_ruff() {
   local oid=$1 path content line declared=1
   local requirement_re='^[[:space:]]*[Rr][Uu][Ff][Ff]([[:space:]]|[<>=!~;]|\[|$)'
@@ -37,7 +41,7 @@ declares_ruff() {
       ruff.toml | .ruff.toml | */ruff.toml | */.ruff.toml) declared=0 ;;
       pyproject.toml | */pyproject.toml)
         content=$(git show "$oid:$path") || return 2
-        if printf '%s\n' "$content" | grep -E '^[[:space:]]*\[[[:space:]]*tool\.ruff([.]|[[:space:]]*])' >/dev/null; then
+        if printf '%s\n' "$content" | has_ruff_settings; then
           declared=0
         fi
         ;;
@@ -105,6 +109,10 @@ check_ref() {
     GIT_INDEX_FILE="$SNAPSHOT/.git/index" git --work-tree="$SNAPSHOT" checkout-index --all --prefix="$SNAPSHOT/"; }; then
     refuse "could not read the pushed tree for $remote_ref"
     return 1
+  fi
+  if [ ! -f "$SNAPSHOT/ruff.toml" ] && [ ! -f "$SNAPSHOT/.ruff.toml" ] &&
+    ! { [ -f "$SNAPSHOT/pyproject.toml" ] && has_ruff_settings <"$SNAPSHOT/pyproject.toml"; }; then
+    : >"$SNAPSHOT/ruff.toml" || return 1
   fi
   if ! [[ "$remote_oid" =~ $ZERO_OID_RE ]]; then
     if git cat-file -e "$remote_oid^{commit}" 2>/dev/null; then
