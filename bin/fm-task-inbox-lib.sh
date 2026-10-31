@@ -533,7 +533,7 @@ fm_task_inbox_confirmed_enter() {
 # are never touched, and a failed diagnostic write cannot change the ring result.
 # A backend adapter only offers a finer token through the sink file named by
 # FM_RING_REASON_SINK (fm_backend_herdr_note_reason), because it runs in a
-# command substitution and cannot set a variable here. Tokens: ok, agent-dead, busy-reset-failed,
+# command substitution and cannot set a variable here. Tokens: ok, ring-in-flight, agent-dead, busy-reset-failed,
 # foreign-pending-draft, busy-pending-doorbell, doorbell-rejected, submit-refused, backend-send-failed,
 # submit-unconfirmed, preflight-dialog, dialog-sink-failed, enter-send-failed,
 # post-enter-unreadable, post-enter-foreign-draft, composer-unreadable and
@@ -546,10 +546,33 @@ fm_task_inbox_confirmed_enter() {
 # spent-budget stale wakes include the last persisted token when available.
 # A later attempt replaces the diagnostic even if it succeeds: ok confirms
 # submission, not that the worker acted on or acknowledged the record.
+#
+# One ring per inbox at a time: <inbox>/.ring.lock serializes every ringer
+# (fm-send's enqueue ring, the watcher ladder, the remote inbox verb). Two
+# overlapping rings can each see an empty composer, both type, and each
+# payload proof then reads the other's text (reproduced in a Herdr lab; q-crew
+# records 1707 and 1708 failed that way 4 s apart).
+# Every record of one inbox rings the same doorbell line, so a ring that
+# finds another live ring in flight skips with rc 1 and token ring-in-flight;
+# the in-flight doorbell already points the worker at every record. Like a
+# foreign-draft skip, that rc 1 counts as a ladder attempt for the watcher and
+# the remote inbox verb. A dead ringer's lock is reclaimed by fm_lock_try_acquire;
+# an existing lock that cannot be acquired or reclaimed also skips, and the
+# ladder's escalation surfaces a permanently stuck one as ring-in-flight. A
+# lock that cannot be created at all (no lock path appears) does not block the ring.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label] [harness] [clear-busy]
-  local rc=0
+  local rc=0 lock locked=0
   FM_TASK_INBOX_RING_REASON=
+  lock="${3%/*}/.ring.lock"
+  if fm_lock_try_acquire "$lock" 2>/dev/null; then
+    locked=1
+  elif [ -n "${FM_LOCK_HELD_PID:-}" ] || [ -e "$lock" ] || [ -L "$lock" ]; then
+    FM_TASK_INBOX_RING_REASON=ring-in-flight
+    fm_task_inbox_note_reason "$3" 1 "$FM_TASK_INBOX_RING_REASON"
+    return 1
+  fi
   _fm_task_inbox_ring_step "$@" || rc=$?
+  [ "$locked" = 0 ] || fm_lock_release "$lock" 2>/dev/null || true
   fm_task_inbox_note_reason "$3" "$rc" "$FM_TASK_INBOX_RING_REASON"
   return "$rc"
 }

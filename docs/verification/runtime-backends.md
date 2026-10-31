@@ -1793,6 +1793,31 @@ Observed 2026-08-19:
 ok - live Herdr submit confirm: Claude Code (2.1.236 (Claude Code)) on herdr 0.8.0 reports empty for a landed idle steer
 ```
 
+### Claude payload render latency
+
+Measured 2026-10-31 against Herdr 0.9.5 with Claude Code 2.1.312 (q-crew, 6 cores, load 10-23) and 2.1.316 (zb-crew, 16 cores, load 10-26), each in a private Herdr server with its own socket and XDG directories.
+
+Claude renders typed input asynchronously, so the pre-Enter payload proof can read the composer before the doorbell appears.
+Time from `pane send-text` of the real doorbell line to a composer read that proves it: 31-312 ms on a fresh idle pane with 2838 ms once (that read at 0.4 s saw an empty composer), up to 401 ms and 481 ms after 3 idle minutes, and 41-99 ms mid-turn.
+Every intermediate read on a mid-turn pane was a strict prefix of the payload.
+The previous proof read once after the caller's 0.3 s settle, which matched the intermittent `payload-not-shown` doorbell failures recorded on both hosts' remote secondmate inboxes.
+`fm_backend_herdr_composer_payload_wait` now re-reads while the composer shows a strict prefix of the payload, bounded by `FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS`.
+
+Counterfactual: pausing the lab Claude process for 1.5 s from the `send-text` call reproduced `payload-not-shown` with the previous proof on both hosts and left the doorbell in the composer; with the bounded wait, three such stalled `bin/fm-send.sh` steers and then three plain 1228-character steers each recorded `rc=0 token=ok` and were acted on (record moved into `handled/`) on both hosts.
+The lab harness that drove these runs is private task evidence; no live guard covers a render stall yet.
+Portable regressions:
+
+```sh
+bash tests/fm-backend-herdr.test.sh
+bash tests/fm-task-inbox.test.sh
+```
+
+```text
+ok - fm_backend_herdr_send_text_submit: a Claude composer still rendering the payload (empty, then a prefix) is re-read and the payload submitted
+ok - fm_backend_herdr_send_text_submit: the wait for a rendering payload is bounded and an unshown payload is refused
+ok - inbox: overlapping rings of one inbox type once, the other skips with ring-in-flight, and a dead ringer's lock is reclaimed
+```
+
 ### Composer viewport recovery
 
 The [Herdr socket API](https://herdr.dev/docs/socket-api/) defines `scroll.offset_from_bottom == 0` as the at-bottom state used by the recovery assertions.
