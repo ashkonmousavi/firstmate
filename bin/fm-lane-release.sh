@@ -372,16 +372,24 @@ pred_merged() {
 
 # pred_scout_complete <id>
 pred_scout_complete() {
-  local id=$1 src rc=0
+  local id=$1 src rc=0 registry="$STATE/procevent"
   [ -f "$DATA/$id/report.md" ] || { KEEP='no-report'; return 1; }
   [ ! -e "$DATA/$id/ship-instructions.md" ] || { KEEP='promotion-pending'; return 1; }
-  for src in "$STATE"/procevent/*.source; do
-    [ -f "$src" ] || continue
-    if grep -qx "owner_task=$id" "$src" 2>/dev/null; then
+  if [ -e "$registry" ] || [ -L "$registry" ]; then
+    [ -d "$registry" ] && [ -r "$registry" ] && [ -x "$registry" ] || { KEEP='board-unreadable'; return 1; }
+  fi
+  for src in "$registry"/*.source; do
+    [ -e "$src" ] || [ -L "$src" ] || continue
+    [ -f "$src" ] && [ -r "$src" ] || { KEEP='board-unreadable'; return 1; }
+    if grep -Fx "owner_task=$id" "$src" >/dev/null 2>&1; then
       KEEP='board-pending'
       return 1
+    else
+      rc=$?
+      [ "$rc" = 1 ] || { KEEP='board-unreadable'; return 1; }
     fi
   done
+  rc=0
   timed_read env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     "$HOLD_BIN" open "$id" --distinguish-absent >/dev/null 2>&1 || rc=$?
   case "$rc" in
@@ -834,7 +842,7 @@ action_audit() {
             stuck=$((stuck + 1))
             printf 'stuck-composer %s (its own steering doorbell sits unsubmitted; never released)\n' "$id"
             ;;
-          crew-state-unreadable|endpoint-unreadable|status-unreadable|done-unstamped|busy-record-unreadable|busy-unreadable|composer-unknown|inbox-unreadable|hold-unreadable|merge-record-unreadable)
+          crew-state-unreadable|endpoint-unreadable|status-unreadable|done-unstamped|busy-record-unreadable|busy-unreadable|composer-unknown|inbox-unreadable|hold-unreadable|board-unreadable|merge-record-unreadable)
             unknown=1
             printf 'unknown %s (%s; unknown is never counted as free)\n' "$id" "$KEEP"
             ;;

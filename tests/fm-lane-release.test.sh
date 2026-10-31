@@ -741,6 +741,64 @@ extra_scout_awaiting_promotion_is_not_released() {
   pass "extra scout awaiting promotion: a held, promoting, board-hosting, or ungated scout keeps the seat"
 }
 
+extra_scout_absent_board_registry_allows_release() {
+  local dir
+  dir=$(new_case scout-absent-board-registry)
+  finished_scout "$dir" sc
+  [ ! -e "$dir/home/state/procevent" ] || fail "the board registry must be absent"
+  cycle "$dir" sc
+  assert_released "$dir" sc scout
+  pass "an absent board registry allows a finished scout to release"
+}
+
+assert_unreadable_scout_board_keeps() {
+  local dir=$1 path=$2 permissions=$3 out rc
+  printf 'fm-lane-release-v1\ntask=sc\nspawn_gen=s1000.1.1\nreleased_at=2900\nanchor=2000\nclass=scout\nresult=releasing\nbusy_seq=gfixture:7\n' \
+    > "$dir/home/state/sc.released"
+  out=$(run_lr "$dir" 2900 validate-exit sc s1000.1.1); rc=$?
+  expect_code 0 "$rc" "readable evidence with no owned board permits detached release"$'\n'"$out"
+  chmod 000 "$path" || fail "could not make the board evidence unreadable"
+  out=$(run_lr "$dir" 2900 validate-exit sc s1000.1.1); rc=$?
+  expect_code 75 "$rc" "unreadable board evidence must defer detached release"$'\n'"$out"
+  rm "$dir/home/state/sc.released"
+  cycle "$dir"
+  assert_kept "$dir" sc board-unreadable
+  out=$(run_lr "$dir" 9000 --audit); rc=$?
+  expect_code 2 "$rc" "unreadable board evidence must make the audit unknown"$'\n'"$out"
+  assert_contains "$out" 'unknown sc (board-unreadable;' "the audit must name unreadable board evidence"
+  chmod "$permissions" "$path" || fail "could not restore board evidence permissions"
+}
+
+extra_scout_unreadable_board_registry_keeps() {
+  local dir registry
+  if [ "$(id -u)" = 0 ]; then
+    printf 'ok - SKIP unreadable board registry: root bypasses fixture permissions\n'
+    return 0
+  fi
+  dir=$(new_case scout-unreadable-board-registry)
+  finished_scout "$dir" sc
+  registry="$dir/home/state/procevent"
+  mkdir "$registry"
+  printf 'adapter=lavish\nkind=task-owned\nowner_task=other\n' > "$registry/lavish-x.source"
+  assert_unreadable_scout_board_keeps "$dir" "$registry" 755
+  pass "an unreadable board registry keeps the scout and is unknown in audit"
+}
+
+extra_scout_unreadable_board_source_keeps() {
+  local dir src
+  if [ "$(id -u)" = 0 ]; then
+    printf 'ok - SKIP unreadable board source: root bypasses fixture permissions\n'
+    return 0
+  fi
+  dir=$(new_case scout-unreadable-board-source)
+  finished_scout "$dir" sc
+  mkdir "$dir/home/state/procevent"
+  src="$dir/home/state/procevent/lavish-x.source"
+  printf 'adapter=lavish\nkind=task-owned\nowner_task=other\n' > "$src"
+  assert_unreadable_scout_board_keeps "$dir" "$src" 644
+  pass "an unreadable board source keeps the scout and is unknown in audit"
+}
+
 extra_open_pr_ship_is_kept_and_measured() {
   local dir out rc
   dir=$(new_case extra-open-pr)
@@ -1449,6 +1507,9 @@ extra_ship_question_before_merge_keeps_the_worker
 extra_ship_working_status_preserves_done_anchor
 extra_closed_unmerged_is_not_released
 extra_scout_awaiting_promotion_is_not_released
+extra_scout_absent_board_registry_allows_release
+extra_scout_unreadable_board_registry_keeps
+extra_scout_unreadable_board_source_keeps
 extra_open_pr_ship_is_kept_and_measured
 extra_two_done_lines_at_once_do_not_double_act
 extra_release_cap_per_sweep
