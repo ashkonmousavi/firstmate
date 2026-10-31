@@ -487,6 +487,24 @@ fm_fakebin() {
   printf '%s\n' "$fakebin"
 }
 
+# A spawn with config/crew-dispatch.json reads one quota-axi --json snapshot
+# for its runway check (bin/fm-dispatch-guard-lib.sh), so spawn suites never
+# reach the developer's live quota. The default snapshot has no providers,
+# which leaves every candidate eligible; FM_TEST_QUOTA_AXI_FIXTURE names a
+# snapshot file to serve instead.
+fm_test_fake_quota_axi() {
+  cat > "$1/quota-axi" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" = --json ] || exit 2
+if [ -n "${FM_TEST_QUOTA_AXI_FIXTURE:-}" ]; then
+  cat "$FM_TEST_QUOTA_AXI_FIXTURE"
+else
+  printf '%s\n' '{"schemaVersion":5,"providers":[]}'
+fi
+SH
+  chmod +x "$1/quota-axi"
+}
+
 fm_fake_exit0() {
   local fakebin=$1 tool
   shift

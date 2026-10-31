@@ -1127,6 +1127,7 @@ Firstmate resolves the rule's profile object or array under [Intake routing](../
 
 - When the file exists, `fm-spawn.sh` enforces that contract by refusing crewmate and scout spawns that lack an explicit harness (`--harness`, a positional adapter, or a raw launch command).
 - Batch spawns satisfy the same requirement with a shared `--harness`.
+- The passed profile must also clear the same runway gate as typed resolution (below): it is refused when its runway ends before its reset while another candidate of the same rule runs through its reset, and the refusal names those candidates by `spendPriority`; `bin/fm-dispatch-guard-lib.sh` owns the check, and missing quota data or a recorded captain override never refuses.
 - Secondmate spawns are exempt and still resolve through `config/secondmate-harness` and its optional model and effort tokens.
 
 **Contract owners**
@@ -1304,7 +1305,9 @@ After the answer, code applies all remaining checks and ranking:
 - The confidence floor and the matched rule's `approval` and `floor`.
 - Each candidate's `provider` and `floor`.
 - Every applicable account-wide and model/product row from one `quota-axi --json` snapshot.
-- The numeric `spendPriority` argmax over candidates, using each candidate's limiting row.
+- The runway-feasibility gate: while at least one eligible, rankable candidate runs `through_reset` on every applicable row, a candidate with an established `projected_exhaustion` or an `exhausted_now` row is not eligible, because its runway ends before its reset.
+  With no such candidate (an all-tight set) nothing is refused and a `note:` line says so; unknown or early-confidence runway is never refused and never triggers a refusal.
+- The numeric `spendPriority` argmax over candidates, using each candidate's limiting row; `candidate:` lines are printed ranked, then unranked, then not eligible.
 
 The [shared quota library](../bin/fm-quota-axi-lib.sh) accepts schema 5 and schema 6 and implements the [account-matching contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
 
@@ -1347,9 +1350,9 @@ Every result above exits 0.
 **Firstmate retains the dispatch decision**
 
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; the "Intake routing" section of `harness-adapters` `references/common/dispatch.md` owns what firstmate does with each outcome.
-By accepted design, a `clear` result does not enforce catalog/authentication, reasoning-class, or completion-runway gates.
+By accepted design, a `clear` result does not enforce catalog/authentication or reasoning-class gates, and its runway gate is the through-reset rule above rather than a completion-horizon estimate.
 
-Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
+Firstmate passes its profile line, for every `select` mode, unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
 
 **Key handling and fixed settings**
 

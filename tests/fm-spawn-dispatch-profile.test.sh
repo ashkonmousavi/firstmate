@@ -39,6 +39,14 @@ make_spawn_fakebin() {
   fakebin=$(fm_test_make_spawn_fakebin "$dir")
   cat > "$fakebin/timeout" <<'SH'
 #!/usr/bin/env bash
+# Runs the command unbounded, after GNU timeout's own options and duration.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -k|-s) shift 2 ;;
+    -*) shift ;;
+    *) break ;;
+  esac
+done
 shift
 exec "$@"
 SH
@@ -1798,6 +1806,76 @@ test_any_live_candidate_of_the_rule_spawns() {
   pass "fm-spawn accepts any live candidate of the named rule and refuses an off candidate or another effort"
 }
 
+# write_runway_snapshot <path> <codex runway> <codex spendPriority> <grok runway> <grok spendPriority>
+# Each runway is through_reset, or short (an established projected_exhaustion).
+write_runway_snapshot() {
+  jq -n --arg cr "$2" --argjson cs "$3" --arg gr "$4" --argjson gs "$5" '
+    def runway($r): if $r == "short"
+      then {status: "projected_exhaustion", usableRunwaySeconds: 3600, projectedExhaustedAt: "2030-01-01T01:00:00Z", projectionConfidence: "established"}
+      else {status: "through_reset", projectionConfidence: "established"} end;
+    def provider($p; $r; $s): {provider: $p, quotaSemantics: {status: "known", effectiveAvailability: [
+      {scope: "all_models", status: "known", effectivePercentRemaining: 40, runway: runway($r), selection: {spendPriority: $s}}]}};
+    {schemaVersion: 5, providers: [provider("codex"; $cr; $cs), provider("grok"; $gr; $gs)]}' > "$1"
+}
+
+# The runway-feasibility check: with a fixture quota snapshot, a candidate whose
+# runway ends before its reset is refused while another candidate of the rule
+# runs through its reset, and an all-tight rule refuses nothing.
+test_runway_short_candidate_refuses_while_another_runs_through_reset() {
+  local rec id out status snap
+  id=runway-short-z22
+  rec=$(make_spawn_case runway-short claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"small fixes","use":[{"harness":"codex","model":"gpt-5","effort":"medium"},{"harness":"grok","model":"grok-4","effort":"high"}]}]}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  snap="$CASE_DIR/quota.json"
+  write_runway_snapshot "$snap" short 0.9 through_reset 0.1
+
+  out=$(FM_TEST_QUOTA_AXI_FIXTURE="$snap" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness codex --model gpt-5 --effort medium)
+  status=$?
+  expect_code 1 "$status" "a runway-short candidate should refuse while another runs through its reset: $out"
+  assert_contains "$out" "spawn refused - codex/gpt-5/medium on crew-dispatch rule 0: runway projected_exhaustion at all_models ends 2030-01-01T01:00:00Z before its reset while grok:grok-4 (spendPriority 0.1) runs through its reset" \
+    "the refusal should name the short runway and the through-reset candidate"
+  assert_absent "$HOME_DIR/state/$id.meta" "a runway refusal should happen before meta is written"
+
+  mkdir -p "$HOME_DIR/data/$id"
+  printf '%s\n' 'captain chose codex for this task' > "$HOME_DIR/data/$id/dispatch-override"
+  out=$(FM_TEST_QUOTA_AXI_FIXTURE="$snap" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness codex --model gpt-5 --effort medium)
+  status=$?
+  expect_code 0 "$status" "the captain override should skip the runway check: $out"
+  rm -rf "$HOME_DIR/data/$id" "$HOME_DIR/state/$id.meta" "$HOME_DIR/state/$id.busy-gen" "$HOME_DIR/state/$id.busy-state"
+
+  id=runway-through-z23
+  rec=$(make_spawn_case runway-through claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"small fixes","use":[{"harness":"codex","model":"gpt-5","effort":"medium"},{"harness":"grok","model":"grok-4","effort":"high"}]}]}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  snap="$CASE_DIR/quota.json"
+  write_runway_snapshot "$snap" short 0.9 through_reset 0.1
+  out=$(FM_TEST_QUOTA_AXI_FIXTURE="$snap" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness grok --model grok-4 --effort high)
+  status=$?
+  expect_code 0 "$status" "the through-reset candidate should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4 high
+
+  id=runway-tight-z24
+  rec=$(make_spawn_case runway-tight claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"small fixes","use":[{"harness":"codex","model":"gpt-5","effort":"medium"},{"harness":"grok","model":"grok-4","effort":"high"}]}]}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  snap="$CASE_DIR/quota.json"
+  write_runway_snapshot "$snap" short 0.9 short 0.1
+  out=$(FM_TEST_QUOTA_AXI_FIXTURE="$snap" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness codex --model gpt-5 --effort medium)
+  status=$?
+  expect_code 0 "$status" "an all-tight rule should refuse nothing: $out"
+  assert_not_contains "$out" "runs through its reset" "an all-tight rule should not mention a through-reset candidate"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 medium
+  pass "fm-spawn refuses a runway-short candidate only while another candidate of the rule runs through its reset"
+}
+
 test_rules_only_dispatch_accepts_the_static_crew_harness_for_default() {
   local rec id out status
   id=rules-only-z21
@@ -2843,6 +2921,7 @@ test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
 test_off_table_harness_refuses_unless_captain_override_is_recorded
 test_any_live_candidate_of_the_rule_spawns
+test_runway_short_candidate_refuses_while_another_runs_through_reset
 test_rules_only_dispatch_accepts_the_static_crew_harness_for_default
 
 echo "# all fm-spawn-dispatch-profile tests passed"

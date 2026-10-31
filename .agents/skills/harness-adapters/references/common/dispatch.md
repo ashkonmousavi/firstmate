@@ -24,6 +24,7 @@ Firstmate alone chooses the matching rule; resolve its profile object or array w
 Pass that rule to `fm-spawn` as `--dispatch-rule` (omit it for `default`); spawn refuses a ship or scout harness, model, and effort that match none of that rule's candidate profiles (with no configured `default`, the static crewmate harness passes for `default`) unless `data/<id>/dispatch-override` records an explicit captain override.
 A selected Grok Bot target is never spawned; send it through `bin/fm-grok-bot-dispatch.sh` under that same section's Grok Bot contract.
 Ordered selection is the default intake: configured list order wins unless a candidate is unavailable; quota-balanced selection applies only where `select` explicitly requests it.
+Spawn also refuses a candidate whose runway ends before its reset while another candidate of the rule runs through its reset (`docs/configuration.md` "Crew dispatch profiles"); record that refusal as a `blocked` fact for the selector and take the candidate it yields.
 Supply concrete unavailability facts and retain the selector's choice and skip reasons; if every candidate is unavailable, stop and report it rather than falling through to another rule.
 Establish model support and provider family from that harness's own authoritative catalog, then apply the [account and scope matching rules in `quota-array-dispatch`](../../../quota-array-dispatch/SKILL.md#1-eligibility).
 Missing model-level quota, a missing authentication source, unmeasurable headroom, or unmodeled authentication is disclosed uncertainty that keeps a candidate eligible, never a credential or login escalation.
@@ -31,7 +32,7 @@ Only concrete contradictory evidence blocks a candidate, such as an authoritativ
 Preserve malformed profile configuration as an actionable error rather than selecting around it.
 `quota-axi` owns how model or product windows relate to bounding account windows and remains data-only.
 Load `quota-array-dispatch` only for an explicit `quota-balanced` rule; that skill owns its TOON-first spendPriority procedure, every-candidate accounting, strongest-reasoning protection, and tie escalation.
-Run `bin/fm-dispatch-resolve.sh` directly on the written brief in the same turn, with no preflight; on `clear` take its matched rule and resolve that rule's profile as above, while `ambiguous`, `escalate`, `error`, and off all mean the intake above, unchanged (contract: `docs/configuration.md` "Typed dispatch resolution").
+Run `bin/fm-dispatch-resolve.sh` directly on the written brief in the same turn, with no preflight; on `clear` pass its `profile:` line, the highest `spendPriority` candidate after the runway gate, with its matched rule for every `select` mode, while `ambiguous`, `escalate`, `error`, and off all mean the intake above, unchanged (contract: `docs/configuration.md` "Typed dispatch resolution").
 
 ## Owners
 

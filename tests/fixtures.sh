@@ -343,8 +343,10 @@ fm_test_make_spawn_fakebin() {
   fakebin=$(fm_fakebin "$dir")
   fm_test_fake_tmux_spawn "$fakebin"
   fm_fake_exit0 "$fakebin" treehouse "$@"
+  fm_test_fake_quota_axi "$fakebin"
   printf '%s\n' "$fakebin"
 }
+
 
 fm_test_walk_transport() {
   local dir=$1
