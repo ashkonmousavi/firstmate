@@ -624,7 +624,7 @@ test_ruff_format_large_excluded_files_do_not_refuse() {
     for comparison in changed all; do
       ruff_fixture "ruff-large-$exclusion-$comparison"
       ln -sf "$real_ruff" "$FX_BIN/ruff"
-      prefix= config=ruff.toml
+      prefix='' config=ruff.toml
       case "$exclusion" in
         nested*) prefix=pkg/; config=pkg/ruff.toml ;;
       esac
@@ -672,6 +672,7 @@ test_ruff_format_unreadable_committed_content_refuses() {
   ruff_fixture ruff-unreadable-content
   ruff_commit 'formatted' 'a.py=x = 1'
   real_git=$(command -v git)
+  # shellcheck disable=SC2016 # Variables expand when the generated wrapper runs.
   printf '#!/usr/bin/env bash\nif [ "${1:-}" = show ] && [[ "${2:-}" = *:a.py ]]; then echo object-read-failed >&2; exit 42; fi\nexec %q "$@"\n' "$real_git" >"$FX_BIN/git"
   chmod +x "$FX_BIN/git"
   GIT_EXEC_PATH="$FX_BIN" ruff_push origin HEAD:refs/heads/fm/t1
@@ -724,6 +725,7 @@ test_ruff_format_unpinned_uv_refuses() {
       fi
       [ "$declaration" != local-pin ] || printf 'ruff==0.12.7\n' >"$FX_WT/requirements-dev.txt"
       isolate_ruff_path
+      # shellcheck disable=SC2016 # $0 belongs to the generated runner.
       printf '#!/usr/bin/env bash\nprintf invoked >"$0.ran"\nexit 0\n' >"$FX_BIN/$tool"
       chmod +x "$FX_BIN/$tool"
       isolated_ruff_push origin HEAD:refs/heads/fm/t1

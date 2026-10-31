@@ -308,7 +308,7 @@ $strip_line
 $(runtime_chain_body "$hooks_dir")
 EOF
 
-  guard_cmd= ruff_cmd= checks_line=
+  guard_cmd='' ruff_cmd='' checks_line=''
   if [ -n "$guard_src" ]; then
     guard_file="$hooks_dir/fm-push-guard"
     { cp "$guard_src" "$guard_file" && chmod 400 "$guard_file"; } || return 1
