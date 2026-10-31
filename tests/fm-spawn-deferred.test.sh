@@ -217,7 +217,7 @@ test_closed_rows_are_removed_without_a_start() {
   record_task "$home" "$case_dir" gone-one
   tasks-axi start fly-one --file "$home/data/backlog.md" >/dev/null
   tasks-axi start done-one --file "$home/data/backlog.md" >/dev/null
-  tasks-axi done done-one --file "$home/data/backlog.md" >/dev/null
+  tasks-axi 'done' done-one --file "$home/data/backlog.md" >/dev/null
   tasks-axi rm gone-one --file "$home/data/backlog.md" >/dev/null
   printf '3\n' > "$case_dir/free"
   deferred_home retry "$home" "$case_dir" >/dev/null
@@ -364,7 +364,7 @@ wait_for_task_completion() {
 
 test_real_spawn_starts_after_a_lane_frees() {
   local variant=${1:-ship} case_dir home fakebin project out rc=0 began ended elapsed proof
-  local args=() projects_override= retry_backend=tmux expected_kind=ship
+  local args=() projects_override='' retry_backend=tmux expected_kind=ship
   require_tasks || return 0
   case_dir=$(new_case "real-lane-$variant")
   home="$case_dir/home"
@@ -668,7 +668,7 @@ SH
 test_manual_or_missing_backlog_never_starts() {
   local state case_dir home out
   require_tasks || return 0
-  for state in done held queued missing; do
+  for state in 'done' held queued missing; do
     case_dir=$(new_case "unproven-$state" retry-one)
     home="$case_dir/home"
     record_task "$home" "$case_dir" retry-one
@@ -679,7 +679,7 @@ test_manual_or_missing_backlog_never_starts() {
       case "$state" in
         done)
           tasks-axi start retry-one --file "$home/data/backlog.md" >/dev/null
-          tasks-axi done retry-one --file "$home/data/backlog.md" >/dev/null
+          tasks-axi 'done' retry-one --file "$home/data/backlog.md" >/dev/null
           ;;
         held) tasks-axi hold retry-one --kind captain --reason 'wait' --file "$home/data/backlog.md" >/dev/null ;;
       esac
@@ -741,7 +741,7 @@ SH
       hold|branch-hold) tasks-axi unhold retry-one --file "$home/data/backlog.md" >/dev/null ;;
       dependency|branch-dependency)
         tasks-axi start blocker --file "$home/data/backlog.md" >/dev/null
-        tasks-axi done blocker --file "$home/data/backlog.md" >/dev/null
+        tasks-axi 'done' blocker --file "$home/data/backlog.md" >/dev/null
         ;;
     esac
     out=$(FM_SUPERVISION_ACTOR="$actor" FM_DEFERRED_TEST_CONDITION="$condition" FM_DEFERRED_REAL_SPAWN="$SPAWN" real_command "$case_dir" "$ROOT_BIN" retry)
