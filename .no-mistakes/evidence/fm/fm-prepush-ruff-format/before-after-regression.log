@@ -1,0 +1,76 @@
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/project
+[exit 0]
+$ git init -q --bare ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/project
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/git-env.sh
+[exit 0]
+$ git add -f -- bad.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/base/fm-git-strip-ai-trailers.sh install ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/project
+[exit 0]
+BASE COMMIT: ordinary unformatted push is accepted
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git
+ * [new branch]      HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git rev-parse --verify refs/heads/NOT_Q/live
+9fb53814538328fb8e1da5180571f81520864233
+[exit 0]
+$ git add -f -- bad.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/project
+[exit 0]
+TARGET COMMIT: ordinary unformatted push is refused
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git rev-parse --verify refs/heads/NOT_Q/live
+9fb53814538328fb8e1da5180571f81520864233
+[exit 0]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 1 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  bad.py
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/bin/ruff format -- bad.py
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git'
+[exit 1]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git rev-parse --verify refs/heads/NOT_Q/live
+9fb53814538328fb8e1da5180571f81520864233
+[exit 0]
+$ /bin/bash -c '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/bin/ruff format -- bad.py'
+1 file reformatted
+[exit 0]
+$ git add -u
+[exit 0]
+$ git commit -q -m 'apply displayed fix'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git rev-parse --verify refs/heads/NOT_Q/live
+9fb53814538328fb8e1da5180571f81520864233
+[exit 0]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git
+   9fb5381..ecc66d3  HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/before-after/origin.git rev-parse --verify refs/heads/NOT_Q/live
+ecc66d3fab44eff78122f03363a2a129e5c91439
+[exit 0]

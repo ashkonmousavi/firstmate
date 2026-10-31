@@ -1,0 +1,310 @@
+$ git init -q -b main '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/project'
+[exit 0]
+$ git init -q --bare '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/origin.git'
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/origin.git'
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install --no-strip '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/project'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/git-env.sh'
+[exit 0]
+$ git add -f -- 'a file.py'
+[exit 0]
+$ git add -f -- 'quote'"'"'file.pyi'
+[exit 0]
+$ git add -f -- -leading.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 3 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  -leading.py
+  a file.py
+  quote'file.pyi
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path\ with\ spaces/bin/ruff format -- -leading.py a\ file.py quote\'file.pyi
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/origin.git'
+[exit 1]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ /bin/bash -c '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path\ with\ spaces/bin/ruff format -- -leading.py a\ file.py quote\'"'"'file.pyi'
+3 files reformatted
+[exit 0]
+$ git add -u
+[exit 0]
+$ git commit -q -m 'apply displayed fix'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/origin.git
+ * [new branch]      HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-path with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+7722028627ffef28302b5cadbe547a0de7f82707
+[exit 0]
+$ git init -q -b main '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/project'
+[exit 0]
+$ git init -q --bare '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/origin.git'
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/origin.git'
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install --no-strip '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/project'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/git-env.sh'
+[exit 0]
+$ git add -f -- 'a file.py'
+[exit 0]
+$ git add -f -- 'quote'"'"'file.pyi'
+[exit 0]
+$ git add -f -- -leading.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 3 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  -leading.py
+  a file.py
+  quote'file.pyi
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv\ with\ spaces/project/.venv/bin/ruff format -- -leading.py a\ file.py quote\'file.pyi
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/origin.git'
+[exit 1]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ /bin/bash -c '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv\ with\ spaces/project/.venv/bin/ruff format -- -leading.py a\ file.py quote\'"'"'file.pyi'
+3 files reformatted
+[exit 0]
+$ git add -u
+[exit 0]
+$ git commit -q -m 'apply displayed fix'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/origin.git
+ * [new branch]      HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-.venv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+7722028627ffef28302b5cadbe547a0de7f82707
+[exit 0]
+$ git init -q -b main '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/project'
+[exit 0]
+$ git init -q --bare '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/origin.git'
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/origin.git'
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install --no-strip '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/project'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/git-env.sh'
+[exit 0]
+$ git add -f -- 'a file.py'
+[exit 0]
+$ git add -f -- 'quote'"'"'file.pyi'
+[exit 0]
+$ git add -f -- -leading.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 3 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  -leading.py
+  a file.py
+  quote'file.pyi
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv\ with\ spaces/project/venv/bin/ruff format -- -leading.py a\ file.py quote\'file.pyi
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/origin.git'
+[exit 1]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ /bin/bash -c '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv\ with\ spaces/project/venv/bin/ruff format -- -leading.py a\ file.py quote\'"'"'file.pyi'
+3 files reformatted
+[exit 0]
+$ git add -u
+[exit 0]
+$ git commit -q -m 'apply displayed fix'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/origin.git
+ * [new branch]      HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-venv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+7722028627ffef28302b5cadbe547a0de7f82707
+[exit 0]
+$ git init -q -b main '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/project'
+[exit 0]
+$ git init -q --bare '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/origin.git'
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/origin.git'
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install --no-strip '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/project'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/git-env.sh'
+[exit 0]
+$ git add -f -- 'a file.py'
+[exit 0]
+$ git add -f -- 'quote'"'"'file.pyi'
+[exit 0]
+$ git add -f -- -leading.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 3 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  -leading.py
+  a file.py
+  quote'file.pyi
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx\ with\ spaces/bin/uvx --from ruff==0.12.7 ruff format -- -leading.py a\ file.py quote\'file.pyi
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/origin.git'
+[exit 1]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ /bin/bash -c '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx\ with\ spaces/bin/uvx --from ruff==0.12.7 ruff format -- -leading.py a\ file.py quote\'"'"'file.pyi'
+3 files reformatted
+[exit 0]
+$ git add -u
+[exit 0]
+$ git commit -q -m 'apply displayed fix'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/origin.git
+ * [new branch]      HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uvx with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+014e2f87dd9d567925da93362f1b9deba18961b5
+[exit 0]
+$ git init -q -b main '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/project'
+[exit 0]
+$ git init -q --bare '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/origin.git'
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/origin.git'
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install --no-strip '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/project'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/task.git-hooks' '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/git-env.sh'
+[exit 0]
+$ git add -f -- 'a file.py'
+[exit 0]
+$ git add -f -- 'quote'"'"'file.pyi'
+[exit 0]
+$ git add -f -- -leading.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 3 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  -leading.py
+  a file.py
+  quote'file.pyi
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv\ with\ spaces/bin/uv tool run --from ruff==0.12.7 ruff format -- -leading.py a\ file.py quote\'file.pyi
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/origin.git'
+[exit 1]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ /bin/bash -c '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv\ with\ spaces/bin/uv tool run --from ruff==0.12.7 ruff format -- -leading.py a\ file.py quote\'"'"'file.pyi'
+3 files reformatted
+[exit 0]
+$ git add -u
+[exit 0]
+$ git commit -q -m 'apply displayed fix'
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/origin.git
+ * [new branch]      HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/recovery-uv with spaces/origin.git' rev-parse --verify refs/heads/NOT_Q/live
+fe7c83d3b486cb80343b28daf2758c39983dd20f
+[exit 0]

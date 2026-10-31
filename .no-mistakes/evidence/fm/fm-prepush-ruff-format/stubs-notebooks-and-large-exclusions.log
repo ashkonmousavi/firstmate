@@ -1,0 +1,96 @@
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/project
+[exit 0]
+$ git init -q --bare ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/project
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/git-env.sh
+[exit 0]
+$ git add -f -- api.pyi
+[exit 0]
+$ git add -f -- book.ipynb
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 2 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  api.pyi
+  book.ipynb
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/bin/ruff format -- api.pyi book.ipynb
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git'
+[exit 1]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ /bin/bash -c '~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/bin/ruff format -- api.pyi book.ipynb'
+2 files reformatted
+[exit 0]
+$ git add -u
+[exit 0]
+$ git commit -q -m 'apply displayed fix'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git
+ * [new branch]      HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git rev-parse --verify refs/heads/NOT_Q/live
+c63f1ee6264de59407838e0704172e7d61b18c39
+[exit 0]
+$ git add -f -- ruff.toml
+[exit 0]
+$ git add -f -- large.py
+[exit 0]
+$ git add -f -- large.pyi
+[exit 0]
+$ git add -f -- large.ipynb
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git rev-parse --verify refs/heads/NOT_Q/live
+c63f1ee6264de59407838e0704172e7d61b18c39
+[exit 0]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git
+   c63f1ee..3c53891  HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git rev-parse --verify refs/heads/NOT_Q/live
+3c53891995e4219a9bbcca6b050a3c71cff574a7
+[exit 0]
+$ git add -f -- included.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git rev-parse --verify refs/heads/NOT_Q/live
+3c53891995e4219a9bbcca6b050a3c71cff574a7
+[exit 0]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 1 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  included.py
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/bin/ruff format -- included.py
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git'
+[exit 1]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/supported/origin.git rev-parse --verify refs/heads/NOT_Q/live
+3c53891995e4219a9bbcca6b050a3c71cff574a7
+[exit 0]

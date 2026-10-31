@@ -1,0 +1,58 @@
+[
+  {
+    "name": "push-refusal-and-executable-runner-fixes",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M67T3AATP6AT5EK7H7JK51FF/push-refusal-and-executable-runner-fixes.log",
+    "reason": ""
+  },
+  {
+    "name": "committed-and-per-ref-settings",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M67T3AATP6AT5EK7H7JK51FF/committed-and-per-ref-settings.log",
+    "reason": ""
+  },
+  {
+    "name": "stubs-notebooks-and-large-exclusions",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M67T3AATP6AT5EK7H7JK51FF/stubs-notebooks-and-large-exclusions.log",
+    "reason": ""
+  },
+  {
+    "name": "missing-unpinned-and-broken-formatters-refuse",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M67T3AATP6AT5EK7H7JK51FF/missing-unpinned-and-broken-formatters-refuse.log",
+    "reason": ""
+  },
+  {
+    "name": "changed-files-and-missing-base",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M67T3AATP6AT5EK7H7JK51FF/changed-files-and-missing-base.log",
+    "reason": ""
+  },
+  {
+    "name": "project-hook-chaining-and-independent-guards",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M67T3AATP6AT5EK7H7JK51FF/project-hook-chaining-and-independent-guards.log",
+    "reason": ""
+  },
+  {
+    "name": "symlink-refusal-and-regular-transition",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M67T3AATP6AT5EK7H7JK51FF/symlink-refusal-and-regular-transition.log",
+    "reason": ""
+  },
+  {
+    "name": "automatic-declarations-and-undeclared-projects",
+    "result": "pass",
+    "live": true,
+    "evidence": "~/.no-mistakes/evidence/01M67T3AATP6AT5EK7H7JK51FF/automatic-declarations-and-undeclared-projects.log",
+    "reason": ""
+  }
+]

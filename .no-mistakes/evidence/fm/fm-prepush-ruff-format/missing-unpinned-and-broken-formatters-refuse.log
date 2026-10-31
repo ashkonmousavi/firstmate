@@ -1,0 +1,91 @@
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/project
+[exit 0]
+$ git init -q --bare ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/project
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/git-env.sh
+[exit 0]
+$ git add -f -- a.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: Ruff was not found in .venv, venv or PATH; uvx or uv tool run requires an available runner and an exact committed requirements-dev.txt pin
+Install: python3 -m pip install ruff==0.12.7
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git'
+[exit 1]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: Ruff was not found in .venv, venv or PATH; uvx or uv tool run requires an available runner and an exact committed requirements-dev.txt pin
+Install: python3 -m pip install ruff
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git'
+[exit 1]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git add -f -- ruff.toml
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: Ruff could not check a.py (exit 2): ruff failed
+  Cause: Failed to load configuration `~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/tmp/fm-ruff-format.9QjGkV/ruff.toml`
+  Cause: Failed to parse ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/tmp/fm-ruff-format.9QjGkV/ruff.toml
+  Cause: TOML parse error at line 1, column 22
+  |
+1 | not-a-valid-toml = [
+  |                      ^
+unclosed array, expected `]`
+Install: python3 -m pip install ruff
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git'
+[exit 1]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git add -f -- ruff.toml
+[exit 0]
+$ git add -f -- a.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: Ruff could not check a.py (exit 2): error: Failed to parse a.py:1:11: Expected `:`, found name
+Install: python3 -m pip install ruff
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git'
+[exit 1]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/no-runner/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]

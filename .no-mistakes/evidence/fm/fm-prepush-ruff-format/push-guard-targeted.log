@@ -1,0 +1,29 @@
+ok - push guard: origin, origin's URL, and a remote aliasing origin's URL are all refused
+ok - push guard: the backup remote takes only backup/<id>, never the task branch or prefix
+ok - push guard: with an empty task prefix the bare task branch is still refused anywhere
+ok - push guard: the repository's own pre-push hook runs after the guard passes and still blocks
+ok - push guard: an unreadable guard file refuses every push
+ok - ruff format check: a push of formatted .py files is allowed
+ok - ruff format check: unformatted .py files are refused with the fix command, and pass once formatted
+ok - ruff format check: non-.py and deleted files are ignored, and an update checks only what the push changes
+ok - ruff format check: a new branch is checked against its merge base with the default branch
+ok - ruff format check: missing Ruff refuses with the pinned install command
+ok - ruff format check: uvx and uv tool run receive the committed Ruff pin
+ok - ruff format check: formatter errors and crashes refuse the push
+ok - ruff format check: no comparison base checks every tracked supported file
+ok - ruff format check: the project's own venv ruff is used before ruff on PATH
+ok - ruff format check: repository declarations enable enforcement without home configuration
+ok - ruff format check: it and the push guard each refuse, and neither hides the other
+ok - ruff format check: committed quote styles and exclusions govern despite staged, unstaged, missing or untracked local configuration
+ok - ruff format check: each pushed ref and update uses its own committed configuration
+ok - ruff format check: real Ruff checks stubs and notebooks and honors committed exclusions
+ok - ruff format check: user and parent configuration cannot replace defaults or committed nested settings
+ok - pre-push chaining: project hooks receive EOF for empty pushes and every record for changed pushes
+ok - ruff format check: large excluded py, pyi and ipynb files pass under root, nested, format and extended exclusions with or without a base
+ok - ruff format check: failure to materialize committed content refuses the push
+ok - ruff format check: uvx and uv refuse absent, ranged, wildcard and local-only pins
+ok - ruff format check: committed symlinks refuse by mode for every type and selection, even when checkout materializes link text
+ok - ruff format check: symlink-to-regular transitions are formatted rather than omitted
+ok - ruff format check: quoted fix commands execute via venv, PATH and pinned uv runners for special filenames
+ok - ruff format check: multiple refs retain and execute their own pinned runner fixes
+# all fm-git-push-guard and ruff format check tests passed

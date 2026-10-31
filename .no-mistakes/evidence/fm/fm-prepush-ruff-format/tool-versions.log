@@ -1,0 +1,8 @@
+git --version
+git version 2.43.0
+ruff --version
+ruff 0.14.11
+uv --version
+uv 0.9.18
+uvx --version
+uvx 0.9.18

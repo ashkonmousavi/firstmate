@@ -1,0 +1,81 @@
+$ git init -q -b main ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/project
+[exit 0]
+$ git init -q --bare ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git
+[exit 0]
+$ git add -f -- README.md
+[exit 0]
+$ git commit -q --allow-empty -m base
+[exit 0]
+$ git remote add origin file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git
+[exit 0]
+$ git push -q origin main
+[exit 0]
+$ git checkout -q -b NOT_Q/live
+[exit 0]
+$ git add -f -- requirements-dev.txt
+[exit 0]
+$ git commit -q --allow-empty -m 'declare Ruff'
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh install ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/project
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/bin/fm-git-strip-ai-trailers.sh env-file ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/task.git-hooks ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/git-env.sh
+[exit 0]
+$ git add -f -- ruff.toml
+[exit 0]
+$ git add -f -- pkg/a.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git status --porcelain
+ M ruff.toml
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+fm-ruff-format: refused: ruff format --check would reformat 1 changed file(s) for refs/heads/NOT_Q/live, and CI fails the PR on them:
+  pkg/a.py
+Fix: ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/bin/ruff format -- pkg/a.py
+Then commit the formatting and push again.
+error: failed to push some refs to 'file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git'
+[exit 1]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git status --porcelain
+ M ruff.toml
+[exit 0]
+$ git add -f -- pkg/a.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git rev-parse --verify refs/heads/NOT_Q/live
+fatal: Needed a single revision
+[exit 128]
+$ git push origin HEAD:refs/heads/NOT_Q/live
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git
+ * [new branch]      HEAD -> NOT_Q/live
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git rev-parse --verify refs/heads/NOT_Q/live
+d0a41805654260bfc843c333e1af2e8966295d89
+[exit 0]
+$ git add -f -- ruff.toml
+[exit 0]
+$ git add -f -- pkg/a.py
+[exit 0]
+$ git commit -q --allow-empty -m 'scenario change'
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git rev-parse --verify refs/heads/NOT_Q/live
+d0a41805654260bfc843c333e1af2e8966295d89
+[exit 0]
+$ git push origin d0a41805654260bfc843c333e1af2e8966295d89:refs/heads/double e98d5514fef0fbb0df211b7e809bd5199a5c456a:refs/heads/single
+To file://~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git
+ * [new branch]      d0a41805654260bfc843c333e1af2e8966295d89 -> double
+ * [new branch]      e98d5514fef0fbb0df211b7e809bd5199a5c456a -> single
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git rev-parse --verify refs/heads/double
+d0a41805654260bfc843c333e1af2e8966295d89
+[exit 0]
+$ git --git-dir ~/.no-mistakes/worktrees/049a88734b0e/01M67T3AATP6AT5EK7H7JK51FF/.test-live-ruff/manual/configuration/origin.git rev-parse --verify refs/heads/single
+e98d5514fef0fbb0df211b7e809bd5199a5c456a
+[exit 0]
