@@ -1605,6 +1605,89 @@ EOF
   pass "fm-control-lib: only a runtime's own recorded session has a relaunch resume form"
 }
 
+test_lane_release_revalidates_under_the_inbox_lock() {
+  local dir change out rc at gen seq kind class
+  for change in none unread status decision report gate hold board promotion sequence lock ship-none ship-unread ship-status ship-merge ship-sequence; do
+    dir=$(new_case "release-final-$change")
+    kind=scout
+    class=scout
+    case "$change" in ship-*) kind=ship; class=merged-ship ;; esac
+    add_task "$dir" t1 claude "$kind"
+    alive_as "$dir" claude
+    arm_busy_as "$dir" idle
+    at=$(date +%s)
+    gen=$(cat "$dir/home/state/t1.busy-gen")
+    seq=7
+    printf 'v1 gen=%s seq=%s state=idle source=claude-hook event=stop ts=%s\n' "$gen" "$seq" "$at" > "$dir/home/state/t1.busy-state"
+    printf 'spawn_gen=s1000.1.1\n' >> "$dir/home/state/t1.meta"
+    printf 'done [at=%s]: report ready\n' "$at" > "$dir/home/state/t1.status"
+    printf '# report\n' > "$dir/home/data/t1/report.md"
+    printf 'fm-lane-release-v1\ntask=t1\nspawn_gen=s1000.1.1\nreleased_at=%s\nanchor=%s\nclass=%s\nresult=releasing\nbusy_seq=7\n' "$at" "$at" "$class" > "$dir/home/state/t1.released"
+    if [ "$kind" = ship ]; then
+      printf 'pr=https://github.com/o/r/pull/7\n' >> "$dir/home/state/t1.meta"
+      (
+        . "$ROOT/bin/fm-pr-lib.sh"
+        fm_pr_poll_merge_mark_notified "$dir/home/state" t1 github github.com o/r 7
+      ) || fail "could not record the landing"
+      touch -d "@$at" "$dir/home/state/t1.pr-poll-merge-notified" 2>/dev/null \
+        || touch -t "$(date -r "$at" +%Y%m%d%H%M.%S)" "$dir/home/state/t1.pr-poll-merge-notified"
+    fi
+    cat > "$dir/fakebin/release-crew" <<'SH'
+#!/usr/bin/env bash
+printf 'state: done\n'
+SH
+    cat > "$dir/fakebin/release-hold" <<'SH'
+#!/usr/bin/env bash
+[ -e "$FM_HOME/state/.meta-t1.lock" ] || exit 2
+printf 'locked\n' >> "$FM_HOME/validated"
+if [ "$1" = open ]; then
+  [ -e "$FM_HOME/held" ] && exit 0
+  exit 1
+fi
+[ ! -e "$FM_HOME/gate-failed" ]
+SH
+    cat > "$dir/fakebin/release-probe" <<'SH'
+#!/usr/bin/env bash
+case "$1" in agent) echo alive ;; busy) echo idle ;; composer) echo empty ;; doorbell) echo no ;; esac
+SH
+    chmod +x "$dir/fakebin/release-crew" "$dir/fakebin/release-hold" "$dir/fakebin/release-probe"
+    case "$change" in
+      unread|ship-unread)
+        (
+          . "$ROOT/bin/fm-task-inbox-lib.sh"
+          fm_task_inbox_write "$dir/home/state" t1 continuation >/dev/null
+        ) || fail "could not publish a continuation"
+        ;;
+      status|ship-status) printf 'needs-decision [at=%s]: question\n' "$((at + 1))" >> "$dir/home/state/t1.status" ;;
+      decision) printf 'needs-decision [at=%s] [key=q]: question\ndone [at=%s]: ready\n' "$((at - 1))" "$at" > "$dir/home/state/t1.status" ;;
+      report) rm "$dir/home/data/t1/report.md" ;;
+      gate) : > "$dir/home/gate-failed" ;;
+      hold) : > "$dir/home/held" ;;
+      board) mkdir "$dir/home/state/procevent"; printf 'owner_task=t1\n' > "$dir/home/state/procevent/review.source" ;;
+      promotion) : > "$dir/home/data/t1/ship-instructions.md" ;;
+      sequence|ship-sequence) printf 'v1 gen=%s seq=8 state=idle source=claude-hook event=stop ts=%s\n' "$gen" "$at" > "$dir/home/state/t1.busy-state" ;;
+      ship-merge) rm "$dir/home/state/t1.pr-poll-merge-notified" ;;
+      lock) mkdir "$dir/home/state/.meta-t1.lock"; printf '%s\n' "$$" > "$dir/home/state/.meta-t1.lock/pid" ;;
+    esac
+    out=$(FM_CONTROL_LANE_RELEASE=1 FM_LANE_RELEASE_CREW_STATE="$dir/fakebin/release-crew" \
+      FM_LANE_RELEASE_CAPTAIN_HOLD="$dir/fakebin/release-hold" FM_LANE_RELEASE_PROBE="$dir/fakebin/release-probe" \
+      run_control "$dir" t1 exit --if-idle --expect-spawn-gen s1000.1.1); rc=$?
+    if [ "$change" = none ] || [ "$change" = ship-none ]; then
+      expect_code 0 "$rc" "an unchanged eligible worker must exit"$'\n'"$out"
+      [ "$(literals "$dir")" = /exit ] || fail "the ordinary release did not send exit"
+      [ "$kind" = ship ] || [ -s "$dir/home/validated" ] || fail "the final gate did not observe the metadata lock"
+      [ ! -e "$dir/home/state/t1.busy-gen" ] || fail "the ordinary release did not retire the busy generation"
+    else
+      expect_code 75 "$rc" "$change must defer final release"$'\n'"$out"
+      [ -z "$(literals "$dir")" ] || fail "$change still received exit"
+    fi
+    if [ "$change" != lock ]; then
+      [ ! -e "$dir/home/state/.meta-t1.lock" ] || fail "final validation leaked the metadata lock"
+    fi
+  done
+  pass "lane release revalidates ship and scout evidence under the steer publication lock before exit"
+}
+
 test_exit_types_each_harness_verified_command
 test_interrupt_sends_each_harness_verified_key
 test_devin_interrupt_invalidates_busy
@@ -1666,3 +1749,5 @@ test_grok_idle_footer_does_not_confirm_cancellation
 test_recorded_harness_capabilities
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task
+
+test_lane_release_revalidates_under_the_inbox_lock

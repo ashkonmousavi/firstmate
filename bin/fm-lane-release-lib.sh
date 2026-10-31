@@ -63,6 +63,12 @@ fm_lane_release_marker_active() {  # <state-dir> <id>
 
 # One plain phrase for a reader's report line.
 fm_lane_release_phrase() {  # (after fm_lane_release_marker_active succeeded)
-  printf 'released by lane release (%s, %s): seat freed, local copy kept, not a failure' \
-    "${FM_LANE_RELEASE_CLASS:-unknown}" "${FM_LANE_RELEASE_RESULT:-unknown}"
+  local seat
+  case "${FM_LANE_RELEASE_RESULT:-unknown}" in
+    released) seat='seat freed' ;;
+    release-incomplete) seat='seat still held' ;;
+    *) seat='seat release unverified' ;;
+  esac
+  printf 'released by lane release (%s, %s): %s, local copy kept, not a failure' \
+    "${FM_LANE_RELEASE_CLASS:-unknown}" "${FM_LANE_RELEASE_RESULT:-unknown}" "$seat"
 }

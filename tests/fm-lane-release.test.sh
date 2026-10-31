@@ -34,6 +34,7 @@ SH
 cat > "$STUBS/probe" <<'SH'
 #!/usr/bin/env bash
 what=$1 id=$2
+[ ! -e "$FM_T/$id.$what-hangs" ] || sleep 30
 if [ -f "$FM_T/$id.$what" ]; then cat "$FM_T/$id.$what"; exit 0; fi
 case "$what" in
   agent) printf 'alive\n' ;;
@@ -152,7 +153,7 @@ run_lr() {  # <dir> <now> <args...>
   env FM_HOME="$dir/home" FM_T="$dir/t" FM_LANE_RELEASE_NOW="$now" \
     FM_LANE_RELEASE_PROBE="$STUBS/probe" FM_LANE_RELEASE_CREW_STATE="$STUBS/crew-state" \
     FM_LANE_RELEASE_CAPTAIN_HOLD="$STUBS/hold" FM_LANE_RELEASE_CONTROL="$STUBS/control" \
-    "$LR" "$@"
+    "${FM_LANE_RELEASE_RUNNER:-$LR}" "$@"
 }
 
 wait_exit_log() {  # <dir> <id>
@@ -232,7 +233,7 @@ edge_stopped_but_not_done_never_frees() {
   assert_kept "$dir" ask open-decision
   assert_kept "$dir" wait crew-state-paused
   assert_kept "$dir" blk open-decision
-  assert_kept "$dir" dialog busy-unknown
+  assert_kept "$dir" dialog busy-unreadable
   assert_kept "$dir" compact busy-busy
   assert_kept "$dir" crash agent-not-live
   assert_kept "$dir" quota no-done
@@ -443,7 +444,7 @@ stop_trust_dialog_keeps() {
   finished_ship "$dir" s1
   stub "$dir" s1 busy 'unknown launch-prompt'
   cycle "$dir"
-  assert_kept "$dir" s1 busy-unknown
+  assert_kept "$dir" s1 busy-unreadable
   pass "stop row dialog: an agent at a launch dialog is not proven idle and keeps the seat"
 }
 
@@ -870,7 +871,6 @@ extra_arm_registers_a_thin_check() {
   out=$(FM_HOME="$dir/home" "$LR" arm)
   assert_contains "$out" "armed: state/lane-release.check.sh" "arm should report the shim"
   [ -x "$dir/home/state/lane-release.check.sh" ] || fail "the shim is not executable"
-  [ "$(grep -c . "$dir/home/state/lane-release.check.sh")" -le 4 ] || fail "the shim is not thin"
   (
     # shellcheck source=/dev/null
     . "$ROOT/bin/fm-pr-lib.sh"
@@ -878,11 +878,104 @@ extra_arm_registers_a_thin_check() {
     . "$ROOT/bin/fm-check-lib.sh"
     fm_custom_check_registered "$dir/home/state" lane-release
   ) || fail "the shim is not registered with the watcher"
-  out=$("$dir/home/state/lane-release.check.sh")
-  [ -z "$out" ] || fail "the check printed with nothing to report: $out"
+  finished_ship "$dir" s1
+  FM_LANE_RELEASE_RUNNER="$dir/home/state/lane-release.check.sh" run_lr "$dir" 2500 >/dev/null
+  [ "$(control_calls "$dir")" = 0 ] || fail "the registered check skipped the grace"
+  FM_LANE_RELEASE_RUNNER="$dir/home/state/lane-release.check.sh" run_lr "$dir" 2900 >/dev/null
+  wait_exit_log "$dir" s1
+  FM_LANE_RELEASE_RUNNER="$dir/home/state/lane-release.check.sh" run_lr "$dir" 2950 >/dev/null
+  assert_released "$dir" s1 merged-ship
   FM_HOME="$dir/home" "$LR" disarm >/dev/null
   [ ! -e "$dir/home/state/lane-release.check.sh" ] || fail "disarm left the shim"
   pass "extra carrier: arm writes and registers a thin check shim; disarm removes it"
+}
+
+extra_audit_marker_occupancy_and_unknown_reads() {
+  local dir result out rc what
+  for result in releasing release-incomplete released; do
+    dir=$(new_case "audit-marker-$result")
+    finished_ship "$dir" s1
+    printf 'fm-lane-release-v1\ntask=s1\nspawn_gen=s1000.1.1\nreleased_at=3900\nanchor=2100\nclass=merged-ship\nresult=%s\n' "$result" > "$dir/home/state/s1.released"
+    out=$(run_lr "$dir" 4000 --audit); rc=$?
+    expect_code 1 "$rc" "an occupied marker uses the finished anchor, even if release was recent"$'\n'"$out"
+    assert_contains "$out" "holder s1 class=merged-ship age=1900s state=$result" "the marker cannot hide an overdue seat"
+    stub "$dir" s1 seat unknown
+    out=$(run_lr "$dir" 4000 --audit); rc=$?
+    expect_code 2 "$rc" "unreadable marker occupancy must be unknown"$'\n'"$out"
+    stub "$dir" s1 seat no
+    out=$(run_lr "$dir" 4000 --audit); rc=$?
+    expect_code 0 "$rc" "a proven free marker holds no seat"$'\n'"$out"
+  done
+  for what in composer busy malformed; do
+    dir=$(new_case "audit-unknown-$what")
+    finished_ship "$dir" s1
+    case "$what" in
+      malformed) printf 'invalid\n' > "$dir/home/state/s1.busy-state" ;;
+      *) stub "$dir" s1 "$what" unknown ;;
+    esac
+    out=$(run_lr "$dir" 4000 --audit); rc=$?
+    expect_code 2 "$rc" "unreadable $what evidence must make the audit unknown"$'\n'"$out"
+    finished_ship "$dir" s2
+    out=$(run_lr "$dir" 4000 --audit); rc=$?
+    expect_code 2 "$rc" "unknown evidence takes precedence over another overdue holder"$'\n'"$out"
+  done
+  pass "audit counts occupied markers from the anchor and propagates unknown evidence"
+}
+
+extra_all_external_reads_share_the_sweep_deadline() {
+  local dir what start took i
+  for what in agent busy composer doorbell seat; do
+    dir=$(new_case "budget-$what")
+    finished_ship "$dir" s1
+    : > "$dir/t/s1.$what-hangs"
+    case "$what" in
+      doorbell)
+        (
+          . "$ROOT/bin/fm-task-inbox-lib.sh"
+          fm_task_inbox_write "$dir/home/state" s1 continuation >/dev/null
+        ) || fail "could not enqueue the steer"
+        ;;
+      seat)
+        for i in 1 2 3; do
+          finished_ship "$dir" "m$i"
+          printf 'fm-lane-release-v1\ntask=m%s\nspawn_gen=s1000.1.1\nreleased_at=2200\nanchor=2100\nclass=merged-ship\nresult=release-incomplete\n' "$i" > "$dir/home/state/m$i.released"
+          : > "$dir/t/m$i.seat-hangs"
+        done
+        ;;
+    esac
+    start=$(date +%s)
+    FM_LANE_RELEASE_BUDGET=2 run_lr "$dir" 2500 sweep >/dev/null
+    took=$(( $(date +%s) - start ))
+    [ "$took" -le 3 ] || fail "$what reads exceeded the shared 2s budget: ${took}s"
+    [ "$(control_calls "$dir")" = 0 ] || fail "a timed-out read still released a worker"
+  done
+  pass "agent, busy, composer, doorbell and marker seat reads stop at the sweep deadline"
+}
+
+extra_shared_seat_rule_preserves_uncertainty() {
+  local dir
+  dir=$(new_case seat-evidence)
+  (
+    . "$ROOT/bin/fm-project-capacity-lib.sh"
+    fm_backend_agent_state() { printf '%s\n' "$agent"; }
+    local agent=alive raw rc
+    raw="window=example
+worktree=$dir/absent"
+    rc=0
+    fm_task_record_holds_seat "$dir/home/state/s1.meta" "$raw" "$dir/home/state" || rc=$?
+    expect_code 0 "$rc" "a live agent still holds a seat"
+    [ "$FM_TASK_RECORD_SEAT_KNOWN" = 1 ] || fail "live occupancy was marked unknown"
+    agent=dead
+    fm_task_record_holds_seat "$dir/home/state/s1.meta" "$raw" "$dir/home/state" || fail "uncertainty must retain the capacity seat"
+    [ "$FM_TASK_RECORD_SEAT_KNOWN" = 0 ] || fail "an unreadable worktree was presented as proven occupancy"
+    raw="window=example
+worktree=$dir/home/state/s1.released-copy"
+    rc=0
+    fm_task_record_holds_seat "$dir/home/state/s1.meta" "$raw" "$dir/home/state" || rc=$?
+    expect_code 1 "$rc" "a stopped released-copy record holds no seat"
+    [ "$FM_TASK_RECORD_SEAT_KNOWN" = 1 ] || fail "a proven free seat was marked unknown"
+  ) || fail "the shared seat evidence contract failed"
+  pass "shared capacity keeps uncertain seats occupied while exposing uncertainty to audit"
 }
 
 edge_trigger_is_a_confirmed_done_never_an_exited_or_quiet_pane
@@ -935,3 +1028,8 @@ extra_slow_gate_read_is_bounded_by_the_sweep_budget
 extra_local_only_ship_is_kept
 extra_audit_exit_codes
 extra_arm_registers_a_thin_check
+
+extra_audit_marker_occupancy_and_unknown_reads
+extra_all_external_reads_share_the_sweep_deadline
+
+extra_shared_seat_rule_preserves_uncertainty

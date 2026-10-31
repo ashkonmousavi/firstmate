@@ -87,9 +87,9 @@
 # available, else nohup) as `exit-worker`, which runs
 #   bin/fm-control.sh <id> exit --if-idle --expect-spawn-gen <gen>
 # under a 60 s bound and appends `rc=<n>` to state/<id>.release.log.
-# fm-control's own lock is the single serialiser of the exit; --expect-spawn-gen
-# closes the window between this script releasing the lock and fm-control
-# taking it, because a relaunch in between changes spawn_gen. Exit-code mapping
+# fm-control holds the control and metadata locks during final eligibility
+# validation and exit; --expect-spawn-gen requires the same incarnation.
+# Exit-code mapping
 # (bin/fm-control.sh): 0 stopped, already-stopped, or endpoint-gone; 75 deferred
 # (the lock was busy, the agent was not idle, or the incarnation changed) - the
 # marker is removed and the task retried on a later sweep, never spun on;
@@ -108,7 +108,7 @@
 # watcher runs it every FM_CHECK_INTERVAL (300 s) within its 30 s check bound.
 # A sweep holds state/.lane-release.lock (try-acquire; contention exits quietly),
 # visits in-flight tasks from a durable cursor within FM_LANE_RELEASE_BUDGET
-# (default 20 s; every crew-state and captain-hold read inside it is bounded by
+# (default 20 s; every external read inside it is bounded by
 # the time left, at most 10 s, and a read that times out keeps the seat), and
 # starts at most FM_LANE_RELEASE_MAX (default 2) releases.
 # It runs in every posture: neither away nor quiet mode skips it, and the
@@ -195,33 +195,38 @@ probe() {  # <what> <id>
   "$FM_LANE_RELEASE_PROBE" "$1" "$2" 2>/dev/null
 }
 
-read_agent() {  # <meta> <id>
+raw_read_agent() {  # <meta> <id>
   if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then probe agent "$2"; return; fi
   fm_backend_agent_state "$(fm_backend_of_meta "$1")" "$(fm_backend_target_of_meta "$1")" 2>/dev/null
 }
 
-read_busy() {  # <meta> <id>
+raw_read_busy() {  # <meta> <id>
   if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then probe busy "$2"; return; fi
   fm_busy_classify_meta "$1" "$2" "$STATE" 2>/dev/null
 }
 
-read_composer() {  # <meta> <id>
+raw_read_composer() {  # <meta> <id>
   if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then probe composer "$2"; return; fi
   fm_backend_composer_state "$(fm_backend_of_meta "$1")" "$(fm_backend_target_of_meta "$1")" "fm-$2" 2>/dev/null
 }
 
 # 0 when the composer holds exactly <line>, the task's own doorbell.
-composer_holds_doorbell() {  # <meta> <id> <line>
+raw_composer_holds_doorbell() {  # <meta> <id> <line>
   if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then [ "$(probe doorbell "$2")" = yes ]; return; fi
   fm_task_inbox_composer_holds "$(fm_backend_of_meta "$1")" "$(fm_backend_target_of_meta "$1")" "$3" "fm-$2" 2>/dev/null
 }
 
 # 0 while the task record still holds a seat under the shared seat rule.
-seat_held() {  # <meta> <id>
+raw_seat_held() {  # <meta> <id>
   local raw
-  if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then [ "$(probe seat "$2")" = yes ]; return; fi
-  raw=$(cat "$1" 2>/dev/null) || return 0
-  fm_task_record_holds_seat "$1" "$raw" "$STATE"
+  if [ -n "${FM_LANE_RELEASE_PROBE:-}" ]; then
+    case "$(probe seat "$2")" in yes) return 0 ;; no) return 1 ;; *) return 2 ;; esac
+  fi
+  raw=$(cat "$1" 2>/dev/null) || return 2
+  local rc=0
+  fm_task_record_holds_seat "$1" "$raw" "$STATE" || rc=$?
+  [ "$FM_TASK_RECORD_SEAT_KNOWN" = 1 ] || return 2
+  return "$rc"
 }
 
 now() {
@@ -291,15 +296,27 @@ OUT=
 DEADLINE=
 
 # Seconds a subprocess read may take: at most 10, never past the sweep's
-# deadline (at least 1, so the first task of a sweep is always read).
+# deadline.
 read_bound() {
   local left
   [ -n "$DEADLINE" ] || { printf '10\n'; return 0; }
   left=$((DEADLINE - $(date +%s)))
   [ "$left" -le 10 ] || left=10
-  [ "$left" -ge 1 ] || left=1
+  [ "$left" -ge 1 ] || return 124
   printf '%s\n' "$left"
 }
+
+timed_read() {
+  local bound
+  bound=$(read_bound) || return 124
+  fm_run_timed "$bound" "$@"
+}
+
+read_agent() { timed_read "$0" read-evidence agent "$@"; }
+read_busy() { timed_read "$0" read-evidence busy "$@"; }
+read_composer() { timed_read "$0" read-evidence composer "$@"; }
+composer_holds_doorbell() { timed_read "$0" read-evidence doorbell "$@"; }
+seat_held() { timed_read "$0" read-evidence seat "$@"; }
 
 # pred_merged <meta> <id>: OUT is the merge anchor epoch.
 pred_merged() {
@@ -329,7 +346,7 @@ pred_scout_complete() {
       return 1
     fi
   done
-  fm_run_timed "$(read_bound)" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+  timed_read env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     "$HOLD_BIN" open "$id" --distinguish-absent >/dev/null 2>&1 || rc=$?
   case "$rc" in
     0) KEEP='held-for-captain'; return 1 ;;
@@ -337,12 +354,12 @@ pred_scout_complete() {
     *) KEEP='hold-unreadable'; return 1 ;;
   esac
   rc=0
-  fm_run_timed "$(read_bound)" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+  timed_read env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     "$HOLD_BIN" verify "$id" >/dev/null 2>&1 || rc=$?
   case "$rc" in
     0) ;;
-    124) KEEP='hold-unreadable'; return 1 ;;
-    *) KEEP='completion-gate-not-passed'; return 1 ;;
+    1) KEEP='completion-gate-not-passed'; return 1 ;;
+    *) KEEP='hold-unreadable'; return 1 ;;
   esac
 }
 
@@ -383,7 +400,7 @@ pred_no_open_decision() {
 # pred_crew_state <id> <class>
 pred_crew_state() {
   local id=$1 class=$2 line state
-  line=$(fm_run_timed "$(read_bound)" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+  line=$(timed_read env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
     FM_CREW_STATE_NO_FORGE=1 "$CREW_STATE_BIN" "$id" 2>/dev/null) || { KEEP='crew-state-unreadable'; return 1; }
   state=${line#state: }
   state=${state%% *}
@@ -398,7 +415,7 @@ pred_crew_state() {
 # when the adapter keeps no busy record).
 pred_nothing_since() {
   local meta=$1 id=$2 anchor=$3 launch=$4 status last at inbox f m rec
-  local target busy_rec ts seq b_state b_source verdict composer line
+  local target busy_rec ts seq b_state b_source verdict composer line record
   OUT=
   [ "$launch" -lt "$anchor" ] || { KEEP='relaunched-since'; return 1; }
   status="$STATE/$id.status"
@@ -435,10 +452,13 @@ pred_nothing_since() {
   seq=-
   busy_rec=$(fm_busy_record_path "$STATE" "$id")
   if [ -f "$busy_rec" ]; then
-    # A record that fails validation prints its reason as the only field, so
-    # it lands in b_state and is kept by the idle test below.
-    read -r b_state b_source _ seq <<< "$(fm_busy_record_read "$STATE" "$id")"
-    [ "$b_state" = idle ] || { KEEP="busy-record-$b_state"; return 1; }
+    record=$(fm_busy_record_read "$STATE" "$id") || { KEEP='busy-record-unreadable'; return 1; }
+    read -r b_state b_source _ seq <<< "$record"
+    case "$b_state" in
+      idle) ;;
+      busy) KEEP='busy-record-busy'; return 1 ;;
+      *) KEEP='busy-record-unreadable'; return 1 ;;
+    esac
     [ "$b_source" != fm-interrupt ] || { KEEP='interrupted'; return 1; }
     ts=$(sed -n 's/.* ts=\([0-9][0-9]*\).*/\1/p' "$busy_rec" 2>/dev/null | head -n 1)
     [ -n "$ts" ] || { KEEP='busy-record-unreadable'; return 1; }
@@ -447,7 +467,8 @@ pred_nothing_since() {
   verdict=$(read_busy "$meta" "$id") || verdict=unknown
   case "$verdict" in
     idle*) ;;
-    *) KEEP="busy-${verdict%% *}"; return 1 ;;
+    busy*) KEEP='busy-busy'; return 1 ;;
+    *) KEEP='busy-unreadable'; return 1 ;;
   esac
   composer=$(read_composer "$meta" "$id") || composer=unknown
   case "$composer" in
@@ -471,7 +492,7 @@ evaluate() {
   [ -n "$kind" ] || kind=ship
   case "$kind" in ship|scout) ;; *) return 2 ;; esac
   [ -z "$(meta_field "$meta" remote_host)" ] || return 2
-  fm_lane_release_marker_active "$STATE" "$id" && return 2
+  if [ "${2:-0}" != 1 ]; then fm_lane_release_marker_active "$STATE" "$id" && return 2; fi
   gen=$(meta_field "$meta" spawn_gen)
   launch=$(launch_epoch "$gen") || { KEEP='no-incarnation'; return 1; }
   status="$STATE/$id.status"
@@ -511,8 +532,8 @@ marker_write() {  # <id> <gen> <released_at> <anchor> <class> <result>
   local marker tmp
   marker=$(fm_lane_release_marker_path "$STATE" "$1")
   tmp=$(mktemp "$STATE/.lane-release-marker.XXXXXX") || return 1
-  printf 'fm-lane-release-v1\ntask=%s\nspawn_gen=%s\nreleased_at=%s\nanchor=%s\nclass=%s\nresult=%s\n' \
-    "$1" "$2" "$3" "$4" "$5" "$6" > "$tmp" || { rm -f -- "$tmp"; return 1; }
+  printf 'fm-lane-release-v1\ntask=%s\nspawn_gen=%s\nreleased_at=%s\nanchor=%s\nclass=%s\nresult=%s\nbusy_seq=%s\n' \
+    "$1" "$2" "$3" "$4" "$5" "$6" "$7" > "$tmp" || { rm -f -- "$tmp"; return 1; }
   mv -f -- "$tmp" "$marker" || { rm -f -- "$tmp"; return 1; }
 }
 
@@ -522,7 +543,8 @@ marker_set_result() {  # <id> <result>
   marker_write "$1" "$(fm_lane_release_marker_field "$marker" spawn_gen)" \
     "$(fm_lane_release_marker_field "$marker" released_at)" \
     "$(fm_lane_release_marker_field "$marker" anchor)" \
-    "$(fm_lane_release_marker_field "$marker" class)" "$2"
+    "$(fm_lane_release_marker_field "$marker" class)" "$2" \
+    "$(fm_lane_release_marker_field "$marker" busy_seq)"
 }
 
 marker_remove() {  # <id>
@@ -530,7 +552,7 @@ marker_remove() {  # <id>
 }
 
 start_release() {  # <id> <class> <gen> <anchor>
-  local id=$1 class=$2 gen=$3 anchor=$4 lock
+  local id=$1 class=$2 gen=$3 anchor=$4 seq=$5 lock
   lock="$STATE/.control-$id.lock"
   if ! fm_lock_try_acquire "$lock"; then
     counter_bump lock-busy
@@ -542,7 +564,7 @@ start_release() {  # <id> <class> <gen> <anchor>
     return 1
   fi
   rm -f -- "$STATE/$id.release.log" "$STATE/$id.release-verify"
-  if ! marker_write "$id" "$gen" "$(now)" "$anchor" "$class" releasing; then
+  if ! marker_write "$id" "$gen" "$(now)" "$anchor" "$class" releasing "$seq"; then
     fm_lock_release "$lock" || true
     counter_bump marker-unwritable
     return 1
@@ -560,16 +582,27 @@ start_release() {  # <id> <class> <gen> <anchor>
 action_exit_worker() {  # <id> <gen>
   local id=$1 gen=$2 log rc=0
   log="$STATE/$id.release.log"
-  fm_run_timed "$EXIT_BOUND" env FM_HOME="$FM_HOME" \
+  fm_run_timed "$EXIT_BOUND" env FM_HOME="$FM_HOME" FM_CONTROL_LANE_RELEASE=1 \
     "$CONTROL_BIN" "$id" exit --if-idle --expect-spawn-gen "$gen" > "$log.tmp" 2>&1 || rc=$?
   printf 'rc=%s\n' "$rc" >> "$log.tmp"
   mv -f -- "$log.tmp" "$STATE/$id.release.log"
 }
 
+action_validate_exit() {
+  local id=$1 gen=$2 marker expected
+  fm_lane_release_marker_active "$STATE" "$id" || return 75
+  [ "$FM_LANE_RELEASE_RESULT" = releasing ] || return 75
+  marker=$(fm_lane_release_marker_path "$STATE" "$id")
+  [ "$(fm_lane_release_marker_field "$marker" spawn_gen)" = "$gen" ] || return 75
+  expected="$FM_LANE_RELEASE_CLASS $gen $(fm_lane_release_marker_field "$marker" anchor) $(fm_lane_release_marker_field "$marker" busy_seq)"
+  evaluate "$id" 1 || return 75
+  [ "$EVAL" = "$expected" ] || return 75
+}
+
 # Verify one releasing or incomplete marker; prints a wake line for a new
 # RELEASE_INCOMPLETE.
 verify_marker() {  # <id>
-  local id=$1 marker meta result rc class anchor released_at tries
+  local id=$1 marker meta result rc class anchor released_at tries seat_rc
   marker=$(fm_lane_release_marker_path "$STATE" "$id")
   meta="$STATE/$id.meta"
   if [ ! -f "$meta" ]; then
@@ -608,7 +641,10 @@ verify_marker() {  # <id>
         ;;
     esac
   fi
-  if ! seat_held "$meta" "$id"; then
+  seat_rc=0
+  seat_held "$meta" "$id" || seat_rc=$?
+  case "$seat_rc" in 0|1) ;; *) return 0 ;; esac
+  if [ "$seat_rc" = 1 ]; then
     marker_set_result "$id" released
     ledger_row RELEASED "$id" "$class" "$anchor" "$released_at" yes "seat free"
     rm -f -- "$STATE/$id.release-verify"
@@ -667,6 +703,7 @@ action_sweep() {
   DEADLINE=$deadline
   for m in "$STATE"/*.released; do
     [ -f "$m" ] || continue
+    [ "$(date +%s)" -lt "$deadline" ] || break
     verify_marker "$(basename "$m" .released)"
   done
   ids=$(for meta in "$STATE"/*.meta; do [ -f "$meta" ] && basename "$meta" .meta; done | LC_ALL=C sort)
@@ -691,7 +728,8 @@ action_sweep() {
     esac
     read -r class gen anchor seq <<< "$EVAL"
     candidate_step "$id" "$class" "$gen" "$anchor" "$seq" "$mode" || continue
-    start_release "$id" "$class" "$gen" "$anchor" && started=$((started + 1))
+    [ "$(date +%s)" -lt "$deadline" ] || break
+    start_release "$id" "$class" "$gen" "$anchor" "$seq" && started=$((started + 1))
   done <<< "$ids"
   return 0
 }
@@ -709,14 +747,20 @@ action_audit() {
     id=$(basename "$meta" .meta)
     fm_task_id_creation_valid "$id" || continue
     if fm_lane_release_marker_active "$STATE" "$id"; then
-      if [ "$FM_LANE_RELEASE_RESULT" = release-incomplete ]; then
-        age=$((t - FM_LANE_RELEASE_AT))
-        holders=$((holders + 1))
-        printf 'holder %s class=%s age=%ss state=release-incomplete\n' "$id" "$FM_LANE_RELEASE_CLASS" "$age"
-        [ "$age" -le "$AUDIT_MAX_AGE" ] || miss=1
-      else
-        printf 'released %s class=%s result=%s\n' "$id" "$FM_LANE_RELEASE_CLASS" "$FM_LANE_RELEASE_RESULT"
-      fi
+      anchor=$(fm_lane_release_marker_field "$STATE/$id.released" anchor)
+      rc=0
+      seat_held "$meta" "$id" || rc=$?
+      case "$anchor" in ''|*[!0-9]*) rc=2 ;; esac
+      case "$rc" in
+        0)
+          age=$((t - anchor))
+          holders=$((holders + 1))
+          printf 'holder %s class=%s age=%ss state=%s\n' "$id" "$FM_LANE_RELEASE_CLASS" "$age" "$FM_LANE_RELEASE_RESULT"
+          [ "$age" -le "$AUDIT_MAX_AGE" ] || miss=1
+          ;;
+        1) printf 'released %s class=%s result=%s\n' "$id" "$FM_LANE_RELEASE_CLASS" "$FM_LANE_RELEASE_RESULT" ;;
+        *) unknown=1; printf 'unknown %s (release evidence unreadable; unknown is never counted as free)\n' "$id" ;;
+      esac
       continue
     fi
     rc=0
@@ -736,7 +780,7 @@ action_audit() {
             stuck=$((stuck + 1))
             printf 'stuck-composer %s (its own steering doorbell sits unsubmitted; never released)\n' "$id"
             ;;
-          crew-state-unreadable|endpoint-unreadable|status-unreadable|busy-record-unreadable|inbox-unreadable|hold-unreadable|merge-record-unreadable)
+          crew-state-unreadable|endpoint-unreadable|status-unreadable|busy-record-unreadable|busy-unreadable|composer-unknown|inbox-unreadable|hold-unreadable|merge-record-unreadable)
             unknown=1
             printf 'unknown %s (%s; unknown is never counted as free)\n' "$id" "$KEEP"
             ;;
@@ -760,8 +804,8 @@ action_audit() {
   done
   printf 'summary: class merged-ship/scout holders=%s stuck-composer=%s kept-open-pr seat-hours=%s (local reads; red checks and review findings not read)\n' \
     "$holders" "$stuck" "$seat_hours"
-  [ "$miss" = 0 ] || return 1
   [ "$unknown" = 0 ] || return 2
+  [ "$miss" = 0 ] || return 1
   return 0
 }
 
@@ -799,6 +843,18 @@ action_disarm() {
 }
 
 case "${1:-}" in
+  read-evidence)
+    shift
+    case "$1" in
+      agent) shift; raw_read_agent "$@" ;;
+      busy) shift; raw_read_busy "$@" ;;
+      composer) shift; raw_read_composer "$@" ;;
+      doorbell) shift; raw_composer_holds_doorbell "$@" ;;
+      seat) shift; raw_seat_held "$@" ;;
+      *) exit 2 ;;
+    esac
+    ;;
+  validate-exit) action_validate_exit "$2" "$3" ;;
   sweep) action_sweep ;;
   --audit|audit) action_audit ;;
   arm) action_arm ;;

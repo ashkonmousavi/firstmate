@@ -920,8 +920,10 @@ for meta in "$STATE"/*.meta; do
 
   window=$(fm_meta_get "$meta" window)
   target=$(fm_backend_target_of_meta "$meta")
-  if [ -n "$window" ]; then
-    backend=$(fm_backend_of_meta "$meta")
+  backend=$(fm_backend_of_meta "$meta")
+  if fm_lane_release_marker_active "$STATE" "$id"; then
+    printf 'endpoint: released (backend=%s window=%s - %s)\n' "$backend" "${window:-none}" "$(fm_lane_release_phrase)"
+  elif [ -n "$window" ]; then
     endpoint_rc=0
     fm_session_start_endpoint_read "$backend" "${target:-$window}" "fm-$id" || endpoint_rc=$?
     # Only the timeout owner's own statuses mean the read itself failed: 124 is
@@ -932,8 +934,6 @@ for meta in "$STATE"/*.meta; do
     elif [ "$endpoint_rc" -eq 124 ] || [ "$endpoint_rc" -ge 128 ]; then
       printf 'endpoint: error (backend=%s window=%s - the endpoint read died or hit its %ss bound; the digest continued past it)\n' \
         "$backend" "$window" "$ENDPOINT_TIMEOUT"
-    elif fm_lane_release_marker_active "$STATE" "$id"; then
-      printf 'endpoint: released (backend=%s window=%s - %s)\n' "$backend" "$window" "$(fm_lane_release_phrase)"
     else
       printf 'endpoint: dead (backend=%s window=%s)\n' "$backend" "$window"
     fi

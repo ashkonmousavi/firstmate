@@ -183,16 +183,18 @@ fm_project_capacity_lookup() {  # <config-dir> <project-name>
 fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
   local meta=$1 raw=$2 dir=$3 backend target worktree processes line pid path
   local holds name args argv0
+  FM_TASK_RECORD_SEAT_KNOWN=0
   backend=$(printf '%s\n' "$raw" | sed -n 's/^backend=//p' | tail -1)
   target=$(printf '%s\n' "$raw" | sed -n 's/^window=//p' | tail -1)
   case "$(fm_backend_agent_state "${backend:-tmux}" "$target")" in
     dead|missing) ;;
+    alive) FM_TASK_RECORD_SEAT_KNOWN=1; return 0 ;;
     *) return 0 ;;
   esac
   worktree=$(printf '%s\n' "$raw" | sed -n 's/^worktree=//p' | tail -1)
   # A teardown-completed record names the <id>.released-copy sentinel, which is
   # never a real directory, so with no live agent it holds no seat.
-  [ "$worktree" != "$dir/$(basename "$meta" .meta).released-copy" ] || return 1
+  [ "$worktree" != "$dir/$(basename "$meta" .meta).released-copy" ] || { FM_TASK_RECORD_SEAT_KNOWN=1; return 1; }
   if [[ "$worktree" = /* ]] && [ -d "$worktree" ] && [ -r "$worktree" ] && [ -x "$worktree" ] \
      && worktree=$(cd "$worktree" && pwd -P) \
      && processes=$(lsof -a -d cwd -Fpn 2>/dev/null); then
@@ -215,7 +217,8 @@ fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
               [ -n "$name" ] && [ -n "$args" ] || { holds=1; break; }
               read -r argv0 _ <<< "$args"
               if [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" != shell ]; then
-                holds=1; break
+                FM_TASK_RECORD_SEAT_KNOWN=1
+                return 0
               fi
               ;;
           esac
@@ -224,7 +227,7 @@ fm_task_record_holds_seat() {  # <meta> <raw> <state-dir>
         *) holds=1; break ;;
       esac
     done <<< "$processes"
-    [ "$holds" -ne 0 ] || return 1
+    [ "$holds" -ne 0 ] || { FM_TASK_RECORD_SEAT_KNOWN=1; return 1; }
   fi
   return 0
 }

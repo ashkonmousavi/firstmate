@@ -787,7 +787,7 @@ exit_background_check() {
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
-  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy
+  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy release_meta_lock=
   require_state_verified_backend exit
   state=$(agent_state)
   case "$state" in
@@ -885,6 +885,13 @@ do_exit() {
       die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       ;;
   esac
+  if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
+    [ "$EXPECT_GEN_SET" = 1 ] && [ "$IF_IDLE" = 1 ] || return 75
+    release_meta_lock=$(fm_meta_lock_path "$META") || return 75
+    fm_lock_try_acquire "$release_meta_lock" || return 75
+    trap "fm_lock_release $(printf '%q' "$release_meta_lock") || true" EXIT
+    "$SCRIPT_DIR/fm-lane-release.sh" validate-exit "$ID" "$EXPECT_GEN" || return 75
+  fi
   # The submit verdict is NOT the postcondition here: a successful exit command
   # destroys the composer the verdict is read from, so a post-exit read can
   # legitimately report anything. Only a hard transport failure aborts; the
@@ -917,6 +924,10 @@ do_exit() {
   }
   # The incarnation is over: retire its busy wiring so no stale record or
   # orphaned generation survives the agent that produced it.
+  if [ -n "$release_meta_lock" ]; then
+    fm_lock_release "$release_meta_lock" || true
+    trap - EXIT
+  fi
   retire_busy_incarnation
   printf 'stopped'
 }
