@@ -70,10 +70,11 @@ This touches only the firstmate repo and its own worktrees, never anything under
    It asks every listed mate first to write down the open work it holds only in its conversation, and restarts one only after that mate's own answer comes back.
    A mate that is mid-turn queues the request behind that turn.
    That is the whole point of the step, so do not work around it: it is what keeps a captain call the mate had formed but never registered from being lost with the conversation.
-   Its header owns the request, the bound, and the two knobs that change them.
+   Its header owns the request, the bounds, and the knobs that change them.
 
    Read its per-mate lines and its closing `summary:` line as the outcome:
    - `restarted: <id>` - that mate is now genuinely running the current instructions and launch-time settings.
+     A note after it says what happened to background shells the mate still had running; it is still a clean reload.
    - `nudged: <id>: <reason>` - the restart was not safe, so the mate got the older re-read message instead and is still running the conversation and launch-time settings it started with.
      Never report one of these as a clean reload.
    - `unreached: <id>: <reason>` - no safe running outcome could be confirmed, including an ambiguous relaunch result.

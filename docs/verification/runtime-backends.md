@@ -1574,6 +1574,23 @@ ok - 2.1.316 (Claude Code): submit-opens: Claude and background task stopped; en
 The background-task stop expectation agrees with [Claude's documented exit cleanup](https://code.claude.com/docs/en/interactive-mode#background-bash-commands); file preservation is checked independently against the guard's fixture bytes and Git index.
 Herdr confirmation was not remeasured by this tmux guard.
 No recorded screen was available for a model-downgrade confirmation, an MCP approval, or a Claude exit confirmation other than this picker, so those dialogs are not covered.
+The second-mate restart reads two more parts of this surface, measured 2026-10-31 with Claude Code 2.1.316 and tmux 3.4.
+An idle session with one running background shell showed `⏵⏵ don't ask on · 1 shell · ↓ to manage` below its composer, and that item left the row once the shell stopped.
+The picker listed each task it would stop between `The following will stop when you exit:` and its options, one row per task, such as `shell · sh -c 'echo $$ > background.pid; exec sleep 300'` for a background shell; on this version that list sat above `❯ 1. Exit and stop tasks` and `2. Stay`.
+[`fm_composer_claude_background_shells`](../../bin/fm-composer-lib.sh) and [`fm_composer_exit_picker_shells_only`](../../bin/fm-composer-lib.sh) own those reads, and [`fm-secondmate-restart.sh`](../../bin/fm-secondmate-restart.sh) owns what a restart does with them.
+Sent the background-shell sentence of the restart's persist request, the agent stopped its own shell with its task-stopping tool, the status row cleared, and `/exit` then closed Claude with no picker.
+Run `FM_RESTART_BG_SHELLS_LIVE=1 bash tests/fm-secondmate-restart-bg-shells-live-e2e.test.sh` to refresh this evidence after an upgrade.
+Exact result lines:
+
+```text
+# harness: 2.1.316 (Claude Code); transport: tmux 3.4
+ok - 2.1.316 (Claude Code): the status row below the composer reports 1 running background shell
+ok - 2.1.316 (Claude Code): the exit picker over one background shell reads as shells only
+ok - 2.1.316 (Claude Code): the persist request's sentence made the agent stop its own shell, and the status row cleared
+ok - 2.1.316 (Claude Code): with its shells stopped, /exit closed Claude without a picker
+```
+
+Herdr, the backend remote second mates run on, was not measured by this guard; the remote restart reads the same rendered rows through the host's capture verb.
 The read-only refresh guard for this picker and the Codex dialog is [`fm-composer-dialog-live-e2e.test.sh`](../../tests/fm-composer-dialog-live-e2e.test.sh).
 Supply operator-prepared, isolated tmux pane IDs in `FM_DIALOG_CLAUDE_DIALOG`, `FM_DIALOG_CLAUDE_IDLE`, `FM_DIALOG_CLAUDE_PENDING`, and `FM_DIALOG_CLAUDE_WORKING`, and the corresponding `FM_DIALOG_CODEX_*` variables for every installed harness, plus `FM_DIALOG_UNKNOWN` for an unrecognized shell pane.
 The pending controls must contain an unsubmitted draft; the working controls must be live turns.
