@@ -783,7 +783,6 @@ write_runway_quota "$RUNWAY" short 0.9 short 0.2
 TYPESAFE_API_KEY=$KEY QUOTA_AXI_FIXTURE="$RUNWAY" run code out err "$BRIEF"
 assert_contains "$out" '  status: clear' "an all-tight set still resolves"
 assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "an all-tight set ranks by spendPriority"
-assert_contains "$out" '  note: every rankable candidate is tight (runway ends before its reset) and none runs through its reset: ranked by spendPriority with no runway refusal' "the all-tight ranking is disclosed"
 assert_not_contains "$out" 'not eligible' "nothing is refused in an all-tight set"
 pass "runway: an all-tight set refuses nothing and ranks by spendPriority"
 

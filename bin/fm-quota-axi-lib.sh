@@ -44,8 +44,11 @@ FM_QUOTA_ROW_JQ='
     end;
 '
 
-# Candidate evaluation for the typed resolver (bin/fm-dispatch-resolve.sh), kept
-# here beside the row join so any later launch check reads a snapshot the same way. Prepend after FM_QUOTA_ROW_JQ:
+# Candidate evaluation for the typed resolver (bin/fm-dispatch-resolve.sh).
+# Operator scope decision: resolver-only on this curated branch.
+# Spawn-time (bin/fm-spawn.sh) runway-gate enforcement is deferred because this
+# branch lacks the dispatch guard library and off-table spawn check it builds on.
+# Prepend after FM_QUOTA_ROW_JQ:
 #   quota_evaluate($q; $pmap; $profile)
 #       one candidate's eligibility and quota evidence; $pmap is the
 #       harness -> provider object fm_quota_provider_map prints. Adds

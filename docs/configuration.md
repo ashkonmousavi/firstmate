@@ -1578,7 +1578,7 @@ After the answer, code applies all remaining checks and ranking:
 - Each candidate's `provider` and `floor`.
 - Every applicable account-wide and model/product row from one `quota-axi --json` snapshot.
 - The runway-feasibility gate: while at least one eligible, rankable candidate runs `through_reset` on every applicable row, a candidate with an established `projected_exhaustion` or an `exhausted_now` row is not eligible, because its runway ends before its reset.
-  With no such candidate (an all-tight set) nothing is refused and a `note:` line says so; unknown or early-confidence runway is never refused and never triggers a refusal.
+  With no such candidate (an all-tight set) nothing is refused; unknown or early-confidence runway is never refused and never triggers a refusal.
 - The numeric `spendPriority` argmax over candidates, using each candidate's limiting row; `candidate:` lines are printed ranked, then unranked, then not eligible.
 
 The [shared quota library](../bin/fm-quota-axi-lib.sh) accepts schema 5 and schema 6 and implements the [account-matching contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
