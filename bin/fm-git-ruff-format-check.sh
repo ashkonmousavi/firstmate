@@ -73,6 +73,7 @@ find_ruff() {
     fi
   done
   RUFF=$(command -v ruff 2>/dev/null) || return 1
+  [[ "$RUFF" = /* ]] || RUFF="$PWD/$RUFF"
   [ -n "$RUFF" ]
 }
 
@@ -96,7 +97,17 @@ check_ref() {  # <local-oid> <remote-ref> <remote-oid>; appends to BAD
       NO_RUFF=1
       return 0
     fi
-    out=$(git show "$oid:$path" | "$RUFF" format --check --force-exclude --stdin-filename "$path" - 2>&1)
+    if [ -z "$SNAPSHOT" ]; then
+      SNAPSHOT=$(mktemp -d "${TMPDIR:-/tmp}/fm-ruff-format.XXXXXX") || return 1
+      SNAPSHOT=$(cd "$SNAPSHOT" && pwd -P) || return 1
+      if ! { mkdir "$SNAPSHOT/.git" &&
+        GIT_INDEX_FILE="$SNAPSHOT/.git/index" git read-tree "$oid" &&
+        GIT_INDEX_FILE="$SNAPSHOT/.git/index" git --work-tree="$SNAPSHOT" checkout-index --all --prefix="$SNAPSHOT/"; }; then
+        printf 'fm-ruff-format: refused: could not read the pushed tree for %s\n' "$remote_ref" >&2
+        return 1
+      fi
+    fi
+    out=$(git show "$oid:$path" | (cd "$SNAPSHOT" && "$RUFF" format --check --force-exclude --stdin-filename "$path" -) 2>&1)
     rc=$?
     case "$rc" in
       0) ;;
@@ -104,6 +115,10 @@ check_ref() {  # <local-oid> <remote-ref> <remote-oid>; appends to BAD
       *) warn "ruff could not check $path (exit $rc), so it was not format-checked and the push is allowed: $out" ;;
     esac
   done < <(git diff -z --name-only --no-renames --diff-filter=ACMR "$base" "$oid" -- '*.py')
+  if [ -n "$SNAPSHOT" ]; then
+    rm -rf -- "$SNAPSHOT"
+    SNAPSHOT=
+  fi
 }
 
 case "${1:-}" in
@@ -120,15 +135,18 @@ esac
 
 RUFF=
 NO_RUFF=0
+CHECK_FAILED=0
+SNAPSHOT=
+trap '[ -z "$SNAPSHOT" ] || rm -rf -- "$SNAPSHOT"' EXIT
 BAD=()
 while read -r _ local_oid remote_ref remote_oid; do
   [ -n "${local_oid:-}" ] || continue
   [[ "$local_oid" =~ $ZERO_OID_RE ]] && continue
   [ "$NO_RUFF" = 0 ] || break
-  check_ref "$local_oid" "${remote_ref:-}" "${remote_oid:-0}"
+  check_ref "$local_oid" "${remote_ref:-}" "${remote_oid:-0}" || { CHECK_FAILED=1; break; }
 done
 
-[ "${#BAD[@]}" -gt 0 ] || exit 0
+[ "${#BAD[@]}" -gt 0 ] || exit "$CHECK_FAILED"
 SORTED=()
 while IFS= read -r -d '' path; do SORTED+=("$path"); done < <(printf '%s\0' "${BAD[@]}" | sort -zu)
 {

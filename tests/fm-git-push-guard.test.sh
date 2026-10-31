@@ -347,6 +347,75 @@ test_ruff_format_and_push_guard_each_refuse_visibly() {
   pass "ruff format check: it and the push guard each refuse, and neither hides the other"
 }
 
+test_ruff_format_uses_committed_configuration() {
+  local real_ruff variant config section committed local_config bad good before
+  real_ruff=$(command -v ruff) || { echo '# SKIP committed configuration checks require real ruff'; return; }
+  for variant in pyproject staged nested deleted untracked extended excluded ignored; do
+    ruff_fixture "ruff-config-$variant"
+    ln -sf "$real_ruff" "$FX_BIN/ruff"
+    config=ruff.toml section='[format]' committed=double local_config=single
+    bad="x = 'a'" good='x = "a"'
+    case "$variant" in
+      pyproject | staged) config=pyproject.toml section='[tool.ruff.format]' ;;
+      nested) config=pkg/.ruff.toml ;;
+      deleted) committed=single; bad='x = "a"'; good="x = 'a'" ;;
+      extended) config=settings.toml ;;
+    esac
+    if [ "$variant" = extended ]; then
+      ruff_commit 'inherited configuration' 'ruff.toml=extend = "settings.toml"'
+    fi
+    ruff_commit 'committed configuration' "$config=$section
+quote-style = \"$committed\""
+    ruff_commit 'incorrect committed quotes' "pkg/a.py=$bad"
+    case "$variant" in
+      deleted) rm "$FX_WT/$config" ;;
+      untracked) printf '[format]\nquote-style = "single"\n' >"$FX_WT/.ruff.toml" ;;
+      excluded) printf 'extend-exclude = ["pkg"]\n' >"$FX_WT/$config" ;;
+      ignored) printf 'pkg/\n' >"$FX_WT/.gitignore" ;;
+      *) printf '%s\nquote-style = "%s"\n' "$section" "$local_config" >"$FX_WT/$config" ;;
+    esac
+    [ "$variant" != staged ] || git -C "$FX_WT" add "$config"
+    before=$(git -C "$FX_WT" status --porcelain=v1)
+    ruff_push origin HEAD:refs/heads/fm/t1
+    ruff_refused "committed formatting with $variant local configuration" pkg/a.py
+    git -C "$FX_ORIGIN" rev-parse --verify --quiet refs/heads/fm/t1 >/dev/null \
+      && fail "$variant local configuration let incorrect quotes reach the remote"
+    assert_equals "$before" "$(git -C "$FX_WT" status --porcelain=v1)" "checking $variant configuration changed the index or working tree"
+    git -C "$FX_WT" restore --staged .
+    ruff_commit 'correct committed quotes' "pkg/a.py=$good"
+    ruff_push origin HEAD:refs/heads/fm/t1
+    [ "$PUSH_RC" -eq 0 ] || fail "correct quotes were refused with $variant local configuration: $PUSH_OUT"
+    assert_equals "$(git -C "$FX_WT" rev-parse HEAD)" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/t1)" \
+      "correct quotes with $variant local configuration did not reach the remote"
+  done
+  pass 'ruff format check: committed quote styles and exclusions govern despite staged, unstaged, missing or untracked local configuration'
+}
+
+test_ruff_format_uses_each_pushed_refs_configuration() {
+  local real_ruff double_oid single_oid
+  real_ruff=$(command -v ruff) || { echo '# SKIP pushed ref configuration checks require real ruff'; return; }
+  ruff_fixture ruff-config-refs
+  ln -sf "$real_ruff" "$FX_BIN/ruff"
+  ruff_commit 'double quoted ref' 'ruff.toml=[format]
+quote-style = "double"' 'pkg/a.py=x = "a"'
+  double_oid=$(git -C "$FX_WT" rev-parse HEAD)
+  ruff_commit 'single quoted ref' 'ruff.toml=[format]
+quote-style = "single"' "pkg/a.py=x = 'a'"
+  single_oid=$(git -C "$FX_WT" rev-parse HEAD)
+  ruff_push origin "$double_oid:refs/heads/fm/double" "$single_oid:refs/heads/fm/single"
+  [ "$PUSH_RC" -eq 0 ] || fail "a multi-ref push used another ref's configuration: $PUSH_OUT"
+  assert_equals "$double_oid" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/double)" 'the double quoted ref did not reach the remote'
+  assert_equals "$single_oid" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/single)" 'the single quoted ref did not reach the remote'
+  ruff_commit 'incorrect single quoted update' 'pkg/a.py=x = "a"'
+  ruff_push origin HEAD:refs/heads/fm/single
+  ruff_refused 'an update formatted against its committed configuration' pkg/a.py
+  assert_equals "$single_oid" "$(git -C "$FX_ORIGIN" rev-parse refs/heads/fm/single)" 'an incorrectly quoted update reached the remote'
+  ruff_commit 'correct single quoted update' "pkg/a.py=x = 'b'"
+  ruff_push origin HEAD:refs/heads/fm/single
+  [ "$PUSH_RC" -eq 0 ] || fail "a correctly quoted update was refused: $PUSH_OUT"
+  pass 'ruff format check: each pushed ref and update uses its own committed configuration'
+}
+
 test_origin_pushes_are_refused
 test_backup_namespace_rules
 test_empty_prefix_still_refuses_the_task_branch
@@ -360,5 +429,7 @@ test_ruff_format_missing_ruff_warns_and_allows
 test_ruff_format_prefers_the_project_venv
 test_ruff_format_is_off_unless_the_project_is_listed
 test_ruff_format_and_push_guard_each_refuse_visibly
+test_ruff_format_uses_committed_configuration
+test_ruff_format_uses_each_pushed_refs_configuration
 
 echo "# all fm-git-push-guard and ruff format check tests passed"
