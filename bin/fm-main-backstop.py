@@ -60,9 +60,9 @@ The bin/fm-remote-job-lib.sh header owns the lane preemption contract.
 Output bodies are never logged. A read failing
 on two consecutive passes alarms instead of claiming caught-up; a single
 failed pass is audited as transport noise. Reply-runner liveness is the
-process-event claim owner reported by fm-procevent.sh list: owner live, or a
-task-owned listening owner. The .runner pid file is removed while that owner
-applies a captured reply, so an absent or empty file is not a dead runner.
+process-event claim owner reported by fm-procevent.sh list: owner live.
+The .runner pid file is removed while that owner applies a captured reply,
+so an absent or empty file is not a dead runner.
 That list read is marked in-runner so it does not refresh the home owner
 lease. A list that fails or omits the source counts as not alive. A runner
 read as not alive on a single pass is audited as transient. No remote source
@@ -431,7 +431,7 @@ def owner_alive(code, env, mate):
         if len(fields) < 3 or fields[0] != source_id:
             continue
         owner = fields[2]
-        return owner == 'live' or owner.endswith('/listening')
+        return owner == 'live'
     return False
 
 

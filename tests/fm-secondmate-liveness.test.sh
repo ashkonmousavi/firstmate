@@ -831,9 +831,9 @@ test_remote_poll_probe_timeout_preserves_route() {
   local w out started elapsed
   w=$(make_remote_probe_world probe-timeout)
   started=$(date +%s)
-  out=$(probe_remote "$w" poll FM_SM_LIVE_PROBE_SECONDS=1 FM_FAKE_REMOTE_SLEEP=30)
+  out=$(probe_remote "$w" poll FM_FAKE_REMOTE_SLEEP=60)
   elapsed=$(( $(date +%s) - started ))
-  [ "$elapsed" -lt 15 ] \
+  [ "$elapsed" -ge 25 ] && [ "$elapsed" -lt 45 ] \
     || fail "a hung remote state probe was not bounded, elapsed ${elapsed}s: $out"
   [ "$out" = 'skipped|unknown|0|||remote host unavailable or endpoint state unknown; route preserved on lab-host' ] \
     || fail "a timed-out remote state probe must preserve the route, got: $out"

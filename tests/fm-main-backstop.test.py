@@ -838,6 +838,18 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.assertIn('REPLY RUNNER DOWN q-server', self.notes())
 
+    def test_task_owned_listening_is_not_a_live_reply_owner(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.executable(self.code / 'bin/fm-procevent.sh',
+                        '#!/bin/bash\nprintf "%s\\n" '
+                        '"SOURCE ADAPTER OWNER PENDING" '
+                        '"remote-reply-q-server remote-reply task:review/listening 0"\n')
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.run_guard()
+        self.assertIn('REPLY RUNNER DOWN q-server', self.notes())
+
     def test_absent_runner_record_with_live_owner_reads_alive(self):
         (self.state / '.last-watcher-beat').touch()
         self.register_runner('999999999\n')

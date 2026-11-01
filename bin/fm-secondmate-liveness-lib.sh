@@ -39,10 +39,9 @@
 #          (route readable, backend herdr) so the sweep reports drift.
 #   poll - watcher tick: remote routes take one read-only state probe per
 #          check. That hop, and the full-mode route hop, are bounded by
-#          FM_SM_LIVE_PROBE_SECONDS (default 30; a non-positive or non-numeric
-#          value uses 30, because a non-positive bound is not a bound). A hop
-#          that hits the bound is the same as an unreachable host: the route
-#          is preserved and nothing is relaunched. Repair still happens, but
+#          30 seconds. A hop that hits the bound is the same as an unreachable
+#          host: the route is preserved and nothing is relaunched. Repair still
+#          happens, but
 #          inside fm-spawn's launch gate only when a relaunch is actually
 #          authorized.
 #
@@ -137,22 +136,11 @@ fm_secondmate_liveness_recent_attempts() {  # <id> <window-secs>
 #
 # The caller must hold fm_secondmate_liveness_lock for <id> whenever a
 # relaunchable verdict could be acted on.
-
-# Positive whole seconds for one remote state or route hop. Empty, zero, and
-# non-numeric values use 30 so a mis-set bound cannot disable the deadline.
-fm_sm_live_probe_seconds() {
-  local value=${FM_SM_LIVE_PROBE_SECONDS:-30}
-  case "$value" in
-    ''|*[!0-9]*|0) value=30 ;;
-  esac
-  printf '%s\n' "$value"
-}
-
 fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
   local meta=$1 id=$2 mode=$3
   FM_SM_LIVE_STATUS=skipped FM_SM_LIVE_STATE=unknown FM_SM_LIVE_KILL=0
   FM_SM_LIVE_CAUSE='' FM_SM_LIVE_WHERE='' FM_SM_LIVE_REASON='' FM_SM_LIVE_LINE=''
-  local window harness remote_host remote_rc out agent_state readiness_reason route_out remote_backend probe_secs
+  local window harness remote_host remote_rc out agent_state readiness_reason route_out remote_backend
   window=$(fm_meta_get "$meta" window)
   [ -n "$window" ] || { FM_SM_LIVE_STATUS=silent; return 0; }
   harness=$(fm_meta_get "$meta" harness)
@@ -174,8 +162,7 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
         return 0
       fi
     fi
-    probe_secs=$(fm_sm_live_probe_seconds)
-    if out=$(fm_run_timed "$probe_secs" "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
+    if out=$(fm_run_timed 30 "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
       remote_rc=0
     else
       remote_rc=$?
@@ -193,7 +180,7 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
     case "$agent_state" in
       alive)
         if [ "$mode" = full ]; then
-          if route_out=$(fm_run_timed "$probe_secs" "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
+          if route_out=$(fm_run_timed 30 "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
             remote_rc=0
           else
             remote_rc=$?
