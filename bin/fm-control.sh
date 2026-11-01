@@ -1226,7 +1226,7 @@ resolve_relaunch_profile() {
   local account_model=$TARGET_MODEL account_mate=
   [ "$account_model" != default ] || account_model=
   [ "$KIND" != secondmate ] || account_mate=$ID
-  local account_selection= account_cwd= codex_defer_default=0
+  local account_selection='' account_cwd='' codex_defer_default=0
   [ "$RELEASED" = 1 ] || account_cwd=$WT
   if [ "$TARGET_HARNESS" = codex ] && { [ "$RELEASED" = 1 ] || [ "$KIND" = secondmate ]; } && [ -z "$account_model" ] &&
     { [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ] || [ -L "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ]; }; then

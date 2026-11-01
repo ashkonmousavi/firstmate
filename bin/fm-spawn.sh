@@ -3378,7 +3378,7 @@ spawn_resolve_deferred_codex() {
 }
 if [ "$CODEX_DEFER_DEFAULT" = 1 ]; then
   python3 "$SCRIPT_DIR/fm-codex-accounts.py" preflight --config "$CONFIG/codex-accounts" || exit 1
-  WORKER_ACCOUNT= WORKER_ACCOUNT_DECLARED= WORKER_ACCOUNT_ROOT= WORKER_ACCOUNT_PROVIDER=
+  WORKER_ACCOUNT='' WORKER_ACCOUNT_DECLARED='' WORKER_ACCOUNT_ROOT='' WORKER_ACCOUNT_PROVIDER=''
 else
   spawn_select_worker_account "$CODEX_LAUNCH_CWD" || exit 1
 fi
