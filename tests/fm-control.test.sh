@@ -2186,6 +2186,93 @@ SH
   pass "lane release revalidates ship and scout evidence under the steer publication lock before exit"
 }
 
+test_codex_relaunch_accounts_preflight() {
+  local dir out rc meta_before kind
+  for kind in ship scout; do
+    dir=$(new_case "codex-account-$kind")
+    add_task "$dir" t1 codex "$kind"
+    alive_as "$dir" codex
+    : > "$dir/home/config/codex-accounts"
+    meta_before=$(cat "$dir/home/state/t1.meta")
+    out=$(run_control "$dir" t1 relaunch --harness codex --note retry); rc=$?
+    expect_code 1 "$rc" "unusable Codex accounts must refuse preflight: $out"
+    assert_contains "$out" 'codex-accounts' 'preflight names the configuration'
+    assert_equals '' "$(literals "$dir")$(keys_sent "$dir")" 'failed preflight sends no bytes'
+    assert_equals codex "$(cat "$dir/fake/command")" 'the old Codex worker stays alive'
+    assert_equals "$meta_before" "$(cat "$dir/home/state/t1.meta")" 'metadata stays unchanged'
+    assert_absent "$dir/home/state/t1.control-relaunch" 'no relaunch transaction starts'
+  done
+  pass 'ship and scout relaunch refuse unusable Codex folders before stopping the live worker'
+}
+
+test_codex_relaunch_default_model_preflight() {
+  local dir out rc meta_before kind profile variants variant claim_before
+  for kind in ship scout secondmate; do
+    dir=$(new_case "codex-default-$kind")
+    add_task "$dir" t1 codex "$kind"
+    alive_as "$dir" codex
+    mkdir -p "$dir/account/rules"
+    printf 'synthetic-session\n' > "$dir/account/auth.json"
+    printf 'model="configured-default"\n' > "$dir/account/config.toml"
+    : > "$dir/account/AGENTS.md"
+    printf 'prefix_rule(pattern=["echo"],decision="allow")\n' > "$dir/account/rules/default.rules"
+    printf '%s\n' "$dir/account" > "$dir/home/config/codex-accounts"
+    cat > "$dir/fakebin/codex" <<'PY'
+#!/usr/bin/env python3
+import json, sys
+if "status" in sys.argv:
+    sys.exit(0)
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "initialize":
+        result = {}
+    elif method == "initialized":
+        continue
+    elif method == "account/read":
+        result = {"account": {"type": "apiKey"}}
+    elif method == "config/read":
+        result = {"config": {"model": "configured-default"}}
+    else:
+        sys.exit(2)
+    print(json.dumps({"id": request["id"], "result": result}), flush=True)
+PY
+    cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+cat "$CODEX_HOME/quota.json"
+SH
+    chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
+    meta_before=$(cat "$dir/home/state/t1.meta")
+    printf 'task=t1\nhome=%s\n' "$dir/home" > "$dir/.fm-slot-owner"
+    claim_before=$(cat "$dir/.fm-slot-owner")
+    variants='model:configured-default/exhausted'
+    [ "$kind" != secondmate ] || variants='all_models/exhausted all_products/exhausted all_models/zero all_products/zero'
+    for profile in absent conflicting; do
+      if [ "$profile" = conflicting ]; then
+        printf '%s\n' '{"default":{"harness":"codex","model":"unused-dispatch-model"}}' > "$dir/home/config/crew-dispatch.json"
+      fi
+      for variant in $variants; do
+        jq -n --arg scope "${variant%/*}" --arg signal "${variant##*/}" '
+          {providers:[{provider:"codex",state:{status:"fresh"},windows:[{id:"weekly",kind:"weekly",percentRemaining:90}],
+            quotaSemantics:{status:"known",effectiveAvailability:[
+              if $signal=="exhausted" then {scope:$scope,status:"unknown",runway:{status:"exhausted_now"}}
+              else {scope:$scope,status:"known",effectivePercentRemaining:0} end]}}]}' > "$dir/account/quota.json"
+        out=$(run_control "$dir" t1 relaunch --harness codex --model default --note retry); rc=$?
+        expect_code 1 "$rc" "exhausted configured default must refuse $kind/$profile: $out"
+        assert_contains "$out" 'no usable signed-in folder' 'default-model quota is evaluated before relaunch'
+        assert_equals '' "$(literals "$dir")$(keys_sent "$dir")" 'default-model refusal sends no lifecycle input'
+        assert_equals codex "$(cat "$dir/fake/command")" 'the old worker stays alive'
+        assert_equals "$meta_before" "$(cat "$dir/home/state/t1.meta")" 'default-model refusal preserves metadata'
+        assert_equals "$claim_before" "$(cat "$dir/.fm-slot-owner")" 'default-model refusal preserves ownership'
+        assert_absent "$dir/home/state/t1.control-relaunch" 'refusal starts no relaunch transaction'
+      done
+    done
+  done
+  pass 'Codex relaunch preflight preserves live workers, metadata and ownership on exhausted quota'
+}
+
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != control ] || return 0
+
 test_exit_types_each_harness_verified_command
 test_interrupt_sends_each_harness_verified_key
 test_devin_interrupt_invalidates_busy
@@ -2196,6 +2283,8 @@ test_devin_stuck_picker_refuses_and_exit_types_nothing
 test_opencode_interrupts_twice_and_others_once
 test_unverified_harness_is_refused
 test_harness_family_resolution
+test_codex_relaunch_accounts_preflight
+test_codex_relaunch_default_model_preflight
 test_relaunch_resume_flag_is_per_adapter_and_reference_owner
 test_prefixed_recorded_harness_reaches_each_control_verb
 test_backend_key_capability_matrix

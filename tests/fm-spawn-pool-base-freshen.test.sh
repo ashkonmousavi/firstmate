@@ -722,10 +722,9 @@ test_pool_slot_claim_follows_the_spawn_outcome() {
   [ "$status" -ne 0 ] || fail "spawn launched a worker on a slot it could not claim"
   assert_contains "$out" "could not claim Treehouse pool slot" \
     "spawn did not name the unclaimable slot as the reason"
-  assert_contains "$out" "inspect window" \
-    "a non-polytoken unclaimable-slot refusal must keep its window pointer"
-  assert_not_contains "$out" "is closed on exit" \
-    "a non-polytoken refusal must not claim its window was closed"
+  assert_contains "$out" "window firstmate:fm-$id is closed on exit" \
+    "an unclaimable-slot refusal must disclose cleanup of its fresh window"
+  [ ! -s "$FAKEBIN_DIR/.spawn-window" ] || fail "the unclaimable-slot refusal left its fresh window open"
   [ -d "$SLOT_CLAIM" ] || fail "spawn replaced the directory blocking its slot claim"
   [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "spawn published a record for an unclaimable slot"
   [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$before" ] \
@@ -947,10 +946,9 @@ SH
   pass "a refused polytoken launch leaves its per-id paths alone while another spawn holds the per-id lock"
 }
 
-# A launch on any harness other than polytoken keeps main's abort behavior: its
-# pre-publication claim is dropped under the allocation lock, but the window
-# it opened, and with it the slot's lease, stays for the operator to inspect.
-test_non_polytoken_refused_launch_keeps_its_window() {
+# A Codex refusal during base refresh drops its pre-publication claim under
+# the allocation lock and closes the fresh window before any launch is sent.
+test_codex_refused_launch_closes_its_window() {
   local rec id out status slot_root world
   id='pool-refused-codex-r1'
   rec=$(make_originless_case refused-codex "$id")
@@ -969,9 +967,9 @@ test_non_polytoken_refused_launch_keeps_its_window() {
   [ "$status" -ne 0 ] || fail "a codex launch on a slot with an unusable origin should refuse"
   assert_contains "$out" "could not fetch origin" "the codex refusal message changed"$'\n'"$out"
   [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "the refused codex launch published a task record"
-  [ -e "$world/fm-$id.id" ] || fail "a non-polytoken refusal closed its window, unlike main"
+  [ ! -e "$world/fm-$id.id" ] || fail "a codex refusal before launch left its fresh window open"
   [ ! -e "$slot_root/1/.fm-slot-owner" ] || fail "the refused codex launch left its slot claim"
-  pass "a non-polytoken launch refused after its slot claim keeps main's abort behavior"
+  pass "a codex launch refused after its slot claim closes its fresh window and drops the claim"
 }
 
 # install_isolation_flip_git <fakebin> <worktree>: a git that answers every
@@ -998,10 +996,8 @@ SH
   chmod +x "$fakebin/git"
 }
 
-# The post-poll treehouse-get isolation refusal points the operator at the
-# window only when that window survives the abort: every harness but polytoken
-# keeps main's `Inspect target <window>`, and a fresh polytoken spawn, whose
-# window is closed on exit, names the worktree and says so instead.
+# A post-poll isolation refusal closes its fresh endpoint before launch. Both
+# Codex and polytoken must name the worktree and disclose the closed window.
 test_treehouse_isolation_refusal_points_at_what_survives() {
   local rec id out status
   id='pool-isolation-codex-r1'
@@ -1014,10 +1010,11 @@ test_treehouse_isolation_refusal_points_at_what_survives() {
   [ "$status" -ne 0 ] || fail "a codex spawn whose slot stopped being isolated should refuse"
   assert_contains "$out" "treehouse get did not yield an isolated worktree" \
     "the codex spawn did not refuse on the post-poll isolation check"$'\n'"$out"
-  assert_contains "$out" "refusing to launch to avoid tangling the primary checkout. Inspect target firstmate:fm-$id" \
-    "a non-polytoken isolation refusal must keep main's window pointer"$'\n'"$out"
-  assert_not_contains "$out" "is closed on exit" \
-    "a non-polytoken isolation refusal must not claim its window was closed"
+  assert_contains "$out" "pool (window firstmate:fm-$id is closed on exit" \
+    "a fresh codex isolation refusal must name the worktree and the closed window"$'\n'"$out"
+  assert_not_contains "$out" "Inspect target firstmate:fm-$id" \
+    "a fresh codex isolation refusal must not point at its closed window"
+  [ ! -s "$FAKEBIN_DIR/.spawn-window" ] || fail "the codex isolation refusal left its fresh window open"
 
   id='pool-isolation-polytoken-r1'
   rec=$(make_case isolation-polytoken "$id")
@@ -1041,6 +1038,7 @@ SH
     "a fresh polytoken isolation refusal must name the worktree and the closed window"$'\n'"$out"
   assert_not_contains "$out" "Inspect target firstmate:fm-$id" \
     "a fresh polytoken isolation refusal must not point at its closed window"
+  [ ! -s "$FAKEBIN_DIR/.spawn-window" ] || fail "the polytoken isolation refusal left its fresh window open"
   rm -rf "/tmp/fm-$id" "/tmp/fm-$id+"*
   pass "the treehouse-get isolation refusal points only at what survives the abort"
 }
@@ -1180,7 +1178,7 @@ test_remote_seeded_home_spawns_from_treehouse_pool
 test_pool_slot_claim_follows_the_spawn_outcome
 test_refused_launch_leaves_the_pool_for_a_retry_and_a_second_task
 test_refused_launch_spares_per_id_paths_under_a_contended_spawn_lock
-test_non_polytoken_refused_launch_keeps_its_window
+test_codex_refused_launch_closes_its_window
 test_treehouse_isolation_refusal_points_at_what_survives
 test_linked_spawning_home_rejects_primary_before_refresh
 test_stale_pool_base_refreshes_before_branching

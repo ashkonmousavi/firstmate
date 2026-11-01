@@ -791,6 +791,28 @@ skip-runner: pi-signed is not installed, so its pin check was not exercised
 
 The guard submits no prompt and spends no tokens, so it runs by default wherever a runner is installed; rerun it after every Claude or Pi upgrade.
 
+## Codex account folder checks
+
+`bin/fm-codex-accounts.py` supplies the opt-in selection, exact-folder quota wrapper, duplicate check and registered watcher entry point documented in [configuration](../configuration.md#codex-account-folders-configcodex-accounts).
+`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking, concrete default-model selection and launch, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+It also covers universal-exhaustion preflight, incompatible Treehouse refusal before allocation or endpoint creation, identity-checked lease return on repeated default-model refusals, and bounded reads and external watchdog cancellation of both vendor subprocess paths with real wrapper descendants and an unrelated process.
+`tests/fm-control.test.sh` verifies that unusable lists and exhausted configured default models refuse before a ship or scout's running agent is stopped, and that universal exhaustion preserves a live default-model secondmate's agent, metadata and ownership.
+`tests/fm-control-relaunch.test.sh` exercises trusted project model precedence through ordinary and released-copy relaunches, both directly and through the control plane; the worker-account suite also runs these focused cases.
+
+The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` covers Codex local status using an empty folder and a synthetic file-backed API-key cache, plus account identity comparison using synthetic ChatGPT caches under a temporary `HOME`.
+It suppresses vendor diagnostics and confines synthetic ChatGPT workspace discovery to a loopback fixture; no synthetic credential is sent to an external service.
+That guard proves local-status compatibility only; it cannot prove ChatGPT refresh or a real subscription's quota response.
+For the existing new-worktree trust/processing guard, set `FM_CODEX_ACCOUNT_LIVE_ROOT` to an independently signed-in, prepared folder before running `tests/fm-codex-brief-typed-live-e2e.test.sh`.
+That prompt-submitting guard remains opt-in, and its pool and endpoint lifecycle require the normal isolated validation authority.
+
+Record live evidence here with date, installed version, exact command and output before claiming live proof.
+
+```sh
+bash bin/fm-test-run.sh tests/fm-worker-account.test.sh tests/fm-control.test.sh
+bash bin/fm-test-run.sh tests/fm-worker-account-live-e2e.test.sh
+FM_CODEX_LIVE_E2E=1 FM_CODEX_ACCOUNT_LIVE_ROOT=/absolute/independent-codex-folder bash tests/fm-codex-brief-typed-live-e2e.test.sh
+```
+
 ## Secondmate busy contract
 
 Verified 2026-09-22 on this host with Claude Code 2.1.278, OpenCode 1.18.31, Pi 0.86.1, and Grok 1.0.40.

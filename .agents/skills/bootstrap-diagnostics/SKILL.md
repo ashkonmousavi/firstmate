@@ -19,7 +19,7 @@ When any diagnostic needs captain attention, report the plain consequence and re
 
 - `MISSING: <tool> (install: <command>)` - run the printed install through `bin/fm-bootstrap.sh install` for each listed tool, record that choice, and report it.
   Do not wait for consent.
-  For `treehouse`, this also covers an installed version whose `treehouse get` lacks `--lease`; treat it as an upgrade request.
+  For `treehouse`, this also covers failure of the [shared version and capability check](../../../bin/fm-treehouse-lib.sh); treat it as an upgrade request.
   For `no-mistakes`, this also covers an installed version older than 1.46.0, because this repo's PR gate requires structured pipeline attestation that older builds do not write.
   For essential axi-family tools - `gh-axi`, `tasks-axi`, `quota-axi` - an installed version below its floor is a plain upgrade request; [`bin/fm-bootstrap.sh`](../../../bin/fm-bootstrap.sh) owns the floor policy, and never argue the floor down to whatever the home happens to have installed.
   For `tasks-axi`, this additionally covers an installed build that fails the separate feature probe (`bin/fm-tasks-axi-lib.sh` owns the definition); `config/backlog-backend=manual` only suppresses the verbose `BOOTSTRAP_INFO: tasks-axi available` fact, not this missing-tool report.

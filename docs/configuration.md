@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [Codex account folders](#codex-account-folders-configcodex-accounts), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), [external memory tiers](#external-memory-tiers-memory-layering-section), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1196,6 +1196,52 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 
 [`bin/fm-exclude-tools-lib.sh`](../bin/fm-exclude-tools-lib.sh) implements parsing and pre-launch validation for this contract; [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header owns the launch-flag mechanics.
 
+## Codex account folders (config/codex-accounts)
+
+Codex workers can opt into independent, file-backed account folders using a home-local `config/codex-accounts` file.
+Without that file, existing ambient Codex behavior is unchanged.
+Each line names one literal absolute existing folder, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters and duplicate folders (including aliases) refuse.
+Each folder needs its own sign-in, obtained independently on that machine; never copy or link `auth.json` between folders or machines.
+The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
+
+Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-in files and asks `codex login status` about configured folders with file-backed storage and a cleared credential environment.
+Among locally signed-in folders with shared configuration present, it excludes accounts whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, then selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
+Exhausted runway excludes an account even when its remaining percentage is unknown.
+The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
+Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight rejects known universal exhaustion before allocation or stopping a live secondmate.
+The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
+If Codex cannot report a concrete default model, launch refuses without guessing.
+The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
+Control-plane relaunch of an existing copy repeats preflight in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
+No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
+The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
+The spawned line and task record carry `account=<absolute-folder>`.
+This is a home-wide Codex list, separate from the Claude and Pi pins below; it has no per-secondmate list override.
+
+Use the `prepare` command in [`bin/fm-codex-accounts.py`](../bin/fm-codex-accounts.py) to link shared non-auth configuration into an existing folder before enabling it.
+Its help owns the exact commands and allowlist: configuration (including MCP definitions and project trust), instructions, rules and optional skills are shared; credentials, sessions, logs and caches remain account-local.
+The required launch files are `config.toml`, `AGENTS.md`, and `rules/`; conflicting destinations refuse rather than being replaced.
+The shared rules directory must contain real `.rules` files; individually symlinked rule files refuse because Codex ignores them, while a directory link preserves the regular files beneath it.
+The existing Codex readiness gate answers a complete recognized worktree-trust dialog and verifies processing; it never answers a sign-in dialog, and ordinary ship/scout launches keep hooks disabled.
+
+quota-axi is external; the helper's `quota` command is the per-folder wrapper, using its `--profile-only` mode with explicit `CODEX_HOME`, no refresh, no cache and no Pi, keyring or RPC fallback.
+It returns a distinct folder-labelled row for every configured folder, including unavailable readings, without exposing vendor diagnostics or account identity.
+It requires quota-axi with `--profile-only` support (0.1.66 or newer); an unsupported or failed reading remains unmeasured.
+Ordinary quota-axi output is unchanged; use this wrapper on each machine to see all configured Codex folders.
+
+The helper's `register` command installs one authenticated custom watcher check per configured folder through [`bin/fm-check-register.sh`](../bin/fm-check-register.sh).
+Checks are silent when healthy and alarm on a missing local sign-in, missing shared configuration, duplicate file or six days without a credential-file write.
+File age is a maintenance heuristic, not token expiry; neither local login status nor a recent file write proves that a refresh token remains valid, and revocation cannot be predicted.
+The [official persistent-runner guide](https://learn.chatgpt.com/docs/auth/ci-cd-auth) supports a weekly lightweight normal Codex request for otherwise idle sessions.
+The explicit `maintain` command implements that pattern in a temporary directory and retains Codex's refreshed file in the same account folder; registering a check does not schedule or execute maintenance.
+Use one machine-local schedule per folder when normal work does not maintain it, and serialize maintenance against that folder's other jobs.
+The `guard` command never opens or reads credential contents: it rejects auth links, matching device/inode pairs, and matching size/mtime pairs.
+It also compares ChatGPT email identities returned by the runner's [app-server account/read interface](https://developers.openai.com/codex/app-server#1-check-auth-state) with token refresh disabled, keeping identities private and rejecting two folders reporting the same identity.
+API-key accounts, ChatGPT accounts without email, and runners that cannot report an identity retain metadata-only detection; changed metadata can evade that check, and the guard does not inspect other machines.
+Vendor invocations terminate their owned process groups, including wrapper descendants, and reap the direct vendor process on completion, timeout or external cancellation by SIGHUP, SIGINT or SIGTERM.
+Each app-server read has a ten-second deadline.
+Current regression and real-runner guard entry points are recorded in [runtime verification](verification/runtime-backends.md#codex-account-folder-checks).
+
 ## Worker account pin (config/claude-account, config/pi-account)
 
 A home that mixes accounts for one runner, such as a work login and a personal one, can pin the account its own Claude and Pi workers launch on.
@@ -1792,6 +1838,9 @@ The per-backend delta is required only for the backend resolved from `FM_BACKEND
 
 The JSON-emitting adapters (`herdr`, `zellij`, `cmux`, `paseo`) need `jq` because their spawn and liveness paths parse backend JSON.
 Every session-provider-only backend (`tmux`, `herdr`, `zellij`, `cmux`, `paseo`) uses `treehouse` for worktrees.
+The supported Treehouse minimum is [v3.1.8](https://github.com/kunchenguid/treehouse/releases/tag/v3.1.8), pinned by [`bin/fm-install-treehouse.sh`](../bin/fm-install-treehouse.sh) with official release checksums.
+Bootstrap and deferred Codex allocation require that version or newer plus JSON lease allocation and conditional return by lease ID and holder; older versions refuse before acquiring a worktree or creating an endpoint.
+[`bin/fm-treehouse-lib.sh`](../bin/fm-treehouse-lib.sh) owns the shared version and capability check.
 
 Backend tool availability uses the adapter's own executable resolver, so bootstrap and spawn agree on supported non-`PATH` locations such as cmux's bundled CLI.
 An unknown resolved backend emits `BACKEND_INVALID` and blocks dispatch instead of silently dropping its dependency delta or falling back to tmux.

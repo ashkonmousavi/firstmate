@@ -66,15 +66,24 @@ SH
   chmod +x "$fakebin/gh"
   cat > "$fakebin/treehouse" <<'SH'
 #!/usr/bin/env bash
+if [ "${1:-}" = --version ]; then
+  printf '%s\n' "${FM_FAKE_TREEHOUSE_VERSION:-v3.1.8}"
+  exit 0
+fi
 if [ "${1:-}" = get ] && [ "${2:-}" = --help ]; then
   if [ "${FM_FAKE_TREEHOUSE_LEASE_HELP:-}" = 1 ]; then
     printf '%s\n' 'Usage: treehouse get [--lease] [--lease-holder <holder>]'
+    [ "${FM_FAKE_TREEHOUSE_JSON_HELP:-1}" != 1 ] || printf '%s\n' '--json'
   else
     printf '%s\n' 'Usage: treehouse get'
   fi
   exit 0
 fi
-exit 0
+if [ "${1:-}" = return ] && [ "${2:-}" = --help ]; then
+  [ "${FM_FAKE_TREEHOUSE_CONDITIONAL_HELP:-1}" != 1 ] || printf '%s\n' '--if-lease-id --if-lease-holder'
+  exit 0
+fi
+exit 2
 SH
   chmod +x "$fakebin/treehouse"
   cat > "$fakebin/no-mistakes" <<'SH'
@@ -1255,6 +1264,38 @@ ROWS
   pass "bootstrap gates resolver fields and additive harnesses on the typed key"
 }
 
+test_treehouse_lease_interface() {
+  local scenario case_dir fakebin out version json conditional binary
+  for scenario in supported newer old nojson noconditional unknown real-supported real-legacy; do
+    case_dir="$TMP_ROOT/treehouse-$scenario"
+    mkdir -p "$case_dir/home/config"
+    fakebin=$(make_fake_toolchain "$case_dir")
+    version=v3.1.8 json=1 conditional=1 binary=
+    case "$scenario" in
+      newer) version=v4.0.0 ;;
+      old) version=v2.0.1 json=0 conditional=0 ;;
+      nojson) json=0 ;;
+      noconditional) conditional=0 ;;
+      unknown) version=unknown ;;
+      real-supported) binary=${FM_TEST_TREEHOUSE_SUPPORTED_BIN:-}; [ -n "$binary" ] || continue ;;
+      real-legacy) binary=${FM_TEST_TREEHOUSE_LEGACY_BIN:-}; [ -n "$binary" ] || continue ;;
+    esac
+    [ -z "$binary" ] || ln -sf "$binary" "$fakebin/treehouse"
+    out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$case_dir/home" FM_ROOT_OVERRIDE="$case_dir/home" \
+      FM_FAKE_TREEHOUSE_LEASE_HELP=1 FM_FAKE_TREEHOUSE_VERSION="$version" \
+      FM_FAKE_TREEHOUSE_JSON_HELP="$json" FM_FAKE_TREEHOUSE_CONDITIONAL_HELP="$conditional" \
+      FM_BOOTSTRAP_DETECT_ONLY=1 "$ROOT/bin/fm-bootstrap.sh")
+    case "$scenario" in
+      supported|newer|real-supported) assert_equals '' "$out" "$scenario Treehouse must be accepted" ;;
+      *) assert_contains "$out" 'MISSING: treehouse' "$scenario Treehouse must require a compatible interface" ;;
+    esac
+  done
+  pass 'Treehouse admission checks its version, JSON leases and both conditional-return flags'
+}
+
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != bootstrap ] || return 0
+
+test_treehouse_lease_interface
 test_bootstrap_reporting
 test_no_mistakes_min_version
 test_gh_axi_min_version
