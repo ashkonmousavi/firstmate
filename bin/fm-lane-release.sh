@@ -117,7 +117,6 @@
 # bin/fm-lane-release.sh, so it survives removal of the arming checkout.
 # If that script is not executable, it falls back to the arming checkout's script.
 # If neither is executable, it reports the missing script on stderr and exits 1.
-# `arm` refuses to register a shim when its own script is not executable.
 # A sweep holds state/.lane-release.lock (try-acquire; contention exits quietly),
 # visits in-flight tasks from a durable cursor within 20 s; every external
 # read inside it is bounded by
@@ -924,7 +923,6 @@ action_arm() {
     *) home=$(CDPATH='' cd -- "$FM_HOME" 2>/dev/null && pwd -P) || { echo "fm-lane-release: cannot resolve FM_HOME" >&2; return 1; } ;;
   esac
   [ -d "$STATE" ] && [ ! -L "$STATE" ] || { echo "fm-lane-release: state directory is unavailable" >&2; return 1; }
-  [ -x "$SCRIPT_DIR/fm-lane-release.sh" ] || { echo "fm-lane-release: refusing to arm, $SCRIPT_DIR/fm-lane-release.sh is not executable" >&2; return 1; }
   [ ! -L "$CHECK_SHIM" ] || { echo "fm-lane-release: $CHECK_SHIM is a symlink" >&2; return 1; }
   tmp=$(umask 077; mktemp "$STATE/.fm-lane-release-check.XXXXXX") || return 1
   # shellcheck disable=SC2016  # single quotes are deliberate: the shim expands $own when it runs.

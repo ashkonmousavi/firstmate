@@ -1090,7 +1090,7 @@ extra_arm_registers_a_thin_check() {
 }
 
 extra_shim_survives_a_missing_arming_root() {
-  local dir shim out rc copy
+  local dir shim out rc
   dir=$(new_case extra-shim-root)
   FM_HOME="$dir/home" "$LR" arm >/dev/null
   shim="$dir/home/state/lane-release.check.sh"
@@ -1111,15 +1111,6 @@ extra_shim_survives_a_missing_arming_root() {
   expect_code 1 "$rc" "a shim with no script anywhere should exit 1"$'\n'"$out"
   assert_contains "$out" "no executable fm-lane-release.sh" "the shim should name the missing script"
   FM_HOME="$dir/home" "$LR" disarm >/dev/null
-  # arm refuses when its own script is not executable.
-  copy="$dir/code"
-  mkdir -p "$copy"
-  cp -R "$ROOT/bin" "$copy/bin"
-  chmod 0644 "$copy/bin/fm-lane-release.sh"
-  out=$(FM_HOME="$dir/home" bash "$copy/bin/fm-lane-release.sh" arm 2>&1); rc=$?
-  expect_code 1 "$rc" "arm should refuse a non-executable script"$'\n'"$out"
-  assert_contains "$out" "refusing to arm" "arm should say why it refused"
-  [ ! -e "$shim" ] || fail "a refused arm wrote a shim"
   pass "extra carrier: the shim prefers the home code root and reports a missing script instead of 127"
 }
 
