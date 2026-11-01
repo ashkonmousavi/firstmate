@@ -20,6 +20,53 @@ test_active_dispatch_profile_allows_positional_harness
 test_claude_haiku_launch_gets_an_opus_advisor
 test_batch_forwards_shared_profile_flags
 
+for batch_kind in ship scout; do
+  for batch_case in refuse override notice; do
+    batch_name="quota-batch-$batch_kind-$batch_case"
+    id1="$batch_name-a" id2="$batch_name-b"
+    rec=$(make_spawn_case "$batch_name" grok "$id1" "$id2")
+    read_case_record "$rec"
+    enable_quota_profiles "$HOME_DIR"
+    fm_fake_exit0 "$FAKEBIN_DIR" grok
+    fm_test_quota_snapshot "$CASE_DIR/quota.json" exhausted
+    batch_snapshot="$CASE_DIR/quota.json"
+    batch_args=("$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness grok --model grok-4.7)
+    batch_runner=run_ship_spawn
+    if [ "$batch_kind" = scout ]; then batch_args+=(--scout); batch_runner=run_spawn; fi
+    if [ "$batch_case" = override ]; then batch_args+=(--quota-override 'batch review override with spaces'); fi
+    [ "$batch_case" != notice ] || batch_snapshot="$CASE_DIR/unavailable.json"
+    out=$(FM_QUOTA_SNAPSHOT_FILE="$batch_snapshot" "$batch_runner" "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "${batch_args[@]}"); rc=$?
+    if [ "$batch_case" = refuse ]; then
+      expect_code 1 "$rc" "batch refusal must survive delegation: $out"
+      [ "$(printf '%s\n' "$out" | grep -c 'refuses explicit harness grok')" = 2 ] || fail "batch lost a child refusal: $out"
+      for id in "$id1" "$id2"; do [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "refused batch child published metadata"; done
+    else
+      expect_code 0 "$rc" "batch $batch_case must reach both children: $out"
+      for id in "$id1" "$id2"; do
+        assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4.7 default
+        if [ "$batch_case" = override ]; then
+          grep -Fxq 'quota_override=batch review override with spaces' "$HOME_DIR/state/$id.meta" || fail "batch changed the override reason"
+          assert_grep 'quota_override_evidence=refuse: provider grok' "$HOME_DIR/state/$id.meta" "batch lost refusal evidence"
+        else
+          assert_no_grep 'quota_override=' "$HOME_DIR/state/$id.meta" "uncertain batch invented an override"
+        fi
+      done
+      if [ "$batch_case" = override ]; then
+        [ "$(printf '%s\n' "$out" | grep -c '^notice: fm-spawn quota check refuses grok')" = 2 ] || fail "batch lost override diagnostics: $out"
+      else
+        [ "$(printf '%s\n' "$out" | grep -c '^notice: fm-spawn launches grok without the quota check:')" = 2 ] || fail "batch lost uncertainty diagnostics: $out"
+      fi
+    fi
+  done
+  pass "$batch_kind batch forwards explicit overrides, evidence, refusals and notices to every pair"
+done
+rm "$HOME_DIR/config/crew-dispatch.json"
+out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+  "implicit-batch-a=$PROJ_DIR" "implicit-batch-b=$PROJ_DIR" --scout --quota-override 'not explicit'); rc=$?
+expect_code 1 "$rc" "batch override must require a shared explicit harness: $out"
+assert_contains "$out" 'applies only to an explicitly named adapter' "implicit batch override was not rejected"
+[ ! -e "$HOME_DIR/state/implicit-batch-a.meta" ] && [ ! -e "$HOME_DIR/state/implicit-batch-b.meta" ] || fail "implicit batch override dispatched children"
+
 quota_harness_profiles=(
   'claude|sonnet' 'codex|gpt-6.1-sol' 'opencode|anthropic/claude-sonnet-4-5'
   'pi|zai/glm-5.3' 'pi-signed|codex-native/gpt-6-astra' 'grok|grok-4.7'
@@ -169,6 +216,26 @@ for kind in ship scout secondmate; do
 done
 pass "quota alternatives honor permitted providers and per-secondmate account precedence"
 
+id=quota-route-alternatives
+quota_gate_case "$id" grok "$id" exhausted
+printf '%s\n' '{"default":[{"harness":"omp","model":"openai-codex/gpt-6.1-sol","provider":"omp-quota"},{"harness":"codex","model":"gpt-6.1-sol"}]}' > "$CASE_DIR/route-rules.json"
+jq '.providers += [{provider:"omp-quota",quotaSemantics:{status:"known",effectiveAvailability:[
+  {scope:"all_models",status:"known",effectivePercentRemaining:90,runway:{status:"through_reset"},selection:{spendPriority:9}}]}}]' \
+  "$CASE_DIR/quota.json" > "$CASE_DIR/route-quota.json"
+for route_flags in 0:0 1:0 0:1 1:1; do
+  sync_flag=${route_flags%:*} inherit_flag=${route_flags#*:}
+  out=$(FM_SKIP_SECONDMATE_SYNC="$sync_flag" FM_SKIP_SECONDMATE_INHERIT="$inherit_flag" \
+    fm_quota_gate_explicit grok '' "$CASE_DIR/route-rules.json" "$CASE_DIR/route-quota.json" secondmate herdr "$HOME_DIR/config"); rc=$?
+  expect_code 1 "$rc" "exhausted Grok must refuse before route ranking: $out"
+  if [ "$route_flags" = 1:1 ]; then
+    assert_contains "$out" '--harness codex --model gpt-6.1-sol' "remote route did not select its eligible alternative"
+    assert_not_contains "$out" '--harness omp' "remote route recommended unsupported OMP"
+  else
+    assert_contains "$out" '--harness omp --model openai-codex/gpt-6.1-sol' "local OMP eligibility was lost"
+  fi
+done
+pass "remote alternative ranking excludes OMP while local secondmates retain it"
+
 id=quota-capture-eligibility
 quota_gate_case "$id" grok "$id" exhausted
 for h in kimi codex; do
@@ -247,6 +314,45 @@ POLY
   pass "explicit $quota_harness relaunch refuses exhausted quota before stopping its agent"
 done
 
+for lifecycle in ordinary released; do
+  for delegation_case in refuse override notice; do
+    id="quota-delegate-$lifecycle-$delegation_case"
+    dir=$(new_case "$id" "$id")
+    if [ "$lifecycle" = released ]; then add_released_ship_task "$dir" "$id"; else add_ship_task "$dir" "$id" claude; fi
+    printf 'grok' > "$dir/fake/becomes"
+    printf '%s\n' '{"default":[{"harness":"grok","model":"grok-4.7"},{"harness":"codex","model":"gpt-6.1-sol"}]}' > "$dir/home/config/crew-dispatch.json"
+    fm_test_quota_snapshot "$dir/quota.json" exhausted
+    delegation_snapshot="$dir/quota.json"
+    delegation_args=(--harness grok --model grok-4.7 --note 'explicit delegated launch')
+    if [ "$delegation_case" = override ]; then delegation_args+=(--quota-override 'delegated review override with spaces'); fi
+    [ "$delegation_case" != notice ] || delegation_snapshot="$dir/unavailable.json"
+    cp "$dir/home/state/$id.meta" "$dir/prior.meta"
+    out=$(FM_QUOTA_SNAPSHOT_FILE="$delegation_snapshot" run_control "$dir" "$id" relaunch "${delegation_args[@]}"); rc=$?
+    if [ "$delegation_case" = refuse ]; then
+      expect_code 1 "$rc" "$lifecycle refusal must precede delegation: $out"
+      assert_contains "$out" 'fm-control refuses explicit harness grok' "$lifecycle lost refusal diagnostics"
+      cmp -s "$dir/prior.meta" "$dir/home/state/$id.meta" || fail "$lifecycle refusal changed metadata"
+    else
+      expect_code 0 "$rc" "$lifecycle $delegation_case must survive child delegation: $out"
+      [ "$(meta_field "$dir" "$id" harness)" = grok ] || fail "$lifecycle did not launch the selected harness"
+      if [ "$delegation_case" = override ]; then
+        [ "$(meta_field "$dir" "$id" quota_override)" = 'delegated review override with spaces' ] || fail "$lifecycle lost override reason"
+        assert_grep 'quota_override_evidence=refuse: provider grok' "$dir/home/state/$id.meta" "$lifecycle lost refusal evidence"
+        [ "$(printf '%s\n' "$out" | grep -c '^notice: fm-control quota check refuses grok')" = 1 ] || fail "$lifecycle lost or duplicated override diagnostics: $out"
+      else
+        [ "$(printf '%s\n' "$out" | grep -c '^notice: fm-control launches grok without the quota check:')" = 1 ] || fail "$lifecycle lost or duplicated uncertainty diagnostics: $out"
+        assert_no_grep 'quota_override=' "$dir/home/state/$id.meta" "$lifecycle uncertainty invented an override"
+      fi
+      assert_not_contains "$out" 'notice: fm-spawn quota check' "$lifecycle gated the delegated child a second time"
+      assert_not_contains "$out" 'notice: fm-spawn launches grok without the quota check:' "$lifecycle re-read quota in its delegated child"
+    fi
+  done
+  out=$(run_control "$dir" "$id" relaunch --quota-override 'implicit override' --note 'implicit'); rc=$?
+  expect_code 1 "$rc" "$lifecycle must reject implicit overrides before delegation: $out"
+  assert_contains "$out" 'only to a relaunch with an explicit --harness' "$lifecycle accepted an implicit override"
+  pass "$lifecycle control delegation preserves explicit overrides, metadata, notices and refusals"
+done
+
 test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops
 test_secondmate_quota_relaunch_names_a_supported_alternative
 test_quota_override_relaunches_and_is_recorded
@@ -321,9 +427,16 @@ run_host() {
     FM_ROOT_OVERRIDE="$dir/code" FM_HOME="$remote_home" \
     "$dir/code/bin/fm-remote-secondmate-control.sh" "$@"
 }
+printf '%s\n' '{"default":[{"harness":"omp","model":"openai-codex/gpt-6.1-sol","provider":"omp-quota"},{"harness":"codex","model":"gpt-6.1-sol"}]}' > "$remote_home/config/crew-dispatch.json"
+jq '.providers += [{provider:"omp-quota",quotaSemantics:{status:"known",effectiveAvailability:[
+  {scope:"all_models",status:"known",effectivePercentRemaining:90,runway:{status:"through_reset"},selection:{spendPriority:9}}]}}]' \
+  "$dir/quota.json" > "$dir/route-quota.json"
+mv "$dir/route-quota.json" "$dir/quota.json"
 host_meta="$remote_home/state/parent-route/$id.meta"
 out=$(run_host launch "$id" grok - - herdr); rc=$?
 expect_code 1 "$rc" "host launch must refuse exhausted Grok: $out"
+assert_contains "$out" '--harness codex --model gpt-6.1-sol' "host launch lost its remote-eligible recommendation"
+assert_not_contains "$out" '--harness omp' "host launch recommended unsupported OMP"
 [ ! -e "$host_meta" ] || fail "refused remote launch created task metadata"
 out=$(run_host launch "$id" grok - - herdr --quota-override 'remote launch override'); rc=$?
 expect_code 0 "$rc" "host launch must honor the explicit override: $out"
@@ -332,9 +445,18 @@ assert_grep 'quota_override_evidence=refuse: provider grok' "$host_meta" "host l
 cp "$host_meta" "$dir/before-relaunch.meta"
 out=$(run_host relaunch "$id" grok - -); rc=$?
 expect_code 1 "$rc" "host relaunch must refuse exhausted Grok without an override: $out"
+assert_contains "$out" '--harness codex --model gpt-6.1-sol' "host relaunch lost its remote-eligible recommendation"
+assert_not_contains "$out" '--harness omp' "host relaunch recommended unsupported OMP"
 cmp -s "$host_meta" "$dir/before-relaunch.meta" || fail "refusal changed remote metadata"
 out=$(run_host relaunch "$id" grok - - --quota-override 'remote relaunch override'); rc=$?
 expect_code 0 "$rc" "host relaunch must honor the explicit override: $out"
 grep -Fxq 'quota_override=remote relaunch override' "$host_meta" || fail "host lost relaunch override"
 assert_contains "$out" 'quota_override_evidence=refuse: provider grok' "route confirmation lost host evidence"
-pass "remote host launch and relaunch refuse exhausted quota unless an explicit recorded override is forwarded"
+[ "$(printf '%s\n' "$out" | grep -c '^notice: fm-control quota check refuses grok')" = 1 ] || fail "host relaunch lost override diagnostics: $out"
+mv "$dir/quota.json" "$dir/saved-quota.json"
+out=$(run_host relaunch "$id" grok - -); rc=$?
+expect_code 0 "$rc" "uncertain host relaunch must succeed with a notice: $out"
+[ "$(printf '%s\n' "$out" | grep -c '^notice: fm-control launches grok without the quota check:')" = 1 ] || fail "host relaunch swallowed or duplicated uncertainty: $out"
+assert_no_grep 'quota_override=' "$host_meta" "uncertain host relaunch retained a stale override"
+mv "$dir/saved-quota.json" "$dir/quota.json"
+pass "remote host launch and relaunch preserve overrides, route eligibility and diagnostics"

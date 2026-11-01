@@ -350,21 +350,38 @@ cmp -s "$PARENT/state/ios2.meta" "$TMP_ROOT/parent-before-quota.meta" || fail "r
 OUT=$(FM_QUOTA_SNAPSHOT_FILE="$TMP_ROOT/exhausted.json" remote_env "$ROOT/bin/fm-spawn.sh" ios2 --secondmate --harness codex \
   --quota-override 'explicit remote spawn override' 2>&1); RC=$?
 expect_code 0 "$RC" "remote spawn must forward its explicit override with trace context: $OUT"
+[ "$(printf '%s\n' "$OUT" | grep -c '^notice: fm-spawn quota check refuses codex')" = 1 ] || fail "remote spawn lost or duplicated override diagnostics: $OUT"
 for meta in "$PARENT/state/ios2.meta" "$SECOND_HOME/state/parent-route/ios2.meta"; do
   grep -Fxq 'quota_override=explicit remote spawn override' "$meta" || fail "remote spawn lost the confirmed override"
   assert_grep 'quota_override_evidence=refuse: provider codex' "$meta" "remote spawn lost the confirmed quota evidence"
 done
 pass "remote spawn forwards an explicit quota override alongside trace context and records host-confirmed evidence at both ends"
 
+reset_remote_herdr_fixture "$HERDR_STATE"
+mv "$TMP_ROOT/remote-quota.json" "$TMP_ROOT/saved-remote-quota.json"
+remote_env "$ROOT/bin/fm-spawn.sh" ios2 --secondmate --harness codex > "$TMP_ROOT/quota-notice.out" 2> "$TMP_ROOT/quota-notice.err"; RC=$?
+expect_code 0 "$RC" "uncertain remote launch must succeed: $(cat "$TMP_ROOT/quota-notice.err")"
+[ "$(grep -c '^notice: fm-spawn launches codex without the quota check:' "$TMP_ROOT/quota-notice.err")" = 1 ] || fail "remote wrappers lost or duplicated the quota notice"
+assert_no_grep 'notice:' "$TMP_ROOT/quota-notice.out" "remote wrapper moved diagnostics into stdout"
+mv "$TMP_ROOT/saved-remote-quota.json" "$TMP_ROOT/remote-quota.json"
+pass "remote parent and host preserve one uncertainty notice on stderr"
+
 printf 'grok\n' > "$PARENT/config/secondmate-harness"
 jq '(.providers[] | select(.provider == "grok").quotaSemantics.effectiveAvailability[]) |=
   (.effectivePercentRemaining=0 | .runway.status="exhausted_now")' \
   "$FM_QUOTA_SNAPSHOT_FILE" > "$TMP_ROOT/exhausted-grok.json"
+printf '%s\n' '{"default":[{"harness":"omp","model":"openai-codex/gpt-6.1-sol","provider":"omp-quota"},{"harness":"codex","model":"gpt-6.1-sol"}]}' > "$PARENT/config/crew-dispatch.json"
+jq '.providers += [{provider:"omp-quota",quotaSemantics:{status:"known",effectiveAvailability:[
+  {scope:"all_models",status:"known",effectivePercentRemaining:90,runway:{status:"through_reset"},selection:{spendPriority:9}}]}}]' \
+  "$TMP_ROOT/exhausted-grok.json" > "$TMP_ROOT/route-quota.json"
+mv "$TMP_ROOT/route-quota.json" "$TMP_ROOT/exhausted-grok.json"
 cp "$TMP_ROOT/exhausted-grok.json" "$TMP_ROOT/remote-quota.json"
 reset_remote_herdr_fixture "$HERDR_STATE"
 OUT=$(FM_QUOTA_SNAPSHOT_FILE="$TMP_ROOT/exhausted-grok.json" remote_env "$ROOT/bin/fm-spawn.sh" ios2 grok --secondmate 2>&1); RC=$?
 expect_code 1 "$RC" "a positional explicit remote Grok launch must still be gated: $OUT"
 assert_contains "$OUT" 'refuses explicit harness grok' "the positional harness lost explicitness in transport"
+assert_contains "$OUT" '--harness codex --model gpt-6.1-sol' "remote parent lost its route-eligible alternative"
+assert_not_contains "$OUT" '--harness omp' "remote parent recommended an unlaunchable OMP alternative"
 : > "$HERDR_LOG"
 OUT=$(FM_QUOTA_SNAPSHOT_FILE="$TMP_ROOT/exhausted-grok.json" remote_env bash -c '
   FM_ROOT=$FM_ROOT_OVERRIDE

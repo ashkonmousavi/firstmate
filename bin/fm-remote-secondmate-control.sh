@@ -228,7 +228,7 @@ cmd_launch() {
     FM_STATE_OVERRIDE="$CONTROL_STATE" FM_DATA_OVERRIDE="$CONTROL_DATA" \
     FM_CONFIG_OVERRIDE="$TARGET_HOME/config" FM_SKIP_SECONDMATE_INHERIT=1 \
     FM_SKIP_SECONDMATE_SYNC=1 \
-    "$SCRIPT_DIR/fm-spawn.sh" "${ARGS[@]}" 2>&1); then
+    "$SCRIPT_DIR/fm-spawn.sh" "${ARGS[@]}"); then
     [ -z "$out" ] || printf '%s\n' "$out" >&2
     die "remote host-local secondmate launch failed"
   fi

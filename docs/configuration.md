@@ -1441,6 +1441,7 @@ This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-
 - Alternatives come only from configured rules and default profiles.
   The refusal prints their configured harness, model and effort strings, ranked by highest known `spendPriority`, with ties named together.
   Candidates must satisfy task-kind, backend, worker tool-exclusion, visible-capture, concrete model/effort, and configured account-provider restrictions, including per-secondmate pin precedence.
+  Remote secondmate routes exclude OMP from alternatives; local secondmates retain OMP support.
   Native catalog availability and sign-in checks remain the existing launch preflight's responsibility.
 - A missing provider declaration or quota row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and launch proceeds.
   Conflicting configured quota-family declarations refuse unless overridden.

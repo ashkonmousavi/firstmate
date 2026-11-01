@@ -74,7 +74,11 @@ EOF
 [ "$action" = relaunch ] || exit 94
 case "$FM_FAKE_RELAUNCH_MODE" in
   quota)
-    [ "$quota_flag" = --quota-override ] && [ -n "$quota_reason" ] || { echo 'error: exhausted_now'; exit 1; }
+    [ "$quota_flag" = --quota-override ] && [ -n "$quota_reason" ] || { echo 'error: exhausted_now' >&2; exit 1; }
+    printf 'notice: fm-control quota check refuses grok; proceeding under --quota-override: %s\n' "$quota_reason" >&2
+    ;;
+  notice)
+    printf 'notice: fm-control launches grok without the quota check: unavailable fixture\n' >&2
     ;;
   refuse)
     printf 'error: unverified remote secondmate harness: %s\n' "$harness" >&2
@@ -202,11 +206,28 @@ expect_code 1 "$RC" "remote relaunch must preserve a host quota refusal"
 cmp -s "$HOME_DIR/state/ios.meta" "$TMP/before-quota.meta" || fail "refusal changed parent metadata"
 OUT=$(FM_FAKE_RELAUNCH_MODE=quota run_relaunch ios grok - - --quota-override 'review override'); RC=$?
 expect_code 0 "$RC" "remote relaunch must forward the explicit override"$'\n'"$OUT"
+[ "$(printf '%s\n' "$OUT" | grep -c '^notice: fm-control quota check refuses grok')" = 1 ] || fail "remote relaunch lost or duplicated override diagnostics: $OUT"
 grep -Fxq 'quota_override=review override' "$HOME_DIR/state/ios.meta" || fail "parent lost confirmed override"
 grep -Fxq 'quota_override_evidence=refuse: exhausted_now; best alternative: codex' "$HOME_DIR/state/ios.meta" || fail "parent lost confirmed evidence"
 OUT=$(run_relaunch ios claude claude-opus-5-5 medium); RC=$?
 expect_code 0 "$RC" "later relaunch should succeed"
 assert_no_grep 'quota_override' "$HOME_DIR/state/ios.meta" "later relaunch inherited stale override evidence"
 pass "remote relaunch forwards explicit quota overrides and mirrors confirmed evidence"
+
+reset_meta
+cp "$HOME_DIR/state/ios.meta" "$TMP/before-stream-refusal.meta"
+env FM_HOME="$HOME_DIR" FM_SSH_BIN="$FAKEBIN/fake-ssh" FM_FAKE_RELAUNCH_MODE=quota \
+  "$ROOT/bin/fm-remote-secondmate-relaunch.sh" ios grok - - > "$TMP/refusal.out" 2> "$TMP/refusal.err"; RC=$?
+expect_code 1 "$RC" "remote relaunch refusal must preserve its stderr"
+assert_grep 'error: exhausted_now' "$TMP/refusal.err" "remote relaunch lost refusal stderr"
+assert_no_grep 'error:' "$TMP/refusal.out" "remote relaunch moved refusal diagnostics into stdout"
+cmp -s "$HOME_DIR/state/ios.meta" "$TMP/before-stream-refusal.meta" || fail "remote stderr refusal changed metadata"
+env FM_HOME="$HOME_DIR" FM_SSH_BIN="$FAKEBIN/fake-ssh" FM_FAKE_RELAUNCH_MODE=notice \
+  "$ROOT/bin/fm-remote-secondmate-relaunch.sh" ios grok - - > "$TMP/notice.out" 2> "$TMP/notice.err"; RC=$?
+expect_code 0 "$RC" "uncertain remote relaunch must preserve its notice"
+[ "$(grep -c '^notice: fm-control launches grok without the quota check:' "$TMP/notice.err")" = 1 ] || fail "remote relaunch lost or duplicated uncertainty stderr"
+assert_no_grep 'notice:' "$TMP/notice.out" "remote relaunch moved quota notices into stdout"
+assert_grep 'harness=grok' "$HOME_DIR/state/ios.meta" "notice prevented remote route confirmation"
+pass "remote relaunch wrapper preserves host quota notices and refusal stderr"
 
 echo "ALL TESTS PASSED"

@@ -53,7 +53,7 @@ REMOTE_HOST=$(fm_meta_get "$META" remote_host)
   || die "task $ID is not a remotely placed secondmate; use bin/fm-control.sh $ID relaunch instead"
 
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
-  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "${QUOTA_ARGS[@]}" </dev/null 2>&1) || {
+  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "${QUOTA_ARGS[@]}" </dev/null) || {
   rc=$?
   printf '%s\n' "$RELAUNCH_OUT" >&2
   exit "$rc"

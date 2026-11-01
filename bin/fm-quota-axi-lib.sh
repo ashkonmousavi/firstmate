@@ -183,7 +183,7 @@ FM_QUOTA_EVAL_JQ='
 #       within FM_QUOTA_GATE_HORIZON_SECONDS of $now regardless of projection
 #       confidence. The end is projectedExhaustedAt, else generatedAt plus
 #       usableRunwaySeconds.
-#   quota_gate_alternatives($q; $cands; $now; $kind; $backend)
+#   quota_gate_alternatives($q; $cands; $now; $kind; $backend; $remote)
 #       the candidates whose own verdict is pass with a known spendPriority,
 #       highest first.
 FM_QUOTA_GATE_HORIZON_SECONDS=10800
@@ -223,16 +223,17 @@ FM_QUOTA_GATE_JQ='
         $e + {verdict: "notice"}
       else $e + {verdict: "pass"} end
     end;
-  def quota_gate_launch_eligible($kind; $backend):
+  def quota_gate_launch_eligible($kind; $backend; $remote):
     ($kind != "secondmate" or
       (.harness as $h | ["muse", "gemini", "agy", "devin", "commandcode", "polytoken", "rovo"] | index($h) == null))
+    and (.harness != "omp" or ($remote | not))
     and (.harness != "commandcode" or $backend == "tmux" or $backend == "herdr")
     and (.harness != "polytoken" or
       ((.model // "") != "" and .model != "default" and (.effort // "") != "" and .effort != "default"
        and (.model | test("[()]") | not)
        and (.model | startswith("@") or startswith("mg:") or startswith("modelgroup:") | not)));
-  def quota_gate_alternatives($q; $cands; $now; $kind; $backend):
-    [$cands[] | select(quota_gate_launch_eligible($kind; $backend))
+  def quota_gate_alternatives($q; $cands; $now; $kind; $backend; $remote):
+    [$cands[] | select(quota_gate_launch_eligible($kind; $backend; $remote))
      | quota_gate_verdict($q; .; $now)
      | select(.verdict == "pass" and (.spendPriority | type) == "number")]
     | sort_by(-.spendPriority);
@@ -306,7 +307,10 @@ fm_quota_gate_profile() {
 # Prints three lines: verdict, reason, and best alternative (or none).
 fm_quota_gate_explicit() {
   local harness=$1 model=$2 rules=$3 snap=$4 kind=$5 backend=$6 config=$7 mate=${8:-}
-  local cands requested out h profile resolved eligible='[]'
+  local cands requested out h profile resolved eligible='[]' remote=false
+  if [ "$kind" = secondmate ] && [ "${FM_SKIP_SECONDMATE_SYNC:-0}" = 1 ] && [ "${FM_SKIP_SECONDMATE_INHERIT:-0}" = 1 ]; then
+    remote=true
+  fi
   if [ "$(type -t fm_backend_visible_capture_supported)" != function ]; then
     # shellcheck source=bin/fm-backend.sh
     . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-backend.sh"
@@ -333,11 +337,11 @@ fm_quota_gate_explicit() {
     fm_quota_gate_account_eligible "$h" "$(jq -r '.model // ""' <<<"$profile")" "$config" "$mate" >/dev/null 2>&1 || continue
     resolved=$(fm_quota_gate_profile "$profile" "$snap" "$cands") || continue
     eligible=$(jq -c --argjson profile "$resolved" '. + [$profile]' <<<"$eligible")
-  done < <(jq -c --arg kind "$kind" --arg backend "$backend" \
-    "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'.[] | select(quota_gate_launch_eligible($kind; $backend))' <<<"$cands")
+  done < <(jq -c --arg kind "$kind" --arg backend "$backend" --argjson remote "$remote" \
+    "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'.[] | select(quota_gate_launch_eligible($kind; $backend; $remote))' <<<"$cands")
   out=$(FM_QUOTA_GATE_HORIZON_SECONDS=$FM_QUOTA_GATE_HORIZON_SECONDS jq -r -n \
     --slurpfile quota "$snap" --argjson c "$requested" --argjson cands "$eligible" \
-    --arg kind "$kind" --arg backend "$backend" \
+    --arg kind "$kind" --arg backend "$backend" --argjson remote "$remote" \
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'
     def flat: tostring | gsub("[\t\r\n]"; " ");
     def best_line($best):
@@ -350,7 +354,7 @@ fm_quota_gate_explicit() {
     ($quota[0]) as $q | now as $now |
     quota_gate_verdict($q; $c; $now) as $v |
     ($cands | map(select(.harness != $c.harness or (.model // "") != ($c.model // "")))) as $others |
-    quota_gate_alternatives($q; $others; $now; $kind; $backend) as $alts |
+    quota_gate_alternatives($q; $others; $now; $kind; $backend; $remote) as $alts |
     $v.verdict, (($v.reason // "ok") | flat),
     (if ($alts | length) == 0 then "none"
      else (best_line([$alts[] | select(.spendPriority == $alts[0].spendPriority)]) | flat) end)' 2>/dev/null) || {

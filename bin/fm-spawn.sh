@@ -1377,7 +1377,7 @@ spawn_remote_secondmate() {
     launch_args+=(--quota-override "$QUOTA_OVERRIDE")
   fi
   if out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh launch \
-    "${launch_args[@]}" </dev/null 2>&1); then
+    "${launch_args[@]}" </dev/null); then
     rc=0
   else
     rc=$?
@@ -2123,9 +2123,14 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
     echo "error: config/crew-dispatch.json is active - pass an explicit harness resolved from the dispatch rules (the consultation backstop, so the rules are never silently skipped)." >&2
     exit 1
   fi
+  if [ -n "$QUOTA_OVERRIDE" ] && [ -z "$HARNESS_ARG" ]; then
+    echo "error: --quota-override applies only to an explicitly named adapter, the only launch the quota check gates" >&2
+    exit 1
+  fi
   rc=0
   shared_args=()
   [ -z "$HARNESS_ARG" ] || shared_args+=(--harness "$HARNESS_ARG")
+  [ -z "$QUOTA_OVERRIDE" ] || shared_args+=(--quota-override "$QUOTA_OVERRIDE")
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
   [ -z "$EFFORT" ] || shared_args+=(--effort "$EFFORT")
   [ -z "$BACKEND_ARG" ] || shared_args+=(--backend "$BACKEND_ARG")
