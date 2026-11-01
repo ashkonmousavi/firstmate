@@ -1,0 +1,14 @@
+{
+  "targeted-suites": 0,
+  "initial-live-setup": 1,
+  "corrected-live-replay": 0,
+  "race-replay": 0,
+  "watcher-before": {
+    "exit": 0,
+    "meaning": "rejected old registration"
+  },
+  "watcher-after": {
+    "exit": 4,
+    "meaning": "registration accepted; isolated forge login absent"
+  }
+}

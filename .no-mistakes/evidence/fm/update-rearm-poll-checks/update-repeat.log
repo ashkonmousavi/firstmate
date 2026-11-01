@@ -1,0 +1,14 @@
+update target: origin/main 66622aa148d4288e6160058cc456b46b5e2e06e0
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/primary-home task=missing could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 10s ago, grace 300s) - full banner already printed this episode. error: named head cannot be verified: worktree missing
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/primary-home task=tampered could-not-rearm reason=unauthenticated-poll-generation
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/primary-home task=unreachable could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 10s ago, grace 300s) - full banner already printed this episode. error: named head c7ed178e36781d5e9c40e45ed987466ab20c6e8b is unreachable outside the worker copy
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/primary-home rearmed=0 left=3
+secondmate local: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/local-home task=missing could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 10s ago, grace 300s) - full banner already printed this episode. error: named head cannot be verified: worktree missing
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/local-home task=tampered could-not-rearm reason=unauthenticated-poll-generation
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/local-home task=unreachable could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 10s ago, grace 300s) - full banner already printed this episode. error: named head c7ed178e36781d5e9c40e45ed987466ab20c6e8b is unreachable outside the worker copy
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/local-home rearmed=0 left=3
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none

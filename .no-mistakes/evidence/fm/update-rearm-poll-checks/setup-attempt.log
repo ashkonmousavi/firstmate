@@ -1,0 +1,28 @@
+registered: state/custom.check.sh
+registered: state/custom.check.sh
+registered: state/custom.check.sh
+registered: state/custom.check.sh
+watcher-before exit=0
+check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.9btm3L/watch-before/ready.check.sh
+
+=== Primary and registry-only home update ===
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  4 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/main dd84142c54545078279dff03d7e2122548fba862
+firstmate: updated 6f88ceb..dd84142 (instructions changed: bin)
+no watches registered
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.9btm3L/primary-home task=missing could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode. error: named head cannot be verified: worktree missing
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.9btm3L/primary-home task=tampered could-not-rearm reason=unauthenticated-poll-generation
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.9btm3L/primary-home task=unreachable could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode. error: named head 6faa866ffe53cb2ff6af33ed8a209f0fe4ccb546 is unreachable outside the worker copy
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.9btm3L/primary-home rearmed=1 left=3
+secondmate local: skipped: dirty working tree
+reread-firstmate: yes
+restart-secondmates: none
+nudge-secondmates: none
+~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.9btm3L/primary-home/state/custom.check.sh: OK
+~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.9btm3L/primary-home/state/custom.check-trust: OK

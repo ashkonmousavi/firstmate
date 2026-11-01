@@ -1,0 +1,14 @@
+PR poll retired: task; reason: retired while update refresh was pending
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/race.Hm3Ker/retired task=task skipped=superseded-or-retired
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/race.Hm3Ker/retired rearmed=0 left=0
+Concurrent retired wins: metadata and artifact hashes plus identities preserved; refresh exit=0
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/task.check.sh
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/race.Hm3Ker/replacement task=task skipped=superseded-or-retired
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/race.Hm3Ker/replacement rearmed=0 left=0
+Concurrent replacement wins: metadata and artifact hashes plus identities preserved; refresh exit=0
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/task.check.sh
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/race.Hm3Ker/same-url task=task skipped=superseded-or-retired
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/race.Hm3Ker/same-url rearmed=0 left=0
+Concurrent same-url wins: metadata and artifact hashes plus identities preserved; refresh exit=0

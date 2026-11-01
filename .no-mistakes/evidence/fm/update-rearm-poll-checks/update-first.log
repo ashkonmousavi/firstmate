@@ -1,0 +1,16 @@
+update target: origin/main 66622aa148d4288e6160058cc456b46b5e2e06e0
+firstmate: updated f5e856e..66622aa (instructions changed: bin)
+no watches registered
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/primary-home task=missing could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 5s ago, grace 300s) - full banner already printed this episode. error: named head cannot be verified: worktree missing
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/primary-home task=tampered could-not-rearm reason=unauthenticated-poll-generation
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/primary-home task=unreachable could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 6s ago, grace 300s) - full banner already printed this episode. error: named head c7ed178e36781d5e9c40e45ed987466ab20c6e8b is unreachable outside the worker copy
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/primary-home rearmed=1 left=3
+secondmate local: updated f5e856e..66622aa (instructions changed: bin)
+no watches registered
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/local-home task=missing could-not-rearm reason=●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ●  WATCHER DOWN - SUPERVISION IS OFF ●  4 task(s) in flight, but no live watcher process holds this home lock (last beat: 6s ago). ●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair. ●  This is a supervision warning only; the guarded operation WILL still run. ●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &. ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ error: named head cannot be verified: worktree missing
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/local-home task=tampered could-not-rearm reason=unauthenticated-poll-generation
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/local-home task=unreachable could-not-rearm reason=WARNING: watcher still down (same stale episode; last beat: 8s ago, grace 300s) - full banner already printed this episode. error: named head c7ed178e36781d5e9c40e45ed987466ab20c6e8b is unreachable outside the worker copy
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6BND9PKB3P0JYRZA36Y781C/.test-phase-tmp/live.lZEdFC/local-home rearmed=1 left=3
+reread-firstmate: yes
+restart-secondmates: none
+nudge-secondmates: none
