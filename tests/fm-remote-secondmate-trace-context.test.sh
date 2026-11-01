@@ -383,6 +383,7 @@ assert_contains "$OUT" 'refuses explicit harness grok' "the positional harness l
 assert_contains "$OUT" '--harness codex --model gpt-6.1-sol' "remote parent lost its route-eligible alternative"
 assert_not_contains "$OUT" '--harness omp' "remote parent recommended an unlaunchable OMP alternative"
 : > "$HERDR_LOG"
+# shellcheck disable=SC2016 # Expand variables in the child shell's remote environment.
 OUT=$(FM_QUOTA_SNAPSHOT_FILE="$TMP_ROOT/exhausted-grok.json" remote_env bash -c '
   FM_ROOT=$FM_ROOT_OVERRIDE
   STATE="$FM_HOME/state" DATA="$FM_HOME/data" CONFIG="$FM_HOME/config"

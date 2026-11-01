@@ -278,7 +278,7 @@ fm_quota_gate_account_eligible() {
 }
 
 fm_quota_gate_profile() {
-  local profile=$1 snap=$2 profiles=$3 harness model family= families
+  local profile=$1 snap=$2 profiles=$3 harness model family='' families
   harness=$(jq -r '.harness' <<<"$profile")
   model=$(jq -r '.model // ""' <<<"$profile")
   if [ "$harness" = omp ]; then

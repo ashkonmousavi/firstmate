@@ -169,7 +169,7 @@ cmd_route() {
 }
 
 cmd_launch() {
-  local id=$1 harness=$2 model=$3 effort=$4 selected_backend=$5 traceparent= quota_override= harness_explicit=1
+  local id=$1 harness=$2 model=$3 effort=$4 selected_backend=$5 traceparent='' quota_override='' harness_explicit=1
   local current meta out herdr_session
   shift 5
   if [ "$#" -gt 0 ] && [ "$1" != --quota-override ] && [ "$1" != --implicit-harness ]; then traceparent=$1; shift; fi

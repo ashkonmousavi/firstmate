@@ -385,7 +385,7 @@ pass "relaunch quota alternatives honor worker exclusions before stopping the ag
 
 test_herdr_relaunch_resumes_only_the_registered_pi_session
 
-id=remote-quota-host
+id="remote-quota-host"
 dir=$(new_case remote-quota-host "$id")
 add_herdr_ship_task "$dir" "$id" fm-remote
 make_herdr_stub "$dir"
