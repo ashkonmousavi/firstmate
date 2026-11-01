@@ -456,6 +456,7 @@ The watcher's liveness tick applies the identical rule during ordinary supervisi
 - An unreachable transport or inconclusive state is left untouched rather than replaced locally.
 
 The [liveness library header](../bin/fm-secondmate-liveness-lib.sh) owns probe deadlines and their route-preserving timeout behavior.
+It also owns recovery serialization with deliberate restarts.
 
 ### Inventory reconcile for markerless routes
 

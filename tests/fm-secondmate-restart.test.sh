@@ -45,6 +45,16 @@ TMP_ROOT=$(cd "$TMP_ROOT" && pwd -P)
 make_stub() {  # <case-dir>
   local fb="$1/fakebin"
   mkdir -p "$fb"
+  # A Claude exit lists background sessions before relaunch. Keep that read
+  # inside this fixture, including when a competing spawn wins the lock.
+  cat > "$fb/claude" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  agents) printf '[]\n' ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$fb/claude"
   cat > "$fb/tmux" <<'SH'
 #!/usr/bin/env bash
 set -u
@@ -80,6 +90,9 @@ case "${1:-}" in
             : > "$D/local-relaunch-during-remote"
           fi
           printf 'zsh' > "$D/command.$target"
+          if [ -x "$D/on-exit" ]; then
+            "$D/on-exit" "$target"
+          fi
           ;;
         *'encode launch-brief'* | *'Firstmate operational input waiting: read'*) cat "$D/becomes" > "$D/command.$target" ;;
         ': Firstmate instruction waiting: list '*)
@@ -136,6 +149,29 @@ case "${1:-}" in
     fi
     printf '╭────╮\n│    │\n╰────╯\n'; exit 0 ;;
   list-windows) [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
+  new-window)
+    name=
+    prev=
+    for a in "$@"; do
+      [ "$prev" != -n ] || name=$a
+      prev=$a
+    done
+    [ -z "$name" ] || printf '%s\n' "$name" >> "$D/windows"
+    exit 0 ;;
+  kill-window)
+    target=
+    prev=
+    for a in "$@"; do
+      [ "$prev" != -t ] || target=$a
+      prev=$a
+    done
+    target=${target##*:}
+    target=${target#=}
+    if [ -f "$D/windows" ]; then
+      grep -vFx -- "$target" "$D/windows" > "$D/windows.tmp" || true
+      mv -f "$D/windows.tmp" "$D/windows"
+    fi
+    exit 0 ;;
 esac
 exit 0
 SH
@@ -247,8 +283,8 @@ add_repo_backed_mate() {  # <case-dir> <id> [harness] [backend]
 # run_update_in_case <case-dir>: the real /updatefirstmate mechanics over that world.
 run_update_in_case() {
   local dir=$1
-  env PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" \
-    FM_ROOT_OVERRIDE="$dir/fmrepo" FM_HOME="$dir/home" \
+  env PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux \
+    FM_ROOT_OVERRIDE="$dir/fmrepo" FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" \
     FM_SSH_BIN="${FM_TEST_SSH_BIN:-ssh}" \
     "$ROOT/bin/fm-update.sh" 2>/dev/null
 }
@@ -262,10 +298,12 @@ arm_answer() {
 
 run_restart() {  # <case-dir> <args...>
   local dir=$1; shift
-  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux \
     FM_SPAWN_NO_GUARD=1 FM_SECONDMATE_PERSIST_POLL=1 \
     FM_SECONDMATE_PERSIST_WAIT="${FM_TEST_PERSIST_WAIT:-30}" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    FM_SECONDMATE_RESTART_VERIFY_WAIT="${FM_TEST_VERIFY_WAIT:-1}" \
+    FM_SECONDMATE_RESTART_VERIFY_POLL="${FM_TEST_VERIFY_POLL:-1}" FM_SECONDMATE_RESTART_LOCK_WAIT=5 \
     FM_SSH_BIN="${FM_TEST_SSH_BIN:-ssh}" \
     "$RESTART" "$@" 2>&1
 }
@@ -447,6 +485,36 @@ test_refused_restart_falls_back_without_claiming_a_reload() {
   pass "T5 a refused restart leaves the mate running and reports an unknown outcome"
 }
 
+test_failed_readiness_with_a_live_process_is_unreached() {
+  local dir out rc state
+  dir=$(new_case failed-readiness-live)
+  add_local_mate "$dir" sm1
+  arm_answer "$dir" sm1
+  printf 'codex\n' > "$dir/home/config/secondmate-harness"
+  printf codex > "$dir/fake/becomes"
+  mv "$dir/fakebin/tmux" "$dir/fakebin/tmux.readiness-inner"
+  cat > "$dir/fakebin/tmux" <<SH
+#!/usr/bin/env bash
+case "\${1:-}" in
+  capture-pane) [ ! -e "$dir/fakebin/.codex-first-turn" ] || exit 1 ;;
+esac
+exec "$dir/fakebin/tmux.readiness-inner" "\$@"
+SH
+  chmod +x "$dir/fakebin/tmux"
+
+  out=$(run_restart "$dir" sm1); rc=$?
+
+  expect_code 3 "$rc" "a failed initial brief gate must fail even with a live process: $out"
+  assert_contains "$out" 'unreached: sm1:' "a readiness failure must remain unreached"
+  assert_contains "$out" 'the restart outcome is unknown' "ordinary failures must not enter collision recovery"
+  assert_not_contains "$out" 'restarted: sm1' "a failed launch must not be reported as restarted"
+  assert_grep 'codex did not take the brief' "$dir/home/state/sm1.status" "the readiness gate did not fail: $out"
+  state=$(PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux FM_HOME="$dir/home" \
+    bash -c '. "$1/bin/fm-secondmate-liveness-lib.sh"; fm_secondmate_liveness_probe "$2/state/sm1.meta" sm1 poll; printf "%s\n" "$FM_SM_LIVE_STATUS"' _ "$ROOT" "$dir/home")
+  [ "$state" = alive ] || fail "the failed gate must leave the live-process masking condition: $state; $out"
+  pass "a readiness failure with a live process remains unreached"
+}
+
 # --- T6: a remote mate restarts over the fm-on hop, on the parent's pin -------
 # The seam decodes what fm-on.sh actually put on the wire, so this pins the
 # host-local command and the profile the PARENT resolved, not a local shortcut.
@@ -534,6 +602,28 @@ case "${rargs[1]:-}" in
     ;;
   relaunch)
     case "${FM_FAKE_SSH_MODE:-ok}" in
+      lost-spawn-lock*)
+        # The winning launch holds the parent's per-mate spawn lock for as long
+        # as FM_FAKE_WINNER_HOLD says, exactly as a spawn driven from the parent
+        # holds it across its whole host launch.
+        if [ -n "${FM_FAKE_WINNER_HOLD:-}" ]; then
+          parent_state=${FM_FAKE_DIR%/fake}/home/state
+          # shellcheck disable=SC2016 # Expand variables in the holder process.
+          STATE="$parent_state" FM_STATE_OVERRIDE="$parent_state" FM_ROOT="${FM_FAKE_REMOTE_CONTROL%/bin/*}" bash -c '
+            . "$1"
+            fm_lock_try_acquire "$STATE/.spawn-$2.lock" || exit 1
+            printf "%s\n" "$BASHPID" > "$3/winner-pid"
+            /bin/sleep "$4"
+            fm_lock_release "$STATE/.spawn-$2.lock"
+            : > "$3/winner-released"
+          ' _ "${FM_FAKE_REMOTE_CONTROL%/*}/fm-wake-lib.sh" "${rargs[2]}" "$FM_FAKE_DIR" "$FM_FAKE_WINNER_HOLD" \
+            < /dev/null > /dev/null 2>&1 &
+          i=0
+          until [ -e "$FM_FAKE_DIR/winner-pid" ] || [ "$i" -ge 500 ]; do /bin/sleep 0.01; i=$((i + 1)); done
+        fi
+        printf 'error: another spawn is already creating task %s\n' "${rargs[2]}" >&2
+        exit 1
+        ;;
       slow-relaunch)
         : > "$FM_FAKE_DIR/remote-relaunch-start"
         /bin/sleep 2
@@ -549,6 +639,22 @@ case "${rargs[1]:-}" in
     printf 'harness=%s\n' "${rargs[3]}"
     printf 'model=%s\n' "${rargs[4]}"
     printf 'effort=%s\n' "${rargs[5]}"
+    ;;
+  state)
+    if [ -e "${FM_FAKE_DIR%/fake}/home/state/.spawn-${rargs[2]}.lock" ]; then
+      : > "$FM_FAKE_DIR/probed-while-locked"
+    fi
+    case "${FM_FAKE_SSH_MODE:-ok}" in
+      lost-spawn-lock-probe-hang|lost-spawn-lock-late-probe)
+        : > "$FM_FAKE_DIR/probe-started"
+        /bin/sleep 20
+        : > "$FM_FAKE_DIR/probe-finished"
+        ;;
+      lost-spawn-lock-gate-failed) printf 'dead\n' ;;
+      lost-spawn-lock-state-fails) exit 7 ;;
+      lost-spawn-lock-state-unreachable) exit 255 ;;
+      *) printf 'alive\n' ;;
+    esac
     ;;
 esac
 exit 0
@@ -791,7 +897,8 @@ test_post_stop_failure_is_reported_unreached() {
 
   expect_code 3 "$rc" "a post-stop relaunch failure must remain accounted for"$'\n'"$out"
   assert_contains "$out" "unreached: sm1:" "a stopped mate must be reported as unreached"
-  assert_contains "$out" "restart outcome is unknown" "the report must not attribute the failed lifecycle operation"
+  assert_contains "$out" "the restart outcome is unknown" \
+    "an ordinary launch failure must not enter collision recovery"
   assert_not_contains "$out" "nudged: sm1" "a durable enqueue must not masquerade as a running mate's nudge"
   assert_contains "$out" "summary: 0 of 1 restarted, 0 nudged, 1 unreached" \
     "the summary must not claim that a stopped mate remains on older instructions with a message"
@@ -981,6 +1088,384 @@ test_already_current_unprovable_mate_stays_on_the_nudge_path() {
   pass "T16 an already-current mate with an unprovable runtime keeps the honest nudge path"
 }
 
+# liveness_episode_script <case-dir> <log>: write an executable that runs one
+# liveness recovery episode for sm1 through the shared library, in the order
+# the watcher tick and the session-start sweep both use: per-mate lock, probe,
+# guarded relaunch on a recovery-grade verdict. Its outcome lines go to <log>.
+liveness_episode_script() {
+  local dir=$1 log=$2
+  cat > "$dir/fake/liveness-episode" <<SH
+#!/usr/bin/env bash
+# The stub session provider and its backend are pinned here, never inherited or
+# auto-detected, so an episode run from inside a real multiplexer can only ever
+# reach this case's fake endpoints.
+PATH="$dir/fakebin:\$PATH" FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux \\
+  FM_STATE_OVERRIDE="$dir/home/state" STATE="$dir/home/state" FM_HOME="$dir/home" \\
+  FM_ROOT="$ROOT" FM_SPAWN_NO_GUARD=1 bash -c '
+  . "\$1/bin/fm-secondmate-liveness-lib.sh"
+  meta="\$STATE/sm1.meta"
+  if ! fm_secondmate_liveness_lock sm1; then
+    echo "skipped: lock held"
+    exit 0
+  fi
+  fm_secondmate_liveness_probe "\$meta" sm1 poll
+  echo "probe=\$FM_SM_LIVE_STATUS state=\$FM_SM_LIVE_STATE"
+  if [ "\$FM_SM_LIVE_STATUS" = relaunchable ]; then
+    rc=0
+    fm_secondmate_liveness_relaunch "\$meta" sm1 30 || rc=\$?
+    echo "relaunch rc=\$rc"
+    [ "\$rc" -eq 0 ] || printf "%s\\n" "\$FM_SM_LIVE_OUT"
+  fi
+  fm_secondmate_liveness_unlock sm1
+' _ "$ROOT" >> "$log" 2>&1
+SH
+  chmod +x "$dir/fake/liveness-episode"
+}
+
+launch_count() {  # <case-dir>
+  grep -cE 'encode launch-brief|Firstmate operational input waiting: read' "$1/fake/literal" || true
+}
+
+# --- T17: a restart and a liveness relaunch at the same time -----------------
+# The incident shape: the restart stops the old agent, which leaves a bare
+# shell that the liveness probe reads as dead. A liveness episode landing in
+# that window used to kill the endpoint and race the restart's own launch for
+# the spawn lock, so both lost. The restart now holds the mate's liveness lock
+# through the replacement, so the episode skips the mate without spending an
+# attempt and exactly one replacement comes up.
+test_restart_and_liveness_relaunch_race() {
+  local dir out rc
+  dir=$(new_case race)
+  add_local_mate "$dir" sm1
+  arm_answer "$dir" sm1
+  printf -- '- sm1 - local domain (home: %s; scope: things; projects: p; added 2026-09-03)\n' \
+    "$dir/sm1-home" > "$dir/home/data/secondmates.md"
+  liveness_episode_script "$dir" "$dir/fake/liveness.log"
+  # Fire the episode at the exact moment the old agent is stopped, and keep
+  # firing it for the rest of the restart.
+  cp "$dir/fake/liveness-episode" "$dir/fake/on-exit"
+  (
+    while [ ! -e "$dir/stop-hammer" ]; do
+      "$dir/fake/liveness-episode"
+      /bin/sleep 0.05
+    done
+  ) &
+  local hammer=$!
+
+  out=$(run_restart "$dir" sm1); rc=$?
+  : > "$dir/stop-hammer"
+  wait "$hammer" 2>/dev/null || true
+
+  expect_code 0 "$rc" "the restart must win cleanly against a concurrent liveness episode"$'\n'"$out"
+  assert_contains "$out" "restarted: sm1 (claude)" "the restart must report the mate restarted"
+  assert_grep 'skipped: lock held' "$dir/fake/liveness.log" \
+    "the liveness episode in the stop window must skip the mate being restarted"
+  assert_no_grep 'relaunch rc=' "$dir/fake/liveness.log" \
+    "a liveness relaunch ran while the mate was being restarted: $(cat "$dir/fake/liveness.log")"
+  assert_no_grep 'state=dead' "$dir/fake/liveness.log" \
+    "a liveness episode probed the stopped endpoint mid-restart"
+  [ "$(launch_count "$dir")" -eq 1 ] \
+    || fail "expected exactly one replacement launch, saw $(launch_count "$dir"): $(cat "$dir/fake/literal")"
+  "$dir/fake/liveness-episode"
+  [ "$(tail -1 "$dir/fake/liveness.log")" = "probe=alive state=alive" ] \
+    || fail "after the restart, liveness must read the one replacement as alive: $(tail -3 "$dir/fake/liveness.log")"
+  if [ -e "$dir/home/state/.secondmate-relaunch-sm1" ]; then
+    assert_no_grep 'attempt' "$dir/home/state/.secondmate-relaunch-sm1" \
+      "a skipped liveness episode spent a relaunch attempt"
+  fi
+  assert_absent "$dir/home/state/.secondmate-liveness-sm1.lock" \
+    "the restart left its in-progress marker behind"
+  pass "T17 a liveness relaunch skips a mate mid-restart, and exactly one replacement comes up"
+}
+
+# --- T18: the restart's own launch loses the spawn lock, the winner is verified
+test_lost_spawn_lock_without_completion_evidence_is_unreached() {
+  local dir out rc mode i started elapsed ledger_before
+  for mode in complete failed; do
+    dir=$(new_case "lost-spawn-lock-$mode")
+    add_local_mate "$dir" sm1
+    arm_answer "$dir" sm1
+    printf 'codex\n' > "$dir/home/config/secondmate-harness"
+    printf codex > "$dir/fake/becomes"
+    printf '1\trelaunched\n' > "$dir/home/state/.secondmate-relaunch-sm1"
+    ledger_before=$(cat "$dir/home/state/.secondmate-relaunch-sm1")
+    printf -- '- sm1 - local domain (home: %s; scope: things; projects: p; added 2026-09-03)\n' \
+      "$dir/sm1-home" > "$dir/home/data/secondmates.md"
+    mv "$dir/fakebin/tmux" "$dir/fakebin/tmux.winner-inner"
+    cat > "$dir/fakebin/tmux" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = capture-pane ] && [ -e "$dir/fakebin/.codex-first-turn" ]; then
+  : > "$dir/fake/gate-pending"
+  /bin/sleep 1
+  if [ "$mode" = failed ]; then exit 1; fi
+fi
+exec "$dir/fakebin/tmux.winner-inner" "\$@"
+SH
+    chmod +x "$dir/fakebin/tmux"
+    cat > "$dir/fake/on-exit" <<SH
+#!/usr/bin/env bash
+( PATH="$dir/fakebin:\$PATH" FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux \
+  FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" STATE="$dir/home/state" \
+  FM_ROOT="$ROOT" FM_SPAWN_NO_GUARD=1 bash -c '
+  . "\$1/bin/fm-wake-lib.sh"
+  . "\$1/bin/fm-backend.sh"
+  fm_lock_try_acquire "\$STATE/.spawn-sm1.lock" || exit 1
+  : > "\$2/winner-holds"
+  i=0
+  until grep -q "^phase=failed:launching" "\$STATE/sm1.control-relaunch" 2>/dev/null || [ "\$i" -ge 3000 ]; do
+    /bin/sleep 0.01
+    i=\$((i + 1))
+  done
+  fm_lock_release "\$STATE/.spawn-sm1.lock"
+  target=\$(fm_meta_get "\$STATE/sm1.meta" window)
+  fm_backend_kill tmux "\$target" || exit 1
+  winner_rc=0
+  "\$1/bin/fm-spawn.sh" sm1 "\$3" --secondmate --harness codex || winner_rc=\$?
+  printf "%s\\n" "\$winner_rc" > "\$2/winner-rc"
+  : > "\$2/winner-done"
+' _ "$ROOT" "$dir/fake" "$dir/sm1-home" ) < /dev/null > "$dir/fake/winner.log" 2>&1 &
+i=0
+until [ -e "$dir/fake/winner-holds" ] || [ "\$i" -ge 500 ]; do /bin/sleep 0.01; i=\$((i + 1)); done
+SH
+    chmod +x "$dir/fake/on-exit"
+
+    started=$(date +%s)
+    out=$(FM_TEST_VERIFY_WAIT=30 run_restart "$dir" sm1); rc=$?
+    elapsed=$(($(date +%s) - started))
+    i=0
+    until [ -e "$dir/fake/winner-done" ] || [ "$i" -ge 1000 ]; do
+      /bin/sleep 0.01
+      i=$((i + 1))
+    done
+    assert_present "$dir/fake/winner-done" "the competing launch did not finish: $(cat "$dir/fake/winner.log")"
+    assert_contains "$out" "another spawn is already creating task sm1" \
+      "the report must name the lost spawn lock"
+    expect_code 3 "$rc" "an independent spawn has no parent completion record: $out"
+    assert_contains "$out" "unreached: sm1" "the winner must remain unconfirmed"
+    assert_not_contains "$out" "restarted: sm1" "liveness and stale completion records must not establish success"
+    assert_contains "$out" "released the spawn lock within 30s" \
+      "the restart must wait for the winner to release its spawn lock: $out"
+    assert_not_contains "$out" "winner still launching" "a winner that finished inside the bound is not still launching"
+    [ "$elapsed" -lt 30 ] || fail "verification did not respect its bound: ${elapsed}s"
+    assert_equals "$ledger_before" "$(cat "$dir/home/state/.secondmate-relaunch-sm1")" "an independent spawn must not publish a liveness-helper outcome"
+    if [ "$mode" = complete ]; then
+      assert_equals 0 "$(cat "$dir/fake/winner-rc")" "the real independent launch did not complete: $(cat "$dir/fake/winner.log")"
+      assert_grep 'spawned sm1 harness=codex' "$dir/fake/winner.log" "the completed launch must be observable through its public result"
+    else
+      assert_equals 1 "$(cat "$dir/fake/winner-rc")" "the real independent launch must fail its gate"
+      assert_grep 'codex did not take the brief' "$dir/home/state/sm1.status" "the real readiness gate did not fail"
+    fi
+    assert_present "$dir/fake/gate-pending" "the winner's real readiness gate was never exercised"
+    assert_absent "$dir/home/state/.secondmate-liveness-sm1.lock" "the restart left its lock behind"
+  done
+  pass "T18 independent collision winners without completion evidence remain unreached"
+}
+
+# stop_winner_holder <case-dir>: end a fake winner that still holds the lock.
+stop_winner_holder() {
+  local pid
+  pid=$(cat "$1/fake/winner-pid" 2>/dev/null) || return 0
+  pkill -P "$pid" 2>/dev/null || true
+  kill "$pid" 2>/dev/null || true
+}
+
+test_remote_spawn_winner_without_parent_completion_is_unreached() {
+  local dir out rc mode before ledger_before started elapsed
+  for mode in lost-spawn-lock-complete lost-spawn-lock-gate-failed; do
+    dir=$(new_case "remote-$mode")
+    setup_remote_case "$dir" sm2 "$mode"
+    export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    export FM_FAKE_WINNER_HOLD=2
+    printf 'codex requested-model high\n' > "$dir/home/config/secondmate-harness"
+    before=$(cat "$dir/home/state/sm2.meta")
+    printf '1\trelaunched\n' > "$dir/home/state/.secondmate-relaunch-sm2"
+    ledger_before=$(cat "$dir/home/state/.secondmate-relaunch-sm2")
+
+    started=$(date +%s)
+    out=$(FM_TEST_VERIFY_WAIT=10 run_restart "$dir" sm2); rc=$?
+    elapsed=$(($(date +%s) - started))
+    unset FM_FAKE_ANSWER_STATUS FM_FAKE_WINNER_HOLD
+    stop_winner_holder "$dir"
+
+    expect_code 3 "$rc" "a remote process state cannot prove completed launch success: $out"
+    assert_contains "$out" 'unreached: sm2' "the unconfirmed winner must remain unreached"
+    assert_not_contains "$out" 'restarted: sm2' "a remote state probe must not certify launch completion"
+    assert_contains "$out" 'the parent-held spawn lock was released within 10s' "the restart must wait for the winner's lock: $out"
+    [ "$elapsed" -lt 30 ] || fail "the restart overran its verification bound: ${elapsed}s"
+    assert_present "$dir/fake/winner-released" "the winner never released its lock"
+    assert_absent "$dir/fake/probed-while-locked" "the endpoint was probed while the winner still held its spawn lock"
+    [ "$(grep -c '^fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log")" -eq 1 ] \
+      || fail "expected exactly one endpoint probe after the lock was released: $(cat "$dir/ssh.log")"
+    case "$mode" in
+      lost-spawn-lock-complete) assert_contains "$out" "endpoint reads 'alive'" "the one probe must report what it read" ;;
+      *) assert_contains "$out" "endpoint reads 'dead'" "the one probe must report what it read" ;;
+    esac
+    assert_equals "$before" "$(cat "$dir/home/state/sm2.meta")" "an unconfirmed launch must preserve the parent's identity"
+    assert_equals "$ledger_before" "$(cat "$dir/home/state/.secondmate-relaunch-sm2")" "remote probes must not publish parent liveness outcomes"
+    [ "$(grep -c '^fm-remote-secondmate-control.sh relaunch ' "$dir/ssh.log")" -eq 1 ] \
+      || fail "verification attempted another relaunch"
+    assert_no_grep 'fm-remote-secondmate-control.sh route sm2' "$dir/ssh.log" \
+      "an unconfirmed launch must not refresh the route"
+    assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "the restart left its lock behind"
+  done
+  pass "remote collision winners are waited for by spawn lock, probed once, and remain unreached"
+}
+
+test_winner_still_launching_at_deadline_is_reported() {
+  local dir out rc started elapsed holder
+  dir=$(new_case still-launching)
+  setup_remote_case "$dir" sm2 lost-spawn-lock-complete
+  export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+  export FM_FAKE_WINNER_HOLD=30
+
+  started=$(date +%s)
+  out=$(FM_TEST_VERIFY_WAIT=2 run_restart "$dir" sm2); rc=$?
+  elapsed=$(($(date +%s) - started))
+  unset FM_FAKE_ANSWER_STATUS FM_FAKE_WINNER_HOLD
+  holder=$(cat "$dir/fake/winner-pid" 2>/dev/null || true)
+  stop_winner_holder "$dir"
+
+  expect_code 3 "$rc" "a winner still launching at the deadline must exit non-zero: $out"
+  assert_contains "$out" 'unreached: sm2: winner still launching' "the report must say the winner is still launching: $out"
+  assert_contains "$out" "holder pid $holder" "the report must name the launch still holding the lock"
+  assert_contains "$out" 'no longer held off' "releasing the recovery lock must be reported, not silent"
+  [ "$elapsed" -lt 6 ] || fail "the wait did not end at its deadline: ${elapsed}s"
+  assert_no_grep 'fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log" \
+    "the endpoint must not be probed while the winner still holds the lock"
+  assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "the restart must still release the recovery lock"
+  pass "a winner still holding the spawn lock at the deadline is reported as still launching"
+}
+
+# The single probe's own failure, inside a long verification budget, is
+# reported in the liveness library's words rather than as an endpoint state.
+test_unclassified_probe_reports_its_failure() {
+  local dir out rc mode expected
+  for mode in state-fails state-unreachable; do
+    dir=$(new_case "probe-$mode")
+    setup_remote_case "$dir" sm2 "lost-spawn-lock-$mode"
+    export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    case "$mode" in
+      state-fails) expected='endpoint probe failed: remote endpoint probe unreadable on remote-mac' ;;
+      state-unreachable) expected='endpoint probe failed: remote host unavailable or endpoint state unknown; route preserved on remote-mac' ;;
+    esac
+
+    out=$(FM_TEST_VERIFY_WAIT=60 run_restart "$dir" sm2); rc=$?
+    unset FM_FAKE_ANSWER_STATUS
+
+    expect_code 3 "$rc" "a failed probe cannot confirm the winner: $out"
+    assert_contains "$out" 'unreached: sm2' "a failed probe must leave the mate unreached"
+    assert_contains "$out" "$expected" "the probe's own failure must be reported ($mode): $out"
+    assert_not_contains "$out" "reads 'unknown'" "an unclassified probe is not an endpoint state"
+    assert_not_contains "$out" 'probe timed out' "the verification budget did not expire ($mode)"
+    [ "$(grep -c '^fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log")" -eq 1 ] \
+      || fail "expected exactly one endpoint probe ($mode): $(cat "$dir/ssh.log")"
+    assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "the restart left its lock behind"
+  done
+  pass "an unclassified probe reports the liveness library's failure, not a fake endpoint state"
+}
+
+test_collision_verification_respects_remaining_budget() {
+  local dir out rc mode wait_seconds poll_seconds hold started elapsed
+  for mode in probe-hang late-probe large-poll zero-budget; do
+    dir=$(new_case "budget-$mode")
+    hold=
+    case "$mode" in
+      probe-hang) wait_seconds=2; poll_seconds=1 ;;
+      late-probe) wait_seconds=3; poll_seconds=1; hold=1 ;;
+      large-poll) wait_seconds=2; poll_seconds=20; hold=30 ;;
+      zero-budget) wait_seconds=0; poll_seconds=20 ;;
+    esac
+    if [ "$mode" = zero-budget ]; then
+      setup_remote_case "$dir" sm2 lost-spawn-lock-probe-hang
+    else
+      setup_remote_case "$dir" sm2 "lost-spawn-lock-$mode"
+    fi
+    export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    [ -z "$hold" ] || export FM_FAKE_WINNER_HOLD="$hold"
+    cat > "$dir/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+exec /bin/sleep "$@"
+SH
+    chmod +x "$dir/fakebin/sleep"
+
+    started=$(date +%s)
+    out=$(FM_TEST_VERIFY_WAIT="$wait_seconds" FM_TEST_VERIFY_POLL="$poll_seconds" run_restart "$dir" sm2); rc=$?
+    elapsed=$(($(date +%s) - started))
+    unset FM_FAKE_ANSWER_STATUS FM_FAKE_WINNER_HOLD
+    stop_winner_holder "$dir"
+
+    expect_code 3 "$rc" "an unconfirmed collision must remain unreached: $out"
+    assert_contains "$out" 'unreached: sm2' "budget expiry must publish an outcome"
+    assert_not_contains "$out" 'restarted: sm2' "a timed probe cannot certify completion"
+    [ "$((elapsed + 1))" -ge "$wait_seconds" ] && [ "$elapsed" -lt "$((wait_seconds + 4))" ] \
+      || fail "verification exceeded its remaining budget ($mode): ${elapsed}s for ${wait_seconds}s; $out"
+    case "$mode" in
+      probe-hang|late-probe)
+        assert_present "$dir/fake/probe-started" "the hanging probe was never exercised"
+        assert_absent "$dir/fake/probe-finished" "the hanging probe outlived verification"
+        assert_contains "$out" 'endpoint probe timed out' "a probe stopped by its time limit must say it timed out: $out"
+        assert_not_contains "$out" 'unreadable' "a timed-out probe is not an unreadable endpoint"
+        ;;
+      large-poll)
+        assert_contains "$out" 'winner still launching' "a capped poll must still end at the deadline: $out"
+        assert_no_grep 'fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log" "a held lock must not be probed past"
+        ;;
+      zero-budget)
+        assert_no_grep 'fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log" "a zero budget must not start a probe"
+        assert_contains "$out" 'no time remained to probe the endpoint' "a zero budget must say no probe ran: $out"
+        ;;
+    esac
+    [ "$(grep -c '^fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log")" -le 1 ] \
+      || fail "verification probed the endpoint more than once ($mode): $(cat "$dir/ssh.log")"
+    assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "budget expiry must release the recovery lock"
+  done
+  pass "collision verification bounds hanging probes, late probes, oversized polls and zero budgets"
+}
+
+# --- T19: a dead restarter's marker expires -----------------------------------
+# make_dead_marker <case-dir>: the marker a restarter leaves when it dies while
+# holding it, owned by a pid that no longer runs.
+make_dead_marker() {
+  local dir=$1
+  STATE="$dir/home/state" bash -c '. "$1" && fm_lock_try_acquire "$2"' \
+    _ "$ROOT/bin/fm-wake-lib.sh" "$dir/home/state/.secondmate-liveness-sm1.lock" \
+    || fail "the fixture could not create the dead restarter's marker"
+  [ -e "$dir/home/state/.secondmate-liveness-sm1.lock" ] || fail "the dead restarter's marker is missing"
+}
+
+test_dead_restarter_marker_expires() {
+  local dir out rc
+  # Liveness recovery reclaims the marker and relaunches the dead mate.
+  dir=$(new_case dead-marker-liveness)
+  add_local_mate "$dir" sm1
+  printf -- '- sm1 - local domain (home: %s; scope: things; projects: p; added 2026-09-03)\n' \
+    "$dir/sm1-home" > "$dir/home/data/secondmates.md"
+  printf 'zsh' > "$dir/fake/command"
+  make_dead_marker "$dir"
+  liveness_episode_script "$dir" "$dir/fake/liveness.log"
+  "$dir/fake/liveness-episode"
+
+  assert_no_grep 'skipped: lock held' "$dir/fake/liveness.log" \
+    "a dead restarter's marker kept liveness recovery away from the mate"
+  assert_grep 'probe=relaunchable state=dead' "$dir/fake/liveness.log" \
+    "liveness recovery must probe the mate once the marker is stale: $(cat "$dir/fake/liveness.log")"
+  assert_grep 'relaunch rc=0' "$dir/fake/liveness.log" \
+    "liveness recovery must relaunch the dead mate: $(cat "$dir/fake/liveness.log")"
+  [ "$(launch_count "$dir")" -eq 1 ] || fail "expected one recovery launch, saw $(launch_count "$dir")"
+
+  # A later restart reclaims it too, rather than waiting on a dead holder.
+  dir=$(new_case dead-marker-restart)
+  add_local_mate "$dir" sm1
+  arm_answer "$dir" sm1
+  make_dead_marker "$dir"
+  out=$(run_restart "$dir" sm1); rc=$?
+  expect_code 0 "$rc" "a dead restarter's marker must not block the next restart"$'\n'"$out"
+  assert_contains "$out" "restarted: sm1 (claude)" "the next restart must proceed over a stale marker"
+  assert_absent "$dir/home/state/.secondmate-liveness-sm1.lock" \
+    "the restart left its in-progress marker behind"
+  pass "T19 a dead restarter's marker expires for liveness recovery and for the next restart"
+}
+
 # --- T17: a Claude mate's background shells are waited out before the exit ---
 test_background_shells_are_waited_out_before_exit() {
   local dir out rc
@@ -1112,6 +1597,7 @@ test_answer_between_resolution_and_timeout_wins
 test_unprovable_runtime_falls_back
 test_unknown_mate_is_accounted_for
 test_refused_restart_falls_back_without_claiming_a_reload
+test_failed_readiness_with_a_live_process_is_unreached
 test_local_restart_uses_the_home_pin_and_reports_what_ran
 test_native_ultra_restart_keeps_local_and_remote_profiles
 test_remote_mate_restarts_over_the_transport_hop
@@ -1128,6 +1614,13 @@ test_unpublished_worker_result_is_accounted_for
 test_result_published_while_reaping_is_honored
 test_already_current_mate_restarts_end_to_end
 test_already_current_unprovable_mate_stays_on_the_nudge_path
+test_restart_and_liveness_relaunch_race
+test_lost_spawn_lock_without_completion_evidence_is_unreached
+test_remote_spawn_winner_without_parent_completion_is_unreached
+test_winner_still_launching_at_deadline_is_reported
+test_unclassified_probe_reports_its_failure
+test_collision_verification_respects_remaining_budget
+test_dead_restarter_marker_expires
 test_background_shells_are_waited_out_before_exit
 test_incomplete_background_shell_cleanup_blocks_restart
 test_remote_background_shells_are_waited_out_before_relaunch

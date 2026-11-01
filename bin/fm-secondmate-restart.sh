@@ -50,7 +50,19 @@
 # A mate whose persist answer did not arrive or whose runtime cannot prove a
 # restart gets the ordinary re-read nudge and is reported as a nudge, never as a
 # clean reload. Once a relaunch is attempted, any failed or ambiguous result is
-# reported as unknown rather than attributing it to either incarnation.
+# reported as unknown rather than attributing it to either incarnation - except
+# when another launch won the spawn lock after the old agent stopped. That case
+# waits, within the verification bound, for the winner to release this home's
+# per-mate spawn lock - a remote spawn driven from this home holds it across its
+# whole host launch, so the wait is a local check, never a remote poll - and
+# then probes the endpoint once. It reports unreached either way: existing
+# records cannot prove that launch completed, even if its agent is alive. A lock
+# still held at the deadline is reported as the winner still launching.
+# Known limit: an operator's bin/fm-remote-secondmate-relaunch.sh run takes only
+# the host's spawn lock, so the parent sees none and probes at once.
+#
+# bin/fm-secondmate-liveness-lib.sh's header owns serialization with automatic
+# recovery, including restart exclusion and stale-owner recovery.
 #
 # Placement changes the transport and nothing else. A local mate is restarted
 # with bin/fm-control.sh <id> relaunch, which republishes this home's own
@@ -76,6 +88,13 @@
 #                               Claude mate's background shells (5)
 #   FM_SECONDMATE_BG_SHELL_WAIT seconds to wait for a Claude mate's background
 #                               shells to stop before refusing the restart (120)
+#   FM_SECONDMATE_RESTART_LOCK_WAIT    seconds to wait for a running liveness
+#                                      recovery of the mate to finish (300)
+#   FM_SECONDMATE_RESTART_VERIFY_WAIT  seconds to wait for the winning launch
+#                                      after a spawn-lock collision, its one
+#                                      endpoint probe included (120)
+#   FM_SECONDMATE_RESTART_VERIFY_POLL  seconds between checks of the winner's
+#                                      spawn lock (2)
 #
 # Exit status: 0 every named mate restarted; 3 at least one was nudged or left
 # unreached and every mate was still accounted for; 1 the input itself is
@@ -108,6 +127,9 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
 # shellcheck source=bin/fm-pending-reply-lib.sh
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
+# shellcheck source=bin/fm-secondmate-liveness-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
+fm_sm_live_require_locks || { echo "error: the lock helpers could not be loaded" >&2; exit 1; }
 # shellcheck source=bin/fm-composer-lib.sh
 . "$SCRIPT_DIR/fm-composer-lib.sh"
 
@@ -116,6 +138,12 @@ PERSIST_POLL=${FM_SECONDMATE_PERSIST_POLL:-5}
 BG_SHELL_WAIT=${FM_SECONDMATE_BG_SHELL_WAIT:-120}
 case "$PERSIST_WAIT" in ''|*[!0-9]*) echo "error: FM_SECONDMATE_PERSIST_WAIT must be a non-negative integer: $PERSIST_WAIT" >&2; exit 2 ;; esac
 case "$PERSIST_POLL" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_PERSIST_POLL must be a positive integer: $PERSIST_POLL" >&2; exit 2 ;; esac
+LOCK_WAIT=${FM_SECONDMATE_RESTART_LOCK_WAIT:-300}
+VERIFY_WAIT=${FM_SECONDMATE_RESTART_VERIFY_WAIT:-120}
+VERIFY_POLL=${FM_SECONDMATE_RESTART_VERIFY_POLL:-2}
+case "$LOCK_WAIT" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_RESTART_LOCK_WAIT must be a positive integer: $LOCK_WAIT" >&2; exit 2 ;; esac
+case "$VERIFY_WAIT" in ''|*[!0-9]*) echo "error: FM_SECONDMATE_RESTART_VERIFY_WAIT must be a non-negative integer: $VERIFY_WAIT" >&2; exit 2 ;; esac
+case "$VERIFY_POLL" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_RESTART_VERIFY_POLL must be a positive integer: $VERIFY_POLL" >&2; exit 2 ;; esac
 case "$BG_SHELL_WAIT" in ''|*[!0-9]*) echo "error: FM_SECONDMATE_BG_SHELL_WAIT must be a non-negative integer: $BG_SHELL_WAIT" >&2; exit 2 ;; esac
 
 IDS=()
@@ -181,6 +209,72 @@ report_unreached() {  # <id> <reason>
   printf 'unreached: %s: %s\n' "$1" "$2"
 }
 
+# Wait for the launch that won the spawn lock to release this home's lock, then
+# probe the endpoint once. Prints what was observed; returns 1 and prints the
+# holder pid when the lock is still held at the deadline.
+observe_spawn_winner() {  # <array-index>
+  local i=$1 id lock deadline remaining pause holder seen=0 observed probe probe_out probe_state rc
+  id=${IDS[$i]}
+  lock="$STATE/.spawn-$id.lock"
+  deadline=$(($(date +%s) + VERIFY_WAIT))
+  while holder=$(cat "$lock/pid" 2>/dev/null) && fm_pid_alive "$holder"; do
+    seen=1
+    remaining=$((deadline - $(date +%s)))
+    if [ "$remaining" -le 0 ]; then
+      printf '%s' "$holder"
+      return 1
+    fi
+    pause=$VERIFY_POLL
+    [ "$pause" -le "$remaining" ] || pause=$remaining
+    sleep "$pause"
+  done
+  if [ "${PLACEMENT[i]}" != remote ]; then
+    observed="the winning launch released the spawn lock within ${VERIFY_WAIT}s"
+  elif [ "$seen" -eq 1 ]; then
+    observed="the parent-held spawn lock was released within ${VERIFY_WAIT}s"
+  else
+    observed="the parent saw no spawn lock"
+  fi
+  remaining=$((deadline - $(date +%s)))
+  # shellcheck disable=SC2016 # Expand variables in the child bash process.
+  if [ "$remaining" -le 0 ]; then
+    probe='no time remained to probe the endpoint'
+  elif probe_out=$(fm_run_timed "$remaining" bash -c '
+    . "$1"
+    fm_secondmate_liveness_probe "$2" "$3" poll
+    printf "%s\n%s\n" "$FM_SM_LIVE_REASON" "$FM_SM_LIVE_STATE"
+  ' _ "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh" "$STATE/$id.meta" "$id"); then
+    probe_state=${probe_out##*$'\n'}
+    if [ "$probe_state" = unknown ]; then
+      probe_out=${probe_out%$'\n'*}
+      probe="endpoint probe failed: ${probe_out:-no endpoint is recorded}"
+    else
+      probe="endpoint reads '$probe_state'"
+    fi
+  else
+    rc=$?
+    if fm_timed_out "$rc"; then
+      probe='endpoint probe timed out'
+    else
+      probe='endpoint probe failed'
+    fi
+  fi
+  printf '%s, but no existing record proves the winning launch succeeded (%s)' "$observed" "$probe"
+}
+
+# Wait before stopping the agent; the shared liveness library's header owns
+# the exclusion contract for this lock.
+restart_mate() {  # <array-index>
+  local i=$1 id
+  id=${IDS[$i]}
+  if ! fm_lock_acquire_wait_bounded "$STATE/.secondmate-liveness-$id.lock" "$LOCK_WAIT"; then
+    report_unreached "$id" "another liveness recovery of this mate still held its lock after ${LOCK_WAIT}s (holder pid ${FM_LOCK_HELD_PID:-unknown}), so nothing was stopped"
+    return
+  fi
+  restart_mate_locked "$i"
+  fm_secondmate_liveness_unlock "$id"
+}
+
 # The mate's current screen, read through the route its placement uses for
 # everything else: the viewport locally, so nothing scrolled away is read as
 # the live screen, and the host's bounded capture remotely. Returns 1 when it
@@ -230,8 +324,8 @@ run_relaunch() {  # <array-index>; sets restart_out and restart_rc
   fi
 }
 
-restart_mate() {  # <array-index>
-  local i=$1 id restart_out restart_rc restart_reason ran_on cleanup_reason
+restart_mate_locked() {  # <array-index>
+  local i=$1 id restart_out restart_rc restart_reason ran_on cleanup_reason winner
   id=${IDS[$i]}
   if ! cleanup_reason=$(wait_out_background_shells "$i"); then
     report_unreached "$id" "background-shell cleanup incomplete: $cleanup_reason; relaunch was not attempted"
@@ -251,6 +345,14 @@ restart_mate() {  # <array-index>
 
   restart_reason=$(first_reported_line "$restart_out")
   [ -n "$restart_reason" ] || restart_reason="the restart failed without a reported reason"
+  if [[ "$restart_out" == *"another spawn is already creating task $id"* ]]; then
+    if winner=$(observe_spawn_winner "$i"); then
+      report_unreached "$id" "the old agent was stopped and $winner; its own launch reported: $restart_reason"
+    else
+      report_unreached "$id" "winner still launching: the old agent was stopped and the winning launch still held the spawn lock after ${VERIFY_WAIT}s (holder pid $winner); liveness recovery of this mate is no longer held off; its own launch reported: $restart_reason"
+    fi
+    return
+  fi
   report_unreached "$id" "the restart outcome is unknown: $restart_reason"
 }
 
