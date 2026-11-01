@@ -120,6 +120,15 @@ case "${1:-}" in
     printf 'fakepane\n'; exit 0 ;;
   capture-pane) printf '╭────╮\n│    │\n╰────╯\n'; exit 0 ;;
   list-windows) [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
+  new-window)
+    name=
+    prev=
+    for a in "$@"; do
+      [ "$prev" != -n ] || name=$a
+      prev=$a
+    done
+    [ -z "$name" ] || printf '%s\n' "$name" >> "$D/windows"
+    exit 0 ;;
   kill-window)
     target=
     prev=
