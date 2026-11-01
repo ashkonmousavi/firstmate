@@ -197,6 +197,18 @@ fm_pr_poll_prepare "$STATE" "$ID" "$PROVIDER" "$URL" "$HOST" "$PROJECT_PATH" "$N
 META_LOCK=$(fm_meta_lock_path "$META") || exit 1
 fm_lock_acquire_wait "$META_LOCK"
 META_LOCK_HELD=1
+PR_POLL_PUBLISH_LOCK="$STATE/.pr-poll-publish-$ID.lock"
+if [ -n "${FM_PR_CHECK_REARM_GENERATION:-}" ]; then
+  fm_lock_acquire_wait "$PR_POLL_PUBLISH_LOCK"
+  PR_POLL_PUBLISH_LOCK_HELD=1
+  if [ -e "$STATE/$ID.check-trust" ] || [ -L "$STATE/$ID.check-trust" ] \
+    || ! fm_pr_poll_artifacts_valid "$STATE" "$ID" "$STATE/$ID.check.sh" \
+    || [ "$FM_PR_META_URL" != "$URL" ] \
+    || [ "$(fm_pr_file_identity "$STATE/$ID.pr-poll-registration"):$(fm_pr_sha256 "$STATE/$ID.pr-poll-registration")" != "$FM_PR_CHECK_REARM_GENERATION" ]; then
+    echo 'skipped: PR poll generation superseded or retired'
+    exit 3
+  fi
+fi
 [ -f "$META" ] && [ ! -L "$META" ] && [ "$(fm_pr_file_link_count "$META")" = 1 ] \
   || { echo "error: task metadata is unavailable" >&2; exit 1; }
 META_DEVICE=$(fm_pr_file_device "$META") || exit 1
@@ -225,12 +237,10 @@ fm_pr_metadata_identity_parse "$META" || exit 1
 [ "$FM_PR_META_PROVIDER" = "$PROVIDER" ] && [ "$FM_PR_META_URL" = "$URL" ] \
   && [ "$FM_PR_META_HOST" = "$HOST" ] && [ "$FM_PR_META_PATH" = "$PROJECT_PATH" ] \
   && [ "$FM_PR_META_NUMBER" = "$NUMBER" ] || exit 1
-fm_lock_release "$META_LOCK"
-META_LOCK_HELD=0
-
-PR_POLL_PUBLISH_LOCK="$STATE/.pr-poll-publish-$ID.lock"
-fm_lock_acquire_wait "$PR_POLL_PUBLISH_LOCK"
-PR_POLL_PUBLISH_LOCK_HELD=1
+if [ "$PR_POLL_PUBLISH_LOCK_HELD" = 0 ]; then
+  fm_lock_acquire_wait "$PR_POLL_PUBLISH_LOCK"
+  PR_POLL_PUBLISH_LOCK_HELD=1
+fi
 if fm_pr_poll_publish_prepared; then
   fm_lock_release "$PR_POLL_PUBLISH_LOCK" || exit 1
   PR_POLL_PUBLISH_LOCK_HELD=0
@@ -240,6 +250,8 @@ else
   echo "error: could not publish PR poll" >&2
   exit 1
 fi
+fm_lock_release "$META_LOCK"
+META_LOCK_HELD=0
 # Opt-in fleet activity ledger (docs/fleet-ledger.md); off costs one file test.
 # The merge-time re-record is not a new review-ready PR, so it writes nothing.
 [ ! -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/fleet-ledger" ] || [ "${FM_PR_CHECK_MERGE:-}" = 1 ] \

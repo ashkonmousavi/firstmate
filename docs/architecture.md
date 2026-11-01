@@ -528,6 +528,10 @@ For a remote route, the configured code root updates from its own origin on that
 The primary update is fast-forward only, while a clean secondmate divergence may reconcile with `reset --keep` only when a three-way temporary-index proof shows its complete local tree result is already present at the target, including after a squash merge.
 Dirty, uniquely diverged, offline, and wrong-branch targets are reported and left untouched, and genuine secondmate divergence remains visible through a durable reconciliation record until a later successful convergence clears it.
 Local homes share the guarded fast-forward helper, while remote updates delegate the same safety decision to the configured host through the generic transport.
+After a successful or already-current update, PR poll refresh authenticates each older generation against its own registered bytes before asking the normal record owner to republish the current program; it never executes stored checks or replaces a concurrently superseded or retired generation.
+This refresh includes registered local homes without a live endpoint and remote homes, preserves custom checks and failed polls, and reports unresolved polls without rolling back the code update.
+[`bin/fm-pr-check-rearm.sh`](../bin/fm-pr-check-rearm.sh) owns refresh mechanics and counts; [`bin/fm-pr-poll-retire.sh`](../bin/fm-pr-poll-retire.sh) owns explicit poll-only retirement when a watch is no longer needed, preserving task metadata and work.
+[`tests/fm-update.test.sh`](../tests/fm-update.test.sh) covers refresh and concurrent replacement or retirement, and [`tests/fm-check-unregister.test.sh`](../tests/fm-check-unregister.test.sh) covers poll-only retirement and unsafe-artifact refusal.
 The procedure is owned by the [`/updatefirstmate` skill](../.agents/skills/updatefirstmate/SKILL.md); the relevant script headers own the mechanics and outcome vocabulary.
 
 ## Restart-proof

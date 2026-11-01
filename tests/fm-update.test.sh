@@ -267,7 +267,10 @@ while IFS= read -r -d '' a; do rargs+=("$a"); done < <(decode "$argv_b64")
 case "${rargs[1]:-}" in
   # The host lands on the target the parent handed it; this host predates the
   # instr= suffix, so it reports the commit alone.
-  update) printf 'synced: %s\n' "${rargs[4]:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}" ;;
+  update)
+    printf 'pr-poll-rearm: home=/srv/sm1 task=held could-not-rearm reason=missing-copy\n'
+    printf 'synced: %s\n' "${rargs[4]:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}"
+    ;;
   state) printf 'alive\n' ;;
   *) exit 91 ;;
 esac
@@ -295,6 +298,7 @@ EOF
     "a live remote mate on the new tip must restart even when the host reports no instruction diff"
   assert_contains "$out" "nudge-secondmates: none" \
     "a restarted remote mate must not also be steered"
+  assert_contains "$out" 'pr-poll-rearm: home=/srv/sm1 task=held could-not-rearm reason=missing-copy' "remote failure omitted from parent summary"
   pass "T3e a legacy remote advance still restarts the live remote mate"
 }
 
@@ -836,6 +840,194 @@ SH
   pass "a status-2 host is reported for manual update without an unpinned retry or mutation"
 }
 
+# Run real poll publication and validation around a fake home's update. The
+# old program is legitimate but no longer in the installed program allowlist.
+test_update_rearms_pr_polls() {
+  local w out home id identity
+  w=$(new_world poll-rearm)
+  printf 'state/\ndata/\nconfig/\n.fm-secondmate-home\n' > "$w/seed/.gitignore"
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/seed/bin/fm-pr-poll.sh"
+  printf '# earlier program\n' >> "$w/seed/bin/fm-pr-poll.sh"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm old-poll
+  git -C "$w/seed" push -q origin main
+  git -C "$w/main" pull -q origin main
+  add_sm "$w" sleeper
+  mkdir -p "$w/sleeper/state"
+  # A registry-only home with no live endpoint is covered as well.
+  rm "$w/home/state/sleeper.meta"
+  printf -- '- sleeper - offline mate (home: %s; scope: things; projects: p; added 2026-09-03)\n' "$w/sleeper" > "$w/home/data/secondmates.md"
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-pr-lib.sh"
+  for home in "$w/home" "$w/sleeper"; do
+    for id in ready refused tampered; do
+      printf 'kind=ship\nmode=no-mistakes\npr=https://github.com/o/r/pull/1\n' > "$home/state/$id.meta"
+      fm_pr_poll_prepare "$home/state" "$id" github https://github.com/o/r/pull/1 github.com o/r 1 "$w/main/bin/fm-pr-poll.sh" || fail "prepare old poll"
+      fm_pr_poll_publish_prepared || fail "publish old poll"
+    done
+    printf '# modified outside the record owner\n' >> "$home/state/tampered.check.sh"
+    printf '#!/usr/bin/env bash\nprintf untouched\n' > "$home/state/custom.check.sh"
+    chmod 0700 "$home/state/custom.check.sh"
+    FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" custom > /dev/null || fail "register custom check"
+  done
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/seed/bin/fm-pr-poll.sh"
+  # The fixture record owner publishes real authenticated artifacts. Only the
+  # unrelated forge/readiness preconditions are stubbed at this boundary.
+  cat > "$w/seed/bin/fm-pr-check.sh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+. "$FM_TEST_PR_LIB"
+[ "$1" != refused ] || { echo 'error: worker copy is missing' >&2; exit 1; }
+fm_pr_url_parse "$2"
+fm_pr_poll_prepare "$FM_STATE_OVERRIDE" "$1" "$FM_PR_PROVIDER" "$FM_PR_URL" "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" "$FM_ROOT_OVERRIDE/bin/fm-pr-poll.sh"
+fm_pr_poll_publish_prepared
+SH
+  chmod +x "$w/seed/bin/fm-pr-check.sh"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm new-poll
+  git -C "$w/seed" push -q origin main
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" run_update "$w")
+  for home in "$w/home" "$w/sleeper"; do
+    fm_pr_poll_artifacts_valid "$home/state" ready "$w/main/bin/fm-pr-poll.sh" || fail "updated home has a dead merge watch: $home; update output: $out"
+    if fm_pr_poll_artifacts_valid "$home/state" refused "$w/main/bin/fm-pr-poll.sh"; then fail "refused poll was trusted"; fi
+    assert_present "$home/state/refused.check.sh" "failed re-arm deleted the poll"
+    assert_contains "$out" "home=$home task=tampered could-not-rearm reason=unauthenticated-poll-generation" "tampered check was re-trusted"
+    assert_present "$home/state/custom.check-trust" "custom trust changed"
+    assert_contains "$out" "home=$home task=refused" "summary omitted a failed re-arm"
+    assert_contains "$(cat "$home/state/custom.check.sh")" untouched "custom check changed"
+  done
+  identity=$(fm_pr_file_identity "$w/home/state/ready.check.sh")
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" run_update "$w")
+  [ "$(fm_pr_file_identity "$w/home/state/ready.check.sh")" = "$identity" ] || fail "current valid poll was rewritten"
+  assert_contains "$out" "home=$w/home task=refused" "current home did not retry failed migration"
+  # Drive the real host-local remote update path with no endpoint or harness
+  # lifecycle operations. Both code-root and remote-home diagnostics must survive.
+  mkdir -p "$w/main/state"
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" FM_HOME="$w/sleeper" FM_ROOT_OVERRIDE="$w/main" \
+    FM_STATE_OVERRIDE="$w/home/state" FM_CONFIG_OVERRIDE="$w/home/config" \
+    "$ROOT/bin/fm-remote-secondmate-control.sh" update sleeper main "$(git -C "$w/main" rev-parse HEAD)" 2>&1) || fail "remote update failed: $out"
+  assert_contains "$out" "home=$w/main rearmed=0 left=0" "remote code-root summary or override scoping lost"
+  assert_contains "$out" "home=$w/sleeper task=refused" "remote home failure lost"
+  assert_contains "$out" "current:" "remote update result lost"
+  pass "update refreshes primary, registry and remote polls, preserves custom checks and names failures"
+}
+
+test_rearm_preserves_concurrent_poll_changes() {
+  local mode w state pid retire_pid out before after url i suffix
+  local -a owner_env
+  for mode in unchanged replaced same-url retired late-retired; do
+    w="$TMP_ROOT/rearm-generation-$mode"
+    state="$w/home/state"
+    mkdir -p "$state" "$w/home/config" "$w/root/bin" "$w/fakebin" "$w/wt"
+    cp "$ROOT/bin/fm-pr-poll.sh" "$w/root/bin/fm-pr-poll.sh"
+    cp "$ROOT/bin/fm-pr-poll.sh" "$w/old-poll.sh"
+    printf '# earlier program\n' >> "$w/old-poll.sh"
+    printf 'kind=ship\nmode=no-mistakes\nworktree=%s\npr=https://github.com/o/r/pull/1\n' "$w/wt" > "$state/task.meta"
+    fm_pr_poll_prepare "$state" task github https://github.com/o/r/pull/1 github.com o/r 1 "$w/old-poll.sh" || fail "$mode: prepare"
+    fm_pr_poll_publish_prepared || fail "$mode: publish"
+    cat > "$w/root/bin/fm-guard.sh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+    cat > "$w/root/bin/fm-pr-check.sh" <<'SH'
+#!/usr/bin/env bash
+exec bash "$FM_TEST_PR_CHECK" "$@"
+SH
+    cat > "$w/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *' --json isDraft '*) printf '{"isDraft":false}\n' ;;
+  *' --json headRefOid '*)
+    if [ -n "${FM_PR_CHECK_REARM_GENERATION:-}" ]; then
+      : > "$FM_TEST_REARM_DIR/started"
+      for ((i=0; i<500; i++)); do
+        [ ! -e "$FM_TEST_REARM_DIR/release" ] || break
+        sleep 0.02
+      done
+      [ -e "$FM_TEST_REARM_DIR/release" ] || exit 1
+    fi
+    printf '0123456789abcdef0123456789abcdef01234567\n'
+    ;;
+  *) exit 1 ;;
+esac
+SH
+    chmod +x "$w/root/bin/"*.sh "$w/fakebin/gh"
+    owner_env=(env FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/root" FM_STATE_OVERRIDE="$state" FM_CONFIG_OVERRIDE="$w/home/config"
+      FM_TEST_PR_CHECK="$ROOT/bin/fm-pr-check.sh" FM_TEST_REARM_DIR="$w" FM_TEST_REAL_RM="$(command -v rm)" PATH="$w/fakebin:$PATH")
+    "${owner_env[@]}" bash "$ROOT/bin/fm-pr-check-rearm.sh" > "$w/out" 2>&1 &
+    pid=$!
+    for ((i=0; i<500; i++)); do
+      [ ! -e "$w/started" ] || break
+      sleep 0.02
+    done
+    [ -e "$w/started" ] || { kill "$pid" 2>/dev/null || true; wait "$pid" || true; fail "$mode: refresh did not reach the owner: $(cat "$w/out")"; }
+    case "$mode" in
+      replaced|same-url)
+        url=https://github.com/o/r/pull/2
+        [ "$mode" != same-url ] || url=https://github.com/o/r/pull/1
+        "${owner_env[@]}" bash "$ROOT/bin/fm-pr-check.sh" task "$url" > "$w/replacement.out" 2>&1 || fail "$mode: replacement failed: $(cat "$w/replacement.out")"
+        ;;
+      retired)
+        FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$state" \
+          bash "$ROOT/bin/fm-pr-poll-retire.sh" task --reason regression > "$w/retired.out" || fail "$mode: retirement failed"
+        ;;
+      late-retired)
+        cat > "$w/fakebin/rm" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *'/task.check.sh '*)
+    : > "$FM_TEST_REARM_DIR/retiring"
+    for ((i=0; i<500; i++)); do
+      [ ! -e "$FM_TEST_REARM_DIR/retire-release" ] || break
+      sleep 0.02
+    done
+    [ -e "$FM_TEST_REARM_DIR/retire-release" ] || exit 1
+    ;;
+esac
+exec "$FM_TEST_REAL_RM" "$@"
+SH
+        chmod +x "$w/fakebin/rm"
+        FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$state" \
+          FM_TEST_REARM_DIR="$w" FM_TEST_REAL_RM="$(command -v rm)" PATH="$w/fakebin:$PATH" \
+          bash "$ROOT/bin/fm-pr-poll-retire.sh" task --reason regression > "$w/retired.out" 2>&1 &
+        retire_pid=$!
+        for ((i=0; i<500; i++)); do
+          [ ! -e "$w/retiring" ] || break
+          sleep 0.02
+        done
+        [ -e "$w/retiring" ] || fail "$mode: retirement did not reach removal"
+        : > "$w/release"
+        for ((i=0; i<500; i++)); do
+          [ ! -d "$state/.meta-task.lock" ] || break
+          sleep 0.02
+        done
+        [ -d "$state/.meta-task.lock" ] || fail "$mode: refresh did not reach its locked boundary"
+        : > "$w/retire-release"
+        wait "$retire_pid" || fail "$mode: retirement failed: $(cat "$w/retired.out")"
+        ;;
+    esac
+    before=$(for suffix in meta check.sh pr-poll pr-poll-registration; do
+      [ ! -f "$state/task.$suffix" ] || printf '%s %s %s\n' "$suffix" "$(fm_pr_file_identity "$state/task.$suffix")" "$(fm_pr_sha256 "$state/task.$suffix")"
+    done)
+    : > "$w/release"
+    wait "$pid" || fail "$mode: refresh failed: $(cat "$w/out")"
+    out=$(cat "$w/out")
+    if [ "$mode" = unchanged ]; then
+      cmp -s "$state/task.check.sh" "$ROOT/bin/fm-pr-poll.sh" || fail "unchanged generation was not refreshed"
+      fm_pr_poll_artifacts_valid "$state" task "$ROOT/bin/fm-pr-poll.sh" || fail "refreshed generation is unauthenticated"
+      assert_contains "$out" 'rearmed=1 left=0' "successful refresh was not counted"
+    else
+      after=$(for suffix in meta check.sh pr-poll pr-poll-registration; do
+        [ ! -f "$state/task.$suffix" ] || printf '%s %s %s\n' "$suffix" "$(fm_pr_file_identity "$state/task.$suffix")" "$(fm_pr_sha256 "$state/task.$suffix")"
+      done)
+      [ "$before" = "$after" ] || fail "$mode: stale refresh changed the winning state"
+      assert_contains "$out" 'skipped=superseded-or-retired' "$mode: stale generation was not skipped"
+      assert_contains "$out" 'rearmed=0 left=0' "$mode: stale generation was reported as refreshed or failed"
+    fi
+  done
+  pass "refresh preserves replacement and retirement generations at the record owner's locked boundary"
+}
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
@@ -857,5 +1049,8 @@ test_remote_steps_are_bounded
 test_remote_commit_mismatch_is_skipped
 test_unresolved_target_leaves_all_homes_untouched
 test_legacy_host_rejects_pinned_update_without_advancing
+
+test_update_rearms_pr_polls
+test_rearm_preserves_concurrent_poll_changes
 
 echo "# all fm-update tests passed"

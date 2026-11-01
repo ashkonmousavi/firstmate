@@ -573,6 +573,10 @@ cmd_sync() {
   ff_target "$TARGET_HOME" "remote home" "$commit" yes yes "$id" "$TARGET_HOME/state" > "$report" 2>&1
   out=$(cat "$report")
   rm -f "$report"
+  if [ "$FF_STATUS" = updated ] || [ "$FF_STATUS" = current ]; then
+    FM_HOME="$TARGET_HOME" FM_ROOT_OVERRIDE="$TARGET_HOME" FM_STATE_OVERRIDE="$TARGET_HOME/state" \
+      "$SCRIPT_DIR/fm-pr-check-rearm.sh" || true
+  fi
   case "$FF_STATUS" in
     # instr= names the watched instruction paths this advance changed, with no
     # spaces so the whole result stays one parseable line. The parent needs it to
@@ -595,11 +599,13 @@ cmd_update() {
     [ "${#commit}" -eq 40 ] || die "update target must be a full 40-character commit id"
   fi
   if ! update_out=$(FM_HOME="$FM_ROOT" FM_ROOT_OVERRIDE="$FM_ROOT" \
+    FM_STATE_OVERRIDE="$FM_ROOT/state" FM_CONFIG_OVERRIDE="$FM_ROOT/config" \
     FM_UPDATE_TARGET_BRANCH="$branch" FM_UPDATE_TARGET_COMMIT="$commit" \
     "$SCRIPT_DIR/fm-update.sh" 2>&1); then
     [ -z "$update_out" ] || printf '%s\n' "$update_out" >&2
     die "remote code root update failed"
   fi
+  printf '%s\n' "$update_out" | sed -n '/^pr-poll-rearm:/p'
   root_status=$(printf '%s\n' "$update_out" | grep '^firstmate:' | tail -1)
   case "$root_status" in
     'firstmate: updated '*|'firstmate: already current'*) ;;
