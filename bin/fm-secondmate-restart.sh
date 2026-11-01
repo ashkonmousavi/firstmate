@@ -192,6 +192,7 @@ wait_for_mate_verification() {
   while :; do
     remaining=$((deadline - $(date +%s)))
     [ "$remaining" -gt 0 ] || return 0
+    # shellcheck disable=SC2016 # Expand variables in the child bash process.
     if probe_state=$(fm_run_timed "$remaining" bash -c '
       . "$1"
       fm_secondmate_liveness_probe "$2" "$3" poll
