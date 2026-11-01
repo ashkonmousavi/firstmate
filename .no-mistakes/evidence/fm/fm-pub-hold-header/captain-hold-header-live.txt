@@ -1,0 +1,86 @@
+### S1: fm-captain-hold.sh --help (header excerpt)
+$ bin/fm-captain-hold.sh --help | sed -n 1,30p
+fm-captain-hold.sh - deterministic mechanics for tasks held for the captain.
+
+The semantic policy is owned once by
+.agents/skills/captain-hold-lifecycle/SKILL.md. This script never reads
+report, visual-review, chat, or terminal prose to guess whether the captain
+owes an answer. The invoking agent decides what is genuinely waiting on the
+captain; this script supplies guarded creation, a durable record of what the
+captain actually said, the investigation completion gate, and the one
+keyed-answer intake every channel feeds.
+
+There is no separate decision type. A captain call is an ordinary backlog
+task held for the captain through this script's mandatory `hold` subcommand,
+and its identity is simply the task id. Older installs created derived
+`<origin>-decision-<key>` identities through bin/fm-decision-hold.sh; those
+rows are already plain task ids, so they keep working here unchanged, and
+the legacy inputs noted below resolve them without a migration.
+All backlog reads and mutations address the active home's configured data
+directory the way bin/fm-backlog-transition-lib.sh does, which keeps main-home
+and secondmate-home ownership aligned with the work that discovered the call.
+
+A wait that is firstmate's own (a date, a freeze, another task) is NOT a captain call: hold it with
+`fm-tasks-axi.sh hold <id> --reason "<text>" --kind external --until YYYY-MM-DD`, never with this script.
+
+Usage:
+  fm-captain-hold.sh hold <task-id> --reason <reason> \
+    [--title <title>] [--repo <repo>] [--origin <origin-id>] \
+    [--origin-kind <owner-request|finding|pipeline-outcome>] [--until YYYY-MM-DD] \
+    [--release-on pr:<owner>/<repo>#<n> | --release-on marker:<absolute-path>]
+  fm-captain-hold.sh answer <task-id> --decision-file <path> [--release]
+  fm-captain-hold.sh answers [<legacy-origin> | --any-origin] --source <provenance>   (keyed answers on stdin)
+exit=0
+
+$ bin/fm-captain-hold.sh --help | grep -n -i 'external\|firstmate.s own\|described above'
+21:A wait that is firstmate's own (a date, a freeze, another task) is NOT a captain call: hold it with
+22:`fm-tasks-axi.sh hold <id> --reason "<text>" --kind external --until YYYY-MM-DD`, never with this script.
+70:The refusal names the plain external hold described above.
+count of 'fm-tasks-axi.sh hold' lines in help: 1
+
+### S1b: bad args prints the same help to stderr
+21:A wait that is firstmate's own (a date, a freeze, another task) is NOT a captain call: hold it with
+70:The refusal names the plain external hold described above.
+exit=2
+
+### S2: the documented plain external hold, against the lab home
+help[2]:
+  - Run `tasks-axi start wait-freeze` to move it to in flight
+  - Run `tasks-axi block wait-freeze --by <other>` to record a dependency
+$ fm-tasks-axi.sh hold wait-freeze --reason "revisit after the freeze" --kind external --until 2026-11-15
+ok: hold wait-freeze -> held (external, until 2026-11-15)
+task:
+  id: wait-freeze
+  title: Wait for the freeze
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: revisit after the freeze
+  hold_kind: external
+  hold_until: 2026-11-15
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-31
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold wait-freeze` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+exit=0
+  state: queued
+  hold_reason: revisit after the freeze
+  hold_kind: external
+  hold_until: 2026-11-15
+
+### S3 (adversarial): external hold with no --until is refused
+fm-tasks-axi: a kindless or external hold needs --release-on pr:<owner>/<repo>#<n> or --release-on marker:<absolute-path>, or --until <date>, so its clearing is checkable
+exit=2
+
+### S4 (adversarial): fm-captain-hold.sh refuses a firstmate-own wait and names the plain hold
+fm-captain-hold: a wait that is firstmate's own is not a captain call; use `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`
+exit=1
+backlog rows for unsourced-call: 0
