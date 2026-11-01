@@ -455,6 +455,8 @@ The watcher's liveness tick applies the identical rule during ordinary supervisi
 - Only a positive `dead` or `missing` reply relaunches through that command.
 - An unreachable transport or inconclusive state is left untouched rather than replaced locally.
 
+[`bin/fm-secondmate-liveness-lib.sh`'s header](../bin/fm-secondmate-liveness-lib.sh) owns recovery serialization with deliberate restarts.
+
 ### Inventory reconcile for markerless routes
 
 A persistent remote route's parent metadata intentionally has no local spawn-generation marker.
