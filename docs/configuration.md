@@ -690,8 +690,8 @@ Dispatch uses only configured default profiles, or the static crew harness when 
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
 Ready items run in backlog priority order, so work MAIN marks with a higher priority, such as J-01 pieces, launches first.
 An item is prepared when it has a brief, `data/<id>/brief.md`, and a prep file, `data/<id>/prep.md` or a prep, plan or spec document its backlog body links; without either it is refused with that exact reason.
-Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new brief.
-Run `FM_HOME=<home> bin/fm-autolaunch.sh --backfill` to print the record each existing queued item would get, then `--backfill --apply` to write the missing ones; it never rewrites an existing record, so it is safe to repeat on every home.
+Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new brief, never with yolo, which stays derived from the project registry at launch.
+Run `FM_HOME=<home> bin/fm-autolaunch.sh --backfill` to print the record each existing queued item would get, then `--backfill --apply` to write the missing ones, also without yolo; it never rewrites an existing record, so it is safe to repeat on every home.
 Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
 Every decision appends one tab-separated record to `state/autolaunch.log`: the time, lane, item, model, and either `launched` or `refused:<reason>`.
 

@@ -69,8 +69,9 @@
 #   project=<name>  kind=ship|scout  mode=<no-mistakes|direct-PR|local-only>
 #   yolo=on|off  branch_prefix=<p>  base_branch=<b>
 #   upstream_consent=<host>/<owner>/<repo>
-# bin/fm-brief.sh writes one for each brief it scaffolds (never yolo, which
-# stays derived), and --backfill writes the derived record for existing items:
+# bin/fm-brief.sh writes one for each brief it scaffolds, and --backfill writes
+# the derived record for existing items; neither writes yolo, which stays
+# derived from the registry at launch:
 # without --apply it prints `would-write:`, `kept:` (a record already exists,
 # never rewritten) and `skip: <id>: <reason>` lines and changes nothing, so a
 # rerun is idempotent. Only a kind of ship or scout launches. The values become
@@ -381,11 +382,11 @@ prep_read() {
   case "$P_YOLO" in on|off) ;; *) PREP_ERR="no yolo posture for ship (record or project registry)"; return 1 ;; esac
 }
 
-# prep_record: the derived record as key=value lines.
+# prep_record: the derived record as key=value lines, without yolo.
 prep_record() {
   printf 'project=%s\nkind=%s\n' "$P_PROJECT" "$P_KIND"
   if [ "$P_KIND" = ship ]; then
-    printf 'mode=%s\nyolo=%s\nbranch_prefix=%s\n' "$P_MODE" "$P_YOLO" "$P_BRANCH_PREFIX"
+    printf 'mode=%s\nbranch_prefix=%s\n' "$P_MODE" "$P_BRANCH_PREFIX"
     [ -z "$P_CONSENT" ] || printf 'upstream_consent=%s\n' "$P_CONSENT"
   fi
   [ -z "$P_BASE_BRANCH" ] || printf 'base_branch=%s\n' "$P_BASE_BRANCH"

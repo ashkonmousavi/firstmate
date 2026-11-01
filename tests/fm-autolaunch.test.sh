@@ -350,14 +350,19 @@ done
 pass 'default eligibility honors tool, account, capture, backend and profile contracts with known or unavailable quota'
 
 # --- derived launch record ----------------------------------------------------
-reset 1
-printf '%s\n' '- [ ] derived - brief contract wins (repo: proj) (kind: ship)' | backlog
-mkdir -p "$H/data/derived"
-printf '# Setup\nBase branch: curated\n# Definition of done\nDelivery contract: mode=direct-PR upstream-consent=github.com/o/r\nShip branch: lane/derived\n' > "$H/data/derived/brief.md"
-printf 'prep\n' > "$H/data/derived/prep.md"
+reset 2
+printf '%s\n' '- [ ] derived - brief contract wins (repo: proj) (kind: ship)' \
+  '- [ ] derived-scout - scout brief (repo: proj) (kind: scout)' | backlog
+bash "$ROOT/bin/fm-brief.sh" derived proj --mode direct-PR --branch-prefix lane/ --base-branch curated \
+  --upstream-consent github.com/o/r --project "$H/projects/proj" >/dev/null || fail 'ship scaffold for derivation'
+bash "$ROOT/bin/fm-brief.sh" derived-scout proj --scout --base-branch curated >/dev/null || fail 'scout scaffold for derivation'
+rm -f "$H/data/derived/autolaunch-prep" "$H/data/derived-scout/autolaunch-prep"
+printf 'prep\n' > "$H/data/derived/prep.md"; printf 'prep\n' > "$H/data/derived-scout/prep.md"
 printf -- '- proj [no-mistakes +yolo branch=reg/] - test project (added 2026-10-01)\n' > "$H/data/projects.md"
-bash "$AL" >/dev/null 2>&1
-assert_equals "derived $H/projects/proj --mode direct-PR --yolo on --branch-prefix lane/ --upstream-consent github.com/o/r --base-branch curated" "$(cat "$FAKE/spawn.log")" 'brief lines win; yolo comes from the registry'
+out=$(bash "$AL" --dry-run 2>&1)
+assert_contains "$out" "would-run: $FAKE/spawn derived $H/projects/proj --mode direct-PR --yolo on --branch-prefix lane/ --upstream-consent github.com/o/r --base-branch curated" 'fm-brief.sh ship contract lines win; yolo comes from the registry'
+assert_contains "$out" "would-run: $FAKE/spawn derived-scout $H/projects/proj --scout --base-branch curated" 'fm-brief.sh scout base branch is carried'
+reset 1
 reset 1
 printf '%s\n' '- [ ] reg-only - registry fallback (repo: proj) (kind: ship)' | backlog
 mkdir -p "$H/data/reg-only"; printf '# Task\nplain brief\n' > "$H/data/reg-only/brief.md"; printf 'prep\n' > "$H/data/reg-only/prep.md"
@@ -424,13 +429,17 @@ for id in bf-new bf-kept bf-held; do printf 'prep\n' > "$H/data/$id/prep.md"; do
 printf 'yolo=off\n' > "$H/data/bf-kept/autolaunch-prep"
 out=$(bash "$AL" --backfill 2>&1); rc=$?
 expect_code 0 "$rc" 'backfill dry run'
-assert_contains "$out" 'would-write: data/bf-new/autolaunch-prep: project=proj kind=ship mode=direct-PR yolo=on branch_prefix=fm/' 'dry backfill prints the derived record'
+assert_contains "$out" 'would-write: data/bf-new/autolaunch-prep: project=proj kind=ship mode=direct-PR branch_prefix=fm/' 'dry backfill prints the derived record without yolo'
 assert_contains "$out" 'would-write: data/bf-held/autolaunch-prep' 'held items are backfilled too'
 assert_contains "$out" 'kept: bf-kept' 'an existing record is kept'
 assert_contains "$out" 'skip: bf-skip: no prep file' 'an underivable item names its reason'
 assert_absent "$H/data/bf-new/autolaunch-prep" 'dry backfill writes nothing'
 bash "$AL" --backfill --apply >/dev/null 2>&1 || fail 'backfill apply'
-assert_equals $'project=proj\nkind=ship\nmode=direct-PR\nyolo=on\nbranch_prefix=fm/' "$(cat "$H/data/bf-new/autolaunch-prep")" 'apply writes the derived record'
+assert_equals $'project=proj\nkind=ship\nmode=direct-PR\nbranch_prefix=fm/' "$(cat "$H/data/bf-new/autolaunch-prep")" 'apply writes the derived record'
+printf -- '- proj [direct-PR] - test (added 2026-10-01)\n' > "$H/data/projects.md"
+out=$(bash "$AL" --dry-run 2>&1)
+assert_contains "$out" "bf-new $H/projects/proj --mode direct-PR --yolo off" 'a backfilled record follows a later registry yolo change'
+printf -- '- proj [direct-PR +yolo] - test (added 2026-10-01)\n' > "$H/data/projects.md"
 assert_equals 'yolo=off' "$(cat "$H/data/bf-kept/autolaunch-prep")" 'apply never rewrites an existing record'
 out=$(bash "$AL" --backfill --apply 2>&1)
 assert_contains "$out" 'kept: bf-new' 'a second apply is idempotent'
