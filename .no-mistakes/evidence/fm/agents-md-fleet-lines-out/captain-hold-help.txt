@@ -1,0 +1,15 @@
+$ bin/fm-captain-hold.sh --help | grep -n -A2 "no traceable"
+70-A hold, status, or note that says the owner said, parked, or decided something
+71:with no traceable owner message is our own prior call: re-decide it with the
+72-advisor and never present it to the owner as theirs.
+73-The refusal names the plain external hold described above.
+
+$ bin/fm-captain-hold.sh --help | grep -n -- "--origin"
+26:    [--title <title>] [--repo <repo>] [--origin <origin-id>] \
+27:    [--origin-kind <owner-request|finding|pipeline-outcome>] [--until YYYY-MM-DD] \
+45:optional --origin records provenance in the new task's body and supplies the
+56:`--origin` also records the origin on a `Captain hold origin:` body line, which
+57:`complete` and `verify` check. `--origin-kind` records the call's attribution -
+64:With `--origin-kind owner-request` (supplied or preserved), an existing
+67:For finding, pipeline-outcome, or omitted attribution, `--origin`, a recorded
+164:is never the origin itself, and, when `hold --origin` recorded one, was held

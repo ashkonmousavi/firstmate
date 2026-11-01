@@ -1,0 +1,20 @@
+## Each AGENTS.md pointer added by this change -> the rule it lands on
+
+### AGENTS.md (target commit) pointer lines
+33:   Reusing an existing key between our own services is decided with the advisor and reported.
+69:Treat `data/captain.md` as the domain-local record of captain preferences, optional `data/captain-shared.md` as the main-authoritative shared captain-preference file for secondmate inheritance, and `data/learnings.md` as curated home-local knowledge, regardless of harness memory, except for a knowledge class that a home-declared external memory tier under section 6 owns.
+153:- Captain preferences shared across secondmate domains belong in the primary home's `data/captain-shared.md` under the `secondmate-provisioning` contract.
+290:   A `check:` result of `conflict` or `check: pr-orphan-conflict:` is a conflicted pull request that automatic recovery could not clear: recover it as `bin/fm-pr-orphan-sweep.sh`'s FIRSTMATE RECOVERY section says, never by rebasing or force-pushing.
+358:- The reserved list in `data/captain-shared.md` section 6.
+364:For technical ambiguity, scope disposition, and a repeated-theme correction, follow `data/captain-shared.md` section 2's "Decide for me" rule instead of asking the captain.
+387:A decision is simply a task held for the captain: create the task with `bin/fm-tasks-axi.sh add` when needed, then always hold it through `bin/fm-captain-hold.sh hold <id>` with the flags its header requires, with `--until <date>` when the captain defers it.
+388:Every hold and Captain's Call item names its origin as `bin/fm-captain-hold.sh`'s header requires, and only an owner-request origin is the owner's word; that header also owns re-deciding an owner claim with no traceable owner message.
+
+### main-home data/captain-shared.md (read-only)
+## 2. Who decides
+- Decide for me (owner 2026-10-31): never ask; decide with the advisor, and when unsure send a scout or check instead of asking; report the decision.
+- Rank every task, machinery or app by whether it is on the path to a journey walked green (merge, deploy, walk, the machines and accounts they run on); off-path work waits; trace each task, never sort by label. Machinery that unblocks deploy is app work (owner 2026-10-31).
+- Still mine only: the reserved list in section 6. Standing grants that a hard rule reserves (a firstmate fork-publication role, red merges) stay one-line asks.
+- The owner is absent by default. Ask only for the reserved list, and decide everything else, record it, continue (X-D27).
+- The reserved list (this line is its one home; every other file points here): real money or live brokerage; secrets and keys (creating, revealing or sharing a credential outside our own services); deleting data or history; spend beyond an account's limits; taste; a step only a person can do.
+- Secrets means creating, buying, revealing or sending a credential outside our own machines and accounts; giving an existing key to another of our own services, scoped as narrowly as works, is firstmate's call with the advisor, recorded and reported, never asked (owner 2026-10-18). Before any key ask, check our env files first (X: /srv/x/.env); an existing key is reused, never asked for (owner 2026-10-22).

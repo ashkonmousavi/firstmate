@@ -1,0 +1,45 @@
+ok - GraphQL rejects conflicting flags and preserves lookup and JSON failures
+ok - gh-only polling works and terminal PRs never emit conflict observations
+ok - conflict label older than 15 minutes wakes once, and removal clears it
+ok - a conflict label younger than 15 minutes stays quiet
+steered lane
+ok - a live worker is steered once to merge the base
+relaunched lane
+ok - an exited worker is relaunched once and not steered
+ok - a released worker's conflict wakes the supervisor and never relaunches it
+steered lane
+relaunched lane
+ok - a steered worker exiting before handling the inbox recovers once
+ok - failed steering and relaunch preserve decisions, diagnostics, and retryability
+ok - legacy polls authenticate and report merges while tampered programs fail
+steered lane
+steered lane
+ok - relabel raises a new fix-now episode with or without an observed clear
+ok - watcher publishes fallback wakes and releases the relaunch lock
+ok - overlap handles ordinary briefs and distinguishes compared from unchecked PRs
+ok - merge-tree and GitHub fallback report both rename endpoints
+ok - upgrade binds an unread conflict instruction despite changed base or label identity
+ok - restart recovers an enqueue interrupted before sidecar binding
+ok - binding errors wake and block repeat sends until the existing record can be bound
+ok - delivery confirmation survives acknowledgement and excludes older handled instructions
+ok - unbound scans ignore acknowledgements and instructions for another task or PR
+ok - v2 episodes suppress live repeats and preserve the unavailable-recovery fallback
+ok - an unread conflict steer is not repeated
+ok - unread steers deduplicate across relabeling with or without an observed clear
+steered lane
+steered lane
+action status on stdout
+action diagnostic on stderr
+steered lane
+steered lane
+steered lane
+steered lane
+steered lane
+steered lane
+ok - successful steering wakes once when task or endpoint recovery becomes unavailable
+ok - a done task is not steered and wakes once
+ok - a dead endpoint relaunches once or wakes once and is not steered
+ok - attempt-marker failure wakes without launching, initially or after steering
+ok - interruption during relaunch preserves its attempt and falls back to one wake
+ok - an acknowledged steer allows the next episode's steer
+exit=0

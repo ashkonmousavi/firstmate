@@ -1,0 +1,33 @@
+## bin/fm-pr-orphan-sweep.sh FIRSTMATE RECOVERY header (the new one home AGENTS.md section 8 points to)
+# FIRSTMATE RECOVERY. This is the one home of what firstmate does on a
+# conflict wake, for both forms: a task poll's `check:` result of `conflict`
+# and this sweep's `check: pr-orphan-conflict:`. Either means the pull request
+# has carried the conflict label for at least 15 minutes and automatic recovery
+# could not run or became unavailable. Recover it in that wake:
+#   1. Dispatch the worker: the task's own worker for `conflict`; for
+#      `pr-orphan-conflict`, a fresh worker on that branch, or, when the wake
+#      names no task in this home, route it to the secondmate whose scope owns it.
+#   2. The worker merges the base branch in with a merge commit.
+#   3. It regenerates generated files.
+#   4. It runs their tests.
+#   5. It pushes once.
+# Rebasing and force-pushing stay out of this recovery.
+# fm_pr_conflict_instruction in bin/fm-pr-lib.sh writes the same steps as the
+# automatic worker steer.
+
+## Live: the automatic worker steer the header says writes the same steps (fm_pr_conflict_instruction in bin/fm-pr-lib.sh)
+$ bash -c ". bin/fm-pr-lib.sh; fm_pr_conflict_instruction https://github.com/acme/widget/pull/7 main"
+The pull request https://github.com/acme/widget/pull/7 has carried the conflict label for more than 15 minutes.
+Merge origin/main into the branch with a merge commit, regenerate generated files, run their tests, and push once.
+Do not rebase.
+Do not force-push.
+exit=0
+$ ... fm_pr_conflict_instruction <url> ""   (base unknown)
+The pull request https://github.com/acme/widget/pull/7 has carried the conflict label for more than 15 minutes.
+Merge the pull request's base branch into the branch with a merge commit, regenerate generated files, run their tests, and push once.
+Do not rebase.
+Do not force-push.
+exit=0
+$ bin/fm-pr-orphan-sweep.sh --bogus   (usage still parses after header edit)
+usage: fm-pr-orphan-sweep.sh
+exit=2
