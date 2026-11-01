@@ -1328,8 +1328,27 @@ test_codex_daemon_dialog_is_named_and_quotes_are_not() {
   pass "the recorded Codex background-server dialog is named; quoted or partial text is not"
 }
 
+test_claude_background_shell_count_is_read_below_the_composer() {
+  local out rc
+  out=$(fm_composer_claude_background_shells "$(printf '%s\n' \
+    '● READY' '✻ Sautéed for 2s · done 3:12 PM · 1 shell still running' \
+    '────────' '❯ ' '────────' "  ⏵⏵ don't ask on · 1 shell · ↓ to manage")"); rc=$?
+  [ "$rc" -eq 0 ] && [ "$out" = 1 ] || fail "the recorded status row should report 1 shell, got rc=$rc '$out'"
+  out=$(fm_composer_claude_background_shells "$(printf '%s\n' '────' '❯ ' '────' '  12 shells · ↓ to manage')"); rc=$?
+  [ "$rc" -eq 0 ] && [ "$out" = 12 ] || fail "a leading plural count should read, got rc=$rc '$out'"
+  fm_composer_claude_background_shells "$(printf '%s\n' \
+    '● Ran 1 shell · ok' '✻ done · 1 shell still running' '────' '❯ ' '────' "  ⏵⏵ don't ask on (shift+tab to cycle)")" \
+    && fail "transcript rows above the composer must not count, nor an empty status row"
+  fm_composer_claude_background_shells "$(printf '%s\n' '  ⏵⏵ on · 1 shell · ↓ to manage')" \
+    && fail "a screen with no composer border has no verdict"
+  fm_composer_claude_background_shells "$(exit_picker_screen)" \
+    && fail "the picker screen carries no composer status row"
+  pass "the Claude background-shell count is read only from the status rows below the composer"
+}
+
 test_background_exit_picker_stays_pending_and_blocks_retry
 test_codex_daemon_dialog_is_named_and_quotes_are_not
+test_claude_background_shell_count_is_read_below_the_composer
 test_dialog_heading_and_footer_must_be_the_recorded_lines
 test_dialog_note_skips_the_match_when_no_sink_is_set
 test_quoted_exit_picker_text_is_not_a_dialog

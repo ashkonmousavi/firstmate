@@ -5073,11 +5073,11 @@ import { pathToFileURL } from "node:url";
 
 const armMod = await import(pathToFileURL(process.env.ARM_PLUGIN).href);
 const guardMod = await import(pathToFileURL(process.env.GUARD_PLUGIN).href);
-let promptBody = "";
+const prompts = [];
 const client = {
   session: {
     promptAsync: async (request) => {
-      promptBody = request.body.parts[0].text;
+      prompts.push(request.body.parts[0].text);
     },
   },
 };
@@ -5104,8 +5104,8 @@ if (existsSync(process.env.FM_GUARD_LOG)) {
   console.error("turn-end guard ran before the watch arm could establish supervision");
   process.exit(1);
 }
-if (promptBody) {
-  console.error(`unexpected prompt: ${promptBody}`);
+if (prompts.length) {
+  console.error(`unexpected prompts: ${JSON.stringify(prompts)}`);
   process.exit(1);
 }
 EOF
@@ -5147,11 +5147,12 @@ import { pathToFileURL } from "node:url";
 
 const armMod = await import(pathToFileURL(process.env.ARM_PLUGIN).href);
 const guardMod = await import(pathToFileURL(process.env.GUARD_PLUGIN).href);
-let promptBody = "";
+// A later watcher retry failure must not erase a delivered guard prompt.
+const prompts = [];
 const client = {
   session: {
     promptAsync: async (request) => {
-      promptBody = request.body.parts[0].text;
+      prompts.push(request.body.parts[0].text);
     },
   },
 };
@@ -5182,8 +5183,8 @@ if (!existsSync(process.env.FM_GUARD_LOG)) {
   console.error("turn-end guard was suppressed by an external healthy watcher");
   process.exit(1);
 }
-if (!promptBody.includes("TURN WOULD END BLIND")) {
-  console.error(`missing blind-turn prompt: ${promptBody}`);
+if (!prompts.some((text) => text.includes("TURN WOULD END BLIND"))) {
+  console.error(`missing blind-turn prompt: ${JSON.stringify(prompts)}`);
   process.exit(1);
 }
 EOF
