@@ -130,6 +130,7 @@ calls() {  # <fake> <prefix> -> count of log lines starting with prefix
 helper_call() {  # <fake> <key> <endpoint> [extra env...]
   local fake=$1 key=$2 endpoint=$3
   shift 3
+  # shellcheck disable=SC2016  # The inner script expands after bash -c receives positional args.
   env "$@" PATH="$FAKEBIN:$PATH" FAKE="$fake" bash -c '
     . "$1"
     fm_gh_etag_get "$2/cache" "$3" "$4"
@@ -250,8 +251,10 @@ test_helper_multi_page_and_switches() {
   out=$(helper_call "$fake" off repos/o/r/pulls/7 FM_GH_CONDITIONAL=0 | cut -d' ' -f1)
   assert_equals 2 "$out" "the off switch declines"
   [ "$(calls "$fake" 'rest ')" -eq 0 ] || fail "the off switch still called gh"
+  # shellcheck disable=SC2016  # The inner script expands after bash -c receives positional args.
   out=$(env PATH="$FAKEBIN:$PATH" FAKE="$fake" bash -c '. "$1"; fm_gh_etag_get "$2" k repos/o/r/pulls/7; echo $?' _ "$LIB" "$fake/no/such/parent/cache")
   assert_equals 2 "$out" "an unusable cache directory declines"
+  # shellcheck disable=SC2016  # The inner script expands after bash -c receives positional args.
   out=$(env PATH="$FAKEBIN:$PATH" FAKE="$fake" bash -c '. "$1"; fm_gh_etag_get "$2" "../x" repos/o/r/pulls/7; echo $?' _ "$LIB" "$fake/cache")
   assert_equals 2 "$out" "a path-like key declines"
   pass "helper: page-spanning lists, the off switch, an unusable directory and a bad key are all declined"

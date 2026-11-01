@@ -174,8 +174,11 @@ fm_gh_etag_get() {  # <cache-dir> <key> <endpoint> [gh api args...]
   # stored tag vouches for, never a tag that vouches for a missing body.
   rm -f -- "$etag_file"
   mv -f -- "$tmp_body" "$body_file" || { rm -f -- "$tmp_body"; return 2; }
-  printf '%s\n' "$etag" > "$etag_file.tmp.$$" && chmod 0600 "$etag_file.tmp.$$" \
-    && mv -f -- "$etag_file.tmp.$$" "$etag_file" || { rm -f -- "$etag_file.tmp.$$"; return 2; }
+  if ! { printf '%s\n' "$etag" > "$etag_file.tmp.$$" && chmod 0600 "$etag_file.tmp.$$" \
+    && mv -f -- "$etag_file.tmp.$$" "$etag_file"; }; then
+    rm -f -- "$etag_file.tmp.$$"
+    return 2
+  fi
   find "$dir" -maxdepth 1 -type f \( \( -name '.raw.*' -o -name '.body.*' \) -mtime +0 \
     -o ! -name '.*' -mtime "+$FM_GH_ETAG_PRUNE_AGE_DAYS" \) -delete 2>/dev/null || true
   FM_GH_ETAG_STATUS=200
