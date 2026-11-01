@@ -1,0 +1,14 @@
+armed shim state/gh-rate.check.sh run with a local rate_limit stand-in (main lab home)
+  t+0s core=1250 graphql=4000 -> exit=0 stdout=''
+  t+300s core=1249 graphql=4000 -> exit=0 stdout='GitHub core allowance low: 1249 of 5000 left (24%), window resets 2026-11-01T11:46:40Z; all machines share it, so slow or pause GitHub-heavy polling'
+  t+600s core=200 graphql=4000 -> exit=0 stdout=''
+  t+650s core=200 graphql=4000 -> exit=0 stdout=''
+  rate_limit reads so far: 3
+  t+900s core=200 graphql=900 -> exit=0 stdout='GitHub graphql allowance low: 900 of 5000 left (18%), window resets 2026-11-01T11:46:40Z; all machines share it, so slow or pause GitHub-heavy polling'
+  t+3700s core=4999 graphql=4999 -> exit=0 stdout=''
+  t+4000s core=1000 graphql=4999 -> exit=0 stdout='GitHub core allowance low: 1000 of 5000 left (20%), window resets 2026-11-01T12:46:40Z; all machines share it, so slow or pause GitHub-heavy polling'
+  record:
+    fm-gh-rate-check-v1
+    core 1793537200
+    graphql 0
+    checked 1793534000

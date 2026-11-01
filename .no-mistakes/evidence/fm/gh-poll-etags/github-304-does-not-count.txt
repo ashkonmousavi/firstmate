@@ -1,0 +1,20 @@
+etag="2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a"
+== 10 conditional requests (If-None-Match) ==
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 172  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 172  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 173  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 173  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 173  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 173  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 174  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 174  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 175  gh-exit=1
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 175  gh-exit=1
+== 3 unconditional requests ==
+HTTP/2.0 200 OK X-Ratelimit-Used: 176 
+HTTP/2.0 200 OK X-Ratelimit-Used: 177 
+HTTP/2.0 200 OK X-Ratelimit-Used: 178 
+
+NOTE: the token is shared by every fleet machine, so X-RateLimit-Used also moves with other machines' traffic
+(+3 across the ten 304s above, at an uneven pace and sometimes going backwards between GitHub nodes). In the
+same run, each of the three unconditional 200s added exactly +1 (176, 177, 178), so the 304s cost nothing.

@@ -1,0 +1,28 @@
+core used before: 143
+call1 rc=0 status=200 etag="2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a" body_state=200 open 
+core used after 200: 146
+call2 rc=0 status=304 etag="2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a"
+call3 rc=0 status=304 etag="2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a"
+call4 rc=0 status=304 etag="2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a"
+call5 rc=0 status=304 etag="2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a"
+call6 rc=0 status=304 etag="2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a"
+core used after five 304s: 153
+cache files:
+total 68
+drwx------ 2 tegris tegris  4096 Nov  1 01:27 .
+drwxrwxr-x 3 tegris tegris  4096 Nov  1 01:27 ..
+-rw------- 1 tegris tegris 56212 Nov  1 01:27 live.pr200.body
+-rw------- 1 tegris tegris    67 Nov  1 01:27 live.pr200.etag
+--- multi-page list (per_page=1, state=all) ---
+rc=3 (3 = refused, spans pages)
+live.list.multi
+live.pr200.body
+live.pr200.etag
+repeat rc=3 (3 again from .multi mark, no request)
+--- FM_GH_CONDITIONAL=0 ---
+rc=2 (2 = off)
+--- failed request (nonexistent PR) ---
+rc=1 status=''
+live.list.multi
+live.pr200.body
+live.pr200.etag

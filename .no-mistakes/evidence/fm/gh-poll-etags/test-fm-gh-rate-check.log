@@ -1,0 +1,6 @@
+ok - report prints core and GraphQL remaining, never touches the record, and fails visibly
+ok - wakes once per resource per window, separately for core and GraphQL, and again after a refill
+ok - the interval gates requests, and a failed or malformed read is silent and retried
+ok - a secondmate publishes the episode on its parent channel with a key and closes it on recovery
+ok - a low reading in a new window closes the previous window's key before opening its own
+ok - arm writes and registers the shim, the shim runs the check, disarm removes it

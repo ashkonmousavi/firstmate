@@ -1,0 +1,39 @@
+before: t-merged=in_flight t-open=in_flight
+=== reconcile scan 1 ===
+  exit=0 t-merged=done t-open=in_flight
+  stdout: 
+  stderr: 
+  gh calls:
+    gh api -i repos/ashkonmousavi/firstmate/pulls/200
+    gh api -i repos/ashkonmousavi/firstmate/pulls/199
+=== reconcile scan 2 ===
+  exit=0 t-merged=done t-open=in_flight
+  stdout: 
+  stderr: 
+  gh calls:
+    gh api -i -H If-None-Match: "5e4e04f6373bbca91c0c65f74c13dc507b647b015b3a59b8c1b44f4a2b3e21e4" repos/ashkonmousavi/firstmate/pulls/200
+reconcile.ashkonmousavi.firstmate.199.body
+reconcile.ashkonmousavi.firstmate.199.etag
+reconcile.ashkonmousavi.firstmate.200.body
+reconcile.ashkonmousavi.firstmate.200.etag
+stored reconcile ETag for #200 re-sent directly:
+HTTP/2.0 304 Not Modified
+/tmp/fm-lab.E3r0sR/data:
+backlog.md
+projects.md
+x-reconcile.json
+x-reconcile.json.lock
+
+/tmp/fm-lab.E3r0sR/state:
+backlog-pr-cursor
+gh-etag
+terminal-outcomes
+terminal-outcome receipt:
+schema=fm-backlog-pr-close.v1
+task_id=t-merged
+prs=https://github.com/ashkonmousavi/firstmate/pull/199=MERGED
+status=closed
+detail=closed: PR 199 merged 2026-11-01T07:48:39Z
+written_epoch=1793521938
+
+oracle: gh api .../pulls/199 merged_at = 2026-11-01T07:48:39Z

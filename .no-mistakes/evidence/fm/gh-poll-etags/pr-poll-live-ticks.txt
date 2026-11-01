@@ -1,0 +1,62 @@
+=== ashkonmousavi/firstmate#200 (open, no label) ===
+ tick 1:
+  verdict='conflict-clear' exit=0
+  gh calls this tick:
+    gh api -i repos/ashkonmousavi/firstmate/pulls/200
+ tick 2:
+  verdict='conflict-clear' exit=0
+  gh calls this tick:
+    gh api -i -H If-None-Match: "2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a" repos/ashkonmousavi/firstmate/pulls/200
+=== ashkonmousavi/firstmate#199 (merged) ===
+ tick 1:
+  verdict='merged' exit=0
+  gh calls this tick:
+    gh api -i repos/ashkonmousavi/firstmate/pulls/199
+ tick 2:
+  verdict='merged' exit=0
+  gh calls this tick:
+    gh api -i -H If-None-Match: "dc976508d0e3741fbc830fd671b3688682da03c704dc59bb8afaeac1ebf905d3" repos/ashkonmousavi/firstmate/pulls/199
+=== doxynix/doxynix#2356 (open, conflict label) ===
+ tick 1:
+  verdict='conflict:2026-10-31T17:14:57Z' exit=0
+  gh calls this tick:
+    gh api -i repos/doxynix/doxynix/pulls/2356
+    gh api graphql --paginate -f owner=doxynix -f repo=doxynix -F number=2356 -f query=<graphql> --jq .data.repository.pullRequest as $pr
+    | if $pr == null then error("no pull request") else
+      "present=\($pr.labels.nodes // [] | map(.name) | index("conflict") != null)",
+      ($pr.timelineItems.nodes[]?
+        | select(.label.name == "conflict")
+        | if .__typename == "LabeledEvent" then "labeled_at=\(.createdAt)"
+          elif .__typename == "UnlabeledEvent" then "unlabeled_at=\(.createdAt)"
+          else empty end)
+      end
+ tick 2:
+  verdict='conflict:2026-10-31T17:14:57Z' exit=0
+  gh calls this tick:
+    gh api -i -H If-None-Match: "2525b4571c6686d442d5b645bba55de84f8830dcba0b0dafb3781bc1c9236dff" repos/doxynix/doxynix/pulls/2356
+=== cache dir ===
+total 232
+drwx------ 2 tegris tegris  4096 Nov  1 01:28 .
+drwxrwxr-x 3 tegris tegris  4096 Nov  1 01:27 ..
+-rw-rw-r-- 1 tegris tegris     0 Nov  1 01:27 live.list.multi
+-rw------- 1 tegris tegris 56212 Nov  1 01:27 live.pr200.body
+-rw------- 1 tegris tegris    67 Nov  1 01:27 live.pr200.etag
+-rw------- 1 tegris tegris 62009 Nov  1 01:28 pr-poll.ashkonmousavi.firstmate.199.body
+-rw------- 1 tegris tegris    67 Nov  1 01:28 pr-poll.ashkonmousavi.firstmate.199.etag
+-rw------- 1 tegris tegris 56212 Nov  1 01:28 pr-poll.ashkonmousavi.firstmate.200.body
+-rw------- 1 tegris tegris    67 Nov  1 01:28 pr-poll.ashkonmousavi.firstmate.200.etag
+-rw------- 1 tegris tegris   112 Nov  1 01:28 pr-poll.ashkonmousavi.firstmate.200.facts
+-rw------- 1 tegris tegris 23622 Nov  1 01:28 pr-poll.doxynix.doxynix.2356.body
+-rw------- 1 tegris tegris    67 Nov  1 01:28 pr-poll.doxynix.doxynix.2356.etag
+-rw------- 1 tegris tegris   131 Nov  1 01:28 pr-poll.doxynix.doxynix.2356.facts
+--- facts files ---
+/tmp/fm-lab.E3r0sR/state/gh-etag/pr-poll.ashkonmousavi.firstmate.200.facts:
+etag="2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a"
+present=false
+labeled_at=
+unlabeled_at=
+/tmp/fm-lab.E3r0sR/state/gh-etag/pr-poll.doxynix.doxynix.2356.facts:
+etag="2525b4571c6686d442d5b645bba55de84f8830dcba0b0dafb3781bc1c9236dff"
+present=true
+labeled_at=2026-10-31T17:14:57Z
+unlabeled_at=

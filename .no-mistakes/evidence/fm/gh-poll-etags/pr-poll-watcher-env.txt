@@ -1,0 +1,10 @@
+=== as the watcher now invokes it: FM_HOME + FM_STATE_OVERRIDE=$LAB/state ===
+mtimes before: pr-poll.ashkonmousavi.firstmate.200.etag 1793521714 pr-poll.ashkonmousavi.firstmate.200.body 1793521714 pr-poll.ashkonmousavi.firstmate.200.facts 1793521714 
+verdict='conflict-clear' exit=0
+  gh api -i -H If-None-Match: "2e3c2f806c6348aa3b35103033bae108c9da7c4f9e9dfd35a52f85fc41d8376a" repos/ashkonmousavi/firstmate/pulls/200
+mtimes after 304 tick: pr-poll.ashkonmousavi.firstmate.200.etag 1793521885 pr-poll.ashkonmousavi.firstmate.200.body 1793521885 pr-poll.ashkonmousavi.firstmate.200.facts 1793521885 
+
+=== adversarial: no FM_HOME and no FM_STATE_OVERRIDE (pre-change watcher env) ===
+verdict='conflict-clear' exit=0
+gh pr view https://github.com/ashkonmousavi/firstmate/pull/200 --json state -q .state
+gh api graphql --paginate -f owner=ashkonmousavi -f repo=firstmate -F number=200 -f query=<graphql timeline>

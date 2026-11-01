@@ -1,0 +1,15 @@
+=== sweep pass 1 ===
+  exit=0 stdout='' stderr=''
+  gh calls:
+    gh api -i repos/ashkonmousavi/firstmate/pulls?state=open&per_page=100
+=== sweep pass 2 ===
+  exit=0 stdout='' stderr=''
+  gh calls:
+    gh api -i -H If-None-Match: W/"6543326a5b9a856a66f1102fdb30c2f0b9c1110367f12126a656f5ed00f29d6b" repos/ashkonmousavi/firstmate/pulls?state=open&per_page=100
+=== cache ===
+-rw------- 1 tegris tegris 329954 Nov  1 01:29 orphan-sweep.ashkonmousavi.firstmate.body
+-rw------- 1 tegris tegris     69 Nov  1 01:29 orphan-sweep.ashkonmousavi.firstmate.etag
+open PR count in cached list: 6
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 228 
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 228 
+HTTP/2.0 304 Not Modified X-Ratelimit-Used: 228 

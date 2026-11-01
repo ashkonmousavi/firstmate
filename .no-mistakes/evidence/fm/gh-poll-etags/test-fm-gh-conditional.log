@@ -1,0 +1,11 @@
+ok - helper: 200 stores the tag and body, 304 replays them across processes, a change replaces them
+ok - helper: an error is rc 1 and the cache survives it
+ok - helper: temps abandoned by a killed request are swept after a day, live ones are kept
+ok - helper: a 200 cut off mid-transfer is never cached behind its tag
+ok - helper: a 304 keeps its entry from the two-week sweep, an unused entry is still swept
+ok - helper: page-spanning lists, the off switch, an unusable directory and a bad key are all declined
+ok - pr-poll: one REST read per tick, tag sent from the second, no GraphQL for clear, merged and closed PRs
+ok - pr-poll: a 304 re-evaluates the stored label time against the clock and a change drops the stored facts
+ok - pr-poll: an unprovable or lagging label timeline is retried every tick, as the original reads did
+ok - pr-poll: a failed REST read, a missing state directory and the off switch all use the original reads
+ok - pr-orphan-sweep: the project list is one conditional REST read, trusted when empty, with gh pr list as the fallback
