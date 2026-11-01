@@ -4,7 +4,8 @@
 #
 # Usage:
 #   fm-autolaunch.sh                 one pass: launch or refuse, one record each
-#   fm-autolaunch.sh --dry-run       print the decisions and spawn commands; write nothing
+#   fm-autolaunch.sh --dry-run       print a decision for every ready item and the
+#                                    spawn commands; write nothing
 #   fm-autolaunch.sh --list-prepared print, in launch order, the ids a pass would try
 #   fm-autolaunch.sh --print-timer   print a proposed systemd user timer and cron line
 #   fm-autolaunch.sh --backfill [--apply]
@@ -28,9 +29,8 @@
 #      fm-spawn.sh re-checks machine and project capacity at launch.
 #   3. Candidates: `bin/fm-tasks-axi.sh ready`, which already excludes held
 #      (including parked) and blocked work, and treats a blocked-by edge whose
-#      target is Done, archived, or absent as cleared. Items run in backlog
-#      priority order (tasks-axi --priority 0 first, unprioritized last), ties
-#      keeping ready-queue order; that priority is how J-01 work goes first.
+#      target is Done, archived, or absent as cleared. Items run in the order
+#      it returns them.
 #   4. Per lane, the first candidate that passes every check below launches.
 #      Each refused candidate gets its own record and the next is tried:
 #        refused:held                  `show` reports the item held
@@ -52,10 +52,10 @@
 #      `refused:no prepared item` record names the first open lane.
 #
 # PREP. An item is prepared when it has a brief, data/<id>/brief.md (delivered
-# by fm-spawn.sh unchanged), and a prep file: data/<id>/prep.md, or a data/*.md
-# document linked from the item's backlog body whose path names prep, plan or
-# spec and that exists in this home. Without either it is refused with that
-# exact reason. Its launch record is then DERIVED, field by field, from the
+# by fm-spawn.sh unchanged), and a non-empty prep file: data/<id>/prep.md, or
+# the file named by a `Prep: data/<path>` line of the item's backlog body, a
+# relative path inside this home's data/ directory with no `..` part. Without
+# either it is refused with that exact reason. Its launch record is then DERIVED, field by field, from the
 # first source that has it:
 #   1. data/<id>/autolaunch-prep, an optional override record;
 #   2. the brief's own contract lines: "Delivery contract: mode=<m>" and its
@@ -95,7 +95,9 @@
 # printed on stdout. --dry-run prints `would-record:` lines and `would-run:`
 # spawn commands, takes no lock, writes no file and spawns nothing; it still
 # reads quota so its decisions match a real pass, and assumes each would-be
-# launch uses one lane.
+# launch uses one lane. Unlike a pass it evaluates every ready item, even with
+# no free lane: a prepared item beyond the free lanes is recorded with lane -
+# and result `would-launch-when-a-lane-frees`, with its would-run command.
 #
 # Exit: 0 after a pass (refusals included) or a busy lock; 1 when the backlog
 # or its log cannot be read or written; 2 usage.
@@ -267,46 +269,30 @@ show_field() {
   printf '%s' "$v"
 }
 
-# item_show <id>: sets ITEM_HELD, ITEM_KIND, ITEM_REPO, ITEM_PRIORITY,
+# item_show <id>: sets ITEM_HELD, ITEM_KIND, ITEM_REPO,
 # ITEM_BODY from `show --full`.
 item_show() {
   local out
-  ITEM_HELD='' ITEM_KIND='' ITEM_REPO='' ITEM_PRIORITY='' ITEM_BODY=''
+  ITEM_HELD='' ITEM_KIND='' ITEM_REPO='' ITEM_BODY=''
   out=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" --full 2>/dev/null) || return 1
   ITEM_HELD=$(show_field "$out" held)
   ITEM_KIND=$(show_field "$out" kind)
   ITEM_REPO=$(show_field "$out" repo)
-  ITEM_PRIORITY=$(show_field "$out" priority)
   ITEM_BODY=$(show_field "$out" body)
-}
-
-# ordered_ids: ready ids by backlog priority (0 first, none last), stable.
-ordered_ids() {
-  local ids id n=0
-  ids=$(ready_ids) || return 1
-  for id in $ids; do
-    n=$((n + 1))
-    item_show "$id" || ITEM_PRIORITY=''
-    case "$ITEM_PRIORITY" in [0-9]) ;; *) ITEM_PRIORITY=9 ;; esac
-    printf '%s %06d %s\n' "$ITEM_PRIORITY" "$n" "$id"
-  done | sort -k1,1n -k2,2n | awk '{print $3}'
 }
 
 # prep_doc <id>: prints the item's prep file (home-relative), or returns 1.
 # Needs item_show first for the body.
 prep_doc() {
-  local id=$1 p abs
+  local id=$1 p
   [ -s "$DATA/$id/prep.md" ] && { printf 'data/%s/prep.md\n' "$id"; return 0; }
-  for p in $(printf '%s\n' "$ITEM_BODY" | grep -oE '(/[A-Za-z0-9_.-]+)*/data/[A-Za-z0-9_./-]+\.md|data/[A-Za-z0-9_./-]+\.md'); do
-    printf '%s\n' "$p" | grep -Eqi 'prep|plan|spec' || continue
-    case "$p" in
-      /*) abs=$p ;;
-      *) abs="$DATA/${p#data/}" ;;
-    esac
-    [ -f "$abs" ] && [ -s "$abs" ] || continue
+  while IFS= read -r p; do
+    case "/$p/" in */../*) continue ;; esac
+    [ -f "$DATA/${p#data/}" ] && [ -s "$DATA/${p#data/}" ] || continue
     printf '%s\n' "$p"
     return 0
-  done
+  done < <(printf '%s\n' "$ITEM_BODY" | awk '{ gsub(/\\n/, "\n"); print }' |
+    sed -n 's|^[[:space:]]*Prep: \(data/[^[:space:]]*[^[:space:]/]\).*|\1|p')
   return 1
 }
 
@@ -325,7 +311,7 @@ prep_read() {
     PREP_ERR="no brief data/$id/brief.md"; return 1
   fi
   prep_doc "$id" >/dev/null || {
-    PREP_ERR="no prep file (data/$id/prep.md or a prep, plan or spec document linked from the item)"; return 1
+    PREP_ERR="no prep file (data/$id/prep.md or a Prep: data/<path> line in the item)"; return 1
   }
   file="$DATA/$id/autolaunch-prep"
   if [ -e "$file" ]; then
@@ -520,7 +506,7 @@ if [ "$ACTION" = backfill ]; then
 fi
 
 if [ "$ACTION" = list ]; then
-  ids=$(ordered_ids) || exit 1
+  ids=$(ready_ids) || exit 1
   for id in $ids; do
     check_item "$id" && printf '%s\n' "$id"
   done
@@ -538,12 +524,12 @@ if [ "$ACTION" = run ]; then
 fi
 
 capacity_read || true
-if [ "$CAP_FREE" -eq 0 ]; then
-  record - - - "refused:no capacity: $CAP_REASON"
-  exit 0
-fi
 FREE=$CAP_FREE
-if ! ids=$(ordered_ids 2>"$TMPD/ready.err"); then
+if [ "$FREE" -eq 0 ]; then
+  record - - - "refused:no capacity: $CAP_REASON"
+  [ "$ACTION" = dry ] || exit 0
+fi
+if ! ids=$(ready_ids 2>"$TMPD/ready.err"); then
   record - - - "refused:$(head -1 "$TMPD/ready.err")"
   exit 1
 fi
@@ -551,13 +537,17 @@ fi
 LANE=1
 STOP=0
 for id in $ids; do
-  [ "$LANE" -le "$FREE" ] || break
+  slot=$LANE
+  if [ "$LANE" -gt "$FREE" ]; then
+    [ "$ACTION" = dry ] || break
+    slot=-
+  fi
   if ! check_item "$id"; then
-    record "$LANE" "$id" - "refused:$CHECK_ERR"
+    record "$slot" "$id" - "refused:$CHECK_ERR"
     continue
   fi
   if ! dispatch_candidates "$P_KIND"; then
-    record "$LANE" "$id" - "refused:$DISPATCH_ERR"
+    record "$slot" "$id" - "refused:$DISPATCH_ERR"
     continue
   fi
   outcome='' quota_reason='' model=-
@@ -570,7 +560,8 @@ for id in $ids; do
       printf 'would-run: %s' "$(printf '%q' "$SPAWN_BIN")"
       printf ' %q' "${SPAWN_ARGV[@]}"
       printf '\n'
-      outcome="launched"
+      outcome=launched
+      [ "$slot" != - ] || outcome=would-launch-when-a-lane-frees
       break
     fi
     rc=0
@@ -591,7 +582,7 @@ for id in $ids; do
     break
   done < "$TMPD/cands.tsv"
   [ -n "$outcome" ] || outcome="refused:quota: ${quota_reason:-no candidate profile launched}"
-  record "$LANE" "$id" "$model" "$outcome"
+  record "$slot" "$id" "$model" "$outcome"
   case "$outcome" in
     launched)
       LANE=$((LANE + 1))

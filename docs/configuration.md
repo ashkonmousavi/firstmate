@@ -688,15 +688,21 @@ The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finish
 Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
 Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
-Ready items run in backlog priority order, so work MAIN marks with a higher priority, such as J-01 pieces, launches first.
-An item is prepared when it has a brief, `data/<id>/brief.md`, and a prep file, `data/<id>/prep.md` or a prep, plan or spec document its backlog body links; without either it is refused with that exact reason.
-Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new brief, never with yolo, which stays derived from the project registry at launch.
+An item is prepared when it has a brief, `data/<id>/brief.md`, and a non-empty prep file, `data/<id>/prep.md` or the file a `Prep: data/<path>` line in its backlog body names inside this home's `data/` directory; without either it is refused with that exact reason.
+Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new brief, replacing one left by an earlier brief, never with yolo, which stays derived from the project registry at launch.
 Run `FM_HOME=<home> bin/fm-autolaunch.sh --backfill` to print the record each existing queued item would get, then `--backfill --apply` to write the missing ones, also without yolo; it never rewrites an existing record, so it is safe to repeat on every home.
+On the other homes the commands are documented here only, and run there once the fleet update has brought the script to their `firstmate-stock` code roots:
+
+| Machine | Print first | Then write |
+| --- | --- | --- |
+| Laptop zb-crew | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
+| Server q-crew | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
+
 Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
 Every decision appends one tab-separated record to `state/autolaunch.log`: the time, lane, item, model, and either `launched` or `refused:<reason>`.
 
 Nothing enables a schedule automatically.
-To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints each decision and spawn command and writes nothing.
+To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
 Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line with `FM_HOME` set explicitly, recording it in the machine inventory first.
 Arm the throttle check with `bin/fm-autolaunch-check.sh arm`, which binds `state/autolaunch.check.sh` through `bin/fm-check-register.sh` so the watcher runs it on its ordinary check cadence; `disarm` removes it.
 The check prints one red line, and in a secondmate home also reports it on the parent channel, when a free lane and a prepared item have had no auto-launch record for ten minutes; otherwise it is silent.

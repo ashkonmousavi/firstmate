@@ -431,20 +431,25 @@ fi
 
 # Write the auto-launch record beside a ship or scout brief (format and
 # derivation: bin/fm-autolaunch.sh's PREP header). It carries only what this
-# scaffold was told; yolo stays derived from the registry at launch. An
-# existing record is never overwritten.
+# scaffold was told; yolo stays derived from the registry at launch. A record
+# already there belongs to an earlier brief (this one did not exist), so it is
+# replaced, atomically.
 write_autolaunch_record() {
-  local rec="$DATA/$ID/autolaunch-prep" project=$REPO
-  [ ! -e "$rec" ] || return 0
+  local rec="$DATA/$ID/autolaunch-prep" project=$REPO tmp
   [ -z "$PROJECT_DIR" ] || project=$(basename -- "$PROJECT_DIR")
-  {
+  tmp=$(mktemp "$DATA/$ID/.autolaunch-prep.XXXXXX") || exit 1
+  if ! {
     printf 'project=%s\nkind=%s\n' "$project" "$KIND"
     if [ "$KIND" = ship ]; then
       printf 'mode=%s\nbranch_prefix=%s\n' "$MODE" "$BRANCH_PREFIX"
       [ -z "$UPSTREAM_CONSENT" ] || printf 'upstream_consent=%s\n' "$UPSTREAM_CONSENT"
     fi
     [ -z "$BASE_BRANCH" ] || printf 'base_branch=%s\n' "$BASE_BRANCH"
-  } > "$rec"
+  } > "$tmp" || ! mv -f -- "$tmp" "$rec"; then
+    rm -f -- "$tmp"
+    echo "error: cannot write $rec" >&2
+    exit 1
+  fi
 }
 
 # Append the include as the last section of a ship or scout scaffold.

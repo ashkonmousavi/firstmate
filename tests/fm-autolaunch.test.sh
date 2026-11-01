@@ -125,7 +125,7 @@ mkdir -p "$H/state/spawn-deferred/queue"; printf 'schema=fm-deferred-spawn.v1\nt
 bash "$AL" >/dev/null 2>&1
 results=$(cut -f3,5 "$LOG")
 assert_contains "$results" 'no-brief	refused:not prepared: no brief data/no-brief/brief.md' 'no brief'
-assert_contains "$results" 'no-prep	refused:not prepared: no prep file (data/no-prep/prep.md or a prep, plan or spec document linked from the item)' 'no prep file'
+assert_contains "$results" 'no-prep	refused:not prepared: no prep file (data/no-prep/prep.md or a Prep: data/<path> line in the item)' 'no prep file'
 assert_contains "$results" 'bad-prep	refused:not prepared: record has unknown key colour' 'invalid override record'
 assert_contains "$results" 'deferred-item	refused:spawn deferred pending' 'deferred retry is not doubled'
 assert_not_contains "$results" 'held-item' 'held item is never a candidate'
@@ -378,45 +378,66 @@ bash "$AL" >/dev/null 2>&1
 assert_equals "override $H/projects/proj --mode direct-PR --yolo on --branch-prefix " "$(cat "$FAKE/spawn.log")" 'an override record replaces only the fields it names'
 pass 'the launch record derives from override, brief lines, backlog row and project registry in that order'
 
-# Laptop layout: X items with a prep file and a brief, beside unprepared work.
-reset 2
-mkdir -p "$H/projects/NOT_Q"
-printf '%s\n' \
-  '- [ ] x-region-registry - X region registry (repo: NOT_Q) (kind: ship) (priority: 2)' \
-  '  Prep: data/x-prep-region-registry/prep.md' \
-  '- [ ] x-no-brief - prep but no brief (repo: NOT_Q) (kind: ship)' \
-  '- [ ] x-ops-task - operational task (repo: NOT_Q) (kind: task)' \
-  '- [ ] x-no-prep - brief but no prep (repo: NOT_Q) (kind: ship)' \
-  '- [ ] x-engine-account-currency - X engine account currency (repo: NOT_Q) (kind: ship) (priority: 1)' | backlog
-printf -- '- NOT_Q [direct-PR branch=] - X (added 2026-10-01)\n' > "$H/data/projects.md"
-for id in x-region-registry x-engine-account-currency x-ops-task x-no-prep; do
-  mkdir -p "$H/data/$id"
-  printf 'Delivery contract: mode=direct-PR\nShip branch: %s\n' "$id" > "$H/data/$id/brief.md"
-done
-mkdir -p "$H/data/x-prep-region-registry" "$H/data/x-no-brief"
-printf 'prep\n' > "$H/data/x-prep-region-registry/prep.md"
-printf 'prep\n' > "$H/data/x-engine-account-currency/prep.md"
-printf 'prep\n' > "$H/data/x-ops-task/prep.md"
-printf 'prep\n' > "$H/data/x-no-brief/prep.md"
+# Laptop layout: X items with a prep file and a brief, beside unprepared work,
+# in backlog order; a backlog priority does not reorder launches.
+laptop_layout() {  # <free lanes>
+  reset "$1"
+  mkdir -p "$H/projects/NOT_Q" "$H/outside"
+  printf '%s\n' \
+    '- [ ] x-region-registry - X region registry (repo: NOT_Q) (kind: ship) (priority: 2)' \
+    '  Prep: data/x-prep-region-registry/prep.md' \
+    '- [ ] x-no-brief - prep but no brief (repo: NOT_Q) (kind: ship)' \
+    '- [ ] x-ops-task - operational task (repo: NOT_Q) (kind: task)' \
+    '- [ ] x-no-prep - brief but no prep (repo: NOT_Q) (kind: ship)' \
+    '- [ ] x-plan-mention - mentions a plan without a Prep line (repo: NOT_Q) (kind: ship)' \
+    '  drafts data/x-plan/plan.md' \
+    '- [ ] x-escape - Prep line outside data (repo: NOT_Q) (kind: ship)' \
+    '  Prep: data/../outside/prep.md' \
+    '- [ ] x-engine-account-currency - X engine account currency (repo: NOT_Q) (kind: ship) (priority: 1)' | backlog
+  printf -- '- NOT_Q [direct-PR branch=] - X (added 2026-10-01)\n' > "$H/data/projects.md"
+  for id in x-region-registry x-engine-account-currency x-ops-task x-no-prep x-plan-mention x-escape; do
+    mkdir -p "$H/data/$id"
+    printf 'Delivery contract: mode=direct-PR\nShip branch: %s\n' "$id" > "$H/data/$id/brief.md"
+  done
+  mkdir -p "$H/data/x-prep-region-registry" "$H/data/x-no-brief" "$H/data/x-plan"
+  printf 'prep\n' > "$H/data/x-prep-region-registry/prep.md"
+  printf 'prep\n' > "$H/data/x-engine-account-currency/prep.md"
+  printf 'prep\n' > "$H/data/x-ops-task/prep.md"
+  printf 'prep\n' > "$H/data/x-no-brief/prep.md"
+  printf 'plan\n' > "$H/data/x-plan/plan.md"
+  printf 'prep\n' > "$H/outside/prep.md"
+}
+laptop_layout 2
 out=$(bash "$AL" --dry-run 2>&1)
-assert_contains "$out" $'1\tx-engine-account-currency\tstatic\tlaunched' 'priority 1 item would launch first'
-assert_contains "$out" $'2\tx-region-registry\tstatic\tlaunched' 'linked prep file item would launch next'
+assert_contains "$out" $'\t1\tx-region-registry\tstatic\tlaunched' 'Prep-linked item, first in the backlog, would launch first'
+assert_contains "$out" $'\t2\tx-no-brief\t-\trefused:not prepared: no brief data/x-no-brief/brief.md' 'no brief reason'
+assert_contains "$out" $'\t2\tx-ops-task\t-\trefused:not prepared: kind task is not ship or scout' 'task kind reason'
+assert_contains "$out" $'\t2\tx-no-prep\t-\trefused:not prepared: no prep file' 'no prep file reason'
+assert_contains "$out" $'\t2\tx-plan-mention\t-\trefused:not prepared: no prep file' 'an unlabelled plan mention is not a prep file'
+assert_contains "$out" $'\t2\tx-escape\t-\trefused:not prepared: no prep file' 'a Prep path escaping data/ is not a prep file'
+assert_contains "$out" $'\t2\tx-engine-account-currency\tstatic\tlaunched' 'the later prepared item takes the second lane despite its priority'
 assert_contains "$out" "x-engine-account-currency $H/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix ''" 'bare branch from the brief'
-assert_not_contains "$out" 'x-no-brief' 'lanes fill before later refusals'
-reset 3
-printf '%s\n' \
-  '- [ ] x-no-brief - prep but no brief (repo: NOT_Q) (kind: ship)' \
-  '- [ ] x-ops-task - operational task (repo: NOT_Q) (kind: task)' \
-  '- [ ] x-no-prep - brief but no prep (repo: NOT_Q) (kind: ship)' | backlog
-printf -- '- NOT_Q [direct-PR] - X (added 2026-10-01)\n' > "$H/data/projects.md"
-mkdir -p "$H/data/x-no-brief" "$H/data/x-ops-task" "$H/data/x-no-prep"
-printf 'prep\n' > "$H/data/x-no-brief/prep.md"; printf 'prep\n' > "$H/data/x-ops-task/prep.md"
-printf 'brief\n' > "$H/data/x-ops-task/brief.md"; printf 'brief\n' > "$H/data/x-no-prep/brief.md"
+pass 'a dry run on the laptop layout would launch the prepared X items in backlog order and names every refusal'
+
+laptop_layout 1
 out=$(bash "$AL" --dry-run 2>&1)
-assert_contains "$out" 'x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md' 'no brief reason'
-assert_contains "$out" 'x-ops-task	-	refused:not prepared: kind task is not ship or scout' 'task kind reason'
-assert_contains "$out" 'x-no-prep	-	refused:not prepared: no prep file' 'no prep file reason'
-pass 'a dry run on the laptop layout would launch the prepared X items by priority and names every refusal'
+assert_contains "$out" $'\t1\tx-region-registry\tstatic\tlaunched' 'the free lane goes to the first prepared item'
+for id in x-no-brief x-ops-task x-no-prep x-plan-mention x-escape; do
+  assert_contains "$out" $'\t-\t'"$id"$'\t-\trefused:not prepared: ' "an item beyond the free lane still names its refusal: $id"
+done
+assert_contains "$out" $'\t-\tx-engine-account-currency\tstatic\twould-launch-when-a-lane-frees' 'a prepared item beyond the free lane waits for one'
+assert_contains "$out" "would-run: $FAKE/spawn x-engine-account-currency $H/projects/NOT_Q" 'a waiting item still shows its spawn command'
+bash "$AL" >/dev/null 2>&1
+assert_equals "x-region-registry $H/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix " "$(cat "$FAKE/spawn.log")" 'a real pass still stops at the free lanes'
+assert_not_contains "$(cat "$LOG")" 'x-engine-account-currency' 'a real pass records nothing beyond the free lanes'
+laptop_layout 0
+out=$(bash "$AL" --dry-run 2>&1)
+assert_contains "$out" $'\t-\t-\t-\trefused:no capacity: full' 'zero capacity is named first'
+assert_contains "$out" $'\t-\tx-region-registry\tstatic\twould-launch-when-a-lane-frees' 'with no capacity the first prepared item waits'
+assert_contains "$out" $'\t-\tx-engine-account-currency\tstatic\twould-launch-when-a-lane-frees' 'with no capacity the second prepared item waits'
+assert_contains "$out" $'\t-\tx-no-brief\t-\trefused:not prepared: no brief data/x-no-brief/brief.md' 'with no capacity refusals are still named'
+assert_not_contains "$out" 'no prepared item' 'no lane is reported open with zero capacity'
+pass 'a dry run names every ready item beyond the free lanes and with no capacity'
 
 reset 1
 printf '%s\n' '- [ ] bf-new - derivable (repo: proj) (kind: ship)' \
@@ -453,7 +474,11 @@ FM_HOME=$BH bash "$ROOT/bin/fm-brief.sh" new-ship proj --mode direct-PR --branch
 assert_equals $'project=proj\nkind=ship\nmode=direct-PR\nbranch_prefix=lane/\nbase_branch=curated' "$(cat "$BH/data/new-ship/autolaunch-prep")" 'ship scaffold writes its launch record'
 FM_HOME=$BH bash "$ROOT/bin/fm-brief.sh" new-scout proj --scout >/dev/null || fail 'scout scaffold'
 assert_equals $'project=proj\nkind=scout' "$(cat "$BH/data/new-scout/autolaunch-prep")" 'scout scaffold writes its launch record'
-pass 'fm-brief.sh writes the launch record for every ship and scout it scaffolds'
+rm -f "$BH/data/new-ship/brief.md"
+FM_HOME=$BH bash "$ROOT/bin/fm-brief.sh" new-ship proj --scout >/dev/null || fail 're-scaffold as scout'
+assert_equals $'project=proj\nkind=scout' "$(cat "$BH/data/new-ship/autolaunch-prep")" 'a re-scaffold replaces the stale kind and base branch'
+assert_equals '' "$(find "$BH/data/new-ship" -name '.autolaunch-prep.*')" 'the record write leaves no temporary file'
+pass 'fm-brief.sh writes the launch record for every ship and scout it scaffolds, replacing a stale one'
 
 # --- dry-run and lock --------------------------------------------------------
 reset 1
