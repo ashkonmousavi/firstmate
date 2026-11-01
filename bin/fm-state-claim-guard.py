@@ -18,9 +18,16 @@ not that the command output supports the prose.
 Claims require a resource subject from POLICY in the same sentence.
 Matching covers every claimed PR number, explicit URL host and lane name;
 repository identity and requested --json fields deliberately remain unchecked.
+PR claims without explicit IDs, including aggregate counts, still need a PR read.
+gh/gh-axi pr list counts only for claims without PR IDs, regardless of filters;
+its numeric options and search terms never establish a named PR read.
 Read segments in pipelines and redirects can count; segments beyond a
 short-circuit or control-flow boundary do not establish execution.
 'last read at' exempts only its sentence.
+Straight or curly quoted spans of four or more whitespace-separated words are
+ignored; shorter spans lose their quote delimiters and remain checked.
+'read live' and 'read it live' do not themselves assert deployment; other
+deployment assertions in the sentence still require a matching read.
 Shell commands are tokenized, never executed.
 """
 
