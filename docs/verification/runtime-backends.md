@@ -770,19 +770,18 @@ The guard submits no prompt and spends no tokens, so it runs by default wherever
 ## Codex account folder checks
 
 `bin/fm-codex-accounts.py` supplies the opt-in selection, exact-folder quota wrapper, duplicate check and registered watcher entry point documented in [configuration](../configuration.md#codex-account-folders-configcodex-accounts).
-`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking, concrete default-model selection and launch, bounded app-server reads with pipe-holding wrapper descendants, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
-`tests/fm-control.test.sh` verifies that unusable lists and exhausted configured default models refuse before a ship or scout's running agent is stopped.
+`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking, concrete default-model selection and launch, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+It also covers universal-exhaustion preflight, incompatible Treehouse refusal before allocation or endpoint creation, identity-checked lease return on repeated default-model refusals, and bounded reads and external watchdog cancellation of both vendor subprocess paths with real wrapper descendants and an unrelated process.
+`tests/fm-control.test.sh` verifies that unusable lists and exhausted configured default models refuse before a ship or scout's running agent is stopped, and that universal exhaustion preserves a live default-model secondmate's agent, metadata and ownership.
 `tests/fm-control-relaunch.test.sh` exercises trusted project model precedence through ordinary and released-copy relaunches, both directly and through the control plane; the worker-account suite also runs these focused cases.
 
 The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` covers Codex local status using an empty folder and a synthetic file-backed API-key cache, plus account identity comparison using synthetic ChatGPT caches under a temporary `HOME`.
-It suppresses vendor diagnostics and never sends the synthetic credential to a service.
+It suppresses vendor diagnostics and confines synthetic ChatGPT workspace discovery to a loopback fixture; no synthetic credential is sent to an external service.
 That guard proves local-status compatibility only; it cannot prove ChatGPT refresh or a real subscription's quota response.
 For the existing new-worktree trust/processing guard, set `FM_CODEX_ACCOUNT_LIVE_ROOT` to an independently signed-in, prepared folder before running `tests/fm-codex-brief-typed-live-e2e.test.sh`.
 That prompt-submitting guard remains opt-in, and its pool and endpoint lifecycle require the normal isolated validation authority.
 
-Evidence status 2026-11-01: the new real-Codex cases have not been run by the implementation worker because this task permits only fake Codex and temporary-folder tests.
-No installed Codex version or real refresh, quota or trust result is claimed here.
-The designated validation phase must refresh this entry with date, installed version, exact command and output before claiming live proof.
+Record live evidence here with date, installed version, exact command and output before claiming live proof.
 
 ```sh
 bash bin/fm-test-run.sh tests/fm-worker-account.test.sh tests/fm-control.test.sh

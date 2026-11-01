@@ -1200,7 +1200,7 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 
 Codex workers can opt into independent, file-backed account folders using a home-local `config/codex-accounts` file.
 Without that file, existing ambient Codex behavior is unchanged.
-Each line names one literal absolute existing folder, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters, duplicate folders and aliases refuse.
+Each line names one literal absolute existing folder, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters and duplicate folders (including aliases) refuse.
 Each folder needs its own sign-in, obtained independently on that machine; never copy or link `auth.json` between folders or machines.
 The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
 
@@ -1238,7 +1238,8 @@ Use one machine-local schedule per folder when normal work does not maintain it,
 The `guard` command never opens or reads credential contents: it rejects auth links, matching device/inode pairs, and matching size/mtime pairs.
 It also compares ChatGPT email identities returned by the runner's [app-server account/read interface](https://developers.openai.com/codex/app-server#1-check-auth-state) with token refresh disabled, keeping identities private and rejecting two folders reporting the same identity.
 API-key accounts, ChatGPT accounts without email, and runners that cannot report an identity retain metadata-only detection; changed metadata can evade that check, and the guard does not inspect other machines.
-Each app-server read has a ten-second deadline and terminates its owned process group, including wrapper descendants, on completion or timeout.
+Vendor invocations terminate their owned process groups, including wrapper descendants, and reap the direct vendor process on completion, timeout or external cancellation by SIGHUP, SIGINT or SIGTERM.
+Each app-server read has a ten-second deadline.
 Current regression and real-runner guard entry points are recorded in [runtime verification](verification/runtime-backends.md#codex-account-folder-checks).
 
 ## Worker account pin (config/claude-account, config/pi-account)

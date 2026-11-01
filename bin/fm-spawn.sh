@@ -189,11 +189,14 @@
 #   could later be released out from under its successor. A spawn that aborts
 #   while it still holds the allocation lock drops its own claim; an abort after
 #   metadata publication has released that lock leaves the claim in place, and
-#   the next spawn's claim replaces it. A fresh polytoken spawn that fails and
-#   leaves no task record restores the pool as it found it: it retakes that lock
+#   the next spawn's claim replaces it. A fresh polytoken or Codex spawn that
+#   fails and leaves no task record restores the pool as it found it: it retakes that lock
 #   once to drop its claim after metadata publication too, and before its launch
 #   is delivered it closes the endpoint whose `treehouse get` shell leases the
 #   slot and removes the wiring, task temp root, and staged launch file it wrote.
+#   Codex default-model resolution can acquire a durable lease before opening
+#   an endpoint; abort returns that lease only with unchanged HEAD and matching
+#   lease ID and holder, retaining the lease and claim when safe return fails.
 #   The local root is whatever bin/fm-wake-lib.sh's
 #   fm_firstmate_root_home resolves, so a home seeded from another machine anchors
 #   that lock itself rather than failing to resolve one;
@@ -1854,11 +1857,7 @@ spawn_abort_cleanup() {
       [ "$status" -ne 0 ] || status=1
     fi
   fi
-  # A fresh polytoken spawn that fails and leaves no record must leave the pool
-  # as it found it. Before its launch is delivered, the endpoint it opened holds nothing but
-  # the shell whose `treehouse get` leases the slot, so closing it returns the
-  # slot to the pool and leaves no window or tab for a retry to trip over; the
-  # Firstmate wiring, task temp root, and staged launch file it wrote go with it.
+  # Fresh-spawn cleanup follows the pool and lease contract in the header.
   # Once a launch was delivered into an endpoint still open, a worker may be
   # running there, so those stay for the operator, as the refusal says.
   if [ "$status" -ne 0 ] && { [ "${HARNESS:-}" = polytoken ] || [ "${HARNESS:-}" = codex ]; } &&
@@ -4733,8 +4732,8 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # uncommitted changes are exactly as the previous agent left them, and nothing
   # below may touch them.
   [ "$KIND" = secondmate ] || [ "$CODEX_WORKTREE_PREPARED" = 1 ] || WT=$RELAUNCH_WT
-  # A released relaunch has no copy yet: its endpoint opens in the project,
-  # and the fresh path's `treehouse get` below allocates the copy.
+  # A released relaunch without a prepared copy opens its endpoint in the
+  # project; the fresh path's `treehouse get` below allocates the copy.
   RELAUNCH_ENDPOINT_CWD=$WT
   if [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$CODEX_WORKTREE_PREPARED" = 0 ]; then
     WT=
@@ -5097,8 +5096,8 @@ EOF
     ;;
   esac
   # Orca and the Herdr projection own their own abort cleanup above; every other
-  # endpoint a fresh polytoken spawn opened is closed by spawn_abort_cleanup when
-  # the spawn ends with no record before its launch is delivered.
+  # endpoint a fresh polytoken or Codex spawn opened follows the header's abort
+  # cleanup contract through spawn_abort_cleanup.
   if { [ "$HARNESS" = polytoken ] || [ "$HARNESS" = codex ]; } && [ "$BACKEND" != orca ] && [ "${HERDR_PROJECTED:-0}" -ne 1 ]; then
     SPAWN_FRESH_ENDPOINT_OPENED=1
   fi

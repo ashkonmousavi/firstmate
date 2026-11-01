@@ -34,7 +34,7 @@ unset CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR ANTHROPIC_API_KEY OPENAI_API_KEY FM_
 CHECKED=
 
 codex_live_cases() {
-  local version empty stored out config email
+  local version empty stored out config
   version=$(codex --version 2>/dev/null | head -1)
   empty="$TMP_ROOT/codex-empty"
   stored="$TMP_ROOT/codex-stored"
@@ -65,37 +65,92 @@ codex_live_cases() {
   assert_equals "$stored" "${out%%$'\t'*}" "codex $version selected a different root"
   assert_equals fm-live-configured-model "${out##*$'\t'}" "codex $version did not report the configured model"
   pass "codex $version: file-backed local status accepts a synthetic cache, refuses an empty root and suppresses diagnostics"
-  for email in same-account@example.invalid other-account@example.invalid; do
-    python3 - "$TMP_ROOT" "$email" <<'PY'
-import base64, datetime, json, os, pathlib, sys, time
+  # Recent Codex account/read discovers workspace routing even without a forced
+  # refresh. Serve only that external boundary locally; Codex itself still
+  # decodes credentials and emits every account identity consumed by the guard.
+  # The response contract follows the vendor's account test fixture:
+  # https://github.com/openai/codex/blob/main/codex-rs/app-server/tests/suite/v2/account.rs
+  python3 - "$TMP_ROOT" "$ROOT/bin/fm-codex-accounts.py" <<'PY' || fail "codex $version: local account/read identity guard failed"
+import base64, datetime, http.server, json, os, pathlib, subprocess, sys, threading, time
+
 root = pathlib.Path(sys.argv[1])
-for i, email in enumerate(("same-account@example.invalid", sys.argv[2])):
-    folder = root / f"codex-identity-{i}"
-    folder.mkdir(exist_ok=True)
-    def encode(value):
-        return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
-    token = encode({"alg": "none"}) + "." + encode({"email": email,
-        "https://api.openai.com/auth": {"chatgpt_account_id": "fm-live-synthetic-account",
-                                         "chatgpt_plan_type": "pro"}}) + "."
-    (folder / "auth.json").write_text(json.dumps({"auth_mode": "chatgpt", "OPENAI_API_KEY": None,
-        "tokens": {"id_token": token, "access_token": f"fm-live-synthetic-access-{i}",
-                   "refresh_token": f"fm-live-synthetic-refresh-{i}", "account_id": "fm-live-synthetic-account"},
-        "last_refresh": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")}))
-    stamp = time.time() - i
-    os.utime(folder / "auth.json", (stamp, stamp))
-(root / "codex-config" / "codex-accounts").write_text(
-    "".join(str(root / f"codex-identity-{i}") + "\n" for i in range(2)))
+requests = []
+
+class Backend(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        requests.append(self.path)
+        body = json.dumps({"accounts": [{"id": "fm-live-synthetic-account",
+            "workspace_backend_origin": "https://chatgpt.com",
+            "account_routing_override": "NO_CONSTRAINT"}]}
+            if self.path.endswith("/accounts/check") else {"models": []}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+def encode(value):
+    return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+backend = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Backend)
+thread = threading.Thread(target=backend.serve_forever)
+thread.start()
+try:
+    origin = f"http://127.0.0.1:{backend.server_port}"
+    config = root / "codex-config" / "codex-accounts"
+    for duplicate in (True, False):
+        for i, email in enumerate(("same-account@example.invalid",
+                "same-account@example.invalid" if duplicate else "other-account@example.invalid")):
+            folder = root / f"codex-identity-{i}"
+            folder.mkdir(exist_ok=True)
+            # Both JWTs need a nonempty signature and future expiry so the real
+            # runner can parse them without requesting a token refresh.
+            token = encode({"alg": "none"}) + "." + encode({"email": email,
+                "exp": int(time.time()) + 36000, "iat": int(time.time()),
+                "https://api.openai.com/auth": {"chatgpt_account_id": "fm-live-synthetic-account",
+                                                 "chatgpt_plan_type": "pro"}}) + "." + encode("synthetic-signature")
+            (folder / "auth.json").write_text(json.dumps({"auth_mode": "chatgpt", "OPENAI_API_KEY": None,
+                "tokens": {"id_token": token, "access_token": token,
+                           "refresh_token": f"fm-live-synthetic-refresh-{i}", "account_id": "fm-live-synthetic-account"},
+                "last_refresh": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")}))
+            stamp = time.time() - i
+            os.utime(folder / "auth.json", (stamp, stamp))
+            (folder / "config.toml").write_text(f'''chatgpt_base_url="{origin}/backend-api"
+model_provider="isolated"
+model="synthetic"
+[features]
+plugins=false
+apps=false
+[model_providers.isolated]
+name="isolated"
+base_url="{origin}/v1"
+wire_api="responses"
+requires_openai_auth=true
+''')
+        config.write_text("".join(str(root / f"codex-identity-{i}") + "\n" for i in range(2)))
+        result = subprocess.run([sys.executable, sys.argv[2], "guard", "--config", str(config)],
+                                capture_output=True, text=True, timeout=30)
+        output = result.stdout + result.stderr
+        assert result.returncode == (1 if duplicate else 0), (duplicate, result.returncode, output)
+        if duplicate:
+            assert "duplicate Codex account" in result.stderr, output
+        else:
+            assert not output, output
+        assert "example.invalid" not in output and "fm-live-synthetic" not in output, output
+        print(json.dumps({"scenario": "duplicate identity" if duplicate else "distinct identities",
+                          "exit": result.returncode, "stdout": result.stdout, "stderr": result.stderr}))
+    # Older runners may read cached identities without workspace discovery.
+    # No supported runner should need a credential refresh for this fixture.
+    assert all(path.endswith("/accounts/check") or path.startswith("/v1/models")
+               for path in requests), requests
+finally:
+    backend.shutdown()
+    backend.server_close()
+    thread.join()
 PY
-    if out=$(python3 "$ROOT/bin/fm-codex-accounts.py" guard --config "$config/codex-accounts" 2>&1); then
-      [ "$email" != same-account@example.invalid ] || fail "codex $version: duplicate runner identities passed the guard"
-      assert_equals '' "$out" "codex $version: healthy identity guard must remain silent"
-    else
-      [ "$email" = same-account@example.invalid ] || fail "codex $version: distinct runner identities refused: $out"
-      assert_contains "$out" 'duplicate Codex account' "codex $version: account/read identity contract changed"
-    fi
-    assert_not_contains "$out" 'example.invalid' "codex $version leaked an account identity"
-    assert_not_contains "$out" 'fm-live-synthetic' "codex $version leaked synthetic credentials"
-  done
   pass "codex $version: account/read compares synthetic ChatGPT identities without refresh or credential output"
   CHECKED="$CHECKED codex"
 }

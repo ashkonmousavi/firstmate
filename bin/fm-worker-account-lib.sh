@@ -6,10 +6,8 @@
 #
 # docs/configuration.md "Worker account pin" owns the operator-facing contract.
 # Sourced by bin/fm-spawn.sh and bin/fm-control.sh.
-# Codex's separate opt-in config/codex-accounts list is owned by
-# bin/fm-codex-accounts.py; unlike a pin it ranks signed-in folders by weekly
-# room. Absent preserves ambient behavior; present refuses raw commands and
-# unusable lists, never falls back. Both callers run this before mutation.
+# Codex's separate list contract is in docs/configuration.md "Codex account
+# folders"; bin/fm-codex-accounts.py owns its selection and preflight mechanics.
 #
 # Pinnable runners, each a credential store inside a root its vendor lets a
 # process select:
