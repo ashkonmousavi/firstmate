@@ -1,0 +1,4 @@
+competing launch holds spawn lock
+restart lost spawn lock; stopped endpoint state=dead
+private tmux server 2129129 stopped to stall the real endpoint probe
+private tmux server resumed

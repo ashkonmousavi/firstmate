@@ -1,0 +1,14 @@
+window=primary:fm-sm-live
+endpoint_task_id=sm-live
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6ARDD44DB5QEFFM79A1RJS3/.live-validation/secondmate
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6ARDD44DB5QEFFM79A1RJS3/.live-validation/secondmate
+harness=codex
+kind=secondmate
+mode=secondmate
+yolo=off
+tasktmp=/tmp/fm-sm-live
+model=default
+effort=low
+spawn_gen=s1793510692.3025964.15343
+home=~/.no-mistakes/worktrees/049a88734b0e/01M6ARDD44DB5QEFFM79A1RJS3/.live-validation/secondmate
+projects=

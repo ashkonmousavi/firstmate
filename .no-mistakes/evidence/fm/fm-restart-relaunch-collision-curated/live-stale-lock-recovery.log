@@ -1,0 +1,9 @@
+dead owner lock left at ~/.no-mistakes/worktrees/049a88734b0e/01M6ARDD44DB5QEFFM79A1RJS3/.live-validation/home/state/.secondmate-liveness-sm-live.lock
+next recovery acquired stale lock
+probe=relaunchable state=dead
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6ARDD44DB5QEFFM79A1RJS3/.live-validation/home
+spawned sm-live harness=codex kind=secondmate mode=secondmate yolo=off window=primary:fm-sm-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6ARDD44DB5QEFFM79A1RJS3/.live-validation/secondmate
+after recovery probe=alive state=alive
+relaunch ledger:
+1793510911	attempt
+1793510953	relaunched

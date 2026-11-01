@@ -1,0 +1,6 @@
+competing launch holds spawn lock
+restart lost spawn lock; stopped endpoint state=dead
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6ARDD44DB5QEFFM79A1RJS3/.live-validation/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: codex did not take the brief: the positional launch brief did not start a first turn within 4 s in window primary:fm-sm-live; inspect window primary:fm-sm-live
+winner completed with exit=1; endpoint state=alive

@@ -1,0 +1,9 @@
+{
+  "private_tmux_server_stopped": true,
+  "private_socket_directory_removed_by_lab_helper": true,
+  "workspace_fixture_removed": true,
+  "tracked_and_untracked_status": "",
+  "source_unchanged": true,
+  "herdr_lab": "prepare only; never provisioned",
+  "cleanup_note": "Read-only test-fixture hook directories required directory permissions restored within the fixture before removal."
+}

@@ -1,0 +1,8 @@
+{
+  "mode": "probe-hang",
+  "restart_exit": 3,
+  "winner_exit": 0,
+  "elapsed_seconds": 15.72,
+  "frozen_seconds": 3.45,
+  "liveness_lock_left": false
+}
