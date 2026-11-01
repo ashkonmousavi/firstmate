@@ -44,6 +44,7 @@ POLICY = (
 )
 MAX_BYTES = 2 * 1024 * 1024
 PR_ID = rx(r"(?:\bprs?\s*#?\s*|(?<!\w)#|/pulls?/)(\d+)\b")
+LIST_SEPARATOR = r"\s*(?:,\s*(?:\band\b|&)?|\band\b|&)\s*"
 CLAUSE_BREAK = rx(
     r"[;:]|\s[-–—]\s|\b(?:but|however|then|while|whereas)\b|"
     r"(?:,|\band\b)(?=\s+(?:prs?\b|#\d+|https?://|"
@@ -70,19 +71,23 @@ def read_hosts(family, command):
 def lane_names(text):
     generic = {"is", "are", "was", "were", "will", "would", "should", "could", "not",
                "still", "currently", "now", "running", "and", "the", "a", "an",
+               "both", "all", "our", "their", "these", "those", "this", "that", "each", "some", "any",
                "lane", "worker", "crew", "scout", "mate", "task", "supervisor", "watcher", "agent",
                "lanes", "workers", "crews", "scouts", "mates", "tasks", "supervisors", "watchers", "agents"}
+    subject = r"(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)"
+    identifier = r"(?!(?:" + "|".join(generic) + r")(?![\w.-]))[\w.-]+"
+    names = identifier + r"(?:" + LIST_SEPARATOR + identifier + r")*"
     return {name for match in rx(
-        r"\b(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)-[\w.-]+\b|"
-        r"\b(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)s?\s+"
-        r"([\w.-]+(?:\s*(?:,|\band\b|&)\s*[\w.-]+)*)"
-    ).finditer(text) for name in re.split(r"\s*(?:,|\band\b|&)\s*", match.group(1) or match.group(0))
-            if name.lower() not in generic}
+        r"\b" + subject + r"-[\w.-]+\b|"
+        r"\b" + subject + r"s?\s+(" + names + r")|"
+        r"\b(" + names + r")\s+" + subject + r"s?\b(?!-)"
+    ).finditer(text) for name in re.split(LIST_SEPARATOR, match.group(1) or match.group(2) or match.group(0), flags=re.I)}
 
 
 def claims(text):
     text = re.sub(r"```.*?(?:```|$)", "", text, flags=re.S)
-    text = text.replace("`", "")
+    text = re.sub(r"(?<!\w)(_{1,3})(\S(?:[^\n]*?\S)?)\1(?!\w)", r"\2",
+                  text.replace("`", "").replace("*", ""))
     for sentence in re.split(r"[\n]|(?<=[.!?])\s+", text):
         if rx(r"^\s*example\s*:").search(sentence):
             continue
@@ -101,7 +106,7 @@ def claims(text):
                     pr_ids = set()
                     if family == "PR":
                         pr_ids.update(PR_ID.findall(sentence))
-                        for listed in rx(r"\bprs?\s*#?\d+(?:\s*(?:,|and|&)\s*#?\d+)+").findall(sentence):
+                        for listed in rx(r"\bprs?\s*#?\d+(?:" + LIST_SEPARATOR + r"#?\d+)+").findall(sentence):
                             pr_ids.update(re.findall(r"\d+", listed))
                     yield family, sentence.strip(), pr_ids
                     break

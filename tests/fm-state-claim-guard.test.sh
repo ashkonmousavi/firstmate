@@ -82,6 +82,14 @@ check("shorthand PR references pass with both reads", "PR 2775 and #2776 are que
 check("bare coordinated PR numbers require reads", "PRs 9 and 10 are merged.", ["gh pr view 9"])
 check("bare coordinated PR numbers pass with both reads", "PRs 9 and 10 are merged.",
       ["gh pr view 9", "gh pr view 10"], expected=0)
+pr_reads = ["gh pr view 2775", "gh pr view 2776", "gh pr view 2777"]
+for listed in ("2775, 2776, and 2777", "2775, 2776, AND 2777", "2775, 2776, & 2777",
+               "#2775, #2776, and #2777", "2775, 2776 and 2777"):
+    message = f"PRs {listed} are queued."
+    for missing in range(3):
+        check(f"PR list requires item {missing + 1}: {listed}", message,
+              pr_reads[:missing] + pr_reads[missing + 1:])
+    check(f"PR list passes with every read: {listed}", message, pr_reads, expected=0)
 check("repository identity remains outside the heuristic", "PR https://github.com/other/repo/pull/9 is merged.",
       ["gh pr view 9 --repo example/repo --json title"], expected=0)
 check("PR URL host must match the read", "PR https://forge.example/example/repo/pull/9 is merged.",
@@ -140,6 +148,47 @@ check("lane name substring is not a match", "Lane alpha is running.", ["bash bin
 check("every listed lane name requires a read", "Lanes alpha and beta are running.", ["bash bin/fm-crew-state.sh alpha"])
 check("separate reads cover listed lane names", "Lanes alpha and beta are running.",
       ["bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"], expected=0)
+for listed in ("alpha, beta, and gamma", "alpha, beta, AND gamma", "alpha, beta, & gamma",
+               "alpha, beta and gamma"):
+    for message in (f"Lanes {listed} are running.", f"The {listed} lanes are running."):
+        for prefix in ("bash bin/fm-crew-state.sh", "bash /fixture/fm-crew-state.sh"):
+            reads = [f"{prefix} {name}" for name in ("alpha", "beta", "gamma")]
+            for missing in range(3):
+                check(f"lane list requires item {missing + 1}: {message} via {prefix}", message,
+                      reads[:missing] + reads[missing + 1:])
+            check(f"lane list passes with every read: {message} via {prefix}", message, reads, expected=0)
+for subject in ("lane", "worker", "crew", "scout", "mate", "task", "supervisor", "watcher", "agent"):
+    for message in (f"The alpha {subject} is running.", f"The {subject} alpha is running."):
+        check(f"{subject} name requires its own read: {message}", message, ["bash bin/fm-crew-state.sh beta"])
+        check(f"{subject} name passes with its own read: {message}", message,
+              ["bash bin/fm-crew-state.sh alpha"], expected=0)
+for message in ("Lane alpha and worker beta are running.", "The alpha lane and beta worker are running."):
+    check(f"coordinated lane subjects retain each name: {message}", message, ["bash bin/fm-crew-state.sh alpha"])
+    check(f"coordinated lane subjects accept both reads: {message}", message,
+          ["bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"], expected=0)
+for opening, closing in (("`", "`"), ("*", "*"), ("**", "**"), ("***", "***"),
+                         ("_", "_"), ("__", "__"), ("___", "___"), ("**`", "`**"), ("__**", "**__")):
+    for message, matching, unrelated in (
+        (f"PR {opening}9{closing} is merged.", "gh pr view 9", "gh pr view 10"),
+        (f"{opening}#9{closing} is merged.", "gh pr view 9", "gh pr view 10"),
+        (f"Lane {opening}alpha{closing} is running.", "bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"),
+        (f"The {opening}alpha{closing} lane is running.", "bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"),
+        (f"The site {opening}https://site.example{closing} is live.", "curl https://site.example/health", "curl https://other.example/health"),
+    ):
+        check(f"formatted identifier rejects unrelated read: {message}", message, [unrelated])
+        check(f"formatted identifier accepts matching read: {message}", message, [matching], expected=0)
+for name in ("alpha_beta", "lane_alpha"):
+    for message in (f"Lane {name} is running.", f"The {name} lane is running.", f"Lane __{name}__ is running."):
+        check(f"underscores inside an identifier remain significant: {message}", message,
+              ["bash bin/fm-crew-state.sh " + name.replace("_", "")])
+        check(f"underscores inside an identifier retain matching reads: {message}", message,
+              [f"bash bin/fm-crew-state.sh {name}"], expected=0)
+for name in ("the-alpha", "our-alpha", "still.alpha", "agent-beta"):
+    for message in (f"Lane {name} is running.", f"The {name} lane is running."):
+        check(f"generic word prefixes retain the full identifier: {message}", message,
+              ["bash bin/fm-crew-state.sh beta"])
+        check(f"generic word prefixes retain matching reads: {message}", message,
+              [f"bash bin/fm-crew-state.sh {name}"], expected=0)
 check("generic worker-lane plural remains unnamed", "Both worker lanes are running.",
       ["bash bin/fm-crew-state.sh"], expected=0)
 for subject in ("lanes", "workers", "crews", "scouts", "mates", "tasks", "supervisors", "watchers", "agents"):
