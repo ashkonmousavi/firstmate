@@ -1390,6 +1390,7 @@ The existing home-summary refresh also atomically publishes `state/lane-capacity
 Fetch that file from each machine through the existing fleet transport, then pass the local copies to `bin/fm-place.sh` for advisory placement.
 The placement command names the eligible machine with the most free lanes, breaking ties by available memory headroom and then machine name.
 Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
+The same facts carry `admitted` (readable, reason `ok` and at least one free lane); readiness readers join ready work to that verdict and its `generated_epoch` age instead of re-deriving admission from the human first line.
 Advice never reserves a lane, and spawn always rereads live facts before launch.
 
 ## Curated delivery exceptions (config/curated-delivery-exceptions)

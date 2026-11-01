@@ -236,6 +236,7 @@ fm_capacity_json() { # result of the latest fm_capacity_read, including refusals
     --argjson effective "$FM_CAPACITY_EFFECTIVE_KB" --argjson pressure "$FM_CAPACITY_PRESSURE" --argjson disk "$FM_CAPACITY_DISK_KB" \
     '{schema:"fm-lane-capacity.v1",machine:$machine,generated_epoch:(now|floor),
       readable:($reason != "unreadable"),reason:$reason,error:$error,config_file:$file,
+      admitted:($reason == "ok" and $free > 0),
       lanes:$lanes,target:$target,free_lanes:$free,secondmates:$secondmates,
       mem_available_kb:$available,reserve_kb:$reserve,headroom_kb:$headroom,
       resource_policy_sha256:$policy_sha256,memory_floor_kb:$floor,effective_available_kb:$effective,
