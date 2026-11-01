@@ -76,6 +76,7 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 PROJECTS="${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}"
 export FM_HOME
+export FM_STATE_OVERRIDE="$STATE"
 
 if [ "$#" -ne 0 ]; then
   echo "usage: fm-pr-orphan-sweep.sh" >&2
@@ -95,6 +96,8 @@ REG="$DATA/projects.md"
 . "$SCRIPT_DIR/fm-parent-channel-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-gh-etag-lib.sh
+. "$SCRIPT_DIR/fm-gh-etag-lib.sh"
 
 BOUND=${FM_PR_ORPHAN_BOUND:-20}
 case "$BOUND" in ''|*[!0-9]*|0) BOUND=20 ;; esac
@@ -117,6 +120,29 @@ fm_parent_channel_home_id "$FM_HOME" >/dev/null 2>&1 || home_rc=$?
 
 warn() {
   printf 'fm-pr-orphan-sweep: %s\n' "$*" >&2
+}
+
+# One conditional REST list of the project's open pull requests, filtered here
+# for the conflict label, in place of a GraphQL gh pr list. An unchanged project
+# answers 304, which costs no rate-limit budget, so a quiet project spends
+# nothing per pass. It prints number<TAB>head lines (none when no pull request
+# carries the label) and succeeds; it fails when the list spans pages, needs jq,
+# or cannot be read, and the caller then runs gh pr list as before.
+list_conditional_bound=20
+fm_gh_etag_run() {
+  fm_run_timed "$list_conditional_bound" env GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 gh "$@"
+}
+list_conflicted_conditional() {  # <owner/repo> <bound>
+  local path=$1 key
+  command -v jq >/dev/null 2>&1 || return 1
+  list_conditional_bound=$2
+  key="orphan-sweep.$(printf '%s' "$path" | tr '/' '.')"
+  fm_gh_etag_get "$STATE/gh-etag" "$key" "repos/$path/pulls?state=open&per_page=100" || return 1
+  jq -r --argjson limit "$LIMIT" '
+    if type == "array" then
+      [ .[] | select((.labels // []) | map(.name) | index("conflict") != null)
+        | "\(.number)\t\(.head.ref)" ] | .[:$limit][]
+    else error("not a list") end' "$FM_GH_ETAG_BODY" 2>/dev/null
 }
 
 # Registered project names, one per line. A name ends at the " [" or " - " that
@@ -206,12 +232,14 @@ sweep_project() {  # <name>
   path=$FM_PR_PATH
 
   bound=$(fm_checkpoint_budget "$BOUND") || return 0
-  listing=$(fm_run_timed "$bound" gh pr list -R "$path" --state open --label conflict \
-    --limit "$LIMIT" --json number,headRefName \
-    --jq '.[] | "\(.number)\t\(.headRefName)"' 2>&1) || {
-    warn "could not list conflicted pull requests for $name ($path): $(printf '%s' "$listing" | head -1)"
-    return 0
-  }
+  if ! listing=$(list_conflicted_conditional "$path" "$bound"); then
+    listing=$(fm_run_timed "$bound" gh pr list -R "$path" --state open --label conflict \
+      --limit "$LIMIT" --json number,headRefName \
+      --jq '.[] | "\(.number)\t\(.headRefName)"' 2>&1) || {
+      warn "could not list conflicted pull requests for $name ($path): $(printf '%s' "$listing" | head -1)"
+      return 0
+    }
+  fi
 
   dir="$MARKERS/github.com/$path"
   while IFS=$'\t' read -r number head; do

@@ -8,6 +8,14 @@
 # CLOSED and other non-open, non-merged states emit nothing.
 # GitHub label lookup and JSON failures return nonzero. An unproved label age
 # emits no observation, so it cannot be read as a merge or as a conflict.
+# GitHub reads are conditional (bin/fm-gh-etag-lib.sh): one REST read of the
+# pull request with the ETag from the last tick. A 304 costs no rate-limit
+# budget and replays the facts stored for that ETag, so the conflict-label age
+# is still re-evaluated against the clock without another request. A 200 reads
+# state and labels from the same body and asks GraphQL for the label timeline
+# only while a conflict label is present. Without jq, the helper, a state
+# directory (FM_STATE_OVERRIDE, else FM_HOME/state), or a usable REST answer,
+# the original gh pr view and GraphQL reads run unchanged.
 # The provider-tagged identity is data in the sidecar and is never
 # interpolated into this source: these bytes are identical for every task.
 # Each provider is read through its own standard CLI, gh for GitHub, glab for
@@ -23,6 +31,13 @@ export LC_ALL
 # this poll reports it. Younger than this, and a pull request with no such
 # label, both report conflict-clear so the watcher stays quiet.
 FM_PR_POLL_CONFLICT_MIN_AGE=900
+
+_fm_pr_poll_dir=${BASH_SOURCE[0]%/*}
+[ "$_fm_pr_poll_dir" != "${BASH_SOURCE[0]}" ] || _fm_pr_poll_dir=.
+if [ -f "$_fm_pr_poll_dir/fm-gh-etag-lib.sh" ] && [ ! -L "$_fm_pr_poll_dir/fm-gh-etag-lib.sh" ]; then
+  # shellcheck source=bin/fm-gh-etag-lib.sh
+  . "$_fm_pr_poll_dir/fm-gh-etag-lib.sh"
+fi
 
 fm_pr_poll_epoch() {  # <iso8601>
   local ts=$1 epoch
@@ -45,11 +60,40 @@ print(int(datetime.datetime.fromisoformat(s).timestamp()))' "$ts" 2>/dev/null) |
   printf '%s\n' "$epoch"
 }
 
-# Print conflict or conflict-clear. Silence (no output, success) means the
-# conflict label is present but its age cannot be proved.
-fm_pr_poll_github_conflict() {  # <owner> <repo> <number>
-  local owner=$1 repo=$2 number=$3 raw line present='' labeled_at='' unlabeled_at=''
-  local now='' applied='' age='' query jqprog
+# Print the verdict for facts already in hand: conflict-clear, conflict:<ts>,
+# or nothing when the label's age cannot be proved.
+# fm_pr_poll_verdict <present> <labeled_at> <unlabeled_at>
+fm_pr_poll_verdict() {
+  local present=$1 labeled_at=$2 unlabeled_at=$3 now='' applied='' age=''
+  case "$present" in
+    false) printf '%s\n' conflict-clear; return 0 ;;
+    true) ;;
+    *) return 0 ;;
+  esac
+  if [ -z "$labeled_at" ] || { [ -n "$unlabeled_at" ] && [[ "$unlabeled_at" > "$labeled_at" ]]; }; then
+    return 0
+  fi
+  now=$(date -u +%s 2>/dev/null) || return 0
+  case "$now" in
+    ''|*[!0-9]*) return 0 ;;
+  esac
+  applied=$(fm_pr_poll_epoch "$labeled_at") || return 0
+  age=$((now - applied))
+  if [ "$age" -ge "$FM_PR_POLL_CONFLICT_MIN_AGE" ]; then
+    printf 'conflict:%s\n' "$labeled_at"
+  else
+    printf '%s\n' conflict-clear
+  fi
+}
+
+# Read the conflict label's presence and its latest labeled and unlabeled
+# times from the GraphQL timeline into FM_PR_POLL_PRESENT, _LABELED_AT and
+# _UNLABELED_AT. A failed read returns nonzero and sets nothing usable.
+fm_pr_poll_github_timeline() {  # <owner> <repo> <number>
+  local owner=$1 repo=$2 number=$3 raw line query jqprog
+  FM_PR_POLL_PRESENT=''
+  FM_PR_POLL_LABELED_AT=''
+  FM_PR_POLL_UNLABELED_AT=''
   query=$(cat <<'EOF'
 query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
   repository(owner: $owner, name: $repo) {
@@ -84,31 +128,102 @@ EOF
     -f query="$query" --jq "$jqprog") || return $?
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
-      present=*) present=${line#present=} ;;
-      labeled_at=*) labeled_at=${line#labeled_at=} ;;
-      unlabeled_at=*) unlabeled_at=${line#unlabeled_at=} ;;
+      present=*) FM_PR_POLL_PRESENT=${line#present=} ;;
+      labeled_at=*) FM_PR_POLL_LABELED_AT=${line#labeled_at=} ;;
+      unlabeled_at=*) FM_PR_POLL_UNLABELED_AT=${line#unlabeled_at=} ;;
     esac
   done <<EOF
 $raw
 EOF
-  case "$present" in
-    false) printf '%s\n' conflict-clear; return 0 ;;
-    true) ;;
-    *) return 0 ;;
-  esac
-  if [ -z "$labeled_at" ] || { [ -n "$unlabeled_at" ] && [[ "$unlabeled_at" > "$labeled_at" ]]; }; then
-    return 0
+}
+
+# Print conflict or conflict-clear. Silence (no output, success) means the
+# conflict label is present but its age cannot be proved.
+fm_pr_poll_github_conflict() {  # <owner> <repo> <number>
+  fm_pr_poll_github_timeline "$1" "$2" "$3" || return $?
+  fm_pr_poll_verdict "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
+}
+
+# The conditional-read cache directory, or failure when this run has no state
+# directory it can name. FM_STATE_OVERRIDE wins, then FM_HOME/state; the code
+# root is never guessed, because a secondmate home shares this code.
+fm_pr_poll_cache_dir() {
+  local state=${FM_STATE_OVERRIDE:-}
+  [ -n "$state" ] || { [ -n "${FM_HOME:-}" ] && state=$FM_HOME/state; }
+  [ -n "$state" ] && [ -d "$state" ] && [ ! -L "$state" ] || return 1
+  printf '%s/gh-etag\n' "$state"
+}
+
+# Facts for one open PR, stored beside its ETag: the tag they are valid for and
+# the label facts. Replayed only while the helper reports the same tag again
+# (a 304), which proves the pull request has not changed since they were read.
+fm_pr_poll_facts_read() {  # <file> <etag>
+  local file=$1 etag=$2 line tag='' ok=0
+  FM_PR_POLL_PRESENT=''
+  FM_PR_POLL_LABELED_AT=''
+  FM_PR_POLL_UNLABELED_AT=''
+  [ -f "$file" ] && [ ! -L "$file" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      etag=*) tag=${line#etag=} ;;
+      present=*) FM_PR_POLL_PRESENT=${line#present=} ;;
+      labeled_at=*) FM_PR_POLL_LABELED_AT=${line#labeled_at=} ;;
+      unlabeled_at=*) FM_PR_POLL_UNLABELED_AT=${line#unlabeled_at=}; ok=1 ;;
+    esac
+  done < "$file"
+  [ "$ok" = 1 ] && [ -n "$tag" ] && [ "$tag" = "$etag" ]
+}
+
+fm_pr_poll_facts_write() {  # <file> <etag> <present> <labeled_at> <unlabeled_at>
+  local file=$1 tmp
+  tmp="$file.tmp.$$"
+  { printf 'etag=%s\npresent=%s\nlabeled_at=%s\nunlabeled_at=%s\n' "$2" "$3" "$4" "$5" > "$tmp" \
+    && chmod 0600 "$tmp" && mv -f -- "$tmp" "$file"; } 2>/dev/null || rm -f -- "$tmp"
+}
+
+# The whole GitHub tick for one pull request: print merged, conflict:<ts>,
+# conflict-clear, or nothing. Nonzero means a read failed.
+fm_pr_poll_github() {  # <owner> <repo> <number> <url>
+  local owner=$1 repo=$2 number=$3 url=$4 dir='' key facts state='' present etag=''
+  if command -v jq >/dev/null 2>&1 && declare -F fm_gh_etag_get >/dev/null \
+     && dir=$(fm_pr_poll_cache_dir) \
+     && key="pr-poll.$owner.$repo.$number" \
+     && fm_gh_etag_get "$dir" "$key" "repos/$owner/$repo/pulls/$number"; then
+    etag=$FM_GH_ETAG_VALUE
+    facts="$dir/$key.facts"
+    if [ "$FM_GH_ETAG_STATUS" = 304 ] && fm_pr_poll_facts_read "$facts" "$etag"; then
+      # Nothing about the pull request changed since these facts were proved,
+      # so only the clock can move the verdict.
+      fm_pr_poll_verdict "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
+      return 0
+    fi
+    state=$(jq -r 'if .merged == true then "MERGED" elif .state == "open" then "OPEN" elif .state == "closed" then "CLOSED" else "" end' \
+      "$FM_GH_ETAG_BODY" 2>/dev/null) || state=''
+    case "$state" in
+      MERGED) printf '%s\n' merged; return 0 ;;
+      CLOSED) return 0 ;;
+      OPEN)
+        present=$(jq -r 'if (.labels | type) == "array" then (.labels | map(.name) | index("conflict") != null | tostring) else "" end' \
+          "$FM_GH_ETAG_BODY" 2>/dev/null) || present=''
+        case "$present" in
+          false)
+            fm_pr_poll_facts_write "$facts" "$etag" false '' ''
+            printf '%s\n' conflict-clear
+            return 0 ;;
+          true)
+            fm_pr_poll_github_timeline "$owner" "$repo" "$number" || return $?
+            fm_pr_poll_facts_write "$facts" "$etag" "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
+            fm_pr_poll_verdict "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
+            return 0 ;;
+        esac ;;
+    esac
+    # An unreadable REST answer falls through to the original reads.
   fi
-  now=$(date -u +%s 2>/dev/null) || return 0
-  case "$now" in
-    ''|*[!0-9]*) return 0 ;;
-  esac
-  applied=$(fm_pr_poll_epoch "$labeled_at") || return 0
-  age=$((now - applied))
-  if [ "$age" -ge "$FM_PR_POLL_CONFLICT_MIN_AGE" ]; then
-    printf 'conflict:%s\n' "$labeled_at"
-  else
-    printf '%s\n' conflict-clear
+  state=$(gh pr view "$url" --json state -q .state) || return $?
+  if [ "$state" = MERGED ]; then
+    printf '%s\n' merged
+  elif [ "$state" = OPEN ]; then
+    fm_pr_poll_github_conflict "$owner" "$repo" "$number" || return $?
   fi
 }
 
@@ -164,12 +279,7 @@ case "$provider" in
       .|..|*[!A-Za-z0-9._-]*) exit 0 ;;
     esac
     [ "$url" = "https://github.com/$owner/$repo/pull/$number" ] || exit 0
-    state=$(gh pr view "$url" --json state -q .state) || exit $?
-    if [ "$state" = MERGED ]; then
-      printf '%s\n' merged
-    elif [ "$state" = OPEN ]; then
-      fm_pr_poll_github_conflict "$owner" "$repo" "$number" || exit $?
-    fi
+    fm_pr_poll_github "$owner" "$repo" "$number" "$url" || exit $?
     ;;
   gitlab)
     [ "${#host}" -ge 1 ] && [ "${#host}" -le 253 ] || exit 0

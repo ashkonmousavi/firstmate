@@ -3543,7 +3543,7 @@ EOF
               && fm_pr_poll_snapshot_capture "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh" || exit 1
             pr_poll_publish_release || exit 1
           fi
-          run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
+          FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
             "$provider" "$url" "$host" "$path" "$number" || exit 1
           if [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
             echo "watcher: PR poll for $id failed (exit status $FM_CHECK_EXIT_STATUS)" >&2

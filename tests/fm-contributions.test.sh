@@ -143,6 +143,28 @@ case "$*" in
     printf '[{"check_runs":[{"name":"test","id":1,"status":"completed","conclusion":"success","started_at":"2026-09-16T08:00:00Z"}]}]\n' ;;
   'api repos/o/r/commits/'*'/statuses?'*) printf '[[]]\n' ;;
   'api repos/o/r') printf '{"permissions":{"push":false}}\n' ;;
+  'api -i '*)
+    # The conditional-read protocol over the same fixtures: the real gh prints
+    # headers, then the body, and exits 1 on a 304. The ETag is a hash of the
+    # body, so a changed fixture yields a new tag and an unchanged one a 304.
+    inm=''; ep=''
+    shift
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        -i) shift ;;
+        -H) inm=${2#If-None-Match: }; shift 2 ;;
+        *) ep=$1; shift ;;
+      esac
+    done
+    body=$("$0" api "$ep") || exit 1
+    # A paged fixture is printed slurped ([page]); one page's body is page one.
+    case "$ep" in *per_page*) body=$(printf '%s' "$body" | jq -c '.[0]') ;; esac
+    tag="\"$(printf '%s' "$body" | sha256sum | cut -c1-16)\""
+    if [ "$inm" = "$tag" ]; then
+      printf 'HTTP/2.0 304 Not Modified\r\nEtag: %s\r\n\r\n' "$tag"
+      exit 1
+    fi
+    printf 'HTTP/2.0 200 OK\r\nEtag: %s\r\n\r\n%s\n' "$tag" "$body" ;;
   *) printf 'unexpected gh fixture call: %s\n' "$*" >&2; exit 1 ;;
 esac
 SH
@@ -151,7 +173,7 @@ SH
 
 with_home() {
   local home=$1; shift
-  PATH="$home/fakebin:$PATH" FORGE="$home/forge" HEAD_A="$HEAD_A" \
+  PATH="$home/fakebin:$PATH" FORGE="$home/forge" HEAD_A="$HEAD_A" FM_GH_CONDITIONAL="${FM_GH_CONDITIONAL:-0}" \
     FM_HOME="$home" FM_ROOT_OVERRIDE="$home/root" FM_STATE_OVERRIDE="$home/state" \
     FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
     FM_CONTRIBUTIONS_NOW="$NOW" "$@"
@@ -1645,8 +1667,46 @@ test_many_reviews_stay_readable() {
   pass 'a many-review PR stores only classified review fields and stays readable'
 }
 
+# The 304 path: after one full observation, an unchanged PR is re-read with
+# every conditional endpoint answering 304 and no unconditional forge read at
+# all, and a changed endpoint (a new maintainer comment) still surfaces.
+test_conditional_reads_replay_unchanged_forge() {
+  local home calls
+  export FM_GH_CONDITIONAL=1
+  home=$(new_home conditional-reads)
+  forge_home "$home"
+  wrap_forge "$home"
+  with_home "$home" "$ROOT/bin/fm-pr-check.sh" delivery https://github.com/o/r/pull/8 >/dev/null \
+    || fail 'could not register the owned delivery'
+  : > "$home/forge/calls"
+  registered_checks "$home" >/dev/null
+  calls="$home/forge/calls"
+  [ "$(grep -c '^api -i ' "$calls")" -eq 7 ] || fail "first poll made $(grep -c '^api -i ' "$calls") conditional reads, expected 7"
+  ! grep -q 'If-None-Match' "$calls" || fail 'the first poll sent a tag it could not have'
+  ! grep -q '^api repos/' "$calls" || fail 'the first poll fell back to an unconditional read'
+  jq -e '.records[0].observation.head != null and (.records[0].error // null) == null' \
+    "$home/data/delivery/contributions.json" >/dev/null || fail 'the first conditional poll did not observe the PR'
+  : > "$calls"
+  registered_checks "$home" >/dev/null
+  [ "$(grep -c '^api -i ' "$calls")" -eq 7 ] || fail 'second poll changed its read count'
+  [ "$(grep -c 'If-None-Match' "$calls")" -eq 7 ] || fail 'second poll did not send a tag on every read'
+  ! grep -q '^api repos/' "$calls" || fail 'second poll made an unconditional read of an unchanged PR'
+  [ "$(grep -c '^pr view .*reviewDecision' "$calls")" -eq 1 ] || fail 'second poll made more than the one head recheck'
+  jq -e '.records[0].observation.head != null and (.records[0].error // null) == null' \
+    "$home/data/delivery/contributions.json" >/dev/null || fail 'a 304 poll lost the observation'
+  jq -n '[{id:12,user:{login:"maintainer"},author_association:"OWNER",body:"Please clarify",
+    html_url:"https://github.com/o/r/pull/8#issuecomment-12",updated_at:"2026-09-16T08:01:00Z"}]' \
+    > "$home/forge/comments.json"
+  : > "$calls"
+  registered_checks "$home" >/dev/null
+  [ "$(grep -c 'If-None-Match' "$calls")" -eq 7 ] || fail 'third poll stopped sending tags'
+  jq -e '.records[0].pending | length == 1' "$home/data/delivery/contributions.json" >/dev/null \
+    || fail 'a changed endpoint behind a 304 cache was not surfaced'
+  pass 'unchanged PRs are re-read on 304 without a single unconditional read, and a changed endpoint still surfaces'
+}
+
 failures=0
-for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_unsupported_poll_is_silent_and_clears_legacy_errors test_legacy_cleanup_preserves_supported_failure test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_http_500_once_retries_without_waking test_http_500_twice_records_the_failed_read test_http_404_is_not_retried test_real_gh_errors_drive_retry_and_summary test_next_url_does_not_inherit_a_forge_diagnostic test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_retire_ends_observation_of_a_gone_contribution test_late_owner_of_a_retired_final_contribution_is_not_retired test_retire_is_idempotent_and_refuses_unknown_pairs test_many_reviews_stay_readable; do
+for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_unsupported_poll_is_silent_and_clears_legacy_errors test_legacy_cleanup_preserves_supported_failure test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_http_500_once_retries_without_waking test_http_500_twice_records_the_failed_read test_http_404_is_not_retried test_real_gh_errors_drive_retry_and_summary test_next_url_does_not_inherit_a_forge_diagnostic test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_retire_ends_observation_of_a_gone_contribution test_late_owner_of_a_retired_final_contribution_is_not_retired test_retire_is_idempotent_and_refuses_unknown_pairs test_many_reviews_stay_readable test_conditional_reads_replay_unchanged_forge; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
 [ "$failures" -eq 0 ] || fail "$failures contribution regressions"

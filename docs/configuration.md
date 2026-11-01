@@ -96,6 +96,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Unwatched conflicted pull-request episode markers under `state/pr-orphan-conflict/`, written only by `bin/fm-pr-orphan-sweep.sh`.
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 - Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
+- Conditional GitHub read caches under `state/gh-etag/` (ETag, last body, and the PR poll's stored label facts per poll) and the allowance check's `state/.gh-rate-check`, written only by `bin/fm-gh-etag-lib.sh` and `bin/fm-gh-rate-check.sh` and their callers; both are rebuildable.
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -853,6 +854,24 @@ Budget overrun, unsafe or unreadable inputs, missing required tracked owner file
 That one line goes out through the shared per-line digest cut, so an over-long finding set carries the repo's `[truncated]` marker instead of ending mid-finding, while deduplication keeps comparing the full uncapped set.
 Older bulk learning files remain reference-only; this monitor neither loads nor merges them.
 A reported review need is only a recommendation, not cleanup authority.
+
+## GitHub allowance (conditional reads and the rate check)
+
+Every request from the fleet's one personal token, on every machine and worker, spends the same 5,000-per-hour GitHub core budget, and GraphQL has its own 5,000-point budget.
+GitHub does not count a conditional request that answers `304 Not Modified`, so the remaining polls send the ETag they last saw.
+[`bin/fm-gh-etag-lib.sh`](../bin/fm-gh-etag-lib.sh) is the one helper: it stores the tag and last body per poll under `state/gh-etag/`, and its header owns the result variables, return codes, and the refusal of page-spanning lists.
+The pull-request poll (`bin/fm-pr-poll.sh`), the orphan conflict sweep (`bin/fm-pr-orphan-sweep.sh`), and the contribution poll (`bin/fm-contributions.sh`) use it; each falls back to its original unconditional read when the helper declines or a read fails.
+`FM_GH_CONDITIONAL=0` turns conditional reads off everywhere.
+
+[`bin/fm-gh-rate-check.sh`](../bin/fm-gh-rate-check.sh) watches what is left.
+`gh api rate_limit` is free, and the check reads core and GraphQL remaining at most every five minutes.
+It wakes once per budget window, separately for core and GraphQL, when less than 25 percent remains (`FM_GH_RATE_THRESHOLD` changes the percent).
+A main home gets an ordinary `check:` wake; a secondmate home publishes a keyed `blocked` line on its parent channel and closes it with `resolved` when the allowance recovers.
+`bin/fm-gh-rate-check.sh report` prints both remaining values on demand without touching the check's record.
+
+Arm it once per home, in that home's own `FM_HOME`; `disarm` removes it.
+On a machine whose home is `<home>`, run `FM_HOME=<home> <home-code-root>/bin/fm-gh-rate-check.sh arm`, then `FM_HOME=<home> <home-code-root>/bin/fm-gh-rate-check.sh report` to confirm it can read the allowance.
+Registering it is a reason to watch on the same terms as the [daily startup growth check](#daily-startup-growth-check).
 
 ## Walk-request carrier
 
