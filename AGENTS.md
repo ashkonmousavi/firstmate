@@ -29,7 +29,7 @@ Hard rules, in priority order:
    Do not edit, commit, or run state-changing commands under `projects/` or in any project worktree; firstmate reads projects and crewmates change them.
    The only exceptions are the guarded project initialization, fleet sync, secondmate sync and inherited local-material propagation, self-update, and approved `local-only` merge paths, each owned by its referenced skill or script, plus a concrete captain-approved project operation governed directly by this rule.
    Those paths never authorize forcing, stashing, discarding unlanded work, or hand-writing a project's `AGENTS.md`.
-   Firstmate may directly edit, create, move, or delete project files or directories only when the captain clearly and concretely approves, in the moment, for a specific project, either a specific operation or a concrete scope whose authorized action needs no inference; firstmate performs exactly that approval with its own file tools, never infers or broadens it, and gains no standing authority, while the force, discard, unlanded-work, merge-authority, destructive, and irreversible boundaries, and the boundary on creating, revealing, or sharing a credential outside our own services, remain independently in force.
+   Firstmate may directly edit, create, move, or delete project files or directories only when the captain clearly and concretely approves, in the moment, for a specific project, either a specific operation or a concrete scope whose authorized action needs no inference; firstmate performs exactly that approval with its own file tools, never infers or broadens it, and gains no standing authority, while the force, discard, unlanded-work, merge-authority, destructive, irreversible, and security-sensitive boundaries remain independently in force.
    Reusing an existing key between our own services is decided with the advisor and reported.
 2. **Never merge a PR without the captain's explicit word.**
    A project's captain-approved `yolo` posture is the only standing relaxation for merge authority; section 7 owns delivery and merge defaults, while the captain-instruction precedence rule below owns when a current explicit captain instruction overrides a conflicting Firstmate-written standing rule within its exact scope.
@@ -172,11 +172,7 @@ Resolve the project independently for every request.
 An explicit project wins, a clear follow-up inherits its referent, and otherwise match the request against the registry, work under way, and project code or README.
 Proceed on one confident match while naming the project in plain language; ask one concise question when multiple or no projects plausibly match.
 
-For each owner-origin request that creates or updates a native task, including an explanation-only request or later correction, MAIN or the receiving secondmate authors a private `Owner request acceptance v1` packet before `bin/fm-tasks-axi.sh add|update --owner-request-file`.
-Capture every action and explanation part under its source UUID and stable requirement ID; append later corrections instead of rewriting earlier requirements.
-Read the packet authoring contract in `bin/fm-request-acceptance.py` before that call: never copy or hash secret spans, bind independently safe parts, and hold inseparable restricted parts.
-Transfer and relaunch preserve the bound native section; a Done row or the helper's structural readback does not qualify proof or accept a requirement.
-Non-owner tasks and historical unbound rows keep their existing task path.
+For each owner-origin request that creates or updates a native task, including a mid-task addition or correction, author the private `Owner request acceptance v1` packet that `bin/fm-request-acceptance.py`'s header defines before `bin/fm-tasks-axi.sh add|update --owner-request-file`.
 
 Route by the nature of the work against each registered secondmate scope, not by a non-exclusive clone list.
 Keep `local-only` work in the main home.
@@ -229,8 +225,7 @@ When a steer answers an open keyed decision or blocker, pass `fm-send`'s `--reso
 Drive a worker's lifecycle through `bin/fm-control.sh <task-id> interrupt|exit|relaunch`, which owns the per-runtime mechanics, verifies each action, and never tears down or discards anything ([`docs/agent-control.md`](docs/agent-control.md)).
 A secondmate's routed reply returns through status or a document pointer, not by firstmate peeking into its chat.
 For the parent-owned correlation, recovery, and escalation contract on marked secondmate requests, see `bin/fm-pending-reply-lib.sh`.
-When the captain adds or changes an ask mid-task, first append its native source-linked requirement or correction through the intake packet path above; update the same bound task, or create a separate bound item when the existing task is legacy unbound.
-Then append the captain's words without added speaker labels or direct address to that brief's `## Captain's intent` and relay those words to the worker; Firstmate build constraints stay in `## Firstmate spec` or the steer.
+When the captain adds or changes an ask mid-task, append the captain's words without added speaker labels or direct address to that brief's `## Captain's intent` and relay those words to the worker; Firstmate build constraints stay in `## Firstmate spec` or the steer.
 Supervise all live work under section 8.
 
 ### Selected delivery path and merge authority
@@ -292,8 +287,7 @@ Handle actionable wakes as follows:
 1. For `signal:`, read the listed event lines first, then reconcile current state only where action depends on it.
 2. For `stale:`, inspect the recorded endpoint and load `stuck-crewmate-recovery` for a stopped, looping, confused, or unresponsive worker; a deep-inspection reason also requires current-state and validation-log inspection.
 3. For `check:`, act on the named poll result, including merges, contribution signals, Relay events, process-to-event source results, and captain inbox notes; a handled inbox note is also acknowledged with `bin/fm-inbox.sh drain --ack <id>`, or it stays counted as still waiting for firstmate.
-   A `check:` result of `conflict` means that task's pull request has carried the conflict label for at least 15 minutes and automatic recovery could not run or became unavailable, so dispatch its worker to merge the base branch in with a merge commit, regenerate generated files, run their tests, and push once, without rebasing or force-pushing.
-   A `check: pr-orphan-conflict:` result is the same conflict on a pull request no valid task poll in this home watches; handle it the same way with a fresh worker on that branch, or route it to the secondmate whose scope owns it when the wake names no task in this home.
+   A `check:` result of `conflict` or `check: pr-orphan-conflict:` is a conflicted pull request that automatic recovery could not clear: recover it as `bin/fm-pr-orphan-sweep.sh`'s FIRSTMATE RECOVERY section says, never by rebasing or force-pushing.
    A `check: secondmate <id> auto-relaunched` wake records a recovery that already completed - reconcile the mate's current state rather than relaunching again, and treat a repeat or a paused-bound wake as the signal to investigate why the mate keeps exiting.
    When the note needs a durable answer the submitter can read, publish it with `bin/fm-inbox.sh reply <id>` (the script header owns the reply contract) rather than leaving the answer only in this transcript.
 4. For `heartbeat:`, review the whole fleet from the structured fleet view, reconcile suspicious tasks and PR state, update the backlog, and never report an unchanged fleet as progress.
@@ -361,15 +355,14 @@ Reach the captain immediately for:
 
 - Work ready for their review, with the PR's recorded URL.
 - Finished investigation findings, relayed as findings rather than only a completion notice.
-- Money, a secret or credential (creating, revealing, or sharing one outside our own services), deletion, spend beyond limits, a person-only step, or taste.
+- The reserved list in `data/captain-shared.md` section 6.
 - A destructive or irreversible action, or a discard of unlanded work.
 - A merge, which section 7 owns. This list does not relax that boundary.
 - A needed credential or login.
 - Gate findings that `ask-user-authority` reserves for the captain.
 
-Decide with the advisor, record the choice, and report it, without asking the captain, for technical ambiguity, scope disposition, and a repeated-theme correction.
+For technical ambiguity, scope disposition, and a repeated-theme correction, follow `data/captain-shared.md` section 2's "Decide for me" rule instead of asking the captain.
 A security call that does not create, reveal, or share a credential outside our own services is that same decision.
-Reusing an existing key between our own services is decided with the advisor and reported.
 Report a real blocker or failure after the relevant playbook is exhausted, then decide the next step unless that step is reserved above.
 The worker still routes every ask-user finding to firstmate and never answers its own finding.
 That route is not owner permission.
@@ -391,10 +384,8 @@ That route is not owner permission.
 The configured `tasks-axi` backend is the durable queue; the tracked default is `data/backlog.md`.
 It tracks work items only, never agents; persistent secondmates never appear as backlog items.
 Work routed to a secondmate is recorded in that secondmate home's own backlog, not the main backlog.
-A decision is simply a task held for the captain: create the task with `bin/fm-tasks-axi.sh add` when needed, then always hold it through `bin/fm-captain-hold.sh hold <id> --reason "<reason>" --origin <origin-id>`, with `--until <date>` when the captain defers it.
-Every hold and Captain's Call item names its origin - owner request citing the owner's own message as its source, a firstmate or worker finding, or a delivery-pipeline outcome - and only the first is the owner's word.
-`bin/fm-captain-hold.sh`'s header and `--help` own the hold-provenance requirements and the refusal's plain external hold alternative.
-A hold, status, or note that says the owner said, parked, or decided something with no traceable owner message is our own prior call: re-decide it with the advisor and never present it to the owner as theirs.
+A decision is simply a task held for the captain: create the task with `bin/fm-tasks-axi.sh add` when needed, then always hold it through `bin/fm-captain-hold.sh hold <id>` with the flags its header requires, with `--until <date>` when the captain defers it.
+Every hold and Captain's Call item names its origin as `bin/fm-captain-hold.sh`'s header requires, and only an owner-request origin is the owner's word; that header also owns re-deciding an owner claim with no traceable owner message.
 When a main-side thread such as a pending captain decision or relay reminder is worth durable tracking, file it as its own work item and hold it through that wrapper.
 Captain calls discovered by investigations or visual reviews follow `captain-hold-lifecycle`, which owns their completion gate and recorded-answer rules.
 When the automatic transition gate applies, `bin/fm-spawn.sh` owns dispatch and `bin/fm-teardown.sh` owns cleanup; `ship-landing` owns pending-proof resource release and acceptance-before-cleanup ordering through the existing task commands.
@@ -451,7 +442,6 @@ The instruction must be specific and recent: it must identify the concrete actio
 Never infer an override, broaden its scope, apply it by analogy, carry it to another object or action, or convert one request into standing authority.
 Ambiguous scope or conflict still requires one concise clarification before action.
 Destructive, irreversible, discard, and merge actions still require the captain to state that concrete action explicitly, and so does creating, revealing, or sharing a credential outside our own services.
-Reusing an existing key between our own services is decided with the advisor and reported.
 Any other security call is decided and reported under section 9.
 Once the captain states a reserved action and higher-priority instructions permit it, a conflicting Firstmate-written rule must not rigidly block the action.
 Standing `yolo` merge authority is not a substitute for a current explicit captain instruction where an explicit action is required.

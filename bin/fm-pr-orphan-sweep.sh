@@ -53,6 +53,22 @@
 # Markers survive temporary poll coverage, label removal, listing omissions,
 # and failed reads; only a wake for a different timestamp replaces a marker.
 #
+# FIRSTMATE RECOVERY. This is the one home of what firstmate does on a
+# conflict wake, for both forms: a task poll's `check:` result of `conflict`
+# and this sweep's `check: pr-orphan-conflict:`. Either means the pull request
+# has carried the conflict label for at least 15 minutes and automatic recovery
+# could not run or became unavailable. Recover it in that wake:
+#   1. Dispatch the worker: the task's own worker for `conflict`; for
+#      `pr-orphan-conflict`, a fresh worker on that branch, or, when the wake
+#      names no task in this home, route it to the secondmate whose scope owns it.
+#   2. The worker merges the base branch in with a merge commit.
+#   3. It regenerates generated files.
+#   4. It runs their tests.
+#   5. It pushes once.
+# Rebasing and force-pushing stay out of this recovery.
+# fm_pr_conflict_instruction in bin/fm-pr-lib.sh writes the same steps as the
+# automatic worker steer.
+#
 # DETECT AND WAKE ONLY. Nothing here comments on, labels, merges, rebases, or
 # pushes a pull request, and nothing steers or relaunches a worker.
 #

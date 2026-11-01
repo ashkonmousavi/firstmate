@@ -68,6 +68,9 @@
 # For finding, pipeline-outcome, or omitted attribution, `--origin`, a recorded
 # `Captain hold origin:`, or a validated acceptance section suffices.
 # An origin identifies the work that raised the call, not an owner message.
+# A hold, status, or note that says the owner said, parked, or decided something
+# with no traceable owner message is our own prior call: re-decide it with the
+# advisor and never present it to the owner as theirs.
 # The refusal names the plain external hold described above.
 # The reason may hold
 # parentheses and line breaks:
