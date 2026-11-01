@@ -267,7 +267,10 @@ while IFS= read -r -d '' a; do rargs+=("$a"); done < <(decode "$argv_b64")
 case "${rargs[1]:-}" in
   # The host lands on the target the parent handed it; this host predates the
   # instr= suffix, so it reports the commit alone.
-  update) printf 'synced: %s\n' "${rargs[4]:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}" ;;
+  update)
+    printf 'pr-poll-rearm: home=/srv/sm1 task=held could-not-rearm reason=missing-copy\n'
+    printf 'synced: %s\n' "${rargs[4]:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}"
+    ;;
   state) printf 'alive\n' ;;
   *) exit 91 ;;
 esac
@@ -295,6 +298,7 @@ EOF
     "a live remote mate on the new tip must restart even when the host reports no instruction diff"
   assert_contains "$out" "nudge-secondmates: none" \
     "a restarted remote mate must not also be steered"
+  assert_contains "$out" 'pr-poll-rearm: home=/srv/sm1 task=held could-not-rearm reason=missing-copy' "remote failure omitted from parent summary"
   pass "T3e a legacy remote advance still restarts the live remote mate"
 }
 
@@ -836,6 +840,78 @@ SH
   pass "a status-2 host is reported for manual update without an unpinned retry or mutation"
 }
 
+# Run real poll publication and validation around a fake home's update. The
+# old program is legitimate but no longer in the installed program allowlist.
+test_update_rearms_pr_polls() {
+  local w out home id identity
+  w=$(new_world poll-rearm)
+  printf 'state/\ndata/\nconfig/\n.fm-secondmate-home\n' > "$w/seed/.gitignore"
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/seed/bin/fm-pr-poll.sh"
+  printf '# earlier program\n' >> "$w/seed/bin/fm-pr-poll.sh"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm old-poll
+  git -C "$w/seed" push -q origin main
+  git -C "$w/main" pull -q origin main
+  add_sm "$w" sleeper
+  mkdir -p "$w/sleeper/state"
+  # A registry-only home with no live endpoint is covered as well.
+  rm "$w/home/state/sleeper.meta"
+  printf -- '- sleeper - offline mate (home: %s; scope: things; projects: p; added 2026-09-03)\n' "$w/sleeper" > "$w/home/data/secondmates.md"
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-pr-lib.sh"
+  for home in "$w/home" "$w/sleeper"; do
+    for id in ready refused tampered; do
+      printf 'kind=ship\nmode=no-mistakes\npr=https://github.com/o/r/pull/1\n' > "$home/state/$id.meta"
+      fm_pr_poll_prepare "$home/state" "$id" github https://github.com/o/r/pull/1 github.com o/r 1 "$w/main/bin/fm-pr-poll.sh" || fail "prepare old poll"
+      fm_pr_poll_publish_prepared || fail "publish old poll"
+    done
+    printf '# modified outside the record owner\n' >> "$home/state/tampered.check.sh"
+    printf '#!/usr/bin/env bash\nprintf untouched\n' > "$home/state/custom.check.sh"
+    chmod 0700 "$home/state/custom.check.sh"
+    FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" custom > /dev/null || fail "register custom check"
+  done
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/seed/bin/fm-pr-poll.sh"
+  # The fixture record owner publishes real authenticated artifacts. Only the
+  # unrelated forge/readiness preconditions are stubbed at this boundary.
+  cat > "$w/seed/bin/fm-pr-check.sh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+. "$FM_TEST_PR_LIB"
+[ "$1" != refused ] || { echo 'error: worker copy is missing' >&2; exit 1; }
+fm_pr_url_parse "$2"
+fm_pr_poll_prepare "$FM_STATE_OVERRIDE" "$1" "$FM_PR_PROVIDER" "$FM_PR_URL" "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" "$FM_ROOT_OVERRIDE/bin/fm-pr-poll.sh"
+fm_pr_poll_publish_prepared
+SH
+  chmod +x "$w/seed/bin/fm-pr-check.sh"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm new-poll
+  git -C "$w/seed" push -q origin main
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" run_update "$w")
+  for home in "$w/home" "$w/sleeper"; do
+    fm_pr_poll_artifacts_valid "$home/state" ready "$w/main/bin/fm-pr-poll.sh" || fail "updated home has a dead merge watch: $home; update output: $out"
+    if fm_pr_poll_artifacts_valid "$home/state" refused "$w/main/bin/fm-pr-poll.sh"; then fail "refused poll was trusted"; fi
+    assert_present "$home/state/refused.check.sh" "failed re-arm deleted the poll"
+    assert_contains "$out" "home=$home task=tampered could-not-rearm reason=unauthenticated-poll-generation" "tampered check was re-trusted"
+    assert_present "$home/state/custom.check-trust" "custom trust changed"
+    assert_contains "$out" "home=$home task=refused" "summary omitted a failed re-arm"
+    assert_contains "$(cat "$home/state/custom.check.sh")" untouched "custom check changed"
+  done
+  identity=$(fm_pr_file_identity "$w/home/state/ready.check.sh")
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" run_update "$w")
+  [ "$(fm_pr_file_identity "$w/home/state/ready.check.sh")" = "$identity" ] || fail "current valid poll was rewritten"
+  assert_contains "$out" "home=$w/home task=refused" "current home did not retry failed migration"
+  # Drive the real host-local remote update path with no endpoint or harness
+  # lifecycle operations. Both code-root and remote-home diagnostics must survive.
+  mkdir -p "$w/main/state"
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" FM_HOME="$w/sleeper" FM_ROOT_OVERRIDE="$w/main" \
+    FM_STATE_OVERRIDE="$w/home/state" FM_CONFIG_OVERRIDE="$w/home/config" \
+    "$ROOT/bin/fm-remote-secondmate-control.sh" update sleeper main "$(git -C "$w/main" rev-parse HEAD)" 2>&1) || fail "remote update failed: $out"
+  assert_contains "$out" "home=$w/main rearmed=0 left=0" "remote code-root summary or override scoping lost"
+  assert_contains "$out" "home=$w/sleeper task=refused" "remote home failure lost"
+  assert_contains "$out" "current:" "remote update result lost"
+  pass "update refreshes primary, registry and remote polls, preserves custom checks and names failures"
+}
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
@@ -857,5 +933,7 @@ test_remote_steps_are_bounded
 test_remote_commit_mismatch_is_skipped
 test_unresolved_target_leaves_all_homes_untouched
 test_legacy_host_rejects_pinned_update_without_advancing
+
+test_update_rearms_pr_polls
 
 echo "# all fm-update tests passed"

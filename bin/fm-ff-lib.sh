@@ -554,7 +554,10 @@ FF_SEEN_HOMES=""
 # firstmate repo itself (FM_ROOT) is never processed as its own secondmate, and
 # each resolved home is processed at most once.
 #
-# Two optional caller hooks fire from here, each at most once per resolved home:
+# Optional caller hooks fire from here, each at most once per resolved home:
+#   fm_ff_after_secondmate_updated <id> <home> <status>
+#     for each safely settled home, including registry-only homes without a
+#     live window; used for update-time generated-artifact refresh.
 #   fm_ff_after_instruction_update <id> <home> <window> <instr>
 #     the nudge-shaped hook: only for an advance that changed the instruction
 #     surface, and only under nudge_requires_instr=yes.
@@ -585,6 +588,10 @@ process_secondmate() {
   FF_SEEN_HOMES="$FF_SEEN_HOMES $home_real"
 
   ff_target "$home_real" "secondmate $id" "$base_mode" yes yes "$id" "${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+  if { [ "$FF_STATUS" = updated ] || [ "$FF_STATUS" = current ]; } \
+    && type fm_ff_after_secondmate_updated >/dev/null 2>&1; then
+    fm_ff_after_secondmate_updated "$id" "$home_real" "$FF_STATUS"
+  fi
   if [ -n "$window" ] && { [ "$FF_STATUS" = "updated" ] || [ "$FF_STATUS" = "current" ]; } \
     && type fm_ff_after_secondmate_settled >/dev/null 2>&1; then
     fm_ff_after_secondmate_settled "$id" "$home_real" "$window" "$FF_STATUS" "$FF_INSTR"

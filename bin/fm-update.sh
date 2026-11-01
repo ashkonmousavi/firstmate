@@ -65,6 +65,12 @@
 # fm-procevent-when.sh rebind-all to republish those bindings against the new
 # bytes; a failure there is swallowed rather than failing the update.
 #
+# Successful primary and secondmate updates also refresh PR poll generations
+# through fm-pr-check-rearm.sh. A failed re-arm preserves its poll and prints
+# one pr-poll-rearm: line naming its home, task and reason, including remote
+# homes. Already-current homes retry unfinished refreshes without rewriting
+# polls that already authenticate. Custom checks are never re-registered.
+#
 # Each remote step is bounded, so one unreachable or wedged host cannot hold the
 # whole update: the remote update step gets FM_UPDATE_REMOTE_UPDATE_SECONDS
 # (default 300) and the remote agent-state read FM_UPDATE_REMOTE_STATE_SECONDS
@@ -152,6 +158,11 @@ if [ "$FF_STATUS" = "updated" ]; then
   FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" "$SCRIPT_DIR/fm-procevent-when.sh" rebind-all || true
 fi
 
+if [ "$FF_STATUS" = updated ] || [ "$FF_STATUS" = current ]; then
+  FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \
+    "$SCRIPT_DIR/fm-pr-check-rearm.sh" || true
+fi
+
 # --- secondmates -----------------------------------------------------------
 # Every live secondmate this pass leaves on the resolved target is restarted, whether it
 # advanced or was already there. The header above owns why the git diff does not
@@ -209,18 +220,17 @@ claim_settled_secondmate() {  # <id>
   fi
 }
 
-# bin/fm-ff-lib.sh calls this for each local home it left AT the base with a live
-# endpoint - status "updated" or "current" alike. A skipped home never gets here.
-fm_ff_after_secondmate_settled() {  # <id> <home> <window> <status> <instr>
-  # Same bin/-changed-out-from-under-a-watch problem as the primary home
-  # above, for a local secondmate's own worktree; "current" means bin/ did
-  # not move there this pass, so there is nothing to rebind. Run the
-  # secondmate's OWN copy of the script, explicitly overriding FM_ROOT to its
-  # own worktree rather than letting an outer FM_ROOT_OVERRIDE (this process's
-  # own, if the caller set one) leak into the child and misscope it.
-  if [ "${4:-}" = "updated" ] && [ -x "$2/bin/fm-procevent-when.sh" ]; then
-    FM_HOME="$2" FM_ROOT_OVERRIDE="$2" "$2/bin/fm-procevent-when.sh" rebind-all || true
+# bin/fm-ff-lib.sh calls this for each safely settled local home, including
+# registry-only homes without a live endpoint. Skipped homes never get here.
+fm_ff_after_secondmate_updated() {  # <id> <home> <status>
+  if [ "$3" = updated ] && [ -x "$2/bin/fm-procevent-when.sh" ]; then
+    FM_HOME="$2" FM_ROOT_OVERRIDE="$2" FM_STATE_OVERRIDE="$2/state" "$2/bin/fm-procevent-when.sh" rebind-all || true
   fi
+  FM_HOME="$2" FM_ROOT_OVERRIDE="$2" FM_STATE_OVERRIDE="$2/state" \
+    "$SCRIPT_DIR/fm-pr-check-rearm.sh" || true
+}
+
+fm_ff_after_secondmate_settled() {  # <id> <home> <window> <status> <instr>
   claim_settled_secondmate "$1"
 }
 
@@ -254,6 +264,7 @@ if [ -f "$SECONDMATES_MD" ]; then
       remote_rc=0
       remote_update_step "$id" || remote_rc=$?
       remote_out=$REMOTE_UPDATE_OUT
+      printf '%s\n' "$remote_out" | sed -n '/^pr-poll-rearm:/p'
       if [ "$remote_rc" -ne 0 ] && fm_timed_out "$remote_rc"; then
         echo "remote secondmate $id: skipped on $SECONDMATE_REGISTRY_HOST: update step timed out after ${REMOTE_UPDATE_SECONDS}s" >&2
       elif [ "$remote_rc" -eq 2 ]; then
