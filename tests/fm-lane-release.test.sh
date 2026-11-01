@@ -1095,7 +1095,7 @@ extra_shim_survives_a_missing_arming_root() {
   FM_HOME="$dir/home" "$LR" arm >/dev/null
   shim="$dir/home/state/lane-release.check.sh"
   # The arming root loses the script: the shim must say so and exit 1, never 127.
-  sed -i 's#^pinned=.*#pinned=/nonexistent/fm-lane-release.sh#' "$shim"
+  sed -i.bak 's#^pinned=.*#pinned=/nonexistent/fm-lane-release.sh#' "$shim"
   out=$(bash "$shim" 2>&1); rc=$?
   expect_code 1 "$rc" "a shim with no script anywhere should exit 1"$'\n'"$out"
   assert_contains "$out" "no executable fm-lane-release.sh" "the shim should name the missing script"
