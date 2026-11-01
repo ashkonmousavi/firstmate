@@ -21,6 +21,9 @@
 # duplicate Cursor also loads, and this guard stands down.
 # See docs/turnend-guard.md for the per-harness mechanics, validation evidence,
 # and fail-open tradeoffs.
+# --state-claims adds the Claude-only lexical state-read check owned by
+# bin/fm-state-claim-guard.py, before the supervision predicate; the tracked
+# Claude Stop registration enables it in MAIN and secondmate homes.
 #
 # Ships with TRACKED harness hook files at the repo root, so this file is
 # checked out into every worktree of this repo: the primary checkout, every
@@ -100,6 +103,7 @@ GRACE=${FM_GUARD_GRACE:-300}
 WATCH="$SCRIPT_DIR/fm-watch.sh"
 CLAUDE_MODE=0
 CURSOR_MODE=0
+STATE_CLAIMS=0
 SYNC_WAIT_MS=${FM_CLAUDE_AUTOARM_SYNC_WAIT_MS:-800}
 EPOCH_FRESH=${FM_CLAUDE_AUTOARM_EPOCH_FRESH:-15}
 BLOCK_BUDGET=${FM_CLAUDE_TURNEND_BLOCK_BUDGET:-3}
@@ -111,7 +115,8 @@ for arg in "$@"; do
   case "$arg" in
     --claude) CLAUDE_MODE=1 ;;
     --cursor) CURSOR_MODE=1 ;;
-    *) echo "usage: $(basename "$0") [--claude|--cursor]" >&2; exit 2 ;;
+    --state-claims) STATE_CLAIMS=1 ;;
+    *) echo "usage: $(basename "$0") [--claude|--cursor] [--state-claims]" >&2; exit 2 ;;
   esac
 done
 
@@ -194,6 +199,14 @@ fi
 # checkout has the two equal. Child worktrees never carry the gitignored marker,
 # so this exempts them while guarding every real secondmate home.
 fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
+
+# Run inside the existing synchronous Stop hook so the EXIT trap remains the
+# sole secondmate busy-state writer. The async watcher hook stays independent.
+if [ "$CLAUDE_MODE" -eq 1 ] && [ "$STATE_CLAIMS" -eq 1 ] && command -v python3 >/dev/null 2>&1; then
+  claim_status=0
+  FM_STATE_OVERRIDE="$STATE" python3 "$SCRIPT_DIR/fm-state-claim-guard.py" <<< "$PAYLOAD" || claim_status=$?
+  [ "$claim_status" -ne 2 ] || exit 2
+fi
 
 # --- the actual predicate ----------------------------------------------------
 # shellcheck source=bin/fm-wake-lib.sh

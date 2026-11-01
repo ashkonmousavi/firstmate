@@ -299,7 +299,7 @@ family_for_basename() {
     fm-calm-claude-mod.test.sh|\
     fm-harness-adapter-references.test.sh|fm-project-mode.test.sh|\
     fm-send-popup-settle.test.sh|fm-send-settle.test.sh|\
-    fm-subagent-pretool-check.test.sh|\
+    fm-subagent-pretool-check.test.sh|fm-state-claim-guard.test.sh|\
     fm-supervision-instructions.test.sh|fm-task-delivery.test.sh|\
     fm-timeout-lib.test.sh|fm-curated-delivery-check.test.sh|\
     fm-tmux-submit-busy.test.sh|fm-trace-context-lib.test.sh|\
@@ -353,7 +353,7 @@ family_for_basename() {
       ;;
     fm-afk-pi-herdr-return-e2e.test.sh|\
     fm-bearings-board-lavish-live-e2e.test.sh|\
-    fm-claude-stop-autoarm-live-e2e.test.sh|\
+    fm-claude-stop-autoarm-live-e2e.test.sh|fm-state-claim-guard-live-e2e.test.sh|\
     fm-cmux-claude-composer-live-e2e.test.sh|\
     fm-composer-matrix-live-e2e.test.sh|\
     fm-composer-grok-weekly-live-e2e.test.sh|\
@@ -1543,6 +1543,12 @@ families_for_changed_path() {
       ;;
     bin/fm-main-backstop.py)
       printf '%s\n' __script__:fm-main-backstop.test.sh __script__:fm-main-backstop-live-e2e.test.sh
+      ;;
+    bin/fm-state-claim-guard.py)
+      printf '%s\n' __script__:fm-state-claim-guard.test.sh __script__:fm-state-claim-guard-live-e2e.test.sh
+      ;;
+    bin/fm-turnend-guard.sh)
+      printf '%s\n' watcher-wake-lock __script__:fm-state-claim-guard.test.sh __script__:fm-state-claim-guard-live-e2e.test.sh
       ;;
     bin/fm-watch*|bin/fm-wake*|bin/fm-inactive-reconcile.sh|\
     bin/fm-classify-lib.sh|bin/fm-daemon*|bin/fm-turnend-guard*|bin/fm-guard.sh)
