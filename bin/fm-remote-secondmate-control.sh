@@ -58,8 +58,8 @@
 # PARENT home resolved for this secondmate; this host only delivers it to the
 # pane, and fm-spawn validates it (bin/fm-trace-context-lib.sh). Omitting it is
 # the default-off path. print_route echoes the carrier the endpoint actually
-# holds, so the parent records the identity the agent really received rather
-# than an intent.
+# holds, including for an already-alive endpoint that was not relaunched, so the
+# parent records the identity the agent really received rather than an intent.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -192,7 +192,8 @@ cmd_launch() {
     current=$(fm_backend_agent_state "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null || printf 'unreadable\n')
     case "$current" in
       alive)
-        die "remote endpoint is alive but its launch completion cannot be confirmed; inspect its existing launch outcome"
+        print_route "$id"
+        return 0
         ;;
       dead)
         fm_backend_kill "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" 2>/dev/null \

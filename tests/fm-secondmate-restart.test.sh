@@ -274,7 +274,7 @@ run_restart() {  # <case-dir> <args...>
     FM_SECONDMATE_PERSIST_WAIT="${FM_TEST_PERSIST_WAIT:-30}" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_SECONDMATE_RESTART_VERIFY_WAIT="${FM_TEST_VERIFY_WAIT:-1}" \
-    FM_SECONDMATE_RESTART_VERIFY_POLL=1 FM_SECONDMATE_RESTART_LOCK_WAIT=5 \
+    FM_SECONDMATE_RESTART_VERIFY_POLL="${FM_TEST_VERIFY_POLL:-1}" FM_SECONDMATE_RESTART_LOCK_WAIT=5 \
     FM_SSH_BIN="${FM_TEST_SSH_BIN:-ssh}" \
     "$RESTART" "$@" 2>&1
 }
@@ -558,6 +558,22 @@ case "${rargs[1]:-}" in
     printf 'effort=%s\n' "${rargs[5]}"
     ;;
   state)
+    case "${FM_FAKE_SSH_MODE:-ok}" in
+      lost-spawn-lock-probe-hang)
+        : > "$FM_FAKE_DIR/probe-started"
+        /bin/sleep 20
+        : > "$FM_FAKE_DIR/probe-finished"
+        ;;
+      lost-spawn-lock-late-probe)
+        if [ -e "$FM_FAKE_DIR/first-probe" ]; then
+          : > "$FM_FAKE_DIR/probe-started"
+          /bin/sleep 20
+          : > "$FM_FAKE_DIR/probe-finished"
+        else
+          : > "$FM_FAKE_DIR/first-probe"
+        fi
+        ;;
+    esac
     if [ ! -e "$FM_FAKE_DIR/winner-probed" ]; then
       : > "$FM_FAKE_DIR/winner-probed"
       printf 'dead\n'
@@ -571,13 +587,6 @@ case "${rargs[1]:-}" in
         *) printf 'alive\n' ;;
       esac
     fi
-    ;;
-  route)
-    printf 'schema=fm-remote-secondmate-control.v1\n'
-    printf 'backend=herdr\n'
-    printf 'target=fm-remote:2ndmate-%s\n' "${rargs[2]}"
-    printf 'herdr_session=fm-remote\n'
-    printf 'harness=pi-signed\nmodel=winning-model\neffort=medium\n'
     ;;
 esac
 exit 0
@@ -1185,55 +1194,6 @@ SH
   pass "T18 independent collision winners without completion evidence remain unreached"
 }
 
-test_remote_launch_does_not_certify_an_existing_live_process() {
-  local dir mate_home out rc before
-  dir=$(new_case remote-live-launch)
-  add_local_mate "$dir" sm1
-  mate_home="$dir/sm1-home"
-  mkdir -p "$mate_home/state/parent-route"
-  . "$ROOT/tests/remote-herdr-fixture.sh"
-  install_remote_herdr_fixture "$dir/provider" "$dir/provider-state" "$dir/provider-log" \
-    "$dir/provider-send-fail" "$dir/provider-socket"
-  cp "$dir/provider/bin/herdr" "$dir/fakebin/herdr"
-  printf '%s\n' '{"next":3,"workspaces":[{"workspace_id":"w1","label":"2ndmate-sm1"}],"tabs":[{"workspace_id":"w1","tab_id":"w1:t2","pane_id":"w1:p2"}],"typed":{"w1:p2":true},"working":{}}' \
-    > "$dir/provider-state"
-  cat > "$mate_home/state/parent-route/sm1.meta" <<EOF
-window=fm-remote:w1:p2
-endpoint_task_id=sm1
-backend=herdr
-herdr_session=fm-remote
-herdr_workspace_id=w1
-herdr_tab_id=w1:t2
-herdr_pane_id=w1:p2
-harness=codex
-kind=secondmate
-worktree=$mate_home
-project=$mate_home
-EOF
-  before=$(cat "$mate_home/state/parent-route/sm1.meta")
-  out=$(PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux FM_HOME="$mate_home" \
-    FM_BACKEND_HERDR_BIN="$dir/fakebin/herdr" FM_BACKEND_HERDR_CLIENT_SESSION=fm-remote \
-    "$ROOT/bin/fm-remote-secondmate-control.sh" state sm1); rc=$?
-  expect_code 0 "$rc" "the fake remote endpoint must be observable"
-  [ "$out" = alive ] || fail "the fixture must expose a live process: $out"
-
-  out=$(PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux FM_HOME="$mate_home" \
-    FM_BACKEND_HERDR_BIN="$dir/fakebin/herdr" FM_BACKEND_HERDR_CLIENT_SESSION=fm-remote \
-    "$ROOT/bin/fm-remote-secondmate-control.sh" launch sm1 codex - - herdr 2>&1); rc=$?
-
-  expect_code 1 "$rc" "an existing live process cannot prove successful launch completion: $out"
-  assert_contains "$out" 'launch completion cannot be confirmed' "the launch boundary must distinguish liveness from readiness"
-  [ "$(cat "$mate_home/state/parent-route/sm1.meta")" = "$before" ] \
-    || fail "the refusal changed the existing endpoint's metadata"
-  assert_no_grep 'pane send-text' "$dir/provider-log" "the refusal must not launch a duplicate"
-  out=$(PATH="$dir/fakebin:$PATH" FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux FM_HOME="$mate_home" \
-    FM_BACKEND_HERDR_BIN="$dir/fakebin/herdr" FM_BACKEND_HERDR_CLIENT_SESSION=fm-remote \
-    "$ROOT/bin/fm-remote-secondmate-control.sh" route sm1); rc=$?
-  expect_code 0 "$rc" "route inspection must still work for a live endpoint"
-  assert_contains "$out" 'harness=codex' "route inspection lost the endpoint's identity"
-  pass "the remote launch boundary does not certify an existing live process"
-}
-
 test_remote_spawn_winner_without_parent_completion_is_unreached() {
   local dir out rc mode before ledger_before started elapsed
   for mode in lost-spawn-lock-complete lost-spawn-lock-gate-failed; do
@@ -1266,6 +1226,52 @@ test_remote_spawn_winner_without_parent_completion_is_unreached() {
     assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "the restart left its lock behind"
   done
   pass "remote collision winners without parent completion evidence remain unreached"
+}
+
+test_collision_verification_respects_remaining_budget() {
+  local dir out rc mode wait_seconds poll_seconds started elapsed
+  for mode in probe-hang late-probe large-poll zero-budget; do
+    dir=$(new_case "budget-$mode")
+    case "$mode" in
+      probe-hang) wait_seconds=2; poll_seconds=1 ;;
+      late-probe) wait_seconds=3; poll_seconds=1 ;;
+      large-poll) wait_seconds=2; poll_seconds=20 ;;
+      zero-budget) wait_seconds=0; poll_seconds=20 ;;
+    esac
+    if [ "$mode" = zero-budget ]; then
+      setup_remote_case "$dir" sm2 lost-spawn-lock-probe-hang
+    else
+      setup_remote_case "$dir" sm2 "lost-spawn-lock-$mode"
+    fi
+    export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    cat > "$dir/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+exec /bin/sleep "$@"
+SH
+    chmod +x "$dir/fakebin/sleep"
+
+    started=$(date +%s)
+    out=$(FM_TEST_VERIFY_WAIT="$wait_seconds" FM_TEST_VERIFY_POLL="$poll_seconds" run_restart "$dir" sm2); rc=$?
+    elapsed=$(($(date +%s) - started))
+    unset FM_FAKE_ANSWER_STATUS
+
+    expect_code 3 "$rc" "an unconfirmed collision must remain unreached: $out"
+    assert_contains "$out" 'unreached: sm2' "budget expiry must publish an outcome"
+    assert_not_contains "$out" 'restarted: sm2' "a timed probe cannot certify completion"
+    [ "$elapsed" -ge "$wait_seconds" ] && [ "$elapsed" -lt "$((wait_seconds + 4))" ] \
+      || fail "verification exceeded its remaining budget ($mode): ${elapsed}s for ${wait_seconds}s; $out"
+    case "$mode" in
+      probe-hang|late-probe)
+        assert_present "$dir/fake/probe-started" "the hanging probe was never exercised"
+        assert_absent "$dir/fake/probe-finished" "the hanging probe outlived verification"
+        ;;
+      zero-budget)
+        assert_no_grep 'fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log" "a zero budget must not start a probe"
+        ;;
+    esac
+    assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "budget expiry must release the recovery lock"
+  done
+  pass "collision verification bounds hanging probes, late probes, oversized polls and zero budgets"
 }
 
 # --- T19: a dead restarter's marker expires -----------------------------------
@@ -1338,8 +1344,8 @@ test_already_current_mate_restarts_end_to_end
 test_already_current_unprovable_mate_stays_on_the_nudge_path
 test_restart_and_liveness_relaunch_race
 test_lost_spawn_lock_without_completion_evidence_is_unreached
-test_remote_launch_does_not_certify_an_existing_live_process
 test_remote_spawn_winner_without_parent_completion_is_unreached
+test_collision_verification_respects_remaining_budget
 test_dead_restarter_marker_expires
 
 echo "# all fm-secondmate-restart tests passed"

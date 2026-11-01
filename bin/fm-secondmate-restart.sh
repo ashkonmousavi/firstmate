@@ -41,8 +41,8 @@
 # clean reload. Once a relaunch is attempted, any failed or ambiguous result is
 # reported as unknown rather than attributing it to either incarnation - except
 # when another launch won the spawn lock after the old agent stopped. Then the
-# pass waits, bounded, for a new successful guarded-spawn outcome in the liveness
-# ledger and a live endpoint, or reports unreached after the bound.
+# pass observes the endpoint within its verification bound and reports unreached
+# when existing records cannot prove the competing launch completed.
 #
 # Liveness recovery never races the replacement: each restart holds the mate's
 # per-mate liveness lock from before the stop until that verdict (restart_mate
@@ -72,8 +72,8 @@
 #   FM_SECONDMATE_PERSIST_POLL  seconds between checks of that answer (5)
 #   FM_SECONDMATE_RESTART_LOCK_WAIT    seconds to wait for a running liveness
 #                                      recovery of the mate to finish (300)
-#   FM_SECONDMATE_RESTART_VERIFY_WAIT  seconds to wait for a replacement to read
-#                                      alive with a successful launch outcome (120)
+#   FM_SECONDMATE_RESTART_VERIFY_WAIT  seconds to observe a replacement after
+#                                      a spawn-lock collision (120)
 #   FM_SECONDMATE_RESTART_VERIFY_POLL  seconds between those reads (2)
 #
 # Exit status: 0 every named mate restarted; 3 at least one was nudged or left
@@ -185,20 +185,27 @@ report_unreached() {  # <id> <reason>
 }
 
 VERIFY_STATE=""
-await_verified_mate() {
-  local id=$1 before=$2 deadline outcome ledger
-  ledger="$STATE/.secondmate-relaunch-$id"
+wait_for_mate_verification() {
+  local id=$1 deadline remaining pause probe_state
   deadline=$(($(date +%s) + VERIFY_WAIT))
+  VERIFY_STATE=unknown
   while :; do
-    fm_secondmate_liveness_probe "$STATE/$id.meta" "$id" poll
-    VERIFY_STATE=$FM_SM_LIVE_STATE
-    outcome=$(awk -F '\t' -v before="$before" 'before ~ /^[0-9]+$/ && NR > before { outcome = $2 } END { print outcome }' "$ledger" 2>/dev/null) || outcome=
-    case "$outcome" in
-      relaunched) [ "$FM_SM_LIVE_STATUS" != alive ] || return 0 ;;
-      failed) return 1 ;;
-    esac
-    [ "$(date +%s)" -lt "$deadline" ] || return 1
-    sleep "$VERIFY_POLL"
+    remaining=$((deadline - $(date +%s)))
+    [ "$remaining" -gt 0 ] || return 0
+    if probe_state=$(fm_run_timed "$remaining" bash -c '
+      . "$1"
+      fm_secondmate_liveness_probe "$2" "$3" poll
+      printf "%s\n" "$FM_SM_LIVE_STATE"
+    ' _ "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh" "$STATE/$id.meta" "$id"); then
+      VERIFY_STATE=$probe_state
+    else
+      VERIFY_STATE=unreadable
+    fi
+    remaining=$((deadline - $(date +%s)))
+    [ "$remaining" -gt 0 ] || return 0
+    pause=$VERIFY_POLL
+    [ "$pause" -le "$remaining" ] || pause=$remaining
+    fm_run_timed "$remaining" sleep "$pause" || return 0
   done
 }
 
@@ -221,12 +228,8 @@ restart_mate() {  # <array-index>
 }
 
 restart_mate_locked() {  # <array-index>
-  local i=$1 id restart_out restart_rc restart_reason ran_on ledger_before route_out
+  local i=$1 id restart_out restart_rc restart_reason ran_on
   id=${IDS[$i]}
-  ledger_before=0
-  if [ -e "$STATE/.secondmate-relaunch-$id" ]; then
-    ledger_before=$(awk 'END { print NR }' "$STATE/.secondmate-relaunch-$id" 2>/dev/null) || ledger_before=unknown
-  fi
   if [ "${PLACEMENT[i]}" = remote ]; then
     restart_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
       "$SCRIPT_DIR/fm-remote-secondmate-relaunch.sh" \
@@ -251,20 +254,7 @@ restart_mate_locked() {  # <array-index>
   restart_reason=$(first_reported_line "$restart_out")
   [ -n "$restart_reason" ] || restart_reason="the restart failed without a reported reason"
   if [[ "$restart_out" == *"another spawn is already creating task $id"* ]]; then
-    if await_verified_mate "$id" "$ledger_before"; then
-      if [ "${PLACEMENT[i]}" = remote ]; then
-        if ! route_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
-          "$SCRIPT_DIR/fm-remote-secondmate-relaunch.sh" --refresh-route "$id" 2>&1); then
-          report_unreached "$id" "the replacement is running, but its remote route identity could not be confirmed: $(first_reported_line "$route_out")"
-          return
-        fi
-      fi
-      ran_on=$(fm_meta_get "$STATE/$id.meta" harness)
-      [ -n "$ran_on" ] || ran_on=${HARNESS[i]}
-      printf 'restarted: %s (%s); its own launch reported "%s", and the replacement launch was then confirmed successful\n' \
-        "$id" "$ran_on" "$restart_reason"
-      return
-    fi
+    wait_for_mate_verification "$id"
     report_unreached "$id" "the old agent was stopped, but no replacement launch was confirmed successful within ${VERIFY_WAIT}s (endpoint reads '${VERIFY_STATE:-unknown}'); its own launch reported: $restart_reason"
     return
   fi

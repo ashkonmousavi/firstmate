@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Relaunch a REMOTE secondmate or refresh its confirmed route identity.
-# Republish this parent's own route record to match what the host confirmed.
+# Relaunch a REMOTE secondmate onto a new harness, model, or effort, then
+# republish this parent's own route record to match what the host confirmed.
+#
 # Usage: fm-remote-secondmate-relaunch.sh <id> <harness> <model|default|-> <effort|default|->
-#        fm-remote-secondmate-relaunch.sh --refresh-route <id>
 #
 # bin/fm-remote-secondmate-control.sh's relaunch verb runs entirely on the
 # secondmate's own host and can only rewrite that host's own endpoint record;
@@ -11,14 +11,12 @@
 # the relaunch alone therefore leaves this file naming the runtime the mate
 # used to run, not the one it runs now.
 #
-# This wrapper is the missing other half. By default it runs the host-local
-# relaunch through bin/fm-on.sh; --refresh-route instead reads the existing
-# route without relaunching, so a restart that verifies another spawn's winner
-# can record that winner's identity. Both modes read the confirmed harness,
-# model, and effort back out of the endpoint's own
+# This wrapper is the missing other half. It runs the host-local relaunch
+# through bin/fm-on.sh exactly as secondmate-provisioning documents, then reads
+# the confirmed harness, model, and effort back out of the endpoint's own
 # route report - the same read-back-from-the-endpoint shape bin/fm-spawn.sh
 # already uses when it first records a remote route - and republishes this
-# home's own metadata to match. A failed relaunch or route read leaves this
+# home's own metadata to match. A failed or refused relaunch leaves this
 # parent's record untouched.
 set -eu
 
@@ -33,17 +31,13 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
-usage() { sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
-if [ "${1:-}" = --refresh-route ]; then
-  [ "$#" -eq 2 ] || usage
-  ID=$2
-  REMOTE_ARGS=(route "$ID")
-else
-  [ "$#" -eq 4 ] || usage
-  ID=$1
-  REMOTE_ARGS=(relaunch "$ID" "$2" "$3" "$4")
-fi
+[ "$#" -eq 4 ] || usage
+ID=$1
+HARNESS=$2
+MODEL=$3
+EFFORT=$4
 case "$ID" in ''|*[!A-Za-z0-9._-]*) die "invalid secondmate id: $ID" ;; esac
 
 META="$STATE/$ID.meta"
@@ -53,21 +47,21 @@ REMOTE_HOST=$(fm_meta_get "$META" remote_host)
   || die "task $ID is not a remotely placed secondmate; use bin/fm-control.sh $ID relaunch instead"
 
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
-  "${REMOTE_ARGS[@]}" </dev/null 2>&1) || {
+  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" </dev/null 2>&1) || {
   rc=$?
   printf '%s\n' "$RELAUNCH_OUT" >&2
   exit "$rc"
 }
 printf '%s\n' "$RELAUNCH_OUT"
 
-# The confirmed identity comes from the host's route block, never from the
-# human-readable "relaunched ..." summary
+# The confirmed identity comes from the route block the host prints after a
+# successful relaunch, never from the human-readable "relaunched ..." summary
 # line: a relaunch onto "default" prints that literal word there, while the
 # endpoint's own record - and this parent's, to match it - store an empty
 # field for "no explicit pin".
 [ "$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^schema=//p' | tail -1)" \
   = fm-remote-secondmate-control.v1 ] \
-  || die "the host reported no route confirmation to record for $ID"
+  || die "the host relaunched $ID but reported no route confirmation to record"
 NEW_HARNESS=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^harness=//p' | tail -1)
 NEW_MODEL=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^model=//p' | tail -1)
 NEW_EFFORT=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^effort=//p' | tail -1)
