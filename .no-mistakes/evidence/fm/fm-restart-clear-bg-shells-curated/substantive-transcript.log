@@ -1,0 +1,6 @@
+/tmp/fm-lab.YXWmgb
+Before restart: harmless sleep pid=2326243 and substantive Python unittest pid=2328023 alive; status count=2
+unreached: sm: background-shell cleanup incomplete: its background shells were still running after 3s; relaunch was not attempted
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+After refusal: validation alive and progressing (134 -> 154); harmless sleep dead; no relaunch transaction
+cleanup exit=0

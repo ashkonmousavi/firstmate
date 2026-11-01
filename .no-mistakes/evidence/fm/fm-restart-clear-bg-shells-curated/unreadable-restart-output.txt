@@ -1,0 +1,2 @@
+unreached: sm: background-shell cleanup incomplete: its screen could not be read; relaunch was not attempted
+summary: 0 of 1 restarted, 0 nudged, 1 unreached

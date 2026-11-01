@@ -1,0 +1,5 @@
+/tmp/fm-lab.yalxiZ
+unreached: sm: background-shell cleanup incomplete: its screen could not be read; relaunch was not attempted
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+After correlated persist reply, the real lab endpoint vanished; restart refused unreadable screen without a relaunch transaction.
+cleanup exit=0

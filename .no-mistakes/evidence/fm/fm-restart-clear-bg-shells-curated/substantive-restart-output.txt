@@ -1,0 +1,2 @@
+unreached: sm: background-shell cleanup incomplete: its background shells were still running after 3s; relaunch was not attempted
+summary: 0 of 1 restarted, 0 nudged, 1 unreached

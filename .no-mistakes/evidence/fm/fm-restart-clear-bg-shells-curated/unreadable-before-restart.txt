@@ -1,0 +1,45 @@
+ ▐▛███▛█   Claude Code v2.1.316
+▝▜██████▀  Haiku 5.5 with low effort · Claude Ultra
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M6ABEANQHANCK9Z0N0FC6S6P
+
+
+❯ This is an isolated restart safety evaluation. Reply READY and wait. When a Firstmate inbox doorbell arrives, read the .msg files at /tmp/fm-lab.yalxiZ/state/sm.inbox. There are
+  no open records or background jobs in this fixture. Publish a correlated parent reply with Bash: printf 'Open records persisted\n' | bash
+  '~/.no-mistakes/worktrees/049a88734b0e/01M6ABEANQHANCK9Z0N0FC6S6P/bin/fm-status-append.sh' '/tmp/fm-lab.yalxiZ/state/sm.status' done --corr CORR, replacing CORR with
+  the message correlation. In THAT SAME Bash tool invocation, immediately after the status append, run tmux kill-server (TMUX points only at this disposable socket) to
+  deliberately simulate loss of the mate endpoint. Do not run a relaunch or any other command. Do not read other data.
+
+● READY
+
+✻ Crunched for 1s · done 6:53 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ don't ask on (shift+tab to cycle) · ← 3 agents                                                                                                                ○ low · /effort
+                                                                                                                                                                               /rc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

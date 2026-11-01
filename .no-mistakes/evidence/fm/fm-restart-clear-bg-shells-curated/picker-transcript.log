@@ -1,0 +1,5 @@
+/tmp/fm-lab.AwL32i
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.AwL32i
+error: task sm is blocked on a prompt: Claude background-task exit picker. Refusing to type Enter into it.
+Control exit refused the live picker, did not confirm it, and left the background task alive pid=2513531
+cleanup exit=0

@@ -1,0 +1,5 @@
+/tmp/fm-lab.3e8nM2
+tmux: harmless sleep alive pid=2559692, production parser count=1
+tmux: cleanup request killed its harmless sleep, composer count cleared
+tmux: /exit closed Claude without a background-work picker
+cleanup exit=0

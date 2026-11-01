@@ -1,0 +1,5 @@
+/tmp/fm-lab.t6cxRp
+herdr: harmless sleep alive pid=2467704, production parser count=1
+herdr: cleanup request killed its harmless sleep, composer count cleared
+herdr: /exit returned to shell without a background-work picker
+cleanup exit=0
