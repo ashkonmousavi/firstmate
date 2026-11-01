@@ -95,7 +95,7 @@ def lane_names(text):
 
 def claims(text):
     text = re.sub(r"```.*?(?:```|$)", "", text, flags=re.S)
-    text = re.sub(r'''(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"[^"]*"|‘[^’]*’|“[^”]*”''', " ", text)
+    text = re.sub(r'''(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"[^"]*"|‘(?:[^’]|(?<=\w)’(?=\w))*’|“[^”]*”''', " ", text)
     text = re.sub(r"(?<!\w)(_{1,3})(\S(?:[^\n]*?\S)?)\1(?!\w)", r"\2",
                   text.replace("`", "").replace("*", ""))
     for sentence in re.split(r"[\n]|(?<=[.!?])\s+", text):
@@ -178,7 +178,7 @@ def read_segment(segment):
                    or (t.startswith(("--method=", "--request=")) and t.split("=", 1)[1] not in ("GET", "HEAD"))
                    for t in segment):
                 continue
-            yield family, source
+            yield family, source, family == "PR" and segment[1:3] == ["pr", "list"]
 
 
 def current_reads(path, deadline):
@@ -262,7 +262,8 @@ def main():
     if reads is None or time.monotonic() > deadline:
         return 0
     for family, sentence, pr_ids in unsupported:
-        matching = [command for kind, command in reads if kind == family]
+        matching = [command for kind, command, aggregate in reads
+                    if kind == family and not (pr_ids and aggregate)]
         if pr_ids:
             if not all(any(re.search(
                 r"(?:^|\s)#?" + ident + r"(?=\s|$)|/pulls?/" + ident + r"(?=[/?#\s]|$)", command

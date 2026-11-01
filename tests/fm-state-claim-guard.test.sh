@@ -83,6 +83,22 @@ check("aggregate merged count accepts any forge read", "12 PRs merged in the las
       ["gh pr view 9"], expected=0)
 check("list count does not prove a named PR", "PR 9 is merged.",
       ["gh pr list --state merged --json number --jq length"])
+for reader in ("gh", "gh-axi"):
+    for limit in ("--limit 9", "-L 9", "--limit=9", "-L9"):
+        for invocation in (reader, f"env GH_HOST=github.com bash /fixture/{reader}",
+                           f"{reader} --repo example/repo --hostname github.com"):
+            command = f"{invocation} pr list --state merged {limit} --json number --jq length"
+            check(f"numeric list option cannot identify a PR: {command}", "PR 9 is merged.", [command])
+            check(f"numeric list option still permits aggregate evidence: {command}",
+                  "12 PRs merged in the last hour.", [command], expected=0)
+    command = f"{reader} pr list --search 'https://github.com/example/repo/pull/9'"
+    check(f"list search URL cannot identify a PR: {reader}", "#9 merged.", [command])
+    check(f"list search cannot prove a URL claim: {reader}",
+          "https://github.com/example/repo/pull/9 merged.", [command])
+    check(f"list and direct read permit a named claim: {reader}", "PR 9 is merged.",
+          [f"{reader} pr list --limit 9; {reader} pr view 9"], expected=0)
+    check(f"list cannot fill a missing coordinated PR read: {reader}", "PRs 9 and 10 are merged.",
+          [f"{reader} pr list --limit 9", f"{reader} pr checks 10"])
 for reading in ("read it live", "read live"):
     check(f"{reading} is a reading adverb, not deployment",
           f"I just {reading}: https://github.com/example/repo/pull/9 merged.",
@@ -102,8 +118,18 @@ for opening, closing in (("'", "'"), ('"', '"'), ("‘", "’"), ("“", "”"))
     check(f"quoted clauses and sentences are not claims: {opening}",
           f"The earlier message was {opening}The site is live; PR 9 is merged.\nThe lane is running.{closing}",
           expected=0)
-check("contractions outside quotes remain text", "I've checked: PR 9 is merged.")
-check("contractions inside quotes remain quoted", "I said 'I've checked: PR 9 is merged.' earlier.", expected=0)
+    for contraction in ("I've", "I’ve"):
+        report = f"The guard blocked {opening}{contraction} checked: PR 9 is merged.{closing} earlier."
+        check(f"quoted contraction remains historical: {opening} {contraction}", report, expected=0)
+        check(f"quoted contraction retains a later assertion: {opening} {contraction}",
+              f"{report} PR 10 is merged.", ["gh pr view 9"])
+        check(f"quoted contraction allows a supported later assertion: {opening} {contraction}",
+              f"{report} PR 10 is merged.", ["gh pr view 10"], expected=0)
+        check(f"quoted contraction preserves multiline reports: {opening} {contraction}",
+              f"The guard blocked {opening}{contraction} checked: PR 9 is merged.\nThe site is live.{closing}",
+              expected=0)
+for contraction in ("I've", "I’ve"):
+    check(f"contraction outside quotes remains text: {contraction}", f"{contraction} checked: PR 9 is merged.")
 check("wrong PR read does not count", "PR 9 is merged.", ["gh-axi pr view 10"])
 check("PR id embedded in repository name does not count", "PR 9 is merged.", ["gh-axi pr view 10 --repo example/repo9"])
 check("separate reads cover multiple PR claims", "PR 9 and PR 10 are merged.",
