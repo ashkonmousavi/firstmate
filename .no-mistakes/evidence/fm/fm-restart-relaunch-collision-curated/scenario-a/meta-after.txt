@@ -1,0 +1,17 @@
+window=firstmate:fm-labf0897a3da18d-mate
+endpoint_task_id=labf0897a3da18d-mate
+worktree=/tmp/fmlab-01M6/mate
+project=/tmp/fmlab-01M6/mate
+harness=claude
+kind=secondmate
+mode=secondmate
+yolo=off
+tasktmp=/tmp/fm-labf0897a3da18d-mate
+model=sonnet
+effort=low
+claude_config_dir=/tmp/fm-cc.tsgv63
+busy_gen=g1793518868.401507.363
+spawn_gen=s1793518868.399620.21585
+home=/tmp/fmlab-01M6/mate
+projects=
+control_relaunch_tx=384194.20261101T074106Z.20121

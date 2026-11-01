@@ -1,0 +1,9 @@
+$ FM_SECONDMATE_RESTART_VERIFY_POLL=0 fm-secondmate-restart.sh labf0897a3da18d-mate
+error: FM_SECONDMATE_RESTART_VERIFY_POLL must be a positive integer: 0
+exit=2
+$ FM_SECONDMATE_RESTART_LOCK_WAIT=0 fm-secondmate-restart.sh labf0897a3da18d-mate
+error: FM_SECONDMATE_RESTART_LOCK_WAIT must be a positive integer: 0
+exit=2
+$ FM_SECONDMATE_RESTART_VERIFY_WAIT=abc fm-secondmate-restart.sh labf0897a3da18d-mate
+error: FM_SECONDMATE_RESTART_VERIFY_WAIT must be a non-negative integer: abc
+exit=2

@@ -1,0 +1,60 @@
+
+ ▐▛███▛█   Claude Code v2.1.316
+▝▜██████▀  Sonnet 5.5 with low effort · Claude Ultra
+ ▝▝   ▝▝   /tmp/fmlab-01M6/mate
+
+  Get to finished work sooner with Opus 5.5. Switch anytime with /model.
+  1 more notice hidden
+
+● Auto mode lets Claude handle permission prompts automatically — Claude checks each tool call for risky actions and prompt injection before executing. Actions Claude identifies as safe are executed, while
+  actions Claude identifies as risky are blocked and Claude may try a different approach. Ideal for long-running tasks. Claude can make mistakes that allow harmful commands to run, it's recommended to only use in
+  isolated environments. Shift+Tab to change mode.
+
+❯ : Firstmate operational input waiting: read '/tmp/fmlab-01M6/mate/state/operational-inbox/1793518311-19c3cbb94b7413d1.msg' and handle its contents as Firstmate operational input.
+
+  Searched for 1 pattern, read 1 file, ran 1 shell command
+
+● Captain, shipshape. I read the launch charter, and the startup digest showed no wakes and no work in flight. The steering inbox is empty. I'm idle and waiting for the main firstmate to route a task, and I've sent no
+  status line.
+
+✻ Cooked for 11s · done 12:32 AM
+
+❯ : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'labf0897a3da18d-mate.inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.
+
+  Listed 1 directory, ran 2 shell commands
+
+● Noted: startup-memory-budget is now 7500. Reporting and acknowledging.
+
+  Ran 1 shell command
+
+● Captain, I handled the one steering message. It said the inherited startup-memory-budget setting changed to 7500. I'll apply that value at every future intake. I sent the correlated done report to the main firstmate
+  and moved the message to handled. I'm idle again.
+
+✻ Churned for 9s · done 12:35 AM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)

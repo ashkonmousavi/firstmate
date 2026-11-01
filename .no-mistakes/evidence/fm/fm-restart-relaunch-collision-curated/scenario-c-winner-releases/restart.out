@@ -1,0 +1,4 @@
+== restart start 00:41:35 (VERIFY_WAIT=60, holder pid 448974, hold 20s)
+unreached: labf0897a3da18d-mate: the old agent was stopped and the winning launch released the spawn lock within 60s, but no existing record proves the winning launch succeeded (endpoint reads 'dead'); its own launch reported: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fmlab-01M6/home
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+exit=3 elapsed=19s end=00:41:54

@@ -1,0 +1,8 @@
+00:40:39 liveness-lock free
+00:40:41 liveness-lock held by 373660
+00:40:42 liveness-lock held by 374722
+00:40:43 liveness-lock free
+00:40:44 liveness-lock held by 378074
+00:40:45 liveness-lock free
+00:40:52 liveness-lock held by 384128
+00:41:10 liveness-lock free

@@ -1,0 +1,60 @@
+tegris@Pulse:/tmp/fmlab-01M6/mate$ export GOTMPDIR=/tmp/fm-labf0897a3da18d-mate/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:/tmp/fmlab-01M6/mate$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:/tmp/fmlab-01M6/mate$ . '/tmp/fm-labf0897a3da18d-mate+46a7bd046329c9c81f17f9c6d9794e176f2dd8b9ca31835adb59842eaa0d3f8f/launch.s1793518915.476349.1791.sh'
+
+Resume this session with:
+claude --resume 993a6256-703d-4f4b-8171-0f9b1efd5cc7
+tegris@Pulse:/tmp/fmlab-01M6/mate$ export GOTMPDIR=/tmp/fm-labf0897a3da18d-mate/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:/tmp/fmlab-01M6/mate$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:/tmp/fmlab-01M6/mate$ . '/tmp/fm-labf0897a3da18d-mate+46a7bd046329c9c81f17f9c6d9794e176f2dd8b9ca31835adb59842eaa0d3f8f/launch.s1793518993.581563.30466.sh'
+
+Resume this session with:
+claude --resume ac5accec-d47b-468e-a34c-b10fa555b5f0
+tegris@Pulse:/tmp/fmlab-01M6/mate$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

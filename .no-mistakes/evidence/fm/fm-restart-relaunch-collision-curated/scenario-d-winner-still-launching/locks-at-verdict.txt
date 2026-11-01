@@ -1,0 +1,4 @@
+drwx------  2 tegris tegris 4096 Nov  1 00:42 .secondmate-liveness-labf0897a3da18d-mate.lock.owner.dxWwrG
+lrwxrwxrwx  1 tegris tegris   72 Nov  1 00:43 .spawn-labf0897a3da18d-mate.lock -> /tmp/fmlab-01M6/home/state/.spawn-labf0897a3da18d-mate.lock.owner.YuBV73
+drwx------  2 tegris tegris 4096 Nov  1 00:43 .spawn-labf0897a3da18d-mate.lock.owner.YuBV73
+holder still running at verdict

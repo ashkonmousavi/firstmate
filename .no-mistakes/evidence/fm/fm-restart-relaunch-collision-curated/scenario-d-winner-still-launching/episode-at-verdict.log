@@ -1,0 +1,4 @@
+00:43:46.393 probe=relaunchable state=dead
+relaunch rc=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fmlab-01M6/home
+error: another spawn is already creating task labf0897a3da18d-mate

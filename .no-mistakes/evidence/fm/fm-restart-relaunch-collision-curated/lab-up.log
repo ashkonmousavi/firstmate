@@ -1,0 +1,16 @@
+lab: /tmp/fmlab-01M6 (tear down with: bin/fm-live-lab.sh down /tmp/fmlab-01M6)
+tree: 4da8ed38eca354d9ec8eb2259d5e03127bfd9f34 from ~/.no-mistakes/worktrees/049a88734b0e/01M6AWZVJ2RSEM60AGZWZKN33K
+scaffolded: /tmp/fmlab-01M6/home/data/labf0897a3da18d-mate/brief.md (secondmate charter)
+home=/tmp/fmlab-01M6/mate
+spawned labf0897a3da18d-mate harness=claude kind=secondmate mode=secondmate yolo=off window=firstmate:fm-labf0897a3da18d-mate worktree=/tmp/fmlab-01M6/mate
+primary: claude --setting-sources project,local --model sonnet --effort low --permission-mode auto
+ok primary: claude pid 3137943 in /tmp/fmlab-01M6/home
+fail probe: no LABREADY-f0897a3da18d reply in window main (model refused, turn still running, or a dialog is open)
+ok trust: /tmp/fmlab-01M6/home is trusted in the Claude store
+fail mirror: fm-host-mirror.sh check exited 1 
+fail host: no live supervision host (expected one)
+fail watcher: no live watcher with a fresh beacon holds the lab home
+ok mate: labf0897a3da18d-mate pid 3118452 in /tmp/fmlab-01M6/mate
+ok treehouse: ~/.treehouse unchanged
+not ready after 300s; the lab is left up for inspection: bin/fm-live-lab.sh pane /tmp/fmlab-01M6, then bin/fm-live-lab.sh down /tmp/fmlab-01M6
+rc=1

@@ -1,0 +1,4 @@
+== restart start 00:42:14 (LOCK_WAIT=5, recovery holder pid 513190, hold 25s)
+unreached: labf0897a3da18d-mate: another liveness recovery of this mate still held its lock after 5s (holder pid 513190), so nothing was stopped
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+exit=3 elapsed=19s end=00:42:33

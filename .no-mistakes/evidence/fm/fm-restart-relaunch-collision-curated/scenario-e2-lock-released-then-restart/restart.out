@@ -1,0 +1,4 @@
+== restart start 00:42:42 (LOCK_WAIT=90, recovery holder pid 546509, hold 30s)
+restarted: labf0897a3da18d-mate (claude)
+summary: 1 of 1 restarted, 0 nudged, 0 unreached
+exit=0 elapsed=34s end=00:43:16

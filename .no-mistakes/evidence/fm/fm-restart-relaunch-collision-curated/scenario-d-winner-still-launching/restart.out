@@ -1,0 +1,4 @@
+== restart start 00:43:22 (VERIFY_WAIT=10, holder pid 596949, hold 75s)
+unreached: labf0897a3da18d-mate: winner still launching: the old agent was stopped and the winning launch still held the spawn lock after 10s (holder pid 596949); liveness recovery of this mate is no longer held off; its own launch reported: fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fmlab-01M6/home
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+exit=3 elapsed=24s end=00:43:46
