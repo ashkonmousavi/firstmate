@@ -127,9 +127,6 @@ reset() {
   queue
   printf '' | rules
 }
-wakes() {  # <number>: wake-queue rows naming that pull request (fm-wake-lib's row format)
-  awk -F'\t' -v k="pr-triage-unowned:$URL/$1" '$3 == "check" && $4 == k' "$H/state/.wake-queue" 2>/dev/null | wc -l | tr -d ' '
-}
 field() {  # <record-line> <n>
   printf '%s\n' "$1" | awk -F'\t' -v n="$2" '{print $n}'
 }
@@ -384,22 +381,16 @@ assert_equals 1 "$(field "$(rec 100)" 3)" 'the J-01 title ranks it 1'
 assert_equals 'refused:owned by sm1: steered sm-task (queue=not queued)' "$(field "$(rec 100)" 5)" 'local owner named and steered'
 assert_equals 'refused:owned by sm2: steered r-task (queue=not queued)' "$(field "$(rec 101)" 5)" 'remote owner read through fm-on and steered'
 assert_contains "$(cat "$FAKE/on.log")" 'sm2 fm-tasks-axi.sh show r-task' 'remote backlog read with fm-tasks-axi show'
-assert_equals 'refused:no home owns nobody: firstmate notified (queue=not queued)' "$(field "$(rec 102)" 5)" 'no home holds it: firstmate told'
-assert_equals 'refused:no home owns orphan-meta: firstmate notified (queue=not queued)' "$(field "$(rec 105)" 5)" 'a record here but no backlog item: no relaunch, firstmate told'
-assert_equals 'refused:no home owns sm-done: firstmate notified (queue=not queued)' "$(field "$(rec 103)" 5)" 'done in the other home is not owned'
-assert_equals 1 "$(wakes 105)" 'one wake for the unowned pull request'
-assert_contains "$(awk -F'\t' -v k="pr-triage-unowned:$URL/105" '$4 == k {print $5}' "$H/state/.wake-queue")" "check: pr-triage-unowned: $URL/105 (rank 1, conflicting and red)" 'the wake names the URL and rank'
+assert_equals 'refused:no home owns nobody (queue=not queued)' "$(field "$(rec 102)" 5)" 'no home holds it'
+assert_equals 'refused:no home owns orphan-meta (queue=not queued)' "$(field "$(rec 105)" 5)" 'a record here but no backlog item: no relaunch'
+assert_equals 'refused:no home owns sm-done (queue=not queued)' "$(field "$(rec 103)" 5)" 'done in the other home is not owned'
 assert_equals 'refused:owner unknown for u-task: unreadable sm2 (queue=not queued)' "$(field "$(rec 104)" 5)" 'an unreadable home is named'
 assert_contains "$(grep '^sm1|' "$FAKE/send.log")" "sm1|--one-way|PR triage: $URL/100 belongs to your task sm-task." 'steer names the URL'
 assert_contains "$(grep '^sm1|' "$FAKE/send.log")" 'Do not force-push.' 'steer carries the fix instruction'
 assert_absent "$FAKE/control.log" 'no worker is spawned here for another home or an unowned task'
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_contains "$(rec 100)" 'refused:owned by sm1: already steered for head sha100' 'same head: no second steer'
-assert_equals 'refused:no home owns orphan-meta: firstmate already notified for head sha105aaaaaa (queue=not queued)' "$(field "$(rec 105)" 5)" 'same head: a record, no second notice'
-assert_equals 1 "$(wakes 105)" 'one wake per head'
-jq '(.[] | select(.number == 105) | .headRefOid) = "pushed105bbbbbb"' "$FAKE/prs.json" > "$FAKE/p.tmp" && mv "$FAKE/p.tmp" "$FAKE/prs.json"
-bash "$TRIAGE" --apply >/dev/null 2>&1
-assert_equals 2 "$(wakes 105)" 'a new head earns one new wake'
+assert_equals 'refused:no home owns orphan-meta (queue=not queued)' "$(field "$(rec 105)" 5)" 'every pass records an unowned task again'
 [ "$(grep -c '^sm1|' "$FAKE/send.log")" -eq 1 ] || fail 'one steer per head'
 jq '(.[] | select(.number == 100) | .headRefOid) = "pushed100bbbbbb"' "$FAKE/prs.json" > "$FAKE/p.tmp" && mv "$FAKE/p.tmp" "$FAKE/prs.json"
 touch "$FAKE/send-fail"
@@ -428,13 +419,13 @@ bash "$TRIAGE" --apply >/dev/null 2>&1
 ids=$(sed -n 's/^sm1 //p' "$FAKE/send-ids.log")
 [ "$(printf '%s\n' "$ids" | sed -n 4p)" != "$(printf '%s\n' "$ids" | sed -n 5p)" ] || fail 'a changed message under the same head gets a new request id'
 assert_contains "$(rec 100)" 'refused:owned by sm1: steered sm-task' 'the changed message is delivered'
-pass 'another home is steered and an unowned task notifies firstmate, once per head each'
+pass 'another home is steered once per head and an unowned task is refused'
 
 # --- one GraphQL read per pass, whatever the number of pull requests ---------------
 # Oracle: the owner's rate-limit requirement: the single paginated read serves
 # every decision, so the gh call count does not grow with the pull request count,
 # and the per-pull-request calls are bounded by the pull requests acted on.
-count_gh() {  # <number of pull requests>: prints gh, relaunch, comment and mergify call counts
+count_gh() {  # <number of pull requests>: prints the gh call count; fails on wrong relaunch, comment or Mergify counts
   local i red=$(($1 / 3)) green=$((($1 + 2) / 3))
   reset
   printf 'label=ci\n' | rules
@@ -452,17 +443,17 @@ count_gh() {  # <number of pull requests>: prints gh, relaunch, comment and merg
   [ "$(grep -c . "$LOG")" -eq "$1" ] || fail "one record per pull request for $1"
   [ "$(grep -c ' relaunch --note' "$FAKE/control.log")" -eq "$red" ] || fail "every red pull request relaunched for $1"
   [ "$(grep -c 'pr comment' "$FAKE/ghaxi.log")" -eq "$green" ] || fail "every green pull request commented for $1"
-  [ "$(grep -c . "$FAKE/mergify.log")" -le "$((1 + red + green))" ] || fail "mergify calls exceed the acted set for $1"
+  [ "$(grep -c . "$FAKE/mergify.log")" -eq "$((1 + red + green))" ] || fail "one queue status plus one queue show per acted pull request for $1"
   grep -c . "$FAKE/gh.log"
 }
 assert_equals 1 "$(count_gh 3)" 'three pull requests, one red and one green acted on: one gh call'
 assert_equals 1 "$(count_gh 12)" 'twelve pull requests, eight acted on: still one gh call'
 pass 'one gh GraphQL read per pass regardless of the pull request count or the actions taken'
 
-# --- a secondmate home tells its parent about an unowned task -----------------------
-# Oracle: the owner's decision and bin/fm-parent-channel-lib.sh: a secondmate's
-# parent reads only its parent channel (a local route lands in the parent home's
-# state/<mate-id>.status), so the notice goes there, not to the mate's own wake queue.
+# --- an unowned task is recorded every pass and nothing is sent ----------------------
+# Oracle: the owner's decision: with no home holding the task open the path is
+# record-only, one record per pull request per pass, even in a secondmate home
+# whose parent channel (bin/fm-parent-channel-lib.sh) would be reachable.
 reset
 P="$TMP_ROOT/parent"
 mkdir -p "$P/state"
@@ -473,10 +464,13 @@ pr 110 fm/lost-task CONFLICTING FAILURE 'J-01 lost' | prs
 bash "$TRIAGE" --apply >/dev/null 2>&1
 bash "$TRIAGE" --apply >/dev/null 2>&1
 rm -f "$H/.fm-secondmate-home" "$H/.fm-secondmate-parent"
-assert_equals 'refused:no home owns lost-task: firstmate already notified for head sha110aaaaaa (queue=not queued)' "$(field "$(rec 110)" 5)" 'second pass: a record, no second notice'
-assert_equals 1 "$(grep -c "^blocked .*: pr-triage: $URL/110 (rank 1, conflicting and red)" "$P/state/mate1.status")" 'one blocked line on the parent channel'
-assert_equals 0 "$(wakes 110)" 'no row in the mate home wake queue'
-pass 'a secondmate home posts one blocked line per head on its parent channel'
+assert_equals 2 "$(grep -cF "	$URL/110	1	fix	refused:no home owns lost-task (queue=not queued)" "$LOG")" 'one refusal record per pass'
+assert_absent "$H/state/.wake-queue" 'no wake row'
+assert_absent "$P/state/mate1.status" 'no parent-channel line'
+assert_absent "$FAKE/send.log" 'no steer'
+assert_absent "$FAKE/control.log" 'no launch'
+assert_absent "$H/state/pr-triage/notify-110" 'no notice marker'
+pass 'an unowned task gets one refusal record per pass and no notice'
 
 # --- dry run writes nothing --------------------------------------------------------
 reset
