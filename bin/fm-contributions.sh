@@ -120,6 +120,8 @@ export FM_HOME FM_STATE_OVERRIDE="$STATE"
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-gh-etag-lib.sh
+. "$SCRIPT_DIR/fm-gh-etag-lib.sh"
 # shellcheck source=bin/fm-path-lib.sh
 . "$SCRIPT_DIR/fm-path-lib.sh"
 
@@ -321,6 +323,36 @@ forge() {
   done
 }
 
+# Conditional forge read. The helper sends the stored ETag, so an unchanged
+# endpoint answers 304 and spends none of the shared GitHub budget; the body
+# comes from the cache. It bypasses forge()'s retry and failure bookkeeping on
+# purpose: any trouble (no state directory, gh error, page-spanning list)
+# returns to the unconditional forge read below, which owns every verdict.
+# A slurped read of one page prints [page], exactly what gh --paginate --slurp
+# prints for it; a list that spans pages is never cached and is paginated.
+fm_gh_etag_run() {
+  local remaining
+  remaining=$((DEADLINE - $(date +%s)))
+  [ "$remaining" -gt 0 ] || return 124
+  [ "$remaining" -le 5 ] || remaining=5
+  fm_run_timed "$remaining" env GH_PROMPT_DISABLED=1 GH_NO_UPDATE_NOTIFIER=1 gh "$@"
+}
+
+cond_api() { # <err-file> <endpoint> <slurp 0|1>
+  local err=$1 endpoint=$2 slurp=$3 key
+  key=${endpoint//[^A-Za-z0-9._-]/_}
+  [ "${#key}" -le 180 ] || key="${key:0:120}.$(printf '%s' "$endpoint" | cksum | tr ' ' '.')"
+  if [ -d "$STATE" ] && [ ! -L "$STATE" ] && fm_gh_etag_get "$STATE/gh-etag" "contrib.$key" "$endpoint"; then
+    if [ "$slurp" = 1 ]; then jq -c '[.]' "$FM_GH_ETAG_BODY"; else cat "$FM_GH_ETAG_BODY"; fi
+    return
+  fi
+  if [ "$slurp" = 1 ]; then
+    FORGE_ERR="$err" forge api "$endpoint" --paginate --slurp
+  else
+    FORGE_ERR="$err" forge api "$endpoint"
+  fi
+}
+
 unobserved() { # why: a structural check, not a forge read, refused the observation
   printf '%s\n' "$1" >> "$TMP/why"
   return 1
@@ -344,23 +376,23 @@ observe() { # canonical GitHub URL -> normalized JSON
   case "$kind" in pull) endpoint="repos/$part/pulls/$number" ;; issues) endpoint="repos/$part/issues/$number" ;; *) return 1 ;; esac
   rm -f -- "$TMP/budget-exhausted" "$TMP/forge-unavailable" "$TMP/why"
   BUDGET_EXHAUSTED=0
-  FORGE_ERR="$TMP/core.err" forge api "$endpoint" > "$TMP/core.json" || return 1
+  cond_api "$TMP/core.err" "$endpoint" 0 > "$TMP/core.json" || return 1
   jq -e '(.state == "open" or .state == "closed") and (.user.login | type == "string")' "$TMP/core.json" >/dev/null \
     || unobserved 'core read returned an unexpected shape' || return 1
   if [ "$kind" = pull ]; then
     head=$(jq -er '.head.sha | select(test("^[a-fA-F0-9]{40}$"))' "$TMP/core.json") \
       || unobserved 'core read named no head commit' || return 1
-    FORGE_ERR="$TMP/comments.err" forge api "repos/$part/issues/$number/comments?per_page=100" --paginate --slurp > "$TMP/comments.json" &
+    cond_api "$TMP/comments.err" "repos/$part/issues/$number/comments?per_page=100" 1 > "$TMP/comments.json" &
     local comments_pid=$!
-    FORGE_ERR="$TMP/reviews.err" forge api "$endpoint/reviews?per_page=100" --paginate --slurp > "$TMP/reviews.json" &
+    cond_api "$TMP/reviews.err" "$endpoint/reviews?per_page=100" 1 > "$TMP/reviews.json" &
     local reviews_pid=$!
-    FORGE_ERR="$TMP/inline.err" forge api "$endpoint/comments?per_page=100" --paginate --slurp > "$TMP/inline.json" &
+    cond_api "$TMP/inline.err" "$endpoint/comments?per_page=100" 1 > "$TMP/inline.json" &
     local inline_pid=$!
-    FORGE_ERR="$TMP/checks.err" forge api "repos/$part/commits/$head/check-runs?filter=all&per_page=100" --paginate --slurp > "$TMP/checks.json" &
+    cond_api "$TMP/checks.err" "repos/$part/commits/$head/check-runs?filter=all&per_page=100" 1 > "$TMP/checks.json" &
     local checks_pid=$!
-    FORGE_ERR="$TMP/statuses.err" forge api "repos/$part/commits/$head/statuses?per_page=100" --paginate --slurp > "$TMP/statuses.json" &
+    cond_api "$TMP/statuses.err" "repos/$part/commits/$head/statuses?per_page=100" 1 > "$TMP/statuses.json" &
     local statuses_pid=$!
-    FORGE_ERR="$TMP/repo.err" forge api "repos/$part" > "$TMP/repo.json" &
+    cond_api "$TMP/repo.err" "repos/$part" 0 > "$TMP/repo.json" &
     local repo_pid=$!
     wait_forges "$comments_pid" "$reviews_pid" "$inline_pid" "$checks_pid" "$statuses_pid" "$repo_pid" || return 1
     jq -e 'type == "array" and all(.[]; type == "array")' "$TMP/comments.json" >/dev/null \
@@ -391,9 +423,9 @@ observe() { # canonical GitHub URL -> normalized JSON
       || unobserved 'observation could not be assembled' || return 1
   else
     label=${FM_CONTRIBUTIONS_READY_LABEL:-ready-for-pr}
-    FORGE_ERR="$TMP/comments.err" forge api "repos/$part/issues/$number/comments?per_page=100" --paginate --slurp > "$TMP/comments.json" &
+    cond_api "$TMP/comments.err" "repos/$part/issues/$number/comments?per_page=100" 1 > "$TMP/comments.json" &
     local comments_pid=$!
-    FORGE_ERR="$TMP/issue-events.err" forge api "repos/$part/issues/$number/events?per_page=100" --paginate --slurp > "$TMP/issue-events.json" &
+    cond_api "$TMP/issue-events.err" "repos/$part/issues/$number/events?per_page=100" 1 > "$TMP/issue-events.json" &
     local events_pid=$!
     wait_forges "$comments_pid" "$events_pid" || return 1
     jq -e 'type == "array" and all(.[]; type == "array")' "$TMP/comments.json" >/dev/null \
