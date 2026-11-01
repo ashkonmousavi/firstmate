@@ -24,7 +24,9 @@
 #   label=<name>          rank-1 class: the pull request carries this label
 #   path=<glob>           rank-1 class: a changed file matches the shell glob
 # title=, label= and path= repeat; together they name the pull requests that
-# unblock others now (CI or test speed, red-main repair).
+# unblock others now (CI or test speed, red-main repair). Never list main-red
+# as a label= rule: this script applies that label, so the rule would keep a
+# pull request at rank 1 after its first pass.
 #
 # RANK. A tier number, not a list position:
 #   1  a rules class above matches, or the pull request is on the J-01 path:
