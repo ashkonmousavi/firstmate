@@ -68,7 +68,6 @@ lease. A list that fails or omits the source counts as not alive. A runner
 read as not alive on a single pass is audited as transient. No remote source
 is changed and no live runner is reconciled from this backstop.
 Notes deduplicate for an incident until a healthy observation clears it.
-Runner identity requires Linux /proc process state and command-line records.
 Private state: .main-backstop.json (incident ids, deferred alarms when gated,
 successful nudge time, delta cursors and consecutive failure records),
 .main-backstop.lock (cron exclusion), .main-backstop.log (bounded audit).

@@ -38,12 +38,11 @@
 #          sequence before probing, and an alive remote route is revalidated
 #          (route readable, backend herdr) so the sweep reports drift.
 #   poll - watcher tick: remote routes take one read-only state probe per
-#          check. That hop, and the full-mode route hop, are bounded by
-#          30 seconds. A hop that hits the bound is the same as an unreachable
-#          host: the route is preserved and nothing is relaunched. Repair still
-#          happens, but
-#          inside fm-spawn's launch gate only when a relaunch is actually
-#          authorized.
+#          check; repair happens inside fm-spawn's launch gate only when a
+#          relaunch is actually authorized.
+# Remote state probes in either mode and the full-mode route probe each have
+# a fixed 30-second bound. A probe that hits the bound is treated as an
+# unreachable host: the route is preserved and nothing is relaunched.
 #
 # Concurrency: fm_secondmate_liveness_lock serializes probe+kill+relaunch per
 # task across the bootstrap sweep and the watcher tick, so a concurrent
