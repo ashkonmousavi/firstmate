@@ -80,7 +80,7 @@ action_arm() {
 quiet() { rm -f -- "$MARKER"; exit 0; }
 
 evaluate() {
-  local cap free prepared count first last age episode prev prev_at line
+  local cap free prepared count first last age episode prev prev_at line rc=0
   cap=$("$CAPACITY_BIN" --admit 2>/dev/null | sed -n '/^capacity:/{p;q;}')
   free=$(printf '%s\n' "$cap" | sed -n 's/.*[[:space:]]free_lanes=\([0-9][0-9]*\).*/\1/p')
   case "$free" in ''|*[!0-9]*|0) quiet ;; esac
@@ -107,14 +107,16 @@ evaluate() {
       exit 0
     fi
   fi
-  printf '%s\n%s\n' "$episode" "$NOW" > "$MARKER" 2>/dev/null || true
   line="RED auto-launch stalled on $(hostname 2>/dev/null || echo this-host): $free free lane(s) and $count prepared item(s) (first: $first) but no launch or refusal record in $((STALE / 60)) min ($age); check the auto-launch schedule and state/autolaunch.log"
   printf '%s\n' "$line"
-  if [ -f "$SCRIPT_DIR/fm-parent-channel-lib.sh" ]; then
-    # shellcheck source=bin/fm-parent-channel-lib.sh
-    . "$SCRIPT_DIR/fm-parent-channel-lib.sh"
-    fm_parent_channel_report "$FM_HOME" "$STATE" "blocked: $line" >/dev/null 2>&1 || true
-  fi
+  # shellcheck source=bin/fm-parent-channel-lib.sh
+  . "$SCRIPT_DIR/fm-parent-channel-lib.sh"
+  fm_parent_channel_report "$FM_HOME" "$STATE" "blocked: $line" >/dev/null || rc=$?
+  case "$rc" in
+    0|1) ;;
+    *) echo "fm-autolaunch-check: parent delivery failed (exit $rc); will retry" >&2; exit 0 ;;
+  esac
+  printf '%s\n%s\n' "$episode" "$NOW" > "$MARKER" || echo "fm-autolaunch-check: cannot record stall episode" >&2
   exit 0
 }
 
@@ -122,7 +124,8 @@ case "${1:-}" in
   '') evaluate ;;
   arm) action_arm ;;
   disarm)
-    rm -f -- "$CHECK_SHIM" "$STATE/$CHECK_ID.check-trust" "$MARKER"
+    FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-check-unregister.sh" "$CHECK_ID" >/dev/null || exit 1
+    rm -f -- "$MARKER" || exit 1
     printf 'disarmed: state/%s.check.sh\n' "$CHECK_ID"
     ;;
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//' ;;

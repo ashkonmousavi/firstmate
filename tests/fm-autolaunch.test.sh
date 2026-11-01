@@ -44,6 +44,7 @@ if [ -f "$FAKE_DIR/rc-$id" ]; then
   [ "$rc" = 1 ] && echo "error: brief mismatch for $id" >&2
   exit "$rc"
 fi
+[ ! -f "$FAKE_DIR/rotate-log" ] || mv "$FM_HOME/state/autolaunch.log" "$FM_HOME/state/autolaunch.previous.log"
 free=$(cat "$FAKE_DIR/free"); echo $((free - 1)) > "$FAKE_DIR/free"
 echo "spawned $id"
 SH
@@ -72,7 +73,9 @@ prep() {  # <id> <project> [extra key=value...]
 }
 reset() {
   rm -f "$LOG" "$FAKE"/spawn.log "$FAKE"/resolve.log "$FAKE"/rc-* "$FAKE/quota-refuse" "$FAKE/resolve" \
-    "$H/config/autolaunch-exclude" "$H/config/crew-dispatch.json" "$H/state/.autolaunch-check.red"
+    "$H/config/autolaunch-exclude" "$H/config/crew-dispatch.json" "$H/state/.autolaunch-check.red" \
+    "$H/config/crew-exclude-tools" "$H/config/pi-account" "$H/config/claude-account" \
+    "$FAKE/rotate-log" "$H/state/autolaunch.previous.log"
   rm -rf "$H/data"/*/ "$H/state/spawn-deferred"
   printf '%s\n' "${1:-1}" > "$FAKE/free"
 }
@@ -141,6 +144,41 @@ assert_contains "$(tail -1 "$LOG")" '1	-	-	refused:no prepared item' 'running ou
 [ ! -f "$FAKE/spawn.log" ] || fail "no refused item is spawned: $(cat "$FAKE/spawn.log")"
 pass 'unprepared, excluded, held and already-deferred items refuse with their reason and never spawn'
 
+reset 1
+printf '%s\n' '- [ ] foo.bar - literal task (repo: proj) (kind: ship)' \
+  '- [ ] exact - deferred task (repo: proj) (kind: ship)' | backlog
+prep foo.bar proj; prep exact proj
+mkdir -p "$H/state/spawn-deferred/queue"
+printf 'task=foo-bar\n' > "$H/state/spawn-deferred/queue/other"
+printf 'task=exact\n' > "$H/state/spawn-deferred/queue/exact"
+assert_equals 'foo.bar' "$(bash "$AL" --list-prepared)" 'deferred queue identity uses literal whole lines'
+bash "$AL" >/dev/null 2>&1
+assert_contains "$(cat "$FAKE/spawn.log")" 'foo.bar ' 'regex-like task id remains launchable'
+rm -f "$LOG" "$FAKE/spawn.log"; echo 1 > "$FAKE/free"
+printf 'task=foo.bar\n' > "$H/state/spawn-deferred/queue/other"
+assert_equals '' "$(bash "$AL" --list-prepared)" 'exact deferred identities are excluded from the list'
+bash "$AL" >/dev/null 2>&1
+assert_contains "$(cat "$LOG")" $'foo.bar\t-\trefused:spawn deferred pending' 'exact deferred identity is refused'
+assert_absent "$FAKE/spawn.log" 'exact deferred tasks never spawn'
+pass 'deferred identity contract distinguishes foo.bar from foo-bar in listing and launching'
+
+reset 1
+printf '%s\n' '- [ ] recorded - prepared (repo: proj) (kind: ship)' | backlog
+prep recorded proj
+printf 'existing record\n' > "$LOG"
+chmod 0400 "$LOG"
+out=$(bash "$AL" 2>&1); rc=$?
+chmod 0600 "$LOG"
+expect_code 1 "$rc" 'an unwritable log refuses before dispatch'
+assert_absent "$FAKE/spawn.log" 'no launch without an open record destination'
+assert_absent "$FAKE/resolve.log" 'no dispatch before opening the log'
+assert_equals 'existing record' "$(cat "$LOG")" 'unwritable log is preserved'
+touch "$FAKE/rotate-log"
+bash "$AL" >/dev/null 2>&1
+assert_contains "$(cat "$H/state/autolaunch.previous.log")" $'recorded\tstatic\tlaunched' 'records retain the opened log descriptor across rename'
+assert_absent "$LOG" 'launch recording does not reopen the log path'
+pass 'launches require a writable record destination and retain it for recording'
+
 reset 0
 printf '%s\n' "- [ ] ready-1 - prepared (repo: proj) (kind: ship) (since 2026-10-30)" | backlog
 prep ready-1 proj
@@ -202,6 +240,73 @@ FM_QUOTA_SNAPSHOT_FILE="$FAKE/quota.json" bash "$AL" >/dev/null 2>&1
 assert_equals "grok	launched" "$(cut -f4,5 "$LOG" | head -1)" 'highest spendPriority default launches'
 assert_not_contains "$(cat "$FAKE/spawn.log")" 'claude' 'an exhausted default is never tried'
 pass 'with no clear profile, defaults rank by spendPriority and exhausted ones are skipped'
+
+for profile in '{"harness":"codex","effort":"high"}' \
+  '{"harness":"codex","model":"gpt-5.5"}' '{"harness":"codex"}'; do
+  reset 1
+  printf '%s\n' '- [ ] fields - prepared (repo: proj) (kind: ship)' | backlog
+  prep fields proj
+  printf '{"default":%s}\n' "$profile" > "$H/config/crew-dispatch.json"
+  expected='--harness codex'
+  case "$profile" in
+    *effort*) expected="$expected --effort high" ;;
+    *model*) expected="$expected --model gpt-5.5" ;;
+  esac
+  out=$(bash "$AL" --dry-run 2>&1)
+  assert_contains "$out" "$expected" 'dry-run preserves optional profile fields'
+  assert_not_contains "$out" '--model high' 'effort never occupies the model field'
+  bash "$AL" >/dev/null 2>&1
+  assert_equals "fields $H/projects/proj --mode direct-PR --yolo off $expected" "$(cat "$FAKE/spawn.log")" 'spawn flags preserve each profile field position'
+done
+pass 'profile contract preserves absent model and effort fields in both candidate readers'
+
+jq '(.providers[] | select(.provider == "zai").quotaSemantics.effectiveAvailability[].selection.spendPriority) = 9' \
+  "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$FAKE/eligibility-quota.json"
+for snapshot in "$FAKE/eligibility-quota.json" "$FAKE/missing-quota.json"; do
+  for kind in ship scout; do
+    for condition in tools pi-account claude-account kimi-capture codex-capture backend profile; do
+      reset 1
+      printf '%s\n' '- [ ] eligible - prepared (repo: proj) (kind: ship)' | backlog
+      prep eligible proj
+      [ "$kind" != scout ] || printf 'project=proj\nkind=scout\n' > "$H/data/eligible/autolaunch-prep"
+      backend=tmux typed=0 expected=claude
+      case "$condition" in
+        tools)
+          printf 'hidden_tool\n' > "$H/config/crew-exclude-tools"
+          profiles='[{"harness":"codex"},{"harness":"pi","model":"zai/glm-5.3","provider":"zai"}]'
+          expected=pi ;;
+        pi-account)
+          mkdir -p "$FAKE/pi-root"
+          printf '%s\ncodex-native\n' "$FAKE/pi-root" > "$H/config/pi-account"
+          profiles='[{"harness":"pi","model":"zai/glm-5.3","provider":"zai"},{"harness":"pi","model":"codex-native/gpt-6-astra","provider":"codex"}]'
+          expected=pi ;;
+        claude-account)
+          printf '%s\n' "$FAKE/missing-account" > "$H/config/claude-account"
+          profiles='[{"harness":"claude"},{"harness":"codex"}]'
+          expected=codex ;;
+        kimi-capture)
+          backend=orca
+          profiles='[{"harness":"kimi","provider":"codex"},{"harness":"claude"}]' ;;
+        codex-capture)
+          backend=paseo typed=1
+          profiles='[{"harness":"codex"},{"harness":"claude"}]' ;;
+        backend)
+          backend=zellij
+          profiles='[{"harness":"commandcode","provider":"codex"},{"harness":"claude"}]' ;;
+        profile)
+          profiles='[{"harness":"polytoken","provider":"codex"},{"harness":"claude"}]' ;;
+      esac
+      printf '{"default":%s}\n' "$profiles" > "$H/config/crew-dispatch.json"
+      FM_BACKEND=$backend FM_CODEX_TYPED_LAUNCH=$typed FM_QUOTA_SNAPSHOT_FILE="$snapshot" bash "$AL" >/dev/null 2>&1
+      assert_equals 1 "$(wc -l < "$FAKE/spawn.log" | tr -d ' ')" "only an eligible default is dispatched: $condition"
+      assert_contains "$(cat "$FAKE/spawn.log")" "--harness $expected" "launch eligibility precedes ranking: $condition"
+      if [ "$condition" = pi-account ]; then
+        assert_contains "$(cat "$FAKE/spawn.log")" '--model codex-native/gpt-6-astra' 'configured provider restriction excludes the other Pi profile'
+      fi
+    done
+  done
+done
+pass 'default eligibility honors tool, account, capture, backend and profile contracts with known or unavailable quota'
 
 # --- dry-run and lock --------------------------------------------------------
 reset 1
@@ -272,7 +377,16 @@ prep waiting proj
 PARENT="$TMP_ROOT/parent"
 mkdir -p "$PARENT/state"
 printf 'mate-a\n' > "$H/.fm-secondmate-home"
+out=$(bash "$CHECK" 2>&1); rc=$?
+expect_code 0 "$rc" 'evaluation remains a watcher-compatible success on parent delivery failure'
+assert_contains "$out" 'parent delivery failed (exit 3); will retry' 'missing parent binding is surfaced'
+assert_absent "$H/state/.autolaunch-check.red" 'failed delivery does not suppress retry'
 printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' "$PARENT" > "$H/.fm-secondmate-parent"
+mkdir "$PARENT/state/mate-a.status"
+out=$(bash "$CHECK" 2>&1)
+assert_contains "$out" 'parent delivery failed (exit 4); will retry' 'parent append failure is surfaced'
+assert_absent "$H/state/.autolaunch-check.red" 'failed append does not suppress retry'
+rmdir "$PARENT/state/mate-a.status"
 out=$(bash "$CHECK" 2>&1)
 assert_contains "$out" 'RED auto-launch stalled' 'mate home still prints red'
 if [ -f "$PARENT/state/mate-a.status" ]; then
@@ -281,6 +395,15 @@ if [ -f "$PARENT/state/mate-a.status" ]; then
 else
   fail "secondmate red line did not reach the parent channel"
 fi
+assert_present "$H/state/.autolaunch-check.red" 'successful parent delivery publishes the episode marker'
+out=$(bash "$CHECK" 2>&1)
+assert_equals '' "$out" 'successful retry is throttled'
+assert_equals 1 "$(wc -l < "$PARENT/state/mate-a.status" | tr -d ' ')" 'successful recovery delivers once'
+rm -f "$H/state/.autolaunch-check.red" "$H/.fm-secondmate-home"
+ln -s "$PARENT" "$H/.fm-secondmate-home"
+out=$(bash "$CHECK" 2>&1)
+assert_contains "$out" 'parent delivery failed (exit 2); will retry' 'unusable identity is surfaced'
+assert_absent "$H/state/.autolaunch-check.red" 'unusable identity remains retryable'
 rm -f "$H/.fm-secondmate-home" "$H/.fm-secondmate-parent"
 pass 'in a secondmate home the red line also reaches the parent channel'
 
@@ -288,8 +411,22 @@ out=$(bash "$CHECK" arm 2>&1) || fail "arm failed: $out"
 assert_contains "$out" 'armed: state/autolaunch.check.sh' 'arm reports the shim'
 assert_present "$H/state/autolaunch.check.sh" 'shim written'
 assert_present "$H/state/autolaunch.check-trust" 'shim registered'
+chmod 0500 "$H/state"
+out=$(bash "$CHECK" disarm 2>&1); rc=$?
+chmod 0700 "$H/state"
+expect_code 1 "$rc" 'failed unregistration propagates failure'
+assert_not_contains "$out" 'disarmed:' 'failed unregistration never reports success'
+assert_present "$H/state/autolaunch.check.sh" 'failed retirement preserves the check'
+mv "$H/state/autolaunch.check-trust" "$H/state/original-trust"
+ln -s "$H/state/original-trust" "$H/state/autolaunch.check-trust"
+out=$(bash "$CHECK" disarm 2>&1); rc=$?
+expect_code 1 "$rc" 'unregistration rejects unsafe trust artifacts'
+assert_present "$H/state/autolaunch.check.sh" 'shared retirement validation runs before removal'
+rm "$H/state/autolaunch.check-trust"
+mv "$H/state/original-trust" "$H/state/autolaunch.check-trust"
 bash "$CHECK" disarm >/dev/null
 assert_absent "$H/state/autolaunch.check.sh" 'disarm removes the shim'
+assert_absent "$H/state/autolaunch.check-trust" 'disarm retires trust through the shared owner'
 out=$(bash "$AL" --print-timer)
 assert_contains "$out" "Environment=FM_HOME=$H" 'timer proposal pins FM_HOME'
 assert_contains "$out" 'OnUnitActiveSec=5min' 'timer proposal runs every five minutes'

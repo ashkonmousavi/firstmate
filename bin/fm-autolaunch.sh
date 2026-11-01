@@ -204,7 +204,7 @@ record() {
     printf 'would-record: %s\n' "$line"
     return 0
   fi
-  printf '%s\n' "$line" >> "$LOG" || { echo "fm-autolaunch: cannot append to $LOG" >&2; exit 1; }
+  printf '%s\n' "$line" >&9 || { echo "fm-autolaunch: cannot append to $LOG" >&2; exit 1; }
   printf '%s\n' "$line"
 }
 
@@ -311,7 +311,7 @@ deferred_pending() {
   local f
   for f in "$STATE/spawn-deferred/queue"/*; do
     [ -f "$f" ] || continue
-    grep -qx "task=$1" "$f" 2>/dev/null && return 0
+    grep -qxF "task=$1" "$f" 2>/dev/null && return 0
   done
   return 1
 }
@@ -350,7 +350,7 @@ ordered_ids() {
 # default_candidates <kind> <backend>: ranked default profiles as TSV
 # harness, model, effort; DEFAULT_REFUSAL names a refused default.
 default_candidates() {
-  local kind=$1 backend=$2 defaults all snap resolved='[]' p r
+  local kind=$1 backend=$2 defaults all snap resolved='[]' eligible='[]' p r h
   DEFAULT_REFUSAL=
   defaults=$(jq -c '
     def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
@@ -360,6 +360,17 @@ default_candidates() {
     def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
     [((.rules // [])[] | profiles(.use)[]), profiles(.default // null)[]]
     | map(select(type == "object" and (.harness | type) == "string")) | unique' "$RULES" 2>/dev/null) || all='[]'
+  while IFS= read -r p; do
+    h=$(jq -r '.harness' <<<"$p")
+    if [ "$h" = kimi ] || { [ "$h" = codex ] && [ "${FM_CODEX_TYPED_LAUNCH:-0}" = 1 ]; }; then
+      fm_backend_visible_capture_supported "$backend" || continue
+    fi
+    fm_exclude_tools_check "$h" 0 "$CONFIG" >/dev/null 2>&1 || continue
+    fm_quota_gate_account_eligible "$h" "$(jq -r '.model // ""' <<<"$p")" "$CONFIG" '' >/dev/null 2>&1 || continue
+    eligible=$(jq -c --argjson p "$p" '. + [$p]' <<<"$eligible")
+  done < <(jq -c --arg kind "$kind" --arg backend "$backend" \
+    "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'.[] | select(quota_gate_launch_eligible($kind; $backend; false))' <<<"$defaults")
+  defaults=$eligible
   snap="$TMPD/quota.json"
   if ! fm_quota_gate_snapshot "$snap" >/dev/null 2>&1; then
     # Unmeasurable quota is disclosed uncertainty: declared order, and
@@ -372,10 +383,10 @@ default_candidates() {
     resolved=$(jq -c --argjson r "$r" '. + [$r]' <<<"$resolved")
   done < <(jq -c '.[]' <<<"$defaults")
   FM_QUOTA_GATE_HORIZON_SECONDS=$FM_QUOTA_GATE_HORIZON_SECONDS jq -r -n \
-    --slurpfile quota "$snap" --argjson cands "$resolved" --arg kind "$kind" --arg backend "$backend" \
+    --slurpfile quota "$snap" --argjson cands "$resolved" \
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'
     ($quota[0]) as $q | now as $now |
-    [$cands[] | select(quota_gate_launch_eligible($kind; $backend; false)) | quota_gate_verdict($q; .; $now)] as $v |
+    [$cands[] | quota_gate_verdict($q; .; $now)] as $v |
     ([$v[] | select(.verdict == "pass" and (.spendPriority | type) == "number")] | sort_by(-.spendPriority))
     + [$v[] | select(.verdict == "notice" or (.verdict == "pass" and (.spendPriority | type) != "number"))]
     | (.[] | "cand\t\(.profile.harness)\t\(.profile.model // "")\t\(.profile.effort // "")"),
@@ -423,7 +434,9 @@ resolve_dispatch() {
   fi
   backend=$(FM_BACKEND_CONFIG_DIR="$CONFIG" fm_backend_name 2>/dev/null) || backend=tmux
   default_candidates "$kind" "$backend" > "$TMPD/default-cands.tsv"
-  while IFS=$'\t' read -r h m e; do
+  while IFS= read -r line; do
+    h=${line%%$'\t'*} line=${line#*$'\t'}
+    m=${line%%$'\t'*} e=${line#*$'\t'}
     grep -qxF "$h	$m	$e" "$TMPD/cands.tsv" || printf '%s\t%s\t%s\n' "$h" "$m" "$e" >> "$TMPD/cands.tsv"
   done < "$TMPD/default-cands.tsv"
   [ -s "$TMPD/cands.tsv" ] && return 0
@@ -468,6 +481,7 @@ if [ "$ACTION" = run ]; then
     exit 0
   fi
   LOCK_HELD=1
+  exec 9>> "$LOG" || { echo "fm-autolaunch: cannot append to $LOG" >&2; exit 1; }
 fi
 
 capacity_read || true
@@ -494,7 +508,9 @@ for id in $ids; do
     continue
   fi
   outcome='' quota_reason='' model=-
-  while IFS=$'\t' read -r h m e; do
+  while IFS= read -r line; do
+    h=${line%%$'\t'*} line=${line#*$'\t'}
+    m=${line%%$'\t'*} e=${line#*$'\t'}
     model=${h:-static}${m:+:$m}
     spawn_argv "$id" "$h" "$m" "$e"
     if [ "$ACTION" = dry ]; then
