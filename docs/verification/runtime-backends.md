@@ -767,6 +767,28 @@ skip-runner: pi-signed is not installed, so its pin check was not exercised
 
 The guard submits no prompt and spends no tokens, so it runs by default wherever a runner is installed; rerun it after every Claude or Pi upgrade.
 
+## Codex account folder checks
+
+`bin/fm-codex-accounts.py` supplies the opt-in selection, exact-folder quota wrapper, duplicate check and registered watcher entry point documented in [configuration](../configuration.md#codex-account-folders-configcodex-accounts).
+`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, main weekly ranking, unavailable and stale quota, shared-file preparation, duplicate files and auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+`tests/fm-control.test.sh` verifies that unusable lists refuse before a ship or scout's running agent is stopped.
+
+The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` now covers Codex local status using an empty folder and a synthetic file-backed API-key cache under a temporary `HOME`.
+It suppresses vendor diagnostics and never sends the synthetic credential to a service.
+That guard proves local-status compatibility only; it cannot prove ChatGPT refresh or a real subscription's quota response.
+For the existing new-worktree trust/processing guard, set `FM_CODEX_ACCOUNT_LIVE_ROOT` to an independently signed-in, prepared folder before running `tests/fm-codex-brief-typed-live-e2e.test.sh`.
+That prompt-submitting guard remains opt-in, and its pool and endpoint lifecycle require the normal isolated validation authority.
+
+Evidence status 2026-11-01: the new real-Codex cases have not been run by the implementation worker because this task permits only fake Codex and temporary-folder tests.
+No installed Codex version or real refresh, quota or trust result is claimed here.
+The designated validation phase must refresh this entry with date, installed version, exact command and output before claiming live proof.
+
+```sh
+bash bin/fm-test-run.sh tests/fm-worker-account.test.sh tests/fm-control.test.sh
+bash bin/fm-test-run.sh tests/fm-worker-account-live-e2e.test.sh
+FM_CODEX_LIVE_E2E=1 FM_CODEX_ACCOUNT_LIVE_ROOT=/absolute/independent-codex-folder bash tests/fm-codex-brief-typed-live-e2e.test.sh
+```
+
 ## Secondmate busy contract
 
 Verified 2026-09-22 on this host with Claude Code 2.1.278, OpenCode 1.18.31, Pi 0.86.1, and Grok 1.0.40.

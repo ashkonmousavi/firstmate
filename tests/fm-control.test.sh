@@ -1959,6 +1959,26 @@ test_devin_stuck_picker_refuses_and_exit_types_nothing
 test_opencode_interrupts_twice_and_others_once
 test_unverified_harness_is_refused
 test_harness_family_resolution
+test_codex_relaunch_accounts_preflight() {
+  local dir out rc meta_before kind
+  for kind in ship scout; do
+    dir=$(new_case "codex-account-$kind")
+    add_task "$dir" t1 codex "$kind"
+    alive_as "$dir" codex
+    : > "$dir/home/config/codex-accounts"
+    meta_before=$(cat "$dir/home/state/t1.meta")
+    out=$(run_control "$dir" t1 relaunch --harness codex --note retry); rc=$?
+    expect_code 1 "$rc" "unusable Codex accounts must refuse preflight: $out"
+    assert_contains "$out" 'codex-accounts' 'preflight names the configuration'
+    assert_equals '' "$(literals "$dir")$(keys_sent "$dir")" 'failed preflight sends no bytes'
+    assert_equals codex "$(cat "$dir/fake/command")" 'the old Codex worker stays alive'
+    assert_equals "$meta_before" "$(cat "$dir/home/state/t1.meta")" 'metadata stays unchanged'
+    assert_absent "$dir/home/state/t1.control-relaunch" 'no relaunch transaction starts'
+  done
+  pass 'ship and scout relaunch refuse unusable Codex folders before stopping the live worker'
+}
+
+test_codex_relaunch_accounts_preflight
 test_relaunch_resume_flag_is_per_adapter_and_reference_owner
 test_prefixed_recorded_harness_reaches_each_control_verb
 test_backend_key_capability_matrix

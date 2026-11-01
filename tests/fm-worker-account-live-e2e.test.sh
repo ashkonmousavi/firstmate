@@ -21,7 +21,7 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-fm_live_gate default-on FM_WORKER_ACCOUNT_LIVE_E2E jq perl
+fm_live_gate default-on FM_WORKER_ACCOUNT_LIVE_E2E jq perl python3
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$ROOT/bin/fm-worker-account-lib.sh"
 
@@ -32,6 +32,40 @@ export HOME="$TMP_ROOT/home"
 mkdir -p "$HOME"
 unset CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR ANTHROPIC_API_KEY OPENAI_API_KEY FM_LIVE_EXT_KEY
 CHECKED=
+
+codex_live_cases() {
+  local version empty stored out config
+  version=$(codex --version 2>/dev/null | head -1)
+  empty="$TMP_ROOT/codex-empty"
+  stored="$TMP_ROOT/codex-stored"
+  config="$TMP_ROOT/codex-config"
+  mkdir -p "$empty/rules" "$stored/rules" "$config"
+  printf 'cli_auth_credentials_store="file"\n' > "$empty/config.toml"
+  cp "$empty/config.toml" "$stored/config.toml"
+  : > "$empty/AGENTS.md"
+  : > "$stored/AGENTS.md"
+  printf 'prefix_rule(pattern=["echo"], decision="allow")\n' > "$empty/rules/default.rules"
+  cp "$empty/rules/default.rules" "$stored/rules/default.rules"
+  # Synthetic cached API auth proves the vendor's local-status contract only.
+  # No request is sent and no real credential or account directory is touched.
+  printf '{"OPENAI_API_KEY":"sk-fm-live-synthetic"}\n' > "$stored/auth.json"
+  printf '%s\n' "$empty" > "$config/codex-accounts"
+  if out=$(OPENAI_API_KEY=sk-fm-live-ambient fm_worker_account_select codex "$config" '' codex 2>&1); then
+    fail "codex $version: accepted an empty folder under ambient credentials"
+  fi
+  assert_not_contains "$out" 'sk-fm-live-' "codex $version leaked vendor status diagnostics"
+  printf '%s\n' "$stored" > "$config/codex-accounts"
+  # Avoid any network: this fake quota tool leaves room unmeasured while the
+  # installed Codex alone decides whether the synthetic cache is signed in.
+  mkdir -p "$TMP_ROOT/quota-bin"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$TMP_ROOT/quota-bin/quota-axi"
+  chmod +x "$TMP_ROOT/quota-bin/quota-axi"
+  out=$(PATH="$TMP_ROOT/quota-bin:$PATH" fm_worker_account_select codex "$config" '' codex 2>&1) ||
+    fail "codex $version: refused a synthetic file-backed local login: $out"
+  assert_equals "$stored" "${out%%$'\t'*}" "codex $version selected a different root"
+  pass "codex $version: file-backed local status accepts a synthetic cache, refuses an empty root and suppresses diagnostics"
+  CHECKED="$CHECKED codex"
+}
 
 claude_live_cases() {
   local version empty helper
@@ -111,22 +145,23 @@ pi_live_cases() {
   CHECKED="$CHECKED $exe"
 }
 
-for runner in claude pi pi-signed; do
+for runner in claude pi pi-signed codex; do
   if ! command -v "$runner" >/dev/null 2>&1; then
     printf 'skip-runner: %s is not installed, so its pin check was not exercised\n' "$runner"
     continue
   fi
   case "$runner" in
     claude) claude_live_cases ;;
+    codex) codex_live_cases ;;
     *) pi_live_cases "$runner" ;;
   esac
 done
 
 if [ -z "$CHECKED" ]; then
   if [ "${FM_WORKER_ACCOUNT_LIVE_E2E:-${FM_LIVE:-}}" = 1 ]; then
-    fail "the worker account live guard was requested but no supported runner (claude, pi, pi-signed) is installed"
+    fail "the worker account live guard was requested but no supported runner (claude, pi, pi-signed, codex) is installed"
   fi
-  echo "skip: live: no supported runner (claude, pi, pi-signed) installed"
+  echo "skip: live: no supported runner (claude, pi, pi-signed, codex) installed"
   exit 0
 fi
 echo "# worker account live guard checked:$CHECKED"

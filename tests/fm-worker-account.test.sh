@@ -113,6 +113,7 @@ run_pane() {
     CLAUDE_CONFIG_DIR="$CASE/ambient-claude" ANTHROPIC_API_KEY=ambient-pane-key \
     CLAUDE_CODE_OAUTH_TOKEN=ambient-pane-token CLAUDE_CODE_USE_BEDROCK=1 \
     PI_CODING_AGENT_DIR="$CASE/ambient-pi" OPENAI_API_KEY=ambient-pane-openai \
+    CODEX_HOME="$CASE/ambient-codex" CODEX_API_KEY=ambient-pane-codex \
     FM_ACCOUNT_LOG="${FM_ACCOUNT_LOG:-}" \
     bash -c "$(cat "$CASE/launch.log")" || fail "the recorded launch failed in the synthetic pane"
 }
@@ -586,6 +587,199 @@ test_remote_secondmate_account_override_refuses_locally() {
   pass "a remote route refuses a primary-side account override instead of silently ignoring it"
 }
 
+test_codex_empty_list_refuses_before_endpoint() {
+  local out rc id=acct-codex-empty
+  new_case codex-empty codex
+  : > "$HOME_DIR/config/codex-accounts"
+  out=$(spawn_ship "$id"); rc=$?
+  expect_code 1 "$rc" "an opted-in empty Codex account list must refuse: $out"
+  assert_refused_before_launch "$id" "$out" "codex-accounts"
+  pass "Codex refuses an empty opt-in before endpoint creation"
+}
+
+codex_case() {
+  new_case "$1" codex
+  mkdir -p "$CASE/shared/rules" "$CASE/shared/skills" "$CASE/account one" "$CASE/account-two"
+  printf 'cli_auth_credentials_store="file"\n' > "$CASE/shared/config.toml"
+  printf 'Test instructions\n' > "$CASE/shared/AGENTS.md"
+  printf 'prefix_rule(pattern=["echo"], decision="allow")\n' > "$CASE/shared/rules/default.rules"
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' "artificial-session-$root" > "$root/auth.json"
+    : > "$root/signed-in"
+    python3 "$ROOT/bin/fm-codex-accounts.py" prepare --folder "$root" --shared "$CASE/shared" || fail 'prepare failed'
+  done
+  printf '%s\n' "$CASE/account one" "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
+  # The shared fixture need not install Codex: all harness/pane behavior lives
+  # in its fake endpoint. Never fall through to the machine's installed CLI.
+  cat > "$FAKEBIN/codex" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = -c ]; then
+  [ "$2" = 'cli_auth_credentials_store="file"' ] || exit 83
+  shift 2
+fi
+if [ "${1:-}" = login ] && [ "${2:-}" = status ]; then
+  [ -z "${OPENAI_API_KEY:-}${CODEX_API_KEY:-}" ] || exit 82
+  printf 'status diagnostics must stay private\n' >&2
+  [ -f "$CODEX_HOME/signed-in" ]
+  exit
+fi
+if [ "${1:-}" = exec ]; then
+  printf 'maintenance diagnostics must stay private\n'
+  [ ! -f "$CODEX_HOME/maintenance-fails" ]
+  exit
+fi
+if [ -n "${CODEX_HOME:-}" ] && [ -d "$CODEX_HOME" ]; then
+  printf 'CODEX_HOME=%s\nOPENAI_API_KEY=%s\nCODEX_API_KEY=%s\n' "$CODEX_HOME" \
+    "${OPENAI_API_KEY-unset}" "${CODEX_API_KEY-unset}" > "$CODEX_HOME/worker-environment"
+fi
+printf 'fake codex 0.136.0\n'
+SH
+  cat > "$FAKEBIN/quota-axi" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *' --profile-only '*) ;;
+  *) exit 81 ;;
+esac
+[ -z "${OPENAI_API_KEY:-}${CODEX_API_KEY:-}" ] || exit 82
+cat "$CODEX_HOME/quota.json"
+SH
+  chmod +x "$FAKEBIN/codex" "$FAKEBIN/quota-axi"
+  codex_quota "$CASE/account one" fresh 30
+  codex_quota "$CASE/account-two" fresh 80
+}
+
+codex_quota() {
+  jq --arg state "$2" --argjson pct "$3" '
+    .providers |= [.[] | select(.provider == "codex") |
+      .state={status:$state} | .windows=[{id:"weekly",kind:"weekly",percentRemaining:$pct},
+      {id:"code_review_weekly",kind:"weekly",percentRemaining:99}]]' \
+    "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$1/quota.json"
+}
+
+codex_tool() {
+  PATH="$FAKEBIN:$PATH" python3 "$ROOT/bin/fm-codex-accounts.py" "$@" \
+    --config "$HOME_DIR/config/codex-accounts" 2>&1
+}
+
+test_codex_folder_selection_and_guard() {
+  local out rc root
+  codex_case codex-select
+  out=$(codex_tool select); rc=$?
+  expect_code 0 "$rc" "selection failed: $out"
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'highest fresh main weekly room wins'
+  out=$(codex_tool select --folder "$CASE/account one")
+  assert_equals "$CASE/account one" "${out%%$'\t'*}" 'a gated selection stays fixed through preflight'
+  out=$(codex_tool quota)
+  assert_equals 2 "$(jq '.providers|length' <<< "$out")" 'each folder gets a quota row'
+  assert_not_contains "$out" 'diagnostics' 'vendor output must not leak'
+  codex_quota "$CASE/account-two" stale 100
+  out=$(codex_tool select)
+  assert_equals "$CASE/account one" "${out%%$'\t'*}" 'stale room must rank below measured'
+  rm "$CASE/account one/signed-in"
+  out=$(codex_tool select)
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'signed-in unknown beats signed-out measured'
+  rm "$CASE/account-two/signed-in"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'no usable folder must refuse'
+  assert_contains "$out" 'no default fallback' 'no ambient fallback'
+  cp "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool guard); rc=$?
+  expect_code 1 "$rc" 'identical copies must refuse'
+  assert_contains "$out" 'duplicate sign-in' 'duplicate diagnosed by folder'
+  assert_not_contains "$out" 'artificial-session' 'duplicate guard must not expose contents'
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    [ -L "$root/config.toml" ] && [ -L "$root/rules" ] && [ -L "$root/AGENTS.md" ] || fail 'shared links missing'
+    [ ! -L "$root/auth.json" ] || fail 'auth must never be linked'
+  done
+  rm "$CASE/account-two/auth.json"
+  ln -s "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool guard); rc=$?
+  expect_code 1 "$rc" 'auth symlinks must refuse'
+  rm "$CASE/account-two/auth.json"
+  ln "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool guard); rc=$?
+  expect_code 1 "$rc" 'auth hardlinks must refuse'
+  pass 'Codex selects measured weekly room without stale/fallback lanes and rejects credential copies/links'
+}
+
+test_codex_spawn_and_checks() {
+  local out rc id=acct-codex-selected
+  codex_case codex-launch
+  # Existing metadata records quota evidence only alongside an override. The
+  # assertion below still requires pass, so an override cannot hide a refusal.
+  out=$(spawn_ship "$id" --harness codex --quota-override fixture-captures-evidence); rc=$?
+  expect_code 0 "$rc" "Codex account spawn failed: $out"
+  assert_contains "$out" "account=$CASE/account-two" 'spawn names the chosen account'
+  assert_grep "account=$CASE/account-two" "$HOME_DIR/state/$id.meta" 'task records the chosen account'
+  assert_grep 'quota_override_evidence=pass:' "$HOME_DIR/state/$id.meta" 'explicit quota gate uses the selected folder'
+  assert_contains "$(cat "$CASE/launch.log")" "export CODEX_HOME='$CASE/account-two'" 'backend command explicitly carries the account'
+  assert_contains "$(cat "$CASE/launch.log")" 'unset OPENAI_API_KEY CODEX_API_KEY' 'ambient credentials cannot replace the folder'
+  run_pane
+  assert_grep "CODEX_HOME=$CASE/account-two" "$CASE/account-two/worker-environment" 'worker receives the selected root'
+  assert_grep 'OPENAI_API_KEY=unset' "$CASE/account-two/worker-environment" 'worker sheds the ambient OpenAI key'
+  assert_grep 'CODEX_API_KEY=unset' "$CASE/account-two/worker-environment" 'worker sheds the ambient Codex key'
+  out=$(codex_tool check --folder "$CASE/account-two"); rc=$?
+  expect_code 0 "$rc" "fresh folder check failed: $out"
+  assert_equals '' "$out" 'healthy watcher is silent'
+  python3 - "$CASE/account-two/auth.json" <<'PY'
+import os, sys, time
+t = time.time() - 7 * 86400
+os.utime(sys.argv[1], (t, t))
+PY
+  out=$(codex_tool check --folder "$CASE/account-two"); rc=$?
+  expect_code 1 "$rc" 'old file must alert before refresh interval'
+  assert_contains "$out" 'not token expiry' 'age warning states its observable limit'
+  out=$(codex_tool maintain --folder "$CASE/account-two"); rc=$?
+  expect_code 0 "$rc" "normal-exec maintenance failed: $out"
+  assert_equals '' "$out" 'maintenance output stays private'
+  out=$(codex_tool register --state "$HOME_DIR/state"); rc=$?
+  expect_code 0 "$rc" "watcher registration failed: $out"
+  assert_equals 2 "$(printf '%s\n' "$HOME_DIR"/state/codex-account-*.check-trust | wc -l | tr -d ' ')" 'one registered watcher per folder'
+  rm "$CASE/account one/signed-in" "$CASE/account-two/signed-in"
+  out=$(spawn_ship acct-codex-out); rc=$?
+  expect_code 1 "$rc" 'signed-out folders refuse before endpoint'
+  assert_refused_before_launch acct-codex-out "$out" 'codex-accounts'
+  pass 'Codex launch forwards and records the folder; registered checks alert and maintenance uses normal exec'
+}
+
+test_codex_config_and_scout() {
+  local out rc id=acct-codex-scout
+  codex_case codex-config
+  rm "$HOME_DIR/config/codex-accounts"
+  mkfifo "$HOME_DIR/config/codex-accounts"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'a non-regular list must refuse without blocking'
+  rm "$HOME_DIR/config/codex-accounts"
+  printf '%s\r\n' "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'CR-terminated folder list must refuse'
+  printf '%s\n%s\n' "$CASE/account one" "$CASE/account one/../account one" > "$HOME_DIR/config/codex-accounts"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'folder aliases must refuse'
+  printf '%s\n' "$CASE/account one" > "$HOME_DIR/config/codex-accounts"
+  rm "$CASE/account one/rules"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'missing fleet guards must refuse'
+  ln -s "$CASE/shared/rules" "$CASE/account one/rules"
+  mv "$CASE/shared/rules/default.rules" "$CASE/real.rules"
+  ln -s "$CASE/real.rules" "$CASE/shared/rules/default.rules"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'individual rule-file links must refuse because Codex ignores them'
+  codex_case codex-scout
+  fm_test_spawn_brief "$HOME_DIR" "$id"
+  out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --scout --harness codex); rc=$?
+  expect_code 0 "$rc" "scout account selection failed: $out"
+  assert_grep "account=$CASE/account-two" "$HOME_DIR/state/$id.meta" 'scout records its selected folder'
+  out=$(spawn_ship acct-codex-raw 'CODEX_HOME=/unwanted codex'); rc=$?
+  expect_code 1 "$rc" 'raw Codex overrides must refuse with account list enabled'
+  assert_refused_before_launch acct-codex-raw "$out" 'canonical Codex launch'
+  pass 'Codex list validation fails closed; scouts select and record their own folder'
+}
+
+test_codex_empty_list_refuses_before_endpoint
+test_codex_folder_selection_and_guard
+test_codex_spawn_and_checks
+test_codex_config_and_scout
 test_secondmate_account_override
 test_secondmate_account_refusals
 test_remote_secondmate_account_override_refuses_locally

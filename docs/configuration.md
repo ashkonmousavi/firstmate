@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [Codex account folders](#codex-account-folders-configcodex-accounts), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), [external memory tiers](#external-memory-tiers-memory-layering-section), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -1176,6 +1176,43 @@ Names present in the registry produce no report; unknown or unverified names do 
 Each relaunch installs a fresh worker extension with the home's current list, so the replacement performs the same check.
 
 [`bin/fm-exclude-tools-lib.sh`](../bin/fm-exclude-tools-lib.sh) implements parsing and pre-launch validation for this contract; [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header owns the launch-flag mechanics.
+
+## Codex account folders (config/codex-accounts)
+
+Codex workers can opt into independent, file-backed account folders using a home-local `config/codex-accounts` file.
+Without that file, existing ambient Codex behavior is unchanged.
+Each line names one literal absolute existing folder, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters, duplicate folders and aliases refuse.
+Each folder needs its own sign-in, obtained independently on that machine; never copy or link `auth.json` between folders or machines.
+The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
+
+Before a ship or scout endpoint exists, Firstmate checks for duplicate sign-in files and asks `codex login status` about each folder with file-backed storage and a cleared credential environment.
+Among locally signed-in folders with shared configuration present, it selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
+The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
+Control-plane relaunch repeats preflight before stopping the old agent and carries its chosen folder into the replacement launch.
+No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
+The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
+The spawned line and task record carry `account=<absolute-folder>`.
+This is a home-wide Codex list, separate from the Claude and Pi pins below; it has no per-secondmate list override.
+
+Use the `prepare` command in [`bin/fm-codex-accounts.py`](../bin/fm-codex-accounts.py) to link shared non-auth configuration into an existing folder before enabling it.
+Its help owns the exact commands and allowlist: configuration (including MCP definitions and project trust), instructions, rules and optional skills are shared; credentials, sessions, logs and caches remain account-local.
+The required launch files are `config.toml`, `AGENTS.md`, and `rules/`; conflicting destinations refuse rather than being replaced.
+The shared rules directory must contain real `.rules` files; individually symlinked rule files refuse because Codex ignores them, while a directory link preserves the regular files beneath it.
+The existing Codex readiness gate answers a complete recognized worktree-trust dialog and verifies processing; it never answers a sign-in dialog, and ordinary ship/scout launches keep hooks disabled.
+
+quota-axi is external; the helper's `quota` command is the per-folder wrapper, using its `--profile-only` mode with explicit `CODEX_HOME`, no refresh, no cache and no Pi, keyring or RPC fallback.
+It returns a distinct folder-labelled row for every configured folder, including unavailable readings, without exposing vendor diagnostics or account identity.
+It requires quota-axi with `--profile-only` support (0.1.66 or newer); an unsupported or failed reading remains unmeasured.
+Ordinary quota-axi output is unchanged; use this wrapper on each machine to see all configured Codex folders.
+
+The helper's `register` command installs one authenticated custom watcher check per configured folder through [`bin/fm-check-register.sh`](../bin/fm-check-register.sh).
+Checks are silent when healthy and alarm on a missing local sign-in, missing shared configuration, duplicate file or six days without a credential-file write.
+File age is a maintenance heuristic, not token expiry; neither local login status nor a recent file write proves that a refresh token remains valid, and revocation cannot be predicted.
+The [official persistent-runner guide](https://learn.chatgpt.com/docs/auth/ci-cd-auth) supports a weekly lightweight normal Codex request for otherwise idle sessions.
+The explicit `maintain` command implements that pattern in a temporary directory and retains Codex's refreshed file in the same account folder; registering a check does not schedule or execute maintenance.
+Use one machine-local schedule per folder when normal work does not maintain it, and serialize maintenance against that folder's other jobs.
+The `guard` command compares file identity and hashes only in memory, emitting no credential bytes or digests; it detects identical files and rejects auth links, but cannot recognize already-diverged generations or inspect other machines.
+Current regression and real-runner guard entry points are recorded in [runtime verification](verification/runtime-backends.md#codex-account-folder-checks).
 
 ## Worker account pin (config/claude-account, config/pi-account)
 

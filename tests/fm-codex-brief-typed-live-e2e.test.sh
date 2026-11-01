@@ -95,6 +95,10 @@ HOME_DIR="$TMP_ROOT/home"
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" "$HOME_DIR/data"
 printf '999999 0\n' > "$HOME_DIR/config/lane-capacity"
 fm_test_machine_policy "$HOME_DIR/config"
+if [ -n "${FM_CODEX_ACCOUNT_LIVE_ROOT:-}" ]; then
+  # An independently signed-in, already prepared folder; never copy auth.
+  printf '%s\n' "$FM_CODEX_ACCOUNT_LIVE_ROOT" > "$HOME_DIR/config/codex-accounts"
+fi
 
 SCOUT=codex-typed-e2e
 mkdir -p "$HOME_DIR/data/$SCOUT"

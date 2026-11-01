@@ -365,7 +365,7 @@ fm_quota_gate_explicit() {
   [ "$(printf '%s\n' "$out" | head -1)" != refuse ]
 }
 
-# fm_quota_gate_run <harness> <model> <rules-file> <override-reason> <who> <kind> <backend> <config> [<mate-id>]
+# fm_quota_gate_run <harness> <model> <rules-file> <override-reason> <who> <kind> <backend> <config> [<mate-id>] [<codex-selected-root>]
 # The one caller-facing gate step. Takes the snapshot, gates, and prints the
 # outcome on stderr. Sets FM_QUOTA_GATE_EVIDENCE to the one-line verdict and
 # FM_QUOTA_GATE_SNAPSHOT_PATH to the snapshot it read (empty when none), so a
@@ -375,9 +375,37 @@ fm_quota_gate_explicit() {
 # shellcheck disable=SC2034  # FM_QUOTA_GATE_* results are read by the sourcing callers
 fm_quota_gate_run() {
   local harness=$1 model=$2 rules=$3 override=$4 who=$5 kind=$6 backend=$7 config=$8 mate=${9:-}
-  local snap cause verdict reason alt out
+  local snap
   FM_QUOTA_GATE_EVIDENCE=
   FM_QUOTA_GATE_SNAPSHOT_PATH=
+  FM_QUOTA_CODEX_ROOT=
+  if [ "$harness" = codex ] && { [ -e "$config/codex-accounts" ] || [ -L "$config/codex-accounts" ]; }; then
+    # Gate the folder selection, never the unrelated ambient ~/.codex lane.
+    # Reuse the ordinary gate below with an exact profile-only snapshot; other
+    # providers remain unknown in this reading rather than borrowing a lane.
+    snap=$(mktemp "${TMPDIR:-/tmp}/fm-codex-quota-gate.XXXXXX") || return 1
+    local -a codex_args=()
+    [ -z "${10:-}" ] || codex_args=(--folder "${10}")
+    if ! python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-codex-accounts.py" quota \
+      --config "$config/codex-accounts" --gate "${codex_args[@]}" >"$snap"; then
+      rm -f "$snap"
+      return 1
+    fi
+    FM_QUOTA_CODEX_ROOT=$(jq -er '.selectedRoot' "$snap") || { rm -f "$snap"; return 1; }
+    local FM_QUOTA_SNAPSHOT_FILE=$snap
+    fm_quota_gate_run_folder "$harness" "$model" "$rules" "$override" "$who" "$kind" "$backend" "$config" "$mate"
+    local result=$?
+    rm -f "$snap"
+    return "$result"
+  fi
+  fm_quota_gate_run_folder "$@"
+}
+
+# Shared gate mechanics; the caller may provide an exact Codex folder snapshot.
+# shellcheck disable=SC2034  # FM_QUOTA_GATE_* outputs are read by sourcing callers
+fm_quota_gate_run_folder() {
+  local harness=$1 model=$2 rules=$3 override=$4 who=$5 kind=$6 backend=$7 config=$8 mate=${9:-}
+  local snap cause verdict reason alt out
   snap=$(mktemp "${TMPDIR:-/tmp}/fm-quota-gate.XXXXXX") || {
     echo "notice: $who could not stage a quota reading for $harness; launching without the quota check" >&2
     return 0

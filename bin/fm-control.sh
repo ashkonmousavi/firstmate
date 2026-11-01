@@ -300,6 +300,7 @@ NOTE_SET=0
 QUOTA_OVERRIDE=
 QUOTA_OVERRIDE_SET=0
 QUOTA_EVIDENCE=
+TARGET_CODEX_ROOT=
 RECOVER_ONLY=0
 IF_IDLE=0
 EXPECT_GEN=
@@ -1220,12 +1221,16 @@ resolve_relaunch_profile() {
   fi
   # The launch owner applies this home's worker account pin too, but only after
   # the old agent has been stopped, so a pin that no longer resolves or is
-  # signed out must refuse here, while nothing has changed yet.
+  # signed out must refuse here, while nothing has changed yet. Codex's opt-in
+  # folder list uses the same preflight, before interrupt/exit of the old agent.
   local account_model=$TARGET_MODEL account_mate=
   [ "$account_model" != default ] || account_model=
   [ "$KIND" != secondmate ] || account_mate=$ID
-  fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
-    "$account_model" "$TARGET_HARNESS" "" "$account_mate" >/dev/null || return 1
+  local account_selection
+  account_selection=$(fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
+    "$account_model" "$TARGET_HARNESS" "" "$account_mate") || return 1
+  TARGET_CODEX_ROOT=
+  [ "$TARGET_HARNESS" != codex ] || TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
   # Likewise polytoken's launch profile and wiring refusals
   # (bin/fm-polytoken-lib.sh owns them). The launch owner retires the prior
   # incarnation's own generated hook layer, so only one it did not generate
@@ -1257,7 +1262,7 @@ resolve_relaunch_profile() {
     local quota_rc=0
     fm_quota_gate_run "$TARGET_HARNESS" "$account_model" \
       "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-control "$KIND" "$BACKEND" \
-      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" || quota_rc=$?
+      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" "$TARGET_CODEX_ROOT" || quota_rc=$?
     [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
     [ "$quota_rc" = 0 ] || return 1
     QUOTA_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
@@ -1443,7 +1448,7 @@ do_relaunch() {
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
-  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" \
+  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
     # $T was resolved from the record before the launch. When the recorded
@@ -1506,7 +1511,7 @@ do_relaunch_released() {
   [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
   spawn_status=0
   FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
-    FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" \
+    FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
   if [ "$spawn_status" -ne 0 ]; then
     rm -f "$note_stage"
