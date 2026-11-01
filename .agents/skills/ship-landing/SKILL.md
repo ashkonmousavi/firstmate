@@ -28,7 +28,8 @@ On a merge, inactive-worker report, or cleanup request, claim the task's lease, 
 
 When deployment, product proof or another external condition is pending, preserve the task's existing owner, branch, durable progress and resumption note, proof obligation, dependency edges and merge watch.
 Record the pending condition on that same task as an external hold using the [wrapper's hold-release syntax](../../../bin/fm-tasks-axi.sh), keeping the durable proof/resumption reference in its reason; preserve an existing captain hold through its own lifecycle instead of replacing it.
-Once the work and follow-up are durable and no active validation or worktree process requires the worker, claim its lease and run `bin/fm-control.sh <id> exit`.
+Once the work and follow-up are durable and no active validation or worktree process requires the worker, claim its lease, re-read the recorded PR through its forge and require a merged result, then run `bin/fm-control.sh <id> exit --landed-work`.
+An open, closed-unmerged or unreadable PR does not authorize this pending-proof release.
 Confirm the exit and read `bin/fm-capacity.sh --json`: retained metadata and an idle shell are not a live worker, but remaining non-shell work still occupies the seat.
 Keep supervising the recorded condition through its existing owner; releasing a worker does not accept the task or unblock its dependents.
 `--keep-open` teardown returns a local copy and is not a substitute for preserving pending-proof resume artifacts.

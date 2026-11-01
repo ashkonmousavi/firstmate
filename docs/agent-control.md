@@ -63,7 +63,10 @@ An unrecognized or unreadable draft skips this ownership-based clear; interrupt 
 
 `exit` reads the composer's state before typing the exit command and requires the exact `empty` verdict, including after clearing an own doorbell; any other `pending` draft refuses by naming the pending text, and any other verdict (`unknown`, `pending-unproven`, or an unreadable read) refuses as not proven empty, matching the fail-safe contract every other consumer that can overwrite composer input follows.
 `exit` also refuses, naming the dialog as `blocked on a prompt`, when the screen shows a recognised dialog that a further Enter would answer, whether the dialog was open before the exit command was typed or the submitting Enter opened it; it sends no Escape and chooses no option, so closing the dialog is left to the operator.
-The one exception is Claude's background-task exit picker for a task its backlog records Done: its selected row is `Exit and stop tasks`, the task's local copy and pull request are kept, so `exit` sends one confirming Enter and reports the stop only once the agent is dead, and fails when the agent keeps running; a task not recorded Done (or whose row cannot be read) and a secondmate still refuse, as does a picker already open when an unattended lane-release exit starts.
+The one exception is Claude's background-task exit picker, authorized by backlog Done, an unattended lane release after its validated finished-and-landed classification, or an explicit `exit --landed-work` after the caller verifies landing.
+It sends one confirming Enter to choose the selected `Exit and stop tasks` row and reports the stop only once the agent is dead; the task's local copy and pull request are kept.
+A secondmate, a task without any of those authorizations, and a picker already open when an unattended lane-release exit starts still refuse.
+The pending-proof release in the ship-landing skill checks the recorded PR is merged before passing `--landed-work`; releasing the worker does not accept the task.
 A stopped agent whose pane still shows the dialog text is not refused.
 [`fm_composer_blocking_dialog`](../bin/fm-composer-lib.sh) owns the recognised set, which today is only Claude's background-task exit picker; [its verification record](verification/runtime-backends.md#claude-background-task-exit-picker) lists the dialogs that are not covered.
 
