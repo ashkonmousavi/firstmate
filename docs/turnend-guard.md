@@ -265,7 +265,8 @@ Each enabled primary harness adapts its own turn-end mechanism to the shared gua
 
 The registrations in detail:
 
-- Claude registers two `Stop` hooks in `.claude/settings.json`, both anchored through `CLAUDE_PROJECT_DIR`: `bin/fm-turnend-guard.sh --claude`, and `bin/fm-claude-stop-autoarm.sh` with `asyncRewake: true` and `timeout: 28800`.
+- Claude registers two supervision `Stop` hooks in `.claude/settings.json`, both anchored through `CLAUDE_PROJECT_DIR`: `bin/fm-turnend-guard.sh --claude --state-claims`, and `bin/fm-claude-stop-autoarm.sh` with `asyncRewake: true` and `timeout: 28800`.
+  The synchronous hook also runs the [state-claim check](#state-claim-check) before the supervision predicate.
   In a Claude secondmate home, `bin/fm-spawn.sh` writes a `.fm-busy-stop` pointer and gives the mate no `Stop` busy hook, so `--claude` is the only Stop writer of the parent home's busy record for that generation.
   It records idle when it allows the Stop and busy when its exit 2 blocks it into a continuation, because Claude runs Stop hooks in parallel and that continuation fires no `UserPromptSubmit`.
   A home whose guard predates `.fm-busy-stop` cannot close the turn, so that launch keeps the ordinary `Stop` idle hook instead.
@@ -302,6 +303,21 @@ The registrations in detail:
   pi-code stamps it with Pi's session file under `/.pi/`, a path component a Claude transcript never carries.
   The stand-down fails toward running, matching the guards above, so no payload, no `jq`, or no `transcript_path` still arms, and every other Claude-shaped hook pi-code delivers keeps running.
 
+### State-claim check
+
+The tracked Claude Stop registration enables a fast, deterministic check for state claims in MAIN and secondmate replies, even when no workers need supervision.
+Its [module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the claim vocabulary, matching read commands, transcript bounds, exceptions, and failure behavior.
+The check uses the Stop payload's final text because [Claude documents asynchronous transcript writes](https://code.claude.com/docs/en/hooks#common-input-fields).
+It requires a matching completed read command from the current turn; it does not judge whether the result supports the claim.
+Its one-block loop guard is independent of the supervision recovery budget.
+Running it inside the existing synchronous hook preserves the single secondmate busy-state writer.
+
+Installation travels with the tracked `.claude/settings.json` through the normal [self-update path](../.agents/skills/updatefirstmate/SKILL.md); restart the updated Claude sessions so they load the new registration.
+No global or home-local settings edits are required.
+Child ship/scout worktrees remain outside primary scope.
+Other harnesses' native hooks do not enable this check; the Claude-compatible Grok, Cursor, and Pi paths stand aside.
+[Portable regressions](../tests/fm-state-claim-guard.test.sh) exercise the hook registration and its latency budget; [runtime verification](verification/runtime-backends.md#claude-state-claim-stop-check) records the real Claude guard.
+
 ### Claude and Codex blocking
 
 Claude and Codex can block a Stop directly with exit status 2 and stderr.
@@ -310,7 +326,7 @@ In the default Codex mode, a true value lets the second stop finish after one fo
 
 ### Claude cooperative mode
 
-Claude runs the guard with `--claude`, which ignores `stop_hook_active` and cooperates with the Stop-owned auto-arm.
+Claude runs the supervision predicate with `--claude`, which ignores `stop_hook_active` and cooperates with the Stop-owned auto-arm.
 Claude Code sets `stop_hook_active=true` on every stop after any stop-hook continuation, including `asyncRewake` rewakes.
 Under the default one-shot behavior, that re-opened the 2026-07-21 blind window.
 
