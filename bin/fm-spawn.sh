@@ -3133,6 +3133,28 @@ if [ "$KIND" = secondmate ]; then
   fi
 fi
 
+# config/secondmate-harness may carry optional model/effort tokens alongside the
+# harness ("<harness> [<model>] [<effort>]"). They apply only when this is a
+# --secondmate spawn and no explicit per-spawn harness/raw launch was supplied, so
+# the harness itself came from the secondmate config fallback chain. Resolving
+# here on every spawn makes the pin durable across respawns. Precedence: explicit
+# --model/--effort flags still win over the file's tokens.
+if [ "$KIND" = secondmate ] && [ -z "$ARG3" ]; then
+  if [ "$MODEL_SET" -eq 0 ]; then
+    SM_MODEL=$("$SCRIPT_DIR/fm-harness.sh" secondmate-model "$ID")
+    [ -z "$SM_MODEL" ] || MODEL=$SM_MODEL
+  fi
+  if [ "$EFFORT_SET" -eq 0 ]; then
+    SM_EFFORT=$("$SCRIPT_DIR/fm-harness.sh" secondmate-effort "$ID")
+    if [ -n "$SM_EFFORT" ]; then
+      case "$SM_EFFORT" in
+      low | medium | high | xhigh | max | ultra) EFFORT=$SM_EFFORT ;;
+      *) echo "warning: config/secondmate-harness effort token '$SM_EFFORT' is not one of low, medium, high, xhigh, max, ultra; ignoring" >&2 ;;
+      esac
+    fi
+  fi
+fi
+
 QUOTA_GATE_EVIDENCE=
 if [ "$KIND" = secondmate ] && [ "$RELAUNCH" = 0 ] && \
     [ "${FM_SKIP_SECONDMATE_SYNC:-0}" = 1 ] && [ "${FM_SKIP_SECONDMATE_INHERIT:-0}" = 1 ] && \
@@ -3243,27 +3265,6 @@ polytoken)
   ;;
 esac
 
-# config/secondmate-harness may carry optional model/effort tokens alongside the
-# harness ("<harness> [<model>] [<effort>]"). They apply only when this is a
-# --secondmate spawn and no explicit per-spawn harness/raw launch was supplied, so
-# the harness itself came from the secondmate config fallback chain. Resolving
-# here on every spawn makes the pin durable across respawns. Precedence: explicit
-# --model/--effort flags still win over the file's tokens.
-if [ "$KIND" = secondmate ] && [ -z "$ARG3" ]; then
-  if [ "$MODEL_SET" -eq 0 ]; then
-    SM_MODEL=$("$SCRIPT_DIR/fm-harness.sh" secondmate-model "$ID")
-    [ -z "$SM_MODEL" ] || MODEL=$SM_MODEL
-  fi
-  if [ "$EFFORT_SET" -eq 0 ]; then
-    SM_EFFORT=$("$SCRIPT_DIR/fm-harness.sh" secondmate-effort "$ID")
-    if [ -n "$SM_EFFORT" ]; then
-      case "$SM_EFFORT" in
-      low | medium | high | xhigh | max | ultra) EFFORT=$SM_EFFORT ;;
-      *) echo "warning: config/secondmate-harness effort token '$SM_EFFORT' is not one of low, medium, high, xhigh, max, ultra; ignoring" >&2 ;;
-      esac
-    fi
-  fi
-fi
 # Ultra is an explicit native capability, never a Pi thinking-level alias.
 # Validate the fully resolved profile before worktree or endpoint provisioning.
 if [ "$EFFORT" = ultra ]; then
@@ -3300,6 +3301,9 @@ WORKER_ACCOUNT_MATE=
 [ "$KIND" != secondmate ] || WORKER_ACCOUNT_MATE=$ID
 WORKER_ACCOUNT_HARNESS=$(fm_control_harness_family "$HARNESS") || WORKER_ACCOUNT_HARNESS=$HARNESS
 CODEX_SELECTED_ROOT=${FM_QUOTA_CODEX_ROOT:-}
+if [ "$WORKER_ACCOUNT_HARNESS" = codex ] && [ -n "${FM_QUOTA_CODEX_MODEL:-}" ]; then
+  MODEL=$FM_QUOTA_CODEX_MODEL
+fi
 if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" = 1 ]; then
   CODEX_SELECTED_ROOT=${FM_CONTROL_CODEX_ROOT:-}
 fi
@@ -3309,6 +3313,8 @@ WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
 WORKER_ACCOUNT_PROVIDER=${WORKER_ACCOUNT_ROOT#*$'\t'}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
 if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = codex ]; then
+  MODEL=$WORKER_ACCOUNT_PROVIDER
+  WORKER_ACCOUNT_PROVIDER=
   export CODEX_HOME=$WORKER_ACCOUNT_ROOT
   CODEX_FILE_STORE_FLAG=$(shell_quote 'cli_auth_credentials_store="file"')
   LAUNCH=${LAUNCH/codex /codex -c $CODEX_FILE_STORE_FLAG }

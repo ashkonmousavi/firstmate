@@ -371,23 +371,23 @@ fm_quota_gate_run() {
   FM_QUOTA_GATE_EVIDENCE=
   FM_QUOTA_GATE_SNAPSHOT_PATH=
   FM_QUOTA_CODEX_ROOT=
+  FM_QUOTA_CODEX_MODEL=
   if [ "$harness" = codex ] && { [ -e "$config/codex-accounts" ] || [ -L "$config/codex-accounts" ]; }; then
     # Gate the folder selection, never the unrelated ambient ~/.codex lane.
     # Reuse the ordinary gate below with an exact profile-only snapshot; other
     # providers remain unknown in this reading rather than borrowing a lane.
     snap=$(mktemp "${TMPDIR:-/tmp}/fm-codex-quota-gate.XXXXXX") || return 1
     local -a codex_args=()
-    local codex_profile
-    codex_profile=$(fm_worker_account_profile codex "$model" "$(fm_worker_account_profiles "$rules")") || { rm -f "$snap"; return 1; }
     [ -z "${10:-}" ] || codex_args=(--folder "${10}")
     if ! python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-codex-accounts.py" quota \
-      --config "$config/codex-accounts" --gate --model "$(jq -r '.model // ""' <<< "$codex_profile")" "${codex_args[@]}" >"$snap"; then
+      --config "$config/codex-accounts" --gate --model "$model" "${codex_args[@]}" >"$snap"; then
       rm -f "$snap"
       return 1
     fi
     FM_QUOTA_CODEX_ROOT=$(jq -er '.selectedRoot' "$snap") || { rm -f "$snap"; return 1; }
+    FM_QUOTA_CODEX_MODEL=$(jq -er '.selectedModel' "$snap") || { rm -f "$snap"; return 1; }
     local FM_QUOTA_SNAPSHOT_FILE=$snap
-    fm_quota_gate_run_folder "$harness" "$model" "$rules" "$override" "$who" "$kind" "$backend" "$config" "$mate"
+    fm_quota_gate_run_folder "$harness" "$FM_QUOTA_CODEX_MODEL" "$rules" "$override" "$who" "$kind" "$backend" "$config" "$mate"
     local result=$?
     rm -f "$snap"
     return "$result"

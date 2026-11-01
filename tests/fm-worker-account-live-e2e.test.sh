@@ -40,7 +40,7 @@ codex_live_cases() {
   stored="$TMP_ROOT/codex-stored"
   config="$TMP_ROOT/codex-config"
   mkdir -p "$empty/rules" "$stored/rules" "$config"
-  printf 'cli_auth_credentials_store="file"\n' > "$empty/config.toml"
+  printf 'cli_auth_credentials_store="file"\nmodel="fm-live-configured-model"\n' > "$empty/config.toml"
   cp "$empty/config.toml" "$stored/config.toml"
   : > "$empty/AGENTS.md"
   : > "$stored/AGENTS.md"
@@ -63,6 +63,7 @@ codex_live_cases() {
   out=$(PATH="$TMP_ROOT/quota-bin:$PATH" fm_worker_account_select codex "$config" '' codex 2>&1) ||
     fail "codex $version: refused a synthetic file-backed local login: $out"
   assert_equals "$stored" "${out%%$'\t'*}" "codex $version selected a different root"
+  assert_equals fm-live-configured-model "${out##*$'\t'}" "codex $version did not report the configured model"
   pass "codex $version: file-backed local status accepts a synthetic cache, refuses an empty root and suppresses diagnostics"
   for email in same-account@example.invalid other-account@example.invalid; do
     python3 - "$TMP_ROOT" "$email" <<'PY'

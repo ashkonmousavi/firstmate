@@ -285,8 +285,8 @@ fm_worker_account_profile() {
 # fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<secondmate-id>] [<codex-selected-root>]
 # The pin selection decision. Prints nothing for an unpinned runner, so
 # the caller retains its unpinned account selection. For a pinned one prints
-# "declared<TAB>root<TAB>provider", where provider is the Pi launch model's
-# own (empty for Claude), after the model guard and the sign-in check pass. On
+# "declared<TAB>root<TAB>detail", where detail is the Pi provider or concrete
+# Codex model (empty for Claude), after the model guard and sign-in check pass. On
 # refusal prints one error and returns 1. bin/fm-spawn.sh runs it before any
 # endpoint exists, and bin/fm-control.sh before a relaunch stops the live
 # agent.
@@ -302,12 +302,10 @@ fm_worker_account_select() {
       return 1
     fi
     local -a codex_args=()
-    local codex_profile
-    codex_profile=$(fm_worker_account_profile codex "$model" "$(fm_worker_account_profiles "$config/crew-dispatch.json")") || return 1
     [ -z "${7:-}" ] || codex_args=(--folder "$7")
     python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-codex-accounts.py" select \
       --config "$config/codex-accounts" --codex "$executable" \
-      --model "$(jq -r '.model // ""' <<< "$codex_profile")" "${codex_args[@]}"
+      --model "$model" "${codex_args[@]}"
     return
   fi
   selected_config=$(fm_worker_account_config "$harness" "$config" "$mate") || return 1

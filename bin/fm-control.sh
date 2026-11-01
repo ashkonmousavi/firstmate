@@ -1230,7 +1230,11 @@ resolve_relaunch_profile() {
   account_selection=$(fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
     "$account_model" "$TARGET_HARNESS" "" "$account_mate") || return 1
   TARGET_CODEX_ROOT=
-  [ "$TARGET_HARNESS" != codex ] || TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
+  if [ "$TARGET_HARNESS" = codex ] && [ -n "$account_selection" ]; then
+    TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
+    account_model=${account_selection##*$'\t'}
+    TARGET_MODEL=$account_model
+  fi
   # Likewise polytoken's launch profile and wiring refusals
   # (bin/fm-polytoken-lib.sh owns them). The launch owner retires the prior
   # incarnation's own generated hook layer, so only one it did not generate

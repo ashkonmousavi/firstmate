@@ -606,6 +606,7 @@ codex_case() {
   for root in "$CASE/account one" "$CASE/account-two"; do
     printf '%s\n' "artificial-session-$root" > "$root/auth.json"
     : > "$root/signed-in"
+    printf '%s\n' '{"config":{"model":"requested"}}' > "$root/effective-config.json"
     python3 "$ROOT/bin/fm-codex-accounts.py" prepare --folder "$root" --shared "$CASE/shared" || fail 'prepare failed'
   done
   printf '%s\n' "$CASE/account one" "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
@@ -634,6 +635,16 @@ for line in sys.stdin:
         print(json.dumps({"id": request["id"], "result": {"userAgent": "fixture"}}), flush=True)
     elif method == "initialized":
         initialized = True
+    elif method == "config/read":
+        if not initialized or request["params"] != {"includeLayers": False}:
+            sys.exit(87)
+        result = json.loads((pathlib.Path(os.environ["CODEX_HOME"]) / "effective-config.json").read_text())
+        print(json.dumps({"id": request["id"], "result": result}), flush=True)
+    elif method == "model/list":
+        if not initialized or request["params"] != {"includeHidden": True}:
+            sys.exit(88)
+        print(json.dumps({"id": request["id"], "result": {"data": [
+            {"model": "catalog-default", "isDefault": True}], "nextCursor": None}}), flush=True)
     elif method == "account/read":
         if not initialized or request["params"] != {"refreshToken": False}:
             sys.exit(84)
@@ -655,6 +666,7 @@ fi
 if [ -n "${CODEX_HOME:-}" ] && [ -d "$CODEX_HOME" ]; then
   printf 'CODEX_HOME=%s\nOPENAI_API_KEY=%s\nCODEX_API_KEY=%s\n' "$CODEX_HOME" \
     "${OPENAI_API_KEY-unset}" "${CODEX_API_KEY-unset}" > "$CODEX_HOME/worker-environment"
+  printf '%s\n' "$*" > "$CODEX_HOME/worker-arguments"
 fi
 printf 'fake codex 0.136.0\n'
 SH
@@ -842,6 +854,101 @@ test_codex_applicable_quota() {
   pass 'Codex filters applicable exhaustion before ranking, including unknown percentages and preselected folders'
 }
 
+test_codex_default_model() {
+  local out rc root id profile flag
+  codex_case codex-default-model
+  codex_quota "$CASE/account one" fresh 80
+  codex_quota "$CASE/account-two" fresh 90
+  jq '.providers[].quotaSemantics.effectiveAvailability += [{scope:"model:configured-default",
+    status:"unknown",runway:{status:"exhausted_now"}}]' "$CASE/account-two/quota.json" > "$CASE/exhausted.json"
+  mv "$CASE/exhausted.json" "$CASE/account-two/quota.json"
+  printf 'model="configured-default"\ncli_auth_credentials_store="file"\n' > "$CASE/shared/config.toml"
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' '{"config":{"model":"configured-default"}}' > "$root/effective-config.json"
+  done
+  for profile in absent conflicting; do
+    if [ "$profile" = conflicting ]; then
+      printf '%s\n' '{"default":{"harness":"codex","model":"unused-dispatch-model"}}' > "$HOME_DIR/config/crew-dispatch.json"
+    fi
+    out=$(codex_tool select); rc=$?
+    expect_code 0 "$rc" "default model must resolve: $out"
+    assert_equals "$CASE/account one" "${out%%$'\t'*}" 'configured-default exhaustion excludes the weekly winner'
+    assert_equals configured-default "${out##*$'\t'}" 'selection returns the concrete model'
+    for flag in '' default configured-default; do
+      out=$(PATH="$FAKEBIN:$PATH" bash -c '
+        . "$1/bin/fm-worker-account-lib.sh"
+        fm_worker_account_select codex "$2" "$3" codex "" "" "$4"
+      ' bash "$ROOT" "$HOME_DIR/config" "$flag" "$CASE/account one"); rc=$?
+      expect_code 0 "$rc" "default-model preselected relaunch failed: $out"
+      assert_equals configured-default "${out##*$'\t'}" 'default sentinel and explicit model resolve consistently'
+    done
+    id="acct-codex-default-$profile"
+    out=$(spawn_ship "$id" --harness codex); rc=$?
+    expect_code 0 "$rc" "default-model spawn failed: $out"
+    assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'the default-model gate selects a usable folder'
+    assert_equals configured-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/$id.meta")" 'launch metadata records the gated model'
+    run_pane
+    assert_contains "$(cat "$CASE/account one/worker-arguments")" '--model configured-default' 'the worker uses the gated concrete model'
+    assert_not_contains "$(cat "$CASE/account one/worker-arguments")" '--provider' 'the model must not become a provider pin'
+  done
+  rm "$HOME_DIR/config/crew-dispatch.json"
+  out=$(spawn_ship acct-codex-default-implicit); rc=$?
+  expect_code 0 "$rc" "implicit default-model spawn failed: $out"
+  assert_equals configured-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/acct-codex-default-implicit.meta")" 'implicit launch uses the same concrete model'
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' '{"config":{"model":null}}' > "$root/effective-config.json"
+  done
+  out=$(codex_tool select); rc=$?
+  expect_code 0 "$rc" "a vendor-reported catalog default must resolve: $out"
+  assert_equals catalog-default "${out##*$'\t'}" 'built-in defaults come from the vendor catalog'
+  rm "$CASE/account one/effective-config.json"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'an unavailable model configuration must not become a guessed model'
+  assert_contains "$out" 'cannot resolve Codex launch model' 'missing model provenance is diagnosed'
+  pass 'Codex resolves and pins actual default models across selection, gates and launch'
+}
+
+test_codex_identity_timeout() {
+  local out rc
+  codex_case codex-identity-timeout
+  printf '%s\n' "$CASE/account one" > "$HOME_DIR/config/codex-accounts"
+  cat > "$FAKEBIN/codex" <<'PY'
+#!/usr/bin/env python3
+import os, pathlib, subprocess, sys, time
+root = pathlib.Path(os.environ["CODEX_HOME"])
+(root / "wrapper.pid").write_text(str(os.getpid()))
+child = subprocess.Popen([sys.executable, "-c", 'import sys,time; sys.stdout.write("{\\\"id\\\":"); sys.stdout.flush(); time.sleep(120)'])
+(root / "child.pid").write_text(str(child.pid))
+time.sleep(120)
+PY
+  out=$(PATH="$FAKEBIN:$PATH" python3 - "$ROOT/bin/fm-codex-accounts.py" "$HOME_DIR/config/codex-accounts" "$CASE/account one" <<'PY'
+import os, pathlib, signal, subprocess, sys, time
+root = pathlib.Path(sys.argv[3])
+try:
+    started = time.monotonic()
+    result = subprocess.run([sys.executable, sys.argv[1], "guard", "--config", sys.argv[2]],
+                            capture_output=True, text=True, timeout=14)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "" and result.stderr == "", "timeout metadata-only guard must remain silent"
+    elapsed = time.monotonic() - started
+    assert 9 <= elapsed < 14, f"identity read exceeded its deadline: {elapsed}"
+    for name in ("wrapper.pid", "child.pid"):
+        pid = int((root / name).read_text())
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+        assert not state or state.startswith("Z"), f"owned process survived timeout: {name} {state}"
+finally:
+    for name in ("wrapper.pid", "child.pid"):
+        if (root / name).exists():
+            try:
+                os.kill(int((root / name).read_text()), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+PY
+  ); rc=$?
+  expect_code 0 "$rc" "identity read must time out and kill wrapper descendants: $out"
+  pass 'Codex identity reads enforce a deadline and terminate wrappers and pipe-holding descendants'
+}
+
 test_codex_runway_timing() {
   local out rc root scope duration timestamp age expected snapshot
   codex_case codex-runway
@@ -968,6 +1075,8 @@ test_codex_empty_list_refuses_before_endpoint
 test_codex_folder_selection_and_guard
 test_codex_guard_metadata_and_identity
 test_codex_applicable_quota
+test_codex_default_model
+test_codex_identity_timeout
 test_codex_runway_timing
 test_codex_spawn_and_checks
 test_codex_config_and_scout

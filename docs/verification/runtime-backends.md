@@ -770,8 +770,8 @@ The guard submits no prompt and spends no tokens, so it runs by default wherever
 ## Codex account folder checks
 
 `bin/fm-codex-accounts.py` supplies the opt-in selection, exact-folder quota wrapper, duplicate check and registered watcher entry point documented in [configuration](../configuration.md#codex-account-folders-configcodex-accounts).
-`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
-`tests/fm-control.test.sh` verifies that unusable lists refuse before a ship or scout's running agent is stopped.
+`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking, concrete default-model selection and launch, bounded app-server reads with pipe-holding wrapper descendants, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+`tests/fm-control.test.sh` verifies that unusable lists and exhausted configured default models refuse before a ship or scout's running agent is stopped.
 
 The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` covers Codex local status using an empty folder and a synthetic file-backed API-key cache, plus account identity comparison using synthetic ChatGPT caches under a temporary `HOME`.
 It suppresses vendor diagnostics and never sends the synthetic credential to a service.

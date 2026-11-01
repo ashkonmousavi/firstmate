@@ -1978,7 +1978,61 @@ test_codex_relaunch_accounts_preflight() {
   pass 'ship and scout relaunch refuse unusable Codex folders before stopping the live worker'
 }
 
+test_codex_relaunch_default_model_preflight() {
+  local dir out rc meta_before kind profile
+  for kind in ship scout; do
+    dir=$(new_case "codex-default-$kind")
+    add_task "$dir" t1 codex "$kind"
+    alive_as "$dir" codex
+    mkdir -p "$dir/account/rules"
+    printf 'synthetic-session\n' > "$dir/account/auth.json"
+    printf 'model="configured-default"\n' > "$dir/account/config.toml"
+    : > "$dir/account/AGENTS.md"
+    printf 'prefix_rule(pattern=["echo"],decision="allow")\n' > "$dir/account/rules/default.rules"
+    printf '%s\n' "$dir/account" > "$dir/home/config/codex-accounts"
+    cat > "$dir/fakebin/codex" <<'PY'
+#!/usr/bin/env python3
+import json, sys
+if "status" in sys.argv:
+    sys.exit(0)
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "initialize":
+        result = {}
+    elif method == "initialized":
+        continue
+    elif method == "account/read":
+        result = {"account": {"type": "apiKey"}}
+    elif method == "config/read":
+        result = {"config": {"model": "configured-default"}}
+    else:
+        sys.exit(2)
+    print(json.dumps({"id": request["id"], "result": result}), flush=True)
+PY
+    cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' '{"schemaVersion":5,"providers":[{"provider":"codex","state":{"status":"fresh"},"windows":[{"id":"weekly","kind":"weekly","percentRemaining":90}],"quotaSemantics":{"status":"known","effectiveAvailability":[{"scope":"model:configured-default","status":"unknown","runway":{"status":"exhausted_now"}}]}}]}'
+SH
+    chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
+    meta_before=$(cat "$dir/home/state/t1.meta")
+    for profile in absent conflicting; do
+      if [ "$profile" = conflicting ]; then
+        printf '%s\n' '{"default":{"harness":"codex","model":"unused-dispatch-model"}}' > "$dir/home/config/crew-dispatch.json"
+      fi
+      out=$(run_control "$dir" t1 relaunch --harness codex --note retry); rc=$?
+      expect_code 1 "$rc" "exhausted configured default must refuse $kind/$profile: $out"
+      assert_contains "$out" 'no usable signed-in folder' 'default-model quota is evaluated before relaunch'
+      assert_equals '' "$(literals "$dir")$(keys_sent "$dir")" 'default-model refusal sends no lifecycle input'
+      assert_equals codex "$(cat "$dir/fake/command")" 'the old worker stays alive'
+      assert_equals "$meta_before" "$(cat "$dir/home/state/t1.meta")" 'default-model refusal preserves metadata'
+    done
+  done
+  pass 'ship and scout relaunch check the actual default model before stopping the worker'
+}
+
 test_codex_relaunch_accounts_preflight
+test_codex_relaunch_default_model_preflight
 test_relaunch_resume_flag_is_per_adapter_and_reference_owner
 test_prefixed_recorded_harness_reaches_each_control_verb
 test_backend_key_capability_matrix

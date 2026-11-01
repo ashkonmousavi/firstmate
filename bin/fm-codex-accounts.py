@@ -30,11 +30,12 @@ import math
 import os
 from pathlib import Path
 import shlex
+import selectors
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 
 
@@ -95,11 +96,24 @@ def clean_env(root):
     return env
 
 
+def stop_vendor(process):
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait()
+
+
 def run_vendor(args, root, seconds=10, cwd=None):
     try:
-        return subprocess.run(args, env=clean_env(root), stdin=subprocess.DEVNULL,
+        with subprocess.Popen(args, env=clean_env(root), stdin=subprocess.DEVNULL,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              timeout=seconds, check=False, cwd=cwd)
+                              start_new_session=True, cwd=cwd) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=seconds)
+                return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
+            finally:
+                stop_vendor(process)
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -109,40 +123,69 @@ def signed_in(root, codex):
     return result is not None and result.returncode == 0
 
 
-def account_identity(root, codex):
+def app_server_read(root, codex, method, params):
     try:
         with subprocess.Popen([codex, "-c", 'cli_auth_credentials_store="file"', "app-server"],
                               env=clean_env(root), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL, text=True) as process:
-            timer = threading.Timer(10, process.kill)
-            timer.start()
+                              stderr=subprocess.DEVNULL, start_new_session=True) as process:
             try:
+                deadline = time.monotonic() + 10
                 process.stdin.write(json.dumps({"id": 0, "method": "initialize", "params": {
-                    "clientInfo": {"name": "firstmate_account_guard", "version": "1"}}}) + "\n")
+                    "clientInfo": {"name": "firstmate_account_guard", "version": "1"}}}).encode() + b"\n")
                 process.stdin.flush()
-                for line in process.stdout:
-                    message = json.loads(line)
-                    if message.get("id") == 0:
-                        if "error" in message:
+                pending = b""
+                with selectors.DefaultSelector() as selector:
+                    selector.register(process.stdout, selectors.EVENT_READ)
+                    while time.monotonic() < deadline:
+                        if not selector.select(max(0, deadline - time.monotonic())):
                             return None
-                        process.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
-                        process.stdin.write(json.dumps({"id": 1, "method": "account/read",
-                                                        "params": {"refreshToken": False}}) + "\n")
-                        process.stdin.flush()
-                    elif message.get("id") == 1:
-                        account = message.get("result", {}).get("account") or {}
-                        email = account.get("email")
-                        if account.get("type") == "chatgpt" and isinstance(email, str) and email.strip():
-                            return email.strip().casefold()
-                        return None
+                        chunk = os.read(process.stdout.fileno(), 65536)
+                        if not chunk:
+                            return None
+                        pending += chunk
+                        while b"\n" in pending:
+                            line, pending = pending.split(b"\n", 1)
+                            message = json.loads(line)
+                            if message.get("id") == 0:
+                                if "error" in message:
+                                    return None
+                                process.stdin.write(json.dumps({"method": "initialized", "params": {}}).encode() + b"\n")
+                                process.stdin.write(json.dumps({"id": 1, "method": method,
+                                                                "params": params}).encode() + b"\n")
+                                process.stdin.flush()
+                            elif message.get("id") == 1:
+                                result = message.get("result")
+                                return result if isinstance(result, dict) else None
             finally:
-                timer.cancel()
-                if process.poll() is None:
-                    process.kill()
-                process.wait()
+                stop_vendor(process)
     except (OSError, ValueError, TypeError, AttributeError):
         pass
     return None
+
+
+def account_identity(root, codex):
+    result = app_server_read(root, codex, "account/read", {"refreshToken": False})
+    account = (result or {}).get("account") or {}
+    email = account.get("email")
+    if account.get("type") == "chatgpt" and isinstance(email, str) and email.strip():
+        return email.strip().casefold()
+    return None
+
+
+def effective_model(root, codex, model):
+    if model and model != "default":
+        return model
+    result = app_server_read(root, codex, "config/read", {"includeLayers": False})
+    if result is None:
+        raise ValueError(f"cannot resolve Codex launch model for folder: {root}")
+    model = result.get("config", {}).get("model")
+    if model is None:
+        catalog = app_server_read(root, codex, "model/list", {"includeHidden": True})
+        defaults = [m.get("model") for m in (catalog or {}).get("data", []) if m.get("isDefault") is True]
+        model = defaults[0] if len(defaults) == 1 else None
+    if not isinstance(model, str) or not model or model == "default" or any(ord(c) < 32 or ord(c) == 127 for c in model):
+        raise ValueError(f"cannot resolve Codex launch model for folder: {root}")
+    return model
 
 
 def shared_ready(root):
@@ -211,11 +254,13 @@ def snapshot(roots, codex, model):
     rows = []
     for root in roots:
         ready = signed_in(root, codex)
+        configured = ready and shared_ready(root)
+        launch_model = effective_model(root, codex, model) if configured else ""
         row = reading(root) if ready else {"state": {"status": "unavailable"}, "windows": [],
                                            "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
         row.update(provider="codex", accountKey="codex-folder:" + hashlib.sha256(root.encode()).hexdigest()[:16],
                    accountLocator={"kind": "codex-home", "path": root}, signedIn=ready,
-                   launchReady=ready and shared_ready(root) and quota_usable(row, model))
+                   model=launch_model, launchReady=configured and quota_usable(row, launch_model))
         rows.append(row)
     usable = [r for r in rows if r["launchReady"]]
     def rank(row):
@@ -292,13 +337,15 @@ def main():
             data["selectedRoot"] = root
         if args.command == "select":
             root = require_winner(data)
-            print(f"{root}\t{root}\t")
+            selected = next(r for r in data["providers"] if r["accountLocator"]["path"] == root)
+            print(f"{root}\t{root}\t{selected['model']}")
         else:
             if args.gate:
                 root = require_winner(data)
                 data["providers"] = [r for r in data["providers"] if r["accountLocator"]["path"] == root]
                 data["providers"][0]["accountKey"] = "codex-home"
                 data["generatedAt"] = data["providers"][0].get("generatedAt")
+                data["selectedModel"] = data["providers"][0]["model"]
             print(json.dumps(data, allow_nan=False))
     elif args.command == "register":
         state_dir = Path(args.state or "")

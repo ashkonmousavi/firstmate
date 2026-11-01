@@ -1207,7 +1207,9 @@ The [Codex authentication contract](https://github.com/openai/codex/issues/15410
 Before a ship or scout endpoint exists, Firstmate checks for duplicate sign-in files and asks `codex login status` about each folder with file-backed storage and a cleared credential environment.
 Among locally signed-in folders with shared configuration present, it excludes accounts whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, then selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
 Exhausted runway excludes an account even when its remaining percentage is unknown.
-The requested model, or the sole configured profile's model when none is requested, determines applicable model/product scopes, as in the [explicit quota gate](#crew-dispatch-profiles-configcrew-dispatchjson).
+The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration and, if no model is configured, its reported catalog default.
+The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
+If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
 Control-plane relaunch repeats preflight before stopping the old agent and carries its chosen folder into the replacement launch.
 No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
@@ -1235,6 +1237,7 @@ Use one machine-local schedule per folder when normal work does not maintain it,
 The `guard` command never opens or reads credential contents: it rejects auth links, matching device/inode pairs, and matching size/mtime pairs.
 It also compares ChatGPT email identities returned by the runner's [app-server account/read interface](https://developers.openai.com/codex/app-server#1-check-auth-state) with token refresh disabled, keeping identities private and rejecting two folders reporting the same identity.
 API-key accounts, ChatGPT accounts without email, and runners that cannot report an identity retain metadata-only detection; changed metadata can evade that check, and the guard does not inspect other machines.
+Each app-server read has a ten-second deadline and terminates its owned process group, including wrapper descendants, on completion or timeout.
 Current regression and real-runner guard entry points are recorded in [runtime verification](verification/runtime-backends.md#codex-account-folder-checks).
 
 ## Worker account pin (config/claude-account, config/pi-account)
