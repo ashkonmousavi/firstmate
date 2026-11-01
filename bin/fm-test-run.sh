@@ -1685,10 +1685,11 @@ families_for_changed_path() {
       ;;
     bin/fm-gh-etag-lib.sh)
       # The shared conditional-read helper is sourced by the PR poll, the
-      # orphan sweep and the contribution poll.
+      # orphan sweep, the contribution poll and the backlog pull-request pass.
       printf '%s\n' pr-forge
       printf '%s\n' snapshot-bearings
       printf '%s\n' "__script__:fm-contributions.test.sh"
+      printf '%s\n' "__script__:fm-inactive-reconcile.test.sh"
       ;;
     bin/fm-gh-rate-check.sh)
       printf '%s\n' pr-forge

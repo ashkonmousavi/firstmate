@@ -233,6 +233,7 @@ sweep_project() {  # <name>
 
   bound=$(fm_checkpoint_budget "$BOUND") || return 0
   if ! listing=$(list_conflicted_conditional "$path" "$bound"); then
+    bound=$(fm_checkpoint_budget "$BOUND") || return 0
     listing=$(fm_run_timed "$bound" gh pr list -R "$path" --state open --label conflict \
       --limit "$LIMIT" --json number,headRefName \
       --jq '.[] | "\(.number)\t\(.headRefName)"' 2>&1) || {

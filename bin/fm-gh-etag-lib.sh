@@ -42,7 +42,8 @@
 # bounds or retries forge reads redefines it after sourcing.
 #
 # Sourced by bin/fm-pr-poll.sh, bin/fm-pr-orphan-sweep.sh,
-# bin/fm-contributions.sh and bin/fm-gh-rate-check.sh. No side effects on source.
+# bin/fm-contributions.sh and bin/fm-inactive-reconcile.sh. No side effects
+# on source.
 
 # shellcheck disable=SC2034 # Output globals read by sourcing callers.
 FM_GH_ETAG_STATUS=
@@ -85,7 +86,7 @@ fm_gh_etag_mtime() {  # <file>
 
 fm_gh_etag_get() {  # <cache-dir> <key> <endpoint> [gh api args...]
   local dir=${1-} key=${2-} endpoint=${3-} etag_file body_file multi_file
-  local raw status etag='' stored='' next=0 mark now tmp_body
+  local raw status etag='' stored='' next=0 mark now tmp_body rc=0
   FM_GH_ETAG_STATUS=
   FM_GH_ETAG_VALUE=
   FM_GH_ETAG_BODY=
@@ -122,14 +123,15 @@ fm_gh_etag_get() {  # <cache-dir> <key> <endpoint> [gh api args...]
   raw=$(mktemp "$dir/.raw.XXXXXX") || return 2
   tmp_body=$(mktemp "$dir/.body.XXXXXX") || { rm -f -- "$raw"; return 2; }
   if [ -n "$stored" ]; then
-    fm_gh_etag_run api -i -H "If-None-Match: $stored" "$@" "$endpoint" > "$raw" 2>/dev/null </dev/null || true
+    fm_gh_etag_run api -i -H "If-None-Match: $stored" "$@" "$endpoint" > "$raw" 2>/dev/null </dev/null || rc=$?
   else
-    fm_gh_etag_run api -i "$@" "$endpoint" > "$raw" 2>/dev/null </dev/null || true
+    fm_gh_etag_run api -i "$@" "$endpoint" > "$raw" 2>/dev/null </dev/null || rc=$?
   fi
-  # gh exits non-zero on 304, so the status line, never the exit code, decides.
+  # gh exits non-zero on 304, so a 304 is read from the status line alone; a
+  # 200 must also have exited 0, or its body may have been cut off mid-transfer.
   status=$(awk 'NR == 1 { print $2; exit }' "$raw" | tr -d '\r')
-  case "$status" in
-    200|304) ;;
+  case "$status:$rc" in
+    200:0|304:*) ;;
     *) rm -f -- "$raw" "$tmp_body"; return 1 ;;
   esac
   awk -v body="$tmp_body" -v etag_out="$raw.etag" -v next_out="$raw.next" '
@@ -154,6 +156,7 @@ fm_gh_etag_get() {  # <cache-dir> <key> <endpoint> [gh api args...]
   if [ "$status" = 304 ]; then
     rm -f -- "$tmp_body"
     fm_gh_etag_regular "$body_file" || return 1
+    touch -c -- "$etag_file" "$body_file" 2>/dev/null || true
     FM_GH_ETAG_STATUS=304
     FM_GH_ETAG_VALUE=$stored
     FM_GH_ETAG_BODY=$body_file

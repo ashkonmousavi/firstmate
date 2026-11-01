@@ -192,6 +192,7 @@ fm_pr_poll_github() {  # <owner> <repo> <number> <url>
     etag=$FM_GH_ETAG_VALUE
     facts="$dir/$key.facts"
     if [ "$FM_GH_ETAG_STATUS" = 304 ] && fm_pr_poll_facts_read "$facts" "$etag"; then
+      touch -c -- "$facts" 2>/dev/null || true
       # Nothing about the pull request changed since these facts were proved,
       # so only the clock can move the verdict.
       fm_pr_poll_verdict "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"

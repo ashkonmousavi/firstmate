@@ -33,7 +33,8 @@ iso_ago() {  # <seconds>
 cat > "$FAKEBIN/gh" <<'SH'
 #!/usr/bin/env bash
 # Fixtures live under $FAKE: rest/<endpoint with non-alphanumerics as _>.json
-# is a body, .link adds a Link header, .fail makes the endpoint answer 502.
+# is a body, .link adds a Link header, .fail makes the endpoint answer 502,
+# .cut sends a 200 whose body is cut off and exits as a killed transfer would.
 set -u
 log() { printf '%s\n' "$1" >> "$FAKE/log"; }
 case "${1:-} ${2:-}" in
@@ -61,6 +62,10 @@ case "${1:-} ${2:-}" in
     printf 'HTTP/2.0 200 OK\r\nEtag: %s\r\n' "$tag"
     [ ! -e "$FAKE/rest/$name.link" ] || printf 'Link: <https://api.github.com/next>; rel="next"\r\n'
     printf '\r\n'
+    if [ -e "$FAKE/rest/$name.cut" ]; then
+      head -c 3 "$FAKE/rest/$name.json"
+      exit 124
+    fi
     cat "$FAKE/rest/$name.json"
     ;;
   "api graphql")
@@ -167,6 +172,45 @@ test_helper_error_keeps_the_cache() {
   out=$(helper_call "$fake" k repos/o/r/pulls/7)
   assert_equals '0 304 {"v":1}' "$out" "a failed read left the stored tag and body intact"
   pass "helper: an error is rc 1 and the cache survives it"
+}
+
+# A 200 whose transfer was cut off (gh killed after the headers arrived) is a
+# failed read: neither its tag nor its partial body is stored, so the next read
+# asks afresh instead of replaying a broken body on every later 304.
+test_helper_cut_off_200_is_not_cached() {
+  local fake out
+  fake=$(new_fake helper-cut)
+  mkdir -p "$fake/cache"
+  fixture "$fake" repos/o/r/pulls/7 '{"state":"open","labels":[]}'
+  fixture_flag "$fake" repos/o/r/pulls/7 cut on
+  out=$(helper_call "$fake" k repos/o/r/pulls/7 | cut -d' ' -f1)
+  assert_equals 1 "$out" "a cut-off 200 is a failed read"
+  [ ! -e "$fake/cache/k.etag" ] && [ ! -e "$fake/cache/k.body" ] || fail "a cut-off 200 was cached: $(ls -A "$fake/cache")"
+  fixture_flag "$fake" repos/o/r/pulls/7 cut off
+  out=$(helper_call "$fake" k repos/o/r/pulls/7)
+  assert_equals '0 200 {"state":"open","labels":[]}' "$out" "the next read fetches the whole body"
+  [ "$(grep -c '^rest repos/o/r/pulls/7 inm=none$' "$fake/log")" -eq 2 ] || fail "a tag from the cut-off read was sent"
+  pass "helper: a 200 cut off mid-transfer is never cached behind its tag"
+}
+
+# The two-week sweep removes entries nobody uses, not entries that have not
+# changed: an idle object that keeps answering 304 stays cached.
+test_helper_304_keeps_an_idle_entry_from_the_sweep() {
+  local fake
+  fake=$(new_fake helper-idle)
+  mkdir -p "$fake/cache"
+  fixture "$fake" repos/o/r/pulls/7 '{"v":1}'
+  fixture "$fake" repos/o/r/pulls/8 '{"v":8}'
+  helper_call "$fake" idle repos/o/r/pulls/7 >/dev/null
+  touch -t 202001010000 "$fake/cache/idle.etag" "$fake/cache/idle.body"
+  assert_equals '0 304 {"v":1}' "$(helper_call "$fake" idle repos/o/r/pulls/7)" "the idle object answers 304"
+  assert_equals '0 200 {"v":8}' "$(helper_call "$fake" other repos/o/r/pulls/8)" "another key's fresh write runs the sweep"
+  [ -e "$fake/cache/idle.etag" ] && [ -e "$fake/cache/idle.body" ] || fail "an entry in use on 304s was swept: $(ls -A "$fake/cache")"
+  touch -t 202001010000 "$fake/cache/idle.etag" "$fake/cache/idle.body"
+  fixture "$fake" repos/o/r/pulls/8 '{"v":9}'
+  helper_call "$fake" other repos/o/r/pulls/8 >/dev/null
+  [ ! -e "$fake/cache/idle.etag" ] && [ ! -e "$fake/cache/idle.body" ] || fail "an entry unused for two weeks survived the sweep"
+  pass "helper: a 304 keeps its entry from the two-week sweep, an unused entry is still swept"
 }
 
 # A request killed mid-flight (the watcher's check timeout) leaves its private
@@ -358,7 +402,8 @@ test_sweep_lists_conditionally() {
 }
 
 failures=0
-for test_name in test_helper_200_304_and_persistence test_helper_error_keeps_the_cache test_helper_sweeps_abandoned_temps \
+for test_name in test_helper_200_304_and_persistence test_helper_error_keeps_the_cache test_helper_sweeps_abandoned_temps test_helper_cut_off_200_is_not_cached \
+  test_helper_304_keeps_an_idle_entry_from_the_sweep \
   test_helper_multi_page_and_switches test_poll_calls_per_tick test_poll_label_age_crosses_on_a_304 test_poll_unprovable_label_age_is_asked_again \
   test_poll_falls_back_to_the_original_reads test_sweep_lists_conditionally; do
   ( "$test_name" ) || failures=$((failures + 1))

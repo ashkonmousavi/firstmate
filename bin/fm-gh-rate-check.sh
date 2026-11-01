@@ -2,7 +2,7 @@
 # fm-gh-rate-check.sh - watch what is left of the fleet's shared GitHub allowance.
 #
 # Usage:
-#   fm-gh-rate-check.sh [check]   evaluate at most once per FM_GH_RATE_INTERVAL
+#   fm-gh-rate-check.sh [check]   evaluate at most once every 300 seconds
 #   fm-gh-rate-check.sh report    read now and print core and GraphQL remaining
 #   fm-gh-rate-check.sh arm       write and register state/gh-rate.check.sh
 #   fm-gh-rate-check.sh disarm    remove the shim, its trust binding and the record
@@ -22,10 +22,10 @@
 # reset epoch. report prints both on every machine whether or not they are low.
 #
 # ONE WAKE PER EPISODE. An episode is one budget window, named by that
-# resource's reset epoch. When remaining falls below FM_GH_RATE_THRESHOLD
-# percent of the limit (default 25) and this window has not fired yet for the
-# resource, check fires once and records the reset epoch; later checks in the
-# same window stay silent however low it goes. The refill starts a new window,
+# resource's reset epoch. When remaining falls below 25 percent of the limit
+# and this window has not fired yet for the resource, check fires once and
+# records the reset epoch; later checks in the same window stay silent however
+# low it goes. The refill starts a new window,
 # so a later shortage fires again. core and graphql are independent episodes.
 #
 # WHERE IT WAKES. A main home prints the line, which the watcher turns into an
@@ -39,10 +39,7 @@
 # unexpected shape prints nothing and leaves the record alone, so the next
 # interval retries; report exits 1 and says why.
 #
-# Tunables (env): FM_GH_RATE_THRESHOLD percent 1..99 (default 25),
-# FM_GH_RATE_INTERVAL seconds between check readings (default 300),
-# FM_GH_RATE_BOUND seconds allowed for one read (default 15),
-# FM_GH_RATE_NOW epoch override for tests.
+# One read is allowed 15 seconds. FM_GH_RATE_NOW overrides the clock for tests.
 #
 # `arm` writes state/gh-rate.check.sh, which execs this script's `check`, and
 # binds its bytes with fm-check-register.sh, so the watcher's ordinary check
@@ -76,15 +73,9 @@ now_epoch() {
   esac
 }
 
-num_or() {  # <value> <default> <min> <max>
-  case "$1" in
-    ''|*[!0-9]*) printf '%s\n' "$2"; return ;;
-  esac
-  if [ "$1" -lt "$3" ] || [ "$1" -gt "$4" ]; then printf '%s\n' "$2"; else printf '%s\n' "$1"; fi
-}
-THRESHOLD=$(num_or "${FM_GH_RATE_THRESHOLD:-}" 25 1 99)
-INTERVAL=$(num_or "${FM_GH_RATE_INTERVAL:-}" 300 1 86400)
-BOUND=$(num_or "${FM_GH_RATE_BOUND:-}" 15 1 120)
+THRESHOLD=25
+INTERVAL=300
+BOUND=15
 
 # Read both resources into R_<name>_LIMIT/_REMAINING/_RESET. Nonzero on any
 # trouble, with the reason in READ_WHY.

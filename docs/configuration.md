@@ -913,12 +913,12 @@ A reported review need is only a recommendation, not cleanup authority.
 Every request from the fleet's one personal token, on every machine and worker, spends the same 5,000-per-hour GitHub core budget, and GraphQL has its own 5,000-point budget.
 GitHub does not count a conditional request that answers `304 Not Modified`, so the remaining polls send the ETag they last saw.
 [`bin/fm-gh-etag-lib.sh`](../bin/fm-gh-etag-lib.sh) is the one helper: it stores the tag and last body per poll under `state/gh-etag/`, and its header owns the result variables, return codes, and the refusal of page-spanning lists.
-The pull-request poll (`bin/fm-pr-poll.sh`), the orphan conflict sweep (`bin/fm-pr-orphan-sweep.sh`), and the contribution poll (`bin/fm-contributions.sh`) use it; each falls back to its original unconditional read when the helper declines or a read fails.
+The pull-request poll (`bin/fm-pr-poll.sh`), the orphan conflict sweep (`bin/fm-pr-orphan-sweep.sh`), the contribution poll (`bin/fm-contributions.sh`), and the backlog pull-request pass (`bin/fm-inactive-reconcile.sh`) use it; each falls back to its original unconditional read when the helper declines or a read fails.
 `FM_GH_CONDITIONAL=0` turns conditional reads off everywhere.
 
 [`bin/fm-gh-rate-check.sh`](../bin/fm-gh-rate-check.sh) watches what is left.
 `gh api rate_limit` is free, and the check reads core and GraphQL remaining at most every five minutes.
-It wakes once per budget window, separately for core and GraphQL, when less than 25 percent remains (`FM_GH_RATE_THRESHOLD` changes the percent).
+It wakes once per budget window, separately for core and GraphQL, when less than 25 percent remains.
 A main home gets an ordinary `check:` wake; a secondmate home publishes a keyed `blocked` line on its parent channel and closes it with `resolved` when the allowance recovers.
 `bin/fm-gh-rate-check.sh report` prints both remaining values on demand without touching the check's record.
 
