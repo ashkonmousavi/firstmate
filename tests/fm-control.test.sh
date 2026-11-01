@@ -1949,16 +1949,6 @@ SH
   pass "lane release revalidates ship and scout evidence under the steer publication lock before exit"
 }
 
-test_exit_types_each_harness_verified_command
-test_interrupt_sends_each_harness_verified_key
-test_devin_interrupt_invalidates_busy
-test_devin_idle_interrupt_sends_one_press
-test_devin_exit_after_turn_ended_types_quit_once
-test_devin_interrupt_dismisses_revert_picker
-test_devin_stuck_picker_refuses_and_exit_types_nothing
-test_opencode_interrupts_twice_and_others_once
-test_unverified_harness_is_refused
-test_harness_family_resolution
 test_codex_relaunch_accounts_preflight() {
   local dir out rc meta_before kind
   for kind in ship scout; do
@@ -1979,8 +1969,8 @@ test_codex_relaunch_accounts_preflight() {
 }
 
 test_codex_relaunch_default_model_preflight() {
-  local dir out rc meta_before kind profile
-  for kind in ship scout; do
+  local dir out rc meta_before kind profile variants variant claim_before
+  for kind in ship scout secondmate; do
     dir=$(new_case "codex-default-$kind")
     add_task "$dir" t1 codex "$kind"
     alive_as "$dir" codex
@@ -2012,25 +2002,50 @@ for line in sys.stdin:
 PY
     cat > "$dir/fakebin/quota-axi" <<'SH'
 #!/usr/bin/env bash
-printf '%s\n' '{"schemaVersion":5,"providers":[{"provider":"codex","state":{"status":"fresh"},"windows":[{"id":"weekly","kind":"weekly","percentRemaining":90}],"quotaSemantics":{"status":"known","effectiveAvailability":[{"scope":"model:configured-default","status":"unknown","runway":{"status":"exhausted_now"}}]}}]}'
+cat "$CODEX_HOME/quota.json"
 SH
     chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
     meta_before=$(cat "$dir/home/state/t1.meta")
+    printf 'task=t1\nhome=%s\n' "$dir/home" > "$dir/.fm-slot-owner"
+    claim_before=$(cat "$dir/.fm-slot-owner")
+    variants='model:configured-default/exhausted'
+    [ "$kind" != secondmate ] || variants='all_models/exhausted all_products/exhausted all_models/zero all_products/zero'
     for profile in absent conflicting; do
       if [ "$profile" = conflicting ]; then
         printf '%s\n' '{"default":{"harness":"codex","model":"unused-dispatch-model"}}' > "$dir/home/config/crew-dispatch.json"
       fi
-      out=$(run_control "$dir" t1 relaunch --harness codex --note retry); rc=$?
-      expect_code 1 "$rc" "exhausted configured default must refuse $kind/$profile: $out"
-      assert_contains "$out" 'no usable signed-in folder' 'default-model quota is evaluated before relaunch'
-      assert_equals '' "$(literals "$dir")$(keys_sent "$dir")" 'default-model refusal sends no lifecycle input'
-      assert_equals codex "$(cat "$dir/fake/command")" 'the old worker stays alive'
-      assert_equals "$meta_before" "$(cat "$dir/home/state/t1.meta")" 'default-model refusal preserves metadata'
+      for variant in $variants; do
+        jq -n --arg scope "${variant%/*}" --arg signal "${variant##*/}" '
+          {providers:[{provider:"codex",state:{status:"fresh"},windows:[{id:"weekly",kind:"weekly",percentRemaining:90}],
+            quotaSemantics:{status:"known",effectiveAvailability:[
+              if $signal=="exhausted" then {scope:$scope,status:"unknown",runway:{status:"exhausted_now"}}
+              else {scope:$scope,status:"known",effectivePercentRemaining:0} end]}}]}' > "$dir/account/quota.json"
+        out=$(run_control "$dir" t1 relaunch --harness codex --model default --note retry); rc=$?
+        expect_code 1 "$rc" "exhausted configured default must refuse $kind/$profile: $out"
+        assert_contains "$out" 'no usable signed-in folder' 'default-model quota is evaluated before relaunch'
+        assert_equals '' "$(literals "$dir")$(keys_sent "$dir")" 'default-model refusal sends no lifecycle input'
+        assert_equals codex "$(cat "$dir/fake/command")" 'the old worker stays alive'
+        assert_equals "$meta_before" "$(cat "$dir/home/state/t1.meta")" 'default-model refusal preserves metadata'
+        assert_equals "$claim_before" "$(cat "$dir/.fm-slot-owner")" 'default-model refusal preserves ownership'
+        assert_absent "$dir/home/state/t1.control-relaunch" 'refusal starts no relaunch transaction'
+      done
     done
   done
-  pass 'ship and scout relaunch check the actual default model before stopping the worker'
+  pass 'Codex relaunch preflight preserves live workers, metadata and ownership on exhausted quota'
 }
 
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != control ] || return 0
+
+test_exit_types_each_harness_verified_command
+test_interrupt_sends_each_harness_verified_key
+test_devin_interrupt_invalidates_busy
+test_devin_idle_interrupt_sends_one_press
+test_devin_exit_after_turn_ended_types_quit_once
+test_devin_interrupt_dismisses_revert_picker
+test_devin_stuck_picker_refuses_and_exit_types_nothing
+test_opencode_interrupts_twice_and_others_once
+test_unverified_harness_is_refused
+test_harness_family_resolution
 test_codex_relaunch_accounts_preflight
 test_codex_relaunch_default_model_preflight
 test_relaunch_resume_flag_is_per_adapter_and_reference_owner

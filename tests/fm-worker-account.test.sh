@@ -626,6 +626,11 @@ codex_case() {
   printf '%s\n' "$CASE/account one" "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
   cat > "$FAKEBIN/treehouse" <<'SH'
 #!/usr/bin/env bash
+case "$*" in
+  --version) printf 'v3.1.8\n'; exit 0 ;;
+  'get --help') printf '%s\n' '--lease --lease-holder --json'; exit 0 ;;
+  'return --help') printf '%s\n' '--if-lease-id --if-lease-holder'; exit 0 ;;
+esac
 if [ "${1:-}" = get ]; then
   jq -n --arg path "$FM_FAKE_PANE_PATH" '{path:$path,lease_id:"fixture-lease"}'
 fi
@@ -1028,6 +1033,78 @@ test_codex_secondmate_project_model() {
   pass 'Codex secondmates resolve their actual project model after home preparation'
 }
 
+test_codex_universal_preflight() {
+  local root scope signal out rc
+  codex_case codex-universal-preflight
+  for scope in all_models all_products; do
+    for signal in exhausted zero; do
+      for root in "$CASE/account one" "$CASE/account-two"; do
+        jq --arg scope "$scope" --arg signal "$signal" '
+          .providers[].quotaSemantics.effectiveAvailability = [
+            if $signal=="exhausted" then {scope:$scope,status:"unknown",runway:{status:"exhausted_now"}}
+            else {scope:$scope,status:"known",effectivePercentRemaining:0} end]' \
+          "$root/quota.json" > "$CASE/preflight-quota.json"
+        mv "$CASE/preflight-quota.json" "$root/quota.json"
+      done
+      out=$(codex_tool preflight); rc=$?
+      expect_code 1 "$rc" "universal $scope/$signal must refuse preflight: $out"
+    done
+  done
+  jq '.providers[].state.status="stale"' "$CASE/account one/quota.json" > "$CASE/preflight-quota.json"
+  mv "$CASE/preflight-quota.json" "$CASE/account one/quota.json"
+  out=$(codex_tool preflight); rc=$?
+  expect_code 0 "$rc" "stale quota must remain eligible: $out"
+  rm "$CASE/account one/quota.json"
+  out=$(codex_tool preflight); rc=$?
+  expect_code 0 "$rc" "unmeasured quota must remain eligible: $out"
+  codex_quota "$CASE/account one" fresh 80
+  jq '.providers[].quotaSemantics.effectiveAvailability = [
+    {scope:"model:requested",status:"unknown",runway:{status:"exhausted_now"}}]' \
+    "$CASE/account one/quota.json" > "$CASE/preflight-quota.json"
+  mv "$CASE/preflight-quota.json" "$CASE/account one/quota.json"
+  out=$(codex_tool preflight); rc=$?
+  expect_code 0 "$rc" "model-specific quota must wait for final resolution: $out"
+  pass 'Codex preflight refuses universal exhaustion while retaining uncertainty and model-specific checks'
+}
+
+test_codex_treehouse_compatibility() {
+  local interface out rc id
+  codex_case codex-treehouse-interface
+  mv "$FAKEBIN/tmux" "$FAKEBIN/tmux-base"
+  cat > "$FAKEBIN/tmux" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" != new-window ] || : > "$(dirname "$0")/endpoint-created"
+exec "$(dirname "$0")/tmux-base" "$@"
+SH
+  cat > "$FAKEBIN/treehouse" <<'SH'
+#!/usr/bin/env bash
+interface=$(cat "$(dirname "$0")/treehouse-interface")
+case "$*" in
+  --version)
+    if [ "$interface" = legacy ]; then printf 'v2.0.1\n'; else printf 'v3.1.8\n'; fi
+    ;;
+  'get --help')
+    printf '%s\n' '--lease --lease-holder'
+    [ "$interface" = legacy ] || printf '%s\n' '--json'
+    ;;
+  'return --help') [ "$interface" = legacy ] || printf '%s\n' '--if-lease-id' ;;
+  *) : > "$(dirname "$0")/allocation-attempted"; exit 2 ;;
+esac
+SH
+  chmod +x "$FAKEBIN/tmux" "$FAKEBIN/treehouse"
+  for interface in legacy missing-holder; do
+    printf '%s\n' "$interface" > "$FAKEBIN/treehouse-interface"
+    id="acct-treehouse-$interface"
+    out=$(spawn_ship "$id" --harness codex --model default); rc=$?
+    expect_code 1 "$rc" "incompatible Treehouse must refuse: $out"
+    assert_contains "$out" 'Treehouse v3.1.8 or newer' 'refusal identifies the supported dependency'
+    assert_absent "$HOME_DIR/state/$id.meta" 'incompatible Treehouse published metadata'
+    assert_absent "$FAKEBIN/allocation-attempted" 'incompatible Treehouse was asked to acquire a lease'
+    assert_absent "$FAKEBIN/endpoint-created" 'incompatible Treehouse opened an endpoint'
+  done
+  pass 'Codex refuses incompatible Treehouse before allocation or endpoint creation'
+}
+
 test_codex_exhausted_refusal_releases_capacity() {
   local out rc id mode attempt claim before root
   codex_case codex-exhausted-capacity
@@ -1047,6 +1124,11 @@ SH
   cat > "$FAKEBIN/treehouse" <<'SH'
 #!/usr/bin/env bash
 set -eu
+case "$*" in
+  --version) printf 'v3.1.8\n'; exit 0 ;;
+  'get --help') printf '%s\n' '--lease --lease-holder --json'; exit 0 ;;
+  'return --help') printf '%s\n' '--if-lease-id --if-lease-holder'; exit 0 ;;
+esac
 lease="$(dirname "$0")/held-lease"
 case "$1" in
   get)
@@ -1073,7 +1155,7 @@ SH
       codex_quota "$CASE/account-two" fresh 0
       for root in "$CASE/account one" "$CASE/account-two"; do
         jq '.providers[].quotaSemantics.effectiveAvailability = [
-          {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
+          {scope:"model:requested",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
           "$root/quota.json" > "$CASE/exhausted-quota.json"
         mv "$CASE/exhausted-quota.json" "$root/quota.json"
       done
@@ -1275,6 +1357,8 @@ test_codex_applicable_quota
 test_codex_default_model
 test_codex_project_model
 test_codex_secondmate_project_model
+test_codex_universal_preflight
+test_codex_treehouse_compatibility
 test_codex_exhausted_refusal_releases_capacity
 test_codex_identity_timeout
 test_codex_runway_timing

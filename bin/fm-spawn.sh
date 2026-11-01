@@ -826,6 +826,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-capacity-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
+# shellcheck source=bin/fm-treehouse-lib.sh
+. "$SCRIPT_DIR/fm-treehouse-lib.sh"
 # Fail closed before any fleet mutation: a no-mistakes gate agent must never spawn
 # a direct report (see bin/fm-gate-refuse-lib.sh).
 fm_refuse_if_gate_agent
@@ -4697,6 +4699,10 @@ if [ "$RELAUNCH" -eq 0 ] &&
 fi
 if [ "$CODEX_DEFER_DEFAULT" = 1 ] && [ "$BACKEND" != orca ]; then
   if [ "$KIND" != secondmate ]; then
+    fm_treehouse_supports_lease || {
+      echo "error: Treehouse v$FM_TREEHOUSE_VERSION or newer with JSON leases and conditional return is required; see bin/fm-install-treehouse.sh" >&2
+      exit 1
+    }
     released_mutation_begin
     CODEX_LEASE=$(cd "$PROJ_ABS" && treehouse get --lease --lease-holder "$ID" --json) || exit 1
     SPAWN_CODEX_LEASE_PATH=$(printf '%s\n' "$CODEX_LEASE" | jq -er '.path | strings | select(length > 0)') || exit 1

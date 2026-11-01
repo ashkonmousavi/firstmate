@@ -1208,7 +1208,7 @@ Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-
 Among locally signed-in folders with shared configuration present, it excludes accounts whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, then selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
 Exhausted runway excludes an account even when its remaining percentage is unknown.
 The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
-Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before quota filtering and worker startup; credential-only preflight still runs before allocation.
+Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight rejects known universal exhaustion before allocation or stopping a live secondmate.
 The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
 If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
@@ -1837,6 +1837,9 @@ The per-backend delta is required only for the backend resolved from `FM_BACKEND
 
 The JSON-emitting adapters (`herdr`, `zellij`, `cmux`, `paseo`) need `jq` because their spawn and liveness paths parse backend JSON.
 Every session-provider-only backend (`tmux`, `herdr`, `zellij`, `cmux`, `paseo`) uses `treehouse` for worktrees.
+The supported Treehouse minimum is [v3.1.8](https://github.com/kunchenguid/treehouse/releases/tag/v3.1.8), pinned by [`bin/fm-install-treehouse.sh`](../bin/fm-install-treehouse.sh) with official release checksums.
+Bootstrap and deferred Codex allocation require that version or newer plus JSON lease allocation and conditional return by lease ID and holder; older versions refuse before acquiring a worktree or creating an endpoint.
+[`bin/fm-treehouse-lib.sh`](../bin/fm-treehouse-lib.sh) owns the shared version and capability check.
 
 Backend tool availability uses the adapter's own executable resolver, so bootstrap and spawn agree on supported non-`PATH` locations such as cmux's bundled CLI.
 An unknown resolved backend emits `BACKEND_INVALID` and blocks dispatch instead of silently dropping its dependency delta or falling back to tmux.

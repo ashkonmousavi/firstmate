@@ -526,6 +526,11 @@ SH
   printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$dir/fakebin/gh-axi"
   cat > "$dir/fakebin/treehouse" <<'SH'
 #!/usr/bin/env bash
+case "$*" in
+  --version) printf 'v3.1.8\n'; exit 0 ;;
+  'get --help') printf '%s\n' '--lease --lease-holder --json'; exit 0 ;;
+  'return --help') printf '%s\n' '--if-lease-id --if-lease-holder'; exit 0 ;;
+esac
 printf '%s\n' "$*" >> "$FM_FAKE_DIR/treehouse-log"
 if [ "${1:-}" = get ]; then
   jq -n --arg path "$(cat "$FM_FAKE_DIR/treehouse-slot")" '{path:$path,lease_id:"released-lease"}'

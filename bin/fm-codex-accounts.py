@@ -251,7 +251,8 @@ def quota_usable(row, model):
 
 def preflight(roots, codex):
     guard(roots, codex)
-    if not any(signed_in(root, codex) and shared_ready(root) for root in roots):
+    if not any(signed_in(root, codex) and shared_ready(root) and quota_usable(reading(root), "")
+               for root in roots):
         raise ValueError("codex-accounts has no usable signed-in folder with shared configuration")
 
 
