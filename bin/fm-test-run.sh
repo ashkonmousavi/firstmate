@@ -836,7 +836,7 @@ tests/fm-polytoken-signals-live-e2e.test.sh 103
 tests/fm-pr-check-security.test.sh 300675
 tests/fm-pr-conflict.test.sh 4000
 tests/fm-pr-orphan-sweep.test.sh 4600
-tests/fm-pr-triage.test.sh 7500
+tests/fm-pr-triage.test.sh 11000
 tests/fm-pr-reviewers.test.sh 157
 tests/fm-pr-state-live-e2e.test.sh 47
 tests/fm-pr-state.test.sh 525

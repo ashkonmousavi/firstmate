@@ -94,7 +94,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
 - Rebuildable hold-release disposition caches under `state/hold-releases/` (`bin/fm-hold-release-lib.sh`); the backlog hold owns the condition.
 - Unwatched conflicted pull-request episode markers under `state/pr-orphan-conflict/`, written only by `bin/fm-pr-orphan-sweep.sh`.
-- The append-only PR triage record `state/pr-triage.log` and its per-pull-request launch and queue-comment markers under `state/pr-triage/`, written only by `bin/fm-pr-triage.sh --apply` ([PR triage](#pr-triage-configpr-triage-rules)).
+- The append-only PR triage record `state/pr-triage.log` and its per-pull-request launch, owner-steer and queue-comment markers under `state/pr-triage/`, written only by `bin/fm-pr-triage.sh --apply` ([PR triage](#pr-triage-configpr-triage-rules)).
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 - Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
 
@@ -703,15 +703,21 @@ The flag is a home-local supervision-noise preference and is not inherited by se
 `bin/fm-pr-triage.sh` is a plain script, with no model in the loop, that ranks one repository's open pull requests and acts on the top two ranks.
 Rank 1 is a pull request that unblocks others now: a CI or test-speed or red-main-repair class from the rules file, or one on the J-01 path of this home's backlog; rank 2 blocks at least one backlog item, most blocked first; rank 3 is the rest.
 A conflicting or red pull request in ranks 1 and 2 gets a fix worker for the task this home owns, through `bin/fm-control.sh relaunch` and so `bin/fm-spawn.sh`'s machine-lane admission, never beside a live worker and at most once per pull request head.
-A green one gets the `main-red` label and one `@mergifyio queue` comment unless the real Mergify queue state, read with `mergify queue status` and `mergify queue show`, already has it queued.
+When another registered home in `data/secondmates.md` holds the task open instead, the record names that home and that home gets one `bin/fm-send.sh --one-way` steer with the pull request URL per pull request head; no worker is spawned here for it.
+A green one gets the `main-red` label and exactly one `@mergifyio queue` comment per pull request head, unless the real Mergify queue state, read with `mergify queue status` and `mergify queue show`, already has it queued; only a new push earns another comment.
 Every pull request gets one tab-separated record per pass in `state/pr-triage.log`: the time, pull request URL, rank, action, and the result or `refused:<reason>`.
 
+The refusal reasons are deliberate guards, chiefly against a duplicate spawn or a duplicate comment, and each leaves its own distinct record on every pass while it holds, which is the visible signal that a pull request is stuck:
+
+- fix: `no task branch`, `no home owns <task>`, `owner unknown for <task>: unreadable <home>`, `owned by <home>: steered <task>`, `owned by <home>: already steered for head <sha>`, `owned by <home>: steer failed: <error>`, `no task record for <task>`, `fix already launched for head <sha>`, `worker live for <task>`, `lane release stopped <task> on purpose`, `worker liveness <posture> for <task>`, `spawn deferred pending for <task>`, `no capacity: <reason>`, `deferred: <reason>`, `launch error: <error>`; each also names the real queue state read (`queue=queued`, `queue=not queued` or `queue=unknown`).
+- queue: `queue state unreadable`, `queue paused`, `queue comment already made for head <sha>`, `label failed: <error>`, `comment failed: <error>`.
+- none: `merge-queue batch`, `draft (<class>)`, `mergeability <state>`, `checks <state>`.
+
 The local, gitignored `config/pr-triage-rules` is required: `repo=` and `project=` name what to triage, and repeatable `title=`, `label=` and `path=` lines name the rank-1 classes.
-The optional `config/pr-triage-exclude` holds one shell glob per line, matched against a pull request's number, head branch, and task id.
-Both files are home-local and not inherited by secondmate homes.
+It is home-local and not inherited by secondmate homes.
 
 Nothing enables a schedule automatically, and without `--apply` a pass is a dry run that prints each decision and command and writes nothing.
-To enable a home, write the rules file, read a dry run, confirm `mergify` is authenticated for the scheduling user and the label `main-red` exists on the repository, then install the five-minute schedule `bin/fm-pr-triage.sh --print-timer` proposes, recording it in the machine inventory first.
+Enabling the five-minute schedule is a governance step MAIN performs per machine: write the rules file, read a dry run, confirm `mergify` is authenticated for the scheduling user and the label `main-red` exists on the repository, record the unit in the machine inventory, then install the schedule `bin/fm-pr-triage.sh --print-timer` proposes.
 The [`bin/fm-pr-triage.sh` header](../bin/fm-pr-triage.sh) owns the rules format, rank definition, actions, refusal reasons, and record format.
 
 ## Parked-gate wait deferral (config/wedge-defer-parked-gate)

@@ -65,10 +65,27 @@ cat > "$FAKE/posture" <<'SH'
 #!/usr/bin/env bash
 if [ -f "$FAKE_DIR/posture-$2" ]; then cat "$FAKE_DIR/posture-$2"; else echo none; fi
 SH
-chmod +x "$FAKE/gh" "$FAKE/gh-axi" "$FAKE/mergify" "$FAKE/capacity" "$FAKE/control" "$FAKE/posture"
+# Fake fm-send.sh: one line per call, target|flag|text with line breaks as spaces.
+cat > "$FAKE/send" <<'SH'
+#!/usr/bin/env bash
+[ -f "$FAKE_DIR/send-fail" ] && { echo 'error: endpoint retired' >&2; exit 1; }
+printf '%s|%s|%s\n' "$1" "$2" "$(printf '%s' "$3" | tr '\n' ' ')" >> "$FAKE_DIR/send.log"
+SH
+# Fake fm-on.sh: a remote home's backlog holds only the ids in $FAKE/remote-open;
+# u-task makes the transport fail.
+cat > "$FAKE/on" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_DIR/on.log"
+[ "$4" = u-task ] && { echo 'ssh: connect to host q-crew: No route to host' >&2; exit 255; }
+if grep -qx "$4" "$FAKE_DIR/remote-open" 2>/dev/null; then printf 'task:\n  id: %s\n  state: queued\n' "$4"; exit 0; fi
+printf 'error: "Task not found"\ncode: NOT_FOUND\n'; exit 1
+SH
+chmod +x "$FAKE/gh" "$FAKE/gh-axi" "$FAKE/mergify" "$FAKE/capacity" "$FAKE/control" "$FAKE/posture" \
+  "$FAKE/send" "$FAKE/on"
 export FAKE_DIR="$FAKE" FM_PR_TRIAGE_GH_BIN="$FAKE/gh" FM_PR_TRIAGE_GHAXI_BIN="$FAKE/gh-axi" \
   FM_PR_TRIAGE_MERGIFY_BIN="$FAKE/mergify" FM_PR_TRIAGE_CAPACITY_BIN="$FAKE/capacity" \
-  FM_PR_TRIAGE_CONTROL_BIN="$FAKE/control" FM_PR_TRIAGE_POSTURE_BIN="$FAKE/posture"
+  FM_PR_TRIAGE_CONTROL_BIN="$FAKE/control" FM_PR_TRIAGE_POSTURE_BIN="$FAKE/posture" \
+  FM_PR_TRIAGE_SEND_BIN="$FAKE/send" FM_PR_TRIAGE_ON_BIN="$FAKE/on"
 LOG="$H/state/pr-triage.log"
 URL=https://github.com/o/r/pull
 
@@ -101,7 +118,8 @@ meta() {  # <id> [worktree]
 }
 reset() {
   rm -f "$LOG" "$FAKE"/*.log "$FAKE"/show-*.json "$FAKE"/posture-* "$FAKE/control-rc" \
-    "$FAKE/gh-fail" "$FAKE/mergify-fail" "$H/config/pr-triage-exclude" "$H/state"/*.meta
+    "$FAKE/gh-fail" "$FAKE/mergify-fail" "$FAKE/send-fail" "$FAKE/remote-open" \
+    "$H/data/secondmates.md" "$H/state"/*.meta
   rm -rf "$H/state/pr-triage" "$H/state/spawn-deferred" "$H/state/.pr-triage.lock"
   printf '1\n' > "$FAKE/free"
   queue
@@ -159,7 +177,7 @@ assert_equals 'launched rel-task (queue=not queued)' "$(field "$(rec 20)" 5)" 'a
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_contains "$(rec 21)" 'refused:no task record for gone-task' 'no record, no launch'
 assert_contains "$(rec 22)" 'refused:worker liveness unknown for busy-task' 'unproved liveness, no launch'
-assert_contains "$(rec 23)" 'refused:not owned here: other-home' 'another home owns it'
+assert_contains "$(rec 23)" 'refused:no home owns other-home' 'no registered home holds it'
 meta cap-task; echo exited > "$FAKE/posture-cap-task"; printf '0\n' > "$FAKE/free"
 pr 24 fm/cap-task CONFLICTING FAILURE | prs
 bash "$TRIAGE" --apply >/dev/null 2>&1
@@ -172,7 +190,7 @@ rm -f "$FAKE/control-rc"
 mkdir -p "$H/state/spawn-deferred/queue"; printf 'task=cap-task\n' > "$H/state/spawn-deferred/queue/0001"
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_contains "$(rec 24)" 'refused:spawn deferred pending for cap-task' 'deferred retry is not doubled'
-pass 'fix refusals: no record, unproved liveness, another home, capacity, deferral'
+pass 'fix refusals: no record, unproved liveness, no owning home, capacity, deferral'
 
 # --- green and not queued: label and one queue comment ------------------------
 reset
@@ -189,14 +207,18 @@ assert_contains "$(field "$r" 5)" 'labelled main-red and commented queue (queue=
 assert_equals "pr edit 30 --repo o/r --add-label main-red" "$(sed -n 1p "$FAKE/ghaxi.log")" 'label added'
 assert_equals "pr comment 30 --repo o/r --body @mergifyio queue" "$(sed -n 2p "$FAKE/ghaxi.log")" 'queue comment'
 bash "$TRIAGE" --apply >/dev/null 2>&1
-assert_contains "$(rec 30)" 'refused:queue comment pending for head sha30' 'slow pickup gets no second comment'
+assert_contains "$(rec 30)" 'refused:queue comment already made for head sha30' 'slow pickup gets no second comment'
 [ "$(grep -c 'pr comment' "$FAKE/ghaxi.log")" -eq 1 ] || fail 'exactly one queue comment'
+jq '.[0].headRefOid = "pushed30bbbbbbbb"' "$FAKE/prs.json" > "$FAKE/p.tmp" && mv "$FAKE/p.tmp" "$FAKE/prs.json"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+bash "$TRIAGE" --apply >/dev/null 2>&1
+[ "$(grep -c 'pr comment' "$FAKE/ghaxi.log")" -eq 2 ] || fail 'a new push earns exactly one new comment'
 pr 30 fm/ci-task MERGEABLE SUCCESS 'speed up the unit leg' main-red | prs
 rm -rf "$H/state/pr-triage"; rm -f "$FAKE/ghaxi.log"
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_not_contains "$(cat "$FAKE/ghaxi.log")" 'add-label' 'an existing main-red label is not re-added'
 assert_contains "$(cat "$FAKE/ghaxi.log")" 'pr comment 30' 'label alone is not queue state: still comments'
-pass 'green unqueued pull request gets the label and exactly one queue comment'
+pass 'green unqueued pull request gets the label and exactly one queue comment per head'
 
 # --- already queued: no duplicate comment ---------------------------------------
 reset
@@ -255,6 +277,7 @@ cat > "$H/data/backlog.md" <<'MD'
 ## In flight
 ## Queued
 - [ ] open-task - plain open work (repo: proj) (kind: ship) (since 2026-10-30)
+- [ ] closed-dep - open work only a done item waits on (repo: proj) (kind: ship) (since 2026-10-30)
 ## Done
 - [x] closed-j - J-01 finished step blocked-by: closed-dep blocked-by: open-task (since 2026-10-01)
 MD
@@ -267,7 +290,7 @@ meta closed-j; echo exited > "$FAKE/posture-closed-j"
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_equals 3 "$(field "$(rec 90)" 3)" 'a blocker of only done work is rank 3'
 assert_equals 3 "$(field "$(rec 91)" 3)" 'blocking a done item counts for nothing'
-assert_equals 'refused:not owned here: closed-j (queue=not queued)' "$(field "$(rec 92)" 5)" 'a done task gets no fix worker'
+assert_equals 'refused:no home owns closed-j (queue=not queued)' "$(field "$(rec 92)" 5)" 'a done task gets no fix worker'
 assert_absent "$FAKE/control.log" 'done work launches nothing'
 assert_absent "$FAKE/ghaxi.log" 'done work queues nothing'
 pass 'done backlog items neither rank pull requests nor own fix workers'
@@ -282,7 +305,7 @@ printf 'label=ci\n' | rules
 } | prs
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_equals 1 "$(field "$(rec 95)" 3)" 'label rule ranks an unprefixed branch'
-assert_equals 'refused:not owned here: no task branch (queue=not queued)' "$(field "$(rec 95)" 5)" 'no task branch is named'
+assert_equals 'refused:no task branch (queue=not queued)' "$(field "$(rec 95)" 5)" 'no task branch is named'
 assert_equals 'refused:draft (label:ci)' "$(field "$(rec 96)" 5)" 'the class survives an empty task'
 pass 'an unprefixed head branch keeps an empty task and its rank class'
 
@@ -303,7 +326,9 @@ got=$(env -i /bin/sh -c "${cron%% FM_HOME=*}; printf '%s' \"\$PATH\"")
 assert_equals "$PATH:$odd" "$got" 'cron line sets the caller PATH'
 pass 'the proposed timer and cron line carry the PATH the pass needs'
 
-# --- skips and exclusion ----------------------------------------------------------
+# --- skips -------------------------------------------------------------------------
+# Oracle: the owner's rule acts on every top-two-rank pull request; only a draft
+# and a Mergify batch, which a queue command cannot act on, are skipped.
 reset
 backlog < /dev/null
 printf 'label=ci\n' | rules
@@ -316,14 +341,60 @@ printf 'label=ci\n' | rules
 } | prs
 printf '# parked\nfm/ex\n' > "$H/config/pr-triage-exclude"
 bash "$TRIAGE" --apply >/dev/null 2>&1
-assert_equals 'refused:excluded: fm/ex' "$(field "$(rec 60)" 5)" 'exclusion list honoured'
+rm -f "$H/config/pr-triage-exclude"
+assert_contains "$(field "$(rec 60)" 5)" 'commented queue' 'no exclusion list: a listed pull request is still queued'
 assert_contains "$(rec 61)" 'refused:draft' 'draft gets no action'
-assert_contains "$(rec 62)" 'refused:held' 'hold label gets no action'
+assert_contains "$(field "$(rec 62)" 5)" 'commented queue' 'a hold label does not skip the queue action'
 assert_equals 'refused:merge-queue batch' "$(field "$(rec 63)" 5)" 'Mergify batch pull request is skipped'
 assert_equals 'refused:mergeability UNKNOWN' "$(field "$(rec 64)" 5)" 'unknown mergeability: no action'
-assert_absent "$FAKE/ghaxi.log" 'skips write nothing'
+assert_equals 2 "$(grep -c 'pr comment' "$FAKE/ghaxi.log")" 'only the two acted-on pull requests get comments'
 assert_absent "$FAKE/control.log" 'skips launch nothing'
-pass 'exclusion, draft, hold, merge-queue batches and unknown mergeability are skipped'
+pass 'draft, merge-queue batches and unknown mergeability are skipped; exclusion files and hold labels are not'
+
+# --- another registered home owns the task -------------------------------------------
+# Oracle: the owner's decision: a task another registered home holds gets no
+# worker here, a record naming that home, and one steer with the URL per head.
+reset
+H2="$TMP_ROOT/home2"
+mkdir -p "$H2/data" "$H2/state"
+fm_test_tasks_toml "$H2/.tasks.toml"
+printf '## In flight\n## Queued\n- [ ] sm-task - J-01 their step (since 2026-10-30)\n## Done\n- [x] sm-done - J-01 old (since 2026-10-01)\n' > "$H2/data/backlog.md"
+backlog < /dev/null
+{
+  printf -- '- sm1 - local mate (home: %s; scope: proj work; projects: proj; added 2026-10-30)\n' "$H2"
+  printf -- '- sm2 - remote mate (host: q-crew; root: /srv/fm; home: /srv/home; scope: proj work; projects: proj; added 2026-10-30)\n'
+} > "$H/data/secondmates.md"
+printf 'r-task\n' > "$FAKE/remote-open"
+{
+  pr 100 fm/sm-task CONFLICTING FAILURE 'J-01 their fix'
+  pr 101 fm/r-task MERGEABLE FAILURE 'J-01 remote'
+  pr 102 fm/nobody MERGEABLE FAILURE 'J-01 orphan'
+  pr 103 fm/sm-done MERGEABLE FAILURE 'J-01 closed there'
+  pr 104 fm/u-task MERGEABLE FAILURE 'J-01 unreachable'
+} | prs
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_equals 1 "$(field "$(rec 100)" 3)" 'the J-01 title ranks it 1'
+assert_equals 'refused:owned by sm1: steered sm-task (queue=not queued)' "$(field "$(rec 100)" 5)" 'local owner named and steered'
+assert_equals 'refused:owned by sm2: steered r-task (queue=not queued)' "$(field "$(rec 101)" 5)" 'remote owner read through fm-on and steered'
+assert_contains "$(cat "$FAKE/on.log")" 'sm2 fm-tasks-axi.sh show r-task' 'remote backlog read with fm-tasks-axi show'
+assert_equals 'refused:no home owns nobody (queue=not queued)' "$(field "$(rec 102)" 5)" 'no home holds it'
+assert_equals 'refused:no home owns sm-done (queue=not queued)' "$(field "$(rec 103)" 5)" 'done in the other home is not owned'
+assert_equals 'refused:owner unknown for u-task: unreadable sm2 (queue=not queued)' "$(field "$(rec 104)" 5)" 'an unreadable home is named'
+assert_contains "$(grep '^sm1|' "$FAKE/send.log")" "sm1|--one-way|PR triage: $URL/100 belongs to your task sm-task." 'steer names the URL'
+assert_contains "$(grep '^sm1|' "$FAKE/send.log")" 'Do not force-push.' 'steer carries the fix instruction'
+assert_absent "$FAKE/control.log" 'no worker is spawned here for another home'
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_contains "$(rec 100)" 'refused:owned by sm1: already steered for head sha100' 'same head: no second steer'
+[ "$(grep -c '^sm1|' "$FAKE/send.log")" -eq 1 ] || fail 'one steer per head'
+jq '(.[] | select(.number == 100) | .headRefOid) = "pushed100bbbbbb"' "$FAKE/prs.json" > "$FAKE/p.tmp" && mv "$FAKE/p.tmp" "$FAKE/prs.json"
+touch "$FAKE/send-fail"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_contains "$(rec 100)" 'refused:owned by sm1: steer failed: error: endpoint retired' 'a failed steer is recorded'
+rm -f "$FAKE/send-fail"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+bash "$TRIAGE" --apply >/dev/null 2>&1
+[ "$(grep -c '^sm1|' "$FAKE/send.log")" -eq 2 ] || fail 'a new head earns one new steer after a failed one'
+pass 'a task another registered home owns is refused by name and steered once per head'
 
 # --- dry run writes nothing --------------------------------------------------------
 reset

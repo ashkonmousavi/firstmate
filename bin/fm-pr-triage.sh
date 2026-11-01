@@ -42,11 +42,16 @@
 # items are not open and count for nothing.
 #
 # ACTIONS, for ranks 1 and 2 only; every pull request still gets a record.
-#   Skipped first, in this order: excluded (config/pr-triage-exclude), a
-#   merge-queue batch (author mergify or head mergify/merge-queue/), a draft,
-#   or the label hold.
+#   Skipped first, in this order: a merge-queue batch (author mergify or head
+#   mergify/merge-queue/), then a draft.
 #   CONFLICTING or a FAILURE/ERROR check rollup -> fix. The fix worker launches
-#   only for a task this home's backlog holds, with a state/<id>.meta record:
+#   here only for a task this home's backlog holds open. A task another
+#   registered home (data/secondmates.md) holds open is refused as owned by
+#   that home, which gets one bin/fm-send.sh --one-way steer naming the pull
+#   request per pull request head (state/pr-triage/steer-<n>); its backlog is
+#   read with bin/fm-tasks-axi.sh show, through bin/fm-on.sh for a remote
+#   home. A task no home holds open is refused. For this home's task, with a
+#   state/<id>.meta record:
 #     - its worker is alive                -> refused:worker live
 #     - its worker exited, or the record is a released copy
 #       (worktree=*.released-copy)         -> bin/fm-control.sh <id> relaunch
@@ -54,8 +59,8 @@
 #                                             bin/fm-spawn.sh --relaunch with
 #                                             the machine-lane and project
 #                                             admission every launch takes
-#     - liveness unproved, a lane-release stop, no record, or no backlog item
-#       here                               -> refused with that reason
+#     - liveness unproved, a lane-release stop, or no record
+#                                          -> refused with that reason
 #   Before a launch, bin/fm-capacity.sh --admit must admit (the auto-launcher's
 #   admission rule) and state/spawn-deferred/queue must not already hold the
 #   task. At most one launch per pull request head: state/pr-triage/fix-<n>
@@ -67,16 +72,12 @@
 #     -> `already queued`, no write. A paused queue or an unreadable queue
 #     state -> refused, no write. Otherwise add the label main-red when absent
 #     and comment `@mergifyio queue`; state/pr-triage/queue-<n> records the
-#     head commented on, and the same head within 30 minutes is refused as
-#     pending so a slow queue pickup never gets a second comment.
+#     head commented on, and the same head is refused, so each pull request
+#     head gets exactly one comment and only a new push earns another.
 #   Anything else (checks pending or absent, mergeability UNKNOWN) -> refused,
 #   no write and no launch.
 # A fix record names the real queue state it read (queue=queued, queue=not
 # queued, or queue=unknown), so a red pull request is never reported queued.
-#
-# EXCLUSIONS. config/pr-triage-exclude, optional: one shell glob per line,
-# # comments and blank lines ignored, matched against the pull request number,
-# its head branch, and its task id.
 #
 # TOOLS. Pull requests are read with one paginated `gh api graphql` query,
 # because gh-axi renders TOON only and the record logic needs JSON; label and
@@ -94,8 +95,9 @@
 # the pull requests, the backlog or the log cannot be read or written; 2 usage.
 # Test seams, honored only with FM_TEST_SEAM=1: FM_PR_TRIAGE_GH_BIN,
 # FM_PR_TRIAGE_GHAXI_BIN, FM_PR_TRIAGE_MERGIFY_BIN, FM_PR_TRIAGE_CAPACITY_BIN,
-# FM_PR_TRIAGE_CONTROL_BIN replace gh, gh-axi, mergify, fm-capacity.sh and
-# fm-control.sh; FM_PR_TRIAGE_POSTURE_BIN, given <state> <id>, prints live,
+# FM_PR_TRIAGE_CONTROL_BIN, FM_PR_TRIAGE_SEND_BIN, FM_PR_TRIAGE_ON_BIN replace
+# gh, gh-axi, mergify, fm-capacity.sh, fm-control.sh, fm-send.sh and fm-on.sh;
+# FM_PR_TRIAGE_POSTURE_BIN, given <state> <id>, prints live,
 # exited, unknown or none in place of the backend liveness read.
 set -u
 export LC_ALL=C
@@ -105,6 +107,7 @@ FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 export FM_HOME
 
 usage() { echo 'usage: fm-pr-triage.sh [--apply|--print-timer|--help]' >&2; }
@@ -123,15 +126,15 @@ LOG="$STATE/pr-triage.log"
 LOCK="$STATE/.pr-triage.lock"
 MARKS="$STATE/pr-triage"
 RULES="$CONFIG/pr-triage-rules"
-EXCLUDE="$CONFIG/pr-triage-exclude"
 BOUND=${FM_PR_TRIAGE_BOUND:-60}
-QUEUE_COMMENT_HOLD=1800
 
 GH_BIN=gh
 GHAXI_BIN=gh-axi
 MERGIFY_BIN=mergify
 CAPACITY_BIN="$SCRIPT_DIR/fm-capacity.sh"
 CONTROL_BIN="$SCRIPT_DIR/fm-control.sh"
+SEND_BIN="$SCRIPT_DIR/fm-send.sh"
+ON_BIN="$SCRIPT_DIR/fm-on.sh"
 POSTURE_BIN=
 if [ "${FM_TEST_SEAM:-}" = 1 ]; then
   GH_BIN=${FM_PR_TRIAGE_GH_BIN:-$GH_BIN}
@@ -139,6 +142,8 @@ if [ "${FM_TEST_SEAM:-}" = 1 ]; then
   MERGIFY_BIN=${FM_PR_TRIAGE_MERGIFY_BIN:-$MERGIFY_BIN}
   CAPACITY_BIN=${FM_PR_TRIAGE_CAPACITY_BIN:-$CAPACITY_BIN}
   CONTROL_BIN=${FM_PR_TRIAGE_CONTROL_BIN:-$CONTROL_BIN}
+  SEND_BIN=${FM_PR_TRIAGE_SEND_BIN:-$SEND_BIN}
+  ON_BIN=${FM_PR_TRIAGE_ON_BIN:-$ON_BIN}
   POSTURE_BIN=${FM_PR_TRIAGE_POSTURE_BIN:-}
 fi
 
@@ -192,6 +197,8 @@ fi
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-lane-release-lib.sh
 . "$SCRIPT_DIR/fm-lane-release-lib.sh"
+# shellcheck source=bin/fm-secondmate-registry-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
 
 flat() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-300; }
 
@@ -436,21 +443,6 @@ rank_of() {
   fi
 }
 
-excluded_by() {
-  local line pat subject
-  [ -f "$EXCLUDE" ] || return 1
-  while IFS= read -r line || [ -n "$line" ]; do
-    pat=$(printf '%s' "$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-    case "$pat" in ''|'#'*) continue ;; esac
-    for subject in "$1" "$2" "$3"; do
-      [ -n "$subject" ] || continue
-      # shellcheck disable=SC2254 # the exclusion line is a deliberate glob
-      case "$subject" in $pat) printf '%s\n' "$pat"; return 0 ;; esac
-    done
-  done < "$EXCLUDE"
-  return 1
-}
-
 deferred_pending() {
   local f
   for f in "$STATE/spawn-deferred/queue"/*; do
@@ -480,13 +472,63 @@ capacity_admits() {
   [ "$rc" = 0 ]
 }
 
-marker_get() {  # <file>: prints "<head> <epoch>" or nothing
+marker_get() {  # <file>: prints the head recorded, or nothing
   [ -f "$1" ] && head -1 "$1" 2>/dev/null
 }
 
 marker_put() {  # <file> <head>
   [ "$ACTION" = apply ] || return 0
-  mkdir -p "$MARKS" && printf '%s %s\n' "$2" "$(date +%s)" > "$1"
+  mkdir -p "$MARKS" && printf '%s\n' "$2" > "$1"
+}
+
+# owning_home <task>: prints the id of the registered home whose backlog holds
+# the task open, or nothing; a home whose backlog cannot be read is printed as
+# "?<id>" after the scan.
+owning_home() {
+  local reg="$DATA/secondmates.md" line out rc unread=''
+  [ -f "$reg" ] && [ ! -L "$reg" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in '- '*) ;; *) continue ;; esac
+    secondmate_registry_parse_line "$line" || { unread="$unread ?malformed-registry-line"; continue; }
+    rc=0
+    if [ "$SECONDMATE_REGISTRY_REMOTE" = 1 ]; then
+      out=$(fm_run_timed "$BOUND" "$ON_BIN" "$SECONDMATE_REGISTRY_ID" fm-tasks-axi.sh show "$1" 2>&1 < /dev/null) || rc=$?
+    else
+      case "$SECONDMATE_REGISTRY_HOME" in
+        /*) out=$(fm_run_timed "$BOUND" env -u FM_DATA_OVERRIDE FM_HOME="$SECONDMATE_REGISTRY_HOME" \
+              "$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" 2>&1 < /dev/null) || rc=$? ;;
+        *) out=; rc=1 ;;
+      esac
+    fi
+    if [ "$rc" = 0 ]; then
+      case "$(printf '%s\n' "$out" | sed -n 's/^  state: //p' | head -1)" in
+        done) ;;
+        '') unread="$unread ?$SECONDMATE_REGISTRY_ID" ;;
+        *) printf '%s\n' "$SECONDMATE_REGISTRY_ID"; return 0 ;;
+      esac
+    elif ! printf '%s\n' "$out" | grep -qx 'code: NOT_FOUND'; then
+      unread="$unread ?$SECONDMATE_REGISTRY_ID"
+    fi
+  done < "$reg"
+  [ -z "$unread" ] || printf '%s\n' "${unread# }"
+}
+
+# steer_owner <number> <url> <rank> <task> <home> <head> <note> <queue>
+steer_owner() {
+  local n=$1 url=$2 rank=$3 task=$4 home=$5 head=$6 note=$7 q=$8 text out
+  if [ "$(marker_get "$MARKS/steer-$n")" = "$head" ]; then
+    record "$url" "$rank" fix "refused:owned by $home: already steered for head ${head:0:12} (queue=$q)"
+    return 0
+  fi
+  text="PR triage: $url belongs to your task $task."$'\n'"$note"
+  if [ "$ACTION" = dry ]; then
+    would_run "$SEND_BIN" "$home" --one-way "$text"
+  elif ! out=$(fm_run_timed "$BOUND" "$SEND_BIN" "$home" --one-way "$text" 2>&1 < /dev/null); then
+    record "$url" "$rank" fix "refused:owned by $home: steer failed: $(flat "$out") (queue=$q)"
+    return 0
+  fi
+  marker_put "$MARKS/steer-$n" "$head"
+  record "$url" "$rank" fix "refused:owned by $home: steered $task (queue=$q)"
 }
 
 fix_note() {  # <url> <base> <why>
@@ -497,18 +539,27 @@ fix_note() {  # <url> <base> <why>
 
 # act_fix <number> <url> <rank> <task> <why> <head> <base>
 act_fix() {
-  local n=$1 url=$2 rank=$3 task=$4 why=$5 head=$6 base=$7 q posture mark rc note
+  local n=$1 url=$2 rank=$3 task=$4 why=$5 head=$6 base=$7 q posture rc note owner
   q=$(queue_state "$n")
-  if [ -z "$task" ] || ! in_backlog "$task"; then
-    record "$url" "$rank" fix "refused:not owned here: ${task:-no task branch} (queue=$q)"
+  note=$(fix_note "$url" "$base" "$why")
+  if [ -z "$task" ]; then
+    record "$url" "$rank" fix "refused:no task branch (queue=$q)"
+    return 0
+  fi
+  if ! in_backlog "$task"; then
+    owner=$(owning_home "$task")
+    case "$owner" in
+      '') record "$url" "$rank" fix "refused:no home owns $task (queue=$q)" ;;
+      '?'*) record "$url" "$rank" fix "refused:owner unknown for $task: unreadable ${owner//\?/} (queue=$q)" ;;
+      *) steer_owner "$n" "$url" "$rank" "$task" "$owner" "$head" "$note" "$q" ;;
+    esac
     return 0
   fi
   if [ ! -f "$STATE/$task.meta" ]; then
     record "$url" "$rank" fix "refused:no task record for $task (queue=$q)"
     return 0
   fi
-  mark=$(marker_get "$MARKS/fix-$n")
-  if [ -n "$mark" ] && [ "${mark%% *}" = "$head" ]; then
+  if [ "$(marker_get "$MARKS/fix-$n")" = "$head" ]; then
     record "$url" "$rank" fix "refused:fix already launched for head ${head:0:12} (queue=$q)"
     return 0
   fi
@@ -533,7 +584,6 @@ act_fix() {
     record "$url" "$rank" fix "refused:no capacity: $CAP_REASON (queue=$q)"
     return 0
   fi
-  note=$(fix_note "$url" "$base" "$why")
   if [ "$ACTION" = dry ]; then
     would_run "$CONTROL_BIN" "$task" relaunch --note "$note"
     record "$url" "$rank" fix "launched $task (queue=$q)"
@@ -553,7 +603,7 @@ act_fix() {
 
 # act_queue <number> <url> <rank> <head>
 act_queue() {
-  local n=$1 url=$2 rank=$3 head=$4 q mark now out
+  local n=$1 url=$2 rank=$3 head=$4 q out
   q=$(queue_state "$n")
   case "$q" in
     queued) record "$url" "$rank" queue "already queued"; return 0 ;;
@@ -563,10 +613,8 @@ act_queue() {
     record "$url" "$rank" queue "refused:queue paused"
     return 0
   fi
-  mark=$(marker_get "$MARKS/queue-$n")
-  now=$(date +%s)
-  if [ -n "$mark" ] && [ "${mark%% *}" = "$head" ] && [ $((now - ${mark##* })) -lt "$QUEUE_COMMENT_HOLD" ]; then
-    record "$url" "$rank" queue "refused:queue comment pending for head ${head:0:12}"
+  if [ "$(marker_get "$MARKS/queue-$n")" = "$head" ]; then
+    record "$url" "$rank" queue "refused:queue comment already made for head ${head:0:12}"
     return 0
   fi
   if ! pr_field "$n" '.labels.nodes[].name' | grep -qx 'main-red'; then
@@ -630,9 +678,6 @@ while IFS=$'\t' read -r rank count n task class; do
   sha=$(pr_field "$n" '.headRefOid')
   base=$(pr_field "$n" '.baseRefName')
   author=$(pr_field "$n" '.author.login // ""')
-  if pat=$(excluded_by "$n" "$head" "$task"); then
-    record "$url" "$rank" none "refused:excluded: $pat"; continue
-  fi
   case "$author:$head" in
     mergify*:*|*:mergify/merge-queue/*) record "$url" "$rank" none "refused:merge-queue batch"; continue ;;
   esac
@@ -641,9 +686,6 @@ while IFS=$'\t' read -r rank count n task class; do
   fi
   if [ "$(pr_field "$n" '.isDraft')" = true ]; then
     record "$url" "$rank" none "refused:draft ($class)"; continue
-  fi
-  if pr_field "$n" '.labels.nodes[].name' | grep -qx 'hold'; then
-    record "$url" "$rank" none "refused:held ($class)"; continue
   fi
   mergeable=$(pr_field "$n" '.mergeable')
   rollup=$(pr_field "$n" '.commits.nodes[0].commit.statusCheckRollup.state // "NONE"')
