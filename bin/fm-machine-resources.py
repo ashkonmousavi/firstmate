@@ -4,6 +4,13 @@
 Ceilings, slot estimates and the separate high-(anon+shmem) reserve remain with
 their existing consumers. This reader's headroom is host MemAvailable bounded
 by every finite cgroup high/max minus max(current-inactive_file, 0).
+
+Memory PSI "full" is read per window (avg10, avg60, avg300) as the maximum over
+the host and every memory-controller ancestor. Without the optional
+memory_full_avg300_max field, avg60 at or above memory_full_avg60_max refuses
+(the original rule). With it, avg300 at or above memory_full_avg300_max refuses
+sustained pressure, and memory_full_avg60_max acts as the ceiling for a short
+burst, so set it well above the avg300 limit. avg10 is reported, never judged.
 """
 import argparse
 import hashlib
@@ -40,6 +47,10 @@ def policy(path):
     paths = data.get('disk_paths')
     if not isinstance(paths,list) or not paths or any(not isinstance(p,str) or not p.startswith('/') or '\n' in p or '\r' in p for p in paths):
         raise ValueError('missing/invalid disk_paths')
+    if 'memory_full_avg300_max' in data:
+        value = data['memory_full_avg300_max']
+        if type(value) not in (int,float) or not math.isfinite(value) or not 0.000001 <= value <= 100:
+            raise ValueError('invalid memory_full_avg300_max')
     for key in ('runner_memory_floor_gib','runner_disk_floor_gib'):
         if key in data and (type(data[key]) not in (int,float) or not math.isfinite(data[key]) or not 0 <= data[key] <= 999999):
             raise ValueError('invalid '+key)
@@ -53,15 +64,28 @@ def integer(text, name):
     return int(text)
 
 
+WINDOWS = ('avg10','avg60','avg300')
+
+
 def pressure(path):
+    """Return the memory full averages of one PSI file as {window: percent}."""
     rows = [line.split() for line in Path(path).read_text().splitlines() if line.startswith('full ')]
-    fields = [field[6:] for row in rows for field in row[1:] if field.startswith('avg60=')]
-    if len(rows) != 1 or len(fields) != 1 or not re.fullmatch(r'[0-9]+(?:\.[0-9]+)?', fields[0]):
+    if len(rows) != 1:
         raise ValueError('missing/invalid memory full avg60: '+str(path))
-    value = float(fields[0])
-    if not math.isfinite(value) or not 0 <= value <= 100:
-        raise ValueError('invalid PSI percentage: '+str(path))
-    return value
+    values = {}
+    for window in WINDOWS:
+        fields = [field[len(window)+1:] for field in rows[0][1:] if field.startswith(window+'=')]
+        if len(fields) != 1 or not re.fullmatch(r'[0-9]+(?:\.[0-9]+)?', fields[0]):
+            raise ValueError('missing/invalid memory full '+window+': '+str(path))
+        value = float(fields[0])
+        if not math.isfinite(value) or not 0 <= value <= 100:
+            raise ValueError('invalid PSI percentage: '+str(path))
+        values[window] = value
+    return values
+
+
+def worst(left, right):
+    return {window:max(left[window], right[window]) for window in WINDOWS}
 
 
 def refusal_reasons(facts, rules, memory_floor=None, disk_floor=None):
@@ -72,6 +96,8 @@ def refusal_reasons(facts, rules, memory_floor=None, disk_floor=None):
         reasons.append('Required cache-aware effective memory floor not met')
     if facts['memory_full_avg60'] >= rules['memory_full_avg60_max']:
         reasons.append('memory PSI full avg60 refuses')
+    if 'memory_full_avg300_max' in rules and facts['memory_full_avg300'] >= rules['memory_full_avg300_max']:
+        reasons.append('memory PSI full avg300 refuses')
     if not facts['disk_available_bytes'] or any(value <= disk_floor*GIB for value in facts['disk_available_bytes'].values()):
         reasons.append('Required free disk floor not met')
     return reasons
@@ -82,7 +108,7 @@ def measure(rules, meminfo='/proc/meminfo', pressure_file='/proc/pressure/memory
     rows = re.findall(r'^MemAvailable:\s+([0-9]+)\s+kB$', Path(meminfo).read_text(), re.M)
     if len(rows) != 1:
         raise ValueError(str(meminfo)+': missing/invalid MemAvailable')
-    available = int(rows[0])*1024
+    available = host_available = int(rows[0])*1024
     psi = pressure(pressure_file)
     ancestors = []
     if cgroup_file is not None:
@@ -111,17 +137,18 @@ def measure(rules, meminfo='/proc/meminfo', pressure_file='/proc/pressure/memory
                 if limits:
                     available = min(available, min(limits)-working)
                 ancestors.append({'path':str(group), 'working_set_bytes':working, 'finite_limits_bytes':limits})
-                psi = max(psi, pressure(group/'memory.pressure'))
+                psi = worst(psi, pressure(group/'memory.pressure'))
             elif any((group/name).exists() for name in ('memory.high','memory.max')):
                 raise ValueError('memory controller is missing current/stat: '+str(group))
             elif (group/'memory.pressure').exists():
-                psi = max(psi, pressure(group/'memory.pressure'))
+                psi = worst(psi, pressure(group/'memory.pressure'))
             if group == root:
                 break
             group = group.parent
         if Path(cgroup_file).read_text() != original:
             raise ValueError('cgroup membership changed during reading')
-    facts = {'effective_available_bytes':available, 'memory_full_avg60':psi,
+    facts = {'effective_available_bytes':available, 'mem_available_bytes':host_available,
+             'memory_full_avg10':psi['avg10'], 'memory_full_avg60':psi['avg60'], 'memory_full_avg300':psi['avg300'],
              'disk_available_bytes':{path:disk_usage(path).free for path in rules['disk_paths']},
              'cgroup_ancestors':ancestors, 'resource_policy_sha256':rules['sha256'],
              'memory_floor_gib':rules['memory_floor_gib'], 'policy':rules, 'readable':True}

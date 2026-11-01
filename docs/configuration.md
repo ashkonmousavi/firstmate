@@ -1355,13 +1355,20 @@ Project limits below apply in addition to machine admission.
 
 The root home must also provide `config/machine-admission.json` before installing this reader.
 It is the numeric policy owner for resource admission, independent of the ceiling/reserve pair; worker-instruction prose is not parsed.
-The [resource reader's policy validator](../bin/fm-machine-resources.py) owns the `fm-machine-admission.v1` schema and exact bounds for `memory_floor_gib`, `disk_floor_gib`, `memory_full_avg60_max` and the absolute-path array `disk_paths`.
-Memory must exceed the floor as well as satisfy the existing reserve; every configured disk path must exceed its floor, and memory full PSI avg60 must remain below its limit on the host and every memory-controller ancestor.
+The [resource reader's policy validator](../bin/fm-machine-resources.py) owns the `fm-machine-admission.v1` schema and exact bounds for `memory_floor_gib`, `disk_floor_gib`, `memory_full_avg60_max`, the optional `memory_full_avg300_max` and the absolute-path array `disk_paths`.
+Memory must exceed the floor as well as satisfy the existing reserve; every configured disk path must exceed its floor, and memory full PSI avg60 must remain below `memory_full_avg60_max` on the host and every memory-controller ancestor.
+When `memory_full_avg300_max` is set, memory full PSI avg300 must also remain below it, and `memory_full_avg60_max` then serves as the ceiling for a short burst, so set it well above the avg300 limit.
+The [kernel's PSI averages](https://github.com/torvalds/linux/blob/v6.12/kernel/sched/psi.c) decay exponentially, so avg300 responds more slowly to bursts than avg60; neither threshold requires pressure to persist for its named duration.
+For example, `"memory_full_avg300_max": 5` with `"memory_full_avg60_max": 25` admits a reading with avg60 of 12 and avg300 of 2 when the other resource checks pass, but refuses at avg300 of 5 or avg60 of 25.
+Without the optional field the avg60 rule alone applies, unchanged.
+The [machine-admission PSI-window verification](verification/machine-admission-psi-window.md) records real-machine refusal comparisons, remaining laptop refusals, and the commands to repeat the measurement.
+The window change takes effect on a host only after its config adds `memory_full_avg300_max` and adjusts the avg60 ceiling.
 Missing or malformed policy, pressure or disk evidence refuses admission rather than treating the machine as healthy.
 CPU utilization and load average do not gate admission.
 The shared `bin/fm-machine-resources.py` reader bounds host MemAvailable by every finite cgroup memory.high/memory.max minus max(memory.current - inactive_file, 0), using the same hard-floor calculation as private consumers.
 This effective reading is separate from the unchanged high-(anon+shmem) reserve balance.
 The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
+Every resource verdict is also logged best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns its columns and size cap.
 The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
 Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
 During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.

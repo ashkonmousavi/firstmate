@@ -23,12 +23,41 @@
 # headroom_kb subtracts the configured reserve. Either balance may be negative.
 # Independent resource floors and pressure/disk admission are owned by
 # fm-machine-resources.py and require config/machine-admission.json in that root.
+# Every resource verdict is also appended, best effort, to
+# <state>/machine-admission.log by fm_capacity_sample below; a failed write never
+# changes the verdict.
 # Unreadable config, state, registry or resource facts fail closed with exit 75.
 # Admission is a fresh reading before launch, including relaunch. No machine
 # lock is held across launch; reports and placement advice reserve no lane.
 
 # shellcheck source=bin/fm-agent-process-lib.sh
 . "${BASH_SOURCE[0]%/*}/fm-agent-process-lib.sh"
+
+# One tab-separated line per resource verdict, so before/after admission can be
+# tabulated against real free memory. Columns:
+#   epoch verdict(yes|no|unknown) full_avg10 full_avg60 full_avg300
+#   mem_available_kb effective_available_kb policy_sha256 reasons
+# PSI columns are the maximum over the host and memory-controller ancestors.
+# Unknown verdicts leave the reading columns empty. The log rotates to .1 once
+# it exceeds FM_ADMISSION_LOG_MAX_BYTES (default 2 MiB), so at most two files exist.
+fm_capacity_sample() { # <state> <reader-json> <reader-status>
+  local log="$1/machine-admission.log" line max=${FM_ADMISSION_LOG_MAX_BYTES:-2097152} size
+  line=$(jq -er --arg status "$3" '
+    def n: if type == "number" then tostring else "" end;
+    [(now|floor|tostring),
+     (if .readable != true or ($status != "0" and $status != "75") then "unknown"
+      elif .admitted == true then "yes" else "no" end),
+     (.memory_full_avg10|n), (.memory_full_avg60|n), (.memory_full_avg300|n),
+     (if .mem_available_bytes then (.mem_available_bytes/1024|floor|tostring) else "" end),
+     (if .effective_available_bytes then (.effective_available_bytes/1024|floor|tostring) else "" end),
+     (.resource_policy_sha256 // ""),
+     ((.refusal_reasons // []) | join("; ") | gsub("[\t\n]"; " "))] | join("\t")
+  ' <<< "$2" 2>/dev/null) || line="$(date +%s)	unknown							resource reader output unreadable"
+  { printf '%s\n' "$line" >> "$log"; } 2>/dev/null || return 0
+  size=$(wc -c < "$log" 2>/dev/null) || return 0
+  if [ "$((size))" -gt "$max" ]; then mv -f -- "$log" "$log.1" 2>/dev/null || true; fi
+  return 0
+}
 
 fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   local home=$1 config=$2 state=$3 self=${4:-} config_dir raw ceiling reserve extra
@@ -56,6 +85,7 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
     FM_CAPACITY_ERROR="$FM_CAPACITY_FILE reading '$raw': expected <lane-ceiling> <memory-reserve-gb>"; return 75
   fi
   resources=$(python3 "${BASH_SOURCE[0]%/*}/fm-machine-resources.py" --policy "$config_dir/machine-admission.json") || resource_status=$?
+  fm_capacity_sample "$state" "$resources" "$resource_status"
   if [ "$resource_status" -ne 0 ] && [ "$resource_status" -ne 75 ]; then
     FM_CAPACITY_ERROR="resource reader failed for $config_dir/machine-admission.json"; return 75
   fi
