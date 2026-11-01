@@ -702,6 +702,54 @@ test_codex_folder_selection_and_guard() {
   pass 'Codex selects measured weekly room without stale/fallback lanes and rejects credential copies/links'
 }
 
+test_codex_runway_timing() {
+  local out rc root scope duration timestamp age expected snapshot
+  codex_case codex-runway
+  for scope in all_models model:gpt-6.1-sol; do
+    for duration in 60 14400; do
+      age=14400
+      for root in "$CASE/account one" "$CASE/account-two"; do
+        jq --arg scope "$scope" --argjson age "$age" --argjson duration "$duration" '
+          .generatedAt = ((now - $age | floor) | todate) |
+          (.providers[].quotaSemantics.effectiveAvailability[]) |=
+            (.scope = $scope | .runway = {status:"projected_exhaustion",
+              projectionConfidence:"established", usableRunwaySeconds:($age + $duration)})' \
+          "$root/quota.json" > "$CASE/timed-quota.json"
+        mv "$CASE/timed-quota.json" "$root/quota.json"
+        age=0
+      done
+      snapshot=$(codex_tool quota)
+      for root in "$CASE/account one" "$CASE/account-two" ''; do
+        expected=${root:-$CASE/account-two}
+        timestamp=$(jq -r '.generatedAt' "$expected/quota.json")
+        assert_equals "$timestamp" "$(jq -r --arg root "$expected" \
+          '.providers[] | select(.accountLocator.path == $root) | .generatedAt' <<< "$snapshot")" \
+          'combined quota retains each reading clock'
+        if [ -n "$root" ]; then
+          out=$(codex_tool quota --gate --folder "$root")
+        else
+          out=$(codex_tool quota --gate)
+        fi
+        assert_equals "$timestamp" "$(jq -r '.generatedAt' <<< "$out")" \
+          'gate clock belongs to the selected folder'
+        out=$(
+          . "$ROOT/bin/fm-quota-axi-lib.sh"
+          PATH="$FAKEBIN:$PATH" fm_quota_gate_run codex gpt-6.1-sol \
+            "$HOME_DIR/config/crew-dispatch.json" '' review ship tmux "$HOME_DIR/config" '' "$root" 2>&1
+        ); rc=$?
+        if [ "$duration" = 60 ]; then
+          expect_code 1 "$rc" "relative runway must refuse inside the three-hour horizon: $out"
+          assert_contains "$out" 'within the 3h0m spawn horizon' 'refusal uses the calculated deadline'
+        else
+          expect_code 0 "$rc" "four-hour runway must pass: $out"
+          assert_equals '' "$out" 'measured long runway passes without an uncertainty notice'
+        fi
+      done
+    done
+  done
+  pass 'Codex combined readings and pinned or automatic gates preserve relative runway clocks'
+}
+
 test_codex_spawn_and_checks() {
   local out rc id=acct-codex-selected
   codex_case codex-launch
@@ -778,6 +826,7 @@ test_codex_config_and_scout() {
 
 test_codex_empty_list_refuses_before_endpoint
 test_codex_folder_selection_and_guard
+test_codex_runway_timing
 test_codex_spawn_and_checks
 test_codex_config_and_scout
 test_secondmate_account_override

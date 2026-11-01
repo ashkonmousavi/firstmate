@@ -148,7 +148,8 @@ def reading(root):
         status = semantic.get("status") if fresh else "unknown"
         if status not in ("known", "partial", "unknown"):
             status = "unknown"
-        return {"state": {"status": "fresh" if fresh else "unavailable"}, "windows": windows,
+        return {"generatedAt": data.get("generatedAt"),
+                "state": {"status": "fresh" if fresh else "unavailable"}, "windows": windows,
                 "quotaSemantics": {"status": status, "effectiveAvailability": bounds}}
     except (ValueError, TypeError, KeyError, AttributeError):
         return {"state": {"status": "unavailable"}, "windows": [],
@@ -253,6 +254,7 @@ def main():
                 root = require_winner(data)
                 data["providers"] = [r for r in data["providers"] if r["accountLocator"]["path"] == root]
                 data["providers"][0]["accountKey"] = "codex-home"
+                data["generatedAt"] = data["providers"][0].get("generatedAt")
             print(json.dumps(data, allow_nan=False))
     elif args.command == "register":
         state_dir = Path(args.state or "")
