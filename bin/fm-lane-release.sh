@@ -113,6 +113,11 @@
 # CARRIER AND BUDGET. `arm` writes the thin check shim state/lane-release.check.sh
 # (it only execs `sweep`) and binds it with bin/fm-check-register.sh, so the
 # watcher runs it every FM_CHECK_INTERVAL (300 s) within its 30 s check bound.
+# The shim preserves the home resolved at arming and prefers its executable
+# bin/fm-lane-release.sh, so it survives removal of the arming checkout.
+# If that script is not executable, it falls back to the arming checkout's script.
+# If neither is executable, it reports the missing script on stderr and exits 1.
+# `arm` refuses to register a shim when its own script is not executable.
 # A sweep holds state/.lane-release.lock (try-acquire; contention exits quietly),
 # visits in-flight tasks from a durable cursor within 20 s; every external
 # read inside it is bounded by
