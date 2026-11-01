@@ -247,6 +247,62 @@ assert_equals 'none' "$(field "$(rec 50)" 5)" 'rank 3 gets a record and no actio
 [ "$(grep -c . "$LOG")" -eq 6 ] || fail 'one record per pull request per pass'
 pass 'ranking: J-01 path and rules first, then blocked-by count, then the rest'
 
+# --- done backlog items are closed work -------------------------------------------
+# Oracle: the header's rank 2 counts blocked-by edges of open backlog items only,
+# and a done item is neither on the J-01 path nor a task this home still owns.
+reset
+cat > "$H/data/backlog.md" <<'MD'
+## In flight
+## Queued
+- [ ] open-task - plain open work (repo: proj) (kind: ship) (since 2026-10-30)
+## Done
+- [x] closed-j - J-01 finished step blocked-by: closed-dep blocked-by: open-task (since 2026-10-01)
+MD
+meta closed-j; echo exited > "$FAKE/posture-closed-j"
+{
+  pr 90 fm/closed-dep MERGEABLE SUCCESS
+  pr 91 fm/open-task MERGEABLE SUCCESS
+  pr 92 fm/closed-j CONFLICTING FAILURE 'J-01 late fix'
+} | prs
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_equals 3 "$(field "$(rec 90)" 3)" 'a blocker of only done work is rank 3'
+assert_equals 3 "$(field "$(rec 91)" 3)" 'blocking a done item counts for nothing'
+assert_equals 'refused:not owned here: closed-j (queue=not queued)' "$(field "$(rec 92)" 5)" 'a done task gets no fix worker'
+assert_absent "$FAKE/control.log" 'done work launches nothing'
+assert_absent "$FAKE/ghaxi.log" 'done work queues nothing'
+pass 'done backlog items neither rank pull requests nor own fix workers'
+
+# --- a head branch without the project prefix has no task ---------------------------
+reset
+backlog < /dev/null
+printf 'label=ci\n' | rules
+{
+  pr 95 dependabot/pip/x CONFLICTING FAILURE t ci
+  pr 96 human-branch MERGEABLE SUCCESS t ci true
+} | prs
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_equals 1 "$(field "$(rec 95)" 3)" 'label rule ranks an unprefixed branch'
+assert_equals 'refused:not owned here: no task branch (queue=not queued)' "$(field "$(rec 95)" 5)" 'no task branch is named'
+assert_equals 'refused:draft (label:ci)' "$(field "$(rec 96)" 5)" 'the class survives an empty task'
+pass 'an unprefixed head branch keeps an empty task and its rank class'
+
+# --- the proposed schedule carries the caller's PATH --------------------------------
+# Oracle: systemd user units and cron start with a minimal PATH (systemd.exec,
+# crontab(5)), so the tools a pass needs are only found when the unit sets it.
+odd="$TMP_ROOT/bin dir/%x"
+mkdir -p "$odd"
+out=$(PATH="$PATH:$odd" bash "$TRIAGE" --print-timer); rc=$?
+expect_code 0 "$rc" 'print-timer'
+want=$(printf '%s' "$PATH:$odd" | sed 's/%/%%/g')
+assert_contains "$out" "Environment=\"PATH=$want\"" 'service sets the caller PATH, quoted with % escaped'
+assert_contains "$out" "Environment=\"FM_HOME=$H\"" 'service sets FM_HOME'
+cron=$(printf '%s\n' "$out" | sed -n 's|^\*/5 \* \* \* \* ||p')
+cron=${cron% >/dev/null 2>&1}
+cron=${cron//\\%/%}
+got=$(env -i /bin/sh -c "${cron%% FM_HOME=*}; printf '%s' \"\$PATH\"")
+assert_equals "$PATH:$odd" "$got" 'cron line sets the caller PATH'
+pass 'the proposed timer and cron line carry the PATH the pass needs'
+
 # --- skips and exclusion ----------------------------------------------------------
 reset
 backlog < /dev/null

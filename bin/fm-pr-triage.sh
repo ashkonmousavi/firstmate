@@ -38,7 +38,8 @@
 # Within a rank, more blocked items first, then the lower number.
 # The task of a pull request is its head branch with the project's registered
 # branch prefix (bin/fm-project-mode.sh --branch-prefix) removed.
-# Backlog reads use this home's backlog (bin/fm-tasks-axi.sh list and show).
+# Backlog reads use one bin/fm-tasks-axi.sh list of this home's backlog; done
+# items are not open and count for nothing.
 #
 # ACTIONS, for ranks 1 and 2 only; every pull request still gets a record.
 #   Skipped first, in this order: excluded (config/pr-triage-exclude), a
@@ -146,7 +147,9 @@ if [ "$ACTION" = timer ]; then
     /*) home=$FM_HOME ;;
     *) home=$(CDPATH='' cd -- "$FM_HOME" 2>/dev/null && pwd -P) || { echo "fm-pr-triage: cannot resolve FM_HOME" >&2; exit 1; } ;;
   esac
-  cmd="FM_HOME=$(printf '%q' "$home") $(printf '%q' "$SCRIPT_DIR/fm-pr-triage.sh") --apply"
+  sd_env() { local v=${2//\\/\\\\}; v=${v//\"/\\\"}; printf 'Environment="%s=%s"\n' "$1" "${v//%/%%}"; }
+  cmd="PATH=$(printf '%q' "$PATH") FM_HOME=$(printf '%q' "$home") $(printf '%q' "$SCRIPT_DIR/fm-pr-triage.sh") --apply"
+  cmd=${cmd//%/\\%}
   cat <<EOF
 # Proposed schedule for $home (not installed; see docs/configuration.md "PR triage").
 # Register the unit in the machine inventory and route pause/resume through
@@ -158,7 +161,8 @@ Description=Firstmate PR triage pass for $home
 
 [Service]
 Type=oneshot
-Environment=FM_HOME=$home
+$(sd_env PATH "$PATH")
+$(sd_env FM_HOME "$home")
 ExecStart=$SCRIPT_DIR/fm-pr-triage.sh --apply
 
 # ~/.config/systemd/user/fm-pr-triage.timer
@@ -298,24 +302,50 @@ queue_state() {
 
 # --- backlog ------------------------------------------------------------------
 # read_backlog: writes $TMPD/backlog.tsv as id, title, blockers (comma list),
-# one line per open backlog item.
+# one line per backlog item that is not done, from one listing.
 read_backlog() {
-  local out id show title blockers
-  out=$("$SCRIPT_DIR/fm-tasks-axi.sh" list --limit 100000 2>&1) || {
+  local out
+  out=$("$SCRIPT_DIR/fm-tasks-axi.sh" list --limit 100000 --fields blocked_by 2>&1) || {
     printf 'backlog unreadable: %s\n' "$(flat "$out")" >&2
     return 1
   }
-  : > "$TMPD/backlog.tsv"
-  for id in $(printf '%s\n' "$out" | awk '
-      /^tasks\[[0-9]+\]/ { inside = 1; next }
-      inside && /^  [^ ]/ { sub(/^  /, ""); sub(/,.*/, ""); print; next }
-      inside { inside = 0 }'); do
-    show=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$id" --full 2>/dev/null) || continue
-    title=$(printf '%s\n' "$show" | sed -n 's/^  title: //p' | head -1 | sed 's/^"//; s/"$//')
-    blockers=$(printf '%s\n' "$show" | sed -n 's/^  blocked_by: //p' | head -1 | tr -d '" ')
-    case "$blockers" in none|-) blockers= ;; esac
-    printf '%s\t%s\t%s\n' "$id" "$(flat "$title")" "$blockers" >> "$TMPD/backlog.tsv"
-  done
+  printf '%s\n' "$out" | awk '
+    /^count: 0$/ { ok = 1 }
+    /^tasks\[[0-9]+\]\{id,state,kind,repo,title,blocked_by\}:$/ { inside = 1; ok = 1; next }
+    /^tasks\[/ { bad = 1; next }
+    inside && /^  [^ ]/ {
+      line = substr($0, 3); n = 0
+      while (1) {
+        n++
+        if (substr(line, 1, 1) == "\"") {
+          v = ""; i = 2
+          while (i <= length(line)) {
+            c = substr(line, i, 1)
+            if (c == "\\") { c = substr(line, i + 1, 1); v = v (c ~ /^[ntr]$/ ? " " : c); i += 2; continue }
+            if (c == "\"") { i++; break }
+            v = v c; i++
+          }
+          f[n] = v; line = substr(line, i)
+        } else if ((p = index(line, ",")) > 0) {
+          f[n] = substr(line, 1, p - 1); line = substr(line, p)
+        } else {
+          f[n] = line; line = ""
+        }
+        if (substr(line, 1, 1) != ",") break
+        line = substr(line, 2)
+      }
+      if (n != 6 || line != "") { bad = 1; next }
+      if (f[2] == "done") next
+      b = f[6]; gsub(/ /, "", b); if (b == "none" || b == "-") b = ""
+      t = f[5]; gsub(/\t/, " ", t); if (t == "") t = "-"
+      printf "%s\t%s\t%s\n", f[1], t, b
+      next
+    }
+    inside { inside = 0 }
+    END { exit !(ok && !bad) }' > "$TMPD/backlog.tsv" || {
+    printf 'backlog unreadable: unexpected listing shape\n' >&2
+    return 1
+  }
 }
 
 has_j01() {
@@ -589,11 +619,12 @@ for n in $(jq -r '.[].number' "$TMPD/prs.json"); do
   case "$head" in "$PREFIX"?*) task=${head#"$PREFIX"} ;; esac
   [ -n "$PREFIX" ] || task=$head
   IFS=$'\t' read -r rank count class <<<"$(rank_of "$n" "$task")"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$rank" "$count" "$n" "$task" "$class" >> "$TMPD/ranked"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$rank" "$count" "$n" "${task:--}" "$class" >> "$TMPD/ranked"
 done
 sort -t$'\t' -k1,1n -k2,2nr -k3,3n "$TMPD/ranked" > "$TMPD/ranked.sorted"
 
 while IFS=$'\t' read -r rank count n task class; do
+  [ "$task" != - ] || task=
   url=$(pr_field "$n" '.url')
   head=$(pr_field "$n" '.headRefName')
   sha=$(pr_field "$n" '.headRefOid')
