@@ -112,8 +112,8 @@ cp "$FM_QUOTA_SNAPSHOT_FILE" "$TMP_ROOT/remote-quota.json"
 mv "$REMOTE_ROOT/bin/fm-remote-secondmate-control.sh" "$REMOTE_ROOT/bin/fm-remote-secondmate-control-actual.sh"
 {
   printf '#!/usr/bin/env bash\n'
-  printf 'export FM_TEST_SEAM=1\nexport FM_QUOTA_SNAPSHOT_FILE=%q\nexport FM_QUOTA_MODEL_CATALOG_FILE=%q\n' \
-    "$TMP_ROOT/remote-quota.json" "$REMOTE_ROOT/tests/fixtures/quota-model-catalog.json"
+  printf 'export FM_TEST_SEAM=1\nexport FM_QUOTA_SNAPSHOT_FILE=%q\n' \
+    "$TMP_ROOT/remote-quota.json"
   printf 'exec %q "$@"\n' "$REMOTE_ROOT/bin/fm-remote-secondmate-control-actual.sh"
 } > "$REMOTE_ROOT/bin/fm-remote-secondmate-control.sh"
 chmod +x "$REMOTE_ROOT/bin/fm-remote-secondmate-control.sh"

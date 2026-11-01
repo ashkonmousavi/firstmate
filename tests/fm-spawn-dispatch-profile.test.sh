@@ -1847,35 +1847,24 @@ test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative() {
 
 test_quota_alternatives_obey_launch_capabilities() {
   . "$ROOT/bin/fm-quota-axi-lib.sh"
-  local dir harness kind backend out status expected catalog_saved=$FM_QUOTA_MODEL_CATALOG_FILE
+  local dir harness kind backend out status expected
   dir="$TMP_ROOT/quota-capabilities"
-  local PATH="$dir/bin:$PATH"
-  mkdir -p "$dir/bin"
-  cat > "$dir/bin/polytoken" <<'POLY'
-#!/usr/bin/env bash
-[ "$*" = 'print models' ] || exit 1
-printf '%s\n' 'model-polytoken' 'model-polytoken(high)'
-POLY
-  chmod +x "$dir/bin/polytoken"
-  jq '. + (reduce ["muse","gemini","agy","devin","commandcode","polytoken","rovo"][] as $h ({};
-    .[$h] = [{id: ("model-" + $h), provider: "codex", default: true}]))' \
-    "$catalog_saved" > "$dir/catalog.json"
-  FM_QUOTA_MODEL_CATALOG_FILE="$dir/catalog.json"
+  mkdir -p "$dir"
   fm_test_quota_snapshot "$dir/quota.json" exhausted
   for harness in muse gemini agy devin commandcode polytoken rovo; do
     jq -n --arg h "$harness" '{rules: [], default: [
-      {harness: $h, provider: "codex"} + (if $h == "polytoken" then {model:"model-polytoken",effort:"high"} else {} end), {harness: "claude"}
+      {harness: $h, provider: "codex",model:("model-"+$h)} + (if $h == "polytoken" then {effort:"high"} else {} end), {harness: "claude"}
     ]}' > "$dir/rules.json"
     for kind in ship scout secondmate; do
       for backend in tmux herdr zellij cmux orca paseo; do
         expected="provider codex (spendPriority 0.85): --harness $harness --model model-$harness"
         [ "$harness" != polytoken ] || expected="$expected --effort high"
         if [ "$kind" = secondmate ]; then
-          expected='provider claude (spendPriority -0.39): --harness claude --model claude-sonnet-5-5'
+          expected='provider claude (spendPriority -0.39): --harness claude'
         elif [ "$harness" = commandcode ] && [ "$backend" != tmux ] && [ "$backend" != herdr ]; then
-          expected='provider claude (spendPriority -0.39): --harness claude --model claude-sonnet-5-5'
+          expected='provider claude (spendPriority -0.39): --harness claude'
         fi
-        out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" "$kind" "$backend" "$dir" "$dir"); status=$?
+        out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" "$kind" "$backend" "$dir"); status=$?
         expect_code 1 "$status" "exhausted Grok must refuse for $harness/$kind/$backend"
         [ "$(printf '%s\n' "$out" | sed -n 3p)" = "$expected" ] \
           || fail "launch capability contract picked the wrong alternative for $harness/$kind/$backend: $out"
@@ -1883,26 +1872,15 @@ POLY
     done
   done
   printf '%s\n' '{"default":[{"harness":"agy","provider":"codex"},{"harness":"claude","provider":"codex"}]}' > "$dir/rules.json"
-  jq '.claude[0].provider = "codex"' "$dir/catalog.json" > "$dir/tied-catalog.json"
-  FM_QUOTA_MODEL_CATALOG_FILE="$dir/tied-catalog.json"
-  out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" secondmate tmux "$dir" "$dir")
-  [ "$(printf '%s\n' "$out" | sed -n 3p)" = 'provider codex (spendPriority 0.85): --harness claude --model claude-sonnet-5-5' ] \
+  out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" secondmate tmux "$dir")
+  [ "$(printf '%s\n' "$out" | sed -n 3p)" = 'provider codex (spendPriority 0.85): --harness claude' ] \
     || fail "an ineligible tied candidate survived filtering: $out"
   printf '%s\n' '{"default":{"harness":"agy","provider":"codex"}}' > "$dir/rules.json"
-  out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" secondmate tmux "$dir" "$dir")
+  out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" secondmate tmux "$dir")
   [ "$(printf '%s\n' "$out" | sed -n 3p)" = none ] || fail "an ineligible-only pool must name no alternative: $out"
-  jq '.providers += [.providers[] | select(.provider == "codex") | .provider = "agy" | .quotaSemantics.effectiveAvailability[].selection.spendPriority = 9]' \
-    "$dir/quota.json" > "$dir/fallback.json"
-  FM_QUOTA_MODEL_CATALOG_FILE=$catalog_saved
-  for kind in ship secondmate; do
-    out=$(fm_quota_gate_explicit grok '' "$dir/no-rules.json" "$dir/fallback.json" "$kind" tmux "$dir" "$dir")
-    if [ "$kind" = ship ]; then
-      assert_contains "$out" 'provider agy (spendPriority 9): --harness agy' "eligible fallback should win"
-    else
-      assert_contains "$out" 'provider codex (spendPriority 0.85): --harness codex' "fallback must honor secondmate eligibility"
-    fi
-  done
-  pass "quota alternatives obey launch capabilities before ranking, including ties and fallback profiles"
+  out=$(fm_quota_gate_explicit grok '' "$dir/no-rules.json" "$dir/quota.json" ship tmux "$dir")
+  [ "$(printf '%s\n' "$out" | sed -n 3p)" = none ] || fail "unconfigured profiles must not become alternatives: $out"
+  pass "quota alternatives obey launch capabilities, ties, and configured-only selection"
 }
 
 test_secondmate_quota_refusal_names_a_supported_alternative() {
@@ -1919,7 +1897,7 @@ test_secondmate_quota_refusal_names_a_supported_alternative() {
     "$id" "$sm" --secondmate --harness grok)
   status=$?
   expect_code 1 "$status" "an exhausted secondmate spawn must refuse"$'\n'"$out"
-  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude --model claude-sonnet-5-5.' \
+  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude.' \
     "secondmate spawn must skip higher-ranked AGY"
   [ ! -s "$LAUNCH_LOG" ] || fail "a refused secondmate launched a worker"
   [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "a refused secondmate wrote a task record"
@@ -1946,15 +1924,15 @@ test_quota_gate_passes_healthy_and_long_runway_harnesses() {
   pass "a healthy harness and a runway longer than three hours pass the quota gate"
 }
 
-test_quota_gate_unresolved_catalog_refuses_and_missing_reading_notices() {
+test_quota_gate_unknown_provider_and_missing_reading_notices() {
   local id out status
   id=quota-unknown-pi-z32
   quota_gate_case "$id" pi "$id" exhausted
   out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" --harness pi --model some-undeclared-model)
   status=$?
-  expect_code 1 "$status" "an unresolved catalog must refuse without an override"$'\n'"$out"
-  assert_contains "$out" "fm-spawn refuses explicit harness pi model some-undeclared-model: the harness catalog could not resolve pi some-undeclared-model" \
+  expect_code 0 "$status" "an undeclared family must remain disclosed uncertainty"$'\n'"$out"
+  assert_contains "$out" "notice: fm-spawn quota check for pi some-undeclared-model is uncertain" \
     "an unmodeled provider must be disclosed"
 
   id=quota-unreadable-z32
@@ -1964,7 +1942,7 @@ test_quota_gate_unresolved_catalog_refuses_and_missing_reading_notices() {
   status=$?
   expect_code 0 "$status" "a missing quota reading must not refuse"$'\n'"$out"
   assert_contains "$out" "notice: fm-spawn launches grok without the quota check" "a missing reading must be disclosed"
-  pass "an unresolved catalog refuses and a missing quota reading is disclosed"
+  pass "unknown provider families and missing readings are disclosed without native resolution"
 }
 
 test_quota_gate_override_passes_and_is_recorded() {
@@ -2671,7 +2649,7 @@ test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative
 test_quota_alternatives_obey_launch_capabilities
 test_secondmate_quota_refusal_names_a_supported_alternative
 test_quota_gate_passes_healthy_and_long_runway_harnesses
-test_quota_gate_unresolved_catalog_refuses_and_missing_reading_notices
+test_quota_gate_unknown_provider_and_missing_reading_notices
 test_quota_gate_override_passes_and_is_recorded
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_keep_ai_trailers_preserves_attribution_and_format_checks

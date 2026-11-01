@@ -1583,7 +1583,7 @@ test_secondmate_quota_relaunch_names_a_supported_alternative() {
     > "$dir/home/config/crew-dispatch.json"
   out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok); rc=$?
   expect_code 1 "$rc" "an exhausted secondmate relaunch must refuse"$'\n'"$out"
-  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude --model claude-sonnet-5-5.' \
+  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude.' \
     "secondmate relaunch must skip higher-ranked AGY"
   [ "$(cat "$dir/fake/command")" = claude ] || fail "a quota refusal stopped the running secondmate"
   [ ! -s "$dir/fake/literal" ] || fail "a quota refusal sent secondmate lifecycle input"

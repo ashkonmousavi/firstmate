@@ -1431,23 +1431,24 @@ Firstmate resolves the rule's profile object or array under `AGENTS.md` section 
 
 This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-lib.sh` owns its mechanics.
 
-- A spawn that names its adapter explicitly (`--harness` or the positional) and an `fm-control.sh relaunch --harness` read one `quota-axi --json` snapshot before the agent launches, whether or not this file exists.
-  Fresh workers and released copies are checked after their checkout is prepared, so a requested base or recreated branch supplies the effective project configuration.
-  An ordinary control relaunch checks the recorded checkout before stopping its agent.
-- The gate resolves the effective model, including defaults and aliases, through the adapter's own catalog before matching quota.
-  The catalog's account identity joins the profile's declared quota family using the same family/account relation as typed dispatch; it never replaces that family.
-  Native single-provider adapters use the existing family declaration.
-  An unresolved catalog model or family refuses unless explicitly overridden.
-  Resolution uses one native launch record for the harness environment, selectable model, and canonical quota identity.
-  The probe and worker share the harness environment, including Gemini folder trust; Kimi suggestions retain the configured model alias rather than its upstream model ID.
-  The record retains the worker account root and provider pin, and the registered Pi session on an ordinary Herdr relaunch.
-- The gate refuses when an applicable row of that provider is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends within three hours of now, whatever its projection confidence.
-- The refusal names the best alternative: the profiles in this file (rules and default), or each single-provider harness on its default model when the file is absent, that resolve through their own catalogs, satisfy task-kind, backend, worker tool-exclusion, visible-capture, concrete model/effort, and account-pin restrictions (including per-secondmate provider permissions), and pass the same gate with a known `spendPriority`, highest first, with ties named together.
-- A resolved provider or account with no row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and the launch proceeds.
-- `--quota-override <reason>` launches the refused adapter anyway and records `quota_override=<reason>` and `quota_override_evidence=<the refusal and alternative>` in `state/<id>.meta`; a later relaunch without the flag drops both.
-- An ordinary control relaunch is gated in `fm-control.sh` before the old agent stops, and the delegated launch is not gated again.
-  Released-copy relaunches are gated by spawn after the branch is recreated.
-  A direct or control relaunch with no caller-supplied explicit harness, a raw launch command, and the session-start secondmate respawn are not gated.
+- A spawn that names its adapter explicitly (`--harness` or the positional) and an `fm-control.sh relaunch --harness` read one `quota-axi --json` snapshot before launch.
+  Control checks before stopping an ordinary worker and before recreating a released copy; the delegated spawn retains that decision and evidence.
+- The quota model is the caller-supplied model string, otherwise the sole configured dispatch profile for that harness, otherwise no model, so only harness-level rows apply.
+  Strings are used as written: the gate does not resolve aliases or defaults through a harness catalog, invoke a harness executable, or change worker model selection.
+  A profile's declared provider is its quota family; a model's account prefix selects its account row through the same family/account relation as typed dispatch.
+  Single-provider harnesses retain their existing family mapping.
+- The gate refuses when an applicable row is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends within three hours of now, whatever its projection confidence.
+- Alternatives come only from configured rules and default profiles.
+  The refusal prints their configured harness, model and effort strings, ranked by highest known `spendPriority`, with ties named together.
+  Candidates must satisfy task-kind, backend, worker tool-exclusion, visible-capture, concrete model/effort, and configured account-provider restrictions, including per-secondmate pin precedence.
+  Native catalog availability and sign-in checks remain the existing launch preflight's responsibility.
+- A missing provider declaration or quota row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and launch proceeds.
+  Conflicting configured quota-family declarations refuse unless overridden.
+- `--quota-override <reason>` launches a refused adapter and records `quota_override=<reason>` and `quota_override_evidence=<the refusal and alternative>` in `state/<id>.meta`; a later relaunch without the flag drops both.
+  Remote launch and relaunch forward the flag and retain the host's authoritative evidence.
+- Direct and control relaunches without a caller-supplied explicit harness, raw launch commands, and session-start secondmate respawns are not gated.
+
+[Quota gate regressions](../tests/fm-quota-gate.test.sh) exercise these decisions without native catalog probes.
 
 **Contract owners**
 
