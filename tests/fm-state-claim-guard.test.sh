@@ -72,6 +72,82 @@ check("planted queue claim without read blocks and names claim", "PR https://git
       named_claim="PR https://github.com/example/repo/pull/9 is in the queue.")
 check("matching PR read passes", "PR https://github.com/example/repo/pull/9 is merged.",
       ["gh-axi pr view 9 --repo example/repo"], expected=0)
+for reader in ("gh", "gh-axi"):
+    command = f"{reader} pr list --state merged --repo example/repo --json number --jq length"
+    check(f"aggregate merged count accepts {reader} list", "12 PRs merged in the last hour.",
+          [command], expected=0)
+    check(f"hook aggregate merged count accepts {reader} list", "12 PRs merged in the last hour.",
+          [command], hook=True, expected=0)
+check("aggregate merged count without a forge read blocks", "12 PRs merged in the last hour.")
+check("aggregate merged count accepts any forge read", "12 PRs merged in the last hour.",
+      ["gh pr view 9"], expected=0)
+check("list count does not prove a named PR", "PR 9 is merged.",
+      ["gh pr list --state merged --json number --jq length"])
+for reader in ("gh", "gh-axi"):
+    for limit in ("--limit 9", "-L 9", "--limit=9", "-L9"):
+        for invocation in (reader, f"env GH_HOST=github.com bash /fixture/{reader}",
+                           f"{reader} --repo example/repo --hostname github.com"):
+            command = f"{invocation} pr list --state merged {limit} --json number --jq length"
+            check(f"numeric list option cannot identify a PR: {command}", "PR 9 is merged.", [command])
+            check(f"numeric list option still permits aggregate evidence: {command}",
+                  "12 PRs merged in the last hour.", [command], expected=0)
+    command = f"{reader} pr list --search 'https://github.com/example/repo/pull/9'"
+    check(f"list search URL cannot identify a PR: {reader}", "#9 merged.", [command])
+    check(f"list search cannot prove a URL claim: {reader}",
+          "https://github.com/example/repo/pull/9 merged.", [command])
+    check(f"list and direct read permit a named claim: {reader}", "PR 9 is merged.",
+          [f"{reader} pr list --limit 9; {reader} pr view 9"], expected=0)
+    check(f"list cannot fill a missing coordinated PR read: {reader}", "PRs 9 and 10 are merged.",
+          [f"{reader} pr list --limit 9", f"{reader} pr checks 10"])
+for reading in ("read it live", "read live"):
+    check(f"{reading} is a reading adverb, not deployment",
+          f"I just {reading}: https://github.com/example/repo/pull/9 merged.",
+          ["gh pr view 9"], expected=0)
+    check(f"{reading} does not exempt an unsupported PR claim",
+          f"I just {reading}: https://github.com/example/repo/pull/9 merged.")
+    check(f"{reading} does not exempt a deployment assertion",
+          f"I {reading}: the site is live.", ["gh pr view 9"])
+for opening, closing in (("'", "'"), ('"', '"'), ("‘", "’"), ("“", "”")):
+    for message, matching, unrelated in (
+        (f"PR {opening}#9{closing} is merged.", "gh pr view 9", "gh pr view 10"),
+        (f"PR {opening}9{closing} is merged.", "gh pr view 9", "gh pr view 10"),
+        (f"The site {opening}https://one.example{closing} is live.",
+         "curl https://one.example/health", "curl https://other.example/health"),
+        (f"{opening}Lane alpha{closing} is running.",
+         "bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"),
+        (f"The {opening}alpha lane{closing} is running.",
+         "bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"),
+        (f"PR 9 is {opening}merged{closing}.", "gh pr view 9", "gh pr view 10"),
+        (f"The site is {opening}live{closing}.", "curl https://one.example/health", "gh pr view 9"),
+        (f"Lane alpha is {opening}running{closing}.",
+         "bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"),
+        (f"{opening}PR 9 merged{closing}.", "gh pr view 9", "gh pr view 10"),
+    ):
+        check(f"short quoted assertion requires a read: {message}", message)
+        check(f"short quoted assertion rejects unrelated read: {message}", message, [unrelated])
+        check(f"short quoted assertion accepts matching read: {message}", message, [matching], expected=0)
+    check(f"quoted earlier state report is not a claim: {opening}",
+          f"The guard blocked {opening}PR 9 is merged.{closing} earlier.", expected=0)
+    check(f"quoted state does not exempt an assertion: {opening}",
+          f"Earlier I said {opening}the site is live{closing}; PR 9 is merged.")
+    check(f"quoted identifiers do not require their own reads: {opening}",
+          f"Earlier I said {opening}PR 10 is merged{closing}; PR 9 is merged.",
+          ["gh pr view 9"], expected=0)
+    check(f"quoted clauses and sentences are not claims: {opening}",
+          f"The earlier message was {opening}The site is live; PR 9 is merged.\nThe lane is running.{closing}",
+          expected=0)
+    for contraction in ("I've", "I’ve"):
+        report = f"The guard blocked {opening}{contraction} checked: PR 9 is merged.{closing} earlier."
+        check(f"quoted contraction remains historical: {opening} {contraction}", report, expected=0)
+        check(f"quoted contraction retains a later assertion: {opening} {contraction}",
+              f"{report} PR 10 is merged.", ["gh pr view 9"])
+        check(f"quoted contraction allows a supported later assertion: {opening} {contraction}",
+              f"{report} PR 10 is merged.", ["gh pr view 10"], expected=0)
+        check(f"quoted contraction preserves multiline reports: {opening} {contraction}",
+              f"The guard blocked {opening}{contraction} checked: PR 9 is merged.\nThe site is live.{closing}",
+              expected=0)
+for contraction in ("I've", "I’ve"):
+    check(f"contraction outside quotes remains text: {contraction}", f"{contraction} checked: PR 9 is merged.")
 check("wrong PR read does not count", "PR 9 is merged.", ["gh-axi pr view 10"])
 check("PR id embedded in repository name does not count", "PR 9 is merged.", ["gh-axi pr view 10 --repo example/repo9"])
 check("separate reads cover multiple PR claims", "PR 9 and PR 10 are merged.",

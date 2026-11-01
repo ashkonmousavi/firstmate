@@ -18,9 +18,16 @@ not that the command output supports the prose.
 Claims require a resource subject from POLICY in the same sentence.
 Matching covers every claimed PR number, explicit URL host and lane name;
 repository identity and requested --json fields deliberately remain unchecked.
+PR claims without explicit IDs, including aggregate counts, still need a PR read.
+gh/gh-axi pr list counts only for claims without PR IDs, regardless of filters;
+its numeric options and search terms never establish a named PR read.
 Read segments in pipelines and redirects can count; segments beyond a
 short-circuit or control-flow boundary do not establish execution.
 'last read at' exempts only its sentence.
+Straight or curly quoted spans of four or more whitespace-separated words are
+ignored; shorter spans lose their quote delimiters and remain checked.
+'read live' and 'read it live' do not themselves assert deployment; other
+deployment assertions in the sentence still require a matching read.
 Shell commands are tokenized, never executed.
 """
 
@@ -43,8 +50,8 @@ def rx(pattern):
 POLICY = (
     ("PR", rx(r"\b(?:in (?:the )?(?:merge )?queue|queued|merged)\b"),
      rx(r"\bprs?\b|#\d+\b|https?://\S+/pulls?/\d+"),
-     rx(r"^(?:gh|gh-axi)\s+(?:pr\s+(?:view|checks)\b|api\s+.*\S*/pulls(?:/|\b))")),
-    ("deploy", rx(r"\b(?:deployed|live)\b"),
+     rx(r"^(?:gh|gh-axi)\s+(?:pr\s+(?:view|checks|list)\b|api\s+.*\S*/pulls(?:/|\b))")),
+    ("deploy", rx(r"\b(?:deployed|(?<!read )(?<!read it )live)\b"),
      rx(r"\b(?:deploy(?:ment)?s?|releases?|sites?)\b|https?://"),
      rx(r"^curl\s+.*https?://")),
     ("lane", rx(r"\brunning\b"),
@@ -95,6 +102,8 @@ def lane_names(text):
 
 def claims(text):
     text = re.sub(r"```.*?(?:```|$)", "", text, flags=re.S)
+    text = re.sub(r'''(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"[^"]*"|‘(?:[^’]|(?<=\w)’(?=\w))*’|“[^”]*”''',
+                  lambda match: " " if len(match.group(0)[1:-1].split()) >= 4 else match.group(0)[1:-1], text)
     text = re.sub(r"(?<!\w)(_{1,3})(\S(?:[^\n]*?\S)?)\1(?!\w)", r"\2",
                   text.replace("`", "").replace("*", ""))
     for sentence in re.split(r"[\n]|(?<=[.!?])\s+", text):
@@ -177,7 +186,7 @@ def read_segment(segment):
                    or (t.startswith(("--method=", "--request=")) and t.split("=", 1)[1] not in ("GET", "HEAD"))
                    for t in segment):
                 continue
-            yield family, source
+            yield family, source, family == "PR" and segment[1:3] == ["pr", "list"]
 
 
 def current_reads(path, deadline):
@@ -261,7 +270,8 @@ def main():
     if reads is None or time.monotonic() > deadline:
         return 0
     for family, sentence, pr_ids in unsupported:
-        matching = [command for kind, command in reads if kind == family]
+        matching = [command for kind, command, aggregate in reads
+                    if kind == family and not (pr_ids and aggregate)]
         if pr_ids:
             if not all(any(re.search(
                 r"(?:^|\s)#?" + ident + r"(?=\s|$)|/pulls?/" + ident + r"(?=[/?#\s]|$)", command
