@@ -353,18 +353,6 @@ fm_control_relaunch_resume_flag() {  # <harness> <registered-agent>
   return 0
 }
 
-fm_control_relaunch_resume_ref() {
-  local harness=$1 backend=$2 target=$3 identity agent ref flag
-  [ "$backend" = herdr ] && [ -n "$target" ] || return 0
-  fm_backend_source "$backend" || return 1
-  fm_backend_herdr_parse_target "$target" || return 0
-  identity=$(fm_backend_herdr_pane_agent_session_ref "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE") || return 0
-  agent=${identity%%$'\t'*}
-  ref=${identity#*$'\t'}
-  flag=$(fm_control_relaunch_resume_flag "$harness" "$agent") || return 0
-  [ -z "$flag" ] || printf '%s' "$ref"
-}
-
 # Which named keys a backend adapter can deliver. Every session provider
 # normalizes Enter, Ctrl+C, and the Ctrl+U composer clear; Orca's terminal API
 # exposes only an interrupt and an Enter, so it can deliver neither Escape nor

@@ -1166,7 +1166,7 @@ else
 fi
 
 spawn_remote_secondmate() {
-  local id=$1 remote host root home harness positional model effort backend out rc meta tmp
+  local id=$1 remote host root home harness positional model effort backend out rc meta tmp harness_explicit=0
   local remote_backend remote_target remote_harness remote_herdr_session registry_lock remote_lock remote_generation
   local remote_traceparent remote_recorded_traceparent sm_primary_head sync_out sync_rc account_config remote_quota_override remote_quota_evidence
   local -a launch_args
@@ -1208,10 +1208,18 @@ spawn_remote_secondmate() {
   fi
   if [ -n "$HARNESS_ARG" ]; then
     harness=$HARNESS_ARG
+    harness_explicit=1
   elif [ -n "$positional" ]; then
     harness=$positional
+    harness_explicit=1
   else
     harness=$("$FM_ROOT/bin/fm-harness.sh" secondmate "$id")
+  fi
+  if [ "$harness_explicit" = 0 ] && [ -n "$QUOTA_OVERRIDE" ]; then
+    fm_lock_release "$registry_lock" || true
+    fm_lock_release "$SPAWN_TASK_LOCK" || true
+    echo "error: --quota-override applies only to an explicitly named adapter, the only launch the quota check gates" >&2
+    return 1
   fi
   case "$harness" in
   claude | codex | opencode | pi | pi-signed | grok | kimi | cursor) ;;
@@ -1363,7 +1371,11 @@ spawn_remote_secondmate() {
   fi
   launch_args=("$id" "$harness" "$model" "$effort" "$backend")
   [ -z "$remote_traceparent" ] || launch_args+=("$remote_traceparent")
-  [ -z "$QUOTA_OVERRIDE" ] || launch_args+=(--quota-override "$QUOTA_OVERRIDE")
+  if [ "$harness_explicit" = 0 ]; then
+    launch_args+=(--implicit-harness)
+  elif [ -n "$QUOTA_OVERRIDE" ]; then
+    launch_args+=(--quota-override "$QUOTA_OVERRIDE")
+  fi
   if out=$("$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh launch \
     "${launch_args[@]}" </dev/null 2>&1); then
     rc=0
@@ -3121,6 +3133,12 @@ if [ "$KIND" = secondmate ]; then
 fi
 
 QUOTA_GATE_EVIDENCE=
+if [ "$KIND" = secondmate ] && [ "$RELAUNCH" = 0 ] && \
+    [ "${FM_SKIP_SECONDMATE_SYNC:-0}" = 1 ] && [ "${FM_SKIP_SECONDMATE_INHERIT:-0}" = 1 ] && \
+    [ "${FM_REMOTE_QUOTA_EXPLICIT:-1}" = 0 ]; then
+  QUOTA_HARNESS_EXPLICIT=0
+fi
+unset FM_REMOTE_QUOTA_EXPLICIT
 if [ "$SPAWN_CONTROL_PARENT" = 1 ] && [ "${FM_CONTROL_QUOTA_EXPLICIT:-1}" = 0 ]; then
   QUOTA_HARNESS_EXPLICIT=0
 fi
@@ -3444,10 +3462,15 @@ muse_credential_present() {
 # fresh-session launch rather than refusing, because nothing here is a safety
 # property; it preserves a display and supervision signal.
 relaunch_resume_args() {  # <harness> <backend> <target>
-  local harness=${1-} backend=${2-} target=${3-} ref flag
-  ref=$(fm_control_relaunch_resume_ref "$harness" "$backend" "$target") || return 0
-  [ -n "$ref" ] || return 0
-  flag=$(fm_control_relaunch_resume_flag "$harness" pi) || return 0
+  local harness=${1-} backend=${2-} target=${3-} identity agent ref flag
+  [ "$backend" = herdr ] || return 0
+  [ -n "$target" ] || return 0
+  fm_backend_herdr_parse_target "$target" || return 0
+  identity=$(fm_backend_herdr_pane_agent_session_ref "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE") || return 0
+  agent=${identity%%$'\t'*}
+  ref=${identity#*$'\t'}
+  flag=$(fm_control_relaunch_resume_flag "$harness" "$agent") || return 0
+  [ -n "$flag" ] && [ -n "$ref" ] || return 0
   printf -- ' %s %s' "$flag" "$(shell_quote "$ref")"
 }
 

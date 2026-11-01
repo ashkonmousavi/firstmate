@@ -20,6 +20,43 @@ test_active_dispatch_profile_allows_positional_harness
 test_claude_haiku_launch_gets_an_opus_advisor
 test_batch_forwards_shared_profile_flags
 
+quota_harness_profiles=(
+  'claude|sonnet' 'codex|gpt-6.1-sol' 'opencode|anthropic/claude-sonnet-4-5'
+  'pi|zai/glm-5.3' 'pi-signed|codex-native/gpt-6-astra' 'grok|grok-4.7'
+  'kimi|kimi-code/k3' 'cursor|cursor-grok-4.5-high' 'omp|openai-codex/gpt-6.1-sol'
+  'agy|gemini-3.8-flash-low' 'gemini|gemini-3.1-pro' 'muse|muse-spark-1.2'
+  'rovo|auto' 'devin|fusion-claude-fable-5-1-high-sidekick-swe-2-medium'
+  'commandcode|deepseek/deepseek-v4.1-flash' 'polytoken|zai/glm-5.3-flash'
+)
+for quota_profile in "${quota_harness_profiles[@]}"; do
+  IFS='|' read -r quota_harness quota_model <<< "$quota_profile"
+  for quota_axis in caller configured; do
+    [ "$quota_harness:$quota_axis" != polytoken:configured ] || continue
+    id="quota-spawn-$quota_harness-$quota_axis"
+    quota_gate_case "$id" "$quota_harness" "$id" through
+    quota_alternative=codex
+    [ "$quota_harness" != codex ] || quota_alternative=claude
+    jq -n --arg h "$quota_harness" --arg m "$quota_model" --arg alt "$quota_alternative" \
+      '{default:[{harness:$h,model:$m,provider:"blocked"},{harness:$alt,model:"healthy-alternative"}]}' \
+      > "$HOME_DIR/config/crew-dispatch.json"
+    jq '.providers += [{provider:"blocked",quotaSemantics:{status:"known",effectiveAvailability:[
+      {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"},selection:{spendPriority:-10}}]}}]' \
+      "$CASE_DIR/quota.json" > "$CASE_DIR/all-models.json"
+    quota_args=(--harness "$quota_harness")
+    [ "$quota_axis" != caller ] || quota_args+=(--model "$quota_model")
+    [ "$quota_harness" != polytoken ] || quota_args+=(--effort low)
+    out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/all-models.json" \
+      run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" "${quota_args[@]}"); rc=$?
+    expect_code 1 "$rc" "$quota_harness/$quota_axis must refuse exhausted spawn quota: $out"
+    assert_contains "$out" 'provider blocked runway exhausted_now at all_models' "$quota_harness was not evaluated against its declared quota family"
+    assert_contains "$out" "--harness $quota_alternative --model healthy-alternative" "$quota_harness lost its configured alternative"
+    assert_not_contains "$out" 'unresolvable' "$quota_harness was incorrectly treated as unresolvable"
+    [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "$quota_harness published metadata after quota refusal"
+    [ ! -s "$LAUNCH_LOG" ] || fail "$quota_harness launched after quota refusal"
+  done
+  pass "explicit $quota_harness spawn refuses exhausted model quota"
+done
+
 inputs="$TMP_ROOT/quota-model-inputs"
 mkdir -p "$inputs/bin"
 fm_test_quota_snapshot "$inputs/quota.json" through
@@ -168,6 +205,48 @@ export FM_TEST_FIXTURE_IMPORT=control-relaunch
 # shellcheck source=tests/fm-control-relaunch.test.sh
 . "$ROOT/tests/fm-control-relaunch.test.sh"
 unset FM_TEST_FIXTURE_IMPORT
+for quota_profile in "${quota_harness_profiles[@]}"; do
+  IFS='|' read -r quota_harness quota_model <<< "$quota_profile"
+  for quota_axis in caller configured; do
+    [ "$quota_harness:$quota_axis" != polytoken:configured ] || continue
+    id="quota-control-$quota_harness-$quota_axis"
+    dir=$(new_case "$id" "$id")
+    add_ship_task "$dir" "$id" claude
+    quota_alternative=codex
+    [ "$quota_harness" != codex ] || quota_alternative=claude
+    jq -n --arg h "$quota_harness" --arg m "$quota_model" --arg alt "$quota_alternative" \
+      '{default:[{harness:$h,model:$m,provider:"blocked"},{harness:$alt,model:"healthy-alternative"}]}' \
+      > "$dir/home/config/crew-dispatch.json"
+    fm_test_quota_snapshot "$dir/quota.json" through
+    jq '.providers += [{provider:"blocked",quotaSemantics:{status:"known",effectiveAvailability:[
+      {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"},selection:{spendPriority:-10}}]}}]' \
+      "$dir/quota.json" > "$dir/all-models.json"
+    quota_args=(--harness "$quota_harness")
+    [ "$quota_axis" != caller ] || quota_args+=(--model "$quota_model")
+    if [ "$quota_harness" = polytoken ]; then
+      quota_args+=(--effort low)
+      cat > "$dir/fakebin/polytoken" <<'POLY'
+#!/usr/bin/env bash
+[ "$*" = 'print models' ] || exit 1
+printf '%s\n' 'zai/glm-5.3-flash' 'zai/glm-5.3-flash(low)'
+POLY
+      chmod +x "$dir/fakebin/polytoken"
+    fi
+    cp "$dir/home/state/$id.meta" "$dir/before.meta"
+    out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/all-models.json" \
+      run_control "$dir" "$id" relaunch "${quota_args[@]}" --note 'exhausted explicit profile'); rc=$?
+    expect_code 1 "$rc" "$quota_harness/$quota_axis must refuse exhausted relaunch quota: $out"
+    assert_contains "$out" 'provider blocked runway exhausted_now at all_models' "$quota_harness relaunch bypassed the quota family"
+    assert_contains "$out" "--harness $quota_alternative --model healthy-alternative" "$quota_harness relaunch lost its configured alternative"
+    assert_not_contains "$out" 'unresolvable' "$quota_harness relaunch was incorrectly treated as unresolvable"
+    [ ! -s "$dir/fake/literal" ] || fail "$quota_harness quota refusal sent lifecycle input"
+    [ ! -s "$dir/fake/keys" ] || fail "$quota_harness quota refusal sent lifecycle keys"
+    cmp -s "$dir/home/state/$id.meta" "$dir/before.meta" || fail "$quota_harness quota refusal changed metadata"
+    [ "$(cat "$dir/fake/command")" = claude ] || fail "$quota_harness quota refusal stopped the running agent"
+  done
+  pass "explicit $quota_harness relaunch refuses exhausted quota before stopping its agent"
+done
+
 test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops
 test_secondmate_quota_relaunch_names_a_supported_alternative
 test_quota_override_relaunches_and_is_recorded
