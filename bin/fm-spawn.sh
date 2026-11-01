@@ -3155,6 +3155,16 @@ if [ "$KIND" = secondmate ] && [ -z "$ARG3" ]; then
   fi
 fi
 
+CODEX_LAUNCH_CWD=
+if [ "$KIND" != secondmate ] && [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
+  CODEX_LAUNCH_CWD=$RELAUNCH_WT
+fi
+CODEX_DEFER_DEFAULT=0
+if [ "$HARNESS" = codex ] && [ "$RAW_LAUNCH" = 0 ] && [ -z "$CODEX_LAUNCH_CWD" ] &&
+  { [ -z "$MODEL" ] || [ "$MODEL" = default ]; } &&
+  { [ -e "$CONFIG/codex-accounts" ] || [ -L "$CONFIG/codex-accounts" ]; }; then
+  CODEX_DEFER_DEFAULT=1
+fi
 QUOTA_GATE_EVIDENCE=
 if [ "$KIND" = secondmate ] && [ "$RELAUNCH" = 0 ] && \
     [ "${FM_SKIP_SECONDMATE_SYNC:-0}" = 1 ] && [ "${FM_SKIP_SECONDMATE_INHERIT:-0}" = 1 ] && \
@@ -3167,15 +3177,15 @@ if [ "$SPAWN_CONTROL_PARENT" = 1 ] && [ "${FM_CONTROL_QUOTA_EXPLICIT:-1}" = 0 ];
 fi
 if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" = 1 ]; then
   QUOTA_GATE_EVIDENCE=${FM_CONTROL_QUOTA_EVIDENCE:-}
-elif [ "$QUOTA_HARNESS_EXPLICIT" = 1 ] && [ "$RAW_LAUNCH" -eq 0 ]; then
+elif [ "$QUOTA_HARNESS_EXPLICIT" = 1 ] && [ "$RAW_LAUNCH" -eq 0 ] && [ "$CODEX_DEFER_DEFAULT" = 0 ]; then
   fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" \
-    "$CONFIG" "$([ "$KIND" != secondmate ] || printf '%s' "$ID")" || {
+    "$CONFIG" "$([ "$KIND" != secondmate ] || printf '%s' "$ID")" "" "$CODEX_LAUNCH_CWD" || {
     [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
     exit 1
   }
   [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
   QUOTA_GATE_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
-elif [ -n "$QUOTA_OVERRIDE" ]; then
+elif [ -n "$QUOTA_OVERRIDE" ] && { [ "$CODEX_DEFER_DEFAULT" = 0 ] || [ "$QUOTA_HARNESS_EXPLICIT" != 1 ]; }; then
   echo "error: --quota-override applies only to an explicitly named adapter, the only launch the quota check gates" >&2
   exit 1
 fi
@@ -3291,8 +3301,7 @@ if [ "$HARNESS" = polytoken ] && [ "$RAW_LAUNCH" -eq 0 ]; then
 elif [ "$HARNESS" = polytoken ]; then
   POLYTOKEN_MODEL_REF=$(fm_polytoken_model_ref "$POLYTOKEN_BIN" "$MODEL" "$EFFORT") || exit 1
 fi
-# Worker account pin (header above): resolved before any endpoint, worktree, or
-# record exists. An absent pin selects nothing and leaves every later launch
+# Worker account pin (header above). An absent pin selects nothing and leaves every later launch
 # step exactly as it was. A pinned Claude root is exported here as well, so the
 # trust registration below writes the store the worker will actually read.
 RAW_COMMAND=
@@ -3301,30 +3310,38 @@ WORKER_ACCOUNT_MATE=
 [ "$KIND" != secondmate ] || WORKER_ACCOUNT_MATE=$ID
 WORKER_ACCOUNT_HARNESS=$(fm_control_harness_family "$HARNESS") || WORKER_ACCOUNT_HARNESS=$HARNESS
 CODEX_SELECTED_ROOT=${FM_QUOTA_CODEX_ROOT:-}
-if [ "$WORKER_ACCOUNT_HARNESS" = codex ] && [ -n "${FM_QUOTA_CODEX_MODEL:-}" ]; then
+if [ "$CODEX_DEFER_DEFAULT" = 0 ] && [ "$WORKER_ACCOUNT_HARNESS" = codex ] && [ -n "${FM_QUOTA_CODEX_MODEL:-}" ]; then
   MODEL=$FM_QUOTA_CODEX_MODEL
 fi
 if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" = 1 ]; then
   CODEX_SELECTED_ROOT=${FM_CONTROL_CODEX_ROOT:-}
 fi
-WORKER_ACCOUNT=$(fm_worker_account_select "$WORKER_ACCOUNT_HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE" "$CODEX_SELECTED_ROOT") || exit 1
-WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
-WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
-WORKER_ACCOUNT_PROVIDER=${WORKER_ACCOUNT_ROOT#*$'\t'}
-WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
-if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = codex ]; then
-  MODEL=$WORKER_ACCOUNT_PROVIDER
-  WORKER_ACCOUNT_PROVIDER=
-  export CODEX_HOME=$WORKER_ACCOUNT_ROOT
-  CODEX_FILE_STORE_FLAG=$(shell_quote 'cli_auth_credentials_store="file"')
-  LAUNCH=${LAUNCH/codex /codex -c $CODEX_FILE_STORE_FLAG }
-fi
-if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
-  if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
-    export CLAUDE_CONFIG_DIR=$WORKER_ACCOUNT_ROOT
-  else
-    unset CLAUDE_CONFIG_DIR
+spawn_select_worker_account() {
+  WORKER_ACCOUNT=$(fm_worker_account_select "$WORKER_ACCOUNT_HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$WORKER_ACCOUNT_MATE" "$CODEX_SELECTED_ROOT" "$1") || return 1
+  WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
+  WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
+  WORKER_ACCOUNT_PROVIDER=${WORKER_ACCOUNT_ROOT#*$'\t'}
+  WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT_ROOT%%$'\t'*}
+  if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = codex ]; then
+    MODEL=$WORKER_ACCOUNT_PROVIDER
+    WORKER_ACCOUNT_PROVIDER=
+    export CODEX_HOME=$WORKER_ACCOUNT_ROOT
+    CODEX_FILE_STORE_FLAG=$(shell_quote 'cli_auth_credentials_store="file"')
+    LAUNCH=${LAUNCH/codex /codex -c $CODEX_FILE_STORE_FLAG }
   fi
+  if [ -n "$WORKER_ACCOUNT" ] && [ "$WORKER_ACCOUNT_HARNESS" = claude ]; then
+    if [ -n "$WORKER_ACCOUNT_ROOT" ]; then
+      export CLAUDE_CONFIG_DIR=$WORKER_ACCOUNT_ROOT
+    else
+      unset CLAUDE_CONFIG_DIR
+    fi
+  fi
+}
+if [ "$CODEX_DEFER_DEFAULT" = 1 ]; then
+  python3 "$SCRIPT_DIR/fm-codex-accounts.py" preflight --config "$CONFIG/codex-accounts" || exit 1
+  WORKER_ACCOUNT= WORKER_ACCOUNT_DECLARED= WORKER_ACCOUNT_ROOT= WORKER_ACCOUNT_PROVIDER=
+else
+  spawn_select_worker_account "$CODEX_LAUNCH_CWD" || exit 1
 fi
 if [ "$RAW_LAUNCH" = 1 ] && { [ "$WORKER_ACCOUNT_HARNESS" != claude ] || [ -z "$WORKER_ACCOUNT" ]; }; then
   if [ -n "$RAW_CLAUDE_ROOT" ]; then
@@ -5922,6 +5939,21 @@ fi
 # tab's original project directory.
 spawn_enter_recorded_worktree
 spawn_assert_agent_worktree
+
+if [ "$CODEX_DEFER_DEFAULT" = 1 ]; then
+  if [ "$QUOTA_HARNESS_EXPLICIT" = 1 ]; then
+    fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" \
+      "$CONFIG" "$WORKER_ACCOUNT_MATE" "" "$WT" || {
+      [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+      exit 1
+    }
+    [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+    QUOTA_GATE_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
+    CODEX_SELECTED_ROOT=$FM_QUOTA_CODEX_ROOT
+    MODEL=$FM_QUOTA_CODEX_MODEL
+  fi
+  spawn_select_worker_account "$WT" || exit 1
+fi
 
 # Pre-register Claude's workspace trust for the directory this launch starts in,
 # at the first point that directory is known and before any per-task state is

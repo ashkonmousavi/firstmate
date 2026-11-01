@@ -587,6 +587,18 @@ test_remote_secondmate_account_override_refuses_locally() {
   pass "a remote route refuses a primary-side account override instead of silently ignoring it"
 }
 
+test_raw_command_quota_override_refuses() {
+  local harness id out rc
+  for harness in claude codex; do
+    id="acct-raw-quota-$harness"
+    new_case "$id" "$harness"
+    out=$(spawn_ship "$id" --harness "$harness --model fixture" --quota-override fixture-reason); rc=$?
+    expect_code 1 "$rc" 'a raw command cannot accept a quota override without a quota check'
+    assert_refused_before_launch "$id" "$out" '--quota-override applies only to an explicitly named adapter'
+  done
+  pass 'raw launch commands refuse quota overrides instead of bypassing the quota check'
+}
+
 test_codex_empty_list_refuses_before_endpoint() {
   local out rc id=acct-codex-empty
   new_case codex-empty codex
@@ -598,13 +610,15 @@ test_codex_empty_list_refuses_before_endpoint() {
 }
 
 codex_case() {
+  local marker=
   new_case "$1" codex
   mkdir -p "$CASE/shared/rules" "$CASE/shared/skills" "$CASE/account one" "$CASE/account-two"
   printf 'cli_auth_credentials_store="file"\n' > "$CASE/shared/config.toml"
   printf 'Test instructions\n' > "$CASE/shared/AGENTS.md"
   printf 'prefix_rule(pattern=["echo"], decision="allow")\n' > "$CASE/shared/rules/default.rules"
   for root in "$CASE/account one" "$CASE/account-two"; do
-    printf '%s\n' "artificial-session-$root" > "$root/auth.json"
+    printf '%s\n' "artificial-session-$root" "$marker" > "$root/auth.json"
+    marker="${marker}x"
     : > "$root/signed-in"
     printf '%s\n' '{"config":{"model":"requested"}}' > "$root/effective-config.json"
     python3 "$ROOT/bin/fm-codex-accounts.py" prepare --folder "$root" --shared "$CASE/shared" || fail 'prepare failed'
@@ -636,9 +650,13 @@ for line in sys.stdin:
     elif method == "initialized":
         initialized = True
     elif method == "config/read":
-        if not initialized or request["params"] != {"includeLayers": False}:
+        if not initialized or request["params"].get("includeLayers") is not False or not pathlib.Path(request["params"].get("cwd", "missing")).is_dir():
             sys.exit(87)
         result = json.loads((pathlib.Path(os.environ["CODEX_HOME"]) / "effective-config.json").read_text())
+        trust = pathlib.Path(os.environ["CODEX_HOME"]) / "trusted-cwd"
+        project = pathlib.Path(request["params"]["cwd"]) / ".codex/config.toml"
+        if trust.exists() and trust.read_text().strip() == request["params"]["cwd"] and project.is_file():
+            result = {"config": {"model": next(line.split("=", 1)[1].strip().strip(chr(34)) for line in project.read_text().splitlines() if line.startswith("model="))}}
         print(json.dumps({"id": request["id"], "result": result}), flush=True)
     elif method == "model/list":
         if not initialized or request["params"] != {"includeHidden": True}:
@@ -667,6 +685,7 @@ if [ -n "${CODEX_HOME:-}" ] && [ -d "$CODEX_HOME" ]; then
   printf 'CODEX_HOME=%s\nOPENAI_API_KEY=%s\nCODEX_API_KEY=%s\n' "$CODEX_HOME" \
     "${OPENAI_API_KEY-unset}" "${CODEX_API_KEY-unset}" > "$CODEX_HOME/worker-environment"
   printf '%s\n' "$*" > "$CODEX_HOME/worker-arguments"
+  pwd > "$CODEX_HOME/worker-cwd"
 fi
 printf 'fake codex 0.136.0\n'
 SH
@@ -908,6 +927,109 @@ test_codex_default_model() {
   pass 'Codex resolves and pins actual default models across selection, gates and launch'
 }
 
+test_codex_project_model() {
+  local root out rc id kind
+  codex_case codex-project-model
+  mkdir -p "$PROJ/.codex"
+  printf 'model="project-default"\n' > "$PROJ/.codex/config.toml"
+  git -C "$PROJ" add .codex/config.toml
+  git -C "$PROJ" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'trusted project model fixture' || fail 'could not commit project model fixture'
+  git -C "$PROJ" push -q origin main || fail 'could not publish synthetic project base'
+  git -C "$WT" merge --ff-only "$(git -C "$PROJ" rev-parse HEAD)" >/dev/null || fail 'could not refresh project model fixture'
+  printf 'model="account-default"\n[projects."%s"]\ntrust_level="trusted"\n' "$WT" > "$CASE/shared/config.toml"
+  codex_quota "$CASE/account one" fresh 80
+  codex_quota "$CASE/account-two" fresh 90
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' '{"config":{"model":"account-default"}}' > "$root/effective-config.json"
+    printf '%s\n' "$WT" > "$root/trusted-cwd"
+    jq '.providers[].quotaSemantics.effectiveAvailability += [
+      {scope:"model:account-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+      "$root/quota.json" > "$CASE/project-quota.json"
+    mv "$CASE/project-quota.json" "$root/quota.json"
+  done
+  jq '.providers[].quotaSemantics.effectiveAvailability += [
+    {scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+    "$CASE/account-two/quota.json" > "$CASE/project-quota.json"
+  mv "$CASE/project-quota.json" "$CASE/account-two/quota.json"
+  out=$(codex_tool select --cwd "$WT"); rc=$?
+  expect_code 0 "$rc" "trusted project selection failed: $out"
+  assert_equals "$CASE/account one" "${out%%$'\t'*}" 'quota for the trusted project model determines selection'
+  assert_equals project-default "${out##*$'\t'}" 'project default overrides the exhausted account default'
+  out=$(codex_tool quota --gate --cwd "$WT"); rc=$?
+  expect_code 0 "$rc" "trusted project gate snapshot failed: $out"
+  assert_equals project-default "$(jq -r '.selectedModel' <<< "$out")" 'gate snapshot retains the project model'
+  out=$(codex_tool select --cwd "$WT" --model explicit-model); rc=$?
+  expect_code 0 "$rc" "explicit model must override project defaults: $out"
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'explicit-model quota excludes unrelated project bounds'
+  assert_equals explicit-model "${out##*$'\t'}" 'an explicit model has precedence over the project'
+  rm "$CASE/account one/trusted-cwd" "$CASE/account-two/trusted-cwd"
+  out=$(codex_tool select --cwd "$WT"); rc=$?
+  expect_code 1 "$rc" 'an untrusted project must not override the exhausted account default'
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' "$WT" > "$root/trusted-cwd"
+  done
+  for kind in ship scout; do
+    id="acct-project-$kind"
+    if [ "$kind" = ship ]; then
+      out=$(spawn_ship "$id" --harness codex); rc=$?
+    else
+      fm_test_spawn_brief "$HOME_DIR" "$id"
+      : > "$CASE/launch.log"
+      out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --scout); rc=$?
+    fi
+    expect_code 0 "$rc" "trusted project $kind spawn failed: $out"
+    assert_equals project-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/$id.meta")" 'spawn records the project model'
+    assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'spawn selects using project quota'
+    (cd "$WT" && run_pane)
+    assert_contains "$(cat "$CASE/account one/worker-arguments")" '--model project-default' 'worker actually runs the trusted project model'
+    assert_equals "$WT" "$(cat "$CASE/account one/worker-cwd")" 'worker starts in the inspected launch directory'
+  done
+  pass 'Codex resolves project defaults in the actual worktree before filtering, gating and launch'
+}
+
+test_codex_secondmate_project_model() {
+  local id=acct-project-mate sm root out rc
+  codex_case codex-secondmate-project
+  sm="$CASE/mate-home"
+  mkdir -p "$sm/bin" "$sm/data" "$sm/config" "$sm/.codex"
+  git init -q -b main "$sm"
+  printf '# Firstmate\n' > "$sm/AGENTS.md"
+  printf '%s\n' "$id" > "$sm/.fm-secondmate-home"
+  printf 'charter for %s\n' "$id" > "$sm/data/charter.md"
+  printf 'model="account-default"\n' > "$sm/.codex/config.toml"
+  codex_quota "$CASE/account one" fresh 80
+  codex_quota "$CASE/account-two" fresh 90
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' '{"config":{"model":"account-default"}}' > "$root/effective-config.json"
+    printf '%s\n' "$sm" > "$root/trusted-cwd"
+    jq '.providers[].quotaSemantics.effectiveAvailability += [
+      {scope:"model:account-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+      "$root/quota.json" > "$CASE/project-quota.json"
+    mv "$CASE/project-quota.json" "$root/quota.json"
+  done
+  jq '.providers[].quotaSemantics.effectiveAvailability += [
+    {scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+    "$CASE/account-two/quota.json" > "$CASE/project-quota.json"
+  mv "$CASE/project-quota.json" "$CASE/account-two/quota.json"
+  mv "$FAKEBIN/tmux" "$FAKEBIN/tmux-base"
+  cat > "$FAKEBIN/tmux" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = new-window ]; then
+  printf 'model="project-default"\n' > "$FM_FAKE_PANE_PATH/.codex/config.toml"
+fi
+exec "$(dirname "$0")/tmux-base" "$@"
+SH
+  chmod +x "$FAKEBIN/tmux"
+  out=$(FM_SKIP_SECONDMATE_SYNC=1 FM_SKIP_SECONDMATE_INHERIT=1 FM_FAKE_LAUNCH_LOG="$CASE/launch.log" \
+    fm_test_run_spawn "$HOME_DIR" "$sm" "$FAKEBIN" "$id" "$sm" --secondmate --harness codex); rc=$?
+  expect_code 0 "$rc" "secondmate must resolve its model after home preparation: $out"
+  assert_equals project-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/$id.meta")" 'secondmate uses its prepared home model'
+  assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'secondmate selection uses the prepared model quota'
+  (cd "$sm" && run_pane)
+  assert_contains "$(cat "$CASE/account one/worker-arguments")" '--model project-default' 'secondmate launches the prepared project model'
+  pass 'Codex secondmates resolve their actual project model after home preparation'
+}
+
 test_codex_identity_timeout() {
   local out rc
   codex_case codex-identity-timeout
@@ -1072,10 +1194,13 @@ test_codex_config_and_scout() {
 }
 
 test_codex_empty_list_refuses_before_endpoint
+test_raw_command_quota_override_refuses
 test_codex_folder_selection_and_guard
 test_codex_guard_metadata_and_identity
 test_codex_applicable_quota
 test_codex_default_model
+test_codex_project_model
+test_codex_secondmate_project_model
 test_codex_identity_timeout
 test_codex_runway_timing
 test_codex_spawn_and_checks
@@ -1099,5 +1224,12 @@ test_raw_claude_account_metadata_matches_the_executed_environment
 test_raw_claude_cannot_disable_managed_background_safeguards
 test_compound_raw_claude_retains_one_exported_account
 test_local_secondmate_reads_the_launching_home_pin
+
+(
+  export FM_TEST_FIXTURE_IMPORT=control-relaunch
+  . "$ROOT/tests/fm-control-relaunch.test.sh"
+  unset FM_TEST_FIXTURE_IMPORT
+  test_codex_project_cwd_handoffs
+) || fail 'Codex project cwd relaunch handoff regression failed'
 
 echo "# all fm-worker-account tests passed"

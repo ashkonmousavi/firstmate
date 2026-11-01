@@ -1226,9 +1226,16 @@ resolve_relaunch_profile() {
   local account_model=$TARGET_MODEL account_mate=
   [ "$account_model" != default ] || account_model=
   [ "$KIND" != secondmate ] || account_mate=$ID
-  local account_selection
-  account_selection=$(fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
-    "$account_model" "$TARGET_HARNESS" "" "$account_mate") || return 1
+  local account_selection= account_cwd= codex_defer_default=0
+  [ "$RELEASED" = 1 ] || account_cwd=$WT
+  if [ "$TARGET_HARNESS" = codex ] && { [ "$RELEASED" = 1 ] || [ "$KIND" = secondmate ]; } && [ -z "$account_model" ] &&
+    { [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ] || [ -L "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ]; }; then
+    python3 "$SCRIPT_DIR/fm-codex-accounts.py" preflight --config "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" || return 1
+    codex_defer_default=1
+  else
+    account_selection=$(fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
+      "$account_model" "$TARGET_HARNESS" "" "$account_mate" "" "$account_cwd") || return 1
+  fi
   TARGET_CODEX_ROOT=
   if [ "$TARGET_HARNESS" = codex ] && [ -n "$account_selection" ]; then
     TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
@@ -1262,11 +1269,11 @@ resolve_relaunch_profile() {
   # Likewise the spawn quota gate for an explicitly chosen harness. The launch
   # owner does not gate a relaunch this transaction drives, so this is the one
   # decision; its evidence is handed on for the task record.
-  if [ "$HARNESS_SET" = 1 ]; then
+  if [ "$HARNESS_SET" = 1 ] && [ "$codex_defer_default" = 0 ]; then
     local quota_rc=0
     fm_quota_gate_run "$TARGET_HARNESS" "$account_model" \
       "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-control "$KIND" "$BACKEND" \
-      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" "$TARGET_CODEX_ROOT" || quota_rc=$?
+      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" "$TARGET_CODEX_ROOT" "$account_cwd" || quota_rc=$?
     [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
     [ "$quota_rc" = 0 ] || return 1
     QUOTA_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE

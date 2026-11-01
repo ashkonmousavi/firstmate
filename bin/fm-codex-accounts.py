@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Opt-in Codex folders: selection, quota, duplicate guard and watcher checks.
 
-Usage: fm-codex-accounts.py {select,quota,guard,check,maintain,prepare,register} --help
+Usage: fm-codex-accounts.py {select,quota,guard,check,maintain,prepare,register,preflight} --help
 The config is one literal absolute folder per line, no comments or empty lines.
 Absent config opts out; a present invalid/empty list fails closed. Folder aliases
 and auth symlinks/hardlinks refuse. The guard compares file metadata and the
@@ -172,10 +172,10 @@ def account_identity(root, codex):
     return None
 
 
-def effective_model(root, codex, model):
+def effective_model(root, codex, model, cwd):
     if model and model != "default":
         return model
-    result = app_server_read(root, codex, "config/read", {"includeLayers": False})
+    result = app_server_read(root, codex, "config/read", {"includeLayers": False, "cwd": cwd})
     if result is None:
         raise ValueError(f"cannot resolve Codex launch model for folder: {root}")
     model = result.get("config", {}).get("model")
@@ -249,13 +249,19 @@ def quota_usable(row, model):
         for b in row["quotaSemantics"]["effectiveAvailability"])
 
 
-def snapshot(roots, codex, model):
+def preflight(roots, codex):
+    guard(roots, codex)
+    if not any(signed_in(root, codex) and shared_ready(root) for root in roots):
+        raise ValueError("codex-accounts has no usable signed-in folder with shared configuration")
+
+
+def snapshot(roots, codex, model, cwd):
     guard(roots, codex)
     rows = []
     for root in roots:
         ready = signed_in(root, codex)
         configured = ready and shared_ready(root)
-        launch_model = effective_model(root, codex, model) if configured else ""
+        launch_model = effective_model(root, codex, model, cwd) if configured else ""
         row = reading(root) if ready else {"state": {"status": "unavailable"}, "windows": [],
                                            "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
         row.update(provider="codex", accountKey="codex-folder:" + hashlib.sha256(root.encode()).hexdigest()[:16],
@@ -309,13 +315,14 @@ def prepare(root, shared):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("select", "quota", "guard", "check", "maintain", "prepare", "register"))
+    parser.add_argument("command", choices=("select", "quota", "guard", "check", "maintain", "prepare", "register", "preflight"))
     parser.add_argument("--config", help="absolute codex-accounts list")
     parser.add_argument("--folder", help="one configured folder (or prepare destination)")
     parser.add_argument("--shared", help="prepare: shared non-auth configuration folder")
     parser.add_argument("--state", help="register: existing Firstmate state directory")
     parser.add_argument("--codex", default="codex", help="Codex executable")
     parser.add_argument("--model", default="", help="literal launch model for applicable quota scopes")
+    parser.add_argument("--cwd", default=os.getcwd(), help="launch directory for effective project configuration")
     parser.add_argument("--gate", action="store_true", help="quota: return selected row as codex-home for the launch quota gate")
     args = parser.parse_args()
     if args.command == "prepare":
@@ -328,8 +335,13 @@ def main():
     roots = folders(args.config)
     if args.command == "guard":
         guard(roots, args.codex)
+    elif args.command == "preflight":
+        preflight(roots, args.codex)
     elif args.command in ("select", "quota"):
-        data = snapshot(roots, args.codex, args.model)
+        cwd = str(Path(args.cwd).resolve())
+        if not Path(cwd).is_dir():
+            raise ValueError(f"Codex launch directory is unavailable: {cwd}")
+        data = snapshot(roots, args.codex, args.model, cwd)
         if args.folder:
             root = str(Path(args.folder).resolve())
             if not any(r["launchReady"] and r["accountLocator"]["path"] == root for r in data["providers"]):

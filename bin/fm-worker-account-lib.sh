@@ -282,7 +282,7 @@ fm_worker_account_profile() {
     if length == 1 then .[0] else {harness:$h, model:$m} end'
 }
 
-# fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<secondmate-id>] [<codex-selected-root>]
+# fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<secondmate-id>] [<codex-selected-root>] [<launch-cwd>]
 # The pin selection decision. Prints nothing for an unpinned runner, so
 # the caller retains its unpinned account selection. For a pinned one prints
 # "declared<TAB>root<TAB>detail", where detail is the Pi provider or concrete
@@ -303,6 +303,7 @@ fm_worker_account_select() {
     fi
     local -a codex_args=()
     [ -z "${7:-}" ] || codex_args=(--folder "$7")
+    [ -z "${8:-}" ] || codex_args+=(--cwd "$8")
     python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-codex-accounts.py" select \
       --config "$config/codex-accounts" --codex "$executable" \
       --model "$model" "${codex_args[@]}"

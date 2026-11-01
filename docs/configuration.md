@@ -1204,14 +1204,15 @@ Each line names one literal absolute existing folder, conventionally `~/.fm-acco
 Each folder needs its own sign-in, obtained independently on that machine; never copy or link `auth.json` between folders or machines.
 The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
 
-Before a ship or scout endpoint exists, Firstmate checks for duplicate sign-in files and asks `codex login status` about each folder with file-backed storage and a cleared credential environment.
+Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-in files and asks `codex login status` about configured folders with file-backed storage and a cleared credential environment.
 Among locally signed-in folders with shared configuration present, it excludes accounts whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, then selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
 Exhausted runway excludes an account even when its remaining percentage is unknown.
-The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration and, if no model is configured, its reported catalog default.
+The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
+Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before quota filtering and worker startup; credential-only preflight still runs before allocation.
 The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
 If Codex cannot report a concrete default model, launch refuses without guessing.
 The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
-Control-plane relaunch repeats preflight before stopping the old agent and carries its chosen folder into the replacement launch.
+Control-plane relaunch of an existing copy repeats preflight in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
 No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
 The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
 The spawned line and task record carry `account=<absolute-folder>`.

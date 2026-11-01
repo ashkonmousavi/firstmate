@@ -4242,8 +4242,112 @@ SH
   pass "HUP and TERM during complete or partial snapshots preserve the brief and record on both backends"
 }
 
+test_codex_project_cwd_handoffs() {
+  local lifecycle dir id wt root out rc head marker
+  for lifecycle in ordinary direct-ordinary released direct-released; do
+    id="codex-cwd-$lifecycle"
+    dir=$(new_case "$id" "$id")
+    case "$lifecycle" in
+      *released)
+        add_released_ship_task "$dir" "$id"
+        wt="$dir/pool/1/repo"
+        git -C "$dir/proj" checkout -qb "fm/$id" "origin/fm/$id"
+        mkdir -p "$dir/proj/.codex"
+        printf 'model="project-default"\n' > "$dir/proj/.codex/config.toml"
+        git -C "$dir/proj" add .codex/config.toml
+        git -C "$dir/proj" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'project model fixture' || fail 'could not commit released project model fixture'
+        git -C "$dir/proj" push -q origin "fm/$id"
+        head=$(git -C "$dir/proj" rev-parse HEAD)
+        git -C "$dir/proj" checkout -q main
+        git -C "$dir/proj" branch -q -D "fm/$id"
+        python3 - "$dir/home/state/$id.meta" "$head" <<'PY'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+rows = path.read_text().splitlines()
+path.write_text("\n".join("released_head=" + sys.argv[2] if row.startswith("released_head=") else
+                          "harness=codex" if row.startswith("harness=") else row for row in rows) + "\n")
+PY
+        printf '%s\n' "$head" > "$dir/fake/pr-head"
+        ;;
+      *)
+        add_ship_task "$dir" "$id" codex
+        wt="$dir/wt"
+        mkdir -p "$wt/.codex"
+        printf 'model="project-default"\n' > "$wt/.codex/config.toml"
+        printf codex > "$dir/fake/command"
+        ;;
+    esac
+    printf codex > "$dir/fake/becomes"
+    marker=
+    for root in "$dir/account-one" "$dir/account-two"; do
+      mkdir -p "$root/rules"
+      printf '%s\n' "synthetic-session-$root" "$marker" > "$root/auth.json"
+      marker="${marker}x"
+      printf 'model="account-default"\n[projects."%s"]\ntrust_level="trusted"\n' "$wt" > "$root/config.toml"
+      printf '%s\n' "$wt" > "$root/trusted-cwd"
+      : > "$root/AGENTS.md"
+      printf 'prefix_rule(pattern=["echo"],decision="allow")\n' > "$root/rules/default.rules"
+      jq --argjson pct 80 '.providers |= [.[] | select(.provider=="codex") |
+        .state={status:"fresh"} | .windows=[{id:"weekly",kind:"weekly",percentRemaining:$pct}] |
+        .quotaSemantics.effectiveAvailability += [{scope:"model:account-default",status:"unknown",runway:{status:"exhausted_now"}}]]' \
+        "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$root/quota.json"
+    done
+    jq '.providers[].windows[0].percentRemaining=90 |
+      .providers[].quotaSemantics.effectiveAvailability += [{scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+      "$dir/account-two/quota.json" > "$dir/quota.json"
+    mv "$dir/quota.json" "$dir/account-two/quota.json"
+    printf '%s\n' "$dir/account-one" "$dir/account-two" > "$dir/home/config/codex-accounts"
+    cat > "$dir/fakebin/codex" <<'PY'
+#!/usr/bin/env python3
+import json, os, pathlib, sys
+if "status" in sys.argv:
+    sys.exit(0)
+root = pathlib.Path(os.environ["CODEX_HOME"])
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "initialize":
+        result = {}
+    elif method == "initialized":
+        continue
+    elif method == "account/read":
+        result = {"account": {"type": "apiKey"}}
+    elif method == "config/read":
+        cwd = request["params"].get("cwd")
+        config = root / "config.toml"
+        if cwd == (root / "trusted-cwd").read_text().strip():
+            config = pathlib.Path(cwd) / ".codex/config.toml"
+        model = next(line.split("=", 1)[1].strip().strip(chr(34)) for line in config.read_text().splitlines() if line.startswith("model="))
+        result = {"config": {"model": model}}
+    else:
+        sys.exit(2)
+    print(json.dumps({"id": request["id"], "result": result}), flush=True)
+PY
+    cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+cat "$CODEX_HOME/quota.json"
+SH
+    chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
+    case "$lifecycle" in
+      direct-*)
+        printf zsh > "$dir/fake/command"
+        out=$(run_spawn "$dir" "$id" --relaunch --harness codex --model default); rc=$?
+        ;;
+      *) out=$(run_control "$dir" "$id" relaunch --harness codex --model default --note 'preserve project model'); rc=$? ;;
+    esac
+    expect_code 0 "$rc" "$lifecycle must resolve the trusted worktree model: $out"
+    assert_equals project-default "$(meta_field "$dir" "$id" model)" "$lifecycle launch records project model B"
+    assert_equals "$dir/account-one" "$(meta_field "$dir" "$id" account)" "$lifecycle selects by quota for project B"
+    assert_grep "--model 'project-default'" "$dir/fake/literal" "$lifecycle passes B to the launched command"
+    assert_not_contains "$(cat "$dir/fake/literal")" "--model 'account-default'" "$lifecycle must not pin account A"
+  done
+  pass 'Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree'
+}
+
 # Reuse these hermetic fixtures in the pending-proof lifecycle regression.
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
+
+test_codex_project_cwd_handoffs
 
 test_reboot_recovery_uses_the_real_control_and_spawn_paths
 test_tmux_absence_needs_prior_boot_evidence

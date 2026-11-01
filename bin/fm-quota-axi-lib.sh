@@ -357,7 +357,7 @@ fm_quota_gate_explicit() {
   [ "$(printf '%s\n' "$out" | head -1)" != refuse ]
 }
 
-# fm_quota_gate_run <harness> <model> <rules-file> <override-reason> <who> <kind> <backend> <config> [<mate-id>] [<codex-selected-root>]
+# fm_quota_gate_run <harness> <model> <rules-file> <override-reason> <who> <kind> <backend> <config> [<mate-id>] [<codex-selected-root>] [<launch-cwd>]
 # The one caller-facing gate step. Takes the snapshot, gates, and prints the
 # outcome on stderr. Sets FM_QUOTA_GATE_EVIDENCE to the one-line verdict and
 # FM_QUOTA_GATE_SNAPSHOT_PATH to the snapshot it read (empty when none), so a
@@ -379,6 +379,7 @@ fm_quota_gate_run() {
     snap=$(mktemp "${TMPDIR:-/tmp}/fm-codex-quota-gate.XXXXXX") || return 1
     local -a codex_args=()
     [ -z "${10:-}" ] || codex_args=(--folder "${10}")
+    [ -z "${11:-}" ] || codex_args+=(--cwd "${11}")
     if ! python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-codex-accounts.py" quota \
       --config "$config/codex-accounts" --gate --model "$model" "${codex_args[@]}" >"$snap"; then
       rm -f "$snap"
