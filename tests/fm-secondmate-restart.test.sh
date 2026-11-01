@@ -45,6 +45,16 @@ TMP_ROOT=$(cd "$TMP_ROOT" && pwd -P)
 make_stub() {  # <case-dir>
   local fb="$1/fakebin"
   mkdir -p "$fb"
+  # A Claude exit lists background sessions before relaunch. Keep that read
+  # inside this fixture, including when a competing spawn wins the lock.
+  cat > "$fb/claude" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  agents) printf '[]\n' ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$fb/claude"
   cat > "$fb/tmux" <<'SH'
 #!/usr/bin/env bash
 set -u
