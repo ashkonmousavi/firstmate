@@ -260,7 +260,7 @@ restart_mate() {  # <array-index>
 }
 
 restart_mate_locked() {  # <array-index>
-  local i=$1 id restart_out restart_rc restart_reason ran_on journal_before
+  local i=$1 id restart_out restart_rc restart_reason ran_on journal_before route_out
   id=${IDS[$i]}
   journal_before=$(relaunch_journal_print "$id")
   if [ "${PLACEMENT[i]}" = remote ]; then
@@ -288,6 +288,13 @@ restart_mate_locked() {  # <array-index>
   [ -n "$restart_reason" ] || restart_reason="the restart failed without a reported reason"
   if old_agent_proven_stopped "$i" "$journal_before" "$restart_out"; then
     if await_live_mate "$id"; then
+      if [ "${PLACEMENT[i]}" = remote ]; then
+        if ! route_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+          "$SCRIPT_DIR/fm-remote-secondmate-relaunch.sh" --refresh-route "$id" 2>&1); then
+          report_unreached "$id" "the replacement is running, but its remote route identity could not be confirmed: $(first_reported_line "$route_out")"
+          return
+        fi
+      fi
       ran_on=$(fm_meta_get "$STATE/$id.meta" harness)
       [ -n "$ran_on" ] || ran_on=${HARNESS[i]}
       printf 'restarted: %s (%s); its own launch reported "%s", and the replacement was then confirmed running\n' \
