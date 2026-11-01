@@ -55,10 +55,8 @@
 # observes endpoint state within the verification bound, then reports unreached:
 # existing records cannot prove that launch completed, even if its agent is alive.
 #
-# Liveness recovery never races the replacement: each restart holds the mate's
-# per-mate liveness lock from before the stop until that verdict (restart_mate
-# below), so the watcher and the session-start sweep skip the mate without
-# killing its endpoint or spending a relaunch attempt.
+# bin/fm-secondmate-liveness-lib.sh's header owns serialization with automatic
+# recovery, including restart exclusion and stale-owner recovery.
 #
 # Placement changes the transport and nothing else. A local mate is restarted
 # with bin/fm-control.sh <id> relaunch, which republishes this home's own
@@ -229,13 +227,8 @@ wait_for_mate_verification() {
   done
 }
 
-# The per-mate liveness lock is this restart's in-progress marker. Held from
-# before the old agent is stopped until the replacement is confirmed or the
-# verification bound passes, it makes the watcher tick and the session-start
-# sweep skip this mate without probing, killing, relaunching, or ledgering an
-# attempt (bin/fm-secondmate-liveness-lib.sh owns that lock). A dead holder is
-# reclaimed by the ordinary stale-owner rule, so a restarter that dies never
-# leaves the mate outside liveness recovery.
+# Wait before stopping the agent; the shared liveness library's header owns
+# the exclusion contract for this lock.
 restart_mate() {  # <array-index>
   local i=$1 id
   id=${IDS[$i]}
