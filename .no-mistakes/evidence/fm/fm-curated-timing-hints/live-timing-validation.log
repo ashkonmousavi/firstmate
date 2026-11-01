@@ -1,0 +1,118 @@
+$ bin/fm-test-run.sh --check-coverage
+FM_TEST_COVERAGE ok total=295 parallel=24 parallel_max_ms=665545 parallel_imbalance_ms=2 parallel_unhinted=0 serial=255 serial_shards=9 serial_unhinted=0 serial_max_ms=1146177 serial_budget_ms=1200000 herdr=16
+
+exit=0
+
+$ .validation-timing/inventory-_7zfar6y/bin/fm-test-run.sh --check-coverage
+fm-test-run: coverage guard: 39 of 255 portable serial scripts have no measured duration hint (max 15%)
+fm-test-run: refresh the hints from a green run's timing artifacts: docs/fm-test-portable-shards.md
+tests/fm-backlog-progress-recovery.test.sh
+tests/fm-capacity.test.sh
+tests/fm-ci-remote-routing.test.sh
+tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh
+tests/fm-codex-brief-typed-live-e2e.test.sh
+tests/fm-codex-harness.test.sh
+tests/fm-composer-grok-weekly-live-e2e.test.sh
+tests/fm-crew-recovery.test.sh
+tests/fm-git-push-guard.test.sh
+tests/fm-hold-release.test.sh
+tests/fm-lane-release.test.sh
+tests/fm-machine-resources.test.sh
+tests/fm-main-backstop-live-e2e.test.sh
+tests/fm-main-backstop.test.sh
+tests/fm-opencode-abs-cwd-rail-live-e2e.test.sh
+tests/fm-parent-channel-scan-exclusion.test.sh
+tests/fm-pending-reply-retire-stale.test.sh
+tests/fm-pipeline-spend.test.sh
+tests/fm-project-capacity.test.sh
+tests/fm-project-mode.test.sh
+tests/fm-proof-lifecycle.test.sh
+tests/fm-quota-gate.test.sh
+tests/fm-remote-delta-read.test.sh
+tests/fm-remote-job-claim-reap.test.sh
+tests/fm-remote-job-claim-retention.test.sh
+tests/fm-remote-job-launchagent.test.sh
+tests/fm-remote-machine-policy.test.sh
+tests/fm-request-acceptance.test.sh
+tests/fm-review-check.test.sh
+tests/fm-secondmate-restart-bg-shells-live-e2e.test.sh
+tests/fm-self-repo-role.test.sh
+tests/fm-session-lock-live-e2e.test.sh
+tests/fm-spawn-deferred-lab.test.sh
+tests/fm-spawn-deferred.test.sh
+tests/fm-spawn-external-review.test.sh
+tests/fm-startup-growth-check.test.sh
+tests/fm-status-append.test.sh
+tests/fm-walk-request.test.sh
+tests/lifecycle-input.test.sh
+
+exit=1
+
+$ .validation-timing/inventory-_7zfar6y/bin/fm-test-run.sh --check-coverage
+FM_TEST_COVERAGE ok total=295 parallel=24 parallel_max_ms=665545 parallel_imbalance_ms=2 parallel_unhinted=0 serial=255 serial_shards=9 serial_unhinted=0 serial_max_ms=1146177 serial_budget_ms=1200000 herdr=16
+
+exit=0
+
+Nine non-empty deterministic serial shards contain all 255 serial scripts exactly once. Full CLI output: serial-shard-membership.json
+
+$ bin/fm-test-run.sh --list-scheduled tests/fm-backlog-atomicity.test.sh tests/fm-lane-release.test.sh
+tests/fm-lane-release.test.sh
+tests/fm-backlog-atomicity.test.sh
+
+exit=0
+
+Worked-example oracle: added 235129ms lane-release weight exceeds existing 219379ms backlog-atomicity weight; longest-first scheduling must place lane-release first.
+
+$ .validation-timing/inventory-_7zfar6y/bin/fm-test-run.sh --check-coverage
+fm-test-run: coverage guard: 46 of 301 portable serial scripts have no measured duration hint (max 15%)
+fm-test-run: refresh the hints from a green run's timing artifacts: docs/fm-test-portable-shards.md
+tests/validation-unhinted-000.test.sh
+tests/validation-unhinted-001.test.sh
+tests/validation-unhinted-002.test.sh
+tests/validation-unhinted-003.test.sh
+tests/validation-unhinted-004.test.sh
+tests/validation-unhinted-005.test.sh
+tests/validation-unhinted-006.test.sh
+tests/validation-unhinted-007.test.sh
+tests/validation-unhinted-008.test.sh
+tests/validation-unhinted-009.test.sh
+tests/validation-unhinted-010.test.sh
+tests/validation-unhinted-011.test.sh
+tests/validation-unhinted-012.test.sh
+tests/validation-unhinted-013.test.sh
+tests/validation-unhinted-014.test.sh
+tests/validation-unhinted-015.test.sh
+tests/validation-unhinted-016.test.sh
+tests/validation-unhinted-017.test.sh
+tests/validation-unhinted-018.test.sh
+tests/validation-unhinted-019.test.sh
+tests/validation-unhinted-020.test.sh
+tests/validation-unhinted-021.test.sh
+tests/validation-unhinted-022.test.sh
+tests/validation-unhinted-023.test.sh
+tests/validation-unhinted-024.test.sh
+tests/validation-unhinted-025.test.sh
+tests/validation-unhinted-026.test.sh
+tests/validation-unhinted-027.test.sh
+tests/validation-unhinted-028.test.sh
+tests/validation-unhinted-029.test.sh
+tests/validation-unhinted-030.test.sh
+tests/validation-unhinted-031.test.sh
+tests/validation-unhinted-032.test.sh
+tests/validation-unhinted-033.test.sh
+tests/validation-unhinted-034.test.sh
+tests/validation-unhinted-035.test.sh
+tests/validation-unhinted-036.test.sh
+tests/validation-unhinted-037.test.sh
+tests/validation-unhinted-038.test.sh
+tests/validation-unhinted-039.test.sh
+tests/validation-unhinted-040.test.sh
+tests/validation-unhinted-041.test.sh
+tests/validation-unhinted-042.test.sh
+tests/validation-unhinted-043.test.sh
+tests/validation-unhinted-044.test.sh
+tests/validation-unhinted-045.test.sh
+
+exit=1
+
+All live runner scenarios passed; inventory fixtures were inspected, never executed.
