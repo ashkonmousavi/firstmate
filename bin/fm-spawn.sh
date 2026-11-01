@@ -1501,6 +1501,10 @@ SPAWN_TASK_SET_LOCK_HELD=0
 SPAWN_TREEHOUSE_PROJECT_LOCK=
 SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
 SPAWN_SLOT_CLAIMED=0
+SPAWN_CODEX_LEASE_PATH=
+SPAWN_CODEX_LEASE_ID=
+SPAWN_CODEX_LEASE_HEAD=
+CODEX_WORKTREE_PREPARED=0
 SPAWN_FRESH_ENDPOINT_OPENED=0
 SPAWN_FRESH_WIRING_PENDING=0
 # A relaunch of a record whose copy bin/fm-teardown.sh released
@@ -1855,16 +1859,16 @@ spawn_abort_cleanup() {
   # Firstmate wiring, task temp root, and staged launch file it wrote go with it.
   # Once a launch was delivered into an endpoint still open, a worker may be
   # running there, so those stay for the operator, as the refusal says.
-  if [ "$status" -ne 0 ] && [ "${HARNESS:-}" = polytoken ] &&
+  if [ "$status" -ne 0 ] && { [ "${HARNESS:-}" = polytoken ] || [ "${HARNESS:-}" = codex ]; } &&
     { [ "$SPAWN_FRESH_ENDPOINT_OPENED" = 1 ] || [ "$SPAWN_FRESH_WIRING_PENDING" = 1 ] ||
       [ "$SPAWN_TASK_TMP_CREATED" = 1 ] || [ -n "$SPAWN_STAGED_LAUNCH_FILE" ]; } &&
     [ "$RELAUNCH" -eq 0 ] &&
     [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ]; then
     if [ "$SPAWN_FRESH_ENDPOINT_OPENED" = 1 ] && [ "$SPAWN_LAUNCH_SENT" = 0 ] && [ -n "${T:-}" ]; then
-      SPAWN_FRESH_ENDPOINT_OPENED=0
       local abort_tab_id=
       [ "$BACKEND" != zellij ] || abort_tab_id=${ZELLIJ_TAB_ID:-}
       if fm_backend_kill "$BACKEND" "$T" "$abort_tab_id" "fm-$ID" 2>/dev/null; then
+        SPAWN_FRESH_ENDPOINT_OPENED=0
         SPAWN_ENDPOINT_CLOSED=1
       else
         echo "warning: could not close endpoint $T after the failed spawn of $ID; close it by hand so its slot returns to the pool" >&2
@@ -1898,6 +1902,19 @@ spawn_abort_cleanup() {
       fi
     fi
   fi
+  if [ "$status" -ne 0 ] && [ -n "$SPAWN_CODEX_LEASE_ID" ] &&
+    [ "$SPAWN_LAUNCH_SENT" = 0 ] &&
+    { [ "$SPAWN_FRESH_ENDPOINT_OPENED" = 0 ] || [ "$SPAWN_ENDPOINT_CLOSED" = 1 ]; } &&
+    [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
+    if [ -n "$SPAWN_CODEX_LEASE_HEAD" ] &&
+      [ "$(git -C "$SPAWN_CODEX_LEASE_PATH" rev-parse --verify HEAD 2>/dev/null)" = "$SPAWN_CODEX_LEASE_HEAD" ] &&
+      (cd "$PROJ_ABS" && treehouse return "$SPAWN_CODEX_LEASE_PATH" \
+      --if-lease-id "$SPAWN_CODEX_LEASE_ID" --if-lease-holder "$ID") </dev/null; then
+      SPAWN_CODEX_LEASE_ID=
+    else
+      echo "warning: could not safely return task $ID's lease on $SPAWN_CODEX_LEASE_PATH; retaining its work" >&2
+    fi
+  fi
   if [ "$status" -ne 0 ] && [ "$RELAUNCH_FROM_RELEASED" = 1 ] &&
     [ "$RELEASED_COMMITTED" = 0 ]; then
     local released_safe=1 released_abort_head released_abort_dirty released_abort_branch
@@ -1907,10 +1924,11 @@ spawn_abort_cleanup() {
     fi
     if [ "$RELEASED_ENDPOINT_OPENED" = 1 ]; then
       released_safe=0
-    elif [ "$SPAWN_SLOT_CLAIMED" = 1 ] && [ -n "${WT:-}" ]; then
+    elif { [ "$SPAWN_SLOT_CLAIMED" = 1 ] || [ -n "$SPAWN_CODEX_LEASE_ID" ]; } && [ -n "${WT:-}" ]; then
       released_abort_head=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null) || released_safe=0
       released_abort_dirty=$(git -C "$WT" status --porcelain --untracked-files=all --ignored --ignore-submodules=none 2>/dev/null) || released_safe=0
       if [ -n "$released_abort_dirty" ] ||
+        { [ -n "$SPAWN_CODEX_LEASE_ID" ] && [ "$released_abort_head" != "$SPAWN_CODEX_LEASE_HEAD" ]; } ||
         { [ "$SPAWN_LAUNCH_SENT" = 1 ] && [ "$released_abort_head" != "$RELEASED_RECREATED_HEAD" ]; }; then
         released_safe=0
       fi
@@ -1920,7 +1938,12 @@ spawn_abort_cleanup() {
           [ "$released_abort_head" = "$RELEASED_RECREATED_HEAD" ]; then
           git -C "$WT" checkout --detach -q || released_safe=0
         fi
-        if [ "$released_safe" = 1 ] && (cd "$PROJ_ABS" && treehouse return "$WT") >/dev/null 2>&1; then
+        local released_return_args=("$WT")
+        if [ -n "$SPAWN_CODEX_LEASE_ID" ]; then
+          released_return_args+=(--if-lease-id "$SPAWN_CODEX_LEASE_ID" --if-lease-holder "$ID")
+        fi
+        if [ "$released_safe" = 1 ] && (cd "$PROJ_ABS" && treehouse return "${released_return_args[@]}") </dev/null >/dev/null 2>&1; then
+          SPAWN_CODEX_LEASE_ID=
           fm_treehouse_slot_owner_release "$WT" "$ID" || true
           SPAWN_SLOT_CLAIMED=0
         else
@@ -1962,11 +1985,12 @@ spawn_abort_cleanup() {
   # release itself never removes another task's claim.
   if [ "$SPAWN_SLOT_CLAIMED" = 1 ] && [ -n "${WT:-}" ] &&
     [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ] &&
+    [ -z "$SPAWN_CODEX_LEASE_ID" ] &&
     fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
     SPAWN_SLOT_CLAIMED=0
     if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ]; then
       fm_treehouse_slot_owner_release "$WT" "$ID" || true
-    elif [ "${HARNESS:-}" = polytoken ] && [ -n "$SPAWN_TREEHOUSE_PROJECT_LOCK" ] &&
+    elif { [ "${HARNESS:-}" = polytoken ] || [ "${HARNESS:-}" = codex ]; } && [ -n "$SPAWN_TREEHOUSE_PROJECT_LOCK" ] &&
       fm_lock_try_acquire "$SPAWN_TREEHOUSE_PROJECT_LOCK"; then
       fm_treehouse_slot_owner_release "$WT" "$ID" || true
       fm_lock_release "$SPAWN_TREEHOUSE_PROJECT_LOCK" || true
@@ -3337,6 +3361,20 @@ spawn_select_worker_account() {
     fi
   fi
 }
+spawn_resolve_deferred_codex() {
+  if [ "$QUOTA_HARNESS_EXPLICIT" = 1 ]; then
+    fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" \
+      "$CONFIG" "$WORKER_ACCOUNT_MATE" "" "$WT" || {
+      [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+      return 1
+    }
+    [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+    QUOTA_GATE_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
+    CODEX_SELECTED_ROOT=$FM_QUOTA_CODEX_ROOT
+    MODEL=$FM_QUOTA_CODEX_MODEL
+  fi
+  spawn_select_worker_account "$WT" || return 1
+}
 if [ "$CODEX_DEFER_DEFAULT" = 1 ]; then
   python3 "$SCRIPT_DIR/fm-codex-accounts.py" preflight --config "$CONFIG/codex-accounts" || exit 1
   WORKER_ACCOUNT= WORKER_ACCOUNT_DECLARED= WORKER_ACCOUNT_ROOT= WORKER_ACCOUNT_PROVIDER=
@@ -4385,9 +4423,6 @@ spawn_worktree_isolated() { # <path>
   return 0
 }
 
-# spawn_endpoint_hint: the operator pointer for a pre-launch refusal. Only a
-# fresh polytoken spawn closes its endpoint on abort, so only it points away
-# from the window; every other harness keeps the plain inspect pointer.
 spawn_endpoint_closes_on_abort() {
   [ "$SPAWN_FRESH_ENDPOINT_OPENED" = 1 ] && [ "$SPAWN_LAUNCH_SENT" = 0 ]
 }
@@ -4396,7 +4431,7 @@ spawn_endpoint_hint() {
   if spawn_endpoint_closes_on_abort; then
     printf 'window %s is closed on exit, returning any pool slot it held' "$T"
   else
-    printf 'inspect window %s' "$T"
+    printf 'inspect worktree %s, window %s' "${WT:-unknown}" "${T:-unopened}"
   fi
 }
 
@@ -4654,17 +4689,48 @@ if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
 fi
 
 W="fm-$ID"
+if [ "$RELAUNCH" -eq 0 ] &&
+  { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; } &&
+  ! spawn_fresh_commit_rollback; then
+  echo "error: task $ID already has a record at $STATE/$ID.meta that could not be safely removed; refusing to open another endpoint while that record remains" >&2
+  exit 1
+fi
+if [ "$CODEX_DEFER_DEFAULT" = 1 ] && [ "$BACKEND" != orca ]; then
+  if [ "$KIND" != secondmate ]; then
+    released_mutation_begin
+    CODEX_LEASE=$(cd "$PROJ_ABS" && treehouse get --lease --lease-holder "$ID" --json) || exit 1
+    SPAWN_CODEX_LEASE_PATH=$(printf '%s\n' "$CODEX_LEASE" | jq -er '.path | strings | select(length > 0)') || exit 1
+    SPAWN_CODEX_LEASE_ID=$(printf '%s\n' "$CODEX_LEASE" | jq -er '.lease_id | strings | select(length > 0)') || exit 1
+    WT=$SPAWN_CODEX_LEASE_PATH
+    validate_spawn_worktree 'treehouse get --lease' "$WT"
+    SPAWN_CODEX_LEASE_HEAD=$(git -C "$WT" rev-parse --verify HEAD) || exit 1
+    if fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
+      fm_treehouse_slot_owner_claim "$WT" "$ID" "$FM_HOME" || exit 1
+      SPAWN_SLOT_CLAIMED=1
+    fi
+    released_mutation_end
+    if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
+      released_recreate_branch || exit 1
+    else
+      freshen_spawn_worktree_base "$WT" "$BASE_BRANCH" || exit 1
+    fi
+    SPAWN_CODEX_LEASE_HEAD=$(git -C "$WT" rev-parse --verify HEAD) || exit 1
+    CODEX_WORKTREE_PREPARED=1
+  fi
+  spawn_resolve_deferred_codex || exit 1
+fi
+SPAWN_ENDPOINT_CWD=${WT:-$PROJ_ABS}
 if [ "$RELAUNCH" -eq 1 ]; then
   # A secondmate's home already resolved WT above through the same validation a
   # fresh secondmate spawn uses; every other kind takes the recorded worktree.
   # Either way the worktree is REUSED, never re-created: its branch, commits and
   # uncommitted changes are exactly as the previous agent left them, and nothing
   # below may touch them.
-  [ "$KIND" = secondmate ] || WT=$RELAUNCH_WT
+  [ "$KIND" = secondmate ] || [ "$CODEX_WORKTREE_PREPARED" = 1 ] || WT=$RELAUNCH_WT
   # A released relaunch has no copy yet: its endpoint opens in the project,
   # and the fresh path's `treehouse get` below allocates the copy.
   RELAUNCH_ENDPOINT_CWD=$WT
-  if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
+  if [ "$RELAUNCH_FROM_RELEASED" = 1 ] && [ "$CODEX_WORKTREE_PREPARED" = 0 ]; then
     WT=
     RELAUNCH_ENDPOINT_CWD=$PROJ_ABS
   fi
@@ -4760,14 +4826,6 @@ EOF
     released_mutation_end
   fi
 else
-  # A surviving record whose endpoint is not proven gone is still a worker.
-  # Refuse before this fresh path opens a second endpoint. Pending is still
-  # unset, so this exit does not roll the retained record back.
-  if { [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; } &&
-    ! spawn_fresh_commit_rollback; then
-    echo "error: task $ID already has a record at $STATE/$ID.meta that could not be safely removed; refusing to open another endpoint while that record remains" >&2
-    exit 1
-  fi
   case "$BACKEND" in
   tmux)
     SES=$(fm_backend_tmux_container_ensure)
@@ -4778,7 +4836,7 @@ else
     # treehouse cd's into the worktree. WT_TARGET carries that stable id for the
     # rename-critical worktree-detection steps below; the persisted window= handle
     # stays $T (the name form), which is safe now that rename is disabled.
-    WID=$(fm_backend_tmux_create_task "$SES" "$W" "$PROJ_ABS") || exit 1
+    WID=$(fm_backend_tmux_create_task "$SES" "$W" "$SPAWN_ENDPOINT_CWD") || exit 1
     WT_TARGET="$WID"
     ;;
   herdr)
@@ -4839,7 +4897,7 @@ else
           FM_HOME="$HERDR_LABEL_HOME" fm_backend_herdr_projection_reclaim_task \
             "$HERDR_SES" "$HERDR_PRESENTATION_JOURNAL" "$ID" "$HERDR_LABEL_HOME" \
             "$HERDR_RECOVERY_WORKSPACE_ID" "$HERDR_RECOVERY_TAB_ID" "$HERDR_RECOVERY_PANE_ID" \
-            "$HERDR_PARENT_LABEL" "$W" "$PROJ_ABS"
+            "$HERDR_PARENT_LABEL" "$W" "$SPAWN_ENDPOINT_CWD"
           HERDR_RECLAIM_STATUS=$?
           set -e
           case "$HERDR_RECLAIM_STATUS" in
@@ -4896,7 +4954,7 @@ else
             HERDR_PROJECTION_ID=$(fm_backend_herdr_projection_journal_create "$STATE" "$ID") || exit 1
             HERDR_PROJECTION_LABEL=$(fm_backend_herdr_projection_workspace_label "$ID" "$HERDR_PROJECTION_ID")
             if ! FM_HOME="$HERDR_LABEL_HOME" fm_backend_herdr_projection_create_task \
-              "$PROJ_ABS" "$HERDR_PROJECTION_LABEL" "$W"; then
+              "$SPAWN_ENDPOINT_CWD" "$HERDR_PROJECTION_LABEL" "$W"; then
               if [ "${FM_BACKEND_HERDR_PROJECTION_CLEANUP_SAFE:-0}" = 1 ]; then
                 HERDR_PROJECTION_ABORT_CLEANUP=1
                 HERDR_PROJECTION_ABORT_SESSION=$FM_BACKEND_HERDR_PROJECTION_SESSION
@@ -4954,7 +5012,7 @@ else
       HERDR_SEEDED_DEFAULT_TAB_ID=${HERDR_CONTAINER_RAW#*$'\t'}
       HERDR_SES=${CONTAINER%%:*}
       HERDR_WORKSPACE_ID=${CONTAINER#*:}
-      HERDR_TASK_IDS=$(FM_HOME="$HERDR_LABEL_HOME" fm_backend_herdr_create_task "$CONTAINER" "$W" "$PROJ_ABS" "$HERDR_SEEDED_DEFAULT_TAB_ID") || exit 1
+      HERDR_TASK_IDS=$(FM_HOME="$HERDR_LABEL_HOME" fm_backend_herdr_create_task "$CONTAINER" "$W" "$SPAWN_ENDPOINT_CWD" "$HERDR_SEEDED_DEFAULT_TAB_ID") || exit 1
       read -r HERDR_TAB_ID HERDR_PANE_ID <<EOF
 $HERDR_TASK_IDS
 EOF
@@ -4967,7 +5025,7 @@ EOF
     ;;
   zellij)
     ZELLIJ_SES=$(fm_backend_zellij_container_ensure) || exit 1
-    ZELLIJ_TASK_IDS=$(fm_backend_zellij_create_task "$ZELLIJ_SES" "$W" "$PROJ_ABS") || exit 1
+    ZELLIJ_TASK_IDS=$(fm_backend_zellij_create_task "$ZELLIJ_SES" "$W" "$SPAWN_ENDPOINT_CWD") || exit 1
     read -r ZELLIJ_TAB_ID ZELLIJ_PANE_ID <<EOF
 $ZELLIJ_TASK_IDS
 EOF
@@ -4979,7 +5037,7 @@ EOF
     ;;
   cmux)
     fm_backend_cmux_container_ensure || exit 1
-    CMUX_TASK_IDS=$(fm_backend_cmux_create_task "$W" "$PROJ_ABS") || exit 1
+    CMUX_TASK_IDS=$(fm_backend_cmux_create_task "$W" "$SPAWN_ENDPOINT_CWD") || exit 1
     read -r CMUX_WORKSPACE_ID CMUX_SURFACE_ID <<EOF
 $CMUX_TASK_IDS
 EOF
@@ -4991,7 +5049,7 @@ EOF
     ;;
   paseo)
     fm_backend_paseo_container_ensure || exit 1
-    PASEO_TASK_IDS=$(fm_backend_paseo_create_task "$W" "$PROJ_ABS") || exit 1
+    PASEO_TASK_IDS=$(fm_backend_paseo_create_task "$W" "$SPAWN_ENDPOINT_CWD") || exit 1
     read -r FM_PASEO_TASK_TERMINAL_ID FM_PASEO_TASK_WORKSPACE_ID <<EOF
 $PASEO_TASK_IDS
 EOF
@@ -5021,6 +5079,11 @@ EOF
       exit 1
     fi
     validate_spawn_worktree "orca worktree create" "$W"
+    if [ "$CODEX_DEFER_DEFAULT" = 1 ]; then
+      freshen_spawn_worktree_base "$WT" "$BASE_BRANCH" || exit 1
+      CODEX_WORKTREE_PREPARED=1
+      spawn_resolve_deferred_codex || exit 1
+    fi
     if [ -z "$ORCA_TERMINAL" ]; then
       ORCA_TERMINAL=$(fm_backend_orca_terminal_create "$ORCA_WORKTREE_ID" "$W") || exit 1
     fi
@@ -5030,7 +5093,7 @@ EOF
   # Orca and the Herdr projection own their own abort cleanup above; every other
   # endpoint a fresh polytoken spawn opened is closed by spawn_abort_cleanup when
   # the spawn ends with no record before its launch is delivered.
-  if [ "$HARNESS" = polytoken ] && [ "$BACKEND" != orca ] && [ "${HERDR_PROJECTED:-0}" -ne 1 ]; then
+  if { [ "$HARNESS" = polytoken ] || [ "$HARNESS" = codex ]; } && [ "$BACKEND" != orca ] && [ "${HERDR_PROJECTED:-0}" -ne 1 ]; then
     SPAWN_FRESH_ENDPOINT_OPENED=1
   fi
 fi
@@ -5836,7 +5899,7 @@ elif [ "$RELAUNCH" -eq 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
     fi
   fi
   [ "$KIND" = secondmate ] || validate_spawn_worktree "relaunch" "$T"
-elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
+elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] && [ "$CODEX_WORKTREE_PREPARED" = 0 ]; then
   spawn_send_text_line "$WT_TARGET" 'treehouse get'
 
   # Wait for the treehouse subshell: the pane's cwd moves from the project to the worktree.
@@ -5925,11 +5988,11 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
     released_mutation_end
   fi
 fi
-if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$CODEX_WORKTREE_PREPARED" = 0 ]; then
   freshen_spawn_worktree_base "$WT" "$BASE_BRANCH" || exit 1
 fi
 if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
-  released_recreate_branch || exit 1
+  [ "$CODEX_WORKTREE_PREPARED" = 1 ] || released_recreate_branch || exit 1
   released_write_progress_note || exit 1
 fi
 
@@ -5939,21 +6002,6 @@ fi
 # tab's original project directory.
 spawn_enter_recorded_worktree
 spawn_assert_agent_worktree
-
-if [ "$CODEX_DEFER_DEFAULT" = 1 ]; then
-  if [ "$QUOTA_HARNESS_EXPLICIT" = 1 ]; then
-    fm_quota_gate_run "$HARNESS" "$MODEL" "$CONFIG/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-spawn "$KIND" "$BACKEND" \
-      "$CONFIG" "$WORKER_ACCOUNT_MATE" "" "$WT" || {
-      [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
-      exit 1
-    }
-    [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
-    QUOTA_GATE_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
-    CODEX_SELECTED_ROOT=$FM_QUOTA_CODEX_ROOT
-    MODEL=$FM_QUOTA_CODEX_MODEL
-  fi
-  spawn_select_worker_account "$WT" || exit 1
-fi
 
 # Pre-register Claude's workspace trust for the directory this launch starts in,
 # at the first point that directory is known and before any per-task state is
@@ -6015,7 +6063,7 @@ esac
 # directory namespaced by home identity, not in this shared per-id root.
 TASK_TMP="/tmp/fm-$ID"
 if (umask 077 && mkdir "$TASK_TMP") 2>/dev/null; then
-  [ "$HARNESS" != polytoken ] || SPAWN_TASK_TMP_CREATED=1
+  { [ "$HARNESS" != polytoken ] && [ "$HARNESS" != codex ]; } || SPAWN_TASK_TMP_CREATED=1
 else
   if [ -L "$TASK_TMP" ] || [ ! -d "$TASK_TMP" ] || [ ! -O "$TASK_TMP" ] ||
     [ -n "$(find "$TASK_TMP" -prune \( -perm -g=w -o -perm -o=w \) -print 2>/dev/null)" ] ||
@@ -6062,7 +6110,7 @@ if [ "$HARNESS" = polytoken ] && [ "$RAW_LAUNCH" -eq 0 ]; then
   fm_polytoken_require_hooks_free "$WT" || exit 1
   fm_polytoken_require_handler_path "$(fm_polytoken_busy_script "$STATE_REAL" "$ID")" || exit 1
 fi
-[ "$RELAUNCH" -eq 1 ] || [ "$HARNESS" != polytoken ] || SPAWN_FRESH_WIRING_PENDING=1
+[ "$RELAUNCH" -eq 1 ] || { [ "$HARNESS" != polytoken ] && [ "$HARNESS" != codex ]; } || SPAWN_FRESH_WIRING_PENDING=1
 if [ "$RELAUNCH" -eq 1 ]; then
   RELAUNCH_REPLACEMENT_PENDING=1
   RELAUNCH_REPLACEMENT_HARNESS=$HARNESS

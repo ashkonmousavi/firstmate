@@ -624,6 +624,13 @@ codex_case() {
     python3 "$ROOT/bin/fm-codex-accounts.py" prepare --folder "$root" --shared "$CASE/shared" || fail 'prepare failed'
   done
   printf '%s\n' "$CASE/account one" "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
+  cat > "$FAKEBIN/treehouse" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = get ]; then
+  jq -n --arg path "$FM_FAKE_PANE_PATH" '{path:$path,lease_id:"fixture-lease"}'
+fi
+SH
+  chmod +x "$FAKEBIN/treehouse"
   # The shared fixture need not install Codex: all harness/pane behavior lives
   # in its fake endpoint. Never fall through to the machine's installed CLI.
   cat > "$FAKEBIN/codex" <<'SH'
@@ -996,7 +1003,7 @@ test_codex_secondmate_project_model() {
   printf '# Firstmate\n' > "$sm/AGENTS.md"
   printf '%s\n' "$id" > "$sm/.fm-secondmate-home"
   printf 'charter for %s\n' "$id" > "$sm/data/charter.md"
-  printf 'model="account-default"\n' > "$sm/.codex/config.toml"
+  printf 'model="project-default"\n' > "$sm/.codex/config.toml"
   codex_quota "$CASE/account one" fresh 80
   codex_quota "$CASE/account-two" fresh 90
   for root in "$CASE/account one" "$CASE/account-two"; do
@@ -1011,15 +1018,6 @@ test_codex_secondmate_project_model() {
     {scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
     "$CASE/account-two/quota.json" > "$CASE/project-quota.json"
   mv "$CASE/project-quota.json" "$CASE/account-two/quota.json"
-  mv "$FAKEBIN/tmux" "$FAKEBIN/tmux-base"
-  cat > "$FAKEBIN/tmux" <<'SH'
-#!/usr/bin/env bash
-if [ "${1:-}" = new-window ]; then
-  printf 'model="project-default"\n' > "$FM_FAKE_PANE_PATH/.codex/config.toml"
-fi
-exec "$(dirname "$0")/tmux-base" "$@"
-SH
-  chmod +x "$FAKEBIN/tmux"
   out=$(FM_SKIP_SECONDMATE_SYNC=1 FM_SKIP_SECONDMATE_INHERIT=1 FM_FAKE_LAUNCH_LOG="$CASE/launch.log" \
     fm_test_run_spawn "$HOME_DIR" "$sm" "$FAKEBIN" "$id" "$sm" --secondmate --harness codex); rc=$?
   expect_code 0 "$rc" "secondmate must resolve its model after home preparation: $out"
@@ -1028,6 +1026,82 @@ SH
   (cd "$sm" && run_pane)
   assert_contains "$(cat "$CASE/account one/worker-arguments")" '--model project-default' 'secondmate launches the prepared project model'
   pass 'Codex secondmates resolve their actual project model after home preparation'
+}
+
+test_codex_exhausted_refusal_releases_capacity() {
+  local out rc id mode attempt claim before root
+  codex_case codex-exhausted-capacity
+  mkdir -p "$CASE/slots/1"
+  git -C "$PROJ" worktree move "$WT" "$CASE/slots/1/project" || fail 'could not prepare pool slot'
+  WT="$CASE/slots/1/project"
+  printf '{"worktrees":[{"name":"1","path":"%s"}]}\n' "$WT" > "$CASE/slots/treehouse-state.json"
+  claim="$CASE/slots/1/.fm-slot-owner"
+  mv "$FAKEBIN/tmux" "$FAKEBIN/tmux-base"
+  cat > "$FAKEBIN/tmux" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = new-window ]; then
+  printf 'endpoint\n' >> "$(dirname "$0")/endpoints-created"
+fi
+exec "$(dirname "$0")/tmux-base" "$@"
+SH
+  cat > "$FAKEBIN/treehouse" <<'SH'
+#!/usr/bin/env bash
+set -eu
+lease="$(dirname "$0")/held-lease"
+case "$1" in
+  get)
+    [ ! -e "$lease" ] || exit 81
+    [ "$2" = --lease ] && [ "$3" = --lease-holder ] && [ "$5" = --json ] || exit 82
+    printf '%s\n' "$4" > "$lease"
+    jq -n --arg path "$FM_FAKE_PANE_PATH" '{path:$path,lease_id:"owned-attempt"}'
+    ;;
+  return)
+    [ "$2" = "$FM_FAKE_PANE_PATH" ] && [ "$3" = --if-lease-id ] && [ "$4" = owned-attempt ] || exit 83
+    [ "$5" = --if-lease-holder ] && [ "$6" = "$(cat "$lease")" ] || exit 84
+    [ -z "$(git -C "$2" status --porcelain --untracked-files=all)" ] || exit 85
+    rm "$lease"
+    ;;
+  *) exit 86 ;;
+esac
+SH
+  chmod +x "$FAKEBIN/tmux" "$FAKEBIN/treehouse"
+  before=$(git -C "$WT" rev-parse HEAD)
+  for mode in explicit implicit scout; do
+    id="acct-exhausted-$mode"
+    for attempt in 1 2 3; do
+      codex_quota "$CASE/account one" fresh 0
+      codex_quota "$CASE/account-two" fresh 0
+      for root in "$CASE/account one" "$CASE/account-two"; do
+        jq '.providers[].quotaSemantics.effectiveAvailability = [
+          {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
+          "$root/quota.json" > "$CASE/exhausted-quota.json"
+        mv "$CASE/exhausted-quota.json" "$root/quota.json"
+      done
+      case "$mode" in
+        explicit) out=$(spawn_ship "$id" --harness codex --model default); rc=$? ;;
+        implicit) out=$(spawn_ship "$id"); rc=$? ;;
+        scout)
+          fm_test_spawn_brief "$HOME_DIR" "$id"
+          out=$(fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --scout --harness codex --model default); rc=$?
+          ;;
+      esac
+      expect_code 1 "$rc" "$mode retry $attempt must refuse exhausted folders: $out"
+      assert_contains "$out" 'no usable signed-in folder' 'refusal must come from applicable quota'
+      assert_absent "$HOME_DIR/state/$id.meta" 'refusal published metadata'
+      assert_absent "$FAKEBIN/endpoints-created" 'refusal created an endpoint'
+      [ ! -s "$FAKEBIN/.spawn-window" ] || fail 'refusal left an endpoint holding a process lease'
+      assert_absent "$FAKEBIN/held-lease" 'refusal left its durable lease'
+      assert_absent "$claim" 'refusal left its task claim'
+      assert_equals "$before" "$(git -C "$WT" rev-parse HEAD)" 'refusal changed the pool commit'
+    done
+  done
+  codex_quota "$CASE/account one" fresh 80
+  out=$(spawn_ship acct-exhausted-recovered --harness codex); rc=$?
+  expect_code 0 "$rc" "capacity must remain available after repeated refusals: $out"
+  assert_grep "worktree=$WT" "$HOME_DIR/state/acct-exhausted-recovered.meta" 'successful retry uses the available slot'
+  assert_present "$FAKEBIN/held-lease" 'successful launch must retain its lease until teardown'
+  assert_grep 'task=acct-exhausted-recovered' "$claim" 'successful launch owns its slot'
+  pass 'exhausted default-model launches refuse before endpoints and release capacity across retries'
 }
 
 test_codex_identity_timeout() {
@@ -1201,6 +1275,7 @@ test_codex_applicable_quota
 test_codex_default_model
 test_codex_project_model
 test_codex_secondmate_project_model
+test_codex_exhausted_refusal_releases_capacity
 test_codex_identity_timeout
 test_codex_runway_timing
 test_codex_spawn_and_checks

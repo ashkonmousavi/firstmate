@@ -527,6 +527,10 @@ SH
   cat > "$dir/fakebin/treehouse" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FM_FAKE_DIR/treehouse-log"
+if [ "${1:-}" = get ]; then
+  jq -n --arg path "$(cat "$FM_FAKE_DIR/treehouse-slot")" '{path:$path,lease_id:"released-lease"}'
+  exit
+fi
 [ ! -e "$FM_FAKE_DIR/fail-return" ] || exit 1
 exit 0
 SH
@@ -4243,8 +4247,8 @@ SH
 }
 
 test_codex_project_cwd_handoffs() {
-  local lifecycle dir id wt root out rc head marker
-  for lifecycle in ordinary direct-ordinary released direct-released; do
+  local lifecycle dir id wt root out rc head marker prior_meta prior_brief
+  for lifecycle in ordinary direct-ordinary released direct-released claim-released; do
     id="codex-cwd-$lifecycle"
     dir=$(new_case "$id" "$id")
     case "$lifecycle" in
@@ -4328,6 +4332,11 @@ PY
 cat "$CODEX_HOME/quota.json"
 SH
     chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
+    if [ "$lifecycle" = claim-released ]; then
+      mkdir "$dir/pool/1/.fm-slot-owner"
+      prior_meta=$(cat "$dir/home/state/$id.meta")
+      prior_brief=$(cat "$dir/home/data/$id/brief.md")
+    fi
     case "$lifecycle" in
       direct-*)
         printf zsh > "$dir/fake/command"
@@ -4335,6 +4344,14 @@ SH
         ;;
       *) out=$(run_control "$dir" "$id" relaunch --harness codex --model default --note 'preserve project model'); rc=$? ;;
     esac
+    if [ "$lifecycle" = claim-released ]; then
+      expect_code 1 "$rc" "released claim failure must refuse: $out"
+      assert_released_untouched "$dir" "$id" "$prior_meta" "$prior_brief" 'released claim failure'
+      assert_grep "return $wt --if-lease-id released-lease --if-lease-holder $id" "$dir/fake/treehouse-log" 'released claim failure must return its exact lease'
+      assert_absent "$dir/fake/created-windows" 'released claim failure opened an endpoint'
+      [ -d "$dir/pool/1/.fm-slot-owner" ] || fail 'released cleanup changed the pre-existing unsafe claim'
+      continue
+    fi
     expect_code 0 "$rc" "$lifecycle must resolve the trusted worktree model: $out"
     assert_equals project-default "$(meta_field "$dir" "$id" model)" "$lifecycle launch records project model B"
     assert_equals "$dir/account-one" "$(meta_field "$dir" "$id" account)" "$lifecycle selects by quota for project B"
