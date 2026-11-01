@@ -36,6 +36,17 @@
 #      open loop owned by the ordinary pending-reply recovery ladder, not state
 #      this restart pass may close.
 #
+# Background shells. A Claude agent asked to exit while one of its background
+# shells runs stops on its "Background work is running" exit picker instead of
+# exiting. The shared persist request in bin/fm-secondmate-restart-lib.sh owns
+# the cleanup scope. Before relaunch a Claude mate's screen is read through its
+# placement's own route (the backend locally, fm-remote-secondmate-control.sh
+# capture remotely) and the restart waits, bounded, while it still reports
+# running shells. If they outlast the wait or the screen cannot be read, the
+# mate is reported as unreached and left running without attempting relaunch. The
+# restart does not confirm exit pickers. It leaves exit handling to the control
+# plane after this prevention step completes.
+#
 # A mate whose persist answer did not arrive or whose runtime cannot prove a
 # restart gets the ordinary re-read nudge and is reported as a nudge, never as a
 # clean reload. Once a relaunch is attempted, any failed or ambiguous result is
@@ -69,7 +80,10 @@
 #
 # Environment knobs:
 #   FM_SECONDMATE_PERSIST_WAIT  seconds to wait for one mate's persist answer (900)
-#   FM_SECONDMATE_PERSIST_POLL  seconds between checks of that answer (5)
+#   FM_SECONDMATE_PERSIST_POLL  seconds between checks of that answer, and of a
+#                               Claude mate's background shells (5)
+#   FM_SECONDMATE_BG_SHELL_WAIT seconds to wait for a Claude mate's background
+#                               shells to stop before refusing the restart (120)
 #   FM_SECONDMATE_RESTART_LOCK_WAIT    seconds to wait for a running liveness
 #                                      recovery of the mate to finish (300)
 #   FM_SECONDMATE_RESTART_VERIFY_WAIT  seconds to observe a replacement after
@@ -85,7 +99,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 usage() {
-  sed -n '2,81{s/^# \{0,1\}//;p;}' "$0"
+  sed -n '2,/^[^#]/{/^#/{s/^# \{0,1\}//;p;};}' "$0"
 }
 
 case "${1:-}" in
@@ -110,9 +124,12 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 # shellcheck source=bin/fm-secondmate-liveness-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
 fm_sm_live_require_locks || { echo "error: the lock helpers could not be loaded" >&2; exit 1; }
+# shellcheck source=bin/fm-composer-lib.sh
+. "$SCRIPT_DIR/fm-composer-lib.sh"
 
 PERSIST_WAIT=${FM_SECONDMATE_PERSIST_WAIT:-900}
 PERSIST_POLL=${FM_SECONDMATE_PERSIST_POLL:-5}
+BG_SHELL_WAIT=${FM_SECONDMATE_BG_SHELL_WAIT:-120}
 case "$PERSIST_WAIT" in ''|*[!0-9]*) echo "error: FM_SECONDMATE_PERSIST_WAIT must be a non-negative integer: $PERSIST_WAIT" >&2; exit 2 ;; esac
 case "$PERSIST_POLL" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_PERSIST_POLL must be a positive integer: $PERSIST_POLL" >&2; exit 2 ;; esac
 LOCK_WAIT=${FM_SECONDMATE_RESTART_LOCK_WAIT:-300}
@@ -121,6 +138,7 @@ VERIFY_POLL=${FM_SECONDMATE_RESTART_VERIFY_POLL:-2}
 case "$LOCK_WAIT" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_RESTART_LOCK_WAIT must be a positive integer: $LOCK_WAIT" >&2; exit 2 ;; esac
 case "$VERIFY_WAIT" in ''|*[!0-9]*) echo "error: FM_SECONDMATE_RESTART_VERIFY_WAIT must be a non-negative integer: $VERIFY_WAIT" >&2; exit 2 ;; esac
 case "$VERIFY_POLL" in ''|*[!0-9]*|0) echo "error: FM_SECONDMATE_RESTART_VERIFY_POLL must be a positive integer: $VERIFY_POLL" >&2; exit 2 ;; esac
+case "$BG_SHELL_WAIT" in ''|*[!0-9]*) echo "error: FM_SECONDMATE_BG_SHELL_WAIT must be a non-negative integer: $BG_SHELL_WAIT" >&2; exit 2 ;; esac
 
 IDS=()
 for arg in "$@"; do
@@ -148,6 +166,7 @@ DEADLINE=()
 PLACEMENT=()
 HOST=()
 HARNESS=()
+RUNNING_HARNESS=()
 MODEL=()
 EFFORT=()
 RESTART_PID=()
@@ -228,8 +247,42 @@ restart_mate() {  # <array-index>
   fm_secondmate_liveness_unlock "$id"
 }
 
-restart_mate_locked() {  # <array-index>
-  local i=$1 id restart_out restart_rc restart_reason ran_on
+# The mate's current screen, read through the route its placement uses for
+# everything else: the viewport locally, so nothing scrolled away is read as
+# the live screen, and the host's bounded capture remotely. Returns 1 when it
+# cannot be read.
+mate_screen() {  # <array-index>
+  local i=$1 id
+  id=${IDS[$i]}
+  if [ "${PLACEMENT[i]}" = remote ]; then
+    FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-on.sh" "$id" \
+      fm-remote-secondmate-control.sh capture "$id" 60 < /dev/null 2>/dev/null
+    return
+  fi
+  fm_backend_validate_task_endpoint "$STATE/$id.meta" "$id" 2>/dev/null || return 1
+  fm_backend_visible_capture "$FM_BACKEND_VALIDATED_BACKEND" "$FM_BACKEND_VALIDATED_TARGET" "fm-$id" 2>/dev/null
+}
+
+wait_out_background_shells() {  # <array-index>
+  local i=$1 deadline screen
+  [ "${RUNNING_HARNESS[i]}" = claude ] || return 0
+  deadline=$(($(date +%s) + BG_SHELL_WAIT))
+  while :; do
+    screen=$(mate_screen "$i") || {
+      printf 'its screen could not be read'
+      return 1
+    }
+    fm_composer_claude_background_shells "$screen" >/dev/null || return 0
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      printf 'its background shells were still running after %ss' "$BG_SHELL_WAIT"
+      return 1
+    fi
+    sleep "$PERSIST_POLL"
+  done
+}
+
+run_relaunch() {  # <array-index>; sets restart_out and restart_rc
+  local i=$1 id
   id=${IDS[$i]}
   if [ "${PLACEMENT[i]}" = remote ]; then
     restart_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
@@ -241,6 +294,16 @@ restart_mate_locked() {  # <array-index>
       "$SCRIPT_DIR/fm-control.sh" "$id" relaunch 2>&1)
     restart_rc=$?
   fi
+}
+
+restart_mate_locked() {  # <array-index>
+  local i=$1 id restart_out restart_rc restart_reason ran_on cleanup_reason
+  id=${IDS[$i]}
+  if ! cleanup_reason=$(wait_out_background_shells "$i"); then
+    report_unreached "$id" "background-shell cleanup incomplete: $cleanup_reason; relaunch was not attempted"
+    return
+  fi
+  run_relaunch "$i"
   if [ "$restart_rc" -eq 0 ]; then
     ran_on=$(printf '%s\n' "$restart_out" | sed -n 's/^relaunched .* harness=\([^ ]*\).*/\1/p' | tail -1)
     [ -n "$ran_on" ] || ran_on=${HARNESS[i]}
@@ -328,6 +391,7 @@ while [ "$i" -lt "${#IDS[@]}" ]; do
   PLACEMENT[i]=""
   HOST[i]=""
   HARNESS[i]=""
+  RUNNING_HARNESS[i]=""
   MODEL[i]=""
   EFFORT[i]=""
   if ! fm_secondmate_restart_capable "$STATE/$id.meta"; then
@@ -338,6 +402,7 @@ while [ "$i" -lt "${#IDS[@]}" ]; do
   PLACEMENT[i]=$FM_SECONDMATE_RESTART_PLACEMENT
   HOST[i]=$FM_SECONDMATE_RESTART_HOST
   HARNESS[i]=$FM_SECONDMATE_RESTART_HARNESS
+  RUNNING_HARNESS[i]=$FM_SECONDMATE_RESTART_HARNESS
   if [ "${PLACEMENT[i]}" = remote ]; then
     # A local relaunch re-resolves this home's durable secondmate pin on its own,
     # which is the one owner of that resolution. A remote one cannot: it runs in

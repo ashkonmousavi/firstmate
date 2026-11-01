@@ -2,7 +2,7 @@
 # Relaunch a REMOTE secondmate onto a new harness, model, or effort, then
 # republish this parent's own route record to match what the host confirmed.
 #
-# Usage: fm-remote-secondmate-relaunch.sh <id> <harness> <model|default|-> <effort|default|->
+# Usage: fm-remote-secondmate-relaunch.sh <id> <harness> <model|default|-> <effort|default|-> [--quota-override <reason>]
 #
 # bin/fm-remote-secondmate-control.sh's relaunch verb runs entirely on the
 # secondmate's own host and can only rewrite that host's own endpoint record;
@@ -33,11 +33,17 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 usage() { sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
-[ "$#" -eq 4 ] || usage
+[ "$#" -eq 4 ] || [ "$#" -eq 6 ] || usage
 ID=$1
 HARNESS=$2
 MODEL=$3
 EFFORT=$4
+QUOTA_ARGS=()
+if [ "$#" -eq 6 ]; then
+  [ "$5" = --quota-override ] || usage
+  case "$6" in ''|*[[:cntrl:]]*) die "--quota-override requires a non-empty one-line reason" ;; esac
+  QUOTA_ARGS=(--quota-override "$6")
+fi
 case "$ID" in ''|*[!A-Za-z0-9._-]*) die "invalid secondmate id: $ID" ;; esac
 
 META="$STATE/$ID.meta"
@@ -47,7 +53,7 @@ REMOTE_HOST=$(fm_meta_get "$META" remote_host)
   || die "task $ID is not a remotely placed secondmate; use bin/fm-control.sh $ID relaunch instead"
 
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
-  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" </dev/null 2>&1) || {
+  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "${QUOTA_ARGS[@]}" </dev/null) || {
   rc=$?
   printf '%s\n' "$RELAUNCH_OUT" >&2
   exit "$rc"
@@ -65,6 +71,8 @@ printf '%s\n' "$RELAUNCH_OUT"
 NEW_HARNESS=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^harness=//p' | tail -1)
 NEW_MODEL=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^model=//p' | tail -1)
 NEW_EFFORT=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^effort=//p' | tail -1)
+NEW_QUOTA_OVERRIDE=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^quota_override=//p' | tail -1)
+NEW_QUOTA_EVIDENCE=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^quota_override_evidence=//p' | tail -1)
 [ -n "$NEW_HARNESS" ] || die "the host's route confirmation carried no harness to record"
 
 META_LOCK=$(fm_meta_lock_path "$META") || die "metadata lock path is invalid for $ID"
@@ -77,6 +85,9 @@ META_TMP=$(mktemp "$STATE/.fm-remote-relaunch-meta.XXXXXX") || {
   printf 'harness=%s\n' "$NEW_HARNESS"
   printf 'model=%s\n' "$NEW_MODEL"
   printf 'effort=%s\n' "$NEW_EFFORT"
+  if [ -n "$NEW_QUOTA_OVERRIDE" ]; then
+    printf 'quota_override=%s\nquota_override_evidence=%s\n' "$NEW_QUOTA_OVERRIDE" "$NEW_QUOTA_EVIDENCE"
+  fi
 } >> "$META_TMP"
 # Every other line is preserved in its original relative order after the
 # refreshed harness/model/effort. A pr= line's own identity block (pr_head=
@@ -86,7 +97,7 @@ META_TMP=$(mktemp "$STATE/.fm-remote-relaunch-meta.XXXXXX") || {
 # a task that already had one armed.
 while IFS= read -r line || [ -n "$line" ]; do
   case "$line" in
-    harness=*|model=*|effort=*) ;;
+    harness=*|model=*|effort=*|quota_override=*|quota_override_evidence=*) ;;
     *) printf '%s\n' "$line" >> "$META_TMP" ;;
   esac
 done < "$META"
