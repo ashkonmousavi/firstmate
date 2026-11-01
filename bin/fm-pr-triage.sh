@@ -97,7 +97,8 @@
 # RECORDS. state/pr-triage.log, append-only, one line per pull request per pass:
 #   <UTC time>\t<pr url>\t<rank>\t<action>\t<result>
 # action is fix, queue, or none; result is the outcome or refused:<reason>.
-# A pass that cannot read the pull requests writes one record with - fields.
+# A pass that cannot read the pull requests or the backlog writes one record
+# with - fields.
 # Tabs and line breaks inside a reason become spaces. Each record is also
 # printed on stdout. The dry run prints `would-record:` lines and `would-run:`
 # commands and takes no lock, writes no triage record or marker and makes no
