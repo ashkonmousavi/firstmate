@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Relaunch a REMOTE secondmate onto a new harness, model, or effort, then
-# republish this parent's own route record to match what the host confirmed.
-#
+# Relaunch a REMOTE secondmate or refresh its confirmed route identity.
+# Republish this parent's own route record to match what the host confirmed.
 # Usage: fm-remote-secondmate-relaunch.sh <id> <harness> <model|default|-> <effort|default|->
 #        fm-remote-secondmate-relaunch.sh --refresh-route <id>
 #
@@ -12,12 +11,14 @@
 # the relaunch alone therefore leaves this file naming the runtime the mate
 # used to run, not the one it runs now.
 #
-# This wrapper is the missing other half. It runs the host-local relaunch
-# through bin/fm-on.sh exactly as secondmate-provisioning documents, then reads
-# the confirmed harness, model, and effort back out of the endpoint's own
+# This wrapper is the missing other half. By default it runs the host-local
+# relaunch through bin/fm-on.sh; --refresh-route instead reads the existing
+# route without relaunching, so a restart that verifies another spawn's winner
+# can record that winner's identity. Both modes read the confirmed harness,
+# model, and effort back out of the endpoint's own
 # route report - the same read-back-from-the-endpoint shape bin/fm-spawn.sh
 # already uses when it first records a remote route - and republishes this
-# home's own metadata to match. A failed or refused relaunch leaves this
+# home's own metadata to match. A failed relaunch or route read leaves this
 # parent's record untouched.
 set -eu
 
@@ -59,8 +60,8 @@ RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
 }
 printf '%s\n' "$RELAUNCH_OUT"
 
-# The confirmed identity comes from the route block the host prints after a
-# successful relaunch, never from the human-readable "relaunched ..." summary
+# The confirmed identity comes from the host's route block, never from the
+# human-readable "relaunched ..." summary
 # line: a relaunch onto "default" prints that literal word there, while the
 # endpoint's own record - and this parent's, to match it - store an empty
 # field for "no explicit pin".
