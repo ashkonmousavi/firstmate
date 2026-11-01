@@ -1,0 +1,7 @@
+{
+  "ticks": 3,
+  "agent_state": "dead",
+  "endpoint_identity_unchanged": true,
+  "ledger_unchanged": true,
+  "restart_lock_held": true
+}

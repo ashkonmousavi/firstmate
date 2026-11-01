@@ -1,0 +1,77 @@
+watch-live-initial-agent.txt endpoint=alive verdict=alive
+
+watch-live-agent-exit.txt stopped sm1 harness=pi backend=tmux endpoint=primary:fm-sm1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/parent
+
+watch-live-dead-endpoint.txt endpoint=dead verdict=relaunchable
+
+watch-live-locked-tick-0.txt watch_tick_rc=0
+
+watch-live-locked-tick-1.txt watch_tick_rc=0
+
+watch-live-locked-tick-2.txt watch_tick_rc=0
+
+watch-live-lock-result.json {
+  "ticks": 3,
+  "agent_state": "dead",
+  "endpoint_identity_unchanged": true,
+  "ledger_unchanged": true,
+  "restart_lock_held": true
+}
+watch-live-abandoned-lock.txt abandoned_owner=2951620
+
+watch-live-stale-lock-recovery.txt check: secondmate sm1 auto-relaunched after confirmed agent absence on existing endpoint (backend=tmux)
+
+watch-live-recovered-agent.txt endpoint=alive verdict=alive
+
+watch-live-recovery-ledger.txt 1793492367	attempt
+1793492369	relaunched
+
+watch-live-recovered-pane.txt tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate$ export GOTMPDIR=/tmp/f
+m-sm1/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate$ export COMPACT_ADVISER
+_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate$ . '/tmp/fm-sm1+a4b8d4d
+365874177a133d9a014314df03abd196e547f356214e49b7ddb752948/launch.s1793492368.2951892.571.sh'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+watch-live-recovery-result.json {
+  "watch_tick_exit": 0,
+  "endpoint_after_recovery": "alive",
+  "attempt_rows": 1,
+  "relaunched_rows": 1,
+  "stale_lock_reclaimed": true
+}

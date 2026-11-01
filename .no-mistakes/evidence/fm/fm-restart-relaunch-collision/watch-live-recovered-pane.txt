@@ -1,0 +1,40 @@
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate$ export GOTMPDIR=/tmp/f
+m-sm1/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate$ export COMPACT_ADVISER
+_DISABLE=1
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate$ . '/tmp/fm-sm1+a4b8d4d
+365874177a133d9a014314df03abd196e547f356214e49b7ddb752948/launch.s1793492368.2951892.571.sh'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

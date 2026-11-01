@@ -1,0 +1,7 @@
+{
+  "watch_tick_exit": 0,
+  "endpoint_after_recovery": "alive",
+  "attempt_rows": 1,
+  "relaunched_rows": 1,
+  "stale_lock_reclaimed": true
+}

@@ -1,0 +1,5 @@
+exit=0
+teardown sm1 complete (window primary:fm-sm1, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/parent
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.

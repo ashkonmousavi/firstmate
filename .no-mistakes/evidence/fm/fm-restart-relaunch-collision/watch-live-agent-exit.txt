@@ -1,0 +1,2 @@
+stopped sm1 harness=pi backend=tmux endpoint=primary:fm-sm1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/parent

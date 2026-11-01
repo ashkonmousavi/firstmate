@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M6A6KX5P60NKCFH991XHF4T7/live-collision.py", line 30, in <module>
+    assert 'phase=failed:launching' in phase(), (E/'live-restart-collision.txt').read_text()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unreached: sm1: the request to write down its open work could not be delivered: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git); the re-read message could not be delivered either: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+

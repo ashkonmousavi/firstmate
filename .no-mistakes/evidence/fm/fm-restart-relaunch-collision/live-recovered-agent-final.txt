@@ -1,0 +1,40 @@
+   figma: needs sign-in
+ Run /mcp to fix.
+
+
+ ⁣FIRSTMATE_OP: v1 launch-brief: This is a disposable restart test. You have no open work to persist. Wait for incoming
+ instructions. When a Firstmate instruction doorbell arrives, read its named inbox using bin/fm-task-inbox.sh only if
+ present; otherwise read the .msg file directly. For a persist request reply through bin/fm-secondmate-report.sh with
+ its correlation token and state that no open work exists. Do not start watchers, spawn agents, use network services,
+ or alter any files except the lab reply record. Then wait.
+
+
+
+ : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'sm1.inbox' steering inbox, read and act on each
+ in numeric order, then mv each into its handled/.
+
+
+
+ $ printf 'FM_TASK_INBOX=%s\n' "$FM_TASK_INBOX"; if [ -f bin/fm-task-inbox.sh ]; then printf 'INBOX_HELPER_PRESENT\n';
+ else printf 'INBOX_HELPER_ABSENT\n'; fi; printf '%s\n' "$FM_TASK_INBOX"/*.msg (timeout 10s)
+
+ FM_TASK_INBOX=~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/parent/state/s
+ m1.inbox
+ INBOX_HELPER_ABSENT
+ ~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/parent/state/sm1.inbox/001.m
+ sg
+
+ Took 0.1s
+
+
+
+ read ~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/parent/state/sm1.inbox/001.msg
+
+
+ ACK
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/mate (master)
+↑39k ↓203 R115k CH99.5% $0.091 (sub) 7.7%/500k (auto)                                   (openai-codex) gpt-6.1-sol • low

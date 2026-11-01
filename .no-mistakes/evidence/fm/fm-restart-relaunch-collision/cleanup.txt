@@ -1,0 +1,3 @@
+Private fm-lab server stopped (list-sessions exit 1).
+no server running on ~/.no-mistakes/evidence/01M6A6KX5P60NKCFH991XHF4T7/tmux/tmux-1000/fm-lab
+Disposable workspace removed.

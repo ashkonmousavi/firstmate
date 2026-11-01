@@ -1,0 +1,7 @@
+Stock marked lab: exit=0
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6A6KX5P60NKCFH991XHF4T7/.restart-live/parent
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+
+Same marked lab with restart-internal FM_STATE_OVERRIDE: exit=3
+error: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
