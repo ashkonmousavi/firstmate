@@ -96,6 +96,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Unwatched conflicted pull-request episode markers under `state/pr-orphan-conflict/`, written only by `bin/fm-pr-orphan-sweep.sh`.
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 - Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
+- The append-only auto-launch decision log `state/autolaunch.log` and its throttle-check episode marker, written only by `bin/fm-autolaunch.sh` and `bin/fm-autolaunch-check.sh` ([Auto-launch](#auto-launch-configautolaunch-exclude)).
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -680,6 +681,25 @@ Arm the sweep once per home with `bin/fm-lane-release.sh arm`, which writes `sta
 The word is a per-home choice and is deliberately not inherited by secondmate homes, so each home moves from `off` to `audit` to `on` on its own schedule.
 [`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns the marker and the reader rule for reporting and recovery.
 The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the ledger, the audit exit codes, and the fixed limits.
+
+## Auto-launch (config/autolaunch-exclude)
+
+`bin/fm-autolaunch.sh` is a plain script, with no model in the loop, that fills this machine's free lanes from this home's backlog.
+Each pass takes the top ready item per free lane, J-01 items first, and launches it through `bin/fm-spawn.sh` with the brief the item already carries.
+Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
+An item is prepared only when it has both `data/<id>/brief.md` and `data/<id>/autolaunch-prep`, the key=value launch record whose fields the script header owns.
+Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
+Every decision appends one tab-separated record to `state/autolaunch.log`: the time, lane, item, model, and either `launched` or `refused:<reason>`.
+
+The optional local, gitignored `config/autolaunch-exclude` holds one shell glob per line, matched against an item's id, backlog repo, and prep project; use it to keep parked work, such as every Q item while Q is parked, from launching.
+The file is home-local and not inherited by secondmate homes.
+
+Nothing enables a schedule automatically.
+To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints each decision and spawn command and writes nothing.
+Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line with `FM_HOME` set explicitly, recording it in the machine inventory first.
+Arm the throttle check with `bin/fm-autolaunch-check.sh arm`, which binds `state/autolaunch.check.sh` through `bin/fm-check-register.sh` so the watcher runs it on its ordinary check cadence; `disarm` removes it.
+The check prints one red line, and in a secondmate home also reports it on the parent channel, when a free lane and a prepared item have had no auto-launch record for ten minutes; otherwise it is silent.
+The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep fields, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 

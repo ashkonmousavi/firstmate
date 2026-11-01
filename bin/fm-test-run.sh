@@ -704,6 +704,7 @@ tests/fm-afk-return.test.sh 47380
 tests/fm-agy-harness.test.sh 50959
 tests/fm-agy-signals-live-e2e.test.sh 53
 tests/fm-ask-user-authority.test.sh 171
+tests/fm-autolaunch.test.sh 10134
 tests/fm-backend-cmux-smoke.test.sh 34
 tests/fm-backend-cmux.test.sh 3754
 tests/fm-backend-orca.test.sh 27102
