@@ -718,7 +718,7 @@ The refusal reasons are deliberate guards, chiefly against a duplicate spawn or 
 The local, gitignored `config/pr-triage-rules` is required: `repo=` and `project=` name what to triage, and repeatable `title=`, `label=` and `path=` lines name the rank-1 classes.
 It is home-local and not inherited by secondmate homes.
 
-Nothing enables a schedule automatically, and without `--apply` a pass is a dry run that prints each decision and command and writes nothing.
+Nothing enables a schedule automatically, and without `--apply` a pass is a dry run that prints each decision and command and takes no lock, writes no triage record and makes no GitHub write, except that the capacity admission check it calls appends its normal sample line to `state/machine-admission.log`.
 Enabling the five-minute schedule is a governance step MAIN performs per machine: write the rules file, read a dry run, confirm `mergify` is authenticated for the scheduling user and the label `main-red` exists on the repository, record the unit in the machine inventory, then install the schedule `bin/fm-pr-triage.sh --print-timer` proposes.
 The [`bin/fm-pr-triage.sh` header](../bin/fm-pr-triage.sh) owns the rules format, rank definition, actions, refusal reasons, and record format.
 

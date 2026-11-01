@@ -5,7 +5,8 @@
 #
 # Usage:
 #   fm-pr-triage.sh                 dry run: print the ranking, the decisions and
-#                                   the commands a real pass would run; write nothing
+#                                   the commands a real pass would run; no lock,
+#                                   triage record or GitHub write (see RECORDS)
 #   fm-pr-triage.sh --apply         one real pass: GitHub writes and fix-worker
 #                                   launches happen, one record per pull request
 #   fm-pr-triage.sh --print-timer   print a proposed systemd user timer and cron line
@@ -99,7 +100,10 @@
 # A pass that cannot read the pull requests writes one record with - fields.
 # Tabs and line breaks inside a reason become spaces. Each record is also
 # printed on stdout. The dry run prints `would-record:` lines and `would-run:`
-# commands, takes no lock and writes no file, label, comment or launch.
+# commands and takes no lock, writes no triage record or marker and makes no
+# label, comment, launch or other GitHub write, except that the capacity
+# admission check it calls appends its normal sample line to
+# state/machine-admission.log.
 #
 # Exit: 0 after a pass (refusals included) or a busy lock; 1 when the rules,
 # the pull requests, the backlog or the log cannot be read or written; 2 usage.
