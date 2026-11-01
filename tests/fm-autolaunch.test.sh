@@ -254,6 +254,29 @@ assert_not_contains "$(cat "$FAKE/spawn.log")" 'claude' 'an exhausted default is
 assert_not_contains "$(cat "$FAKE/spawn.log")" 'codex' 'a short-runway default is never tried'
 pass 'defaults rank by spendPriority and exhausted or short-runway profiles are skipped'
 
+reset 0
+printf '%s\n' '- [ ] snap-1 - prepared (repo: proj) (kind: ship)' \
+  '- [ ] snap-2 - prepared (repo: proj) (kind: ship)' \
+  '- [ ] snap-3 - prepared (repo: proj) (kind: ship)' | backlog
+prep snap-1 proj; prep snap-2 proj; prep snap-3 proj
+printf '{"default":[{"harness":"claude"}]}\n' > "$H/config/crew-dispatch.json"
+cat > "$FAKE/quota-axi" <<SH
+#!/usr/bin/env bash
+echo call >> "$FAKE/quota-calls"
+cat "$ROOT/tests/fixtures/quota-axi-healthy.json"
+SH
+chmod +x "$FAKE/quota-axi"
+rm -f "$FAKE/quota-calls"
+out=$(FM_QUOTA_SNAPSHOT_FILE='' PATH="$FAKE:$PATH" bash "$AL" --dry-run 2>&1)
+assert_contains "$out" $'\t-\tsnap-3\tclaude\twould-launch-when-a-lane-frees' 'every item is ranked with zero capacity'
+assert_equals 1 "$(wc -l < "$FAKE/quota-calls" | tr -d ' ')" 'a dry run over three items reads quota once'
+rm -f "$FAKE/quota-calls"; printf '3\n' > "$FAKE/free"
+FM_QUOTA_SNAPSHOT_FILE='' PATH="$FAKE:$PATH" bash "$AL" >/dev/null 2>&1
+assert_equals 3 "$(wc -l < "$FAKE/spawn.log" | tr -d ' ')" 'three lanes launch three items'
+assert_equals 1 "$(wc -l < "$FAKE/quota-calls" | tr -d ' ')" 'a real pass over three lanes reads quota once'
+rm -f "$FAKE/quota-axi" "$FAKE/quota-calls"
+pass 'one pass takes at most one quota snapshot'
+
 reset 1
 printf '%s\n' '- [ ] uncertain - prepared (repo: proj) (kind: ship)' | backlog
 prep uncertain proj

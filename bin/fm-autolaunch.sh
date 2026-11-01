@@ -398,7 +398,10 @@ check_item() {
 }
 
 # default_candidates <kind> <backend>: ranked default profiles as TSV
-# harness, model, effort; DEFAULT_REFUSAL names a refused default.
+# harness, model, effort; DEFAULT_REFUSAL names a refused default. The quota
+# snapshot is taken on first need and QUOTA_SNAP (ok or failed) keeps its
+# outcome for the rest of the pass.
+QUOTA_SNAP=
 default_candidates() {
   local kind=$1 backend=$2 defaults all snap resolved='[]' eligible='[]' p r h
   DEFAULT_REFUSAL=
@@ -419,7 +422,11 @@ default_candidates() {
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'.[] | select(quota_gate_launch_eligible($kind; $backend; false))' <<<"$defaults")
   defaults=$eligible
   snap="$TMPD/quota.json"
-  if ! fm_quota_gate_snapshot "$snap" >/dev/null 2>&1; then
+  if [ -z "$QUOTA_SNAP" ]; then
+    QUOTA_SNAP=failed
+    fm_quota_gate_snapshot "$snap" >/dev/null 2>&1 && QUOTA_SNAP=ok
+  fi
+  if [ "$QUOTA_SNAP" = failed ]; then
     # Unmeasurable quota is disclosed uncertainty: declared order, and
     # fm-spawn.sh's own gate prints its notice.
     jq -r '.[] | [.harness, (.model // ""), (.effort // "")] | @tsv' <<<"$defaults"
