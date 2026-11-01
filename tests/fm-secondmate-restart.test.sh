@@ -945,8 +945,9 @@ test_restart_and_liveness_relaunch_race() {
     "a liveness episode probed the stopped endpoint mid-restart"
   [ "$(launch_count "$dir")" -eq 1 ] \
     || fail "expected exactly one replacement launch, saw $(launch_count "$dir"): $(cat "$dir/fake/literal")"
-  assert_grep 'probe=alive' "$dir/fake/liveness.log" \
-    "after the restart, liveness must read the one replacement as alive"
+  "$dir/fake/liveness-episode"
+  [ "$(tail -1 "$dir/fake/liveness.log")" = "probe=alive state=alive" ] \
+    || fail "after the restart, liveness must read the one replacement as alive: $(tail -3 "$dir/fake/liveness.log")"
   if [ -e "$dir/home/state/.secondmate-relaunch-sm1" ]; then
     assert_no_grep 'attempt' "$dir/home/state/.secondmate-relaunch-sm1" \
       "a skipped liveness episode spent a relaunch attempt"
