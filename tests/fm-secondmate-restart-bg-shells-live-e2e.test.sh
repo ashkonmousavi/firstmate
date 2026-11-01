@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Live guard for the second-mate restart's background-shell handling against
-# real Claude Code through tmux: the status-row shell count and the persist
+# real Claude Code through tmux and Herdr: the status-row shell count and the persist
 # request's own shell-stopping sentence clearing it, so a later exit opens
 # no picker.
 # FM_RESTART_BG_SHELLS_LIVE_EVIDENCE_DIR optionally retains the real pane captures.
@@ -8,19 +8,23 @@ set -eu
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-fm_live_gate opt-in FM_RESTART_BG_SHELLS_LIVE claude tmux python3
+fm_live_gate opt-in FM_RESTART_BG_SHELLS_LIVE claude tmux herdr jq python3
 
 version=$(claude --version 2>/dev/null | head -1)
 [ -n "$version" ] || fail 'Claude: installed version unavailable'
-printf '# harness: %s; transport: %s\n' "$version" "$(tmux -V)"
 mkdir -p "$ROOT/.no-mistakes"
 lab=$(mktemp -d "$ROOT/.no-mistakes/restart-bg-shells-live.XXXXXX")
 real_tmux=$(command -v tmux)
 socket="$ROOT/.rbs-$$.sock"
 background_pid=
+server_pid=
 cleanup() {
   "$real_tmux" -S "$socket" kill-server >/dev/null 2>&1 || true
   if [ -n "$background_pid" ]; then kill "$background_pid" 2>/dev/null || true; fi
+  if [ -n "$server_pid" ]; then
+    kill "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  fi
   rm -f "$socket"
   rm -rf "$lab"
   fm_test_cleanup
@@ -67,10 +71,17 @@ stop_request=$(printf '%s\n' "$FM_SECONDMATE_PERSIST_REQUEST" \
   | sed -n 's/.*\(Also stop every background shell[^.]*\.\).*/\1/p')
 [ -n "$stop_request" ] || fail "the persist request no longer asks the mate to stop its background shells"
 
-screen() { tmux capture-pane -p -t live:fm-bg -S -0; }
+screen() {
+  if [ "$backend" = herdr ]; then
+    fm_backend_capture herdr "$target" 60
+  else
+    fm_backend_visible_capture tmux "$target"
+  fi
+}
+visible_screen() { fm_backend_visible_capture "$backend" "$target"; }
 record_screen() {
   [ -z "${FM_RESTART_BG_SHELLS_LIVE_EVIDENCE_DIR:-}" ] \
-    || screen > "$FM_RESTART_BG_SHELLS_LIVE_EVIDENCE_DIR/$1.txt"
+    || screen > "$FM_RESTART_BG_SHELLS_LIVE_EVIDENCE_DIR/$backend-$1.txt"
 }
 wait_for() {  # <seconds> <command...>
   local limit=$1 attempt
@@ -81,12 +92,29 @@ wait_for() {  # <seconds> <command...>
   done
   return 1
 }
-shell_count_is() { [ "$(fm_composer_claude_background_shells "$(screen)" || true)" = "$1" ]; }
-no_shell_count() { ! fm_composer_claude_background_shells "$(screen)" >/dev/null; }
-idle_with_word() { [ "$(fm_tmux_composer_state live:fm-bg)" = empty ] && screen | grep -q "$1"; }
+shell_count_is() {
+  local capture
+  capture=$(screen) && [ -n "$capture" ] || return 1
+  [ "$(fm_composer_claude_background_shells "$capture" || true)" = "$1" ] || return 1
+  capture=$(visible_screen) && [ -n "$capture" ] || return 1
+  [ "$(fm_composer_claude_background_shells "$capture" || true)" = "$1" ]
+}
+no_shell_count() {
+  local capture
+  capture=$(screen) && [ -n "$capture" ] || return 1
+  ! fm_composer_claude_background_shells "$capture" >/dev/null || return 1
+  capture=$(visible_screen) && [ -n "$capture" ] || return 1
+  ! fm_composer_claude_background_shells "$capture" >/dev/null
+}
+idle_with_word() { composer_idle && screen | grep -q "$1"; }
 background_dead() { ! kill -0 "$background_pid" 2>/dev/null; }
-composer_idle() { [ "$(fm_tmux_composer_state live:fm-bg)" = empty ]; }
-agent_dead() { [ "$(fm_backend_tmux_agent_state live:fm-bg)" = dead ]; }
+composer_idle() { [ "$(fm_backend_composer_state "$backend" "$target")" = empty ]; }
+agent_dead() { [ "$(fm_backend_agent_state "$backend" "$target")" = dead ]; }
+send() {
+  "fm_backend_${backend}_send_literal" "$target" "$1" \
+    && fm_backend_send_key "$backend" "$target" Enter
+}
+server_ready() { herdr pane list --session default >/dev/null 2>&1; }
 
 cat > "$lab/launch.sh" <<'SH'
 #!/usr/bin/env bash
@@ -96,30 +124,57 @@ exec claude --no-chrome --permission-mode dontAsk --allowedTools Bash,KillShell,
   --setting-sources '' --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
   --system-prompt 'Follow the user instruction exactly.' "$prompt"
 SH
-tmux new-session -d -s live -n fm-bg -c "$lab/worktree" -x 180 -y 45 'bash --noprofile --norc'
-tmux send-keys -t live:fm-bg -l "bash '$lab/launch.sh'"
-tmux send-keys -t live:fm-bg Enter
-wait_for 90 idle_with_word READY || { screen >&2; fail "$version: never reached an idle composer"; }
-background_pid=$(cat "$lab/worktree/background.pid")
-kill -0 "$background_pid" 2>/dev/null || fail "$version: the background shell is not running"
+unset HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SOCKET_PATH HERDR_SESSION
+cd "$lab"
+export XDG_CONFIG_HOME=.config XDG_DATA_HOME="$lab/data"
+export XDG_STATE_HOME="$lab/state" XDG_CACHE_HOME="$lab/cache"
+mkdir -p "$XDG_CONFIG_HOME/herdr" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
+printf '#!/bin/sh\nexec /bin/bash --noprofile --norc\n' > "$lab/shell"
+chmod +x "$lab/shell"
+printf '[terminal]\ndefault_shell = "%s"\nshell_mode = "non_login"\n[update]\nversion_check = false\nmanifest_check = false\n' \
+  "$lab/shell" > "$XDG_CONFIG_HOME/herdr/config.toml"
+herdr server --session default > "$lab/server.log" 2>&1 &
+server_pid=$!
+wait_for 30 server_ready || { cat "$lab/server.log" >&2; fail 'private Herdr server did not become ready'; }
 
-wait_for 10 shell_count_is 1 || { screen >&2; fail "$version: the status row does not report 1 running shell"; }
-record_screen shell-running
-pass "$version: the status row below the composer reports 1 running background shell"
+for backend in tmux herdr; do
+  fm_backend_source "$backend"
+  case "$backend" in
+    tmux)
+      transport=$(tmux -V)
+      target=live:fm-bg
+      tmux new-session -d -s live -n fm-bg -c "$lab/worktree" -x 180 -y 45 'bash --noprofile --norc'
+      ;;
+    herdr)
+      transport=$(herdr --version)
+      workspace=$(herdr workspace create --cwd "$lab/worktree" --label fm-bg --no-focus --session default)
+      pane=$(printf '%s' "$workspace" | jq -er '.result.root_pane.pane_id')
+      target="default:$pane"
+      ;;
+  esac
+  label="$version on $transport"
+  printf '# harness: %s; transport: %s\n' "$version" "$transport"
+  send "bash '$lab/launch.sh'"
+  wait_for 90 idle_with_word READY || { screen >&2; fail "$label: never reached an idle composer"; }
+  background_pid=$(cat "$lab/worktree/background.pid")
+  kill -0 "$background_pid" 2>/dev/null || fail "$label: the background shell is not running"
 
-tmux send-keys -t live:fm-bg -l "$stop_request Then reply with one word."
-tmux send-keys -t live:fm-bg Enter
-wait_for 120 background_dead || { screen >&2; fail "$version: the background shell survived the persist request's stop sentence"; }
-background_pid=
-wait_for 60 composer_idle \
-  || { screen >&2; fail "$version: the agent never returned to an idle composer"; }
-wait_for 10 no_shell_count || { screen >&2; fail "$version: the status row still reports a running shell"; }
-record_screen shell-stopped
-pass "$version: the persist request's sentence made the agent stop its own shell, and the status row cleared"
+  wait_for 10 shell_count_is 1 || { screen >&2; fail "$label: capture does not report 1 running shell"; }
+  record_screen shell-running
+  pass "$label: viewport and restart capture report 1 running background shell"
 
-tmux send-keys -t live:fm-bg -l /exit
-tmux send-keys -t live:fm-bg Enter
-wait_for 30 agent_dead \
-  || { screen >&2; fail "$version: Claude did not exit after its shells were stopped"; }
-record_screen claude-exited
-pass "$version: with its shells stopped, /exit closed Claude without a picker"
+  send "$stop_request Then reply with one word."
+  wait_for 120 background_dead || { screen >&2; fail "$label: the background shell survived the persist request's stop sentence"; }
+  background_pid=
+  wait_for 60 composer_idle \
+    || { screen >&2; fail "$label: the agent never returned to an idle composer"; }
+  wait_for 10 no_shell_count || { screen >&2; fail "$label: capture still reports a running shell"; }
+  record_screen shell-stopped
+  pass "$label: the persist request stopped its shell and cleared viewport and restart captures"
+
+  send /exit
+  wait_for 30 agent_dead \
+    || { screen >&2; fail "$label: Claude did not exit after its shells were stopped"; }
+  record_screen claude-exited
+  pass "$label: with its shells stopped, /exit closed Claude without a picker"
+done

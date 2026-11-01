@@ -2054,7 +2054,7 @@ A second mate stays off that path, and a finished worker in away mode is handled
 That watcher and away-daemon reporting is covered by fakes in `tests/fm-watch-triage.test.sh` and `tests/fm-daemon.test.sh`, not by a live measurement.
 No recorded screen was available for a model-downgrade confirmation, an MCP approval, or a Claude exit confirmation other than this picker, so those dialogs are not covered.
 Refusing an Enter that would confirm a dialog restores an existing safety path, so it is not gated behind a flag.
-The second-mate restart reads the background-shell status row, measured 2026-10-31 with Claude Code 2.1.316 and tmux 3.4.
+The second-mate restart reads the background-shell status row, measured 2026-10-31 with Claude Code 2.1.316 on tmux 3.4 and Herdr 0.9.5.
 An idle session with one running background shell showed `⏵⏵ don't ask on · 1 shell · ↓ to manage` below its composer, and that item left the row once the shell stopped.
 [`fm_composer_claude_background_shells`](../../bin/fm-composer-lib.sh) owns that read, and [`fm-secondmate-restart.sh`](../../bin/fm-secondmate-restart.sh) owns what a restart does with it.
 Sent the background-shell sentence of the restart's persist request, the agent stopped its own shell with its task-stopping tool, the status row cleared, and `/exit` then closed Claude with no picker.
@@ -2063,12 +2063,18 @@ Exact result lines:
 
 ```text
 # harness: 2.1.316 (Claude Code); transport: tmux 3.4
-ok - 2.1.316 (Claude Code): the status row below the composer reports 1 running background shell
-ok - 2.1.316 (Claude Code): the persist request's sentence made the agent stop its own shell, and the status row cleared
-ok - 2.1.316 (Claude Code): with its shells stopped, /exit closed Claude without a picker
+ok - 2.1.316 (Claude Code) on tmux 3.4: viewport and restart capture report 1 running background shell
+ok - 2.1.316 (Claude Code) on tmux 3.4: the persist request stopped its shell and cleared viewport and restart captures
+ok - 2.1.316 (Claude Code) on tmux 3.4: with its shells stopped, /exit closed Claude without a picker
+# harness: 2.1.316 (Claude Code); transport: herdr 0.9.5
+ok - 2.1.316 (Claude Code) on herdr 0.9.5: viewport and restart capture report 1 running background shell
+ok - 2.1.316 (Claude Code) on herdr 0.9.5: the persist request stopped its shell and cleared viewport and restart captures
+ok - 2.1.316 (Claude Code) on herdr 0.9.5: with its shells stopped, /exit closed Claude without a picker
 ```
 
-Herdr, the backend remote second mates run on, was not measured by this guard; the remote restart reads the same rendered rows through the host's capture verb.
+The guard also runs Claude Code on a private Herdr server and checks both the local viewport and the 60-line `fm_backend_capture` route used by the remote host's capture verb.
+For both backends it requires a live shell process before the running-count assertion, that process's death before the cleared-count assertion, nonempty captures at both stages, and agent exit after a single `/exit` submission.
+This follows Claude Code's documented [background Bash task lifecycle](https://code.claude.com/docs/en/interactive-mode#background-bash-commands); the live process and capture checks establish the rendered behavior rather than inferring it from that documentation.
 
 ### Prune and respawn
 
