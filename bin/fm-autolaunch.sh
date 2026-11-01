@@ -25,20 +25,17 @@
 #      fm-spawn.sh re-checks machine and project capacity at launch.
 #   3. Candidates: `bin/fm-tasks-axi.sh ready`, which already excludes held
 #      (including parked) and blocked work, and treats a blocked-by edge whose
-#      target is Done, archived, or absent as cleared. Items whose title has
-#      the token J-01, or whose prep says journey=J-01, go first; otherwise
-#      backlog order is kept.
+#      target is Done, archived, or absent as cleared. Ready-queue order is
+#      kept exactly as returned.
 #   4. Per lane, the first candidate that passes every check below launches.
 #      Each refused candidate gets its own record and the next is tried:
-#        refused:excluded: <pattern>   config/autolaunch-exclude matched
 #        refused:held                  `show` reports the item held
 #        refused:not prepared: <why>   no data/<id>/brief.md, no or invalid
 #                                      data/<id>/autolaunch-prep, or no project
 #        refused:spawn deferred pending  state/spawn-deferred/queue already
 #                                      holds this item; fm-spawn-deferred.sh
 #                                      owns its retry, so it is never doubled
-#        refused:dispatch <status>: <reason>  the resolver escalated, or
-#                                      failed with no configured default
+#        refused:dispatch: <reason>   no configured default
 #        refused:quota: <reason>       every candidate profile is exhausted or
 #                                      short of runway
 #        refused:deferred: <line>      fm-spawn.sh exit 75 (machine or project
@@ -59,26 +56,16 @@
 #   branch_prefix=<p>     optional ship --branch-prefix
 #   base_branch=<b>       optional --base-branch
 #   upstream_consent=<host>/<owner>/<repo>    optional ship --upstream-consent
-#   journey=<id>          optional; J-01 sorts first
 # The values become fm-spawn.sh flags as written; fm-spawn.sh validates them
 # against the brief and refuses any disagreement, which is recorded.
 #
-# EXCLUSIONS. config/autolaunch-exclude, optional: one shell glob per line,
-# # comments and blank lines ignored, matched against the item id, its backlog
-# repo, and its prep project. Use it for parked lines of work, for example
-# every Q item while Q is parked.
-#
-# DISPATCH. bin/fm-dispatch-resolve.sh runs on the brief. That is the only
-# network call beyond fm-spawn.sh's own, and only when the resolver is opted in
-# (TYPESAFE_API_KEY); off, it makes none. Candidates, tried in order:
-#   - a `clear` result's profile line;
-#   - then, unless the result was `escalate` (captain approval or a genuine
-#     tie, never guessed past), the configured `default` profile(s) of
-#     config/crew-dispatch.json: passing ones by highest known spendPriority,
-#     then uncertain ones in declared order, through fm-quota-axi-lib.sh's
-#     gate verdict over one quota-axi snapshot. Exhausted or short-runway
-#     profiles are never tried. Natural-language rules are never matched here.
-#   - with no config/crew-dispatch.json, fm-spawn.sh's static crew harness.
+# DISPATCH. No model is in the loop at all. The script makes no network call
+# beyond fm-spawn.sh's own. The configured `default` profile(s) of
+# config/crew-dispatch.json are tried deterministically: passing ones by
+# highest known spendPriority, then uncertain ones in declared order, through
+# fm-quota-axi-lib.sh's gate verdict over one quota-axi snapshot. Exhausted or
+# short-runway profiles are never tried. With no config/crew-dispatch.json,
+# use fm-spawn.sh's static crew harness.
 # A spawn whose own quota gate refuses moves to the next candidate.
 #
 # RECORDS. state/autolaunch.log, append-only, one line per decision:
@@ -88,14 +75,13 @@
 # Tabs and line breaks inside a reason become spaces. Each record is also
 # printed on stdout. --dry-run prints `would-record:` lines and `would-run:`
 # spawn commands, takes no lock, writes no file and spawns nothing; it still
-# runs the resolver and reads quota so its decisions match a real pass, and
-# assumes each would-be launch uses one lane.
+# reads quota so its decisions match a real pass, and assumes each would-be
+# launch uses one lane.
 #
 # Exit: 0 after a pass (refusals included) or a busy lock; 1 when the backlog
 # or its log cannot be read or written; 2 usage.
 # Test seams, honored only with FM_TEST_SEAM=1: FM_AUTOLAUNCH_CAPACITY_BIN,
-# FM_AUTOLAUNCH_SPAWN_BIN, FM_AUTOLAUNCH_RESOLVE_BIN replace fm-capacity.sh,
-# fm-spawn.sh, and fm-dispatch-resolve.sh.
+# FM_AUTOLAUNCH_SPAWN_BIN replace fm-capacity.sh and fm-spawn.sh.
 set -u
 export LC_ALL=C
 
@@ -122,16 +108,13 @@ esac
 
 LOG="$STATE/autolaunch.log"
 LOCK="$STATE/.autolaunch.lock"
-EXCLUDE="$CONFIG/autolaunch-exclude"
 RULES="$CONFIG/crew-dispatch.json"
 
 CAPACITY_BIN="$SCRIPT_DIR/fm-capacity.sh"
 SPAWN_BIN="$SCRIPT_DIR/fm-spawn.sh"
-RESOLVE_BIN="$SCRIPT_DIR/fm-dispatch-resolve.sh"
 if [ "${FM_TEST_SEAM:-}" = 1 ]; then
   CAPACITY_BIN=${FM_AUTOLAUNCH_CAPACITY_BIN:-$CAPACITY_BIN}
   SPAWN_BIN=${FM_AUTOLAUNCH_SPAWN_BIN:-$SPAWN_BIN}
-  RESOLVE_BIN=${FM_AUTOLAUNCH_RESOLVE_BIN:-$RESOLVE_BIN}
 fi
 
 home_abs() {
@@ -237,21 +220,18 @@ ready_ids() {
     inside { inside = 0 }'
 }
 
-# item_show <id>: sets ITEM_TITLE, ITEM_HELD, ITEM_REPO from `show --full`.
+# item_show <id>: sets ITEM_HELD from `show --full`.
 item_show() {
   local out
-  ITEM_TITLE='' ITEM_HELD='' ITEM_REPO=''
+  ITEM_HELD=''
   out=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" --full 2>/dev/null) || return 1
-  ITEM_TITLE=$(printf '%s\n' "$out" | sed -n 's/^  title: //p' | head -1)
   ITEM_HELD=$(printf '%s\n' "$out" | sed -n 's/^  held: //p' | head -1)
-  ITEM_REPO=$(printf '%s\n' "$out" | sed -n 's/^  repo: //p' | head -1 | tr -d '"')
-  [ "$ITEM_REPO" != - ] || ITEM_REPO=
 }
 
 # prep_read <id>: sets P_* or PREP_ERR and returns 1.
 prep_read() {
   local id=$1 file key value line
-  P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' P_JOURNEY='' PREP_ERR=''
+  P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR=''
   if [ ! -f "$DATA/$id/brief.md" ] || [ ! -s "$DATA/$id/brief.md" ]; then
     PREP_ERR="no brief data/$id/brief.md"; return 1
   fi
@@ -271,7 +251,6 @@ prep_read() {
       branch_prefix) P_BRANCH_PREFIX=$value ;;
       base_branch) P_BASE_BRANCH=$value ;;
       upstream_consent) P_CONSENT=$value ;;
-      journey) P_JOURNEY=$value ;;
       *) PREP_ERR="prep has unknown key $key"; return 1 ;;
     esac
   done < "$file"
@@ -291,22 +270,6 @@ prep_read() {
   esac
 }
 
-# excluded_by <id> <repo> <project>: prints the matching pattern.
-excluded_by() {
-  local line pat subject
-  [ -f "$EXCLUDE" ] || return 1
-  while IFS= read -r line || [ -n "$line" ]; do
-    pat=$(printf '%s' "$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
-    case "$pat" in ''|'#'*) continue ;; esac
-    for subject in "$1" "$2" "$3"; do
-      [ -n "$subject" ] || continue
-      # shellcheck disable=SC2254 # the exclusion line is a deliberate glob
-      case "$subject" in $pat) printf '%s\n' "$pat"; return 0 ;; esac
-    done
-  done < "$EXCLUDE"
-  return 1
-}
-
 deferred_pending() {
   local f
   for f in "$STATE/spawn-deferred/queue"/*; do
@@ -318,33 +281,13 @@ deferred_pending() {
 
 # check_item <id>: 0 when launchable; else CHECK_ERR holds the refusal.
 check_item() {
-  local id=$1 pat
+  local id=$1
   CHECK_ERR=
   item_show "$id" || { CHECK_ERR="not prepared: backlog show failed"; return 1; }
   prep_read "$id" || true
-  if pat=$(excluded_by "$id" "$ITEM_REPO" "$P_PROJECT"); then
-    CHECK_ERR="excluded: $pat"; return 1
-  fi
   [ "$ITEM_HELD" != yes ] || { CHECK_ERR=held; return 1; }
   [ -z "$PREP_ERR" ] || { CHECK_ERR="not prepared: $PREP_ERR"; return 1; }
   ! deferred_pending "$id" || { CHECK_ERR="spawn deferred pending"; return 1; }
-}
-
-is_j01() {
-  case "$P_JOURNEY" in [Jj]-01) return 0 ;; esac
-  printf '%s\n' "$1" | grep -Eqi '(^|[^A-Za-z0-9])J-01($|[^0-9])'
-}
-
-# ordered_ids: ready ids, J-01 first, otherwise in backlog order.
-ordered_ids() {
-  local ids id first='' rest=''
-  ids=$(ready_ids) || return 1
-  for id in $ids; do
-    item_show "$id" || { rest="$rest $id"; continue; }
-    prep_read "$id" || true
-    if is_j01 "$ITEM_TITLE"; then first="$first $id"; else rest="$rest $id"; fi
-  done
-  for id in $first $rest; do printf '%s\n' "$id"; done
 }
 
 # default_candidates <kind> <backend>: ranked default profiles as TSV
@@ -356,10 +299,7 @@ default_candidates() {
     def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
     profiles(.default // null) | map(select(type == "object" and (.harness | type) == "string"))' "$RULES" 2>/dev/null) || defaults='[]'
   [ "$defaults" != '[]' ] || return 0
-  all=$(jq -c '
-    def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
-    [((.rules // [])[] | profiles(.use)[]), profiles(.default // null)[]]
-    | map(select(type == "object" and (.harness | type) == "string")) | unique' "$RULES" 2>/dev/null) || all='[]'
+  all=$defaults
   while IFS= read -r p; do
     h=$(jq -r '.harness' <<<"$p")
     if [ "$h" = kimi ] || { [ "$h" = codex ] && [ "${FM_CODEX_TYPED_LAUNCH:-0}" = 1 ]; }; then
@@ -397,53 +337,23 @@ default_candidates() {
   sed -n 's/^cand\t//p' "$TMPD/defaults.tsv"
 }
 
-# resolve_dispatch <id> <kind>: writes candidates to $TMPD/cands.tsv
+# dispatch_candidates <kind>: writes candidates to $TMPD/cands.tsv
 # (harness, model, effort; an empty harness means fm-spawn's static default);
 # returns 1 with DISPATCH_ERR set when there is none.
-resolve_dispatch() {
-  local id=$1 kind=$2 out rc=0 status reason tok next h='' m='' e='' backend line
+dispatch_candidates() {
+  local kind=$1 backend
   DISPATCH_ERR=
-  : > "$TMPD/cands.tsv"
-  out=$("$RESOLVE_BIN" "$DATA/$id/brief.md" --project "$P_PROJECT" 2>"$TMPD/resolve.err") || rc=$?
-  if [ "$rc" != 0 ]; then
-    DISPATCH_ERR="dispatch error: $(head -1 "$TMPD/resolve.err")"
-    return 1
-  fi
-  status=$(printf '%s\n' "$out" | sed -n 's/^  status: //p' | head -1)
-  reason=$(printf '%s\n' "$out" | sed -n 's/^  reason: //p' | head -1)
-  [ -n "$status" ] || status=off
-  if [ "$status" = escalate ]; then
-    DISPATCH_ERR="dispatch escalate: ${reason:-the resolver needs a decision}"
-    return 1
-  fi
-  if [ "$status" = clear ]; then
-    line=$(printf '%s\n' "$out" | sed -n 's/^  profile: //p' | head -1)
-    next=
-    for tok in $line; do
-      case "$next" in
-        h) h=$tok ;; m) m=$tok ;; e) e=$tok ;;
-      esac
-      next=
-      case "$tok" in --harness) next=h ;; --model) next=m ;; --effort) next=e ;; esac
-    done
-    [ -z "$h" ] || printf '%s\t%s\t%s\n' "$h" "$m" "$e" >> "$TMPD/cands.tsv"
-  fi
   if [ ! -f "$RULES" ]; then
-    [ -s "$TMPD/cands.tsv" ] || printf '\t\t\n' >> "$TMPD/cands.tsv"
+    printf '\t\t\n' > "$TMPD/cands.tsv"
     return 0
   fi
   backend=$(FM_BACKEND_CONFIG_DIR="$CONFIG" fm_backend_name 2>/dev/null) || backend=tmux
-  default_candidates "$kind" "$backend" > "$TMPD/default-cands.tsv"
-  while IFS= read -r line; do
-    h=${line%%$'\t'*} line=${line#*$'\t'}
-    m=${line%%$'\t'*} e=${line#*$'\t'}
-    grep -qxF "$h	$m	$e" "$TMPD/cands.tsv" || printf '%s\t%s\t%s\n' "$h" "$m" "$e" >> "$TMPD/cands.tsv"
-  done < "$TMPD/default-cands.tsv"
+  default_candidates "$kind" "$backend" > "$TMPD/cands.tsv"
   [ -s "$TMPD/cands.tsv" ] && return 0
   if [ -n "$DEFAULT_REFUSAL" ] || jq -e '(.default // null) != null' "$RULES" >/dev/null 2>&1; then
-    DISPATCH_ERR="quota: ${DEFAULT_REFUSAL:-every default profile is exhausted or short of runway}"
+    DISPATCH_ERR="quota: ${DEFAULT_REFUSAL:-every default profile is ineligible, exhausted or short of runway}"
   else
-    DISPATCH_ERR="dispatch $status: ${reason:-no clear profile and no configured default}"
+    DISPATCH_ERR="dispatch: no configured default"
   fi
   return 1
 }
@@ -467,7 +377,7 @@ spawn_argv() {
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/fm-autolaunch.XXXXXX") || exit 1
 
 if [ "$ACTION" = list ]; then
-  ids=$(ordered_ids) || exit 1
+  ids=$(ready_ids) || exit 1
   for id in $ids; do
     check_item "$id" && printf '%s\n' "$id"
   done
@@ -490,7 +400,7 @@ if [ "$CAP_FREE" -eq 0 ]; then
   exit 0
 fi
 FREE=$CAP_FREE
-if ! ids=$(ordered_ids 2>"$TMPD/ready.err"); then
+if ! ids=$(ready_ids 2>"$TMPD/ready.err"); then
   record - - - "refused:$(head -1 "$TMPD/ready.err")"
   exit 1
 fi
@@ -503,7 +413,7 @@ for id in $ids; do
     record "$LANE" "$id" - "refused:$CHECK_ERR"
     continue
   fi
-  if ! resolve_dispatch "$id" "$P_KIND"; then
+  if ! dispatch_candidates "$P_KIND"; then
     record "$LANE" "$id" - "refused:$DISPATCH_ERR"
     continue
   fi

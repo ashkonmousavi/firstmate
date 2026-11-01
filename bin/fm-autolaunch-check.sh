@@ -21,8 +21,8 @@
 # (or its absence), reports once and then again at most hourly while it
 # lasts; the episode marker is state/.autolaunch-check.red and is removed
 # when the check goes quiet.
-# The check never launches, never calls the dispatch resolver, and makes no
-# network call. Exit 0 always for an evaluation; arm/disarm exit 1 on failure.
+# The check never launches and makes no network call.
+# Exit 0 always for an evaluation; arm/disarm exit 1 on failure.
 # Test seams with FM_TEST_SEAM=1: FM_AUTOLAUNCH_CAPACITY_BIN (shared with the
 # launcher) and FM_AUTOLAUNCH_CHECK_NOW (epoch seconds).
 set -u

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Behavior tests for bin/fm-autolaunch.sh and bin/fm-autolaunch-check.sh.
 #
-# A real markdown backlog drives bin/fm-tasks-axi.sh; capacity, spawn, and the
-# dispatch resolver are replaced through the FM_TEST_SEAM hooks with fakes
-# that record their calls. The quota gate reads fixture snapshots only.
+# A real markdown backlog drives bin/fm-tasks-axi.sh; capacity and spawn are
+# replaced through the FM_TEST_SEAM hooks with fakes that record their calls.
+# The quota gate reads fixture snapshots only.
 set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -14,7 +14,7 @@ AL="$ROOT/bin/fm-autolaunch.sh"
 CHECK="$ROOT/bin/fm-autolaunch-check.sh"
 H="$TMP_ROOT/home"
 FAKE="$TMP_ROOT/fake"
-mkdir -p "$H/state" "$H/data" "$H/config" "$H/projects/proj" "$H/projects/qproj" "$FAKE"
+mkdir -p "$H/state" "$H/data" "$H/config" "$H/projects/proj" "$FAKE"
 fm_test_tasks_toml "$H/.tasks.toml"
 export FM_HOME="$H"
 unset FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_CONFIG_OVERRIDE TYPESAFE_API_KEY
@@ -48,18 +48,9 @@ fi
 free=$(cat "$FAKE_DIR/free"); echo $((free - 1)) > "$FAKE_DIR/free"
 echo "spawned $id"
 SH
-# Fake resolver: $FAKE/resolve holds the stdout block (absent = off).
-cat > "$FAKE/resolve" <<'SH'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FAKE_DIR/resolve.log"
-[ -f "$FAKE_DIR/resolve" ] && cat "$FAKE_DIR/resolve"
-[ -f "$FAKE_DIR/resolve" ] || echo 'dispatch-resolve: off' >&2
-exit 0
-SH
-mv "$FAKE/resolve" "$FAKE/resolver"
-chmod +x "$FAKE/capacity" "$FAKE/spawn" "$FAKE/resolver"
+chmod +x "$FAKE/capacity" "$FAKE/spawn"
 export FAKE_DIR="$FAKE" FM_AUTOLAUNCH_CAPACITY_BIN="$FAKE/capacity" \
-  FM_AUTOLAUNCH_SPAWN_BIN="$FAKE/spawn" FM_AUTOLAUNCH_RESOLVE_BIN="$FAKE/resolver"
+  FM_AUTOLAUNCH_SPAWN_BIN="$FAKE/spawn"
 LOG="$H/state/autolaunch.log"
 
 backlog() {  # writes the queued section lines given on stdin
@@ -72,8 +63,8 @@ prep() {  # <id> <project> [extra key=value...]
   { printf 'project=%s\nkind=ship\nmode=direct-PR\nyolo=off\n' "$project"; printf '%s\n' "$@"; } > "$H/data/$id/autolaunch-prep"
 }
 reset() {
-  rm -f "$LOG" "$FAKE"/spawn.log "$FAKE"/resolve.log "$FAKE"/rc-* "$FAKE/quota-refuse" "$FAKE/resolve" \
-    "$H/config/autolaunch-exclude" "$H/config/crew-dispatch.json" "$H/state/.autolaunch-check.red" \
+  rm -f "$LOG" "$FAKE"/spawn.log "$FAKE"/rc-* "$FAKE/quota-refuse" \
+    "$H/config/crew-dispatch.json" "$H/state/.autolaunch-check.red" \
     "$H/config/crew-exclude-tools" "$H/config/pi-account" "$H/config/claude-account" \
     "$FAKE/rotate-log" "$H/state/autolaunch.previous.log"
   rm -rf "$H/data"/*/ "$H/state/spawn-deferred"
@@ -83,29 +74,30 @@ field() {  # <record-line> <n>
   printf '%s\n' "$1" | awk -F'\t' -v n="$2" '{print $n}'
 }
 
-# --- launch, J-01 first, stale blocked-by --------------------------------
+# --- launch and stale blocked-by -------------------------------------------
 reset 2
 backlog <<'MD'
 - [ ] plain-1 - ordinary piece (repo: proj) (kind: ship) (since 2026-10-30)
-- [ ] j-piece - J-01 step two (repo: proj) (kind: ship) (since 2026-10-30)
+- [ ] plain-2 - second ordinary piece (repo: proj) (kind: ship) (since 2026-10-30)
 - [ ] after-done - waits on finished work blocked-by: old-done (repo: proj) (kind: ship) (since 2026-10-30)
 MD
-prep plain-1 proj; prep j-piece proj; prep after-done proj
+prep plain-1 proj; prep plain-2 proj; prep after-done proj
 out=$(bash "$AL" 2>&1); rc=$?
 expect_code 0 "$rc" 'launch pass'
 [ "$(wc -l < "$LOG")" -eq 2 ] || fail "two free lanes give two records, got: $(cat "$LOG")"
 first=$(sed -n 1p "$LOG"); second=$(sed -n 2p "$LOG")
 assert_equals "1" "$(field "$first" 2)" 'first record names lane 1'
-assert_equals "j-piece" "$(field "$first" 3)" 'J-01 item launches first'
+assert_equals "plain-1" "$(field "$first" 3)" 'first ready item launches first'
 assert_equals "launched" "$(field "$first" 5)" 'first result'
 assert_equals "static" "$(field "$first" 4)" 'no dispatch config: static crew harness'
-assert_equals "plain-1" "$(field "$second" 3)" 'backlog order after J-01'
-assert_contains "$(sed -n 1p "$FAKE/spawn.log")" "j-piece $H/projects/proj --mode direct-PR --yolo off" 'prep becomes spawn flags'
+assert_equals "plain-2" "$(field "$second" 3)" 'second ready item launches second'
+assert_contains "$(sed -n 1p "$FAKE/spawn.log")" "plain-1 $H/projects/proj --mode direct-PR --yolo off" 'prep becomes spawn flags'
 assert_not_contains "$(cat "$FAKE/spawn.log")" '--harness' 'no harness without dispatch config'
+assert_equals $'plain-1\nplain-2\nafter-done' "$(bash "$AL" --list-prepared)" 'prepared listing preserves ready-queue order'
 [ "$(grep -c . "$FAKE/spawn.log")" -eq 2 ] || fail 'spawn called once per free lane'
 printf '%s\n' "$first" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z	' || fail "record time is UTC ISO: $first"
 assert_contains "$out" "$first" 'records are echoed on stdout'
-pass 'free lanes launch J-01 first then backlog order, one launched record per lane'
+pass 'free lanes launch in ready-queue order, one launched record per lane'
 
 reset 1
 printf '%s\n' "- [ ] after-done - waits on finished work blocked-by: old-done (repo: proj) (kind: ship) (since 2026-10-30)" \
@@ -122,27 +114,23 @@ reset 1
 printf '%s\n' "- [ ] no-brief - nothing prepared (repo: proj) (kind: ship) (since 2026-10-30)" \
   "- [ ] no-prep - brief only (repo: proj) (kind: ship) (since 2026-10-30)" \
   "- [ ] bad-prep - wrong prep (repo: proj) (kind: ship) (since 2026-10-30)" \
-  "- [ ] q-item - Q work (repo: qproj) (kind: ship) (since 2026-10-30)" \
   "- [ ] held-item - held (repo: proj) (kind: ship) (since 2026-10-30) (hold: parked: off the slices) (hold-kind: external) (hold-until: 2026-12-01)" \
   "- [ ] deferred-item - already deferred (repo: proj) (kind: ship) (since 2026-10-30)" | backlog
 mkdir -p "$H/data/no-prep"; printf 'brief\n' > "$H/data/no-prep/brief.md"
 prep bad-prep proj 'colour=blue'
-prep q-item qproj
 prep held-item proj
 prep deferred-item proj
 mkdir -p "$H/state/spawn-deferred/queue"; printf 'schema=fm-deferred-spawn.v1\ntask=deferred-item\n' > "$H/state/spawn-deferred/queue/0001"
-printf '# Q is parked\nqproj\n' > "$H/config/autolaunch-exclude"
 bash "$AL" >/dev/null 2>&1
 results=$(cut -f3,5 "$LOG")
 assert_contains "$results" 'no-brief	refused:not prepared: no brief data/no-brief/brief.md' 'no brief'
 assert_contains "$results" 'no-prep	refused:not prepared: no prep data/no-prep/autolaunch-prep' 'no prep'
 assert_contains "$results" 'bad-prep	refused:not prepared: prep has unknown key colour' 'invalid prep'
-assert_contains "$results" 'q-item	refused:excluded: qproj' 'exclusion list honoured'
 assert_contains "$results" 'deferred-item	refused:spawn deferred pending' 'deferred retry is not doubled'
 assert_not_contains "$results" 'held-item' 'held item is never a candidate'
 assert_contains "$(tail -1 "$LOG")" '1	-	-	refused:no prepared item' 'running out of items is one record'
 [ ! -f "$FAKE/spawn.log" ] || fail "no refused item is spawned: $(cat "$FAKE/spawn.log")"
-pass 'unprepared, excluded, held and already-deferred items refuse with their reason and never spawn'
+pass 'unprepared, held and already-deferred items refuse with their reason and never spawn'
 
 reset 1
 printf '%s\n' '- [ ] foo.bar - literal task (repo: proj) (kind: ship)' \
@@ -171,7 +159,6 @@ out=$(bash "$AL" 2>&1); rc=$?
 chmod 0600 "$LOG"
 expect_code 1 "$rc" 'an unwritable log refuses before dispatch'
 assert_absent "$FAKE/spawn.log" 'no launch without an open record destination'
-assert_absent "$FAKE/resolve.log" 'no dispatch before opening the log'
 assert_equals 'existing record' "$(cat "$LOG")" 'unwritable log is preserved'
 touch "$FAKE/rotate-log"
 bash "$AL" >/dev/null 2>&1
@@ -203,43 +190,79 @@ pass 'spawn deferral and spawn errors are recorded and the lane moves to the nex
 
 # --- dispatch and quota ------------------------------------------------------
 reset 1
-printf '%s\n' "- [ ] esc - needs approval (repo: proj) (kind: ship) (since 2026-10-30)" | backlog
-prep esc proj
-printf 'dispatch-resolve:\n  status: escalate\n  reason: rule requires captain approval\n' > "$FAKE/resolve"
-bash "$AL" >/dev/null 2>&1
-assert_contains "$(head -1 "$LOG")" 'refused:dispatch escalate: rule requires captain approval' 'escalate is never launched'
-[ ! -f "$FAKE/spawn.log" ] || fail 'escalated item spawned'
-pass 'a resolver escalation refuses rather than guessing past the approval'
-
-reset 1
-printf '%s\n' "- [ ] routed - clear profile (repo: proj) (kind: ship) (since 2026-10-30)" | backlog
+printf '%s\n' "- [ ] routed - default profiles (repo: proj) (kind: ship) (since 2026-10-30)" | backlog
 prep routed proj
-printf 'dispatch-resolve:\n  status: clear\n  profile: --harness codex --model gpt-5.5 --effort high\n' > "$FAKE/resolve"
-printf '{"rules":[],"default":{"harness":"claude","model":"opus","effort":"low"}}\n' > "$H/config/crew-dispatch.json"
+printf '{"default":[{"harness":"codex","model":"gpt-5.5","effort":"high"},{"harness":"claude","model":"opus","effort":"low"}]}\n' > "$H/config/crew-dispatch.json"
+jq '(.providers[] | select(.provider == "codex").quotaSemantics.effectiveAvailability[].selection.spendPriority) = 5' \
+  "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$FAKE/requeue-quota.json"
 echo codex > "$FAKE/quota-refuse"
-bash "$AL" >/dev/null 2>&1
-assert_equals "claude:opus	launched" "$(cut -f4,5 "$LOG" | head -1)" 'quota refusal requeues on the next profile'
-assert_contains "$(sed -n 1p "$FAKE/spawn.log")" '--harness codex --model gpt-5.5 --effort high' 'clear profile tried first'
-assert_contains "$(sed -n 2p "$FAKE/spawn.log")" '--harness claude --model opus --effort low' 'configured default tried next'
-assert_contains "$(cat "$FAKE/resolve.log")" "$H/data/routed/brief.md --project proj" 'resolver reads the item brief'
+FM_QUOTA_SNAPSHOT_FILE="$FAKE/requeue-quota.json" bash "$AL" >/dev/null 2>&1
+assert_equals $'claude:opus\tlaunched' "$(cut -f4,5 "$LOG" | head -1)" 'quota refusal requeues on the next default profile'
+assert_contains "$(sed -n 1p "$FAKE/spawn.log")" '--harness codex --model gpt-5.5 --effort high' 'highest spendPriority default tried first'
+assert_contains "$(sed -n 2p "$FAKE/spawn.log")" '--harness claude --model opus --effort low' 'next default tried after quota refusal'
 echo claude >> "$FAKE/quota-refuse"
 rm -f "$LOG"; echo 1 > "$FAKE/free"
-bash "$AL" >/dev/null 2>&1
+FM_QUOTA_SNAPSHOT_FILE="$FAKE/requeue-quota.json" bash "$AL" >/dev/null 2>&1
 assert_contains "$(head -1 "$LOG")" 'refused:quota: error: fm-spawn refuses explicit harness claude' 'all candidates exhausted is a quota refusal'
-pass 'a clear profile launches first, a quota refusal moves to the next profile, all refused records quota'
+pass 'a quota refusal advances through ranked defaults and all refused records quota'
+
+reset 1
+printf '%s\n' '- [ ] deterministic - prepared work (repo: proj) (kind: ship)' | backlog
+prep deterministic proj
+printf '{"rules":[{"when":"prepared work","approval":"captain","use":{"harness":"grok"}}],"default":{"harness":"codex","effort":"high"}}\n' > "$H/config/crew-dispatch.json"
+cat > "$FAKE/curl" <<'SH'
+#!/usr/bin/env bash
+printf 'network call\n' >> "$FAKE_DIR/network.log"
+exit 7
+SH
+chmod +x "$FAKE/curl"
+out=$(TYPESAFE_API_KEY=synthetic-unused-key PATH="$FAKE:$PATH" bash "$AL" --dry-run 2>&1); rc=$?
+expect_code 0 "$rc" 'deterministic dry-run'
+assert_contains "$out" '--harness codex --effort high' 'dry-run uses only the default profile'
+assert_absent "$LOG" 'deterministic dry-run writes no record'
+TYPESAFE_API_KEY=synthetic-unused-key PATH="$FAKE:$PATH" bash "$AL" >/dev/null 2>&1
+assert_contains "$(cat "$FAKE/spawn.log")" '--harness codex --effort high' 'configured rules do not replace the default'
+assert_absent "$FAKE/network.log" 'neither real nor dry passes call the model endpoint with a configured key'
+rm "$FAKE/curl"
+pass 'default-only dispatch ignores natural-language rules and makes no model request'
+
+reset 1
+printf '%s\n' '- [ ] no-default - prepared (repo: proj) (kind: ship)' | backlog
+prep no-default proj
+printf '{"rules":[{"when":"prepared","use":{"harness":"codex"}}]}\n' > "$H/config/crew-dispatch.json"
+bash "$AL" >/dev/null 2>&1
+assert_contains "$(cat "$LOG")" 'refused:dispatch: no configured default' 'a configured file without defaults refuses'
+assert_absent "$FAKE/spawn.log" 'configured rules alone never launch a static or rule profile'
+pass 'static dispatch applies only when the dispatch file is absent'
 
 reset 1
 printf '%s\n' "- [ ] ranked - default array (repo: proj) (kind: ship) (since 2026-10-30)" | backlog
 prep ranked proj
 printf '{"rules":[],"default":[{"harness":"claude","model":"opus"},{"harness":"codex","model":"gpt-5.5"},{"harness":"grok"}]}\n' > "$H/config/crew-dispatch.json"
-jq '(.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[])
+jq --arg generated "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    .generatedAt = $generated
+    | (.providers[] | select(.provider == "claude") | .quotaSemantics.effectiveAvailability[])
       |= (.effectivePercentRemaining = 0 | .runway.status = "exhausted_now")
+    | (.providers[] | select(.provider == "codex").quotaSemantics.effectiveAvailability[].runway)
+      = {status:"projected_exhaustion",projectionConfidence:"established",usableRunwaySeconds:60}
     | (.providers[] | select(.provider == "grok") | .quotaSemantics.effectiveAvailability[].selection.spendPriority) = 5' \
   "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$FAKE/quota.json"
 FM_QUOTA_SNAPSHOT_FILE="$FAKE/quota.json" bash "$AL" >/dev/null 2>&1
 assert_equals "grok	launched" "$(cut -f4,5 "$LOG" | head -1)" 'highest spendPriority default launches'
 assert_not_contains "$(cat "$FAKE/spawn.log")" 'claude' 'an exhausted default is never tried'
-pass 'with no clear profile, defaults rank by spendPriority and exhausted ones are skipped'
+assert_not_contains "$(cat "$FAKE/spawn.log")" 'codex' 'a short-runway default is never tried'
+pass 'defaults rank by spendPriority and exhausted or short-runway profiles are skipped'
+
+reset 1
+printf '%s\n' '- [ ] uncertain - prepared (repo: proj) (kind: ship)' | backlog
+prep uncertain proj
+printf '{"default":[{"harness":"opencode"},{"harness":"codex"},{"harness":"pi"}]}\n' > "$H/config/crew-dispatch.json"
+printf 'opencode\ncodex\npi\n' > "$FAKE/quota-refuse"
+bash "$AL" >/dev/null 2>&1
+assert_contains "$(sed -n 1p "$FAKE/spawn.log")" '--harness codex' 'a measured passing profile precedes uncertain profiles'
+assert_contains "$(sed -n 2p "$FAKE/spawn.log")" '--harness opencode' 'first uncertain profile retains declared order'
+assert_contains "$(sed -n 3p "$FAKE/spawn.log")" '--harness pi' 'second uncertain profile retains declared order'
+pass 'uncertain defaults follow passing profiles in declared order'
 
 for profile in '{"harness":"codex","effort":"high"}' \
   '{"harness":"codex","model":"gpt-5.5"}' '{"harness":"codex"}'; do
@@ -258,7 +281,24 @@ for profile in '{"harness":"codex","effort":"high"}' \
   bash "$AL" >/dev/null 2>&1
   assert_equals "fields $H/projects/proj --mode direct-PR --yolo off $expected" "$(cat "$FAKE/spawn.log")" 'spawn flags preserve each profile field position'
 done
-pass 'profile contract preserves absent model and effort fields in both candidate readers'
+pass 'profile contract preserves absent model and effort fields in the candidate reader'
+
+for mode in no-mistakes direct-PR local-only; do
+  for yolo in on off; do
+    reset 1
+    printf '%s\n' '- [ ] arguments - prepared ship (repo: proj) (kind: ship)' | backlog
+    prep arguments proj "mode=$mode" "yolo=$yolo" branch_prefix=lane base_branch=curated
+    bash "$AL" >/dev/null 2>&1
+    assert_equals "arguments $H/projects/proj --mode $mode --yolo $yolo --branch-prefix lane --base-branch curated" "$(cat "$FAKE/spawn.log")" 'each ship delivery mode preserves its explicit arguments'
+  done
+done
+reset 1
+printf '%s\n' '- [ ] arguments - prepared scout (repo: proj) (kind: scout)' | backlog
+prep arguments proj
+printf 'project=proj\nkind=scout\nbase_branch=curated\n' > "$H/data/arguments/autolaunch-prep"
+bash "$AL" >/dev/null 2>&1
+assert_equals "arguments $H/projects/proj --scout --base-branch curated" "$(cat "$FAKE/spawn.log")" 'scouts receive the scout flag and shared base branch without ship flags'
+pass 'ship and scout dispatch preserve their distinct argument contracts'
 
 jq '(.providers[] | select(.provider == "zai").quotaSemantics.effectiveAvailability[].selection.spendPriority) = 9' \
   "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$FAKE/eligibility-quota.json"
@@ -355,6 +395,8 @@ assert_contains "$out" 'first: waiting' 'red names the item'
 [ "$(printf '%s\n' "$out" | grep -c .)" -eq 1 ] || fail "red is one line: $out"
 out=$(FM_AUTOLAUNCH_CHECK_NOW=$NOW bash "$CHECK" 2>&1)
 assert_equals '' "$out" 'one episode reports once'
+out=$(FM_AUTOLAUNCH_CHECK_NOW=$((NOW + 3600)) bash "$CHECK" 2>&1)
+assert_contains "$out" 'RED auto-launch stalled' 'a continuing episode reports again after one hour'
 printf 'x\n' > "$LOG"; fm_touch_epoch $((NOW - 300)) "$LOG"
 out=$(FM_AUTOLAUNCH_CHECK_NOW=$NOW bash "$CHECK" 2>&1)
 assert_equals '' "$out" 'a recent record is silent'
@@ -411,6 +453,8 @@ out=$(bash "$CHECK" arm 2>&1) || fail "arm failed: $out"
 assert_contains "$out" 'armed: state/autolaunch.check.sh' 'arm reports the shim'
 assert_present "$H/state/autolaunch.check.sh" 'shim written'
 assert_present "$H/state/autolaunch.check-trust" 'shim registered'
+out=$(bash "$CHECK" arm 2>&1) || fail "re-arm failed: $out"
+assert_contains "$out" 'armed: state/autolaunch.check.sh' 'repeated arm refreshes registration'
 chmod 0500 "$H/state"
 out=$(bash "$CHECK" disarm 2>&1); rc=$?
 chmod 0700 "$H/state"
@@ -427,6 +471,7 @@ mv "$H/state/original-trust" "$H/state/autolaunch.check-trust"
 bash "$CHECK" disarm >/dev/null
 assert_absent "$H/state/autolaunch.check.sh" 'disarm removes the shim'
 assert_absent "$H/state/autolaunch.check-trust" 'disarm retires trust through the shared owner'
+bash "$CHECK" disarm >/dev/null || fail 'repeated disarm must succeed'
 out=$(bash "$AL" --print-timer)
 assert_contains "$out" "Environment=FM_HOME=$H" 'timer proposal pins FM_HOME'
 assert_contains "$out" 'OnUnitActiveSec=5min' 'timer proposal runs every five minutes'
