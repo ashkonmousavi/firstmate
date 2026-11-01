@@ -204,7 +204,7 @@ fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
 # sole secondmate busy-state writer. The async watcher hook stays independent.
 if [ "$CLAUDE_MODE" -eq 1 ] && [ "$STATE_CLAIMS" -eq 1 ] && command -v python3 >/dev/null 2>&1; then
   claim_status=0
-  python3 "$SCRIPT_DIR/fm-state-claim-guard.py" <<< "$PAYLOAD" || claim_status=$?
+  FM_STATE_OVERRIDE="$STATE" python3 "$SCRIPT_DIR/fm-state-claim-guard.py" <<< "$PAYLOAD" || claim_status=$?
   [ "$claim_status" -ne 2 ] || exit 2
 fi
 

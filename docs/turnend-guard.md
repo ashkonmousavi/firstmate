@@ -309,7 +309,7 @@ The tracked Claude Stop registration enables a fast, deterministic check for sta
 Its [module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the claim vocabulary, matching read commands, transcript bounds, exceptions, and failure behavior.
 The check uses the Stop payload's final text because [Claude documents asynchronous transcript writes](https://code.claude.com/docs/en/hooks#common-input-fields).
 It requires a matching completed read command from the current turn; it does not judge whether the result supports the claim.
-Its one-block loop guard is independent of the supervision recovery budget.
+Its one-block loop guard uses a per-session blocked-message hash, independent of the supervision recovery budget.
 Running it inside the existing synchronous hook preserves the single secondmate busy-state writer.
 
 Installation travels with the tracked `.claude/settings.json` through the normal [self-update path](../.agents/skills/updatefirstmate/SKILL.md); restart the updated Claude sessions so they load the new registration.

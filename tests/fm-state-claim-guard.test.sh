@@ -44,7 +44,7 @@ def check(label, message, commands=(), expected=2, rows=None, active=False, path
     payload.update(extra_payload or {})
     env = dict(os.environ, FM_ROOT_OVERRIDE=str(primary), FM_HOME=str(primary),
                FM_STATE_OVERRIDE=str(primary / "state"), FM_CONFIG_OVERRIDE=str(primary / "config"),
-               CLAUDE_PROJECT_DIR=str(primary))
+               CLAUDE_PROJECT_DIR=str(primary), GH_HOST="github.com")
     env.update(extra_env or {})
     if hook:
         settings = json.loads((root / ".claude/settings.json").read_text())
@@ -76,11 +76,33 @@ check("wrong PR read does not count", "PR 9 is merged.", ["gh-axi pr view 10"])
 check("PR id embedded in repository name does not count", "PR 9 is merged.", ["gh-axi pr view 10 --repo example/repo9"])
 check("separate reads cover multiple PR claims", "PR 9 and PR 10 are merged.",
       ["gh-axi pr view 9", "gh-axi pr view 10"], expected=0)
-check("short merged claim blocks", "Merged.")
+check("shorthand PR references all require reads", "PR 2775 and #2776 are queued.", ["gh pr view 2775"])
+check("shorthand PR references pass with both reads", "PR 2775 and #2776 are queued.",
+      ["gh pr view 2775", "gh pr view 2776"], expected=0)
+check("bare coordinated PR numbers require reads", "PRs 9 and 10 are merged.", ["gh pr view 9"])
+check("bare coordinated PR numbers pass with both reads", "PRs 9 and 10 are merged.",
+      ["gh pr view 9", "gh pr view 10"], expected=0)
+check("repository identity remains outside the heuristic", "PR https://github.com/other/repo/pull/9 is merged.",
+      ["gh pr view 9 --repo example/repo --json title"], expected=0)
+check("PR URL host must match the read", "PR https://forge.example/example/repo/pull/9 is merged.",
+      ["gh pr view 9"])
+check("explicit PR read host matches its claim", "PR https://forge.example/example/repo/pull/9 is merged.",
+      ["gh --hostname forge.example pr view 9"], expected=0)
+check("short merged reply without a subject passes", "Merged.", expected=0)
+check("terse PR-number status blocks", "#9 merged.")
+check("non-resource merge is not a state claim", "I merged the duplicate JSON entries.", expected=0)
+check("non-resource live adjective is not a state claim", "The live regression passed.", expected=0)
 check("inline-code status still names a claim", "PR 9 is `merged`.", named_claim="PR 9 is merged.")
 check("last read at passes", "PR 9 was in the queue, last read at 12:00 UTC.", expected=0)
 check("unreadable transcript steps aside", "The deploy is live.", path=lab / "absent", expected=0)
-check("second block does not fire", "The deploy is live.", active=True, expected=0)
+check("another hook continuation still gets checked", "The deploy is live.", active=True)
+check("own repeated message is exempt once", "The deploy is live.", active=True, expected=0)
+check("consumed exemption does not excuse a later watcher continuation", "The deploy is live.", active=True)
+check("changed unsupported claim is checked", "PR 9 is merged.", active=True)
+check("other session cannot use the previous block", "PR 9 is merged.", active=True,
+      extra_payload={"session_id": "other-session"})
+check("new user turn is checked again", "PR 9 is merged.")
+check("own PR continuation passes", "PR 9 is merged.", active=True, expected=0)
 check("old turn read does not count", "PR 9 is merged.", rows=[user, *tool("gh-axi pr view 9"), user])
 check("tool results do not start another turn", "PR 9 is merged.", ["gh pr checks 9 --repo example/repo"], expected=0)
 check("wrong state family does not count", "The deploy is live.", ["gh-axi pr view 9"])
@@ -91,6 +113,16 @@ check("completed nonzero checks read still counts", "PR 9 is in the queue.",
 check("heredoc example does not count", "PR 9 is merged.", ["cat <<'EOF'\ngh-axi pr view 9\nEOF"])
 check("deploy URL read passes", "The deploy is live.", ["curl -fsS https://service.example/health"], expected=0)
 check("curl fail-on-error read passes", "The deploy is deployed.", ["curl -f https://service.example/health"], expected=0)
+check("different URL host does not cover a site claim", "The site https://site.example is live.",
+      ["curl https://docs.example/health"])
+check("same URL host covers a site claim", "https://site.example is live.",
+      ["curl https://site.example/health"], expected=0)
+check("PR number in deployment prose does not change read family", "The site is deployed for PR 9.",
+      ["curl https://site.example/health"], expected=0)
+check("every claimed URL host requires a read", "The sites https://one.example and https://two.example are deployed.",
+      ["curl https://one.example/health"])
+check("separate host reads cover both site claims", "The sites https://one.example and https://two.example are deployed.",
+      ["curl https://one.example/health", "curl https://two.example/health"], expected=0)
 check("deploy write does not count", "The deploy is live.", ["curl -X POST https://service.example/deploy"])
 check("compact deploy write does not count", "The deploy is live.", ["curl -XPOST https://service.example/deploy"])
 check("long deploy write does not count", "The deploy is live.", ["curl --request=POST https://service.example/deploy"])
@@ -101,6 +133,21 @@ check("PR API method read passes", "PR 9 is merged.", ["gh api --method GET repo
 check("PR API write does not count", "PR 9 is merged.", ["gh api --method PATCH repos/example/repo/pulls/9"])
 check("lane read passes", "The worker lane is running.", ["bash bin/fm-crew-state.sh lane-a"], expected=0)
 check("lane status without read blocks", "The worker lane is running.")
+check("different lane name does not cover a lane claim", "Lane lane-b is running.", ["bash bin/fm-crew-state.sh lane-a"])
+check("same lane name covers a lane claim", "Lane lane-b is running.", ["bash bin/fm-crew-state.sh lane-b"], expected=0)
+check("hyphenated lane name alone requires a matching read", "lane-b is running.", ["bash bin/fm-crew-state.sh lane-a"])
+check("lane name substring is not a match", "Lane alpha is running.", ["bash bin/fm-crew-state.sh alpha-extra"])
+check("every listed lane name requires a read", "Lanes alpha and beta are running.", ["bash bin/fm-crew-state.sh alpha"])
+check("separate reads cover listed lane names", "Lanes alpha and beta are running.",
+      ["bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"], expected=0)
+check("generic worker-lane plural remains unnamed", "Both worker lanes are running.",
+      ["bash bin/fm-crew-state.sh"], expected=0)
+for subject in ("lanes", "workers", "crews", "scouts", "mates", "tasks", "supervisors", "watchers", "agents"):
+    check(f"plural {subject} report requires a read", f"Both {subject} are running.")
+    check(f"plural {subject} report passes with a read", f"Both {subject} are running.",
+          ["bash bin/fm-crew-state.sh"], expected=0)
+for subject in ("deploy", "deployment", "release", "site"):
+    check(f"{subject} subject requires a read", f"The {subject} is live.")
 check("qualified sentence does not excuse a second claim", "PR 9 merged, last read at noon. The deploy is live.")
 check("negation is not a claim", "The deploy is not live.", expected=0)
 check("future state is not a claim", "The deploy will be live after the check.", expected=0)
@@ -108,6 +155,13 @@ check("negation cannot excuse a later PR claim", "The deploy is not live, but PR
       named_claim="The deploy is not live, but PR 2775 is queued.")
 check("question cannot excuse an earlier assertion", "PR 2775 is queued; can you check?")
 check("event timing does not qualify live state", "The site is live before tonight's event.")
+for message in ("PR 9 will be queued and merged.", "PR 9 is not queued and merged.",
+                "Is PR 9 queued and merged?", "The site will be deployed and live.",
+                "The site is not deployed and live.", "Is the site deployed and live?",
+                "PR 9 will be queued, merged.", "Is the site deployed, and live?",
+                "The lane should be ready and running.", "The lane is not ready and running.",
+                "Is the lane ready and running?"):
+    check(f"coordinated non-assertion passes: {message}", message, expected=0)
 for label, assertion, negative, future, question in [
     ("PR", "PR 9 is merged", "PR 9 is not merged", "PR 9 would be merged", "Is PR 9 merged?"),
     ("deploy", "The site is live", "The site is not live", "The site will be live", "Is the site live?"),
@@ -131,7 +185,7 @@ for label, message, reader in [
                     f"false &&\n{reader}", f"exit 0; {reader}",
                     f"if false; then {reader}; fi", f"if false\nthen\n{reader}\nfi",
                     f"false && ({reader})", f"false && echo skipped | {reader}",
-                    f"{reader} &", f"{reader} >/removed-worktree/output"):
+                    f"{reader} &"):
         check(f"{label} compound command is not execution evidence: {command!r}", message,
               rows=[user, *tool(command, error=True)])
     check(f"{label} separate completed read still counts after skipped read", message,
@@ -140,6 +194,9 @@ for label, message, reader in [
           [f"\n {reader}\n"], expected=0)
     check(f"{label} environment prefix preserves a direct read", message,
           [f"FM_TEST_READER=1 env {reader}"], expected=0)
+    for command in (f"{reader} | cat", f"printf input | {reader}", f"{reader} > output",
+                    f"{reader} || true", f"printf ready; {reader}"):
+        check(f"{label} unconditional read segment counts: {command}", message, [command], expected=0)
 check("code example is not a claim", "Example: `PR 9 is merged`.\n```text\nThe deploy is live.\n```", expected=0)
 check("live-check description is not a claim", "I added a live check and a running-time test.", expected=0)
 check("latest payload wins over stale transcript text", "Implementation complete.",

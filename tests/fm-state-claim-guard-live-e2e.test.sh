@@ -30,7 +30,7 @@ sys.stderr.write(p.stderr)
 sys.exit(p.returncode)
 ''')
 read = lab / "gh-axi"
-read.write_text('#!/usr/bin/env bash\nprintf "state: MERGED\\n"\n')
+read.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$FM_HOME/read-events"\nprintf "state: MERGED\\n"\n')
 read.chmod(0o755)
 
 for name in ("no-read", "read"):
@@ -64,10 +64,25 @@ for name in ("no-read", "read"):
     expected = [2, 0] if name == "no-read" else [0]
     assert [e["rc"] for e in events] == expected, f"{version} {name}: {events}"
     assert events[0]["payload"]["stop_hook_active"] is False, f"{version}: first Stop is not inactive"
-    assert "merged" in events[0]["payload"]["last_assistant_message"].lower(), f"{version}: missing claim text"
+    assert all(e["payload"]["last_assistant_message"].strip() == "PR 9 is merged." for e in events), f"{version}: missing affirmative claim text"
     if name == "no-read":
         assert events[1]["payload"]["stop_hook_active"] is True, f"{version}: missing continuation marker"
         assert "State claim needs a same-turn read" in events[0]["stderr"], f"{version}: wrong blocking reason"
+        assert not (home / "read-events").exists(), f"{version}: no-read fixture executed a read"
+    else:
+        assert (home / "read-events").read_text().splitlines() == ["pr view 9"], f"{version}: fixture read did not execute exactly once"
+        rows = [json.loads(line) for line in Path(events[0]["payload"]["transcript_path"]).read_text().splitlines()]
+        calls, completed = set(), set()
+        for row in rows:
+            content = row.get("message", {}).get("content", [])
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if row.get("type") == "assistant" and block.get("type") == "tool_use" and block.get("name") == "Bash" and block.get("input", {}).get("command") == f"{read} pr view 9":
+                    calls.add(block["id"])
+                if row.get("type") == "user" and block.get("type") == "tool_result" and not block.get("is_error"):
+                    completed.add(block["tool_use_id"])
+        assert calls & completed, f"{version}: fixture Bash read has no completed tool result"
     print(f"ok - {version} real Stop {name}: exits {','.join(map(str, expected))}")
 print(f"ok - {version} state-claim live guard checked 2 sessions")
 PY

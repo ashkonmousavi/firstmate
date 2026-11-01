@@ -3,8 +3,8 @@
 
 Called by fm-turnend-guard.sh --claude --state-claims after primary scoping.
 Exit 2 names unsupported claims on stderr; all other paths allow silently.
-No network, subprocess, model, or durable marker is used. stop_hook_active
-bounds this check to one block. Unreadable, malformed, oversized or incomplete
+No network, subprocess or model is used. A per-session blocked-message hash
+bounds this check to one block per message. Unreadable, malformed, oversized or incomplete
 transcripts fail open. Only the last 2 MiB are read, and a real user message
 must establish the current turn inside that window (tool results do not).
 The Stop payload owns final text because transcript writes may lag Stop.
@@ -15,13 +15,16 @@ not that the command output supports the prose. 'last read at' exempts only
 its sentence. Shell commands are tokenized, never executed.
 """
 
+import hashlib
 import json
 import os
+from pathlib import Path
 import re
 import shlex
 import stat
 import sys
 import time
+from urllib.parse import urlsplit
 
 
 def rx(pattern):
@@ -29,16 +32,52 @@ def rx(pattern):
 
 
 POLICY = (
-    ("PR", rx(r"\b(?:in (?:the )?(?:merge )?queue|queued|merged)\b"), None,
+    ("PR", rx(r"\b(?:in (?:the )?(?:merge )?queue|queued|merged)\b"),
+     rx(r"\bprs?\b|#\d+\b|https?://\S+/pulls?/\d+"),
      rx(r"^(?:gh|gh-axi)\s+(?:pr\s+(?:view|checks)\b|api\s+.*\S*/pulls(?:/|\b))")),
-    ("deploy", rx(r"\b(?:deployed|live)\b"), None,
+    ("deploy", rx(r"\b(?:deployed|live)\b"),
+     rx(r"\b(?:deploy(?:ment)?s?|releases?|sites?)\b|https?://"),
      rx(r"^curl\s+.*https?://")),
     ("lane", rx(r"\brunning\b"),
-     rx(r"\b(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)\b"),
+     rx(r"\b(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)s?\b"),
      rx(r"^(?:fm-crew-state\.sh|fm-crew-state)(?:\s|$)")),
 )
 MAX_BYTES = 2 * 1024 * 1024
-PR_ID = rx(r"(?:\bpr\s*#?\s*|/pull/)(\d+)\b")
+PR_ID = rx(r"(?:\bprs?\s*#?\s*|(?<!\w)#|/pulls?/)(\d+)\b")
+CLAUSE_BREAK = rx(
+    r"[;:]|\s[-–—]\s|\b(?:but|however|then|while|whereas)\b|"
+    r"(?:,|\band\b)(?=\s+(?:prs?\b|#\d+|https?://|"
+    r"(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)s?\b|"
+    r"(?:deploy(?:ment)?s?|sites?|releases?)\b|"
+    r"(?:the|a|an|both|all|our|these|those|this|that)\b|"
+    r"(?:can|could|would|will|should|do|does)\s+(?:you|we|they)\b))"
+)
+
+
+def url_hosts(text):
+    return {urlsplit(url.rstrip(".,;!?)]}")).hostname
+            for url in re.findall(r"https?://[^\s\"'<>`]+", text, flags=re.I)}
+
+
+def read_hosts(family, command):
+    hosts = url_hosts(command)
+    if family == "PR" and not hosts:
+        explicit = re.search(r"(?:--hostname(?:=|\s+)|\bGH_HOST=)([\w.-]+)", command)
+        hosts.add((explicit.group(1) if explicit else os.environ.get("GH_HOST", "github.com")).lower())
+    return hosts
+
+
+def lane_names(text):
+    generic = {"is", "are", "was", "were", "will", "would", "should", "could", "not",
+               "still", "currently", "now", "running", "and", "the", "a", "an",
+               "lane", "worker", "crew", "scout", "mate", "task", "supervisor", "watcher", "agent",
+               "lanes", "workers", "crews", "scouts", "mates", "tasks", "supervisors", "watchers", "agents"}
+    return {name for match in rx(
+        r"\b(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)-[\w.-]+\b|"
+        r"\b(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)s?\s+"
+        r"([\w.-]+(?:\s*(?:,|\band\b|&)\s*[\w.-]+)*)"
+    ).finditer(text) for name in re.split(r"\s*(?:,|\band\b|&)\s*", match.group(1) or match.group(0))
+            if name.lower() not in generic}
 
 
 def claims(text):
@@ -52,19 +91,19 @@ def claims(text):
         for family, words, context, _ in POLICY:
             if context and not context.search(sentence):
                 continue
-            for clause in re.split(r"[,;:]|\s[-–—]\s|\b(?:and|but|however|then|while|whereas)\b", sentence, flags=re.I):
+            for clause in CLAUSE_BREAK.split(sentence):
                 for match in words.finditer(clause):
                     before = clause[:match.start()]
-                    after = clause[match.end():match.end() + 25]
                     if rx(r"\b(?:not|never|isn't|aren't|wasn't|isn’t|aren’t|wasn’t|will|would|should|could|if|whether)\b").search(before):
                         continue
-                    if clause.rstrip().endswith("?"):
+                    if clause.rstrip().endswith("?") or rx(r"^\s*(?:is|are|was|were|has|have|had|do|does|did)\b").search(clause):
                         continue
-                    if family == "deploy" and match.group().lower() == "live" and rx(
-                        r"^[- ](?:check|read|proof|test|guard|state|evidence|URL)\b"
-                    ).search(after):
-                        continue
-                    yield family, sentence.strip(), set(PR_ID.findall(sentence))
+                    pr_ids = set()
+                    if family == "PR":
+                        pr_ids.update(PR_ID.findall(sentence))
+                        for listed in rx(r"\bprs?\s*#?\d+(?:\s*(?:,|and|&)\s*#?\d+)+").findall(sentence):
+                            pr_ids.update(re.findall(r"\d+", listed))
+                    yield family, sentence.strip(), pr_ids
                     break
 
 
@@ -72,14 +111,32 @@ def read_commands(command, deadline):
     """Recognize executable reads, not quoted examples or write subcommands."""
     if len(command) > 16384 or "<<" in command:
         return
-    tokens = shlex.shlex(command.strip(), posix=True, punctuation_chars=";&|()<>\n")
+    tokens = shlex.shlex(command.strip(), posix=True, punctuation_chars=";&|()\n")
     tokens.whitespace = " \t\r"
     tokens.whitespace_split = True
-    segment = list(tokens)
-    if time.monotonic() > deadline or any(
-        token and all(c in ";&|()<>\n" for c in token) for token in segment
-    ):
-        return
+    segments, segment = [], []
+    for token in [*tokens, ";"]:
+        if time.monotonic() > deadline:
+            return
+        if token and all(c in ";&|()\n" for c in token):
+            if "(" in token or ")" in token or token.strip() == "&":
+                break
+            if segment:
+                segments.append(segment)
+            segment = []
+            if "&&" in token or "||" in token:
+                break
+        elif not segment and token in ("if", "then", "else", "elif", "fi", "for", "while", "until",
+                                      "do", "done", "case", "esac", "exit", "return", "exec"):
+            break
+        else:
+            segment.append(token)
+    for segment in segments:
+        yield from read_segment(segment)
+
+
+def read_segment(segment):
+    source = " ".join(segment)
     while segment and (re.match(r"^[A-Za-z_][A-Za-z_0-9]*=", segment[0]) or segment[0] == "env"):
         segment.pop(0)
     if segment and os.path.basename(segment[0]) in ("bash", "sh"):
@@ -106,7 +163,7 @@ def read_commands(command, deadline):
                    or (t.startswith(("--method=", "--request=")) and t.split("=", 1)[1] not in ("GET", "HEAD"))
                    for t in segment):
                 continue
-            yield family, normalized
+            yield family, source
 
 
 def current_reads(path, deadline):
@@ -162,13 +219,27 @@ def main():
     if len(raw) > MAX_BYTES:
         return 0
     payload = json.loads(raw)
-    if not isinstance(payload, dict) or payload.get("stop_hook_active") is not False:
+    if not isinstance(payload, dict) or not isinstance(payload.get("stop_hook_active"), bool):
         return 0
     text = payload.get("last_assistant_message")
     if not isinstance(text, str) or len(text) > 65536:
         return 0
     if payload.get("hook_event_name") != "Stop" or "/.pi/" in payload.get("transcript_path", ""):
         return 0
+    session = payload.get("session_id")
+    if not isinstance(session, str) or not session:
+        return 0
+    state = os.environ.get("FM_STATE_OVERRIDE") or str(Path(os.environ.get("FM_HOME", Path(__file__).parent.parent)) / "state")
+    marker = Path(state) / (".state-claim-" + hashlib.sha256(session.encode()).hexdigest() + ".blocked")
+    message_hash = hashlib.sha256(text.encode()).hexdigest()
+    if payload["stop_hook_active"] and marker.exists():
+        with marker.open() as previous:
+            own_block = previous.read(65) == message_hash
+        marker.unlink()
+        if own_block:
+            return 0
+    elif not payload["stop_hook_active"]:
+        marker.unlink(missing_ok=True)
     unsupported = list(claims(text))
     if not unsupported:
         return 0
@@ -182,7 +253,16 @@ def main():
                 r"(?:^|\s)#?" + ident + r"(?=\s|$)|/pulls?/" + ident + r"(?=[/?#\s]|$)", command
             ) for command in matching) for ident in pr_ids):
                 matching = []
+        if family in ("PR", "deploy"):
+            if not all(any(host in read_hosts(family, command) for command in matching) for host in url_hosts(sentence)):
+                matching = []
+        if family == "lane":
+            if not all(any(re.search(r"(?<![\w.-])" + re.escape(name) + r"(?![\w.-])", command, re.I)
+                           for command in matching) for name in lane_names(sentence)):
+                matching = []
         if not matching:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(message_hash)
             print(f"State claim needs a same-turn read ({family}): {sentence[:300]}\n"
                   "Read that state now, correct the claim, or qualify it with 'last read at'. "
                   "This claim check blocks only once.", file=sys.stderr)
