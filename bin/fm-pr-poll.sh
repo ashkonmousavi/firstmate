@@ -184,7 +184,7 @@ fm_pr_poll_facts_write() {  # <file> <etag> <present> <labeled_at> <unlabeled_at
 # The whole GitHub tick for one pull request: print merged, conflict:<ts>,
 # conflict-clear, or nothing. Nonzero means a read failed.
 fm_pr_poll_github() {  # <owner> <repo> <number> <url>
-  local owner=$1 repo=$2 number=$3 url=$4 dir='' key facts state='' present etag=''
+  local owner=$1 repo=$2 number=$3 url=$4 dir='' key facts state='' present etag='' verdict=''
   if command -v jq >/dev/null 2>&1 && declare -F fm_gh_etag_get >/dev/null \
      && dir=$(fm_pr_poll_cache_dir) \
      && key="pr-poll.$owner.$repo.$number" \
@@ -212,11 +212,13 @@ fm_pr_poll_github() {  # <owner> <repo> <number> <url>
             return 0 ;;
           true)
             fm_pr_poll_github_timeline "$owner" "$repo" "$number" || return $?
-            # An unprovable label age is stored as nothing, so the next tick asks
-            # the timeline again, exactly as the original reads did every tick.
-            [ -z "$FM_PR_POLL_LABELED_AT" ] \
-              || fm_pr_poll_facts_write "$facts" "$etag" "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
-            fm_pr_poll_verdict "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
+            verdict=$(fm_pr_poll_verdict "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT")
+            # Only a timeline that agrees the label is present and proves its age
+            # is stored; anything else is asked again next tick, exactly as the
+            # original reads did every tick.
+            [ "$FM_PR_POLL_PRESENT" != true ] || [ -z "$verdict" ] \
+              || fm_pr_poll_facts_write "$facts" "$etag" true "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
+            [ -z "$verdict" ] || printf '%s\n' "$verdict"
             return 0 ;;
         esac ;;
     esac

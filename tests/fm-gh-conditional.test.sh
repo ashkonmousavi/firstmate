@@ -169,6 +169,25 @@ test_helper_error_keeps_the_cache() {
   pass "helper: an error is rc 1 and the cache survives it"
 }
 
+# A request killed mid-flight (the watcher's check timeout) leaves its private
+# temps behind; the next fresh write sweeps those older than a day.
+test_helper_sweeps_abandoned_temps() {
+  local fake
+  fake=$(new_fake helper-temps)
+  mkdir -p "$fake/cache"
+  : > "$fake/cache/.raw.OLD111"
+  : > "$fake/cache/.raw.OLD111.etag"
+  : > "$fake/cache/.body.OLD222"
+  touch -t 202001010000 "$fake/cache/.raw.OLD111" "$fake/cache/.raw.OLD111.etag" "$fake/cache/.body.OLD222"
+  : > "$fake/cache/.raw.NEW333"
+  fixture "$fake" repos/o/r/pulls/7 '{"v":1}'
+  assert_equals '0 200 {"v":1}' "$(helper_call "$fake" k repos/o/r/pulls/7)" "a fresh read succeeds"
+  [ ! -e "$fake/cache/.raw.OLD111" ] && [ ! -e "$fake/cache/.raw.OLD111.etag" ] && [ ! -e "$fake/cache/.body.OLD222" ] \
+    || fail "abandoned temps survived the sweep: $(ls -A "$fake/cache")"
+  [ -e "$fake/cache/.raw.NEW333" ] || fail "a temp younger than a day, possibly in use, was swept"
+  pass "helper: temps abandoned by a killed request are swept after a day, live ones are kept"
+}
+
 test_helper_multi_page_and_switches() {
   local fake out
   fake=$(new_fake helper-multi)
@@ -259,7 +278,21 @@ test_poll_unprovable_label_age_is_asked_again() {
   out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
   assert_equals '' "$out" "still nothing on the next tick"
   assert_equals 2 "$(calls "$fake" graphql)" "an unproved age is not cached: the timeline is asked again on a 304"
-  pass "pr-poll: an unprovable label age is retried every tick, as the original reads did"
+  # A timeline lagging the REST body: it has not yet seen the label applied, or
+  # still shows a removal newer than the re-add. Neither is stored, so the
+  # unchanged PR's 304 asks again and the caught-up timeline is reported.
+  printf 'present=false\nlabeled_at=%s\n' "$(iso_ago 3600)" > "$fake/graphql.out"
+  out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
+  assert_equals conflict-clear "$out" "a lagging timeline without the label answers clear for this tick"
+  printf 'present=true\nlabeled_at=%s\nunlabeled_at=%s\n' "$(iso_ago 3600)" "$(iso_ago 1800)" > "$fake/graphql.out"
+  out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
+  assert_equals '' "$out" "a removal newer than the last add says nothing"
+  printf 'present=true\nlabeled_at=%s\nunlabeled_at=%s\n' "$(iso_ago 1200)" "$(iso_ago 1800)" > "$fake/graphql.out"
+  out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
+  case "$out" in conflict:*) ;; *) fail "the caught-up timeline was not asked on the 304: $out" ;; esac
+  assert_equals 5 "$(calls "$fake" graphql)" "every lagging answer was asked again"
+  grep -q '^rest repos/o/r/pulls/7 inm="[0-9a-f]*"$' "$fake/log" || fail "the later ticks were not conditional"
+  pass "pr-poll: an unprovable or lagging label timeline is retried every tick, as the original reads did"
 }
 
 test_poll_falls_back_to_the_original_reads() {
@@ -325,7 +358,7 @@ test_sweep_lists_conditionally() {
 }
 
 failures=0
-for test_name in test_helper_200_304_and_persistence test_helper_error_keeps_the_cache \
+for test_name in test_helper_200_304_and_persistence test_helper_error_keeps_the_cache test_helper_sweeps_abandoned_temps \
   test_helper_multi_page_and_switches test_poll_calls_per_tick test_poll_label_age_crosses_on_a_304 test_poll_unprovable_label_age_is_asked_again \
   test_poll_falls_back_to_the_original_reads test_sweep_lists_conditionally; do
   ( "$test_name" ) || failures=$((failures + 1))

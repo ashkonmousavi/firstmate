@@ -173,7 +173,8 @@ fm_gh_etag_get() {  # <cache-dir> <key> <endpoint> [gh api args...]
   mv -f -- "$tmp_body" "$body_file" || { rm -f -- "$tmp_body"; return 2; }
   printf '%s\n' "$etag" > "$etag_file.tmp.$$" && chmod 0600 "$etag_file.tmp.$$" \
     && mv -f -- "$etag_file.tmp.$$" "$etag_file" || { rm -f -- "$etag_file.tmp.$$"; return 2; }
-  find "$dir" -maxdepth 1 -type f ! -name '.*' -mtime "+$FM_GH_ETAG_PRUNE_AGE_DAYS" -delete 2>/dev/null || true
+  find "$dir" -maxdepth 1 -type f \( \( -name '.raw.*' -o -name '.body.*' \) -mtime +0 \
+    -o ! -name '.*' -mtime "+$FM_GH_ETAG_PRUNE_AGE_DAYS" \) -delete 2>/dev/null || true
   FM_GH_ETAG_STATUS=200
   FM_GH_ETAG_VALUE=$etag
   FM_GH_ETAG_BODY=$body_file

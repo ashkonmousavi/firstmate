@@ -759,6 +759,12 @@ wrap_forge() { # home: log gh calls and apply per-call faults from $FORGE/fault
 set -eu
 printf '%s\n' "$*" >> "$FORGE/calls"
 fault=$(cat "$FORGE/fault" 2>/dev/null || true)
+# A conditional read (api -i [-H If-None-Match: tag] <endpoint>) meets the same
+# fault as the plain read of its endpoint, as it would against GitHub.
+call=$*
+if [ "${1-}" = api ] && [ "${2-}" = -i ]; then
+  if [ "${3-}" = -H ]; then call="api ${5-}"; else call="api ${3-}"; fi
+fi
 case "$fault" in latency) sleep "${FORGE_LATENCY:-2}" ;; esac
 # Concurrent forge callers each advance one shared clock. Truncating it in
 # place races with the other callers and the fake date: an interleaved write
@@ -771,7 +777,7 @@ clock_bump() {
   printf '%s\n' "$(( $(cat "$FORGE/clock") + $1 ))" > "$tmp"
   mv -f "$tmp" "$FORGE/clock"
 }
-case "$fault:$*" in
+case "$fault:$call" in
   # Advance once before the parallel read wave; its readers share this clock.
   reserve:'api repos/o/r/issues/9') clock_bump 6 ;;
   slow-wave:'api repos/o/r/pulls/8') sleep 3 ;;
@@ -814,9 +820,21 @@ SH
   chmod +x "$home/fakebin/gh" "$home/fakebin/date"
 }
 
+# The fault tests run once as is (unconditional reads only) and once with
+# conditional reads on, as production runs: a failed or slow probe must fall
+# back to the plain read without spending more of the budget or recording a
+# verdict twice.
+cond_suffix() { [ "${FM_GH_CONDITIONAL:-0}" = 0 ] || printf -- '-conditional'; }
+cond_note() { [ "${FM_GH_CONDITIONAL:-0}" = 0 ] || printf ' (conditional reads on)'; }
+cond_probed() { # home: with conditional reads on, the probe must really have run
+  [ "${FM_GH_CONDITIONAL:-0}" = 0 ] || grep -q '^api -i ' "$1/forge/calls" \
+    || fail 'conditional reads were on but no conditional probe was made'
+}
+with_conditional() { export FM_GH_CONDITIONAL=1; "$@"; }
+
 test_budget_exhaustion_keeps_prior_record() { # exhaust|hang
   local mode=$1 home out
-  home=$(new_home "budget-$mode")
+  home=$(new_home "budget-$mode$(cond_suffix)")
   forge_home "$home"
   wrap_forge "$home"
   mutate_record "$home" delivery '.records[0].checked_at="2026-09-15T08:00:00Z"'
@@ -828,16 +846,22 @@ test_budget_exhaustion_keeps_prior_record() { # exhaust|hang
   out=$(with_home "$home" env FM_CONTRIBUTIONS_BUDGET=1 "$ROOT/bin/fm-contributions.sh" poll) \
     || fail "poll failed when its budget ran out ($mode)"
   [ -z "$out" ] || fail "budget exhaustion ($mode) printed a wake line: $out"
-  grep -F 'api repos/o/r/pulls/8' "$home/forge/calls" >/dev/null \
+  grep -F 'repos/o/r/pulls/8' "$home/forge/calls" >/dev/null \
     || fail "budget exhaustion ($mode) never started the observation"
+  cond_probed "$home"
   cmp -s "$home/prior.json" "$home/data/delivery/contributions.json" \
     || fail "budget exhaustion ($mode) rewrote the prior record: $(cat "$home/data/delivery/contributions.json")"
   [ ! -s "$home/state/.wake-queue" ] || fail "budget exhaustion ($mode) enqueued a wake"
-  pass "budget exhausted mid-observation ($mode) keeps the prior record and stays silent"
+  pass "budget exhausted mid-observation ($mode) keeps the prior record and stays silent$(cond_note)"
 }
 
 test_budget_refusal_between_calls() { test_budget_exhaustion_keeps_prior_record exhaust; }
 test_budget_bounded_call_timeout() { test_budget_exhaustion_keeps_prior_record hang; }
+test_budget_refusal_between_calls_conditional() { with_conditional test_budget_refusal_between_calls; }
+test_budget_bounded_call_timeout_conditional() { with_conditional test_budget_bounded_call_timeout; }
+test_http_500_once_conditional() { with_conditional test_http_500_once_retries_without_waking; }
+test_http_500_twice_conditional() { with_conditional test_http_500_twice_records_the_failed_read; }
+test_slow_read_deadline_kill_conditional() { with_conditional test_slow_read_deadline_kill_is_budget_refusal; }
 
 test_genuine_failure_near_deadline_is_unavailable() {
   local home out
@@ -858,7 +882,7 @@ test_genuine_failure_near_deadline_is_unavailable() {
 
 test_http_500_once_retries_without_waking() {
   local home out calls
-  home=$(new_home retry-http-500-once)
+  home=$(new_home "retry-http-500-once$(cond_suffix)")
   forge_home "$home"
   wrap_forge "$home"
   mutate_record "$home" delivery '.records[0].checked_at="2026-09-15T08:00:00Z"'
@@ -866,18 +890,21 @@ test_http_500_once_retries_without_waking() {
   out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" poll) \
     || fail 'poll failed after one transient HTTP 500'
   [ -z "$out" ] || fail "a recovered HTTP 500 printed an unavailable line: $out"
-  calls=$(grep -cF 'api repos/o/r/pulls/8/reviews?' "$home/forge/calls")
+  # Unconditional: the failed read and its retry. Conditional: the failed
+  # probe and the one plain read it falls back to, never a third.
+  calls=$(grep -cF 'repos/o/r/pulls/8/reviews?' "$home/forge/calls")
   [ "$calls" = 2 ] || fail "one HTTP 500 made $calls review reads, expected 2"
+  cond_probed "$home"
   jq -e --arg now "$NOW" '.records[0] | .checked_at == $now and .error == null' \
     "$home/data/delivery/contributions.json" >/dev/null \
     || fail 'a recovered HTTP 500 left an error in the contribution record'
   [ ! -s "$home/state/.wake-queue" ] || fail 'a recovered HTTP 500 enqueued a wake'
-  pass 'one HTTP 500 is retried once and a successful retry stays healthy'
+  pass "one HTTP 500 is retried once and a successful retry stays healthy$(cond_note)"
 }
 
 test_http_500_twice_records_the_failed_read() {
   local home out calls why='reviews read exited 1 with Ns of budget left: gh: Internal Server Error (HTTP 500)'
-  home=$(new_home retry-http-500-twice)
+  home=$(new_home "retry-http-500-twice$(cond_suffix)")
   forge_home "$home"
   wrap_forge "$home"
   printf 'fail\n' > "$home/forge/fault"
@@ -887,9 +914,10 @@ test_http_500_twice_records_the_failed_read() {
     || fail "two HTTP 500 responses did not print one unavailable line: $out"
   calls=$(grep -cF 'api repos/o/r/pulls/8/reviews?' "$home/forge/calls")
   [ "$calls" = 2 ] || fail "two HTTP 500 responses made $calls review reads, expected 2"
+  cond_probed "$home"
   [ "$(jq -r .records[0].error "$home/data/delivery/contributions.json" | mask_budget)" = "forge observation unavailable: $why" ] \
     || fail 'a failed retry did not name the reviews read and its error'
-  pass 'two transient failures wake once and name the failed read in the record'
+  pass "two transient failures wake once and name the failed read in the record$(cond_note)"
 }
 
 test_http_404_is_not_retried() {
@@ -1306,7 +1334,7 @@ test_three_second_pr_reads_complete_fresh_in_one_cycle() { # 3-second reads: 8 s
 
 test_slow_read_deadline_kill_is_budget_refusal() {
   local home out
-  home=$(new_home slow-kill)
+  home=$(new_home "slow-kill$(cond_suffix)")
   forge_home "$home"
   wrap_forge "$home"
   mutate_record "$home" delivery '.records[0].checked_at="2026-09-15T08:00:00Z"'
@@ -1319,7 +1347,8 @@ test_slow_read_deadline_kill_is_budget_refusal() {
   cmp -s "$home/prior.json" "$home/data/delivery/contributions.json" \
     || fail 'a deadline-killed slow read rewrote the prior record'
   [ ! -s "$home/state/.wake-queue" ] || fail 'a deadline-killed slow read enqueued a wake'
-  pass 'a read killed at the five-second bound is budget refusal and stays silent'
+  cond_probed "$home"
+  pass "a read killed at the five-second bound is budget refusal and stays silent$(cond_note)"
 }
 
 test_unmeasured_url_does_not_starve_the_tail() {
@@ -1706,7 +1735,7 @@ test_conditional_reads_replay_unchanged_forge() {
 }
 
 failures=0
-for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_unsupported_poll_is_silent_and_clears_legacy_errors test_legacy_cleanup_preserves_supported_failure test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_http_500_once_retries_without_waking test_http_500_twice_records_the_failed_read test_http_404_is_not_retried test_real_gh_errors_drive_retry_and_summary test_next_url_does_not_inherit_a_forge_diagnostic test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_retire_ends_observation_of_a_gone_contribution test_late_owner_of_a_retired_final_contribution_is_not_retired test_retire_is_idempotent_and_refuses_unknown_pairs test_many_reviews_stay_readable test_conditional_reads_replay_unchanged_forge; do
+for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_unsupported_poll_is_silent_and_clears_legacy_errors test_legacy_cleanup_preserves_supported_failure test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_http_500_once_retries_without_waking test_http_500_twice_records_the_failed_read test_http_404_is_not_retried test_real_gh_errors_drive_retry_and_summary test_next_url_does_not_inherit_a_forge_diagnostic test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_retire_ends_observation_of_a_gone_contribution test_late_owner_of_a_retired_final_contribution_is_not_retired test_retire_is_idempotent_and_refuses_unknown_pairs test_many_reviews_stay_readable test_conditional_reads_replay_unchanged_forge test_budget_refusal_between_calls_conditional test_budget_bounded_call_timeout_conditional test_http_500_once_conditional test_http_500_twice_conditional test_slow_read_deadline_kill_conditional; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
 [ "$failures" -eq 0 ] || fail "$failures contribution regressions"

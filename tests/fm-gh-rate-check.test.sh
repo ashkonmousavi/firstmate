@@ -127,6 +127,32 @@ test_secondmate_publishes_on_the_parent_channel() {
   pass "a secondmate publishes the episode on its parent channel with a key and closes it on recovery"
 }
 
+# The watcher was down across a reset and the next window is already low on
+# the first reading: the old window's key is closed before the new one opens,
+# so no blocked key is left without its resolved line.
+test_secondmate_closes_the_old_window_when_the_next_is_low() {
+  local parent mate status
+  parent=$TMP_ROOT/parent-roll
+  mate=$(new_home mate-roll)
+  mkdir -p "$parent/state"
+  printf 'mate-roll\n' > "$mate/.fm-secondmate-home"
+  printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' "$parent" > "$mate/.fm-secondmate-parent"
+  printf 'kind=secondmate\nhome=%s\n' "$mate" > "$parent/state/mate-roll.meta"
+  status=$parent/state/mate-roll.status
+  set_rate "$mate/fake" 900 1800003600 4000 1800003600
+  run_check "$mate" "$NOW" >/dev/null || fail "first low check failed"
+  set_rate "$mate/fake" 800 1800007200 4000 1800007200
+  run_check "$mate" $((NOW + 4000)) >/dev/null || fail "next-window low check failed"
+  grep -Eq '^resolved \[key=gh-rate-core-1800003600\] \[at=[0-9]+\]: ' "$status" \
+    || fail "the old window's key was never closed: $(cat "$status")"
+  grep -Eq '^blocked \[key=gh-rate-core-1800007200\] \[at=[0-9]+\]: GitHub core allowance low: 800 of 5000' "$status" \
+    || fail "the new window did not open its own key: $(cat "$status")"
+  [ "$(grep -n 'gh-rate-core-1800003600' "$status" | tail -n 1 | cut -d: -f1)" -lt \
+    "$(grep -n 'gh-rate-core-1800007200' "$status" | head -n 1 | cut -d: -f1)" ] \
+    || fail "the new key opened before the old one closed: $(cat "$status")"
+  pass "a low reading in a new window closes the previous window's key before opening its own"
+}
+
 test_arm_and_disarm() {
   local home
   home=$(new_home arm)
@@ -144,7 +170,7 @@ test_arm_and_disarm() {
 
 failures=0
 for test_name in test_report_prints_both_resources test_one_wake_per_episode test_interval_and_failures \
-  test_secondmate_publishes_on_the_parent_channel test_arm_and_disarm; do
+  test_secondmate_publishes_on_the_parent_channel test_secondmate_closes_the_old_window_when_the_next_is_low test_arm_and_disarm; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
 [ "$failures" -eq 0 ] || fail "$failures gh-rate-check regressions"

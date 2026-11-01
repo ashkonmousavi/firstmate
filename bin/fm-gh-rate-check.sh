@@ -180,6 +180,8 @@ run_check() {
     eval "limit=\$R_${name}_LIMIT remaining=\$R_${name}_REMAINING reset=\$R_${name}_RESET fired=\$FIRED_${name}"
     if is_low "$remaining" "$limit"; then
       [ "$fired" != "$reset" ] || continue
+      [ "$fired" = 0 ] \
+        || deliver "resolved [key=gh-rate-$name-$fired]: GitHub $name allowance window $(iso "$fired") ended" ""
       eval "FIRED_${name}=\$reset"
       out="GitHub $name allowance low: $remaining of $limit left ($(percent "$remaining" "$limit")%), window resets $(iso "$reset"); all machines share it, so slow or pause GitHub-heavy polling"
       deliver "blocked [key=gh-rate-$name-$reset]: $out" "$out"
