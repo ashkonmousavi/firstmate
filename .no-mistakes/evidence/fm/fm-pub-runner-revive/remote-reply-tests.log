@@ -1,0 +1,36 @@
+ok - default delta reader waits 0.5 seconds then delivers a non-destructive complete-line delta
+ok - override delta reader waits 0.07 seconds then delivers a non-destructive complete-line delta
+ok - a blocking non-destructive remote delta reaches durable process-event capture
+ok - a captured delta is applied, acknowledged, and re-armed without a handler
+ok - ingest appends one validated line, fetches its document, and advances the cursor
+ok - replayed capture has one deduplicated append and one durable handling identity
+ok - later generations cannot invalidate an unacknowledged ingested result
+ok - the remote status and decision model mirrors and the cursor advances
+ok - a remote mate's new decision folds open exactly as a local mate's does
+ok - a replayed mirrored delta is idempotent in both the stream and the cursor
+Remote source status records:
+done [corr=0123456789abcdef] [at=1700000000]: build verified report=data/reply/report.md
+working [corr=1111111111111111]: second generation
+done [corr=2222222222222222]: third generation
+working [key=version-audit]: family --version audit complete (data/reply/prose-only.md)
+needs-decision [key=rough-cut-version]: implement --version or retire the tool
+needs-decision [at=1700000000]: which base branch?
+needs-decision [at=1700086400]: which base branch?
+done [corr=47444329a091d140]: release chain audited
+
+Parent status after handling and replaying generation 4:
+done [corr=0123456789abcdef] [at=1700000000]: build verified report=data/remote-secondmates/ios/data/reply/report.md
+working [corr=1111111111111111]: second generation
+done [corr=2222222222222222]: third generation
+working [key=version-audit]: family --version audit complete (data/reply/prose-only.md)
+needs-decision [key=rough-cut-version]: implement --version or retire the tool
+needs-decision [at=1700000000]: which base branch?
+needs-decision [at=1700086400]: which base branch?
+done [corr=47444329a091d140]: release chain audited
+
+Committed remote cursor:
+schema=fm-remote-reply-cursor.v1
+offset=508
+prefix_sha256=b305c04917cf72772c8eace5528ba139a9abfd18d3637292bedb76e92bd54ada
+ok - transported control bytes are normalized in place and never stop the stream
+not ok - the header-collision line was not captured

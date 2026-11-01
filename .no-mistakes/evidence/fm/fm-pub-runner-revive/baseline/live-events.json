@@ -1,0 +1,38 @@
+[
+  {
+    "at": 254341.887,
+    "event": "lab-started",
+    "port": 39029,
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6AQWY3FWRRZZ20DDM574R12/.test-revive/baseline-live/parent",
+    "remote_root": "~/.no-mistakes/worktrees/049a88734b0e/01M6AQWY3FWRRZZ20DDM574R12/.test-revive/baseline-live/remote-code"
+  },
+  {
+    "at": 254342.521,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "observe",
+      "ios"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254345.679,
+    "event": "pre-fix-regression-reproduced",
+    "owner": "none",
+    "observation": "remote observe is blocking and registered runner remains absent"
+  },
+  {
+    "at": 254345.743,
+    "event": "baseline-watcher-exit",
+    "code": -15
+  },
+  {
+    "at": 254345.743,
+    "event": "all-live-scenarios-passed"
+  },
+  {
+    "at": 254362.558,
+    "event": "all-disposable-children-reaped"
+  }
+]

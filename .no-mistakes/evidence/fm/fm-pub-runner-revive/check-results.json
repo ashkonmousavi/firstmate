@@ -1,0 +1,28 @@
+{
+  "backstop_selected_tests": {
+    "exit_status": 0,
+    "evidence": "backstop-tests.log"
+  },
+  "secondmate_liveness_tests": {
+    "exit_status": 0,
+    "evidence": "liveness-tests.log"
+  },
+  "remote_reply_initial_isolated_run": {
+    "exit_status": 1,
+    "evidence": "remote-reply-tests.log",
+    "observation": "generation 6 header-collision capture wait expired"
+  },
+  "remote_reply_diagnostic_rerun": {
+    "exit_status": 0,
+    "evidence": "remote-reply-trace.log"
+  },
+  "live_revival_driver": {
+    "exit_status": 0,
+    "evidence": "live-transcript.log"
+  },
+  "pre_fix_watcher_regression": {
+    "exit_status": 0,
+    "evidence": "baseline-transcript.log"
+  },
+  "cleanup": "Both live drivers verified every owned child reaped and removed their lab homes."
+}

@@ -1,0 +1,687 @@
+[
+  {
+    "at": 254270.901,
+    "event": "lab-started",
+    "port": 40915,
+    "home": "~/.no-mistakes/worktrees/049a88734b0e/01M6AQWY3FWRRZZ20DDM574R12/.test-revive/live/parent",
+    "remote_root": "~/.no-mistakes/worktrees/049a88734b0e/01M6AQWY3FWRRZZ20DDM574R12/.test-revive/live/remote-code"
+  },
+  {
+    "at": 254270.902,
+    "event": "ssh-listener-stopped"
+  },
+  {
+    "at": 254272.139,
+    "event": "unavailable-transport-result",
+    "code": 0,
+    "stdout": "no-result: remote-reply-ios (exit 255)",
+    "stderr": ""
+  },
+  {
+    "at": 254273.048,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "0",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "3"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254274.577,
+    "event": "reply-mirrored-exactly-once",
+    "label": "transport-recovery",
+    "line": "working [at=1793510443]: live-revival-transport-recovery",
+    "owner": "live",
+    "cursor": "schema=fm-remote-reply-cursor.v1\noffset=57\nprefix_sha256=f4dd64211044def631cfc8e2f7259274bdb3345980baef61b0e0257a11cbf0fc\n"
+  },
+  {
+    "at": 254274.577,
+    "event": "watcher-exit",
+    "pid": 2687345,
+    "code": 0
+  },
+  {
+    "at": 254274.728,
+    "event": "runner-stopped",
+    "pid": 2688030,
+    "signal": 15,
+    "retained_claim": true
+  },
+  {
+    "at": 254275.593,
+    "event": "automatic-replacement",
+    "label": "clean-stop",
+    "old": 2688030,
+    "new": 2691707
+  },
+  {
+    "at": 254275.793,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "57",
+      "f4dd64211044def631cfc8e2f7259274bdb3345980baef61b0e0257a11cbf0fc",
+      "3"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254278.09,
+    "event": "reply-mirrored-exactly-once",
+    "label": "clean-stop",
+    "line": "working [at=1793510446]: live-revival-clean-stop",
+    "owner": "live",
+    "cursor": "schema=fm-remote-reply-cursor.v1\noffset=106\nprefix_sha256=9628d69f6bbdc792bf3008ce4ec38bb1a1e096de3c7163eaa04283e3a032d3d7\n"
+  },
+  {
+    "at": 254278.09,
+    "event": "watcher-exit",
+    "pid": 2691088,
+    "code": 0
+  },
+  {
+    "at": 254278.241,
+    "event": "runner-stopped",
+    "pid": 2691707,
+    "signal": 9,
+    "retained_claim": true
+  },
+  {
+    "at": 254279.097,
+    "event": "automatic-replacement",
+    "label": "stale-claim",
+    "old": 2691707,
+    "new": 2695152
+  },
+  {
+    "at": 254279.272,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "106",
+      "9628d69f6bbdc792bf3008ce4ec38bb1a1e096de3c7163eaa04283e3a032d3d7",
+      "3"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254281.719,
+    "event": "reply-mirrored-exactly-once",
+    "label": "stale-claim",
+    "line": "working [at=1793510449]: live-revival-stale-claim",
+    "owner": "live",
+    "cursor": "schema=fm-remote-reply-cursor.v1\noffset=156\nprefix_sha256=b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f\n"
+  },
+  {
+    "at": 254281.719,
+    "event": "watcher-exit",
+    "pid": 2694351,
+    "code": 0
+  },
+  {
+    "at": 254282.041,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-file.sh",
+      "get",
+      "state/parent-replies.status",
+      "1048576"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254282.632,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "3"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254283.968,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254287.298,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254287.544,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "3"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254288.167,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254288.173,
+    "event": "live-claim-without-pid-hint",
+    "first": "checked watcher_age=3s alarms=0",
+    "second": "checked watcher_age=3s alarms=0",
+    "runner_fails": {},
+    "episodes": {},
+    "owner_lease_unchanged": true
+  },
+  {
+    "at": 254288.324,
+    "event": "runner-stopped",
+    "pid": 2695152,
+    "signal": 15,
+    "retained_claim": false
+  },
+  {
+    "at": 254288.544,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254293.727,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254293.944,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254295.072,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254295.288,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254296.413,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254296.422,
+    "event": "dead-owner-two-pass-alarm",
+    "second": "BACKSTOP ALARM HELD: backstop-22f35fb3c361405a86cbf9639942af96\nBACKSTOP ALARM HELD: backstop-2daf1ee8003c4386a8f17a6996da77aa\nchecked watcher_age=13s alarms=2",
+    "third": "BACKSTOP ALARM HELD: backstop-22f35fb3c361405a86cbf9639942af96\nBACKSTOP ALARM HELD: backstop-2daf1ee8003c4386a8f17a6996da77aa\nchecked watcher_age=14s alarms=2",
+    "episode": "backstop-22f35fb3c361405a86cbf9639942af96"
+  },
+  {
+    "at": 254297.621,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "observe",
+      "ios"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254297.82,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254300.486,
+    "event": "reply-mirrored-exactly-once",
+    "label": "stalled-probes",
+    "line": "working [at=1793510465]: live-revival-stalled-probes",
+    "owner": "live",
+    "cursor": "schema=fm-remote-reply-cursor.v1\noffset=209\nprefix_sha256=7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79\n"
+  },
+  {
+    "at": 254301.104,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254305.334,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254305.552,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254309.19,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254309.437,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254316.658,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254316.88,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254317.836,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-secondmate-control.sh",
+      "state",
+      "ios"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254321.523,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254321.744,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254325.403,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254325.636,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254330.288,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254330.52,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254334.671,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254334.936,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254339.653,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254339.872,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254346.53,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254346.76,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "stalled"
+  },
+  {
+    "at": 254347.841,
+    "event": "stalled-probes-preserve-state",
+    "revival_seconds": 1.01,
+    "elapsed": 51.33,
+    "pending": "schema=fm-pending-reply.v1\ncorr_id=018631bb30e28c34\ntask_id=ios\nparent_home=~/.no-mistakes/worktrees/049a88734b0e/01M6AQWY3FWRRZZ20DDM574R12/.test-revive/live/parent\nparent_status=~/.no-mistakes/worktrees/049a88734b0e/01M6AQWY3FWRRZZ20DDM574R12/.test-revive/live/parent/state/ios.status\nrequest_summary=Please report the recovery result\ncreated_epoch=1793510464\nphase=awaiting_report\nturn_seen_busy=0\nrequest_turn_completed_epoch=\nrecovery_attempted_epoch=\nrecovery_sender_pid=\nrecovery_sender_identity=\nrecovery_sent_epoch=\nrecovery_delivery_outcome=\nrecovery_turn_seen_busy=0\nrecovery_turn_completed_epoch=\nescalated_epoch=\nresolved_epoch=\nresolved_via=\nwrong_home_hits=0\nwrong_home_first_sighting=\nwrong_home_sightings=\nwrong_home_scan_signature=\ngrace_secs=120\ndelivered_epoch=1793510464\nparent_status_scan_signature=2096:1438871:209:1793510468:1793510468\n",
+    "triage": "[2026-10-31T22:21:51-0700] secondmate ios liveness: remote host unavailable or endpoint state unknown; route preserved on revive-lab\n"
+  },
+  {
+    "at": 254347.905,
+    "event": "watcher-exit",
+    "pid": 2716044,
+    "code": 0
+  },
+  {
+    "at": 254348.18,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "156",
+      "b4f6c6dc74d0a3397c75aee5f1f279c7e92d70836b9ec05799ce3052da89201f",
+      "0"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254350.422,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254350.657,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254351.192,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "0"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254354.328,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254354.561,
+    "event": "ssh-exec",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "3"
+    ],
+    "mode": "normal"
+  },
+  {
+    "at": 254355.848,
+    "event": "ssh-command-exit",
+    "argv": [
+      "fm-remote-delta-read.sh",
+      "state/parent-replies.status",
+      "209",
+      "7262c124cf21920e35721a87744a57dbb315c5993a8c1f25ec1128e090a88d79",
+      "0"
+    ],
+    "code": 75,
+    "stderr": ""
+  },
+  {
+    "at": 254355.853,
+    "event": "recovery-clears-backstop-incident"
+  },
+  {
+    "at": 254355.853,
+    "event": "all-live-scenarios-passed"
+  },
+  {
+    "at": 254360.598,
+    "event": "all-disposable-children-reaped"
+  }
+]

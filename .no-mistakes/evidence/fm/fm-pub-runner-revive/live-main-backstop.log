@@ -1,0 +1,11 @@
+2026-11-01T05:20:52Z checked watcher_age=3s alarms=0
+2026-11-01T05:20:56Z checked watcher_age=3s alarms=0
+2026-11-01T05:20:56Z runner not alive once, tolerating one pass: ios
+2026-11-01T05:21:02Z checked watcher_age=7s alarms=0
+2026-11-01T05:21:02Z BACKSTOP ALARM HELD: backstop-22f35fb3c361405a86cbf9639942af96
+2026-11-01T05:21:03Z BACKSTOP ALARM HELD: backstop-2daf1ee8003c4386a8f17a6996da77aa
+2026-11-01T05:21:03Z checked watcher_age=13s alarms=2
+2026-11-01T05:21:03Z BACKSTOP ALARM HELD: backstop-22f35fb3c361405a86cbf9639942af96
+2026-11-01T05:21:04Z BACKSTOP ALARM HELD: backstop-2daf1ee8003c4386a8f17a6996da77aa
+2026-11-01T05:21:04Z checked watcher_age=14s alarms=2
+2026-11-01T05:21:59Z checked watcher_age=46s alarms=0
