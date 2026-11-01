@@ -1,0 +1,8 @@
+{"name": "no-read", "message": "PR 9 is merged.", "commands": [], "hook_exits": [2, 0], "active_flags": [false, true], "durations_ms": [34.45, 59.77], "result": "pass", "version": "2.1.316 (Claude Code)"}
+{"name": "read", "message": "PR 9 is merged.", "commands": ["~/.no-mistakes/worktrees/049a88734b0e/01M6BBC10T5BH3ZMN9CXHZD0R4/.lY6R/gh-axi pr view 9"], "hook_exits": [0], "active_flags": [false], "durations_ms": [61.2], "result": "pass", "version": "2.1.316 (Claude Code)"}
+{"name": "last-read", "message": "PR 9 is merged, last read at 12:00 UTC.", "commands": [], "hook_exits": [0], "active_flags": [false], "durations_ms": [64.39], "result": "pass", "version": "2.1.316 (Claude Code)"}
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6BBC10T5BH3ZMN9CXHZD0R4/.test-state-claim/drive.py", line 101, in <module>
+    assert actual==expected,(name,expected,actual)
+           ^^^^^^^^^^^^^^^^
+AssertionError: ('missing-pr', [2, 0], [2, 2, 2, 0])

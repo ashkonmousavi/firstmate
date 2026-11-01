@@ -1,0 +1,1 @@
+- [Claude Stop continuation contract](stop-contract-research.md): changed-message continuations during guard validation.
