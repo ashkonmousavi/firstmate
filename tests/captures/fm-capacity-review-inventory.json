@@ -1,0 +1,122 @@
+{
+  "scope": {
+    "base": "81d68b37efd9d1947cdf4ba91a253914cf831294",
+    "reviewed_head": "cce769d80784d0e42ef63c40da1e4755a745abc3",
+    "inspected_date": "2026-10-31",
+    "purpose": "Retained F1 admission-publication class inventory for the designated validation phase.",
+    "approved_boundary": "Publish one machine-wide admitted fact and generated_epoch; consuming readers own per-task eligibility, filtering before ranking and joining their task lists. Do not add task identity or per-task eligibility to fm-capacity-lib.sh."
+  },
+  "finding": {
+    "id": "R2",
+    "invariant": "Every affected call path and compatibility axis must have an executable regression or an inspected unaffected reason in the retained validation handoff.",
+    "cause": "The changed publication contract had no retained class inventory; the generated handoff instruction alone supplied no inspection evidence.",
+    "resolution": "Record the shared serialization boundary, sibling consumers, compatibility axes and evidence gaps here without changing runtime admission or expanding the approved scope."
+  },
+  "regressions": {
+    "capacity": {
+      "command": "bash tests/fm-capacity.test.sh",
+      "public_interfaces": ["fm-capacity.sh", "fm-fleet-ledger.sh capacity --json", "fm-fleet-view.sh --capacity", "fm-place.sh", "fm-spawn.sh --relaunch", "fm-control.sh relaunch"],
+      "oracle": "The approved machine-wide contract admits readable facts with reason ok and a free lane; unreadable facts refuse. Worked fixtures declare five lanes, four holders and 4 GiB available against a 3 GiB reserve, then replace the memory reading with malformed data.",
+      "rejects": "Publishing admitted=false for the admitting fixture, admitted=true for unreadable input or a readable memory refusal, retaining an old good publication on failure, or placing a full or stale machine.",
+      "limits": "The explicit admitted assertions cover successful publication (true), unreadable publication (false) and a readable memory refusal (false), which rejects a serializer that derives admitted from readable alone. Full, pressure and disk refusals have existing behavioral cases but no explicit admitted assertion. Placement does not read admitted; its full-machine case is refused on reason and free_lanes."
+    }
+  },
+  "axes": {
+    "call_paths": [
+      {
+        "paths": ["bin/fm-capacity.sh --json", "bin/fm-capacity.sh --publish"],
+        "inspection": "Both call fm_capacity_read then the sole fm_capacity_json serializer in bin/fm-capacity-lib.sh. Publication atomically saves the same facts it prints, including readable refusals and unreadable failures.",
+        "regression": "capacity"
+      },
+      {
+        "paths": ["bin/fm-fleet-ledger.sh capacity --json", "bin/fm-fleet-ledger.sh capacity --publish", "bin/fm-fleet-view.sh --capacity", "bin/fm-home-summary-refresh.sh"],
+        "inspection": "The ledger forwards remaining capacity arguments to fm-capacity.sh; activity selects its unchanged human report. Home-summary refresh invokes --publish best effort before replacing its separate summary document. None implements a second admitted formula.",
+        "regression": "capacity",
+        "gap": "The capacity suite executes ledger JSON and activity. Ledger argument forwarding for --publish and refresh scheduling were inspected, not executed in this fix round."
+      },
+      {
+        "paths": ["bin/fm-place.sh"],
+        "inspection": "Placement filters schema, readable, reason, timestamp and consistent numeric capacity fields before sorting by free lanes, headroom and name. It does not read admitted; the added field preserves that existing consumer and is not a new placement gate.",
+        "regression": "capacity"
+      },
+      {
+        "paths": ["bin/fm-spawn.sh fresh admission", "bin/fm-spawn.sh --relaunch", "bin/fm-control.sh relaunch", "bin/fm-control.sh released-copy relaunch", "bin/fm-spawn-deferred.sh deferred_capacity_free"],
+        "inspection": "Fresh and relaunch workers call fm_capacity_read directly, excluding their replacement record. Control relaunch paths delegate to fm-spawn.sh. Deferred retry reads free_lanes from the unchanged human first line. None consumes the new serialized admitted field or gains a new admission rule.",
+        "regression": "capacity",
+        "gap": "The suite checks direct and control relaunch refusal with an occupied seat. Deferred scheduling and released-copy control routing were inspected, not newly exercised here."
+      },
+      {
+        "paths": ["fm-ledger", "ready-first", "X board reader"],
+        "inspection": "These named per-task readers are not supplied as implementations in this worktree. The approved scope correction assigns their joins and ranking to the consuming reader; neither the serializer nor its new admitted field proves that integration exists.",
+        "gap": "Private reader source, task-list joins, transport freshness enforcement and end-to-end reader evidence are unavailable within the permitted checkout; no private-reader integration claim is made."
+      }
+    ],
+    "representations_and_transitions": [
+      {
+        "classes": ["JSON stdout", "state/lane-capacity.json", "readable=true/reason=ok/free_lanes>0", "unreadable", "full", "memory", "pressure", "disk"],
+        "inspection": "fm_capacity_read initializes unreadable with zero free lanes and returns early on unreadable input. Readable resource refusals and full occupancy set a non-ok reason; only success reaches reason=ok. The shared serializer emits the Boolean for both JSON representations and generated_epoch as the observation timestamp.",
+        "regression": "capacity"
+      },
+      {
+        "classes": ["zero or exhausted ceiling", "free lane after worker removal", "alive", "dead or missing with no work", "shell-only worktree", "non-shell process", "unknown liveness", "PR-ready record", "released-copy record", "relaunch replaces own record"],
+        "inspection": "Existing fm_task_record_holds_seat in bin/fm-project-capacity-lib.sh owns occupancy. PR readiness alone does not free a seat; unknown observations retain it; stopped records require process evidence, while stopped released-copy sentinels free their seat. No lifecycle rule changed with serialization.",
+        "regression": "capacity"
+      },
+      {
+        "classes": ["fresh publication", "failed publication replaces prior success with refusal", "missing or unreadable publication", "stale or future timestamp", "placement advice", "launch-time reread"],
+        "inspection": "The existing atomic publisher replaces a prior success with current failure facts. Placement accepts only timestamps no later than now and at most 300 seconds old; advice reserves no lane. Spawn rereads live facts rather than trusting a publication.",
+        "regression": "capacity",
+        "gap": "The suite exercises stale and unreadable publications; future-time rejection is inspected in fm-place.sh rather than newly tested here."
+      }
+    ],
+    "task_kinds_and_homes": {
+      "classes": ["ship", "scout", "secondmate", "local worker with walk marker", "external bot without a local record", "root home", "registered local descendant", "remote home"],
+      "inspection": "fm_capacity_read skips secondmate records, counts remaining kinds through the shared seat predicate across fm_local_firstmate_state_dirs, and resolves policy via fm_project_capacity_config_dir. Local walk markers do not exempt workers; external bots without records add no occupancy. Remote machines publish their own facts rather than becoming local occupancy.",
+      "regression": "capacity",
+      "gap": "Fixtures cover ships, scouts, secondmate exemption and local registered homes. Remote transport and private remote readers are not exercised."
+    },
+    "harnesses": {
+      "classes": ["claude", "codex", "opencode", "pi", "pi-signed", "grok", "kimi", "cursor", "gemini", "muse", "rovo", "omp", "agy", "devin", "commandcode", "polytoken"],
+      "inspection": "The supported-name surface is bin/fm-harness.sh. fm_capacity_json does not read a harness or vendor output; all listed harnesses receive the same added Boolean. Harness-dependent occupancy remains behind fm_backend_agent_state and fm_agent_process_classify, unchanged by this branch.",
+      "regression": "capacity",
+      "gap": "Controlled endpoint states and real non-harness processes prove the portable seat rules, not classification of every currently installed vendor release."
+    },
+    "backends": {
+      "classes": ["tmux", "herdr", "zellij", "orca", "cmux", "paseo"],
+      "inspection": "FM_BACKEND_KNOWN and FM_BACKEND_SPAWN in bin/fm-backend.sh list these six backends. fm_task_record_holds_seat reads each record's backend, defaulting absent backend to tmux. Serialization has no backend branch; fm-spawn.sh applies shared machine admission before backend-specific allocation. codex-app is not a supported spawn backend and gains no path here.",
+      "regression": "capacity",
+      "gap": "This focused regression does not prove real endpoint behavior across all six backends. Existing backend verification remains authoritative for those unchanged boundaries."
+    },
+    "platforms": {
+      "classes": ["Linux with finite cgroup-v2 ancestors", "Linux without finite cgroup limits", "macOS host probes", "WSL Linux runtime", "native Windows"],
+      "inspection": "The added jq serialization field has no platform branch. Existing capacity memory paths read cgroup ancestors or MemAvailable; the human host-probe path distinguishes Darwin and other systems. These paths are unchanged. WSL follows Linux; this Bash/proc-based change adds no native Windows support.",
+      "regression": "capacity",
+      "gap": "Finite, unlimited, root and unreadable cgroups use controlled fixtures. No new macOS, WSL-specific or native Windows execution is claimed."
+    },
+    "account_selection": {
+      "classes": ["default account", "explicit worker account pin", "provider/profile selection", "credential or quota refusal"],
+      "inspection": "fm_capacity_read and fm_capacity_json do not resolve accounts, credentials, models or quota profiles. They aggregate machine state and resources. Account selection and quota enforcement in dispatch and spawn retain their existing owners; a machine-wide admitted=true is not proof a task's chosen account is eligible.",
+      "gap": "No account login, credential routing or real provider quota was exercised for this additive field."
+    },
+    "documentation": {
+      "paths": ["bin/fm-capacity.sh header and --help", "docs/configuration.md machine capacity section"],
+      "inspection": "Both now describe one machine-wide fact and assign task-list joining, per-task eligibility and filtering before ranking to consuming readers. The help path renders the script header. The admitted field and existing behavioral assertions remain intact."
+    }
+  },
+  "live_validation_handoff": {
+    "owner": "The outer executor's designated validation phase; this review phase does not run or control it.",
+    "guards": [
+      {
+        "command": "FM_HARNESS_LIVENESS_DRIFT=1 bash tests/fm-harness-liveness-drift-live-e2e.test.sh",
+        "purpose": "Refresh real installed harness detection and tmux liveness underlying occupancy."
+      },
+      {
+        "command": "bash tests/fm-control-herdr-smoke.test.sh",
+        "purpose": "Refresh real Herdr lifecycle state and stopped-agent evidence underlying occupancy; a dependency skip is not live proof."
+      }
+    ],
+    "status": "Listed for validation, not run by this review fix. No new vendor-dependent check was introduced.",
+    "record": "docs/verification/runtime-backends.md",
+    "required_evidence": "Before claiming fresh live proof, record the date, installed versions, exact commands, output, skips and remaining backend/platform/private-reader gaps in the verification record. Existing historical evidence is not a current run."
+  }
+}
