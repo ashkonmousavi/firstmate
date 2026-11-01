@@ -1,0 +1,2 @@
+ok - ship and scout relaunch refuse unusable Codex folders before stopping the live worker
+ok - Codex relaunch preflight preserves live workers, metadata and ownership on exhausted quota

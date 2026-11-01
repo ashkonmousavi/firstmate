@@ -1,0 +1,52 @@
+$ fm-codex-accounts.py prepare --folder ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha --shared ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/shared
+exit=0
+$ fm-codex-accounts.py prepare --folder ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-beta --shared ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/shared
+exit=0
+Observed: configuration is shared; each synthetic auth file remains independent.
+$ fm-codex-accounts.py guard --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=0
+$ fm-codex-accounts.py select --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=0
+~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha	~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha	gpt-6.1-sol
+$ fm-codex-accounts.py quota --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=0
+{"schemaVersion": 6, "providers": [{"state": {"status": "unavailable"}, "windows": [], "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}, "provider": "codex", "accountKey": "codex-folder:e7c47e7a48e13d94", "accountLocator": {"kind": "codex-home", "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha"}, "signedIn": true, "model": "gpt-6.1-sol", "launchReady": true}, {"state": {"status": "unavailable"}, "windows": [], "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}, "provider": "codex", "accountKey": "codex-folder:afae435e52f762d9", "accountLocator": {"kind": "codex-home", "path": "~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-beta"}, "signedIn": true, "model": "gpt-6.1-sol", "launchReady": true}], "selectedRoot": "~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha"}
+Observed: real quota-axi yields two unavailable folder rows; eligible unmeasured selection is lexical.
+$ fm-codex-accounts.py register --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts --state ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/state
+exit=0
+registered: state/codex-account-e7c47e7a48e13d94.check.sh
+registered: state/codex-account-afae435e52f762d9.check.sh
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/state/codex-account-afae435e52f762d9.check.sh => exit=0 output=''
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/state/codex-account-e7c47e7a48e13d94.check.sh => exit=0 output=''
+$ fm-codex-accounts.py check --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts --folder ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha
+exit=1
+error: Codex folder needs maintenance (file age is not token expiry): ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha
+$ fm-codex-accounts.py check --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts --folder ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha
+exit=1
+error: Codex folder is not locally signed in: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha
+$ fm-codex-accounts.py guard --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=1
+error: duplicate sign-in files in folders: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha and ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-beta
+$ fm-codex-accounts.py guard --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=1
+error: sign-in must be an independent regular file: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha
+$ fm-codex-accounts.py guard --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=1
+error: sign-in must be an independent regular file: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-alpha
+$ fm-codex-accounts.py select --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=1
+error: codex-accounts needs literal absolute folders, one per line: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+$ fm-codex-accounts.py select --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=1
+error: codex-accounts contains duplicate folders or aliases
+$ fm-codex-accounts.py select --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=1
+error: codex-accounts needs literal absolute folders, one per line: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+$ fm-codex-accounts.py select --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=1
+error: codex-accounts needs literal absolute folders, one per line: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+$ fm-codex-accounts.py select --config ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+exit=1
+error: codex-accounts must be a readable regular file: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/cli-1eygh6tp/codex-accounts
+Observed: copied metadata, credential links, empty/aliased/relative/control-character/FIFO lists all refuse.
+Disposable CLI folders removed.

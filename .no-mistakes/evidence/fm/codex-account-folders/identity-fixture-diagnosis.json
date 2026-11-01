@@ -1,0 +1,47 @@
+[
+  {
+    "variant": "empty synthetic signature",
+    "statusExit": 1,
+    "statusStderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/identity-agent\" (codex_home: AbsolutePathBuf(\"~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/identity-agent/codex\"))\nError checking login status: invalid ID token format at line 1 column 300",
+    "accountRead": {
+      "account": null,
+      "requiresOpenaiAuth": true,
+      "workspaceRouting": null
+    }
+  },
+  {
+    "variant": "nonempty synthetic signature",
+    "statusExit": 0,
+    "statusStderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/identity-agent\" (codex_home: AbsolutePathBuf(\"~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/identity-agent/codex\"))\nLogged in using ChatGPT",
+    "accountRead": null,
+    "accountReadReason": "Original non-JWT synthetic access token triggered a refresh error (-32603) from account/read despite refreshToken:false."
+  },
+  {
+    "variant": "duplicate identity",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "distinct identity",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "variant": "future-expiry JWT, no local routing backend",
+    "accountReadError": {
+      "code": -32603,
+      "message": "workspace routing discovery failed"
+    },
+    "diagnosis": "account/read discovers workspace routing for stored ChatGPT logins, so token format fixes alone do not supply the required service response."
+  },
+  {
+    "variant": "future-expiry JWT with isolated HTTP backend",
+    "evidence": "identity-local-backend-proof.json",
+    "duplicateGuardExit": 1,
+    "distinctGuardExit": 0,
+    "conclusion": "Installed runner works; initial failure is an invalid/incomplete synthetic fixture, not a demonstrated production guard failure.",
+    "oracle": "https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/tests/suite/v2/account.rs (routing response fixture, lines 2233-2240)"
+  }
+]

@@ -1,0 +1,14 @@
+deadline: helper pid=3123444, owned descendant pids=[3123477]
+Real executables: ['~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex']
+deadline: helper exit=0, elapsed=9.575s, stdout=b'', stderr=b''
+deadline: all real Codex descendants reaped; unrelated process remained alive.
+app-server: helper pid=3127540, owned descendant pids=[3127546]
+Real executables: ['~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex']
+app-server: helper exit=143, elapsed=0.008s, stdout=b'', stderr=b''
+app-server: all real Codex descendants reaped; unrelated process remained alive.
+Real vendor made local request /v1/responses
+run_vendor: helper pid=3127623, owned descendant pids=[3127742]
+Real executables: ['~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex']
+run_vendor: helper exit=143, elapsed=0.010s, stdout=b'', stderr=b''
+run_vendor: all real Codex descendants reaped; unrelated process remained alive.
+Disposable server, child processes and folders removed.

@@ -1,0 +1,58 @@
+FM_TEST_BEGIN 2026-11-01T12:36:22Z tests/fm-worker-account.test.sh family=backend-dispatch expected_gate_skip=none
+ok - Codex refuses an empty opt-in before endpoint creation
+ok - raw launch commands refuse quota overrides instead of bypassing the quota check
+ok - Codex selects measured weekly room without stale/fallback lanes and rejects credential copies/links
+ok - Codex guard uses metadata and private runner identities without opening credentials
+ok - Codex filters applicable exhaustion before ranking, including unknown percentages and preselected folders
+fake codex 0.136.0
+fake codex 0.136.0
+ok - Codex resolves and pins actual default models across selection, gates and launch
+fake codex 0.136.0
+fake codex 0.136.0
+ok - Codex resolves project defaults in the actual worktree before filtering, gating and launch
+fake codex 0.136.0
+ok - Codex secondmates resolve their actual project model after home preparation
+ok - Codex preflight refuses universal exhaustion while retaining uncertainty and model-specific checks
+ok - Codex refuses incompatible Treehouse before allocation or endpoint creation
+ok - exhausted default-model launches refuse before endpoints and release capacity across retries
+ok - Codex deadlines and outer cancellation reap owned wrappers and descendants without affecting unrelated processes
+ok - Codex combined readings and pinned or automatic gates preserve relative runway clocks
+fake codex 0.136.0
+ok - Codex launch forwards and records the folder; registered checks alert and maintenance uses normal exec
+ok - Codex list validation fails closed; scouts select and record their own folder
+ok - Claude, Pi, and pi-signed secondmates use their own pins without changing other launches
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+warning: re-init: ignored --initial-branch=main
+ok - unusable per-mate pins name the setting and refuse rather than use the primary's usable account
+ok - a remote route refuses a primary-side account override instead of silently ignoring it
+ok - an absent pin leaves Claude and Pi launches exactly as they were
+ok - a Claude pin selects its root and sheds the credentials that would outrank it
+ok - a Claude pin refuses a signed-out root even when the invoking process has a usable login and API key
+ok - an ordinary Claude pin selects the default login and drops an ambient root
+ok - malformed, relative, CR-terminated, empty, extra-line, missing-root, and non-file pins refuse before launch
+ok - a Pi pin selects its root and passes the declared provider
+ok - a Pi pin refuses unqualified, missing, undeclared, signed-out, and raw launches
+ok - extension providers and a Pi without auth check fall back to an exact model-listing match
+ok - a Claude pin leaves codex and Pi launches unchanged
+ok - a raw Claude launch command receives the home's pin
+ok - a pinned home refuses a raw Claude command that overrides the account
+ok - an unpinned home keeps a raw Claude account override
+ok - raw Claude account metadata matches quoted, empty, and final assignments and refuses unresolved roots
+ok - raw Claude commands cannot disable either safeguard with or without an account pin
+ok - compound Claude expressions retain one exported account, including spaced paths and failed resumes
+ok - a local secondmate reads the launching home's pin and its own home's file is never inherited over
+ok - Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree
+# all fm-worker-account tests passed
+FM_TEST_END 2026-11-01T12:38:52Z tests/fm-worker-account.test.sh exit=0 duration_ms=149623 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=149662
+FM_TEST_SUMMARY_FAMILY family=backend-dispatch count=1 duration_ms=149623 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-worker-account.test.sh duration_ms=149623
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M6B8BR1EPZC8DGS3MMXMSZV5/disposable-regressions-timing.json

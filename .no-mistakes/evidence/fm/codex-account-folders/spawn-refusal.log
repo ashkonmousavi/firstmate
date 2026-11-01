@@ -1,0 +1,19 @@
+$ bash bin/fm-spawn.sh lab-empty ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/live-project --scout --backend tmux --harness codex
+exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.l
+error: codex-accounts needs literal absolute folders, one per line: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.l/config/codex-accounts
+
+Observed: no task metadata or private tmux endpoint was published.
+$ bash bin/fm-spawn.sh lab-signed-out ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/live-project --scout --backend tmux --harness codex
+exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.l
+error: codex-accounts has no usable signed-in folder with shared configuration
+
+Observed: no task metadata or private tmux endpoint was published.
+$ bash bin/fm-spawn.sh lab-raw ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/live-project --scout --backend tmux CODEX_HOME=/unwanted codex
+exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.l
+error: config/codex-accounts requires a canonical Codex launch; raw commands can override CODEX_HOME
+
+Observed: no task metadata or private tmux endpoint was published.
+Marked lab home and disposable project removed.

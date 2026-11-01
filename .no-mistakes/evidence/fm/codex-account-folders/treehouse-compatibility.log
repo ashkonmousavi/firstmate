@@ -1,0 +1,125 @@
+Installed dependency: v3.1.4
+Old version correctly refused by executable capability check
+Workspace dependency: v3.1.8
+Pinned version accepted by executable capability check
+Acquire a worktree from the pool and open a subshell in it.
+
+Pass --lease for a non-interactive, durable acquire: treehouse reserves the
+worktree and marks it leased in persistent state. By default it prints only the
+absolute path to stdout; add --json for the lease identity and metadata. All
+banners go to stderr. A leased worktree is never handed out by a later get and
+never removed by prune, even with no process running inside it, until you release
+it with 'treehouse return <path>'.
+
+Worktrees are cut from the branch treehouse infers from the repository. Pass
+--base to cut this one from a different branch, or set base_branch in
+treehouse.toml to change it for the whole pool. By default the worktree is
+handed over in detached HEAD. Pass -b/--branch to create and check out a new
+Git branch at the acquired commit. A base that cannot be resolved is an error,
+never a silent fall back to the inferred default.
+
+Pass --include-file <path> to replace committed .worktreeinclude for this
+acquisition. Relative paths use the current directory; patterns inside the file
+select ignored, untracked files from the main checkout root. A missing or
+unreadable file fails before a worktree is created or reset. An empty file
+seeds nothing. Without the flag, only the committed manifest is used.
+
+Every pool slot normally lives in a directory named after the repository, so
+tooling that derives per-checkout identity from the working directory's last
+path segment sees every slot as the same checkout. Pass --unique-leaf, set
+TREEHOUSE_UNIQUE_LEAF, or set unique_leaf in treehouse.toml to name new slots
+"<repo>-<slot>" instead. It is off by default and applies only to slots
+treehouse creates from now on; worktrees already in the pool keep their paths.
+
+New pool slots are placed at {pool}/{slot}/{repo}. Pass --worktree-path, set
+TREEHOUSE_WORKTREE_PATH, or set worktree_path in treehouse.toml to template that
+directory instead, for tooling that only works when a checkout sits at a
+particular location relative to something else. The template must contain {slot}
+and at least one of {pool} or {repo}; {repo_parent} is available too but does not
+count, because two repositories side by side expand it identically. A template
+supersedes --unique-leaf: it names every segment of the path including the leaf,
+so write {repo}-{slot} in it for a unique leaf. It applies only to slots
+treehouse creates from now on: worktrees already in the pool keep their recorded
+paths and are never moved.
+
+Pass --apfs-sharing fresh, set TREEHOUSE_APFS_SHARING=fresh, or set
+apfs_sharing = "fresh" in treehouse.toml to share identical tracked files at
+least 64 KiB with the main checkout on macOS/APFS. Off by default; use off to
+opt out. Only newly created Git slots are considered, before Treehouse hooks
+and handoff. Existing/reused slots and ignored dependency/build files are never
+swept. The destination must have no concurrent writers; Git checkout hooks or
+filters make the pass skip conservatively.
+
+Usage:
+  treehouse get [flags]
+
+Flags:
+      --apfs-sharing string    Share tracked data in fresh Git slots on macOS/APFS: off (default) or fresh; overrides TREEHOUSE_APFS_SHARING and config
+      --base string            Branch to cut this worktree from, overriding base_branch in config (default: inferred from the repository)
+  -b, --branch string          Create and check out a new Git branch at the acquired commit (fails if it already exists)
+  -h, --help                   help for get
+      --include-file string    Replace committed .worktreeinclude with this file (relative to the current directory)
+      --json                   Print lease allocation as JSON (requires --lease)
+      --lease                  Durably lease a worktree without opening a subshell; print only its path to stdout
+      --lease-holder string    Optional label recorded as the lease holder (defaults to $TREEHOUSE_LEASE_HOLDER)
+      --no-fetch               Skip fetching origin before acquiring; use existing local refs
+      --unique-leaf            Name a newly created worktree directory <repo>-<slot> instead of <repo>, overriding unique_leaf in config
+      --worktree-path string   Template for a newly created worktree's directory, overriding worktree_path in config (default: {pool}/{slot}/{repo})
+
+Global Flags:
+      --root string   Worktree root directory, overriding TREEHOUSE_ROOT and config; relative paths (e.g. "." for an in-project pool) resolve from the repo root
+Release any lease and return a worktree to the pool, after terminating
+lingering processes and verifying no foreign process remains.
+
+The worktree can be named three ways:
+
+  treehouse return                  The worktree you are standing in (or
+                                    $TREEHOUSE_DIR).
+  treehouse return <path>           That worktree, by path. Works from outside
+                                    the repository, because the pool is found
+                                    from the path itself.
+  treehouse return <name>           That worktree, by the name 'treehouse
+                                    status' prints in its first column - the
+                                    same identity 'treehouse lease' takes. A
+                                    name is resolved against the pool of the
+                                    repository you are standing in.
+
+An argument is read as a path first and only then as a name, so an argument that
+already resolves keeps resolving to exactly the same worktree.
+
+  treehouse return --all            Return every held worktree in this
+                                    repository's pool.
+
+--all acts on every slot somebody is holding. It leaves alone a slot
+'treehouse status' reports 'available' (nothing to return) or 'damaged' (its
+marker is missing or invalid; inspect it before attempting removal), and a
+slot reported 'you're here' that is otherwise parked, clean and
+quiet: standing in a slot is not holding it, and 'treehouse enter' promises not
+to touch pool state. Stand in a slot that is leased, dirty, or running
+something and --all returns it like any other.
+
+Holding leased and in-use slots in scope is deliberately wider than 'prune' and
+'destroy --all', which never touch a leased slot: --all exists to reclaim a
+whole pool. Each worktree is returned exactly as naming it would be, including
+the confirmation before uncommitted changes are discarded; declining one skips
+it and the rest still run. Each release is pinned to the lease the listing saw:
+a slot leased then is skipped unless that same lease is still on it, and a slot
+unleased then is skipped if it has been leased since. A slot handed to another
+plain 'treehouse get' carries no lease to compare, so it is returned like any
+other in-use slot. --all takes no path or name, and cannot be combined with the
+--if-lease-* conditions, which target a single lease identity. Recovered
+entries and incomplete acquisitions are never returned by --all; inspect
+them and return each worktree by name.
+
+Usage:
+  treehouse return [path|name] [flags]
+
+Flags:
+      --all                      Return every held worktree in this repository's pool (leaves alone slots nobody holds)
+      --force                    Clean, reset, and return without prompting
+  -h, --help                     help for return
+      --if-lease-holder string   Return only if the current lease has this holder
+      --if-lease-id string       Return only if the current lease has this identity
+
+Global Flags:
+      --root string   Worktree root directory, overriding TREEHOUSE_ROOT and config; relative paths (e.g. "." for an in-project pool) resolve from the repo root

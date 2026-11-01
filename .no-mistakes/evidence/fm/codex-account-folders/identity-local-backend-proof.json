@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "scenario": "duplicate identity",
+      "rawAccountRead": {
+        "account": {
+          "type": "chatgpt",
+          "email": "same-account@example.invalid",
+          "planType": "pro",
+          "workspaceName": null
+        },
+        "requiresOpenaiAuth": true,
+        "workspaceRouting": {
+          "chatgptAccountId": "fm-live-synthetic-account",
+          "backendOrigin": "https://chatgpt.com",
+          "accountRoutingOverride": "NO_CONSTRAINT"
+        }
+      },
+      "guardExit": 1,
+      "guardStdout": "",
+      "guardStderr": "error: duplicate Codex account in folders: ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/identity-agent/guard-0 and ~/.no-mistakes/worktrees/049a88734b0e/01M6B8BR1EPZC8DGS3MMXMSZV5/.validation-tmp/identity-agent/guard-1\n"
+    },
+    {
+      "scenario": "distinct identity",
+      "rawAccountRead": {
+        "account": {
+          "type": "chatgpt",
+          "email": "same-account@example.invalid",
+          "planType": "pro",
+          "workspaceName": null
+        },
+        "requiresOpenaiAuth": true,
+        "workspaceRouting": {
+          "chatgptAccountId": "fm-live-synthetic-account",
+          "backendOrigin": "https://chatgpt.com",
+          "accountRoutingOverride": "NO_CONSTRAINT"
+        }
+      },
+      "guardExit": 0,
+      "guardStdout": "",
+      "guardStderr": ""
+    }
+  ],
+  "localHttpRequests": [
+    "/v1/models?client_version=0.166.0",
+    "/backend-api/wham/accounts/check",
+    "/v1/models?client_version=0.166.0",
+    "/backend-api/wham/accounts/check",
+    "/v1/models?client_version=0.166.0",
+    "/backend-api/wham/accounts/check",
+    "/v1/models?client_version=0.166.0",
+    "/backend-api/wham/accounts/check",
+    "/v1/models?client_version=0.166.0",
+    "/backend-api/wham/accounts/check",
+    "/v1/models?client_version=0.166.0",
+    "/backend-api/wham/accounts/check"
+  ]
+}

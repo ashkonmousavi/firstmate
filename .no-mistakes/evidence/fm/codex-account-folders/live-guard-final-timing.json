@@ -1,0 +1,31 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 5237,
+      "failed": 0,
+      "name": "live-harness-optin"
+    }
+  ],
+  "finished_at": "2026-11-01T12:40:25Z",
+  "run_id": "fm-test-run-1793536820667-3093724",
+  "scripts": [
+    {
+      "duration_ms": 5237,
+      "exit": 0,
+      "expected_gate_skip": "live-capability",
+      "family": "live-harness-optin",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-worker-account-live-e2e.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-11-01T12:40:20Z",
+  "summary": {
+    "duration_ms": 5272,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 1
+  }
+}
