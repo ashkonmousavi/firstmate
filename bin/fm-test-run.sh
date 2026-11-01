@@ -404,7 +404,7 @@ family_for_basename() {
       ;;
     fm-check-unregister.test.sh|fm-gh-conditional.test.sh|fm-gh-rate-check.test.sh|\
     fm-pipeline-spend.test.sh|fm-pr-check-security.test.sh|\
-    fm-pr-conflict.test.sh|fm-pr-merge.test.sh|fm-pr-orphan-sweep.test.sh|fm-pr-reviewers.test.sh|fm-pr-state.test.sh|\
+    fm-pr-conflict.test.sh|fm-pr-merge.test.sh|fm-pr-orphan-sweep.test.sh|fm-pr-triage.test.sh|fm-pr-reviewers.test.sh|fm-pr-state.test.sh|\
     fm-review-diff.test.sh|fm-teardown.test.sh|fm-x-mode.test.sh)
       printf '%s\n' pr-forge
       ;;
@@ -703,6 +703,7 @@ tests/fm-afk-return.test.sh 47380
 tests/fm-agy-harness.test.sh 50959
 tests/fm-agy-signals-live-e2e.test.sh 53
 tests/fm-ask-user-authority.test.sh 171
+tests/fm-autolaunch.test.sh 10134
 tests/fm-backend-cmux-smoke.test.sh 34
 tests/fm-backend-cmux.test.sh 3754
 tests/fm-backend-orca.test.sh 27102
@@ -839,6 +840,7 @@ tests/fm-polytoken-signals-live-e2e.test.sh 103
 tests/fm-pr-check-security.test.sh 300675
 tests/fm-pr-conflict.test.sh 4000
 tests/fm-pr-orphan-sweep.test.sh 4600
+tests/fm-pr-triage.test.sh 21000
 tests/fm-pr-reviewers.test.sh 157
 tests/fm-pr-state-live-e2e.test.sh 47
 tests/fm-pr-state.test.sh 525

@@ -109,6 +109,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-inactive-reconcile.sh` | Reconcile inactive crewmate outcomes and finished backlog PRs; [closeout contract](../bin/fm-inactive-reconcile.sh) |
 | `fm-lane-release.sh`     | Free the seat of a finished-and-landed worker, keeping its copy; [release contract](../bin/fm-lane-release.sh) |
 | `fm-lane-release-lib.sh` | Read a lane-release marker so relaunch and report paths treat a released worker as released |
+| `fm-autolaunch.sh`       | Fill free machine lanes from prepared, unblocked backlog items with one record per decision; [pass contract](../bin/fm-autolaunch.sh) |
+| `fm-autolaunch-check.sh` | Throttle check: one red line when a free lane and prepared work have no recent auto-launch record |
 | `fm-afk-contract.sh`     | Own the away-or-quiet record's posture, schema, entry, read-back, archive, and cross-subsystem authority lock |
 | `fm-afk-start.sh`        | Run the common sourceable away-mode daemon entry in the foreground                      |
 | `fm-afk-launch.sh`       | Own away/quiet entry (same-turn record write, then read-back), exit, rollback, and any backend terminal lifecycle |
@@ -158,6 +160,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-pr-lib.sh`           | Own canonical task and PR validation plus private atomic PR-poll publication, merge-notification identity, retirement, and the per-task conflict-episode marker |
 | `fm-pr-poll.sh`          | Provide the byte-static watcher program for validated pull-request, merge-request, and Gerrit-change poll sidecars, including a GitHub conflict-label observation |
 | `fm-pr-orphan-sweep.sh`  | Detect orphan GitHub conflicts during watcher check sweeps ([coverage, routing, and limits](../bin/fm-pr-orphan-sweep.sh)) |
+| `fm-pr-triage.sh`        | Rank open pull requests and, for the top two ranks, launch a fix worker or label and queue them, one record per pull request per pass; [pass contract](../bin/fm-pr-triage.sh) |
 | `fm-pr-overlap.sh`       | Read-only: note open pull requests that touch a brief's SCOPE, FILES, or BLAST RADIUS paths, reporting unchecked comparisons; never blocks spawn |
 | `fm-contributions.sh`    | Observe owned publications, retain exact-head judgments, measure required actors, and wake on maintainer signals |
 | `fm-pr-check.sh`         | Record validated task `pr=` and `pr_head=` values, then atomically arm a static merge poll; refuses GitHub drafts and persistent secondmate records (see [architecture.md](architecture.md)) |

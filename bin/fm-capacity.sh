@@ -5,7 +5,10 @@
 # The upstream capacity: key=value first line retains load1, cores,
 # mem_free_pct and disk_free_mb as informational host probes; CPU load and
 # disk figures do not change machine lane admission.
-# --json prints shared facts; --publish also atomically saves
+# --json reports one machine-wide `admitted` fact (readable, reason ok and a
+# free lane), with generated_epoch as its age. Per-task eligibility, filtering
+# before ranking and the join are computed by the consuming reader that joins
+# this fact with its own task list. --publish also atomically saves
 # state/lane-capacity.json for placement (fm-place.sh owns freshness).
 # --admit is read-only and exits 75 on any refusal. Other reports exit 1 for
 # unreadable machine facts, 0 for a readable full or low-memory machine.

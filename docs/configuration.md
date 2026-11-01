@@ -94,9 +94,11 @@ Each effective `FM_HOME` contains private operational directories.
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
 - Rebuildable hold-release disposition caches under `state/hold-releases/` (`bin/fm-hold-release-lib.sh`); the backlog hold owns the condition.
 - Unwatched conflicted pull-request episode markers under `state/pr-orphan-conflict/`, written only by `bin/fm-pr-orphan-sweep.sh`.
+- The append-only PR triage record `state/pr-triage.log` and its per-pull-request launch, owner-steer and queue-comment markers under `state/pr-triage/`, written only by `bin/fm-pr-triage.sh --apply` ([PR triage](#pr-triage-configpr-triage-rules)).
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 - Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
 - Conditional GitHub read caches under `state/gh-etag/` (ETag, last body, and the PR poll's stored label facts per poll) and the allowance check's `state/.gh-rate-check`, written only by `bin/fm-gh-etag-lib.sh` and `bin/fm-gh-rate-check.sh` and their callers; both are rebuildable.
+- The append-only auto-launch decision log `state/autolaunch.log` and its throttle-check episode marker, written only by `bin/fm-autolaunch.sh` and `bin/fm-autolaunch-check.sh` ([Auto-launch](#auto-launch)).
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -680,7 +682,34 @@ Arm the sweep once per home with `bin/fm-lane-release.sh arm`, which writes `sta
 
 The word is a per-home choice and is deliberately not inherited by secondmate homes, so each home moves from `off` to `audit` to `on` on its own schedule.
 [`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns the marker and the reader rule for reporting and recovery.
-The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the ledger, the audit exit codes, and the fixed limits.
+The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the check shim's code-root selection, the ledger, the audit exit codes, and the fixed limits.
+
+## Auto-launch
+
+`bin/fm-autolaunch.sh` is a plain script, with no model in the loop at all, that fills this machine's free lanes from this home's backlog.
+Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
+Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
+Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
+An item is prepared when it has a brief, `data/<id>/brief.md`, and a non-empty prep file, `data/<id>/prep.md` or the file a `Prep: data/<path>` line in its backlog body names inside this home's `data/` directory; without either it is refused with that exact reason.
+Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new ship or scout brief, replacing one left by an earlier brief, never with yolo, which stays derived from the project registry at launch.
+Run `FM_HOME=<home> bin/fm-autolaunch.sh --backfill` to print the record each existing queued item would get, then `--backfill --apply` to write the missing ones, also without yolo; it never rewrites an existing record, so it is safe to repeat on every home.
+On the other homes the commands are documented here only, and run there once the fleet update has brought the script to their `firstmate-stock` code roots:
+
+| Machine | Print first | Then write |
+| --- | --- | --- |
+| Laptop zb-crew | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
+| Server q-crew | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
+
+Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
+Every decision appends one tab-separated record to `state/autolaunch.log`: the time, lane, item, model, and either `launched` or `refused:<reason>`.
+
+Nothing enables a schedule automatically.
+To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
+Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line with `FM_HOME` set explicitly, recording it in the machine inventory first.
+Arm the throttle check with `bin/fm-autolaunch-check.sh arm`, which binds `state/autolaunch.check.sh` through `bin/fm-check-register.sh` so the watcher runs it on its ordinary check cadence; `disarm` removes it.
+The check prints one red line, and in a secondmate home also reports it on the parent channel, when a free lane and a prepared item have had no auto-launch record for ten minutes; otherwise it is silent.
+The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep and record derivation, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
+The [verification inventory](verification/autolaunch.md) maps affected classes to regressions and identifies live-proof gaps.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
@@ -697,6 +726,30 @@ The bound is required rather than cosmetic because churn and pane staleness read
 
 The flag is a home-local supervision-noise preference and is not inherited by secondmate homes, which run their own crew mix.
 [`architecture.md`](architecture.md) owns the triage contract and `bin/fm-watch.sh`'s `signal_turnend_panes_churned` owns the exact evidence and fail-closed boundaries.
+
+## PR triage (config/pr-triage-rules)
+
+`bin/fm-pr-triage.sh` is a plain script, with no model in the loop, that ranks one repository's open pull requests and acts on the top two ranks.
+Rank 1 is a pull request that unblocks others now: a CI or test-speed or red-main-repair class from the rules file, or one on the J-01 path of this home's backlog; rank 2 blocks at least one backlog item, most blocked first; rank 3 is the rest.
+A conflicting or red pull request in ranks 1 and 2 gets a fix worker for the task this home owns, through `bin/fm-control.sh relaunch` and so `bin/fm-spawn.sh`'s machine-lane admission, never beside a live worker and at most once per pull request head.
+When another registered home in `data/secondmates.md` holds the task open instead, the record names that home and that home gets one `bin/fm-send.sh --one-way` steer with the pull request URL per pull request head, under a request id hashed from the pull request number, head, home and message so a retried uncertain send of the same message deduplicates; no worker is spawned here for it.
+When no home holds the task open, nothing is launched or sent: the record says so on every pass; a task done in this home's backlog gets no fix worker.
+On a home without `data/secondmates.md`, every pull request whose task is not open in this home's backlog counts as unowned.
+A green one gets the `main-red` label and exactly one `@mergifyio queue` comment per pull request head, unless the real Mergify queue state, read with `mergify queue status` and `mergify queue show`, already has it queued; only a new push earns another comment.
+Every pull request gets one tab-separated record per pass in `state/pr-triage.log`: the time, pull request URL, rank, action, and the result or `refused:<reason>`.
+
+The refusal reasons are deliberate guards, chiefly against a duplicate spawn or a duplicate comment, and each leaves its own distinct record on every pass while it holds, which is the visible signal that a pull request is stuck:
+
+- fix: `no task branch`, `task done`, `no home owns <task>`, `owner unknown for <task>: unreadable <home>`, `owned by <home>: steered <task>`, `owned by <home>: already steered for head <sha>`, `owned by <home>: steer failed: <error>`, `no task record for <task>`, `fix already launched for head <sha>`, `worker live for <task>`, `lane release stopped <task> on purpose`, `worker liveness <posture> for <task>`, `spawn deferred pending for <task>`, `no capacity: <reason>`, `deferred: <reason>`, `launch error: <error>`; each also names the real queue state read (`queue=queued`, `queue=not queued` or `queue=unknown`).
+- queue: `queue state unreadable`, `queue paused`, `queue comment already made for head <sha>`, `label failed: <error>`, `comment failed: <error>`.
+- none: `merge-queue batch`, `draft (<class>)`, `mergeability <state>`, `checks <state>`.
+
+The local, gitignored `config/pr-triage-rules` is required: `repo=` and `project=` name what to triage, and repeatable `title=`, `label=` and `path=` lines name the rank-1 classes.
+It is home-local and not inherited by secondmate homes.
+
+Nothing enables a schedule automatically, and without `--apply` a pass is a dry run that prints each decision and command and takes no lock, writes no triage record and makes no GitHub write, except that the capacity admission check it calls appends its normal sample line to `state/machine-admission.log`.
+Enabling the five-minute schedule is a governance step MAIN performs per machine: write the rules file, read a dry run, confirm `mergify` is authenticated for the scheduling user and the label `main-red` exists on the repository, record the unit in the machine inventory, then install the schedule `bin/fm-pr-triage.sh --print-timer` proposes.
+The [`bin/fm-pr-triage.sh` header](../bin/fm-pr-triage.sh) owns the rules format, rank definition, actions, refusal reasons, and record format.
 
 ## Parked-gate wait deferral (config/wedge-defer-parked-gate)
 
@@ -1409,6 +1462,7 @@ The existing home-summary refresh also atomically publishes `state/lane-capacity
 Fetch that file from each machine through the existing fleet transport, then pass the local copies to `bin/fm-place.sh` for advisory placement.
 The placement command names the eligible machine with the most free lanes, breaking ties by available memory headroom and then machine name.
 Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
+fm-capacity reports one machine-wide `admitted` fact (readable, reason `ok` and a free lane), with `generated_epoch` as its age; per-task eligibility, filtering before ranking and the join are computed by the consuming reader that joins this fact with its own task list.
 Advice never reserves a lane, and spawn always rereads live facts before launch.
 
 ## Curated delivery exceptions (config/curated-delivery-exceptions)
