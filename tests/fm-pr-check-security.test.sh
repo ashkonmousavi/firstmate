@@ -3636,8 +3636,16 @@ release_poll_publish_holder() {
   wait "$PR_POLL_HOLDER_PID" || fail "poll publication holder did not release its lock"
 }
 
-test_device_rerecord_serializes_direct_rearm() {
+cleanup_poll_publish_fixture() {
+  [ -z "${PR_POLL_HOLDER_RELEASE:-}" ] || : > "$PR_POLL_HOLDER_RELEASE"
+  [ -z "${PR_POLL_HOLDER_PID:-}" ] || wait "$PR_POLL_HOLDER_PID" || true
+  [ -z "${1:-}" ] || wait "$1" || true
+}
+
+test_device_rerecord_serializes_direct_rearm() (
   local dir state url_a url_b i rearm_pid
+  rearm_pid=
+  trap 'cleanup_poll_publish_fixture "$rearm_pid"' EXIT
   url_a=https://github.com/o/r/pull/1
   url_b=https://github.com/o/r/pull/2
   dir=$(make_case device-rerecord-serialized-direct-rearm)
@@ -3668,14 +3676,17 @@ test_device_rerecord_serializes_direct_rearm() {
     || fail "blocked direct re-arm replaced the published check"
   release_poll_publish_holder
   wait "$rearm_pid" || fail "direct re-arm failed after poll publication release: $(cat "$dir/rearm.err")"
+  rearm_pid=
   fm_pr_poll_artifacts_valid "$state" task-a "$POLL" || fail "released direct re-arm did not publish a strict poll"
   [ "$(sed -n 4p "$state/task-a.pr-poll-registration")" = "$url_b" ] \
     || fail "released direct re-arm registration does not name its PR"
   pass "direct re-arm publication waits without replacing an armed poll"
-}
+)
 
-test_device_rerecord_serializes_rerecord() {
+test_device_rerecord_serializes_rerecord() (
   local dir state original rc watcher_pid i
+  watcher_pid=
+  trap 'cleanup_poll_publish_fixture "$watcher_pid"' EXIT
   dir=$(make_case device-rerecord-serialized-rerecord)
   state="$dir/home/state"
   write_poll_meta "$state" task-a https://github.com/o/r/pull/1
@@ -3716,13 +3727,14 @@ SH
   release_poll_publish_holder
   rc=0
   wait "$watcher_pid" || rc=$?
+  watcher_pid=
   [ "$rc" -eq 0 ] || fail "released watcher re-record failed: $(cat "$dir/watch.err")"
   [ -e "$dir/registration-renamed" ] || fail "released watcher did not replace the registration"
   cmp -s "$dir/registration.original" "$state/task-a.pr-poll-registration" \
     || fail "released watcher did not restore the live-device registration"
   fm_pr_poll_artifacts_valid "$state" task-a "$POLL" || fail "released watcher did not strictly authenticate the poll"
   pass "device re-record publication waits without rewriting its registration"
-}
+)
 
 test_parser_matrix
 test_gitlab_merge_watch
