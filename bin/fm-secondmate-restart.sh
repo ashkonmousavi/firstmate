@@ -58,6 +58,8 @@
 # then probes the endpoint once. It reports unreached either way: existing
 # records cannot prove that launch completed, even if its agent is alive. A lock
 # still held at the deadline is reported as the winner still launching.
+# Known limit: an operator's bin/fm-remote-secondmate-relaunch.sh run takes only
+# the host's spawn lock, so the parent sees none and probes at once.
 #
 # bin/fm-secondmate-liveness-lib.sh's header owns serialization with automatic
 # recovery, including restart exclusion and stale-owner recovery.
@@ -207,14 +209,16 @@ report_unreached() {  # <id> <reason>
   printf 'unreached: %s: %s\n' "$1" "$2"
 }
 
-# Wait for the launch that won the spawn lock to release it, then probe the
-# endpoint once. Prints the probe's result; returns 1 and prints the holder pid
-# when the lock is still held at the deadline.
-observe_spawn_winner() {  # <id>
-  local id=$1 lock deadline remaining pause holder probe_out probe_state rc
+# Wait for the launch that won the spawn lock to release this home's lock, then
+# probe the endpoint once. Prints what was observed; returns 1 and prints the
+# holder pid when the lock is still held at the deadline.
+observe_spawn_winner() {  # <array-index>
+  local i=$1 id lock deadline remaining pause holder seen=0 observed probe probe_out probe_state rc
+  id=${IDS[$i]}
   lock="$STATE/.spawn-$id.lock"
   deadline=$(($(date +%s) + VERIFY_WAIT))
   while holder=$(cat "$lock/pid" 2>/dev/null) && fm_pid_alive "$holder"; do
+    seen=1
     remaining=$((deadline - $(date +%s)))
     if [ "$remaining" -le 0 ]; then
       printf '%s' "$holder"
@@ -224,13 +228,18 @@ observe_spawn_winner() {  # <id>
     [ "$pause" -le "$remaining" ] || pause=$remaining
     sleep "$pause"
   done
-  remaining=$((deadline - $(date +%s)))
-  if [ "$remaining" -le 0 ]; then
-    printf 'no time remained to probe the endpoint'
-    return 0
+  if [ "${PLACEMENT[i]}" != remote ]; then
+    observed="the winning launch released the spawn lock within ${VERIFY_WAIT}s"
+  elif [ "$seen" -eq 1 ]; then
+    observed="the parent-held spawn lock was released within ${VERIFY_WAIT}s"
+  else
+    observed="the parent saw no spawn lock"
   fi
+  remaining=$((deadline - $(date +%s)))
   # shellcheck disable=SC2016 # Expand variables in the child bash process.
-  if probe_out=$(fm_run_timed "$remaining" bash -c '
+  if [ "$remaining" -le 0 ]; then
+    probe='no time remained to probe the endpoint'
+  elif probe_out=$(fm_run_timed "$remaining" bash -c '
     . "$1"
     fm_secondmate_liveness_probe "$2" "$3" poll
     printf "%s\n%s\n" "$FM_SM_LIVE_REASON" "$FM_SM_LIVE_STATE"
@@ -238,18 +247,19 @@ observe_spawn_winner() {  # <id>
     probe_state=${probe_out##*$'\n'}
     if [ "$probe_state" = unknown ]; then
       probe_out=${probe_out%$'\n'*}
-      printf 'endpoint probe failed: %s' "${probe_out:-no endpoint is recorded}"
+      probe="endpoint probe failed: ${probe_out:-no endpoint is recorded}"
     else
-      printf "endpoint reads '%s'" "$probe_state"
+      probe="endpoint reads '$probe_state'"
     fi
   else
     rc=$?
     if fm_timed_out "$rc"; then
-      printf 'endpoint probe timed out'
+      probe='endpoint probe timed out'
     else
-      printf 'endpoint probe failed'
+      probe='endpoint probe failed'
     fi
   fi
+  printf '%s, but no existing record proves it succeeded (%s)' "$observed" "$probe"
 }
 
 # Wait before stopping the agent; the shared liveness library's header owns
@@ -336,8 +346,8 @@ restart_mate_locked() {  # <array-index>
   restart_reason=$(first_reported_line "$restart_out")
   [ -n "$restart_reason" ] || restart_reason="the restart failed without a reported reason"
   if [[ "$restart_out" == *"another spawn is already creating task $id"* ]]; then
-    if winner=$(observe_spawn_winner "$id"); then
-      report_unreached "$id" "the old agent was stopped and the winning launch released the spawn lock within ${VERIFY_WAIT}s, but no existing record proves it succeeded ($winner); its own launch reported: $restart_reason"
+    if winner=$(observe_spawn_winner "$i"); then
+      report_unreached "$id" "the old agent was stopped and $winner; its own launch reported: $restart_reason"
     else
       report_unreached "$id" "winner still launching: the old agent was stopped and the winning launch still held the spawn lock after ${VERIFY_WAIT}s (holder pid $winner); liveness recovery of this mate is no longer held off; its own launch reported: $restart_reason"
     fi

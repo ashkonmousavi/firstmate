@@ -1290,7 +1290,7 @@ test_remote_spawn_winner_without_parent_completion_is_unreached() {
     expect_code 3 "$rc" "a remote process state cannot prove completed launch success: $out"
     assert_contains "$out" 'unreached: sm2' "the unconfirmed winner must remain unreached"
     assert_not_contains "$out" 'restarted: sm2' "a remote state probe must not certify launch completion"
-    assert_contains "$out" 'released the spawn lock within 10s' "the restart must wait for the winner's lock: $out"
+    assert_contains "$out" 'the parent-held spawn lock was released within 10s' "the restart must wait for the winner's lock: $out"
     [ "$elapsed" -lt 30 ] || fail "the restart overran its verification bound: ${elapsed}s"
     assert_present "$dir/fake/winner-released" "the winner never released its lock"
     assert_absent "$dir/fake/probed-while-locked" "the endpoint was probed while the winner still held its spawn lock"
