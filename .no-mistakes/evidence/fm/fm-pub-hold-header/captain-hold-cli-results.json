@@ -1,0 +1,35 @@
+{
+  "oracle": "Author intent requires own waits to use plain external holds rather than captain calls. Check emitted help, an intentional public text contract.",
+  "checks": [
+    {
+      "command": "bash bin/fm-captain-hold.sh --help",
+      "exit_code": 0,
+      "guidance_rendered": true,
+      "output_stream": "stdout"
+    },
+    {
+      "command": "bash bin/fm-captain-hold.sh -h",
+      "exit_code": 0,
+      "guidance_rendered": true,
+      "output_stream": "stdout"
+    },
+    {
+      "command": "bash bin/fm-captain-hold.sh --not-a-command",
+      "exit_code": 2,
+      "guidance_rendered": true,
+      "output_stream": "stderr"
+    },
+    {
+      "command": "bash <temporary base-commit script in bin/> --help",
+      "exit_code": 0,
+      "new_guidance_absent": true,
+      "remaining_help_matches_target": true
+    }
+  ],
+  "short_long_help_identical": true,
+  "setup_observation": "Shared wake library creates an empty isolated state directory; initial overly strict no-directory assertion was corrected after direct observation and tracing fm-wake-lib.sh initialization.",
+  "isolated_home_entries": [
+    "state"
+  ],
+  "all_children_completed": true
+}
