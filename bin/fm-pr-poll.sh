@@ -212,7 +212,10 @@ fm_pr_poll_github() {  # <owner> <repo> <number> <url>
             return 0 ;;
           true)
             fm_pr_poll_github_timeline "$owner" "$repo" "$number" || return $?
-            fm_pr_poll_facts_write "$facts" "$etag" "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
+            # An unprovable label age is stored as nothing, so the next tick asks
+            # the timeline again, exactly as the original reads did every tick.
+            [ -z "$FM_PR_POLL_LABELED_AT" ] \
+              || fm_pr_poll_facts_write "$facts" "$etag" "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
             fm_pr_poll_verdict "$FM_PR_POLL_PRESENT" "$FM_PR_POLL_LABELED_AT" "$FM_PR_POLL_UNLABELED_AT"
             return 0 ;;
         esac ;;

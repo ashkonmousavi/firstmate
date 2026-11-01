@@ -22,6 +22,13 @@ fm_git_identity fmtest fmtest@example.invalid
 command -v jq >/dev/null 2>&1 || fail "jq is required"
 FM_TEST_JQ_BIN=$(command -v jq)
 export FM_TEST_JQ_BIN
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-pr-lib.sh"
+
+iso_ago() {  # <seconds>
+  # shellcheck disable=SC2016 # A jq program, not shell.
+  "$FM_TEST_JQ_BIN" -nr --argjson s "$1" 'now - $s | strftime("%Y-%m-%dT%H:%M:%SZ")'
+}
 
 cat > "$FAKEBIN/gh" <<'SH'
 #!/usr/bin/env bash
@@ -75,6 +82,18 @@ case "${1:-} ${2:-}" in
 esac
 SH
 chmod +x "$FAKEBIN/gh"
+
+# A clock the test can move: only `date -u +%s`, the poll's own age arithmetic,
+# honors $FAKE/clock-offset (seconds); every other date call is the real one.
+cat > "$FAKEBIN/date" <<'SH'
+#!/usr/bin/env bash
+if [ "$*" = "-u +%s" ] && [ -n "${FAKE:-}" ] && [ -f "$FAKE/clock-offset" ]; then
+  printf '%s\n' $(( $(/bin/date -u +%s) + $(cat "$FAKE/clock-offset") ))
+else
+  exec /bin/date "$@"
+fi
+SH
+chmod +x "$FAKEBIN/date"
 
 new_fake() {  # <name> -> fake directory
   local dir=$TMP_ROOT/$1
@@ -131,7 +150,7 @@ test_helper_200_304_and_persistence() {
   assert_equals '0 200 {"v":2}' "$out" "a changed object replaces the cache"
   out=$(helper_call "$fake" k repos/o/r/pulls/7)
   assert_equals '0 304 {"v":2}' "$out" "the new tag is the one persisted"
-  [ "$(stat -c %a "$fake/cache/k.etag")" = 600 ] || fail "the tag record is not private"
+  [ "$(fm_pr_file_mode "$fake/cache/k.etag")" = 600 ] || fail "the tag record is not private"
   pass "helper: 200 stores the tag and body, 304 replays them across processes, a change replaces them"
 }
 
@@ -211,12 +230,13 @@ test_poll_label_age_crosses_on_a_304() {
   local fake out labeled
   fake=$(new_fake poll-age)
   fixture "$fake" repos/o/r/pulls/7 '{"state":"open","merged":false,"labels":[{"name":"conflict"}]}'
-  labeled=$(date -u -d '-898 seconds' +%Y-%m-%dT%H:%M:%SZ)
+  labeled=$(iso_ago 840)
   printf 'present=true\nlabeled_at=%s\n' "$labeled" > "$fake/graphql.out"
   out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
   assert_equals conflict-clear "$out" "a label younger than 15 minutes is not yet a conflict"
   assert_equals 1 "$(calls "$fake" graphql)" "the label timeline is read once on the 200"
-  sleep 3
+  # Nothing about the PR changes; only the clock moves past the 15-minute threshold.
+  printf '120\n' > "$fake/clock-offset"
   out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
   assert_equals "conflict:$labeled" "$out" "the same unchanged PR crosses the age threshold on a 304"
   grep -q '^rest repos/o/r/pulls/7 inm="[0-9a-f]*"$' "$fake/log" || fail "the second tick was not conditional"
@@ -227,6 +247,19 @@ test_poll_label_age_crosses_on_a_304() {
   out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
   assert_equals conflict-clear "$out" "removing the label clears the conflict"
   pass "pr-poll: a 304 re-evaluates the stored label time against the clock and a change drops the stored facts"
+}
+
+test_poll_unprovable_label_age_is_asked_again() {
+  local fake out
+  fake=$(new_fake poll-unprovable)
+  fixture "$fake" repos/o/r/pulls/7 '{"state":"open","merged":false,"labels":[{"name":"conflict"}]}'
+  printf 'present=true\n' > "$fake/graphql.out"
+  out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
+  assert_equals '' "$out" "a label whose age cannot be proved says nothing"
+  out=$(poll_tick "$fake" FM_STATE_OVERRIDE="$fake/state")
+  assert_equals '' "$out" "still nothing on the next tick"
+  assert_equals 2 "$(calls "$fake" graphql)" "an unproved age is not cached: the timeline is asked again on a 304"
+  pass "pr-poll: an unprovable label age is retried every tick, as the original reads did"
 }
 
 test_poll_falls_back_to_the_original_reads() {
@@ -265,7 +298,7 @@ test_sweep_lists_conditionally() {
   fake=$(new_fake sweep)
   home=$TMP_ROOT/sweep-home
   make_home "$home"
-  labeled=$(date -u -d '-1200 seconds' +%Y-%m-%dT%H:%M:%SZ)
+  labeled=$(iso_ago 1200)
   printf 'present=true\nlabeled_at=%s\n' "$labeled" > "$fake/graphql.out"
   fixture "$fake" 'repos/o/r/pulls?state=open&per_page=100' \
     '[{"number":7,"head":{"ref":"fm/lane"},"labels":[{"name":"conflict"}]},{"number":9,"head":{"ref":"fm/quiet"},"labels":[]},{"number":12,"head":{"ref":"dependabot/x"},"labels":[{"name":"conflict"}]}]'
@@ -293,7 +326,7 @@ test_sweep_lists_conditionally() {
 
 failures=0
 for test_name in test_helper_200_304_and_persistence test_helper_error_keeps_the_cache \
-  test_helper_multi_page_and_switches test_poll_calls_per_tick test_poll_label_age_crosses_on_a_304 \
+  test_helper_multi_page_and_switches test_poll_calls_per_tick test_poll_label_age_crosses_on_a_304 test_poll_unprovable_label_age_is_asked_again \
   test_poll_falls_back_to_the_original_reads test_sweep_lists_conditionally; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
