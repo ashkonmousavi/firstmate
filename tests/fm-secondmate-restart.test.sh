@@ -22,6 +22,8 @@
 #      fast-forward is still named for restart and genuinely restarted, and one
 #      whose runtime cannot prove a restart keeps the honest re-read path with
 #      its agent left running.
+#   7. A Claude mate's running background shells are waited out before the
+#      exit, and incomplete cleanup leaves it running without a relaunch.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -33,7 +35,6 @@ fm_git_identity fmtest fmtest@example.com
 TMP_ROOT=$(fm_test_tmproot fm-secondmate-restart)
 mkdir -p "$TMP_ROOT"
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd -P)
-trap 'rm -rf -- "$TMP_ROOT"' EXIT
 
 # A session-provider stub that models the two things this pass depends on: the
 # harness exit command stops the agent, a launch brief starts the replacement,
@@ -72,6 +73,9 @@ case "${1:-}" in
       printf '%s\n' "$payload" >> "$D/literal"
       case "$payload" in
         /exit|/quit)
+          if [ -s "$D/bg-reads" ] && [ "$(cat "$D/bg-reads")" -gt 0 ]; then
+            : > "$D/exit-while-shells"
+          fi
           if [ -e "$D/remote-relaunch-start" ] && [ ! -e "$D/remote-relaunch-end" ]; then
             : > "$D/local-relaunch-during-remote"
           fi
@@ -116,7 +120,21 @@ case "${1:-}" in
       prev=$a
     done
     printf 'fakepane\n'; exit 0 ;;
-  capture-pane) printf '╭────╮\n│    │\n╰────╯\n'; exit 0 ;;
+  capture-pane)
+    if [ -e "$D/capture-unreadable" ] && [ -s "$D/answer-status" ] \
+      && [ -s "$(cat "$D/answer-status")" ]; then
+      exit 1
+    fi
+    # While bg-reads counts down, a viewport read sees Claude's idle screen
+    # with one running background shell, recorded on Claude Code 2.1.316.
+    if [ "${*: -1}" = -0 ] && [ -s "$D/bg-reads" ] && [ "$(cat "$D/bg-reads")" -gt 0 ]; then
+      printf '%s\n' "$(( $(cat "$D/bg-reads") - 1 ))" > "$D/bg-reads"
+      printf '%s\n' '● READY' '✻ Sautéed for 2s · done 3:12 PM · 1 shell still running' \
+        '────────────────────' '❯ ' '────────────────────' \
+        "  ⏵⏵ don't ask on · 1 shell · ↓ to manage"
+      exit 0
+    fi
+    printf '╭────╮\n│    │\n╰────╯\n'; exit 0 ;;
   list-windows) [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
 esac
 exit 0
@@ -281,6 +299,10 @@ test_persist_gates_and_asks_only_for_open_records() {
     "the request must flush an unregistered captain call"
   assert_contains "$request" "Do NOT run the memory, learnings, or captain-preference sweeps" \
     "the request must exclude the memory curation half of stow"
+  assert_contains "$request" "stop only your own harmless background shells" \
+    "the delivered request must limit cleanup to the mate's own harmless shells"
+  assert_contains "$request" "leave validation, build, test, and any other substantive background work running" \
+    "the delivered request must preserve substantive work rather than cancel it for restart"
   pass "T1 persist is a gate, and asks for open records and task status only"
 }
 
@@ -433,7 +455,36 @@ test_refused_restart_falls_back_without_claiming_a_reload() {
 setup_remote_case() {  # <case-dir> <id> <ssh-mode>
   local dir=$1 id=$2 mode=$3
   local fb="$dir/fakebin"
-  mkdir -p "$dir/$id-home"
+  mkdir -p "$dir/$id-home/bin" "$dir/$id-home/state/parent-route"
+  printf '%s\n' "$id" > "$dir/$id-home/.fm-secondmate-home"
+  : > "$dir/$id-home/AGENTS.md"
+  fm_write_meta "$dir/$id-home/state/parent-route/$id.meta" \
+    'backend=herdr' 'window=fm-remote:w1:p1' "endpoint_task_id=$id" \
+    "worktree=$dir/$id-home" "project=$dir/$id-home" \
+    'herdr_session=fm-remote' 'herdr_workspace_id=w1' \
+    'herdr_tab_id=w1:t1' 'herdr_pane_id=w1:p1'
+  export FM_FAKE_REMOTE_HOME="$dir/$id-home"
+  export FM_FAKE_REMOTE_CONTROL="$ROOT/bin/fm-remote-secondmate-control.sh"
+  cat > "$fb/herdr" <<'SH'
+#!/usr/bin/env bash
+set -u
+D=$FM_FAKE_DIR
+printf '%s\n' "$*" >> "$D/herdr.log"
+case "${1:-} ${2:-}" in
+  'status --json') printf '{"server":{"running":true}}\n' ;;
+  'pane read')
+    [ ! -e "$D/capture-unreadable" ] || exit 1
+    if [ -f "$D/capture-text" ]; then
+      cat "$D/capture-text"
+    elif [ -s "$D/bg-reads" ] && [ "$(cat "$D/bg-reads")" -gt 0 ]; then
+      printf '%s\n' "$(( $(cat "$D/bg-reads") - 1 ))" > "$D/bg-reads"
+      printf '%s\n' '────' '❯ ' '────' '  1 shell · ↓ to manage'
+    fi
+    ;;
+  *) exit 90 ;;
+esac
+SH
+  chmod +x "$fb/herdr"
   {
     echo "window=remote:$id"
     echo "endpoint_task_id=$id"
@@ -477,6 +528,9 @@ case "${rargs[1]:-}" in
       [ -z "$corr" ] || printf 'done [%s]: open records written down\n' "$corr" \
         >> "$FM_FAKE_ANSWER_STATUS"
     fi
+    ;;
+  capture)
+    FM_HOME="$FM_FAKE_REMOTE_HOME" exec bash "$FM_FAKE_REMOTE_CONTROL" capture "${rargs[2]}" "${rargs[3]:-20}"
     ;;
   relaunch)
     case "${FM_FAKE_SSH_MODE:-ok}" in
@@ -927,6 +981,130 @@ test_already_current_unprovable_mate_stays_on_the_nudge_path() {
   pass "T16 an already-current mate with an unprovable runtime keeps the honest nudge path"
 }
 
+# --- T17: a Claude mate's background shells are waited out before the exit ---
+test_background_shells_are_waited_out_before_exit() {
+  local dir out rc
+  dir=$(new_case bg-wait)
+  add_local_mate "$dir" sm1
+  arm_answer "$dir" sm1
+  printf '3\n' > "$dir/fake/bg-reads"
+
+  out=$(run_restart "$dir" sm1); rc=$?
+
+  expect_code 0 "$rc" "a mate whose shells finish should restart"$'\n'"$out"
+  assert_contains "$out" "restarted: sm1 (claude)" "the mate should restart once its shells finish"
+  assert_not_contains "$out" "still running" "shells that finished must not be reported as outlasting the wait"
+  [ "$(cat "$dir/fake/bg-reads")" = 0 ] || fail "the restart did not keep reading while shells were reported"
+  assert_absent "$dir/fake/exit-while-shells" "the exit was typed while the mate still reported a running shell"
+  grep -qx '/exit' "$dir/fake/literal" || fail "the mate was never stopped"
+  pass "T17 a Claude mate's running background shells are waited out before the exit"
+}
+
+test_incomplete_background_shell_cleanup_blocks_restart() {
+  local dir out rc placement failure before
+  for placement in local remote; do
+    for failure in running unreadable; do
+      dir=$(new_case "bg-$placement-$failure")
+      if [ "$placement" = remote ]; then
+        setup_remote_case "$dir" sm1 ok
+        export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm1.status"
+      else
+        add_local_mate "$dir" sm1
+        arm_answer "$dir" sm1
+      fi
+      if [ "$failure" = running ]; then
+        printf '100\n' > "$dir/fake/bg-reads"
+      else
+        : > "$dir/fake/capture-unreadable"
+      fi
+      before=$(cat "$dir/fake/command")
+
+      out=$(FM_SECONDMATE_BG_SHELL_WAIT=0 run_restart "$dir" sm1); rc=$?
+      unset FM_FAKE_ANSWER_STATUS
+
+      expect_code 3 "$rc" "$placement $failure cleanup must block the restart"$'\n'"$out"
+      assert_contains "$out" "unreached: sm1: background-shell cleanup incomplete:" \
+        "the mate must be reported with an incomplete-cleanup reason"
+      if [ "$failure" = running ]; then
+        assert_contains "$out" "background shells were still running after 0s" \
+          "the report must say the shells outlasted the wait"
+      else
+        assert_contains "$out" "screen could not be read" \
+          "the report must identify the unreadable capture"
+      fi
+      assert_contains "$out" "summary: 0 of 1 restarted, 0 nudged, 1 unreached" \
+        "incomplete cleanup must not count as restarted"
+      assert_not_contains "$out" "restarted: sm1" "the mate must not be reported as restarted"
+      assert_no_grep '/exit' "$dir/fake/literal" "incomplete cleanup must not send /exit"
+      assert_no_grep '/quit' "$dir/fake/literal" "incomplete cleanup must not send /quit"
+      [ "$(cat "$dir/fake/command")" = "$before" ] || fail "incomplete cleanup stopped the agent"
+      if [ "$placement" = remote ]; then
+        assert_grep 'fm-remote-secondmate-control.sh capture ' "$dir/ssh.log" \
+          "the remote screen must be checked"
+        assert_grep 'pane read w1:p1' "$dir/fake/herdr.log" \
+          "the host capture command must attempt the backend pane read"
+        assert_no_grep 'fm-remote-secondmate-control.sh relaunch ' "$dir/ssh.log" \
+          "incomplete cleanup must not relaunch remotely"
+        assert_no_grep 'fm-remote-secondmate-control.sh key ' "$dir/ssh.log" \
+          "incomplete cleanup must not type keys remotely"
+      fi
+      pass "T18 $placement $failure cleanup leaves the mate running without relaunch"
+    done
+  done
+}
+
+test_remote_background_shells_are_waited_out_before_relaunch() {
+  local dir out rc
+  dir=$(new_case bg-remote-wait)
+  setup_remote_case "$dir" sm1 ok
+  export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm1.status"
+  printf '2\n' > "$dir/fake/bg-reads"
+
+  out=$(run_restart "$dir" sm1); rc=$?
+  unset FM_FAKE_ANSWER_STATUS
+
+  expect_code 0 "$rc" "a remote mate whose shells finish should restart"$'\n'"$out"
+  assert_contains "$out" "restarted: sm1 on remote-mac (claude)" "the remote mate should restart"
+  [ "$(cat "$dir/fake/bg-reads")" = 0 ] || fail "the remote shells were not waited out"
+  [ "$(grep -c '^fm-remote-secondmate-control.sh capture ' "$dir/ssh.log")" = 3 ] \
+    || fail "the remote screen must be read until its shell count clears"
+  [ "$(grep -n '^fm-remote-secondmate-control.sh capture ' "$dir/ssh.log" | tail -1 | cut -d: -f1)" \
+     -lt "$(grep -n '^fm-remote-secondmate-control.sh relaunch ' "$dir/ssh.log" | cut -d: -f1)" ] \
+    || fail "the remote mate was relaunched before its shells cleared"
+  pass "T19 a remote mate's background shells clear before relaunch"
+}
+
+test_host_capture_preserves_successful_output_and_byte_bound() {
+  local dir rc expected
+  dir=$(new_case host-capture)
+  setup_remote_case "$dir" sm1 ok
+  expected=$'first line\nsecond line'
+  printf '%s' "$expected" > "$dir/fake/capture-text"
+
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/sm1-home" FM_FAKE_DIR="$dir/fake" \
+    bash "$ROOT/bin/fm-remote-secondmate-control.sh" capture sm1 60 > "$dir/capture.out"; rc=$?
+
+  expect_code 0 "$rc" "a readable remote pane must be captured successfully"
+  cmp -s "$dir/fake/capture-text" "$dir/capture.out" || fail "the host capture changed the pane text"
+  head -c 70000 /dev/zero | tr '\000' x > "$dir/fake/capture-text"
+  head -c 65536 "$dir/fake/capture-text" > "$dir/capture.expected"
+
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/sm1-home" FM_FAKE_DIR="$dir/fake" \
+    bash "$ROOT/bin/fm-remote-secondmate-control.sh" capture sm1 60 > "$dir/capture.out"; rc=$?
+
+  expect_code 0 "$rc" "a readable oversized capture must still succeed"
+  cmp -s "$dir/capture.expected" "$dir/capture.out" \
+    || fail "the host capture must return exactly its 65536-byte prefix"
+  : > "$dir/fake/capture-text"
+
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/sm1-home" FM_FAKE_DIR="$dir/fake" \
+    bash "$ROOT/bin/fm-remote-secondmate-control.sh" capture sm1 60 > "$dir/capture.out"; rc=$?
+
+  expect_code 0 "$rc" "a readable empty pane must remain a successful capture"
+  [ ! -s "$dir/capture.out" ] || fail "an empty pane must produce no capture bytes"
+  pass "T20 host capture preserves readable text, empty output, and the 65536-byte cap"
+}
+
 test_persist_gates_and_asks_only_for_open_records
 test_persist_precedes_restart
 test_arrived_answer_precedes_deadline_check
@@ -950,5 +1128,9 @@ test_unpublished_worker_result_is_accounted_for
 test_result_published_while_reaping_is_honored
 test_already_current_mate_restarts_end_to_end
 test_already_current_unprovable_mate_stays_on_the_nudge_path
+test_background_shells_are_waited_out_before_exit
+test_incomplete_background_shell_cleanup_blocks_restart
+test_remote_background_shells_are_waited_out_before_relaunch
+test_host_capture_preserves_successful_output_and_byte_bound
 
 echo "# all fm-secondmate-restart tests passed"
