@@ -211,7 +211,7 @@ report_unreached() {  # <id> <reason>
 # endpoint once. Prints the probe's result; returns 1 and prints the holder pid
 # when the lock is still held at the deadline.
 observe_spawn_winner() {  # <id>
-  local id=$1 lock deadline remaining pause holder probe_state rc
+  local id=$1 lock deadline remaining pause holder probe_out probe_state rc
   lock="$STATE/.spawn-$id.lock"
   deadline=$(($(date +%s) + VERIFY_WAIT))
   while holder=$(cat "$lock/pid" 2>/dev/null) && fm_pid_alive "$holder"; do
@@ -230,12 +230,18 @@ observe_spawn_winner() {  # <id>
     return 0
   fi
   # shellcheck disable=SC2016 # Expand variables in the child bash process.
-  if probe_state=$(fm_run_timed "$remaining" bash -c '
+  if probe_out=$(fm_run_timed "$remaining" bash -c '
     . "$1"
     fm_secondmate_liveness_probe "$2" "$3" poll
-    printf "%s\n" "$FM_SM_LIVE_STATE"
+    printf "%s\n%s\n" "$FM_SM_LIVE_REASON" "$FM_SM_LIVE_STATE"
   ' _ "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh" "$STATE/$id.meta" "$id"); then
-    printf "endpoint reads '%s'" "$probe_state"
+    probe_state=${probe_out##*$'\n'}
+    if [ "$probe_state" = unknown ]; then
+      probe_out=${probe_out%$'\n'*}
+      printf 'endpoint probe failed: %s' "${probe_out:-no endpoint is recorded}"
+    else
+      printf "endpoint reads '%s'" "$probe_state"
+    fi
   else
     rc=$?
     if fm_timed_out "$rc"; then

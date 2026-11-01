@@ -651,6 +651,8 @@ case "${rargs[1]:-}" in
         : > "$FM_FAKE_DIR/probe-finished"
         ;;
       lost-spawn-lock-gate-failed) printf 'dead\n' ;;
+      lost-spawn-lock-state-fails) exit 7 ;;
+      lost-spawn-lock-state-unreachable) exit 255 ;;
       *) printf 'alive\n' ;;
     esac
     ;;
@@ -1334,6 +1336,34 @@ test_winner_still_launching_at_deadline_is_reported() {
   pass "a winner still holding the spawn lock at the deadline is reported as still launching"
 }
 
+# The single probe's own failure, inside a long verification budget, is
+# reported in the liveness library's words rather than as an endpoint state.
+test_unclassified_probe_reports_its_failure() {
+  local dir out rc mode expected
+  for mode in state-fails state-unreachable; do
+    dir=$(new_case "probe-$mode")
+    setup_remote_case "$dir" sm2 "lost-spawn-lock-$mode"
+    export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    case "$mode" in
+      state-fails) expected='endpoint probe failed: remote endpoint probe unreadable on remote-mac' ;;
+      state-unreachable) expected='endpoint probe failed: remote host unavailable or endpoint state unknown; route preserved on remote-mac' ;;
+    esac
+
+    out=$(FM_TEST_VERIFY_WAIT=60 run_restart "$dir" sm2); rc=$?
+    unset FM_FAKE_ANSWER_STATUS
+
+    expect_code 3 "$rc" "a failed probe cannot confirm the winner: $out"
+    assert_contains "$out" 'unreached: sm2' "a failed probe must leave the mate unreached"
+    assert_contains "$out" "$expected" "the probe's own failure must be reported ($mode): $out"
+    assert_not_contains "$out" "reads 'unknown'" "an unclassified probe is not an endpoint state"
+    assert_not_contains "$out" 'probe timed out' "the verification budget did not expire ($mode)"
+    [ "$(grep -c '^fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log")" -eq 1 ] \
+      || fail "expected exactly one endpoint probe ($mode): $(cat "$dir/ssh.log")"
+    assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "the restart left its lock behind"
+  done
+  pass "an unclassified probe reports the liveness library's failure, not a fake endpoint state"
+}
+
 test_collision_verification_respects_remaining_budget() {
   local dir out rc mode wait_seconds poll_seconds hold started elapsed
   for mode in probe-hang late-probe large-poll zero-budget; do
@@ -1588,6 +1618,7 @@ test_restart_and_liveness_relaunch_race
 test_lost_spawn_lock_without_completion_evidence_is_unreached
 test_remote_spawn_winner_without_parent_completion_is_unreached
 test_winner_still_launching_at_deadline_is_reported
+test_unclassified_probe_reports_its_failure
 test_collision_verification_respects_remaining_budget
 test_dead_restarter_marker_expires
 test_background_shells_are_waited_out_before_exit
