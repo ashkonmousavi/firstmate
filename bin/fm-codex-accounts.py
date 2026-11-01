@@ -4,13 +4,15 @@
 Usage: fm-codex-accounts.py {select,quota,guard,check,maintain,prepare,register} --help
 The config is one literal absolute folder per line, no comments or empty lines.
 Absent config opts out; a present invalid/empty list fails closed. Folder aliases
-and auth symlinks/hardlinks refuse. Auth bytes are only hashed in memory, never
-parsed, printed, persisted or passed to a subprocess. Missing auth is allowed in
-the list but cannot win. The runner's local status is not a network validation.
+and auth symlinks/hardlinks refuse. The guard compares file metadata and the
+runner's reported account identity, never reading credential contents itself.
+Missing auth is allowed in the list but cannot win. The runner's local status
+is not a network validation.
 
 quota-axi >=0.1.66 --profile-only supplies one redacted reading per folder without
-refresh, cache or fallback. Fresh main weekly windows alone rank; unknown ranks
-below measured, with lexical folder order breaking ties. All vendor output is
+refresh, cache or fallback. Applicable exhausted quota excludes a folder before
+fresh main weekly ranking; unknown ranks below measured, with lexical folder
+order breaking ties. All vendor output is
 captured; only allowlisted quota fields escape this process.
 
 check is silent when healthy; stale file age (six days) is a maintenance warning,
@@ -32,6 +34,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 
@@ -62,30 +65,28 @@ def folders(config):
     return sorted(resolved)
 
 
-def guard(roots):
+def guard(roots, codex):
     seen = {}
+    accounts = {}
     for root in roots:
         p = Path(root) / "auth.json"
         try:
-            # O_NOFOLLOW protects the final component; reject hardlinks as well.
-            fd = os.open(p, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+            info = p.stat(follow_symlinks=False)
         except FileNotFoundError:
             continue
         except OSError:
             raise ValueError(f"cannot inspect independent sign-in in folder: {root}") from None
-        with os.fdopen(fd, "rb") as stream:
-            before = os.fstat(stream.fileno())
-            if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > 1048576:
-                raise ValueError(f"sign-in must be an independent regular file: {root}")
-            digest = hashlib.sha256(stream.read(1048577)).digest()
-            after = os.fstat(stream.fileno())
-            current = p.stat(follow_symlinks=False)
-            identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns)
-            if identity(before) != identity(after) or identity(after) != identity(current):
-                raise ValueError(f"sign-in changed during duplicate check; retry: {root}")
-        if digest in seen:
-            raise ValueError(f"duplicate sign-in files in folders: {seen[digest]} and {root}")
-        seen[digest] = root
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise ValueError(f"sign-in must be an independent regular file: {root}")
+        for identity in (("inode", info.st_dev, info.st_ino), ("stamp", info.st_size, info.st_mtime_ns)):
+            if identity in seen:
+                raise ValueError(f"duplicate sign-in files in folders: {seen[identity]} and {root}")
+            seen[identity] = root
+        account = account_identity(root, codex)
+        if account is not None:
+            if account in accounts:
+                raise ValueError(f"duplicate Codex account in folders: {accounts[account]} and {root}")
+            accounts[account] = root
 
 
 def clean_env(root):
@@ -106,6 +107,42 @@ def run_vendor(args, root, seconds=10, cwd=None):
 def signed_in(root, codex):
     result = run_vendor([codex, "-c", 'cli_auth_credentials_store="file"', "login", "status"], root)
     return result is not None and result.returncode == 0
+
+
+def account_identity(root, codex):
+    try:
+        with subprocess.Popen([codex, "-c", 'cli_auth_credentials_store="file"', "app-server"],
+                              env=clean_env(root), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, text=True) as process:
+            timer = threading.Timer(10, process.kill)
+            timer.start()
+            try:
+                process.stdin.write(json.dumps({"id": 0, "method": "initialize", "params": {
+                    "clientInfo": {"name": "firstmate_account_guard", "version": "1"}}}) + "\n")
+                process.stdin.flush()
+                for line in process.stdout:
+                    message = json.loads(line)
+                    if message.get("id") == 0:
+                        if "error" in message:
+                            return None
+                        process.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
+                        process.stdin.write(json.dumps({"id": 1, "method": "account/read",
+                                                        "params": {"refreshToken": False}}) + "\n")
+                        process.stdin.flush()
+                    elif message.get("id") == 1:
+                        account = message.get("result", {}).get("account") or {}
+                        email = account.get("email")
+                        if account.get("type") == "chatgpt" and isinstance(email, str) and email.strip():
+                            return email.strip().casefold()
+                        return None
+            finally:
+                timer.cancel()
+                if process.poll() is None:
+                    process.kill()
+                process.wait()
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return None
 
 
 def shared_ready(root):
@@ -138,6 +175,8 @@ def reading(root):
             if not isinstance(b.get("scope"), str):
                 continue
             item = {"scope": b["scope"], "status": "unknown"}
+            if b.get("runway", {}).get("status") == "exhausted_now":
+                item["runway"] = {"status": "exhausted_now"}
             if b.get("status") == "known" and number(b.get("effectivePercentRemaining")):
                 item.update(status="known", effectivePercentRemaining=b["effectivePercentRemaining"])
                 item["runway"] = {k: v for k, v in b.get("runway", {}).items() if k in (
@@ -156,8 +195,19 @@ def reading(root):
                 "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
 
 
-def snapshot(roots, codex):
-    guard(roots)
+def quota_usable(row, model):
+    bare = model.rsplit("/", 1)[-1]
+    scopes = {"all_models", "all_products"}
+    if bare:
+        scopes.update(("model:" + bare, "product:" + bare))
+    return not any(b["scope"] in scopes and (
+        b.get("runway", {}).get("status") == "exhausted_now" or
+        (b.get("status") == "known" and b.get("effectivePercentRemaining") == 0))
+        for b in row["quotaSemantics"]["effectiveAvailability"])
+
+
+def snapshot(roots, codex, model):
+    guard(roots, codex)
     rows = []
     for root in roots:
         ready = signed_in(root, codex)
@@ -165,7 +215,7 @@ def snapshot(roots, codex):
                                            "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
         row.update(provider="codex", accountKey="codex-folder:" + hashlib.sha256(root.encode()).hexdigest()[:16],
                    accountLocator={"kind": "codex-home", "path": root}, signedIn=ready,
-                   launchReady=ready and shared_ready(root))
+                   launchReady=ready and shared_ready(root) and quota_usable(row, model))
         rows.append(row)
     usable = [r for r in rows if r["launchReady"]]
     def rank(row):
@@ -184,7 +234,7 @@ def require_winner(data):
 
 
 def check(root, roots, codex):
-    guard(roots)
+    guard(roots, codex)
     if not signed_in(root, codex):
         raise ValueError(f"Codex folder is not locally signed in: {root}")
     if not shared_ready(root):
@@ -220,6 +270,7 @@ def main():
     parser.add_argument("--shared", help="prepare: shared non-auth configuration folder")
     parser.add_argument("--state", help="register: existing Firstmate state directory")
     parser.add_argument("--codex", default="codex", help="Codex executable")
+    parser.add_argument("--model", default="", help="literal launch model for applicable quota scopes")
     parser.add_argument("--gate", action="store_true", help="quota: return selected row as codex-home for the launch quota gate")
     args = parser.parse_args()
     if args.command == "prepare":
@@ -231,16 +282,9 @@ def main():
         parser.error("an absolute --config is required")
     roots = folders(args.config)
     if args.command == "guard":
-        guard(roots)
+        guard(roots, args.codex)
     elif args.command in ("select", "quota"):
-        if args.folder and args.command == "select":
-            root = str(Path(args.folder).resolve())
-            guard(roots)
-            if root not in roots or not signed_in(root, args.codex) or not shared_ready(root):
-                raise ValueError("codex-accounts preselected folder is no longer usable; no fallback")
-            print(f"{root}\t{root}\t")
-            return
-        data = snapshot(roots, args.codex)
+        data = snapshot(roots, args.codex, args.model)
         if args.folder:
             root = str(Path(args.folder).resolve())
             if not any(r["launchReady"] and r["accountLocator"]["path"] == root for r in data["providers"]):
@@ -282,7 +326,7 @@ def main():
         if args.command == "check":
             check(root, roots, args.codex)
         else:
-            guard(roots)
+            guard(roots, args.codex)
             if not signed_in(root, args.codex) or not shared_ready(root):
                 raise ValueError(f"maintenance needs a configured signed-in folder: {root}")
             with tempfile.TemporaryDirectory(prefix="fm-codex-maintenance-") as scratch:

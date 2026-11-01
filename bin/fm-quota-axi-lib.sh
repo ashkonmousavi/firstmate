@@ -315,16 +315,8 @@ fm_quota_gate_explicit() {
     # shellcheck source=bin/fm-backend.sh
     . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-backend.sh"
   fi
-  cands='[]'
-  if [ -f "$rules" ] && jq -e 'type == "object"' "$rules" >/dev/null 2>&1; then
-    cands=$(jq -c '
-      def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
-      [((.rules // [])[] | profiles(.use)[]), profiles(.default // null)[]]
-      | map(select(type == "object" and (.harness | type) == "string")) | unique' "$rules" 2>/dev/null) || cands='[]'
-  fi
-  requested=$(jq -cn --argjson cands "$cands" --arg h "$harness" --arg m "$model" '
-    [$cands[] | select(.harness == $h and ($m == "" or (.model // "") == $m))] |
-    if length == 1 then .[0] else {harness:$h, model:$m} end')
+  cands=$(fm_worker_account_profiles "$rules")
+  requested=$(fm_worker_account_profile "$harness" "$model" "$cands")
   requested=$(fm_quota_gate_profile "$requested" "$snap" "$cands") || return 1
   while IFS= read -r profile; do
     h=$(jq -r '.harness' <<<"$profile")
@@ -385,9 +377,11 @@ fm_quota_gate_run() {
     # providers remain unknown in this reading rather than borrowing a lane.
     snap=$(mktemp "${TMPDIR:-/tmp}/fm-codex-quota-gate.XXXXXX") || return 1
     local -a codex_args=()
+    local codex_profile
+    codex_profile=$(fm_worker_account_profile codex "$model" "$(fm_worker_account_profiles "$rules")") || { rm -f "$snap"; return 1; }
     [ -z "${10:-}" ] || codex_args=(--folder "${10}")
     if ! python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-codex-accounts.py" quota \
-      --config "$config/codex-accounts" --gate "${codex_args[@]}" >"$snap"; then
+      --config "$config/codex-accounts" --gate --model "$(jq -r '.model // ""' <<< "$codex_profile")" "${codex_args[@]}" >"$snap"; then
       rm -f "$snap"
       return 1
     fi

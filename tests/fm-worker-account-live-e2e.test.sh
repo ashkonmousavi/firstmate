@@ -34,7 +34,7 @@ unset CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR ANTHROPIC_API_KEY OPENAI_API_KEY FM_
 CHECKED=
 
 codex_live_cases() {
-  local version empty stored out config
+  local version empty stored out config email
   version=$(codex --version 2>/dev/null | head -1)
   empty="$TMP_ROOT/codex-empty"
   stored="$TMP_ROOT/codex-stored"
@@ -64,6 +64,38 @@ codex_live_cases() {
     fail "codex $version: refused a synthetic file-backed local login: $out"
   assert_equals "$stored" "${out%%$'\t'*}" "codex $version selected a different root"
   pass "codex $version: file-backed local status accepts a synthetic cache, refuses an empty root and suppresses diagnostics"
+  for email in same-account@example.invalid other-account@example.invalid; do
+    python3 - "$TMP_ROOT" "$email" <<'PY'
+import base64, datetime, json, os, pathlib, sys, time
+root = pathlib.Path(sys.argv[1])
+for i, email in enumerate(("same-account@example.invalid", sys.argv[2])):
+    folder = root / f"codex-identity-{i}"
+    folder.mkdir(exist_ok=True)
+    def encode(value):
+        return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+    token = encode({"alg": "none"}) + "." + encode({"email": email,
+        "https://api.openai.com/auth": {"chatgpt_account_id": "fm-live-synthetic-account",
+                                         "chatgpt_plan_type": "pro"}}) + "."
+    (folder / "auth.json").write_text(json.dumps({"auth_mode": "chatgpt", "OPENAI_API_KEY": None,
+        "tokens": {"id_token": token, "access_token": f"fm-live-synthetic-access-{i}",
+                   "refresh_token": f"fm-live-synthetic-refresh-{i}", "account_id": "fm-live-synthetic-account"},
+        "last_refresh": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")}))
+    stamp = time.time() - i
+    os.utime(folder / "auth.json", (stamp, stamp))
+(root / "codex-config" / "codex-accounts").write_text(
+    "".join(str(root / f"codex-identity-{i}") + "\n" for i in range(2)))
+PY
+    if out=$(python3 "$ROOT/bin/fm-codex-accounts.py" guard --config "$config/codex-accounts" 2>&1); then
+      [ "$email" != same-account@example.invalid ] || fail "codex $version: duplicate runner identities passed the guard"
+      assert_equals '' "$out" "codex $version: healthy identity guard must remain silent"
+    else
+      [ "$email" = same-account@example.invalid ] || fail "codex $version: distinct runner identities refused: $out"
+      assert_contains "$out" 'duplicate Codex account' "codex $version: account/read identity contract changed"
+    fi
+    assert_not_contains "$out" 'example.invalid' "codex $version leaked an account identity"
+    assert_not_contains "$out" 'fm-live-synthetic' "codex $version leaked synthetic credentials"
+  done
+  pass "codex $version: account/read compares synthetic ChatGPT identities without refresh or credential output"
   CHECKED="$CHECKED codex"
 }
 

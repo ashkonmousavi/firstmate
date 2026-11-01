@@ -623,6 +623,30 @@ if [ "${1:-}" = login ] && [ "${2:-}" = status ]; then
   [ -f "$CODEX_HOME/signed-in" ]
   exit
 fi
+if [ "${1:-}" = app-server ]; then
+  exec python3 -c '
+import json, os, pathlib, sys
+initialized = False
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "initialize":
+        print(json.dumps({"id": request["id"], "result": {"userAgent": "fixture"}}), flush=True)
+    elif method == "initialized":
+        initialized = True
+    elif method == "account/read":
+        if not initialized or request["params"] != {"refreshToken": False}:
+            sys.exit(84)
+        if os.environ.get("OPENAI_API_KEY") or os.environ.get("CODEX_API_KEY"):
+            sys.exit(85)
+        identity = pathlib.Path(os.environ["CODEX_HOME"]) / "identity"
+        account = {"type": "chatgpt", "email": identity.read_text().strip()} if identity.exists() else {"type": "apiKey"}
+        print(json.dumps({"method": "account/updated", "params": {"authMode": "chatgpt"}}), flush=True)
+        print(json.dumps({"id": request["id"], "result": {"account": account}}), flush=True)
+    else:
+        sys.exit(86)
+'
+fi
 if [ "${1:-}" = exec ]; then
   printf 'maintenance diagnostics must stay private\n'
   [ ! -f "$CODEX_HOME/maintenance-fails" ]
@@ -682,7 +706,7 @@ test_codex_folder_selection_and_guard() {
   out=$(codex_tool select); rc=$?
   expect_code 1 "$rc" 'no usable folder must refuse'
   assert_contains "$out" 'no default fallback' 'no ambient fallback'
-  cp "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  cp -p "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
   out=$(codex_tool guard); rc=$?
   expect_code 1 "$rc" 'identical copies must refuse'
   assert_contains "$out" 'duplicate sign-in' 'duplicate diagnosed by folder'
@@ -700,6 +724,122 @@ test_codex_folder_selection_and_guard() {
   out=$(codex_tool guard); rc=$?
   expect_code 1 "$rc" 'auth hardlinks must refuse'
   pass 'Codex selects measured weekly room without stale/fallback lanes and rejects credential copies/links'
+}
+
+test_codex_guard_metadata_and_identity() {
+  local out rc command
+  codex_case codex-identity
+  out=$(PATH="$FAKEBIN:$PATH" python3 - "$ROOT/bin/fm-codex-accounts.py" "$HOME_DIR/config/codex-accounts" <<'PY'
+import importlib.util, os, sys
+spec = importlib.util.spec_from_file_location("accounts", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+def deny_auth_read(event, args):
+    if event == "open" and isinstance(args[0], (str, bytes)) and os.path.basename(os.fsdecode(args[0])) == "auth.json":
+        raise AssertionError("credential contents must not be opened")
+sys.addaudithook(deny_auth_read)
+sys.argv = [sys.argv[1], "guard", "--config", sys.argv[2]]
+module.main()
+PY
+  ); rc=$?
+  expect_code 0 "$rc" "metadata guard must not open credential contents: $out"
+  assert_equals '' "$out" 'a metadata-only guard remains silent'
+  printf 'same-account@example.invalid\n' > "$CASE/account one/identity"
+  printf 'SAME-account@example.invalid\n' > "$CASE/account-two/identity"
+  for command in guard select quota check maintain; do
+    out=$(codex_tool "$command" --folder "$CASE/account-two"); rc=$?
+    expect_code 1 "$rc" "$command must reject two folders reporting one account: $out"
+    assert_contains "$out" 'duplicate Codex account' 'runner identity detects divergent sign-in files'
+    assert_not_contains "$out" 'example.invalid' 'account identity must not be printed'
+    assert_not_contains "$out" 'artificial-session' 'credentials must not be printed'
+  done
+  printf 'other-account@example.invalid\n' > "$CASE/account-two/identity"
+  out=$(codex_tool guard); rc=$?
+  expect_code 0 "$rc" "independent runner identities must pass: $out"
+  rm "$CASE/account one/identity" "$CASE/account-two/identity"
+  printf 'unreadable-as-a-credential-a\n' > "$CASE/account one/auth.json"
+  printf 'unreadable-as-a-credential-b\n' > "$CASE/account-two/auth.json"
+  touch -r "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool guard); rc=$?
+  expect_code 1 "$rc" 'equal size and mtime must refuse even when file contents differ'
+  assert_contains "$out" 'duplicate sign-in' 'metadata match is sufficient'
+  pass 'Codex guard uses metadata and private runner identities without opening credentials'
+}
+
+test_codex_applicable_quota() {
+  local scope state out rc model selected profile id
+  codex_case codex-applicable
+  for scope in all_models all_products model:requested product:requested model:other; do
+    for state in zero exhausted unknown; do
+      codex_quota "$CASE/account one" fresh 80
+      codex_quota "$CASE/account-two" fresh 90
+      jq --arg scope "$scope" --arg state "$state" '
+        .providers[].quotaSemantics.effectiveAvailability += [
+          if $state == "unknown" then {scope:$scope,status:"unknown",runway:{status:"exhausted_now"}}
+          else {scope:$scope,status:"known",effectivePercentRemaining:(if $state == "zero" then 0 else 50 end),
+            runway:{status:(if $state == "zero" then "through_reset" else "exhausted_now" end)},selection:{spendPriority:1}} end]' \
+        "$CASE/account-two/quota.json" > "$CASE/bounded-quota.json"
+      mv "$CASE/bounded-quota.json" "$CASE/account-two/quota.json"
+      selected="$CASE/account one"
+      [ "$scope" != model:other ] || selected="$CASE/account-two"
+      for profile in caller configured; do
+        model=codex-native/requested
+        if [ "$profile" = configured ]; then
+          printf '%s\n' '{"default":{"harness":"codex","model":"codex-native/requested"}}' > "$HOME_DIR/config/crew-dispatch.json"
+          model=
+        else
+          rm -f "$HOME_DIR/config/crew-dispatch.json"
+        fi
+        out=$(PATH="$FAKEBIN:$PATH" bash -c '
+          . "$1/bin/fm-worker-account-lib.sh"
+          fm_worker_account_select codex "$2" "$3" codex
+        ' bash "$ROOT" "$HOME_DIR/config" "$model"); rc=$?
+        expect_code 0 "$rc" "selection failed for $scope/$state/$profile: $out"
+        assert_equals "$selected" "${out%%$'\t'*}" 'usable applicable quota precedes weekly ranking'
+        out=$(PATH="$FAKEBIN:$PATH" bash -c '
+          . "$1/bin/fm-quota-axi-lib.sh"
+          fm_quota_gate_run codex "$3" "$2/crew-dispatch.json" "" review ship tmux "$2" || exit 1
+          [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+          printf "%s\n" "$FM_QUOTA_CODEX_ROOT"
+        ' bash "$ROOT" "$HOME_DIR/config" "$model"); rc=$?
+        expect_code 0 "$rc" "gate selection failed for $scope/$state/$profile: $out"
+        assert_equals "$selected" "$out" 'gate and preflight agree on applicable quota'
+      done
+      out=$(codex_tool quota --model requested)
+      if [ "$state" = unknown ]; then
+        assert_equals exhausted_now "$(jq -r --arg root "$CASE/account-two" --arg scope "$scope" \
+          '[.providers[] | select(.accountLocator.path == $root) | .quotaSemantics.effectiveAvailability[] | select(.scope == $scope) | .runway.status] | last' <<< "$out")" \
+          'unknown percentage must retain exhausted runway'
+      fi
+      out=$(codex_tool select --folder "$CASE/account-two" --model requested); rc=$?
+      if [ "$scope" = model:other ]; then
+        expect_code 0 "$rc" "unrelated model quota must not block preselected folder: $out"
+      else
+        expect_code 1 "$rc" 'preselected folders must also have usable applicable quota'
+      fi
+    done
+  done
+  rm -f "$HOME_DIR/config/crew-dispatch.json"
+  codex_quota "$CASE/account one" fresh 80
+  codex_quota "$CASE/account-two" fresh 90
+  jq '.providers[].quotaSemantics.effectiveAvailability = [{scope:"all_models",status:"unknown",runway:{status:"exhausted_now"}}]' \
+    "$CASE/account-two/quota.json" > "$CASE/bounded-quota.json"
+  mv "$CASE/bounded-quota.json" "$CASE/account-two/quota.json"
+  for profile in implicit explicit; do
+    id="acct-codex-usable-$profile"
+    if [ "$profile" = explicit ]; then
+      out=$(spawn_ship "$id" --harness codex --model requested); rc=$?
+    else
+      out=$(spawn_ship "$id" --model requested); rc=$?
+    fi
+    expect_code 0 "$rc" "a usable sibling must launch for $profile: $out"
+    assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'spawn excludes the exhausted sibling'
+  done
+  printf '%s\n' "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
+  out=$(spawn_ship acct-codex-exhausted --harness codex --model requested); rc=$?
+  expect_code 1 "$rc" 'unknown-percentage exhaustion must refuse instead of becoming a notice'
+  assert_refused_before_launch acct-codex-exhausted "$out" 'no usable signed-in folder'
+  pass 'Codex filters applicable exhaustion before ranking, including unknown percentages and preselected folders'
 }
 
 test_codex_runway_timing() {
@@ -826,6 +966,8 @@ test_codex_config_and_scout() {
 
 test_codex_empty_list_refuses_before_endpoint
 test_codex_folder_selection_and_guard
+test_codex_guard_metadata_and_identity
+test_codex_applicable_quota
 test_codex_runway_timing
 test_codex_spawn_and_checks
 test_codex_config_and_scout

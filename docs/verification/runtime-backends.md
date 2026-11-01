@@ -770,10 +770,10 @@ The guard submits no prompt and spends no tokens, so it runs by default wherever
 ## Codex account folder checks
 
 `bin/fm-codex-accounts.py` supplies the opt-in selection, exact-folder quota wrapper, duplicate check and registered watcher entry point documented in [configuration](../configuration.md#codex-account-folders-configcodex-accounts).
-`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, main weekly ranking, unavailable and stale quota, shared-file preparation, duplicate files and auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
 `tests/fm-control.test.sh` verifies that unusable lists refuse before a ship or scout's running agent is stopped.
 
-The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` now covers Codex local status using an empty folder and a synthetic file-backed API-key cache under a temporary `HOME`.
+The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` covers Codex local status using an empty folder and a synthetic file-backed API-key cache, plus account identity comparison using synthetic ChatGPT caches under a temporary `HOME`.
 It suppresses vendor diagnostics and never sends the synthetic credential to a service.
 That guard proves local-status compatibility only; it cannot prove ChatGPT refresh or a real subscription's quota response.
 For the existing new-worktree trust/processing guard, set `FM_CODEX_ACCOUNT_LIVE_ROOT` to an independently signed-in, prepared folder before running `tests/fm-codex-brief-typed-live-e2e.test.sh`.

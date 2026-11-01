@@ -265,6 +265,23 @@ fm_worker_account_raw_profile() {
   ' -- "$1" "$2"
 }
 
+fm_worker_account_profiles() {
+  local rules=$1 profiles='[]'
+  if [ -f "$rules" ] && jq -e 'type == "object"' "$rules" >/dev/null 2>&1; then
+    profiles=$(jq -c '
+      def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
+      [((.rules // [])[] | profiles(.use)[]), profiles(.default // null)[]]
+      | map(select(type == "object" and (.harness | type) == "string")) | unique' "$rules" 2>/dev/null) || profiles='[]'
+  fi
+  printf '%s\n' "$profiles"
+}
+
+fm_worker_account_profile() {
+  jq -cn --arg h "$1" --arg m "$2" --argjson cands "$3" '
+    [$cands[] | select(.harness == $h and ($m == "" or (.model // "") == $m))] |
+    if length == 1 then .[0] else {harness:$h, model:$m} end'
+}
+
 # fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<secondmate-id>] [<codex-selected-root>]
 # The pin selection decision. Prints nothing for an unpinned runner, so
 # the caller retains its unpinned account selection. For a pinned one prints
@@ -285,9 +302,12 @@ fm_worker_account_select() {
       return 1
     fi
     local -a codex_args=()
+    local codex_profile
+    codex_profile=$(fm_worker_account_profile codex "$model" "$(fm_worker_account_profiles "$config/crew-dispatch.json")") || return 1
     [ -z "${7:-}" ] || codex_args=(--folder "$7")
     python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-codex-accounts.py" select \
-      --config "$config/codex-accounts" --codex "$executable" "${codex_args[@]}"
+      --config "$config/codex-accounts" --codex "$executable" \
+      --model "$(jq -r '.model // ""' <<< "$codex_profile")" "${codex_args[@]}"
     return
   fi
   selected_config=$(fm_worker_account_config "$harness" "$config" "$mate") || return 1
