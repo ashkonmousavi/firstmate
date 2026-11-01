@@ -33,7 +33,6 @@ fm_git_identity fmtest fmtest@example.com
 TMP_ROOT=$(fm_test_tmproot fm-secondmate-restart)
 mkdir -p "$TMP_ROOT"
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd -P)
-trap 'rm -rf -- "$TMP_ROOT"' EXIT
 
 # A session-provider stub that models the two things this pass depends on: the
 # harness exit command stops the agent, a launch brief starts the replacement,
@@ -499,6 +498,10 @@ case "${rargs[1]:-}" in
     ;;
   relaunch)
     case "${FM_FAKE_SSH_MODE:-ok}" in
+      lost-spawn-lock|lost-spawn-lock-route-unreadable)
+        printf 'error: another spawn is already creating task %s\n' "${rargs[2]}" >&2
+        exit 1
+        ;;
       slow-relaunch)
         : > "$FM_FAKE_DIR/remote-relaunch-start"
         /bin/sleep 2
@@ -514,6 +517,25 @@ case "${rargs[1]:-}" in
     printf 'harness=%s\n' "${rargs[3]}"
     printf 'model=%s\n' "${rargs[4]}"
     printf 'effort=%s\n' "${rargs[5]}"
+    ;;
+  state)
+    if [ ! -e "$FM_FAKE_DIR/winner-probed" ]; then
+      : > "$FM_FAKE_DIR/winner-probed"
+      printf 'dead\n'
+    else
+      printf 'alive\n'
+    fi
+    ;;
+  route)
+    if [ "${FM_FAKE_SSH_MODE:-ok}" = lost-spawn-lock-route-unreadable ]; then
+      printf 'error: remote secondmate has no endpoint metadata\n' >&2
+      exit 1
+    fi
+    printf 'schema=fm-remote-secondmate-control.v1\n'
+    printf 'backend=herdr\n'
+    printf 'target=fm-remote:2ndmate-%s\n' "${rargs[2]}"
+    printf 'herdr_session=fm-remote\n'
+    printf 'harness=pi-signed\nmodel=winning-model\neffort=medium\n'
     ;;
 esac
 exit 0
@@ -1078,6 +1100,45 @@ SH
   pass "T18 a restart that loses the spawn lock waits for and verifies the winning launch"
 }
 
+test_remote_spawn_winner_refreshes_the_parent_identity() {
+  local dir out rc mode before
+  for mode in lost-spawn-lock lost-spawn-lock-route-unreadable; do
+    dir=$(new_case "remote-$mode")
+    setup_remote_case "$dir" sm2 "$mode"
+    export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    printf 'codex requested-model high\n' > "$dir/home/config/secondmate-harness"
+    before=$(cat "$dir/home/state/sm2.meta")
+
+    out=$(FM_TEST_VERIFY_WAIT=20 run_restart "$dir" sm2); rc=$?
+    unset FM_FAKE_ANSWER_STATUS
+
+    if [ "$mode" = lost-spawn-lock ]; then
+      expect_code 0 "$rc" "the confirmed remote winner should count as restarted: $out"
+      assert_contains "$out" 'restarted: sm2 (pi-signed)' \
+        "the report must name the winner, even when it differs from the old runtime and the requested pin"
+      assert_contains "$out" 'summary: 1 of 1 restarted, 0 nudged, 0 unreached' \
+        "the verified remote winner was not counted"
+      assert_grep 'harness=pi-signed' "$dir/home/state/sm2.meta" "the parent kept the old harness"
+      assert_grep 'model=winning-model' "$dir/home/state/sm2.meta" "the parent kept the old model"
+      assert_grep 'effort=medium' "$dir/home/state/sm2.meta" "the parent kept the old effort"
+      assert_grep 'remote_host=remote-mac' "$dir/home/state/sm2.meta" "the refresh lost the placement"
+    else
+      expect_code 3 "$rc" "an unreadable winner's identity must remain unconfirmed: $out"
+      assert_not_contains "$out" 'restarted: sm2' "the report used an unconfirmed runtime"
+      assert_contains "$out" 'the replacement is running, but its remote route identity could not be confirmed' \
+        "the report must distinguish liveness from identity confirmation"
+      [ "$(cat "$dir/home/state/sm2.meta")" = "$before" ] \
+        || fail "an unreadable remote route changed the parent's identity"
+    fi
+    [ "$(grep -c '^fm-remote-secondmate-control.sh relaunch ' "$dir/ssh.log")" -eq 1 ] \
+      || fail "refreshing the route attempted another relaunch"
+    assert_grep 'fm-remote-secondmate-control.sh route sm2' "$dir/ssh.log" \
+      "the identity was not read from the remote endpoint"
+    assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "the restart left its lock behind"
+  done
+  pass "a remote spawn winner refreshes the parent's identity before reporting its runtime"
+}
+
 # --- T19: a dead restarter's marker expires -----------------------------------
 # make_dead_marker <case-dir>: the marker a restarter leaves when it dies while
 # holding it, owned by a pid that no longer runs.
@@ -1147,6 +1208,7 @@ test_already_current_mate_restarts_end_to_end
 test_already_current_unprovable_mate_stays_on_the_nudge_path
 test_restart_and_liveness_relaunch_race
 test_lost_spawn_lock_waits_for_and_verifies_the_winner
+test_remote_spawn_winner_refreshes_the_parent_identity
 test_dead_restarter_marker_expires
 
 echo "# all fm-secondmate-restart tests passed"

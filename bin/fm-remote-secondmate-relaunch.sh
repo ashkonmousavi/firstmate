@@ -3,6 +3,7 @@
 # republish this parent's own route record to match what the host confirmed.
 #
 # Usage: fm-remote-secondmate-relaunch.sh <id> <harness> <model|default|-> <effort|default|->
+#        fm-remote-secondmate-relaunch.sh --refresh-route <id>
 #
 # bin/fm-remote-secondmate-control.sh's relaunch verb runs entirely on the
 # secondmate's own host and can only rewrite that host's own endpoint record;
@@ -31,13 +32,17 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
-usage() { sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 
-[ "$#" -eq 4 ] || usage
-ID=$1
-HARNESS=$2
-MODEL=$3
-EFFORT=$4
+if [ "${1:-}" = --refresh-route ]; then
+  [ "$#" -eq 2 ] || usage
+  ID=$2
+  REMOTE_ARGS=(route "$ID")
+else
+  [ "$#" -eq 4 ] || usage
+  ID=$1
+  REMOTE_ARGS=(relaunch "$ID" "$2" "$3" "$4")
+fi
 case "$ID" in ''|*[!A-Za-z0-9._-]*) die "invalid secondmate id: $ID" ;; esac
 
 META="$STATE/$ID.meta"
@@ -47,7 +52,7 @@ REMOTE_HOST=$(fm_meta_get "$META" remote_host)
   || die "task $ID is not a remotely placed secondmate; use bin/fm-control.sh $ID relaunch instead"
 
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
-  relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" </dev/null 2>&1) || {
+  "${REMOTE_ARGS[@]}" </dev/null 2>&1) || {
   rc=$?
   printf '%s\n' "$RELAUNCH_OUT" >&2
   exit "$rc"
@@ -61,7 +66,7 @@ printf '%s\n' "$RELAUNCH_OUT"
 # field for "no explicit pin".
 [ "$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^schema=//p' | tail -1)" \
   = fm-remote-secondmate-control.v1 ] \
-  || die "the host relaunched $ID but reported no route confirmation to record"
+  || die "the host reported no route confirmation to record for $ID"
 NEW_HARNESS=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^harness=//p' | tail -1)
 NEW_MODEL=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^model=//p' | tail -1)
 NEW_EFFORT=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^effort=//p' | tail -1)
