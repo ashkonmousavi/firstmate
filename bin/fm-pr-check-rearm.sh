@@ -34,9 +34,11 @@ for check in "$STATE"/*.check.sh; do
   fm_pr_poll_artifacts_valid "$STATE" "$id" "$FM_ROOT/bin/fm-pr-poll.sh" && continue
   reason=unauthenticated-poll-generation
   if [ ! -e "$STATE/$id.check-trust" ] && [ ! -L "$STATE/$id.check-trust" ] \
-    && fm_pr_poll_artifacts_valid "$STATE" "$id" "$check"; then
-    url=$FM_PR_META_URL
+    && fm_pr_poll_snapshot_capture "$STATE" "$id" "$check"; then
+    url=$FM_PR_POLL_SNAPSHOT_URL
+    generation="$FM_PR_POLL_SNAPSHOT_REG_IDENTITY:$FM_PR_POLL_SNAPSHOT_REG_HASH"
     if out=$(env FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \
+      FM_PR_CHECK_REARM_GENERATION="$generation" \
       FM_CONFIG_OVERRIDE="$FM_HOME/config" bash "$FM_ROOT/bin/fm-pr-check.sh" "$id" "$url" 2>&1); then
       if fm_pr_poll_artifacts_valid "$STATE" "$id" "$FM_ROOT/bin/fm-pr-poll.sh"; then
         rearmed=$((rearmed + 1))
@@ -44,6 +46,11 @@ for check in "$STATE"/*.check.sh; do
       fi
       reason=post-rearm-validation-failed
     else
+      rc=$?
+      if [ "$rc" -eq 3 ]; then
+        printf 'pr-poll-rearm: home=%s task=%s skipped=superseded-or-retired\n' "$FM_HOME" "$id"
+        continue
+      fi
       reason=${out//$'\n'/ }
       reason=${reason//$'\r'/ }
       [ -n "$reason" ] || reason="record-owner-failed"

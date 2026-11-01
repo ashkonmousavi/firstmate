@@ -912,6 +912,122 @@ SH
   pass "update refreshes primary, registry and remote polls, preserves custom checks and names failures"
 }
 
+test_rearm_preserves_concurrent_poll_changes() {
+  local mode w state pid retire_pid out before after url i suffix
+  local -a owner_env
+  for mode in unchanged replaced same-url retired late-retired; do
+    w="$TMP_ROOT/rearm-generation-$mode"
+    state="$w/home/state"
+    mkdir -p "$state" "$w/home/config" "$w/root/bin" "$w/fakebin" "$w/wt"
+    cp "$ROOT/bin/fm-pr-poll.sh" "$w/root/bin/fm-pr-poll.sh"
+    cp "$ROOT/bin/fm-pr-poll.sh" "$w/old-poll.sh"
+    printf '# earlier program\n' >> "$w/old-poll.sh"
+    printf 'kind=ship\nmode=no-mistakes\nworktree=%s\npr=https://github.com/o/r/pull/1\n' "$w/wt" > "$state/task.meta"
+    fm_pr_poll_prepare "$state" task github https://github.com/o/r/pull/1 github.com o/r 1 "$w/old-poll.sh" || fail "$mode: prepare"
+    fm_pr_poll_publish_prepared || fail "$mode: publish"
+    cat > "$w/root/bin/fm-guard.sh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+    cat > "$w/root/bin/fm-pr-check.sh" <<'SH'
+#!/usr/bin/env bash
+exec bash "$FM_TEST_PR_CHECK" "$@"
+SH
+    cat > "$w/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *' --json isDraft '*) printf '{"isDraft":false}\n' ;;
+  *' --json headRefOid '*)
+    if [ -n "${FM_PR_CHECK_REARM_GENERATION:-}" ]; then
+      : > "$FM_TEST_REARM_DIR/started"
+      for ((i=0; i<500; i++)); do
+        [ ! -e "$FM_TEST_REARM_DIR/release" ] || break
+        sleep 0.02
+      done
+      [ -e "$FM_TEST_REARM_DIR/release" ] || exit 1
+    fi
+    printf '0123456789abcdef0123456789abcdef01234567\n'
+    ;;
+  *) exit 1 ;;
+esac
+SH
+    chmod +x "$w/root/bin/"*.sh "$w/fakebin/gh"
+    owner_env=(env FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/root" FM_STATE_OVERRIDE="$state" FM_CONFIG_OVERRIDE="$w/home/config"
+      FM_TEST_PR_CHECK="$ROOT/bin/fm-pr-check.sh" FM_TEST_REARM_DIR="$w" FM_TEST_REAL_RM="$(command -v rm)" PATH="$w/fakebin:$PATH")
+    "${owner_env[@]}" bash "$ROOT/bin/fm-pr-check-rearm.sh" > "$w/out" 2>&1 &
+    pid=$!
+    for ((i=0; i<500; i++)); do
+      [ ! -e "$w/started" ] || break
+      sleep 0.02
+    done
+    [ -e "$w/started" ] || { kill "$pid" 2>/dev/null || true; wait "$pid" || true; fail "$mode: refresh did not reach the owner: $(cat "$w/out")"; }
+    case "$mode" in
+      replaced|same-url)
+        url=https://github.com/o/r/pull/2
+        [ "$mode" != same-url ] || url=https://github.com/o/r/pull/1
+        "${owner_env[@]}" bash "$ROOT/bin/fm-pr-check.sh" task "$url" > "$w/replacement.out" 2>&1 || fail "$mode: replacement failed: $(cat "$w/replacement.out")"
+        ;;
+      retired)
+        FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$state" \
+          bash "$ROOT/bin/fm-pr-poll-retire.sh" task --reason regression > "$w/retired.out" || fail "$mode: retirement failed"
+        ;;
+      late-retired)
+        cat > "$w/fakebin/rm" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *'/task.check.sh '*)
+    : > "$FM_TEST_REARM_DIR/retiring"
+    for ((i=0; i<500; i++)); do
+      [ ! -e "$FM_TEST_REARM_DIR/retire-release" ] || break
+      sleep 0.02
+    done
+    [ -e "$FM_TEST_REARM_DIR/retire-release" ] || exit 1
+    ;;
+esac
+exec "$FM_TEST_REAL_RM" "$@"
+SH
+        chmod +x "$w/fakebin/rm"
+        FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$state" \
+          FM_TEST_REARM_DIR="$w" FM_TEST_REAL_RM="$(command -v rm)" PATH="$w/fakebin:$PATH" \
+          bash "$ROOT/bin/fm-pr-poll-retire.sh" task --reason regression > "$w/retired.out" 2>&1 &
+        retire_pid=$!
+        for ((i=0; i<500; i++)); do
+          [ ! -e "$w/retiring" ] || break
+          sleep 0.02
+        done
+        [ -e "$w/retiring" ] || fail "$mode: retirement did not reach removal"
+        : > "$w/release"
+        for ((i=0; i<500; i++)); do
+          [ ! -d "$state/.meta-task.lock" ] || break
+          sleep 0.02
+        done
+        [ -d "$state/.meta-task.lock" ] || fail "$mode: refresh did not reach its locked boundary"
+        : > "$w/retire-release"
+        wait "$retire_pid" || fail "$mode: retirement failed: $(cat "$w/retired.out")"
+        ;;
+    esac
+    before=$(for suffix in meta check.sh pr-poll pr-poll-registration; do
+      [ ! -f "$state/task.$suffix" ] || printf '%s %s %s\n' "$suffix" "$(fm_pr_file_identity "$state/task.$suffix")" "$(fm_pr_sha256 "$state/task.$suffix")"
+    done)
+    : > "$w/release"
+    wait "$pid" || fail "$mode: refresh failed: $(cat "$w/out")"
+    out=$(cat "$w/out")
+    if [ "$mode" = unchanged ]; then
+      cmp -s "$state/task.check.sh" "$ROOT/bin/fm-pr-poll.sh" || fail "unchanged generation was not refreshed"
+      fm_pr_poll_artifacts_valid "$state" task "$ROOT/bin/fm-pr-poll.sh" || fail "refreshed generation is unauthenticated"
+      assert_contains "$out" 'rearmed=1 left=0' "successful refresh was not counted"
+    else
+      after=$(for suffix in meta check.sh pr-poll pr-poll-registration; do
+        [ ! -f "$state/task.$suffix" ] || printf '%s %s %s\n' "$suffix" "$(fm_pr_file_identity "$state/task.$suffix")" "$(fm_pr_sha256 "$state/task.$suffix")"
+      done)
+      [ "$before" = "$after" ] || fail "$mode: stale refresh changed the winning state"
+      assert_contains "$out" 'skipped=superseded-or-retired' "$mode: stale generation was not skipped"
+      assert_contains "$out" 'rearmed=0 left=0' "$mode: stale generation was reported as refreshed or failed"
+    fi
+  done
+  pass "refresh preserves replacement and retirement generations at the record owner's locked boundary"
+}
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
@@ -935,5 +1051,6 @@ test_unresolved_target_leaves_all_homes_untouched
 test_legacy_host_rejects_pinned_update_without_advancing
 
 test_update_rearms_pr_polls
+test_rearm_preserves_concurrent_poll_changes
 
 echo "# all fm-update tests passed"
