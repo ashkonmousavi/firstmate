@@ -679,7 +679,7 @@ Arm the sweep once per home with `bin/fm-lane-release.sh arm`, which writes `sta
 
 The word is a per-home choice and is deliberately not inherited by secondmate homes, so each home moves from `off` to `audit` to `on` on its own schedule.
 [`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns the marker and the reader rule for reporting and recovery.
-The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the ledger, the audit exit codes, and the fixed limits.
+The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the check shim's code-root selection, the ledger, the audit exit codes, and the fixed limits.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
