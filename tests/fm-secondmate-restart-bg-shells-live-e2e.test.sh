@@ -66,10 +66,10 @@ fm_backend_source tmux
 . "$ROOT/bin/fm-secondmate-restart-lib.sh"
 
 # The sentence of the real persist request that asks the mate to stop its
-# shells, sent on its own so the guard spends no turn on the rest of /stow.
+# harmless shells, sent on its own so the guard spends no turn on the rest of /stow.
 stop_request=$(printf '%s\n' "$FM_SECONDMATE_PERSIST_REQUEST" \
-  | sed -n 's/.*\(Also stop every background shell[^.]*\.\).*/\1/p')
-[ -n "$stop_request" ] || fail "the persist request no longer asks the mate to stop its background shells"
+  | sed -n 's/.*\(Also stop only your own harmless background shells[^.]*\.\).*/\1/p')
+[ -n "$stop_request" ] || fail "the persist request no longer asks the mate to stop its own harmless background shells"
 
 screen() {
   if [ "$backend" = herdr ]; then

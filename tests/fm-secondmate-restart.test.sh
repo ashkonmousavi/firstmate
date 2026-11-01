@@ -299,8 +299,10 @@ test_persist_gates_and_asks_only_for_open_records() {
     "the request must flush an unregistered captain call"
   assert_contains "$request" "Do NOT run the memory, learnings, or captain-preference sweeps" \
     "the request must exclude the memory curation half of stow"
-  assert_contains "$request" "stop every background shell you started" \
-    "the request must ask the mate to clear its own background shells before the exit"
+  assert_contains "$request" "stop only your own harmless background shells" \
+    "the delivered request must limit cleanup to the mate's own harmless shells"
+  assert_contains "$request" "leave validation, build, test, and any other substantive background work running" \
+    "the delivered request must preserve substantive work rather than cancel it for restart"
   pass "T1 persist is a gate, and asks for open records and task status only"
 }
 
