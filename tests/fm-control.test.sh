@@ -148,7 +148,12 @@ case "${1:-}" in
       esac
     else
       printf '%s\n' "$payload" >> "$D/keys"
-      if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] && [ "$payload" = Enter ]; then
+      # after-confirm models the picker's choice: a second Enter stops the agent.
+      if [ -f "$D/after-confirm" ] && [ "$payload" = Enter ] \
+         && [ "$(grep -c '^Enter$' "$D/keys")" -ge "$(cat "$D/confirm-enters" 2>/dev/null || echo 2)" ]; then
+        printf 'zsh' > "$D/command"
+      fi
+      if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] && [ "$payload" = Enter ] && [ ! -f "$D/after-confirm" ]; then
         if [ "${FM_RELEASE_TEST_RACE:-}" = composer-retry ] && [ ! -e "$D/first-enter" ]; then
           : > "$D/first-enter"
           printf '/exit owner note' > "$D/draft"
@@ -209,6 +214,10 @@ case "${1:-}" in
       rm "$FM_HOME/probe-composer-read"
       "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit || exit 1
       "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 idle --current-gen --source claude-hook --event stop || exit 1
+    fi
+    if [ -f "$D/after-confirm" ] && [ "$(grep -c '^Enter$' "$D/keys")" -ge "$(cat "$D/confirm-enters" 2>/dev/null || echo 2)" ]; then
+      cat "$D/after-confirm"
+      exit 0
     fi
     if [ -f "$D/after-enter" ] && [ -f "$D/keys" ] && grep -qx Enter "$D/keys"; then
       # after-enter-late holds how many captures after Enter still show the
@@ -292,6 +301,72 @@ SH
   printf '%s\n' "$fb"
 }
 
+make_herdr_stub() {
+  cat > "$1/fakebin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -eu
+D=$FM_FAKE_DIR
+case "$1:$2" in
+  status:--json)
+    compatible=true
+    if [ -e "$D/protocol-refused" ] && [ "${FM_FAKE_HERDR_COMPATIBLE:-0}" != 1 ]; then compatible=false; fi
+    printf '{"client":{"version":"0.9.5","protocol":99},"server":{"running":true,"compatible":%s}}\n' "$compatible" ;;
+  pane:get) printf '{"result":{"pane":{"pane_id":"%s","scroll":{"offset_from_bottom":%s}}}}\n' "$3" "$(cat "$D/scroll-offset" 2>/dev/null || echo 0)" ;;
+  session:list) printf '{"sessions":[{"name":"fmses","running":true,"socket_path":"%s/fake.sock"}]}\n' "$D" ;;
+  agent:get)
+    if [ "$(cat "$D/command")" = zsh ]; then
+      printf '{"error":{"code":"agent_not_found"}}\n'
+    else
+      printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n'
+    fi ;;
+  pane:process-info)
+    printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"p1","shell_pid":999999,"foreground_processes":[{"pid":999998,"name":"claude","argv0":"claude"}]}}}\n' ;;
+  pane:read)
+    if [ "$(cat "$D/scroll-offset" 2>/dev/null || echo 0)" != 0 ]; then
+      cat "$D/old-picker"
+    else
+      exec tmux capture-pane -p -t fmses:fm-t1 -S -0
+    fi ;;
+  pane:send-text) exec tmux send-keys -t fmses:fm-t1 -l "$4" ;;
+  pane:send-keys)
+    [ "$4" = enter ] || exit 2
+    case "${FM_RELEASE_TEST_RACE:-}" in
+      ship-picker-retry*)
+        if [ -s "$D/keys" ] && [ ! -e "$D/protocol-refused" ]; then
+          : > "$D/protocol-refused"
+          case "$FM_RELEASE_TEST_RACE" in
+            *-busy) "$FM_RELEASE_TEST_BUSY_EVENT" apply "$FM_HOME/state" t1 busy --current-gen --source claude-hook --event user-prompt-submit >/dev/null ;;
+            *-generation)
+              sed 's/^spawn_gen=.*/spawn_gen=s2000.1.1/' "$FM_HOME/state/t1.meta" > "$D/meta-new"
+              mv "$D/meta-new" "$FM_HOME/state/t1.meta" ;;
+            *-dialog) printf '╭────╮\n│    │\n╰────╯\n' > "$D/after-enter" ;;
+            *-scroll)
+              cp "$D/after-enter" "$D/old-picker"
+              printf '5\n' > "$D/scroll-offset"
+              printf '╭────╮\n│    │\n╰────╯\n' > "$D/after-enter" ;;
+          esac
+          printf 'protocol_mismatch\n' >&2
+          exit 1
+        fi ;;
+    esac
+    [ "${FM_FAKE_HERDR_COMPATIBLE:-0}" != 1 ] || : > "$D/retry-delivered"
+    exec tmux send-keys -t fmses:fm-t1 Enter ;;
+  *) exit 2 ;;
+esac
+SH
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$1/fakebin/treehouse"
+  # shellcheck disable=SC2016 # Expand FM_FAKE_DIR when the generated fixture runs.
+  printf '#!/usr/bin/env bash\nprintf "0\\n" > "$FM_FAKE_DIR/scroll-offset"\n' > "$1/fakebin/scroll"
+  chmod +x "$1/fakebin/herdr" "$1/fakebin/treehouse" "$1/fakebin/scroll"
+  mkdir -p "$1/compatiblebin"
+  cat > "$1/compatiblebin/herdr" <<'SH'
+#!/usr/bin/env bash
+export FM_FAKE_HERDR_COMPATIBLE=1
+exec "$FM_FAKE_DIR/../fakebin/herdr" "$@"
+SH
+  chmod +x "$1/compatiblebin/herdr"
+}
+
 # new_case <name> -> echoes a case dir holding home/, fake/, and fakebin.
 new_case() {
   local dir="$TMP_ROOT/$1-$RANDOM"
@@ -337,7 +412,8 @@ add_task() {
 # the stubbed provider on PATH. Echoes combined output; returns its exit code.
 run_control() {
   local dir=$1; shift
-  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+  env PATH="$dir/fakebin:$dir/compatiblebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+    FM_BACKEND_HERDR_PANE_SCROLLER="$dir/fakebin/scroll" \
     FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
     FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
     FM_FAKE_MUSE_LOG="${FM_FAKE_MUSE_LOG:-}" \
@@ -1386,6 +1462,137 @@ test_exit_refuses_an_open_background_picker() {
   pass "fm-control exit: an already-open background-task picker is not typed into"
 }
 
+# Record a task Done in the case's backlog, so the exit path may choose
+# "Exit and stop tasks" at the picker (a task not recorded Done may not).
+record_done() {  # <case-dir> <id>
+  cp "$ROOT/.tasks.toml" "$1/home/.tasks.toml"
+  printf '## In flight\n\n## Queued\n\n## Done\n- [x] %s - Finished (repo: alpha) (kind: ship)\n' "$2" > "$1/home/data/backlog.md"
+}
+
+picker_exit_env() {  # <case-dir> <id>
+  local dir=$1 id=$2
+  shift 2
+  env FM_FAKE_NEVER_DIES=1 PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" \
+    FM_FAKE_DIR="$dir/fake" FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 \
+    "$CONTROL" "$id" exit "$@" 2>&1
+}
+
+test_exit_confirms_landed_work_without_accepting_the_task() {
+  local dir out rc stage kind
+  for kind in ship secondmate; do
+    for stage in open submitted late; do
+      dir=$(new_case "landed-$kind-$stage")
+      add_task "$dir" t1 claude "$kind"
+      alive_as "$dir" claude
+      cp "$ROOT/.tasks.toml" "$dir/home/.tasks.toml"
+      printf '## In flight\n- [ ] t1 - Awaiting proof (repo: alpha) (kind: ship)\n\n## Queued\n\n## Done\n' > "$dir/home/data/backlog.md"
+      cp "$dir/home/data/backlog.md" "$dir/backlog-before"
+      if [ "$stage" = open ]; then
+        exit_picker_screen > "$dir/fake/pane"
+        printf '1' > "$dir/fake/confirm-enters"
+      else
+        exit_picker_screen > "$dir/fake/after-enter"
+        [ "$stage" != late ] || printf '1' > "$dir/fake/after-enter-late"
+      fi
+      printf 'done\n' > "$dir/fake/after-confirm"
+      out=$(picker_exit_env "$dir" t1 --landed-work); rc=$?
+      if [ "$kind" = ship ]; then
+        expect_code 0 "$rc" "explicit landed-work must authorize $stage picker without Done"$'\n'"$out"
+        [ "$(cat "$dir/fake/command")" = zsh ] || fail "the landed worker must stop"
+      else
+        expect_code 1 "$rc" "landed-work must not authorize a secondmate"$'\n'"$out"
+        [ "$(cat "$dir/fake/command")" = claude ] || fail "the secondmate must remain alive"
+      fi
+      cmp -s "$dir/backlog-before" "$dir/home/data/backlog.md" || fail "releasing the worker changed task acceptance"
+    done
+  done
+  pass "explicit landed-work releases open, submitted and delayed pickers without accepting the task; secondmates refuse"
+}
+
+test_exit_confirms_the_picker_for_a_task_recorded_done() {
+  local dir out rc enters
+  dir=$(new_case done-picker)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  record_done "$dir" t1
+  exit_picker_screen > "$dir/fake/after-enter"
+  printf 'done\n' > "$dir/fake/after-confirm"
+  out=$(picker_exit_env "$dir" t1); rc=$?
+  expect_code 0 "$rc" "a Done task's picker should be answered"$'\n'"$out"
+  assert_contains "$out" "stopped" "the exit should report the stop"
+  [ "$(literals "$dir")" = /exit ] || fail "only /exit should be typed, got '$(literals "$dir")'"
+  enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
+  [ "$enters" -eq 2 ] || fail "the submitting Enter and one confirming Enter expected, got $enters"
+  [ "$(cat "$dir/fake/command")" = zsh ] || fail "the agent should have stopped"
+  pass "fm-control exit: the background-task picker is confirmed for a task recorded Done in the backlog"
+}
+
+test_exit_never_confirms_the_picker_for_a_secondmate() {
+  local dir out rc enters
+  dir=$(new_case secondmate-picker)
+  add_task "$dir" t1 claude secondmate
+  alive_as "$dir" claude
+  record_done "$dir" t1
+  exit_picker_screen > "$dir/fake/after-enter"
+  printf 'done\n' > "$dir/fake/after-confirm"
+  out=$(picker_exit_env "$dir" t1); rc=$?
+  expect_code 1 "$rc" "a secondmate's picker must keep refusing"$'\n'"$out"
+  enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
+  [ "$enters" -eq 1 ] || fail "only the submitting Enter should be sent, got $enters"
+  pass "fm-control exit: a secondmate's picker is never confirmed"
+}
+
+test_exit_fails_when_the_confirmed_picker_does_not_stop_the_agent() {
+  local dir out rc enters
+  dir=$(new_case done-picker-stuck)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  record_done "$dir" t1
+  exit_picker_screen > "$dir/fake/after-enter"
+  out=$(picker_exit_env "$dir" t1); rc=$?
+  expect_code 1 "$rc" "a confirm that leaves the agent running must fail"$'\n'"$out"
+  assert_contains "$out" "did not stop" "the failure should say the agent kept running"
+  enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
+  [ "$enters" -eq 2 ] || fail "one submitting and one confirming Enter expected, got $enters"
+  pass "fm-control exit: a confirmed picker that leaves the agent running is reported, not claimed stopped"
+}
+
+test_exit_confirms_an_already_open_picker_for_a_task_recorded_done() {
+  local dir out rc enters
+  dir=$(new_case done-open-picker)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  record_done "$dir" t1
+  exit_picker_screen > "$dir/fake/pane"
+  printf 'done\n' > "$dir/fake/after-confirm"
+  printf '1' > "$dir/fake/confirm-enters"
+  out=$(picker_exit_env "$dir" t1); rc=$?
+  expect_code 0 "$rc" "a Done task's already-open picker should be answered"$'\n'"$out"
+  [ ! -s "$dir/fake/literal" ] || fail "nothing may be typed into an open picker, got '$(literals "$dir")'"
+  enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
+  [ "$enters" -eq 1 ] || fail "exactly one confirming Enter expected, got $enters"
+  pass "fm-control exit: an already-open picker is confirmed for a task recorded Done, without typing into it"
+}
+
+test_exit_keeps_refusing_the_picker_for_a_task_not_recorded_done() {
+  local dir out rc enters
+  dir=$(new_case notdone-picker)
+  add_task "$dir" t1 claude
+  alive_as "$dir" claude
+  cp "$ROOT/.tasks.toml" "$dir/home/.tasks.toml"
+  printf '## In flight\n- [ ] t1 - Working (repo: alpha) (kind: ship)\n\n## Queued\n\n## Done\n' > "$dir/home/data/backlog.md"
+  exit_picker_screen > "$dir/fake/after-enter"
+  printf 'done\n' > "$dir/fake/after-confirm"
+  out=$(picker_exit_env "$dir" t1); rc=$?
+  expect_code 1 "$rc" "a task not recorded Done must keep refusing"$'\n'"$out"
+  assert_contains "$out" "blocked on a prompt: Claude background-task exit picker" "the refusal should name the dialog"
+  assert_contains "$out" "not recorded Done in the backlog" "the refusal should say why"
+  enters=$(grep -c '^Enter$' "$dir/fake/keys" || true)
+  [ "$enters" -eq 1 ] || fail "only the submitting Enter should be sent, got $enters"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "the agent must be left running"
+  pass "fm-control exit: the picker still refuses for a task the backlog does not record Done"
+}
+
 test_exit_refuses_the_confirming_enter() {
   local dir out rc enters
   dir=$(new_case confirm-picker)
@@ -1844,14 +2051,23 @@ EOF
 }
 
 test_lane_release_revalidates_under_the_inbox_lock() {
-  local dir change out rc at gen seq kind class
-  for change in none unread status decision report gate hold board promotion sequence lock live-busy live-composer preflight settle composer-preflight composer-settle composer-retry off no-record ship-none ship-unread ship-status ship-merge ship-sequence; do
-    dir=$(new_case "release-final-$change")
+  local dir change scenario backend out rc at gen seq kind class
+  for scenario in none unread status decision report gate hold board promotion sequence lock live-busy live-composer preflight settle composer-preflight composer-settle composer-retry off no-record ship-none ship-picker ship-unread ship-status ship-merge ship-sequence herdr-ship-none herdr-ship-picker herdr-ship-picker-done herdr-ship-picker-retry herdr-ship-picker-retry-busy herdr-ship-picker-retry-generation herdr-ship-picker-retry-dialog herdr-ship-picker-retry-scroll; do
+    change=$scenario
+    backend=tmux
+    case "$scenario" in herdr-*) backend=herdr; change=${scenario#herdr-} ;; esac
+    dir=$(new_case "release-final-$scenario")
     printf 'on\n' > "$dir/home/config/lane-release"
     kind=scout
     class=scout
     case "$change" in ship-*) kind=ship; class='merged-ship' ;; esac
     add_task "$dir" t1 claude "$kind"
+    if [ "$backend" = herdr ]; then
+      make_herdr_stub "$dir"
+      sed 's/^window=.*/window=fmses:p1/' "$dir/home/state/t1.meta" > "$dir/meta-new"
+      mv "$dir/meta-new" "$dir/home/state/t1.meta"
+      printf 'backend=herdr\nherdr_session=fmses\nherdr_workspace_id=w1\nherdr_tab_id=t1\nherdr_pane_id=p1\n' >> "$dir/home/state/t1.meta"
+    fi
     alive_as "$dir" claude
     arm_busy_as "$dir" idle
     at=$(date +%s)
@@ -1916,18 +2132,39 @@ SH
       off) printf 'off\n' > "$dir/home/config/lane-release" ;;
       no-record) rm "$dir/home/state/t1.busy-state" "$dir/home/state/t1.busy-gen" ;;
       lock) mkdir "$dir/home/state/.meta-t1.lock"; printf '%s\n' "$$" > "$dir/home/state/.meta-t1.lock/pid" ;;
+      ship-picker*)
+        [ "$change" != ship-picker-done ] || record_done "$dir" t1
+        exit_picker_screen > "$dir/fake/after-enter"
+        printf 'done\n' > "$dir/fake/after-confirm"
+        ;;
     esac
     out=$(FM_CONTROL_LANE_RELEASE=1 FM_RELEASE_TEST_RACE="$change" FM_RELEASE_TEST_BUSY_EVENT="$ROOT/bin/fm-busy-event.sh" FM_LANE_RELEASE_CREW_STATE="$dir/fakebin/release-crew" \
       FM_LANE_RELEASE_CAPTAIN_HOLD="$dir/fakebin/release-hold" FM_LANE_RELEASE_PROBE="$dir/fakebin/release-probe" \
       run_control "$dir" t1 exit --if-idle --expect-spawn-gen s1000.1.1); rc=$?
-    if [ "$change" = none ] || [ "$change" = ship-none ]; then
+    if [ "$change" = none ] || [ "$change" = ship-none ] || [ "$change" = ship-picker ] \
+       || [ "$change" = ship-picker-done ] || [ "$change" = ship-picker-retry ]; then
       expect_code 0 "$rc" "an unchanged eligible worker must exit"$'\n'"$out"
       [ "$(literals "$dir")" = /exit ] || fail "the ordinary release did not send exit"
       [ "$kind" = ship ] || [ -s "$dir/home/validated" ] || fail "the final gate did not observe the metadata lock"
       [ ! -e "$dir/home/state/t1.busy-gen" ] || fail "the ordinary release did not retire the busy generation"
+      case "$change" in
+        ship-picker*)
+          [ "$(grep -c '^Enter$' "$dir/fake/keys")" -eq 2 ] \
+            || fail "the unattended release must answer the picker with exactly one confirming Enter" ;;
+      esac
+      [ "$change" != ship-picker-retry ] || [ -e "$dir/fake/retry-delivered" ] \
+        || fail "the compatible Herdr client did not deliver the confirmation retry"
     else
       expect_code 75 "$rc" "$change must defer final release"$'\n'"$out"
-      if [ "$change" = settle ] || [ "$change" = composer-settle ] || [ "$change" = composer-retry ]; then
+      if [[ "$change" = ship-picker-retry-* ]]; then
+        [ -e "$dir/fake/protocol-refused" ] || fail "the retry guard was not reached"
+        [ ! -e "$dir/fake/retry-delivered" ] || fail "changed release state received a confirmation retry"
+        [ "$(cat "$dir/fake/keys")" = Enter ] || fail "the picker received a confirming Enter after the release state changed"
+        [ "$(cat "$dir/fake/command")" = claude ] || fail "a changed release must leave the agent running"
+        [ -e "$dir/home/state/t1.busy-gen" ] || fail "a refused confirmation retired the running incarnation"
+        [ "$change" != ship-picker-retry-scroll ] || [ "$(cat "$dir/fake/scroll-offset")" = 0 ] \
+          || fail "the retry did not return the scrolled viewport to the live screen"
+      elif [ "$change" = settle ] || [ "$change" = composer-settle ] || [ "$change" = composer-retry ]; then
         [ "$(literals "$dir")" = /exit ] || fail "the settle case did not reach the draft stage"
         if [ "$change" = composer-retry ]; then
           [ "$(cat "$dir/fake/keys")" = Enter ] || fail "a changed draft received another Enter"
@@ -2002,6 +2239,12 @@ test_exit_drops_meta_busy_gen_with_the_sidecar
 test_exit_refuses_an_open_background_picker
 test_exit_refuses_the_confirming_enter
 test_exit_names_a_picker_that_renders_after_the_submit
+test_exit_confirms_the_picker_for_a_task_recorded_done
+test_exit_confirms_landed_work_without_accepting_the_task
+test_exit_never_confirms_the_picker_for_a_secondmate
+test_exit_fails_when_the_confirmed_picker_does_not_stop_the_agent
+test_exit_confirms_an_already_open_picker_for_a_task_recorded_done
+test_exit_keeps_refusing_the_picker_for_a_task_not_recorded_done
 test_interrupt_without_acknowledgement_preserves_busy_state
 test_muse_interrupt_confirms_adapter_acknowledgement
 test_interrupt_revalidates_agent_after_acknowledgement_wait

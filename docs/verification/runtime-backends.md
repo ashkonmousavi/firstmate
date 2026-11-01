@@ -2045,8 +2045,11 @@ The picker is recognised by its recorded structure only: the heading on its own 
 The same strings quoted above a normal composer, as a diff, this note, or a test fixture shows them, are not a picker.
 Submit retries now stop after the Enter that opened the picker and report unknown.
 A typed submit to a pane that already shows the picker types nothing and sends no Enter.
-Exit reports that the worker is blocked on the Claude background-task exit picker and does not type another Enter.
-A submit can return before any read sees the picker, so exit reads the screen once more when its wait for the agent to stop times out, and names the picker there too.
+Exit follows the [completion-authorization contract in agent control](../agent-control.md#verbs).
+`tests/fm-control.test.sh` covers backlog-Done confirmation, explicit landed-work release without accepting the task, validated lane release without backlog Done, and refusal for unauthorized tasks and secondmates.
+Its tmux and Herdr adapter cases include a compatible-client retry and refusal after the busy state, generation, live dialog or viewport changes.
+That coverage uses stubbed panes and a fake Herdr CLI, with no live Claude or Herdr run; the picker's recorded structure is unchanged.
+A submit can return before any read sees the picker, so exit reads the screen once more when its wait for the agent to stop times out and applies the same authorization boundary there.
 Exit does not report a stopped agent whose pane still shows the picker text as blocked on a prompt.
 The watcher reads the picker with the same matcher on the stale-path capture it already takes for a worker.
 A worker pane parked on it keeps the ordinary stale triage and schedule, and its plain stale reason and its final wedge escalation reason name the picker after `blocked-on-prompt:`; the deferral, dead-record, and declared-wait recheck reasons do not.
