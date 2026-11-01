@@ -1438,7 +1438,9 @@ This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-
   The catalog's account identity joins the profile's declared quota family using the same family/account relation as typed dispatch; it never replaces that family.
   Native single-provider adapters use the existing family declaration.
   An unresolved catalog model or family refuses unless explicitly overridden.
-  Resolution uses the launch project configuration, worker account root and provider pin, and the registered Pi session on an ordinary Herdr relaunch.
+  Resolution uses one native launch record for the harness environment, selectable model, and canonical quota identity.
+  The probe and worker share the harness environment, including Gemini folder trust; Kimi suggestions retain the configured model alias rather than its upstream model ID.
+  The record retains the worker account root and provider pin, and the registered Pi session on an ordinary Herdr relaunch.
 - The gate refuses when an applicable row of that provider is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends within three hours of now, whatever its projection confidence.
 - The refusal names the best alternative: the profiles in this file (rules and default), or each single-provider harness on its default model when the file is absent, that resolve through their own catalogs, satisfy task-kind, backend, worker tool-exclusion, visible-capture, concrete model/effort, and account-pin restrictions (including per-secondmate provider permissions), and pass the same gate with a known `spendPriority`, highest first, with ties named together.
 - A resolved provider or account with no row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and the launch proceeds.

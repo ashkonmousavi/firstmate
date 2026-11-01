@@ -3386,12 +3386,13 @@ Validation must retain current real-harness evidence for the installed eligible 
 ## Explicit-harness quota catalog resolution
 
 The operator contract is [Explicit-harness quota gate](../configuration.md#crew-dispatch-profiles).
-The portable entry points are [catalog gate regressions](../../tests/fm-quota-catalog.test.sh) and [native protocol regressions](../../tests/fm-harness-model.test.sh).
+The portable entry points are [catalog gate regressions](../../tests/fm-quota-catalog.test.sh), [native protocol regressions](../../tests/fm-harness-model.test.sh), and [native launch record regressions](../../tests/fm-quota-native-record.test.sh).
 Their fixtures establish gate behavior and protocol handling; they do not establish compatibility with an installed vendor release.
 
 | Affected axis | Executable regression or inspected integration | Live evidence still required |
 | --- | --- | --- |
 | Fresh explicit spawn, direct relaunch, control pre-stop relaunch | Catalog regressions exercise model-scoped refusal, all-model Claude refusal, explicit override metadata, and no agent launch or stop on refusal; fresh/base and released branches supply the actual checkout configuration. | Real fresh/relaunch runs for each installed adapter. |
+| Native environment and selector record | All 16 catalog adapters execute the recorded environment and printed model flag; native record regressions distinguish Gemini trusted project settings from the user default and Kimi aliases from upstream IDs in spawn and control. | Real vendor environments, project settings and aliases on each installed release. |
 | Requested model, catalog default, catalog alias | Native protocol regressions exercise every accepted adapter; catalog regressions exercise Pi aliases/defaults through spawn and control. | Each installed adapter's effective default and supported aliases against its native catalog/configuration. |
 | Claude | Stream-JSON control initialization and applied settings; selected account root and credential shedding use the worker-account owner. | Installed version, applied canonical model, pinned and ordinary root cases. |
 | Codex | App-server model catalog plus project-scoped `config/read`; the project default differs from the healthy global default in regression. | Real project trust/config layering with and without an explicit model. |

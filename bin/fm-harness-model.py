@@ -3,6 +3,7 @@ import json
 import os
 import re
 import selectors
+import shlex
 import signal
 import subprocess
 import sys
@@ -138,7 +139,7 @@ def resolve(harness, executable, wanted, context):
         if harness == "kimi":
             catalog = json.loads(command([executable, "provider", "list", "--json"]))
             configured = catalog["models"][model["id"]]
-            return {"model": configured["model"], "provider": configured["provider"]}
+            return {"model": configured["model"], "provider": configured["provider"], "selector":model["id"]}
         return {"model": model["id"], "provider": model.get("providerId", model.get("provider", ""))}
     if harness == "muse":
         _, catalog = rpc([executable, "serve"], [
@@ -157,7 +158,7 @@ def resolve(harness, executable, wanted, context):
         models = catalog if isinstance(catalog, list) else catalog["models"]
         default = next((m["id"] for m in models if m.get("isDefault") or m.get("default")), None)
         model = select_model(models, wanted, default)
-        return {"model": model.get("model", model["id"]), "provider": model.get("provider", "")}
+        return {"model": model.get("model", model["id"]), "provider": model.get("provider", ""), "selector":model["id"]}
     if harness == "opencode":
         config = json.loads(command([executable, "debug", "config"]))
         models = []
@@ -195,27 +196,148 @@ def resolve(harness, executable, wanted, context):
     raise ValueError("no non-generating catalog resolver for this adapter")
 
 
+def launch_environment(harness, context):
+    values = {"COMPACT_ADVISER_DISABLE":"1", "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF":"1", "CLAUDE_CODE_DISABLE_AGENT_VIEW":"1"}
+    unset = []
+    raw = context.get("raw", False)
+    if harness in ("claude", "codex", "opencode", "pi", "pi-signed", "grok", "kimi", "gemini", "muse", "rovo", "agy", "devin", "commandcode"):
+        unset += ["CURSOR_AGENT", "CURSOR_INVOKED_AS", "GEMINI_CLI"]
+    if not raw and harness in ("cursor", "omp", "agy", "gemini", "devin", "polytoken", "commandcode", "muse", "rovo"):
+        unset += ["CLAUDECODE", "PI_CODING_AGENT", "GROK_AGENT", "FM_PI_HARNESS"]
+    if not raw and harness in ("devin", "polytoken", "commandcode"):
+        unset += ["FM_OMP_HARNESS", "ATLASSIAN_AGENT_TYPE", "ROVODEV_CLI"]
+    if not raw and harness in ("omp", "polytoken"):
+        unset += ["GEMINI_CLI", "CURSOR_AGENT", "CURSOR_INVOKED_AS"]
+    if not raw and harness == "cursor":
+        unset += ["GEMINI_CLI", "CURSOR_INVOKED_AS"]
+    if not raw and harness in ("devin", "commandcode"):
+        unset += ["NO_COLOR"]
+    if not raw and harness == "claude":
+        values.update(CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION="false", CLAUDE_CODE_SEND_FEEDBACK="0")
+    if not raw and harness == "commandcode":
+        values["COLORTERM"] = "truecolor"
+    if not raw and harness == "polytoken":
+        unset += ["AGENT"]
+    if harness in ("pi", "pi-signed"):
+        values["FM_PI_HARNESS"] = harness
+    if not raw and harness == "omp":
+        values.update(FM_OMP_HARNESS="omp", OMP_SKIP_SETUP="1")
+    if not raw and harness == "gemini":
+        values["GEMINI_CLI_TRUST_WORKSPACE"] = "true"
+        if context.get("state") and context.get("id"):
+            values["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = os.path.join(os.path.realpath(context["state"]), context["id"] + ".gemini-settings.json")
+    if not raw and harness == "muse":
+        values.update(XDG_CONFIG_HOME=os.path.abspath(context.get("muse_config") or os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")),
+                      XDG_DATA_HOME=os.path.abspath(context.get("muse_data") or os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")),
+                      MUSE_EXPERIMENTAL_FOREIGN_PERSONAL_CONTEXT_KILL="on")
+    if not raw and harness == "opencode":
+        config = {"permission":{"*":"allow"}}
+        model, effort = context.get("model", ""), context.get("effort", "")
+        provider = model.split("/", 1)[0]
+        if ((provider == "anthropic" and effort in ("high", "max")) or
+                (provider == "openai" and effort in ("low", "medium", "high", "xhigh"))):
+            config["agent"] = {"build":{"model":model, "variant":effort}}
+        values["OPENCODE_CONFIG_CONTENT"] = json.dumps(config, separators=(",", ":"))
+    pin = context.get("pin", "")
+    if pin:
+        _, root, _ = pin.split("\t")
+        if harness == "claude":
+            unset += context.get("claude_shed", "").split()
+            if root:
+                values["CLAUDE_CONFIG_DIR"] = root
+            else:
+                unset += ["CLAUDE_CONFIG_DIR"]
+        elif harness in ("pi", "pi-signed"):
+            values["PI_CODING_AGENT_DIR"] = root
+    elif harness == "claude" or raw:
+        if os.environ.get("CLAUDE_CONFIG_DIR"):
+            values["CLAUDE_CONFIG_DIR"] = os.environ["CLAUDE_CONFIG_DIR"]
+        else:
+            unset += ["CLAUDE_CONFIG_DIR"]
+    if os.environ.get("DISABLE_AUTOUPDATER"):
+        values["DISABLE_AUTOUPDATER"] = os.environ["DISABLE_AUTOUPDATER"]
+    return {"set":values, "unset":sorted(set(unset) - values.keys()),
+            "clear_prefixes":["ORCA_", "FM_"] if harness == "polytoken" and not raw else [],
+            "keep":["FM_TASK_ID", "FM_TASK_INBOX", "FM_ZELLIJ_SESSION"] if harness == "polytoken" else []}
+
+
+def apply_environment(environment):
+    for key in list(os.environ):
+        if key in environment["unset"] or (key not in environment["keep"] and
+                any(key.startswith(prefix) for prefix in environment["clear_prefixes"])):
+            os.environ.pop(key, None)
+    os.environ.update(environment["set"])
+
+
+def environment_prefix(environment):
+    parts = []
+    if environment["clear_prefixes"]:
+        patterns = "|".join(prefix + "*" for prefix in environment["clear_prefixes"])
+        keep = "|".join(environment["keep"])
+        parts.append("for _fmv in $(env | cut -d= -f1); do case $_fmv in " + patterns +
+                     ") case $_fmv in " + keep + ") ;; *) unset \"$_fmv\" ;; esac ;; esac; done;")
+    if environment["unset"]:
+        parts.append("unset " + " ".join(environment["unset"]) + ";")
+    if environment["set"]:
+        parts.append("export " + " ".join(key + "=" + shlex.quote(value) for key, value in environment["set"].items()) + ";")
+    return " ".join(parts)
+
+
+def describe(harness, wanted, context):
+    context = {**context, "model":wanted}
+    if context.get("pin"):
+        context["provider"] = context["pin"].split("\t")[2]
+    if harness == "omp" and not context.get("overlay"):
+        context["overlay"] = os.path.join(context.get("root") or os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".omp/fm-worker-overlay.yml")
+    return {"launch_env":launch_environment(harness, {**context, "model":wanted}),
+            "launch_selector":wanted, "quota_identity":None,
+            "native_model_ref":context.get("model_ref") if harness == "polytoken" else None,
+            "launch_context":context}
+
+
 def main():
+    if sys.argv[1] == "--environment":
+        print(environment_prefix(json.loads(sys.argv[2])["launch_env"]))
+        return 0
+    if sys.argv[1] == "--model-flag":
+        record = json.loads(sys.argv[2])
+        selector = record.get("native_model_ref") or record["launch_selector"]
+        print("--model '" + selector.replace("'", "'\\''") + "' " if selector else "", end="")
+        return 0
+    if sys.argv[1] == "--describe":
+        harness, wanted, context = sys.argv[2:]
+        print(json.dumps(describe(harness, "" if wanted == "default" else wanted, json.loads(context))))
+        return 0
     harness, executable, wanted, cwd = sys.argv[1:5]
     context = json.loads(sys.argv[5]) if len(sys.argv) > 5 else {}
-    os.chdir(cwd)
     wanted = "" if wanted == "default" else wanted
     fixture = os.environ.get("FM_QUOTA_MODEL_CATALOG_FILE") if os.environ.get("FM_TEST_SEAM") == "1" else None
-    if fixture:
-        with open(fixture, encoding="utf-8") as handle:
-            entries = json.load(handle).get(harness, [])
-        result = select_model(entries, wanted, next((m["id"] for m in entries if m.get("default")), None))
-        result = {"model": result.get("model", result["id"]), "provider": result.get("provider", "")}
-    else:
-        result = resolve(harness, executable, wanted, context)
-    if not result["model"]:
-        raise ValueError("catalog returned no effective model")
-    print(json.dumps(result))
+    record = describe(harness, wanted, context)
+    context = record["launch_context"]
+    os.chdir(cwd)
+    apply_environment(record["launch_env"])
+    try:
+        if fixture:
+            with open(fixture, encoding="utf-8") as handle:
+                entries = json.load(handle).get(harness, [])
+            result = select_model(entries, wanted, next((m["id"] for m in entries if m.get("default")), None))
+            result = {"model":result.get("model", result["id"]), "provider":result.get("provider", ""),
+                      "selector":result.get("selector", result["id"])}
+        else:
+            result = resolve(harness, executable, wanted, context)
+        if not result["model"]:
+            raise ValueError("catalog returned no effective model")
+        record.update(launch_selector=result.get("selector", result["model"]), quota_identity={"model":result["model"], "provider":result["provider"]})
+        print(json.dumps(record))
+        return 0
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        print(json.dumps({**record, "error":str(error)}))
+        return 1
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
-        print(json.dumps({"error": str(error)}))
+        print(json.dumps({"error":str(error)}))
         sys.exit(1)

@@ -1849,7 +1849,14 @@ test_quota_alternatives_obey_launch_capabilities() {
   . "$ROOT/bin/fm-quota-axi-lib.sh"
   local dir harness kind backend out status expected catalog_saved=$FM_QUOTA_MODEL_CATALOG_FILE
   dir="$TMP_ROOT/quota-capabilities"
-  mkdir -p "$dir"
+  local PATH="$dir/bin:$PATH"
+  mkdir -p "$dir/bin"
+  cat > "$dir/bin/polytoken" <<'POLY'
+#!/usr/bin/env bash
+[ "$*" = 'print models' ] || exit 1
+printf '%s\n' 'model-polytoken' 'model-polytoken(high)'
+POLY
+  chmod +x "$dir/bin/polytoken"
   jq '. + (reduce ["muse","gemini","agy","devin","commandcode","polytoken","rovo"][] as $h ({};
     .[$h] = [{id: ("model-" + $h), provider: "codex", default: true}]))' \
     "$catalog_saved" > "$dir/catalog.json"

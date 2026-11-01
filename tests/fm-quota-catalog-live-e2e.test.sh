@@ -83,7 +83,8 @@ for harness in adapters:
         run = subprocess.run([sys.executable, str(root / "bin/fm-harness-model.py"), harness,
                               executable, case.get("model", ""), case["cwd"], json.dumps(case.get("context", {}))],
                              env=env, capture_output=True, text=True, timeout=25)
-        actual = json.loads(run.stdout)
+        record = json.loads(run.stdout)
+        actual = record.get("quota_identity") or {}
         expected = case["expected"]
         assert set(expected) == {"model", "provider"} and expected["model"], f"{harness}: incomplete model/provider oracle"
         if run.returncode or any(actual.get(k) != v for k, v in expected.items()):

@@ -104,7 +104,7 @@ FM_QUOTA_EVAL_JQ='
     else "unknown" end;
   def quota_candidate_label($c): "\($c.profile.harness):\($c.profile.model // "-")";
   def quota_evaluate($q; $pmap; $c):
-    ($c.provider // $pmap[$c.harness] // null) as $p | quota_lane($c.harness; $c.model) as $lane |
+    ($c.provider // $pmap[$c.harness] // null) as $p | quota_lane($c.harness; ($c.quota_identity.model // $c.model)) as $lane |
     if $p == null then {profile: $c, eligible: false, runway_class: "unknown", reason: "no provider family for harness \($c.harness); declare provider on the profile"}
     elif quota_row($q; $p; $lane) == null then
       {profile: $c, provider: $p, eligible: true, unranked: true, runway_class: "unknown",
@@ -112,7 +112,7 @@ FM_QUOTA_EVAL_JQ='
                 then "provider \($p) has no quota row for account \(if $lane == "" then "default" else $lane end)"
                 else "provider \($p) not in the quota snapshot" end)}
     else
-      quota_applicable($q; $p; $lane; ($c.model // "")) as $rows |
+      quota_applicable($q; $p; $lane; ($c.quota_identity.model // $c.model // "")) as $rows |
       quota_evidence($rows) as $bounds |
       quota_floor_state($q; $c.floor; $p; $lane) as $profile_floor_state |
       quota_runway_class($bounds) as $runway_class |
@@ -257,10 +257,16 @@ fm_quota_gate_snapshot() {
   fm_quota_json_valid <"$out" || { printf 'quota-axi returned an invalid snapshot\n'; return 1; }
 }
 
+fm_harness_launch_context() {
+  jq -cn --arg state "$1" --arg id "$2" --arg root "$3" --arg effort "$4" \
+    --argjson raw "${8:-0}" --arg model_ref "${5:-}" --arg pin "${6:-}" --arg session "${7:-}" --arg claude_shed "$FM_WORKER_ACCOUNT_CLAUDE_SHED" \
+    --arg muse_config "${MUSE_CONFIG_HOME:-}" --arg muse_data "${MUSE_DATA_HOME:-}" \
+    '{state:$state,id:$id,root:$root,raw:$raw,effort:$effort,model_ref:$model_ref,pin:$pin,session:$session,claude_shed:$claude_shed,muse_config:$muse_config,muse_data:$muse_data}'
+}
+
 fm_quota_gate_resolve_profile() {
-  local profile=$1 cwd=$2 config=$3 mate=$4 snap=$5 profiles=$6 backend=$7 target=$8
-  local harness model executable resolved pin root provider context session= family_map variable family=
-  local -a probe=(env)
+  local profile=$1 cwd=$2 config=$3 mate=$4 snap=$5 profiles=$6 backend=$7 target=$8 launch_context=${9:-'{}'}
+  local harness model executable resolved pin provider context session= family_map family= model_ref= effort=
   harness=$(jq -r '.harness' <<<"$profile")
   model=$(jq -r '.model // "" | if . == "default" then "" else . end' <<<"$profile")
   executable=$harness
@@ -274,35 +280,37 @@ fm_quota_gate_resolve_profile() {
     jq -c '. + {catalog_error: "the launch account pin refuses this profile"}' <<<"$profile"
     return
   fi
-  root=${pin#*$'\t'}
-  provider=${root#*$'\t'}
-  root=${root%%$'\t'*}
-  if [ -n "$pin" ]; then
-    if [ "$harness" = claude ]; then
-      for variable in $FM_WORKER_ACCOUNT_CLAUDE_SHED; do probe+=(-u "$variable"); done
-      if [ -n "$root" ]; then probe+=("CLAUDE_CONFIG_DIR=$root"); else probe+=(-u CLAUDE_CONFIG_DIR); fi
-    else
-      probe+=("PI_CODING_AGENT_DIR=$root")
+  effort=$(jq -r '.effort // ""' <<<"$profile")
+  if [ "$harness" = polytoken ]; then
+    if [ "$(type -t fm_polytoken_launch_ref)" != function ]; then
+      . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-polytoken-lib.sh"
+    fi
+    if ! model_ref=$(fm_polytoken_launch_ref "$executable" "$model" "$effort" 2>/dev/null); then
+      jq -c '. + {catalog_error: "the native model and effort selector refuses this profile"}' <<<"$profile"
+      return
     fi
   fi
+  provider=${pin##*$'\t'}
   if [ -n "$target" ] && [ "$(type -t fm_control_relaunch_resume_ref)" = function ]; then
     session=$(fm_control_relaunch_resume_ref "$harness" "$backend" "$target") || session=
   fi
-  context=$(jq -cn --arg provider "$provider" --arg session "$session" \
+  context=$(jq -c --arg provider "$provider" --arg session "$session" --arg pin "$pin" \
+    --arg claude_shed "$FM_WORKER_ACCOUNT_CLAUDE_SHED" --arg effort "$effort" --arg model_ref "$model_ref" \
     --arg overlay "${FM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/.omp/fm-worker-overlay.yml" \
-    '{provider:$provider, session:$session, overlay:$overlay}')
-  if resolved=$("${probe[@]}" python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-harness-model.py" \
+    '. + {provider:$provider,session:$session,pin:$pin,claude_shed:$claude_shed,overlay:$overlay,
+           effort:$effort,model_ref:$model_ref}' <<<"$launch_context")
+  if resolved=$(python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-harness-model.py" \
       "$harness" "$executable" "$model" "$cwd" "$context" 2>/dev/null); then
     if [ "$harness" = omp ]; then
-      family=$(fm_quota_provider_for_harness "$harness" "$(jq -r '.model' <<<"$resolved")") || family=
+      family=$(fm_quota_provider_for_harness "$harness" "$(jq -r '.quota_identity.model' <<<"$resolved")") || family=
     fi
     family_map=$(fm_quota_single_provider_table | jq -Rcn '[inputs | split(" ") | {key:.[0], value:.[1]}] | from_entries')
     jq -c --argjson resolved "$resolved" --argjson profiles "$profiles" --argjson native "$family_map" --arg family "$family" \
       --slurpfile quota "$snap" "$FM_QUOTA_ROW_JQ"'
-      . + {model:$resolved.model} |
-      . as $c | quota_lane(.harness; .model) as $lane |
+      . + $resolved |
+      . as $c | .quota_identity.model as $m | quota_lane(.harness; $m) as $lane |
       ([$profiles[] | select(.provider != null and .catalog_error == null and .harness == $c.harness) |
-        select(.model == $c.model or ($lane != "" and quota_lane(.harness; .model) == $lane)) | .provider] | unique) as $declared |
+        select((.quota_identity.model // .model) == $m or ($lane != "" and quota_lane(.harness; (.quota_identity.model // .model)) == $lane)) | .provider] | unique) as $declared |
       ([$quota[0].providers[] | select($lane != "" and .accountKey == $lane) | .provider] | unique) as $accounts |
       ([$native | to_entries[] | select($lane != "" and quota_lane(.key; "") == $lane) | .value] | unique) as $lanes |
       if .provider == null and ($declared|length) > 1 then
@@ -312,10 +320,11 @@ fm_quota_gate_resolve_profile() {
         (if $family != "" then $family else null end) //
         (if ($accounts|length) == 1 then $accounts[0] else null end) //
         (if ($lanes|length) == 1 then $lanes[0] else null end) //
-        (if any($quota[0].providers[]; .provider == $resolved.provider) then $resolved.provider else null end))} end' <<<"$profile"
+        (if any($quota[0].providers[]; .provider == $resolved.quota_identity.provider) then $resolved.quota_identity.provider else null end))} end' <<<"$profile"
   else
-    jq -c --arg h "$harness" --arg m "$model" \
-      '. + {catalog_error: "the harness catalog could not resolve \($h) \(if $m == "" then "default" else $m end)"}' <<<"$profile"
+    [ -n "$resolved" ] || resolved=$(python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-harness-model.py" --describe "$harness" "$model" "$context")
+    jq -c --argjson resolved "$resolved" --arg h "$harness" --arg m "$model" \
+      '. + $resolved + {catalog_error: "the harness catalog could not resolve \($h) \(if $m == "" then "default" else $m end)"}' <<<"$profile"
   fi
 }
 
@@ -326,12 +335,12 @@ fm_quota_gate_resolve_profile() {
 # Alternatives are every distinct profile in <rules-file> (rules and default),
 # or, when it is absent or unreadable, each single-provider harness on its
 # default model; the requested profile itself is excluded.
-# Prints three lines: the verdict (pass, notice, or refuse), its one-line
+# Prints four lines: the verdict (pass, notice, or refuse), its one-line
 # reason, and the best alternative as a profile (`--harness <h> [--model <m>]
-# [--effort <e>]` plus its provider and spendPriority) or `none`.
+# [--effort <e>]` plus its provider and spendPriority) or `none`, and the compact native launch record.
 # Returns 1 on refuse, 0 otherwise.
 fm_quota_gate_explicit() {
-  local harness=$1 model=$2 rules=$3 snap=$4 kind=$5 backend=$6 cwd=$7 config=$8 mate=${9:-} target=${10:-}
+  local harness=$1 model=$2 rules=$3 snap=$4 kind=$5 backend=$6 cwd=$7 config=$8 mate=${9:-} target=${10:-} launch_context=${11:-'{}'}
   local cands pmap requested out h p profile resolved eligible='[]'
   if [ "$(type -t fm_backend_visible_capture_supported)" != function ]; then
     # shellcheck source=bin/fm-backend.sh
@@ -350,9 +359,9 @@ fm_quota_gate_explicit() {
       pmap=$(jq -c --arg h "$h" --arg p "$p" '. + {($h): $p}' <<<"$pmap")
     done < <(fm_quota_single_provider_table)
   fi
-  requested=$(jq -cn --argjson cands "$cands" --arg h "$harness" --arg m "$model" '
+  requested=$(jq -cn --argjson context "$launch_context" --argjson cands "$cands" --arg h "$harness" --arg m "$model" '
     [$cands[] | select(.harness == $h and (.model // "default") == (if $m == "" then "default" else $m end))] |
-    if length == 1 then .[0] else {harness:$h, model:$m} end')
+    if length == 1 then .[0] else {harness:$h, model:$m} end | if $context.effort then .effort=$context.effort else . end')
 
   while IFS= read -r profile; do
     h=$(jq -r '.harness' <<<"$profile")
@@ -362,11 +371,11 @@ fm_quota_gate_explicit() {
     if [ "$kind" != secondmate ]; then
       fm_exclude_tools_check "$h" 0 "$config" >/dev/null 2>&1 || continue
     fi
-    resolved=$(fm_quota_gate_resolve_profile "$profile" "$cwd" "$config" "$mate" "$snap" "$cands" "$backend" "$target") || continue
+    resolved=$(fm_quota_gate_resolve_profile "$profile" "$cwd" "$config" "$mate" "$snap" "$cands" "$backend" "$target" "$launch_context") || continue
     eligible=$(jq -c --argjson profile "$resolved" '. + [$profile]' <<<"$eligible")
   done < <(jq -c --arg kind "$kind" --arg backend "$backend" \
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'.[] | select(quota_gate_launch_eligible($kind; $backend))' <<<"$cands")
-  requested=$(fm_quota_gate_resolve_profile "$requested" "$cwd" "$config" "$mate" "$snap" "$eligible" "$backend" "$target") || {
+  requested=$(fm_quota_gate_resolve_profile "$requested" "$cwd" "$config" "$mate" "$snap" "$eligible" "$backend" "$target" "$launch_context") || {
     printf 'refuse\nthe quota check could not evaluate %s\nnone\n' "$harness"
     return 1
   }
@@ -381,18 +390,19 @@ fm_quota_gate_explicit() {
     def best_line($best):
       $best | group_by(.provider) | map(
         "provider \(.[0].provider) (spendPriority \(.[0].spendPriority)): "
-        + (map("--harness \(.profile.harness)" + (if .profile.model then " --model \(.profile.model)" else "" end) + (if .profile.effort then " --effort \(.profile.effort)" else "" end))
+        + (map("--harness \(.profile.harness)" + (if .profile.launch_selector != "" then " --model \(.profile.launch_selector)" else "" end) + (if .profile.effort then " --effort \(.profile.effort)" else "" end))
            | unique | join(", ")))
       | join("; ");
     ($quota[0]) as $q | now as $now |
     quota_gate_verdict($q; $pmap; $c; $now) as $v |
-    ($cands | map(select(.harness != $c.harness or (.model // "") != ($c.model // "")))) as $others |
+    ($cands | map(select(.harness != $c.harness or (.quota_identity.model // .model // "") != ($c.quota_identity.model // $c.model // "")))) as $others |
     (quota_gate_alternatives($q; $pmap; $others; $now; $kind; $backend)) as $alts |
     $v.verdict,
     (($v.reason // "ok") | flat),
     (if ($alts | length) == 0 then "none"
      else (best_line([$alts[] | select(.spendPriority == $alts[0].spendPriority)]) | flat)
-     end)' 2>/dev/null) || {
+     end),
+    ($c | tojson)' 2>/dev/null) || {
     printf 'refuse\nthe quota check could not evaluate %s\nnone\n' "$harness"
     return 1
   }
@@ -409,9 +419,10 @@ fm_quota_gate_explicit() {
 # a notice naming it.
 # shellcheck disable=SC2034  # FM_QUOTA_GATE_* results are read by the sourcing callers
 fm_quota_gate_run() {
-  local harness=$1 model=$2 rules=$3 override=$4 who=$5 kind=$6 backend=$7 cwd=$8 config=$9 mate=${10:-} target=${11:-}
+  local harness=$1 model=$2 rules=$3 override=$4 who=$5 kind=$6 backend=$7 cwd=$8 config=$9 mate=${10:-} target=${11:-} launch_context=${12:-'{}'}
   local snap cause verdict reason alt out
   FM_QUOTA_GATE_EVIDENCE=
+  FM_QUOTA_GATE_PROFILE=
   FM_QUOTA_GATE_SNAPSHOT_PATH=
   snap=$(mktemp "${TMPDIR:-/tmp}/fm-quota-gate.XXXXXX") || {
     echo "notice: $who could not stage a quota reading for $harness; launching without the quota check" >&2
@@ -424,7 +435,8 @@ fm_quota_gate_run() {
     return 0
   fi
   FM_QUOTA_GATE_SNAPSHOT_PATH=$snap
-  out=$(fm_quota_gate_explicit "$harness" "$model" "$rules" "$snap" "$kind" "$backend" "$cwd" "$config" "$mate" "$target")
+  out=$(fm_quota_gate_explicit "$harness" "$model" "$rules" "$snap" "$kind" "$backend" "$cwd" "$config" "$mate" "$target" "$launch_context")
+  FM_QUOTA_GATE_PROFILE=$(printf '%s\n' "$out" | sed -n 4p)
   verdict=$(printf '%s\n' "$out" | sed -n 1p)
   reason=$(printf '%s\n' "$out" | sed -n 2p)
   alt=$(printf '%s\n' "$out" | sed -n 3p)

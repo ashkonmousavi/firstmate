@@ -222,12 +222,12 @@ chmod +x "$FAKEBIN_DIR/catalog-vendor"
 for selection in '' astra gpt-6-astra; do
   out=$(FM_QUOTA_MODEL_CATALOG_FILE='' python3 "$ROOT/bin/fm-harness-model.py" codex "$FAKEBIN_DIR/catalog-vendor" "$selection" "$PROJ_DIR"); rc=$?
   expect_code 0 "$rc" "Codex catalog query should resolve $selection"
-  printf '%s\n' "$out" | jq -e '.model == "gpt-6-astra" and .provider == "openai"' >/dev/null \
+  printf '%s\n' "$out" | jq -e '.quota_identity.model == "gpt-6-astra" and .quota_identity.provider == "openai"' >/dev/null \
     || fail "Codex catalog returned the wrong identity: $out"
 done
 out=$(FM_QUOTA_MODEL_CATALOG_FILE='' python3 "$ROOT/bin/fm-harness-model.py" grok "$FAKEBIN_DIR/catalog-vendor" '' "$PROJ_DIR"); rc=$?
 expect_code 0 "$rc" "Grok catalog query should resolve its default"
-printf '%s\n' "$out" | jq -e '.model == "grok-4.7"' >/dev/null || fail "Grok catalog returned the wrong identity: $out"
+printf '%s\n' "$out" | jq -e '.quota_identity.model == "grok-4.7"' >/dev/null || fail "Grok catalog returned the wrong identity: $out"
 pass "Codex and Grok catalog queries use native non-generating protocol boundaries"
 
 catalog_saved=$FM_QUOTA_MODEL_CATALOG_FILE
@@ -377,11 +377,17 @@ for h in kimi codex; do
 done
 pass "suggestions retain effort and honor Kimi and typed Codex capture restrictions"
 
+cat > "$FAKEBIN_DIR/polytoken" <<'POLY'
+#!/usr/bin/env bash
+[ "$*" = 'print models' ] || exit 1
+printf '%s\n' 'zai/glm-5.3-flash' 'zai/glm-5.3-flash(low)'
+POLY
+chmod +x "$FAKEBIN_DIR/polytoken"
 printf '%s\n' '{"default":[{"harness":"polytoken","model":"zai/glm-5.3-flash","effort":"low","provider":"codex"},{"harness":"claude"}]}' > "$CASE_DIR/poly-rules.json"
-out=$(fm_quota_gate_explicit grok '' "$CASE_DIR/poly-rules.json" "$CASE_DIR/quota.json" ship tmux "$WT_DIR" "$HOME_DIR/config")
+out=$(PATH="$FAKEBIN_DIR:$PATH" fm_quota_gate_explicit grok '' "$CASE_DIR/poly-rules.json" "$CASE_DIR/quota.json" ship tmux "$WT_DIR" "$HOME_DIR/config")
 assert_contains "$out" '--harness polytoken --model zai/glm-5.3-flash --effort low' "Polytoken suggestion lost a required axis"
 jq 'del(.default[0].effort)' "$CASE_DIR/poly-rules.json" > "$CASE_DIR/poly-invalid.json"
-out=$(fm_quota_gate_explicit grok '' "$CASE_DIR/poly-invalid.json" "$CASE_DIR/quota.json" ship tmux "$WT_DIR" "$HOME_DIR/config")
+out=$(PATH="$FAKEBIN_DIR:$PATH" fm_quota_gate_explicit grok '' "$CASE_DIR/poly-invalid.json" "$CASE_DIR/quota.json" ship tmux "$WT_DIR" "$HOME_DIR/config")
 assert_not_contains "$out" '--harness polytoken' "an unlaunchable Polytoken profile survived ranking"
 pass "Polytoken alternatives retain concrete model and effort and reject missing effort"
 
