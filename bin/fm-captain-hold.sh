@@ -68,9 +68,7 @@
 # For finding, pipeline-outcome, or omitted attribution, `--origin`, a recorded
 # `Captain hold origin:`, or a validated acceptance section suffices.
 # An origin identifies the work that raised the call, not an owner message.
-# The refusal says a wait that is firstmate's own is not a captain call and
-# names the plain external hold:
-# `fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD`.
+# The refusal names the plain external hold described above.
 # The reason may hold
 # parentheses and line breaks:
 # tasks-axi refuses them, so `hold` escapes them where it writes the reason and
