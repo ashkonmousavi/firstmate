@@ -72,6 +72,38 @@ check("planted queue claim without read blocks and names claim", "PR https://git
       named_claim="PR https://github.com/example/repo/pull/9 is in the queue.")
 check("matching PR read passes", "PR https://github.com/example/repo/pull/9 is merged.",
       ["gh-axi pr view 9 --repo example/repo"], expected=0)
+for reader in ("gh", "gh-axi"):
+    command = f"{reader} pr list --state merged --repo example/repo --json number --jq length"
+    check(f"aggregate merged count accepts {reader} list", "12 PRs merged in the last hour.",
+          [command], expected=0)
+    check(f"hook aggregate merged count accepts {reader} list", "12 PRs merged in the last hour.",
+          [command], hook=True, expected=0)
+check("aggregate merged count without a forge read blocks", "12 PRs merged in the last hour.")
+check("aggregate merged count accepts any forge read", "12 PRs merged in the last hour.",
+      ["gh pr view 9"], expected=0)
+check("list count does not prove a named PR", "PR 9 is merged.",
+      ["gh pr list --state merged --json number --jq length"])
+for reading in ("read it live", "read live"):
+    check(f"{reading} is a reading adverb, not deployment",
+          f"I just {reading}: https://github.com/example/repo/pull/9 merged.",
+          ["gh pr view 9"], expected=0)
+    check(f"{reading} does not exempt an unsupported PR claim",
+          f"I just {reading}: https://github.com/example/repo/pull/9 merged.")
+    check(f"{reading} does not exempt a deployment assertion",
+          f"I {reading}: the site is live.", ["gh pr view 9"])
+for opening, closing in (("'", "'"), ('"', '"'), ("‘", "’"), ("“", "”")):
+    check(f"quoted earlier state report is not a claim: {opening}",
+          f"The guard blocked {opening}PR 9 is merged.{closing} earlier.", expected=0)
+    check(f"quoted state does not exempt an assertion: {opening}",
+          f"Earlier I said {opening}the site is live{closing}; PR 9 is merged.")
+    check(f"quoted identifiers do not require their own reads: {opening}",
+          f"Earlier I said {opening}PR 10 is merged{closing}; PR 9 is merged.",
+          ["gh pr view 9"], expected=0)
+    check(f"quoted clauses and sentences are not claims: {opening}",
+          f"The earlier message was {opening}The site is live; PR 9 is merged.\nThe lane is running.{closing}",
+          expected=0)
+check("contractions outside quotes remain text", "I've checked: PR 9 is merged.")
+check("contractions inside quotes remain quoted", "I said 'I've checked: PR 9 is merged.' earlier.", expected=0)
 check("wrong PR read does not count", "PR 9 is merged.", ["gh-axi pr view 10"])
 check("PR id embedded in repository name does not count", "PR 9 is merged.", ["gh-axi pr view 10 --repo example/repo9"])
 check("separate reads cover multiple PR claims", "PR 9 and PR 10 are merged.",

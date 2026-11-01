@@ -43,8 +43,8 @@ def rx(pattern):
 POLICY = (
     ("PR", rx(r"\b(?:in (?:the )?(?:merge )?queue|queued|merged)\b"),
      rx(r"\bprs?\b|#\d+\b|https?://\S+/pulls?/\d+"),
-     rx(r"^(?:gh|gh-axi)\s+(?:pr\s+(?:view|checks)\b|api\s+.*\S*/pulls(?:/|\b))")),
-    ("deploy", rx(r"\b(?:deployed|live)\b"),
+     rx(r"^(?:gh|gh-axi)\s+(?:pr\s+(?:view|checks|list)\b|api\s+.*\S*/pulls(?:/|\b))")),
+    ("deploy", rx(r"\b(?:deployed|(?<!read )(?<!read it )live)\b"),
      rx(r"\b(?:deploy(?:ment)?s?|releases?|sites?)\b|https?://"),
      rx(r"^curl\s+.*https?://")),
     ("lane", rx(r"\brunning\b"),
@@ -95,6 +95,7 @@ def lane_names(text):
 
 def claims(text):
     text = re.sub(r"```.*?(?:```|$)", "", text, flags=re.S)
+    text = re.sub(r'''(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"[^"]*"|‘[^’]*’|“[^”]*”''', " ", text)
     text = re.sub(r"(?<!\w)(_{1,3})(\S(?:[^\n]*?\S)?)\1(?!\w)", r"\2",
                   text.replace("`", "").replace("*", ""))
     for sentence in re.split(r"[\n]|(?<=[.!?])\s+", text):
