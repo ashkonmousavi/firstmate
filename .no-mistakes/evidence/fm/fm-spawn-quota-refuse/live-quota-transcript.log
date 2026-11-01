@@ -1,0 +1,460 @@
+
+### explicit spawn refuses exhausted0
+$ bin/fm-spawn.sh live-deny-exhausted0 ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok --model grok-4.7
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness grok model grok-4.7: provider grok runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### explicit spawn refuses short10700
+$ bin/fm-spawn.sh live-deny-short10700 ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok --model grok-4.7
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness grok model grok-4.7: provider grok runway at all_models (4% remaining) ends 2026-11-01T04:22:30Z, 2h58m from now, within the 3h0m spawn horizon. Best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### explicit spawn refuses short600
+$ bin/fm-spawn.sh live-deny-short600 ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok --model grok-4.7
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness grok model grok-4.7: provider grok runway at all_models (4% remaining) ends 2026-11-01T01:34:11Z, 0h9m from now, within the 3h0m spawn horizon. Best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### legacy positional refuses
+$ bin/fm-spawn.sh deny ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project grok --scout
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness grok: provider grok runway at all_models (4% remaining) ends 2026-11-01T01:34:11Z, 0h9m from now, within the 3h0m spawn horizon. Best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### control refuses before stopping actual Grok
+$ bin/fm-control.sh override relaunch --harness grok --model grok-4.7 --note must not stop
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness grok model grok-4.7: provider grok runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+Prior metadata byte-identical; actual Grok process identity unchanged: 3931803 grok
+
+### catalog claude/caller spawn
+$ bin/fm-spawn.sh live-claude-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness claude --model sonnet
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness claude model sonnet: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch claude anyway; the override is recorded in the task record.
+exit=1
+
+### catalog claude/caller control
+$ bin/fm-control.sh override relaunch --harness claude --model sonnet --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness claude model sonnet: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch claude anyway; the override is recorded in the task record.
+exit=1
+
+### catalog claude/configured spawn
+$ bin/fm-spawn.sh live-claude-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness claude
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness claude: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch claude anyway; the override is recorded in the task record.
+exit=1
+
+### catalog claude/configured control
+$ bin/fm-control.sh override relaunch --harness claude --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness claude: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch claude anyway; the override is recorded in the task record.
+exit=1
+
+### catalog codex/caller spawn
+$ bin/fm-spawn.sh live-codex-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness codex --model gpt-6.1-sol
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness codex model gpt-6.1-sol: provider blocked runway exhausted_now at all_models. Best alternative: provider claude (spendPriority 1): --harness claude --model healthy-alternative. Pass --quota-override <reason> to launch codex anyway; the override is recorded in the task record.
+exit=1
+
+### catalog codex/caller control
+$ bin/fm-control.sh override relaunch --harness codex --model gpt-6.1-sol --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness codex model gpt-6.1-sol: provider blocked runway exhausted_now at all_models. Best alternative: provider claude (spendPriority 1): --harness claude --model healthy-alternative. Pass --quota-override <reason> to launch codex anyway; the override is recorded in the task record.
+exit=1
+
+### catalog codex/configured spawn
+$ bin/fm-spawn.sh live-codex-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness codex
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness codex: provider blocked runway exhausted_now at all_models. Best alternative: provider claude (spendPriority 1): --harness claude --model healthy-alternative. Pass --quota-override <reason> to launch codex anyway; the override is recorded in the task record.
+exit=1
+
+### catalog codex/configured control
+$ bin/fm-control.sh override relaunch --harness codex --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness codex: provider blocked runway exhausted_now at all_models. Best alternative: provider claude (spendPriority 1): --harness claude --model healthy-alternative. Pass --quota-override <reason> to launch codex anyway; the override is recorded in the task record.
+exit=1
+
+### catalog opencode/caller spawn
+$ bin/fm-spawn.sh live-opencode-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness opencode --model anthropic/claude-sonnet-4-5
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness opencode model anthropic/claude-sonnet-4-5: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch opencode anyway; the override is recorded in the task record.
+exit=1
+
+### catalog opencode/caller control
+$ bin/fm-control.sh override relaunch --harness opencode --model anthropic/claude-sonnet-4-5 --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness opencode model anthropic/claude-sonnet-4-5: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch opencode anyway; the override is recorded in the task record.
+exit=1
+
+### catalog opencode/configured spawn
+$ bin/fm-spawn.sh live-opencode-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness opencode
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness opencode: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch opencode anyway; the override is recorded in the task record.
+exit=1
+
+### catalog opencode/configured control
+$ bin/fm-control.sh override relaunch --harness opencode --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness opencode: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch opencode anyway; the override is recorded in the task record.
+exit=1
+
+### catalog pi/caller spawn
+$ bin/fm-spawn.sh live-pi-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness pi --model zai/glm-5.3
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness pi model zai/glm-5.3: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch pi anyway; the override is recorded in the task record.
+exit=1
+
+### catalog pi/caller control
+$ bin/fm-control.sh override relaunch --harness pi --model zai/glm-5.3 --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness pi model zai/glm-5.3: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch pi anyway; the override is recorded in the task record.
+exit=1
+
+### catalog pi/configured spawn
+$ bin/fm-spawn.sh live-pi-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness pi
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness pi: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch pi anyway; the override is recorded in the task record.
+exit=1
+
+### catalog pi/configured control
+$ bin/fm-control.sh override relaunch --harness pi --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness pi: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch pi anyway; the override is recorded in the task record.
+exit=1
+
+### catalog pi-signed/caller spawn
+$ bin/fm-spawn.sh live-pi-signed-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness pi-signed --model codex-native/gpt-6-astra
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness pi-signed model codex-native/gpt-6-astra: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch pi-signed anyway; the override is recorded in the task record.
+exit=1
+
+### catalog pi-signed/caller control
+$ bin/fm-control.sh override relaunch --harness pi-signed --model codex-native/gpt-6-astra --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness pi-signed model codex-native/gpt-6-astra: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch pi-signed anyway; the override is recorded in the task record.
+exit=1
+
+### catalog pi-signed/configured spawn
+$ bin/fm-spawn.sh live-pi-signed-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness pi-signed
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness pi-signed: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch pi-signed anyway; the override is recorded in the task record.
+exit=1
+
+### catalog pi-signed/configured control
+$ bin/fm-control.sh override relaunch --harness pi-signed --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness pi-signed: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch pi-signed anyway; the override is recorded in the task record.
+exit=1
+
+### catalog grok/caller spawn
+$ bin/fm-spawn.sh live-grok-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok --model grok-4.7
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness grok model grok-4.7: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### catalog grok/caller control
+$ bin/fm-control.sh override relaunch --harness grok --model grok-4.7 --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness grok model grok-4.7: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### catalog grok/configured spawn
+$ bin/fm-spawn.sh live-grok-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness grok: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### catalog grok/configured control
+$ bin/fm-control.sh override relaunch --harness grok --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness grok model grok-4.7: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### catalog kimi/caller spawn
+$ bin/fm-spawn.sh live-kimi-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness kimi --model kimi-code/k3
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness kimi model kimi-code/k3: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch kimi anyway; the override is recorded in the task record.
+exit=1
+
+### catalog kimi/caller control
+$ bin/fm-control.sh override relaunch --harness kimi --model kimi-code/k3 --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness kimi model kimi-code/k3: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch kimi anyway; the override is recorded in the task record.
+exit=1
+
+### catalog kimi/configured spawn
+$ bin/fm-spawn.sh live-kimi-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness kimi
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness kimi: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch kimi anyway; the override is recorded in the task record.
+exit=1
+
+### catalog kimi/configured control
+$ bin/fm-control.sh override relaunch --harness kimi --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness kimi: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch kimi anyway; the override is recorded in the task record.
+exit=1
+
+### catalog cursor/caller spawn
+$ bin/fm-spawn.sh live-cursor-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness cursor --model cursor-grok-4.5-high
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness cursor model cursor-grok-4.5-high: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch cursor anyway; the override is recorded in the task record.
+exit=1
+
+### catalog cursor/caller control
+$ bin/fm-control.sh override relaunch --harness cursor --model cursor-grok-4.5-high --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness cursor model cursor-grok-4.5-high: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch cursor anyway; the override is recorded in the task record.
+exit=1
+
+### catalog cursor/configured spawn
+$ bin/fm-spawn.sh live-cursor-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness cursor
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness cursor: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch cursor anyway; the override is recorded in the task record.
+exit=1
+
+### catalog cursor/configured control
+$ bin/fm-control.sh override relaunch --harness cursor --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness cursor: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch cursor anyway; the override is recorded in the task record.
+exit=1
+
+### catalog omp/caller spawn
+$ bin/fm-spawn.sh live-omp-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness omp --model openai-codex/gpt-6.1-sol
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness omp model openai-codex/gpt-6.1-sol: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch omp anyway; the override is recorded in the task record.
+exit=1
+
+### catalog omp/caller control
+$ bin/fm-control.sh override relaunch --harness omp --model openai-codex/gpt-6.1-sol --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness omp model openai-codex/gpt-6.1-sol: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch omp anyway; the override is recorded in the task record.
+exit=1
+
+### catalog omp/configured spawn
+$ bin/fm-spawn.sh live-omp-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness omp
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness omp: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch omp anyway; the override is recorded in the task record.
+exit=1
+
+### catalog omp/configured control
+$ bin/fm-control.sh override relaunch --harness omp --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness omp: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch omp anyway; the override is recorded in the task record.
+exit=1
+
+### catalog agy/caller spawn
+$ bin/fm-spawn.sh live-agy-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness agy --model gemini-3.8-flash-low
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness agy model gemini-3.8-flash-low: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch agy anyway; the override is recorded in the task record.
+exit=1
+
+### catalog agy/caller control
+$ bin/fm-control.sh override relaunch --harness agy --model gemini-3.8-flash-low --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness agy model gemini-3.8-flash-low: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch agy anyway; the override is recorded in the task record.
+exit=1
+
+### catalog agy/configured spawn
+$ bin/fm-spawn.sh live-agy-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness agy
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness agy: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch agy anyway; the override is recorded in the task record.
+exit=1
+
+### catalog agy/configured control
+$ bin/fm-control.sh override relaunch --harness agy --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness agy: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch agy anyway; the override is recorded in the task record.
+exit=1
+
+### catalog gemini/caller spawn
+$ bin/fm-spawn.sh live-gemini-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness gemini --model gemini-3.1-pro
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness gemini model gemini-3.1-pro: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch gemini anyway; the override is recorded in the task record.
+exit=1
+
+### catalog gemini/caller control
+$ bin/fm-control.sh override relaunch --harness gemini --model gemini-3.1-pro --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness gemini model gemini-3.1-pro: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch gemini anyway; the override is recorded in the task record.
+exit=1
+
+### catalog gemini/configured spawn
+$ bin/fm-spawn.sh live-gemini-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness gemini
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness gemini: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch gemini anyway; the override is recorded in the task record.
+exit=1
+
+### catalog gemini/configured control
+$ bin/fm-control.sh override relaunch --harness gemini --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness gemini: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch gemini anyway; the override is recorded in the task record.
+exit=1
+
+### catalog muse/caller spawn
+$ bin/fm-spawn.sh live-muse-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness muse --model muse-spark-1.2
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness muse model muse-spark-1.2: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch muse anyway; the override is recorded in the task record.
+exit=1
+
+### catalog muse/caller control
+$ bin/fm-control.sh override relaunch --harness muse --model muse-spark-1.2 --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness muse model muse-spark-1.2: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch muse anyway; the override is recorded in the task record.
+exit=1
+
+### catalog muse/configured spawn
+$ bin/fm-spawn.sh live-muse-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness muse
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness muse: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch muse anyway; the override is recorded in the task record.
+exit=1
+
+### catalog muse/configured control
+$ bin/fm-control.sh override relaunch --harness muse --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness muse: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch muse anyway; the override is recorded in the task record.
+exit=1
+
+### catalog rovo/caller spawn
+$ bin/fm-spawn.sh live-rovo-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness rovo --model auto
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness rovo model auto: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch rovo anyway; the override is recorded in the task record.
+exit=1
+
+### catalog rovo/caller control
+$ bin/fm-control.sh override relaunch --harness rovo --model auto --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness rovo model auto: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch rovo anyway; the override is recorded in the task record.
+exit=1
+
+### catalog rovo/configured spawn
+$ bin/fm-spawn.sh live-rovo-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness rovo
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness rovo: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch rovo anyway; the override is recorded in the task record.
+exit=1
+
+### catalog rovo/configured control
+$ bin/fm-control.sh override relaunch --harness rovo --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness rovo: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch rovo anyway; the override is recorded in the task record.
+exit=1
+
+### catalog devin/caller spawn
+$ bin/fm-spawn.sh live-devin-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness devin --model fusion-claude-fable-5-1-high-sidekick-swe-2-medium
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness devin model fusion-claude-fable-5-1-high-sidekick-swe-2-medium: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch devin anyway; the override is recorded in the task record.
+exit=1
+
+### catalog devin/caller control
+$ bin/fm-control.sh override relaunch --harness devin --model fusion-claude-fable-5-1-high-sidekick-swe-2-medium --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness devin model fusion-claude-fable-5-1-high-sidekick-swe-2-medium: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch devin anyway; the override is recorded in the task record.
+exit=1
+
+### catalog devin/configured spawn
+$ bin/fm-spawn.sh live-devin-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness devin
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness devin: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch devin anyway; the override is recorded in the task record.
+exit=1
+
+### catalog devin/configured control
+$ bin/fm-control.sh override relaunch --harness devin --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness devin: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch devin anyway; the override is recorded in the task record.
+exit=1
+
+### catalog commandcode/caller spawn
+$ bin/fm-spawn.sh live-commandcode-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness commandcode --model deepseek/deepseek-v4.1-flash
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness commandcode model deepseek/deepseek-v4.1-flash: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch commandcode anyway; the override is recorded in the task record.
+exit=1
+
+### catalog commandcode/caller control
+$ bin/fm-control.sh override relaunch --harness commandcode --model deepseek/deepseek-v4.1-flash --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness commandcode model deepseek/deepseek-v4.1-flash: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch commandcode anyway; the override is recorded in the task record.
+exit=1
+
+### catalog commandcode/configured spawn
+$ bin/fm-spawn.sh live-commandcode-configured ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness commandcode
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness commandcode: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch commandcode anyway; the override is recorded in the task record.
+exit=1
+
+### catalog commandcode/configured control
+$ bin/fm-control.sh override relaunch --harness commandcode --note catalog quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness commandcode: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch commandcode anyway; the override is recorded in the task record.
+exit=1
+
+### catalog polytoken/caller spawn
+$ bin/fm-spawn.sh live-polytoken-caller ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness polytoken --model zai/glm-5.3-flash
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness polytoken model zai/glm-5.3-flash: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model healthy-alternative. Pass --quota-override <reason> to launch polytoken anyway; the override is recorded in the task record.
+exit=1
+
+### unsupported best-ranked worker excluded
+$ bin/fm-spawn.sh deny ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness grok: provider grok runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness pi-signed --model codex-native/gpt-6-astra. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### implicit launch rejects override
+$ bin/fm-spawn.sh deny ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --quota-override not explicit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --quota-override applies only to an explicitly named adapter, the only launch the quota check gates
+exit=1
+
+### batch refusal survives child delegation
+$ bin/fm-spawn.sh batch-deny-a=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project batch-deny-b=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-spawn refuses explicit harness grok: provider grok runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+batch: FAILED to spawn batch-deny-a (~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-spawn refuses explicit harness grok: provider grok runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+batch: FAILED to spawn batch-deny-b (~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project)
+exit=1
+
+Live refusal matrix complete; no implementation replacements or gate bypass used.

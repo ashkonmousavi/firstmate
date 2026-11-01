@@ -1,0 +1,36 @@
+$ bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/h
+~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/h
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/project init -q -b main
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/project -c user.name=Lab -c user.email=lab@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit --allow-empty -qm seed
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/project worktree add -q --detach ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/worktree
+exit=0
+$ tmux -L fm-lab new-session -d -s launcher -n fm-poly -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/worktree bash --noprofile --norc
+exit=0
+$ tmux -L fm-lab display-message -p -t launcher #{socket_path}
+~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/t/tmux-1000/fm-lab
+exit=0
+$ polytoken print models
+zai/glm-5.3
+zai/glm-5.3(none)
+zai/glm-5.3(low)
+zai/glm-5.3(high)
+zai/glm-5.3(max)
+zai/glm-5.3-flash
+zai/glm-5.3-flash(low)
+zai/glm-5.3-flash(high)
+zai/glm-5.3-flash(max)
+zai/glm-5.2
+zai/glm-5.2(none)
+zai/glm-5.2(high)
+zai/glm-5.2(max)
+exit=0
+$ bin/fm-control.sh poly relaunch --harness polytoken --model zai/glm-5.3-flash --effort low --note quota refusal
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.p/h
+error: fm-control refuses explicit harness polytoken model zai/glm-5.3-flash: provider blocked runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 1): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch polytoken anyway; the override is recorded in the task record.
+exit=1
+Real offline native catalog accepted the model; exhausted quota refused; metadata byte-identical.
+$ tmux -L fm-lab kill-server
+exit=0

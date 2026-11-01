@@ -1,0 +1,97 @@
+Initial override metadata:
+window=launcher:fm-override
+endpoint_task_id=override
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project
+harness=grok
+kind=scout
+tasktmp=/tmp/fm-override
+model=grok-4.7
+effort=default
+quota_override=live validation disposable launch
+quota_override_evidence=refuse: provider grok runway exhausted_now at all_models; best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol
+spawn_gen=s1793496111.3930265.7950
+
+### healthy control relaunch clears previous override
+$ bin/fm-control.sh override relaunch --harness grok --model grok-4.7 --note healthy relaunch without override
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+relaunched override harness=grok from=grok model=grok-4.7 effort=default backend=tmux endpoint=launcher:fm-override worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+exit=0
+Healthy relaunch metadata:
+window=launcher:fm-override
+endpoint_task_id=override
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project
+harness=grok
+kind=scout
+tasktmp=/tmp/fm-override
+model=grok-4.7
+effort=default
+spawn_gen=s1793496330.302480.23694
+control_relaunch_tx=301153.20261101T012529Z.8200
+
+### four hour runway direct relaunch allowed
+$ bin/fm-spawn.sh override --relaunch --harness grok --model grok-4.7
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+spawned override harness=grok kind=scout window=launcher:fm-override worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+exit=0
+
+### missing snapshot reports one notice then launches
+$ bin/fm-control.sh override relaunch --harness grok --note unknown quota
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+notice: fm-control launches grok without the quota check: snapshot ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/missing-snapshot.json is not a regular file
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+relaunched override harness=grok from=grok model=grok-4.7 effort=default backend=tmux endpoint=launcher:fm-override worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+exit=0
+
+### implicit exhausted relaunch stays ungated
+$ bin/fm-control.sh override relaunch --note implicit recovery
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+relaunched override harness=grok from=grok model=grok-4.7 effort=default backend=tmux endpoint=launcher:fm-override worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+exit=0
+
+### explicit batch override reaches both real launches
+$ bin/fm-spawn.sh batch-override-a=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project batch-override-b=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok --model grok-4.7 --quota-override batch live reason with spaces
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+notice: fm-spawn quota check refuses grok grok-4.7 (provider grok runway exhausted_now at all_models); proceeding under --quota-override: batch live reason with spaces (best alternative was: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol)
+spawned batch-override-a harness=grok kind=scout window=launcher:fm-batch-override-a worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/2/project
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+notice: fm-spawn quota check refuses grok grok-4.7 (provider grok runway exhausted_now at all_models); proceeding under --quota-override: batch live reason with spaces (best alternative was: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol)
+spawned batch-override-b harness=grok kind=scout window=launcher:fm-batch-override-b worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/3/project
+exit=0
+batch-override-a metadata:
+window=launcher:fm-batch-override-a
+endpoint_task_id=batch-override-a
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/2/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project
+harness=grok
+kind=scout
+tasktmp=/tmp/fm-batch-override-a
+model=grok-4.7
+effort=default
+quota_override=batch live reason with spaces
+quota_override_evidence=refuse: provider grok runway exhausted_now at all_models; best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol
+spawn_gen=s1793496381.345772.7716
+batch-override-b metadata:
+window=launcher:fm-batch-override-b
+endpoint_task_id=batch-override-b
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/3/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project
+harness=grok
+kind=scout
+tasktmp=/tmp/fm-batch-override-b
+model=grok-4.7
+effort=default
+quota_override=batch live reason with spaces
+quota_override_evidence=refuse: provider grok runway exhausted_now at all_models; best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol
+spawn_gen=s1793496386.349923.1704
+
+All live startup and metadata assertions passed. No sign-in approved and no inference claimed.

@@ -1,0 +1,7 @@
+Installing Polytoken 0.9.4 for linux-amd64
+Polytoken 0.9.4 installed to ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.poly/bin/polytoken
+
+Add Polytoken to your PATH:
+  export PATH="~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.poly/bin:$PATH"
+
+Add that line to your shell profile, then restart your shell.

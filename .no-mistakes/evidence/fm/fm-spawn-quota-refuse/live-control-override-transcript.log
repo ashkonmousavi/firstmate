@@ -1,0 +1,46 @@
+$ bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project init -q -b main
+exit=0
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project -c user.name=Lab -c user.email=lab@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit --allow-empty -qm seed
+exit=0
+$ tmux -L fm-lab new-session -d -s launcher -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587 bash --noprofile --norc
+exit=0
+$ bin/fm-spawn.sh control-override-live ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok --model grok-4.7 --quota-override initial launch reason
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+notice: fm-spawn quota check refuses grok grok-4.7 (provider grok runway exhausted_now at all_models); proceeding under --quota-override: initial launch reason (best alternative was: provider codex (spendPriority 1): --harness codex --model gpt-6.1-sol)
+spawned control-override-live harness=grok kind=scout window=launcher:fm-control-override-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+exit=0
+$ bin/fm-control.sh control-override-live relaunch --harness grok --model grok-4.7 --quota-override replacement reason with spaces --note live delegated quota override
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+notice: fm-control quota check refuses grok grok-4.7 (provider grok runway exhausted_now at all_models); proceeding under --quota-override: replacement reason with spaces (best alternative was: provider codex (spendPriority 1): --harness codex --model gpt-6.1-sol)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+relaunched control-override-live harness=grok from=grok model=grok-4.7 effort=default backend=tmux endpoint=launcher:fm-control-override-live worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+exit=0
+Persisted replacement metadata:
+window=launcher:fm-control-override-live
+endpoint_task_id=control-override-live
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project
+harness=grok
+kind=scout
+tasktmp=/tmp/fm-control-override-live
+model=grok-4.7
+effort=default
+quota_override=replacement reason with spaces
+quota_override_evidence=refuse: provider grok runway exhausted_now at all_models; best alternative: provider codex (spendPriority 1): --harness codex --model gpt-6.1-sol
+spawn_gen=s1793496801.949991.4731
+control_relaunch_tx=949664.20261101T013320Z.12843
+Real control relaunch preserved the new reason and refusal evidence through spawn delegation.
+$ tmux -L fm-lab kill-server
+exit=0
+$ bin/fm-lab-home.sh teardown ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+exit=0

@@ -1,0 +1,12 @@
+window=launcher:fm-override
+endpoint_task_id=override
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project/.pool/.treehouse/project-361faf/1/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project
+harness=grok
+kind=scout
+tasktmp=/tmp/fm-override
+model=grok-4.7
+effort=default
+quota_override=live validation disposable launch
+quota_override_evidence=refuse: provider grok runway exhausted_now at all_models; best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol
+spawn_gen=s1793496111.3930265.7950

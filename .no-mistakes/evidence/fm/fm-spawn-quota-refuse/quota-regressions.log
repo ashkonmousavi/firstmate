@@ -1,0 +1,64 @@
+ok - an explicit grok spawn refuses on exhausted_now or under-three-hour runway and names the best alternative
+ok - quota alternatives obey launch capabilities, ties, and configured-only selection
+ok - secondmate spawn quota refusals recommend a supported harness
+ok - a healthy harness and a runway longer than three hours pass the quota gate
+ok - unknown provider families and missing readings are disclosed without native resolution
+ok - --quota-override launches a refused harness and records the reason and evidence
+ok - active crew-dispatch profile allows an explicit resolved harness
+ok - active crew-dispatch profile allows the legacy positional harness form
+ok - a Haiku claude ship or scout launch carries --advisor opus
+ok - batch dispatch forwards shared --harness, --model, and --effort to every pair
+ok - ship batch forwards explicit overrides, evidence, refusals and notices to every pair
+ok - scout batch forwards explicit overrides, evidence, refusals and notices to every pair
+ok - explicit claude spawn refuses exhausted model quota
+ok - explicit codex spawn refuses exhausted model quota
+ok - explicit opencode spawn refuses exhausted model quota
+ok - explicit pi spawn refuses exhausted model quota
+ok - explicit pi-signed spawn refuses exhausted model quota
+ok - explicit grok spawn refuses exhausted model quota
+ok - explicit kimi spawn refuses exhausted model quota
+ok - explicit cursor spawn refuses exhausted model quota
+ok - explicit omp spawn refuses exhausted model quota
+ok - explicit agy spawn refuses exhausted model quota
+ok - explicit gemini spawn refuses exhausted model quota
+ok - explicit muse spawn refuses exhausted model quota
+ok - explicit rovo spawn refuses exhausted model quota
+ok - explicit devin spawn refuses exhausted model quota
+ok - explicit commandcode spawn refuses exhausted model quota
+ok - explicit polytoken spawn refuses exhausted model quota
+ok - caller, configured, and harness-level identities need no native executable and suggestions preserve configured strings
+ok - quota checking leaves the worker default model selection unchanged
+ok - configured account IDs join their quota family without borrowing a healthy default account
+ok - worker quota alternatives honor tool exclusions
+ok - tool exclusions cover ships and scouts, preserve secondmates, and permit empty lists
+ok - quota alternatives honor permitted providers and per-secondmate account precedence
+ok - remote alternative ranking excludes OMP while local secondmates retain it
+ok - suggestions retain effort and honor Kimi and typed Codex capture restrictions
+ok - Polytoken alternatives retain concrete axes and reject selectors forbidden by launch
+ok - explicit claude relaunch refuses exhausted quota before stopping its agent
+ok - explicit codex relaunch refuses exhausted quota before stopping its agent
+ok - explicit opencode relaunch refuses exhausted quota before stopping its agent
+ok - explicit pi relaunch refuses exhausted quota before stopping its agent
+ok - explicit pi-signed relaunch refuses exhausted quota before stopping its agent
+ok - explicit grok relaunch refuses exhausted quota before stopping its agent
+ok - explicit kimi relaunch refuses exhausted quota before stopping its agent
+ok - explicit cursor relaunch refuses exhausted quota before stopping its agent
+ok - explicit omp relaunch refuses exhausted quota before stopping its agent
+ok - explicit agy relaunch refuses exhausted quota before stopping its agent
+ok - explicit gemini relaunch refuses exhausted quota before stopping its agent
+ok - explicit muse relaunch refuses exhausted quota before stopping its agent
+ok - explicit rovo relaunch refuses exhausted quota before stopping its agent
+ok - explicit devin relaunch refuses exhausted quota before stopping its agent
+ok - explicit commandcode relaunch refuses exhausted quota before stopping its agent
+ok - explicit polytoken relaunch refuses exhausted quota before stopping its agent
+ok - ordinary control delegation preserves explicit overrides, metadata, notices and refusals
+ok - released control delegation preserves explicit overrides, metadata, notices and refusals
+ok - fm-control relaunch: an explicit harness with too little quota refuses before the agent stops and names the best alternative
+ok - secondmate relaunch quota refusals recommend a supported harness before stopping the agent
+ok - fm-control relaunch: --quota-override relaunches a refused harness and records the reason and evidence
+ok - fm-control relaunch: a refused relaunch onto polytoken keeps the project's own hook layer and the running agent
+ok - fm-control relaunch: explicit secondmate harness resets unnamed profile axes
+ok - direct relaunch without a caller-supplied harness stays ungated on exhausted quota
+ok - relaunch quota alternatives honor worker exclusions before stopping the agent
+ok - fm-spawn --relaunch: resumes the bound Pi session only for a Pi registration
+ok - remote host launch and relaunch preserve overrides, route eligibility and diagnostics

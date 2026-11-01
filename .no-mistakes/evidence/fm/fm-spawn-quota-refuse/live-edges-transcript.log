@@ -1,0 +1,36 @@
+
+### named exhausted account cannot borrow healthy default quota
+$ bin/fm-spawn.sh deny ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness pi --model openai-codex-work/gpt-6-astra
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness pi model openai-codex-work/gpt-6-astra: provider codex runway exhausted_now at all_models. Best alternative: provider claude (spendPriority 1): --harness claude --model sonnet. Pass --quota-override <reason> to launch pi anyway; the override is recorded in the task record.
+exit=1
+
+### sole configured model supplies quota scope without caller model
+$ bin/fm-spawn.sh deny ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness codex
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness codex: provider codex runway exhausted_now at model:configured-model. Best alternative: provider claude (spendPriority 1): --harness claude --model sonnet. Pass --quota-override <reason> to launch codex anyway; the override is recorded in the task record.
+exit=1
+
+### highest spendPriority ties are both disclosed
+$ bin/fm-spawn.sh deny ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/project --scout --harness grok
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: fm-spawn refuses explicit harness grok: provider grok runway exhausted_now at all_models. Best alternative: provider claude (spendPriority 9): --harness claude --model sonnet; provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+
+### released copy refuses before recreating local branch
+$ bin/fm-control.sh released-live relaunch --harness grok --model grok-4.7 --note must not recreate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/h
+error: fm-control refuses explicit harness grok model grok-4.7: provider grok runway exhausted_now at all_models. Best alternative: provider codex (spendPriority 9): --harness codex --model gpt-6.1-sol. Pass --quota-override <reason> to launch grok anyway; the override is recorded in the task record.
+exit=1
+Released metadata byte-identical; released sentinel remains absent.
+~/.no-mistakes/worktrees/049a88734b0e/01M69XEM21GJNDAAJ2SAGY2587/.q/r
+
+### remote live attempt stopped by stock gate containment
+$ bin/fm-remote-secondmate-control.sh launch remote-live grok grok-4.7 - herdr
+error: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/049a88734b0e.git)
+error: remote host-local secondmate launch failed
+exit=1
+Remote launch was NOT exercised past containment. It requires a gate-supported remote lab state mapping and named fm-lab-* session selection; no bypass or fm-remote session was used.
