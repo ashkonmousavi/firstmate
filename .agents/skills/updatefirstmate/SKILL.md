@@ -32,7 +32,7 @@ The [`Self-updates stay safe` contract](../../../docs/architecture.md#self-updat
 It never forces, never creates a merge commit, and never stashes.
 A clean secondmate divergence advances with `reset --keep` only when a three-way tree proof shows its complete local result is already present at the target, which recognizes squash-merged contributions without discarding unique content.
 Every other dirty, diverged, offline, or wrong-branch target is skipped and reported, and a genuine divergence leaves a durable `state/.secondmate-update-reconcile/<id>.pending` record that future bootstrap and update passes surface until convergence clears it.
-A tracked-files fast-forward leaves the gitignored operational dirs (data/, state/, config/, projects/, .no-mistakes/) untouched, so a secondmate's in-flight work is never disrupted.
+The git step preserves gitignored operational directories; generated poll refresh follows the [self-update safety contract](../../../docs/architecture.md#self-updates-stay-safe).
 This touches only the firstmate repo and its own worktrees, never anything under `projects/`.
 
 ## What it does
@@ -43,6 +43,7 @@ This touches only the firstmate repo and its own worktrees, never anything under
    ```
    It prints the resolved update target, then applies the shared-target safety contract above.
    The [`fm-update.sh` header](../../../bin/fm-update.sh) owns remote step bounds and failure outcomes, including unresolved targets and hosts requiring a manual update.
+   Read the poll-refresh results using the [refresh helper's header](../../../bin/fm-pr-check-rearm.sh); reconcile each unresolved watch by restoring its recording preconditions or explicitly retiring it through the [poll retirement owner](../../../bin/fm-pr-poll-retire.sh) when it is no longer needed.
    It prints one status line per target (`updated <old>..<new>` / `reconciled redundant divergence <old>..<new>` / `already current` / `skipped: <reason>`), followed by three action lines that tell you exactly what to do next:
    - `reread-firstmate: yes|no`
    - `restart-secondmates: fm-<id>...|none`
@@ -88,6 +89,7 @@ This touches only the firstmate repo and its own worktrees, never anything under
    Summarize what landed under `AGENTS.md` section 9 without firstmate's internal vocabulary: which parts of the fleet are now on the latest, and which were left as-is and why.
    For example: "Captain, firstmate and both second mates are now on the latest."
    Say plainly when a mate got the message rather than a clean reload, and why - never let a partial reload read as a full one.
+   Include per-home poll-refresh counts and any unresolved watches; a successful code update alone does not establish that merge notices are restored.
    Surface any skipped target whose reason needs the captain's attention - for instance a home with its own un-landed changes (diverged) or local edits (dirty), which were left untouched on purpose.
 
 ## Safety

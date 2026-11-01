@@ -13,9 +13,9 @@
 # A secondmate divergence whose complete local tree result is already present at
 # the target is reconciled with reset --keep; every other unsafe target is
 # skipped and reported, with divergence recorded durably by fm-ff-lib.sh.
-# A tracked-files update never touches the gitignored operational
-# dirs (data/, state/, config/, projects/, .no-mistakes/), so a secondmate's
-# in-flight work is never disrupted. Worktrees of this repo share one object
+# The git step preserves the gitignored operational directories; generated
+# watch-artifact refresh is described below and preserves task work.
+# Worktrees of this repo share one object
 # store, so a single fetch refreshes them all; standalone-clone homes are
 # fetched on their own. Locally leased secondmate homes use a detached HEAD,
 # so a fast-forward there advances HEAD only and never touches
@@ -70,6 +70,7 @@
 # one pr-poll-rearm: line naming its home, task and reason, including remote
 # homes. Already-current homes retry unfinished refreshes without rewriting
 # polls that already authenticate. Custom checks are never re-registered.
+# The helper's header owns per-home counts and unresolved-result mechanics.
 #
 # Each remote step is bounded, so one unreachable or wedged host cannot hold the
 # whole update: the remote update step gets FM_UPDATE_REMOTE_UPDATE_SECONDS

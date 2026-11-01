@@ -6,7 +6,13 @@
 # polls must authenticate against their own registered bytes before the normal
 # fm-pr-check.sh owner republishes the current program and its registration.
 # Custom checks are never re-registered. Failed polls are preserved and named
-# on one pr-poll-rearm: summary line each; failures do not roll back an update.
+# on one pr-poll-rearm: could-not-rearm line each; failures do not roll back an
+# update. The final per-home line counts rearmed generations and unresolved
+# polls (left); already-current polls and superseded-or-retired skips count in
+# neither total. Per-poll failures do not make the command exit nonzero, so
+# callers must read left and the named reasons, not just its exit status.
+# An unavailable state directory instead reports left=unknown and exits 1.
+# When a watch is no longer needed, fm-pr-poll-retire.sh owns explicit retirement.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
