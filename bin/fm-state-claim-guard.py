@@ -52,65 +52,61 @@ def claims(text):
         for family, words, context, _ in POLICY:
             if context and not context.search(sentence):
                 continue
-            for match in words.finditer(sentence):
-                before = sentence[max(0, match.start() - 60):match.start()]
-                after = sentence[match.end():match.end() + 25]
-                # Descriptions, conditions, questions and explicit negation do
-                # not assert a current state. Keep these exceptions local.
-                if rx(r"\b(?:not|never|isn't|aren't|wasn't|isn’t|aren’t|wasn’t|will|would|should|could|if|whether)\b").search(before):
-                    continue
-                if sentence.rstrip().endswith("?"):
-                    continue
-                if family == "deploy" and match.group().lower() == "live" and rx(
-                    r"^[- ](?:check|read|proof|test|guard|state|evidence|URL|before)\b"
-                ).search(after):
-                    continue
-                yield family, sentence.strip(), set(PR_ID.findall(sentence))
-                break
+            for clause in re.split(r"[,;:]|\s[-–—]\s|\b(?:and|but|however|then|while|whereas)\b", sentence, flags=re.I):
+                for match in words.finditer(clause):
+                    before = clause[:match.start()]
+                    after = clause[match.end():match.end() + 25]
+                    if rx(r"\b(?:not|never|isn't|aren't|wasn't|isn’t|aren’t|wasn’t|will|would|should|could|if|whether)\b").search(before):
+                        continue
+                    if clause.rstrip().endswith("?"):
+                        continue
+                    if family == "deploy" and match.group().lower() == "live" and rx(
+                        r"^[- ](?:check|read|proof|test|guard|state|evidence|URL)\b"
+                    ).search(after):
+                        continue
+                    yield family, sentence.strip(), set(PR_ID.findall(sentence))
+                    break
 
 
 def read_commands(command, deadline):
     """Recognize executable reads, not quoted examples or write subcommands."""
     if len(command) > 16384 or "<<" in command:
         return
-    tokens = shlex.shlex(command, posix=True, punctuation_chars=";&|()\n")
+    tokens = shlex.shlex(command.strip(), posix=True, punctuation_chars=";&|()<>\n")
     tokens.whitespace = " \t\r"
     tokens.whitespace_split = True
-    segment = []
-    for token in [*tokens, ";"]:
-        if time.monotonic() > deadline:
-            return
-        if token and all(c in ";&|()\n" for c in token):
-            if segment:
-                while segment and (re.match(r"^[A-Za-z_][A-Za-z_0-9]*=", segment[0]) or segment[0] == "env"):
-                    segment.pop(0)
-                if segment and os.path.basename(segment[0]) in ("bash", "sh"):
-                    segment.pop(0)
-                if segment:
-                    segment[0] = os.path.basename(segment[0])
-                    # gh's global repository/host flags can precede 'pr'.
-                    if segment[0] in ("gh", "gh-axi"):
-                        while len(segment) > 2 and segment[1] in ("-R", "--repo", "--hostname"):
-                            del segment[1:3]
-                    normalized = " ".join(segment)
-                    for family, _, _, reads in POLICY:
-                        if reads.search(normalized):
-                            # Requests with a write verb or body are not reads.
-                            if any(t in ("--data", "--form", "--field", "--raw-field", "--input", "--upload-file")
-                                   or t.startswith(("-d", "-F", "-T", "--data=", "--data-", "--form=", "--field=", "--raw-field=", "--input=", "--upload-file="))
-                                   or (family == "PR" and t.startswith("-f")) for t in segment):
-                                continue
-                            if any(t in ("-X", "--method", "--request") and segment[i + 1:i + 2] not in (["GET"], ["HEAD"])
-                                   for i, t in enumerate(segment)):
-                                continue
-                            if any((t.startswith("-X") and len(t) > 2 and t[2:] not in ("GET", "HEAD"))
-                                   or (t.startswith(("--method=", "--request=")) and t.split("=", 1)[1] not in ("GET", "HEAD"))
-                                   for t in segment):
-                                continue
-                            yield family, normalized
-            segment = []
-        else:
-            segment.append(token)
+    segment = list(tokens)
+    if time.monotonic() > deadline or any(
+        token and all(c in ";&|()<>\n" for c in token) for token in segment
+    ):
+        return
+    while segment and (re.match(r"^[A-Za-z_][A-Za-z_0-9]*=", segment[0]) or segment[0] == "env"):
+        segment.pop(0)
+    if segment and os.path.basename(segment[0]) in ("bash", "sh"):
+        segment.pop(0)
+    if not segment:
+        return
+    segment[0] = os.path.basename(segment[0])
+    # gh's global repository/host flags can precede 'pr'.
+    if segment[0] in ("gh", "gh-axi"):
+        while len(segment) > 2 and segment[1] in ("-R", "--repo", "--hostname"):
+            del segment[1:3]
+    normalized = " ".join(segment)
+    for family, _, _, reads in POLICY:
+        if reads.search(normalized):
+            # Requests with a write verb or body are not reads.
+            if any(t in ("--data", "--form", "--field", "--raw-field", "--input", "--upload-file")
+                   or t.startswith(("-d", "-F", "-T", "--data=", "--data-", "--form=", "--field=", "--raw-field=", "--input=", "--upload-file="))
+                   or (family == "PR" and t.startswith("-f")) for t in segment):
+                continue
+            if any(t in ("-X", "--method", "--request") and segment[i + 1:i + 2] not in (["GET"], ["HEAD"])
+                   for i, t in enumerate(segment)):
+                continue
+            if any((t.startswith("-X") and len(t) > 2 and t[2:] not in ("GET", "HEAD"))
+                   or (t.startswith(("--method=", "--request=")) and t.split("=", 1)[1] not in ("GET", "HEAD"))
+                   for t in segment):
+                continue
+            yield family, normalized
 
 
 def current_reads(path, deadline):

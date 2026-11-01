@@ -104,6 +104,42 @@ check("lane status without read blocks", "The worker lane is running.")
 check("qualified sentence does not excuse a second claim", "PR 9 merged, last read at noon. The deploy is live.")
 check("negation is not a claim", "The deploy is not live.", expected=0)
 check("future state is not a claim", "The deploy will be live after the check.", expected=0)
+check("negation cannot excuse a later PR claim", "The deploy is not live, but PR 2775 is queued.",
+      named_claim="The deploy is not live, but PR 2775 is queued.")
+check("question cannot excuse an earlier assertion", "PR 2775 is queued; can you check?")
+check("event timing does not qualify live state", "The site is live before tonight's event.")
+for label, assertion, negative, future, question in [
+    ("PR", "PR 9 is merged", "PR 9 is not merged", "PR 9 would be merged", "Is PR 9 merged?"),
+    ("deploy", "The site is live", "The site is not live", "The site will be live", "Is the site live?"),
+    ("lane", "The lane is running", "The lane is not running", "The lane should be running", "Is the lane running?"),
+]:
+    check(f"{label} negation passes", negative + ".", expected=0)
+    check(f"{label} future passes", future + ".", expected=0)
+    check(f"{label} question passes", question, expected=0)
+    check(f"{label} pending negation passes", negative.replace("not ", "not yet ") + ".", expected=0)
+    for separator in (", but ", "; ", " and ", " — "):
+        check(f"{label} negation stays in its clause {separator!r}", f"The check is not complete{separator}{assertion}.")
+        check(f"{label} modal stays in its clause {separator!r}", f"The check will finish{separator}{assertion}.")
+        check(f"{label} trailing question stays in its clause {separator!r}", f"{assertion}{separator}can you check?")
+    check(f"{label} leading question stays in its clause", f"Can you check? {assertion}.")
+for label, message, reader in [
+    ("PR", "PR 2775 is merged.", "gh pr view 2775"),
+    ("deploy", "The deploy is live.", "curl https://service.example/health"),
+    ("lane", "The lane is running.", "bash bin/fm-crew-state.sh lane-a"),
+]:
+    for command in (f"cd /removed-worktree && {reader}", f"true || {reader}",
+                    f"false &&\n{reader}", f"exit 0; {reader}",
+                    f"if false; then {reader}; fi", f"if false\nthen\n{reader}\nfi",
+                    f"false && ({reader})", f"false && echo skipped | {reader}",
+                    f"{reader} &", f"{reader} >/removed-worktree/output"):
+        check(f"{label} compound command is not execution evidence: {command!r}", message,
+              rows=[user, *tool(command, error=True)])
+    check(f"{label} separate completed read still counts after skipped read", message,
+          [f"false && {reader}", reader], expected=0)
+    check(f"{label} surrounding whitespace preserves a direct read", message,
+          [f"\n {reader}\n"], expected=0)
+    check(f"{label} environment prefix preserves a direct read", message,
+          [f"FM_TEST_READER=1 env {reader}"], expected=0)
 check("code example is not a claim", "Example: `PR 9 is merged`.\n```text\nThe deploy is live.\n```", expected=0)
 check("live-check description is not a claim", "I added a live check and a running-time test.", expected=0)
 check("latest payload wins over stale transcript text", "Implementation complete.",
