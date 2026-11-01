@@ -2,6 +2,14 @@
 """Pure structural custody and merge for explicitly bound native owner requests.
 
 Owner-request packet authoring contract for fm-tasks-axi.sh --owner-request-file:
+For each owner-origin request that creates or updates a native task, including
+an explanation-only request or later correction, MAIN or the receiving
+secondmate reads this contract and authors the packet before that call.
+A mid-task addition or change is bound first, before the brief's Captain's
+intent is updated: append its source-linked requirement or correction to the
+same bound task, or create a separate bound item when the existing task is a
+legacy unbound row.
+Non-owner tasks and historical unbound rows keep their existing task path.
 Write one private UTF-8 JSON file with the required PACKET keys below;
 proof_updates is the only optional top-level key.
 For add, expected_body_sha256 is null; for update it is SHA256 of the exact
