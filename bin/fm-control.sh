@@ -57,6 +57,10 @@
 #              --expect-spawn-gen, when the task's recorded spawn_gen is no
 #              longer <gen> because a relaunch replaced the agent. Every other
 #              refusal keeps its ordinary exit status 1.
+#              --landed-work attests that the caller verified landing; this
+#              script does not check the forge for that flag. It authorizes
+#              the Claude exit picker under docs/agent-control.md's completion
+#              contract without recording task acceptance.
 #              A Claude exit has one more postcondition. Claude Code can hand a
 #              session with background work to a background session instead
 #              of exiting, so afterwards `claude agents --json --all` is read under

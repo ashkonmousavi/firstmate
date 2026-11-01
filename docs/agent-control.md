@@ -65,8 +65,9 @@ An unrecognized or unreadable draft skips this ownership-based clear; interrupt 
 `exit` also refuses, naming the dialog as `blocked on a prompt`, when the screen shows a recognised dialog that a further Enter would answer, whether the dialog was open before the exit command was typed or the submitting Enter opened it; it sends no Escape and chooses no option, so closing the dialog is left to the operator.
 The one exception is Claude's background-task exit picker, authorized by backlog Done, an unattended lane release after its validated finished-and-landed classification, or an explicit `exit --landed-work` after the caller verifies landing.
 It sends one confirming Enter to choose the selected `Exit and stop tasks` row and reports the stop only once the agent is dead; the task's local copy and pull request are kept.
+Before confirmation, including a compatible Herdr client retry, the backend re-reads the live picker; unattended lane release also rechecks the spawn generation and idle busy-state sequence.
+Herdr returns its viewport to the bottom before that read so scrolled history cannot authorize confirmation.
 A secondmate, a task without any of those authorizations, and a picker already open when an unattended lane-release exit starts still refuse.
-The pending-proof release in the ship-landing skill checks the recorded PR is merged before passing `--landed-work`; releasing the worker does not accept the task.
 A stopped agent whose pane still shows the dialog text is not refused.
 [`fm_composer_blocking_dialog`](../bin/fm-composer-lib.sh) owns the recognised set, which today is only Claude's background-task exit picker; [its verification record](verification/runtime-backends.md#claude-background-task-exit-picker) lists the dialogs that are not covered.
 
@@ -79,7 +80,7 @@ It is not deterministic across the verified adapters: codex, grok, gemini, devin
 `relaunch` uses the brief on disk - not a harness-private session - as the durable instruction when the backend can prove the old agent stopped and the composer is empty; Devin on Herdr currently fails that composer check and refuses.
 A relaunch does take one session reference when the endpoint's own runtime recorded it - see [the relaunch transaction](#transactional-relaunch) - but that is a relaunch input, not a caller-facing verb.
 
-Pending deployment or acceptance proof follows [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion): preserve the task and follow-up, use `exit` for safe process release, and accept only after the required proof.
+For release while deployment or acceptance proof remains pending, follow [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion).
 
 ## Transactional relaunch
 
