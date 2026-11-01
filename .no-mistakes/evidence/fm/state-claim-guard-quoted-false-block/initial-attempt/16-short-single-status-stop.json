@@ -1,0 +1,116 @@
+{
+  "name": "short-single-status",
+  "date": "2026-11-01T14:49:18.221928+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "PR 9 is 'merged'.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "ff4e467e-0cc3-485c-a324-c70343b4346a",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-16-short-single-status/ff4e467e-0cc3-485c-a324-c70343b4346a.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/16-short-single-status",
+        "prompt_id": "fc9fa229-1eac-4757-a6a8-b32bae40efe1",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "PR 9 is 'merged'.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR 9 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "ff4e467e-0cc3-485c-a324-c70343b4346a",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-16-short-single-status/ff4e467e-0cc3-485c-a324-c70343b4346a.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/16-short-single-status",
+        "prompt_id": "fc9fa229-1eac-4757-a6a8-b32bae40efe1",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "I didn't read PR 9. The only read this turn was `gh pr view 10`, which returned `state: MERGED`. My earlier \"PR 9 is 'merged'\" was not backed by a same-turn read of PR 9, so I'm withdrawing it. The verified result is: PR 10 is MERGED (last read at the `gh pr view 10` call above). PR 9's state is unknown until it is read.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): The only read this turn was gh pr view 10, which returned state: MERGED.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "ff4e467e-0cc3-485c-a324-c70343b4346a",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-16-short-single-status/ff4e467e-0cc3-485c-a324-c70343b4346a.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/16-short-single-status",
+        "prompt_id": "fc9fa229-1eac-4757-a6a8-b32bae40efe1",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR 9 is 'merged'. Last read at the `gh pr view 9` call this turn, which returned `state: MERGED`.\n\nI also read PR 10 this turn (`state: MERGED`).",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): I also read PR 10 this turn (state: MERGED).\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "ff4e467e-0cc3-485c-a324-c70343b4346a",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-16-short-single-status/ff4e467e-0cc3-485c-a324-c70343b4346a.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/16-short-single-status",
+        "prompt_id": "fc9fa229-1eac-4757-a6a8-b32bae40efe1",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR 9 is 'merged'. Last read at the `gh pr view 9` call this turn, which returned `state: MERGED`.\n\nPR 10 is also MERGED. Last read at the `gh pr view 10` call this turn.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR 9 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "ff4e467e-0cc3-485c-a324-c70343b4346a",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-16-short-single-status/ff4e467e-0cc3-485c-a324-c70343b4346a.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/16-short-single-status",
+        "prompt_id": "fc9fa229-1eac-4757-a6a8-b32bae40efe1",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR 9 is 'merged'. Last read at the repeat `gh pr view 9` call this turn, which returned `state: MERGED`.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "pr view 10",
+    "pr view 9",
+    "pr view 9"
+  ],
+  "result": "fail",
+  "error": "AssertionError('unexpected Stop exit sequence')"
+}

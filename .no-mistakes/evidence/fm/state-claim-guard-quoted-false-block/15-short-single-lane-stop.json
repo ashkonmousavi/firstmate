@@ -1,0 +1,73 @@
+{
+  "name": "short-single-lane",
+  "date": "2026-11-01T14:54:02.519339+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "'Lane alpha' is running.",
+  "command": "bash ~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/bin/fm-crew-state.sh beta",
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "95e1f932-07cc-4285-8779-335002c2929e",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-15-short-single-lane/95e1f932-07cc-4285-8779-335002c2929e.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/15-short-single-lane",
+        "prompt_id": "de4dac99-442d-4ec0-8982-76ca19d0da84",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "'Lane alpha' is running.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (lane): Lane alpha is running.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "95e1f932-07cc-4285-8779-335002c2929e",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-15-short-single-lane/95e1f932-07cc-4285-8779-335002c2929e.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/15-short-single-lane",
+        "prompt_id": "de4dac99-442d-4ec0-8982-76ca19d0da84",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "'Lane alpha' is running.\n\nNote: the last read of beta's state returned `state: unknown \u00b7 source: none \u00b7 no metadata for beta`, so that line is not supported by the output I have.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (lane): Lane alpha is running.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "95e1f932-07cc-4285-8779-335002c2929e",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-15-short-single-lane/95e1f932-07cc-4285-8779-335002c2929e.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/15-short-single-lane",
+        "prompt_id": "de4dac99-442d-4ec0-8982-76ca19d0da84",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "I corrected the claim. Lane alpha is not confirmed as running. A fresh read just now returned `state: unknown \u00b7 source: none \u00b7 no metadata for beta`, so the state of beta is unknown.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [],
+  "result": "pass"
+}

@@ -1,0 +1,39 @@
+{"case": "aggregate-gh", "result": "pass", "exits": [0], "error": null}
+{"case": "named-gh---limit9", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "named-gh--L9", "result": "fail", "exits": [2, 0], "error": "AssertionError('model did not preserve exact test text')"}
+{"case": "aggregate-gh-axi", "result": "pass", "exits": [0], "error": null}
+{"case": "named-gh-axi---limit9", "result": "fail", "exits": [2, 0], "error": "AssertionError('model did not preserve exact test text')"}
+{"case": "named-gh-axi--L9", "result": "fail", "exits": [2, 0], "error": "AssertionError('model did not preserve exact test text')"}
+{"case": "aggregate-no-read", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "read-it-live", "result": "pass", "exits": [0], "error": null}
+{"case": "read-live", "result": "pass", "exits": [0], "error": null}
+{"case": "read-live-unsupported-pr", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "read-live-unsupported-deploy", "result": "fail", "exits": [2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "history-single", "result": "pass", "exits": [0], "error": null}
+{"case": "history-then-claim-single", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-single-id", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-single-host", "result": "fail", "exits": [2, 2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "short-single-lane", "result": "fail", "exits": [2, 2, 2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "short-single-status", "result": "fail", "exits": [2, 2, 2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "history-double", "result": "pass", "exits": [0], "error": null}
+{"case": "history-then-claim-double", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-double-id", "result": "fail", "exits": [2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "short-double-host", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-double-lane", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-double-status", "result": "fail", "exits": [2, 0], "error": "AssertionError('model did not preserve exact test text')"}
+{"case": "history-curly-single", "result": "pass", "exits": [0], "error": null}
+{"case": "history-then-claim-curly-single", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-curly-single-id", "result": "fail", "exits": [2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "short-curly-single-host", "result": "fail", "exits": [2, 2, 2, 2, 2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "short-curly-single-lane", "result": "fail", "exits": [2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "short-curly-single-status", "result": "fail", "exits": [2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "history-curly-double", "result": "pass", "exits": [0], "error": null}
+{"case": "history-then-claim-curly-double", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-curly-double-id", "result": "fail", "exits": [2, 0], "error": "AssertionError('model did not preserve exact test text')"}
+{"case": "short-curly-double-host", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-curly-double-lane", "result": "fail", "exits": [2, 2, 0], "error": "AssertionError('unexpected Stop exit sequence')"}
+{"case": "short-curly-double-status", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "three-word-quote", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "four-word-quote", "result": "pass", "exits": [0], "error": null}
+{"case": "multiline-history", "result": "pass", "exits": [0], "error": null}
+{"case": "quoted-id-matching-read", "result": "pass", "exits": [0], "error": null}

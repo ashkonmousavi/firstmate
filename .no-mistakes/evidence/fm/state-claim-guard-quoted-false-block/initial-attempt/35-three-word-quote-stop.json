@@ -1,0 +1,54 @@
+{
+  "name": "three-word-quote",
+  "date": "2026-11-01T14:52:05.357728+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "Earlier I said \"PR 9 merged\".",
+  "command": null,
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "cec7c2f6-0909-473d-8e1e-1e92f1c7e3b6",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-35-three-word-quote/cec7c2f6-0909-473d-8e1e-1e92f1c7e3b6.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/35-three-word-quote",
+        "prompt_id": "77f816f5-8bf8-47c5-9a08-86f40df26e0a",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "Earlier I said \"PR 9 merged\".",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): Earlier I said PR 9 merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "cec7c2f6-0909-473d-8e1e-1e92f1c7e3b6",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-35-three-word-quote/cec7c2f6-0909-473d-8e1e-1e92f1c7e3b6.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/35-three-word-quote",
+        "prompt_id": "77f816f5-8bf8-47c5-9a08-86f40df26e0a",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "Earlier I said \"PR 9 merged\".",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [],
+  "result": "pass"
+}

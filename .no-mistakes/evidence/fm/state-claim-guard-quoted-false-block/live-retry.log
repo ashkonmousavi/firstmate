@@ -1,0 +1,20 @@
+{"case": "named-gh--L9", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "named-gh-axi---limit9", "result": "pass", "exits": [2, 2, 0], "error": null}
+{"case": "named-gh-axi--L9", "result": "pass", "exits": [2, 2, 0], "error": null}
+{"case": "read-live-unsupported-deploy", "result": "pass", "exits": [2, 2, 0], "error": null}
+{"case": "short-single-host", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-single-lane", "result": "pass", "exits": [2, 2, 0], "error": null}
+{"case": "short-single-status", "result": "fail", "exits": [2, 0], "error": "AssertionError('model did not preserve initial test text')"}
+{"case": "short-double-id", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-double-host", "result": "pass", "exits": [2, 2, 0], "error": null}
+{"case": "short-double-lane", "result": "pass", "exits": [2, 2, 0], "error": null}
+{"case": "short-double-status", "result": "pass", "exits": [2, 2, 0], "error": null}
+{"case": "short-curly-single-id", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-curly-single-host", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-curly-single-lane", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-curly-single-status", "result": "pass", "exits": [2, 0], "error": null}
+{"case": "short-curly-double-id", "result": "pass", "exits": [2, 2, 2, 0], "error": null}
+{"case": "short-curly-double-host", "result": "pass", "exits": [2, 2, 2, 2, 2, 0], "error": null}
+{"case": "short-curly-double-lane", "result": "pass", "exits": [2, 2, 0], "error": null}
+{"case": "quoted-host-matching-read", "result": "pass", "exits": [0], "error": null}
+{"case": "quoted-lane-matching-read", "result": "pass", "exits": [0], "error": null}

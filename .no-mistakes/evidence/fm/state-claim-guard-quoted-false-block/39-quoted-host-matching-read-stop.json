@@ -1,0 +1,36 @@
+{
+  "name": "quoted-host-matching-read",
+  "date": "2026-11-01T14:56:20.317202+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "The site \"https://one.example\" is live.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/curl https://one.example/health",
+  "expected_stop_exits": [
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "8918289e-2022-41f4-85a5-cd695f97d41a",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-39-quoted-host-matching-read/8918289e-2022-41f4-85a5-cd695f97d41a.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/39-quoted-host-matching-read",
+        "prompt_id": "16e85ce1-4045-445e-8aa1-3f2eba469717",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "The site \"https://one.example\" is live.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "https://one.example/health"
+  ],
+  "result": "pass"
+}

@@ -1,0 +1,34 @@
+{
+  "name": "multiline-history",
+  "date": "2026-11-01T14:52:10.785549+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "The guard blocked \u2018I\u2019ve checked: PR 9 is merged.\nThe site is live.\u2019 earlier.",
+  "command": null,
+  "expected_stop_exits": [
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "d845234c-326c-428e-9418-40f1ee0ce927",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-37-multiline-history/d845234c-326c-428e-9418-40f1ee0ce927.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/37-multiline-history",
+        "prompt_id": "91caad43-1970-42aa-a9d6-89a08e41f50e",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "The guard blocked \u2018I\u2019ve checked: PR 9 is merged.\nThe site is live.\u2019 earlier.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [],
+  "result": "pass"
+}

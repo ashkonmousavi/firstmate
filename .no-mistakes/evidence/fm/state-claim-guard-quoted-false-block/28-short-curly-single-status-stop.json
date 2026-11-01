@@ -1,0 +1,56 @@
+{
+  "name": "short-curly-single-status",
+  "date": "2026-11-01T14:55:27.977612+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "PR 9 is \u2018merged\u2019.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "224cb776-7f7d-455a-a959-d4e315497375",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-28-short-curly-single-status/224cb776-7f7d-455a-a959-d4e315497375.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/28-short-curly-single-status",
+        "prompt_id": "9c1dce0f-fc12-438f-b734-ad23e936b7e4",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "PR 9 is \u2018merged\u2019.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR 9 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "224cb776-7f7d-455a-a959-d4e315497375",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-28-short-curly-single-status/224cb776-7f7d-455a-a959-d4e315497375.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/28-short-curly-single-status",
+        "prompt_id": "9c1dce0f-fc12-438f-b734-ad23e936b7e4",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR 9 is \u2018merged\u2019.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "pr view 10"
+  ],
+  "result": "pass"
+}

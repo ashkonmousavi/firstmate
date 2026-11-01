@@ -1,0 +1,76 @@
+{
+  "name": "named-gh-axi---limit9",
+  "date": "2026-11-01T14:53:20.829807+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "PR 9 is merged.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh-axi pr list --state merged --limit 9 --json number --jq length",
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "5121aeed-3b39-4fe9-944d-34863b44647c",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-04-named-gh-axi---limit9/5121aeed-3b39-4fe9-944d-34863b44647c.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/04-named-gh-axi---limit9",
+        "prompt_id": "f01263e4-1e69-49f8-8133-d80540d78f35",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "PR 9 is merged.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR 9 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "5121aeed-3b39-4fe9-944d-34863b44647c",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-04-named-gh-axi---limit9/5121aeed-3b39-4fe9-944d-34863b44647c.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/04-named-gh-axi---limit9",
+        "prompt_id": "f01263e4-1e69-49f8-8133-d80540d78f35",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR 9 is merged.\n\nNote: the command I ran returned `12`. It counts merged PRs and doesn't show the state of PR 9, so the line above is not verified by that output.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR 9 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "5121aeed-3b39-4fe9-944d-34863b44647c",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-04-named-gh-axi---limit9/5121aeed-3b39-4fe9-944d-34863b44647c.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/04-named-gh-axi---limit9",
+        "prompt_id": "f01263e4-1e69-49f8-8133-d80540d78f35",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "The read just now shows PR 9 as `MERGED`, so the claim \"PR 9 is merged.\" is correct as of this turn.\n\nMy earlier count of `12` came from a different command and did not establish PR 9's state. This read does.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "pr list --state merged --limit 9 --json number --jq length",
+    "pr view 9 --json number,state,mergedAt"
+  ],
+  "result": "pass"
+}

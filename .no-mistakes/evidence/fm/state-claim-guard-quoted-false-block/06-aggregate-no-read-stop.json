@@ -1,0 +1,54 @@
+{
+  "name": "aggregate-no-read",
+  "date": "2026-11-01T14:48:07.313048+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "12 PRs merged in the last hour.",
+  "command": null,
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "0f7a229b-693b-4bb5-8e16-fa9adbd34e99",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-06-aggregate-no-read/0f7a229b-693b-4bb5-8e16-fa9adbd34e99.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/06-aggregate-no-read",
+        "prompt_id": "cfdadb74-5614-4da0-ab00-9fa0bc75fcb4",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "12 PRs merged in the last hour.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): 12 PRs merged in the last hour.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "0f7a229b-693b-4bb5-8e16-fa9adbd34e99",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-06-aggregate-no-read/0f7a229b-693b-4bb5-8e16-fa9adbd34e99.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/06-aggregate-no-read",
+        "prompt_id": "cfdadb74-5614-4da0-ab00-9fa0bc75fcb4",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "12 PRs merged in the last hour.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [],
+  "result": "pass"
+}

@@ -1,0 +1,117 @@
+{
+  "name": "short-single-lane",
+  "date": "2026-11-01T14:49:05.181638+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "'Lane alpha' is running.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "14e8541f-adad-4a13-a020-70c9327dfd2b",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-15-short-single-lane/14e8541f-adad-4a13-a020-70c9327dfd2b.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/15-short-single-lane",
+        "prompt_id": "ea050031-6b30-4f2e-9074-03843284f25b",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "'Lane alpha' is running.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (lane): Lane alpha is running.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "14e8541f-adad-4a13-a020-70c9327dfd2b",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-15-short-single-lane/14e8541f-adad-4a13-a020-70c9327dfd2b.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/15-short-single-lane",
+        "prompt_id": "ea050031-6b30-4f2e-9074-03843284f25b",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "Correction: my earlier reply said \"'Lane alpha' is running,\" but that isn't supported. Both reads of `gh pr view 10` in this turn returned `state: MERGED`. Lane alpha's running status isn't something I've verified, so I'm withdrawing that claim.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (lane): Lane alpha's running status isn't something I've verified, so I'm withdrawing that claim.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "14e8541f-adad-4a13-a020-70c9327dfd2b",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-15-short-single-lane/14e8541f-adad-4a13-a020-70c9327dfd2b.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/15-short-single-lane",
+        "prompt_id": "ea050031-6b30-4f2e-9074-03843284f25b",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "Last read at this turn's third `gh pr view 10`: `state: MERGED`. That read shows PR 10 is merged, not running. I have no reading that shows \"Lane alpha\" as running, so I withdraw my earlier \"'Lane alpha' is running\" claim.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (lane): I have no reading that shows Lane alpha as running, so I withdraw my earlier   claim.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "14e8541f-adad-4a13-a020-70c9327dfd2b",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-15-short-single-lane/14e8541f-adad-4a13-a020-70c9327dfd2b.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/15-short-single-lane",
+        "prompt_id": "ea050031-6b30-4f2e-9074-03843284f25b",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "Last read at this turn's `gh pr view 10`: `state: MERGED`. PR 10 is merged. Nothing I've read shows the lane as running, so my earlier running claim is withdrawn.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR 10 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "14e8541f-adad-4a13-a020-70c9327dfd2b",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-15-short-single-lane/14e8541f-adad-4a13-a020-70c9327dfd2b.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/15-short-single-lane",
+        "prompt_id": "ea050031-6b30-4f2e-9074-03843284f25b",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "Last read at this turn's latest `gh pr view 10`: `state: MERGED`. PR 10 is merged.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "pr view 10",
+    "pr view 10",
+    "pr view 10",
+    "pr view 10"
+  ],
+  "result": "fail",
+  "error": "AssertionError('unexpected Stop exit sequence')"
+}

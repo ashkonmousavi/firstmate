@@ -1,0 +1,34 @@
+{
+  "name": "four-word-quote",
+  "date": "2026-11-01T14:52:09.089072+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "Earlier I said \"PR 9 is merged\".",
+  "command": null,
+  "expected_stop_exits": [
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "4f025c4a-c01a-4631-9384-0207428aef67",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-36-four-word-quote/4f025c4a-c01a-4631-9384-0207428aef67.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/36-four-word-quote",
+        "prompt_id": "73303e71-85ee-42ae-9d26-d4e46acca516",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "Earlier I said \"PR 9 is merged\".",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [],
+  "result": "pass"
+}

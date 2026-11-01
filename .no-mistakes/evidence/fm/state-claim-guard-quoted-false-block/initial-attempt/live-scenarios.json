@@ -1,0 +1,384 @@
+{
+  "version": "2.1.316 (Claude Code)",
+  "cases": [
+    {
+      "name": "aggregate-gh",
+      "message": "12 PRs merged in the last hour.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr list --state merged --json number --jq length",
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "named-gh---limit9",
+      "message": "PR 9 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr list --state merged --limit 9 --json number --jq length",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "named-gh--L9",
+      "message": "PR 9 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr list --state merged -L 9 --json number --jq length",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "aggregate-gh-axi",
+      "message": "12 PRs merged in the last hour.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh-axi pr list --state merged --json number --jq length",
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "named-gh-axi---limit9",
+      "message": "PR 9 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh-axi pr list --state merged --limit 9 --json number --jq length",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "named-gh-axi--L9",
+      "message": "PR 9 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh-axi pr list --state merged -L 9 --json number --jq length",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "aggregate-no-read",
+      "message": "12 PRs merged in the last hour.",
+      "command": null,
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "read-it-live",
+      "message": "I just read it live: https://github.com/example/repo/pull/9 merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 9",
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "read-live",
+      "message": "I just read live: https://github.com/example/repo/pull/9 merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 9",
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "read-live-unsupported-pr",
+      "message": "I just read it live: https://github.com/example/repo/pull/9 merged.",
+      "command": null,
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "read-live-unsupported-deploy",
+      "message": "I read it live: the site is live.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 9",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "history-single",
+      "message": "The guard blocked 'I've checked: PR 9 is merged.' earlier.",
+      "command": null,
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "history-then-claim-single",
+      "message": "The guard blocked 'I've checked: PR 9 is merged.' earlier. PR 10 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 9",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "short-single-id",
+      "message": "PR '#9' is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "short-single-host",
+      "message": "The site 'https://one.example' is live.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "short-single-lane",
+      "message": "'Lane alpha' is running.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "short-single-status",
+      "message": "PR 9 is 'merged'.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "history-double",
+      "message": "The guard blocked \"I've checked: PR 9 is merged.\" earlier.",
+      "command": null,
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "history-then-claim-double",
+      "message": "The guard blocked \"I've checked: PR 9 is merged.\" earlier. PR 10 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 9",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "short-double-id",
+      "message": "PR \"#9\" is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "short-double-host",
+      "message": "The site \"https://one.example\" is live.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "short-double-lane",
+      "message": "\"Lane alpha\" is running.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "short-double-status",
+      "message": "PR 9 is \"merged\".",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "history-curly-single",
+      "message": "The guard blocked \u2018I\u2019ve checked: PR 9 is merged.\u2019 earlier.",
+      "command": null,
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "history-then-claim-curly-single",
+      "message": "The guard blocked \u2018I\u2019ve checked: PR 9 is merged.\u2019 earlier. PR 10 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 9",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "short-curly-single-id",
+      "message": "PR \u2018#9\u2019 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "short-curly-single-host",
+      "message": "The site \u2018https://one.example\u2019 is live.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "short-curly-single-lane",
+      "message": "\u2018Lane alpha\u2019 is running.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "short-curly-single-status",
+      "message": "PR 9 is \u2018merged\u2019.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "history-curly-double",
+      "message": "The guard blocked \u201cI\u2019ve checked: PR 9 is merged.\u201d earlier.",
+      "command": null,
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "history-then-claim-curly-double",
+      "message": "The guard blocked \u201cI\u2019ve checked: PR 9 is merged.\u201d earlier. PR 10 is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 9",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "short-curly-double-id",
+      "message": "PR \u201c#9\u201d is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "short-curly-double-host",
+      "message": "The site \u201chttps://one.example\u201d is live.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "short-curly-double-lane",
+      "message": "\u201cLane alpha\u201d is running.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "fail"
+    },
+    {
+      "name": "short-curly-double-status",
+      "message": "PR 9 is \u201cmerged\u201d.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "three-word-quote",
+      "message": "Earlier I said \"PR 9 merged\".",
+      "command": null,
+      "expected_stop_exits": [
+        2,
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "four-word-quote",
+      "message": "Earlier I said \"PR 9 is merged\".",
+      "command": null,
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "multiline-history",
+      "message": "The guard blocked \u2018I\u2019ve checked: PR 9 is merged.\nThe site is live.\u2019 earlier.",
+      "command": null,
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    },
+    {
+      "name": "quoted-id-matching-read",
+      "message": "PR \"#9\" is merged.",
+      "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 9",
+      "expected_stop_exits": [
+        0
+      ],
+      "result": "pass"
+    }
+  ]
+}

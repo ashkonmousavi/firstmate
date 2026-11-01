@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live_driver.py", line 10, in <module>
+    root, evidence = map(Path, sys.argv[1:])
+    ^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 2)

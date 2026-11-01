@@ -1,0 +1,13 @@
+aggregate list read: 12 PRs merged in the last hour.
+  base exit=2 State claim needs a same-turn read (PR): 12 PRs merged in the last hour.
+Read that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.
+  target exit=0 (allowed silently)
+read it live: I just read it live: https://github.com/example/repo/pull/9 merged.
+  base exit=2 State claim needs a same-turn read (deploy): I just read it live: https://github.com/example/repo/pull/9 merged.
+Read that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.
+  target exit=0 (allowed silently)
+historical curly contraction: The guard blocked ‘I’ve checked: PR 9 is merged.’ earlier.
+  base exit=2 State claim needs a same-turn read (PR): The guard blocked ‘I’ve checked: PR 9 is merged.’ earlier.
+Read that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.
+  target exit=0 (allowed silently)
+Before/after proof uses synthetic transcript input, not real-harness evidence.

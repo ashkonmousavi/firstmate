@@ -1,0 +1,36 @@
+{
+  "name": "aggregate-gh-axi",
+  "date": "2026-11-01T14:47:42.330259+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "12 PRs merged in the last hour.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh-axi pr list --state merged --json number --jq length",
+  "expected_stop_exits": [
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "baf3fd1f-845e-441e-b965-03798352e9a4",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-03-aggregate-gh-axi/baf3fd1f-845e-441e-b965-03798352e9a4.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/03-aggregate-gh-axi",
+        "prompt_id": "bc004ffe-ed78-4471-b3aa-ec75a1da28a6",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "12 PRs merged in the last hour.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "pr list --state merged --json number --jq length"
+  ],
+  "result": "pass"
+}

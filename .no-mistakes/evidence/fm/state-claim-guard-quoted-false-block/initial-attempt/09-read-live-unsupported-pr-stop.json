@@ -1,0 +1,54 @@
+{
+  "name": "read-live-unsupported-pr",
+  "date": "2026-11-01T14:48:19.496339+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "I just read it live: https://github.com/example/repo/pull/9 merged.",
+  "command": null,
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "e6846cba-bcba-44ee-b15e-a6ab7da884e4",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-09-read-live-unsupported-pr/e6846cba-bcba-44ee-b15e-a6ab7da884e4.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/09-read-live-unsupported-pr",
+        "prompt_id": "8a74d997-c4ec-4ddf-be55-7aedcc2c1cdf",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "I just read it live: https://github.com/example/repo/pull/9 merged.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): I just read it live: https://github.com/example/repo/pull/9 merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "e6846cba-bcba-44ee-b15e-a6ab7da884e4",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-09-read-live-unsupported-pr/e6846cba-bcba-44ee-b15e-a6ab7da884e4.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/09-read-live-unsupported-pr",
+        "prompt_id": "8a74d997-c4ec-4ddf-be55-7aedcc2c1cdf",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "I just read it live: https://github.com/example/repo/pull/9 merged.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [],
+  "result": "pass"
+}

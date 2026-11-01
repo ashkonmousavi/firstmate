@@ -1,0 +1,36 @@
+{
+  "name": "aggregate-gh",
+  "date": "2026-11-01T14:47:23.666942+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "12 PRs merged in the last hour.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr list --state merged --json number --jq length",
+  "expected_stop_exits": [
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "84672704-a0d5-4feb-aef3-e7b05da472a4",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-00-aggregate-gh/84672704-a0d5-4feb-aef3-e7b05da472a4.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/00-aggregate-gh",
+        "prompt_id": "193352e4-d592-47c8-afa1-de1d4f168ceb",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "12 PRs merged in the last hour.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "pr list --state merged --json number --jq length"
+  ],
+  "result": "pass"
+}

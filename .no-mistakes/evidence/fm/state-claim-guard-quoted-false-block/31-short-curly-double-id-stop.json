@@ -1,0 +1,97 @@
+{
+  "name": "short-curly-double-id",
+  "date": "2026-11-01T14:55:37.624169+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "PR \u201c#9\u201d is merged.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr view 10",
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "4327b8ba-928b-4c3f-b20f-dbe06736c8d5",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-31-short-curly-double-id/4327b8ba-928b-4c3f-b20f-dbe06736c8d5.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/31-short-curly-double-id",
+        "prompt_id": "2b1bbf64-8bf8-4028-9b29-864f7b78c2e3",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "PR \u201c#9\u201d is merged.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR #9 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "4327b8ba-928b-4c3f-b20f-dbe06736c8d5",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-31-short-curly-double-id/4327b8ba-928b-4c3f-b20f-dbe06736c8d5.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/31-short-curly-double-id",
+        "prompt_id": "2b1bbf64-8bf8-4028-9b29-864f7b78c2e3",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR \u201c#9\u201d is merged.\n\nThis read is from this turn: `gh pr view 9` returned `state: MERGED`. My earlier read was for PR 10, which also returned `MERGED`.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): My earlier read was for PR 10, which also returned MERGED.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "4327b8ba-928b-4c3f-b20f-dbe06736c8d5",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-31-short-curly-double-id/4327b8ba-928b-4c3f-b20f-dbe06736c8d5.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/31-short-curly-double-id",
+        "prompt_id": "2b1bbf64-8bf8-4028-9b29-864f7b78c2e3",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR \u201c#9\u201d is merged.\n\nThis turn I read both PRs: `gh pr view 9` and `gh pr view 10` each returned `state: MERGED`.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR #9 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "4327b8ba-928b-4c3f-b20f-dbe06736c8d5",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-31-short-curly-double-id/4327b8ba-928b-4c3f-b20f-dbe06736c8d5.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/31-short-curly-double-id",
+        "prompt_id": "2b1bbf64-8bf8-4028-9b29-864f7b78c2e3",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR \u201c#9\u201d is merged.\n\nLast read at: `gh pr view 9` returned `state: MERGED` in this turn.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "pr view 10",
+    "pr view 9",
+    "pr view 10",
+    "pr view 9"
+  ],
+  "result": "pass"
+}

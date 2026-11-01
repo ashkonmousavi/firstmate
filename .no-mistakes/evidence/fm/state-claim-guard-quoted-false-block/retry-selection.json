@@ -1,0 +1,25 @@
+{
+  "reason": "Correct the continuation-only setup assertion; strengthen short host and lane cases with unrelated reads from their own state family, plus matching-read controls.",
+  "cases": [
+    "named-gh--L9",
+    "named-gh-axi---limit9",
+    "named-gh-axi--L9",
+    "read-live-unsupported-deploy",
+    "short-single-host",
+    "short-single-lane",
+    "short-single-status",
+    "short-double-id",
+    "short-double-host",
+    "short-double-lane",
+    "short-double-status",
+    "short-curly-single-id",
+    "short-curly-single-host",
+    "short-curly-single-lane",
+    "short-curly-single-status",
+    "short-curly-double-id",
+    "short-curly-double-host",
+    "short-curly-double-lane",
+    "quoted-host-matching-read",
+    "quoted-lane-matching-read"
+  ]
+}

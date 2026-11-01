@@ -1,0 +1,56 @@
+{
+  "name": "named-gh---limit9",
+  "date": "2026-11-01T14:47:24.516470+00:00",
+  "version": "2.1.316 (Claude Code)",
+  "message": "PR 9 is merged.",
+  "command": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/gh pr list --state merged --limit 9 --json number --jq length",
+  "expected_stop_exits": [
+    2,
+    0
+  ],
+  "cli_exit": 0,
+  "stop_events": [
+    {
+      "payload": {
+        "session_id": "5e6fb4d4-de65-442a-abaf-1ca1cefa34e8",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-01-named-gh---limit9/5e6fb4d4-de65-442a-abaf-1ca1cefa34e8.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/01-named-gh---limit9",
+        "prompt_id": "e57159a5-6fae-4470-aeac-2902251d41b8",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": false,
+        "last_assistant_message": "PR 9 is merged.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 2,
+      "stderr": "State claim needs a same-turn read (PR): PR 9 is merged.\nRead that state now, correct the claim, or qualify it with 'last read at'. This claim check blocks only once.\n"
+    },
+    {
+      "payload": {
+        "session_id": "5e6fb4d4-de65-442a-abaf-1ca1cefa34e8",
+        "transcript_path": "~/.claude/projects/-home-tegris--no-mistakes-worktrees-049a88734b0e-01M6BQBFR2F66KGYGFA01QCJMW--test-state-claim-tmp-live-cases-01-named-gh---limit9/5e6fb4d4-de65-442a-abaf-1ca1cefa34e8.jsonl",
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6BQBFR2F66KGYGFA01QCJMW/.test-state-claim-tmp/live-cases/01-named-gh---limit9",
+        "prompt_id": "e57159a5-6fae-4470-aeac-2902251d41b8",
+        "permission_mode": "bypassPermissions",
+        "effort": {
+          "level": "low"
+        },
+        "hook_event_name": "Stop",
+        "stop_hook_active": true,
+        "last_assistant_message": "PR 9 is merged.",
+        "background_tasks": [],
+        "session_crons": []
+      },
+      "rc": 0,
+      "stderr": ""
+    }
+  ],
+  "executed_fixture_reads": [
+    "pr list --state merged --limit 9 --json number --jq length"
+  ],
+  "result": "pass"
+}
