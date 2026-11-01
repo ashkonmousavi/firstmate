@@ -69,7 +69,7 @@
 #   project=<name>  kind=ship|scout  mode=<no-mistakes|direct-PR|local-only>
 #   yolo=on|off  branch_prefix=<p>  base_branch=<b>
 #   upstream_consent=<host>/<owner>/<repo>
-# bin/fm-brief.sh writes one for each brief it scaffolds, and --backfill writes
+# bin/fm-brief.sh writes one for each ship or scout brief it scaffolds, and --backfill writes
 # the derived record for existing items; neither writes yolo, which stays
 # derived from the registry at launch:
 # without --apply it prints `would-write:`, `kept:` (a record already exists,
