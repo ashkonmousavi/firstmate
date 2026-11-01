@@ -63,15 +63,15 @@
     },
     {
       "path": "Independent fm-spawn --secondmate competes with restart; no liveness-helper invocation",
-      "coverage": "Restart suite:test_lost_spawn_lock_without_completion_evidence_is_unreached executes a real guarded spawn after spawn-lock contention, for both completed and failed gates; neither publishes a parent completion outcome."
+      "coverage": "Restart suite:test_lost_spawn_lock_without_completion_evidence_is_unreached executes a real guarded spawn after spawn-lock contention, for both completed and failed gates; the restart reports the winner releasing the spawn lock, and neither publishes a parent completion outcome."
     },
     {
-      "path": "Remote state probes during lost-spawn-lock recovery",
-      "coverage": "Restart suite:test_remote_spawn_winner_without_parent_completion_is_unreached mocks only SSH results; parent ledger and metadata must remain unchanged for completed and failed remote process states."
+      "path": "Remote winner wait and single state probe during lost-spawn-lock recovery",
+      "coverage": "Restart suite:test_remote_spawn_winner_without_parent_completion_is_unreached holds the parent's per-mate spawn lock as a parent-driven remote spawn does and mocks SSH results; exactly one state probe runs after release, and parent ledger and metadata remain unchanged for completed and failed remote process states. test_winner_still_launching_at_deadline_is_reported covers a lock held past the deadline."
     },
     {
-      "path": "Collision verification -> fm_run_timed -> isolated liveness probe; fm_run_timed -> capped sleep",
-      "coverage": "Restart suite:test_collision_verification_respects_remaining_budget checks a hanging first probe, a hanging later probe, oversized poll interval and zero budget; expiry releases the per-mate lock."
+      "path": "Collision verification -> local spawn-lock wait with capped sleep -> fm_run_timed -> one isolated liveness probe",
+      "coverage": "Restart suite:test_collision_verification_respects_remaining_budget checks a hanging probe, a hanging probe after a lock wait (reported as probe timed out), oversized poll interval and zero budget; expiry releases the per-mate lock."
     }
   ],
   "task_kinds": {

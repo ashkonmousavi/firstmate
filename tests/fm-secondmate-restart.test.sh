@@ -603,6 +603,24 @@ case "${rargs[1]:-}" in
   relaunch)
     case "${FM_FAKE_SSH_MODE:-ok}" in
       lost-spawn-lock*)
+        # The winning launch holds the parent's per-mate spawn lock for as long
+        # as FM_FAKE_WINNER_HOLD says, exactly as a spawn driven from the parent
+        # holds it across its whole host launch.
+        if [ -n "${FM_FAKE_WINNER_HOLD:-}" ]; then
+          parent_state=${FM_FAKE_DIR%/fake}/home/state
+          # shellcheck disable=SC2016 # Expand variables in the holder process.
+          STATE="$parent_state" FM_STATE_OVERRIDE="$parent_state" FM_ROOT="${FM_FAKE_REMOTE_CONTROL%/bin/*}" bash -c '
+            . "$1"
+            fm_lock_try_acquire "$STATE/.spawn-$2.lock" || exit 1
+            printf "%s\n" "$BASHPID" > "$3/winner-pid"
+            /bin/sleep "$4"
+            fm_lock_release "$STATE/.spawn-$2.lock"
+            : > "$3/winner-released"
+          ' _ "${FM_FAKE_REMOTE_CONTROL%/*}/fm-wake-lib.sh" "${rargs[2]}" "$FM_FAKE_DIR" "$FM_FAKE_WINNER_HOLD" \
+            < /dev/null > /dev/null 2>&1 &
+          i=0
+          until [ -e "$FM_FAKE_DIR/winner-pid" ] || [ "$i" -ge 500 ]; do /bin/sleep 0.01; i=$((i + 1)); done
+        fi
         printf 'error: another spawn is already creating task %s\n' "${rargs[2]}" >&2
         exit 1
         ;;
@@ -623,35 +641,18 @@ case "${rargs[1]:-}" in
     printf 'effort=%s\n' "${rargs[5]}"
     ;;
   state)
+    if [ -e "${FM_FAKE_DIR%/fake}/home/state/.spawn-${rargs[2]}.lock" ]; then
+      : > "$FM_FAKE_DIR/probed-while-locked"
+    fi
     case "${FM_FAKE_SSH_MODE:-ok}" in
-      lost-spawn-lock-probe-hang)
+      lost-spawn-lock-probe-hang|lost-spawn-lock-late-probe)
         : > "$FM_FAKE_DIR/probe-started"
         /bin/sleep 20
         : > "$FM_FAKE_DIR/probe-finished"
         ;;
-      lost-spawn-lock-late-probe)
-        if [ -e "$FM_FAKE_DIR/first-probe" ]; then
-          : > "$FM_FAKE_DIR/probe-started"
-          /bin/sleep 20
-          : > "$FM_FAKE_DIR/probe-finished"
-        else
-          : > "$FM_FAKE_DIR/first-probe"
-        fi
-        ;;
+      lost-spawn-lock-gate-failed) printf 'dead\n' ;;
+      *) printf 'alive\n' ;;
     esac
-    if [ ! -e "$FM_FAKE_DIR/winner-probed" ]; then
-      : > "$FM_FAKE_DIR/winner-probed"
-      printf 'dead\n'
-    elif [ ! -e "$FM_FAKE_DIR/winner-gate-pending" ]; then
-      : > "$FM_FAKE_DIR/winner-gate-pending"
-      printf 'alive\n'
-    else
-      : > "$FM_FAKE_DIR/winner-completed"
-      case "${FM_FAKE_SSH_MODE:-ok}" in
-        lost-spawn-lock-gate-failed) printf 'dead\n' ;;
-        *) printf 'alive\n' ;;
-      esac
-    fi
     ;;
 esac
 exit 0
@@ -1196,9 +1197,6 @@ if [ "\${1:-}" = capture-pane ] && [ -e "$dir/fakebin/.codex-first-turn" ]; then
   /bin/sleep 1
   if [ "$mode" = failed ]; then exit 1; fi
 fi
-if [ "\${1:-}" = display-message ] && [ -e "$dir/fake/gate-pending" ]; then
-  : > "$dir/fake/probed-while-pending"
-fi
 exec "$dir/fakebin/tmux.winner-inner" "\$@"
 SH
     chmod +x "$dir/fakebin/tmux"
@@ -1230,7 +1228,7 @@ SH
     chmod +x "$dir/fake/on-exit"
 
     started=$(date +%s)
-    out=$(FM_TEST_VERIFY_WAIT=5 run_restart "$dir" sm1); rc=$?
+    out=$(FM_TEST_VERIFY_WAIT=30 run_restart "$dir" sm1); rc=$?
     elapsed=$(($(date +%s) - started))
     i=0
     until [ -e "$dir/fake/winner-done" ] || [ "$i" -ge 1000 ]; do
@@ -1243,8 +1241,10 @@ SH
     expect_code 3 "$rc" "an independent spawn has no parent completion record: $out"
     assert_contains "$out" "unreached: sm1" "the winner must remain unconfirmed"
     assert_not_contains "$out" "restarted: sm1" "liveness and stale completion records must not establish success"
-    assert_contains "$out" "within 5s" "the verification wait must remain bounded"
-    [ "$elapsed" -ge 5 ] && [ "$elapsed" -lt 30 ] || fail "verification did not respect its bound: ${elapsed}s"
+    assert_contains "$out" "released the spawn lock within 30s" \
+      "the restart must wait for the winner to release its spawn lock: $out"
+    assert_not_contains "$out" "winner still launching" "a winner that finished inside the bound is not still launching"
+    [ "$elapsed" -lt 30 ] || fail "verification did not respect its bound: ${elapsed}s"
     assert_equals "$ledger_before" "$(cat "$dir/home/state/.secondmate-relaunch-sm1")" "an independent spawn must not publish a liveness-helper outcome"
     if [ "$mode" = complete ]; then
       assert_equals 0 "$(cat "$dir/fake/winner-rc")" "the real independent launch did not complete: $(cat "$dir/fake/winner.log")"
@@ -1253,10 +1253,18 @@ SH
       assert_equals 1 "$(cat "$dir/fake/winner-rc")" "the real independent launch must fail its gate"
       assert_grep 'codex did not take the brief' "$dir/home/state/sm1.status" "the real readiness gate did not fail"
     fi
-    assert_present "$dir/fake/probed-while-pending" "the winner was not probed while its real gate was pending"
+    assert_present "$dir/fake/gate-pending" "the winner's real readiness gate was never exercised"
     assert_absent "$dir/home/state/.secondmate-liveness-sm1.lock" "the restart left its lock behind"
   done
   pass "T18 independent collision winners without completion evidence remain unreached"
+}
+
+# stop_winner_holder <case-dir>: end a fake winner that still holds the lock.
+stop_winner_holder() {
+  local pid
+  pid=$(cat "$1/fake/winner-pid" 2>/dev/null) || return 0
+  pkill -P "$pid" 2>/dev/null || true
+  kill "$pid" 2>/dev/null || true
 }
 
 test_remote_spawn_winner_without_parent_completion_is_unreached() {
@@ -1265,42 +1273,76 @@ test_remote_spawn_winner_without_parent_completion_is_unreached() {
     dir=$(new_case "remote-$mode")
     setup_remote_case "$dir" sm2 "$mode"
     export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    export FM_FAKE_WINNER_HOLD=2
     printf 'codex requested-model high\n' > "$dir/home/config/secondmate-harness"
     before=$(cat "$dir/home/state/sm2.meta")
     printf '1\trelaunched\n' > "$dir/home/state/.secondmate-relaunch-sm2"
     ledger_before=$(cat "$dir/home/state/.secondmate-relaunch-sm2")
 
     started=$(date +%s)
-    out=$(FM_TEST_VERIFY_WAIT=5 run_restart "$dir" sm2); rc=$?
+    out=$(FM_TEST_VERIFY_WAIT=10 run_restart "$dir" sm2); rc=$?
     elapsed=$(($(date +%s) - started))
-    unset FM_FAKE_ANSWER_STATUS
+    unset FM_FAKE_ANSWER_STATUS FM_FAKE_WINNER_HOLD
+    stop_winner_holder "$dir"
 
     expect_code 3 "$rc" "a remote process state cannot prove completed launch success: $out"
     assert_contains "$out" 'unreached: sm2' "the unconfirmed winner must remain unreached"
     assert_not_contains "$out" 'restarted: sm2' "a remote state probe must not certify launch completion"
-    assert_contains "$out" 'within 5s' "the verification wait must remain bounded"
-    [ "$elapsed" -ge 5 ] && [ "$elapsed" -lt 30 ] || fail "remote verification did not respect its bound: ${elapsed}s"
+    assert_contains "$out" 'released the spawn lock within 10s' "the restart must wait for the winner's lock: $out"
+    [ "$elapsed" -lt 30 ] || fail "the restart overran its verification bound: ${elapsed}s"
+    assert_present "$dir/fake/winner-released" "the winner never released its lock"
+    assert_absent "$dir/fake/probed-while-locked" "the endpoint was probed while the winner still held its spawn lock"
+    [ "$(grep -c '^fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log")" -eq 1 ] \
+      || fail "expected exactly one endpoint probe after the lock was released: $(cat "$dir/ssh.log")"
+    case "$mode" in
+      lost-spawn-lock-complete) assert_contains "$out" "endpoint reads 'alive'" "the one probe must report what it read" ;;
+      *) assert_contains "$out" "endpoint reads 'dead'" "the one probe must report what it read" ;;
+    esac
     assert_equals "$before" "$(cat "$dir/home/state/sm2.meta")" "an unconfirmed launch must preserve the parent's identity"
     assert_equals "$ledger_before" "$(cat "$dir/home/state/.secondmate-relaunch-sm2")" "remote probes must not publish parent liveness outcomes"
-    assert_present "$dir/fake/winner-gate-pending" "the remote probe did not observe the pending winner"
-    assert_present "$dir/fake/winner-completed" "the remote probe did not observe the winner's final process state"
     [ "$(grep -c '^fm-remote-secondmate-control.sh relaunch ' "$dir/ssh.log")" -eq 1 ] \
       || fail "verification attempted another relaunch"
     assert_no_grep 'fm-remote-secondmate-control.sh route sm2' "$dir/ssh.log" \
       "an unconfirmed launch must not refresh the route"
     assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "the restart left its lock behind"
   done
-  pass "remote collision winners without parent completion evidence remain unreached"
+  pass "remote collision winners are waited for by spawn lock, probed once, and remain unreached"
+}
+
+test_winner_still_launching_at_deadline_is_reported() {
+  local dir out rc started elapsed holder
+  dir=$(new_case still-launching)
+  setup_remote_case "$dir" sm2 lost-spawn-lock-complete
+  export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+  export FM_FAKE_WINNER_HOLD=30
+
+  started=$(date +%s)
+  out=$(FM_TEST_VERIFY_WAIT=2 run_restart "$dir" sm2); rc=$?
+  elapsed=$(($(date +%s) - started))
+  unset FM_FAKE_ANSWER_STATUS FM_FAKE_WINNER_HOLD
+  holder=$(cat "$dir/fake/winner-pid" 2>/dev/null || true)
+  stop_winner_holder "$dir"
+
+  expect_code 3 "$rc" "a winner still launching at the deadline must exit non-zero: $out"
+  assert_contains "$out" 'unreached: sm2: winner still launching' "the report must say the winner is still launching: $out"
+  assert_contains "$out" "holder pid $holder" "the report must name the launch still holding the lock"
+  assert_contains "$out" 'no longer held off' "releasing the recovery lock must be reported, not silent"
+  [ "$elapsed" -lt 6 ] || fail "the wait did not end at its deadline: ${elapsed}s"
+  assert_no_grep 'fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log" \
+    "the endpoint must not be probed while the winner still holds the lock"
+  assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "the restart must still release the recovery lock"
+  pass "a winner still holding the spawn lock at the deadline is reported as still launching"
 }
 
 test_collision_verification_respects_remaining_budget() {
-  local dir out rc mode wait_seconds poll_seconds started elapsed
+  local dir out rc mode wait_seconds poll_seconds hold started elapsed
   for mode in probe-hang late-probe large-poll zero-budget; do
     dir=$(new_case "budget-$mode")
+    hold=
     case "$mode" in
       probe-hang) wait_seconds=2; poll_seconds=1 ;;
-      late-probe) wait_seconds=3; poll_seconds=1 ;;
-      large-poll) wait_seconds=2; poll_seconds=20 ;;
+      late-probe) wait_seconds=3; poll_seconds=1; hold=1 ;;
+      large-poll) wait_seconds=2; poll_seconds=20; hold=30 ;;
       zero-budget) wait_seconds=0; poll_seconds=20 ;;
     esac
     if [ "$mode" = zero-budget ]; then
@@ -1309,6 +1351,7 @@ test_collision_verification_respects_remaining_budget() {
       setup_remote_case "$dir" sm2 "lost-spawn-lock-$mode"
     fi
     export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    [ -z "$hold" ] || export FM_FAKE_WINNER_HOLD="$hold"
     cat > "$dir/fakebin/sleep" <<'SH'
 #!/usr/bin/env bash
 exec /bin/sleep "$@"
@@ -1318,22 +1361,32 @@ SH
     started=$(date +%s)
     out=$(FM_TEST_VERIFY_WAIT="$wait_seconds" FM_TEST_VERIFY_POLL="$poll_seconds" run_restart "$dir" sm2); rc=$?
     elapsed=$(($(date +%s) - started))
-    unset FM_FAKE_ANSWER_STATUS
+    unset FM_FAKE_ANSWER_STATUS FM_FAKE_WINNER_HOLD
+    stop_winner_holder "$dir"
 
     expect_code 3 "$rc" "an unconfirmed collision must remain unreached: $out"
     assert_contains "$out" 'unreached: sm2' "budget expiry must publish an outcome"
     assert_not_contains "$out" 'restarted: sm2' "a timed probe cannot certify completion"
-    [ "$elapsed" -ge "$wait_seconds" ] && [ "$elapsed" -lt "$((wait_seconds + 4))" ] \
+    [ "$((elapsed + 1))" -ge "$wait_seconds" ] && [ "$elapsed" -lt "$((wait_seconds + 4))" ] \
       || fail "verification exceeded its remaining budget ($mode): ${elapsed}s for ${wait_seconds}s; $out"
     case "$mode" in
       probe-hang|late-probe)
         assert_present "$dir/fake/probe-started" "the hanging probe was never exercised"
         assert_absent "$dir/fake/probe-finished" "the hanging probe outlived verification"
+        assert_contains "$out" 'endpoint probe timed out' "a probe stopped by its time limit must say it timed out: $out"
+        assert_not_contains "$out" 'unreadable' "a timed-out probe is not an unreadable endpoint"
+        ;;
+      large-poll)
+        assert_contains "$out" 'winner still launching' "a capped poll must still end at the deadline: $out"
+        assert_no_grep 'fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log" "a held lock must not be probed past"
         ;;
       zero-budget)
         assert_no_grep 'fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log" "a zero budget must not start a probe"
+        assert_contains "$out" 'no time remained to probe the endpoint' "a zero budget must say no probe ran: $out"
         ;;
     esac
+    [ "$(grep -c '^fm-remote-secondmate-control.sh state sm2' "$dir/ssh.log")" -le 1 ] \
+      || fail "verification probed the endpoint more than once ($mode): $(cat "$dir/ssh.log")"
     assert_absent "$dir/home/state/.secondmate-liveness-sm2.lock" "budget expiry must release the recovery lock"
   done
   pass "collision verification bounds hanging probes, late probes, oversized polls and zero budgets"
@@ -1534,6 +1587,7 @@ test_already_current_unprovable_mate_stays_on_the_nudge_path
 test_restart_and_liveness_relaunch_race
 test_lost_spawn_lock_without_completion_evidence_is_unreached
 test_remote_spawn_winner_without_parent_completion_is_unreached
+test_winner_still_launching_at_deadline_is_reported
 test_collision_verification_respects_remaining_budget
 test_dead_restarter_marker_expires
 test_background_shells_are_waited_out_before_exit
