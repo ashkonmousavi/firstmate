@@ -8,7 +8,7 @@ It is a validation handoff, not evidence of a real worker launch on every machin
 
 Run `bash tests/fm-autolaunch.test.sh` from the repository root.
 The [suite](../../tests/fm-autolaunch.test.sh) executes both scripts against a real markdown backlog and the shared quota gate, with capacity and spawn replaced at their executable boundaries.
-Its oracle is the operator contract above: prepared ready work fills admitted lanes in ready-queue order, dispatch uses defaults only, and each decision is recorded.
+Its oracle is the operator contract above: prepared ready work fills admitted lanes in backlog priority order, then ready-queue order, dispatch uses defaults only, and each decision is recorded.
 It checks emitted commands, spawn arguments, persisted records, notification delivery, and failures rather than implementation text.
 The model-request regression places a refusing `curl` at the external network boundary and enables a synthetic key; either a real or dry pass requesting a model would create an observable failure record.
 
@@ -17,7 +17,9 @@ The model-request regression places a refusing `curl` at the external network bo
 | Real pass: ready queue, item checks, dispatch, spawn, records, capacity refresh | `free lanes launch in ready-queue order, one launched record per lane`; lane count, task order, UTC record fields, stdout, and spawn arguments are asserted together. |
 | Dry pass | `dry run prints decisions and commands and writes nothing`; default-only dispatch also runs dry with a configured key and checks that no model request occurs. |
 | Prepared listing and check consumer | The ready-order and literal deferred-identity cases call `--list-prepared`; the stall case consumes that same interface and checks the first item. |
-| Ready eligibility | Stale blocked-by edges to finished work clear, live blockers stay blocked, and held/parked items never enter selection; missing brief, missing prep, and invalid prep record refusals. The ready-queue owner remains `fm-tasks-axi.sh`. |
+| Ready eligibility | Stale blocked-by edges to finished work clear, live blockers stay blocked, and held/parked items never enter selection; missing brief, missing prep file, non-ship/scout kind, and invalid override record refusals. The ready-queue owner remains `fm-tasks-axi.sh`. |
+| Launch-record derivation | `the launch record derives from override, brief lines, backlog row and project registry in that order` checks brief contract lines over the registry, registry-only fallback, and a partial override; the laptop-layout case covers a body-linked prep file, `data/<id>/prep.md`, priority order, a bare branch, and every named refusal. |
+| Backfill and scaffold record | `backfill prints first, writes only on --apply, and is idempotent` covers dry output, apply, kept records, and skip reasons; `fm-brief.sh writes the launch record for every ship and scout it scaffolds` covers both scaffold kinds. |
 | Deferred identity | `foo.bar` remains launchable with an unrelated `task=foo-bar` record; an exact queued identity is excluded from both listing and launch. |
 | No dispatch file, one default, default array, no default | Static dispatch, optional-field cases, ranked defaults, and `static dispatch applies only when the dispatch file is absent` cover each representation. Natural-language rules do not supply candidates. |
 | Passing, uncertain, exhausted, short-runway profiles | Ranked defaults use the real gate verdicts; known passes precede uncertain profiles, uncertain profiles retain declared order, and exhausted or short-runway profiles never reach spawn. |

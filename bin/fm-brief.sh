@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Scaffold a crewmate brief or persistent secondmate charter at
 # data/<task-id>/brief.md under the active firstmate home.
+# Ship and scout scaffolds also write data/<task-id>/autolaunch-prep, the launch
+# record whose format and derivation bin/fm-autolaunch.sh owns.
 # For ordinary tasks, the standard Setup/Rules/Definition-of-done contract is
 # filled in. Ship and scout `# Task` sections have two subsections Firstmate
 # fills before dispatch: `{TASK}` under `## Captain's intent` (the captain's
@@ -427,6 +429,24 @@ if [ "$KIND" != secondmate ] && { [ -e "$BRIEF_INCLUDE_FILE" ] || [ -L "$BRIEF_I
   [ -n "$(printf '%s' "$BRIEF_INCLUDE_BODY" | tr -d '[:space:]')" ] || BRIEF_INCLUDE_BODY=
 fi
 
+# Write the auto-launch record beside a ship or scout brief (format and
+# derivation: bin/fm-autolaunch.sh's PREP header). It carries only what this
+# scaffold was told; yolo stays derived from the registry at launch. An
+# existing record is never overwritten.
+write_autolaunch_record() {
+  local rec="$DATA/$ID/autolaunch-prep" project=$REPO
+  [ ! -e "$rec" ] || return 0
+  [ -z "$PROJECT_DIR" ] || project=$(basename -- "$PROJECT_DIR")
+  {
+    printf 'project=%s\nkind=%s\n' "$project" "$KIND"
+    if [ "$KIND" = ship ]; then
+      printf 'mode=%s\nbranch_prefix=%s\n' "$MODE" "$BRANCH_PREFIX"
+      [ -z "$UPSTREAM_CONSENT" ] || printf 'upstream_consent=%s\n' "$UPSTREAM_CONSENT"
+    fi
+    [ -z "$BASE_BRANCH" ] || printf 'base_branch=%s\n' "$BASE_BRANCH"
+  } > "$rec"
+}
+
 # Append the include as the last section of a ship or scout scaffold.
 append_brief_include() {
   [ -n "$BRIEF_INCLUDE_BODY" ] || return 0
@@ -753,6 +773,7 @@ When the report is complete, append \`done [at=<epoch>]: {one-line conclusion}\`
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
 EOF
 append_brief_include
+write_autolaunch_record
 echo "scaffolded: $BRIEF (scout; replace {TASK} and {FIRSTMATE_SPEC})"
 exit 0
 fi
@@ -835,6 +856,7 @@ A correction edits only the wrong text: do not run \`$FM_ROOT/bin/fm-ensure-agen
 $DOD
 EOF
 append_brief_include
+write_autolaunch_record
 if [ "$FORGE" = none ]; then
   echo "scaffolded: $BRIEF (ship, mode=$MODE; replace {TASK} and {FIRSTMATE_SPEC})"
 elif [ "$FORGE" = gerrit ]; then

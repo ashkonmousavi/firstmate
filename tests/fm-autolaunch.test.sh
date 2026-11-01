@@ -60,13 +60,14 @@ prep() {  # <id> <project> [extra key=value...]
   local id=$1 project=$2; shift 2
   mkdir -p "$H/data/$id"
   printf '# Task\nbrief for %s\n' "$id" > "$H/data/$id/brief.md"
+  printf '# Prep\nprep for %s\n' "$id" > "$H/data/$id/prep.md"
   { printf 'project=%s\nkind=ship\nmode=direct-PR\nyolo=off\n' "$project"; printf '%s\n' "$@"; } > "$H/data/$id/autolaunch-prep"
 }
 reset() {
   rm -f "$LOG" "$FAKE"/spawn.log "$FAKE"/rc-* "$FAKE/quota-refuse" \
     "$H/config/crew-dispatch.json" "$H/state/.autolaunch-check.red" \
     "$H/config/crew-exclude-tools" "$H/config/pi-account" "$H/config/claude-account" \
-    "$FAKE/rotate-log" "$H/state/autolaunch.previous.log"
+    "$FAKE/rotate-log" "$H/state/autolaunch.previous.log" "$H/data/projects.md"
   rm -rf "$H/data"/*/ "$H/state/spawn-deferred"
   printf '%s\n' "${1:-1}" > "$FAKE/free"
 }
@@ -124,8 +125,8 @@ mkdir -p "$H/state/spawn-deferred/queue"; printf 'schema=fm-deferred-spawn.v1\nt
 bash "$AL" >/dev/null 2>&1
 results=$(cut -f3,5 "$LOG")
 assert_contains "$results" 'no-brief	refused:not prepared: no brief data/no-brief/brief.md' 'no brief'
-assert_contains "$results" 'no-prep	refused:not prepared: no prep data/no-prep/autolaunch-prep' 'no prep'
-assert_contains "$results" 'bad-prep	refused:not prepared: prep has unknown key colour' 'invalid prep'
+assert_contains "$results" 'no-prep	refused:not prepared: no prep file (data/no-prep/prep.md or a prep, plan or spec document linked from the item)' 'no prep file'
+assert_contains "$results" 'bad-prep	refused:not prepared: record has unknown key colour' 'invalid override record'
 assert_contains "$results" 'deferred-item	refused:spawn deferred pending' 'deferred retry is not doubled'
 assert_not_contains "$results" 'held-item' 'held item is never a candidate'
 assert_contains "$(tail -1 "$LOG")" '1	-	-	refused:no prepared item' 'running out of items is one record'
@@ -279,7 +280,7 @@ for profile in '{"harness":"codex","effort":"high"}' \
   assert_contains "$out" "$expected" 'dry-run preserves optional profile fields'
   assert_not_contains "$out" '--model high' 'effort never occupies the model field'
   bash "$AL" >/dev/null 2>&1
-  assert_equals "fields $H/projects/proj --mode direct-PR --yolo off $expected" "$(cat "$FAKE/spawn.log")" 'spawn flags preserve each profile field position'
+  assert_equals "fields $H/projects/proj --mode direct-PR --yolo off --branch-prefix fm/ $expected" "$(cat "$FAKE/spawn.log")" 'spawn flags preserve each profile field position'
 done
 pass 'profile contract preserves absent model and effort fields in the candidate reader'
 
@@ -348,6 +349,103 @@ for snapshot in "$FAKE/eligibility-quota.json" "$FAKE/missing-quota.json"; do
 done
 pass 'default eligibility honors tool, account, capture, backend and profile contracts with known or unavailable quota'
 
+# --- derived launch record ----------------------------------------------------
+reset 1
+printf '%s\n' '- [ ] derived - brief contract wins (repo: proj) (kind: ship)' | backlog
+mkdir -p "$H/data/derived"
+printf '# Setup\nBase branch: curated\n# Definition of done\nDelivery contract: mode=direct-PR upstream-consent=github.com/o/r\nShip branch: lane/derived\n' > "$H/data/derived/brief.md"
+printf 'prep\n' > "$H/data/derived/prep.md"
+printf -- '- proj [no-mistakes +yolo branch=reg/] - test project (added 2026-10-01)\n' > "$H/data/projects.md"
+bash "$AL" >/dev/null 2>&1
+assert_equals "derived $H/projects/proj --mode direct-PR --yolo on --branch-prefix lane/ --upstream-consent github.com/o/r --base-branch curated" "$(cat "$FAKE/spawn.log")" 'brief lines win; yolo comes from the registry'
+reset 1
+printf '%s\n' '- [ ] reg-only - registry fallback (repo: proj) (kind: ship)' | backlog
+mkdir -p "$H/data/reg-only"; printf '# Task\nplain brief\n' > "$H/data/reg-only/brief.md"; printf 'prep\n' > "$H/data/reg-only/prep.md"
+printf -- '- proj [local-only branch=x/] - test project (added 2026-10-01)\n' > "$H/data/projects.md"
+bash "$AL" >/dev/null 2>&1
+assert_equals "reg-only $H/projects/proj --mode local-only --yolo off --branch-prefix x/" "$(cat "$FAKE/spawn.log")" 'registry supplies mode, yolo and branch prefix'
+reset 1
+printf '%s\n' '- [ ] override - record wins (repo: proj) (kind: ship)' | backlog
+mkdir -p "$H/data/override"
+printf 'Delivery contract: mode=direct-PR\nShip branch: fm/override\n' > "$H/data/override/brief.md"; printf 'prep\n' > "$H/data/override/prep.md"
+printf 'yolo=on\nbranch_prefix=\n' > "$H/data/override/autolaunch-prep"
+bash "$AL" >/dev/null 2>&1
+assert_equals "override $H/projects/proj --mode direct-PR --yolo on --branch-prefix " "$(cat "$FAKE/spawn.log")" 'an override record replaces only the fields it names'
+pass 'the launch record derives from override, brief lines, backlog row and project registry in that order'
+
+# Laptop layout: X items with a prep file and a brief, beside unprepared work.
+reset 2
+mkdir -p "$H/projects/NOT_Q"
+printf '%s\n' \
+  '- [ ] x-region-registry - X region registry (repo: NOT_Q) (kind: ship) (priority: 2)' \
+  '  Prep: data/x-prep-region-registry/prep.md' \
+  '- [ ] x-no-brief - prep but no brief (repo: NOT_Q) (kind: ship)' \
+  '- [ ] x-ops-task - operational task (repo: NOT_Q) (kind: task)' \
+  '- [ ] x-no-prep - brief but no prep (repo: NOT_Q) (kind: ship)' \
+  '- [ ] x-engine-account-currency - X engine account currency (repo: NOT_Q) (kind: ship) (priority: 1)' | backlog
+printf -- '- NOT_Q [direct-PR branch=] - X (added 2026-10-01)\n' > "$H/data/projects.md"
+for id in x-region-registry x-engine-account-currency x-ops-task x-no-prep; do
+  mkdir -p "$H/data/$id"
+  printf 'Delivery contract: mode=direct-PR\nShip branch: %s\n' "$id" > "$H/data/$id/brief.md"
+done
+mkdir -p "$H/data/x-prep-region-registry" "$H/data/x-no-brief"
+printf 'prep\n' > "$H/data/x-prep-region-registry/prep.md"
+printf 'prep\n' > "$H/data/x-engine-account-currency/prep.md"
+printf 'prep\n' > "$H/data/x-ops-task/prep.md"
+printf 'prep\n' > "$H/data/x-no-brief/prep.md"
+out=$(bash "$AL" --dry-run 2>&1)
+assert_contains "$out" $'1\tx-engine-account-currency\tstatic\tlaunched' 'priority 1 item would launch first'
+assert_contains "$out" $'2\tx-region-registry\tstatic\tlaunched' 'linked prep file item would launch next'
+assert_contains "$out" "x-engine-account-currency $H/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix ''" 'bare branch from the brief'
+assert_not_contains "$out" 'x-no-brief' 'lanes fill before later refusals'
+reset 3
+printf '%s\n' \
+  '- [ ] x-no-brief - prep but no brief (repo: NOT_Q) (kind: ship)' \
+  '- [ ] x-ops-task - operational task (repo: NOT_Q) (kind: task)' \
+  '- [ ] x-no-prep - brief but no prep (repo: NOT_Q) (kind: ship)' | backlog
+printf -- '- NOT_Q [direct-PR] - X (added 2026-10-01)\n' > "$H/data/projects.md"
+mkdir -p "$H/data/x-no-brief" "$H/data/x-ops-task" "$H/data/x-no-prep"
+printf 'prep\n' > "$H/data/x-no-brief/prep.md"; printf 'prep\n' > "$H/data/x-ops-task/prep.md"
+printf 'brief\n' > "$H/data/x-ops-task/brief.md"; printf 'brief\n' > "$H/data/x-no-prep/brief.md"
+out=$(bash "$AL" --dry-run 2>&1)
+assert_contains "$out" 'x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md' 'no brief reason'
+assert_contains "$out" 'x-ops-task	-	refused:not prepared: kind task is not ship or scout' 'task kind reason'
+assert_contains "$out" 'x-no-prep	-	refused:not prepared: no prep file' 'no prep file reason'
+pass 'a dry run on the laptop layout would launch the prepared X items by priority and names every refusal'
+
+reset 1
+printf '%s\n' '- [ ] bf-new - derivable (repo: proj) (kind: ship)' \
+  '- [ ] bf-kept - has a record (repo: proj) (kind: ship)' \
+  '- [ ] bf-held - held but derivable (repo: proj) (kind: ship) (hold: wait) (hold-kind: captain)' \
+  '- [ ] bf-skip - no prep (repo: proj) (kind: ship)' | backlog
+printf -- '- proj [direct-PR +yolo] - test (added 2026-10-01)\n' > "$H/data/projects.md"
+for id in bf-new bf-kept bf-held bf-skip; do mkdir -p "$H/data/$id"; printf 'brief\n' > "$H/data/$id/brief.md"; done
+for id in bf-new bf-kept bf-held; do printf 'prep\n' > "$H/data/$id/prep.md"; done
+printf 'yolo=off\n' > "$H/data/bf-kept/autolaunch-prep"
+out=$(bash "$AL" --backfill 2>&1); rc=$?
+expect_code 0 "$rc" 'backfill dry run'
+assert_contains "$out" 'would-write: data/bf-new/autolaunch-prep: project=proj kind=ship mode=direct-PR yolo=on branch_prefix=fm/' 'dry backfill prints the derived record'
+assert_contains "$out" 'would-write: data/bf-held/autolaunch-prep' 'held items are backfilled too'
+assert_contains "$out" 'kept: bf-kept' 'an existing record is kept'
+assert_contains "$out" 'skip: bf-skip: no prep file' 'an underivable item names its reason'
+assert_absent "$H/data/bf-new/autolaunch-prep" 'dry backfill writes nothing'
+bash "$AL" --backfill --apply >/dev/null 2>&1 || fail 'backfill apply'
+assert_equals $'project=proj\nkind=ship\nmode=direct-PR\nyolo=on\nbranch_prefix=fm/' "$(cat "$H/data/bf-new/autolaunch-prep")" 'apply writes the derived record'
+assert_equals 'yolo=off' "$(cat "$H/data/bf-kept/autolaunch-prep")" 'apply never rewrites an existing record'
+out=$(bash "$AL" --backfill --apply 2>&1)
+assert_contains "$out" 'kept: bf-new' 'a second apply is idempotent'
+assert_not_contains "$out" 'wrote:' 'a second apply writes nothing'
+pass 'backfill prints first, writes only on --apply, and is idempotent'
+
+reset 1
+BH="$TMP_ROOT/brief-home"
+mkdir -p "$BH/data" "$BH/state" "$BH/config" "$BH/projects/proj"
+FM_HOME=$BH bash "$ROOT/bin/fm-brief.sh" new-ship proj --mode direct-PR --branch-prefix lane/ --base-branch curated --project "$BH/projects/proj" >/dev/null || fail 'ship scaffold'
+assert_equals $'project=proj\nkind=ship\nmode=direct-PR\nbranch_prefix=lane/\nbase_branch=curated' "$(cat "$BH/data/new-ship/autolaunch-prep")" 'ship scaffold writes its launch record'
+FM_HOME=$BH bash "$ROOT/bin/fm-brief.sh" new-scout proj --scout >/dev/null || fail 'scout scaffold'
+assert_equals $'project=proj\nkind=scout' "$(cat "$BH/data/new-scout/autolaunch-prep")" 'scout scaffold writes its launch record'
+pass 'fm-brief.sh writes the launch record for every ship and scout it scaffolds'
+
 # --- dry-run and lock --------------------------------------------------------
 reset 1
 printf '%s\n' "- [ ] dry-item - prepared (repo: proj) (kind: ship) (since 2026-10-30)" \
@@ -408,7 +506,7 @@ rm -f "$H/state/.autolaunch-check.red"
 echo 0 > "$FAKE/free"
 out=$(FM_AUTOLAUNCH_CHECK_NOW=$NOW bash "$CHECK" 2>&1)
 assert_equals '' "$out" 'no free lane is silent'
-echo 1 > "$FAKE/free"; rm -f "$H/data/waiting/autolaunch-prep"
+echo 1 > "$FAKE/free"; rm -f "$H/data/waiting/prep.md"
 out=$(FM_AUTOLAUNCH_CHECK_NOW=$NOW bash "$CHECK" 2>&1)
 assert_equals '' "$out" 'no prepared item is silent'
 pass 'throttle check is red only for free lane + prepared item + no recent record'

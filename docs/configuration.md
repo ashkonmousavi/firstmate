@@ -688,7 +688,10 @@ The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finish
 Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
 Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
-An item is prepared only when it has both `data/<id>/brief.md` and `data/<id>/autolaunch-prep`, the key=value launch record whose fields the script header owns.
+Ready items run in backlog priority order, so work MAIN marks with a higher priority, such as J-01 pieces, launches first.
+An item is prepared when it has a brief, `data/<id>/brief.md`, and a prep file, `data/<id>/prep.md` or a prep, plan or spec document its backlog body links; without either it is refused with that exact reason.
+Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new brief.
+Run `FM_HOME=<home> bin/fm-autolaunch.sh --backfill` to print the record each existing queued item would get, then `--backfill --apply` to write the missing ones; it never rewrites an existing record, so it is safe to repeat on every home.
 Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
 Every decision appends one tab-separated record to `state/autolaunch.log`: the time, lane, item, model, and either `launched` or `refused:<reason>`.
 
@@ -697,7 +700,7 @@ To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints each 
 Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line with `FM_HOME` set explicitly, recording it in the machine inventory first.
 Arm the throttle check with `bin/fm-autolaunch-check.sh arm`, which binds `state/autolaunch.check.sh` through `bin/fm-check-register.sh` so the watcher runs it on its ordinary check cadence; `disarm` removes it.
 The check prints one red line, and in a secondmate home also reports it on the parent channel, when a free lane and a prepared item have had no auto-launch record for ten minutes; otherwise it is silent.
-The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep fields, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
+The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep and record derivation, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
 The [verification inventory](verification/autolaunch.md) maps affected classes to regressions and identifies live-proof gaps.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)

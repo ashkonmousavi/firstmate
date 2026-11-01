@@ -7,6 +7,9 @@
 #   fm-autolaunch.sh --dry-run       print the decisions and spawn commands; write nothing
 #   fm-autolaunch.sh --list-prepared print, in launch order, the ids a pass would try
 #   fm-autolaunch.sh --print-timer   print a proposed systemd user timer and cron line
+#   fm-autolaunch.sh --backfill [--apply]
+#                                    print (default) or write the derived launch
+#                                    record for every queued item lacking one
 #   fm-autolaunch.sh --help
 #
 # A plain scheduler (cron or a systemd user timer, see --print-timer) runs one
@@ -25,13 +28,15 @@
 #      fm-spawn.sh re-checks machine and project capacity at launch.
 #   3. Candidates: `bin/fm-tasks-axi.sh ready`, which already excludes held
 #      (including parked) and blocked work, and treats a blocked-by edge whose
-#      target is Done, archived, or absent as cleared. Ready-queue order is
-#      kept exactly as returned.
+#      target is Done, archived, or absent as cleared. Items run in backlog
+#      priority order (tasks-axi --priority 0 first, unprioritized last), ties
+#      keeping ready-queue order; that priority is how J-01 work goes first.
 #   4. Per lane, the first candidate that passes every check below launches.
 #      Each refused candidate gets its own record and the next is tried:
 #        refused:held                  `show` reports the item held
-#        refused:not prepared: <why>   no data/<id>/brief.md, no or invalid
-#                                      data/<id>/autolaunch-prep, or no project
+#        refused:not prepared: <why>   no brief, no prep file, a kind other
+#                                      than ship or scout, no project clone, or
+#                                      an invalid override record
 #        refused:spawn deferred pending  state/spawn-deferred/queue already
 #                                      holds this item; fm-spawn-deferred.sh
 #                                      owns its retry, so it is never doubled
@@ -46,18 +51,31 @@
 #      When candidates run out with a lane still open, one
 #      `refused:no prepared item` record names the first open lane.
 #
-# PREP. An item is prepared only when data/<id>/brief.md (the brief fm-spawn.sh
-# delivers, unchanged) and data/<id>/autolaunch-prep both exist. The prep is
-# key=value lines, # comments and blank lines allowed, unknown keys refused:
-#   project=<name>        required; a clone at $FM_HOME/projects/<name>
-#   kind=ship|scout       required
-#   mode=<no-mistakes|direct-PR|local-only>   required for a ship
-#   yolo=on|off           required for a ship
-#   branch_prefix=<p>     optional ship --branch-prefix
-#   base_branch=<b>       optional --base-branch
-#   upstream_consent=<host>/<owner>/<repo>    optional ship --upstream-consent
-# The values become fm-spawn.sh flags as written; fm-spawn.sh validates them
-# against the brief and refuses any disagreement, which is recorded.
+# PREP. An item is prepared when it has a brief, data/<id>/brief.md (delivered
+# by fm-spawn.sh unchanged), and a prep file: data/<id>/prep.md, or a data/*.md
+# document linked from the item's backlog body whose path names prep, plan or
+# spec and that exists in this home. Without either it is refused with that
+# exact reason. Its launch record is then DERIVED, field by field, from the
+# first source that has it:
+#   1. data/<id>/autolaunch-prep, an optional override record;
+#   2. the brief's own contract lines: "Delivery contract: mode=<m>" and its
+#      upstream-consent= token, "Ship branch: <prefix><id>", "Base branch: <b>";
+#   3. the backlog row: kind and repo (the project is $FM_HOME/projects/<repo>);
+#   4. bin/fm-project-mode.sh for that project: registered mode, yolo, and
+#      --branch-prefix (data/projects.md; no-mistakes-prod-only maps to
+#      no-mistakes, its most rigorous leg).
+# The record format is key=value lines, # comments and blank lines allowed,
+# unknown keys refused, every key optional:
+#   project=<name>  kind=ship|scout  mode=<no-mistakes|direct-PR|local-only>
+#   yolo=on|off  branch_prefix=<p>  base_branch=<b>
+#   upstream_consent=<host>/<owner>/<repo>
+# bin/fm-brief.sh writes one for each brief it scaffolds (never yolo, which
+# stays derived), and --backfill writes the derived record for existing items:
+# without --apply it prints `would-write:`, `kept:` (a record already exists,
+# never rewritten) and `skip: <id>: <reason>` lines and changes nothing, so a
+# rerun is idempotent. Only a kind of ship or scout launches. The values become
+# fm-spawn.sh flags as written; fm-spawn.sh validates them against the brief
+# and refuses any disagreement, which is recorded.
 #
 # DISPATCH. No model is in the loop at all. The script makes no network call
 # beyond fm-spawn.sh's own. The configured `default` profile(s) of
@@ -93,7 +111,7 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--dry-run|--list-prepared|--print-timer|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--dry-run|--list-prepared|--print-timer|--backfill [--apply]|--help]' >&2; }
 
 ACTION=run
 case "${1:-}" in
@@ -102,9 +120,15 @@ case "${1:-}" in
   --dry-run) ACTION=dry ;;
   --list-prepared) ACTION=list ;;
   --print-timer) ACTION=timer ;;
+  --backfill) ACTION=backfill ;;
   *) usage; exit 2 ;;
 esac
-[ "$#" -le 1 ] || { usage; exit 2; }
+APPLY=0
+if [ "$ACTION" = backfill ] && [ "${2:-}" = --apply ] && [ "$#" -eq 2 ]; then
+  APPLY=1
+elif [ "$#" -gt 1 ]; then
+  usage; exit 2
+fi
 
 LOG="$STATE/autolaunch.log"
 LOCK="$STATE/.autolaunch.lock"
@@ -220,54 +244,151 @@ ready_ids() {
     inside { inside = 0 }'
 }
 
-# item_show <id>: sets ITEM_HELD from `show --full`.
-item_show() {
+# queued_ids: every queued item's id, in backlog order.
+queued_ids() {
   local out
-  ITEM_HELD=''
-  out=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" --full 2>/dev/null) || return 1
-  ITEM_HELD=$(printf '%s\n' "$out" | sed -n 's/^  held: //p' | head -1)
+  out=$("$SCRIPT_DIR/fm-tasks-axi.sh" list --state queued 2>&1) || {
+    printf 'backlog unreadable: %s\n' "$(flat "$out")" >&2
+    return 1
+  }
+  printf '%s\n' "$out" | awk '
+    /^tasks\[[0-9]+\]/ { inside = 1; next }
+    inside && /^  [^ ]/ { sub(/^  /, ""); sub(/,.*/, ""); print; next }
+    inside { inside = 0 }'
 }
 
-# prep_read <id>: sets P_* or PREP_ERR and returns 1.
+# field <show-output> <name>: one `show` field, outer quotes removed, - as empty.
+show_field() {
+  local v
+  v=$(printf '%s\n' "$1" | sed -n "s/^  $2: //p" | head -1)
+  case "$v" in \"*\") v=${v#\"} v=${v%\"} ;; esac
+  [ "$v" != - ] || v=''
+  printf '%s' "$v"
+}
+
+# item_show <id>: sets ITEM_HELD, ITEM_KIND, ITEM_REPO, ITEM_PRIORITY,
+# ITEM_BODY from `show --full`.
+item_show() {
+  local out
+  ITEM_HELD='' ITEM_KIND='' ITEM_REPO='' ITEM_PRIORITY='' ITEM_BODY=''
+  out=$("$SCRIPT_DIR/fm-tasks-axi.sh" show "$1" --full 2>/dev/null) || return 1
+  ITEM_HELD=$(show_field "$out" held)
+  ITEM_KIND=$(show_field "$out" kind)
+  ITEM_REPO=$(show_field "$out" repo)
+  ITEM_PRIORITY=$(show_field "$out" priority)
+  ITEM_BODY=$(show_field "$out" body)
+}
+
+# ordered_ids: ready ids by backlog priority (0 first, none last), stable.
+ordered_ids() {
+  local ids id n=0
+  ids=$(ready_ids) || return 1
+  for id in $ids; do
+    n=$((n + 1))
+    item_show "$id" || ITEM_PRIORITY=''
+    case "$ITEM_PRIORITY" in [0-9]) ;; *) ITEM_PRIORITY=9 ;; esac
+    printf '%s %06d %s\n' "$ITEM_PRIORITY" "$n" "$id"
+  done | sort -k1,1n -k2,2n | awk '{print $3}'
+}
+
+# prep_doc <id>: prints the item's prep file (home-relative), or returns 1.
+# Needs item_show first for the body.
+prep_doc() {
+  local id=$1 p abs
+  [ -s "$DATA/$id/prep.md" ] && { printf 'data/%s/prep.md\n' "$id"; return 0; }
+  for p in $(printf '%s\n' "$ITEM_BODY" | grep -oE '(/[A-Za-z0-9_.-]+)*/data/[A-Za-z0-9_./-]+\.md|data/[A-Za-z0-9_./-]+\.md'); do
+    printf '%s\n' "$p" | grep -Eqi 'prep|plan|spec' || continue
+    case "$p" in
+      /*) abs=$p ;;
+      *) abs="$DATA/${p#data/}" ;;
+    esac
+    [ -f "$abs" ] && [ -s "$abs" ] || continue
+    printf '%s\n' "$p"
+    return 0
+  done
+  return 1
+}
+
+# brief_line <id> <sed-expression>: the first match from the item's brief.
+brief_line() {
+  sed -n "$2" "$DATA/$1/brief.md" 2>/dev/null | head -1
+}
+
+# prep_read <id>: derives P_* (see PREP above) or sets PREP_ERR and returns 1.
+# Needs item_show first.
 prep_read() {
-  local id=$1 file key value line
+  local id=$1 file key value line reg o_project='' o_kind='' o_mode='' o_yolo='' o_bp='' o_bp_set=0 o_base='' o_consent=''
+  local b_mode b_consent b_branch b_base
   P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR=''
   if [ ! -f "$DATA/$id/brief.md" ] || [ ! -s "$DATA/$id/brief.md" ]; then
     PREP_ERR="no brief data/$id/brief.md"; return 1
   fi
+  prep_doc "$id" >/dev/null || {
+    PREP_ERR="no prep file (data/$id/prep.md or a prep, plan or spec document linked from the item)"; return 1
+  }
   file="$DATA/$id/autolaunch-prep"
-  if [ ! -f "$file" ] || [ ! -r "$file" ]; then
-    PREP_ERR="no prep data/$id/autolaunch-prep"; return 1
+  if [ -e "$file" ]; then
+    [ -f "$file" ] && [ -r "$file" ] || { PREP_ERR="unreadable record data/$id/autolaunch-prep"; return 1; }
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in ''|'#'*) continue ;; esac
+      case "$line" in *=*) ;; *) PREP_ERR="record line without key=value: $line"; return 1 ;; esac
+      key=${line%%=*} value=${line#*=}
+      case "$key" in
+        project) o_project=$value ;;
+        kind) o_kind=$value ;;
+        mode) o_mode=$value ;;
+        yolo) o_yolo=$value ;;
+        branch_prefix) o_bp=$value o_bp_set=1 ;;
+        base_branch) o_base=$value ;;
+        upstream_consent) o_consent=$value ;;
+        *) PREP_ERR="record has unknown key $key"; return 1 ;;
+      esac
+    done < "$file"
   fi
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in ''|'#'*) continue ;; esac
-    case "$line" in *=*) ;; *) PREP_ERR="prep line without key=value: $line"; return 1 ;; esac
-    key=${line%%=*} value=${line#*=}
-    case "$key" in
-      project) P_PROJECT=$value ;;
-      kind) P_KIND=$value ;;
-      mode) P_MODE=$value ;;
-      yolo) P_YOLO=$value ;;
-      branch_prefix) P_BRANCH_PREFIX=$value ;;
-      base_branch) P_BASE_BRANCH=$value ;;
-      upstream_consent) P_CONSENT=$value ;;
-      *) PREP_ERR="prep has unknown key $key"; return 1 ;;
-    esac
-  done < "$file"
+  P_KIND=${o_kind:-$ITEM_KIND}
+  P_PROJECT=${o_project:-$ITEM_REPO}
+  case "$P_KIND" in
+    ship|scout) ;;
+    '') PREP_ERR="no kind on the backlog row"; return 1 ;;
+    *) PREP_ERR="kind $P_KIND is not ship or scout"; return 1 ;;
+  esac
   case "$P_PROJECT" in
-    ''|.|..|*/*) PREP_ERR="prep project= is missing or not a plain name"; return 1 ;;
+    '') PREP_ERR="no repo on the backlog row"; return 1 ;;
+    .|..|*/*) PREP_ERR="project $P_PROJECT is not a plain name"; return 1 ;;
   esac
   [ -d "$FM_HOME/projects/$P_PROJECT" ] || { PREP_ERR="no project clone projects/$P_PROJECT"; return 1; }
-  case "$P_KIND" in
-    ship)
-      case "$P_MODE" in no-mistakes|direct-PR|local-only) ;; *) PREP_ERR="ship prep needs mode=no-mistakes|direct-PR|local-only"; return 1 ;; esac
-      case "$P_YOLO" in on|off) ;; *) PREP_ERR="ship prep needs yolo=on|off"; return 1 ;; esac
-      ;;
-    scout)
-      [ -z "$P_MODE$P_YOLO$P_BRANCH_PREFIX$P_CONSENT" ] || { PREP_ERR="scout prep carries ship-only keys"; return 1; }
-      ;;
-    *) PREP_ERR="prep kind= must be ship or scout"; return 1 ;;
-  esac
+  b_base=$(brief_line "$id" 's/^Base branch: \([^[:space:]]*\).*/\1/p')
+  P_BASE_BRANCH=${o_base:-$b_base}
+  if [ "$P_KIND" = scout ]; then
+    [ -z "$o_mode$o_yolo$o_consent" ] && [ "$o_bp_set" = 0 ] || { PREP_ERR="scout record carries ship-only keys"; return 1; }
+    return 0
+  fi
+  b_mode=$(brief_line "$id" 's/^Delivery contract: mode=\([^[:space:]]*\).*/\1/p')
+  b_consent=$(brief_line "$id" 's/^Delivery contract: mode=.*[[:space:]]upstream-consent=\([^[:space:]]*\).*/\1/p')
+  b_branch=$(brief_line "$id" 's/^Ship branch: \([^[:space:]]*\).*/\1/p')
+  reg=$(FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" "$SCRIPT_DIR/fm-project-mode.sh" "$P_PROJECT" 2>/dev/null) || reg=''
+  P_MODE=${o_mode:-${b_mode:-${reg%% *}}}
+  P_YOLO=${o_yolo:-${reg#* }}
+  if [ "$o_bp_set" = 1 ]; then
+    P_BRANCH_PREFIX=$o_bp
+  elif [ -n "$b_branch" ] && [ "${b_branch%"$id"}" != "$b_branch" ]; then
+    P_BRANCH_PREFIX=${b_branch%"$id"}
+  else
+    P_BRANCH_PREFIX=$(FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" "$SCRIPT_DIR/fm-project-mode.sh" --branch-prefix "$P_PROJECT" 2>/dev/null) || P_BRANCH_PREFIX=fm/
+  fi
+  P_CONSENT=${o_consent:-$b_consent}
+  case "$P_MODE" in no-mistakes|direct-PR|local-only) ;; *) PREP_ERR="no delivery mode for ship (brief, record or project registry)"; return 1 ;; esac
+  case "$P_YOLO" in on|off) ;; *) PREP_ERR="no yolo posture for ship (record or project registry)"; return 1 ;; esac
+}
+
+# prep_record: the derived record as key=value lines.
+prep_record() {
+  printf 'project=%s\nkind=%s\n' "$P_PROJECT" "$P_KIND"
+  if [ "$P_KIND" = ship ]; then
+    printf 'mode=%s\nyolo=%s\nbranch_prefix=%s\n' "$P_MODE" "$P_YOLO" "$P_BRANCH_PREFIX"
+    [ -z "$P_CONSENT" ] || printf 'upstream_consent=%s\n' "$P_CONSENT"
+  fi
+  [ -z "$P_BASE_BRANCH" ] || printf 'base_branch=%s\n' "$P_BASE_BRANCH"
 }
 
 deferred_pending() {
@@ -284,9 +405,8 @@ check_item() {
   local id=$1
   CHECK_ERR=
   item_show "$id" || { CHECK_ERR="not prepared: backlog show failed"; return 1; }
-  prep_read "$id" || true
   [ "$ITEM_HELD" != yes ] || { CHECK_ERR=held; return 1; }
-  [ -z "$PREP_ERR" ] || { CHECK_ERR="not prepared: $PREP_ERR"; return 1; }
+  prep_read "$id" || { CHECK_ERR="not prepared: $PREP_ERR"; return 1; }
   ! deferred_pending "$id" || { CHECK_ERR="spawn deferred pending"; return 1; }
 }
 
@@ -364,8 +484,7 @@ spawn_argv() {
   if [ "$P_KIND" = scout ]; then
     SPAWN_ARGV+=(--scout)
   else
-    SPAWN_ARGV+=(--mode "$P_MODE" --yolo "$P_YOLO")
-    [ -z "$P_BRANCH_PREFIX" ] || SPAWN_ARGV+=(--branch-prefix "$P_BRANCH_PREFIX")
+    SPAWN_ARGV+=(--mode "$P_MODE" --yolo "$P_YOLO" --branch-prefix "$P_BRANCH_PREFIX")
     [ -z "$P_CONSENT" ] || SPAWN_ARGV+=(--upstream-consent "$P_CONSENT")
   fi
   [ -z "$P_BASE_BRANCH" ] || SPAWN_ARGV+=(--base-branch "$P_BASE_BRANCH")
@@ -376,8 +495,31 @@ spawn_argv() {
 
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/fm-autolaunch.XXXXXX") || exit 1
 
+if [ "$ACTION" = backfill ]; then
+  ids=$(queued_ids) || exit 1
+  for id in $ids; do
+    if [ -e "$DATA/$id/autolaunch-prep" ]; then
+      printf 'kept: %s (data/%s/autolaunch-prep exists)\n' "$id" "$id"
+      continue
+    fi
+    item_show "$id" || { printf 'skip: %s: backlog show failed\n' "$id"; continue; }
+    prep_read "$id" || { printf 'skip: %s: %s\n' "$id" "$PREP_ERR"; continue; }
+    rec=$(prep_record | tr '\n' ' ')
+    if [ "$APPLY" = 0 ]; then
+      printf 'would-write: data/%s/autolaunch-prep: %s\n' "$id" "${rec% }"
+      continue
+    fi
+    tmp=$(mktemp "$DATA/$id/.autolaunch-prep.XXXXXX") || exit 1
+    if ! prep_record > "$tmp" || ! mv -f -- "$tmp" "$DATA/$id/autolaunch-prep"; then
+      rm -f -- "$tmp"; exit 1
+    fi
+    printf 'wrote: data/%s/autolaunch-prep: %s\n' "$id" "${rec% }"
+  done
+  exit 0
+fi
+
 if [ "$ACTION" = list ]; then
-  ids=$(ready_ids) || exit 1
+  ids=$(ordered_ids) || exit 1
   for id in $ids; do
     check_item "$id" && printf '%s\n' "$id"
   done
@@ -400,7 +542,7 @@ if [ "$CAP_FREE" -eq 0 ]; then
   exit 0
 fi
 FREE=$CAP_FREE
-if ! ids=$(ready_ids 2>"$TMPD/ready.err"); then
+if ! ids=$(ordered_ids 2>"$TMPD/ready.err"); then
   record - - - "refused:$(head -1 "$TMPD/ready.err")"
   exit 1
 fi
