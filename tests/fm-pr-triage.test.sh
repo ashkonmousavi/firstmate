@@ -121,11 +121,14 @@ meta() {  # <id> [worktree]
 reset() {
   rm -f "$LOG" "$FAKE"/*.log "$FAKE"/show-*.json "$FAKE"/posture-* "$FAKE/control-rc" \
     "$FAKE/gh-fail" "$FAKE/mergify-fail" "$FAKE/send-fail" "$FAKE/remote-open" \
-    "$H/data/secondmates.md" "$H/state"/*.meta
+    "$H/data/secondmates.md" "$H/state"/*.meta "$H/state/.wake-queue" "$H/state/.wake-queue.seq"
   rm -rf "$H/state/pr-triage" "$H/state/spawn-deferred" "$H/state/.pr-triage.lock"
   printf '1\n' > "$FAKE/free"
   queue
   printf '' | rules
+}
+wakes() {  # <number>: wake-queue rows naming that pull request (fm-wake-lib's row format)
+  awk -F'\t' -v k="pr-triage-unowned:$URL/$1" '$3 == "check" && $4 == k' "$H/state/.wake-queue" 2>/dev/null | wc -l | tr -d ' '
 }
 field() {  # <record-line> <n>
   printf '%s\n' "$1" | awk -F'\t' -v n="$2" '{print $n}'
@@ -381,15 +384,22 @@ assert_equals 1 "$(field "$(rec 100)" 3)" 'the J-01 title ranks it 1'
 assert_equals 'refused:owned by sm1: steered sm-task (queue=not queued)' "$(field "$(rec 100)" 5)" 'local owner named and steered'
 assert_equals 'refused:owned by sm2: steered r-task (queue=not queued)' "$(field "$(rec 101)" 5)" 'remote owner read through fm-on and steered'
 assert_contains "$(cat "$FAKE/on.log")" 'sm2 fm-tasks-axi.sh show r-task' 'remote backlog read with fm-tasks-axi show'
-assert_equals 'refused:no home owns nobody (queue=not queued)' "$(field "$(rec 102)" 5)" 'no home holds it and no record here'
-assert_equals 'launched orphan-meta (queue=not queued)' "$(field "$(rec 105)" 5)" 'no home holds it but a record here: local relaunch'
-assert_equals 'refused:no home owns sm-done (queue=not queued)' "$(field "$(rec 103)" 5)" 'done in the other home is not owned'
+assert_equals 'refused:no home owns nobody: firstmate notified (queue=not queued)' "$(field "$(rec 102)" 5)" 'no home holds it: firstmate told'
+assert_equals 'refused:no home owns orphan-meta: firstmate notified (queue=not queued)' "$(field "$(rec 105)" 5)" 'a record here but no backlog item: no relaunch, firstmate told'
+assert_equals 'refused:no home owns sm-done: firstmate notified (queue=not queued)' "$(field "$(rec 103)" 5)" 'done in the other home is not owned'
+assert_equals 1 "$(wakes 105)" 'one wake for the unowned pull request'
+assert_contains "$(awk -F'\t' -v k="pr-triage-unowned:$URL/105" '$4 == k {print $5}' "$H/state/.wake-queue")" "check: pr-triage-unowned: $URL/105 (rank 1, conflicting and red)" 'the wake names the URL and rank'
 assert_equals 'refused:owner unknown for u-task: unreadable sm2 (queue=not queued)' "$(field "$(rec 104)" 5)" 'an unreadable home is named'
 assert_contains "$(grep '^sm1|' "$FAKE/send.log")" "sm1|--one-way|PR triage: $URL/100 belongs to your task sm-task." 'steer names the URL'
 assert_contains "$(grep '^sm1|' "$FAKE/send.log")" 'Do not force-push.' 'steer carries the fix instruction'
-assert_equals 'orphan-meta' "$(grep ' relaunch --note' "$FAKE/control.log" | awk '{print $1}' | sort -u | tr '\n' ' ' | sed 's/ $//')" 'no worker is spawned here for another home'
+assert_absent "$FAKE/control.log" 'no worker is spawned here for another home or an unowned task'
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_contains "$(rec 100)" 'refused:owned by sm1: already steered for head sha100' 'same head: no second steer'
+assert_equals 'refused:no home owns orphan-meta: firstmate already notified for head sha105aaaaaa (queue=not queued)' "$(field "$(rec 105)" 5)" 'same head: a record, no second notice'
+assert_equals 1 "$(wakes 105)" 'one wake per head'
+jq '(.[] | select(.number == 105) | .headRefOid) = "pushed105bbbbbb"' "$FAKE/prs.json" > "$FAKE/p.tmp" && mv "$FAKE/p.tmp" "$FAKE/prs.json"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+assert_equals 2 "$(wakes 105)" 'a new head earns one new wake'
 [ "$(grep -c '^sm1|' "$FAKE/send.log")" -eq 1 ] || fail 'one steer per head'
 jq '(.[] | select(.number == 100) | .headRefOid) = "pushed100bbbbbb"' "$FAKE/prs.json" > "$FAKE/p.tmp" && mv "$FAKE/p.tmp" "$FAKE/prs.json"
 touch "$FAKE/send-fail"
@@ -407,7 +417,34 @@ first=$(printf '%s\n' "$ids" | sed -n 1p); failed=$(printf '%s\n' "$ids" | sed -
 printf '%s\n' "$first" | grep -Eqx '[0-9a-f]{32}' || fail "request id is 32 lowercase hex: $first"
 assert_equals "$failed" "$retried" 'a retried send for the same head reuses its request id'
 [ "$first" != "$failed" ] || fail 'a new head sends under a new request id'
-pass 'a task another registered home owns is refused by name and steered once per head'
+# Oracle: bin/fm-task-inbox-lib.sh: under one request id a different body is a
+# conflict, so a changed message for the same head must carry a new id.
+jq '(.[] | select(.number == 100) | .headRefOid) = "pushed100cccccc"' "$FAKE/prs.json" > "$FAKE/p.tmp" && mv "$FAKE/p.tmp" "$FAKE/prs.json"
+touch "$FAKE/send-fail"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+rm -f "$FAKE/send-fail"
+jq '(.[] | select(.number == 100) | .mergeable) = "MERGEABLE"' "$FAKE/prs.json" > "$FAKE/p.tmp" && mv "$FAKE/p.tmp" "$FAKE/prs.json"
+bash "$TRIAGE" --apply >/dev/null 2>&1
+ids=$(sed -n 's/^sm1 //p' "$FAKE/send-ids.log")
+[ "$(printf '%s\n' "$ids" | sed -n 4p)" != "$(printf '%s\n' "$ids" | sed -n 5p)" ] || fail 'a changed message under the same head gets a new request id'
+assert_contains "$(rec 100)" 'refused:owned by sm1: steered sm-task' 'the changed message is delivered'
+pass 'another home is steered and an unowned task notifies firstmate, once per head each'
+
+# --- one GraphQL read per pass, whatever the number of pull requests ---------------
+# Oracle: the owner's rate-limit requirement: the single paginated read serves
+# every decision, so the gh call count does not grow with the pull request count.
+count_gh() {  # <number of pull requests>
+  reset
+  backlog < /dev/null
+  printf 'label=ci\n' | rules
+  for i in $(seq 1 "$1"); do pr $((200 + i)) "fm/many-$i" MERGEABLE PENDING t ci; done | prs
+  bash "$TRIAGE" --apply >/dev/null 2>&1
+  [ "$(grep -c . "$LOG")" -eq "$1" ] || fail "one record per pull request for $1"
+  grep -c . "$FAKE/gh.log"
+}
+assert_equals 1 "$(count_gh 3)" 'three pull requests: one gh call'
+assert_equals 1 "$(count_gh 12)" 'twelve pull requests: still one gh call'
+pass 'one gh GraphQL read per pass regardless of the pull request count'
 
 # --- dry run writes nothing --------------------------------------------------------
 reset

@@ -45,16 +45,20 @@
 #   Skipped first, in this order: a merge-queue batch (author mergify or head
 #   mergify/merge-queue/), then a draft.
 #   CONFLICTING or a FAILURE/ERROR check rollup -> fix. The fix worker launches
-#   here for a task this home's backlog holds open, or one no registered
-#   home holds open that still has a state/<id>.meta record here. A task done
-#   in this home's backlog is refused as done. A task another registered home
+#   only for a task this home's backlog holds open. A task done in this
+#   home's backlog is refused as done. A task another registered home
 #   (data/secondmates.md) holds open is refused as owned by that home, which
 #   gets one bin/fm-send.sh --one-way steer naming the pull request per pull
 #   request head (state/pr-triage/steer-<n>), sent with an FM_SEND_REQUEST_ID
-#   derived from the pull request number and head so an uncertain send that
-#   is retried deduplicates; its backlog is read with bin/fm-tasks-axi.sh
-#   show, through bin/fm-on.sh for a remote home. A task no home holds open
-#   and with no record here is refused. With a state/<id>.meta record:
+#   hashed from the pull request number, head, home and message so an
+#   uncertain send retried with the same message deduplicates; its backlog is
+#   read with bin/fm-tasks-axi.sh show, through bin/fm-on.sh for a remote
+#   home. A task no home holds open is refused, and this home's firstmate is
+#   told once per pull request head (state/pr-triage/notify-<n>) through the
+#   wake queue, its doorbell (`check: pr-triage-unowned: ...`, the route
+#   bin/fm-pr-orphan-sweep.sh uses), because bin/fm-send.sh addresses tasks,
+#   not the firstmate itself. For this home's task, with a state/<id>.meta
+#   record:
 #     - its worker is alive                -> refused:worker live
 #     - its worker exited, or the record is a released copy
 #       (worktree=*.released-copy)         -> bin/fm-control.sh <id> relaunch
@@ -85,6 +89,12 @@
 # TOOLS. Pull requests are read with one paginated `gh api graphql` query,
 # because gh-axi renders TOON only and the record logic needs JSON; label and
 # comment writes use gh-axi. Every forge and Mergify call is time-bounded.
+# Rate limit: that one GraphQL read per pass, whatever the number of pull
+# requests, is reused by every ranking and action decision. GraphQL has its own
+# 5,000-point hourly budget, separate from REST. Conditional requests
+# (ETag/If-None-Match, where a 304 costs nothing) apply only to REST GETs, and
+# a REST 304 on the pull request list would not reveal check-rollup or
+# mergeability changes, so there is no REST ETag path.
 #
 # RECORDS. state/pr-triage.log, append-only, one line per pull request per pass:
 #   <UTC time>\t<pr url>\t<rank>\t<action>\t<result>
@@ -530,7 +540,7 @@ steer_owner() {
     return 0
   fi
   text="PR triage: $url belongs to your task $task."$'\n'"$note"
-  rid=$(printf 'pr-triage:%s:%s' "$n" "$head" | { shasum -a 256 2>/dev/null || sha256sum; } | cut -c1-32)
+  rid=$(printf 'pr-triage:%s:%s:%s:%s' "$n" "$head" "$home" "$text" | { shasum -a 256 2>/dev/null || sha256sum; } | cut -c1-32)
   if [ "$ACTION" = dry ]; then
     would_run env FM_SEND_REQUEST_ID="$rid" "$SEND_BIN" "$home" --one-way "$text"
   elif ! out=$(FM_SEND_REQUEST_ID=$rid "$SEND_BIN" "$home" --one-way "$text" 2>&1 < /dev/null); then
@@ -539,6 +549,24 @@ steer_owner() {
   fi
   marker_put "$MARKS/steer-$n" "$head"
   record "$url" "$rank" fix "refused:owned by $home: steered $task (queue=$q)"
+}
+
+# notify_unowned <number> <url> <rank> <task> <why> <head> <queue>
+notify_unowned() {
+  local n=$1 url=$2 rank=$3 task=$4 why=$5 head=$6 q=$7 reason
+  if [ "$(marker_get "$MARKS/notify-$n")" = "$head" ]; then
+    record "$url" "$rank" fix "refused:no home owns $task: firstmate already notified for head ${head:0:12} (queue=$q)"
+    return 0
+  fi
+  reason="check: pr-triage-unowned: $url (rank $rank, $why) needs a fix worker but no home's backlog holds task $task open"
+  if [ "$ACTION" = dry ]; then
+    would_run fm_wake_append check "pr-triage-unowned:$url" "$reason"
+  elif ! fm_wake_append check "pr-triage-unowned:$url" "$reason" 2> "$TMPD/wake.err"; then
+    record "$url" "$rank" fix "refused:no home owns $task: notify failed: $(head -1 "$TMPD/wake.err") (queue=$q)"
+    return 0
+  fi
+  marker_put "$MARKS/notify-$n" "$head"
+  record "$url" "$rank" fix "refused:no home owns $task: firstmate notified (queue=$q)"
 }
 
 fix_note() {  # <url> <base> <why>
@@ -563,15 +591,11 @@ act_fix() {
   if ! in_backlog "$task"; then
     owner=$(owning_home "$task")
     case "$owner" in
-      '')
-        if [ ! -f "$STATE/$task.meta" ]; then
-          record "$url" "$rank" fix "refused:no home owns $task (queue=$q)"
-          return 0
-        fi
-        ;;
-      '?'*) record "$url" "$rank" fix "refused:owner unknown for $task: unreadable ${owner//\?/} (queue=$q)"; return 0 ;;
-      *) steer_owner "$n" "$url" "$rank" "$task" "$owner" "$head" "$note" "$q"; return 0 ;;
+      '') notify_unowned "$n" "$url" "$rank" "$task" "$why" "$head" "$q" ;;
+      '?'*) record "$url" "$rank" fix "refused:owner unknown for $task: unreadable ${owner//\?/} (queue=$q)" ;;
+      *) steer_owner "$n" "$url" "$rank" "$task" "$owner" "$head" "$note" "$q" ;;
     esac
+    return 0
   fi
   if [ ! -f "$STATE/$task.meta" ]; then
     record "$url" "$rank" fix "refused:no task record for $task (queue=$q)"

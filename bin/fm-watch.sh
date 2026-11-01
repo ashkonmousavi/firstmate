@@ -106,6 +106,10 @@
 #                          for at least 15 minutes and no task poll in this home
 #                          watches it; once per label episode
 #                          (bin/fm-pr-orphan-sweep.sh owns the contract)
+#   check: pr-triage-unowned: <url> (rank <n>, <why>) needs a fix worker ...
+#                          a top-two-rank red or conflicting pull request whose
+#                          task no home's backlog holds open; once per head
+#                          (bin/fm-pr-triage.sh owns the contract)
 #   check: hold-release: hold condition met: <task-id> <condition>
 #                          a held row's structured release condition (its
 #                          --release-on pr:/marker:) was found met by this
