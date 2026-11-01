@@ -1,0 +1,2 @@
+guarded stop exit=0; teardown exit=0; named lab removed; default-session tripwire unchanged
+{"session":{"default":false,"name":"fm-lab-picker-4089717-27586","running":false,"session_dir":"~/.config/herdr/sessions/fm-lab-picker-4089717-27586","socket_path":"~/.config/herdr/sessions/fm-lab-picker-4089717-27586/herdr.sock"},"stopped":true}

@@ -1,0 +1,28 @@
+{
+  "root_pane": {
+    "agent_status": "unknown",
+    "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject",
+    "focused": false,
+    "foreground_cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject",
+    "pane_id": "w1:p2",
+    "revision": 0,
+    "scroll": {
+      "max_offset_from_bottom": 0,
+      "offset_from_bottom": 0,
+      "viewport_rows": 40
+    },
+    "tab_id": "w1:t2",
+    "terminal_id": "term_65f33e7f0ca222",
+    "workspace_id": "w1"
+  },
+  "tab": {
+    "agent_status": "unknown",
+    "focused": false,
+    "label": "fm-htest",
+    "number": 2,
+    "pane_count": 1,
+    "tab_id": "w1:t2",
+    "workspace_id": "w1"
+  },
+  "type": "tab_created"
+}

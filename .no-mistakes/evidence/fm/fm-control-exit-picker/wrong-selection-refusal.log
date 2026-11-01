@@ -1,0 +1,4 @@
+$ FM_HOME=<lab> bin/fm-control.sh test exit 
+exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l
+error: task test's composer visibly holds pending text; refusing to type the /exit exit command because it would concatenate onto that text. Clear or submit the pending text, then retry 'exit'

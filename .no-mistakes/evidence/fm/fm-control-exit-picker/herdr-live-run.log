@@ -1,0 +1,23 @@
+
+viewer attached to fm-lab-picker-4089717-27586 (pid 251729)
+
+{"id":"cli:agent:start","result":{"agent":{"agent":"claude","agent_status":"idle","cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject","focused":false,"foreground_cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject","interactive_ready":true,"name":"picker-explicit","pane_id":"w1:p2","revision":3,"state_change_seq":1,"tab_id":"w1:t2","terminal_id":"term_65f33e7f0ca222","terminal_title":"✳ Claude Code","terminal_title_stripped":"Claude Code","tokens":{"quota_5h_unknown":"5h N/A","quota_model":"Opus 5.5","quota_provider":"Claude","quota_provider_model":"Claude/Opus 5.5"},"workspace_id":"w1"},"argv":["claude","--model","haiku","--setting-sources","project,local","--allowedTools","Bash"],"type":"agent_started"}}
+
+herdr-unauthorized-submit 1  fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hhome
+error: task htest is blocked on a prompt: Claude background-task exit picker. Refusing to type Enter into it: the task is not recorded Done in the backlog, so stopping its background tasks is not authorized. Stop them from the worker or record the task Done, then retry 'exit'
+
+herdr-landed-open 0 stopped htest harness=claude backend=herdr endpoint=fm-lab-picker-4089717-27586:w1:p2 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject background-sessions=none
+ fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hhome
+
+{"id":"cli:agent:start","result":{"agent":{"agent":"claude","agent_status":"idle","cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject","focused":false,"foreground_cwd":"~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject","interactive_ready":true,"name":"picker-lane","pane_id":"w1:p2","revision":9,"state_change_seq":7,"tab_id":"w1:t2","terminal_id":"term_65f33e7f0ca222","terminal_title":"✳ Claude Code","terminal_title_stripped":"Claude Code","tokens":{"quota_5h_unknown":"5h N/A","quota_model":"Opus 5.5","quota_provider":"Claude","quota_provider_model":"Claude/Opus 5.5","quota_topic":"1. Exit and stop tasks"},"workspace_id":"w1"},"argv":["claude","--model","haiku","--setting-sources","project,local","--allowedTools","Bash"],"type":"agent_started"}}
+
+herdr-lane-arm 0 g1793526431.283909.30192
+ 
+herdr-lane-landing 0  
+herdr-lane-validate 0  
+herdr-lane-exit-worker 0  
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hhome
+stopped htest harness=claude backend=herdr endpoint=fm-lab-picker-4089717-27586:w1:p2 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject background-sessions=none
+rc=0
+
+Herdr lab stop and teardown verified

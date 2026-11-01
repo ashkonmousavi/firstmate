@@ -1,0 +1,54 @@
+{
+  "unauthorized_submit": "pass",
+  "unauthorized_open": "pass",
+  "secondmate_with_done_and_flag": "pass",
+  "wrong_selection": "pass",
+  "done_open_exit": "pass",
+  "background_pid": 3755198,
+  "background_stopped": true,
+  "agent_state": "dead",
+  "done-submitted": {
+    "result": "pass",
+    "background_pid": 3897397,
+    "stopped": true,
+    "backlog_unchanged": true
+  },
+  "landed-submitted": {
+    "result": "pass",
+    "background_pid": 3909771,
+    "stopped": true,
+    "backlog_unchanged": true
+  },
+  "landed-open": {
+    "result": "pass",
+    "background_pid": 3923536,
+    "stopped": true,
+    "backlog_unchanged": true
+  },
+  "validated-nondone-lane-release": {
+    "result": "pass",
+    "backlog_unchanged": true,
+    "background_stopped": true,
+    "seat_free": true
+  },
+  "unresponsive-confirmation": {
+    "result": "pass",
+    "injected_fault": "SIGSTOP owned Claude pid 4084063",
+    "observed": "exit=1; agent did not stop; no stopped claim",
+    "resumed_and_cleaned": true
+  },
+  "before-after": {
+    "base_refused_done_picker": true,
+    "target_stopped_same_session": true,
+    "unattended_already_open_refused": true
+  },
+  "herdr": {
+    "unauthorized_submit": "pass",
+    "explicit_landed_open": "pass",
+    "validated_nondone_lane": "pass",
+    "background_stopped": true,
+    "backlog_unchanged": true,
+    "teardown": "pass; final complete run exit 0; guarded stop and teardown exit 0; default-session tripwire unchanged"
+  },
+  "cleanup": "private tmux and Herdr servers stopped; browser closed; disposable home removed"
+}

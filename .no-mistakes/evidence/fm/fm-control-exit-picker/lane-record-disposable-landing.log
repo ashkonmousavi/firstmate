@@ -1,0 +1,2 @@
+$ bash -c . bin/fm-pr-lib.sh; fm_pr_poll_merge_mark_notified "$FM_HOME/state" test github github.com lab/disposable 7
+exit=0

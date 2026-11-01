@@ -1,0 +1,11 @@
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject$ cl
+aude --model haiku --setting-sources project,local --allowedTools Bash
+
+Resume this session with:
+claude --resume d2e61841-ee18-442a-be83-89d2b8041934
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject$ cl
+aude --model haiku --setting-sources project,local --allowedTools Bash
+
+Resume this session with:
+claude --resume e41689b1-1ce0-460c-800a-24ef8c0705f6
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject$

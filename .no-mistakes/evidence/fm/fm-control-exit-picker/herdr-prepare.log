@@ -1,0 +1,2 @@
+$ FM_HERDR_LAB_STATE_DIR=<lab>/herdr-lab bin/fm-herdr-lab.sh prepare fm-lab-picker-4089717-27586
+exit=0

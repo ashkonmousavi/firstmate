@@ -1,0 +1,4 @@
+$ bin/fm-control.sh htest exit
+exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hhome
+error: task htest is blocked on a prompt: Claude background-task exit picker. Refusing to type Enter into it: the task is not recorded Done in the backlog, so stopping its background tasks is not authorized. Stop them from the worker or record the task Done, then retry 'exit'

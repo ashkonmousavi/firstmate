@@ -1,0 +1,3 @@
+$ . bin/fm-project-capacity-lib.sh; . bin/fm-backend.sh; . bin/fm-agent-process-lib.sh; rc=0; fm_task_record_holds_seat "$FM_HOME/state/test.meta" "$(cat "$FM_HOME/state/test.meta")" "$FM_HOME/state" || rc=$?; printf "holds_seat_return=%s seat_known=%s\n" "$rc" "$FM_TASK_RECORD_SEAT_KNOWN"; [ "$rc" = 1 ] && [ "$FM_TASK_RECORD_SEAT_KNOWN" = 1 ]
+exit=0
+holds_seat_return=1 seat_known=1

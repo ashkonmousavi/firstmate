@@ -1,0 +1,74 @@
+<!doctype html><meta charset="utf-8"><title>Claude exit picker live evidence</title><style>body{margin:24px;background:#17191d;color:#eee;font:14px system-ui}h1{font-size:22px}h2{font-size:17px;color:#b9d6ff}pre{font:12px/1.4 monospace;white-space:pre;overflow:auto;background:#101215;padding:16px;border:1px solid #444}p{color:#bbb}section{margin:24px 0}</style><h1>Claude exit picker: real terminal captures</h1><p>Claude Code 2.1.316 · tmux 3.4 / Herdr 0.9.5. Terminal readbacks captured during this run; CLI transcripts show verified outcomes.</p><section><h2>tmux: Done worker at the real Claude exit picker</h2><pre> ▐▛███▛█   Claude Code v2.1.316
+▝▜██████▀  Haiku 5.5 · Claude Ultra
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/project
+
+
+❯ Use only the Bash tool with run_in_background=true to run this exact command: sh -c &#x27;echo $$ &gt; bg.pid; exec sleep 900&#x27;. Do not inspect any other files. Reply
+  with done.
+
+● Bash(sh -c &#x27;echo $$ &gt; bg.pid; exec sleep 900&#x27;)
+  ⎿  Running in the background (↓ to manage)
+  ⎿  Allowed by auto mode
+
+● done
+
+✻ Crunched for 5s · done 2:37 AM · 1 shell still running
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Background work is running
+  The following will stop when you exit:
+
+  shell · sh -c &#x27;echo $$ &gt; bg.pid; exec sleep 900&#x27;
+
+  ❯ 1. Exit and stop tasks
+    2. Stay
+
+  Enter to confirm · Esc to cancel</pre></section><section><h2>Herdr: unfinished worker refused at the real picker</h2><pre>
+ ▐▛███▛█   Claude Code v2.1.316
+▝▜██████▀  Haiku 5.5 · Claude Ultra
+ ▝▝   ▝▝   ~/…/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject · /rc
+
+
+❯ Use only the Bash tool with run_in_background=true to run this exact command: sh -c &#x27;echo
+  $$ &gt; bg.pid; exec sleep 900&#x27;. Do not inspect any other files. Reply with done.
+
+  Ran 1 shell command
+
+● done
+
+✻ Sautéed for 4s · done 2:43 AM · 1 shell still running
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+   Background work is running
+   The following will stop when you exit:
+
+   shell · sh -c &#x27;echo $$ &gt; bg.pid; exec sleep 900&#x27;
+
+   ❯ 1. Exit and stop tasks
+     2. Stay
+
+   Enter to confirm · Esc to cancel</pre></section><section><h2>Same picker: base refuses; target stops the worker</h2><pre>base=22e62abe5e435f9d087230b3ac856d2cc5e4d005
+exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l
+error: task test is blocked on a prompt: Claude background-task exit picker. Refusing to type Enter into it.</pre></section><section><h2>Validated non-Done lane release on Herdr</h2><pre>fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hhome
+stopped htest harness=claude backend=herdr endpoint=fm-lab-picker-4089717-27586:w1:p2 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject background-sessions=none
+rc=0</pre></section><section><h2>A delivered Enter is not a stopped-agent claim</h2><pre>$ FM_HOME=&lt;lab&gt; bin/fm-control.sh test exit 
+exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l
+error: exit-delivered test chose &#x27;Exit and stop tasks&#x27; on the Claude background-task exit picker but the agent did not stop within 2s (agent-state=alive)</pre></section>

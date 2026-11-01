@@ -1,0 +1,4 @@
+$ FM_HOME=<lab> bin/fm-control.sh test exit 
+exit=0
+stopped test harness=claude backend=tmux endpoint=primary:fm-test worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/project background-sessions=none
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l

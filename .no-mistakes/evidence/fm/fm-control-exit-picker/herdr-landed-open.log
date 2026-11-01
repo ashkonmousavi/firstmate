@@ -1,0 +1,4 @@
+$ bin/fm-control.sh htest exit --landed-work
+exit=0
+stopped htest harness=claude backend=herdr endpoint=fm-lab-picker-4089717-27586:w1:p2 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hproject background-sessions=none
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6B62AEYX0JQH5T01JDP149M/.l/hhome

@@ -1,0 +1,3 @@
+Private tmux kill-server exit=0; has-session exit=1
+Herdr final run exit=0; guarded stop and teardown exit=0; default-session tripwire unchanged.
+Browser screenshot process exited=0 and closed its browser.
