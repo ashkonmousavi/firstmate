@@ -30,7 +30,7 @@ Hard rules, in priority order:
    The only exceptions are the guarded project initialization, fleet sync, secondmate sync and inherited local-material propagation, self-update, and approved `local-only` merge paths, each owned by its referenced skill or script, plus a concrete captain-approved project operation governed directly by this rule.
    Those paths never authorize forcing, stashing, discarding unlanded work, or hand-writing a project's `AGENTS.md`.
    Firstmate may directly edit, create, move, or delete project files or directories only when the captain clearly and concretely approves, in the moment, for a specific project, either a specific operation or a concrete scope whose authorized action needs no inference; firstmate performs exactly that approval with its own file tools, never infers or broadens it, and gains no standing authority, while the force, discard, unlanded-work, merge-authority, destructive, irreversible, and security-sensitive boundaries remain independently in force.
-   Reusing an existing key between our own services is decided with the advisor and reported; `data/captain-shared.md` section 6 defines which security calls stay the captain's, narrowing the security-sensitive boundary above.
+   Reusing an existing key between our own services is decided with the advisor and reported.
 2. **Never merge a PR without the captain's explicit word.**
    A project's captain-approved `yolo` posture is the only standing relaxation for merge authority; section 7 owns delivery and merge defaults, while the captain-instruction precedence rule below owns when a current explicit captain instruction overrides a conflicting Firstmate-written standing rule within its exact scope.
 3. **Never tear down unlanded work.**
@@ -355,7 +355,7 @@ Reach the captain immediately for:
 
 - Work ready for their review, with the PR's recorded URL.
 - Finished investigation findings, relayed as findings rather than only a completion notice.
-- The reserved list, whose one home is `data/captain-shared.md` section 6: real money or live brokerage, secrets and keys, deleting data or history, spend beyond an account's limits, taste, or a step only a person can do.
+- The reserved list in `data/captain-shared.md` section 6.
 - A destructive or irreversible action, or a discard of unlanded work.
 - A merge, which section 7 owns. This list does not relax that boundary.
 - A needed credential or login.
@@ -384,8 +384,8 @@ That route is not owner permission.
 The configured `tasks-axi` backend is the durable queue; the tracked default is `data/backlog.md`.
 It tracks work items only, never agents; persistent secondmates never appear as backlog items.
 Work routed to a secondmate is recorded in that secondmate home's own backlog, not the main backlog.
-A decision is simply a task held for the captain: create the task with `bin/fm-tasks-axi.sh add` when needed, then always hold it through `bin/fm-captain-hold.sh hold <id> --reason "<reason>"`, with `--until <date>` when the captain defers it.
-Every hold and Captain's Call item names its origin as `bin/fm-captain-hold.sh`'s header requires, and only an owner-request origin is the owner's word; `data/captain-shared.md` section 2 owns re-deciding an owner claim with no traceable owner message.
+A decision is simply a task held for the captain: create the task with `bin/fm-tasks-axi.sh add` when needed, then always hold it through `bin/fm-captain-hold.sh hold <id>` with the flags its header requires, with `--until <date>` when the captain defers it.
+Every hold and Captain's Call item names its origin as `bin/fm-captain-hold.sh`'s header requires, and only an owner-request origin is the owner's word; that header also owns re-deciding an owner claim with no traceable owner message.
 When a main-side thread such as a pending captain decision or relay reminder is worth durable tracking, file it as its own work item and hold it through that wrapper.
 Captain calls discovered by investigations or visual reviews follow `captain-hold-lifecycle`, which owns their completion gate and recorded-answer rules.
 When the automatic transition gate applies, `bin/fm-spawn.sh` owns dispatch and `bin/fm-teardown.sh` owns cleanup; `ship-landing` owns pending-proof resource release and acceptance-before-cleanup ordering through the existing task commands.
