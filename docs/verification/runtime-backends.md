@@ -9,20 +9,24 @@ Exact task chronology, branch names, temporary homes, local paths, process ids, 
 ## Claude state-claim Stop check
 
 The [state-claim check](../turnend-guard.md#state-claim-check) owns the current operator contract.
-Verified on 2026-11-01, Linux x86_64, Claude Code 2.1.316, Python 3.12.3, with the inherited signed-in Claude account and no account-pin changes.
+Verified with the committed portable and live guards on 2026-11-01, Linux x86_64, Claude Code 2.1.316, Python 3.12.3, with the inherited signed-in Claude account and no account-pin changes.
 These tests run isolated homes through Claude print mode, independently of tmux, Herdr, Zellij, Orca, cmux, or Paseo; they establish Stop payload/transcript compatibility, not interactive endpoint lifecycle coverage.
 The guard itself makes no model calls; the opt-in live regression submits two short prompts.
 
 ```text
+bash bin/fm-test-run.sh tests/fm-state-claim-guard.test.sh
+ok - full synchronous hook worst time 37.6ms < 200ms
 FM_STATE_CLAIM_LIVE=1 bash bin/fm-test-run.sh tests/fm-state-claim-guard-live-e2e.test.sh
 ok - 2.1.316 (Claude Code) real Stop no-read: exits 2,0
 ok - 2.1.316 (Claude Code) real Stop read: exits 0
 ok - 2.1.316 (Claude Code) state-claim live guard checked 2 sessions
 ```
 
-`bash bin/fm-test-run.sh tests/fm-state-claim-guard.test.sh` exercises MAIN, linked secondmate and worker scope, secondmate busy transitions, same-turn matching, explicit historical qualification, unreadable transcripts, and repeated Stop behavior.
-A separate admitted Linux x86_64 server run with Python 3.14.4 of the final portable test measured a worst case of 93.0 ms across five full-hook blocking samples, below the asserted 200 ms budget.
-An overloaded host also exceeded that wall budget during validation; scheduling stalls remain visible as test failures rather than being excluded from the assertion.
+The portable guard exercises MAIN, linked secondmate and worker scope, secondmate busy transitions, same-turn matching of PR numbers, URL hosts and lane names, Markdown and coordinated identifiers, unconditional compound-command reads, explicit historical qualification, unreadable transcripts, and exemption of only this guard's own repeated block.
+The live guard asserts the affirmative claim in both sessions and verifies that the matching fixture read executed and completed in Claude's transcript.
+Additional real Claude print-mode scenarios in the retained evidence verify resource mismatches, previous-turn reads, another hook's continuation, MAIN and secondmate enforcement, and worker exemption.
+The evidence retained in `state-claim-live-report.md` records a portable maximum of 37.6 ms across five full-hook blocking samples and a largest live full-hook invocation of 65.79 ms, both below the 200 ms budget.
+An earlier overloaded-host run exceeded that wall budget; scheduling stalls remain visible as test failures rather than being excluded from the assertion.
 The portable fixtures cover Grok/Cursor/Pi compatibility stand-down; other harnesses' native entrypoints omit `--state-claims` and are outside this feature's scope.
 macOS execution, Windows-native Python, interactive Claude sessions, remote installations, and each fleet account remain live-proof gaps.
 
