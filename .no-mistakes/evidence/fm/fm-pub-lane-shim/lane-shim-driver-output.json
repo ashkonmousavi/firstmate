@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Both code roots executable: registered shim runs the home code root and writes only its home state",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Delete arming checkout after arm: byte-bound shim still runs the real home sweep; disarm removes registration",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Home has no code: registered shim falls back to the real arming checkout",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Home script loses execute permission: registered shim uses executable arming checkout",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Neither script exists: registered shim emits actionable diagnostic and exits 1",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Neither script executable: registered shim exits 1 without attempting sweep",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Arm through bash with nonexecutable arming script: refuses without creating shim or trust",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Relative home and shell-sensitive paths: own-root and fallback sweeps preserve paths and override unrelated caller FM_HOME",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Install home code after arming: unchanged trusted shim switches from fallback to home executable",
+    "result": "pass",
+    "live": true
+  }
+]

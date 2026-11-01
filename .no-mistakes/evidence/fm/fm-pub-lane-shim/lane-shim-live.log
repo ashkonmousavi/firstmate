@@ -1,0 +1,308 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home
+armed: state/lane-release.check.sh (setting: invalid:live-proof-prefer-home)
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
+lane-release: config/lane-release holds 'live-proof-prefer-home', expected off, audit, or on; nothing is released until it is corrected
++ export FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home/bin/fm-lane-release.sh
++ pinned=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home/bin/fm-lane-release.sh ']'
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home/bin/fm-lane-release.sh ']'
++ exec ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/prefer-home/home/bin/fm-lane-release.sh sweep
+exit=0
+
+PROVED: Both code roots executable: registered shim runs the home code root and writes only its home state
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home
+armed: state/lane-release.check.sh (setting: invalid:live-proof-lost-arming-root)
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
+lane-release: config/lane-release holds 'live-proof-lost-arming-root', expected off, audit, or on; nothing is released until it is corrected
++ export FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home/bin/fm-lane-release.sh
++ pinned=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home/bin/fm-lane-release.sh ']'
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home/bin/fm-lane-release.sh ']'
++ exec ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home/bin/fm-lane-release.sh sweep
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home/bin/fm-lane-release.sh disarm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/lost-arming-root/home
+disarmed: state/lane-release.check.sh
+exit=0
+
+PROVED: Delete arming checkout after arm: byte-bound shim still runs the real home sweep; disarm removes registration
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home
+armed: state/lane-release.check.sh (setting: invalid:live-proof-fallback-no-home)
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
+lane-release: config/lane-release holds 'live-proof-fallback-no-home', expected off, audit, or on; nothing is released until it is corrected
++ export FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home/bin/fm-lane-release.sh
++ pinned=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/home/bin/fm-lane-release.sh ']'
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/arming/bin/fm-lane-release.sh ']'
++ exec ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-no-home/arming/bin/fm-lane-release.sh sweep
+exit=0
+
+PROVED: Home has no code: registered shim falls back to the real arming checkout
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home
+armed: state/lane-release.check.sh (setting: invalid:live-proof-fallback-nonexec-home)
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
+lane-release: config/lane-release holds 'live-proof-fallback-nonexec-home', expected off, audit, or on; nothing is released until it is corrected
++ export FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home/bin/fm-lane-release.sh
++ pinned=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/home/bin/fm-lane-release.sh ']'
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/arming/bin/fm-lane-release.sh ']'
++ exec ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/fallback-nonexec-home/arming/bin/fm-lane-release.sh sweep
+exit=0
+
+PROVED: Home script loses execute permission: registered shim uses executable arming checkout
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home
+armed: state/lane-release.check.sh (setting: invalid:live-proof-no-scripts)
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
++ export FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home/bin/fm-lane-release.sh
++ pinned=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/home/bin/fm-lane-release.sh ']'
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/arming/bin/fm-lane-release.sh ']'
++ echo 'fm-lane-release shim: no executable fm-lane-release.sh at ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/arming/bin/fm-lane-release.sh'
+fm-lane-release shim: no executable fm-lane-release.sh at ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-scripts/arming/bin/fm-lane-release.sh
++ exit 1
+exit=1
+
+PROVED: Neither script exists: registered shim emits actionable diagnostic and exits 1
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home
+armed: state/lane-release.check.sh (setting: invalid:live-proof-no-executables)
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
++ export FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home/bin/fm-lane-release.sh
++ pinned=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/home/bin/fm-lane-release.sh ']'
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/arming/bin/fm-lane-release.sh ']'
++ echo 'fm-lane-release shim: no executable fm-lane-release.sh at ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/arming/bin/fm-lane-release.sh'
+fm-lane-release shim: no executable fm-lane-release.sh at ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/no-executables/arming/bin/fm-lane-release.sh
++ exit 1
+exit=1
+
+PROVED: Neither script executable: registered shim exits 1 without attempting sweep
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/arm-refusal/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/arm-refusal/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/arm-refusal/home
+exit=0
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/arm-refusal/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/arm-refusal/home
+fm-lane-release: refusing to arm, ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/arm-refusal/arming/bin/fm-lane-release.sh is not executable
+exit=1
+
+PROVED: Arm through bash with nonexecutable arming script: refuses without creating shim or trust
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '"'"' $literal; (x)'
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home ' $literal; (x)
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home ' $literal; (x)
+exit=0
+
+$ '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/arming root '"'"' $literal; (x)/bin/fm-lane-release.sh' arm
+FM_HOME=.lane-shim-live-xnob22hu/quoted-relative-home/home ' $literal; (x)
+armed: state/lane-release.check.sh (setting: invalid:live-proof-quoted-relative-home)
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '"'"' $literal; (x)'
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
+lane-release: config/lane-release holds 'live-proof-quoted-relative-home', expected off, audit, or on; nothing is released until it is corrected
++ export 'FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)'
++ FM_HOME='~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)'
++ own='~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)/bin/fm-lane-release.sh'
++ pinned='~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/arming root '\'' $literal; (x)/bin/fm-lane-release.sh'
++ '[' -x '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)/bin/fm-lane-release.sh' ']'
++ '[' -x '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)/bin/fm-lane-release.sh' ']'
++ exec '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)/bin/fm-lane-release.sh' sweep
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '"'"' $literal; (x)'
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
+lane-release: config/lane-release holds 'live-proof-quoted-relative-home', expected off, audit, or on; nothing is released until it is corrected
++ export 'FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)'
++ FM_HOME='~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)'
++ own='~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)/bin/fm-lane-release.sh'
++ pinned='~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/arming root '\'' $literal; (x)/bin/fm-lane-release.sh'
++ '[' -x '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/home '\'' $literal; (x)/bin/fm-lane-release.sh' ']'
++ own='~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/arming root '\'' $literal; (x)/bin/fm-lane-release.sh'
++ '[' -x '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/arming root '\'' $literal; (x)/bin/fm-lane-release.sh' ']'
++ exec '~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/quoted-relative-home/arming root '\'' $literal; (x)/bin/fm-lane-release.sh' sweep
+exit=0
+
+PROVED: Relative home and shell-sensitive paths: own-root and fallback sweeps preserve paths and override unrelated caller FM_HOME
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
+armed: state/lane-release.check.sh (setting: invalid:live-proof-install-home-later)
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
+lane-release: config/lane-release holds 'live-proof-install-home-later', expected off, audit, or on; nothing is released until it is corrected
++ export FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home/bin/fm-lane-release.sh
++ pinned=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home/bin/fm-lane-release.sh ']'
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/arming/bin/fm-lane-release.sh ']'
++ exec ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/arming/bin/fm-lane-release.sh sweep
+exit=0
+
+$ bash -c 'source "$1/bin/fm-pr-lib.sh"
+source "$1/bin/fm-check-lib.sh"
+fm_custom_check_snapshot_prepare "$2/state" lane-release || exit 91
+trap fm_custom_check_snapshot_cleanup EXIT
+bash -x "$FM_CUSTOM_CHECK_SNAPSHOT"
+' lane-shim-live ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/unrelated-home
+lane-release: config/lane-release holds 'live-proof-install-home-later', expected off, audit, or on; nothing is released until it is corrected
++ export FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
++ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home
++ own=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home/bin/fm-lane-release.sh
++ pinned=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/arming/bin/fm-lane-release.sh
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home/bin/fm-lane-release.sh ']'
++ '[' -x ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home/bin/fm-lane-release.sh ']'
++ exec ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/install-home-later/home/bin/fm-lane-release.sh sweep
+exit=0
+
+PROVED: Install home code after arming: unchanged trusted shim switches from fallback to home executable
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/home
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/home
+exit=0
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/arming/bin/fm-lane-release.sh arm
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/home
+armed: state/lane-release.check.sh (setting: invalid:live-proof-baseline-regression)
+exit=0
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/home/state/lane-release.check.sh
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/home
+~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/home/state/lane-release.check.sh: line 4: ~/.no-mistakes/worktrees/049a88734b0e/01M6AHBHMAYT1GXYZJABSB69CS/.lane-shim-live-xnob22hu/baseline-regression/arming/bin/fm-lane-release.sh: No such file or directory
+exit=127
+
+BASELINE REPRODUCED: pre-fix shim exits 127 after arming checkout removal, despite executable home code. Target passed this same scenario.
+Disposable roots removed.
