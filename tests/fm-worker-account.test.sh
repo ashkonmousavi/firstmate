@@ -1192,8 +1192,17 @@ test_codex_identity_timeout() {
   printf '%s\n' "$CASE/account one" > "$HOME_DIR/config/codex-accounts"
   cat > "$FAKEBIN/codex" <<'PY'
 #!/usr/bin/env python3
-import os, pathlib, subprocess, sys, time
+import json, os, pathlib, subprocess, sys, time
 root = pathlib.Path(os.environ["CODEX_HOME"])
+mode = root / "cancel-stage"
+if mode.exists() and mode.read_text() == "login" and "app-server" in sys.argv:
+    for line in sys.stdin:
+        request = json.loads(line)
+        if request.get("method") == "initialized":
+            continue
+        result = {"account": {"type": "apiKey"}} if request.get("method") == "account/read" else {}
+        print(json.dumps({"id": request["id"], "result": result}), flush=True)
+    sys.exit(0)
 (root / "wrapper.pid").write_text(str(os.getpid()))
 child = subprocess.Popen([sys.executable, "-c", 'import sys,time; sys.stdout.write("{\\\"id\\\":"); sys.stdout.flush(); time.sleep(120)'])
 (root / "child.pid").write_text(str(child.pid))
@@ -1202,6 +1211,9 @@ PY
   out=$(PATH="$FAKEBIN:$PATH" python3 - "$ROOT/bin/fm-codex-accounts.py" "$HOME_DIR/config/codex-accounts" "$CASE/account one" <<'PY'
 import os, pathlib, signal, subprocess, sys, time
 root = pathlib.Path(sys.argv[3])
+if sys.platform.startswith("linux"):
+    import ctypes
+    assert ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) == 0, "could not adopt test descendants"
 try:
     started = time.monotonic()
     result = subprocess.run([sys.executable, sys.argv[1], "guard", "--config", sys.argv[2]],
@@ -1221,10 +1233,99 @@ finally:
                 os.kill(int((root / name).read_text()), signal.SIGKILL)
             except ProcessLookupError:
                 pass
+            try:
+                os.waitpid(int((root / name).read_text()), 0)
+            except ChildProcessError:
+                pass
+
+def state(pid):
+    return subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+
+unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], start_new_session=True)
+try:
+    for stage in ("app-server", "login"):
+        for signum in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+            for name in ("wrapper.pid", "child.pid"):
+                (root / name).unlink(missing_ok=True)
+            (root / "cancel-stage").write_text(stage)
+            command = [sys.executable, sys.argv[1], "check", "--config", sys.argv[2], "--folder", str(root)]
+            helper = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+            watchdog = None
+            pids = []
+            try:
+                deadline = time.monotonic() + 4
+                while not all((root / name).exists() and (root / name).read_text().strip().isdigit()
+                              for name in ("wrapper.pid", "child.pid")):
+                    assert helper.poll() is None, "helper exited before the stalled vendor started"
+                    assert time.monotonic() < deadline, "stalled vendor did not start"
+                    time.sleep(0.01)
+                pids = [int((root / name).read_text()) for name in ("wrapper.pid", "child.pid")]
+                assert os.getpgid(pids[0]) == pids[0] == os.getpgid(pids[1]), "wrapper and child must share their owned group"
+                assert pids[0] != helper.pid, "vendor must be isolated from the outer watchdog group"
+                started = time.monotonic()
+                watchdog = subprocess.Popen([sys.executable, "-c", """
+import os, signal, sys, time
+time.sleep(0.2)
+os.killpg(int(sys.argv[1]), int(sys.argv[2]))
+time.sleep(0.2)
+try:
+    os.killpg(int(sys.argv[1]), signal.SIGKILL)
+except ProcessLookupError:
+    pass
+""", str(helper.pid), str(signum)])
+                stdout, stderr = helper.communicate(timeout=3)
+                watchdog.wait(timeout=1)
+                assert watchdog.returncode == 0, "outer watchdog failed to cancel the helper"
+                assert helper.returncode not in (0, -signal.SIGKILL), "helper failed to finish cancellation before watchdog escalation"
+                assert time.monotonic() - started < 3, "external cancellation exceeded its bound"
+                assert not stdout and not stderr, "external cancellation leaked vendor diagnostics"
+                if sys.platform.startswith("linux"):
+                    try:
+                        os.waitpid(pids[0], os.WNOHANG)
+                    except ChildProcessError:
+                        pass
+                    else:
+                        raise AssertionError("helper did not reap its direct vendor child")
+                deadline = time.monotonic() + 2
+                while any(state(pid) for pid in pids) and time.monotonic() < deadline:
+                    for pid in pids:
+                        try:
+                            os.waitpid(pid, os.WNOHANG)
+                        except ChildProcessError:
+                            pass
+                    time.sleep(0.01)
+                assert all(not state(pid) for pid in pids), f"owned processes survived {stage}/{signum}: {pids}"
+                assert unrelated.poll() is None, "vendor cleanup terminated an unrelated process"
+            finally:
+                for process in (watchdog, helper):
+                    if process is not None:
+                        if process.poll() is None:
+                            process.kill()
+                        process.wait()
+                if not pids:
+                    pids = [int((root / name).read_text()) for name in ("wrapper.pid", "child.pid")
+                            if (root / name).exists() and (root / name).read_text().strip().isdigit()]
+                if pids:
+                    try:
+                        os.killpg(pids[0], signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                for pid in pids:
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        os.waitpid(pid, 0)
+                    except ChildProcessError:
+                        pass
+finally:
+    unrelated.terminate()
+    unrelated.wait()
 PY
   ); rc=$?
   expect_code 0 "$rc" "identity read must time out and kill wrapper descendants: $out"
-  pass 'Codex identity reads enforce a deadline and terminate wrappers and pipe-holding descendants'
+  pass 'Codex deadlines and outer cancellation reap owned wrappers and descendants without affecting unrelated processes'
 }
 
 test_codex_runway_timing() {

@@ -24,6 +24,7 @@ it refuses conflicting destinations and never overwrites them.
 """
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import math
@@ -101,19 +102,43 @@ def stop_vendor(process):
         os.killpg(process.pid, signal.SIGKILL)
     except ProcessLookupError:
         pass
-    process.wait()
+
+
+@contextmanager
+def vendor_process(args, root, **options):
+    process = None
+    interrupted = None
+
+    def cancel(signum, frame):
+        nonlocal interrupted
+        interrupted = signum
+        if process is not None:
+            stop_vendor(process)
+
+    handlers = {sig: signal.getsignal(sig) for sig in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM)}
+    try:
+        for sig in handlers:
+            signal.signal(sig, cancel)
+        with subprocess.Popen(args, env=clean_env(root), start_new_session=True, **options) as process:
+            try:
+                if interrupted is not None:
+                    raise SystemExit(128 + interrupted)
+                yield process
+            finally:
+                stop_vendor(process)
+    finally:
+        for sig, handler in handlers.items():
+            signal.signal(sig, handler)
+        if interrupted is not None:
+            raise SystemExit(128 + interrupted)
 
 
 def run_vendor(args, root, seconds=10, cwd=None):
     try:
-        with subprocess.Popen(args, env=clean_env(root), stdin=subprocess.DEVNULL,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              start_new_session=True, cwd=cwd) as process:
-            try:
-                stdout, stderr = process.communicate(timeout=seconds)
-                return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
-            finally:
-                stop_vendor(process)
+        with vendor_process(args, root, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, cwd=cwd) as process:
+            stdout, stderr = process.communicate(timeout=seconds)
+            return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -125,39 +150,35 @@ def signed_in(root, codex):
 
 def app_server_read(root, codex, method, params):
     try:
-        with subprocess.Popen([codex, "-c", 'cli_auth_credentials_store="file"', "app-server"],
-                              env=clean_env(root), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                              stderr=subprocess.DEVNULL, start_new_session=True) as process:
-            try:
-                deadline = time.monotonic() + 10
-                process.stdin.write(json.dumps({"id": 0, "method": "initialize", "params": {
-                    "clientInfo": {"name": "firstmate_account_guard", "version": "1"}}}).encode() + b"\n")
-                process.stdin.flush()
-                pending = b""
-                with selectors.DefaultSelector() as selector:
-                    selector.register(process.stdout, selectors.EVENT_READ)
-                    while time.monotonic() < deadline:
-                        if not selector.select(max(0, deadline - time.monotonic())):
-                            return None
-                        chunk = os.read(process.stdout.fileno(), 65536)
-                        if not chunk:
-                            return None
-                        pending += chunk
-                        while b"\n" in pending:
-                            line, pending = pending.split(b"\n", 1)
-                            message = json.loads(line)
-                            if message.get("id") == 0:
-                                if "error" in message:
-                                    return None
-                                process.stdin.write(json.dumps({"method": "initialized", "params": {}}).encode() + b"\n")
-                                process.stdin.write(json.dumps({"id": 1, "method": method,
-                                                                "params": params}).encode() + b"\n")
-                                process.stdin.flush()
-                            elif message.get("id") == 1:
-                                result = message.get("result")
-                                return result if isinstance(result, dict) else None
-            finally:
-                stop_vendor(process)
+        with vendor_process([codex, "-c", 'cli_auth_credentials_store="file"', "app-server"], root,
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
+            deadline = time.monotonic() + 10
+            process.stdin.write(json.dumps({"id": 0, "method": "initialize", "params": {
+                "clientInfo": {"name": "firstmate_account_guard", "version": "1"}}}).encode() + b"\n")
+            process.stdin.flush()
+            pending = b""
+            with selectors.DefaultSelector() as selector:
+                selector.register(process.stdout, selectors.EVENT_READ)
+                while time.monotonic() < deadline:
+                    if not selector.select(max(0, deadline - time.monotonic())):
+                        return None
+                    chunk = os.read(process.stdout.fileno(), 65536)
+                    if not chunk:
+                        return None
+                    pending += chunk
+                    while b"\n" in pending:
+                        line, pending = pending.split(b"\n", 1)
+                        message = json.loads(line)
+                        if message.get("id") == 0:
+                            if "error" in message:
+                                return None
+                            process.stdin.write(json.dumps({"method": "initialized", "params": {}}).encode() + b"\n")
+                            process.stdin.write(json.dumps({"id": 1, "method": method,
+                                                            "params": params}).encode() + b"\n")
+                            process.stdin.flush()
+                        elif message.get("id") == 1:
+                            result = message.get("result")
+                            return result if isinstance(result, dict) else None
     except (OSError, ValueError, TypeError, AttributeError):
         pass
     return None
