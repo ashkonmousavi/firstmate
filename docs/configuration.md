@@ -2440,7 +2440,7 @@ This section is the single owner of the runner's operating contract.
 
 Discovery is never a timer.
 Each registered source has its own child process blocking on that source.
-On every cycle, the watcher's `reconcile`:
+On every cycle, the watcher runs `reconcile` before remote probes and any wake that ends the cycle, so a slow remote hop or early wake cannot skip source recovery:
 
 - Republishes every captured result without a durable handled acknowledgement, regardless of earlier publication.
 - Restarts a source whose owner is gone.

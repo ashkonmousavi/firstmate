@@ -81,11 +81,14 @@ REMOTE_LOG='state/parent-replies.status'
 WAIT_SECONDS=${FM_REMOTE_REPLY_WAIT_SECONDS:-55}
 MAX_DOC_BYTES=${FM_REMOTE_REPLY_MAX_DOC_BYTES:-262144}
 # fm-on.sh returns ssh's status unchanged, so 255 alone means unavailable
-# transport or unknown remote completion. Any other nonzero status is the remote
-# reader's own refusal of that path at that moment. The reader has no permanence
-# vocabulary - a report the mate has not finished writing refuses exactly like a
-# path that will never exist - so a refusal fails open rather than being read as
-# final (see cmd_ingest).
+# transport or unknown remote completion. The runner treats that exit as a
+# failed read: this process ends, no caught-up watermark is recorded, and the
+# registration stays armed for the ordinary reconcile cycle to start the next
+# listener. It is not an in-process relisten. Any other nonzero status is the
+# remote reader's own refusal of that path at that moment. The reader has no
+# permanence vocabulary - a report the mate has not finished writing refuses
+# exactly like a path that will never exist - so a refusal fails open rather
+# than being read as final (see cmd_ingest).
 SSH_UNAVAILABLE=255
 DOCUMENT_LOCAL_FAILURE=2
 

@@ -38,8 +38,11 @@
 #          sequence before probing, and an alive remote route is revalidated
 #          (route readable, backend herdr) so the sweep reports drift.
 #   poll - watcher tick: remote routes take one read-only state probe per
-#          check; repair still happens, but inside fm-spawn's launch gate only
-#          when a relaunch is actually authorized.
+#          check; repair happens inside fm-spawn's launch gate only when a
+#          relaunch is actually authorized.
+# Remote state probes in either mode and the full-mode route probe each have
+# a fixed 30-second bound. A probe that hits the bound is treated as an
+# unreachable host: the route is preserved and nothing is relaunched.
 #
 # Concurrency: fm_secondmate_liveness_lock serializes probe+kill+relaunch per
 # task across the bootstrap sweep and the watcher tick, so a concurrent
@@ -163,12 +166,12 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
         return 0
       fi
     fi
-    if out=$("$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
+    if out=$(fm_run_timed 30 "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
       remote_rc=0
     else
       remote_rc=$?
     fi
-    if [ "$remote_rc" -eq 255 ]; then
+    if [ "$remote_rc" -eq 255 ] || fm_timed_out "$remote_rc"; then
       FM_SM_LIVE_REASON="remote host unavailable or endpoint state unknown; route preserved on $remote_host"
       return 0
     fi
@@ -181,12 +184,12 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
     case "$agent_state" in
       alive)
         if [ "$mode" = full ]; then
-          if route_out=$("$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
+          if route_out=$(fm_run_timed 30 "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh route "$id" < /dev/null 2>/dev/null); then
             remote_rc=0
           else
             remote_rc=$?
           fi
-          if [ "$remote_rc" -eq 255 ]; then
+          if [ "$remote_rc" -eq 255 ] || fm_timed_out "$remote_rc"; then
             FM_SM_LIVE_REASON="remote host unavailable or endpoint route unknown; route preserved on $remote_host"
             return 0
           fi

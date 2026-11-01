@@ -455,7 +455,8 @@ The watcher's liveness tick applies the identical rule during ordinary supervisi
 - Only a positive `dead` or `missing` reply relaunches through that command.
 - An unreachable transport or inconclusive state is left untouched rather than replaced locally.
 
-[`bin/fm-secondmate-liveness-lib.sh`'s header](../bin/fm-secondmate-liveness-lib.sh) owns recovery serialization with deliberate restarts.
+The [liveness library header](../bin/fm-secondmate-liveness-lib.sh) owns probe deadlines and their route-preserving timeout behavior.
+It also owns recovery serialization with deliberate restarts.
 
 ### Inventory reconcile for markerless routes
 
@@ -530,6 +531,7 @@ The listener holds its claim across an empty wait and across a delta it re-arms,
 The [`fm-remote-delta-read.sh` header](../bin/fm-remote-delta-read.sh) owns snapshot sampling and its line-visibility and wait-window latency contract.
 It stops when that registration is retired, the registered command changes, or the home's owner lease lapses.
 `bin/fm-procevent.sh` owns the generic relisten rule, and `bin/fm-procevent-remote-reply.sh` owns this adapter's answer.
+After a failed delta read, the registration stays armed for the watcher's [ordinary reconciliation](configuration.md#process-to-event-sources-stateprocevent) to restart its listener.
 
 Only a structured `report=data/....md` pointer offers a document.
 A bare path inside prose is a mention.
@@ -573,7 +575,7 @@ A decision raised on that ambiguity could stand open describing a transfer that 
 
 A refused document is not re-attempted automatically.
 It stays on the remote, and a later structured offer of the same path fetches it.
-An SSH exit status of 255 while fetching a referenced document leaves the delta uncommitted for the process-event runner's normal retry, because remote completion is unknown.
+An SSH exit status of 255 while fetching a referenced document leaves the captured delta uncommitted and unhandled for the [adapter fallback path](configuration.md#process-to-event-sources-stateprocevent), because remote completion is unknown.
 
 ### Reply settlement
 

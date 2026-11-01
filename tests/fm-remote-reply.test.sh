@@ -849,6 +849,78 @@ sleep 2
   || fail "failed reader relaunched within the launch floor"
 pass "a failed remote read exits instead of relistening"
 
+# A transport failure leaves the registration armed. One reconcile starts the
+# next listener, so the failed read is retried rather than terminal.
+[ -f "$PARENT/state/procevent/$SID.source" ] \
+  || fail "a failed remote read retired the registration"
+: > "$TMP_ROOT/retry-polls"
+retry_out=$(FM_REMOTE_REPLY_POLL_LOG="$TMP_ROOT/retry-polls" \
+  FM_REMOTE_REPLY_WAIT_SECONDS=30 FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=1 \
+  remote_env "$ROOT/bin/fm-procevent.sh" reconcile)
+assert_contains "$retry_out" 'started=1' \
+  "reconcile did not restart a listener after a failed remote read: $retry_out"
+RETRY_PID=$(sed -n '2p' "$CLAIMS/$SID.claim")
+case "$RETRY_PID" in ''|*[!0-9]*) fail "reconcile left no claim after a failed remote read" ;; esac
+kill -0 "$RETRY_PID" 2>/dev/null || fail "the restarted listener is not alive"
+for _ in $(seq 1 80); do
+  [ "$(wc -l < "$TMP_ROOT/retry-polls" | tr -d ' ')" -ge 1 ] && break
+  sleep 0.1
+done
+[ "$(wc -l < "$TMP_ROOT/retry-polls" | tr -d ' ')" -ge 1 ] \
+  || fail "the restarted listener did not poll"
+stop_reply_listener || fail "the restarted listener did not stop"
+pass "a failed remote read stays registered and one reconcile starts the next listener"
+
+# A clean stop releases the claim. The next reconcile starts a replacement.
+FM_REMOTE_REPLY_WAIT_SECONDS=30 FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=1 \
+  remote_env "$ROOT/bin/fm-procevent.sh" start "$SID" >/dev/null 2>&1 &
+wait_for "$CLAIMS/$SID.claim" || fail "the clean-stop listener never claimed the source"
+DEAD_PID=$(sed -n '2p' "$CLAIMS/$SID.claim")
+stop_reply_listener || fail "the clean-stop listener did not stop"
+for _ in $(seq 1 40); do
+  [ ! -e "$CLAIMS/$SID.claim" ] && break
+  sleep 0.05
+done
+[ ! -e "$CLAIMS/$SID.claim" ] || fail "a clean stop left the claim behind"
+clean_out=$(FM_REMOTE_REPLY_WAIT_SECONDS=30 FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=1 \
+  remote_env "$ROOT/bin/fm-procevent.sh" reconcile)
+assert_contains "$clean_out" 'started=1' \
+  "reconcile did not restart a listener after a clean stop: $clean_out"
+CLEAN_PID=$(sed -n '2p' "$CLAIMS/$SID.claim")
+[ "$CLEAN_PID" != "$DEAD_PID" ] || fail "reconcile reused the stopped listener"
+kill -0 "$CLEAN_PID" 2>/dev/null || fail "the replacement after a clean stop is not alive"
+stop_reply_listener || fail "the replacement after a clean stop did not stop"
+pass "reconcile restarts a listener whose claim a clean stop released"
+
+# SIGKILL skips the exit trap, so the claim file stays while the group is empty.
+# That stale claim is displaceable, and one reconcile replaces it.
+FM_REMOTE_REPLY_WAIT_SECONDS=30 FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=1 \
+  remote_env "$ROOT/bin/fm-procevent.sh" start "$SID" >/dev/null 2>&1 &
+STALE_WAITER=$!
+wait_for "$CLAIMS/$SID.claim" || fail "the stale-claim listener never claimed the source"
+STALE_PID=$(sed -n '2p' "$CLAIMS/$SID.claim")
+kill -0 "$STALE_PID" 2>/dev/null || fail "the stale-claim listener died before the kill"
+kill -KILL -- -"$STALE_PID" 2>/dev/null || true
+for _ in $(seq 1 40); do
+  kill -0 "$STALE_PID" 2>/dev/null || break
+  sleep 0.05
+done
+kill -0 "$STALE_PID" 2>/dev/null && fail "SIGKILL did not stop the listener"
+wait "$STALE_WAITER" 2>/dev/null || true
+[ -f "$CLAIMS/$SID.claim" ] || fail "SIGKILL released the claim through the exit trap"
+if kill -0 -- -"$STALE_PID" 2>/dev/null; then
+  fail "the killed listener's process group still has members"
+fi
+stale_out=$(FM_REMOTE_REPLY_WAIT_SECONDS=30 FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=1 \
+  remote_env "$ROOT/bin/fm-procevent.sh" reconcile)
+assert_contains "$stale_out" 'started=1' \
+  "reconcile did not replace a stale claim: $stale_out"
+NEW_PID=$(sed -n '2p' "$CLAIMS/$SID.claim")
+[ -n "$NEW_PID" ] && [ "$NEW_PID" != "$STALE_PID" ] || fail "reconcile kept the stale claim pid"
+kill -0 "$NEW_PID" 2>/dev/null || fail "the replacement after a stale claim is not alive"
+stop_reply_listener || fail "the replacement after a stale claim did not stop"
+pass "reconcile replaces a stale claim left by a killed listener"
+
 # Make local ingestion persistently fail after the delta has been captured.
 # Its durable generation must remain the only copy until reconciliation.
 mv "$PARENT/state/ios.status" "$TMP_ROOT/ios-status-before-failure"
