@@ -492,13 +492,14 @@ cmd_key() {
 }
 
 cmd_capture() {
-  local id=$1 lines=${2:-20}
+  local id=$1 lines=${2:-20} capture
   validate_id "$id"
   validate_home "$id"
   case "$lines" in ''|*[!0-9]*|0) die "capture line count must be positive" ;; esac
   [ "$lines" -le 100 ] || die "capture line count exceeds 100"
   remote_endpoint_require "$id"
-  fm_backend_capture "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$lines" "fm-$id" | head -c 65536
+  capture=$(fm_backend_capture "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$lines" "fm-$id") || return 1
+  printf '%s' "$capture" | head -c 65536
 }
 
 cmd_observe() {

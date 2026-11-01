@@ -2131,6 +2131,40 @@ fm_composer_blocking_dialog() {  # <screen> -> dialog name
   return 1
 }
 
+# fm_composer_claude_background_shells: print the running background-shell
+# count a Claude screen reports below its composer, and return 0; return 1
+# when no such count is shown. Only the rows after the screen's last full-width
+# rule (the composer's bottom border) are read, so a transcript line that
+# merely mentions shells is never counted. Recorded 2026-10-31 on Claude Code
+# 2.1.316: an idle session with one running background shell shows
+# "⏵⏵ don't ask on · 1 shell · ↓ to manage" there, and the item leaves that
+# row once the shell stops. A missing count is not proof that nothing runs;
+# callers use it only to wait, never to skip a later safety check.
+fm_composer_claude_background_shells() {  # <screen> -> count
+  local count
+  count=$(printf '%s\n' "${1-}" | fm_composer_strip_ansi | LC_ALL=C awk '
+    /^[ \t]*(─)+[ \t\r]*$/ { rule = NR; n = 0; delete row; next }
+    rule { row[++n] = $0 }
+    END {
+      if (!rule) exit 1
+      for (i = 1; i <= n; i++) {
+        line = row[i]
+        gsub(/^[ \t]+|[ \t\r]+$/, "", line)
+        line = " · " line " · "
+        if (match(line, / · [0-9]+ shells? · /)) {
+          item = substr(line, RSTART, RLENGTH)
+          match(item, /[0-9]+/)
+          print substr(item, RSTART, RLENGTH)
+          exit 0
+        }
+      }
+      exit 1
+    }
+  ') || return 1
+  [ -n "$count" ] || return 1
+  printf '%s' "$count"
+}
+
 # A command substitution drops a shell variable, and every composer read runs
 # inside one. The name is therefore written to FM_COMPOSER_DIALOG_SINK when
 # that path is set. The classifier verdict is unchanged. When the sink is
