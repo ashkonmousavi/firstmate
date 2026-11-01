@@ -1,0 +1,100 @@
+$ tmux -L fm-lab set-environment -t primary PATH ~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.codex/tmp/arg0-linux/codex-arg0QcKBCp:~/.nvm/versions/node/v22.22.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~/.composio:~/.local/bin:~/go/bin:~/.cargo/bin:~/.local/share/whisper-venv/bin:~/go/bin:~/.npm-global/bin:~/projects/openclaw/bin:~/.nvm/versions/node/v22.22.0/bin:~/.linuxbrew/bin:~/.linuxbrew/sbin:~/.local/bin:~/go/bin:~/.cargo/bin:~/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
+exit=0
+$ tmux -L fm-lab kill-window -t primary:fm-sm1
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n oldspawn -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/oldspawn.sh
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n normal-restart -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/normal-restart.sh
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6/bin/fm-secondmate-report.sh done 94c3a44b928e42b0 No open work in isolated validation fixture.
+exit=0
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sm1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export GOTMPDIR=/tmp/fm-sm1/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ . '/tmp/fm-sm1+6774be511d9eecc3c666675bd437
+85db14335b6db3c4423115c8f9fdf1804384/launch.s1793499612.205167.31166.sh'
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export GOTMPDIR=/tmp/fm-sm1/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ . '/tmp/fm-sm1+6774be511d9eecc3c666675bd437
+85db14335b6db3c4423115c8f9fdf1804384/launch.s1793499632.230639.22679.sh'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n dead-marker -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/dead-marker.sh
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n stale-watch -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/stale-watch.sh
+exit=0
+normal restart exit=0
+stale watcher exit=0
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sm1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export GOTMPDIR=/tmp/fm-sm1/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ . '/tmp/fm-sm1+6774be511d9eecc3c666675bd437
+85db14335b6db3c4423115c8f9fdf1804384/launch.s1793499612.205167.31166.sh'
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export GOTMPDIR=/tmp/fm-sm1/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ . '/tmp/fm-sm1+6774be511d9eecc3c666675bd437
+85db14335b6db3c4423115c8f9fdf1804384/launch.s1793499632.230639.22679.sh'
+
+
+  Cursor Agent
+  v2026.10.22-27dcf5f
+  Tip: Use subagents to parallelize work and preserve context.
+
+
+  ⁣FIRSTMATE_OP: v1 launch-brief: # Charter
+  Isolated restart validation target. Do not run session-start, supervision, delegation, network checks, or edit
+  anything outside this disposable home. There is no real work here. Acknowledge you are ready and await parent
+  instructions. When asked to persist open work, there is none; reply done carrying the correlation token using
+  bin/fm-secondmate-report.sh with FM_HOME set to this home.
+  # Routing scope
+  Disposable restart lab only.
+
+
+ ⠰⠳ Working
+
+
+  → Add a follow-up                                                                                     ctrl+c to stop
+
+
+  Auto                                                                                                  Run Everything
+  ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n · master
+
+
+
+
+
+
+exit=0

@@ -1,0 +1,6 @@
+{
+  "restart_exit": "3",
+  "verification_wait_seconds": 3,
+  "elapsed_since_transport_suspended_seconds": 3.9108694779861253,
+  "lock_released": true
+}

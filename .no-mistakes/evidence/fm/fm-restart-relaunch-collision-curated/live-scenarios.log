@@ -1,0 +1,101 @@
+$ tmux -L fm-lab kill-window -t primary:fm-sm1
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n fm-sm1 -c ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n -e FM_HOME=~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n codex --disable hooks --dangerously-bypass-approvals-and-sandbox
+exit=0
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sm1
+
+  Background server has incompatible feature settings
+  This session requires hooks to be disabled
+  These settings persist and can disable functionality for other clients. Restart may interrupt active or queued work.
+  Restart will use these shared feature settings:
+    hooks = false
+
+
+  1. Run without daemon this time
+  2. Restart with these settings (recommended)
+› 3. Cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n probe -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/probe.sh
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n competitor -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/competitor.sh
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n restart -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/restart.sh
+exit=0
+persist correlation=4b7d2f6bc3fc3279
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6/bin/fm-secondmate-report.sh done 4b7d2f6bc3fc3279 Disposable lab contains no open work; tester verified persistence is vacuous.
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n watcher -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/watcher.sh
+exit=0
+restart exit=3
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sm1
+⚠ Heads up, you have less than 10% of your weekly limit left. Run /status for a breakdown.
+
+
+  >_ OpenAI Codex (v0.166.0)
+     ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n
+  permissions: YOLO mode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                     ⚠ weekly limit: 10% left · /status
+
+› .inbox' steering inbox, read and act on each in numeric order, then mv each into its handled/.
+
+  GPT-6.1-Sol default · ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n
+  Waiting for startup  · esc cancel
+exit=0
+liveness marker remains=False

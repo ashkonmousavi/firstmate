@@ -1,0 +1,5 @@
+~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.remote-iinndkul
+$ FM_HOME=<disposable lab> bin/fm-remote-secondmate-control.sh relaunch sm2 codex default default
+error: remote secondmate sm2 endpoint is recorded in Herdr session 'fm-lab-remote-proof', expected 'fm-remote'; refusing access until it is explicitly migrated
+exit=1
+Removed disposable remote home. No Herdr server or endpoint was accessed.

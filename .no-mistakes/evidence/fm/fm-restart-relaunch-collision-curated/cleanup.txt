@@ -1,0 +1,3 @@
+Private lab tmux server: kill-server exited 0 (live-driver.log).
+Removed both disposable homes after making their generated read-only hook directories removable.
+No real fleet session was stopped.

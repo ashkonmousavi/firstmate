@@ -1,0 +1,2 @@
+unreached: sm1: the old agent was stopped, but no replacement launch was confirmed successful within 8s (endpoint reads 'alive'); its own launch reported: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r
+summary: 0 of 1 restarted, 0 nudged, 1 unreached

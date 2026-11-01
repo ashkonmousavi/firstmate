@@ -1,0 +1,10 @@
+{
+  "verification_elapsed_seconds": 6.53367018699646,
+  "restart_exit": "3",
+  "winner_exit": "0",
+  "watcher_exit": "0",
+  "verification_wait": 8,
+  "verification_poll": 20,
+  "lock_released": true,
+  "attempt_ledger_absent": true
+}

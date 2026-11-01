@@ -1,0 +1,48 @@
+$ tmux -L fm-lab new-window -d -t primary -n busy-recovery -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/busy-recovery.sh
+exit=0
+$ tmux -L fm-lab new-window -d -t primary -n busy-restart -c ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6 bash ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r/busy-restart.sh
+exit=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6ABB3CG4YQMA6RX128VE4E6/bin/fm-secondmate-report.sh done a3a02cf54e9878da Empty validation fixture; no open work.
+exit=0
+$ tmux -L fm-lab capture-pane -p -t primary:fm-sm1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ . '/tmp/fm-sm1+6774be511d9eecc3c666675bd437
+85db14335b6db3c4423115c8f9fdf1804384/launch.s1793499632.230639.22679.sh'
+
+
+  Cursor Agent
+  v2026.10.22-27dcf5f
+  Tip: Use subagents to parallelize work and preserve context.
+
+
+  ⁣FIRSTMATE_OP: v1 launch-brief: # Charter
+  Isolated restart validation target. Do not run session-start, supervision, delegation, network checks, or edit
+  anything outside this disposable home. There is no real work here. Acknowledge you are ready and await parent
+  instructions. When asked to persist open work, there is none; reply done carrying the correlation token using
+  bin/fm-secondmate-report.sh with FM_HOME set to this home.
+  # Routing scope
+  Disposable restart lab only.
+
+
+  Ready. Charter loaded for this disposable restart lab only.
+
+  No session-start, supervision, delegation, network checks, or outside edits. No open work here.
+
+  Awaiting parent instructions. When told to persist open work, I will report done via bin/fm-secondmate-report.sh
+  with FM_HOME set to this home and the correlation token.
+
+
+  : Firstmate instruction waiting: list "$FM_TASK_INBOX"/*.msg in your 'sm1.inbox' steering inbox, read and act
+  on each in numeric order, then mv each into its handled/.
+
+
+ ⠀⠞ Working
+
+
+  → Add a follow-up                                                                                     ctrl+c to stop
+
+
+  Auto · 10.8%                                                                                          Run Everything
+  ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n · master
+
+
+exit=0

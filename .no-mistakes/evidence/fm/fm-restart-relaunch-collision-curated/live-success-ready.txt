@@ -1,0 +1,40 @@
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export GOTMPDIR=/tmp/fm-sm1/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ . '/tmp/fm-sm1+6774be511d9eecc3c666675bd437
+85db14335b6db3c4423115c8f9fdf1804384/launch.s1793499612.205167.31166.sh'
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export GOTMPDIR=/tmp/fm-sm1/gotmp
+export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n$ . '/tmp/fm-sm1+6774be511d9eecc3c666675bd437
+85db14335b6db3c4423115c8f9fdf1804384/launch.s1793499632.230639.22679.sh'
+
+
+  Cursor Agent
+  v2026.10.22-27dcf5f
+  Tip: Use subagents to parallelize work and preserve context.
+
+
+  ⁣FIRSTMATE_OP: v1 launch-brief: # Charter
+  Isolated restart validation target. Do not run session-start, supervision, delegation, network checks, or edit
+  anything outside this disposable home. There is no real work here. Acknowledge you are ready and await parent
+  instructions. When asked to persist open work, there is none; reply done carrying the correlation token using
+  bin/fm-secondmate-report.sh with FM_HOME set to this home.
+  # Routing scope
+  Disposable restart lab only.
+
+
+ ⠰⠳ Working
+
+
+  → Add a follow-up                                                                                     ctrl+c to stop
+
+
+  Auto                                                                                                  Run Everything
+  ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/sm.5k909e5n · master
+
+
+
+
+
+

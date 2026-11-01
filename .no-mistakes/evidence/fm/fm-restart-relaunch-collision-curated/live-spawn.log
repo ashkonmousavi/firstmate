@@ -1,0 +1,4 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/evidence/01M6ABB3CG4YQMA6RX128VE4E6/fm-lab.qkc2py8r
+warning: secondmate sm1 sync skipped before launch: primary default-branch commit cannot be resolved
+can't find window: fm-sm1
+error: codex did not take the brief: window primary:fm-sm1 could not be read while waiting for the first turn (capture exited 1); inspect window primary:fm-sm1

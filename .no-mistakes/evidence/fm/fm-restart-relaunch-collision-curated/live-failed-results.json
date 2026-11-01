@@ -1,0 +1,9 @@
+{
+  "restart_exit": "3",
+  "winner_exit": "1",
+  "watcher_exit": "0",
+  "verification_wait": 8,
+  "verification_poll": 20,
+  "lock_released": true,
+  "attempt_ledger_absent": true
+}

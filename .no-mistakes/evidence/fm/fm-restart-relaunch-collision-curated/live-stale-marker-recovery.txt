@@ -1,0 +1,4 @@
+watcher tick exit=0
+probe=alive state=alive
+abandoned lock reclaimed and released
+attempt ledger absent
