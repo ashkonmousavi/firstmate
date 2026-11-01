@@ -97,7 +97,7 @@ This differs from the worker hook, which only touches a task marker through `.cl
 A Claude secondmate's busy hooks are not that file: `bin/fm-spawn.sh` passes the parent home's `state/<id>.claude-settings.json` through `--settings` and does not edit the mate home's `settings.local.json`.
 
 Primary `.claude/settings.json` registers `../../../bin/fm-turnend-guard.sh --claude --state-claims` and `../../../bin/fm-claude-stop-autoarm.sh` with `asyncRewake: true` and `timeout: 28800`.
-The [state-claim check](../../../../../docs/turnend-guard.md#state-claim-check) runs inside that synchronous guard and has its own one-block limit.
+The [state-claim check](../../../../../docs/turnend-guard.md#state-claim-check) runs inside that synchronous guard.
 Guard exit 2 plus stderr forces continuation.
 Stop payload `stop_hook_active=true` follows any hook-driven continuation, including async reawakening, so Claude mode ignores it and uses cooperative claim and epoch plus bounded re-block; default Codex mode keeps it as a one-block loop guard.
 

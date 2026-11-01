@@ -22,6 +22,7 @@ Do not infer this guard's scope, loop safety, or compatibility tradeoffs for tho
 | Away and quiet mode | [Away and quiet mode daemon ownership](#away-and-quiet-mode-daemon-ownership) |
 | How long a beacon stays fresh | [Guard grace and the poll cadence](#guard-grace-and-the-poll-cadence) |
 | How each harness blocks or follows up | [Harness integrations](#harness-integrations) |
+| Why Claude asks for a live state read | [State-claim check](#state-claim-check) |
 | Claude's Stop auto-arm cooperation, block budget, and fail-open | [Claude cooperative mode](#claude-cooperative-mode) |
 | Cursor's parked hook | [Cursor park](#cursor-park) |
 | Known gaps | [Compatibility limits](#compatibility-limits) |
@@ -32,7 +33,7 @@ Do not infer this guard's scope, loop safety, or compatibility tradeoffs for tho
 `bin/fm-guard.sh` is a pull-based warning that runs only when another supervision command invokes it.
 The turn-end guard closes the remaining gap at the primary's own turn boundary.
 
-The guard acts at that boundary when both of these hold:
+The supervision predicate acts at that boundary when both of these hold:
 
 - Work, a process-event source, a registered custom check, or Relay polling needs supervision.
 - No identity-matched watcher has a fresh beacon.
@@ -54,7 +55,7 @@ The guard remains a backstop.
 
 ## Guard predicates
 
-The turn-end guard checks primary scope first, then supervision need, then watcher health.
+The turn-end guard checks primary scope first, runs the enabled Claude [state-claim check](#state-claim-check), then checks supervision need and watcher health.
 The mid-turn pull warning in `bin/fm-guard.sh` judges watcher health differently, as described under [pull-warning verdict by supervision model](#pull-warning-verdict-by-supervision-model).
 
 ### Primary scope
@@ -309,7 +310,7 @@ The tracked Claude Stop registration enables a fast, deterministic check for sta
 Its [module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the claim vocabulary, matching read commands, transcript bounds, exceptions, and failure behavior.
 The check uses the Stop payload's final text because [Claude documents asynchronous transcript writes](https://code.claude.com/docs/en/hooks#common-input-fields).
 It requires a matching completed read command from the current turn; it does not judge whether the result supports the claim.
-Its one-block loop guard uses a per-session blocked-message hash, independent of the supervision recovery budget.
+Its blocked-message exemption is independent of the supervision recovery budget.
 Running it inside the existing synchronous hook preserves the single secondmate busy-state writer.
 
 Installation travels with the tracked `.claude/settings.json` through the normal [self-update path](../.agents/skills/updatefirstmate/SKILL.md); restart the updated Claude sessions so they load the new registration.

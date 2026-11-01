@@ -3,16 +3,25 @@
 
 Called by fm-turnend-guard.sh --claude --state-claims after primary scoping.
 Exit 2 names unsupported claims on stderr; all other paths allow silently.
-No network, subprocess or model is used. A per-session blocked-message hash
-bounds this check to one block per message. Unreadable, malformed, oversized or incomplete
-transcripts fail open. Only the last 2 MiB are read, and a real user message
-must establish the current turn inside that window (tool results do not).
+No network, subprocess or model is used.
+A per-session blocked-message hash exempts only the next identical
+hook-driven continuation, consuming the exemption when checked.
+Other hooks' continuations and changed claims still require a read.
+Unreadable, malformed or turn-boundary-free transcripts fail open.
+Only the last 2 MiB are read, and a real user message must establish the
+current turn inside that window (tool results do not).
 The Stop payload owns final text because transcript writes may lag Stop.
 
 POLICY is the single claim-to-read table. This is a lexical reminder, not a
 proof of the remote state: it requires a completed matching tool command,
-not that the command output supports the prose. 'last read at' exempts only
-its sentence. Shell commands are tokenized, never executed.
+not that the command output supports the prose.
+Claims require a resource subject from POLICY in the same sentence.
+Matching covers every claimed PR number, explicit URL host and lane name;
+repository identity and requested --json fields deliberately remain unchecked.
+Read segments in pipelines and redirects can count; segments beyond a
+short-circuit or control-flow boundary do not establish execution.
+'last read at' exempts only its sentence.
+Shell commands are tokenized, never executed.
 """
 
 import hashlib
