@@ -1,0 +1,31 @@
+# same lab, config/lane-capacity=0 0 (machine full)
+$ bin/fm-autolaunch.sh --dry-run
+would-record: 2026-11-01T06:23:32Z	-	-	-	refused:no capacity: full; /tmp/fm-lab.sXSXMc/config/lane-capacity: lanes=0 target=0; no free machine lane
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-region-registry /tmp/fm-lab.sXSXMc/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix x/
+would-record: 2026-11-01T06:23:32Z	-	x-region-registry	static	would-launch-when-a-lane-frees
+would-record: 2026-11-01T06:23:33Z	-	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+would-record: 2026-11-01T06:23:33Z	-	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+would-record: 2026-11-01T06:23:33Z	-	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+would-record: 2026-11-01T06:23:33Z	-	x-plan-mention	-	refused:not prepared: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+would-record: 2026-11-01T06:23:33Z	-	x-escape	-	refused:not prepared: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-engine-account-currency /tmp/fm-lab.sXSXMc/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix x/
+would-record: 2026-11-01T06:23:33Z	-	x-engine-account-currency	static	would-launch-when-a-lane-frees
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-scout-probe /tmp/fm-lab.sXSXMc/projects/NOT_Q --scout --base-branch main
+would-record: 2026-11-01T06:23:33Z	-	x-scout-probe	static	would-launch-when-a-lane-frees
+exit=0
+
+# lane-capacity=2 0 and config/crew-dispatch.json with default profiles [claude sonnet, codex] (real quota-axi snapshot)
+{"default":[{"harness":"claude","model":"sonnet"},{"harness":"codex"}]}
+$ bin/fm-autolaunch.sh --dry-run
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-region-registry /tmp/fm-lab.sXSXMc/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix x/ --harness claude --model sonnet
+would-record: 2026-11-01T06:23:41Z	1	x-region-registry	claude:sonnet	launched
+would-record: 2026-11-01T06:23:41Z	2	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+would-record: 2026-11-01T06:23:41Z	2	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+would-record: 2026-11-01T06:23:41Z	2	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+would-record: 2026-11-01T06:23:41Z	2	x-plan-mention	-	refused:not prepared: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+would-record: 2026-11-01T06:23:41Z	2	x-escape	-	refused:not prepared: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-engine-account-currency /tmp/fm-lab.sXSXMc/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix x/ --harness claude --model sonnet
+would-record: 2026-11-01T06:23:41Z	2	x-engine-account-currency	claude:sonnet	launched
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-scout-probe /tmp/fm-lab.sXSXMc/projects/NOT_Q --scout --base-branch main --harness claude --model sonnet
+would-record: 2026-11-01T06:23:42Z	-	x-scout-probe	claude:sonnet	would-launch-when-a-lane-frees
+exit=0

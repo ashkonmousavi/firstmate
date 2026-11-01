@@ -1,0 +1,17 @@
+2026-11-01T06:25:05Z	1	x-region-registry	claude:haiku	launched
+2026-11-01T06:25:32Z	1	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+2026-11-01T06:25:32Z	1	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+2026-11-01T06:25:32Z	1	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:32Z	1	x-plan-mention	-	refused:not prepared: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:32Z	1	x-escape	-	refused:not prepared: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:36Z	1	x-engine-account-currency	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-engine-account-currency/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:25:39Z	1	x-scout-probe	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-scout-probe/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:25:39Z	1	-	-	refused:no prepared item
+2026-11-01T06:26:14Z	1	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+2026-11-01T06:26:14Z	1	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+2026-11-01T06:26:14Z	1	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:26:14Z	1	x-plan-mention	-	refused:not prepared: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:26:14Z	1	x-escape	-	refused:not prepared: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:26:18Z	1	x-engine-account-currency	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-engine-account-currency/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:26:20Z	1	x-scout-probe	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-scout-probe/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:26:20Z	1	-	-	refused:no prepared item

@@ -1,0 +1,37 @@
+$ bin/fm-brief.sh x-region-registry NOT_Q --mode direct-PR --branch-prefix x/
+scaffolded: /tmp/fm-lab.sXSXMc/data/x-region-registry/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+$ cat data/x-region-registry/autolaunch-prep
+project=NOT_Q
+kind=ship
+mode=direct-PR
+branch_prefix=x/
+$ grep -E "^(Delivery contract|Ship branch|Base branch)" data/x-region-registry/brief.md
+Delivery contract: mode=direct-PR
+Ship branch: x/x-region-registry
+
+$ bin/fm-brief.sh x-scout-probe NOT_Q --scout --base-branch main
+scaffolded: /tmp/fm-lab.sXSXMc/data/x-scout-probe/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+$ cat data/x-scout-probe/autolaunch-prep
+project=NOT_Q
+kind=scout
+base_branch=main
+
+# adversarial: stale record left from an earlier brief (kind=scout, base_branch=gone), brief removed, re-scaffold as ship
+$ cat data/x-restale/autolaunch-prep  (before)
+project=NOT_Q
+kind=scout
+base_branch=gone
+$ bin/fm-brief.sh x-restale NOT_Q --mode local-only --branch-prefix fm/
+scaffolded: /tmp/fm-lab.sXSXMc/data/x-restale/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+exit=0
+$ cat data/x-restale/autolaunch-prep  (after)
+project=NOT_Q
+kind=ship
+mode=local-only
+branch_prefix=fm/
+.
+..
+autolaunch-prep
+brief.md

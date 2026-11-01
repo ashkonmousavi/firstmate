@@ -1,0 +1,22 @@
+# lab home: laptop layout; config/lane-capacity=2 0; real fm-capacity, real fm-tasks-axi; NO autolaunch-prep for the X items
+$ bin/fm-capacity.sh --admit | head -1
+capacity: free_lanes=2 reason=ok lanes=0 target=2 secondmates=0 load1=6.09 cores=12 mem_free_pct=31 disk_free_mb=439572 mem_available_kb=7701128 reserve_kb=0 headroom_kb=7701128
+$ bin/fm-autolaunch.sh --dry-run
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-region-registry /tmp/fm-lab.sXSXMc/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix x/
+would-record: 2026-11-01T06:23:24Z	1	x-region-registry	static	launched
+would-record: 2026-11-01T06:23:24Z	2	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+would-record: 2026-11-01T06:23:24Z	2	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+would-record: 2026-11-01T06:23:24Z	2	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+would-record: 2026-11-01T06:23:24Z	2	x-plan-mention	-	refused:not prepared: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+would-record: 2026-11-01T06:23:24Z	2	x-escape	-	refused:not prepared: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-engine-account-currency /tmp/fm-lab.sXSXMc/projects/NOT_Q --mode direct-PR --yolo off --branch-prefix x/
+would-record: 2026-11-01T06:23:24Z	2	x-engine-account-currency	static	launched
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-scout-probe /tmp/fm-lab.sXSXMc/projects/NOT_Q --scout --base-branch main
+would-record: 2026-11-01T06:23:24Z	-	x-scout-probe	static	would-launch-when-a-lane-frees
+exit=0
+$ ls state/   (dry run must write no autolaunch.log / lock)
+machine-admission.log
+$ bin/fm-autolaunch.sh --list-prepared
+x-region-registry
+x-engine-account-currency
+x-scout-probe

@@ -1,0 +1,31 @@
+ok - free lanes launch in ready-queue order, one launched record per lane
+ok - a blocked-by edge to finished work clears; one to queued work blocks
+ok - unprepared, held and already-deferred items refuse with their reason and never spawn
+ok - deferred identity contract distinguishes foo.bar from foo-bar in listing and launching
+ok - launches require a writable record destination and retain it for recording
+ok - a machine without a free lane records one no-capacity refusal and spawns nothing
+ok - spawn deferral and spawn errors are recorded and the lane moves to the next item
+ok - a quota refusal advances through ranked defaults and all refused records quota
+ok - default-only dispatch ignores natural-language rules and makes no model request
+ok - static dispatch applies only when the dispatch file is absent
+ok - defaults rank by spendPriority and exhausted or short-runway profiles are skipped
+ok - one pass takes at most one quota snapshot
+ok - uncertain defaults follow passing profiles in declared order
+ok - profile contract preserves absent model and effort fields in the candidate reader
+ok - ship and scout dispatch preserve their distinct argument contracts
+ok - default eligibility honors tool, account, capture, backend and profile contracts with known or unavailable quota
+ok - the launch record derives from override, brief lines, backlog row and project registry in that order
+ok - a dry run on the laptop layout would launch the prepared X items in backlog order and names every refusal
+ok - a dry run names every ready item beyond the free lanes and with no capacity
+ok - backfill prints first, writes only on --apply, and is idempotent
+ok - fm-brief.sh writes the launch record for every ship and scout it scaffolds, replacing a stale one
+ok - dry run prints decisions and commands and writes nothing
+ok - a single-instance lock keeps a second pass from launching
+ok - throttle check is red only for free lane + prepared item + no recent record
+ok - in a secondmate home the red line also reaches the parent channel
+ok - the check arms through fm-check-register and the timer is only a printed proposal
+
+real	0m22.326s
+user	0m21.880s
+sys	0m5.456s
+exit=0

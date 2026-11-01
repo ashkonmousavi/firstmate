@@ -1,0 +1,62 @@
+# before: existing records
+83d61492609f01ffbe3ada839138efa18e3d6d98d361e29797f88c1742c083a5  data/x-scout-probe/autolaunch-prep
+$ bin/fm-autolaunch.sh --backfill
+would-write: data/x-region-registry/autolaunch-prep: project=NOT_Q kind=ship mode=direct-PR branch_prefix=x/
+skip: x-no-brief: no brief data/x-no-brief/brief.md
+skip: x-ops-task: kind task is not ship or scout
+skip: x-no-prep: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+skip: x-plan-mention: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+skip: x-escape: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+would-write: data/x-held/autolaunch-prep: project=NOT_Q kind=ship mode=direct-PR branch_prefix=x/
+would-write: data/x-blocked/autolaunch-prep: project=NOT_Q kind=ship mode=direct-PR branch_prefix=x/
+would-write: data/x-engine-account-currency/autolaunch-prep: project=NOT_Q kind=ship mode=direct-PR branch_prefix=x/
+kept: x-scout-probe (data/x-scout-probe/autolaunch-prep exists)
+exit=0
+# after dry backfill: records unchanged?
+83d61492609f01ffbe3ada839138efa18e3d6d98d361e29797f88c1742c083a5  data/x-scout-probe/autolaunch-prep
+$ bin/fm-autolaunch.sh --backfill --apply
+wrote: data/x-region-registry/autolaunch-prep: project=NOT_Q kind=ship mode=direct-PR branch_prefix=x/
+skip: x-no-brief: no brief data/x-no-brief/brief.md
+skip: x-ops-task: kind task is not ship or scout
+skip: x-no-prep: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+skip: x-plan-mention: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+skip: x-escape: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+wrote: data/x-held/autolaunch-prep: project=NOT_Q kind=ship mode=direct-PR branch_prefix=x/
+wrote: data/x-blocked/autolaunch-prep: project=NOT_Q kind=ship mode=direct-PR branch_prefix=x/
+wrote: data/x-engine-account-currency/autolaunch-prep: project=NOT_Q kind=ship mode=direct-PR branch_prefix=x/
+kept: x-scout-probe (data/x-scout-probe/autolaunch-prep exists)
+exit=0
+$ cat data/x-region-registry/autolaunch-prep
+project=NOT_Q
+kind=ship
+mode=direct-PR
+branch_prefix=x/
+$ grep -l yolo data/*/autolaunch-prep (expect none)
+(none)
+$ bin/fm-autolaunch.sh --backfill   (rerun: idempotent)
+kept: x-region-registry (data/x-region-registry/autolaunch-prep exists)
+skip: x-no-brief: no brief data/x-no-brief/brief.md
+skip: x-ops-task: kind task is not ship or scout
+skip: x-no-prep: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+skip: x-plan-mention: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+skip: x-escape: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+kept: x-held (data/x-held/autolaunch-prep exists)
+kept: x-blocked (data/x-blocked/autolaunch-prep exists)
+kept: x-engine-account-currency (data/x-engine-account-currency/autolaunch-prep exists)
+kept: x-scout-probe (data/x-scout-probe/autolaunch-prep exists)
+exit=0
+$ bin/fm-autolaunch.sh --backfill --apply   (rerun apply: nothing rewritten)
+kept: x-region-registry (data/x-region-registry/autolaunch-prep exists)
+skip: x-no-brief: no brief data/x-no-brief/brief.md
+skip: x-ops-task: kind task is not ship or scout
+skip: x-no-prep: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+skip: x-plan-mention: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+skip: x-escape: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+kept: x-held (data/x-held/autolaunch-prep exists)
+kept: x-blocked (data/x-blocked/autolaunch-prep exists)
+kept: x-engine-account-currency (data/x-engine-account-currency/autolaunch-prep exists)
+kept: x-scout-probe (data/x-scout-probe/autolaunch-prep exists)
+exit=0
+records byte-identical after second apply
+# registry posture later changes to +yolo: launch derives yolo on from registry, not frozen in record
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ/bin/fm-spawn.sh x-region-registry /tmp/fm-lab.sXSXMc/projects/NOT_Q --mode direct-PR --yolo on --branch-prefix x/

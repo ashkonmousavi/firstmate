@@ -1,0 +1,24 @@
+== data/x-blocked/autolaunch-prep
+project=NOT_Q
+kind=ship
+mode=direct-PR
+branch_prefix=x/
+== data/x-engine-account-currency/autolaunch-prep
+project=NOT_Q
+kind=ship
+mode=direct-PR
+branch_prefix=x/
+== data/x-held/autolaunch-prep
+project=NOT_Q
+kind=ship
+mode=direct-PR
+branch_prefix=x/
+== data/x-region-registry/autolaunch-prep
+project=NOT_Q
+kind=ship
+mode=local-only
+branch_prefix=x/
+== data/x-scout-probe/autolaunch-prep
+project=NOT_Q
+kind=scout
+base_branch=main

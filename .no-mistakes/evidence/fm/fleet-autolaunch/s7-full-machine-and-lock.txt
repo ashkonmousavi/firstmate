@@ -1,0 +1,52 @@
+# lane held by the launched task record: next real pass
+$ bin/fm-autolaunch.sh
+2026-11-01T06:25:32Z	1	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+2026-11-01T06:25:32Z	1	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+2026-11-01T06:25:32Z	1	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:32Z	1	x-plan-mention	-	refused:not prepared: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:32Z	1	x-escape	-	refused:not prepared: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:36Z	1	x-engine-account-currency	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-engine-account-currency/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:25:39Z	1	x-scout-probe	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-scout-probe/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:25:39Z	1	-	-	refused:no prepared item
+exit=0
+$ bin/fm-autolaunch-check.sh  (no free lane: quiet)
+exit=0 output=[]
+
+# lock: a live holder of state/.autolaunch.lock (taken with the real fm_lock_try_acquire)
+holder-acquired
+$ bin/fm-autolaunch.sh   (while held)
+fm-autolaunch: another pass holds /tmp/fm-lab.sXSXMc/state/.autolaunch.lock (pid 3450706); nothing done
+exit=0
+records before=9 after=9
+$ bin/fm-autolaunch.sh --dry-run  (after release; 1 free lane remains, real spawn not repeated)
+would-record: 2026-11-01T06:26:03Z	1	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+would-record: 2026-11-01T06:26:03Z	1	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+would-record: 2026-11-01T06:26:03Z	1	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+exit=0
+1
+$ cat state/autolaunch.log
+2026-11-01T06:25:05Z	1	x-region-registry	claude:haiku	launched
+2026-11-01T06:25:32Z	1	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+2026-11-01T06:25:32Z	1	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+2026-11-01T06:25:32Z	1	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:32Z	1	x-plan-mention	-	refused:not prepared: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:32Z	1	x-escape	-	refused:not prepared: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:25:36Z	1	x-engine-account-currency	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-engine-account-currency/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:25:39Z	1	x-scout-probe	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-scout-probe/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:25:39Z	1	-	-	refused:no prepared item
+# holder process exited without releasing (stale lock file present):
+cat: /tmp/fm-lab.sXSXMc/state/.autolaunch.lock: Is a directory
+$ bin/fm-autolaunch.sh
+2026-11-01T06:26:14Z	1	x-no-brief	-	refused:not prepared: no brief data/x-no-brief/brief.md
+2026-11-01T06:26:14Z	1	x-ops-task	-	refused:not prepared: kind task is not ship or scout
+2026-11-01T06:26:14Z	1	x-no-prep	-	refused:not prepared: no prep file (data/x-no-prep/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:26:14Z	1	x-plan-mention	-	refused:not prepared: no prep file (data/x-plan-mention/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:26:14Z	1	x-escape	-	refused:not prepared: no prep file (data/x-escape/prep.md or a Prep: data/<path> line in the item)
+2026-11-01T06:26:18Z	1	x-engine-account-currency	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-engine-account-currency/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:26:20Z	1	x-scout-probe	claude:haiku	refused:spawn error: error: /tmp/fm-lab.sXSXMc/data/x-scout-probe/brief.md still contains {TASK} or {FIRSTMATE_SPEC}; fill ## Captain's intent and ## Firstmate spec before spawn (exit 1)
+2026-11-01T06:26:20Z	1	-	-	refused:no prepared item
+exit=0
+$ ls -A state | grep autolaunch
+autolaunch.log
+
+# CORRECTION: the first header above ("lane held by the launched task record") is wrong. The worker window had been stopped before this pass, so real fm-capacity released its seat and showed a free lane; the pass then tried the remaining prepared items, real fm-spawn refused each unfilled brief, and the pass recorded refused:spawn error per item followed by refused:no prepared item. x-region-registry was not retried because the launch moved it to In flight.

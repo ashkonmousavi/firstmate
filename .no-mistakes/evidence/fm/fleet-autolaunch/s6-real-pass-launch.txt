@@ -1,0 +1,32 @@
+# real pass in lab home /tmp/fm-lab.sXSXMc, lab tmux socket fm-lab, real fm-capacity (1 lane), real fm-spawn, claude haiku from config/crew-dispatch.json default
+$ bin/fm-autolaunch.sh   (stdout+stderr)
+2026-11-01T06:25:05Z	1	x-region-registry	claude:haiku	launched
+PASS_EXIT=0
+$ cat state/autolaunch.log
+2026-11-01T06:25:05Z	1	x-region-registry	claude:haiku	launched
+$ cat state/x-region-registry.meta
+window=primary:fm-x-region-registry
+endpoint_task_id=x-region-registry
+worktree=/tmp/fm-lab.sXSXMc/treehouse/.treehouse/NOT_Q-aa8843/1/NOT_Q
+project=/tmp/fm-lab.sXSXMc/projects/NOT_Q
+harness=claude
+kind=ship
+mode=local-only
+yolo=off
+branch=x/x-region-registry
+tasktmp=/tmp/fm-x-region-registry
+model=haiku
+effort=default
+claude_config_dir=
+busy_gen=g1793514302.3397384.15755
+spawn_gen=s1793514302.3390297.3649
+$ tmux -L fm-lab list-windows -a
+primary:0 bash bash ~/.no-mistakes/worktrees/049a88734b0e/01M6ATAD8VCEGR5X7XCF9JTYFQ
+primary:1 fm-x-region-registry claude /tmp/fm-lab.sXSXMc/treehouse/.treehouse/NOT_Q-aa8843/1/NOT_Q
+$ bin/fm-capacity.sh --admit | head -1   (lane now held)
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=0 load1=9.31 cores=12 mem_free_pct=24 disk_free_mb=439029 mem_available_kb=5861280 reserve_kb=0 headroom_kb=5861280
+fm-capacity: /tmp/fm-lab.sXSXMc/config/lane-capacity: lanes=1 target=1; no free machine lane
+## In flight
+- [ ] x-region-registry - X region registry (repo: NOT_Q) (kind: ship) (priority: 2) (since 2026-10-31)
+  Prep: data/x-prep-region-registry/prep.md
+## Queued
