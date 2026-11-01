@@ -1,0 +1,51 @@
+# --apply pass 1: real gh GraphQL read + real mergify (404 on this repo), real fm-capacity, real backend posture; gh-axi writes and fm-control relaunch go to recording fakes
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/94	1	fix	launched fork-self-hosted-ci (queue=unknown)
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/145	1	fix	refused:no home owns fm-hold-release-walk (queue=unknown)
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/198	2	none	refused:checks PENDING
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/195	2	none	refused:checks PENDING
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/89	3	none	none
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/90	3	none	none
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/192	3	none	none
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/193	3	none	none
+exit=0
+
+# --apply pass 2 (same heads)
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/94	1	fix	refused:fix already launched for head d05735f0c893 (queue=unknown)
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/145	1	fix	refused:no home owns fm-hold-release-walk (queue=unknown)
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/198	2	none	refused:checks PENDING
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/195	2	none	refused:checks PENDING
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/89	3	none	none
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/90	3	none	none
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/192	3	none	none
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/193	3	none	none
+exit=0
+
+# state/pr-triage.log
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/94	1	fix	launched fork-self-hosted-ci (queue=unknown)
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/145	1	fix	refused:no home owns fm-hold-release-walk (queue=unknown)
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/198	2	none	refused:checks PENDING
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/195	2	none	refused:checks PENDING
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/89	3	none	none
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/90	3	none	none
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/192	3	none	none
+2026-11-01T06:51:13Z	https://github.com/ashkonmousavi/firstmate/pull/193	3	none	none
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/94	1	fix	refused:fix already launched for head d05735f0c893 (queue=unknown)
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/145	1	fix	refused:no home owns fm-hold-release-walk (queue=unknown)
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/198	2	none	refused:checks PENDING
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/195	2	none	refused:checks PENDING
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/89	3	none	none
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/90	3	none	none
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/192	3	none	none
+2026-11-01T06:51:14Z	https://github.com/ashkonmousavi/firstmate/pull/193	3	none	none
+
+# markers
+fix-94: d05735f0c89390a657716217a3aba7890583116a
+
+# fake fm-control calls (first line of argv each)
+fork-self-hosted-ci relaunch --note PR triage ranks https://github.com/ashkonmousavi/firstmate/pull/94 among the pull requests to move first, and it is conflicting and red.
+
+# fake gh-axi writes
+(none)
+
+# lock left behind?
+(no lock left)

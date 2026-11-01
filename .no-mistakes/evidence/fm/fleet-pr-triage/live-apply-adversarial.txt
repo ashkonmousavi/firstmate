@@ -1,0 +1,19 @@
+## A: forge listing unreadable -> one refusal record, exit 1, no action
+2026-11-01T06:52:19Z	-	-	-	refused:pull requests unreadable: gh: HTTP 502 Bad Gateway
+exit=1
+
+## B: green rank-2 PR but Mergify queue paused -> refused, no label/comment
+2026-11-01T06:52:19Z	https://github.com/o/r/pull/2790	2	queue	refused:queue paused
+gh-axi writes: none
+
+## C: a second concurrent pass while the lock is held -> exits 0, reads and writes nothing
+fm-pr-triage: another pass holds <lab>/state/.pr-triage.lock (pid 1718915); nothing done
+exit=0
+new records: 0
+
+## D: --print-timer proposes a 5-minute schedule and installs nothing
+Environment="FM_HOME=<lab>"
+ExecStart=~/.no-mistakes/worktrees/049a88734b0e/01M6AT02STM8BBM12CH4PH2P59/bin/fm-pr-triage.sh --apply
+OnUnitActiveSec=5min
+*/5 * * * * PATH=~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~
+(no unit installed)

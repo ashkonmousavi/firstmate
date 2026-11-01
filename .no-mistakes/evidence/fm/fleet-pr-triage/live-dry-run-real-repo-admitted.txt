@@ -1,0 +1,11 @@
+$ FM_HOME=<lab> bin/fm-pr-triage.sh   # dry run with lab lane capacity + admission policy; real gh, real mergify, real fm-capacity --admit, real backend posture
+would-run: ~/.no-mistakes/worktrees/049a88734b0e/01M6AT02STM8BBM12CH4PH2P59/bin/fm-control.sh fork-self-hosted-ci relaunch --note $'PR triage ranks https://github.com/ashkonmousavi/firstmate/pull/94 among the pull requests to move first, and it is conflicting and red.\nMerge origin/main into the branch with a merge commit if it conflicts, regenerate generated files, fix the failing checks, run their tests, and push once.\nDo not rebase.\nDo not force-push.\nReport done with the same pull request URL when its checks are green.'
+would-record: 2026-11-01T06:50:41Z	https://github.com/ashkonmousavi/firstmate/pull/94	1	fix	launched fork-self-hosted-ci (queue=unknown)
+would-record: 2026-11-01T06:50:41Z	https://github.com/ashkonmousavi/firstmate/pull/145	1	fix	refused:no home owns fm-hold-release-walk (queue=unknown)
+would-record: 2026-11-01T06:50:41Z	https://github.com/ashkonmousavi/firstmate/pull/198	2	none	refused:checks PENDING
+would-record: 2026-11-01T06:50:41Z	https://github.com/ashkonmousavi/firstmate/pull/195	2	none	refused:checks PENDING
+would-record: 2026-11-01T06:50:41Z	https://github.com/ashkonmousavi/firstmate/pull/89	3	none	none
+would-record: 2026-11-01T06:50:41Z	https://github.com/ashkonmousavi/firstmate/pull/90	3	none	none
+would-record: 2026-11-01T06:50:41Z	https://github.com/ashkonmousavi/firstmate/pull/192	3	none	none
+would-record: 2026-11-01T06:50:41Z	https://github.com/ashkonmousavi/firstmate/pull/193	3	none	none
+exit=0

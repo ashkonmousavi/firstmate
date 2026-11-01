@@ -1,0 +1,37 @@
+# Home role: this lab home is MAIN; data/secondmates.md registers local home mate1 (a second lab home) whose REAL tasks-axi backlog holds mate-task open and mate-done done.
+# PR 3001 -> mate-task (owned by mate1); PR 3002 -> orphan (no home holds it); PR 3003 -> mate-done (done in mate1). Real owning-home read via fm-tasks-axi show; fm-send is a recording fake.
+
+## pass 1 (same heads)
+2026-11-01T07:01:30Z	https://github.com/o/r/pull/3001	1	fix	refused:owned by mate1: steered mate-task (queue=not queued)
+2026-11-01T07:01:30Z	https://github.com/o/r/pull/3002	1	fix	refused:no home owns orphan (queue=not queued)
+2026-11-01T07:01:30Z	https://github.com/o/r/pull/3003	1	fix	refused:no home owns mate-done (queue=not queued)
+exit=0
+
+## pass 2 (same heads)
+2026-11-01T07:01:31Z	https://github.com/o/r/pull/3001	1	fix	refused:owned by mate1: already steered for head head3001aaaa (queue=not queued)
+2026-11-01T07:01:31Z	https://github.com/o/r/pull/3002	1	fix	refused:no home owns orphan (queue=not queued)
+2026-11-01T07:01:31Z	https://github.com/o/r/pull/3003	1	fix	refused:no home owns mate-done (queue=not queued)
+exit=0
+
+## pass 3 (PR 3001 got a new push)
+2026-11-01T07:01:31Z	https://github.com/o/r/pull/3001	1	fix	refused:owned by mate1: steered mate-task (queue=not queued)
+2026-11-01T07:01:31Z	https://github.com/o/r/pull/3002	1	fix	refused:no home owns orphan (queue=not queued)
+2026-11-01T07:01:31Z	https://github.com/o/r/pull/3003	1	fix	refused:no home owns mate-done (queue=not queued)
+exit=0
+
+## fm-send calls (target, request id, message)
+mate1 id=4c9090925143fd1a9b248eb63a6c19eb | PR triage: https://github.com/o/r/pull/3001 belongs to your task mate-task. PR triage ranks https://github.com/o/r/pull/3001 among the pull requests to move first, and it is conflicting and red. Merge origin/main into the branch with a merge commit if it conflicts, regenerate generated files, fix the failing checks, run their tests, and push once. Do not rebase. Do not force-push. Report done with the same pull request URL when its checks are green.
+mate1 id=06f4f529cf45828d50be93ae3e730a7f | PR triage: https://github.com/o/r/pull/3001 belongs to your task mate-task. PR triage ranks https://github.com/o/r/pull/3001 among the pull requests to move first, and it is conflicting and red. Merge origin/main into the branch with a merge commit if it conflicts, regenerate generated files, fix the failing checks, run their tests, and push once. Do not rebase. Do not force-push. Report done with the same pull request URL when its checks are green.
+
+## records for the unowned PR 3002 (one per pass, nothing sent):
+3
+## wake queue in this home?
+none
+## anything written into the mate home state?
+none
+## fm-control launches (must be none: no worker spawned here for another home or an unowned task)
+none
+## markers
+steer-3001
+
+# Note: PR 3003 maps to mate-done, which is DONE in mate1. Done items are not open, so no home owns it and the record-only unowned refusal is correct per the header. A task done in THIS home records refused:task done (tests/fm-pr-triage.test.sh "done backlog items neither rank pull requests nor own fix workers").

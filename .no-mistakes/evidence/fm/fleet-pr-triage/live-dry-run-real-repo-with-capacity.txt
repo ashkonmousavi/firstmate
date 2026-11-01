@@ -1,0 +1,10 @@
+$ FM_HOME=<lab> bin/fm-pr-triage.sh   # dry run with config/lane-capacity '4 0'; real gh, real mergify, real fm-capacity --admit
+would-record: 2026-11-01T06:50:19Z	https://github.com/ashkonmousavi/firstmate/pull/94	1	fix	refused:no capacity: unreadable (queue=unknown)
+would-record: 2026-11-01T06:50:19Z	https://github.com/ashkonmousavi/firstmate/pull/145	1	fix	refused:no home owns fm-hold-release-walk (queue=unknown)
+would-record: 2026-11-01T06:50:19Z	https://github.com/ashkonmousavi/firstmate/pull/198	2	none	refused:checks PENDING
+would-record: 2026-11-01T06:50:19Z	https://github.com/ashkonmousavi/firstmate/pull/195	2	none	refused:checks PENDING
+would-record: 2026-11-01T06:50:19Z	https://github.com/ashkonmousavi/firstmate/pull/89	3	none	none
+would-record: 2026-11-01T06:50:19Z	https://github.com/ashkonmousavi/firstmate/pull/90	3	none	none
+would-record: 2026-11-01T06:50:19Z	https://github.com/ashkonmousavi/firstmate/pull/192	3	none	none
+would-record: 2026-11-01T06:50:19Z	https://github.com/ashkonmousavi/firstmate/pull/193	3	none	none
+exit=0

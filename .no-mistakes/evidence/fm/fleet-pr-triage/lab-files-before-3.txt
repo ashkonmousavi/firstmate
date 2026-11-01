@@ -1,0 +1,8 @@
+/tmp/fm-lab.FexsKe/.fm-lab-home
+/tmp/fm-lab.FexsKe/.tasks.toml
+/tmp/fm-lab.FexsKe/config/lane-capacity
+/tmp/fm-lab.FexsKe/config/machine-admission.json
+/tmp/fm-lab.FexsKe/config/pr-triage-rules
+/tmp/fm-lab.FexsKe/data/backlog.md
+/tmp/fm-lab.FexsKe/data/projects.md
+/tmp/fm-lab.FexsKe/state/fork-self-hosted-ci.meta

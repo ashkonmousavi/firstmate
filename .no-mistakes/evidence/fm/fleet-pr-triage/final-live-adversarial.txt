@@ -1,0 +1,38 @@
+## A: forge listing unreadable -> one refusal record with - fields, exit 1, no action
+2026-11-01T07:01:49Z	-	-	-	refused:pull requests unreadable: gh: HTTP 502 Bad Gateway
+exit=1
+
+## B: green rank-2 PR, Mergify queue PAUSED -> refused, no label/comment; plus pending, draft, merge-queue batch, UNKNOWN mergeability
+2026-11-01T07:01:50Z	https://github.com/o/r/pull/2792	1	none	refused:checks PENDING
+2026-11-01T07:01:50Z	https://github.com/o/r/pull/2793	1	none	refused:draft (J-01)
+2026-11-01T07:01:50Z	https://github.com/o/r/pull/2795	1	none	refused:mergeability UNKNOWN
+2026-11-01T07:01:50Z	https://github.com/o/r/pull/2790	2	queue	refused:queue paused
+2026-11-01T07:01:50Z	https://github.com/o/r/pull/2794	3	none	refused:merge-queue batch
+exit=0
+gh-axi writes: none
+fm-control launches: none
+
+## C: Mergify queue state unreadable (status call returns non-JSON) -> refused, no write
+2026-11-01T07:01:50Z	https://github.com/o/r/pull/2790	2	queue	refused:queue state unreadable
+gh-axi writes: none
+
+## D: PR already in a forming Mergify batch -> already queued, no write
+2026-11-01T07:01:50Z	https://github.com/o/r/pull/2790	2	queue	already queued
+gh-axi writes: none
+
+## E: a second concurrent pass while the first holds the lock -> exits 0, writes nothing
+fm-pr-triage: another pass holds <lab>/state/.pr-triage.lock (pid 3244830); nothing done
+second pass exit=0
+records written by the second pass: 0
+first pass exit=0
+
+## F: --print-timer proposes a 5-minute schedule and installs nothing
+Environment="FM_HOME=<lab>"
+ExecStart=~/.no-mistakes/worktrees/049a88734b0e/01M6AT02STM8BBM12CH4PH2P59/bin/fm-pr-triage.sh --apply
+OnUnitActiveSec=5min
+*/5 * * * * PATH=~/.local/bin:~/.local/bin:~/bin:~/.kimi-code/bin:~/.grok/bin:~
+(no fm-pr-triage unit installed)
+
+## G: bad usage
+usage: fm-pr-triage.sh [--apply|--print-timer|--help]
+exit=2

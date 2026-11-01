@@ -1,0 +1,16 @@
+ok - conflicting and red relaunches the owning task once, never beside a live worker
+ok - fix refusals: no record, unproved liveness, no owning home, capacity, deferral
+ok - green unqueued pull request gets the label and exactly one queue comment per head
+ok - already-queued, paused and unreadable queues get no comment
+ok - ranking: J-01 path and rules first, then blocked-by count, then the rest
+ok - done backlog items neither rank pull requests nor own fix workers
+ok - an unprefixed head branch keeps an empty task and its rank class
+ok - the proposed timer and cron line carry the PATH the pass needs
+ok - draft, merge-queue batches and unknown mergeability are skipped; exclusion files and hold labels are not
+ok - another home is steered once per head and an unowned task is refused
+ok - one gh GraphQL read per pass regardless of the pull request count or the actions taken
+ok - an unowned task gets one refusal record per pass and no notice
+ok - dry run prints decisions and commands and writes nothing
+ok - a single-instance lock keeps a second pass from running
+ok - PR 2775 case: a red, conflicting pull request believed queued gets a fix worker and its real queue state
+ok - an unreadable listing or missing rules fail visibly

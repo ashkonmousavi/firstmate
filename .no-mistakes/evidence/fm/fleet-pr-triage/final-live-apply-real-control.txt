@@ -1,0 +1,5 @@
+# --apply with the REAL bin/fm-control.sh relaunch (lab home, lab tmux socket); gh-axi writes faked
+2026-11-01T07:00:31Z	https://github.com/ashkonmousavi/firstmate/pull/94	1	fix	refused:launch error: REFUSED: task fork-self-hosted-ci has a missing, empty, or ambiguous project identity; preserving task state. (exit 1, queue=unknown)
+exit=0
+# fix marker after a refused real relaunch:
+(none - a refused launch leaves no marker, so the next pass retries)

@@ -1,0 +1,43 @@
+# PR 2775 shape: CONFLICTING + FAILURE, carries main-red, an earlier record says 'already queued', Mergify queue holds 2779/2780 and 'queue show 2775' says queued:false.
+# PR 2790: green, blocks two backlog items (rank 2). PR 2791: green, rank 3.
+# Real fm-pr-triage.sh, real tasks-axi backlog, real fm-capacity, real posture; forge (gh/mergify/gh-axi) and fm-control are recording fakes.
+
+## pass 1
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2775	1	fix	launched hub-cut (queue=not queued)
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2790	2	queue	labelled main-red and commented queue (queue=not queued)
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2791	3	none	none
+exit=0
+
+## pass 2 (same heads)
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2775	1	fix	refused:fix already launched for head head2775aaaa (queue=not queued)
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2790	2	queue	refused:queue comment already made for head head2790aaaa
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2791	3	none	none
+exit=0
+
+## fake fm-control (relaunch) calls
+hub-cut relaunch --note PR triage ranks https://github.com/o/r/pull/2775 among the pull requests to move first, and it is conflicting and red.
+
+## fake gh-axi writes (label + queue comment)
+pr edit 2790 --repo o/r --add-label main-red
+pr comment 2790 --repo o/r --body @mergifyio queue
+
+## mergify reads
+queue status --repository o/r --json
+queue show 2775 --repository o/r --json
+queue show 2790 --repository o/r --json
+queue status --repository o/r --json
+queue show 2775 --repository o/r --json
+queue show 2790 --repository o/r --json
+
+## gh GraphQL reads (one per pass)
+api graphql --paginate -f owner=o -f name=r -f query=query($
+api graphql --paginate -f owner=o -f name=r -f query=query($
+
+## state/pr-triage.log
+2026-11-01T00:00:00Z	https://github.com/o/r/pull/2775	1	queue	already queued
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2775	1	fix	launched hub-cut (queue=not queued)
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2790	2	queue	labelled main-red and commented queue (queue=not queued)
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2791	3	none	none
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2775	1	fix	refused:fix already launched for head head2775aaaa (queue=not queued)
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2790	2	queue	refused:queue comment already made for head head2790aaaa
+2026-11-01T06:52:05Z	https://github.com/o/r/pull/2791	3	none	none
