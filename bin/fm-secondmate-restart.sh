@@ -259,7 +259,7 @@ observe_spawn_winner() {  # <array-index>
       probe='endpoint probe failed'
     fi
   fi
-  printf '%s, but no existing record proves it succeeded (%s)' "$observed" "$probe"
+  printf '%s, but no existing record proves the winning launch succeeded (%s)' "$observed" "$probe"
 }
 
 # Wait before stopping the agent; the shared liveness library's header owns
