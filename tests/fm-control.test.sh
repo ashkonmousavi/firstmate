@@ -355,6 +355,7 @@ case "$1:$2" in
 esac
 SH
   printf '#!/usr/bin/env bash\nexit 0\n' > "$1/fakebin/treehouse"
+  # shellcheck disable=SC2016 # Expand FM_FAKE_DIR when the generated fixture runs.
   printf '#!/usr/bin/env bash\nprintf "0\\n" > "$FM_FAKE_DIR/scroll-offset"\n' > "$1/fakebin/scroll"
   chmod +x "$1/fakebin/herdr" "$1/fakebin/treehouse" "$1/fakebin/scroll"
   mkdir -p "$1/compatiblebin"

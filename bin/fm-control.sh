@@ -532,7 +532,7 @@ confirm_exit_picker() {  # <dialog-name> [pre-submit]
   fi
   if [ "$LANDED_WORK" != 1 ] \
      && ! { [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] && [ -n "${release_busy_token:-}" ]; } \
-     && { ! fm_backlog_row_probe "$DATA" "$ID" || [ "${FM_BACKLOG_ROW_STATE%% *}" != done ]; }; then
+     && { ! fm_backlog_row_probe "$DATA" "$ID" || [ "${FM_BACKLOG_ROW_STATE%% *}" != 'done' ]; }; then
     why="the task is not recorded Done in the backlog, so stopping its background tasks is not authorized"
     [ -z "$FM_BACKLOG_ROW_ERROR" ] || why="its backlog row could not be read ($FM_BACKLOG_ROW_ERROR), so it is not proven Done"
     die "task $ID is blocked on a prompt: $1. Refusing to type Enter into it: $why. Stop them from the worker or record the task Done, then retry '$VERB'"
