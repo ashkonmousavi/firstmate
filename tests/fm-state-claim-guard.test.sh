@@ -190,11 +190,11 @@ for name in ("the-alpha", "our-alpha", "still.alpha", "agent-beta"):
         check(f"generic word prefixes retain matching reads: {message}", message,
               [f"bash bin/fm-crew-state.sh {name}"], expected=0)
 check("generic worker-lane plural remains unnamed", "Both worker lanes are running.",
-      ["bash bin/fm-crew-state.sh"], expected=0)
+      ["bash bin/fm-crew-state.sh lane-a"], expected=0)
 for subject in ("lanes", "workers", "crews", "scouts", "mates", "tasks", "supervisors", "watchers", "agents"):
     check(f"plural {subject} report requires a read", f"Both {subject} are running.")
     check(f"plural {subject} report passes with a read", f"Both {subject} are running.",
-          ["bash bin/fm-crew-state.sh"], expected=0)
+          ["bash bin/fm-crew-state.sh lane-a"], expected=0)
 for subject in ("deploy", "deployment", "release", "site"):
     check(f"{subject} subject requires a read", f"The {subject} is live.")
 check("qualified sentence does not excuse a second claim", "PR 9 merged, last read at noon. The deploy is live.")
