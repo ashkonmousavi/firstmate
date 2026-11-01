@@ -2045,7 +2045,8 @@ The picker is recognised by its recorded structure only: the heading on its own 
 The same strings quoted above a normal composer, as a diff, this note, or a test fixture shows them, are not a picker.
 Submit retries now stop after the Enter that opened the picker and report unknown.
 A typed submit to a pane that already shows the picker types nothing and sends no Enter.
-Exit reports that the worker is blocked on the Claude background-task exit picker and does not type another Enter.
+Exit reports that the worker is blocked on the Claude background-task exit picker and does not type another Enter, unless the task is recorded Done in the backlog: then it sends one confirming Enter (the selected row is `Exit and stop tasks`) and requires the agent to stop.
+Covered by stubbed-pane tests only (no live Claude run); the picker's recorded structure is unchanged.
 A submit can return before any read sees the picker, so exit reads the screen once more when its wait for the agent to stop times out, and names the picker there too.
 Exit does not report a stopped agent whose pane still shows the picker text as blocked on a prompt.
 The watcher reads the picker with the same matcher on the stale-path capture it already takes for a worker.

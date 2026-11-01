@@ -507,6 +507,38 @@ refuse_blocking_prompt() {  # <dialog-name>
   die "task $ID is blocked on a prompt: $1. Refusing to type Enter into it."
 }
 
+# confirm_exit_picker <dialog-name>: Claude's background-task exit picker has
+# "Exit and stop tasks" as its selected row (the recognizer requires it), so one
+# Enter chooses it. Firstmate may choose it only for a task its backlog records
+# Done: that task's local copy and pull request are kept, so a leftover shell is
+# not unlanded work. Any other dialog, a task not recorded Done (or whose row
+# cannot be read), and a secondmate (never a backlog item) refuse as before.
+# The pre-submit call (a picker already open when exit starts) also refuses
+# under the unattended lane release, whose validation has not yet run there.
+# Returns once the agent is dead; dies otherwise.
+confirm_exit_picker() {  # <dialog-name> [pre-submit]
+  local state why
+  if [ "$1" != 'Claude background-task exit picker' ] || [ "$KIND" = secondmate ] \
+     || { [ "${2:-}" = pre-submit ] && [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; }; then
+    refuse_blocking_prompt "$1"
+  fi
+  if ! declare -F fm_backlog_row_probe >/dev/null 2>&1; then
+    # shellcheck source=bin/fm-tasks-axi-lib.sh
+    . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+    # shellcheck source=bin/fm-backlog-transition-lib.sh
+    . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+  fi
+  if ! fm_backlog_row_probe "$DATA" "$ID" || [ "${FM_BACKLOG_ROW_STATE%% *}" != done ]; then
+    why="the task is not recorded Done in the backlog, so stopping its background tasks is not authorized"
+    [ -z "$FM_BACKLOG_ROW_ERROR" ] || why="its backlog row could not be read ($FM_BACKLOG_ROW_ERROR), so it is not proven Done"
+    die "task $ID is blocked on a prompt: $1. Refusing to type Enter into it: $why. Stop them from the worker or record the task Done, then retry '$VERB'"
+  fi
+  fm_backend_send_key "$BACKEND" "$T" Enter "$LABEL" \
+    || die "task $ID is recorded Done and blocked on a prompt: $1, but the Enter that chooses 'Exit and stop tasks' was not delivered on $BACKEND"
+  state=$(wait_agent_state "$EXIT_WAIT" dead) \
+    || die "exit-delivered $ID chose 'Exit and stop tasks' on the $1 but the agent did not stop within ${EXIT_WAIT}s (agent-state=$state)"
+}
+
 # rendered_matches <ere>: whether any row of the visible viewport matches.
 # An unreadable viewport is a no, so every caller treats it as missing proof.
 rendered_matches() {  # <ere>
@@ -944,7 +976,12 @@ do_exit() {
   # rather than a function that subshell sourced.
   if [ -s "${FM_COMPOSER_DIALOG_SINK:-}" ]; then
     dialog=$(cat "$FM_COMPOSER_DIALOG_SINK")
-    refuse_blocking_prompt "$dialog"
+    # The picker is already open (an earlier exit left it): answer it instead
+    # of typing /exit into it, when the task is recorded Done.
+    confirm_exit_picker "$dialog" pre-submit
+    retire_busy_incarnation
+    printf 'stopped'
+    return 0
   fi
   case "$composer_state" in
     empty) ;;
@@ -990,7 +1027,7 @@ do_exit() {
   if [ -s "${FM_COMPOSER_DIALOG_SINK:-}" ]; then
     dialog=$(cat "$FM_COMPOSER_DIALOG_SINK")
     if [ "$(agent_state)" != dead ]; then
-      refuse_blocking_prompt "$dialog"
+      confirm_exit_picker "$dialog"
     fi
   fi
   state=$(wait_agent_state "$EXIT_WAIT" dead) || {
@@ -1000,9 +1037,11 @@ do_exit() {
     : > "$FM_COMPOSER_DIALOG_SINK" || true
     fm_backend_composer_state "$BACKEND" "$T" "$LABEL" >/dev/null 2>&1 || true
     if [ -s "$FM_COMPOSER_DIALOG_SINK" ]; then
-      refuse_blocking_prompt "$(cat "$FM_COMPOSER_DIALOG_SINK")"
+      confirm_exit_picker "$(cat "$FM_COMPOSER_DIALOG_SINK")"
+      state=dead
+    else
+      die "exit-delivered $ID interrupt=$interrupt_result exit-command=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
     fi
-    die "exit-delivered $ID interrupt=$interrupt_result exit-command=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
   }
   # The incarnation is over: retire its busy wiring so no stale record or
   # orphaned generation survives the agent that produced it.
