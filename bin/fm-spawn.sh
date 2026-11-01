@@ -225,16 +225,11 @@
 #   harness (config/secondmate-harness -> config/crew-harness -> own), so the
 #   secondmate-vs-crewmate split is DURABLE across every respawn (recovery,
 #   /updatefirstmate, restart). A bare adapter name (claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|agy|devin|commandcode)
-#   overrides it for this spawn (either kind). An explicitly named adapter
-#   (--harness or the positional) also passes the quota gate before launch: fm_quota_gate_run in bin/fm-quota-axi-lib.sh refuses it, naming the
-#   best alternative, when its own quota-axi row is exhausted_now or its runway
-#   ends within three hours (docs/configuration.md "Crew dispatch profiles" owns
-#   the contract). --quota-override <reason> launches anyway and records
-#   quota_override= and quota_override_evidence= in state/<id>.meta. A relaunch
-#   driven by bin/fm-control.sh is gated there, before the old agent stops, and
-#   is not gated again here. A raw launch command is not gated. A non-flag
-#   string containing
-#   whitespace is treated as a RAW launch command - the escape hatch for verifying
+#   overrides it for this spawn (either kind). See docs/configuration.md
+#   "Crew dispatch profiles" for the explicit-harness quota gate contract.
+#   --quota-override <reason> requires an explicit adapter and a non-empty
+#   one-line reason. A non-flag string containing whitespace is treated as a
+#   RAW launch command - the escape hatch for verifying
 #   new adapters. For pi and pi-signed, fm-spawn resolves the selected executable
 #   name from PATH once, probes that concrete path with --help, and launches the
 #   same path. It adds --tui-mode regular only when that help advertises the flag;
@@ -343,9 +338,10 @@
 # Batch dispatch: pass one or more `id=repo` pairs instead of a single <id> <project>, e.g.
 #     fm-spawn.sh fix-a-k3=projects/foo add-b-q7=projects/bar [--scout]
 #   Each pair re-execs this script in single-task mode, so the single path stays the only
-#   source of truth; shared --scout/--harness/--model/--effort/--backend/--mode/--yolo
-#   applies to every pair. A ship batch therefore carries one delivery contract, and each
-#   pair still checks it against its own brief; a batch spanning modes is two invocations.
+#   source of truth; shared --scout/--harness/--model/--effort/--quota-override/
+#   --backend/--mode/--yolo applies to every pair. A ship batch therefore carries
+#   one delivery contract, and each pair still checks it against its own brief;
+#   a batch spanning modes is two invocations.
 #   If config/crew-dispatch.json exists, shared --harness is required for crewmate
 #   and scout batches. The loop lives here, in bash, so callers never hand-write a
 #   multi-task shell loop (the tool shell is zsh, which does not word-split unquoted

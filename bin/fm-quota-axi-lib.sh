@@ -242,10 +242,10 @@ FM_QUOTA_GATE_JQ='
 # fm_quota_gate_snapshot <out-file>
 # Writes one validated quota-axi --json snapshot. FM_QUOTA_SNAPSHOT_FILE, when
 # set, names an already-captured snapshot to reuse instead of running
-# quota-axi: the test seam, and how fm-control hands the reading its pre-stop
-# check used to the launch it delegates. FM_QUOTA_GATE_TIMEOUT bounds the live
-# read (default 30 seconds). Fails, printing the cause, when no valid snapshot
-# can be produced; callers treat that as disclosed uncertainty.
+# quota-axi: the test seam. Control hands its verdict and evidence to its
+# delegated launch instead of taking a second snapshot. FM_QUOTA_GATE_TIMEOUT
+# bounds the live read (default 30 seconds). Fails, printing the cause, when
+# no valid snapshot can be produced; callers treat that as disclosed uncertainty.
 fm_quota_gate_snapshot() {
   local out=$1 src=${FM_QUOTA_SNAPSHOT_FILE:-}
   if [ -n "$src" ]; then

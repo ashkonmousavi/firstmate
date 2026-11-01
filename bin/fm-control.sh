@@ -97,12 +97,9 @@
 #              The same pre-stop refusal applies to this home's worker tool
 #              exclusions (bin/fm-exclude-tools-lib.sh): a malformed list, or a
 #              replacement runtime that cannot hide the listed tools.
-#              An explicit --harness also passes the spawn quota gate here,
-#              before the old agent stops (fm_quota_gate_run in
-#              bin/fm-quota-axi-lib.sh; docs/configuration.md "Crew dispatch
-#              profiles" owns the contract). A refusal names the best
-#              alternative; --quota-override <reason> relaunches anyway, and
-#              the launch owner records it in the task record.
+#              See docs/configuration.md "Crew dispatch profiles" for the
+#              explicit-harness quota gate contract. --quota-override <reason>
+#              requires --harness and a non-empty one-line reason.
 #              --note is required for a ship or scout, whose replacement
 #              inherits the local copy but none of the conversation; a
 #              secondmate reconciles its own home's records at startup, so its
