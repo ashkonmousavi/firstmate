@@ -53,12 +53,14 @@
 #   hashed from the pull request number, head, home and message so an
 #   uncertain send retried with the same message deduplicates; its backlog is
 #   read with bin/fm-tasks-axi.sh show, through bin/fm-on.sh for a remote
-#   home. A task no home holds open is refused, and this home's firstmate is
-#   told once per pull request head (state/pr-triage/notify-<n>) through the
-#   wake queue, its doorbell (`check: pr-triage-unowned: ...`, the route
-#   bin/fm-pr-orphan-sweep.sh uses), because bin/fm-send.sh addresses tasks,
-#   not the firstmate itself. For this home's task, with a state/<id>.meta
-#   record:
+#   home. Without data/secondmates.md every task not open here is unowned.
+#   A task no home holds open is refused, and a firstmate that can act is told
+#   once per pull request head (state/pr-triage/notify-<n>): in a main home,
+#   its own wake queue (`check: pr-triage-unowned: ...`, the route
+#   bin/fm-pr-orphan-sweep.sh uses); in a secondmate home, one `blocked:` line
+#   on its parent channel (bin/fm-parent-channel-lib.sh). The marker is written
+#   after the notice on purpose: a duplicate notice after a crash beats a
+#   missed one. For this home's task, with a state/<id>.meta record:
 #     - its worker is alive                -> refused:worker live
 #     - its worker exited, or the record is a released copy
 #       (worktree=*.released-copy)         -> bin/fm-control.sh <id> relaunch
@@ -212,6 +214,8 @@ fi
 . "$SCRIPT_DIR/fm-lane-release-lib.sh"
 # shellcheck source=bin/fm-secondmate-registry-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
+# shellcheck source=bin/fm-parent-channel-lib.sh
+. "$SCRIPT_DIR/fm-parent-channel-lib.sh"
 
 flat() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-300; }
 
@@ -553,17 +557,32 @@ steer_owner() {
 
 # notify_unowned <number> <url> <rank> <task> <why> <head> <queue>
 notify_unowned() {
-  local n=$1 url=$2 rank=$3 task=$4 why=$5 head=$6 q=$7 reason
+  local n=$1 url=$2 rank=$3 task=$4 why=$5 head=$6 q=$7 summary line rc=0
   if [ "$(marker_get "$MARKS/notify-$n")" = "$head" ]; then
     record "$url" "$rank" fix "refused:no home owns $task: firstmate already notified for head ${head:0:12} (queue=$q)"
     return 0
   fi
-  reason="check: pr-triage-unowned: $url (rank $rank, $why) needs a fix worker but no home's backlog holds task $task open"
-  if [ "$ACTION" = dry ]; then
-    would_run fm_wake_append check "pr-triage-unowned:$url" "$reason"
-  elif ! fm_wake_append check "pr-triage-unowned:$url" "$reason" 2> "$TMPD/wake.err"; then
-    record "$url" "$rank" fix "refused:no home owns $task: notify failed: $(head -1 "$TMPD/wake.err") (queue=$q)"
-    return 0
+  summary="$url (rank $rank, $why) needs a fix worker but no home's backlog holds task $task open"
+  fm_parent_channel_home_id "$FM_HOME" >/dev/null 2>&1 || rc=$?
+  if [ "$rc" = 1 ]; then
+    if [ "$ACTION" = dry ]; then
+      would_run fm_wake_append check "pr-triage-unowned:$url" "check: pr-triage-unowned: $summary"
+    elif ! fm_wake_append check "pr-triage-unowned:$url" "check: pr-triage-unowned: $summary" 2> "$TMPD/wake.err"; then
+      record "$url" "$rank" fix "refused:no home owns $task: notify failed: $(head -1 "$TMPD/wake.err") (queue=$q)"
+      return 0
+    fi
+  else
+    line="blocked [key=pr-triage-unowned-$n-${head:0:12}]: pr-triage: $(fm_parent_channel_clean_note "$summary")"
+    rc=0
+    if [ "$ACTION" = dry ]; then
+      would_run fm_parent_channel_report "$FM_HOME" "$STATE" "$line"
+    else
+      fm_parent_channel_report "$FM_HOME" "$STATE" "$line" || rc=$?
+      if [ "$rc" != 0 ]; then
+        record "$url" "$rank" fix "refused:no home owns $task: notify failed: parent channel rc=$rc (queue=$q)"
+        return 0
+      fi
+    fi
   fi
   marker_put "$MARKS/notify-$n" "$head"
   record "$url" "$rank" fix "refused:no home owns $task: firstmate notified (queue=$q)"

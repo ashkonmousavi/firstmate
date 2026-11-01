@@ -108,7 +108,9 @@
 #                          (bin/fm-pr-orphan-sweep.sh owns the contract)
 #   check: pr-triage-unowned: <url> (rank <n>, <why>) needs a fix worker ...
 #                          a top-two-rank red or conflicting pull request whose
-#                          task no home's backlog holds open; once per head
+#                          task no home's backlog holds open; once per head, in
+#                          a main home (a secondmate home posts a blocked: line
+#                          on its parent channel instead)
 #                          (bin/fm-pr-triage.sh owns the contract)
 #   check: hold-release: hold condition met: <task-id> <condition>
 #                          a held row's structured release condition (its

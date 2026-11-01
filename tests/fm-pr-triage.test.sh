@@ -432,19 +432,51 @@ pass 'another home is steered and an unowned task notifies firstmate, once per h
 
 # --- one GraphQL read per pass, whatever the number of pull requests ---------------
 # Oracle: the owner's rate-limit requirement: the single paginated read serves
-# every decision, so the gh call count does not grow with the pull request count.
-count_gh() {  # <number of pull requests>
+# every decision, so the gh call count does not grow with the pull request count,
+# and the per-pull-request calls are bounded by the pull requests acted on.
+count_gh() {  # <number of pull requests>: prints gh, relaunch, comment and mergify call counts
+  local i red=$(($1 / 3)) green=$((($1 + 2) / 3))
   reset
-  backlog < /dev/null
   printf 'label=ci\n' | rules
-  for i in $(seq 1 "$1"); do pr $((200 + i)) "fm/many-$i" MERGEABLE PENDING t ci; done | prs
+  for i in $(seq 1 "$1"); do
+    [ $((i % 3)) = 0 ] && printf -- '- [ ] many-%s - red piece (repo: proj) (kind: ship) (since 2026-10-30)\n' "$i"
+  done | backlog
+  for i in $(seq 1 "$1"); do
+    case $((i % 3)) in
+      0) meta "many-$i"; echo exited > "$FAKE/posture-many-$i"; pr $((200 + i)) "fm/many-$i" CONFLICTING FAILURE t ci ;;
+      1) pr $((200 + i)) "fm/many-$i" MERGEABLE SUCCESS t ci ;;
+      *) pr $((200 + i)) "fm/many-$i" MERGEABLE PENDING t ci ;;
+    esac
+  done | prs
   bash "$TRIAGE" --apply >/dev/null 2>&1
   [ "$(grep -c . "$LOG")" -eq "$1" ] || fail "one record per pull request for $1"
+  [ "$(grep -c ' relaunch --note' "$FAKE/control.log")" -eq "$red" ] || fail "every red pull request relaunched for $1"
+  [ "$(grep -c 'pr comment' "$FAKE/ghaxi.log")" -eq "$green" ] || fail "every green pull request commented for $1"
+  [ "$(grep -c . "$FAKE/mergify.log")" -le "$((1 + red + green))" ] || fail "mergify calls exceed the acted set for $1"
   grep -c . "$FAKE/gh.log"
 }
-assert_equals 1 "$(count_gh 3)" 'three pull requests: one gh call'
-assert_equals 1 "$(count_gh 12)" 'twelve pull requests: still one gh call'
-pass 'one gh GraphQL read per pass regardless of the pull request count'
+assert_equals 1 "$(count_gh 3)" 'three pull requests, one red and one green acted on: one gh call'
+assert_equals 1 "$(count_gh 12)" 'twelve pull requests, eight acted on: still one gh call'
+pass 'one gh GraphQL read per pass regardless of the pull request count or the actions taken'
+
+# --- a secondmate home tells its parent about an unowned task -----------------------
+# Oracle: the owner's decision and bin/fm-parent-channel-lib.sh: a secondmate's
+# parent reads only its parent channel (a local route lands in the parent home's
+# state/<mate-id>.status), so the notice goes there, not to the mate's own wake queue.
+reset
+P="$TMP_ROOT/parent"
+mkdir -p "$P/state"
+printf 'mate1\n' > "$H/.fm-secondmate-home"
+printf 'schema=fm-secondmate-parent.v1\nroute=local\nparent_home=%s\n' "$P" > "$H/.fm-secondmate-parent"
+backlog < /dev/null
+pr 110 fm/lost-task CONFLICTING FAILURE 'J-01 lost' | prs
+bash "$TRIAGE" --apply >/dev/null 2>&1
+bash "$TRIAGE" --apply >/dev/null 2>&1
+rm -f "$H/.fm-secondmate-home" "$H/.fm-secondmate-parent"
+assert_equals 'refused:no home owns lost-task: firstmate already notified for head sha110aaaaaa (queue=not queued)' "$(field "$(rec 110)" 5)" 'second pass: a record, no second notice'
+assert_equals 1 "$(grep -c "^blocked .*: pr-triage: $URL/110 (rank 1, conflicting and red)" "$P/state/mate1.status")" 'one blocked line on the parent channel'
+assert_equals 0 "$(wakes 110)" 'no row in the mate home wake queue'
+pass 'a secondmate home posts one blocked line per head on its parent channel'
 
 # --- dry run writes nothing --------------------------------------------------------
 reset
