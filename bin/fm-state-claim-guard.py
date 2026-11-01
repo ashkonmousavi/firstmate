@@ -95,7 +95,8 @@ def lane_names(text):
 
 def claims(text):
     text = re.sub(r"```.*?(?:```|$)", "", text, flags=re.S)
-    text = re.sub(r'''(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"[^"]*"|‘(?:[^’]|(?<=\w)’(?=\w))*’|“[^”]*”''', " ", text)
+    text = re.sub(r'''(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"[^"]*"|‘(?:[^’]|(?<=\w)’(?=\w))*’|“[^”]*”''',
+                  lambda match: " " if len(match.group(0)[1:-1].split()) >= 4 else match.group(0)[1:-1], text)
     text = re.sub(r"(?<!\w)(_{1,3})(\S(?:[^\n]*?\S)?)\1(?!\w)", r"\2",
                   text.replace("`", "").replace("*", ""))
     for sentence in re.split(r"[\n]|(?<=[.!?])\s+", text):

@@ -108,6 +108,24 @@ for reading in ("read it live", "read live"):
     check(f"{reading} does not exempt a deployment assertion",
           f"I {reading}: the site is live.", ["gh pr view 9"])
 for opening, closing in (("'", "'"), ('"', '"'), ("‘", "’"), ("“", "”")):
+    for message, matching, unrelated in (
+        (f"PR {opening}#9{closing} is merged.", "gh pr view 9", "gh pr view 10"),
+        (f"PR {opening}9{closing} is merged.", "gh pr view 9", "gh pr view 10"),
+        (f"The site {opening}https://one.example{closing} is live.",
+         "curl https://one.example/health", "curl https://other.example/health"),
+        (f"{opening}Lane alpha{closing} is running.",
+         "bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"),
+        (f"The {opening}alpha lane{closing} is running.",
+         "bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"),
+        (f"PR 9 is {opening}merged{closing}.", "gh pr view 9", "gh pr view 10"),
+        (f"The site is {opening}live{closing}.", "curl https://one.example/health", "gh pr view 9"),
+        (f"Lane alpha is {opening}running{closing}.",
+         "bash bin/fm-crew-state.sh alpha", "bash bin/fm-crew-state.sh beta"),
+        (f"{opening}PR 9 merged{closing}.", "gh pr view 9", "gh pr view 10"),
+    ):
+        check(f"short quoted assertion requires a read: {message}", message)
+        check(f"short quoted assertion rejects unrelated read: {message}", message, [unrelated])
+        check(f"short quoted assertion accepts matching read: {message}", message, [matching], expected=0)
     check(f"quoted earlier state report is not a claim: {opening}",
           f"The guard blocked {opening}PR 9 is merged.{closing} earlier.", expected=0)
     check(f"quoted state does not exempt an assertion: {opening}",
