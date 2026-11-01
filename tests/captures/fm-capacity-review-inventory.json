@@ -17,8 +17,8 @@
       "command": "bash tests/fm-capacity.test.sh",
       "public_interfaces": ["fm-capacity.sh", "fm-fleet-ledger.sh capacity --json", "fm-fleet-view.sh --capacity", "fm-place.sh", "fm-spawn.sh --relaunch", "fm-control.sh relaunch"],
       "oracle": "The approved machine-wide contract admits readable facts with reason ok and a free lane; unreadable facts refuse. Worked fixtures declare five lanes, four holders and 4 GiB available against a 3 GiB reserve, then replace the memory reading with malformed data.",
-      "rejects": "Publishing admitted=false for the admitting fixture, admitted=true for unreadable input, retaining an old good publication on failure, or placing a full or stale machine.",
-      "limits": "The explicit new admitted assertions cover successful and unreadable publication. Full, memory, pressure and disk refusals have existing behavioral cases, but not a new explicit admitted assertion for every refusal reason. The placement full fixture also changes reason and free_lanes, so it does not prove that placement consumes admitted."
+      "rejects": "Publishing admitted=false for the admitting fixture, admitted=true for unreadable input or a readable memory refusal, retaining an old good publication on failure, or placing a full or stale machine.",
+      "limits": "The explicit admitted assertions cover successful publication (true), unreadable publication (false) and a readable memory refusal (false), which rejects a serializer that derives admitted from readable alone. Full, pressure and disk refusals have existing behavioral cases but no explicit admitted assertion. Placement does not read admitted; its full-machine case is refused on reason and free_lanes."
     }
   },
   "axes": {

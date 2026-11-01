@@ -112,17 +112,16 @@ printf 'MemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
 jq '.machine="server" | .free_lanes=3 | .lanes=2 | .headroom_kb=2097152 | .mem_available_kb=5242880' "$TMP_ROOT/laptop.json" > "$TMP_ROOT/server.json"
 out=$(bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/laptop.json" "$TMP_ROOT/server.json" "$TMP_ROOT/missing.json") || fail 'placement failed'
 assert_contains "$out" 'Placement: server' 'machine with most room'
-jq -e '.admitted == true' "$TMP_ROOT/server.json" >/dev/null || fail 'placement-eligible facts must be admitted'
 jq '.free_lanes=0 | .lanes=.target | .reason="full" | .admitted=false' "$TMP_ROOT/server.json" > "$TMP_ROOT/full.json"
 bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/full.json" >/dev/null 2>&1; rc=$?
-expect_code 75 "$rc" 'a machine with admitted=false never places'
+expect_code 75 "$rc" 'full machine never chosen'
 jq '.readable=false' "$TMP_ROOT/server.json" > "$TMP_ROOT/unreadable.json"
 out=$(bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/unreadable.json" "$TMP_ROOT/missing.json" 2>&1); rc=$?
 expect_code 75 "$rc" 'unreadable machines never chosen'
 jq '.generated_epoch=1' "$TMP_ROOT/laptop.json" > "$TMP_ROOT/stale.json"
 bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/stale.json" >/dev/null 2>&1; rc=$?
 expect_code 75 "$rc" 'stale machine never chosen'
-pass 'published facts drive placement; unreadable and stale hosts refused'
+pass 'published facts drive placement; full, unreadable and stale hosts refused'
 
 # Exercise the record loop through its public read API. Endpoint states are
 # supplied at the existing backend boundary; cwd scans use real processes.
@@ -327,7 +326,7 @@ test_cgroup_memory() {
   expect_code 75 "$rc" 'enclosing pressure refuses despite admissible child'
   assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew memory.high" 'refusal identifies limiting ancestor'
   out=$(bash "$CAPACITY" --json) || fail 'enclosing pressure must remain readable'
-  jq -e '.reason == "memory" and .free_lanes == 0 and .mem_available_kb == 1048576 and .headroom_kb == -3145728' <<< "$out" >/dev/null || fail 'parent one GiB balance must leave minus three GiB after reserve'
+  jq -e '.reason == "memory" and .readable == true and .admitted == false and .free_lanes == 0 and .mem_available_kb == 1048576 and .headroom_kb == -3145728' <<< "$out" >/dev/null || fail 'parent one GiB balance must leave minus three GiB after reserve'
   printf 'anon 17179869185\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
   out=$(bash "$CAPACITY" --json) || fail 'over-limit ancestor must remain readable'
   jq -e '.mem_available_kb == -1048577 and .headroom_kb == -5242881' <<< "$out" >/dev/null || fail 'negative ancestor balance must round down'
