@@ -1,0 +1,73 @@
+LAB home: /tmp/fm-lab.kjnI5Z (marker: . .. .fm-lab-home config data projects state )
+
+== S1 admitting machine: ceiling 3, reserve 0 GB, real /proc/meminfo, one ship record
+### S1-json
+{"readable":true,"reason":"ok","admitted":true,"lanes":1,"target":3,"free_lanes":2,"headroom_kb":5326652,"generated_epoch":1793511885,"age_s":0}
+exit=0
+--admit exit=0
+
+== S2 full machine: three ship/scout records at ceiling 3 (secondmate record must not count)
+### S2-json
+{"readable":true,"reason":"full","admitted":false,"lanes":3,"target":3,"free_lanes":0,"headroom_kb":5227424,"generated_epoch":1793511886,"age_s":0}
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793511886,"readable":true,"reason":"full","error":"/tmp/fm-lab.kjnI5Z/config/lane-capacity: lanes=3 target=3; no free machine lane","config_file":"/tmp/fm-lab.kjnI5Z/config/lane-capacity","admitted":false,"lanes":3,"target":3,"free_lanes":0,"secondmates":1,"mem_available_kb":5227424,"reserve_kb":0,"headroom_kb":5227424,"resource_policy_sha256":"3d35309acaad207a5ecce9e8307327c6f91b75c11b906ae89740c1d82b8cf4f2","memory_floor_kb":0,"effective_available_kb":5244796,"memory_full_avg60":0.01,"disk_free_min_kb":449882736}
+fm-capacity: /tmp/fm-lab.kjnI5Z/config/lane-capacity: lanes=3 target=3; no free machine lane
+exit=0
+--admit exit=75
+
+== S2b free a lane by removing one record
+### S2b-json
+{"readable":true,"reason":"ok","admitted":true,"lanes":2,"target":3,"free_lanes":1,"headroom_kb":4974296,"generated_epoch":1793511886,"age_s":0}
+exit=0
+--admit exit=0
+
+== S3 memory refusal: reserve 100000 GB against real meminfo
+### S3-json
+{"readable":true,"reason":"memory","admitted":false,"lanes":2,"target":3,"free_lanes":0,"headroom_kb":-104852640688,"generated_epoch":1793511886,"age_s":0}
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793511886,"readable":true,"reason":"memory","error":"/proc/meminfo MemAvailable=4959312 kB minus reserve=104857600000 kB (/tmp/fm-lab.kjnI5Z/config/lane-capacity) gives headroom=-104852640688 kB","config_file":"/tmp/fm-lab.kjnI5Z/config/lane-capacity","admitted":false,"lanes":2,"target":3,"free_lanes":0,"secondmates":1,"mem_available_kb":4959312,"reserve_kb":104857600000,"headroom_kb":-104852640688,"resource_policy_sha256":"3d35309acaad207a5ecce9e8307327c6f91b75c11b906ae89740c1d82b8cf4f2","memory_floor_kb":0,"effective_available_kb":4955096,"memory_full_avg60":0.01,"disk_free_min_kb":449882736}
+fm-capacity: /proc/meminfo MemAvailable=4959312 kB minus reserve=104857600000 kB (/tmp/fm-lab.kjnI5Z/config/lane-capacity) gives headroom=-104852640688 kB
+exit=0
+--admit exit=75
+
+== S4 disk refusal: disk_floor_gib 1000000
+### S4-json
+{"readable":false,"reason":"unreadable","admitted":false,"lanes":0,"target":0,"free_lanes":0,"headroom_kb":0,"generated_epoch":1793511886,"age_s":0}
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793511886,"readable":false,"reason":"unreadable","error":"/tmp/fm-lab.kjnI5Z/config/machine-admission.json: missing/invalid disk_floor_gib","config_file":"/tmp/fm-lab.kjnI5Z/config/lane-capacity","admitted":false,"lanes":0,"target":0,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":0,"headroom_kb":0,"resource_policy_sha256":"","memory_floor_kb":0,"effective_available_kb":0,"memory_full_avg60":0,"disk_free_min_kb":0}
+fm-capacity: /tmp/fm-lab.kjnI5Z/config/machine-admission.json: missing/invalid disk_floor_gib
+exit=1
+--admit exit=75
+
+== S5 publish good, then unreadable (missing lane-capacity) publish must replace it
+### S5-publish-good
+{"readable":true,"reason":"ok","admitted":true,"lanes":2,"target":3,"free_lanes":1,"headroom_kb":4911860,"generated_epoch":1793511886,"age_s":0}
+exit=0
+{"admitted":true,"reason":"ok","readable":true}
+### S5-publish-unreadable
+{"readable":false,"reason":"unreadable","admitted":false,"lanes":0,"target":0,"free_lanes":0,"headroom_kb":0,"generated_epoch":1793511887,"age_s":0}
+{"schema":"fm-lane-capacity.v1","machine":"Pulse","generated_epoch":1793511887,"readable":false,"reason":"unreadable","error":"/tmp/fm-lab.kjnI5Z/config/lane-capacity is missing or unreadable","config_file":"/tmp/fm-lab.kjnI5Z/config/lane-capacity","admitted":false,"lanes":0,"target":0,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":0,"headroom_kb":0,"resource_policy_sha256":"","memory_floor_kb":0,"effective_available_kb":0,"memory_full_avg60":0,"disk_free_min_kb":0}
+fm-capacity: /tmp/fm-lab.kjnI5Z/config/lane-capacity is missing or unreadable
+exit=1
+published file:
+{"admitted":false,"reason":"unreadable","readable":false,"free_lanes":0,"error":"/tmp/fm-lab.kjnI5Z/config/lane-capacity is missing or unreadable"}
+--admit exit=75
+
+== S6 fleet-ledger capacity --json / --publish carry the same admitted fact
+### S6-ledger-json
+{"readable":true,"reason":"ok","admitted":true,"lanes":2,"target":3,"free_lanes":1,"headroom_kb":4775324,"generated_epoch":1793511887,"age_s":0}
+exit=0
+ledger --publish exit=0
+{"admitted":true,"reason":"ok","readable":true,"free_lanes":1}
+
+== S6b fm-place.sh still places the admitted publication
+Placement: Pulse (1 lanes free, 4820236 kB memory headroom).
+place exit=0
+
+== S7 --help renders corrected contract
+Usage: fm-capacity.sh [--json|--publish|--admit|--help]
+fm-capacity-lib.sh owns machine configuration, counting and refusal rules.
+The upstream capacity: key=value first line retains load1, cores,
+mem_free_pct and disk_free_mb as informational host probes; CPU load and
+disk figures do not change machine lane admission.
+--json reports one machine-wide `admitted` fact (readable, reason ok and a
+free lane), with generated_epoch as its age. Per-task eligibility, filtering
+before ranking and the join are computed by the consuming reader that joins
+this fact with its own task list. --publish also atomically saves

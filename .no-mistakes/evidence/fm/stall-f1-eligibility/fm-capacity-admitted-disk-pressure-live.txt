@@ -1,0 +1,13 @@
+== S4 (rerun) disk refusal: disk_floor_gib 1000 against ~430 GiB free, readable policy
+json exit=0
+{"readable":true,"reason":"disk","admitted":false,"free_lanes":0,"disk_free_min_kb":449882668,"error":"Required free disk floor not met"}
+--admit exit=75
+== S4b pressure refusal: memory_full_avg60_max 0
+json exit=1
+{"readable":false,"reason":"unreadable","admitted":false,"free_lanes":0,"memory_full_avg60":0,"error":"/tmp/fm-lab.xaDPLF/config/machine-admission.json: missing/invalid memory_full_avg60_max"}
+--admit exit=75
+== S4b (rerun) pressure refusal: memory_full_avg60_max 0.000001 (minimum legal) against live PSI
+full avg10=0.14 avg60=0.03 avg300=0.12 total=451490298
+json exit=0
+{"readable":true,"reason":"pressure","admitted":false,"free_lanes":0,"memory_full_avg60":0.03,"error":"memory PSI full avg60 refuses"}
+--admit exit=75
