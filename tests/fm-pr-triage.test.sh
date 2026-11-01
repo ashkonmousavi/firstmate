@@ -65,9 +65,11 @@ cat > "$FAKE/posture" <<'SH'
 #!/usr/bin/env bash
 if [ -f "$FAKE_DIR/posture-$2" ]; then cat "$FAKE_DIR/posture-$2"; else echo none; fi
 SH
-# Fake fm-send.sh: one line per call, target|flag|text with line breaks as spaces.
+# Fake fm-send.sh: every attempt logs target and FM_SEND_REQUEST_ID to send-ids.log;
+# a delivered one adds target|flag|text, line breaks as spaces, to send.log.
 cat > "$FAKE/send" <<'SH'
 #!/usr/bin/env bash
+printf '%s %s\n' "$1" "${FM_SEND_REQUEST_ID:-}" >> "$FAKE_DIR/send-ids.log"
 [ -f "$FAKE_DIR/send-fail" ] && { echo 'error: endpoint retired' >&2; exit 1; }
 printf '%s|%s|%s\n' "$1" "$2" "$(printf '%s' "$3" | tr '\n' ' ')" >> "$FAKE_DIR/send.log"
 SH
@@ -290,7 +292,7 @@ meta closed-j; echo exited > "$FAKE/posture-closed-j"
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_equals 3 "$(field "$(rec 90)" 3)" 'a blocker of only done work is rank 3'
 assert_equals 3 "$(field "$(rec 91)" 3)" 'blocking a done item counts for nothing'
-assert_equals 'refused:no home owns closed-j (queue=not queued)' "$(field "$(rec 92)" 5)" 'a done task gets no fix worker'
+assert_equals 'refused:task done (queue=not queued)' "$(field "$(rec 92)" 5)" 'a done task with an exited worker record gets no fix worker'
 assert_absent "$FAKE/control.log" 'done work launches nothing'
 assert_absent "$FAKE/ghaxi.log" 'done work queues nothing'
 pass 'done backlog items neither rank pull requests nor own fix workers'
@@ -371,18 +373,21 @@ printf 'r-task\n' > "$FAKE/remote-open"
   pr 102 fm/nobody MERGEABLE FAILURE 'J-01 orphan'
   pr 103 fm/sm-done MERGEABLE FAILURE 'J-01 closed there'
   pr 104 fm/u-task MERGEABLE FAILURE 'J-01 unreachable'
+  pr 105 fm/orphan-meta CONFLICTING FAILURE 'J-01 left behind'
 } | prs
+meta orphan-meta; echo exited > "$FAKE/posture-orphan-meta"
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_equals 1 "$(field "$(rec 100)" 3)" 'the J-01 title ranks it 1'
 assert_equals 'refused:owned by sm1: steered sm-task (queue=not queued)' "$(field "$(rec 100)" 5)" 'local owner named and steered'
 assert_equals 'refused:owned by sm2: steered r-task (queue=not queued)' "$(field "$(rec 101)" 5)" 'remote owner read through fm-on and steered'
 assert_contains "$(cat "$FAKE/on.log")" 'sm2 fm-tasks-axi.sh show r-task' 'remote backlog read with fm-tasks-axi show'
-assert_equals 'refused:no home owns nobody (queue=not queued)' "$(field "$(rec 102)" 5)" 'no home holds it'
+assert_equals 'refused:no home owns nobody (queue=not queued)' "$(field "$(rec 102)" 5)" 'no home holds it and no record here'
+assert_equals 'launched orphan-meta (queue=not queued)' "$(field "$(rec 105)" 5)" 'no home holds it but a record here: local relaunch'
 assert_equals 'refused:no home owns sm-done (queue=not queued)' "$(field "$(rec 103)" 5)" 'done in the other home is not owned'
 assert_equals 'refused:owner unknown for u-task: unreadable sm2 (queue=not queued)' "$(field "$(rec 104)" 5)" 'an unreadable home is named'
 assert_contains "$(grep '^sm1|' "$FAKE/send.log")" "sm1|--one-way|PR triage: $URL/100 belongs to your task sm-task." 'steer names the URL'
 assert_contains "$(grep '^sm1|' "$FAKE/send.log")" 'Do not force-push.' 'steer carries the fix instruction'
-assert_absent "$FAKE/control.log" 'no worker is spawned here for another home'
+assert_equals 'orphan-meta' "$(grep ' relaunch --note' "$FAKE/control.log" | awk '{print $1}' | sort -u | tr '\n' ' ' | sed 's/ $//')" 'no worker is spawned here for another home'
 bash "$TRIAGE" --apply >/dev/null 2>&1
 assert_contains "$(rec 100)" 'refused:owned by sm1: already steered for head sha100' 'same head: no second steer'
 [ "$(grep -c '^sm1|' "$FAKE/send.log")" -eq 1 ] || fail 'one steer per head'
@@ -394,6 +399,14 @@ rm -f "$FAKE/send-fail"
 bash "$TRIAGE" --apply >/dev/null 2>&1
 bash "$TRIAGE" --apply >/dev/null 2>&1
 [ "$(grep -c '^sm1|' "$FAKE/send.log")" -eq 2 ] || fail 'a new head earns one new steer after a failed one'
+# Oracle: bin/fm-send.sh's one-way retry contract: FM_SEND_REQUEST_ID is 32
+# lowercase hex, the same for a retried uncertain request, new for a new one.
+ids=$(sed -n 's/^sm1 //p' "$FAKE/send-ids.log")
+[ "$(printf '%s\n' "$ids" | wc -l | tr -d ' ')" -eq 3 ] || fail "three sm1 send attempts: $ids"
+first=$(printf '%s\n' "$ids" | sed -n 1p); failed=$(printf '%s\n' "$ids" | sed -n 2p); retried=$(printf '%s\n' "$ids" | sed -n 3p)
+printf '%s\n' "$first" | grep -Eqx '[0-9a-f]{32}' || fail "request id is 32 lowercase hex: $first"
+assert_equals "$failed" "$retried" 'a retried send for the same head reuses its request id'
+[ "$first" != "$failed" ] || fail 'a new head sends under a new request id'
 pass 'a task another registered home owns is refused by name and steered once per head'
 
 # --- dry run writes nothing --------------------------------------------------------

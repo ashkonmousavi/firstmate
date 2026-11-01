@@ -45,13 +45,16 @@
 #   Skipped first, in this order: a merge-queue batch (author mergify or head
 #   mergify/merge-queue/), then a draft.
 #   CONFLICTING or a FAILURE/ERROR check rollup -> fix. The fix worker launches
-#   here only for a task this home's backlog holds open. A task another
-#   registered home (data/secondmates.md) holds open is refused as owned by
-#   that home, which gets one bin/fm-send.sh --one-way steer naming the pull
-#   request per pull request head (state/pr-triage/steer-<n>); its backlog is
-#   read with bin/fm-tasks-axi.sh show, through bin/fm-on.sh for a remote
-#   home. A task no home holds open is refused. For this home's task, with a
-#   state/<id>.meta record:
+#   here for a task this home's backlog holds open, or one no registered
+#   home holds open that still has a state/<id>.meta record here. A task done
+#   in this home's backlog is refused as done. A task another registered home
+#   (data/secondmates.md) holds open is refused as owned by that home, which
+#   gets one bin/fm-send.sh --one-way steer naming the pull request per pull
+#   request head (state/pr-triage/steer-<n>), sent with an FM_SEND_REQUEST_ID
+#   derived from the pull request number and head so an uncertain send that
+#   is retried deduplicates; its backlog is read with bin/fm-tasks-axi.sh
+#   show, through bin/fm-on.sh for a remote home. A task no home holds open
+#   and with no record here is refused. With a state/<id>.meta record:
 #     - its worker is alive                -> refused:worker live
 #     - its worker exited, or the record is a released copy
 #       (worktree=*.released-copy)         -> bin/fm-control.sh <id> relaunch
@@ -309,14 +312,16 @@ queue_state() {
 
 # --- backlog ------------------------------------------------------------------
 # read_backlog: writes $TMPD/backlog.tsv as id, title, blockers (comma list),
-# one line per backlog item that is not done, from one listing.
+# one line per backlog item that is not done, and $TMPD/backlog-done, the done
+# ids, from one listing.
 read_backlog() {
   local out
+  : > "$TMPD/backlog-done"
   out=$("$SCRIPT_DIR/fm-tasks-axi.sh" list --limit 100000 --fields blocked_by 2>&1) || {
     printf 'backlog unreadable: %s\n' "$(flat "$out")" >&2
     return 1
   }
-  printf '%s\n' "$out" | awk '
+  printf '%s\n' "$out" | awk -v done_file="$TMPD/backlog-done" '
     /^count: 0$/ { ok = 1 }
     /^tasks\[[0-9]+\]\{id,state,kind,repo,title,blocked_by\}:$/ { inside = 1; ok = 1; next }
     /^tasks\[/ { bad = 1; next }
@@ -342,7 +347,7 @@ read_backlog() {
         line = substr(line, 2)
       }
       if (n != 6 || line != "") { bad = 1; next }
-      if (f[2] == "done") next
+      if (f[2] == "done") { print f[1] > done_file; next }
       b = f[6]; gsub(/ /, "", b); if (b == "none" || b == "-") b = ""
       t = f[5]; gsub(/\t/, " ", t); if (t == "") t = "-"
       printf "%s\t%s\t%s\n", f[1], t, b
@@ -392,6 +397,10 @@ blocked_count() {
 
 in_backlog() {
   [ -n "$1" ] && awk -F'\t' -v id="$1" '$1 == id { f = 1 } END { exit !f }' "$TMPD/backlog.tsv"
+}
+
+backlog_done() {
+  [ -n "$1" ] && grep -qxF -- "$1" "$TMPD/backlog-done"
 }
 
 # --- per pull request -----------------------------------------------------------
@@ -515,15 +524,16 @@ owning_home() {
 
 # steer_owner <number> <url> <rank> <task> <home> <head> <note> <queue>
 steer_owner() {
-  local n=$1 url=$2 rank=$3 task=$4 home=$5 head=$6 note=$7 q=$8 text out
+  local n=$1 url=$2 rank=$3 task=$4 home=$5 head=$6 note=$7 q=$8 text out rid
   if [ "$(marker_get "$MARKS/steer-$n")" = "$head" ]; then
     record "$url" "$rank" fix "refused:owned by $home: already steered for head ${head:0:12} (queue=$q)"
     return 0
   fi
   text="PR triage: $url belongs to your task $task."$'\n'"$note"
+  rid=$(printf 'pr-triage:%s:%s' "$n" "$head" | { shasum -a 256 2>/dev/null || sha256sum; } | cut -c1-32)
   if [ "$ACTION" = dry ]; then
-    would_run "$SEND_BIN" "$home" --one-way "$text"
-  elif ! out=$(fm_run_timed "$BOUND" "$SEND_BIN" "$home" --one-way "$text" 2>&1 < /dev/null); then
+    would_run env FM_SEND_REQUEST_ID="$rid" "$SEND_BIN" "$home" --one-way "$text"
+  elif ! out=$(FM_SEND_REQUEST_ID=$rid "$SEND_BIN" "$home" --one-way "$text" 2>&1 < /dev/null); then
     record "$url" "$rank" fix "refused:owned by $home: steer failed: $(flat "$out") (queue=$q)"
     return 0
   fi
@@ -546,14 +556,22 @@ act_fix() {
     record "$url" "$rank" fix "refused:no task branch (queue=$q)"
     return 0
   fi
+  if backlog_done "$task"; then
+    record "$url" "$rank" fix "refused:task done (queue=$q)"
+    return 0
+  fi
   if ! in_backlog "$task"; then
     owner=$(owning_home "$task")
     case "$owner" in
-      '') record "$url" "$rank" fix "refused:no home owns $task (queue=$q)" ;;
-      '?'*) record "$url" "$rank" fix "refused:owner unknown for $task: unreadable ${owner//\?/} (queue=$q)" ;;
-      *) steer_owner "$n" "$url" "$rank" "$task" "$owner" "$head" "$note" "$q" ;;
+      '')
+        if [ ! -f "$STATE/$task.meta" ]; then
+          record "$url" "$rank" fix "refused:no home owns $task (queue=$q)"
+          return 0
+        fi
+        ;;
+      '?'*) record "$url" "$rank" fix "refused:owner unknown for $task: unreadable ${owner//\?/} (queue=$q)"; return 0 ;;
+      *) steer_owner "$n" "$url" "$rank" "$task" "$owner" "$head" "$note" "$q"; return 0 ;;
     esac
-    return 0
   fi
   if [ ! -f "$STATE/$task.meta" ]; then
     record "$url" "$rank" fix "refused:no task record for $task (queue=$q)"
