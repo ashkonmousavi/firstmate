@@ -21,6 +21,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/fixtures.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-control-lib.sh"
 # shellcheck source=/dev/null
@@ -1540,6 +1542,74 @@ test_exclude_tools_refusals_happen_before_the_agent_stops() {
   [ "$(cat "$dir/fake/command")" = pi ] || fail "an unhonorable exclusion list stopped the running agent"
   [ ! -s "$dir/fake/literal" ] || fail "a refused relaunch sent lifecycle input"
   pass "fm-control relaunch: exclusion-list refusals happen before the running agent stops"
+}
+
+# The spawn quota gate runs on an explicit --harness before the old agent stops
+# (bin/fm-quota-axi-lib.sh fm_quota_gate_run).
+quota_relaunch_case() {  # <name> <id> <grok-state>
+  local dir
+  dir=$(new_case "$1" "$2")
+  add_ship_task "$dir" "$2" claude
+  printf '%s\n' '{"rules":[{"when":"fix","use":[{"harness":"grok","model":"grok-4.7"},{"harness":"codex","model":"gpt-6.1-sol","effort":"medium"},{"harness":"pi","model":"glm-5.3","effort":"high","provider":"zai"}]}],"default":{"harness":"claude"}}' \
+    > "$dir/home/config/crew-dispatch.json"
+  fm_test_quota_snapshot "$dir/quota.json" "$3"
+  printf '%s\n' "$dir"
+}
+
+test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops() {
+  local dir out rc id=rl-quota-refuse
+  dir=$(quota_relaunch_case quota-refuse "$id" short:7200)
+  printf 'grok' > "$dir/fake/becomes"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok --model grok-4.7 --note "move to grok"); rc=$?
+  expect_code 1 "$rc" "a relaunch onto grok with under three hours of runway must refuse"$'\n'"$out"
+  assert_contains "$out" "fm-control refuses explicit harness grok model grok-4.7: provider grok runway at all_products" \
+    "the refusal must name the harness, model and runway"
+  assert_contains "$out" "Best alternative: provider codex (spendPriority 0.85): --harness codex --model gpt-6.1-sol --effort medium." \
+    "the refusal must name the best-spendPriority alternative"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a quota refusal stopped the running agent"
+  [ ! -s "$dir/fake/literal" ] || fail "a quota refusal sent lifecycle input"
+  [ "$(meta_field "$dir" "$id" harness)" = claude ] || fail "a quota refusal changed the task record"
+  pass "fm-control relaunch: an explicit harness with too little quota refuses before the agent stops and names the best alternative"
+}
+
+test_secondmate_quota_relaunch_names_a_supported_alternative() {
+  local dir out rc id=rl-quota-secondmate
+  dir=$(quota_relaunch_case quota-secondmate "$id" exhausted)
+  sed -i.bak 's/^kind=ship$/kind=secondmate/' "$dir/home/state/$id.meta"
+  jq '.providers += [.providers[] | select(.provider == "codex") | .provider = "agy"
+    | .quotaSemantics.effectiveAvailability[].selection.spendPriority = 9]' "$dir/quota.json" > "$dir/with-agy.json"
+  mv "$dir/with-agy.json" "$dir/quota.json"
+  printf '%s\n' '{"default":[{"harness":"agy"},{"harness":"claude"}]}' \
+    > "$dir/home/config/crew-dispatch.json"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok); rc=$?
+  expect_code 1 "$rc" "an exhausted secondmate relaunch must refuse"$'\n'"$out"
+  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude.' \
+    "secondmate relaunch must skip higher-ranked AGY"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a quota refusal stopped the running secondmate"
+  [ ! -s "$dir/fake/literal" ] || fail "a quota refusal sent secondmate lifecycle input"
+  [ "$(meta_field "$dir" "$id" harness)" = claude ] || fail "a quota refusal changed the secondmate record"
+  pass "secondmate relaunch quota refusals recommend a supported harness before stopping the agent"
+}
+
+test_quota_override_relaunches_and_is_recorded() {
+  local dir out rc id=rl-quota-override
+  dir=$(quota_relaunch_case quota-override "$id" exhausted)
+  printf 'grok' > "$dir/fake/becomes"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok --model grok-4.7 \
+    --quota-override "captain asked for grok" --note "move to grok"); rc=$?
+  expect_code 0 "$rc" "an explicit override must relaunch onto the refused harness"$'\n'"$out"
+  [ "$(meta_field "$dir" "$id" harness)" = grok ] || fail "the override relaunch should move the record to grok"
+  [ "$(meta_field "$dir" "$id" quota_override)" = "captain asked for grok" ] \
+    || fail "the override reason must be recorded: $(cat "$dir/home/state/$id.meta")"
+  case "$(meta_field "$dir" "$id" quota_override_evidence)" in
+    "refuse: provider grok runway exhausted_now at all_products; best alternative: provider codex"*) ;;
+    *) fail "the overridden refusal must be recorded: $(cat "$dir/home/state/$id.meta")" ;;
+  esac
+  out=$(run_control "$dir" "$id" relaunch --note "same runtime again"); rc=$?
+  expect_code 0 "$rc" "a relaunch with no explicit harness is not gated"$'\n'"$out"
+  [ -z "$(meta_field "$dir" "$id" quota_override)" ] \
+    || fail "a later relaunch without the override must not inherit the earlier override"
+  pass "fm-control relaunch: --quota-override relaunches a refused harness and records the reason and evidence"
 }
 
 test_explicit_model_wins_over_the_recorded_one() {
@@ -4215,6 +4285,9 @@ test_worker_account_pin_follows_the_relaunch
 test_secondmate_account_pin_follows_relaunch_and_refuses_before_stop
 test_pi_exclude_tools_follow_the_relaunch
 test_exclude_tools_refusals_happen_before_the_agent_stops
+test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops
+test_secondmate_quota_relaunch_names_a_supported_alternative
+test_quota_override_relaunches_and_is_recorded
 test_explicit_model_wins_over_the_recorded_one
 test_relaunch_onto_an_unverified_harness_is_refused
 test_prior_harness_turnend_registry_entry_is_cleared

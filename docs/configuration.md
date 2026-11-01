@@ -1434,6 +1434,32 @@ Firstmate resolves the rule's profile object or array under `AGENTS.md` section 
 - Batch spawns satisfy the same requirement with a shared `--harness`.
 - Secondmate spawns are exempt and resolve through `config/secondmate-harness` using the registered mate's id; see [Choose the secondmate harness](#choose-the-secondmate-harness) for pin precedence and legacy parsing.
 
+**Explicit-harness quota gate**
+
+This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-lib.sh` owns its mechanics.
+
+- A spawn that names its adapter explicitly (`--harness` or the positional) and an `fm-control.sh relaunch --harness` read one `quota-axi --json` snapshot before launch.
+  Control checks before stopping an ordinary worker and before recreating a released copy; the delegated spawn retains that decision and evidence.
+- The quota model is the launch's selected model string, including a retained relaunch model; if none is selected, the gate uses the sole configured dispatch profile for that harness, otherwise only harness-level rows apply.
+  Strings are used as written: the gate does not resolve aliases or defaults through a harness catalog, invoke a harness executable, or change worker model selection.
+  A profile's declared provider is its quota family; a model's account prefix selects its account row through the same family/account relation as typed dispatch.
+  Single-provider harnesses retain their existing family mapping.
+- The gate refuses when an applicable row is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends less than three hours from now, whatever its projection confidence.
+- Alternatives come only from configured rules and default profiles.
+  The refusal prints their configured harness, model and effort strings, ranked by highest known `spendPriority`, with ties named together.
+  Candidates must satisfy task-kind, backend, worker tool-exclusion, visible-capture, concrete model/effort, and configured account-provider restrictions, including per-secondmate pin precedence.
+  Remote secondmate routes exclude OMP from alternatives; local secondmates retain OMP support.
+  Native catalog availability and sign-in checks remain the existing launch preflight's responsibility.
+- A missing provider declaration or quota row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and launch proceeds.
+  Conflicting configured quota-family declarations refuse unless overridden.
+- `--quota-override <reason>` launches a refused adapter and records `quota_override=<reason>` and `quota_override_evidence=<the refusal and alternative>` in `state/<id>.meta`; a later relaunch without the flag drops both.
+  The flag requires an explicitly named adapter and a non-empty one-line reason; implicit launches and raw launch commands reject it.
+  A batch forwards its shared override to every pair.
+  Remote launch and relaunch forward the flag and retain the host's authoritative evidence.
+- Direct and control relaunches without a caller-supplied explicit harness, raw launch commands, and session-start secondmate respawns are not gated.
+
+[Quota gate regressions](../tests/fm-quota-gate.test.sh) exercise these decisions without native catalog probes.
+
 **Contract owners**
 
 This section is the single owner of the canonical schema and its per-field semantics.
@@ -1471,7 +1497,8 @@ This section is the single owner of the canonical schema and its per-field seman
 
 **Fields applied only by typed resolution**
 
-Rule `approval`, `min_confidence`, and `floor`, and profile `provider` and `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
+Rule `approval`, `min_confidence`, and `floor`, and profile `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
+Profile `provider` is also consumed by the [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson), independently of typed resolution.
 The resolver supplies the fixed neutral Choice option `No listed rule applies to this task.` for work that matches no listed rule.
 
 - `approval` accepts only `"captain"` and means a task the rule matches is never dispatched from the tool's answer alone.
@@ -1490,7 +1517,8 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 **Provider identifiers and mappings**
 
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
-Bootstrap validates resolver-only `approval`, `min_confidence`, `floor`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
+Bootstrap validates `approval`, `min_confidence`, `floor`, and present `provider` values only while typed resolution is active.
+Without the key, bootstrap keeps its pre-existing validation baseline; the [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson) applies independently.
 
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 
@@ -1524,7 +1552,8 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 - When the file exists, bootstrap validates it with `jq`.
 - Valid files stay silent by default; with `FM_BOOTSTRAP_VERBOSE_FACTS=1`, bootstrap emits `BOOTSTRAP_INFO: crew dispatch active config/crew-dispatch.json`, one `BOOTSTRAP_INFO:` fact per rule, and one fact for the optional default profile set.
 - Malformed JSON, malformed rules, an empty or malformed profile array, an unverified harness, or an effort value unsupported by that harness is reported as `CREW_DISPATCH: invalid config/crew-dispatch.json - ...`.
-- While typed resolution is active, malformed `approval`, `min_confidence`, `floor`, and present `provider` declarations receive the same diagnostic; without the key those inert declarations preserve the pre-existing bootstrap behavior.
+- While typed resolution is active, malformed `approval`, `min_confidence`, `floor`, and present `provider` declarations receive the same diagnostic.
+  Without the key, bootstrap retains its pre-existing validation behavior; see "Fields applied only by typed resolution" above for the distinction from the quota gate.
 - Missing `jq` follows the [bootstrap diagnostics policy](../.agents/skills/bootstrap-diagnostics/SKILL.md).
 - While the file remains present, no crewmate or scout spawn may proceed without an explicit resolved harness; malformed configuration must be reported and corrected rather than selected around.
 
@@ -1637,8 +1666,7 @@ Every result above exits 0.
 
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
 By accepted design, a `clear` result does not enforce catalog/authentication or reasoning-class gates, and its runway gate is the through-reset rule above rather than a completion-horizon estimate.
-The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` does not enforce it.
-Spawn-time enforcement is deferred because this branch lacks the dispatch guard library and off-table spawn check it builds on.
+The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` enforces only the fixed-horizon [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson).
 
 Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
 
@@ -2724,6 +2752,8 @@ FM_STATE_OVERRIDE=       # alternate state dir, mainly for tests
 FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
+FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
+FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds
 FM_PROC_ROOT_OVERRIDE=   # alternate /proc root for Linux process-identity reads in fm-wake-lib.sh and fm-teardown.sh, mainly for tests
 FM_BACKEND=             # optional runtime backend override for new spawns; tmux/herdr/zellij/orca/cmux/paseo support ship/scout spawns, codex-app is not accepted
 FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context propagation"
