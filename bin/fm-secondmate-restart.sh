@@ -40,9 +40,9 @@
 # restart gets the ordinary re-read nudge and is reported as a nudge, never as a
 # clean reload. Once a relaunch is attempted, any failed or ambiguous result is
 # reported as unknown rather than attributing it to either incarnation - except
-# when another launch won the spawn lock after the old agent stopped. Then the
-# pass observes the endpoint within its verification bound and reports unreached
-# when existing records cannot prove the competing launch completed.
+# when another launch won the spawn lock after the old agent stopped. That case
+# observes endpoint state within the verification bound, then reports unreached:
+# existing records cannot prove that launch completed, even if its agent is alive.
 #
 # Liveness recovery never races the replacement: each restart holds the mate's
 # per-mate liveness lock from before the stop until that verdict (restart_mate
