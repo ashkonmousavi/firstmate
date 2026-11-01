@@ -38,8 +38,8 @@
 #
 # Background shells. A Claude agent asked to exit while one of its background
 # shells runs stops on its "Background work is running" exit picker instead of
-# exiting. The persist request therefore also asks the mate to stop its own
-# shells, and before the relaunch a Claude mate's screen is read through its
+# exiting. The shared persist request in bin/fm-secondmate-restart-lib.sh owns
+# the cleanup scope. Before relaunch a Claude mate's screen is read through its
 # placement's own route (the backend locally, fm-remote-secondmate-control.sh
 # capture remotely) and the restart waits, bounded, while it still reports
 # running shells. If they outlast the wait or the screen cannot be read, the
