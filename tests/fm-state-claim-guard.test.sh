@@ -140,6 +140,8 @@ check("PR API read passes", "PR 9 is merged.", ["gh api repos/example/repo/pulls
 check("PR API method read passes", "PR 9 is merged.", ["gh api --method GET repos/example/repo/pulls/9"], expected=0)
 check("PR API write does not count", "PR 9 is merged.", ["gh api --method PATCH repos/example/repo/pulls/9"])
 check("lane read passes", "The worker lane is running.", ["bash bin/fm-crew-state.sh lane-a"], expected=0)
+for command in ("fm-crew-state lane-a", "bash bin/fm-crew-state lane-a"):
+    check("unsupported extensionless helper does not count: " + command, "Lane lane-a is running.", [command])
 check("lane status without read blocks", "The worker lane is running.")
 check("different lane name does not cover a lane claim", "Lane lane-b is running.", ["bash bin/fm-crew-state.sh lane-a"])
 check("same lane name covers a lane claim", "Lane lane-b is running.", ["bash bin/fm-crew-state.sh lane-b"], expected=0)

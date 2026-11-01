@@ -40,7 +40,7 @@ POLICY = (
      rx(r"^curl\s+.*https?://")),
     ("lane", rx(r"\brunning\b"),
      rx(r"\b(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)s?\b"),
-     rx(r"^(?:fm-crew-state\.sh|fm-crew-state)(?:\s|$)")),
+     rx(r"^fm-crew-state\.sh(?:\s|$)")),
 )
 MAX_BYTES = 2 * 1024 * 1024
 PR_ID = rx(r"(?:\bprs?\s*#?\s*|(?<!\w)#|/pulls?/)(\d+)\b")
