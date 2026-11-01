@@ -102,4 +102,4 @@ This touches only the firstmate repo and its own worktrees, never anything under
   A local or remote second mate gets a tracked-files fast-forward only when its own checkout is safe to advance, and a mate whose home was skipped is not restarted either.
   A restart replaces that mate's agent in the same home and endpoint after its open work is written down; it is never a teardown and never forced.
   Its crewmates keep running in their own endpoints, and every durable record - backlog, held captain calls, unread status, unhandled instructions - is re-presented to the replacement at startup.
-  Use the restart command's reported outcome for a refused or unconfirmed restart; its header owns whether a re-read nudge was sent and whether the running incarnation is known.
+  Read the restart command's per-mate result before attributing running instructions or settings; its [header](../../../bin/fm-secondmate-restart.sh) owns verification, failure classification, whether a re-read nudge was sent, and whether the running incarnation is known.
