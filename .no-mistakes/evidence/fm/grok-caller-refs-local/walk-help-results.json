@@ -1,0 +1,58 @@
+[
+  {
+    "name": "request-help",
+    "result": "pass",
+    "exit": 0,
+    "failures": [],
+    "transcript": "~/.no-mistakes/evidence/01M6D7E3M0NGVMK6SFGRPBSY6E/request-help.txt"
+  },
+  {
+    "name": "request-short-help",
+    "result": "pass",
+    "exit": 0,
+    "failures": [],
+    "transcript": "~/.no-mistakes/evidence/01M6D7E3M0NGVMK6SFGRPBSY6E/request-short-help.txt"
+  },
+  {
+    "name": "check-help",
+    "result": "pass",
+    "exit": 0,
+    "failures": [],
+    "transcript": "~/.no-mistakes/evidence/01M6D7E3M0NGVMK6SFGRPBSY6E/check-help.txt"
+  },
+  {
+    "name": "check-short-help",
+    "result": "pass",
+    "exit": 0,
+    "failures": [],
+    "transcript": "~/.no-mistakes/evidence/01M6D7E3M0NGVMK6SFGRPBSY6E/check-short-help.txt"
+  },
+  {
+    "name": "request-help-invalid-fields",
+    "result": "pass",
+    "exit": 0,
+    "failures": [],
+    "transcript": "~/.no-mistakes/evidence/01M6D7E3M0NGVMK6SFGRPBSY6E/request-help-invalid-fields.txt"
+  },
+  {
+    "name": "check-help-invalid-routing",
+    "result": "pass",
+    "exit": 0,
+    "failures": [],
+    "transcript": "~/.no-mistakes/evidence/01M6D7E3M0NGVMK6SFGRPBSY6E/check-help-invalid-routing.txt"
+  },
+  {
+    "name": "request-unknown-option",
+    "result": "pass",
+    "exit": 2,
+    "failures": [],
+    "transcript": "~/.no-mistakes/evidence/01M6D7E3M0NGVMK6SFGRPBSY6E/request-unknown-option.txt"
+  },
+  {
+    "name": "check-unknown-action",
+    "result": "pass",
+    "exit": 2,
+    "failures": [],
+    "transcript": "~/.no-mistakes/evidence/01M6D7E3M0NGVMK6SFGRPBSY6E/check-unknown-action.txt"
+  }
+]

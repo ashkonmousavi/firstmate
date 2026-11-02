@@ -1,0 +1,21 @@
+Command: bash ~/.no-mistakes/worktrees/049a88734b0e/01M6D7E3M0NGVMK6SFGRPBSY6E/bin/fm-walk-request-check.sh unknown-action
+FM_HOME: ~/.no-mistakes/worktrees/049a88734b0e/01M6D7E3M0NGVMK6SFGRPBSY6E/.walk-help-live-wdjfwo_i/absent-home (absent disposable home)
+Exit: 2
+--- stdout ---
+--- stderr ---
+fm-walk-request-check: unknown action: unknown-action
+For this fleet, load grok-bots before writing or forwarding a walker brief; the selected private dispatcher validates the citation in the transmitted task text.
+
+Usage:
+  fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
+  fm-walk-request-check.sh arm       write and register state/walk-request.check.sh
+  fm-walk-request-check.sh disarm    remove the check shim, its trust binding, and the records
+  fm-walk-request-check.sh --help    print this help
+
+Armed in the home that owns data/bin/fm-grok-bot-dispatch.sh. Reads typed
+walk-request lines from secondmate channel files, dispatches each walk at
+most once per <walk>@<release> through the dispatcher, and returns each
+outcome to the requesting mate as a fire-and-forget inbox message.
+--- observations ---
+No fixture entries: True
+Result: PASS

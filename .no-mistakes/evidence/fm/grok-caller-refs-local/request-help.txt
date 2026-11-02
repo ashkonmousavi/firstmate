@@ -1,0 +1,24 @@
+Command: bash ~/.no-mistakes/worktrees/049a88734b0e/01M6D7E3M0NGVMK6SFGRPBSY6E/bin/fm-walk-request.sh --help
+FM_HOME: ~/.no-mistakes/worktrees/049a88734b0e/01M6D7E3M0NGVMK6SFGRPBSY6E/.walk-help-live-wdjfwo_i/absent-home (absent disposable home)
+Exit: 0
+--- stdout ---
+For this fleet, load grok-bots before writing or forwarding a walker brief; the selected private dispatcher validates the citation in the transmitted task text.
+
+Usage:
+  fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
+    --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
+  fm-walk-request.sh --help
+
+Writes one typed walk request on this secondmate home's parent channel so
+MAIN's registered walk-request check dispatches it through the home-private
+fm-grok-bot-dispatch.sh (at most once per <walk-id>@<release>) and returns
+the outcome to this home's steering inbox.
+
+The brief must be UTF-8 text of at most 64 KiB, inside this mate data/walk-briefs
+or MAIN data/from-main/walk-lists; private paths and symlink escapes are refused.
+Remote requests carry the content inline. MAIN dispatches a private copy. The release is the
+served commit the walk covers. Walk ids are privacy-safe slugs.
+--- stderr ---
+--- observations ---
+No fixture entries: True
+Result: PASS
