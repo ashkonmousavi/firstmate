@@ -659,7 +659,6 @@ scan_saved() {
   jq -Rnr --argjson bucket "$((EPOCH / 300))" '
     [inputs] | if length == 0 then . else ($bucket % length) as $offset | .[$offset:] + .[:$offset] end
     | .[]' < "$TMP/live.tsv" > "$TMP/known.tsv"
-  declare -p SAVED_URLS > "$TMP/scan-state.sh"
 }
 
 run_scan() { # generated scan command and arguments
@@ -692,8 +691,6 @@ poll() {
     if fm_timed_out "$rc"; then scan_skipped; return 0; fi
     return "$rc"
   fi
-  # shellcheck disable=SC1091
-  . "$TMP/scan-state.sh"
   [ -s "$TMP/known.tsv" ] || return 0
   remaining=$((SCAN_DEADLINE - SECONDS))
   [ "$remaining" -gt 0 ] || { scan_skipped; return 0; }
