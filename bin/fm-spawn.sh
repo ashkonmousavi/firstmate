@@ -791,6 +791,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 }
 # shellcheck source=bin/fm-secondmate-nudge-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
+# shellcheck source=bin/fm-secondmate-liveness-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-operational-input.sh
@@ -1464,6 +1466,12 @@ spawn_remote_secondmate() {
     echo "error: remote secondmate $id launched, but its task record could not be published ($FM_BACKLOG_TRANSITION_ERROR)" >&2
     return 1
   fi
+  fm_secondmate_liveness_rearm "$id" || {
+    fm_lock_release "$remote_lock" || true
+    fm_lock_release "$registry_lock" || true
+    fm_lock_release "$SPAWN_TASK_LOCK" || true
+    return 1
+  }
   if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
     SPAWN_TASK_SET_LOCK_HELD=0
     fm_lock_release "$SPAWN_TASK_SET_LOCK"
@@ -7518,6 +7526,9 @@ if [ -n "$SPAWN_DEFERRED_SIGNAL" ]; then
   trap - HUP INT TERM
   echo "error: spawn of $ID was interrupted after launch delivery began; $SPAWN_PRESERVED_CLAIM" >&2
   exit "$SPAWN_DEFERRED_SIGNAL_STATUS"
+fi
+if [ "$KIND" = secondmate ]; then
+  fm_secondmate_liveness_rearm "$ID" || exit 1
 fi
 fm_lock_release "$SPAWN_META_LOCK"
 SPAWN_META_LOCK_HELD=0

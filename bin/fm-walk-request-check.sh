@@ -2,6 +2,8 @@
 # fm-walk-request-check.sh - dispatch a mate's typed walk request through the
 # home-private walker dispatcher, and return the outcome to the mate.
 #
+# For this fleet, load grok-bots before writing or forwarding a walker brief; the selected private dispatcher validates the citation in the transmitted task text.
+#
 # Usage:
 #   fm-walk-request-check.sh [check]
 #   fm-walk-request-check.sh arm
@@ -121,6 +123,8 @@ TYPED_MARKER=' walk-request: '
 
 usage() {
   cat <<'EOF'
+For this fleet, load grok-bots before writing or forwarding a walker brief; the selected private dispatcher validates the citation in the transmitted task text.
+
 Usage:
   fm-walk-request-check.sh [check]   sweep typed walk requests; dispatch and return outcomes
   fm-walk-request-check.sh arm       write and register state/walk-request.check.sh

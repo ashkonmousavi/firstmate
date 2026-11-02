@@ -81,7 +81,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `backends/orca.sh`       | Experimental Orca backend adapter owning both worktree and terminal                  |
 | `backends/cmux.sh`       | Experimental cmux session-provider adapter                                           |
 | `backends/paseo.sh`      | Experimental Paseo session-provider adapter                                          |
-| `fm-config-push.sh`      | Push declared inherited local material to live local or remote secondmates and send the placement-specific config reread when changed |
+| `fm-config-push.sh`      | Push declared inherited local material to local or remote secondmates; [configuration.md](configuration.md) routes the reread and parked-mate contracts |
 | `fm-project-mode.sh`     | Resolve a project's registered delivery posture, forge binding, or ship-branch prefix from `data/projects.md` for fleet sync, home seeding, and the forge agreement a ship spawn or scout promotion applies |
 | `fm-forge-detect.sh`     | Propose a clone's forge binding from its origin remote for project-add intake, never recording it |
 | `fm-merge-local.sh`      | Fast-forward a `local-only` project's local default branch after approval            |

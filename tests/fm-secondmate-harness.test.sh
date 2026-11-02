@@ -849,7 +849,16 @@ case "$*" in
 esac
 window_file="$(dirname "$0")/.spawn-window"
 case "${1:-}" in
-  display-message) printf 'firstmate\n'; exit 0 ;;
+  display-message)
+    case "$*" in
+      *'#{pane_current_command}'*)
+        if [ -n "${FM_FAKE_TMUX_COMMAND_FILE:-}" ]; then
+          cat "$FM_FAKE_TMUX_COMMAND_FILE"
+          exit 0
+        fi
+        ;;
+    esac
+    printf 'firstmate\n'; exit 0 ;;
   list-windows) [ ! -s "$window_file" ] || cat "$window_file"; exit 0 ;;
   new-window)
     name=
@@ -871,6 +880,7 @@ case "${1:-}" in
             ". '"*"'") staged=${a#". '"}; staged=${staged%"'"}; [ ! -f "$staged" ] || a=$(cat "$staged") ;;
           esac
           printf '%s\n' "$a" >> "$FM_FAKE_LAUNCH_LOG"
+          [ -z "${FM_FAKE_TMUX_COMMAND_FILE:-}" ] || printf 'codex\n' > "$FM_FAKE_TMUX_COMMAND_FILE"
         fi
         prev=$a
       done
@@ -1369,12 +1379,21 @@ case "$*" in
     sed -n 's/^window=[^:]*://p' "${FM_HOME:?}"/state/*.meta
     exit 0
     ;;
-  *display-message*'#{pane_current_command}'*) printf '%s\n' codex; exit 0 ;;
+  *display-message*'#{pane_current_command}'*)
+    if [ -n "${FM_FAKE_TMUX_COMMAND_FILE:-}" ]; then
+      cat "$FM_FAKE_TMUX_COMMAND_FILE"
+    else
+      printf '%s\n' codex
+    fi
+    exit 0 ;;
   *display-message*'#{pane_id}'*) printf '%s\n' '%1'; exit 0 ;;
   *display-message*'#{cursor_y}'*) printf '%s\n' 0; exit 0 ;;
   *capture-pane*) printf '❯\n'; exit 0 ;;
   *'send-keys'*' -l '*)
     [ "${FM_FAKE_TMUX_FAIL_LITERAL:-0}" = 1 ] && exit 1
+    if [ -n "${FM_FAKE_TMUX_COMMAND_FILE:-}" ] && [ "${*: -1}" = /quit ]; then
+      printf 'bash\n' > "$FM_FAKE_TMUX_COMMAND_FILE"
+    fi
     exit 0
     ;;
   *send-keys*)
@@ -1444,6 +1463,16 @@ run_bootstrap() {
       FM_SEND_SETTLE=0 "$ROOT/bin/fm-bootstrap.sh" 2>/dev/null
   fi
 }
+
+run_bootstrap_without_recovery() (
+  local w=$1
+  STATE="$w/home/state"
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$STATE/.secondmate-liveness-sm.lock"
+  trap 'fm_lock_release "$STATE/.secondmate-liveness-sm.lock" || true' EXIT
+  run_bootstrap "$@"
+)
 
 run_config_push() {
   local w=$1 fakebin log=${2:-}
@@ -2958,6 +2987,215 @@ SH
   pass "B25 spawn quarantines stale rereads without blocking relaunch"
 }
 
+# A parked secondmate (fm_secondmate_parked: the relaunch bound marker) still
+# has its files pushed - the home must be current when it launches - but the
+# config push never queues the reread doorbell, any instruction, or any retry
+# obligation for it.
+test_config_push_skips_reread_notice_for_parked_secondmate() {
+  local w head out err status log rec launchlog queued now attempts command_file
+  w=$(new_world config-push-parked)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+  printf 'harness=codex\nbackend=tmux\n' >> "$w/home/state/sm.meta"
+  command_file="$w/command"
+  printf 'bash\n' > "$command_file"
+  now=$(date +%s)
+  printf '%s\tattempt\n%s\tattempt\n%s\tattempt\n' "$now" "$now" "$now" \
+    > "$w/home/state/.secondmate-relaunch-sm"
+  printf '%s\tdead\n' "$now" > "$w/home/state/.secondmate-relaunch-bound-sm"
+  printf '{"default":{"harness":"codex"}}\n' > "$w/home/config/crew-dispatch.json"
+  printf 'codex\n' > "$w/home/config/crew-harness"
+  printf 'tmux\n' > "$w/home/config/backend"
+  record_live_watcher_fixture "$w/home"
+  log="$w/config-push-parked.tmux.log"
+  err="$w/config-push-parked.err"
+
+  out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" run_config_push "$w" "$log" 2>"$err"); status=$?
+  expect_code 0 "$status" "a parked skip is not an error: $out"
+  assert_contains "$out" "secondmate sm: parked, skipped; it reads config at launch" \
+    "the parked skip line must be printed"
+  assert_contains "$out" "crew-harness: pushed" \
+    "the parked mate's files must still be pushed"
+  assert_contains "$out" "backend: pushed" \
+    "the parked mate's config must still converge on disk"
+  assert_not_contains "$out" "config-reread" \
+    "a parked mate must not be sent or promised a reread notice"
+  [ "$(cat "$w/sm/config/crew-harness" 2>/dev/null)" = codex ] \
+    || fail "the parked mate's config was not updated on disk"
+  [ "$(cat "$w/sm/config/backend" 2>/dev/null)" = tmux ] \
+    || fail "the parked mate's backend was not updated on disk"
+  if [ -d "$w/home/state/sm.inbox" ]; then
+    for rec in "$w/home/state/sm.inbox"/*.msg; do
+      [ -e "$rec" ] || continue
+      fail "parked config push left a steering record: $rec"
+    done
+  fi
+  assert_no_reread_instructions "$w/sm"
+  assert_no_reread_pending "$w/sm"
+  assert_no_reread_retry_stages "$w/home" sm
+  assert_no_grep 'send-keys' "$log" "parked config push rang the pane"
+  [ ! -s "$err" ] || fail "parked config push wrote unexpected stderr: $(cat "$err")"
+  mkdir -p "$w/sm/data" "$w/home/state/sm.inbox"
+  printf 'charter\n' > "$w/sm/data/charter.md"
+  queued="$w/home/state/sm.inbox/001.msg"
+  printf 'schema=fm-task-inbox.v1\nat=2026-10-31T00:00:00Z\n--\nCONFIG_REREAD: stale-pointer\n' > "$queued"
+  launchlog="$w/launch.log"
+  out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" spawn_secondmate_capture "$w" sm "$w/sm" "$launchlog" codex 2>&1); status=$?
+  expect_code 0 "$status" "parked secondmate relaunch failed: $out"
+  [ ! -e "$w/home/state/.secondmate-relaunch-bound-sm" ] \
+    || fail "successful launch retained the watcher park record"
+  attempts=$(STATE="$w/home/state" bash -c '. "$1"; fm_secondmate_liveness_recent_attempts sm 3600' _ \
+    "$ROOT/bin/fm-secondmate-liveness-lib.sh")
+  [ "$attempts" = 0 ] || fail "manual launch did not restore the parked mate's recovery budget"
+  [ "$(awk -F '\t' '$2 == "attempt" { n++ } END { print n + 0 }' "$w/home/state/.secondmate-relaunch-sm")" = 3 ] \
+    || fail "manual launch discarded recovery history"
+  assert_present "$queued" "launch archived an existing steering message"
+  printf 'claude\n' > "$w/home/config/crew-harness"
+  out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" run_config_push "$w" "$log" 2>"$err"); status=$?
+  expect_code 0 "$status" "push after relaunch failed: $out"
+  assert_contains "$out" 'config-reread: sent' "relaunched mate lost its reread notice"
+  assert_contains "$(inbox_stream "$w/home/state" sm)" 'CONFIG_REREAD: ' \
+    "relaunched mate received no reread pointer"
+  pass "B27 parked push skips notices; relaunch preserves queued steers and restores config rereads"
+}
+
+test_config_push_sends_reread_notice_without_park_marker() {
+  local w head out err status log predicate_state fakebin command_file
+  w=$(new_world config-push-not-parked)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+  printf '{"default":{"harness":"codex"}}\n' > "$w/home/config/crew-dispatch.json"
+  printf 'codex\n' > "$w/home/config/crew-harness"
+  record_live_watcher_fixture "$w/home"
+  log="$w/config-push-not-parked.tmux.log"
+  err="$w/config-push-not-parked.err"
+
+  printf 'harness=codex\nbackend=tmux\nendpoint_task_id=sm\nworktree=%s\nproject=%s\n' \
+    "$w/sm" "$w/main" >> "$w/home/state/sm.meta"
+  printf 'preserved work\n' > "$w/sm/local-work.txt"
+  fakebin=$(make_fake_toolchain "$w")
+  command_file="$w/command"
+  printf 'codex\n' > "$command_file"
+  out=$(PATH="$fakebin:$BLIND_BIN:$BASE_PATH" FM_HOME="$w/home" \
+    FM_FAKE_TMUX_COMMAND_FILE="$command_file" FM_CONTROL_POLL=0.01 \
+    FM_CONTROL_EXIT_WAIT=1 FM_SEND_SETTLE=0 \
+    "$ROOT/bin/fm-control.sh" sm exit 2>&1); status=$?
+  expect_code 0 "$status" "deliberate exit failed: $out"
+  assert_contains "$out" 'stopped sm' "exit did not prove the agent stopped"
+  [ "$(cat "$command_file")" = bash ] || fail "exit left the agent running"
+  assert_present "$w/sm/local-work.txt" "exit discarded the secondmate's work"
+  [ ! -e "$w/home/state/.secondmate-relaunch-bound-sm" ] \
+    || fail "exit unexpectedly recorded a watcher park"
+  out=$(run_config_push "$w" "$log" 2>"$err"); status=$?
+  expect_code 0 "$status" "push after deliberate exit should retain today's send behavior: $out"
+  assert_contains "$out" "config-reread: sent" \
+    "deliberate exit without a park record must retain the reread notice"
+  assert_not_contains "$out" "parked, skipped" \
+    "an unparked mate must not be reported as skipped"
+  assert_contains "$(inbox_stream "$w/home/state" sm)" "CONFIG_REREAD: " \
+    "the exited mate's reread pointer must reach its steering inbox"
+
+  predicate_state="$w/predicate-state"
+  mkdir -p "$predicate_state"
+  for status in absent malformed directory symlink; do
+    rm -rf "$predicate_state/.secondmate-relaunch-bound-sm"
+    case "$status" in
+      malformed) printf 'incomplete record\n' > "$predicate_state/.secondmate-relaunch-bound-sm" ;;
+      directory) mkdir "$predicate_state/.secondmate-relaunch-bound-sm" ;;
+      symlink) ln -s missing "$predicate_state/.secondmate-relaunch-bound-sm" ;;
+    esac
+    if bash -c '. "$1"; fm_secondmate_parked "$2" sm' _ \
+      "$ROOT/bin/fm-secondmate-liveness-lib.sh" "$predicate_state" 2>/dev/null; then
+      fail "fm_secondmate_parked read $status evidence as parked"
+    fi
+  done
+  pass "B28 deliberate exit keeps work and reread notices; doubtful park records never skip"
+}
+
+# The bootstrap's own CONFIG_REREAD path skips a parked mate the same way: the
+# sweep still pushes the files, the doorbell notice never queues.
+test_bootstrap_config_reread_skips_parked_secondmate() {
+  local w head out log rec status command_file
+  w=$(new_world boot-parked)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+  printf 'harness=codex\nbackend=tmux\n' >> "$w/home/state/sm.meta"
+  command_file="$w/command"
+  printf 'bash\n' > "$command_file"
+  printf '%s\t%s\n' "$(date +%s)" dead > "$w/home/state/.secondmate-relaunch-bound-sm"
+  printf 'codex\n' > "$w/home/config/crew-harness"
+  log="$w/boot-parked.tmux.log"
+
+  out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" run_bootstrap_without_recovery "$w" "$log")
+  [ "$(cat "$w/sm/config/crew-harness" 2>/dev/null)" = codex ] \
+    || fail "bootstrap did not push files to the parked secondmate"
+  assert_contains "$out" "secondmate sm: parked, skipped; it reads config at launch" \
+    "bootstrap must print the parked skip line for the reread notice"
+  if [ -d "$w/home/state/sm.inbox" ]; then
+    for rec in "$w/home/state/sm.inbox"/*.msg; do
+      [ -e "$rec" ] || continue
+      fail "bootstrap left a steering record for the parked mate: $rec"
+    done
+  fi
+  assert_no_reread_instructions "$w/sm"
+  assert_no_reread_retry_stages "$w/home" sm
+  mkdir -p "$w/sm/data"
+  printf 'charter\n' > "$w/sm/data/charter.md"
+  out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" spawn_secondmate_capture "$w" sm "$w/sm" "$w/launch.log" codex 2>&1); status=$?
+  expect_code 0 "$status" "bootstrap fixture relaunch failed: $out"
+  printf 'claude\n' > "$w/home/config/crew-harness"
+  out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" run_bootstrap_without_recovery "$w" "$log"); status=$?
+  expect_code 0 "$status" "bootstrap failed after relaunch: $out"
+  assert_not_contains "$out" 'parked, skipped' "bootstrap skipped a relaunched mate"
+  assert_contains "$(inbox_stream "$w/home/state" sm)" 'CONFIG_REREAD: ' \
+    "bootstrap did not deliver the relaunched mate's reread pointer"
+  pass "B29 bootstrap skips parked rereads and restores notices after relaunch"
+}
+
+test_local_rearm_failure_keeps_live_config_rereads() {
+  local consumer w head command_file out status marker launchlog log
+  for consumer in push bootstrap; do
+    w=$(new_world "live-rearm-failed-$consumer")
+    head=$(git -C "$w/main" rev-parse HEAD)
+    add_sm_worktree "$w" sm "$head"
+    printf '{"default":{"harness":"codex"}}\n' > "$w/home/config/crew-dispatch.json"
+    printf 'codex\n' > "$w/home/config/crew-harness"
+    printf 'tmux\n' > "$w/home/config/backend"
+    record_live_watcher_fixture "$w/home"
+    mkdir -p "$w/sm/data" "$w/home/state/.secondmate-relaunch-sm"
+    printf 'charter\n' > "$w/sm/data/charter.md"
+    marker="$w/home/state/.secondmate-relaunch-bound-sm"
+    printf '%s\tdead\n' "$(date +%s)" > "$marker"
+    command_file="$w/command"
+    printf 'bash\n' > "$command_file"
+    launchlog="$w/launch.log"
+    out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" \
+      spawn_secondmate_capture "$w" sm "$w/sm" "$launchlog" codex 2>&1); status=$?
+    expect_code 1 "$status" "launch must report its failed ledger update: $out"
+    assert_contains "$out" '.secondmate-relaunch-sm' "launch failed for a reason other than the ledger write"
+    [ "$(cat "$command_file")" = codex ] || fail "ledger failure happened before the runtime launched"
+    [ "$(meta_field "$w/home/state/sm.meta" harness)" = codex ] \
+      || fail "launch did not publish the live endpoint metadata"
+    assert_present "$marker" "failed rearming discarded the park marker"
+    [ -d "$w/home/state/.secondmate-relaunch-sm" ] || fail "failed rearming replaced the unwritable ledger"
+    printf 'claude\n' > "$w/home/config/crew-harness"
+    log="$w/convergence.log"
+    if [ "$consumer" = push ]; then
+      out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" run_config_push "$w" "$log" 2>&1); status=$?
+    else
+      out=$(FM_FAKE_TMUX_COMMAND_FILE="$command_file" run_bootstrap "$w" "$log"); status=$?
+    fi
+    expect_code 0 "$status" "$consumer failed after a launched agent's rearm failure: $out"
+    assert_not_contains "$out" 'parked, skipped' "$consumer suppressed the running mate's notice"
+    assert_contains "$(inbox_stream "$w/home/state" sm)" 'CONFIG_REREAD: ' \
+      "$consumer lost the running mate's reread after failed launch bookkeeping"
+    [ "$(cat "$w/sm/config/crew-harness")" = claude ] || fail "$consumer did not update inherited config"
+    assert_present "$marker" "read-only parked classification removed recovery evidence"
+    [ -d "$w/home/state/.secondmate-relaunch-sm" ] || fail "$consumer repaired the recovery ledger"
+  done
+  pass "B30 failed local launch rearming keeps both live configuration reread paths sending"
+}
+
 test_harness_resolution
 test_cursor_marker_detection
 test_secondmate_model_effort_tokens
@@ -3014,6 +3252,10 @@ test_config_reread_skips_when_unchanged_and_reads_after_push
 test_config_reread_bootstrap_path_and_spawn_flexibility
 test_bootstrap_respawns_before_config_reread
 test_spawn_quarantines_pending_rereads_on_cleanup_failure
+test_config_push_skips_reread_notice_for_parked_secondmate
+test_config_push_sends_reread_notice_without_park_marker
+test_bootstrap_config_reread_skips_parked_secondmate
+test_local_rearm_failure_keeps_live_config_rereads
 test_bootstrap_detect_only_does_not_create_state
 
 echo "# all fm-secondmate-harness tests passed"

@@ -29,6 +29,10 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-secondmate-liveness-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
+# shellcheck source=bin/fm-secondmate-nudge-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 usage() { sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
@@ -51,6 +55,24 @@ META="$STATE/$ID.meta"
 REMOTE_HOST=$(fm_meta_get "$META" remote_host)
 [ -n "$REMOTE_HOST" ] \
   || die "task $ID is not a remotely placed secondmate; use bin/fm-control.sh $ID relaunch instead"
+
+REMOTE_LOCK=
+META_LOCK=
+META_TMP=
+cleanup() {
+  [ -z "$META_TMP" ] || rm -f -- "$META_TMP" || true
+  [ -z "$META_LOCK" ] || fm_lock_release "$META_LOCK" || true
+  [ -z "$REMOTE_LOCK" ] || fm_lock_release "$REMOTE_LOCK" || true
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+# Serialize the entire relaunch and parent rearm with inheritance: a push must
+# not snapshot the old park record while the newly started agent reads config.
+REMOTE_LOCK=$(fm_remote_inherit_transaction_lock_path "$STATE" "$ID") \
+  || die "remote inheritance transaction lock path is invalid for $ID"
+fm_lock_acquire_wait "$REMOTE_LOCK"
 
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
   relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "${QUOTA_ARGS[@]}" </dev/null) || {
@@ -78,7 +100,6 @@ NEW_QUOTA_EVIDENCE=$(printf '%s\n' "$RELAUNCH_OUT" | sed -n 's/^quota_override_e
 META_LOCK=$(fm_meta_lock_path "$META") || die "metadata lock path is invalid for $ID"
 fm_lock_acquire_wait "$META_LOCK"
 META_TMP=$(mktemp "$STATE/.fm-remote-relaunch-meta.XXXXXX") || {
-  fm_lock_release "$META_LOCK"
   die "cannot stage the updated record"
 }
 {
@@ -103,4 +124,7 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < "$META"
 chmod 0600 "$META_TMP"
 mv -f -- "$META_TMP" "$META"
-fm_lock_release "$META_LOCK"
+META_TMP=
+fm_secondmate_liveness_rearm "$ID" || {
+  die "the host relaunched $ID but its parent park state could not be rearmed"
+}

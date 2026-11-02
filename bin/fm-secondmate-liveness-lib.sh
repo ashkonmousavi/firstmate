@@ -97,9 +97,10 @@ fm_sm_live_first_line() {
 }
 
 # One line per relaunch attempt and one per outcome, keyed by epoch, plus a
-# `rearmed` row when a live probe lifts a parked mate. The watcher bound counts
-# `attempt` rows inside its window and after the last `rearmed` row; the whole
-# file is the durable per-mate relaunch record the captain can count to see
+# `rearmed` row when fm_secondmate_liveness_rearm lifts a parked mate. The
+# watcher bound counts `attempt` rows inside its window and after the last
+# `rearmed` row; the whole file is the durable per-mate relaunch record the
+# captain can count to see
 # frequency. Fails when the row cannot be appended.
 fm_secondmate_liveness_ledger_add() {  # <id> <attempt|relaunched|failed|rearmed>
   printf '%s\t%s\n' "$(date +%s)" "$2" >> "$STATE/.secondmate-relaunch-$1" 2>/dev/null
@@ -121,6 +122,44 @@ fm_secondmate_liveness_recent_attempts() {  # <id> <window-secs>
     '$2 == "rearmed" { n = 0; next } $1 ~ /^[0-9]+$/ && $1 >= cutoff && $2 == "attempt" { n++ } END { print n + 0 }' \
     "$ledger" 2>/dev/null
 }
+
+fm_secondmate_liveness_rearm() {
+  local id=$1 marker
+  case "$id" in ''|*[!A-Za-z0-9._-]*) return 1 ;; esac
+  marker="$STATE/.secondmate-relaunch-bound-$id"
+  if [ -e "$marker" ] || [ -L "$marker" ]; then
+    fm_secondmate_liveness_ledger_add "$id" rearmed || return 1
+    rm -f -- "$marker" || return 1
+  fi
+}
+
+# fm_secondmate_parked reads the watcher's relaunch-bound record.
+# Successful secondmate launches and confirmed parent-side remote relaunches
+# rearm that record; a later live watcher probe also rearms it, and teardown
+# removes it at retirement. Deliberate fm-control exit records no park marker,
+# so it keeps the ordinary reread-send behavior. Missing or unreadable records
+# never authorize a skip. Skips also require a read-only poll proving
+# the recorded agent is dead or missing; alive or uncertain keeps sending.
+fm_secondmate_parked() (  # <state-dir> <id>
+  local state=$1 id=$2 marker meta window
+  case "$id" in ''|*[!/A-Za-z0-9._-]*|*/*) return 1 ;; esac
+  marker="$state/.secondmate-relaunch-bound-$id"
+  [ -f "$marker" ] && [ -r "$marker" ] && [ ! -L "$marker" ] || return 1
+  awk -F '\t' 'NR != 1 || NF != 2 || $1 !~ /^[0-9]+$/ || ($2 != "dead" && $2 != "missing") { bad = 1 } END { exit (bad || NR != 1) }' "$marker" 2>/dev/null || return 1
+  meta="$state/$id.meta"
+  [ -f "$meta" ] && [ -r "$meta" ] && [ ! -L "$meta" ] || return 1
+  [ "$(fm_backend_meta_exact_value "$meta" kind)" = secondmate ] || return 1
+  window=$(fm_backend_meta_exact_value "$meta" window) || return 1
+  case "$window" in
+    remote:*)
+      [ "$window" = "remote:$id" ] || return 1
+      fm_backend_meta_exact_value "$meta" remote_host >/dev/null || return 1
+      ;;
+    *) [ -z "$(fm_meta_get "$meta" remote_host)" ] || return 1 ;;
+  esac
+  fm_secondmate_liveness_probe "$meta" "$id" poll || return 1
+  [ "$FM_SM_LIVE_STATUS" = relaunchable ]
+)
 
 # fm_secondmate_liveness_probe <meta> <id> <full|poll>
 #

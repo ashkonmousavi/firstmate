@@ -12,7 +12,9 @@
 # completion is unknown (transport 255 or a per-mate budget cut-off). An
 # attempt whose outcome proves nothing changed, with no earlier reread owed, is
 # written back to owed=0 when it failed or removed when it converged; an owed
-# reread survives unchanged retries until a successful send.
+# reread survives unchanged retries until a successful send, except when
+# propagation discharges it under fm_secondmate_parked's classification
+# (bin/fm-secondmate-liveness-lib.sh).
 
 FM_SECOND_MATE_NUDGE_MESSAGE='firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.'
 FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE='Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files before further work.'
