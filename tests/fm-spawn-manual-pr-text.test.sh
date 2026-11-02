@@ -26,6 +26,9 @@ make_case() {
   FAKEBIN_DIR=$(make_spawn_fakebin "$CASE_DIR/fake")
   mkdir -p "$HOME_DIR/data" "$HOME_DIR/projects" "$HOME_DIR/state" "$HOME_DIR/config"
   printf 'codex\n' > "$HOME_DIR/config/crew-harness"
+  # Machine admission refuses a spawn without a declared lane capacity.
+  printf '999999 0\n' > "$HOME_DIR/config/lane-capacity"
+  fm_test_machine_policy "$HOME_DIR/config"
   printf -- '- project [%s] - fixture (added 2026-01-01)\n' "$tokens" > "$HOME_DIR/data/projects.md"
   touch "$HOME_DIR/state/.last-watcher-beat"
   git init --quiet -b main "$PROJECT_DIR"

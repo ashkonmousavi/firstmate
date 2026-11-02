@@ -994,10 +994,18 @@ test_backend_key_capability_matrix() {
   for backend in tmux herdr zellij cmux paseo rex tern; do
     # C-u is the composer clear muse's interrupt needs; every session provider
     # but Orca normalizes it (bin/backends/*.sh).
-    for key in Escape Enter C-c C-u C-e; do
+    for key in Escape Enter C-c C-u; do
       fm_control_backend_supports_key "$backend" "$key" \
         || fail "$backend should be able to deliver $key"
     done
+  done
+  # C-e (end of line, used by own-doorbell clearing) is mapped by the pane
+  # adapters only; the Rex and tern adapters have no C-e chord.
+  for backend in tmux herdr zellij cmux paseo; do
+    fm_control_backend_supports_key "$backend" C-e || fail "$backend should be able to deliver C-e"
+  done
+  for backend in rex tern; do
+    ! fm_control_backend_supports_key "$backend" C-e || fail "$backend has no C-e chord but claimed it"
   done
   fm_control_backend_supports_key orca Escape \
     && fail "orca's terminal API has no Escape and must not claim it"

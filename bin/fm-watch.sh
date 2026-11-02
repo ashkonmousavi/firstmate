@@ -4538,7 +4538,9 @@ EOF
           # A killed or failing run must not vanish: it wakes naming the check,
           # its exit code and its duration. Exit 0 keeps the printed output.
           if [ "$FM_CHECK_EXIT_STATUS" -eq 124 ]; then
-            out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
+            # Output printed before the cut stays, followed by the cut itself;
+            # a silent cut names the bound that killed it.
+            [ "$out" != "timed out after ${CHECK_TIMEOUT}s" ] || out="timed out after ${CHECK_TIMEOUT}s (FM_CHECK_TIMEOUT)"
           elif [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
             out="exited $FM_CHECK_EXIT_STATUS after $(( $(date +%s) - custom_check_started ))s${out:+: $out}"
           fi

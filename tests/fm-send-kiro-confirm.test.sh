@@ -142,8 +142,9 @@ expect_code 3 "$(cat "$case_dir/rc")" \
   "explicit non-kiro target with the kiro idle placeholder should stay unconfirmed"
 grep -q 'verdict=pending' "$case_dir/err" || \
   fail "explicit non-kiro send: expected verdict=pending"$'\n'"$(cat "$case_dir/err")"
-[ "$(enter_count "$case_dir")" = 3 ] || \
-  fail "explicit non-kiro send: expected three Enter retries on pending, got $(enter_count "$case_dir")"$'\n'"$(cat "$case_dir/tmux.log")"
+# The fleet's bounded typed-plane budget is five Enter presses (bin/fm-send.sh).
+[ "$(enter_count "$case_dir")" = 5 ] || \
+  fail "explicit non-kiro send: expected five Enter retries on pending, got $(enter_count "$case_dir")"$'\n'"$(cat "$case_dir/tmux.log")"
 pass "fm-send: a meta-less non-kiro explicit target keeps the shared pending verdict"
 
 # Default empty composer on a non-kiro explicit target: unchanged fast confirm.

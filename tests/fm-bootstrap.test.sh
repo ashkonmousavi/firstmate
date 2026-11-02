@@ -344,7 +344,7 @@ test_bootstrap_reporting() {
   done <<'ROWS'
 treehouse --lease support is accepted silently^1^0.2.6^1^manual^empty^^
 absent treehouse reports a missing tool^absent^0.2.6^1^-^grep^MISSING: treehouse (install: curl -fsSL https://kunchenguid.github.io/treehouse/install.sh | sh)^NEEDS_GH_AUTH
-treehouse without --lease reports an upgrade, gh auth is fine^0^0.2.6^1^-^grep^OUTDATED: treehouse (installed: 0.4.2; requires --lease support; upgrade: treehouse update)^NEEDS_GH_AUTH
+treehouse without --lease reports an upgrade, gh auth is fine^0^0.2.6^1^-^grep^OUTDATED: treehouse (installed: 3.1.8; requires the lease floor in bin/fm-treehouse-lib.sh; upgrade: treehouse update)^NEEDS_GH_AUTH
 compatible tasks-axi is silent by default^1^0.2.6^1^-^empty^^
 missing tasks-axi is required by default^1^-^1^-^exact^MISSING: tasks-axi (install: npm install -g tasks-axi)^
 incompatible tasks-axi reports an upgrade by default^1^0.1.0^1^-^exact^OUTDATED: tasks-axi (installed: 0.1.0; requires 0.2.6; upgrade: npm install -g tasks-axi)^
@@ -1570,7 +1570,8 @@ test_treehouse_lease_interface() {
       FM_BOOTSTRAP_DETECT_ONLY=1 "$ROOT/bin/fm-bootstrap.sh")
     case "$scenario" in
       supported|newer|real-supported) assert_equals '' "$out" "$scenario Treehouse must be accepted" ;;
-      *) assert_contains "$out" 'MISSING: treehouse' "$scenario Treehouse must require a compatible interface" ;;
+      # An installed build below the lease floor is an upgrade request, reported as OUTDATED.
+      *) assert_contains "$out" 'OUTDATED: treehouse' "$scenario Treehouse must require a compatible interface" ;;
     esac
   done
   pass 'Treehouse admission checks its version, JSON leases and both conditional-return flags'
