@@ -1,83 +1,56 @@
 {
   "scope": {
-    "base": "725ca9289bcdb8d7c7333a090c5015a699493fbd",
-    "reviewed_head": "766f0d1456bcb2093c26ce15ce41242c5da735df",
+    "base": "81be4ee4f3fa324085124db5d3f1beca5b421d41",
+    "reviewed_head": "cfa81e4b6c22c42215ace0639c9489f7a4531f68",
+    "working_tree": "R2 handoff-only review fix on the reviewed head",
     "review_findings": [
-      "R3",
-      "R4",
-      "R5",
-      "R6",
-      "R7"
+      "R1",
+      "R2"
     ],
-    "purpose": "Validation handoff for secondmate restart and liveness spawn collisions; inspection and fixture coverage, not live proof."
+    "purpose": "Current diagnostic-selection class inventory for designated validation; replaces the historical spawn-collision handoff."
   },
   "invariants": [
-    "Automatic liveness recovery takes the per-mate lock before probing, killing or launching, and skips deliberate restarts without recording an attempt.",
-    "A restart reports success only for a completed successful launch; process liveness and stale records cannot prove a competing launch completed.",
-    "An independent spawn and a remote read-only state probe do not publish parent liveness-helper ledger outcomes.",
-    "When available records cannot prove the winner completed, restart waits within its configured verification bound and reports unreached with a nonzero exit.",
-    "Every endpoint observation and sleep uses at most the remaining verification budget; zero remaining budget starts neither operation."
+    "Every failed-command report prefers the first explicit error over preceding warnings or banners, otherwise retains the first meaningful line or the existing blank fallback.",
+    "The selected diagnostic remains one printable normalized line with no added length cap.",
+    "Diagnostic formatting cannot change delivery, persist correlation, restart eligibility, lifecycle actions, outcome classification or exit status.",
+    "The validation handoff identifies every affected caller and inspected unchanged axis, distinguishing fixture evidence from live proof."
   ],
   "affected_paths": [
     {
-      "path": ".agents/skills/updatefirstmate/SKILL.md",
-      "role": "Operator procedure delegates bounds and outcome classification to the restart script; no second restart implementation."
-    },
-    {
       "path": "bin/fm-secondmate-restart.sh",
-      "role": "Persist gate, asynchronous per-mate restart workers, per-mate liveness lock, local/remote relaunch, bounded collision verification and summary."
-    },
-    {
-      "path": "bin/fm-secondmate-liveness-lib.sh",
-      "role": "Shared lock/probe/kill/guarded-spawn/ledger owner used by watcher and bootstrap; caller must hold the per-mate lock."
-    },
-    {
-      "path": "docs/architecture.md",
-      "role": "Maintainer pointer to serialization owner and restart/liveness regression entry points."
-    },
-    {
-      "path": "docs/remote-secondmates.md",
-      "role": "Operator pointer to serialization; remote routes remain remote without local failover."
+      "role": "first_reported_line is the shared diagnostic boundary for all three callers."
     },
     {
       "path": "tests/fm-secondmate-restart.test.sh",
-      "role": "Executable restart contract against isolated fake tmux and SSH boundaries, including real independent local launches and bounded probes/polls."
+      "role": "Executable banner/error and fallback regressions; cap-only fixture and expectations removed under accepted R1."
+    },
+    {
+      "path": "tests/captures/fm-secondmate-restart-review-inventory.json",
+      "role": "Current class inventory and evidence limits for R2."
     }
   ],
   "call_paths": [
     {
-      "path": "fm-update -> restart-secondmates action -> fm-secondmate-restart",
-      "coverage": "tests/fm-secondmate-restart.test.sh:test_already_current_mate_restarts_end_to_end; tests/fm-update.test.sh"
+      "path": "Persist phase -> fm-send -> first_reported_line(send_out) -> fallback reason",
+      "site": "bin/fm-secondmate-restart.sh:501",
+      "coverage": "tests/fm-secondmate-restart.test.sh:814 test_send_failure_after_banner_reports_underlying_causes exercises the remote send through real fm-send and an SSH boundary stub; asserts the persist error and no relaunch."
     },
     {
-      "path": "fm-secondmate-restart -> fm-control relaunch -> fm-spawn --relaunch",
-      "coverage": "Restart suite: persist gate/order, runtime pins, successful launch, pre-stop refusal and readiness failure with live process."
+      "path": "fall_back_to_nudge -> fm-send failure -> first_reported_line(out) -> unreached report",
+      "site": "bin/fm-secondmate-restart.sh:219",
+      "coverage": "tests/fm-secondmate-restart.test.sh:814 test_send_failure_after_banner_reports_underlying_causes also asserts the independent nudge error after banners."
     },
     {
-      "path": "fm-secondmate-restart -> fm-remote-secondmate-relaunch -> fm-on -> remote control relaunch -> host fm-control",
-      "coverage": "Restart suite remote profile, transport, unreachable and collision cases; tests/fm-remote-secondmate-relaunch.test.sh; tests/fm-remote-secondmate-lifecycle-e2e.test.sh."
-    },
-    {
-      "path": "fm-watch secondmate_liveness_check and fm-bootstrap -> per-mate lock -> liveness probe -> liveness relaunch",
-      "coverage": "Restart suite:test_restart_and_liveness_relaunch_race and test_dead_restarter_marker_expires; tests/fm-secondmate-liveness.test.sh."
-    },
-    {
-      "path": "Independent fm-spawn --secondmate competes with restart; no liveness-helper invocation",
-      "coverage": "Restart suite:test_lost_spawn_lock_without_completion_evidence_is_unreached executes a real guarded spawn after spawn-lock contention, for both completed and failed gates; the restart reports the winner releasing the spawn lock, and neither publishes a parent completion outcome."
-    },
-    {
-      "path": "Remote winner wait and single state probe during lost-spawn-lock recovery",
-      "coverage": "Restart suite:test_remote_spawn_winner_without_parent_completion_is_unreached holds the parent's per-mate spawn lock as a parent-driven remote spawn does and mocks SSH results; exactly one state probe runs after release, and parent ledger and metadata remain unchanged for completed and failed remote process states. test_winner_still_launching_at_deadline_is_reported covers a lock held past the deadline."
-    },
-    {
-      "path": "Collision verification -> local spawn-lock wait with capped sleep -> fm_run_timed -> one isolated liveness probe",
-      "coverage": "Restart suite:test_collision_verification_respects_remaining_budget checks a hanging probe, a hanging probe after a lock wait (reported as probe timed out), oversized poll interval and zero budget; expiry releases the per-mate lock."
+      "path": "restart_mate_locked -> run_relaunch -> local fm-control or remote fm-remote-secondmate-relaunch -> first_reported_line(restart_out)",
+      "site": "bin/fm-secondmate-restart.sh:362",
+      "coverage": "tests/fm-secondmate-restart.test.sh:833 test_restart_diagnostic_fallbacks_remain_safe exercises remote relaunch with banner/error, plain whitespace, warning-only and blank output; asserts nonzero unknown outcome.",
+      "inspected_siblings": "Both placements join at the same formatter after run_relaunch. Lost-spawn-lock reports reuse restart_reason; success returns before formatting. Existing local refusal, successful local/remote restart and collision regressions remain unchanged."
     }
   ],
   "task_kinds": {
-    "secondmate": "Affected persistent supervisor kind; restart capability and per-mate recovery locks apply.",
-    "ship_and_scout": "Not restart subjects: fm_secondmate_restart_capable rejects kind != secondmate before persist/stop. Shared spawn gates remain unchanged; tests/fm-control-relaunch.test.sh and tests/fm-secondmate-harness.test.sh cover shared boundaries.",
-    "primary": "No secondmate record is selected for the primary; primary restart and supervision protocols are outside this change."
+    "secondmate": "Affected kind, admitted by fm_secondmate_restart_capable before persist and stop.",
+    "ship_and_scout": "Inspected bin/fm-secondmate-restart-lib.sh: kind != secondmate is refused before diagnostic command capture; no lifecycle change.",
+    "primary": "No primary restart route in this wrapper; no primary session operated on."
   },
   "harnesses": {
     "eligible_local": [
@@ -101,8 +74,6 @@
       "kimi",
       "cursor"
     ],
-    "reason": "Inspected fm_control_harnesses/fm_control_harness_supports_kind and remote cmd_launch/cmd_relaunch allowlists; runtime selection and alias normalization still belong to those tables.",
-    "local_only_omp": "Remote allowlist excludes OMP; this unchanged asymmetry is not claimed as remote coverage.",
     "secondmate_ineligible": [
       "gemini",
       "muse",
@@ -112,74 +83,58 @@
       "commandcode",
       "polytoken"
     ],
-    "ineligible_reason": "Control kind table and spawn refuse secondmate use before stopping; the restart suite exercises the Muse refusal.",
-    "fixture_evidence": "Restart suite executes Claude and Codex launch/stop paths and Pi/Pi-signed profile transport including native Ultra; other eligible harness mechanics are inspected, not exercised by this focused suite.",
-    "vendor_signal_limit": "Fake busy rows and process names prove orchestration decisions only; installed vendor readiness/exit interpretation requires real guards."
+    "inspected_reason": "bin/fm-control-lib.sh capability/kind tables and bin/fm-remote-secondmate-control.sh cmd_launch/cmd_relaunch allowlists are unchanged. OMP remains local-only. The formatter has no harness-specific branch.",
+    "fixture_evidence": "Diagnostic failures use the remote fixture. Existing Claude/Codex lifecycle and Pi/Pi-signed native Ultra regressions remain; the prior focused restart-file run passed.",
+    "limit": "No per-harness live diagnostic or vendor readiness proof; unsupported harnesses remain refused before stop."
   },
   "backends": {
-    "tmux": "Local recovery-grade classifier; fake PATH provider, FM_FAKE_DIR, FM_BACKEND=tmux and fixture FM_HOME/FM_STATE_OVERRIDE isolate every restart command.",
-    "herdr": "Local recovery-grade classifier and only supported remote backend; remote restart observations are mocked at the SSH boundary, with no real Herdr CLI invoked by this focused suite.",
-    "zellij": "Classifier not verified for restart; existing capability refusal/nudge case covers it.",
-    "orca_cmux_paseo": "No secondmate spawn support; inspected spawn-kind/backend validation, not exercised as restart backends.",
-    "codex_app": "Not a selectable runtime backend; not a secondmate launch route."
+    "tmux": "Eligible local state classifier; local failure joins the same formatter as remote failure. Existing local lifecycle fixtures retained.",
+    "herdr": "Eligible local classifier and supported remote backend; diagnostic cases stub the SSH boundary without invoking real Herdr.",
+    "zellij_orca_cmux_paseo": "Inspected fm_control_backend_state_verified: only tmux/herdr pass restart capability; unsupported backends retain refusal/nudge behavior.",
+    "codex_app": "Not a selectable runtime backend for this wrapper; no App-thread integration added."
   },
   "platforms": {
-    "Linux": "Focused portable fixtures execute in the current Linux review environment; no real tmux/Herdr or credentialed vendor session is exercised.",
-    "macOS": "Same Bash scripts and remote Herdr route are affected; real macOS process identity, GUI session persistence and Bash 3.2 execution remain validation gaps.",
-    "other_platforms": "No native Windows runtime or new platform support is introduced; SSH changes transport, not host-local lifecycle ownership."
+    "Linux": "Prior focused restart-file verification ran here against isolated terminal/SSH fixtures; no real remote host was contacted.",
+    "macOS": "Same shared formatter uses LC_ALL=C awk; no macOS or Bash 3.2 execution evidence in this review.",
+    "other_platforms": "No native Windows or new platform support introduced; no platform dispatch changed."
   },
   "account_selection": {
-    "local": "fm-control re-resolves config/secondmate-harness and model/effort per-mate overrides; fm_worker_account_config retains per-secondmate Claude/Pi account pin precedence over home pins.",
-    "remote": "Parent hands harness/model/effort explicitly to host relaunch; credentials and provider roots remain host-local, with no cross-host account pin transfer.",
-    "guards": "Existing malformed/unreadable pin, unsupported harness, native-Ultra and worker-account checks are unchanged; no credential creation, sign-in or account fallback is added.",
-    "evidence": [
-      "tests/fm-secondmate-restart.test.sh",
-      "tests/fm-worker-account.test.sh",
-      "tests/fm-worker-account-live-e2e.test.sh"
-    ],
-    "gap": "Restart fixtures do not prove current authenticated account selection; real account guard belongs to designated validation."
+    "local": "Inspected fm_worker_account_config and relaunch path: per-mate Claude/Pi pins retain precedence; Codex account selection remains separate and unchanged.",
+    "remote": "Inspected remote relaunch/control: parent passes harness/model/effort; host-local control owns accounts and credentials. No transfer or fallback added.",
+    "limit": "Fixture profiles prove transport and native effort preservation, not current authenticated account selection."
   },
   "lifecycle_and_guards": [
-    "All persist requests precede restart, and only the matching correlated reply releases that mate; unanswered requests keep the agent and use the nudge path.",
-    "Capability, profile and account refusals before stop preserve the running agent; ordinary failed launch outcomes are not accepted through journal phase inference.",
-    "Restart holds the per-mate lock across stop, launch and collision verification; watcher/bootstrap skip before probe/kill/attempt publication.",
-    "The per-home relaunch lock and per-task spawn lock remain distinct; a direct manual spawn does not impersonate the lock-owning liveness helper.",
-    "Pending-then-failed and completed independent Codex launches both produce bounded unreached when no parent record proves completion, even with stale historical relaunched rows.",
-    "Read-only remote state responses do not update parent liveness outcome records; route identity is preserved on unconfirmed restart.",
-    "Normal successful local/remote relaunch returns restarted; worker death, result publication while reaping, parallel persistence and stale lock reclamation remain covered.",
-    "No teardown, force, reset, stash, credential change, local replacement of a remote route, or new completion handoff/state machine is introduced.",
-    "A lost-spawn-lock result enters bounded endpoint observation, then unreached because existing supported record writers cannot supply completion proof while restart holds the liveness lock; there is no fresh-ledger acceptance or route-refresh branch.",
-    "Probe subprocesses are bounded by remaining time, then the remaining time is recomputed before capping and bounding the next sleep; zero budget skips probing.",
-    "Ordinary remote launch retains existing-live success, allowing a repeated spawn after a lost SSH response to converge on its existing route; this is separate from restart completion classification."
+    "Persist success still records the correlation and waits for the matching reply; unanswered or failed requests retain the fallback path without relaunch.",
+    "A failed send can follow durable inbox publication; selecting its error does not prove the message was absent or undo existing inbox work.",
+    "Nudge success increments nudged; nudge failure increments unreached and formats its independent diagnostic.",
+    "Local and remote relaunch success still report restarted before the failure formatter is reached; failed relaunch and spawn-collision outcomes retain their existing classifications.",
+    "Background-shell cleanup, capability/profile/account refusals, per-mate locks, asynchronous result harvesting and restart exit statuses are unchanged.",
+    "No action against q-server or inbox1922/1923 was performed; preserving their durable work and deferring restart remain operational acceptance constraints."
   ],
   "regression_oracle": {
-    "source": "Accepted R1/R3 decisions require nonzero unreached without existing completion proof and production-valid evidence ownership; accepted R5/R6/R7 decisions require bounded waits, ordinary remote-launch convergence and removal of unreachable acceptance.",
+    "source": "Author intent requires underlying failures instead of banners; accepted R1 requires printable single-line normalization, existing fallbacks, no added truncation and preserved native persist/no-restart semantics.",
     "public_interfaces": [
-      "bin/fm-secondmate-restart.sh",
-      "bin/fm-spawn.sh --secondmate"
+      "bin/fm-secondmate-restart.sh"
     ],
     "owned_state_contracts": [
-      "Parent liveness ledger is written only by the liveness recovery owner",
-      "Control relaunch journal synchronizes the competing fixture after the losing launch",
-      "Provider state and command logs model only external terminal/SSH boundaries"
+      "SSH command log records whether relaunch was attempted; pending replies and steering inboxes use the real project implementations inside fixtures."
     ],
     "wrong_behaviors_rejected": [
-      "Accepting process liveness before a gate fails",
-      "Accepting a stale success record for an independent winner",
-      "Remote state probes manufacturing parent ledger success",
-      "Calling the liveness relaunch helper without its required lock",
-      "A hanging SSH probe overruns the verification deadline",
-      "A poll interval larger than the remaining budget extends recovery exclusion",
-      "A zero verification budget starts an unbounded observation"
-    ]
+      "Reporting a banner instead of the persist or nudge error",
+      "Losing relaunch error/plain/warning/blank fallbacks",
+      "Claiming a failed relaunch succeeded",
+      "Relaunching after the fixture persist send fails"
+    ],
+    "limits": "The removed cap-only case is not replaced with a source-text assertion. The remaining cases do not independently prove arbitrarily long diagnostics or every control character."
   },
   "focused_review_verification": {
-    "command": "TMPDIR=/tmp bash bin/fm-test-run.sh tests/fm-secondmate-restart.test.sh",
-    "result_location": "Review execution transcript for this fix round; this handoff does not claim a live-harness result."
+    "command": "bash tests/fm-secondmate-restart.test.sh",
+    "result": "Prior R1 fix round on the current production/test content: exit 0; # all fm-secondmate-restart tests passed.",
+    "current_round": "Only this JSON handoff changes for R2; focused verification parses its structured inventory and resolves referenced project files, without claiming additional runtime proof."
   },
   "real_guard_handoff": {
     "owner": "Designated outer validation phase; this review phase does not run live, full-suite, lint, push or CI phases.",
-    "record_to_refresh": "docs/verification/runtime-backends.md with actual date, installed versions, command and output before claiming live proof.",
+    "record_to_refresh": "docs/verification/runtime-backends.md with actual date, installed versions, commands and output before claiming live proof.",
     "guards": [
       {
         "axis": "Codex positional and typed brief readiness on tmux",
@@ -230,34 +185,49 @@
       {
         "axis": "Current account authentication",
         "path": "tests/fm-worker-account-live-e2e.test.sh"
+      },
+      {
+        "axis": "Actual restart persist/background-shell/exit behavior on Claude through tmux and Herdr",
+        "path": "tests/fm-secondmate-restart-bg-shells-live-e2e.test.sh",
+        "selection": "FM_RESTART_BG_SHELLS_LIVE=1; use an isolated lab, never q-server."
       }
     ],
     "gaps": [
-      "No live harness, installed version, real provider, real SSH host or current account authentication is established by this review fixture run.",
-      "Existing live signal guards are prerequisites, not end-to-end proof of the complete restart/liveness race on each installed harness/backend/platform combination.",
-      "Kimi readiness and lifecycle remain unproven live here; tests/fm-kimi-harness.test.sh is deterministic coverage, not a substitute for a real installed Kimi scenario.",
-      "Remote SSH outcomes in the restart suite are boundary mocks; they cannot prove macOS GUI persistence, transport reliability or remote gate completion.",
-      "Independent successful launches have no parent completion receipt under the current records and lock contract; conservative unreached is an accepted limitation, not a live-proof claim.",
-      "Validation must explicitly report missing harnesses/accounts/platforms and preserve these gaps rather than infer coverage from mocked success.",
-      "Ordinary remote-launch idempotence is restored rather than redefined as readiness proof; no new live convergence evidence is claimed by this review round."
+      "No live harness, installed vendor version, authenticated account, real SSH transport or q-server state was verified by these review rounds.",
+      "Existing live signal guards are prerequisites, not complete end-to-end diagnostic-failure proof across every harness/backend/platform combination.",
+      "Local formatter routing is inspected; new diagnostic failure fixtures exercise remote routing. Other retained local lifecycle tests do not establish every local diagnostic form.",
+      "Kimi live readiness, macOS GUI persistence and Bash 3.2 execution remain unproven here; validation must explicitly report absent tools/accounts/platforms.",
+      "The actual 09:12Z inbox1922/1923 incident was not replayed; tests demonstrate representative banner/error ordering only, without touching its durable work."
     ]
   },
   "inspected_unchanged_paths": [
     {
-      "path": "bin/fm-remote-secondmate-control.sh",
-      "reason": "Restored to base behavior: ordinary launch reuses a live remote endpoint and prints its route; restart still uses cmd_relaunch and host fm-control."
+      "path": "bin/fm-secondmate-restart-lib.sh",
+      "reason": "Persist request and kind/backend/harness capability boundaries unchanged."
     },
     {
-      "path": "bin/fm-spawn.sh",
-      "reason": "Restored to base; per-task lock, initial-brief gates, account selection, normal remote-launch convergence and metadata publication are unchanged."
+      "path": "bin/fm-send.sh",
+      "reason": "Local/remote durable inbox delivery and failure semantics unchanged; only captured diagnostic selection changes."
+    },
+    {
+      "path": "bin/fm-control-lib.sh",
+      "reason": "Harness kind and backend state capability tables unchanged."
+    },
+    {
+      "path": "bin/fm-remote-secondmate-control.sh",
+      "reason": "Host-local send/relaunch and remote harness allowlists unchanged."
     },
     {
       "path": "bin/fm-remote-secondmate-relaunch.sh",
-      "reason": "Restored to base: only relaunch is supported; the unneeded --refresh-route mode and its documentation were removed."
+      "reason": "Remote relaunch and confirmed route publication unchanged."
     },
     {
-      "path": "bin/fm-timeout-lib.sh",
-      "reason": "Existing fm_run_timed helper bounds probe subprocess groups and sleeps; helper implementation is unchanged."
+      "path": "bin/fm-worker-account-lib.sh",
+      "reason": "Account pin selection and refusals unchanged."
+    },
+    {
+      "path": "bin/fm-spawn.sh",
+      "reason": "Spawn gates, per-task locks, native profiles and account ownership unchanged."
     }
   ]
 }
