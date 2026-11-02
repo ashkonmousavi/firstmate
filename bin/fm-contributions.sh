@@ -560,16 +560,16 @@ settle_record() {
   write_record "$task" "$TMP/row.json" exec
 }
 
-settle_final() { # canonical-url task... : copy the URL's final observation to every owner
-  local url=$1 task
-  shift
-  jq -n --slurpfile saved "$SAVED_URL" --arg url "$url" '
+settle_final() { # canonical-url saved-url-file task... : copy the URL's final observation to every owner
+  local url=$1 saved=$2 task
+  shift 2
+  jq -n --slurpfile saved "$saved" --arg url "$url" '
     [$saved[0][] | .records[] | select(.url == $url
       and (.observation.state | IN("merged","closed")))] as $final
     | $final | sort_by([.retired != null, .error != null]) | first' > "$TMP/final.json"
   for task in "$@"; do
     fm_pr_task_id_valid "$task" || { printf 'contributions: invalid durable task id\n'; continue; }
-    jq -n --slurpfile saved "$SAVED_URL" --arg task "$task" --arg url "$url" '
+    jq -n --slurpfile saved "$saved" --arg task "$task" --arg url "$url" '
       [$saved[0][] | select(.task == $task) | .records[] | select(.url == $url)] | first' > "$TMP/old.json"
     if jq -e '. == null or (.observation.state | IN("merged","closed") | not) or .error != null' "$TMP/old.json" >/dev/null; then
       bash "$TMP/scan.sh" settle_record "$task" "$url" "$TMP/final.json"
@@ -651,7 +651,7 @@ scan_saved() {
     if jq -ne --slurpfile saved "$SAVED_URL" --arg url "$url" --args \
       'any($ARGS.positional[] as $task | [$saved[0][] | select(.task == $task) | .records[] | select(.url == $url)] | first;
         . != null and (.observation.state | IN("merged","closed")))' "${row[@]:1}" >/dev/null; then
-      settle_final "$url" "${row[@]:1}"
+      settle_final "$url" "$SAVED_URL" "${row[@]:1}"
     else
       (IFS=$'\t'; printf '%s\n' "${row[*]}") >> "$TMP/live.tsv"
     fi
@@ -719,6 +719,29 @@ poll() {
     IFS=$'\t' read -r -a row < "$TMP/current-row.tsv" || true
     [ "${#row[@]}" -ge 2 ] || continue
     SAVED_URL="$TMP/current-url.json"
+    if run_scan jq -ne --slurpfile saved "$SAVED_URL" --arg url "$url" --args \
+      'any($ARGS.positional[] as $task | [$saved[0][] | select(.task == $task) | .records[] | select(.url == $url)] | first;
+        . != null and (.observation.state | IN("merged","closed")))' "${row[@]:1}" >/dev/null; then
+      fm_lock_release "$STATE/.contributions.lock"
+      LOCK_HELD=0
+      if run_scan settle_final "$url" "$SAVED_URL" "${row[@]:1}"; then :; else
+        rc=$?
+        if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+        return "$rc"
+      fi
+      remaining=$((SCAN_DEADLINE - SECONDS))
+      [ "$remaining" -gt 0 ] || { scan_skipped; return 0; }
+      if acquire "$remaining"; then :; else
+        rc=$?
+        if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+        return "$rc"
+      fi
+      continue
+    else
+      rc=$?
+      if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+      [ "$rc" -eq 1 ] || return "$rc"
+    fi
     observed=0
     observe "$url" || observed=$?
     [ "$BUDGET_EXHAUSTED" -eq 0 ] || continue
