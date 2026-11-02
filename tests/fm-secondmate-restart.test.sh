@@ -645,10 +645,6 @@ case "${rargs[1]:-}" in
           diagnostic-relaunch-plain) printf '\n  fixture\tplain refusal  \nsecond detail\n' >&2 ;;
           diagnostic-relaunch-warning) printf 'warning: fixture only diagnostic\n' >&2 ;;
           diagnostic-relaunch-blank) printf '\n \t\n' >&2 ;;
-          diagnostic-relaunch-long)
-            printf 'error: bounded refusal ' >&2
-            head -c 600 /dev/zero | tr '\000' x >&2
-            printf 'TRUNCATED-TAIL\n' >&2 ;;
         esac
         exit 7
         ;;
@@ -835,8 +831,8 @@ test_send_failure_after_banner_reports_underlying_causes() {
 }
 
 test_restart_diagnostic_fallbacks_remain_safe() {
-  local dir out rc mode expected report
-  for mode in banner plain warning blank long; do
+  local dir out rc mode expected
+  for mode in banner plain warning blank; do
     dir=$(new_case "diagnostic-$mode")
     setup_remote_case "$dir" sm2 "diagnostic-relaunch-$mode"
     export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
@@ -849,19 +845,12 @@ test_restart_diagnostic_fallbacks_remain_safe() {
       plain) expected='fixture plain refusal' ;;
       warning) expected='warning: fixture only diagnostic' ;;
       blank) expected='the restart failed without a reported reason' ;;
-      long) expected='bounded refusal ' ;;
     esac
     assert_contains "$out" "the restart outcome is unknown: $expected" \
       "the underlying relaunch diagnostic was lost ($mode): $out"
     assert_not_contains "$out" 'restarted: sm2' "a failed relaunch must not claim restart"
-    if [ "$mode" = long ]; then
-      report=${out#*the restart outcome is unknown: }
-      report=${report%%$'\n'*}
-      [ "${#report}" -eq 512 ] || fail "the diagnostic must be bounded to 512 bytes: ${#report}"
-      assert_not_contains "$out" 'TRUNCATED-TAIL' "oversized output escaped the diagnostic bound"
-    fi
   done
-  pass "restart diagnostics prefer errors and retain plain, warning-only, blank and bounded fallbacks"
+  pass "restart diagnostics prefer errors and retain plain, warning-only and blank fallbacks"
 }
 
 # --- T8: a local restart lands on this home's durable pin, and says which -----

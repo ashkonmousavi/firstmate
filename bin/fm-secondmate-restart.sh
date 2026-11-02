@@ -184,7 +184,7 @@ unreached_count=0
 
 # Prefer the command's explicit error over leading guard banners or notices.
 # Retain the first meaningful line when no error is labelled, and empty output
-# for callers with their own blank fallback. Reports stay printable and bounded.
+# for callers with their own blank fallback. Reports stay printable.
 first_reported_line() {  # <text>
   printf '%s\n' "$1" | LC_ALL=C awk '
     {
@@ -196,12 +196,12 @@ first_reported_line() {  # <text>
       if (first == "") first = $0
       if ($0 ~ /^error: /) {
         sub(/^error: /, "")
-        print substr($0, 1, 512)
+        print
         found = 1
         exit
       }
     }
-    END { if (!found && first != "") print substr(first, 1, 512) }
+    END { if (!found && first != "") print first }
   '
 }
 
