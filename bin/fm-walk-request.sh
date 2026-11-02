@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # fm-walk-request.sh - a secondmate's typed walk request on its parent channel.
 #
+# For this fleet, load grok-bots before writing or forwarding a walker brief; the selected private dispatcher validates the citation in the transmitted task text.
+#
 # Usage:
 #   fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
 #     --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
@@ -51,6 +53,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 usage() {
   cat <<'EOF'
+For this fleet, load grok-bots before writing or forwarding a walker brief; the selected private dispatcher validates the citation in the transmitted task text.
+
 Usage:
   fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
     --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
