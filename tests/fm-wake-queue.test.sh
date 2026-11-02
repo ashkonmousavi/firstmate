@@ -104,17 +104,23 @@ SH
 
 
 test_concurrent_append_and_drain() {
-  local dir state out1 out2 pids i pid count unique malformed sequence generation
+  local dir state out1 out2 pids start i pid count unique malformed sequence generation
   dir=$(make_case concurrent)
   state="$dir/state"
   out1="$dir/drain-one.out"
   out2="$dir/drain-two.out"
   pids=
-  i=1
-  while [ "$i" -le 40 ]; do
-    append_wake "$state" signal "status-$i" "signal: $state/status-$i.status" &
+  # Exercise concurrent producers and a drain without a 40-process startup
+  # storm competing against the drain's bounded presentation wait.
+  for start in 1 21; do
+    (
+      i=$start
+      while [ "$i" -lt "$((start + 20))" ]; do
+        append_wake "$state" signal "status-$i" "signal: $state/status-$i.status" || exit 1
+        i=$((i + 1))
+      done
+    ) &
     pids="$pids $!"
-    i=$((i + 1))
   done
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$out1" &
   pids="$pids $!"

@@ -79,6 +79,7 @@ test_tmux_primary_uses_the_claude_idle_classifier() (
   fm_backend_composer_state() { printf '%s' "$COMPOSER"; }
   fm_backend_send_text_submit() { printf 'submit %s %s\n' "$1 $2" "$3" >> "$CALLS"; printf '%s' "$SUBMIT_VERDICT"; }
   reset
+  # shellcheck disable=SC2329 # Called indirectly through the sourced tmux adapter.
   tmux() { [ "$1" = capture-pane ] || return 1; printf '%s\n' "$PANE"; }
   PANE='Claude ready'
   assert_equals sent "$(fm_warm_compact_primary "$CONFIG" tmux test:pane 2700 "$TMP_ROOT/t.jsonl" 0)" 'idle tmux Claude is compacted'

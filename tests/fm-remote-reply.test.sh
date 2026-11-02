@@ -96,6 +96,14 @@ stop_reply_listener() {
   local pid _
   pid=$(sed -n '2p' "$CLAIMS/$SID.claim" 2>/dev/null || true)
   case "$pid" in ''|*[!0-9]*) return 0 ;; esac
+  # A claim precedes the runner's EXIT trap. Stop a started listener, rather
+  # than racing that startup window; an old runner record is not readiness.
+  for _ in $(seq 1 100); do
+    [ "$(cat "$PARENT/state/procevent/$SID.runner" 2>/dev/null)" = "$pid" ] && break
+    kill -0 "$pid" 2>/dev/null || return 0
+    sleep 0.05
+  done
+  [ "$(cat "$PARENT/state/procevent/$SID.runner" 2>/dev/null)" = "$pid" ] || return 1
   kill -TERM -- -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
   for _ in $(seq 1 80); do
     kill -0 "$pid" 2>/dev/null || return 0
