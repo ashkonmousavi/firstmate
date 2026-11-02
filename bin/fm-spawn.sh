@@ -6445,10 +6445,10 @@ codex_wait_for_ready() {
 }
 
 codex_wait_for_processing() {
-  local receipt=$1 pane transcript i=0 max=${FM_CODEX_PROCESSING_POLLS:-30} interval=${FM_CODEX_POLL_INTERVAL:-0.5}
+  local receipt=$1 pane transcript i=0 max=${FM_CODEX_PROCESSING_POLLS:-240} interval=${FM_CODEX_POLL_INTERVAL:-0.5}
   while [ "$i" -lt "$max" ]; do
     pane=$(codex_visible_capture) || return 1
-    if printf '%s\n' "$pane" | fm_busy_lines_match codex; then
+    if codex_composer_is_empty && printf '%s\n' "$pane" | fm_busy_lines_match codex; then
       return 0
     fi
     transcript=$(fm_backend_capture "$BACKEND" "$T" 120 "$W") || return 1
@@ -6532,11 +6532,10 @@ codex_wait_for_first_turn() {
   return 1
 }
 
-# The typed-brief gate proper: ready, submit, confirm. Only an `empty` submit
-# verdict confirms delivery, the same loud-refusal boundary kimi and rovo
-# hold; `pending` and `unknown` refuse the spawn rather than guessing, because
-# a half-delivered brief pointer left in a live composer is exactly the
-# worker-never-started defect this gate exists to catch.
+# The typed-brief gate proper: ready, submit, confirm. Codex can paint an
+# empty composer before MCP startup finishes, then queue the submitted brief
+# while its composer reads pending or unknown. Confirm an actual turn within
+# the same startup allowance as positional delivery; never retype the brief.
 codex_spawn_typed_brief() {
   local envelope verdict retries sleep_s settle receipt
   if ! codex_wait_for_ready; then
@@ -6564,7 +6563,7 @@ codex_spawn_typed_brief() {
     return 1
   fi
   case "$verdict" in
-    empty) ;;
+    empty|pending|pending-unproven|unknown) ;;
     send-failed)
       codex_spawn_fail "codex did not take the brief: the launch brief could not be submitted into window $T"
       return 1

@@ -123,6 +123,10 @@ rex_test_stop_server
 ! grep -q '^default' "$WORK/calls" \
   || fail "every passive read must disable autostart itself, got:"$'\n'"$(cat "$WORK/calls")"
 pass "real rex: passive reads disable autostart and do not start a stopped server"
+# A restart retains sessions on newer Rex releases. Discard only this private
+# server's persisted state so this case actually exercises session loss.
+rm -rf "$WORK/server-state"
+mkdir -p "$WORK/server-state"
 rex_test_start_server || fail "the private Rex server did not recover after restart"
 [ "$(fm_backend_rex_endpoint_absence_recheck "$LIVE" "$ENDPOINT")" = missing ] \
   || fail "a session lost at server stop must be proven missing after the private server recovers"
