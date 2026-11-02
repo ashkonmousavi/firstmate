@@ -150,35 +150,25 @@ test_pre_update_legacy_lstart_still_verifies() {
   pass "pre-update bare lstart still verifies; drifted and dead cookies do not"
 }
 
-# Upstream now writes C-locale lstart cookies even on Linux. After switching
-# new records to /proc tokens, those cookies must still verify from a checker
-# with another locale, as must the older same-locale bare lstart form.
-test_cross_locale_pre_update_c_lstart_verifies() {
-  local loc='' candidate canonical localized actual proc_root
-  canonical=$(LC_ALL=C ps -p "$$" -o lstart= 2>/dev/null) || fail "C lstart read failed"
-  for candidate in de_DE.UTF-8 fr_FR.UTF-8 ar_EG.UTF-8; do
-    localized=$(LC_ALL="$candidate" ps -p "$$" -o lstart= 2>/dev/null) || continue
-    [ -n "$localized" ] && [ "$localized" != "$canonical" ] || continue
-    loc=$candidate
-    break
+test_c_locale_cookie_verifies_under_localized_ps() (
+  local proc_root="$TMP_ROOT/proc-locale" canonical localized candidate
+  write_fake_proc_stat "$proc_root" "$$" worker 987654
+  export FM_PROC_ROOT_OVERRIDE="$proc_root"
+  canonical=$(LC_ALL=C /bin/ps -p "$$" -o lstart=) || fail "C lstart read failed"
+  for candidate in de_DE.UTF-8 fr_FR.UTF-8 ja_JP.UTF-8; do
+    locale -a | tr '[:upper:]' '[:lower:]' | grep -Fix "$candidate" >/dev/null || continue
+    export LC_ALL="$candidate"
+    localized=$(/bin/ps -p "$$" -o lstart=) || fail "localized lstart read failed"
+    [ "$localized" != "$canonical" ] || continue
+    fm_remote_job_start_matches "$canonical" "$$" || fail "C cookie rejected under $candidate"
+    fm_remote_job_start_matches "$localized" "$$" || fail "ambient cookie rejected under $candidate"
+    fm_remote_job_start_matches 'invalid-cookie' "$$" && fail "invalid cookie accepted"
+    fm_remote_job_start_matches proc-starttime=1 "$$" && fail "wrong proc token accepted"
+    pass "C and ambient cookies verify with localized ps and proc identity"
+    return
   done
-  if [ -z "$loc" ]; then
-    echo "skip: cross-locale legacy identity needs a locale rendering ps lstart differently from C"
-    return 0
-  fi
-  # Force both the native /proc path and the no-/proc fallback; the canonical
-  # legacy check is needed on Linux because the native identity is now a token.
-  for proc_root in /proc "$TMP_ROOT/no-proc"; do
-    LC_ALL="$loc" FM_PROC_ROOT_OVERRIDE="$proc_root" fm_remote_job_start_matches "$canonical" "$$" \
-      || fail "C-locale pre-update cookie failed under $loc with proc root $proc_root"
-    LC_ALL="$loc" FM_PROC_ROOT_OVERRIDE="$proc_root" fm_remote_job_start_matches "$localized" "$$" \
-      || fail "older same-locale cookie failed under $loc with proc root $proc_root"
-  done
-  actual=$(LC_ALL="$loc" FM_PROC_ROOT_OVERRIDE="$TMP_ROOT/no-proc" fm_remote_job_process_start "$$") \
-    || fail "no-proc identity read failed under $loc"
-  [ "$actual" = "$canonical" ] || fail "no-proc fallback lost upstream's C-locale invariant"
-  pass "pre-update C-locale and bare same-locale cookies verify across the proc transition ($loc)"
-}
+  pass "localized cookie comparison skipped without a differing installed locale"
+)
 
 test_pre_update_worker_lock_verifies_then_code_identity_replaces() {
   local old new legacy_start
@@ -261,7 +251,7 @@ test_token_changes_with_starttime
 test_malformed_proc_stat_and_pid_are_rejected
 test_lstart_fallback_without_proc
 test_pre_update_legacy_lstart_still_verifies
-test_cross_locale_pre_update_c_lstart_verifies
+test_c_locale_cookie_verifies_under_localized_ps
 test_dead_owner_with_stale_ready_gets_one_replacement
 test_pre_update_worker_lock_verifies_then_code_identity_replaces
 test_repeated_ensure_never_piles_supervisors

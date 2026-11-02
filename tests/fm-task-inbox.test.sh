@@ -149,7 +149,7 @@ age_path() {  # <path>  (set mtime well past any grace under test)
 }
 
 test_write_is_durable_and_exact() {
-  local state rec rec2 doorbell doorbell2 doorbell3 expected actual expected2 actual2 text
+  local state rec rec2 doorbell doorbell2 doorbell3 expected actual expected2 actual2 last_byte text
   state="$TMP_ROOT/write/state"; mkdir -p "$state"
   text=$'line one\nline two with  spaces\n/slash body\n\n'
   rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "$text") \
@@ -168,6 +168,9 @@ test_write_is_durable_and_exact() {
     || fail "record body did not preserve trailing and blank-line bytes"
   rec2=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "no trailing newline") \
     || fail "second inbox write failed"
+  last_byte=$(LC_ALL=C tail -c 1 "$rec2" | od -An -t x1 | tr -d '[:space:]')
+  [ "$last_byte" = 0a ] \
+    || fail "a newly written record must end with a newline, got final byte $last_byte"
   expected2="$state/expected-no-newline.body"
   actual2="$state/actual-no-newline.body"
   printf '%s' "no trailing newline" > "$expected2"
@@ -175,6 +178,15 @@ test_write_is_durable_and_exact() {
     || fail "second record body could not be read"
   cmp -s "$expected2" "$actual2" \
     || fail "record body added a trailing newline"
+  printf 'schema=fm-task-inbox.v1\nat=2020-01-01T00:00:00Z\n--\nlegacy record without terminator' \
+    > "$state/legacy.msg"
+  expected="$state/expected-legacy.body"
+  actual="$state/actual-legacy.body"
+  printf '%s' 'legacy record without terminator' > "$expected"
+  inbox_lib "$state" fm_task_inbox_body "$state/legacy.msg" > "$actual" \
+    || fail "a legacy record without a final newline could not be read"
+  cmp -s "$expected" "$actual" \
+    || fail "legacy record body was not preserved byte-exact"
   doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
   doorbell2=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec2")
   [ "$doorbell" = "$doorbell2" ] \
@@ -1171,18 +1183,19 @@ SH
   [ ! -s "$dir/comparisons" ] || fail "fresh request compared bodies of unrelated request ids"
   retry=$(bulk_write "$text") || fail "unhandled retry failed"
   [ "$retry" = "$rec" ] || fail "same-id retry created another record"
-  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "retry parsed headers per record"
+  # One bulk header parse plus the matched record's body-offset read; never one per retained record.
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 2 ] || fail "retry parsed headers per record"
   [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "retry compared unrelated bodies"
   mv "$rec" "$state/t1.inbox/handled/"
   retry=$(bulk_write "$text") || fail "handled retry failed"
   [ "$retry" = "$state/t1.inbox/handled/257.msg" ] || fail "handled retry did not find its record"
-  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "handled retry parsed headers per record"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 2 ] || fail "handled retry parsed headers per record"
   [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "handled retry compared unrelated bodies"
   rc=0
   bulk_write 'conflicting request body of a different size' > "$dir/conflict.out" || rc=$?
   [ "$rc" != 0 ] || fail "same request id accepted a conflicting body"
   [ ! -e "$state/t1.inbox/258.msg" ] || fail "conflict created a new record"
-  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 1 ] || fail "conflict parsed headers per record"
+  [ "$(wc -l < "$dir/parses" | tr -d ' ')" = 2 ] || fail "conflict parsed headers per record"
   [ "$(wc -l < "$dir/comparisons" | tr -d ' ')" = 1 ] || fail "conflict compared unrelated bodies"
   pass "inbox: one bulk header parse selects only matching one-way requests across retained history"
 }
@@ -1209,6 +1222,102 @@ SH
   [ "$result" = "$state/t1.inbox/handled/001.msg" ] || fail "header selection lost the acknowledged request: $result"
   [ ! -e "$state/t1.inbox/002.msg" ] || fail "header selection race duplicated the request"
   pass "inbox: bulk header selection follows an acknowledgement before opening the record"
+}
+
+# Count expensive operations through the real public enqueue path, including
+# subprocesses, rather than asserting how the prefilter is implemented.
+counted_idempotent_write() {  # <state> <text> <delivery-mode> <log>
+  FM_STATE_OVERRIDE="$1" bash -c '
+    . "$1"
+    for fn in fm_task_inbox_body fm_task_inbox_is_fire_and_forget; do
+      eval "$(declare -f "$fn" | sed "1s/$fn/_original_$fn/")"
+    done
+    fm_task_inbox_body() {
+      printf "body\n" >> "$operation_log"
+      _original_fm_task_inbox_body "$@"
+    }
+    fm_task_inbox_is_fire_and_forget() {
+      printf "mode\n" >> "$operation_log"
+      _original_fm_task_inbox_is_fire_and_forget "$@"
+    }
+    cmp() {
+      printf "cmp\n" >> "$operation_log"
+      command cmp "$@"
+    }
+    operation_log=$5
+    fm_task_inbox_write_idempotent "$2" t1 "$3" "$4"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$@"
+}
+
+test_idempotent_write_prefilters_history() {
+  local state dir i dest mode location text rec result log kind count before after
+  state="$TMP_ROOT/idem-scale/state"
+  dir="$state/t1.inbox"
+  mkdir -p "$dir/handled"
+  # Most records have unrelated first lines, in both pending and handled history.
+  for ((i=1; i<=1000; i++)); do
+    dest="$dir"
+    [ "$i" -le 500 ] || dest="$dir/handled"
+    printf 'schema=fm-task-inbox.v1\nat=2020-01-01T00:00:00Z\n--\nunrelated %s\n' "$i" > "$dest/$i.msg"
+  done
+  text=$'-literal [.*] needle\nsecond line\n\n'
+  for mode in '' fire-and-forget; do
+    for location in pending handled; do
+      rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "$text" "$mode")
+      if [ "$location" = handled ]; then
+        mv "$rec" "$dir/handled/"
+        rec="$dir/handled/${rec##*/}"
+      fi
+      before=$(find "$dir" -name '*.msg' -exec cksum {} + | LC_ALL=C sort)
+      log="$state/operations"
+      : > "$log"
+      result=$(counted_idempotent_write "$state" "$text" "$mode" "$log") \
+        || fail "large-history retry failed ($mode/$location)"
+      [ "$result" = "$rec" ] || fail "large-history retry returned $result instead of $rec"
+      for kind in mode body cmp; do
+        count=$(grep -cFx "$kind" "$log" || true)
+        [ "$count" -le 4 ] || fail "unrelated history caused $count $kind operations"
+      done
+      after=$(find "$dir" -name '*.msg' -exec cksum {} + | LC_ALL=C sort)
+      [ "$before" = "$after" ] || fail "retry changed or pruned durable history"
+      # Keep each exact target unique while exercising both locations and modes.
+      text="${text}next"$'\n'
+    done
+  done
+  pass "inbox: unrelated pending and handled history avoids per-record parsing and comparison"
+}
+
+test_idempotent_write_prefilter_preserves_exact_bodies() {
+  local state mode text rec result previous count
+  state="$TMP_ROOT/idem-prefilter-bodies/state"
+  mkdir -p "$state/t1.inbox/handled"
+  # Legacy records include an empty body and an unterminated final line.
+  printf 'schema=fm-task-inbox.v1\nat=2020-01-01T00:00:00Z\n--\n' > "$state/t1.inbox/handled/001.msg"
+  printf 'schema=fm-task-inbox.v1\nat=2020-01-01T00:00:00Z\n--\nlegacy\nunterminated' > "$state/t1.inbox/002.msg"
+  result=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 '')
+  [ "$result" = "$state/t1.inbox/handled/001.msg" ] || fail "empty legacy retry did not dedup"
+  result=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 $'legacy\nunterminated')
+  [ "$result" = "$state/t1.inbox/002.msg" ] || fail "unterminated legacy retry did not dedup"
+  for text in '' $'\n' $'\nleading blank' 'same first line' $'same first line\ndifferent body' $'same first line\ndifferent body\n\n' '--' 'schema=fm-task-inbox.v1'; do
+    previous=''
+    for mode in '' fire-and-forget; do
+      rec=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$text" "$mode") \
+        || fail "exact-body fixture write failed"
+      [ "$rec" != "$previous" ] || fail "different delivery modes collapsed"
+      result=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$text" "$mode")
+      [ "$result" = "$rec" ] || fail "exact-body pending retry did not dedup"
+      case "$rec" in
+        */handled/*) ;;
+        *) mv "$rec" "$state/t1.inbox/handled/" ;;
+      esac
+      previous="$state/t1.inbox/handled/${rec##*/}"
+      result=$(inbox_lib "$state" fm_task_inbox_write_idempotent "$state" t1 "$text" "$mode")
+      [ "$result" = "$state/t1.inbox/handled/${rec##*/}" ] || fail "exact-body handled retry did not dedup"
+    done
+  done
+  count=$(find "$state/t1.inbox" -name '*.msg' | wc -l | tr -d ' ')
+  [ "$count" = 17 ] || fail "distinct bodies or modes collapsed: found $count records"
+  pass "inbox: prefilter preserves multiline, blank, legacy and delivery-mode exact matching"
 }
 
 test_idempotent_write_follows_concurrent_ack() {
@@ -2374,6 +2483,8 @@ test_idempotent_write_dedups_exact_body
 test_idempotent_write_leaves_no_scratch_when_killed
 test_one_way_dedup_bulk_selects_request_ids
 test_one_way_dedup_follows_ack_before_header_open
+test_idempotent_write_prefilters_history
+test_idempotent_write_prefilter_preserves_exact_bodies
 test_idempotent_write_follows_concurrent_ack
 test_idempotent_write_follows_concurrent_ack cccccccccccccccccccccccccccccccc
 test_handled_mv_dedups_by_sequence

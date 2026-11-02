@@ -7,8 +7,9 @@
 # constants in bin/fm-bootstrap.sh.
 #
 # This file is the single owner of that version number. bin/fm-bootstrap.sh
-# turns a failing check into the operator-facing MISSING diagnostic, which is
-# what keeps an older build from reaching a dispatch intake at all.
+# turns an absent binary into the operator-facing MISSING diagnostic and an
+# incompatible installed build into OUTDATED, which keeps an older build from
+# reaching a dispatch intake at all.
 #
 # Snapshot schemas: fm_quota_json_valid accepts quota-axi schema 5 (one row per
 # provider, no accountKey) and schema 6 (every row carries accountKey, unique on
@@ -75,12 +76,16 @@ FM_QUOTA_EVAL_JQ='
   def quota_measured($q; $p; $lane):
     quota_row($q; $p; $lane) as $row |
     ($row != null and (["known", "partial"] | index($row.quotaSemantics.status)) != null);
-  def quota_applicable($q; $p; $lane; $m):
+  # A profile may bind one explicit quota_scope row (docs/configuration.md
+  # "Crew dispatch profiles"); that row then applies beside the model rows.
+  def quota_applicable($q; $p; $lane; $m; $qs):
     ($m | split("/") | last) as $bare |
     [quota_rows($q; $p; $lane)[] | select(
       .scope == "all_models" or .scope == "all_products" or
-      ($m != "" and (.scope == ("model:" + $bare) or .scope == ("product:" + $bare)))
+      ($m != "" and (.scope == ("model:" + $bare) or .scope == ("product:" + $bare))) or
+      ($qs != null and .scope == $qs)
     )];
+  def quota_applicable($q; $p; $lane; $m): quota_applicable($q; $p; $lane; $m; null);
   def quota_floor_state($q; $f; $p; $lane):
     if $f == null then "none"
     elif quota_row($q; $p; $lane) == null or (quota_measured($q; $p; $lane) | not) then "unknown"
@@ -112,7 +117,7 @@ FM_QUOTA_EVAL_JQ='
                 then "provider \($p) has no quota row for account \(if $lane == "" then "default" else $lane end)"
                 else "provider \($p) not in the quota snapshot" end)}
     else
-      quota_applicable($q; $p; $lane; ($c.model // "")) as $rows |
+      quota_applicable($q; $p; $lane; ($c.model // ""); ($c.quota_scope // null)) as $rows |
       quota_evidence($rows) as $bounds |
       quota_floor_state($q; $c.floor; $p; $lane) as $profile_floor_state |
       quota_runway_class($bounds) as $runway_class |
@@ -131,6 +136,8 @@ FM_QUOTA_EVAL_JQ='
       elif (quota_measured($q; $p; $lane) | not) then
         ($rows | first) as $row |
         {profile: $c, provider: $p, bounds: $bounds, scope: ($row.scope // null), pct: ($row.effectivePercentRemaining // null), runway: ($row.runway.status // null), eligible: true, unranked: true, unknown: true, reason: "provider \($p) unmeasured (\(quota_row($q; $p; $lane).quotaSemantics.status))"}
+      elif ($c.quota_scope != null and (any($rows[]; .scope == $c.quota_scope) | not)) then
+        {profile: $c, provider: $p, bounds: $bounds, scope: $c.quota_scope, eligible: true, unranked: true, unknown: true, reason: "declared quota_scope \($c.quota_scope) has no quota row for provider \($p): not rankable"}
       elif ($rows | length) == 0 then
         {profile: $c, provider: $p, bounds: $bounds, eligible: true, unranked: true, unknown: true, reason: "no applicable quota row for provider \($p)"}
       elif $profile_floor_state == "unknown" then

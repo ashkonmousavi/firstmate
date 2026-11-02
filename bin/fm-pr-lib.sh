@@ -11,9 +11,17 @@
 # owner/repository pair can address one and the sidecar carries the whole path
 # instead. GitLab, Gerrit, and Forgejo all run on self-hosted instances, and
 # Gerrit runs nowhere else, so the host is part of that identity rather than a
-# constant. Every consumer re-derives the identity
+# constant. GitHub runs on github.com and on GitHub Enterprise (Cloud *.ghe.com
+# and Enterprise Server), so its host is part of that identity too. Every
+# consumer re-derives the identity
 # from the stored URL and refuses any record whose parts do not reconstruct that
 # exact URL.
+#
+# Registered poll generations bind to their original hashes and file objects,
+# so a repository template update does not invalidate an armed poll. The watcher
+# executes the current repository poll with validated data, never the registered
+# state-file copy. Control relaunch metadata may follow the preserved PR identity
+# fields.
 #
 # A validated exact merged result is retired through a private receipt only
 # after its durable wake is appended.
@@ -36,6 +44,8 @@
 # raises one wake; it does not write a new steer. The secondmate drain
 # ring, process-event publish, and secondmate reconcile nudge each write
 # at most one record for one frozen row or one recorded delivery.
+
+_FM_PR_LIB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 FM_PR_PROVIDER=
 FM_PR_URL=
@@ -220,6 +230,43 @@ fm_pr_forgejo_segment_valid() {
   esac
 }
 
+# A GitHub pull request URL names its host, and github.com is the only GitHub
+# host accepted without being declared: every other host must be listed in this
+# home's config/github-hosts (fm_github_host_allowed), so a look-alike such as
+# github.com.evil or evilgithub.com is refused rather than armed as a watch that
+# can never succeed. That list is the captain's own statement that a host is a
+# GitHub host this home uses, which no URL shape can prove on its own.
+# docs/configuration.md "GitHub Enterprise hosts" owns the file format.
+# An unreadable list, an absent one, and a host it does not name all refuse.
+# Only an exact line match authorizes, so a malformed or comment line can never
+# authorize anything and needs no separate validation.
+fm_github_host_allowed() {  # <host>
+  local host=${1-} file line
+  local LC_ALL=C
+  [ -n "$host" ] || return 1
+  [ "$host" != github.com ] || return 0
+  fm_pr_forge_host_valid "$host" || return 1
+  file="${FM_CONFIG_OVERRIDE:-${FM_HOME:-$_FM_PR_LIB_ROOT}/config}/github-hosts"
+  [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ "$line" = "$host" ] && return 0
+  done < "$file"
+  return 1
+}
+
+# gh and gh-axi address the host in GH_HOST, from the pull request URL, or from
+# the clone's own origin, in that order of specificity. A GitHub Enterprise host
+# is not any tool's default one, so every GitHub call on a pull request path
+# exports it once through here and its children inherit it. github.com keeps the
+# ambient behavior it always had, byte for byte.
+fm_pr_github_host_export() {  # <host>
+  case ${1-} in
+    ''|github.com) return 0 ;;
+  esac
+  GH_HOST=$1
+  export GH_HOST
+}
+
 # Parse a canonical pull request, merge request, or Gerrit change URL into the
 # provider-tagged identity. Validation is strict and per provider: the GitHub
 # username and repository rules are unchanged, and GitLab, Gerrit, and Forgejo
@@ -240,20 +287,22 @@ fm_pr_url_parse() {
   FM_PR_OWNER=
   FM_PR_REPO=
   FM_PR_NUMBER=
-  pattern='^https://github\.com/([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9])/([A-Za-z0-9._-]{1,100})/pull/([1-9][0-9]*)$'
+  pattern='^https://([a-z0-9.-]{1,253})/([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9])/([A-Za-z0-9._-]{1,100})/pull/([1-9][0-9]*)$'
   if [[ "$raw" =~ $pattern ]]; then
-    [[ "${BASH_REMATCH[1]}" != *--* ]] || return 1
-    [ "${BASH_REMATCH[2]}" != . ] && [ "${BASH_REMATCH[2]}" != .. ] || return 1
+    host=${BASH_REMATCH[1]}
+    fm_github_host_allowed "$host" || return 1
+    [[ "${BASH_REMATCH[2]}" != *--* ]] || return 1
+    [ "${BASH_REMATCH[3]}" != . ] && [ "${BASH_REMATCH[3]}" != .. ] || return 1
     FM_PR_PROVIDER=github
     FM_PR_URL=$raw
-    FM_PR_HOST=github.com
-    FM_PR_PATH="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    FM_PR_HOST=$host
+    FM_PR_PATH="${BASH_REMATCH[2]}/${BASH_REMATCH[3]}"
     # Consumed by bin/fm-pr-merge.sh, which addresses GitHub by owner/repository.
     # shellcheck disable=SC2034
-    FM_PR_OWNER=${BASH_REMATCH[1]}
+    FM_PR_OWNER=${BASH_REMATCH[2]}
     # shellcheck disable=SC2034
-    FM_PR_REPO=${BASH_REMATCH[2]}
-    FM_PR_NUMBER=${BASH_REMATCH[3]}
+    FM_PR_REPO=${BASH_REMATCH[3]}
+    FM_PR_NUMBER=${BASH_REMATCH[4]}
     return 0
   fi
   # The path class contains "/" and "-", so this match is greedy to the last
@@ -316,6 +365,21 @@ fm_pr_head_valid() {
   local head=${1-}
   local LC_ALL=C
   [[ "$head" =~ ^[0-9a-f]{40}$|^[0-9a-f]{64}$ ]]
+}
+
+# Resolve the PR number for a task copy's branch via gh-axi, run inside that
+# copy so gh-axi resolves the copy's own repository. Echoes the number on a
+# single match and returns 0; returns non-zero on no match or any lookup
+# failure, so callers treat it as "no PR found" (fail-safe). bin/fm-teardown.sh
+# reads any state for its landed check; bin/fm-pr-health.sh reads open PRs to
+# enroll a branch whose PR was never recorded.
+fm_pr_number_from_branch() {  # <worktree> <branch> [open|closed|all]
+  local wt=$1 branch=$2 state=${3:-all} out n
+  [ -n "$branch" ] && [ "$branch" != HEAD ] || return 1
+  out=$( cd "$wt" && gh-axi pr list --state "$state" --head "$branch" --limit 1 2>/dev/null ) || return 1
+  n=$(printf '%s\n' "$out" | sed -n 's/^[[:space:]]*\([0-9][0-9]*\),.*/\1/p' | head -1)
+  [ -n "$n" ] || return 1
+  printf '%s' "$n"
 }
 
 # The one reading of a GitHub pull request's draft state. Prints "true" or
@@ -441,7 +505,8 @@ fm_pr_metadata_identity_parse() {
           fm_pr_head_valid "$value" || post_pr_invalid=1
         fi
         ;;
-      x_request=*|x_request_ts=*|x_followups=*|x_platform=*|x_reply_max_chars=*)
+      control_relaunch_tx=*|x_request=*|x_request_ts=*|x_followups=*|x_platform=*|x_reply_max_chars=*)
+        # Lifecycle and relay fields may be appended after the PR identity.
         ;;
       *)
         [ "$seen_pr" -eq 0 ] || post_pr_invalid=1
@@ -736,12 +801,11 @@ fm_pr_poll_artifacts_content_valid() {
   fm_pr_private_file_valid "$registration" 600 "$state_device" || return 1
   [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
   [ "$(fm_pr_file_link_count "$meta")" = 1 ] || return 1
-  if ! cmp -s "$template" "$check"; then
-    case "$(fm_pr_sha256 "$check")" in
-      1ecb514c04dca8c7ff1d253998499335c162d73b76b143a2506d7b3627466dfe|05e9e742af771c84d2ed2b41045de7f555cd30bbbb8d19f09f257bd527c0fd57|94228329982651f15be03d57855c48efd5c7ec811a6c803435358205360d87fe|27772d546ce1ad230190c72277aa5d4e571cc8515539777c598e3410bda03fa0) ;;
-      *) return 1 ;;
-    esac
-  fi
+  # Authenticate the published generation against its registration below, not
+  # against a template that may have changed during a repository update.
+  # The watcher executes this repository's current poll with validated data;
+  # it never executes the registered state-file bytes.
+  [ -f "$template" ] && [ ! -L "$template" ] || return 1
   fm_pr_poll_data_parse "$data" || return 1
   data_hash=$(fm_pr_sha256 "$data") || return 1
   template_hash=$(fm_pr_sha256 "$check") || return 1
@@ -765,7 +829,7 @@ fm_pr_poll_artifacts_content_valid() {
 # A registration armed before a volume remount can name a device number the
 # kernel has since reassigned (fm_pr_file_identity). This proves that is the
 # only difference: every artifact passes fm_pr_poll_artifacts_content_valid, so
-# the check is byte-identical to the template, both hashes match, and the three
+# both hashes match the registered generation, and the three
 # poll artifacts are private, single-link, and on the state directory's live
 # device; both recorded identities name one device; each recorded inode equals
 # its live inode; and that recorded device differs from the live one. A
@@ -972,8 +1036,8 @@ fm_pr_poll_retirement_receipt_valid() {
 # The head commit is read in the same query as the state, so a caller that
 # needs both never pairs answers from two forge reads. A record without a
 # head line still reads; FM_PR_RECORD_HEAD is then empty.
-fm_pr_github_read_record_with_gh() {  # <owner> <repo> <number>
-  local owner=$1 repo=$2 number=$3 fields line total=0 named=0
+fm_pr_github_read_record_with_gh() {  # <host> <owner> <repo> <number>
+  local host=$1 owner=$2 repo=$3 number=$4 fields line total=0 named=0
   local state='' merged='' head=''
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
@@ -982,7 +1046,7 @@ fm_pr_github_read_record_with_gh() {  # <owner> <repo> <number>
   FM_PR_RECORD_HEAD_BRANCH=
 
   # shellcheck disable=SC2016  # GraphQL variables are literal query syntax.
-  if ! fields=$(gh api graphql \
+  if ! fields=$(GH_HOST=$host gh api graphql \
     -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged headRefOid headRefName headRepository{nameWithOwner}}}}' \
     -F "owner=$owner" -F "repo=$repo" -F "number=$number" \
     --jq '.data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring), "head=" + (.headRefOid // ""), "head_path=" + (.headRepository.nameWithOwner // ""), "head_branch=" + (.headRefName // "")' \
@@ -1018,14 +1082,14 @@ FIELDS
 }
 
 # gh-axi prints no head commit, so FM_PR_RECORD_HEAD stays empty here.
-fm_pr_github_read_record_with_gh_axi() {  # <owner> <repo> <number>
-  local owner=$1 repo=$2 number=$3 output state
+fm_pr_github_read_record_with_gh_axi() {  # <host> <owner> <repo> <number>
+  local host=$1 owner=$2 repo=$3 number=$4 output state
   FM_PR_RECORD_STATE=
   FM_PR_RECORD_MERGED=
   FM_PR_RECORD_HEAD=
   FM_PR_RECORD_HEAD_PATH=
   FM_PR_RECORD_HEAD_BRANCH=
-  if ! output=$(gh-axi pr view "$number" --repo "$owner/$repo" 2>/dev/null); then
+  if ! output=$(GH_HOST=$host gh-axi pr view "$number" --repo "$owner/$repo" 2>/dev/null); then
     return 1
   fi
   if ! state=$(printf '%s\n' "$output" | awk '
@@ -1065,7 +1129,7 @@ fm_pr_github_read_record_with_gh_axi() {  # <owner> <repo> <number>
   esac
 }
 
-fm_pr_github_read_record() {  # <owner> <repo> <number>
+fm_pr_github_read_record() {  # <host> <owner> <repo> <number>
   if command -v gh >/dev/null 2>&1 && fm_pr_github_read_record_with_gh "$@"; then
     return 0
   fi
@@ -1325,7 +1389,7 @@ fm_pr_read_class() {  # <pr-url>
   FM_PR_RECORD_HEAD_BRANCH=
   fm_pr_url_parse "${1-}" || return 0
   case "$FM_PR_PROVIDER" in
-    github) fm_pr_github_read_record "$FM_PR_OWNER" "$FM_PR_REPO" "$FM_PR_NUMBER" || return 0 ;;
+    github) fm_pr_github_read_record "$FM_PR_HOST" "$FM_PR_OWNER" "$FM_PR_REPO" "$FM_PR_NUMBER" || return 0 ;;
     gitlab) fm_pr_gitlab_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || return 0 ;;
     forgejo) fm_pr_forgejo_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || return 0 ;;
     gerrit) fm_pr_gerrit_read_record "$FM_PR_HOST" "$FM_PR_NUMBER" || return 0 ;;

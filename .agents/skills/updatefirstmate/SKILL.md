@@ -1,7 +1,7 @@
 ---
 name: updatefirstmate
 description: >-
-  Self-update a running firstmate and its secondmates to the latest from origin.
+  Self-update a running firstmate and its secondmates to the latest from origin, or from a configured self-update source.
   Use when the captain invokes /updatefirstmate (e.g. "/updatefirstmate", "update firstmate", "pull the latest firstmate").
 user-invocable: true
 metadata:
@@ -27,6 +27,7 @@ Homes skipped by the update and mates the restart command cannot safely replace 
 
 **One-time rollout note:** the update that carries this change is still executed by the previous release, which restarts only the mates whose `AGENTS.md` or `.agents/skills/` moved on that pass. After it completes, run `bin/fm-secondmate-restart.sh <fm-id>...` once with every live second mate ID, not only the ones that release named; later updates follow the normal flow below.
 
+The source is `origin` unless this home has `config/self-update-source`, which names one remote branch for the primary to follow instead, with local secondmates following the primary's resulting commit; [`docs/configuration.md`](../../../docs/configuration.md#self-update-source-configself-update-source) owns that contract, including its remote-secondmate limit.
 The primary update is fast-forward only, while each secondmate uses the same guarded convergence path plus one narrow recovery for squash-merged local history.
 The [`Self-updates stay safe` contract](../../../docs/architecture.md#self-updates-stay-safe) owns shared-target convergence for local and remote homes.
 It never forces, never creates a merge commit, and never stashes.
@@ -42,6 +43,7 @@ This touches only the firstmate repo and its own worktrees, never anything under
    bin/fm-update.sh
    ```
    It prints the resolved update target, then applies the shared-target safety contract above.
+   When a self-update source is configured it instead prints a `self-update source:` line first and fast-forwards from that source, and an unusable config file stops the whole update before anything moves; report that file to the captain rather than editing or removing it.
    The [`fm-update.sh` header](../../../bin/fm-update.sh) owns remote step bounds and failure outcomes, including unresolved targets and hosts requiring a manual update.
    Read the poll-refresh results using the [refresh helper's header](../../../bin/fm-pr-check-rearm.sh); reconcile each unresolved watch by restoring its recording preconditions or explicitly retiring it through the [poll retirement owner](../../../bin/fm-pr-poll-retire.sh) when it is no longer needed.
    It prints one status line per target (`updated <old>..<new>` / `reconciled redundant divergence <old>..<new>` / `already current` / `skipped: <reason>`), followed by three action lines that tell you exactly what to do next:

@@ -16,6 +16,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-primary-scope-lib.sh"
 # shellcheck source=bin/fm-operational-input.sh
 . "$SCRIPT_DIR/fm-operational-input.sh"
+# shellcheck source=bin/fm-session-lock-lib.sh
+. "$SCRIPT_DIR/fm-session-lock-lib.sh"
 
 fm_is_gate_agent "$FM_ROOT" && exit 0
 fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
@@ -23,16 +25,21 @@ fm_primary_scope_matches "$FM_ROOT" "$STATE" || exit 0
 lock_is_in_ancestry() {
   local lock_pid pid=$$ _
   [ -f "$STATE/.lock" ] || return 1
-  # shellcheck source=bin/fm-session-lock-lib.sh
-  . "$SCRIPT_DIR/fm-session-lock-lib.sh"
   fm_session_lock_read_record "$STATE" || return 1
   lock_pid=$FM_SESSION_LOCK_PID
+  # A Windows-tagged holder is not in this process table at all, so a local
+  # ancestry comparison cannot answer for it. Defer to the owner of harness
+  # identity, which is the only thing that can read across that boundary.
+  if fm_win_untag_pid "$lock_pid" >/dev/null; then
+    fm_session_lock_owned_by_self "$STATE"
+    return
+  fi
+  # PID 1 can own the session inside a PID namespace; compare it below.
   kill -0 "$lock_pid" 2>/dev/null || return 1
   for _ in 1 2 3 4 5 6 7 8; do
     [ "$pid" = "$lock_pid" ] && return 0
-    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-    # Stop only after the top of the chain has been compared, for the same
-    # namespace reason as bin/fm-session-lock-lib.sh's walk.
+    pid=$(fm_ps_ppid "$pid")
+    # Compare the top of the chain before stopping, as in the owning library.
     case "$pid" in '' | *[!0-9]*) return 1 ;; esac
     [ "$pid" -ge 1 ] || return 1
   done

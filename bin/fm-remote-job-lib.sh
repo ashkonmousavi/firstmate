@@ -973,10 +973,9 @@ fm_remote_job_worker_lock_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.lo
 # which is immune to the wall-clock and boot-time steps that re-render ps lstart
 # for one live process (observed on WSL2); the prefix keeps it from ever equaling
 # a legacy lstart date string. Capability-detect the file rather than keying on
-# uname, matching fm_pid_identity, and fall back to ps lstart where /proc is
-# absent (macOS). Pin that fallback to LC_ALL=C so owner identity stays
-# invariant across writer/checker locales and cannot split the worker queue.
-# FM_PROC_ROOT_OVERRIDE points tests at a fake /proc.
+# uname, matching fm_pid_identity, and fall back to LC_ALL=C ps lstart where
+# /proc is absent (macOS), so a lock recorded under one locale still verifies
+# under another. FM_PROC_ROOT_OVERRIDE points tests at a fake /proc.
 fm_remote_job_process_start() {
   local pid=$1 proc_root stat_line starttime ps_bin value
   local -a stat_fields
@@ -1001,10 +1000,10 @@ fm_remote_job_process_start() {
 
 # True when <recorded-start> still names the live process at <pid>.
 # New records match fm_remote_job_process_start exactly (proc-starttime on
-# Linux, LC_ALL=C lstart where /proc is absent). Pre-update records lack the
-# proc-starttime= prefix: upstream wrote C-locale lstart, and older versions
-# wrote bare ps lstart. Try both forms so a healthy pre-update worker still
-# verifies across locales and the code-identity path replaces it once.
+# Linux, LC_ALL=C lstart where /proc is absent). Legacy records lack the
+# proc-starttime= prefix; compare them against both C-locale and ambient-locale
+# ps lstart so a healthy pre-update worker still verifies and the
+# code-identity path can stop and replace it once, instead of piling supervisors.
 fm_remote_job_start_matches() { # <recorded-start> <pid>
   local recorded=$1 pid=$2 actual ps_bin value
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
@@ -1016,10 +1015,9 @@ fm_remote_job_start_matches() { # <recorded-start> <pid>
     case "$recorded" in proc-starttime=*) return 1 ;; esac
   fi
   if [ -x /bin/ps ]; then ps_bin=/bin/ps; elif [ -x /usr/bin/ps ]; then ps_bin=/usr/bin/ps; else return 1; fi
-  value=$(LC_ALL=C "$ps_bin" -p "$pid" -o lstart= 2>/dev/null) || return 1
-  [ -n "$value" ] || return 1
-  case "$value" in *$'\n'*|*$'\r'*) return 1 ;; esac
-  [ "$recorded" = "$value" ] && return 0
+  if value=$(LC_ALL=C "$ps_bin" -p "$pid" -o lstart= 2>/dev/null); then
+    [ "$recorded" = "$value" ] && return 0
+  fi
   value=$("$ps_bin" -p "$pid" -o lstart= 2>/dev/null) || return 1
   [ -n "$value" ] || return 1
   case "$value" in *$'\n'*|*$'\r'*) return 1 ;; esac
