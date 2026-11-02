@@ -124,6 +124,9 @@ Keep every `data/learnings.md` fully local by captain decision; route fleet-gene
 No AGENTS.md reread nudge is needed at spawn or respawn because the agent reads instructions fresh on launch; only the bootstrap sweep's running-home instruction-surface advance needs that AGENTS.md re-read.
 Bootstrap reports successful AGENTS.md re-read sends as `BOOTSTRAP_INFO:` and only emits `NUDGE_SECONDMATES:` when that send fails and needs retry.
 A separate, literal-content config reread is required whenever inherited `config/*` material changes under an already-running secondmate.
+Both locked bootstrap inheritance and `bin/fm-config-push.sh` still converge files for a watcher-parked mate, but skip new config-reread notices and retry generations because it reads current configuration at launch.
+The shared [`fm_secondmate_parked`](../../../bin/fm-secondmate-liveness-lib.sh) predicate owns the evidence required for that exception.
+For a parked remote mate, propagation also clears any earlier owed reread marker; existing local pending generations follow the launch cleanup below.
 For a local home, after each successful allowlisted config write, both the locked bootstrap convergence path and mid-session `bin/fm-config-push.sh` use the shared propagation report to build one per-home generation-specific private instruction file from the validated destination post-write bytes for only the declared config items that actually changed for that home, in declaration order.
 Each changed path is printed with clear begin/end delimiters and the destination file's full exact new bytes unparsed, or the explicit token `ABSENT` when propagation removed the destination copy.
 The instruction uses only minimal framing that these are defaults/rules and do not remove judgment; it never includes SHA values, selected profiles, parsed summaries, or any other generated interpretation.

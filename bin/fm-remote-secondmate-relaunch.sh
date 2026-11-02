@@ -62,6 +62,8 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+# Serialize the entire relaunch and parent rearm with inheritance: a push must
+# not snapshot the old park record while the newly started agent reads config.
 REMOTE_LOCK=$(fm_remote_inherit_transaction_lock_path "$STATE" "$ID") \
   || die "remote inheritance transaction lock path is invalid for $ID"
 fm_lock_acquire_wait "$REMOTE_LOCK"

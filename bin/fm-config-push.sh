@@ -17,8 +17,9 @@
 # data/captain-shared.md-only updates send no new reread pointer.
 # A parked secondmate (fm_secondmate_parked, bin/fm-secondmate-liveness-lib.sh)
 # still has its files pushed - the home must be current when it launches - but
-# receives no reread notice and keeps no retry marker, because a parked mate
-# reads its configuration fresh at launch.
+# receives no new reread notice or obligation, because a parked mate reads its
+# configuration fresh at launch. The secondmate-provisioning skill owns how
+# existing reread obligations are handled.
 # Warnings-only skips exit 0; real propagation or reread-send errors exit non-zero.
 set -u
 
