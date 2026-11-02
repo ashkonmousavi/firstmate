@@ -1,0 +1,6 @@
+present endpoint: metadata-aware gone proof refused
+killed endpoint: metadata-aware gone proof accepted
+killed endpoint: target-only gone proof refused
+killed endpoint: mismatched recorded-server proof refused
+killed endpoint: missing recorded-server proof refused
+real rex: all state-changing calls stayed within this run's private server

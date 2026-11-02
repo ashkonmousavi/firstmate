@@ -1,0 +1,65 @@
+<!doctype html><meta charset="utf-8"><title>Firstmate live CLI evidence</title><style>body{background:#111827;color:#e5e7eb;font:16px system-ui;margin:32px}section{margin:36px 0}h1,h2{font-weight:600}pre{font:13px/1.5 ui-monospace,monospace;background:#030712;padding:20px;overflow:auto;white-space:pre-wrap}p{color:#9ca3af}</style><h1>Firstmate live CLI evidence</h1><p>Rendered transcripts from the running product. These are terminal captures, not reconstructed application screenshots.</p><section><h2>Stock typed launch: first failed attempt</h2><p>Captured output: codex-typed-live.log</p><pre>not ok - a codex scout spawn in a new folder failed within 18s
+error: codex did not take the brief: the launch brief submission was unconfirmed in window firstmate:fm-codex-typed-e2e (verdict=unknown); inspect window firstmate:fm-codex-typed-e2e
+</pre></section><section><h2>Stock typed launch: second failed attempt</h2><p>Captured output: codex-typed-retry.log</p><pre>not ok - a codex scout spawn in a new folder failed within 7s
+error: codex did not take the brief: the launch brief submission was unconfirmed in window firstmate:fm-codex-typed-e2e (verdict=pending); inspect window firstmate:fm-codex-typed-e2e
+</pre></section><section><h2>Stock typed launch: later successful run</h2><p>Captured output: codex-typed-default-final.log</p><pre>ok - real codex codex-cli 0.166.0 on tmux: a new-folder scout starts processing its typed launch brief within 22s and answers it
+ok - real codex codex-cli 0.166.0 on tmux: the trusted-folder relaunch rendered no trust dialog
+ok - real codex codex-cli 0.166.0 on tmux: a trusted-folder relaunch starts processing its typed launch brief within 19s
+ok - real codex codex-cli 0.166.0 typed launch brief verified end to end on an isolated tmux server
+</pre></section><section><h2>Rex positional carrier with typed flag enabled: actual terminal</h2><p>Captured output: rex-codex-pane.txt</p><pre>⚠ Heads up, you have less than 10% of your weekly limit left. Run /status for a breakdown.
+
+
+  &gt;_ OpenAI Codex (v0.166.0)
+     ~/.no-mistakes/worktrees/1e7d3bc48f31/01M6EPD9Q923ZVBVRY6T3MMGP9/.no-mistakes/treehouse-pool/.treehouse/project-1fc992/1/project
+  permissions: YOLO mode
+
+
+› FIRSTMATE_OP: v1 launch-brief: # Current worker role contract
+  You are a crewmate: an autonomous worker agent managed by firstmate.
+  This section establishes your current identity before every project or task instruction below and supersedes any conflicting role identity in those instructions.
+  Do the assigned work yourself and report only to firstmate; do not adopt a firstmate or secondmate supervisor identity, delegate the task, run fleet supervision, or address the captain.
+  Your steering inbox is `~/.no-mistakes/worktrees/1e7d3bc48f31/01M6EPD9Q923ZVBVRY6T3MMGP9/.no-mistakes/test-tmp/fm-rex-test.diXHXg/lab/state/rex-carrier.inbox`; this exact path belongs to
+  your current task even when it is outside the worktree or under the supervising firstmate home, so read and acknowledge its messages and do not reject it as another home&#x27;s state.
+  Never inspect or change any other home&#x27;s endpoint namespace; this authorization is limited to the exact task paths named by this brief.
+  When this task works on Firstmate itself, the repository root `AGENTS.md` (also imported by `CLAUDE.md`) is project content and the supervisor contract for the firstmate managing you: follow this
+  brief instead of that supervisor contract.
+  Project instructions still govern the work wherever they do not conflict with this worker identity, including `CONTRIBUTING.md` and `firstmate-coding-guidelines` for Firstmate changes.
+  If the `firstmate-coding-guidelines` skill name does not resolve in this session, read `~/.no-mistakes/worktrees/1e7d3bc48f31/01M6EPD9Q923ZVBVRY6T3MMGP9/.agents/skills/firstmate-coding-
+  guidelines/SKILL.md` instead.
+
+  # Task
+  ## Captain&#x27;s intent
+  Reply with exactly: rex-carrier-ok, and nothing else.
+
+  ## Firstmate spec
+  One reply, no tools, no file changes.
+  &lt;!-- fm-pr-overlap:start --&gt;
+  ## SHARED
+  Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+  &lt;!-- fm-pr-overlap:end --&gt;
+
+
+• rex-carrier-ok
+
+
+
+
+
+
+
+
+
+
+                                                                                                                                           ⚠ weekly limit: 6% left · resets at 22:55 on 8 Nov · /status
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol high · ~/.no-mistakes/worktrees/1e7d3bc48f31/01M6EPD9Q923ZVBVRY6T3MMGP9/.no-mistakes/treehouse-pool/.treehouse/project-1fc992/1/project
+  ? for shortcuts                                                                                                                                                             ⚠ 2 warnings · f2 to view
+</pre></section><section><h2>Rex recorded-server boundary: live responses</h2><p>Captured output: rex-recorded-server-live.txt</p><pre>present endpoint: metadata-aware gone proof refused
+killed endpoint: metadata-aware gone proof accepted
+killed endpoint: target-only gone proof refused
+killed endpoint: mismatched recorded-server proof refused
+killed endpoint: missing recorded-server proof refused
+real rex: all state-changing calls stayed within this run&#x27;s private server
+</pre></section>

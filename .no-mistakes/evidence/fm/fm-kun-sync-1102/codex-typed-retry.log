@@ -1,0 +1,2 @@
+not ok - a codex scout spawn in a new folder failed within 7s
+error: codex did not take the brief: the launch brief submission was unconfirmed in window firstmate:fm-codex-typed-e2e (verdict=pending); inspect window firstmate:fm-codex-typed-e2e

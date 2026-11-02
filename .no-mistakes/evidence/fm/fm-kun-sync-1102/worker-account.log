@@ -1,0 +1,12 @@
+ok - Codex refuses an empty opt-in before endpoint creation
+ok - raw launch commands refuse quota overrides instead of bypassing the quota check
+ok - Codex selects measured weekly room without stale/fallback lanes and rejects credential copies/links
+ok - Codex guard uses metadata and private runner identities without opening credentials
+ok - Codex filters applicable exhaustion before ranking, including unknown percentages and preselected folders
+fake codex 0.136.0
+fake codex 0.136.0
+ok - Codex resolves and pins actual default models across selection, gates and launch
+fake codex 0.136.0
+fake codex 0.136.0
+ok - Codex resolves project defaults in the actual worktree before filtering, gating and launch
+not ok - secondmate must resolve its model after home preparation: error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/1e7d3bc48f31/01M6EPD9Q923ZVBVRY6T3MMGP9/.no-mistakes/test-tmp/fm-worker-account.DPF2RT/codex-secondmate-project/mate-home: expected exit 0, got 1

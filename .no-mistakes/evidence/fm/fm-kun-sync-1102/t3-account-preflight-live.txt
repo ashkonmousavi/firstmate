@@ -1,0 +1,1 @@
+ship: exit=1 fm-t3-mcp: no T3 credential at ~/.no-mistakes/worktrees/1e7d3bc48f31/01M6EPD9Q923ZVBVRY6T3MMGP9/.no-mistakes/test-tmp/fm-t3-preflight.tYFrsM/parent/config/t3code-token; the captain signs in with: bin/fm-t3-mcp.mjs login --access full-access

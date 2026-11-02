@@ -1,0 +1,6 @@
+Stopped private server: metadata-aware absence proof refused
+Native block size after restarting with retained state: {"columns":80,"rows":24,"cell_width_px":8,"cell_height_px":16,"owner":null,"desired":[]}
+
+Adapter state after restart: dead
+Persisted native block: metadata-aware absence proof refused
+Explicitly deleted session: metadata-aware absence proof accepted

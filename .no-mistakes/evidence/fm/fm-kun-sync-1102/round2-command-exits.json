@@ -1,0 +1,11 @@
+{
+  "codex-typed-live": 0,
+  "codex-positional-live": 0,
+  "codex-harness-fixtures": 0,
+  "worker-account-fixtures": 0,
+  "rex-batch": 0,
+  "t3-preflight-attempt-missing-credential-observed": 0,
+  "remote-fixture-initial-gate-isolation-refusal": 1,
+  "watcher-wedge-live": 0,
+  "remote-lifecycle-isolated-rerun": 0
+}
