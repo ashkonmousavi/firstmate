@@ -304,7 +304,7 @@ run_spawn() {
   local case_dir=$1 home=$2 proj=$3 wt=$4 fakebin=$5 id=$6
   shift 6
   case " $* " in
-    *' --secondmate '*) ;;
+    *' --secondmate '*|*' --scout '*) ;;
     *) set -- --mode no-mistakes --yolo off "$@" ;;
   esac
   HOME="$home" FM_ROOT_OVERRIDE='' FM_HOME="$home" \
@@ -406,6 +406,69 @@ test_codex_default_launch_is_positional_and_confirms_the_first_turn() {
   # summary and the summary-only screen carried no busy row, so neither case
   # passed on the other's evidence.
   pass "fm-spawn: codex launches positionally by default and either first-turn signal confirms the brief"
+}
+
+test_codex_ungated_backend_keeps_the_positional_brief() {
+  local role typed id rec rex_dir out rc command expected
+  local -a args
+  . "$ROOT/tests/rex-fake-fixture.sh"
+  for role in ship scout secondmate; do
+    for typed in 0 1; do
+      id="codex-rex-$role-$typed-$$"
+      rec=$(make_spawn_case "rex-$role-$typed" "$id")
+      read_spawn_record "$rec"
+      CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
+      args=(--backend rex)
+      expected="Task marker: $id"
+      printf '\nTask marker: %s\n' "$id" >> "$HOME_DIR/data/$id/brief.md"
+      case "$role" in
+        scout) args+=(--scout) ;;
+        secondmate)
+          PROJ_DIR="$CASE_DIR/secondmate-home"
+          WT_DIR=$PROJ_DIR
+          mkdir -p "$PROJ_DIR/bin" "$PROJ_DIR/data"
+          printf '# Firstmate\n' > "$PROJ_DIR/AGENTS.md"
+          printf '%s\n' "$id" > "$PROJ_DIR/.fm-secondmate-home"
+          printf 'charter for %s\n' "$id" > "$PROJ_DIR/data/charter.md"
+          printf '%s\n' 'projects/' 'state/' 'data/' 'config/' '.no-mistakes/' > "$PROJ_DIR/.gitignore"
+          git -C "$PROJ_DIR" init -q -b main
+          expected="charter for $id"
+          args+=(--secondmate)
+          ;;
+      esac
+      rex_dir="$CASE_DIR/rex"
+      make_rex_fake "$rex_dir"
+      mv "$rex_dir/bin/rex" "$rex_dir/bin/rex.fixture"
+      cat > "$rex_dir/bin/rex" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *' block '*' process '*)
+    jq -n --arg cwd "$FM_FAKE_PANE_PATH" '{foreground:{pid:99999999,name:"zsh",cwd:$cwd},ancestors:[],last_exit:null}'
+    exit 0 ;;
+esac
+exec "$0.fixture" "$@"
+SH
+      chmod +x "$rex_dir/bin/rex"
+      printf '#!/usr/bin/env bash\nprintf "%%s\\0" "$@" > %q\n' "$CASE_DIR/codex-argv" > "$FAKEBIN_DIR/codex"
+      out=$(FM_CODEX_TYPED_LAUNCH="$typed" REX_BIN_DIR="$rex_dir/bin" FM_REX_FAKE_DIR="$rex_dir/fake" \
+        FM_SKIP_SECONDMATE_SYNC=1 FM_SKIP_SECONDMATE_INHERIT=1 \
+        run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" "${args[@]}"); rc=$?
+      expect_code 0 "$rc" "Rex $role launch with typed flag $typed must succeed: $out"
+      command=$(tail -n 1 "$rex_dir/fake/sent")
+      PATH="$FAKEBIN_DIR:$BASE_PATH" bash -c "$command" || fail 'the emitted Rex launch did not execute'
+      python3 - "$CASE_DIR/codex-argv" "$expected" <<'PYARGV' || fail 'Codex did not receive its positional task brief'
+from pathlib import Path
+import sys
+arguments = Path(sys.argv[1]).read_bytes().split(b"\0")[:-1]
+briefs = [arg for arg in arguments if arg.startswith(b"\xe2\x81\xa3FIRSTMATE_OP: v1 launch-brief: ")]
+assert len(briefs) == 1, arguments
+assert sys.argv[2].encode() in briefs[0], briefs[0]
+PYARGV
+      fm_test_remove_tree "$CODEX_RUNTIME_TASK_TMP"
+      CODEX_RUNTIME_TASK_TMP=
+    done
+  done
+  pass 'ungated Rex launches deliver one positional Codex brief for every role even when typed delivery is requested'
 }
 
 test_codex_positional_launch_without_a_first_turn_fails_loudly() {
@@ -648,6 +711,7 @@ test_codex_refuses_a_backend_without_a_viewport_capture() {
 
 test_codex_launches_bare_and_delivers_typed_brief
 test_codex_default_launch_is_positional_and_confirms_the_first_turn
+test_codex_ungated_backend_keeps_the_positional_brief
 test_codex_positional_launch_without_a_first_turn_fails_loudly
 test_codex_secondmate_uses_typed_delivery_and_preserves_hooks
 test_codex_never_ready_reports_codex_did_not_take_the_brief

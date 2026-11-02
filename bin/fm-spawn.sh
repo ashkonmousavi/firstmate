@@ -3113,8 +3113,12 @@ spawn_claude_task_channel_statement() {
 # launch, readiness gate, typed submit) for a codex that stops running
 # positional prompts; docs/verification/runtime-backends.md "Codex launch
 # brief" owns the verified behavior.
+fm_spawn_codex_launch_gate_supported() {
+  case "$BACKEND" in tmux|herdr|zellij|cmux|orca|paseo) return 0 ;; *) return 1 ;; esac
+}
+
 fm_spawn_codex_positional_brief_probe() {
-  [ "${FM_CODEX_TYPED_LAUNCH:-0}" != 1 ]
+  ! fm_spawn_codex_launch_gate_supported || [ "${FM_CODEX_TYPED_LAUNCH:-0}" != 1 ]
 }
 
 launch_template() {
@@ -8773,7 +8777,7 @@ fi
 # starts the launch turn natively, and Rex, tern, and hc launch as upstream
 # does until the gate is verified there.
 if [ "$HARNESS" = codex ] && [ "$RAW_LAUNCH" -ne 1 ] \
-  && case "$BACKEND" in tmux|herdr|zellij|cmux|orca|paseo) true ;; *) false ;; esac; then
+  && fm_spawn_codex_launch_gate_supported; then
   if fm_spawn_codex_positional_brief_probe; then
     codex_wait_for_first_turn || exit 1
   elif ! codex_spawn_typed_brief; then
