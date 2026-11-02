@@ -1734,8 +1734,474 @@ test_conditional_reads_replay_unchanged_forge() {
   pass 'unchanged PRs are re-read on 304 without a single unconditional read, and a changed endpoint still surfaces'
 }
 
+# Hundreds of unrelated saved observations must fit the watcher's 30s limit.
+test_large_saved_poll_is_bounded() {
+  local home started elapsed i task
+  home=$(new_home large-saved)
+  record "$home" template 1 merged mergeable
+  # About 2.5 MB overall, distributed across distinct final URLs and owners.
+  for ((i=1; i<=400; i++)); do
+    task="saved-$i"
+    mkdir -p "$home/data/$task"
+    jq --arg task "$task" --arg url "https://github.com/o/r/pull/$i" '
+      .task=$task | .records[0].url=$url
+      | .records[0].observation.events=[{body:("x" * 5000)}]
+    ' "$home/data/template/contributions.json" > "$home/data/$task/contributions.json"
+  done
+  started=$SECONDS
+  with_home "$home" "$ROOT/bin/fm-contributions.sh" poll > "$home/poll.out" \
+    || fail 'large saved poll failed'
+  elapsed=$((SECONDS - started))
+  [ "$elapsed" -lt 30 ] || fail "large saved poll exceeded watcher bound: ${elapsed}s"
+  [ ! -s "$home/poll.out" ] || fail 'final saved observations emitted unexpected signals'
+  jq -e '.task == "saved-400" and .records[0].observation.state == "merged"' \
+    "$home/data/saved-400/contributions.json" >/dev/null || fail 'large poll lost a saved observation'
+  pass "400 saved owners with distinct final URLs poll in ${elapsed}s"
+}
+
+
+test_interrupted_settlement_preserves_concurrent_updates() {
+  local mode shutdown backend home real_mv real_timeout tool
+  real_mv=$(command -v mv)
+  real_timeout=$(command -v timeout || command -v gtimeout || true)
+  for backend in perl timeout gtimeout; do
+    if [ "$backend" != perl ] && [ -z "$real_timeout" ]; then
+      printf 'skip - %s cancellation requires GNU timeout\n' "$backend"
+      continue
+    fi
+    for mode in existing new; do
+      for shutdown in term forced stalled; do
+        home=$(new_home "interrupted-settlement-$backend-$mode-$shutdown")
+        forge_home "$home"
+        mutate_record "$home" delivery '.records[0].observation.state="merged"'
+        if [ "$mode" = existing ]; then
+          record "$home" duplicate 8 open conflicting
+        else
+          record "$home" duplicate 9 open conflicting
+          sed 's@Contribution duplicate @Contribution duplicate https://github.com/o/r/pull/8 @' \
+            "$home/data/backlog.md" > "$home/backlog.new"
+          mv "$home/backlog.new" "$home/data/backlog.md"
+        fi
+        mutate_record "$home" duplicate '.records[0].pending=[{token:"evt-1"}]
+          | .records[0].seen=["evt-1"] | .records[0].notified=["evt-1"]
+          | .records += [(.records[0] | .url="https://github.com/o/r/pull/10"
+            | .pending=[] | .retired={actor:"captain",reason:"gone",at:"2026-09-16T08:00:00Z"})]'
+        cat > "$home/no-perl.env" <<'SH'
+command() {
+  case "$1:${2:-}:$TEST_TIMEOUT_BACKEND" in
+    -v:perl:timeout|-v:perl:gtimeout|-v:timeout:gtimeout) return 1 ;;
+  esac
+  builtin command "$@"
+}
+SH
+        for tool in timeout gtimeout; do
+          [ -n "$real_timeout" ] || continue
+          cat > "$home/fakebin/$tool" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "${0##*/}" >> "$FORGE/timeout-tools"
+exec "$REAL_TIMEOUT" "$@"
+SH
+          chmod +x "$home/fakebin/$tool"
+        done
+        cat > "$home/fakebin/mv" <<'SH'
+#!/usr/bin/env bash
+if [ "${!#}" = "$FM_HOME/data/duplicate/contributions.json" ] && [ ! -e "$FORGE/settling" ]; then
+  trap '' HUP INT TERM
+  holder=$(cat "$FM_STATE_OVERRIDE/.contributions.lock/pid")
+  group=$(ps -o pgid= -p "$$" | tr -d ' ')
+  scan_group=$(ps -o pgid= -p "$PPID" | tr -d ' ')
+  printf '%s\t%s\t%s\t%s\t%s\n' "$$" "$holder" "$group" "$PPID" "$scan_group" > "$FORGE/settling"
+  for ((i=0; i<3000; i++)); do
+    [ ! -e "$FORGE/resume" ] || break
+    sleep 0.01
+  done
+  [ -e "$FORGE/resume" ] || exit 1
+fi
+exec "$REAL_MV" "$@"
+SH
+        chmod +x "$home/fakebin/mv"
+        with_home "$home" env REAL_MV="$real_mv" REAL_TIMEOUT="$real_timeout" \
+          BASH_ENV="$home/no-perl.env" TEST_TIMEOUT_BACKEND="$backend" \
+          python3 - "$ROOT" "$mode" "$shutdown" "$backend" <<'PY' || fail 'interrupted settlement lost exclusion or current state'
+import ctypes, json, os, pathlib, signal, subprocess, sys, time
+root, mode, shutdown, backend = sys.argv[1:]
+home = pathlib.Path(os.environ['FM_HOME'])
+forge = home / 'forge'
+script = str(pathlib.Path(root) / 'bin/fm-contributions.sh')
+url = 'https://github.com/o/r/pull/' + ('8' if mode == 'existing' else '9')
+head = os.environ['HEAD_A']
+verdict = dict(head=head, source=url+'#issuecomment-1', actor='fleet', summary='survived shutdown')
+record_file = home / 'data/duplicate/contributions.json'
+other = json.loads(record_file.read_text())['records'][1]
+if sys.platform.startswith('linux'):
+    assert ctypes.CDLL(None).prctl(36, 1, 0, 0, 0) == 0
+
+def alive(pid):
+    result = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True)
+    return result.returncode == 0 and result.stdout.strip() and not result.stdout.strip().startswith('Z')
+
+def send(pid, sig, group=False):
+    try:
+        (os.killpg if group else os.kill)(pid, sig)
+    except ProcessLookupError:
+        pass
+
+def reap(pid):
+    for _ in range(500):
+        try:
+            done, _ = os.waitpid(pid, os.WNOHANG)
+            if done == pid:
+                return
+        except ChildProcessError:
+            if not alive(pid):
+                return
+        time.sleep(.01)
+    raise AssertionError('fixture publisher could not be reaped: '+str(pid))
+
+writer = scan = None
+out = open(home / 'poll.out', 'w')
+err = open(home / 'poll.err', 'w')
+poll = subprocess.Popen([script, 'poll'], stdout=out, stderr=err, start_new_session=True)
+errors = []
+try:
+    for _ in range(500):
+        barrier = forge / 'settling'
+        if barrier.exists() and len(barrier.read_text().split()) == 5:
+            break
+        assert poll.poll() is None, (home / 'poll.err').read_text()
+        time.sleep(.02)
+    assert barrier.exists(), 'settlement did not reach the staged rename'
+    writer, holder, group, scan, scan_group = map(int, barrier.read_text().split())
+    if writer != holder:
+        errors.append('actual rename executor does not own the lock')
+    if shutdown == 'stalled':
+        send(scan, signal.SIGSTOP)
+    send(poll.pid, signal.SIGTERM, True)
+    if shutdown != 'term':
+        time.sleep(.2)
+        send(poll.pid, signal.SIGKILL, True)
+    poll.wait(timeout=5)
+    if alive(writer):
+        ack = subprocess.Popen([script, 'ack', 'duplicate', url, 'evt-1'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        try:
+            ack.wait(timeout=1)
+            if ack.returncode == 0 and alive(writer):
+                errors.append('ack committed while a paused old publisher could still rename')
+        except subprocess.TimeoutExpired:
+            send(ack.pid, signal.SIGKILL, True)
+            ack.wait()
+    (forge / 'resume').touch()
+    send(scan, signal.SIGCONT)
+    reap(writer)
+    subprocess.run([script, 'ack', 'duplicate', url, 'evt-1'], check=True, timeout=10)
+    subprocess.run([script, 'verdict', 'duplicate', url, head, verdict['source'], verdict['actor'], verdict['summary']],
+                   check=True, timeout=10)
+    before = record_file.read_bytes()
+    time.sleep(.15)
+    assert record_file.read_bytes() == before, 'late stale-byte publication'
+    def check_records(after_retry=False):
+        rows = json.loads(record_file.read_text())['records']
+        target = next(row for row in rows if row['url'] == url)
+        assert target['pending'] == [] and target['verdict'] == verdict
+        assert target['seen'] == ([] if after_retry and mode == 'new' else ['evt-1'])
+        assert target['notified'] == ['evt-1']
+        assert next(row for row in rows if row['url'] == other['url']) == other
+        return rows
+    check_records()
+    subprocess.run([script, 'poll'], check=True, stdout=subprocess.DEVNULL, timeout=15)
+    assert any(row['url'].endswith('/8') and row['observation']['state'] == 'merged' for row in check_records(True))
+    if backend != 'perl':
+        assert backend in (forge / 'timeout-tools').read_text().splitlines()
+    assert not errors, '; '.join(errors)
+    print('ok - '+backend+'/'+mode+'/'+shutdown+' holder='+str(holder)+' publisher='+str(writer)
+          +' publisher_pgid='+str(group)+' scan='+str(scan)+' scan_pgid='+str(scan_group), flush=True)
+finally:
+    (forge / 'resume').touch()
+    if scan is not None:
+        send(scan, signal.SIGCONT)
+    for pid in (writer, scan):
+        if pid is not None and alive(pid):
+            send(pid, signal.SIGKILL)
+    send(poll.pid, signal.SIGKILL, True)
+    poll.wait()
+    if writer is not None:
+        reap(writer)
+    while True:
+        try:
+            pid, _ = os.waitpid(-1, os.WNOHANG)
+            if pid == 0:
+                break
+        except ChildProcessError:
+            break
+    out.close()
+    err.close()
+PY
+      done
+    done
+  done
+  pass 'actual settlement publishers retain exclusion through TERM, forced kill and stalled supervisors'
+}
+
+
+test_poll_reacquires_current_contribution_state() {
+  local phase home real_bash real_jq
+  real_bash=$(command -v bash)
+  real_jq=$(command -v jq)
+  for phase in settlement settlement-retirement ownership live retirement lock; do
+    home=$(new_home "reacquired-$phase")
+    forge_home "$home"
+    wrap_forge "$home"
+    if [ "$phase" = ownership ]; then
+      record "$home" duplicate 9 open conflicting
+      sed 's@Contribution duplicate @Contribution duplicate https://github.com/o/r/pull/8 @' \
+        "$home/data/backlog.md" > "$home/backlog.new"
+      mv "$home/backlog.new" "$home/data/backlog.md"
+    else
+      record "$home" duplicate 8 open conflicting
+    fi
+    mutate_record "$home" duplicate '.records[0].pending=[{token:"evt-1"}]
+      | .records[0].seen=["evt-1"] | .records[0].notified=["evt-1"]'
+    if [ "$phase" = live ] || [ "$phase" = ownership ]; then
+      mutate_record "$home" duplicate '.records[0].seen=[]'
+    fi
+    if [ "$phase" != live ] && [ "$phase" != retirement ] && [ "$phase" != lock ]; then
+      mutate_record "$home" delivery '.records[0].observation.state="merged"'
+    fi
+    cat > "$home/fakebin/bash" <<'SH'
+#!/bin/bash
+if [ "${2:-}" = settle_record ] && [ ! -e "$FORGE/refresh-barrier" ]; then
+  : > "$FORGE/refresh-barrier"
+  for ((i=0; i<2000; i++)); do
+    [ ! -e "$FORGE/refresh-resume" ] || break
+    sleep 0.01
+  done
+fi
+exec "$REAL_BASH" "$@"
+SH
+    cat > "$home/fakebin/jq" <<'SH'
+#!/bin/bash
+case "$TEST_REFRESH_PHASE:${1:-}" in
+  live:-Rnr|retirement:-Rnr|lock:-Rnr)
+    if [ ! -e "$FORGE/refresh-barrier" ]; then
+      : > "$FORGE/refresh-barrier"
+      for ((i=0; i<2000; i++)); do
+        [ ! -e "$FORGE/refresh-resume" ] || break
+        sleep 0.01
+      done
+    fi
+    ;;
+esac
+exec "$REAL_JQ" "$@"
+SH
+    chmod +x "$home/fakebin/bash" "$home/fakebin/jq"
+    with_home "$home" env REAL_BASH="$real_bash" REAL_JQ="$real_jq" TEST_REFRESH_PHASE="$phase" \
+      python3 - "$ROOT" "$phase" <<'PY' || fail 'poll reused mutable state across lock epochs'
+import json, os, pathlib, signal, subprocess, sys, time
+root, phase = sys.argv[1:]
+home = pathlib.Path(os.environ['FM_HOME'])
+forge = home / 'forge'
+script = str(pathlib.Path(root) / 'bin/fm-contributions.sh')
+url = 'https://github.com/o/r/pull/' + ('9' if phase == 'ownership' else '8')
+verdict = dict(head=os.environ['HEAD_A'], source=url+'#issuecomment-42', actor='fleet', summary='current judgement')
+with open(home / 'poll.out', 'w') as out, open(home / 'poll.err', 'w') as err:
+    poll_env = dict(os.environ)
+    if phase == 'lock':
+        poll_env['FM_CHECK_TIMEOUT'] = '8'
+    started = time.monotonic()
+    poll = subprocess.Popen([script, 'poll'], stdout=out, stderr=err, env=poll_env, start_new_session=True)
+    try:
+        for _ in range(500):
+            if (forge / 'refresh-barrier').exists():
+                break
+            assert poll.poll() is None, (home / 'poll.err').read_text()
+            time.sleep(.02)
+        assert (forge / 'refresh-barrier').exists(), 'poll did not reach lock epoch barrier'
+        if phase == 'lock':
+            before = (home / 'data/duplicate/contributions.json').read_bytes()
+            holder = subprocess.Popen(['bash', '-c',
+                '. "$1/bin/fm-wake-lib.sh"; fm_lock_acquire_wait "$FM_STATE_OVERRIDE/.contributions.lock"; '
+                "trap 'fm_lock_release \"$FM_STATE_OVERRIDE/.contributions.lock\"' EXIT; "
+                ': > "$FORGE/holder-ready"; sleep 12', '_', root], start_new_session=True)
+            try:
+                for _ in range(500):
+                    if (forge / 'holder-ready').exists():
+                        break
+                    assert holder.poll() is None
+                    time.sleep(.01)
+                assert (forge / 'holder-ready').exists()
+                (forge / 'refresh-resume').touch()
+                assert poll.wait(timeout=8) == 0
+                assert time.monotonic() - started < 8
+                assert (home / 'poll.out').read_text() == 'contributions: scan skipped (time budget exhausted)\n'
+                assert not (forge / 'calls').exists() or not (forge / 'calls').read_text()
+                assert (home / 'data/duplicate/contributions.json').read_bytes() == before
+            finally:
+                if holder.poll() is None:
+                    os.killpg(holder.pid, signal.SIGTERM)
+                holder.wait(timeout=5)
+            subprocess.run([script, 'poll'], check=True, stdout=subprocess.DEVNULL, timeout=15)
+            print('ok - live-phase lock contention skips before the watcher deadline and retries', flush=True)
+            sys.exit(0)
+        subprocess.run([script, 'ack', 'duplicate', url, 'evt-1'], check=True, timeout=10)
+        subprocess.run([script, 'verdict', 'duplicate', url, verdict['head'], verdict['source'], verdict['actor'], verdict['summary']],
+                       check=True, timeout=10)
+        if phase in ('retirement', 'settlement-retirement'):
+            subprocess.run([script, 'retire', 'duplicate', url, 'captain', 'gone'], check=True, timeout=10,
+                           stdout=subprocess.DEVNULL)
+            subprocess.run([script, 'retire', 'delivery', url, 'captain', 'gone'], check=True, timeout=10,
+                           stdout=subprocess.DEVNULL)
+        if phase == 'ownership':
+            backlog = home / 'data/backlog.md'
+            backlog.write_text(''.join(line.replace('https://github.com/o/r/pull/8 ', '') if line.startswith('- [ ] duplicate ') else line
+                                       for line in backlog.read_text().splitlines(keepends=True)))
+        before = json.loads((home / 'data/duplicate/contributions.json').read_text())['records'][0]
+        (forge / 'refresh-resume').touch()
+        assert poll.wait(timeout=15) == 0, (home / 'poll.err').read_text()
+        row = json.loads((home / 'data/duplicate/contributions.json').read_text())['records'][0]
+        assert row['pending'] == [] and row['verdict'] == verdict
+        assert row['seen'] == ([] if phase in ('live', 'ownership') else ['evt-1'])
+        assert row['notified'] == ['evt-1']
+        if phase == 'settlement':
+            assert row['observation']['state'] == 'merged'
+        if phase in ('retirement', 'settlement-retirement'):
+            assert row == before
+            assert not (forge / 'calls').exists() or not (forge / 'calls').read_text()
+        if phase == 'ownership':
+            assert not any(item['url'].endswith('/8') for item in json.loads((home / 'data/duplicate/contributions.json').read_text())['records'])
+        print('ok - '+phase+' refresh preserves current acknowledgement, verdict and retirement', flush=True)
+    finally:
+        (forge / 'refresh-resume').touch()
+        if poll.poll() is None:
+            os.killpg(poll.pid, signal.SIGKILL)
+        poll.wait()
+PY
+  done
+}
+
+test_saved_scan_budget_skips_cleanly() {
+  local home out before late_before started elapsed real_jq real_wc real_mv phase
+  real_jq=$(command -v jq)
+  real_wc=$(command -v wc)
+  real_mv=$(command -v mv)
+  . "$ROOT/bin/fm-timeout-lib.sh"
+  for phase in size validation aggregation partition routing prepare-existing prepare-new publish-existing publish-new; do
+    home=$(new_home "scan-budget-$phase")
+    forge_home "$home"
+    wrap_forge "$home"
+    late_before=
+    case "$phase" in
+      prepare-*|publish-*)
+        mutate_record "$home" delivery '.records[0].observation.state="merged"'
+        case "$phase" in
+          *-existing)
+            record "$home" late-owner 8 open conflicting
+            late_before=$(cat "$home/data/late-owner/contributions.json")
+            ;;
+          *-new)
+            printf -- '- [ ] late-owner - Filed https://github.com/o/r/pull/8 (repo: sample) (kind: ship)\n' >> "$home/data/backlog.md"
+            ;;
+        esac
+        ;;
+    esac
+    before=$(cat "$home/data/delivery/contributions.json")
+    cat > "$home/fakebin/jq" <<'SH'
+#!/usr/bin/env bash
+case "$SCAN_PHASE:$*" in
+  validation:*'--slurpfile record '*|aggregation:*'/saved.jsonl'|partition:*'/saved.json'|routing:*'known('*|prepare-*:*'--slurpfile current '*)
+    printf 'started\n' > "$FORGE/scan-delay"
+    sleep 12
+    printf 'finished\n' >> "$FORGE/scan-delay"
+    ;;
+esac
+exec "$REAL_JQ" "$@"
+SH
+    cat > "$home/fakebin/wc" <<'SH'
+#!/usr/bin/env bash
+if [ "$SCAN_PHASE:$*" = 'size:-c' ]; then
+  input="$FORGE/wc-input.$$"
+  cat > "$input"
+  if "$REAL_JQ" -e '.schema == "fm-contributions.v1"' "$input" >/dev/null 2>&1; then
+    printf 'started\n' > "$FORGE/scan-delay"
+    sleep 12
+    printf 'finished\n' >> "$FORGE/scan-delay"
+  fi
+  exec "$REAL_WC" "$@" < "$input"
+fi
+exec "$REAL_WC" "$@"
+SH
+    cat > "$home/fakebin/mv" <<'SH'
+#!/usr/bin/env bash
+case "$SCAN_PHASE:${!#}" in
+  publish-*:*/late-owner/contributions.json)
+    printf 'started\n' > "$FORGE/scan-delay"
+    sleep 12
+    printf 'finished\n' >> "$FORGE/scan-delay"
+    ;;
+esac
+exec "$REAL_MV" "$@"
+SH
+    chmod +x "$home/fakebin/jq" "$home/fakebin/wc" "$home/fakebin/mv"
+    started=$SECONDS
+    with_home "$home" fm_run_timed 8 env REAL_JQ="$real_jq" REAL_WC="$real_wc" REAL_MV="$real_mv" \
+      SCAN_PHASE="$phase" FM_CHECK_TIMEOUT=8 "$ROOT/bin/fm-contributions.sh" poll > "$home/poll.out" \
+      || fail "an exhausted $phase scan did not exit before the outer deadline"
+    elapsed=$((SECONDS - started))
+    out=$(cat "$home/poll.out")
+    [ "$out" = 'contributions: scan skipped (time budget exhausted)' ] \
+      || fail "saved scan exhaustion was not reported ($phase): $out"
+    [ "$(cat "$home/forge/scan-delay")" = started ] \
+      || fail "the slow $phase operation was not interrupted"
+    [ "$elapsed" -lt 8 ] || fail "skipped $phase scan exceeded watcher bound: ${elapsed}s"
+    [ "$(cat "$home/data/delivery/contributions.json")" = "$before" ] \
+      || fail "an incomplete $phase scan changed a saved observation"
+    case "$phase" in
+      *-existing)
+        [ "$(cat "$home/data/late-owner/contributions.json")" = "$late_before" ] \
+          || fail 'an interrupted settlement changed the prior owner record'
+        ;;
+      *-new)
+        [ ! -e "$home/data/late-owner/contributions.json" ] || fail 'an interrupted settlement published an incomplete new record'
+        ;;
+    esac
+    [ ! -s "$home/forge/calls" ] || fail "an incomplete $phase scan started forge reads"
+    rm "$home/fakebin/jq" "$home/fakebin/wc" "$home/fakebin/mv"
+    out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" poll) || fail "poll after $phase scan skip failed"
+    [ -z "$out" ] || fail "poll after $phase scan skip printed: $out"
+    case "$phase" in
+      prepare-*|publish-*)
+        jq -e '.records[0].observation.state == "merged"' "$home/data/late-owner/contributions.json" >/dev/null \
+          || fail 'poll after scan skip did not finish settlement'
+        [ ! -s "$home/forge/calls" ] || fail 'resumed settlement started forge reads'
+        ;;
+    esac
+    pass "$phase scan operation crossing its outer deadline skips cleanly in ${elapsed}s"
+  done
+}
+
+test_live_target_survives_single_saved_scan() {
+  local home out real_jq
+  home=$(new_home single-scan-live)
+  forge_home "$home"
+  record "$home" unrelated 99 merged mergeable
+  mutate_record "$home" delivery '.records[0].checked_at="2026-09-15T08:00:00Z"'
+  real_jq=$(command -v jq)
+  cat > "$home/fakebin/jq" <<'SH'
+#!/usr/bin/env bash
+case "$*" in *'--slurpfile record '*'/unrelated/contributions.json'*) sleep 3 ;; esac
+exec "$REAL_JQ" "$@"
+SH
+  chmod +x "$home/fakebin/jq"
+  out=$(with_home "$home" env REAL_JQ="$real_jq" FM_CHECK_TIMEOUT=8 "$ROOT/bin/fm-contributions.sh" poll) \
+    || fail 'mixed final/live saved poll failed'
+  [ -z "$out" ] || fail "a second unrelated saved scan exhausted the live poll: $out"
+  jq -e --arg now "$NOW" '.records[0] | .checked_at == $now and .error == null' \
+    "$home/data/delivery/contributions.json" >/dev/null || fail 'the live target was starved behind unrelated final records'
+  pass 'one saved partition leaves budget to refresh a live target without rescanning unrelated final records'
+}
+
 failures=0
-for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_unsupported_poll_is_silent_and_clears_legacy_errors test_legacy_cleanup_preserves_supported_failure test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_http_500_once_retries_without_waking test_http_500_twice_records_the_failed_read test_http_404_is_not_retried test_real_gh_errors_drive_retry_and_summary test_next_url_does_not_inherit_a_forge_diagnostic test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_retire_ends_observation_of_a_gone_contribution test_late_owner_of_a_retired_final_contribution_is_not_retired test_retire_is_idempotent_and_refuses_unknown_pairs test_many_reviews_stay_readable test_conditional_reads_replay_unchanged_forge test_budget_refusal_between_calls_conditional test_budget_bounded_call_timeout_conditional test_http_500_once_conditional test_http_500_twice_conditional test_slow_read_deadline_kill_conditional; do
+for test_name in test_live_target_survives_single_saved_scan test_poll_reacquires_current_contribution_state test_interrupted_settlement_preserves_concurrent_updates test_saved_scan_budget_skips_cleanly test_large_saved_poll_is_bounded test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed test_retire_ends_observation_of_a_gone_contribution test_late_owner_of_a_retired_final_contribution_is_not_retired test_retire_is_idempotent_and_refuses_unknown_pairs test_unsupported_poll_is_silent_and_clears_legacy_errors test_legacy_cleanup_preserves_supported_failure test_http_500_once_retries_without_waking test_http_500_twice_records_the_failed_read test_http_404_is_not_retried test_real_gh_errors_drive_retry_and_summary test_next_url_does_not_inherit_a_forge_diagnostic test_many_reviews_stay_readable test_conditional_reads_replay_unchanged_forge test_budget_refusal_between_calls_conditional test_budget_bounded_call_timeout_conditional test_http_500_once_conditional test_http_500_twice_conditional test_slow_read_deadline_kill_conditional; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
 [ "$failures" -eq 0 ] || fail "$failures contribution regressions"
