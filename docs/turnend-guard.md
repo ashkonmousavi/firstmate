@@ -22,6 +22,7 @@ Do not infer this guard's scope, loop safety, or compatibility tradeoffs for tho
 | Away and quiet mode | [Away and quiet mode daemon ownership](#away-and-quiet-mode-daemon-ownership) |
 | How long a beacon stays fresh | [Guard grace and the poll cadence](#guard-grace-and-the-poll-cadence) |
 | How each harness blocks or follows up | [Harness integrations](#harness-integrations) |
+| Why Claude asks for a live state read | [State-claim check](#state-claim-check) |
 | Claude's Stop auto-arm cooperation, block budget, and fail-open | [Claude cooperative mode](#claude-cooperative-mode) |
 | Cursor's parked hook | [Cursor park](#cursor-park) |
 | Known gaps | [Compatibility limits](#compatibility-limits) |
@@ -32,7 +33,7 @@ Do not infer this guard's scope, loop safety, or compatibility tradeoffs for tho
 `bin/fm-guard.sh` is a pull-based warning that runs only when another supervision command invokes it.
 The turn-end guard closes the remaining gap at the primary's own turn boundary.
 
-The guard acts at that boundary when both of these hold:
+The supervision predicate acts at that boundary when both of these hold:
 
 - Work, a process-event source, a registered custom check, or Relay polling needs supervision.
 - No identity-matched watcher has a fresh beacon.
@@ -54,7 +55,7 @@ The guard remains a backstop.
 
 ## Guard predicates
 
-The turn-end guard checks primary scope first, then supervision need, then watcher health.
+The turn-end guard checks primary scope first, runs the enabled Claude [state-claim check](#state-claim-check), then checks supervision need and watcher health.
 The mid-turn pull warning in `bin/fm-guard.sh` judges watcher health differently, as described under [pull-warning verdict by supervision model](#pull-warning-verdict-by-supervision-model).
 
 ### Primary scope
@@ -108,7 +109,7 @@ That second signal keeps a background Claude session owning its own lock after t
 The library's header owns the trust gate (`CLAUDE_PID` must be a Claude-shaped member of the current run).
 `bin/fm-lock.sh` owns the sidecar and the line-1 anchor it records for such a session.
 
-A Claude session that does not own the lock cannot arm or repair the home without stealing the live owner's lock, so blocking it would create an unbounded loop.
+A Claude session that still does not own the lock after the Stop hook's [guarded recovery](watcher-continuity.md#claude-session-lock-ownership) cannot arm or repair the home, so blocking it would create an unbounded loop.
 The lock-owning session remains responsible for restoring supervision.
 
 The exception has these limits:
@@ -265,7 +266,8 @@ Each enabled primary harness adapts its own turn-end mechanism to the shared gua
 
 The registrations in detail:
 
-- Claude registers two `Stop` hooks in `.claude/settings.json`, both anchored through `CLAUDE_PROJECT_DIR`: `bin/fm-turnend-guard.sh --claude`, and `bin/fm-claude-stop-autoarm.sh` with `asyncRewake: true` and `timeout: 28800`.
+- Claude registers two supervision `Stop` hooks in `.claude/settings.json`, both anchored through `CLAUDE_PROJECT_DIR`: `bin/fm-turnend-guard.sh --claude --state-claims`, and `bin/fm-claude-stop-autoarm.sh` with `asyncRewake: true` and `timeout: 28800`.
+  The synchronous hook also runs the [state-claim check](#state-claim-check) before the supervision predicate.
   In a Claude secondmate home, `bin/fm-spawn.sh` writes a `.fm-busy-stop` pointer and gives the mate no `Stop` busy hook, so `--claude` is the only Stop writer of the parent home's busy record for that generation.
   It records idle when it allows the Stop and busy when its exit 2 blocks it into a continuation, because Claude runs Stop hooks in parallel and that continuation fires no `UserPromptSubmit`.
   A home whose guard predates `.fm-busy-stop` cannot close the turn, so that launch keeps the ordinary `Stop` idle hook instead.
@@ -302,6 +304,21 @@ The registrations in detail:
   pi-code stamps it with Pi's session file under `/.pi/`, a path component a Claude transcript never carries.
   The stand-down fails toward running, matching the guards above, so no payload, no `jq`, or no `transcript_path` still arms, and every other Claude-shaped hook pi-code delivers keeps running.
 
+### State-claim check
+
+The tracked Claude Stop registration enables a fast, deterministic check for state claims in MAIN and secondmate replies, even when no workers need supervision.
+Its [module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the claim vocabulary, matching read commands, transcript bounds, exceptions, and failure behavior.
+The check uses the Stop payload's final text because [Claude documents asynchronous transcript writes](https://code.claude.com/docs/en/hooks#common-input-fields).
+It requires a matching completed read command from the current turn; it does not judge whether the result supports the claim.
+Its blocked-message exemption is independent of the supervision recovery budget.
+Running it inside the existing synchronous hook preserves the single secondmate busy-state writer.
+
+Installation travels with the tracked `.claude/settings.json` through the normal [self-update path](../.agents/skills/updatefirstmate/SKILL.md); restart the updated Claude sessions so they load the new registration.
+No global or home-local settings edits are required.
+Child ship/scout worktrees remain outside primary scope.
+Other harnesses' native hooks do not enable this check; the Claude-compatible Grok, Cursor, and Pi paths stand aside.
+[Portable regressions](../tests/fm-state-claim-guard.test.sh) exercise the hook registration and its latency budget; [runtime verification](verification/runtime-backends.md#claude-state-claim-stop-check) records the real Claude guard.
+
 ### Claude and Codex blocking
 
 Claude and Codex can block a Stop directly with exit status 2 and stderr.
@@ -310,7 +327,7 @@ In the default Codex mode, a true value lets the second stop finish after one fo
 
 ### Claude cooperative mode
 
-Claude runs the guard with `--claude`, which ignores `stop_hook_active` and cooperates with the Stop-owned auto-arm.
+Claude runs the supervision predicate with `--claude`, which ignores `stop_hook_active` and cooperates with the Stop-owned auto-arm.
 Claude Code sets `stop_hook_active=true` on every stop after any stop-hook continuation, including `asyncRewake` rewakes.
 Under the default one-shot behavior, that re-opened the 2026-07-21 blind window.
 
@@ -346,6 +363,7 @@ A claim is open while all of these hold:
 Stuck means the entry and the watcher beacon are both older than the guard grace, which proves the owner hung mid-arm.
 A healthy hours-long foregrounded cycle keeps the beacon beating, and every arming phase with no watcher is bounded in seconds.
 A missing or malformed lock means no session can receive a rewake, so such a claim is never open.
+Claim inspection defers to an otherwise live claim while the session-lock acquisition mutex is busy, without waiting under the auto-arm mutex; [the lock reference](verification/supervision.md#idle-fork-resume-lock-handover) owns the snapshot and contention rules.
 The reachability test is what makes an open claim deliverable: a hook whose session exited mid-cycle stays alive with no parent to receive its exit 2, so deferring to it would leave the replacement session deaf until a captain turn.
 The session-id signal is the second one the claiming hook's own admission accepts, so a background session whose bridge is recycled mid-cycle - breaking the ancestry to its still-live lock owner - keeps its live claim instead of being double-armed.
 Pinning that signal to the lock holder's pid-identity recorded at claim time is what keeps a resumed session, which carries the same conversation id in a new process, from reading its own dead predecessor's orphan as open - a reused pid number is a different identity, so it does not match.

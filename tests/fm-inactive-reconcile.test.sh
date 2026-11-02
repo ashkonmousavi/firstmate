@@ -10,6 +10,9 @@ DRAIN="$ROOT/bin/fm-wake-drain.sh"
 GRANT="$ROOT/bin/fm-wake-grant.sh"
 WATCH="$ROOT/bin/fm-watch.sh"
 TMP_ROOT=$(fm_test_tmproot fm-inactive-reconcile)
+# The backlog fakes below answer gh pr view only and count its calls; the
+# conditional REST read has its own test, which turns it back on.
+export FM_GH_CONDITIONAL=0
 fm_git_identity fmtest fmtest@example.invalid
 
 set_mtime() { # <epoch> <path>
@@ -1620,6 +1623,67 @@ PYJSON
   pass "merged, closed and cached PRs retain authoritative dates in evidence and receipts"
 }
 
+# The backlog pass reads a PR's state with one conditional REST request: a 200
+# is mapped to the pull request's state, an unchanged PR answers 304 from the
+# stored body, and neither touches gh pr view. The fake's pr view always says
+# MERGED, so any fallback to it would close the open record.
+test_backlog_pr_pass_reads_state_conditionally() {
+  make_world backlog-conditional
+  cat > "$WORLD/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case "${1:-} ${2:-}" in
+  'api -i')
+    shift 2
+    inm=''
+    ep=''
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        -H) inm=${2#If-None-Match: }; shift 2 ;;
+        *) ep=$1; shift ;;
+      esac
+    done
+    printf 'rest %s inm=%s\n' "$ep" "${inm:-none}" >> "${FM_GH_LOG:?}"
+    [ "$ep" = repos/o/r/pulls/120 ] || { printf 'HTTP/2.0 404 Not Found\r\n\r\n{}\n'; exit 1; }
+    tag="\"$(sha256sum "$FM_GH_BODY" | cut -c1-16)\""
+    if [ "$inm" = "$tag" ]; then
+      printf 'HTTP/2.0 304 Not Modified\r\nEtag: %s\r\n\r\n' "$tag"
+      exit 1
+    fi
+    printf 'HTTP/2.0 200 OK\r\nEtag: %s\r\n\r\n' "$tag"
+    cat "$FM_GH_BODY"
+    ;;
+  'pr view')
+    printf 'prview %s\n' "${3:-}" >> "${FM_GH_LOG:?}"
+    printf '{"state":"MERGED","mergedAt":"2026-01-01T00:00:00Z","closedAt":"2026-01-01T00:00:00Z"}\n'
+    ;;
+  *) exit 91 ;;
+esac
+SH
+  chmod +x "$WORLD/fakebin/gh"
+  : > "$WORLD/gh.log"
+  export FM_GH_LOG="$WORLD/gh.log" FM_GH_BODY="$WORLD/pr.json"
+  printf '{"state":"open","merged":false,"merged_at":null,"closed_at":null}\n' > "$FM_GH_BODY"
+  add_flight_row "$MAIN" t-cond 'shipped https://github.com/o/r/pull/120'
+  FM_GH_CONDITIONAL=1 run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-cond)" = in_flight ] || fail "an open PR read over REST closed its record"
+  [ "$(grep -c '^rest repos/o/r/pulls/120 inm=none$' "$WORLD/gh.log")" = 1 ] || fail "the first pass did not make one untagged REST read: $(cat "$WORLD/gh.log")"
+  FM_GH_CONDITIONAL=1 run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-cond)" = in_flight ] || fail "the 304 replay of an open PR closed its record"
+  [ "$(grep -c '^rest repos/o/r/pulls/120 inm="[0-9a-f]*"$' "$WORLD/gh.log")" = 1 ] || fail "the second pass did not send the stored tag: $(cat "$WORLD/gh.log")"
+  ! grep -q '^prview' "$WORLD/gh.log" || fail "a conditional read fell back to gh pr view: $(cat "$WORLD/gh.log")"
+  printf '{"state":"closed","merged":true,"merged_at":"2026-10-27T11:22:33Z","closed_at":"2026-10-27T11:22:34Z"}\n' > "$FM_GH_BODY"
+  FM_GH_CONDITIONAL=1 run_reconcile "$MAIN" --startup
+  [ "$(row_state "$MAIN" t-cond)" = 'done' ] || fail "a merged PR read over REST did not close its record"
+  ! grep -q '^prview' "$WORLD/gh.log" || fail "the changed PR fell back to gh pr view"
+  python3 -I - "$MAIN/data/x-reconcile.json" <<'PYJSON' || fail "the REST merge time did not reach the evidence"
+import json, sys
+items = {x["id"]: x for x in json.load(open(sys.argv[1]))["items"]}
+assert items["t-cond"]["detail"] == "closed: PR 120 merged 2026-10-27T11:22:33Z", items
+PYJSON
+  unset FM_GH_LOG FM_GH_BODY
+  pass "backlog pass reads PR state with one conditional REST request: 200 maps the state, 304 replays it, no pr view"
+}
+
 test_main_direct_terminal_presentation_receipt
 test_main_terminal_outcome_of_a_released_worker_is_tagged_released
 test_branch_ack_retires_inactive_outcome_receipt
@@ -1676,5 +1740,6 @@ test_backlog_pr_pass_rechecks_evidence_without_receipts
 test_backlog_pr_pass_advances_after_success_at_deadline
 
 test_backlog_pr_pass_dates_merged_closed_and_cached_evidence
+test_backlog_pr_pass_reads_state_conditionally
 
 echo "all inactive reconciliation tests passed"

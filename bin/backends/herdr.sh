@@ -617,18 +617,27 @@ fm_backend_herdr_projection_journal_create() {  # <state-dir> <task-id>
   printf '%s' "$token"
 }
 
-fm_backend_herdr_projection_journal_field() {  # <journal> <key>
-  local journal=$1 key=$2 count
-  count=$(grep -c "^${key}=" "$journal" 2>/dev/null || true)
+# fm_backend_herdr_projection_journal_field: require exactly one "<key>=" line
+# among the journal lines the snapshot already read, and set
+# FM_BACKEND_HERDR_JOURNAL_FIELD to everything after its first "=".
+# Builtins only, so a snapshot forks no process per field.
+fm_backend_herdr_projection_journal_field() {  # <journal-lines> <key>
+  local key=$2 line count=0 value=
+  FM_BACKEND_HERDR_JOURNAL_FIELD=""
+  while IFS= read -r line; do
+    case "$line" in
+      "$key="*) count=$((count + 1)); value=${line#*=} ;;
+    esac
+  done <<< "$1"
   [ "$count" = 1 ] || return 1
-  grep "^${key}=" "$journal" 2>/dev/null | cut -d= -f2-
+  FM_BACKEND_HERDR_JOURNAL_FIELD=$value
 }
 
 # fm_backend_herdr_projection_journal_snapshot: validate a version 1 attempt
 # journal or a version 2 exact projection binding without sourcing shell code.
 # Version 2 sets FM_BACKEND_HERDR_JOURNAL_* globals for same-process callers.
 fm_backend_herdr_projection_journal_snapshot() {  # <journal> <task-id>
-  local journal=$1 id=$2 lines expected_label expected_task_label exact
+  local journal=$1 id=$2 lines content line expected_label expected_task_label exact
   FM_BACKEND_HERDR_JOURNAL_VERSION=""
   FM_BACKEND_HERDR_JOURNAL_TASK_ID=""
   FM_BACKEND_HERDR_JOURNAL_PROJECTION_ID=""
@@ -642,10 +651,27 @@ fm_backend_herdr_projection_journal_snapshot() {  # <journal> <task-id>
   FM_BACKEND_HERDR_JOURNAL_WORKSPACE_LABEL=""
   FM_BACKEND_HERDR_JOURNAL_TASK_LABEL=""
   [ -f "$journal" ] && [ ! -L "$journal" ] || return 1
-  lines=$(wc -l < "$journal" 2>/dev/null | tr -d '[:space:]')
-  FM_BACKEND_HERDR_JOURNAL_VERSION=$(fm_backend_herdr_projection_journal_field "$journal" version) || return 1
-  FM_BACKEND_HERDR_JOURNAL_TASK_ID=$(fm_backend_herdr_projection_journal_field "$journal" task_id) || return 1
-  FM_BACKEND_HERDR_JOURNAL_PROJECTION_ID=$(fm_backend_herdr_projection_journal_field "$journal" projection_id) || return 1
+  # One grep reads every field line. Its diagnostics are folded into the
+  # captured lines, so a binary-file or read report matches no field key and
+  # rejects the journal, as the empty per-field values it caused always did.
+  content=$(grep -E '^(version|task_id|projection_id|home|session|workspace_id|tab_id|pane_id|parent_workspace_id|parent_label|workspace_label|task_label)=' "$journal" 2>&1) || return 1
+  while IFS= read -r line; do
+    case "$line" in
+      version=*|task_id=*|projection_id=*|home=*|session=*|workspace_id=*|tab_id=*|pane_id=*|parent_workspace_id=*|parent_label=*|workspace_label=*|task_label=*) ;;
+      *) return 1 ;;
+    esac
+  done <<< "$content"
+  # Count newline-terminated lines exactly as wc -l does, without a process.
+  lines=0
+  while IFS= read -r line; do
+    lines=$((lines + 1))
+  done 2>/dev/null < "$journal"
+  fm_backend_herdr_projection_journal_field "$content" version || return 1
+  FM_BACKEND_HERDR_JOURNAL_VERSION=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" task_id || return 1
+  FM_BACKEND_HERDR_JOURNAL_TASK_ID=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" projection_id || return 1
+  FM_BACKEND_HERDR_JOURNAL_PROJECTION_ID=$FM_BACKEND_HERDR_JOURNAL_FIELD
   [ "$FM_BACKEND_HERDR_JOURNAL_TASK_ID" = "$id" ] || return 1
   [ "${#FM_BACKEND_HERDR_JOURNAL_PROJECTION_ID}" -eq 22 ] || return 1
   case "$FM_BACKEND_HERDR_JOURNAL_PROJECTION_ID" in
@@ -656,15 +682,24 @@ fm_backend_herdr_projection_journal_snapshot() {  # <journal> <task-id>
     2:12) ;;
     *) return 1 ;;
   esac
-  FM_BACKEND_HERDR_JOURNAL_HOME=$(fm_backend_herdr_projection_journal_field "$journal" home) || return 1
-  FM_BACKEND_HERDR_JOURNAL_SESSION=$(fm_backend_herdr_projection_journal_field "$journal" session) || return 1
-  FM_BACKEND_HERDR_JOURNAL_WORKSPACE_ID=$(fm_backend_herdr_projection_journal_field "$journal" workspace_id) || return 1
-  FM_BACKEND_HERDR_JOURNAL_TAB_ID=$(fm_backend_herdr_projection_journal_field "$journal" tab_id) || return 1
-  FM_BACKEND_HERDR_JOURNAL_PANE_ID=$(fm_backend_herdr_projection_journal_field "$journal" pane_id) || return 1
-  FM_BACKEND_HERDR_JOURNAL_PARENT_WORKSPACE_ID=$(fm_backend_herdr_projection_journal_field "$journal" parent_workspace_id) || return 1
-  FM_BACKEND_HERDR_JOURNAL_PARENT_LABEL=$(fm_backend_herdr_projection_journal_field "$journal" parent_label) || return 1
-  FM_BACKEND_HERDR_JOURNAL_WORKSPACE_LABEL=$(fm_backend_herdr_projection_journal_field "$journal" workspace_label) || return 1
-  FM_BACKEND_HERDR_JOURNAL_TASK_LABEL=$(fm_backend_herdr_projection_journal_field "$journal" task_label) || return 1
+  fm_backend_herdr_projection_journal_field "$content" home || return 1
+  FM_BACKEND_HERDR_JOURNAL_HOME=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" session || return 1
+  FM_BACKEND_HERDR_JOURNAL_SESSION=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" workspace_id || return 1
+  FM_BACKEND_HERDR_JOURNAL_WORKSPACE_ID=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" tab_id || return 1
+  FM_BACKEND_HERDR_JOURNAL_TAB_ID=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" pane_id || return 1
+  FM_BACKEND_HERDR_JOURNAL_PANE_ID=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" parent_workspace_id || return 1
+  FM_BACKEND_HERDR_JOURNAL_PARENT_WORKSPACE_ID=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" parent_label || return 1
+  FM_BACKEND_HERDR_JOURNAL_PARENT_LABEL=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" workspace_label || return 1
+  FM_BACKEND_HERDR_JOURNAL_WORKSPACE_LABEL=$FM_BACKEND_HERDR_JOURNAL_FIELD
+  fm_backend_herdr_projection_journal_field "$content" task_label || return 1
+  FM_BACKEND_HERDR_JOURNAL_TASK_LABEL=$FM_BACKEND_HERDR_JOURNAL_FIELD
   case "$FM_BACKEND_HERDR_JOURNAL_HOME" in
     /*) ;;
     *) return 1 ;;
@@ -3340,7 +3375,9 @@ fm_backend_herdr_note_reason() {  # <token>
 # (Enter only, never retyped) until native agent-state, a cleared composer, or
 # fm_composer_queued_enter_verdict confirms delivery. When native identity is
 # Claude, text is typed only into an empty composer and Enter is sent only
-# after the composer shows the payload (fm_backend_herdr_composer_payload_shown).
+# after the composer shows the payload (fm_backend_herdr_composer_payload_shown),
+# waiting a bounded time while it still renders a prefix of it
+# (fm_backend_herdr_composer_payload_wait).
 # A missing read, a shorter suffix, or a paste placeholder followed by a
 # literal remainder does not press Enter: the composer is cleared back to
 # empty and the verdict is send-failed, or unknown when the clear cannot be
@@ -3466,6 +3503,18 @@ fm_backend_herdr_composer_content() {  # <target>
   FM_COMPOSER_GHOST_LUMA_MAX=0 fm_composer_extract_selected_content "$caps" "$cap"
 }
 
+# fm_backend_herdr_payload_normalize_var: the one comparison form both
+# payload checks use, in place through the named variable: Unicode spaces and
+# all whitespace removed, and U+2063 removed.
+fm_backend_herdr_payload_normalize_var() {  # <varname>
+  local __fmpn_name=$1 __fmpn_text
+  fm_composer_normalize_spaces_var "$__fmpn_name"
+  __fmpn_text=${!__fmpn_name}
+  __fmpn_text=${__fmpn_text//[$' \t\r\n\v\f']/}
+  __fmpn_text=${__fmpn_text//$'\xE2\x81\xA3'/}
+  printf -v "$__fmpn_name" '%s' "$__fmpn_text"
+}
+
 # fm_backend_herdr_composer_payload_shown: 0 when <after>, read from a
 # composer that was empty before the send, shows <text>.
 # Literal equality ignores whitespace, the same comparison zellij uses, so a
@@ -3480,12 +3529,8 @@ fm_backend_herdr_composer_content() {  # <target>
 # remainder, is the head-truncation shape and is not proof.
 fm_backend_herdr_composer_payload_shown() {  # <text> <after>
   local text=$1 after=$2 literal
-  fm_composer_normalize_spaces_var text
-  fm_composer_normalize_spaces_var after
-  text=${text//[$' \t\r\n\v\f']/}
-  text=${text//$'\xE2\x81\xA3'/}
-  after=${after//[$' \t\r\n\v\f']/}
-  after=${after//$'\xE2\x81\xA3'/}
+  fm_backend_herdr_payload_normalize_var text
+  fm_backend_herdr_payload_normalize_var after
   [ -n "$text" ] && [ -n "$after" ] || return 1
   [ "$after" = "$text" ] && return 0
   literal=$after
@@ -3493,6 +3538,43 @@ fm_backend_herdr_composer_payload_shown() {  # <text> <after>
     literal=${literal/"${BASH_REMATCH[0]}"/}
   done
   [ -z "$literal" ]
+}
+
+# fm_backend_herdr_composer_payload_arriving: 0 when <after> is a strict
+# prefix of <text>, empty included, under the same normalization as the
+# proof above: the typed payload has not finished rendering yet. A suffix, a
+# placeholder with a literal remainder, or any other text is not arriving.
+fm_backend_herdr_composer_payload_arriving() {  # <text> <after>
+  local text=$1 after=$2
+  fm_backend_herdr_payload_normalize_var text
+  fm_backend_herdr_payload_normalize_var after
+  [ "${#after}" -lt "${#text}" ] && [ "${text:0:${#after}}" = "$after" ]
+}
+
+# fm_backend_herdr_composer_payload_wait: 0 once the composer shows <text>.
+# Claude renders typed input asynchronously, so an early empty or partial
+# read is not proof of lost input. A strict prefix, empty included, is re-read every
+# FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL seconds (default 0.2), at most
+# FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS / interval times (default 6 s, so 30
+# reads; each read's own latency adds to the wall time). Any other content,
+# or an unreadable composer, fails at once: waiting cannot turn a suffix or
+# foreign text into the payload.
+FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS=${FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS:-6}
+FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL=${FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL:-0.2}
+fm_backend_herdr_composer_payload_wait() {  # <target> <text>
+  local target=$1 text=$2 content polls i=1 budget=$FM_BACKEND_HERDR_PAYLOAD_PROOF_SECS
+  case "$budget" in ''|*[!0-9]*) budget=6 ;; esac
+  polls=$(LC_ALL=C awk -v b="$budget" -v s="$FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL" \
+    'BEGIN { s += 0; if (s <= 0) s = 0.2; printf "%d", b / s }' 2>/dev/null)
+  case "$polls" in ''|*[!0-9]*) polls=1 ;; esac
+  while :; do
+    content=$(fm_backend_herdr_composer_content "$target") || return 1
+    fm_backend_herdr_composer_payload_shown "$text" "$content" && return 0
+    fm_backend_herdr_composer_payload_arriving "$text" "$content" || return 1
+    [ "$i" -lt "$polls" ] || return 1
+    i=$((i + 1))
+    sleep "$FM_BACKEND_HERDR_PAYLOAD_PROOF_INTERVAL"
+  done
 }
 
 # fm_backend_herdr_composer_clear: after a refused proof, press Ctrl+U until
@@ -3546,8 +3628,7 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
     || { rc=$?; [ "$rc" != 75 ] || return 75; fm_backend_herdr_note_reason literal-send-failed; printf 'send-failed'; return 0; }
   sleep "$settle"
   if [ "$proof" = 1 ]; then
-    if ! content=$(fm_backend_herdr_composer_content "$target") \
-      || ! fm_backend_herdr_composer_payload_shown "$text" "$content"; then
+    if ! fm_backend_herdr_composer_payload_wait "$target" "$text"; then
       [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] || return 75
       if fm_backend_herdr_composer_clear "$target" "$text"; then
         fm_backend_herdr_note_reason payload-not-shown

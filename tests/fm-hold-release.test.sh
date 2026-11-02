@@ -378,7 +378,7 @@ test_captain_hold_carries_a_release_condition() {
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" \
     "$CAPTAIN" hold q1 --title "captain question" --reason "waiting on PR 42" \
-    --repo demo --release-on 'pr:owner/repo#42' >/dev/null \
+    --repo demo --origin hold-fixture --release-on 'pr:owner/repo#42' >/dev/null \
     || fail "a captain hold with --release-on must succeed"
   assert_grep "condition=pr:owner/repo#42" "$home/state/hold-releases/q1" \
     "the captain hold stores its release condition"
@@ -409,7 +409,7 @@ test_captain_answer_and_rehold_close_the_decision() {
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" \
     "$CAPTAIN" hold q1 --title "activation" --reason "waiting on the marker" \
-    --repo demo --release-on "marker:$TMP_ROOT/captain-close.flag" >/dev/null \
+    --repo demo --origin hold-fixture --release-on "marker:$TMP_ROOT/captain-close.flag" >/dev/null \
     || fail "the marker captain hold must succeed"
   : > "$TMP_ROOT/captain-close.flag"
   run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
@@ -428,7 +428,7 @@ test_captain_answer_and_rehold_close_the_decision() {
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" \
     "$CAPTAIN" hold q2 --title "second" --reason "first reason" \
-    --repo demo --release-on "marker:$TMP_ROOT/captain-rehold.flag" >/dev/null \
+    --repo demo --origin hold-fixture --release-on "marker:$TMP_ROOT/captain-rehold.flag" >/dev/null \
     || fail "the second captain hold must succeed"
   : > "$TMP_ROOT/captain-rehold.flag"
   run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
@@ -525,6 +525,18 @@ wait_for_file() {
 run_captain() {
   local home=$1
   shift
+  if [ "${1:-}" = hold ]; then
+    local arg has_origin=0 has_kind=0
+    for arg in "$@"; do
+      case "$arg" in
+        --origin) has_origin=1 ;;
+        --origin-kind) has_kind=1 ;;
+      esac
+    done
+    if [ "$has_origin" -eq 0 ] && [ "$has_kind" -eq 0 ]; then
+      set -- "$@" --origin hold-fixture
+    fi
+  fi
   FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" "$CAPTAIN" "$@"
 }

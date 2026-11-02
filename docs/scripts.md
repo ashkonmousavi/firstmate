@@ -67,6 +67,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-remote-readiness-lib.sh` | Shared remote second-mate readiness gate: check and, when needed, repair then re-check through `fm-remote-doctor.sh` |
 | [`fm-project-origin-lib.sh`](../bin/fm-project-origin-lib.sh) | Accepted origin-form owner shared by both remote provisioning boundaries |
 | `fm-spawn.sh`            | Spawn crewmates, scouts, `id=repo` batches, and secondmates on the resolved harness and runtime backend |
+| [`fm-spawn-deferred.sh`](../bin/fm-spawn-deferred.sh) | Manage automatic retries of machine-lane deferrals; its header owns eligibility and replay |
 | `fm-git-strip-ai-trailers.sh` | Strip known AI commit trailers at commit-msg time and install that hook, the Ruff format check, and any forge=external push guard for a fleet launch |
 | `fm-git-ruff-format-check.sh` | Automatically check committed `.py`, `.pyi`, and `.ipynb` files in repositories declaring Ruff; refuse formatting failures or unchecked pushes |
 | `fm-git-push-guard.sh`  | Refuse a forge=external task's pushes to the shared origin and of task-prefixed branches, and write its per-task guard record ([design](external-review-forge.md)) |
@@ -98,6 +99,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-procevent.sh`        | Register, supervise, capture, classify, acknowledge, and safely retire built-in or explicitly bound process-event sources |
 | `fm-procevent-remote-reply.sh` | Relay the remote-secondmate status stream through non-destructive process-event deltas |
 | `fm-procevent-quota.sh`  | Wake Firstmate when tracked quota drops below a threshold, is exhausted, or cannot be polled |
+| `fm-gh-etag-lib.sh`      | The one conditional-GET helper for GitHub REST polls: ETag and body cache so a 304 spends none of the shared budget |
+| `fm-gh-rate-check.sh`    | Report GitHub core and GraphQL allowance remaining and wake once per budget window when under 25 percent is left |
 | `fm-procevent-when.sh`   | Fire a trust-bound deterministic action at most once when its registered condition holds, then wake with the outcome |
 | `fm-gate-refuse-lib.sh`  | Shared gate-context lifecycle boundary for real and lab homes                      |
 | `fm-watch-arm.sh`        | Verified home-scoped watcher arm wrapper with loud cycle endings and bounded lifecycle ledger |
@@ -106,6 +109,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-inactive-reconcile.sh` | Reconcile inactive crewmate outcomes and finished backlog PRs; [closeout contract](../bin/fm-inactive-reconcile.sh) |
 | `fm-lane-release.sh`     | Free the seat of a finished-and-landed worker, keeping its copy; [release contract](../bin/fm-lane-release.sh) |
 | `fm-lane-release-lib.sh` | Read a lane-release marker so relaunch and report paths treat a released worker as released |
+| `fm-autolaunch.sh`       | Fill free machine lanes from prepared, unblocked backlog items with one record per decision; [pass contract](../bin/fm-autolaunch.sh) |
+| `fm-autolaunch-check.sh` | Throttle check: one red line when a free lane and prepared work have no recent auto-launch record |
 | `fm-afk-contract.sh`     | Own the away-or-quiet record's posture, schema, entry, read-back, archive, and cross-subsystem authority lock |
 | `fm-afk-start.sh`        | Run the common sourceable away-mode daemon entry in the foreground                      |
 | `fm-afk-launch.sh`       | Own away/quiet entry (same-turn record write, then read-back), exit, rollback, and any backend terminal lifecycle |
@@ -126,7 +131,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-tasks-axi-lib.sh`    | Shared backlog-backend selector and `tasks-axi` compatibility probe                  |
 | `fm-hold-release-lib.sh` | Structured hold release conditions: syntax, per-task records, evaluation, and the `hold condition met` keyed decision |
 | `fm-backlog-transition-lib.sh` | Pair task-record changes with their backlog transitions and replay interrupted closes |
-| `fm-quota-axi-lib.sh`    | Shared `quota-axi` compatibility floor and quota snapshot schema validation           |
+| `fm-quota-axi-lib.sh`    | Shared `quota-axi` compatibility floor, quota snapshot schema validation, and the explicit-harness spawn quota gate |
 | `fm-quota-choose.sh`     | Choose the first candidate with known positive quota from an ordered harness:model list |
 | `fm-vendor-auth-probe.sh`| Run one hard-bounded, non-destructive authentication probe of a named vendor CLI and report the fact |
 | `fm-wake-drain.sh`       | Present and acknowledge the current actor's claimed wake rows alongside status, outcome-backstop, decision, divergence, supervision-host outcome, recovery, and supervision checks |
@@ -152,11 +157,15 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-tool-update-check.sh` | Report watched tooling with an update available, and updates installed but left inert by PATH order |
 | `fm-curated-delivery-check.sh` | Report merged fork PRs missing from curated or a configured home's HEAD, homes lagging curated, and open PRs targeting main without the exemption label |
 | `fm-startup-growth-check.sh` | Daily metadata-only growth check for startup memory and tracked startup/instruction surfaces |
-| `fm-pr-lib.sh`           | Own canonical task and PR validation plus private atomic PR-poll publication, merge-notification identity, retirement, and the conflict-episode marker |
+| `fm-pr-lib.sh`           | Own canonical task and PR validation plus private atomic PR-poll publication, merge-notification identity, retirement, and the per-task conflict-episode marker |
 | `fm-pr-poll.sh`          | Provide the byte-static watcher program for validated pull-request, merge-request, and Gerrit-change poll sidecars, including a GitHub conflict-label observation |
+| `fm-pr-orphan-sweep.sh`  | Detect orphan GitHub conflicts during watcher check sweeps ([coverage, routing, and limits](../bin/fm-pr-orphan-sweep.sh)) |
+| `fm-pr-triage.sh`        | Rank open pull requests and, for the top two ranks, launch a fix worker or label and queue them, one record per pull request per pass; [pass contract](../bin/fm-pr-triage.sh) |
 | `fm-pr-overlap.sh`       | Read-only: note open pull requests that touch a brief's SCOPE, FILES, or BLAST RADIUS paths, reporting unchecked comparisons; never blocks spawn |
 | `fm-contributions.sh`    | Observe owned publications, retain exact-head judgments, measure required actors, and wake on maintainer signals |
 | `fm-pr-check.sh`         | Record validated task `pr=` and `pr_head=` values, then atomically arm a static merge poll; refuses GitHub drafts and persistent secondmate records (see [architecture.md](architecture.md)) |
+| `fm-pr-check-rearm.sh` | Refresh authenticated PR poll generations after a code update and report failures |
+| `fm-pr-poll-retire.sh` | Retire one named PR poll with a reason while preserving task work |
 | `fm-review-check.sh`    | Record a forge=external task's validated `review=` and `review_head=` without arming a merge watch ([design](external-review-forge.md)) |
 | `fm-external-review-lib.sh` | Shared readers for the forge=external review tool adapter, ready-URL pattern, backup remote, and remote URLs |
 | `fm-pr-merge.sh`         | Record PR metadata, merge a task's canonical full GitHub, GitLab, or Forgejo URL, refuse a Gerrit change because firstmate never submits one, then refuse an outcome it cannot prove landed or queued |

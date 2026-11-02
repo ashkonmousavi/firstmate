@@ -6,6 +6,30 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Claude state-claim Stop check
+
+The [state-claim check](../turnend-guard.md#state-claim-check) owns the current operator contract.
+Verified with the committed portable and live guards on 2026-11-01, Linux x86_64, Claude Code 2.1.316, Python 3.12.3, with the inherited signed-in Claude account and no account-pin changes.
+These tests run isolated homes through Claude print mode, independently of tmux, Herdr, Zellij, Orca, cmux, or Paseo; they establish Stop payload/transcript compatibility, not interactive endpoint lifecycle coverage.
+The guard itself makes no model calls; the opt-in live regression submits two short prompts.
+
+```text
+bash bin/fm-test-run.sh tests/fm-state-claim-guard.test.sh
+ok - full synchronous hook worst time 37.6ms < 200ms
+FM_STATE_CLAIM_LIVE=1 bash bin/fm-test-run.sh tests/fm-state-claim-guard-live-e2e.test.sh
+ok - 2.1.316 (Claude Code) real Stop no-read: exits 2,0
+ok - 2.1.316 (Claude Code) real Stop read: exits 0
+ok - 2.1.316 (Claude Code) state-claim live guard checked 2 sessions
+```
+
+The portable guard exercises MAIN, linked secondmate and worker scope, secondmate busy transitions, same-turn matching of PR numbers, URL hosts and lane names, Markdown and coordinated identifiers, unconditional compound-command reads, explicit historical qualification, unreadable transcripts, and exemption of only this guard's own repeated block.
+The live guard asserts the affirmative claim in both sessions and verifies that the matching fixture read executed and completed in Claude's transcript.
+Additional real Claude print-mode scenarios in the retained evidence verify resource mismatches, previous-turn reads, another hook's continuation, MAIN and secondmate enforcement, and worker exemption.
+The evidence retained in `state-claim-live-report.md` records a portable maximum of 37.6 ms across five full-hook blocking samples and a largest live full-hook invocation of 65.79 ms, both below the 200 ms budget.
+An earlier overloaded-host run exceeded that wall budget; scheduling stalls remain visible as test failures rather than being excluded from the assertion.
+The portable fixtures cover Grok/Cursor/Pi compatibility stand-down; other harnesses' native entrypoints omit `--state-claims` and are outside this feature's scope.
+macOS execution, Windows-native Python, interactive Claude sessions, remote installations, and each fleet account remain live-proof gaps.
+
 ## Released-copy lifecycle coverage
 
 The [released-copy contract](../agent-control.md#relaunching-a-released-copy) owns the expected behavior.
@@ -767,6 +791,28 @@ skip-runner: pi-signed is not installed, so its pin check was not exercised
 
 The guard submits no prompt and spends no tokens, so it runs by default wherever a runner is installed; rerun it after every Claude or Pi upgrade.
 
+## Codex account folder checks
+
+`bin/fm-codex-accounts.py` supplies the opt-in selection, exact-folder quota wrapper, duplicate check and registered watcher entry point documented in [configuration](../configuration.md#codex-account-folders-configcodex-accounts).
+`tests/fm-worker-account.test.sh` exercises selection, credential-environment isolation, applicable quota exhaustion before main weekly ranking, concrete default-model selection and launch, unavailable and stale quota, timing provenance, shared-file preparation, duplicate metadata and runner identities, auth links, ship/scout launch metadata, check registration and maintenance through temporary folders and fake vendors.
+It also covers universal-exhaustion preflight, incompatible Treehouse refusal before allocation or endpoint creation, identity-checked lease return on repeated default-model refusals, and bounded reads and external watchdog cancellation of both vendor subprocess paths with real wrapper descendants and an unrelated process.
+`tests/fm-control.test.sh` verifies that unusable lists and exhausted configured default models refuse before a ship or scout's running agent is stopped, and that universal exhaustion preserves a live default-model secondmate's agent, metadata and ownership.
+`tests/fm-control-relaunch.test.sh` exercises trusted project model precedence through ordinary and released-copy relaunches, both directly and through the control plane; the worker-account suite also runs these focused cases.
+
+The token-free real-runner guard in `tests/fm-worker-account-live-e2e.test.sh` covers Codex local status using an empty folder and a synthetic file-backed API-key cache, plus account identity comparison using synthetic ChatGPT caches under a temporary `HOME`.
+It suppresses vendor diagnostics and confines synthetic ChatGPT workspace discovery to a loopback fixture; no synthetic credential is sent to an external service.
+That guard proves local-status compatibility only; it cannot prove ChatGPT refresh or a real subscription's quota response.
+For the existing new-worktree trust/processing guard, set `FM_CODEX_ACCOUNT_LIVE_ROOT` to an independently signed-in, prepared folder before running `tests/fm-codex-brief-typed-live-e2e.test.sh`.
+That prompt-submitting guard remains opt-in, and its pool and endpoint lifecycle require the normal isolated validation authority.
+
+Record live evidence here with date, installed version, exact command and output before claiming live proof.
+
+```sh
+bash bin/fm-test-run.sh tests/fm-worker-account.test.sh tests/fm-control.test.sh
+bash bin/fm-test-run.sh tests/fm-worker-account-live-e2e.test.sh
+FM_CODEX_LIVE_E2E=1 FM_CODEX_ACCOUNT_LIVE_ROOT=/absolute/independent-codex-folder bash tests/fm-codex-brief-typed-live-e2e.test.sh
+```
+
 ## Secondmate busy contract
 
 Verified 2026-09-22 on this host with Claude Code 2.1.278, OpenCode 1.18.31, Pi 0.86.1, and Grok 1.0.40.
@@ -881,6 +927,105 @@ $ ls "$TURNEND"
 It captures the launch `bin/fm-spawn.sh` actually builds, replays those exact flags against the installed Codex, and fails naming the harness and version if the hook layer comes back on.
 It spends no model tokens, so it runs by default wherever Codex is installed.
 The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the split the launch template makes: a crewmate launches hook-free while a secondmate, which runs a primary session on this repository's own project hooks, keeps them.
+
+## Codex launch brief
+
+Verified 2026-10-31 on codex-cli 0.164.0 and 0.166.0, Linux x86_64 (PC, WSL2), with the real installed Codex on an isolated tmux server (`tmux -L <private socket>`), launched with the crewmate template's flags and a 73 KB multi-line `launch-brief` envelope from `bin/fm-operational-input.sh encode launch-brief`:
+
+```text
+codex -m gpt-6-astra -c 'model_reasoning_effort="xhigh"' --dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[...]" "$(bin/fm-operational-input.sh encode launch-brief < brief.md)"
+```
+
+Codex runs the positional launch prompt as its first turn, but only after session startup (shell snapshot and MCP server startup) finishes.
+With this machine's MCP servers that took 37 s on 0.166.0 and 45 s on 0.164.0 in the probe, and 42 s and 74 s for two real Firstmate scout launches on 0.164.0, whose Codex session records show the full launch brief as turn 1 at `reasoning_effort=xhigh`.
+Until the first turn starts the pane shows an empty composer and the footer reads `<model> default`; the footer switches to the requested effort (`GPT-6-Astra xhigh`) when the turn starts, so `default` in that window is a placeholder, not the applied effort.
+A new folder first shows the trust dialog below; after Enter the positional prompt still runs.
+A positional launch never showed the update dialog, while a bare launch on 0.164.0 with an update pending did.
+
+A standard Codex launch therefore carries the brief positionally, and `bin/fm-spawn.sh`'s first-turn gate confirms it: it polls, bounded at about 120 s (`FM_CODEX_FIRST_TURN_POLLS` x `FM_CODEX_POLL_INTERVAL`), until the verified `esc to interrupt` busy row or a `Worked for <t>` turn summary appears, either one alone being enough.
+On a backend with viewport-bounded capture it answers the launch dialogs on the way (Enter for the trust dialog's preselected `1. Trust and continue`, Escape for the update dialog whose Enter would run `npm install -g @openai/codex`); a backend without it (Orca, cmux, or Paseo) is read through its bounded capture and never sent a key.
+Codex persists the folder-trust answer itself, so later launches in the same folder skip that dialog.
+Escape skips the update dialog for this launch only; the persistent `Skip until next version` choice remains the operator's own decision.
+The update gate matches the option rows rather than the `Update available` heading, because that heading also appears in the persistent post-skip banner over a ready composer.
+A timeout reports "codex did not take the brief".
+
+`FM_CODEX_TYPED_LAUNCH=1` selects the typed path instead (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict): codex starts bare, and the typed-brief gates wait (bounded, two consecutive empty-composer classifications through the shared classifier) for the ready composer, answering the same dialogs on the way.
+They then submit the one-line `\u2063FIRSTMATE_OP: v1 launch-brief: Read the brief at <data/<id>/launch-brief.md> and follow it exactly. Launch receipt: <unique-receipt>.` envelope through `fm_backend_send_text_submit`, and confirm the turn started from the busy footer appearing in the current viewport after readiness established an idle viewport, or a `Worked for <t>` completion row following this submission's unique launch receipt in the captured transcript.
+The typed path requires verified viewport-bounded capture and is refused at preflight on a backend without it.
+Its 2026-10-27 live result on codex-cli 0.163.0 (below) was taken with a fast session startup; on a machine whose startup takes tens of seconds the composer reads empty before the session is ready, which is why typed delivery is not the default.
+A secondmate uses the same transport choice for its charter while preserving its primary hooks; an unresolved hook-review modal times out instead of being answered.
+A caller-supplied raw launch command bypasses both gates and owns its own brief delivery.
+
+Herdr-lab e2e: NOT RUN as of 2026-10-27; provisioning refused before Codex launched.
+The recorded provisioning command and exact refusal are:
+
+```text
+/home/zcrew/fm-home2/bin/fm-herdr-lab.sh provision <fm-lab-* session>
+fm-herdr-lab: fleet-state tripwire requires exactly one running default session
+```
+
+Firstmate owns the deferred Herdr proof on MAIN, on a machine whose default Herdr session is running.
+No Herdr pass is claimed, and this work does not start or stop a default session.
+`FM_CODEX_LIVE_E2E=1 FM_CODEX_TYPED_LAUNCH=1 bash tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` remains the live guard for the typed path on Herdr.
+`tests/fm-codex-harness.test.sh` covers the positional first-turn gate (busy-only and summary-only confirmation, timeout), current busy frames, immediate completion after the current receipt, rejection of old completion and busy text, and secondmate delivery with primary hooks preserved.
+Portable fixture results do not replace the deferred real-Herdr proof.
+
+Typed-path live evidence retained from 2026-10-27, codex-cli 0.163.0 on an isolated tmux server, a fresh treehouse worktree nobody had trusted (`tests/fm-codex-brief-typed-live-e2e.test.sh`, `FM_CODEX_LIVE_E2E=1`):
+
+```text
+ok - real codex codex-cli 0.163.0 on tmux: a new-folder scout starts processing its typed launch brief within 9s and answers it
+ok - real codex codex-cli 0.163.0 on tmux: the trusted-folder relaunch rendered no trust dialog
+ok - real codex codex-cli 0.163.0 on tmux: a trusted-folder relaunch starts processing its typed launch brief within 5s
+ok - real codex codex-cli 0.163.0 typed launch brief verified end to end on an isolated tmux server
+```
+
+The turn's pane shows the delivered envelope, the working row, and the reply:
+
+```text
+› FIRSTMATE_OP: v1 launch-brief: Read the brief at <...>/launch-brief.md and follow it exactly.
+• Working (1s • esc to interrupt)
+• codex-brief-ok
+  Worked for 6s • 2:39 AM
+```
+
+The dialogs the gate answered on the way, captured from the same version:
+
+```text
+  Folder access
+  <worktree path>
+
+  Trust this folder? Codex can read, edit, and run files here, subject to your permission settings. ...
+
+› 1. Trust and continue
+  2. Quit
+
+  enter continue · esc quit
+```
+
+```text
+  Update available · 0.163.0 → 0.164.0
+  Release notes: https://github.com/openai/codex/releases/latest
+
+› 1. Update now (runs `npm install -g @openai/codex`)
+  2. Skip
+  3. Skip until next version
+
+  enter continue · esc skip
+```
+
+`tests/fm-codex-brief-typed-live-e2e.test.sh` (isolated tmux server; the default positional launch, and the typed path with `FM_CODEX_TYPED_LAUNCH=1`) and `tests/fm-codex-brief-typed-herdr-lab-e2e.test.sh` (isolated Herdr lab session) are the commands that refresh this record.
+Both submit a brief, so both are opt-in (`FM_CODEX_LIVE_E2E=1`).
+Positional-path live result, 2026-10-31, codex-cli 0.166.0 on the PC (`FM_CODEX_LIVE_E2E=1 bash tests/fm-codex-brief-typed-live-e2e.test.sh`, isolated tmux server, fresh treehouse worktree):
+
+```text
+ok - real codex codex-cli 0.166.0 on tmux: a new-folder scout starts processing its positional launch brief within 42s and answers it
+ok - real codex codex-cli 0.166.0 on tmux: the trusted-folder relaunch rendered no trust dialog
+ok - real codex codex-cli 0.166.0 on tmux: a trusted-folder relaunch starts processing its positional launch brief within 51s
+ok - real codex codex-cli 0.166.0 positional launch brief verified end to end on an isolated tmux server
+```
+
+The Herdr-lab guard was not run for the positional path.
+The portable half, `tests/fm-codex-harness.test.sh`, pins the gate logic - first-turn confirmation, dialog answers, partial-draw safety, envelope text, unconfirmed-submit refusal, processing confirmation, and the typed path's viewport-capture preflight - against a state-machine fake with no model tokens.
 
 ## 2026-10-20 Grok weekly-limit border coverage
 
@@ -1793,6 +1938,49 @@ Observed 2026-08-19:
 ok - live Herdr submit confirm: Claude Code (2.1.236 (Claude Code)) on herdr 0.8.0 reports empty for a landed idle steer
 ```
 
+### Claude payload render latency
+
+Measured 2026-10-31 against Herdr 0.9.5 with Claude Code 2.1.312 (q-crew, 6 cores, load 10-23) and 2.1.316 (zb-crew, 16 cores, load 10-26), each in a private Herdr server with its own socket and XDG directories.
+
+Claude renders typed input asynchronously, so the pre-Enter payload proof can read the composer before the doorbell appears.
+Time from `pane send-text` of the real doorbell line to a composer read that proves it: 31-312 ms on a fresh idle pane with 2838 ms once (that read at 0.4 s saw an empty composer), up to 401 ms and 481 ms after 3 idle minutes, and 41-99 ms mid-turn.
+Every intermediate read on a mid-turn pane was a strict prefix of the payload.
+The previous proof read once after the caller's 0.3 s settle, which matched the intermittent `payload-not-shown` doorbell failures recorded on both hosts' remote secondmate inboxes.
+The current proof contract is documented in [Claude composer proof](../herdr-backend.md#claude-composer-proof).
+
+Counterfactual: pausing the lab Claude process for 1.5 s from the `send-text` call reproduced `payload-not-shown` with the previous proof on both hosts and left the doorbell in the composer; with the bounded wait, three such stalled `bin/fm-send.sh` steers and then three plain 1228-character steers each recorded `rc=0 token=ok` and were acted on (record moved into `handled/`) on both hosts.
+Refresh the render-stall proof with the maintained live guard:
+
+```sh
+FM_HERDR_SUBMIT_CONFIRM_LIVE=1 bash bin/fm-test-run.sh --jobs 1 --per-script-timeout-secs 600 tests/fm-herdr-submit-confirm-live-e2e.test.sh
+```
+
+The guard uses [stop and continue signals](https://man7.org/linux/man-pages/man7/signal.7.html) on only its launched Claude process, captures the real empty composer read after `send-text`, and verifies the process stays stopped for at least 1.5 seconds after typing before resuming it.
+It requires an Enter, `rc=0 token=ok`, the requested file action, and the record's move into `handled/`.
+It fails naming the Claude and Herdr versions if the delay, submission, action, or acknowledgement is missing.
+Refreshed 2026-10-31 on Linux with Claude Code 2.1.316 and Herdr 0.9.5, using a disposable `CLAUDE_CONFIG_DIR` with the existing account credentials and the documented `skipDangerousModePermissionPrompt` setting.
+The complete guard passed, including its ordinary submit, viewport, and lifecycle cases:
+
+```text
+ok - live Herdr render delay: Claude Code (2.1.316 (Claude Code)) on herdr 0.9.5 submits after a verified 1.861 s stall, acts and acknowledges
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=41618
+```
+
+Portable regressions:
+
+```sh
+bash tests/fm-backend-herdr.test.sh
+bash tests/fm-task-inbox.test.sh
+```
+
+The inbox suite also covers concurrent dead-owner reclamation in `test_ring_skips_during_dead_owner_reclamation`, requiring a contender with no visible holder PID to skip without typing, preserving both records and a later retry.
+
+```text
+ok - fm_backend_herdr_send_text_submit: a Claude composer still rendering the payload (empty, then a prefix) is re-read and the payload submitted
+ok - fm_backend_herdr_send_text_submit: the wait for a rendering payload is bounded and an unshown payload is refused
+ok - inbox: overlapping rings of one inbox type once, the other skips with ring-in-flight, and a dead ringer's lock is reclaimed
+```
+
 ### Composer viewport recovery
 
 The [Herdr socket API](https://herdr.dev/docs/socket-api/) defines `scroll.offset_from_bottom == 0` as the at-bottom state used by the recovery assertions.
@@ -1903,8 +2091,11 @@ The picker is recognised by its recorded structure only: the heading on its own 
 The same strings quoted above a normal composer, as a diff, this note, or a test fixture shows them, are not a picker.
 Submit retries now stop after the Enter that opened the picker and report unknown.
 A typed submit to a pane that already shows the picker types nothing and sends no Enter.
-Exit reports that the worker is blocked on the Claude background-task exit picker and does not type another Enter.
-A submit can return before any read sees the picker, so exit reads the screen once more when its wait for the agent to stop times out, and names the picker there too.
+Exit follows the [completion-authorization contract in agent control](../agent-control.md#verbs).
+`tests/fm-control.test.sh` covers backlog-Done confirmation, explicit landed-work release without accepting the task, validated lane release without backlog Done, and refusal for unauthorized tasks and secondmates.
+Its tmux and Herdr adapter cases include a compatible-client retry and refusal after the busy state, generation, live dialog or viewport changes.
+That coverage uses stubbed panes and a fake Herdr CLI, with no live Claude or Herdr run; the picker's recorded structure is unchanged.
+A submit can return before any read sees the picker, so exit reads the screen once more when its wait for the agent to stop times out and applies the same authorization boundary there.
 Exit does not report a stopped agent whose pane still shows the picker text as blocked on a prompt.
 The watcher reads the picker with the same matcher on the stale-path capture it already takes for a worker.
 A worker pane parked on it keeps the ordinary stale triage and schedule, and its plain stale reason and its final wedge escalation reason name the picker after `blocked-on-prompt:`; the deferral, dead-record, and declared-wait recheck reasons do not.
@@ -1912,6 +2103,27 @@ A second mate stays off that path, and a finished worker in away mode is handled
 That watcher and away-daemon reporting is covered by fakes in `tests/fm-watch-triage.test.sh` and `tests/fm-daemon.test.sh`, not by a live measurement.
 No recorded screen was available for a model-downgrade confirmation, an MCP approval, or a Claude exit confirmation other than this picker, so those dialogs are not covered.
 Refusing an Enter that would confirm a dialog restores an existing safety path, so it is not gated behind a flag.
+The second-mate restart reads the background-shell status row, measured 2026-10-31 with Claude Code 2.1.316 on tmux 3.4 and Herdr 0.9.5.
+An idle session with one running background shell showed `⏵⏵ don't ask on · 1 shell · ↓ to manage` below its composer, and that item left the row once the shell stopped.
+[`fm_composer_claude_background_shells`](../../bin/fm-composer-lib.sh) owns that read, and [`fm-secondmate-restart.sh`](../../bin/fm-secondmate-restart.sh) owns what a restart does with it.
+Sent the background-shell sentence of the restart's persist request, the agent stopped its own shell with its task-stopping tool, the status row cleared, and `/exit` then closed Claude with no picker.
+Run `FM_RESTART_BG_SHELLS_LIVE=1 bash tests/fm-secondmate-restart-bg-shells-live-e2e.test.sh` to refresh this evidence after an upgrade.
+Exact result lines:
+
+```text
+# harness: 2.1.316 (Claude Code); transport: tmux 3.4
+ok - 2.1.316 (Claude Code) on tmux 3.4: viewport and restart capture report 1 running background shell
+ok - 2.1.316 (Claude Code) on tmux 3.4: the persist request stopped its shell and cleared viewport and restart captures
+ok - 2.1.316 (Claude Code) on tmux 3.4: with its shells stopped, /exit closed Claude without a picker
+# harness: 2.1.316 (Claude Code); transport: herdr 0.9.5
+ok - 2.1.316 (Claude Code) on herdr 0.9.5: viewport and restart capture report 1 running background shell
+ok - 2.1.316 (Claude Code) on herdr 0.9.5: the persist request stopped its shell and cleared viewport and restart captures
+ok - 2.1.316 (Claude Code) on herdr 0.9.5: with its shells stopped, /exit closed Claude without a picker
+```
+
+The guard also runs Claude Code on a private Herdr server and checks both the local viewport and the 60-line `fm_backend_capture` route used by the remote host's capture verb.
+For both backends it requires a live shell process before the running-count assertion, that process's death before the cleared-count assertion, nonempty captures at both stages, and agent exit after a single `/exit` submission.
+This follows Claude Code's documented [background Bash task lifecycle](https://code.claude.com/docs/en/interactive-mode#background-bash-commands); the live process and capture checks establish the rendered behavior rather than inferring it from that documentation.
 
 ### Prune and respawn
 
@@ -3175,6 +3387,16 @@ ok - codex (codex-cli 0.160.0): exact-home discovery, wrong-home and stale-label
 
 This proves live process discovery and shell refusal, including startup interfaces without a submitted prompt.
 It does not prove prompt delivery or turn-end watcher recovery.
+The guard scopes its server and every CLI call with the same explicit session, and uses a relative private XDG config path from its temporary working directory to keep Unix socket names short in deep worktrees.
+Explicit `--session` takes precedence over `HERDR_SOCKET_PATH` in the [Herdr socket contract](https://herdr.dev/docs/socket-api/).
+Refreshed on 2026-10-31 with `env FM_MAIN_BACKSTOP_LIVE=1 TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-main-backstop-live-e2e.test.sh` after `mkdir -p .review-evidence/tmp` (exit 0):
+
+```text
+# herdr 0.9.5
+ok - claude (2.1.316 (Claude Code)): exact-home discovery, wrong-home and stale-label shell refusal
+ok - codex (codex-cli 0.166.0): exact-home discovery, wrong-home and stale-label shell refusal
+```
+
 
 
 ## Lane release class inventory for validation
@@ -3240,3 +3462,37 @@ Provider reads retain their existing host/login/account selection; the audit doe
 No live guard, credentialed session, or installed-harness version is claimed by this inspection handoff.
 The terminal adapters expose separate reads and input calls, not an atomic conditional-exit protocol; action guards reject observed generation/sequence changes, and do not claim atomic exclusion of arbitrary concurrent physical keyboard input.
 Validation must retain current real-harness evidence for the installed eligible adapters, explicitly name unavailable adapters, and leave unsupported turn-history sources ineligible.
+
+## Idle-holder takeover live guard
+
+`FM_SESSION_LOCK_LIVE=1 bash tests/fm-session-lock-live-e2e.test.sh` refreshes the Claude-specific fork-resume evidence.
+The prompt-submitting guard belongs to `live-harness-optin` and uses `fm_live_gate` with the opt-in policy.
+It starts an interactive Claude in a private tmux server, submits a turn in session A, then invokes native `/clear` to session B in the same process.
+The real SessionStart hook must publish B and retain A in the existing sidecar.
+An empty B transcript file is created if Claude has not yet persisted it, solely to meet the readable-empty-history precondition; no user or assistant rows are fabricated.
+The guard creates a separate real conversation and refuses its unrelated detached fork before accepting a detached `--fork-session --resume A` successor and a return terminal fork through Stop.
+All vendor processes remain alive through both handovers.
+Hook identities, argv and user/assistant turn rows come from Claude; the guard never rewrites those rows.
+Each related fork first attempts acquisition against the recent predecessor and must refuse.
+The guard then advances only the lock-check clock by 3600 seconds to exercise quiet-holder startup acquisition and Stop recovery without a 30-minute sleep.
+It checks the completed lock pairs, the two recorded handovers and the Stop-owned arm against the independently known session ids and live process ids.
+The watcher-arm transport is a fixture, and real phone transport is outside this guard's proof.
+The [current class inventory](../../tests/captures/fm-idle-holder-review-inventory.json) records the affected axes and remaining evidence gaps.
+The [lock reference and portable proof](supervision.md#idle-fork-resume-lock-handover) own the takeover safety limits, lease and backstop regressions, and non-Claude behavior.
+The vendor CLI contract is documented in [Claude's CLI reference](https://code.claude.com/docs/en/cli-reference) and [Remote Control documentation](https://code.claude.com/docs/en/remote-control).
+
+Observed on 2026-10-31 with `env FM_SESSION_LOCK_LIVE=1 TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-live-e2e.test.sh` after `mkdir -p .review-evidence/tmp` (exit 0):
+
+```text
+# 2026-10-31 Claude 2.1.316 (Claude Code)
+ok - native /clear: same terminal pid=2088195 rekeyed A to readable empty B, prior A retained
+ok - unrelated-seed holder pid=2095116 tty=?
+ok - unrelated holder pid=2102532 tty=?
+ok - unrelated real fork refused after native A-to-B clear
+ok - phone holder pid=2105393 tty=?
+ok - return holder pid=2110669 tty=pts/37
+ok - live fork-resume terminal -> background phone -> terminal: two recorded handovers; recent-turn refusal; Stop recovery armed; predecessor processes stayed live; native A-to-empty-B clear and unrelated-fork refusal; classifier clock advanced 3600s; vendor turns unmodified
+```
+
+The `unrelated` output tags describe live candidate processes; both were refused ownership, as the guard's following assertion records.
+The pane-only discovery proof is recorded under [Main backstop discovery guard](#main-backstop-discovery-guard-2026-10-20).

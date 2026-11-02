@@ -267,6 +267,7 @@ test_lab_home_private_tmux_socket_survives_deep_paths() {
   mkdir -p "$TMP/failing-tmux-bin"
   printf '#!/bin/sh\necho "tmux: probe failed" >&2\nexit 1\n' > "$TMP/failing-tmux-bin/tmux"
   chmod +x "$TMP/failing-tmux-bin/tmux"
+  fm_test_codex_first_turn_wrap "$TMP/failing-tmux-bin"
   if PATH="$TMP/failing-tmux-bin:$PATH" "$LABHOME" teardown "$lab" >/dev/null 2>&1; then
     fail "lab teardown removed the directory when its tmux probe failed"
   fi
@@ -387,6 +388,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$fakebin/sleep"
   chmod +x "$fakebin/sleep"
   printf '%s\n' "$fakebin"

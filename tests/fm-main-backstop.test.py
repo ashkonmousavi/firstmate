@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import signal
 import subprocess
 import tempfile
 import time
@@ -32,6 +33,7 @@ class Backstop(unittest.TestCase):
                         'export PATH=' + shlex.quote(str(self.fake)) + ':$PATH\n'
                         '. ' + repr(str(ROOT / 'bin/fm-backend.sh')) + '\n')
         (self.state / 'example.meta').touch()
+        self.state.chmod(0o700)
         (self.state / '.last-watcher-beat').touch()
         os.utime(self.state / '.last-watcher-beat', (time.time() - 600,) * 2)
         (self.home / 'data/main-pane').write_text('dead:old\n')
@@ -86,6 +88,11 @@ elif a[:2]==['pane','send-keys']:
  Path(os.environ['BACKSTOP_FIXTURE']).write_text(json.dumps(c))
 else:sys.exit(2)
 ''')
+        self.executable(self.code / 'bin/fm-procevent.sh',
+                        '#!/bin/bash\nexec ' + shlex.quote(str(ROOT / 'bin/fm-procevent.sh')) + ' "$@"\n')
+        self.claims = self.base / 'claims'
+        self.claims.mkdir()
+        self.claims.chmod(0o700)
         self.executable(self.code / 'bin/fm-on.sh', '''#!/usr/bin/env python3
 import json,os,sys
 from pathlib import Path
@@ -126,7 +133,8 @@ os.execv(real,[command]+sys.argv[3:])
                         BACKSTOP_REMOTE=str(self.base / 'remote'),
                         BACKSTOP_ROOT=str(ROOT),
                         BACKSTOP_REMOTE_FAILS=str(self.base / 'remote-fails.txt'),
-                        BACKSTOP_PREEMPTS=str(self.base / 'preempts.txt'))
+                        BACKSTOP_PREEMPTS=str(self.base / 'preempts.txt'),
+                        FM_PROCEVENT_CLAIM_ROOT=str(self.claims))
         self.send_enabled_file = None
         # No test inherits a real operational state override.
         for key in ['FM_STATE_OVERRIDE', 'FM_DATA_OVERRIDE', 'FM_CONFIG_OVERRIDE']:
@@ -752,6 +760,42 @@ os.execv(real,[command]+sys.argv[3:])
         self.addCleanup(runner.kill)
         return runner.pid
 
+    def procevent(self, *args):
+        env = dict(self.env, FM_HOME=str(self.home),
+                   FM_PROCEVENT_LAUNCH_FLOOR_SECONDS='1',
+                   FM_PROCEVENT_LAUNCH_CONFIRM_SECONDS='3')
+        result = subprocess.run([str(ROOT / 'bin/fm-procevent.sh'), *args],
+                                env=env, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        return result.stdout
+
+    def claim_pid(self, source='remote-reply-q-server'):
+        return int((self.claims / (source + '.claim')).read_text().splitlines()[1])
+
+    def stop_claim(self, source='remote-reply-q-server'):
+        path = self.claims / (source + '.claim')
+        if not path.exists():
+            return
+        try:
+            pid = int(path.read_text().splitlines()[1])
+            os.killpg(pid, signal.SIGKILL)
+        except (OSError, ValueError, IndexError):
+            return
+
+    def start_held_owner(self):
+        """Register a sleeping reply owner and remove its runner record."""
+        self.procevent('register', 'remote-reply', 'remote-reply-q-server',
+                       '--', '/bin/sleep', '300')
+        started = self.procevent('reconcile')
+        self.assertIn('started=1', started)
+        self.addCleanup(self.stop_claim)
+        pid = self.claim_pid()
+        os.kill(pid, 0)
+        runner = self.state / 'procevent/remote-reply-q-server.runner'
+        runner.unlink(missing_ok=True)
+        self.assertFalse(runner.exists())
+        return pid
+
     def sends(self):
         return [c for c in self.commands() if c[:2] == ['pane', 'send-text']]
 
@@ -786,17 +830,55 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
 
     @unittest.skipUnless(HAS_PROC_RUNNER, 'requires Linux /proc runner identity')
-    def test_live_runner_pass_clears_the_not_alive_streak(self):
+    def test_live_pid_file_without_an_owner_reads_dead(self):
         (self.state / '.last-watcher-beat').touch()
-        self.register_runner('999999999\n')
-        self.run_guard()
         self.register_runner('%d\n' % self.live_runner())
         self.run_guard()
         self.assertEqual(self.notes(), '')
-        self.assertNotIn('q-server', self.memory().get('runner_fails', {}))
+        self.run_guard()
+        self.assertIn('REPLY RUNNER DOWN q-server', self.notes())
+
+    def test_task_owned_listening_is_not_a_live_reply_owner(self):
+        (self.state / '.last-watcher-beat').touch()
         self.register_runner('999999999\n')
+        self.executable(self.code / 'bin/fm-procevent.sh',
+                        '#!/bin/bash\nprintf "%s\\n" '
+                        '"SOURCE ADAPTER OWNER PENDING" '
+                        '"remote-reply-q-server remote-reply task:review/listening 0"\n')
         self.run_guard()
         self.assertEqual(self.notes(), '')
+        self.run_guard()
+        self.assertIn('REPLY RUNNER DOWN q-server', self.notes())
+
+    def test_absent_runner_record_with_live_owner_reads_alive(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.run_guard()
+        self.start_held_owner()
+        self.run_guard()
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.assertNotIn('q-server', self.memory().get('runner_fails', {}))
+        self.assertNotIn('runner-q-server', self.memory().get('episodes', {}))
+
+    def test_gone_owner_reads_dead_and_reconcile_restarts(self):
+        (self.state / '.last-watcher-beat').touch()
+        old = self.start_held_owner()
+        self.stop_claim()
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.run_guard()
+        self.assertIn('REPLY RUNNER DOWN q-server', self.notes())
+        started = self.procevent('reconcile')
+        self.assertIn('started=1', started)
+        new = self.claim_pid()
+        self.assertNotEqual(new, old)
+        os.kill(new, 0)
+        runner = self.state / 'procevent/remote-reply-q-server.runner'
+        runner.unlink(missing_ok=True)
+        self.run_guard()
+        self.assertNotIn('q-server', self.memory().get('runner_fails', {}))
+        self.assertNotIn('runner-q-server', self.memory().get('episodes', {}))
 
     def test_remote_source_larger_than_transfer_bound_still_verifies(self):
         (self.state / '.last-watcher-beat').touch()
@@ -1096,10 +1178,10 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.assertEqual(self.memory()['episodes']['runner-q-server'], incident)
         self.config['fail_reads'] = 0
-        self.register_runner('%d\n' % self.live_runner())
+        self.start_held_owner()
         self.run_guard()
         self.assertNotIn('runner-q-server', self.memory()['episodes'])
-        self.register_runner('999999999\n')
+        self.stop_claim()
         self.run_guard()
         self.run_guard()
         self.assertNotEqual(self.memory()['episodes']['runner-q-server'], incident)
@@ -1149,6 +1231,135 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.assertFalse(any(c[:2] == ['pane','send-text'] for c in self.commands()))
         self.assertIn('BACKSTOP FAILURE', self.notes())
+
+    def start_named_claude(self):
+        path = self.base / 'holder-bin' / 'claude'
+        path.parent.mkdir(exist_ok=True)
+        if not path.exists():
+            path.symlink_to('/bin/sleep')
+        proc = subprocess.Popen([str(path), '30'])
+        self.addCleanup(proc.wait)
+        self.addCleanup(proc.kill)
+        return proc.pid
+
+    def test_reused_nonharness_pid_keeps_stale_lock_recovery(self):
+        holder = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % holder)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.assertIn('holder-%s' % holder, self.memory()['episodes'])
+        sleeper = subprocess.Popen(['/bin/sleep', '30'])
+        self.addCleanup(sleeper.wait)
+        self.addCleanup(sleeper.kill)
+        (self.state / '.lock').write_text('%s\n' % sleeper.pid)
+        self.run_guard()
+        self.assertEqual(len(self.sends()), 1)
+        self.assertNotIn('holder-%s' % holder, self.memory()['episodes'])
+        self.assertNotIn('holder-%s' % sleeper.pid, self.memory()['episodes'])
+
+    def test_unknown_holder_report_preserves_deduplicated_episode(self):
+        holder = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % holder)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        incident = self.memory()['episodes']['holder-%s' % holder]
+        self.executable(self.fake / 'ps', '#!/bin/sh\nexit 1\n')
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+        (self.state / '.lock').write_text('2147483647\n')
+        self.executable(self.fake / 'ps', '#!/bin/sh\nexit 127\n')
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+        (self.state / '.lock').write_text('%s\n' % holder)
+        (self.fake / 'ps').unlink()
+        self.run_guard()
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertEqual(self.memory()['episodes']['holder-%s' % holder], incident)
+
+    def test_handover_before_report_uses_reported_pid_for_deduplication(self):
+        predecessor = self.start_named_claude()
+        successor = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % predecessor)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.env['BACKSTOP_NEXT_HOLDER'] = str(successor)
+        self.executable(self.fake / 'bash', '''#!/bin/bash
+if [ "${3:-}" = holder-report ]; then
+  tmp=$(mktemp "$5/.lock-transition.XXXXXX") || exit 1
+  printf '%s\\n' "$BACKSTOP_NEXT_HOLDER" > "$tmp"
+  mv -f "$tmp" "$5/.lock"
+fi
+exec /bin/bash "$@"
+''')
+        self.run_guard()
+        self.run_guard()
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % successor, self.notes())
+        self.assertIn('holder-%s' % successor, self.memory()['episodes'])
+        self.assertNotIn('holder-%s' % predecessor, self.memory()['episodes'])
+
+    def test_disabled_capability_with_live_lock_defers_without_discovery(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        selected = self.select_send_file()
+        for content in (None, b'invalid\n'):
+            with self.subTest(content=content):
+                if content is None:
+                    selected.unlink()
+                else:
+                    selected.write_bytes(content)
+                self.run_guard()
+                self.assert_observe_only()
+                incident = self.memory()['episodes']['recovery']
+                self.assertIn(incident, self.memory()['deferred_alarms'])
+        selected.write_bytes(b'enabled\n')
+        selected.chmod(0o600)
+        self.run_guard()
+        self.assertIn(incident, self.notes())
+        self.assertNotIn(incident, self.memory()['deferred_alarms'])
+
+    def test_foreign_holder_under_fifteen_minutes_is_not_nudged_or_asked(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('Idle lock holder', self.notes())
+        self.assertNotIn('BACKSTOP FAILURE', self.notes())
+        self.assertIn('idle lock holder pid=%s' % pid, (self.state / '.main-backstop.log').read_text())
+
+    def test_holder_ask_is_queued_once_for_working_main_after_fifteen_minutes(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.run_guard()
+        notes = self.notes()
+        self.assertEqual(notes.count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % pid, notes)
+        self.assertIn('tty=', notes)
+        self.assertIn('idle=', notes)
+        self.assertNotIn('BACKSTOP FAILURE', notes)
+        self.assertEqual(self.sends(), [])
+        self.assertIn('holder-%s' % pid, self.memory()['episodes'])
+        self.assertTrue((self.state / '.wake-queue').exists())
+
+    def test_foreground_holder_is_also_queued_once_after_fifteen_minutes(self):
+        pid = self.start_named_claude()
+        (self.state / '.lock').write_text('%s\n' % pid)
+        self.config['process_pid'] = pid
+        self.config['process_cwd'] = str(self.home)
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('Idle lock holder', self.notes())
+        os.utime(self.state / '.last-watcher-beat', (4000, 4000))
+        self.run_guard()
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertEqual(self.notes().count('Idle lock holder'), 1)
+        self.assertIn('pid=%s' % pid, self.notes())
+        self.assertIn('tty=', self.notes())
+        self.assertIn('idle=', self.notes())
 
 
 if __name__ == '__main__':

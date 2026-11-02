@@ -256,8 +256,8 @@ park_still_ours() {
 
 current_session_still_ours() {
   local owner
-  owner=$(cat "$STATE/.lock" 2>/dev/null) || return 1
-  case "$owner" in ''|*[!0-9]*) return 1 ;; esac
+  fm_session_lock_read_record "$STATE" || return 1
+  owner=$FM_SESSION_LOCK_PID
   [ "$owner" = "$OWNER_ID" ] || return 1
   fm_session_lock_owned_by_self "$STATE"
 }

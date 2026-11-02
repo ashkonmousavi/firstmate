@@ -21,7 +21,7 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-fm_live_gate default-on FM_WORKER_ACCOUNT_LIVE_E2E jq perl
+fm_live_gate default-on FM_WORKER_ACCOUNT_LIVE_E2E jq perl python3
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$ROOT/bin/fm-worker-account-lib.sh"
 
@@ -32,6 +32,128 @@ export HOME="$TMP_ROOT/home"
 mkdir -p "$HOME"
 unset CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR ANTHROPIC_API_KEY OPENAI_API_KEY FM_LIVE_EXT_KEY
 CHECKED=
+
+codex_live_cases() {
+  local version empty stored out config
+  version=$(codex --version 2>/dev/null | head -1)
+  empty="$TMP_ROOT/codex-empty"
+  stored="$TMP_ROOT/codex-stored"
+  config="$TMP_ROOT/codex-config"
+  mkdir -p "$empty/rules" "$stored/rules" "$config"
+  printf 'cli_auth_credentials_store="file"\nmodel="fm-live-configured-model"\n' > "$empty/config.toml"
+  cp "$empty/config.toml" "$stored/config.toml"
+  : > "$empty/AGENTS.md"
+  : > "$stored/AGENTS.md"
+  printf 'prefix_rule(pattern=["echo"], decision="allow")\n' > "$empty/rules/default.rules"
+  cp "$empty/rules/default.rules" "$stored/rules/default.rules"
+  # Synthetic cached API auth proves the vendor's local-status contract only.
+  # No request is sent and no real credential or account directory is touched.
+  printf '{"OPENAI_API_KEY":"sk-fm-live-synthetic"}\n' > "$stored/auth.json"
+  printf '%s\n' "$empty" > "$config/codex-accounts"
+  if out=$(OPENAI_API_KEY=sk-fm-live-ambient fm_worker_account_select codex "$config" '' codex 2>&1); then
+    fail "codex $version: accepted an empty folder under ambient credentials"
+  fi
+  assert_not_contains "$out" 'sk-fm-live-' "codex $version leaked vendor status diagnostics"
+  printf '%s\n' "$stored" > "$config/codex-accounts"
+  # Avoid any network: this fake quota tool leaves room unmeasured while the
+  # installed Codex alone decides whether the synthetic cache is signed in.
+  mkdir -p "$TMP_ROOT/quota-bin"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$TMP_ROOT/quota-bin/quota-axi"
+  chmod +x "$TMP_ROOT/quota-bin/quota-axi"
+  out=$(PATH="$TMP_ROOT/quota-bin:$PATH" fm_worker_account_select codex "$config" '' codex 2>&1) ||
+    fail "codex $version: refused a synthetic file-backed local login: $out"
+  assert_equals "$stored" "${out%%$'\t'*}" "codex $version selected a different root"
+  assert_equals fm-live-configured-model "${out##*$'\t'}" "codex $version did not report the configured model"
+  pass "codex $version: file-backed local status accepts a synthetic cache, refuses an empty root and suppresses diagnostics"
+  # Recent Codex account/read discovers workspace routing even without a forced
+  # refresh. Serve only that external boundary locally; Codex itself still
+  # decodes credentials and emits every account identity consumed by the guard.
+  # The response contract follows the vendor's account test fixture:
+  # https://github.com/openai/codex/blob/main/codex-rs/app-server/tests/suite/v2/account.rs
+  python3 - "$TMP_ROOT" "$ROOT/bin/fm-codex-accounts.py" <<'PY' || fail "codex $version: local account/read identity guard failed"
+import base64, datetime, http.server, json, os, pathlib, subprocess, sys, threading, time
+
+root = pathlib.Path(sys.argv[1])
+requests = []
+
+class Backend(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        requests.append(self.path)
+        body = json.dumps({"accounts": [{"id": "fm-live-synthetic-account",
+            "workspace_backend_origin": "https://chatgpt.com",
+            "account_routing_override": "NO_CONSTRAINT"}]}
+            if self.path.endswith("/accounts/check") else {"models": []}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+def encode(value):
+    return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
+
+backend = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Backend)
+thread = threading.Thread(target=backend.serve_forever)
+thread.start()
+try:
+    origin = f"http://127.0.0.1:{backend.server_port}"
+    config = root / "codex-config" / "codex-accounts"
+    for duplicate in (True, False):
+        for i, email in enumerate(("same-account@example.invalid",
+                "same-account@example.invalid" if duplicate else "other-account@example.invalid")):
+            folder = root / f"codex-identity-{i}"
+            folder.mkdir(exist_ok=True)
+            # Both JWTs need a nonempty signature and future expiry so the real
+            # runner can parse them without requesting a token refresh.
+            token = encode({"alg": "none"}) + "." + encode({"email": email,
+                "exp": int(time.time()) + 36000, "iat": int(time.time()),
+                "https://api.openai.com/auth": {"chatgpt_account_id": "fm-live-synthetic-account",
+                                                 "chatgpt_plan_type": "pro"}}) + "." + encode("synthetic-signature")
+            (folder / "auth.json").write_text(json.dumps({"auth_mode": "chatgpt", "OPENAI_API_KEY": None,
+                "tokens": {"id_token": token, "access_token": token,
+                           "refresh_token": f"fm-live-synthetic-refresh-{i}", "account_id": "fm-live-synthetic-account"},
+                "last_refresh": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")}))
+            stamp = time.time() - i
+            os.utime(folder / "auth.json", (stamp, stamp))
+            (folder / "config.toml").write_text(f'''chatgpt_base_url="{origin}/backend-api"
+model_provider="isolated"
+model="synthetic"
+[features]
+plugins=false
+apps=false
+[model_providers.isolated]
+name="isolated"
+base_url="{origin}/v1"
+wire_api="responses"
+requires_openai_auth=true
+''')
+        config.write_text("".join(str(root / f"codex-identity-{i}") + "\n" for i in range(2)))
+        result = subprocess.run([sys.executable, sys.argv[2], "guard", "--config", str(config)],
+                                capture_output=True, text=True, timeout=30)
+        output = result.stdout + result.stderr
+        assert result.returncode == (1 if duplicate else 0), (duplicate, result.returncode, output)
+        if duplicate:
+            assert "duplicate Codex account" in result.stderr, output
+        else:
+            assert not output, output
+        assert "example.invalid" not in output and "fm-live-synthetic" not in output, output
+        print(json.dumps({"scenario": "duplicate identity" if duplicate else "distinct identities",
+                          "exit": result.returncode, "stdout": result.stdout, "stderr": result.stderr}))
+    # Older runners may read cached identities without workspace discovery.
+    # No supported runner should need a credential refresh for this fixture.
+    assert all(path.endswith("/accounts/check") or path.startswith("/v1/models")
+               for path in requests), requests
+finally:
+    backend.shutdown()
+    backend.server_close()
+    thread.join()
+PY
+  pass "codex $version: account/read compares synthetic ChatGPT identities without refresh or credential output"
+  CHECKED="$CHECKED codex"
+}
 
 claude_live_cases() {
   local version empty helper
@@ -111,22 +233,23 @@ pi_live_cases() {
   CHECKED="$CHECKED $exe"
 }
 
-for runner in claude pi pi-signed; do
+for runner in claude pi pi-signed codex; do
   if ! command -v "$runner" >/dev/null 2>&1; then
     printf 'skip-runner: %s is not installed, so its pin check was not exercised\n' "$runner"
     continue
   fi
   case "$runner" in
     claude) claude_live_cases ;;
+    codex) codex_live_cases ;;
     *) pi_live_cases "$runner" ;;
   esac
 done
 
 if [ -z "$CHECKED" ]; then
   if [ "${FM_WORKER_ACCOUNT_LIVE_E2E:-${FM_LIVE:-}}" = 1 ]; then
-    fail "the worker account live guard was requested but no supported runner (claude, pi, pi-signed) is installed"
+    fail "the worker account live guard was requested but no supported runner (claude, pi, pi-signed, codex) is installed"
   fi
-  echo "skip: live: no supported runner (claude, pi, pi-signed) installed"
+  echo "skip: live: no supported runner (claude, pi, pi-signed, codex) installed"
   exit 0
 fi
 echo "# worker account live guard checked:$CHECKED"

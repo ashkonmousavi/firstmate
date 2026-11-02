@@ -80,9 +80,24 @@ tasks_in() {  # <home> <tasks-axi args...>
   (cd "$home" && tasks-axi "$@")
 }
 
+# Existing fixtures name a finding origin when the call under test is about
+# something else. A call that already passes --origin or --origin-kind is left
+# unchanged so re-holds still prove that an omitted origin is preserved.
 run_captain() {  # <home> <command args...>
   local home=$1
   shift
+  if [ "${1:-}" = hold ]; then
+    local arg has_origin=0 has_kind=0
+    for arg in "$@"; do
+      case "$arg" in
+        --origin) has_origin=1 ;;
+        --origin-kind) has_kind=1 ;;
+      esac
+    done
+    if [ "$has_origin" -eq 0 ] && [ "$has_kind" -eq 0 ]; then
+      set -- "$@" --origin hold-fixture
+    fi
+  fi
   PATH="$home/fakebin:$PATH" REAL_TASKS_AXI="$TASKS_AXI_BIN" \
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" "$ROOT/bin/fm-captain-hold.sh" "$@"
@@ -621,7 +636,8 @@ SH
   PATH="$fb:$PATH" REAL_TASKS_AXI="$TASKS_AXI_BIN" \
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
-    "$ROOT/bin/fm-captain-hold.sh" hold "$id" --reason "captain must decide" >/dev/null \
+    "$ROOT/bin/fm-captain-hold.sh" hold "$id" --reason "captain must decide" \
+      --origin "$id" >/dev/null \
     || fail "holding on a beads-configured home failed without a markdown backlog"
   assert_grep "hold $id" "$log" \
     "the captain-hold mutation never reached the configured backend"
@@ -758,7 +774,7 @@ EOF
     || fail "could not register the captain-held task"
   run_captain "$home" hold sample-route-call \
     --title "Choose route: north, south" --reason "captain route and access choices pending" \
-    --repo sample >/dev/null \
+    --repo sample --origin "$id" >/dev/null \
     || fail "idempotent hold retry failed"
   [ "$(grep -cE "^- \[ \] sample-route-call -" "$home/data/backlog.md")" = 1 ] \
     || fail "idempotent retry duplicated the captain-held task"
@@ -823,7 +839,8 @@ test_answer_records_and_closes() {
   printf 'done: report complete\n' > "$home/state/$id.status"
   printf '# Guard review\n\nOne captain choice remains.\n' > "$home/data/$id/report.md"
   run_captain "$home" hold sample-guard-call \
-    --title "Choose the guard option" --reason "captain guard choice pending" --repo sample >/dev/null \
+    --title "Choose the guard option" --reason "captain guard choice pending" \
+    --repo sample --origin "$id" >/dev/null \
     || fail "could not register the captain-held task"
   run_captain "$home" complete "$id" sample-guard-call >/dev/null \
     || fail "completion failed for the held inventory"
@@ -987,16 +1004,16 @@ test_hold_records_and_preserves_its_origin_kind() {
   assert_grep "origin-kind must be owner-request, finding, or pipeline-outcome" \
     "$home/bad-kind.err" "the refused origin kind did not name the three classes"
   run_captain "$home" hold sample-kind-call --title "Sample attribution call" \
-    --reason "captain choice pending" --origin-kind owner-request >/dev/null \
-    || fail "could not hold a call attributed to an owner request"
+    --reason "captain choice pending" --origin hold-fixture --origin-kind finding >/dev/null \
+    || fail "could not hold a call attributed to a finding"
   show=$(tasks_in "$home" show sample-kind-call --full)
-  assert_contains "$show" "Captain hold origin-kind: owner-request" \
+  assert_contains "$show" "Captain hold origin-kind: finding" \
     "the hold did not record its attribution on the task"
   FM_CAPTAIN_HOLD_NOW=2026-07-15T09:00:00Z run_captain "$home" hold sample-kind-call \
-    --reason "captain choice still pending" >/dev/null \
+    --reason "captain choice still pending" --origin hold-fixture >/dev/null \
     || fail "could not re-hold without naming an origin kind"
   show=$(tasks_in "$home" show sample-kind-call --full)
-  assert_contains "$show" "Captain hold origin-kind: owner-request" \
+  assert_contains "$show" "Captain hold origin-kind: finding" \
     "a re-hold without --origin-kind dropped the recorded attribution"
   run_captain "$home" hold sample-kind-call --reason "re-scoped to the pipeline" \
     --origin-kind pipeline-outcome >/dev/null \
@@ -1004,7 +1021,7 @@ test_hold_records_and_preserves_its_origin_kind() {
   show=$(tasks_in "$home" show sample-kind-call --full)
   assert_contains "$show" "Captain hold origin-kind: pipeline-outcome" \
     "a new origin kind did not replace the recorded attribution"
-  assert_not_contains "$show" "Captain hold origin-kind: owner-request" \
+  assert_not_contains "$show" "Captain hold origin-kind: finding" \
     "the replaced attribution survived on the task"
 
   tasks_in "$home" add sample-kind-origin "Review the sample" --kind scout --repo sample >/dev/null \
@@ -1645,7 +1662,7 @@ test_bound_channel_answers_close_at_answer_time() {
     --reason "captain old annotated reconcile pending" --repo sample --origin "$id" >/dev/null
   tasks_in "$home" add sample-gated-work "Gated sample work" --kind ship --repo sample \
     --body 'Gated work plan.' >/dev/null
-  run_captain "$home" hold sample-gated-work --reason "captain go needed" >/dev/null
+  run_captain "$home" hold sample-gated-work --reason "captain go needed" --origin "$id" >/dev/null
   run_captain "$home" complete "$id" \
     sample-membership-call sample-headline-call sample-forged-call sample-invalid-close-call \
     sample-source-reconcile sample-bare-reconcile sample-old-shape sample-old-reconcile \
@@ -2377,10 +2394,10 @@ test_chat_channel_feeds_the_same_keyed_answer_intake() {
     --title "Choose the sample chat option" --reason "captain chat choice pending" --repo sample >/dev/null \
     || fail "could not register the legacy chat row"
   run_captain "$home" hold sample-chat-followup --title "Choose the chat follow-up" \
-    --reason "captain follow-up choice pending" --repo sample >/dev/null \
+    --reason "captain follow-up choice pending" --repo sample --origin "$id" >/dev/null \
     || fail "could not register the task-id chat call"
   run_captain "$home" hold sample-chat-reconcile --title "Reconcile from chat" \
-    --reason "captain chat reconcile pending" --repo sample >/dev/null \
+    --reason "captain chat reconcile pending" --repo sample --origin "$id" >/dev/null \
     || fail "could not register the chat reconcile call"
   run_captain "$home" complete "$id" "$id-decision-chat-choice" sample-chat-followup \
     sample-chat-reconcile >/dev/null \
@@ -3237,7 +3254,8 @@ EOF
   PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_DATA_OVERRIDE="$data" FM_CONFIG_OVERRIDE="$home/config" \
     "$ROOT/bin/fm-captain-hold.sh" hold "$id" \
-    --reason "captain must choose after relocated interrupted cleanup" >/dev/null \
+    --reason "captain must choose after relocated interrupted cleanup" \
+    --origin hold-fixture >/dev/null \
     || fail "could not hold the relocated answer-before-replay fixture"
   PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_DATA_OVERRIDE="$data" FM_CONFIG_OVERRIDE="$home/config" \
@@ -3319,7 +3337,8 @@ EOF
   PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_DATA_OVERRIDE="$data" FM_CONFIG_OVERRIDE="$home/config" \
     "$ROOT/bin/fm-captain-hold.sh" hold "$id" \
-    --reason "captain must choose the relocated sample outcome" >/dev/null \
+    --reason "captain must choose the relocated sample outcome" \
+    --origin hold-fixture >/dev/null \
     || fail "could not hold the relocated work item"
   PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_DATA_OVERRIDE="$data" FM_CONFIG_OVERRIDE="$home/config" \
@@ -4722,7 +4741,122 @@ SH
   pass "marked hold reasons round-trip through public reads, fleet, startup, and return without changing other fields"
 }
 
+# A firstmate-owned wait has no owner message. The public hold command refuses
+# it and names the plain external hold. run_captain injects a fixture origin,
+# so these calls address the script directly.
+test_hold_refuses_a_call_with_no_owner_message_reference() {
+  local home rc show id
+  home=$(make_home owner-source)
+  hold_direct() {
+    PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+      FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+      "$ROOT/bin/fm-captain-hold.sh" "$@"
+  }
+  set +e
+  hold_direct hold unsourced-call --title "Unsourced wait" \
+    --reason "revisit after the freeze" \
+    > "$home/refuse.out" 2> "$home/refuse.err"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "hold accepted a call with no owner-message reference"
+  assert_grep "a wait that is firstmate's own is not a captain call" \
+    "$home/refuse.err" "the refusal did not say a firstmate wait is not a captain call"
+  assert_grep "fm-tasks-axi.sh hold <id> --reason <text> --kind external --until YYYY-MM-DD" \
+    "$home/refuse.err" "the refusal did not name the plain external hold"
+  if grep -q 'unsourced-call' "$home/data/backlog.md"; then
+    fail "the refused hold created a task"
+  fi
+
+  set +e
+  hold_direct hold owner-request-gap --title "Owner request without a message" \
+    --reason "captain must choose" --origin review-origin --origin-kind owner-request \
+    > "$home/owner-gap.out" 2> "$home/owner-gap.err"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "hold accepted an owner-request with no checkable source"
+  assert_grep "a wait that is firstmate's own is not a captain call" \
+    "$home/owner-gap.err" "an owner-request without a source did not use the plain-hold refusal"
+  if grep -q 'owner-request-gap' "$home/data/backlog.md"; then
+    fail "the refused owner-request hold created a task"
+  fi
+
+  hold_direct hold sourced-call --title "Sourced finding" \
+    --reason "captain must choose the finding" \
+    --origin review-origin --origin-kind finding >/dev/null \
+    || fail "hold refused a finding that named its origin"
+  show=$(tasks_in "$home" show sourced-call --full)
+  assert_contains "$show" "Captain hold origin: review-origin" \
+    "a finding hold did not record its origin"
+  assert_contains "$show" "Captain hold origin-kind: finding" \
+    "a finding hold did not record its attribution"
+
+  id="owner-sourced-call"
+  python3 - "$home" "$home/packet.json" "$id" <<'PY'
+import hashlib, json, os, sys
+home, path, task = sys.argv[1], sys.argv[2], sys.argv[3]
+text = "Explain the result"
+packet = {
+    "version": 1,
+    "origin_home": home,
+    "origin_task_id": task,
+    "expected_body_sha256": None,
+    "interpretation_owner": "intake",
+    "interpretation_complete": True,
+    "sources": [{
+        "session_id": "session-1",
+        "message_uuid": "source-1",
+        "file_ref": "old-session.json",
+        "source_custody": "complete",
+        "full_text": text,
+        "full_text_sha256": hashlib.sha256(text.encode()).hexdigest(),
+    }],
+    "requirements": [{
+        "id": "r1",
+        "kind": "explanation",
+        "source_message_uuid": "source-1",
+        "text_ref": text,
+        "safe_text": None,
+        "source_binding": "verified_complete",
+        "disposition": "pending",
+        "proof_refs": [],
+        "superseded_by": [],
+        "proof_kind": "reply",
+        "acceptance_level": "source",
+    }],
+    "corrections": [],
+}
+fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+with os.fdopen(fd, "w", encoding="utf-8") as handle:
+    json.dump(packet, handle)
+PY
+  PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+    FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+    FM_ROOT_OVERRIDE="$ROOT" \
+    "$ROOT/bin/fm-tasks-axi.sh" add "$id" "Owner sourced call" \
+    --owner-request-file "$home/packet.json" >/dev/null \
+    || fail "could not bind the owner request"
+  hold_direct hold "$id" --reason "captain must choose the bound request" \
+    --origin-kind owner-request >/dev/null \
+    || fail "hold refused an owner-request whose acceptance section validates"
+  show=$(tasks_in "$home" show "$id" --full)
+  assert_contains "$show" "source-1" \
+    "the owner-request hold dropped the recorded owner message"
+  assert_contains "$show" "hold_kind: captain" \
+    "the bound owner request was not held for the captain"
+
+  show=$(run_shim "$home" hold review-origin merge-choice \
+    --title "Merge choice" --reason "captain must choose the merge") \
+    || fail "the decision-hold caller could not hold a named origin"
+  [ "$show" = "review-origin-decision-merge-choice" ] \
+    || fail "the decision-hold caller changed its composed identity: $show"
+  show=$(tasks_in "$home" show review-origin-decision-merge-choice --full)
+  assert_contains "$show" "Captain hold origin: review-origin" \
+    "the decision-hold caller did not keep passing its origin"
+  pass "hold refuses an unsourced call and keeps sourced holds and the decision-hold caller"
+}
+
 test_hold_reason_round_trips_awkward_characters
+test_hold_refuses_a_call_with_no_owner_message_reference
 test_hold_origins_precede_backend_holds
 test_historical_self_inventory_has_workable_repair
 test_inventory_compares_backend_identities

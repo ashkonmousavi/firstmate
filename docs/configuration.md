@@ -9,7 +9,7 @@ Start with the directory layout, then use the setting reference for the behavior
 | --- | --- |
 | Firstmate's code, private files, or project location | [FM_HOME](#fm_home) and [operational home layout](#operational-home-layout-and-state) |
 | Task windows and worker tools | [Runtime backend](#runtime-backend-configbackend--fm_backend) and [harness support](#harness-support) |
-| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session) |
+| Worker permissions, accounts, or environment | [Claude permission mode](#claude-permission-mode-configclaude-permission-mode), [Codex account folders](#codex-account-folders-configcodex-accounts), [worker account pin](#worker-account-pin-configclaude-account-configpi-account), [worker tool exclusions](#worker-tool-exclusions-configcrew-exclude-tools), [worker launch environment](#worker-launch-environment-configlaunch-env-allowlist), and its [Orca environment source](#orca-environment-source-configlaunch-env-tmux-session) |
 | Backlog, preferences, and memory | [Backlog backend](#backlog-backend-taskstoml--configbacklog-backend), [captain preferences](#captain-preferences-datacaptainmd--datacaptain-sharedmd), [external memory tiers](#external-memory-tiers-memory-layering-section), and [startup memory budget](#startup-memory-budget-configstartup-memory-budget) |
 | Supervision and presentation | [Pi supervision branch](#pi-supervision-branch), [supervision host](#supervision-host-configsupervision-host), and [Calm preference](#calm-preference-configcalm) |
 | Persistent secondmates | [Secondmate routes](#secondmate-routes-datasecondmatesmd) |
@@ -93,8 +93,12 @@ Each effective `FM_HOME` contains private operational directories.
 - Per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`).
 - Parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
 - Rebuildable hold-release disposition caches under `state/hold-releases/` (`bin/fm-hold-release-lib.sh`); the backlog hold owns the condition.
+- Unwatched conflicted pull-request episode markers under `state/pr-orphan-conflict/`, written only by `bin/fm-pr-orphan-sweep.sh`.
+- The append-only PR triage record `state/pr-triage.log` and its per-pull-request launch, owner-steer and queue-comment markers under `state/pr-triage/`, written only by `bin/fm-pr-triage.sh --apply` ([PR triage](#pr-triage-configpr-triage-rules)).
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 - Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
+- Conditional GitHub read caches under `state/gh-etag/` (ETag, last body, and the PR poll's stored label facts per poll) and the allowance check's `state/.gh-rate-check`, written only by `bin/fm-gh-etag-lib.sh` and `bin/fm-gh-rate-check.sh` and their callers; both are rebuildable.
+- The append-only auto-launch decision log `state/autolaunch.log` and its throttle-check episode marker, written only by `bin/fm-autolaunch.sh` and `bin/fm-autolaunch-check.sh` ([Auto-launch](#auto-launch)).
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -678,7 +682,34 @@ Arm the sweep once per home with `bin/fm-lane-release.sh arm`, which writes `sta
 
 The word is a per-home choice and is deliberately not inherited by secondmate homes, so each home moves from `off` to `audit` to `on` on its own schedule.
 [`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns the marker and the reader rule for reporting and recovery.
-The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the ledger, the audit exit codes, and the fixed limits.
+The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the check shim's code-root selection, the ledger, the audit exit codes, and the fixed limits.
+
+## Auto-launch
+
+`bin/fm-autolaunch.sh` is a plain script, with no model in the loop at all, that fills this machine's free lanes from this home's backlog.
+Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
+Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
+Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
+An item is prepared when it has a brief, `data/<id>/brief.md`, and a non-empty prep file, `data/<id>/prep.md` or the file a `Prep: data/<path>` line in its backlog body names inside this home's `data/` directory; without either it is refused with that exact reason.
+Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new ship or scout brief, replacing one left by an earlier brief, never with yolo, which stays derived from the project registry at launch.
+Run `FM_HOME=<home> bin/fm-autolaunch.sh --backfill` to print the record each existing queued item would get, then `--backfill --apply` to write the missing ones, also without yolo; it never rewrites an existing record, so it is safe to repeat on every home.
+On the other homes the commands are documented here only, and run there once the fleet update has brought the script to their `firstmate-stock` code roots:
+
+| Machine | Print first | Then write |
+| --- | --- | --- |
+| Laptop zb-crew | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/zcrew/fm-home2 /home/zcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
+| Server q-crew | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
+
+Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
+Every decision appends one tab-separated record to `state/autolaunch.log`: the time, lane, item, model, and either `launched` or `refused:<reason>`.
+
+Nothing enables a schedule automatically.
+To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
+Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line with `FM_HOME` set explicitly, recording it in the machine inventory first.
+Arm the throttle check with `bin/fm-autolaunch-check.sh arm`, which binds `state/autolaunch.check.sh` through `bin/fm-check-register.sh` so the watcher runs it on its ordinary check cadence; `disarm` removes it.
+The check prints one red line, and in a secondmate home also reports it on the parent channel, when a free lane and a prepared item have had no auto-launch record for ten minutes; otherwise it is silent.
+The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep and record derivation, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
+The [verification inventory](verification/autolaunch.md) maps affected classes to regressions and identifies live-proof gaps.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
@@ -695,6 +726,30 @@ The bound is required rather than cosmetic because churn and pane staleness read
 
 The flag is a home-local supervision-noise preference and is not inherited by secondmate homes, which run their own crew mix.
 [`architecture.md`](architecture.md) owns the triage contract and `bin/fm-watch.sh`'s `signal_turnend_panes_churned` owns the exact evidence and fail-closed boundaries.
+
+## PR triage (config/pr-triage-rules)
+
+`bin/fm-pr-triage.sh` is a plain script, with no model in the loop, that ranks one repository's open pull requests and acts on the top two ranks.
+Rank 1 is a pull request that unblocks others now: a CI or test-speed or red-main-repair class from the rules file, or one on the J-01 path of this home's backlog; rank 2 blocks at least one backlog item, most blocked first; rank 3 is the rest.
+A conflicting or red pull request in ranks 1 and 2 gets a fix worker for the task this home owns, through `bin/fm-control.sh relaunch` and so `bin/fm-spawn.sh`'s machine-lane admission, never beside a live worker and at most once per pull request head.
+When another registered home in `data/secondmates.md` holds the task open instead, the record names that home and that home gets one `bin/fm-send.sh --one-way` steer with the pull request URL per pull request head, under a request id hashed from the pull request number, head, home and message so a retried uncertain send of the same message deduplicates; no worker is spawned here for it.
+When no home holds the task open, nothing is launched or sent: the record says so on every pass; a task done in this home's backlog gets no fix worker.
+On a home without `data/secondmates.md`, every pull request whose task is not open in this home's backlog counts as unowned.
+A green one gets the `main-red` label and exactly one `@mergifyio queue` comment per pull request head, unless the real Mergify queue state, read with `mergify queue status` and `mergify queue show`, already has it queued; only a new push earns another comment.
+Every pull request gets one tab-separated record per pass in `state/pr-triage.log`: the time, pull request URL, rank, action, and the result or `refused:<reason>`.
+
+The refusal reasons are deliberate guards, chiefly against a duplicate spawn or a duplicate comment, and each leaves its own distinct record on every pass while it holds, which is the visible signal that a pull request is stuck:
+
+- fix: `no task branch`, `task done`, `no home owns <task>`, `owner unknown for <task>: unreadable <home>`, `owned by <home>: steered <task>`, `owned by <home>: already steered for head <sha>`, `owned by <home>: steer failed: <error>`, `no task record for <task>`, `fix already launched for head <sha>`, `worker live for <task>`, `lane release stopped <task> on purpose`, `worker liveness <posture> for <task>`, `spawn deferred pending for <task>`, `no capacity: <reason>`, `deferred: <reason>`, `launch error: <error>`; each also names the real queue state read (`queue=queued`, `queue=not queued` or `queue=unknown`).
+- queue: `queue state unreadable`, `queue paused`, `queue comment already made for head <sha>`, `label failed: <error>`, `comment failed: <error>`.
+- none: `merge-queue batch`, `draft (<class>)`, `mergeability <state>`, `checks <state>`.
+
+The local, gitignored `config/pr-triage-rules` is required: `repo=` and `project=` name what to triage, and repeatable `title=`, `label=` and `path=` lines name the rank-1 classes.
+It is home-local and not inherited by secondmate homes.
+
+Nothing enables a schedule automatically, and without `--apply` a pass is a dry run that prints each decision and command and takes no lock, writes no triage record and makes no GitHub write, except that the capacity admission check it calls appends its normal sample line to `state/machine-admission.log`.
+Enabling the five-minute schedule is a governance step MAIN performs per machine: write the rules file, read a dry run, confirm `mergify` is authenticated for the scheduling user and the label `main-red` exists on the repository, record the unit in the machine inventory, then install the schedule `bin/fm-pr-triage.sh --print-timer` proposes.
+The [`bin/fm-pr-triage.sh` header](../bin/fm-pr-triage.sh) owns the rules format, rank definition, actions, refusal reasons, and record format.
 
 ## Parked-gate wait deferral (config/wedge-defer-parked-gate)
 
@@ -853,6 +908,24 @@ That one line goes out through the shared per-line digest cut, so an over-long f
 Older bulk learning files remain reference-only; this monitor neither loads nor merges them.
 A reported review need is only a recommendation, not cleanup authority.
 
+## GitHub allowance (conditional reads and the rate check)
+
+Every request from the fleet's one personal token, on every machine and worker, spends the same 5,000-per-hour GitHub core budget, and GraphQL has its own 5,000-point budget.
+GitHub does not count a conditional request that answers `304 Not Modified`, so the remaining polls send the ETag they last saw.
+[`bin/fm-gh-etag-lib.sh`](../bin/fm-gh-etag-lib.sh) is the one helper: it stores the tag and last body per poll under `state/gh-etag/`, and its header owns the result variables, return codes, and the refusal of page-spanning lists.
+The pull-request poll (`bin/fm-pr-poll.sh`), the orphan conflict sweep (`bin/fm-pr-orphan-sweep.sh`), the contribution poll (`bin/fm-contributions.sh`), and the backlog pull-request pass (`bin/fm-inactive-reconcile.sh`) use it; each falls back to its original unconditional read when the helper declines or a read fails.
+`FM_GH_CONDITIONAL=0` turns conditional reads off everywhere.
+
+[`bin/fm-gh-rate-check.sh`](../bin/fm-gh-rate-check.sh) watches what is left.
+`gh api rate_limit` is free, and the check reads core and GraphQL remaining at most every five minutes.
+It wakes once per budget window, separately for core and GraphQL, when less than 25 percent remains.
+A main home gets an ordinary `check:` wake; a secondmate home publishes a keyed `blocked` line on its parent channel and closes it with `resolved` when the allowance recovers.
+`bin/fm-gh-rate-check.sh report` prints both remaining values on demand without touching the check's record.
+
+Arm it once per home, in that home's own `FM_HOME`; `disarm` removes it.
+On a machine whose home is `<home>`, run `FM_HOME=<home> <home-code-root>/bin/fm-gh-rate-check.sh arm`, then `FM_HOME=<home> <home-code-root>/bin/fm-gh-rate-check.sh report` to confirm it can read the allowance.
+Registering it is a reason to watch on the same terms as the [daily startup growth check](#daily-startup-growth-check).
+
 ## Walk-request carrier
 
 A secondmate whose machine has no access to the home-private walker dispatcher asks for a checkpoint walk with [`bin/fm-walk-request.sh`](../bin/fm-walk-request.sh): it writes one typed request (brief content or a local brief path, release sha, walk ids, optional bot name) on the mate's parent channel, which is the pipe that already reaches the dispatcher-owning home for every mate shape.
@@ -966,7 +1039,8 @@ The verified adapter evidence - each harness's busy-state source, interrupt and 
 The executable interrupt and exit mechanics live in [`bin/fm-control-lib.sh`](../bin/fm-control-lib.sh), and [`docs/agent-control.md`](agent-control.md) owns their lifecycle-control architecture.
 Launch mechanics, including the verified command templates, live in [`bin/fm-spawn.sh`](../bin/fm-spawn.sh).
 A Claude worker's launch brief is published as an operational record in the receiving home's state and delivered as a printable doorbell; if publication fails, the spawn reports the failure and launches nothing rather than sending a marker that Claude Code would strip.
-Other harnesses retain the typed operational-marker launch path.
+Other harnesses retain operational-marker launch delivery.
+For Codex startup confirmation, effort display, and transport limits, see [Codex launch brief](verification/runtime-backends.md#codex-launch-brief).
 
 Pi-family launches adapt the regular-TUI safeguard to the installed CLI's capabilities; [`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns the exact version-safe launch mechanics.
 Enabled primary-session turn-end guard integrations are tracked as repo-level hook files and documented in [`docs/turnend-guard.md`](turnend-guard.md).
@@ -1121,6 +1195,52 @@ Names present in the registry produce no report; unknown or unverified names do 
 Each relaunch installs a fresh worker extension with the home's current list, so the replacement performs the same check.
 
 [`bin/fm-exclude-tools-lib.sh`](../bin/fm-exclude-tools-lib.sh) implements parsing and pre-launch validation for this contract; [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s header owns the launch-flag mechanics.
+
+## Codex account folders (config/codex-accounts)
+
+Codex workers can opt into independent, file-backed account folders using a home-local `config/codex-accounts` file.
+Without that file, existing ambient Codex behavior is unchanged.
+Each line names one literal absolute existing folder, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters and duplicate folders (including aliases) refuse.
+Each folder needs its own sign-in, obtained independently on that machine; never copy or link `auth.json` between folders or machines.
+The [Codex authentication contract](https://github.com/openai/codex/issues/15410) deliberately gives each `CODEX_HOME` independent authentication.
+
+Before allocating a ship or scout endpoint, Firstmate checks for duplicate sign-in files and asks `codex login status` about configured folders with file-backed storage and a cleared credential environment.
+Among locally signed-in folders with shared configuration present, it excludes accounts whose applicable account-wide or selected model/product quota is exhausted or at zero effective percent, then selects the greatest fresh main weekly room from quota-axi; missing, stale or unmeasured room ranks below measured room, and lexical folder order breaks ties.
+Exhausted runway excludes an account even when its remaining percentage is unknown.
+The requested model determines applicable model/product scopes; when omitted or `default`, the helper reads Codex's effective configuration for the actual launch directory, including trusted project layers, and, if no model is configured, its reported catalog default.
+Fresh and released copies resolve default models after allocation, and secondmates after home synchronization, before model-specific quota filtering and worker startup; preflight rejects known universal exhaustion before allocation or stopping a live secondmate.
+The selected concrete model is passed explicitly to the quota gate and worker, including relaunches; an unrelated dispatch profile cannot supply a different quota model.
+If Codex cannot report a concrete default model, launch refuses without guessing.
+The explicit launch quota gate reads that selected folder, and its selection is preserved through provisioning.
+Control-plane relaunch of an existing copy repeats preflight in its recorded worktree before stopping the old agent and carries its chosen folder and model into the replacement launch.
+No usable folder refuses rather than falling back to `~/.codex`; raw Codex launch expressions refuse because they could override the account.
+The generated backend command explicitly exports `CODEX_HOME`, selects file-backed storage and removes ambient OpenAI API-key variables.
+The spawned line and task record carry `account=<absolute-folder>`.
+This is a home-wide Codex list, separate from the Claude and Pi pins below; it has no per-secondmate list override.
+
+Use the `prepare` command in [`bin/fm-codex-accounts.py`](../bin/fm-codex-accounts.py) to link shared non-auth configuration into an existing folder before enabling it.
+Its help owns the exact commands and allowlist: configuration (including MCP definitions and project trust), instructions, rules and optional skills are shared; credentials, sessions, logs and caches remain account-local.
+The required launch files are `config.toml`, `AGENTS.md`, and `rules/`; conflicting destinations refuse rather than being replaced.
+The shared rules directory must contain real `.rules` files; individually symlinked rule files refuse because Codex ignores them, while a directory link preserves the regular files beneath it.
+The existing Codex readiness gate answers a complete recognized worktree-trust dialog and verifies processing; it never answers a sign-in dialog, and ordinary ship/scout launches keep hooks disabled.
+
+quota-axi is external; the helper's `quota` command is the per-folder wrapper, using its `--profile-only` mode with explicit `CODEX_HOME`, no refresh, no cache and no Pi, keyring or RPC fallback.
+It returns a distinct folder-labelled row for every configured folder, including unavailable readings, without exposing vendor diagnostics or account identity.
+It requires quota-axi with `--profile-only` support (0.1.66 or newer); an unsupported or failed reading remains unmeasured.
+Ordinary quota-axi output is unchanged; use this wrapper on each machine to see all configured Codex folders.
+
+The helper's `register` command installs one authenticated custom watcher check per configured folder through [`bin/fm-check-register.sh`](../bin/fm-check-register.sh).
+Checks are silent when healthy and alarm on a missing local sign-in, missing shared configuration, duplicate file or six days without a credential-file write.
+File age is a maintenance heuristic, not token expiry; neither local login status nor a recent file write proves that a refresh token remains valid, and revocation cannot be predicted.
+The [official persistent-runner guide](https://learn.chatgpt.com/docs/auth/ci-cd-auth) supports a weekly lightweight normal Codex request for otherwise idle sessions.
+The explicit `maintain` command implements that pattern in a temporary directory and retains Codex's refreshed file in the same account folder; registering a check does not schedule or execute maintenance.
+Use one machine-local schedule per folder when normal work does not maintain it, and serialize maintenance against that folder's other jobs.
+The `guard` command never opens or reads credential contents: it rejects auth links, matching device/inode pairs, and matching size/mtime pairs.
+It also compares ChatGPT email identities returned by the runner's [app-server account/read interface](https://developers.openai.com/codex/app-server#1-check-auth-state) with token refresh disabled, keeping identities private and rejecting two folders reporting the same identity.
+API-key accounts, ChatGPT accounts without email, and runners that cannot report an identity retain metadata-only detection; changed metadata can evade that check, and the guard does not inspect other machines.
+Vendor invocations terminate their owned process groups, including wrapper descendants, and reap the direct vendor process on completion, timeout or external cancellation by SIGHUP, SIGINT or SIGTERM.
+Each app-server read has a ten-second deadline.
+Current regression and real-runner guard entry points are recorded in [runtime verification](verification/runtime-backends.md#codex-account-folder-checks).
 
 ## Worker account pin (config/claude-account, config/pi-account)
 
@@ -1353,13 +1473,20 @@ Project limits below apply in addition to machine admission.
 
 The root home must also provide `config/machine-admission.json` before installing this reader.
 It is the numeric policy owner for resource admission, independent of the ceiling/reserve pair; worker-instruction prose is not parsed.
-The [resource reader's policy validator](../bin/fm-machine-resources.py) owns the `fm-machine-admission.v1` schema and exact bounds for `memory_floor_gib`, `disk_floor_gib`, `memory_full_avg60_max` and the absolute-path array `disk_paths`.
-Memory must exceed the floor as well as satisfy the existing reserve; every configured disk path must exceed its floor, and memory full PSI avg60 must remain below its limit on the host and every memory-controller ancestor.
+The [resource reader's policy validator](../bin/fm-machine-resources.py) owns the `fm-machine-admission.v1` schema and exact bounds for `memory_floor_gib`, `disk_floor_gib`, `memory_full_avg60_max`, the optional `memory_full_avg300_max` and the absolute-path array `disk_paths`.
+Memory must exceed the floor as well as satisfy the existing reserve; every configured disk path must exceed its floor, and memory full PSI avg60 must remain below `memory_full_avg60_max` on the host and every memory-controller ancestor.
+When `memory_full_avg300_max` is set, memory full PSI avg300 must also remain below it, and `memory_full_avg60_max` then serves as the ceiling for a short burst, so set it well above the avg300 limit.
+The [kernel's PSI averages](https://github.com/torvalds/linux/blob/v6.12/kernel/sched/psi.c) decay exponentially, so avg300 responds more slowly to bursts than avg60; neither threshold requires pressure to persist for its named duration.
+For example, `"memory_full_avg300_max": 5` with `"memory_full_avg60_max": 25` admits a reading with avg60 of 12 and avg300 of 2 when the other resource checks pass, but refuses at avg300 of 5 or avg60 of 25.
+Without the optional field the avg60 rule alone applies, unchanged.
+The [machine-admission PSI-window verification](verification/machine-admission-psi-window.md) records real-machine refusal comparisons, remaining laptop refusals, and the commands to repeat the measurement.
+The window change takes effect on a host only after its config adds `memory_full_avg300_max` and adjusts the avg60 ceiling.
 Missing or malformed policy, pressure or disk evidence refuses admission rather than treating the machine as healthy.
 CPU utilization and load average do not gate admission.
 The shared `bin/fm-machine-resources.py` reader bounds host MemAvailable by every finite cgroup memory.high/memory.max minus max(memory.current - inactive_file, 0), using the same hard-floor calculation as private consumers.
 This effective reading is separate from the unchanged high-(anon+shmem) reserve balance.
 The JSON report includes `resource_policy_sha256`, `memory_floor_kb`, `effective_available_kb`, `memory_full_avg60` and `disk_free_min_kb` for consuming placement and runner adapters.
+Every resource verdict is also logged best effort to the reading home's `state/machine-admission.log`, so refusals can be tabulated against real free memory; a failed log write never changes admission, and [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns its columns and size cap.
 The hash covers the policy's bytes with trailing newline characters removed, so private readers can identify the exact same policy revision.
 Operator-owned runner adapters may retain stronger role-specific reservations in addition to this common floor.
 During migration, install the numeric config and migrate every private reader before removing any old prose input; do not publish a new admission reader without its required config.
@@ -1370,6 +1497,10 @@ Tracked self-update preserves these ignored host declarations.
 
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
 It exits 75 when room cannot be proved and does not change task state.
+A fresh ship or scout spawn deferred with `no free machine lane` is recorded for automatic retry when a lane frees, oldest eligible request first within that home; ordering is not machine-wide.
+Automatic retry requires a readable backlog row proving the task is still queued, not held, and not blocked; manual-backlog homes and unreadable rows never launch automatically.
+Relaunches and other admission refusals are not recorded for automatic retry.
+The [`bin/fm-spawn-deferred.sh` header](../bin/fm-spawn-deferred.sh) owns eligibility, retry timing, saved launch arguments, failure handling, and state mechanics.
 `bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
 External activity and CI-runner tools should consume this API instead of retaining ceiling or reserve constants.
 
@@ -1377,6 +1508,7 @@ The existing home-summary refresh also atomically publishes `state/lane-capacity
 Fetch that file from each machine through the existing fleet transport, then pass the local copies to `bin/fm-place.sh` for advisory placement.
 The placement command names the eligible machine with the most free lanes, breaking ties by available memory headroom and then machine name.
 Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
+fm-capacity reports one machine-wide `admitted` fact (readable, reason `ok` and a free lane), with `generated_epoch` as its age; per-task eligibility, filtering before ranking and the join are computed by the consuming reader that joins this fact with its own task list.
 Advice never reserves a lane, and spawn always rereads live facts before launch.
 
 ## Curated delivery exceptions (config/curated-delivery-exceptions)
@@ -1421,6 +1553,32 @@ Firstmate resolves the rule's profile object or array under `AGENTS.md` section 
 - Batch spawns satisfy the same requirement with a shared `--harness`.
 - Secondmate spawns are exempt and resolve through `config/secondmate-harness` using the registered mate's id; see [Choose the secondmate harness](#choose-the-secondmate-harness) for pin precedence and legacy parsing.
 
+**Explicit-harness quota gate**
+
+This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-lib.sh` owns its mechanics.
+
+- A spawn that names its adapter explicitly (`--harness` or the positional) and an `fm-control.sh relaunch --harness` read one `quota-axi --json` snapshot before launch.
+  Control checks before stopping an ordinary worker and before recreating a released copy; the delegated spawn retains that decision and evidence.
+- The quota model is the launch's selected model string, including a retained relaunch model; if none is selected, the gate uses the sole configured dispatch profile for that harness, otherwise only harness-level rows apply.
+  Strings are used as written: the gate does not resolve aliases or defaults through a harness catalog, invoke a harness executable, or change worker model selection.
+  A profile's declared provider is its quota family; a model's account prefix selects its account row through the same family/account relation as typed dispatch.
+  Single-provider harnesses retain their existing family mapping.
+- The gate refuses when an applicable row is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends less than three hours from now, whatever its projection confidence.
+- Alternatives come only from configured rules and default profiles.
+  The refusal prints their configured harness, model and effort strings, ranked by highest known `spendPriority`, with ties named together.
+  Candidates must satisfy task-kind, backend, worker tool-exclusion, visible-capture, concrete model/effort, and configured account-provider restrictions, including per-secondmate pin precedence.
+  Remote secondmate routes exclude OMP from alternatives; local secondmates retain OMP support.
+  Native catalog availability and sign-in checks remain the existing launch preflight's responsibility.
+- A missing provider declaration or quota row, an unmeasured row, an unreadable or invalid snapshot, or a missing `quota-axi` is disclosed uncertainty: one `notice:` line, and launch proceeds.
+  Conflicting configured quota-family declarations refuse unless overridden.
+- `--quota-override <reason>` launches a refused adapter and records `quota_override=<reason>` and `quota_override_evidence=<the refusal and alternative>` in `state/<id>.meta`; a later relaunch without the flag drops both.
+  The flag requires an explicitly named adapter and a non-empty one-line reason; implicit launches and raw launch commands reject it.
+  A batch forwards its shared override to every pair.
+  Remote launch and relaunch forward the flag and retain the host's authoritative evidence.
+- Direct and control relaunches without a caller-supplied explicit harness, raw launch commands, and session-start secondmate respawns are not gated.
+
+[Quota gate regressions](../tests/fm-quota-gate.test.sh) exercise these decisions without native catalog probes.
+
 **Contract owners**
 
 This section is the single owner of the canonical schema and its per-field semantics.
@@ -1458,7 +1616,8 @@ This section is the single owner of the canonical schema and its per-field seman
 
 **Fields applied only by typed resolution**
 
-Rule `approval`, `min_confidence`, and `floor`, and profile `provider` and `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
+Rule `approval`, `min_confidence`, and `floor`, and profile `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
+Profile `provider` is also consumed by the [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson), independently of typed resolution.
 The resolver supplies the fixed neutral Choice option `No listed rule applies to this task.` for work that matches no listed rule.
 
 - `approval` accepts only `"captain"` and means a task the rule matches is never dispatched from the tool's answer alone.
@@ -1477,7 +1636,8 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 **Provider identifiers and mappings**
 
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
-Bootstrap validates resolver-only `approval`, `min_confidence`, `floor`, and present `provider` values only while typed resolution is active; without the key those inert fields and the pre-existing verified-harness baseline preserve bootstrap behavior.
+Bootstrap validates `approval`, `min_confidence`, `floor`, and present `provider` values only while typed resolution is active.
+Without the key, bootstrap keeps its pre-existing validation baseline; the [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson) applies independently.
 
 Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
 
@@ -1511,7 +1671,8 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 - When the file exists, bootstrap validates it with `jq`.
 - Valid files stay silent by default; with `FM_BOOTSTRAP_VERBOSE_FACTS=1`, bootstrap emits `BOOTSTRAP_INFO: crew dispatch active config/crew-dispatch.json`, one `BOOTSTRAP_INFO:` fact per rule, and one fact for the optional default profile set.
 - Malformed JSON, malformed rules, an empty or malformed profile array, an unverified harness, or an effort value unsupported by that harness is reported as `CREW_DISPATCH: invalid config/crew-dispatch.json - ...`.
-- While typed resolution is active, malformed `approval`, `min_confidence`, `floor`, and present `provider` declarations receive the same diagnostic; without the key those inert declarations preserve the pre-existing bootstrap behavior.
+- While typed resolution is active, malformed `approval`, `min_confidence`, `floor`, and present `provider` declarations receive the same diagnostic.
+  Without the key, bootstrap retains its pre-existing validation behavior; see "Fields applied only by typed resolution" above for the distinction from the quota gate.
 - Missing `jq` follows the [bootstrap diagnostics policy](../.agents/skills/bootstrap-diagnostics/SKILL.md).
 - While the file remains present, no crewmate or scout spawn may proceed without an explicit resolved harness; malformed configuration must be reported and corrected rather than selected around.
 
@@ -1577,6 +1738,9 @@ After the answer, code applies all remaining checks and ranking:
 - The confidence floor and the matched rule's `approval` and `floor`.
 - Each candidate's `provider` and `floor`.
 - Every applicable account-wide and model/product row from one `quota-axi --json` snapshot.
+- The runway-feasibility gate: while at least one eligible, rankable candidate has known `through_reset` runway on every applicable row, an otherwise eligible candidate with a known, established `projected_exhaustion` row becomes ineligible.
+  Without such an alternative, this gate adds no refusals; existing exhaustion, zero-quota, and profile-floor vetoes still apply.
+  Projections with early, unknown, or missing confidence cannot justify a projected-exhaustion refusal; unknown runway alone neither refuses a candidate nor supplies a through-reset alternative.
 - The numeric `spendPriority` argmax over candidates, using each candidate's limiting row.
 
 The [shared quota library](../bin/fm-quota-axi-lib.sh) accepts schema 5 and schema 6 and implements the [account-matching contract](../.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
@@ -1620,7 +1784,8 @@ Every result above exits 0.
 **Firstmate retains the dispatch decision**
 
 The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
-By accepted design, a `clear` result does not enforce catalog/authentication, reasoning-class, or completion-runway gates.
+By accepted design, a `clear` result does not enforce catalog/authentication or reasoning-class gates, and its runway gate is the through-reset rule above rather than a completion-horizon estimate.
+The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` enforces only the fixed-horizon [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson).
 
 Firstmate passes its profile line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
 
@@ -1673,6 +1838,9 @@ The per-backend delta is required only for the backend resolved from `FM_BACKEND
 
 The JSON-emitting adapters (`herdr`, `zellij`, `cmux`, `paseo`) need `jq` because their spawn and liveness paths parse backend JSON.
 Every session-provider-only backend (`tmux`, `herdr`, `zellij`, `cmux`, `paseo`) uses `treehouse` for worktrees.
+The supported Treehouse minimum is [v3.1.8](https://github.com/kunchenguid/treehouse/releases/tag/v3.1.8), pinned by [`bin/fm-install-treehouse.sh`](../bin/fm-install-treehouse.sh) with official release checksums.
+Bootstrap and deferred Codex allocation require that version or newer plus JSON lease allocation and conditional return by lease ID and holder; older versions refuse before acquiring a worktree or creating an endpoint.
+[`bin/fm-treehouse-lib.sh`](../bin/fm-treehouse-lib.sh) owns the shared version and capability check.
 
 Backend tool availability uses the adapter's own executable resolver, so bootstrap and spawn agree on supported non-`PATH` locations such as cmux's bundled CLI.
 An unknown resolved backend emits `BACKEND_INVALID` and blocks dispatch instead of silently dropping its dependency delta or falling back to tmux.
@@ -2394,7 +2562,7 @@ This section is the single owner of the runner's operating contract.
 
 Discovery is never a timer.
 Each registered source has its own child process blocking on that source.
-On every cycle, the watcher's `reconcile`:
+On every cycle, the watcher runs `reconcile` before remote probes and any wake that ends the cycle, so a slow remote hop or early wake cannot skip source recovery:
 
 - Republishes every captured result without a durable handled acknowledgement, regardless of earlier publication.
 - Restarts a source whose owner is gone.
@@ -2706,6 +2874,8 @@ FM_STATE_OVERRIDE=       # alternate state dir, mainly for tests
 FM_DATA_OVERRIDE=        # alternate data dir, mainly for tests
 FM_PROJECTS_OVERRIDE=    # alternate projects dir, mainly for tests
 FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
+FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
+FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds
 FM_PROC_ROOT_OVERRIDE=   # alternate /proc root for Linux process-identity reads in fm-wake-lib.sh and fm-teardown.sh, mainly for tests
 FM_BACKEND=             # optional runtime backend override for new spawns; tmux/herdr/zellij/orca/cmux/paseo support ship/scout spawns, codex-app is not accepted
 FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context propagation"
@@ -2743,7 +2913,7 @@ FM_HEARTBEAT=600        # base seconds between heartbeat scans; no-change heartb
 FM_HEARTBEAT_MAX=7200   # heartbeat backoff cap
 FM_INACTIVE_RECONCILE_SECS=900  # 60..1800-second watcher cadence and inactivity threshold; locked session start also requests an immediate scan in the deferred worker
 FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline, including budgets 1 and 2; bin/fm-inactive-reconcile.sh owns backlog budget allocation and cursor resume; wedged-scan kill backstop follows one second later
-FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch)
+FM_CHECK_INTERVAL=300   # seconds between slow checks (orphan conflict sweeps, authenticated merge polls, custom checks, or Relay dispatch)
 FM_TASK_INBOX_GRACE_SECS=90   # steering-inbox delivery grace and minimum attempt spacing, local and remote; policy: bin/fm-task-inbox-lib.sh
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts before stale escalation, local and remote
 FM_TASK_INBOX_BUSY_MAX=2      # busy-deferral budget; scope, bounds, and policy: bin/fm-task-inbox-lib.sh

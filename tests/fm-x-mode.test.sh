@@ -897,11 +897,12 @@ SH
   chmod +x "$fakebin/gh"
   cat > "$fakebin/treehouse" <<'SH'
 #!/usr/bin/env bash
-if [ "${1:-}" = get ] && [ "${2:-}" = --help ]; then
-  printf '%s\n' 'Usage: treehouse get [--lease] [--lease-holder <holder>]'
-  exit 0
-fi
-exit 0
+case "${1:-}:${2:-}" in
+  --version:*) printf '%s\n' 'v3.1.8' ;;
+  get:--help) printf '%s\n' 'Usage: treehouse get [--lease] [--lease-holder <holder>] [--json]' ;;
+  return:--help) printf '%s\n' 'Usage: treehouse return [--if-lease-id <id>] [--if-lease-holder <holder>]' ;;
+  *) exit 2 ;;
+esac
 SH
   chmod +x "$fakebin/treehouse"
   printf 'FMX_PAIRING_TOKEN=tok-missing\n' > "$home/.env"

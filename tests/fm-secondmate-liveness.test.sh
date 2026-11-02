@@ -60,6 +60,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 
@@ -91,6 +92,7 @@ esac
 exit 1
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 
@@ -146,6 +148,7 @@ printf 'called\n' > "$FM_TEST_TMUX_MARKER"
 printf 'bash\n'
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 
   for target in sess sess: :win sess:win:extra; do
     out=$(PATH="$fakebin:$BASE_PATH" FM_TEST_TMUX_MARKER="$marker" \
@@ -226,10 +229,12 @@ SH
   chmod +x "$fakebin/gh"
   cat > "$fakebin/treehouse" <<'SH'
 #!/usr/bin/env bash
-if [ "${1:-}" = get ] && [ "${2:-}" = --help ]; then
-  printf '%s\n' 'Usage: treehouse get [--lease]'
-fi
-exit 0
+case "${1:-}:${2:-}" in
+  --version:*) printf '%s\n' 'v3.1.8' ;;
+  get:--help) printf '%s\n' 'Usage: treehouse get [--lease] [--lease-holder <holder>] [--json]' ;;
+  return:--help) printf '%s\n' 'Usage: treehouse return [--if-lease-id <id>] [--if-lease-holder <holder>]' ;;
+  *) exit 2 ;;
+esac
 SH
   chmod +x "$fakebin/treehouse"
   cat > "$fakebin/no-mistakes" <<'SH'
@@ -336,6 +341,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   printf '%s\n' "$fakebin"
 }
 
@@ -752,6 +758,9 @@ EOF
   cat > "$fakebin/ssh" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "${FM_FAKE_SSH_LOG:?}"
+if [ -n "${FM_FAKE_REMOTE_SLEEP:-}" ]; then
+  sleep "$FM_FAKE_REMOTE_SLEEP"
+fi
 [ -z "${FM_FAKE_REMOTE_REPLY:-}" ] || printf '%s\n' "$FM_FAKE_REMOTE_REPLY"
 exit "${FM_FAKE_REMOTE_RC:-0}"
 SH
@@ -997,6 +1006,19 @@ test_rearm_only_resets_a_parked_mate() {
   pass "park-to-live rearming restores the budget once and retains failed recovery state"
 }
 
+test_remote_poll_probe_timeout_preserves_route() {
+  local w out started elapsed
+  w=$(make_remote_probe_world probe-timeout)
+  started=$(date +%s)
+  out=$(probe_remote "$w" poll FM_FAKE_REMOTE_SLEEP=60)
+  elapsed=$(( $(date +%s) - started ))
+  [ "$elapsed" -ge 25 ] && [ "$elapsed" -lt 45 ] \
+    || fail "a hung remote state probe was not bounded, elapsed ${elapsed}s: $out"
+  [ "$out" = 'skipped|unknown|0|||remote host unavailable or endpoint state unknown; route preserved on lab-host' ] \
+    || fail "a timed-out remote state probe must preserve the route, got: $out"
+  pass "poll probe: a remote state hop that exceeds its bound preserves the route"
+}
+
 test_tmux_agent_state_classifies
 test_tmux_agent_state_rejects_malformed_targets_before_probe
 test_herdr_agent_state_preserves_husk_classifier
@@ -1019,6 +1041,7 @@ test_relaunch_waits_for_other_mates_relaunch_lock
 test_sweep_refuses_relaunch_on_ledger_errors
 test_remote_poll_probe_maps_states
 test_remote_poll_probe_unreachable_preserves_route
+test_remote_poll_probe_timeout_preserves_route
 
 test_remote_parked_requires_positive_agent_absence
 test_local_parked_requires_positive_agent_absence

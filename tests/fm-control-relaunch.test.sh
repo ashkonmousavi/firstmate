@@ -21,6 +21,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/fixtures.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-control-lib.sh"
 # shellcheck source=/dev/null
@@ -215,6 +217,7 @@ esac
 exit 0
 SH
   chmod +x "$fb/tmux"
+  fm_test_codex_first_turn_wrap "$fb"
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 [ -z "${FM_FAKE_LOCK_WAITING:-}" ] || : > "$FM_FAKE_LOCK_WAITING"
@@ -523,7 +526,16 @@ SH
   printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$dir/fakebin/gh-axi"
   cat > "$dir/fakebin/treehouse" <<'SH'
 #!/usr/bin/env bash
+case "$*" in
+  --version) printf 'v3.1.8\n'; exit 0 ;;
+  'get --help') printf '%s\n' '--lease --lease-holder --json'; exit 0 ;;
+  'return --help') printf '%s\n' '--if-lease-id --if-lease-holder'; exit 0 ;;
+esac
 printf '%s\n' "$*" >> "$FM_FAKE_DIR/treehouse-log"
+if [ "${1:-}" = get ]; then
+  jq -n --arg path "$(cat "$FM_FAKE_DIR/treehouse-slot")" '{path:$path,lease_id:"released-lease"}'
+  exit
+fi
 [ ! -e "$FM_FAKE_DIR/fail-return" ] || exit 1
 exit 0
 SH
@@ -1539,6 +1551,74 @@ test_exclude_tools_refusals_happen_before_the_agent_stops() {
   [ "$(cat "$dir/fake/command")" = pi ] || fail "an unhonorable exclusion list stopped the running agent"
   [ ! -s "$dir/fake/literal" ] || fail "a refused relaunch sent lifecycle input"
   pass "fm-control relaunch: exclusion-list refusals happen before the running agent stops"
+}
+
+# The spawn quota gate runs on an explicit --harness before the old agent stops
+# (bin/fm-quota-axi-lib.sh fm_quota_gate_run).
+quota_relaunch_case() {  # <name> <id> <grok-state>
+  local dir
+  dir=$(new_case "$1" "$2")
+  add_ship_task "$dir" "$2" claude
+  printf '%s\n' '{"rules":[{"when":"fix","use":[{"harness":"grok","model":"grok-4.7"},{"harness":"codex","model":"gpt-6.1-sol","effort":"medium"},{"harness":"pi","model":"glm-5.3","effort":"high","provider":"zai"}]}],"default":{"harness":"claude"}}' \
+    > "$dir/home/config/crew-dispatch.json"
+  fm_test_quota_snapshot "$dir/quota.json" "$3"
+  printf '%s\n' "$dir"
+}
+
+test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops() {
+  local dir out rc id=rl-quota-refuse
+  dir=$(quota_relaunch_case quota-refuse "$id" short:7200)
+  printf 'grok' > "$dir/fake/becomes"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok --model grok-4.7 --note "move to grok"); rc=$?
+  expect_code 1 "$rc" "a relaunch onto grok with under three hours of runway must refuse"$'\n'"$out"
+  assert_contains "$out" "fm-control refuses explicit harness grok model grok-4.7: provider grok runway at all_products" \
+    "the refusal must name the harness, model and runway"
+  assert_contains "$out" "Best alternative: provider codex (spendPriority 0.85): --harness codex --model gpt-6.1-sol --effort medium." \
+    "the refusal must name the best-spendPriority alternative"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a quota refusal stopped the running agent"
+  [ ! -s "$dir/fake/literal" ] || fail "a quota refusal sent lifecycle input"
+  [ "$(meta_field "$dir" "$id" harness)" = claude ] || fail "a quota refusal changed the task record"
+  pass "fm-control relaunch: an explicit harness with too little quota refuses before the agent stops and names the best alternative"
+}
+
+test_secondmate_quota_relaunch_names_a_supported_alternative() {
+  local dir out rc id=rl-quota-secondmate
+  dir=$(quota_relaunch_case quota-secondmate "$id" exhausted)
+  sed -i.bak 's/^kind=ship$/kind=secondmate/' "$dir/home/state/$id.meta"
+  jq '.providers += [.providers[] | select(.provider == "codex") | .provider = "agy"
+    | .quotaSemantics.effectiveAvailability[].selection.spendPriority = 9]' "$dir/quota.json" > "$dir/with-agy.json"
+  mv "$dir/with-agy.json" "$dir/quota.json"
+  printf '%s\n' '{"default":[{"harness":"agy"},{"harness":"claude"}]}' \
+    > "$dir/home/config/crew-dispatch.json"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok); rc=$?
+  expect_code 1 "$rc" "an exhausted secondmate relaunch must refuse"$'\n'"$out"
+  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude.' \
+    "secondmate relaunch must skip higher-ranked AGY"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a quota refusal stopped the running secondmate"
+  [ ! -s "$dir/fake/literal" ] || fail "a quota refusal sent secondmate lifecycle input"
+  [ "$(meta_field "$dir" "$id" harness)" = claude ] || fail "a quota refusal changed the secondmate record"
+  pass "secondmate relaunch quota refusals recommend a supported harness before stopping the agent"
+}
+
+test_quota_override_relaunches_and_is_recorded() {
+  local dir out rc id=rl-quota-override
+  dir=$(quota_relaunch_case quota-override "$id" exhausted)
+  printf 'grok' > "$dir/fake/becomes"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$dir/quota.json" run_control "$dir" "$id" relaunch --harness grok --model grok-4.7 \
+    --quota-override "captain asked for grok" --note "move to grok"); rc=$?
+  expect_code 0 "$rc" "an explicit override must relaunch onto the refused harness"$'\n'"$out"
+  [ "$(meta_field "$dir" "$id" harness)" = grok ] || fail "the override relaunch should move the record to grok"
+  [ "$(meta_field "$dir" "$id" quota_override)" = "captain asked for grok" ] \
+    || fail "the override reason must be recorded: $(cat "$dir/home/state/$id.meta")"
+  case "$(meta_field "$dir" "$id" quota_override_evidence)" in
+    "refuse: provider grok runway exhausted_now at all_products; best alternative: provider codex"*) ;;
+    *) fail "the overridden refusal must be recorded: $(cat "$dir/home/state/$id.meta")" ;;
+  esac
+  out=$(run_control "$dir" "$id" relaunch --note "same runtime again"); rc=$?
+  expect_code 0 "$rc" "a relaunch with no explicit harness is not gated"$'\n'"$out"
+  [ -z "$(meta_field "$dir" "$id" quota_override)" ] \
+    || fail "a later relaunch without the override must not inherit the earlier override"
+  pass "fm-control relaunch: --quota-override relaunches a refused harness and records the reason and evidence"
 }
 
 test_explicit_model_wins_over_the_recorded_one() {
@@ -2740,6 +2820,7 @@ test_spawn_relaunch_refuses_a_symlinked_task_record_before_inspection() {
 exec "$dir/fakebin/tmux-real" "\$@"
 SH
   chmod +x "$dir/fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$dir/fakebin"
 
   out=$(run_spawn "$dir" rl37 --relaunch --harness claude); rc=$?
   expect_code 1 "$rc" "relaunching from symlinked metadata should refuse"
@@ -2772,6 +2853,7 @@ fi
 exec "$dir/fakebin/tmux-real" "\$@"
 SH
   chmod +x "$dir/fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$dir/fakebin"
 
   out=$(run_spawn "$dir" rl38 --relaunch --harness claude); rc=$?
   expect_code 0 "$rc" "relaunch with one continuous meta lock should succeed"$'\n'"$out"
@@ -4169,8 +4251,125 @@ SH
   pass "HUP and TERM during complete or partial snapshots preserve the brief and record on both backends"
 }
 
+test_codex_project_cwd_handoffs() {
+  local lifecycle dir id wt root out rc head marker prior_meta prior_brief
+  for lifecycle in ordinary direct-ordinary released direct-released claim-released; do
+    id="codex-cwd-$lifecycle"
+    dir=$(new_case "$id" "$id")
+    case "$lifecycle" in
+      *released)
+        add_released_ship_task "$dir" "$id"
+        wt="$dir/pool/1/repo"
+        git -C "$dir/proj" checkout -qb "fm/$id" "origin/fm/$id"
+        mkdir -p "$dir/proj/.codex"
+        printf 'model="project-default"\n' > "$dir/proj/.codex/config.toml"
+        git -C "$dir/proj" add .codex/config.toml
+        git -C "$dir/proj" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'project model fixture' || fail 'could not commit released project model fixture'
+        git -C "$dir/proj" push -q origin "fm/$id"
+        head=$(git -C "$dir/proj" rev-parse HEAD)
+        git -C "$dir/proj" checkout -q main
+        git -C "$dir/proj" branch -q -D "fm/$id"
+        python3 - "$dir/home/state/$id.meta" "$head" <<'PY'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+rows = path.read_text().splitlines()
+path.write_text("\n".join("released_head=" + sys.argv[2] if row.startswith("released_head=") else
+                          "harness=codex" if row.startswith("harness=") else row for row in rows) + "\n")
+PY
+        printf '%s\n' "$head" > "$dir/fake/pr-head"
+        ;;
+      *)
+        add_ship_task "$dir" "$id" codex
+        wt="$dir/wt"
+        mkdir -p "$wt/.codex"
+        printf 'model="project-default"\n' > "$wt/.codex/config.toml"
+        printf codex > "$dir/fake/command"
+        ;;
+    esac
+    printf codex > "$dir/fake/becomes"
+    marker=
+    for root in "$dir/account-one" "$dir/account-two"; do
+      mkdir -p "$root/rules"
+      printf '%s\n' "synthetic-session-$root" "$marker" > "$root/auth.json"
+      marker="${marker}x"
+      printf 'model="account-default"\n[projects."%s"]\ntrust_level="trusted"\n' "$wt" > "$root/config.toml"
+      printf '%s\n' "$wt" > "$root/trusted-cwd"
+      : > "$root/AGENTS.md"
+      printf 'prefix_rule(pattern=["echo"],decision="allow")\n' > "$root/rules/default.rules"
+      jq --argjson pct 80 '.providers |= [.[] | select(.provider=="codex") |
+        .state={status:"fresh"} | .windows=[{id:"weekly",kind:"weekly",percentRemaining:$pct}] |
+        .quotaSemantics.effectiveAvailability += [{scope:"model:account-default",status:"unknown",runway:{status:"exhausted_now"}}]]' \
+        "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$root/quota.json"
+    done
+    jq '.providers[].windows[0].percentRemaining=90 |
+      .providers[].quotaSemantics.effectiveAvailability += [{scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+      "$dir/account-two/quota.json" > "$dir/quota.json"
+    mv "$dir/quota.json" "$dir/account-two/quota.json"
+    printf '%s\n' "$dir/account-one" "$dir/account-two" > "$dir/home/config/codex-accounts"
+    cat > "$dir/fakebin/codex" <<'PY'
+#!/usr/bin/env python3
+import json, os, pathlib, sys
+if "status" in sys.argv:
+    sys.exit(0)
+root = pathlib.Path(os.environ["CODEX_HOME"])
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "initialize":
+        result = {}
+    elif method == "initialized":
+        continue
+    elif method == "account/read":
+        result = {"account": {"type": "apiKey"}}
+    elif method == "config/read":
+        cwd = request["params"].get("cwd")
+        config = root / "config.toml"
+        if cwd == (root / "trusted-cwd").read_text().strip():
+            config = pathlib.Path(cwd) / ".codex/config.toml"
+        model = next(line.split("=", 1)[1].strip().strip(chr(34)) for line in config.read_text().splitlines() if line.startswith("model="))
+        result = {"config": {"model": model}}
+    else:
+        sys.exit(2)
+    print(json.dumps({"id": request["id"], "result": result}), flush=True)
+PY
+    cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+cat "$CODEX_HOME/quota.json"
+SH
+    chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
+    if [ "$lifecycle" = claim-released ]; then
+      mkdir "$dir/pool/1/.fm-slot-owner"
+      prior_meta=$(cat "$dir/home/state/$id.meta")
+      prior_brief=$(cat "$dir/home/data/$id/brief.md")
+    fi
+    case "$lifecycle" in
+      direct-*)
+        printf zsh > "$dir/fake/command"
+        out=$(run_spawn "$dir" "$id" --relaunch --harness codex --model default); rc=$?
+        ;;
+      *) out=$(run_control "$dir" "$id" relaunch --harness codex --model default --note 'preserve project model'); rc=$? ;;
+    esac
+    if [ "$lifecycle" = claim-released ]; then
+      expect_code 1 "$rc" "released claim failure must refuse: $out"
+      assert_released_untouched "$dir" "$id" "$prior_meta" "$prior_brief" 'released claim failure'
+      assert_grep "return $wt --if-lease-id released-lease --if-lease-holder $id" "$dir/fake/treehouse-log" 'released claim failure must return its exact lease'
+      assert_absent "$dir/fake/created-windows" 'released claim failure opened an endpoint'
+      [ -d "$dir/pool/1/.fm-slot-owner" ] || fail 'released cleanup changed the pre-existing unsafe claim'
+      continue
+    fi
+    expect_code 0 "$rc" "$lifecycle must resolve the trusted worktree model: $out"
+    assert_equals project-default "$(meta_field "$dir" "$id" model)" "$lifecycle launch records project model B"
+    assert_equals "$dir/account-one" "$(meta_field "$dir" "$id" account)" "$lifecycle selects by quota for project B"
+    assert_grep "--model 'project-default'" "$dir/fake/literal" "$lifecycle passes B to the launched command"
+    assert_not_contains "$(cat "$dir/fake/literal")" "--model 'account-default'" "$lifecycle must not pin account A"
+  done
+  pass 'Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree'
+}
+
 # Reuse these hermetic fixtures in the pending-proof lifecycle regression.
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != "control-relaunch" ] || return 0
+
+test_codex_project_cwd_handoffs
 
 test_reboot_recovery_uses_the_real_control_and_spawn_paths
 test_tmux_absence_needs_prior_boot_evidence
@@ -4212,6 +4411,9 @@ test_worker_account_pin_follows_the_relaunch
 test_secondmate_account_pin_follows_relaunch_and_refuses_before_stop
 test_pi_exclude_tools_follow_the_relaunch
 test_exclude_tools_refusals_happen_before_the_agent_stops
+test_quota_gate_refuses_an_explicit_relaunch_before_the_agent_stops
+test_secondmate_quota_relaunch_names_a_supported_alternative
+test_quota_override_relaunches_and_is_recorded
 test_explicit_model_wins_over_the_recorded_one
 test_relaunch_onto_an_unverified_harness_is_refused
 test_prior_harness_turnend_registry_entry_is_cleared

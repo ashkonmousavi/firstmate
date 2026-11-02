@@ -144,6 +144,8 @@ CREW_STATE_BIN="${FM_INACTIVE_CREW_STATE_BIN:-$SCRIPT_DIR/fm-crew-state.sh}"
 . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
 # shellcheck source=bin/fm-backlog-transition-lib.sh
 . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+# shellcheck source=bin/fm-gh-etag-lib.sh
+. "$SCRIPT_DIR/fm-gh-etag-lib.sh"
 
 FM_INACTIVE_RECONCILE_SECS=${FM_INACTIVE_RECONCILE_SECS:-900}
 case "$FM_INACTIVE_RECONCILE_SECS" in
@@ -646,10 +648,31 @@ scan_pass() { # <cursor> <after|through> <deadline> <secondmate-id-or-empty>
 
 # One PR's state and terminal UTC timestamp as tab-separated fields through a
 # bounded read; an unreadable state or missing terminal timestamp prints nothing.
+# The read is one conditional REST request (bin/fm-gh-etag-lib.sh), so an
+# unchanged PR answers 304 and spends no rate-limit budget; its body is mapped
+# to the gh pr view shape. When the helper declines or the body is unusable,
+# the original gh pr view read runs.
 backlog_pr_state() { # <url>
-  local url=$1 out
+  local url=$1 out=''
   fm_pr_url_parse "$url" && [ "$FM_PR_PROVIDER" = github ] || return 1
-  out=$(gh pr view "$FM_PR_NUMBER" -R "$FM_PR_OWNER/$FM_PR_REPO" --json state,mergedAt,closedAt 2>/dev/null) || return 1
+  if [ -d "$STATE" ] && [ ! -L "$STATE" ] \
+    && fm_gh_etag_get "$STATE/gh-etag" "reconcile.$FM_PR_OWNER.$FM_PR_REPO.$FM_PR_NUMBER" \
+      "repos/$FM_PR_OWNER/$FM_PR_REPO/pulls/$FM_PR_NUMBER"; then
+    out=$(python3 -I -c '
+import json, sys
+try:
+    doc = json.load(sys.stdin)
+    if doc.get("merged") is True:
+        state = "MERGED"
+    else:
+        state = {"open": "OPEN", "closed": "CLOSED"}[doc["state"]]
+    print(json.dumps({"state": state, "mergedAt": doc.get("merged_at"), "closedAt": doc.get("closed_at")}))
+except (KeyError, TypeError, ValueError, AttributeError):
+    sys.exit(1)
+' < "$FM_GH_ETAG_BODY" 2>/dev/null) || out=''
+  fi
+  [ -n "$out" ] \
+    || out=$(gh pr view "$FM_PR_NUMBER" -R "$FM_PR_OWNER/$FM_PR_REPO" --json state,mergedAt,closedAt 2>/dev/null) || return 1
   printf '%s' "$out" | python3 -I -c '
 import datetime, json, sys
 try:

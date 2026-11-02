@@ -205,9 +205,12 @@ STATE=$(fm_backend_agent_state herdr "$SESSION:$PANE_ID")
   || version_fail "a malformed endpoint target does not stay unreadable"
 pass "real herdr $HERDR_VERSION: a gone session reads recoverable while a live pane and a malformed target do not"
 
+# The fake prints codex's verified busy row, the first turn bin/fm-spawn.sh's
+# positional first-turn gate waits for after a codex launch.
 cat > "$FAKEBIN/codex" <<EOF
 #!/usr/bin/env bash
 : > "$SCRATCH/codex-launched"
+printf '%s\n' '• Working (1s • esc to interrupt)'
 EOF
 chmod +x "$FAKEBIN/codex"
 printf -v FAKEBIN_Q '%q' "$FAKEBIN"

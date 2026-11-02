@@ -192,6 +192,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
 }
 
 # fm_test_fake_tmux_send <fakebin>
@@ -360,6 +361,39 @@ fm_test_run_spawn() {
     FM_SPAWN_NO_GUARD=1 FM_FAKE_PANE_PATH="$pane" TMUX="${TMUX:-fake,1,0}" \
     PATH="$fakebin:$PATH" \
     "$ROOT/bin/fm-spawn.sh" "$@" 2>&1
+}
+
+# fm_test_quota_snapshot <file> <grok-state>
+# Writes a quota-axi --json (schema 5) reading for the explicit-harness quota
+# gate, timed from now so the three-hour horizon is meaningful. <grok-state> is
+# `exhausted` (exhausted_now at 0%), `short:<seconds>` (4% left, an established
+# projection ending in <seconds>), or `through` (through its reset). codex has
+# the best spendPriority, zai (Pi through a declared provider) the next, claude
+# the lowest, and cursor is exhausted.
+fm_test_quota_snapshot() {  # <file> <grok-state>
+  local file=$1 grok=$2
+  jq -n --arg grok "$grok" '
+    (now | floor) as $now |
+    def at($s): ($now + $s) | todate;
+    def row($scope; $pct; $runway; $sp): {scope: $scope, status: "known", effectivePercentRemaining: $pct,
+      runway: $runway, selection: {status: "known", spendPriority: $sp}};
+    def through: {status: "through_reset", projectionConfidence: "established"};
+    def provider($p; $rows): {provider: $p, quotaSemantics: {status: "known", effectiveAvailability: $rows}};
+    (if $grok == "exhausted" then
+       row("all_products"; 0; {status: "exhausted_now", usableRunwaySeconds: 0, projectedExhaustedAt: at(-600)}; -3.2)
+     elif ($grok | startswith("short:")) then
+       ($grok | ltrimstr("short:") | tonumber) as $secs |
+       row("all_products"; 4; {status: "projected_exhaustion", usableRunwaySeconds: $secs,
+         projectedExhaustedAt: at($secs), projectionConfidence: "established"}; -1.46)
+     else row("all_products"; 80; through; 2.0) end) as $grok_row |
+    {generatedAt: ($now | todate), schemaVersion: 5, providers: [
+      provider("claude"; [row("all_models"; 16; {status: "projected_exhaustion", usableRunwaySeconds: 87477,
+        projectedExhaustedAt: at(87477), projectionConfidence: "established"}; -0.39)]),
+      provider("codex"; [row("all_models"; 70; through; 0.85)]),
+      provider("cursor"; [row("all_models"; 0; {status: "exhausted_now", usableRunwaySeconds: 0}; -2.16)]),
+      provider("grok"; [$grok_row, ($grok_row | .scope = "product:grok_build")]),
+      provider("zai"; [row("all_models"; 60; through; 0.31)])
+    ]}' >"$file"
 }
 
 # --- send-world stubs -------------------------------------------------------

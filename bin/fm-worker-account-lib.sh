@@ -6,6 +6,8 @@
 #
 # docs/configuration.md "Worker account pin" owns the operator-facing contract.
 # Sourced by bin/fm-spawn.sh and bin/fm-control.sh.
+# Codex's separate list contract is in docs/configuration.md "Codex account
+# folders"; bin/fm-codex-accounts.py owns its selection and preflight mechanics.
 #
 # Pinnable runners, each a credential store inside a root its vendor lets a
 # process select:
@@ -261,17 +263,50 @@ fm_worker_account_raw_profile() {
   ' -- "$1" "$2"
 }
 
-# fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<secondmate-id>]
+fm_worker_account_profiles() {
+  local rules=$1 profiles='[]'
+  if [ -f "$rules" ] && jq -e 'type == "object"' "$rules" >/dev/null 2>&1; then
+    profiles=$(jq -c '
+      def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
+      [((.rules // [])[] | profiles(.use)[]), profiles(.default // null)[]]
+      | map(select(type == "object" and (.harness | type) == "string")) | unique' "$rules" 2>/dev/null) || profiles='[]'
+  fi
+  printf '%s\n' "$profiles"
+}
+
+fm_worker_account_profile() {
+  jq -cn --arg h "$1" --arg m "$2" --argjson cands "$3" '
+    [$cands[] | select(.harness == $h and ($m == "" or (.model // "") == $m))] |
+    if length == 1 then .[0] else {harness:$h, model:$m} end'
+}
+
+# fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<secondmate-id>] [<codex-selected-root>] [<launch-cwd>]
 # The pin selection decision. Prints nothing for an unpinned runner, so
 # the caller retains its unpinned account selection. For a pinned one prints
-# "declared<TAB>root<TAB>provider", where provider is the Pi launch model's
-# own (empty for Claude), after the model guard and the sign-in check pass. On
+# "declared<TAB>root<TAB>detail", where detail is the Pi provider or concrete
+# Codex model (empty for Claude), after the model guard and sign-in check pass. On
 # refusal prints one error and returns 1. bin/fm-spawn.sh runs it before any
 # endpoint exists, and bin/fm-control.sh before a relaunch stops the live
 # agent.
 fm_worker_account_select() {
   local harness=$1 config=$2 model=$3 executable=$4 raw=${5:-} mate=${6:-}
   local selection declared root providers word provider='' selected_config setting
+  if [ "$harness" = codex ]; then
+    if [ ! -e "$config/codex-accounts" ] && [ ! -L "$config/codex-accounts" ]; then
+      return 0
+    fi
+    if [ -n "$raw" ]; then
+      echo "error: config/codex-accounts requires a canonical Codex launch; raw commands can override CODEX_HOME" >&2
+      return 1
+    fi
+    local -a codex_args=()
+    [ -z "${7:-}" ] || codex_args=(--folder "$7")
+    [ -z "${8:-}" ] || codex_args+=(--cwd "$8")
+    python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-codex-accounts.py" select \
+      --config "$config/codex-accounts" --codex "$executable" \
+      --model "$model" "${codex_args[@]}"
+    return
+  fi
   selected_config=$(fm_worker_account_config "$harness" "$config" "$mate") || return 1
   setting="config/$(fm_worker_account_file "$harness")"
   [ "$selected_config" = "$config" ] || setting="$selected_config/$(fm_worker_account_file "$harness")"

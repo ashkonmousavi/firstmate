@@ -835,9 +835,12 @@ fm_backend_visible_capture() {  # <backend> <target> [expected-label]
 
 # fm_backend_send_key: one backend-supported named special key.
 fm_backend_send_key() {  # <backend> <target> <key> [expected-label]
-  local backend=$1
+  local backend=$1 label=${4:-}
   shift
   fm_backend_source "$backend" || return 1
+  if [ "${release_exit_picker:-0}" = 1 ]; then
+    fm_backend_lane_release_guard "$backend" "$1" send-keys "$2" || return 75
+  fi
   case "$backend" in
     tmux) fm_backend_tmux_send_key "$@" ;;
     herdr) fm_backend_herdr_send_key "$@" ;;
@@ -851,7 +854,15 @@ fm_backend_send_key() {  # <backend> <target> <key> [expected-label]
 
 fm_backend_lane_release_guard() {
   local backend=$1 target=$2 action=$3 input=${4:-} content cap
-  if [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
+  if [ "${release_exit_picker:-0}" = 1 ]; then
+    [ "$action" = send-keys ] || return 75
+    case "$input" in Enter|enter) ;; *) return 75 ;; esac
+    if [ "$backend" = herdr ]; then
+      fm_backend_herdr_viewport_to_bottom "$target" || return 75
+    fi
+    cap=$(fm_backend_visible_capture "$backend" "$target" "${label:-}") || return 75
+    [ "$(fm_composer_blocking_dialog "$cap")" = 'Claude background-task exit picker' ] || return 75
+  elif [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; then
     case "$action" in
       send-text)
         [ "$(fm_backend_composer_state "$backend" "$target" "${label:-}")" = empty ] || return 75

@@ -63,6 +63,11 @@ An unrecognized or unreadable draft skips this ownership-based clear; interrupt 
 
 `exit` reads the composer's state before typing the exit command and requires the exact `empty` verdict, including after clearing an own doorbell; any other `pending` draft refuses by naming the pending text, and any other verdict (`unknown`, `pending-unproven`, or an unreadable read) refuses as not proven empty, matching the fail-safe contract every other consumer that can overwrite composer input follows.
 `exit` also refuses, naming the dialog as `blocked on a prompt`, when the screen shows a recognised dialog that a further Enter would answer, whether the dialog was open before the exit command was typed or the submitting Enter opened it; it sends no Escape and chooses no option, so closing the dialog is left to the operator.
+The one exception is Claude's background-task exit picker, authorized by backlog Done, an unattended lane release after its validated finished-and-landed classification, or an explicit `exit --landed-work` after the caller verifies landing.
+It sends one confirming Enter to choose the selected `Exit and stop tasks` row and reports the stop only once the agent is dead; the task's local copy and pull request are kept.
+Before confirmation, including a compatible Herdr client retry, the backend re-reads the live picker; unattended lane release also rechecks the spawn generation and idle busy-state sequence.
+Herdr returns its viewport to the bottom before that read so scrolled history cannot authorize confirmation.
+A secondmate, a task without any of those authorizations, and a picker already open when an unattended lane-release exit starts still refuse.
 A stopped agent whose pane still shows the dialog text is not refused.
 [`fm_composer_blocking_dialog`](../bin/fm-composer-lib.sh) owns the recognised set, which today is only Claude's background-task exit picker; [its verification record](verification/runtime-backends.md#claude-background-task-exit-picker) lists the dialogs that are not covered.
 
@@ -75,7 +80,7 @@ It is not deterministic across the verified adapters: codex, grok, gemini, devin
 `relaunch` uses the brief on disk - not a harness-private session - as the durable instruction when the backend can prove the old agent stopped and the composer is empty; Devin on Herdr currently fails that composer check and refuses.
 A relaunch does take one session reference when the endpoint's own runtime recorded it - see [the relaunch transaction](#transactional-relaunch) - but that is a relaunch input, not a caller-facing verb.
 
-Pending deployment or acceptance proof follows [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion): preserve the task and follow-up, use `exit` for safe process release, and accept only after the required proof.
+For release while deployment or acceptance proof remains pending, follow [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion).
 
 ## Transactional relaunch
 
@@ -90,6 +95,7 @@ The following sequence applies to an existing copy; a [released copy](#relaunchi
    A harness change resets model and effort unless they are named too, because a model chosen for one adapter does not transfer to another.
    A Claude or Pi replacement must also pass the home's [worker account pin](configuration.md#worker-account-pin-configclaude-account-configpi-account), or a secondmate's own [per-secondmate account pin](configuration.md#per-secondmate-account-pins) when one is set, so a pin that no longer resolves or is signed out refuses before the old agent stops.
    Ship and scout replacements also pass the [worker tool exclusion checks](configuration.md#worker-tool-exclusions-configcrew-exclude-tools) at this step.
+   An explicit `--harness` also passes the [explicit-harness quota gate](configuration.md#crew-dispatch-profiles-configcrew-dispatchjson) here, and `--quota-override <reason>` is the only way past a refusal.
 2. **Safe checkpoint.**
    The recorded worktree must exist and be a worktree root; its head and dirty state are recorded.
    For a `kind=secondmate` task, the home's identity marker must match and its child records must be readable, so a relaunch can never strand child work behind an unreadable home.

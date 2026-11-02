@@ -254,6 +254,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
+  fm_test_codex_first_turn_wrap "$fakebin"
   fm_fake_exit0 "$fakebin" treehouse
   printf '%s\n' "$fakebin"
 }

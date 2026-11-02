@@ -381,7 +381,8 @@ Locked session start has one narrower cleanup for a restored projected child tha
 It runs only when the current home has at least one ordinary presentation journal, and it considers only that home.
 A primary never recursively sweeps a secondmate home.
 
-Discovery starts from the exact current `└ <concise-task> · p:<22-character-token>` grammar, but a title or token alone is never mutation authority.
+Discovery scans valid home-local journals once per cleanup run and indexes them by expected workspace title, avoiding a full journal validation for every unrelated workspace.
+It considers only the exact current `└ <concise-task> · p:<22-character-token>` grammar, but a title, token, or index entry alone is never mutation authority.
 A candidate must meet all of these conditions:
 
 - The title must contain exactly one token occurrence across the named-session snapshot.
@@ -397,10 +398,10 @@ Firstmate then cleans up the candidate in this order:
 3. Require one unambiguous non-target focus and the exact title, token, tab, and pane shape.
 4. Positively confirm no registered agent.
 5. Read Herdr's process information for the exact named-session pane and apply the process proof below.
-6. Immediately revalidate the same journal, metadata absence, workspace title and token uniqueness, one-tab and one-pane topology, exact pane relationship, absent agent, process proof, and non-target focus.
+6. Immediately revalidate the same journal with a fresh scan for unique journal correlation, metadata absence, workspace title and token uniqueness, one-tab and one-pane topology, exact pane relationship, absent agent, process proof, and non-target focus.
 7. Call the existing exact-pane focus-preserving close helper.
    It closes only that pane, never a workspace.
-8. Retire the matching journal only after the exact pane is positively confirmed gone.
+8. Retire the matching journal only after the exact pane is positively confirmed gone and another fresh scan confirms the same unique journal correlation.
 
 The process proof requires all of these:
 
@@ -459,7 +460,7 @@ Any of these preserves the candidate and lets session startup continue with at m
 | Test | What it covers |
 | --- | --- |
 | `tests/fm-backend-herdr-presentation-e2e.test.sh` | Multi-home ordering, concurrency, lock contention, legacy coexistence, focus preservation, refusal of fresh same-id retries against restored panes with or without resume-lock-wait, ambiguous bindings and tokens, and exact-pane cleanup through the guarded lab path. |
-| `tests/fm-herdr-session-cleanup.test.sh` | Every discovery, ownership, topology, process, locking, revalidation, focus, retirement, and continue-on-error boundary. |
+| `tests/fm-herdr-session-cleanup.test.sh` | Discovery, ownership, topology, process, locking, revalidation, focus, retirement, and continue-on-error boundaries, including indexed discovery with 60 workspaces and 80 journals and refusal of a duplicate journal published after discovery. |
 | `tests/fm-herdr-session-cleanup-e2e.test.sh` | The restored-shell cleanup in a guarded non-default named lab. |
 | `tests/fm-backend-herdr-focus-flash-e2e.test.sh` | Reproduces the raw explicit-close focus steal on the installed release, and proves the focus-safe emptying-close plan removes a doomed workspace with no wrong-focus interval. |
 | `tests/fm-backend-herdr-stale-active-tab-e2e.test.sh` | Proves a persisted-focused tab still closes when no foreground client is attached. |
@@ -649,6 +650,9 @@ Typed-plane text is typed once; only Enter is retried.
 When native `agent get` identity is Claude, the adapter types only into an empty composer.
 A Claude composer that already holds text, or cannot be read, before the send is refused with nothing typed.
 Before that Enter, the adapter continues only when the selected composer shows the typed payload, or only Claude paste placeholders with no literal remainder.
+While the composer shows a strict prefix of the payload, including an empty read, the adapter polls for a bounded number of reads so asynchronous rendering can finish.
+An unreadable composer or nonmatching text fails the proof immediately; exhausting the poll budget also refuses Enter and follows the clearing procedure below.
+The `fm_backend_herdr_composer_payload_wait` comment in [`bin/backends/herdr.sh`](../bin/backends/herdr.sh) owns the proof-budget and polling-interval tunables, including how read latency adds to elapsed time.
 Every herdr adapter composer read (`fm_backend_herdr_composer_state`, `fm_backend_herdr_composer_content`) captures the full visible viewport, never a bounded tail, while the shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend: an overlay Claude renders between the composer and the pane bottom - the slash-command popup is the verified shape - can push the composer outside a tail window even at the live bottom.
 A state capture with no selectable composer reads `unknown`, never `pending`; a viewport scrolled off the live bottom can instead show old output that resembles a composer.
 Before either composer read captures the viewport, the adapter checks `pane get` `scroll.offset_from_bottom`; above 0 it resets the viewport through the socket API `pane.scroll` (`bin/backends/herdr-pane-scroll.py`, always offset 0, never typed keys) and verifies the pane is at the bottom, even when old output resembles a composer.
@@ -656,7 +660,7 @@ For compatibility, a successful `pane get` response that omits the scroll offset
 A failed position query, a nonnumeric reported offset, or a reset that cannot be verified at zero refuses the read with `viewport-not-bottom`.
 A nonblank state capture with no selectable composer records `composer-not-located`; a blank capture remains unreadable without that reason.
 Claude can also draw that popup directly below the composer's closing rule, with its selected row led by the composer's own `❯`; the shared classifier counts those rows as the composer's footer furniture only while the composer holds a typed `/` command, so the proof still reads the typed payload.
-Verification: [composer viewport recovery](verification/runtime-backends.md#composer-viewport-recovery), [Claude exit behind the slash-command popup](verification/runtime-backends.md#claude-exit-behind-the-slash-command-popup), and [Claude slash-command popup below the composer](verification/runtime-backends.md#claude-slash-command-popup-below-the-composer).
+Verification: [Claude payload render latency](verification/runtime-backends.md#claude-payload-render-latency), [composer viewport recovery](verification/runtime-backends.md#composer-viewport-recovery), [Claude exit behind the slash-command popup](verification/runtime-backends.md#claude-exit-behind-the-slash-command-popup), and [Claude slash-command popup below the composer](verification/runtime-backends.md#claude-slash-command-popup-below-the-composer).
 
 That comparison ignores whitespace and U+2063, the invisible mark that starts operational inputs and ends the from-firstmate label.
 It ignores U+2063 because Claude's Herdr read-back never shows it.

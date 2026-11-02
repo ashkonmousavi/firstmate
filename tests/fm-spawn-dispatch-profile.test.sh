@@ -147,7 +147,7 @@ assert_meta_profile() {
 
 test_no_profile_keeps_claude_profile_defaults() {
   local rec id out status expected launch
-  id=profile-off-z1
+  id="profile-off-z1"
   rec=$(make_spawn_case profile-off claude "$id")
   read_case_record "$rec"
 
@@ -247,7 +247,7 @@ test_claude_spawn_refuses_when_the_brief_record_cannot_publish() {
 
 test_non_cursor_launch_clears_inherited_cursor_markers() {
   local rec id out status launch
-  id=profile-claude-cursor-markers-z1b
+  id="profile-claude-cursor-markers-z1b"
   rec=$(make_spawn_case profile-claude-cursor-markers claude "$id")
   read_case_record "$rec"
 
@@ -263,7 +263,7 @@ test_non_cursor_launch_clears_inherited_cursor_markers() {
 
 test_relative_home_overrides_launch_with_absolute_cross_process_paths() {
   local rec id out status launch home_real
-  id=profile-relative-paths-z1b
+  id="profile-relative-paths-z1b"
   rec=$(make_spawn_case profile-relative-paths pi "$id")
   read_case_record "$rec"
   home_real=$(cd "$HOME_DIR" && pwd -P)
@@ -292,8 +292,8 @@ test_relative_home_overrides_launch_with_absolute_cross_process_paths() {
 
 test_home_defaults_preserve_absolute_or_resolve_relative_paths() {
   local rec relative_id absolute_id out status launch home_real linked_home
-  relative_id=profile-relative-home-defaults-z1c
-  absolute_id=profile-absolute-home-defaults-z1d
+  relative_id="profile-relative-home-defaults-z1c"
+  absolute_id="profile-absolute-home-defaults-z1d"
   rec=$(make_spawn_case profile-home-defaults pi "$relative_id" "$absolute_id")
   read_case_record "$rec"
   home_real=$(cd "$HOME_DIR" && pwd -P)
@@ -341,7 +341,7 @@ test_home_defaults_preserve_absolute_or_resolve_relative_paths() {
 
 test_absolute_override_spelling_is_preserved_in_launch_paths() {
   local rec id out status launch linked_home
-  id=profile-absolute-paths-z1c
+  id="profile-absolute-paths-z1c"
   rec=$(make_spawn_case profile-absolute-paths pi "$id")
   read_case_record "$rec"
   linked_home="$CASE_DIR/home-link"
@@ -369,7 +369,7 @@ test_absolute_override_spelling_is_preserved_in_launch_paths() {
 
 test_unresolvable_relative_overrides_fail_loudly() {
   local rec id out status
-  id=profile-unresolvable-paths-z1d
+  id="profile-unresolvable-paths-z1d"
   rec=$(make_spawn_case profile-unresolvable-paths pi "$id")
   read_case_record "$rec"
 
@@ -410,7 +410,7 @@ test_unresolvable_relative_overrides_fail_loudly() {
 
 test_active_dispatch_profile_requires_explicit_harness_for_ship() {
   local rec id out status
-  id=profile-required-ship-z11
+  id="profile-required-ship-z11"
   rec=$(make_spawn_case profile-required-ship claude "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
@@ -426,7 +426,7 @@ test_active_dispatch_profile_requires_explicit_harness_for_ship() {
 
 test_active_dispatch_profile_requires_explicit_harness_for_scout() {
   local rec id out status
-  id=profile-required-scout-z12
+  id="profile-required-scout-z12"
   rec=$(make_spawn_case profile-required-scout claude "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
@@ -442,7 +442,7 @@ test_active_dispatch_profile_requires_explicit_harness_for_scout() {
 
 test_active_dispatch_profile_allows_explicit_harness() {
   local rec id out status launch
-  id=profile-explicit-z13
+  id="profile-explicit-z13"
   rec=$(make_spawn_case profile-explicit claude "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
@@ -461,7 +461,7 @@ test_active_dispatch_profile_allows_explicit_harness() {
 
 test_active_dispatch_profile_allows_positional_harness() {
   local rec id out status
-  id=profile-positional-z14
+  id="profile-positional-z14"
   rec=$(make_spawn_case profile-positional claude "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
@@ -563,7 +563,7 @@ test_launch_preserves_inherited_git_config() {
 
 test_active_dispatch_profile_allows_raw_launch_command() {
   local rec id out status launch
-  id=profile-raw-z15
+  id="profile-raw-z15"
   rec=$(make_spawn_case profile-raw claude "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
@@ -607,7 +607,7 @@ test_chained_raw_launch_strips_ai_trailer_in_every_step() {
 
 test_claude_threads_model_and_effort() {
   local rec id out status launch
-  id=profile-claude-z2
+  id="profile-claude-z2"
   rec=$(make_spawn_case profile-claude claude "$id")
   read_case_record "$rec"
 
@@ -729,7 +729,7 @@ test_claude_non_haiku_launch_gets_no_advisor() {
 
 test_codex_threads_model_and_effort() {
   local rec id out status launch
-  id=profile-codex-z3
+  id="profile-codex-z3"
   rec=$(make_spawn_case profile-codex codex "$id")
   read_case_record "$rec"
 
@@ -745,7 +745,7 @@ test_codex_threads_model_and_effort() {
 
 test_codex_threads_model_and_max_effort() {
   local rec id out status launch
-  id=profile-codex-max-z4
+  id="profile-codex-max-z4"
   rec=$(make_spawn_case profile-codex-max codex "$id")
   read_case_record "$rec"
 
@@ -761,7 +761,7 @@ test_codex_threads_model_and_max_effort() {
 
 test_codex_omits_max_effort_for_unsupported_model() {
   local rec id out status launch
-  id=profile-codex-max-unsupported-z4b
+  id="profile-codex-max-unsupported-z4b"
   rec=$(make_spawn_case profile-codex-max-unsupported codex "$id")
   read_case_record "$rec"
 
@@ -782,7 +782,7 @@ test_codex_omits_max_effort_for_unsupported_model() {
 # own primary-session turn-end guard and session-start digest.
 test_codex_crewmate_launch_disables_the_hook_layer() {
   local rec id out status launch
-  id=profile-codex-hooks-z4c
+  id="profile-codex-hooks-z4c"
   rec=$(make_spawn_case profile-codex-hooks codex "$id")
   read_case_record "$rec"
 
@@ -805,7 +805,7 @@ test_codex_crewmate_launch_disables_the_hook_layer() {
 
 test_codex_secondmate_launch_keeps_the_hook_layer() {
   local rec id sm out status launch
-  id=profile-codex-secondmate-hooks-z4d
+  id="profile-codex-secondmate-hooks-z4d"
   rec=$(make_spawn_case profile-codex-secondmate-hooks codex "$id")
   read_case_record "$rec"
   sm="$CASE_DIR/secondmate-home"
@@ -822,7 +822,7 @@ test_codex_secondmate_launch_keeps_the_hook_layer() {
 
 test_grok_threads_model_and_reasoning_effort() {
   local rec id out status launch
-  id=profile-grok-z5
+  id="profile-grok-z5"
   rec=$(make_spawn_case profile-grok grok "$id")
   read_case_record "$rec"
 
@@ -839,7 +839,7 @@ test_grok_threads_model_and_reasoning_effort() {
 
 test_grok_omits_invalid_max_reasoning_effort() {
   local rec id out status launch
-  id=profile-grok-max-z6
+  id="profile-grok-max-z6"
   rec=$(make_spawn_case profile-grok-max grok "$id")
   read_case_record "$rec"
 
@@ -857,7 +857,7 @@ test_grok_omits_invalid_max_reasoning_effort() {
 
 test_grok_omits_invalid_xhigh_reasoning_effort() {
   local rec id out status launch
-  id=profile-grok-xhigh-z6b
+  id="profile-grok-xhigh-z6b"
   rec=$(make_spawn_case profile-grok-xhigh grok "$id")
   read_case_record "$rec"
 
@@ -876,7 +876,7 @@ test_grok_omits_invalid_xhigh_reasoning_effort() {
 
 test_cursor_threads_model_workspace_and_omits_effort_axis() {
   local rec id out status launch
-  id=profile-cursor-z6c
+  id="profile-cursor-z6c"
   rec=$(make_spawn_case profile-cursor cursor "$id")
   read_case_record "$rec"
 
@@ -910,7 +910,7 @@ test_cursor_threads_model_workspace_and_omits_effort_axis() {
 
 test_cursor_refuses_model_absent_from_live_catalog() {
   local rec id out status
-  id=profile-cursor-unsupported-z6d
+  id="profile-cursor-unsupported-z6d"
   rec=$(make_spawn_case profile-cursor-unsupported cursor "$id")
   read_case_record "$rec"
 
@@ -928,7 +928,7 @@ test_cursor_refuses_model_absent_from_live_catalog() {
 
 test_cursor_failed_catalog_probe_does_not_block_spawn() {
   local rec id out status launch
-  id=profile-cursor-catalog-unreachable-z6e
+  id="profile-cursor-catalog-unreachable-z6e"
   rec=$(make_spawn_case profile-cursor-catalog-unreachable cursor "$id")
   read_case_record "$rec"
 
@@ -946,7 +946,7 @@ test_cursor_failed_catalog_probe_does_not_block_spawn() {
 
 test_opencode_threads_model_and_effort_variant() {
   local rec id out status launch
-  id=profile-opencode-z7
+  id="profile-opencode-z7"
   rec=$(make_spawn_case profile-opencode opencode "$id")
   read_case_record "$rec"
 
@@ -970,7 +970,7 @@ test_opencode_threads_model_and_effort_variant() {
 
 test_opencode_without_effort_keeps_launch_config_unchanged() {
   local rec id out status launch
-  id=profile-opencode-noeffort-z7b
+  id="profile-opencode-noeffort-z7b"
   rec=$(make_spawn_case profile-opencode-noeffort opencode "$id")
   read_case_record "$rec"
 
@@ -988,7 +988,7 @@ test_opencode_without_effort_keeps_launch_config_unchanged() {
 
 test_opencode_emits_variant_for_openai_family_effort() {
   local rec id out status launch
-  id=profile-opencode-openai-z7c
+  id="profile-opencode-openai-z7c"
   rec=$(make_spawn_case profile-opencode-openai opencode "$id")
   read_case_record "$rec"
 
@@ -1005,7 +1005,7 @@ test_opencode_emits_variant_for_openai_family_effort() {
 
 test_opencode_omits_variant_when_model_family_lacks_effort() {
   local rec id out status launch
-  id=profile-opencode-omit-z7d
+  id="profile-opencode-omit-z7d"
   rec=$(make_spawn_case profile-opencode-omit opencode "$id")
   read_case_record "$rec"
 
@@ -1091,7 +1091,7 @@ test_batch_preserves_native_ultra() {
 
 test_pi_scout_launch_enters_recorded_worktree() {
   local rec id out status
-  id=profile-pi-scout-cwd-z1
+  id="profile-pi-scout-cwd-z1"
   rec=$(make_spawn_case profile-pi-scout-cwd pi "$id")
   read_case_record "$rec"
 
@@ -1108,7 +1108,7 @@ test_pi_scout_launch_enters_recorded_worktree() {
 
 test_pi_threads_model_and_max_effort() {
   local rec id out status launch
-  id=profile-pi-z8
+  id="profile-pi-z8"
   rec=$(make_spawn_case profile-pi pi "$id")
   read_case_record "$rec"
 
@@ -1129,7 +1129,7 @@ test_pi_threads_model_and_max_effort() {
 
 test_pi_signed_threads_shared_pi_profile_and_preserves_identity() {
   local rec id out status launch
-  id=profile-pi-signed-z8b
+  id="profile-pi-signed-z8b"
   rec=$(make_spawn_case profile-pi-signed pi-signed "$id")
   read_case_record "$rec"
 
@@ -1183,7 +1183,7 @@ test_pi_tui_mode_probe_is_safe_for_old_and_new_pi() {
 
 test_pi_signed_missing_binary_refuses_before_endpoint_or_metadata() {
   local rec id out status
-  id=profile-pi-signed-missing-z8c
+  id="profile-pi-signed-missing-z8c"
   rec=$(make_spawn_case profile-pi-signed-missing pi-signed "$id")
   read_case_record "$rec"
   rm -f "$FAKEBIN_DIR/pi-signed"
@@ -1206,7 +1206,7 @@ test_pi_signed_missing_binary_refuses_before_endpoint_or_metadata() {
 
 test_pi_signed_persistent_secondmate_uses_pi_extensions_and_identity() {
   local rec id sm out status launch
-  id=profile-pi-signed-secondmate-z8d
+  id="profile-pi-signed-secondmate-z8d"
   rec=$(make_spawn_case profile-pi-signed-secondmate codex "$id")
   read_case_record "$rec"
   printf '%s\n' pi-signed > "$HOME_DIR/config/secondmate-harness"
@@ -1265,7 +1265,7 @@ test_pi_seeded_secondmate_preapproves_project_trust() {
 
 test_pi_worker_launch_omits_seeded_home_approve() {
   local rec id out status launch
-  id=profile-pi-worker-no-approve-z8f
+  id="profile-pi-worker-no-approve-z8f"
   rec=$(make_spawn_case profile-pi-worker-no-approve pi "$id")
   read_case_record "$rec"
 
@@ -1615,8 +1615,8 @@ test_pi_exclude_tools_do_not_leak_across_homes_or_to_secondmates() {
 
 test_batch_forwards_shared_profile_flags() {
   local rec id1 id2 out status
-  id1=profile-batch-a-z9
-  id2=profile-batch-b-z10
+  id1="profile-batch-a-z9"
+  id2="profile-batch-b-z10"
   rec=$(make_spawn_case profile-batch claude "$id1" "$id2")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
@@ -1634,7 +1634,7 @@ test_batch_forwards_shared_profile_flags() {
 
 test_claude_forwards_firstmate_config_dir_when_set() {
   local rec id out status launch
-  id=profile-claude-cfgdir-z17
+  id="profile-claude-cfgdir-z17"
   rec=$(make_spawn_case profile-claude-cfgdir claude "$id")
   read_case_record "$rec"
 
@@ -1653,7 +1653,7 @@ test_claude_forwards_firstmate_config_dir_when_set() {
 
 test_lavish_server_address_is_exported_to_worker_launch() {
   local rec id out status launch
-  id=profile-lavish-host-z18
+  id="profile-lavish-host-z18"
   rec=$(make_spawn_case profile-lavish-host claude "$id")
   read_case_record "$rec"
   printf '%s\n' '100.99.161.42' > "$HOME_DIR/config/lavish-axi-host"
@@ -1668,7 +1668,7 @@ test_lavish_server_address_is_exported_to_worker_launch() {
 
 test_lavish_absent_config_preserves_destination_ambient() {
   local rec id out status launch pane_log seen
-  id=profile-lavish-ambient-z18b
+  id="profile-lavish-ambient-z18b"
   rec=$(make_spawn_case profile-lavish-ambient claude "$id")
   read_case_record "$rec"
   pane_log="$CASE_DIR/pane.log"
@@ -1696,7 +1696,7 @@ SH
 
 test_claude_omits_config_dir_prefix_when_unset() {
   local rec id out status launch
-  id=profile-claude-nocfgdir-z18
+  id="profile-claude-nocfgdir-z18"
   rec=$(make_spawn_case profile-claude-nocfgdir claude "$id")
   read_case_record "$rec"
 
@@ -1713,7 +1713,7 @@ test_claude_omits_config_dir_prefix_when_unset() {
 
 test_non_claude_harness_ignores_config_dir() {
   local rec id out status launch
-  id=profile-codex-nocfgdir-z19
+  id="profile-codex-nocfgdir-z19"
   rec=$(make_spawn_case profile-codex-nocfgdir codex "$id")
   read_case_record "$rec"
 
@@ -1747,7 +1747,7 @@ assert_attribution_policy_absent() {  # <launch-command> <what>
 
 test_claude_task_launch_carries_control_channel_authority() {
   local rec id out status launch
-  id=profile-claude-control-channel-z21
+  id="profile-claude-control-channel-z21"
   rec=$(make_spawn_case profile-claude-control-channel claude "$id")
   read_case_record "$rec"
 
@@ -1770,7 +1770,7 @@ test_claude_task_launch_carries_control_channel_authority() {
 
 test_claude_secondmate_launch_omits_task_control_channel_authority() {
   local rec id sm out status launch
-  id=profile-secondmate-control-channel-z21b
+  id="profile-secondmate-control-channel-z21b"
   rec=$(make_spawn_case profile-secondmate-control-channel claude "$id")
   read_case_record "$rec"
   sm="$CASE_DIR/secondmate-home"
@@ -1788,7 +1788,7 @@ test_claude_secondmate_launch_omits_task_control_channel_authority() {
 
 test_claude_long_launch_is_delivered_intact() {
   local rec id out status launch expected
-  id=profile-claude-long-launch-z24
+  id="profile-claude-long-launch-z24"
   rec=$(make_spawn_case profile-claude-long-launch claude "$id")
   read_case_record "$rec"
 
@@ -1806,9 +1806,173 @@ test_claude_long_launch_is_delivered_intact() {
   pass "fm-spawn: a Claude launch longer than 1024 bytes is delivered intact through the staging path"
 }
 
+# The explicit-harness quota gate (bin/fm-quota-axi-lib.sh fm_quota_gate_run).
+# Each case feeds a canned quota-axi reading through FM_QUOTA_SNAPSHOT_FILE and
+# a dispatch file whose profiles are the alternatives the refusal may name.
+enable_quota_profiles() {
+  local home=$1
+  printf '%s\n' '{"rules":[{"when":"fix","use":[{"harness":"grok","model":"grok-4.7"},{"harness":"codex","model":"gpt-6.1-sol","effort":"medium"},{"harness":"pi","model":"glm-5.3","effort":"high","provider":"zai"},{"harness":"cursor","model":"grok-4.7-high"}]}],"default":{"harness":"claude","model":"claude-sonnet-5-5"}}' \
+    > "$home/config/crew-dispatch.json"
+}
+
+quota_gate_case() {  # <name> <harness> <id> <grok-state>
+  local rec
+  rec=$(make_spawn_case "$1" "$2" "$3")
+  read_case_record "$rec"
+  fm_fake_exit0 "$FAKEBIN_DIR" claude codex grok kimi omp agy muse gemini rovo devin commandcode polytoken
+  enable_quota_profiles "$HOME_DIR"
+  fm_test_quota_snapshot "$CASE_DIR/quota.json" "$4"
+}
+
+test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative() {
+  local state id out status
+  for state in short:7200 exhausted; do
+    id="quota-refuse-${state%%:*}-z30"
+    quota_gate_case "$id" grok "$id" "$state"
+    out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+      "$id" "$PROJ_DIR" --harness grok --model grok-4.7)
+    status=$?
+    expect_code 1 "$status" "grok with $state quota must refuse the spawn"$'\n'"$out"
+    assert_contains "$out" "fm-spawn refuses explicit harness grok model grok-4.7: provider grok" \
+      "the $state refusal must name the harness, model and provider"
+    assert_contains "$out" "Best alternative: provider codex (spendPriority 0.85): --harness codex --model gpt-6.1-sol --effort medium." \
+      "the $state refusal must name the best-spendPriority alternative"
+    assert_contains "$out" "Pass --quota-override <reason>" "the $state refusal must name the override"
+    [ ! -s "$LAUNCH_LOG" ] || fail "grok with $state quota still launched a worker"
+    [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "grok with $state quota still wrote a task record"
+  done
+  assert_contains "$out" "runway exhausted_now at all_products" "the exhausted refusal must name the exhausted row"
+  pass "an explicit grok spawn refuses on exhausted_now or under-three-hour runway and names the best alternative"
+}
+
+test_quota_alternatives_obey_launch_capabilities() {
+  . "$ROOT/bin/fm-quota-axi-lib.sh"
+  local dir harness kind backend out status expected
+  dir="$TMP_ROOT/quota-capabilities"
+  mkdir -p "$dir"
+  fm_test_quota_snapshot "$dir/quota.json" exhausted
+  for harness in muse gemini agy devin commandcode polytoken rovo; do
+    jq -n --arg h "$harness" '{rules: [], default: [
+      {harness: $h, provider: "codex",model:("model-"+$h)} + (if $h == "polytoken" then {effort:"high"} else {} end), {harness: "claude"}
+    ]}' > "$dir/rules.json"
+    for kind in ship scout secondmate; do
+      for backend in tmux herdr zellij cmux orca paseo; do
+        expected="provider codex (spendPriority 0.85): --harness $harness --model model-$harness"
+        [ "$harness" != polytoken ] || expected="$expected --effort high"
+        if [ "$kind" = secondmate ]; then
+          expected='provider claude (spendPriority -0.39): --harness claude'
+        elif [ "$harness" = commandcode ] && [ "$backend" != tmux ] && [ "$backend" != herdr ]; then
+          expected='provider claude (spendPriority -0.39): --harness claude'
+        fi
+        out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" "$kind" "$backend" "$dir"); status=$?
+        expect_code 1 "$status" "exhausted Grok must refuse for $harness/$kind/$backend"
+        [ "$(printf '%s\n' "$out" | sed -n 3p)" = "$expected" ] \
+          || fail "launch capability contract picked the wrong alternative for $harness/$kind/$backend: $out"
+      done
+    done
+  done
+  printf '%s\n' '{"default":[{"harness":"agy","provider":"codex"},{"harness":"claude","provider":"codex"}]}' > "$dir/rules.json"
+  out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" secondmate tmux "$dir")
+  [ "$(printf '%s\n' "$out" | sed -n 3p)" = 'provider codex (spendPriority 0.85): --harness claude' ] \
+    || fail "an ineligible tied candidate survived filtering: $out"
+  printf '%s\n' '{"default":{"harness":"agy","provider":"codex"}}' > "$dir/rules.json"
+  out=$(fm_quota_gate_explicit grok '' "$dir/rules.json" "$dir/quota.json" secondmate tmux "$dir")
+  [ "$(printf '%s\n' "$out" | sed -n 3p)" = none ] || fail "an ineligible-only pool must name no alternative: $out"
+  out=$(fm_quota_gate_explicit grok '' "$dir/no-rules.json" "$dir/quota.json" ship tmux "$dir")
+  [ "$(printf '%s\n' "$out" | sed -n 3p)" = none ] || fail "unconfigured profiles must not become alternatives: $out"
+  pass "quota alternatives obey launch capabilities, ties, and configured-only selection"
+}
+
+test_secondmate_quota_refusal_names_a_supported_alternative() {
+  local id=quota-secondmate-z30 out status sm
+  quota_gate_case "$id" grok "$id" exhausted
+  jq '.providers += [.providers[] | select(.provider == "codex") | .provider = "agy"
+    | .quotaSemantics.effectiveAvailability[].selection.spendPriority = 9]' "$CASE_DIR/quota.json" > "$CASE_DIR/with-agy.json"
+  mv "$CASE_DIR/with-agy.json" "$CASE_DIR/quota.json"
+  printf '%s\n' '{"default":[{"harness":"agy"},{"harness":"claude"}]}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$sm" --secondmate --harness grok)
+  status=$?
+  expect_code 1 "$status" "an exhausted secondmate spawn must refuse"$'\n'"$out"
+  assert_contains "$out" 'Best alternative: provider claude (spendPriority -0.39): --harness claude.' \
+    "secondmate spawn must skip higher-ranked AGY"
+  [ ! -s "$LAUNCH_LOG" ] || fail "a refused secondmate launched a worker"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "a refused secondmate wrote a task record"
+  pass "secondmate spawn quota refusals recommend a supported harness"
+}
+
+test_quota_gate_passes_healthy_and_long_runway_harnesses() {
+  local id out status
+  id=quota-pass-codex-z31
+  quota_gate_case "$id" codex "$id" short:7200
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness codex --model gpt-6.1-sol)
+  status=$?
+  expect_code 0 "$status" "a healthy codex spawn must pass the quota gate"$'\n'"$out"
+  assert_not_contains "$out" "quota check" "a healthy harness must pass silently"
+  assert_no_grep 'quota_override' "$HOME_DIR/state/$id.meta" "a gate pass must record no override"
+
+  id=quota-pass-grok-long-z31
+  quota_gate_case "$id" grok "$id" short:42004
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4.7)
+  status=$?
+  expect_code 0 "$status" "grok whose runway outlasts three hours must pass"$'\n'"$out"
+  pass "a healthy harness and a runway longer than three hours pass the quota gate"
+}
+
+test_quota_gate_unknown_provider_and_missing_reading_notices() {
+  local id out status
+  id=quota-unknown-pi-z32
+  quota_gate_case "$id" pi "$id" exhausted
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness pi --model some-undeclared-model)
+  status=$?
+  expect_code 0 "$status" "an undeclared family must remain disclosed uncertainty"$'\n'"$out"
+  assert_contains "$out" "notice: fm-spawn quota check for pi some-undeclared-model is uncertain" \
+    "an unmodeled provider must be disclosed"
+
+  id=quota-unreadable-z32
+  quota_gate_case "$id" grok "$id" exhausted
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/missing.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok)
+  status=$?
+  expect_code 0 "$status" "a missing quota reading must not refuse"$'\n'"$out"
+  assert_contains "$out" "notice: fm-spawn launches grok without the quota check" "a missing reading must be disclosed"
+  pass "unknown provider families and missing readings are disclosed without native resolution"
+}
+
+test_quota_gate_override_passes_and_is_recorded() {
+  local id out status meta
+  id=quota-override-z33
+  quota_gate_case "$id" grok "$id" short:7200
+  out=$(FM_QUOTA_SNAPSHOT_FILE="$CASE_DIR/quota.json" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4.7 --quota-override "captain chose grok for this review")
+  status=$?
+  expect_code 0 "$status" "an explicit override must launch the refused harness"$'\n'"$out"
+  meta="$HOME_DIR/state/$id.meta"
+  [ "$(sed -n 's/^quota_override=//p' "$meta")" = "captain chose grok for this review" ] \
+    || fail "the override reason must be recorded: $(cat "$meta")"
+  grep -Eq '^quota_override_evidence=refuse: provider grok runway at all_products \(4% remaining\) ends .*; best alternative: provider codex' "$meta" \
+    || fail "the overridden refusal must be recorded: $(cat "$meta")"
+  assert_contains "$out" "proceeding under --quota-override" "the override must be announced"
+
+  id=quota-override-unneeded-z33
+  quota_gate_case "$id" claude "$id" short:7200
+  rm -f "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --quota-override "no harness named")
+  status=$?
+  expect_code 1 "$status" "an override with no explicit harness must refuse"
+  assert_contains "$out" "--quota-override applies only to an explicitly named adapter" "the refusal must say why"
+  pass "--quota-override launches a refused harness and records the reason and evidence"
+}
+
 test_claude_crewmate_launch_carries_the_attribution_policy() {
   local rec id out status launch
-  id=profile-claude-attribution-z22
+  id="profile-claude-attribution-z22"
   rec=$(make_spawn_case profile-claude-attribution claude "$id")
   read_case_record "$rec"
 
@@ -1844,7 +2008,7 @@ assert_ship_keeps_trailers_and_checks_format() {
 
 test_keep_ai_trailers_preserves_attribution_and_format_checks() {
   local rec id out status launch
-  id=profile-claude-keep-attribution-z25
+  id="profile-claude-keep-attribution-z25"
   rec=$(make_spawn_case profile-claude-keep-attribution claude "$id")
   read_case_record "$rec"
   : > "$HOME_DIR/config/keep-ai-trailers"
@@ -1860,8 +2024,8 @@ test_keep_ai_trailers_preserves_attribution_and_format_checks() {
 
 test_keep_ai_trailers_reaches_secondmate_crew_launches() {
   local rec sm_rec sm_id crew_id sm out status launch
-  sm_id=profile-keep-attribution-sm-z26
-  crew_id=profile-keep-attribution-crew-z27
+  sm_id="profile-keep-attribution-sm-z26"
+  crew_id="profile-keep-attribution-crew-z27"
   rec=$(make_spawn_case profile-keep-attribution-primary claude "$sm_id")
   sm_rec=$(make_spawn_case profile-keep-attribution-sm claude "$crew_id")
   read_case_record "$rec"
@@ -1887,7 +2051,7 @@ test_keep_ai_trailers_reaches_secondmate_crew_launches() {
 
 test_claude_secondmate_launch_carries_the_attribution_policy() {
   local rec id sm out status launch
-  id=profile-secondmate-attribution-z23
+  id="profile-secondmate-attribution-z23"
   rec=$(make_spawn_case profile-secondmate-attribution claude "$id")
   read_case_record "$rec"
   sm="$CASE_DIR/secondmate-home"
@@ -1904,7 +2068,7 @@ test_claude_secondmate_launch_carries_the_attribution_policy() {
 
 test_active_dispatch_profile_does_not_block_secondmate_launch() {
   local rec id sm out status
-  id=profile-secondmate-z16
+  id="profile-secondmate-z16"
   rec=$(make_spawn_case profile-secondmate codex "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
@@ -2138,6 +2302,8 @@ SH
     pass "$route inheritance preserves the allowlist on source errors and mirrors proven absence"
   done
 }
+
+[ "${FM_TEST_FIXTURE_IMPORT:-}" != spawn-quota ] || return 0
 
 test_launch_environment_allowlist
 test_launch_environment_invalid_config_refuses
@@ -2479,6 +2645,12 @@ test_claude_launches_disable_background_exit_handoff_and_agent_view
 test_claude_haiku_launch_gets_an_opus_advisor
 test_claude_non_haiku_launch_gets_no_advisor
 test_claude_long_launch_is_delivered_intact
+test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative
+test_quota_alternatives_obey_launch_capabilities
+test_secondmate_quota_refusal_names_a_supported_alternative
+test_quota_gate_passes_healthy_and_long_runway_harnesses
+test_quota_gate_unknown_provider_and_missing_reading_notices
+test_quota_gate_override_passes_and_is_recorded
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_keep_ai_trailers_preserves_attribution_and_format_checks
 test_keep_ai_trailers_reaches_secondmate_crew_launches

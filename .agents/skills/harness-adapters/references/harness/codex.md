@@ -6,6 +6,7 @@ Verified on 2026-06-11 with codex-cli 0.139.0 unless a fact gives a newer versio
 
 | Fact | Value |
 |---|---|
+| Launch brief | Positional by default and confirmed by a bounded first-turn gate; the footer reads `<model> default` until that turn starts. See [Codex launch brief](../../../../../docs/verification/runtime-backends.md#codex-launch-brief) for timing, the typed opt-in, and confirmation. |
 | Busy state | Unknown until a semantic source is live-verified: the app-server turn lifecycle is unreachable for a pane worker, and project lifecycle hooks did not fire for a Firstmate-launched worker. |
 | Exit command | `/quit`; its slash popup needs about one second between text and Enter, which the shared submit path used by the control plane handles. |
 | Interrupt | Single Escape. |
@@ -16,13 +17,14 @@ Verified on 2026-06-11 with codex-cli 0.139.0 unless a fact gives a newer versio
 | Model discovery | Open the current interactive session's `/model` picker. |
 | Marker | None; identity comes from ancestry, and `../../../bin/fm-harness.sh` is what keeps a retained foreign `CLAUDECODE` from renaming it. Verified on 2026-09-01 with codex-cli 0.152.0: the pane process is the `node` npm shim and the native `codex` binary runs as its foreground child, so a tool subprocess reaches the native name directly while the shim itself is identified from its script path. |
 
-A directory trust dialog appears on the first run for a repository root: "Do you trust the contents of this directory?"
-Accept it with Enter and verify the instructions begin processing.
-The decision persists for the repository, so later worktrees of the same project skip it.
+## Launch dialogs
+
+Before answering a Codex startup dialog, read [Codex launch brief](../../../../../docs/verification/runtime-backends.md#codex-launch-brief) for the supported trust/update choices, backend capture limits, and dated dialog captures.
+Hook review follows its separate consent boundary below.
 
 ## Hook trust
 
-A second dialog, "Hooks need review - N hooks are new or changed", appears whenever the machine's `~/.codex/hooks.json` or a project's own `.codex/hooks.json` carries a hook Codex has not persisted trust for.
+The "Hooks need review - N hooks are new or changed" dialog appears whenever the machine's `~/.codex/hooks.json` or a project's own `.codex/hooks.json` carries a hook Codex has not persisted trust for.
 It is unanswerable rather than merely inconvenient: its selection starts on "Review hooks", which is neither trusting nor declining, and Firstmate's key plane carries Enter, Escape and Ctrl-C with no arrow navigation.
 Writing Codex's own trust store to pre-accept it would manufacture an operator consent that was never given.
 So crewmate and scout launches disable Codex's hook layer outright (`bin/fm-spawn.sh`'s launch template owns the flag), which is the opposite of `--dangerously-bypass-hook-trust` - that flag RUNS the untrusted hooks.

@@ -113,6 +113,7 @@ run_pane() {
     CLAUDE_CONFIG_DIR="$CASE/ambient-claude" ANTHROPIC_API_KEY=ambient-pane-key \
     CLAUDE_CODE_OAUTH_TOKEN=ambient-pane-token CLAUDE_CODE_USE_BEDROCK=1 \
     PI_CODING_AGENT_DIR="$CASE/ambient-pi" OPENAI_API_KEY=ambient-pane-openai \
+    CODEX_HOME="$CASE/ambient-codex" CODEX_API_KEY=ambient-pane-codex \
     FM_ACCOUNT_LOG="${FM_ACCOUNT_LOG:-}" \
     bash -c "$(cat "$CASE/launch.log")" || fail "the recorded launch failed in the synthetic pane"
 }
@@ -586,6 +587,884 @@ test_remote_secondmate_account_override_refuses_locally() {
   pass "a remote route refuses a primary-side account override instead of silently ignoring it"
 }
 
+test_raw_command_quota_override_refuses() {
+  local harness id out rc
+  for harness in claude codex; do
+    id="acct-raw-quota-$harness"
+    new_case "$id" "$harness"
+    out=$(spawn_ship "$id" --harness "$harness --model fixture" --quota-override fixture-reason); rc=$?
+    expect_code 1 "$rc" 'a raw command cannot accept a quota override without a quota check'
+    assert_refused_before_launch "$id" "$out" '--quota-override applies only to an explicitly named adapter'
+  done
+  pass 'raw launch commands refuse quota overrides instead of bypassing the quota check'
+}
+
+test_codex_empty_list_refuses_before_endpoint() {
+  local out rc id=acct-codex-empty
+  new_case codex-empty codex
+  : > "$HOME_DIR/config/codex-accounts"
+  out=$(spawn_ship "$id"); rc=$?
+  expect_code 1 "$rc" "an opted-in empty Codex account list must refuse: $out"
+  assert_refused_before_launch "$id" "$out" "codex-accounts"
+  pass "Codex refuses an empty opt-in before endpoint creation"
+}
+
+codex_case() {
+  local marker=
+  new_case "$1" codex
+  mkdir -p "$CASE/shared/rules" "$CASE/shared/skills" "$CASE/account one" "$CASE/account-two"
+  printf 'cli_auth_credentials_store="file"\n' > "$CASE/shared/config.toml"
+  printf 'Test instructions\n' > "$CASE/shared/AGENTS.md"
+  printf 'prefix_rule(pattern=["echo"], decision="allow")\n' > "$CASE/shared/rules/default.rules"
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' "artificial-session-$root" "$marker" > "$root/auth.json"
+    marker="${marker}x"
+    : > "$root/signed-in"
+    printf '%s\n' '{"config":{"model":"requested"}}' > "$root/effective-config.json"
+    python3 "$ROOT/bin/fm-codex-accounts.py" prepare --folder "$root" --shared "$CASE/shared" || fail 'prepare failed'
+  done
+  printf '%s\n' "$CASE/account one" "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
+  cat > "$FAKEBIN/treehouse" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  --version) printf 'v3.1.8\n'; exit 0 ;;
+  'get --help') printf '%s\n' '--lease --lease-holder --json'; exit 0 ;;
+  'return --help') printf '%s\n' '--if-lease-id --if-lease-holder'; exit 0 ;;
+esac
+if [ "${1:-}" = get ]; then
+  jq -n --arg path "$FM_FAKE_PANE_PATH" '{path:$path,lease_id:"fixture-lease"}'
+fi
+SH
+  chmod +x "$FAKEBIN/treehouse"
+  # The shared fixture need not install Codex: all harness/pane behavior lives
+  # in its fake endpoint. Never fall through to the machine's installed CLI.
+  cat > "$FAKEBIN/codex" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = -c ]; then
+  [ "$2" = 'cli_auth_credentials_store="file"' ] || exit 83
+  shift 2
+fi
+if [ "${1:-}" = login ] && [ "${2:-}" = status ]; then
+  [ -z "${OPENAI_API_KEY:-}${CODEX_API_KEY:-}" ] || exit 82
+  printf 'status diagnostics must stay private\n' >&2
+  [ -f "$CODEX_HOME/signed-in" ]
+  exit
+fi
+if [ "${1:-}" = app-server ]; then
+  exec python3 -c '
+import json, os, pathlib, sys
+initialized = False
+for line in sys.stdin:
+    request = json.loads(line)
+    method = request.get("method")
+    if method == "initialize":
+        print(json.dumps({"id": request["id"], "result": {"userAgent": "fixture"}}), flush=True)
+    elif method == "initialized":
+        initialized = True
+    elif method == "config/read":
+        if not initialized or request["params"].get("includeLayers") is not False or not pathlib.Path(request["params"].get("cwd", "missing")).is_dir():
+            sys.exit(87)
+        result = json.loads((pathlib.Path(os.environ["CODEX_HOME"]) / "effective-config.json").read_text())
+        trust = pathlib.Path(os.environ["CODEX_HOME"]) / "trusted-cwd"
+        project = pathlib.Path(request["params"]["cwd"]) / ".codex/config.toml"
+        if trust.exists() and trust.read_text().strip() == request["params"]["cwd"] and project.is_file():
+            result = {"config": {"model": next(line.split("=", 1)[1].strip().strip(chr(34)) for line in project.read_text().splitlines() if line.startswith("model="))}}
+        print(json.dumps({"id": request["id"], "result": result}), flush=True)
+    elif method == "model/list":
+        if not initialized or request["params"] != {"includeHidden": True}:
+            sys.exit(88)
+        print(json.dumps({"id": request["id"], "result": {"data": [
+            {"model": "catalog-default", "isDefault": True}], "nextCursor": None}}), flush=True)
+    elif method == "account/read":
+        if not initialized or request["params"] != {"refreshToken": False}:
+            sys.exit(84)
+        if os.environ.get("OPENAI_API_KEY") or os.environ.get("CODEX_API_KEY"):
+            sys.exit(85)
+        identity = pathlib.Path(os.environ["CODEX_HOME"]) / "identity"
+        account = {"type": "chatgpt", "email": identity.read_text().strip()} if identity.exists() else {"type": "apiKey"}
+        print(json.dumps({"method": "account/updated", "params": {"authMode": "chatgpt"}}), flush=True)
+        print(json.dumps({"id": request["id"], "result": {"account": account}}), flush=True)
+    else:
+        sys.exit(86)
+'
+fi
+if [ "${1:-}" = exec ]; then
+  printf 'maintenance diagnostics must stay private\n'
+  [ ! -f "$CODEX_HOME/maintenance-fails" ]
+  exit
+fi
+if [ -n "${CODEX_HOME:-}" ] && [ -d "$CODEX_HOME" ]; then
+  printf 'CODEX_HOME=%s\nOPENAI_API_KEY=%s\nCODEX_API_KEY=%s\n' "$CODEX_HOME" \
+    "${OPENAI_API_KEY-unset}" "${CODEX_API_KEY-unset}" > "$CODEX_HOME/worker-environment"
+  printf '%s\n' "$*" > "$CODEX_HOME/worker-arguments"
+  pwd > "$CODEX_HOME/worker-cwd"
+fi
+printf 'fake codex 0.136.0\n'
+SH
+  cat > "$FAKEBIN/quota-axi" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *' --profile-only '*) ;;
+  *) exit 81 ;;
+esac
+[ -z "${OPENAI_API_KEY:-}${CODEX_API_KEY:-}" ] || exit 82
+cat "$CODEX_HOME/quota.json"
+SH
+  chmod +x "$FAKEBIN/codex" "$FAKEBIN/quota-axi"
+  codex_quota "$CASE/account one" fresh 30
+  codex_quota "$CASE/account-two" fresh 80
+}
+
+codex_quota() {
+  jq --arg state "$2" --argjson pct "$3" '
+    .providers |= [.[] | select(.provider == "codex") |
+      .state={status:$state} | .windows=[{id:"weekly",kind:"weekly",percentRemaining:$pct},
+      {id:"code_review_weekly",kind:"weekly",percentRemaining:99}]]' \
+    "$ROOT/tests/fixtures/quota-axi-healthy.json" > "$1/quota.json"
+}
+
+codex_tool() {
+  PATH="$FAKEBIN:$PATH" python3 "$ROOT/bin/fm-codex-accounts.py" "$@" \
+    --config "$HOME_DIR/config/codex-accounts" 2>&1
+}
+
+test_codex_folder_selection_and_guard() {
+  local out rc root
+  codex_case codex-select
+  out=$(codex_tool select); rc=$?
+  expect_code 0 "$rc" "selection failed: $out"
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'highest fresh main weekly room wins'
+  out=$(codex_tool select --folder "$CASE/account one")
+  assert_equals "$CASE/account one" "${out%%$'\t'*}" 'a gated selection stays fixed through preflight'
+  out=$(codex_tool quota)
+  assert_equals 2 "$(jq '.providers|length' <<< "$out")" 'each folder gets a quota row'
+  assert_not_contains "$out" 'diagnostics' 'vendor output must not leak'
+  codex_quota "$CASE/account-two" stale 100
+  out=$(codex_tool select)
+  assert_equals "$CASE/account one" "${out%%$'\t'*}" 'stale room must rank below measured'
+  rm "$CASE/account one/signed-in"
+  out=$(codex_tool select)
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'signed-in unknown beats signed-out measured'
+  rm "$CASE/account-two/signed-in"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'no usable folder must refuse'
+  assert_contains "$out" 'no default fallback' 'no ambient fallback'
+  cp -p "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool guard); rc=$?
+  expect_code 1 "$rc" 'identical copies must refuse'
+  assert_contains "$out" 'duplicate sign-in' 'duplicate diagnosed by folder'
+  assert_not_contains "$out" 'artificial-session' 'duplicate guard must not expose contents'
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    [ -L "$root/config.toml" ] && [ -L "$root/rules" ] && [ -L "$root/AGENTS.md" ] || fail 'shared links missing'
+    [ ! -L "$root/auth.json" ] || fail 'auth must never be linked'
+  done
+  rm "$CASE/account-two/auth.json"
+  ln -s "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool guard); rc=$?
+  expect_code 1 "$rc" 'auth symlinks must refuse'
+  rm "$CASE/account-two/auth.json"
+  ln "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool guard); rc=$?
+  expect_code 1 "$rc" 'auth hardlinks must refuse'
+  pass 'Codex selects measured weekly room without stale/fallback lanes and rejects credential copies/links'
+}
+
+test_codex_guard_metadata_and_identity() {
+  local out rc command
+  codex_case codex-identity
+  out=$(PATH="$FAKEBIN:$PATH" python3 - "$ROOT/bin/fm-codex-accounts.py" "$HOME_DIR/config/codex-accounts" <<'PY'
+import importlib.util, os, sys
+spec = importlib.util.spec_from_file_location("accounts", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+def deny_auth_read(event, args):
+    if event == "open" and isinstance(args[0], (str, bytes)) and os.path.basename(os.fsdecode(args[0])) == "auth.json":
+        raise AssertionError("credential contents must not be opened")
+sys.addaudithook(deny_auth_read)
+sys.argv = [sys.argv[1], "guard", "--config", sys.argv[2]]
+module.main()
+PY
+  ); rc=$?
+  expect_code 0 "$rc" "metadata guard must not open credential contents: $out"
+  assert_equals '' "$out" 'a metadata-only guard remains silent'
+  printf 'same-account@example.invalid\n' > "$CASE/account one/identity"
+  printf 'SAME-account@example.invalid\n' > "$CASE/account-two/identity"
+  for command in guard select quota check maintain; do
+    out=$(codex_tool "$command" --folder "$CASE/account-two"); rc=$?
+    expect_code 1 "$rc" "$command must reject two folders reporting one account: $out"
+    assert_contains "$out" 'duplicate Codex account' 'runner identity detects divergent sign-in files'
+    assert_not_contains "$out" 'example.invalid' 'account identity must not be printed'
+    assert_not_contains "$out" 'artificial-session' 'credentials must not be printed'
+  done
+  printf 'other-account@example.invalid\n' > "$CASE/account-two/identity"
+  out=$(codex_tool guard); rc=$?
+  expect_code 0 "$rc" "independent runner identities must pass: $out"
+  rm "$CASE/account one/identity" "$CASE/account-two/identity"
+  printf 'unreadable-as-a-credential-a\n' > "$CASE/account one/auth.json"
+  printf 'unreadable-as-a-credential-b\n' > "$CASE/account-two/auth.json"
+  touch -r "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
+  out=$(codex_tool guard); rc=$?
+  expect_code 1 "$rc" 'equal size and mtime must refuse even when file contents differ'
+  assert_contains "$out" 'duplicate sign-in' 'metadata match is sufficient'
+  pass 'Codex guard uses metadata and private runner identities without opening credentials'
+}
+
+test_codex_applicable_quota() {
+  local scope state out rc model selected profile id
+  codex_case codex-applicable
+  for scope in all_models all_products model:requested product:requested model:other; do
+    for state in zero exhausted unknown; do
+      codex_quota "$CASE/account one" fresh 80
+      codex_quota "$CASE/account-two" fresh 90
+      jq --arg scope "$scope" --arg state "$state" '
+        .providers[].quotaSemantics.effectiveAvailability += [
+          if $state == "unknown" then {scope:$scope,status:"unknown",runway:{status:"exhausted_now"}}
+          else {scope:$scope,status:"known",effectivePercentRemaining:(if $state == "zero" then 0 else 50 end),
+            runway:{status:(if $state == "zero" then "through_reset" else "exhausted_now" end)},selection:{spendPriority:1}} end]' \
+        "$CASE/account-two/quota.json" > "$CASE/bounded-quota.json"
+      mv "$CASE/bounded-quota.json" "$CASE/account-two/quota.json"
+      selected="$CASE/account one"
+      [ "$scope" != model:other ] || selected="$CASE/account-two"
+      for profile in caller configured; do
+        model=codex-native/requested
+        if [ "$profile" = configured ]; then
+          printf '%s\n' '{"default":{"harness":"codex","model":"codex-native/requested"}}' > "$HOME_DIR/config/crew-dispatch.json"
+          model=
+        else
+          rm -f "$HOME_DIR/config/crew-dispatch.json"
+        fi
+        out=$(PATH="$FAKEBIN:$PATH" bash -c '
+          . "$1/bin/fm-worker-account-lib.sh"
+          fm_worker_account_select codex "$2" "$3" codex
+        ' bash "$ROOT" "$HOME_DIR/config" "$model"); rc=$?
+        expect_code 0 "$rc" "selection failed for $scope/$state/$profile: $out"
+        assert_equals "$selected" "${out%%$'\t'*}" 'usable applicable quota precedes weekly ranking'
+        out=$(PATH="$FAKEBIN:$PATH" bash -c '
+          . "$1/bin/fm-quota-axi-lib.sh"
+          fm_quota_gate_run codex "$3" "$2/crew-dispatch.json" "" review ship tmux "$2" || exit 1
+          [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+          printf "%s\n" "$FM_QUOTA_CODEX_ROOT"
+        ' bash "$ROOT" "$HOME_DIR/config" "$model"); rc=$?
+        expect_code 0 "$rc" "gate selection failed for $scope/$state/$profile: $out"
+        assert_equals "$selected" "$out" 'gate and preflight agree on applicable quota'
+      done
+      out=$(codex_tool quota --model requested)
+      if [ "$state" = unknown ]; then
+        assert_equals exhausted_now "$(jq -r --arg root "$CASE/account-two" --arg scope "$scope" \
+          '[.providers[] | select(.accountLocator.path == $root) | .quotaSemantics.effectiveAvailability[] | select(.scope == $scope) | .runway.status] | last' <<< "$out")" \
+          'unknown percentage must retain exhausted runway'
+      fi
+      out=$(codex_tool select --folder "$CASE/account-two" --model requested); rc=$?
+      if [ "$scope" = model:other ]; then
+        expect_code 0 "$rc" "unrelated model quota must not block preselected folder: $out"
+      else
+        expect_code 1 "$rc" 'preselected folders must also have usable applicable quota'
+      fi
+    done
+  done
+  rm -f "$HOME_DIR/config/crew-dispatch.json"
+  codex_quota "$CASE/account one" fresh 80
+  codex_quota "$CASE/account-two" fresh 90
+  jq '.providers[].quotaSemantics.effectiveAvailability = [{scope:"all_models",status:"unknown",runway:{status:"exhausted_now"}}]' \
+    "$CASE/account-two/quota.json" > "$CASE/bounded-quota.json"
+  mv "$CASE/bounded-quota.json" "$CASE/account-two/quota.json"
+  for profile in implicit explicit; do
+    id="acct-codex-usable-$profile"
+    if [ "$profile" = explicit ]; then
+      out=$(spawn_ship "$id" --harness codex --model requested); rc=$?
+    else
+      out=$(spawn_ship "$id" --model requested); rc=$?
+    fi
+    expect_code 0 "$rc" "a usable sibling must launch for $profile: $out"
+    assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'spawn excludes the exhausted sibling'
+  done
+  printf '%s\n' "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
+  out=$(spawn_ship acct-codex-exhausted --harness codex --model requested); rc=$?
+  expect_code 1 "$rc" 'unknown-percentage exhaustion must refuse instead of becoming a notice'
+  assert_refused_before_launch acct-codex-exhausted "$out" 'no usable signed-in folder'
+  pass 'Codex filters applicable exhaustion before ranking, including unknown percentages and preselected folders'
+}
+
+test_codex_default_model() {
+  local out rc root id profile flag
+  codex_case codex-default-model
+  codex_quota "$CASE/account one" fresh 80
+  codex_quota "$CASE/account-two" fresh 90
+  jq '.providers[].quotaSemantics.effectiveAvailability += [{scope:"model:configured-default",
+    status:"unknown",runway:{status:"exhausted_now"}}]' "$CASE/account-two/quota.json" > "$CASE/exhausted.json"
+  mv "$CASE/exhausted.json" "$CASE/account-two/quota.json"
+  printf 'model="configured-default"\ncli_auth_credentials_store="file"\n' > "$CASE/shared/config.toml"
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' '{"config":{"model":"configured-default"}}' > "$root/effective-config.json"
+  done
+  for profile in absent conflicting; do
+    if [ "$profile" = conflicting ]; then
+      printf '%s\n' '{"default":{"harness":"codex","model":"unused-dispatch-model"}}' > "$HOME_DIR/config/crew-dispatch.json"
+    fi
+    out=$(codex_tool select); rc=$?
+    expect_code 0 "$rc" "default model must resolve: $out"
+    assert_equals "$CASE/account one" "${out%%$'\t'*}" 'configured-default exhaustion excludes the weekly winner'
+    assert_equals configured-default "${out##*$'\t'}" 'selection returns the concrete model'
+    for flag in '' default configured-default; do
+      out=$(PATH="$FAKEBIN:$PATH" bash -c '
+        . "$1/bin/fm-worker-account-lib.sh"
+        fm_worker_account_select codex "$2" "$3" codex "" "" "$4"
+      ' bash "$ROOT" "$HOME_DIR/config" "$flag" "$CASE/account one"); rc=$?
+      expect_code 0 "$rc" "default-model preselected relaunch failed: $out"
+      assert_equals configured-default "${out##*$'\t'}" 'default sentinel and explicit model resolve consistently'
+    done
+    id="acct-codex-default-$profile"
+    out=$(spawn_ship "$id" --harness codex); rc=$?
+    expect_code 0 "$rc" "default-model spawn failed: $out"
+    assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'the default-model gate selects a usable folder'
+    assert_equals configured-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/$id.meta")" 'launch metadata records the gated model'
+    run_pane
+    assert_contains "$(cat "$CASE/account one/worker-arguments")" '--model configured-default' 'the worker uses the gated concrete model'
+    assert_not_contains "$(cat "$CASE/account one/worker-arguments")" '--provider' 'the model must not become a provider pin'
+  done
+  rm "$HOME_DIR/config/crew-dispatch.json"
+  out=$(spawn_ship acct-codex-default-implicit); rc=$?
+  expect_code 0 "$rc" "implicit default-model spawn failed: $out"
+  assert_equals configured-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/acct-codex-default-implicit.meta")" 'implicit launch uses the same concrete model'
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' '{"config":{"model":null}}' > "$root/effective-config.json"
+  done
+  out=$(codex_tool select); rc=$?
+  expect_code 0 "$rc" "a vendor-reported catalog default must resolve: $out"
+  assert_equals catalog-default "${out##*$'\t'}" 'built-in defaults come from the vendor catalog'
+  rm "$CASE/account one/effective-config.json"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'an unavailable model configuration must not become a guessed model'
+  assert_contains "$out" 'cannot resolve Codex launch model' 'missing model provenance is diagnosed'
+  pass 'Codex resolves and pins actual default models across selection, gates and launch'
+}
+
+test_codex_project_model() {
+  local root out rc id kind
+  codex_case codex-project-model
+  mkdir -p "$PROJ/.codex"
+  printf 'model="project-default"\n' > "$PROJ/.codex/config.toml"
+  git -C "$PROJ" add .codex/config.toml
+  git -C "$PROJ" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'trusted project model fixture' || fail 'could not commit project model fixture'
+  git -C "$PROJ" push -q origin main || fail 'could not publish synthetic project base'
+  git -C "$WT" merge --ff-only "$(git -C "$PROJ" rev-parse HEAD)" >/dev/null || fail 'could not refresh project model fixture'
+  printf 'model="account-default"\n[projects."%s"]\ntrust_level="trusted"\n' "$WT" > "$CASE/shared/config.toml"
+  codex_quota "$CASE/account one" fresh 80
+  codex_quota "$CASE/account-two" fresh 90
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' '{"config":{"model":"account-default"}}' > "$root/effective-config.json"
+    printf '%s\n' "$WT" > "$root/trusted-cwd"
+    jq '.providers[].quotaSemantics.effectiveAvailability += [
+      {scope:"model:account-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+      "$root/quota.json" > "$CASE/project-quota.json"
+    mv "$CASE/project-quota.json" "$root/quota.json"
+  done
+  jq '.providers[].quotaSemantics.effectiveAvailability += [
+    {scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+    "$CASE/account-two/quota.json" > "$CASE/project-quota.json"
+  mv "$CASE/project-quota.json" "$CASE/account-two/quota.json"
+  out=$(codex_tool select --cwd "$WT"); rc=$?
+  expect_code 0 "$rc" "trusted project selection failed: $out"
+  assert_equals "$CASE/account one" "${out%%$'\t'*}" 'quota for the trusted project model determines selection'
+  assert_equals project-default "${out##*$'\t'}" 'project default overrides the exhausted account default'
+  out=$(codex_tool quota --gate --cwd "$WT"); rc=$?
+  expect_code 0 "$rc" "trusted project gate snapshot failed: $out"
+  assert_equals project-default "$(jq -r '.selectedModel' <<< "$out")" 'gate snapshot retains the project model'
+  out=$(codex_tool select --cwd "$WT" --model explicit-model); rc=$?
+  expect_code 0 "$rc" "explicit model must override project defaults: $out"
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'explicit-model quota excludes unrelated project bounds'
+  assert_equals explicit-model "${out##*$'\t'}" 'an explicit model has precedence over the project'
+  rm "$CASE/account one/trusted-cwd" "$CASE/account-two/trusted-cwd"
+  out=$(codex_tool select --cwd "$WT"); rc=$?
+  expect_code 1 "$rc" 'an untrusted project must not override the exhausted account default'
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' "$WT" > "$root/trusted-cwd"
+  done
+  for kind in ship scout; do
+    id="acct-project-$kind"
+    if [ "$kind" = ship ]; then
+      out=$(spawn_ship "$id" --harness codex); rc=$?
+    else
+      fm_test_spawn_brief "$HOME_DIR" "$id"
+      : > "$CASE/launch.log"
+      out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --scout); rc=$?
+    fi
+    expect_code 0 "$rc" "trusted project $kind spawn failed: $out"
+    assert_equals project-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/$id.meta")" 'spawn records the project model'
+    assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'spawn selects using project quota'
+    (cd "$WT" && run_pane)
+    assert_contains "$(cat "$CASE/account one/worker-arguments")" '--model project-default' 'worker actually runs the trusted project model'
+    assert_equals "$WT" "$(cat "$CASE/account one/worker-cwd")" 'worker starts in the inspected launch directory'
+  done
+  pass 'Codex resolves project defaults in the actual worktree before filtering, gating and launch'
+}
+
+test_codex_secondmate_project_model() {
+  local id=acct-project-mate sm root out rc
+  codex_case codex-secondmate-project
+  sm="$CASE/mate-home"
+  mkdir -p "$sm/bin" "$sm/data" "$sm/config" "$sm/.codex"
+  git init -q -b main "$sm"
+  printf '# Firstmate\n' > "$sm/AGENTS.md"
+  printf '%s\n' "$id" > "$sm/.fm-secondmate-home"
+  printf 'charter for %s\n' "$id" > "$sm/data/charter.md"
+  printf 'model="project-default"\n' > "$sm/.codex/config.toml"
+  codex_quota "$CASE/account one" fresh 80
+  codex_quota "$CASE/account-two" fresh 90
+  for root in "$CASE/account one" "$CASE/account-two"; do
+    printf '%s\n' '{"config":{"model":"account-default"}}' > "$root/effective-config.json"
+    printf '%s\n' "$sm" > "$root/trusted-cwd"
+    jq '.providers[].quotaSemantics.effectiveAvailability += [
+      {scope:"model:account-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+      "$root/quota.json" > "$CASE/project-quota.json"
+    mv "$CASE/project-quota.json" "$root/quota.json"
+  done
+  jq '.providers[].quotaSemantics.effectiveAvailability += [
+    {scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
+    "$CASE/account-two/quota.json" > "$CASE/project-quota.json"
+  mv "$CASE/project-quota.json" "$CASE/account-two/quota.json"
+  out=$(FM_SKIP_SECONDMATE_SYNC=1 FM_SKIP_SECONDMATE_INHERIT=1 FM_FAKE_LAUNCH_LOG="$CASE/launch.log" \
+    fm_test_run_spawn "$HOME_DIR" "$sm" "$FAKEBIN" "$id" "$sm" --secondmate --harness codex); rc=$?
+  expect_code 0 "$rc" "secondmate must resolve its model after home preparation: $out"
+  assert_equals project-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/$id.meta")" 'secondmate uses its prepared home model'
+  assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'secondmate selection uses the prepared model quota'
+  (cd "$sm" && run_pane)
+  assert_contains "$(cat "$CASE/account one/worker-arguments")" '--model project-default' 'secondmate launches the prepared project model'
+  pass 'Codex secondmates resolve their actual project model after home preparation'
+}
+
+test_codex_universal_preflight() {
+  local root scope signal out rc
+  codex_case codex-universal-preflight
+  for scope in all_models all_products; do
+    for signal in exhausted zero; do
+      for root in "$CASE/account one" "$CASE/account-two"; do
+        jq --arg scope "$scope" --arg signal "$signal" '
+          .providers[].quotaSemantics.effectiveAvailability = [
+            if $signal=="exhausted" then {scope:$scope,status:"unknown",runway:{status:"exhausted_now"}}
+            else {scope:$scope,status:"known",effectivePercentRemaining:0} end]' \
+          "$root/quota.json" > "$CASE/preflight-quota.json"
+        mv "$CASE/preflight-quota.json" "$root/quota.json"
+      done
+      out=$(codex_tool preflight); rc=$?
+      expect_code 1 "$rc" "universal $scope/$signal must refuse preflight: $out"
+    done
+  done
+  jq '.providers[].state.status="stale"' "$CASE/account one/quota.json" > "$CASE/preflight-quota.json"
+  mv "$CASE/preflight-quota.json" "$CASE/account one/quota.json"
+  out=$(codex_tool preflight); rc=$?
+  expect_code 0 "$rc" "stale quota must remain eligible: $out"
+  rm "$CASE/account one/quota.json"
+  out=$(codex_tool preflight); rc=$?
+  expect_code 0 "$rc" "unmeasured quota must remain eligible: $out"
+  codex_quota "$CASE/account one" fresh 80
+  jq '.providers[].quotaSemantics.effectiveAvailability = [
+    {scope:"model:requested",status:"unknown",runway:{status:"exhausted_now"}}]' \
+    "$CASE/account one/quota.json" > "$CASE/preflight-quota.json"
+  mv "$CASE/preflight-quota.json" "$CASE/account one/quota.json"
+  out=$(codex_tool preflight); rc=$?
+  expect_code 0 "$rc" "model-specific quota must wait for final resolution: $out"
+  pass 'Codex preflight refuses universal exhaustion while retaining uncertainty and model-specific checks'
+}
+
+test_codex_treehouse_compatibility() {
+  local interface out rc id
+  codex_case codex-treehouse-interface
+  mv "$FAKEBIN/tmux" "$FAKEBIN/tmux-base"
+  cat > "$FAKEBIN/tmux" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" != new-window ] || : > "$(dirname "$0")/endpoint-created"
+exec "$(dirname "$0")/tmux-base" "$@"
+SH
+  cat > "$FAKEBIN/treehouse" <<'SH'
+#!/usr/bin/env bash
+interface=$(cat "$(dirname "$0")/treehouse-interface")
+case "$*" in
+  --version)
+    if [ "$interface" = legacy ]; then printf 'v2.0.1\n'; else printf 'v3.1.8\n'; fi
+    ;;
+  'get --help')
+    printf '%s\n' '--lease --lease-holder'
+    [ "$interface" = legacy ] || printf '%s\n' '--json'
+    ;;
+  'return --help') [ "$interface" = legacy ] || printf '%s\n' '--if-lease-id' ;;
+  *) : > "$(dirname "$0")/allocation-attempted"; exit 2 ;;
+esac
+SH
+  chmod +x "$FAKEBIN/tmux" "$FAKEBIN/treehouse"
+  for interface in legacy missing-holder; do
+    printf '%s\n' "$interface" > "$FAKEBIN/treehouse-interface"
+    id="acct-treehouse-$interface"
+    out=$(spawn_ship "$id" --harness codex --model default); rc=$?
+    expect_code 1 "$rc" "incompatible Treehouse must refuse: $out"
+    assert_contains "$out" 'Treehouse v3.1.8 or newer' 'refusal identifies the supported dependency'
+    assert_absent "$HOME_DIR/state/$id.meta" 'incompatible Treehouse published metadata'
+    assert_absent "$FAKEBIN/allocation-attempted" 'incompatible Treehouse was asked to acquire a lease'
+    assert_absent "$FAKEBIN/endpoint-created" 'incompatible Treehouse opened an endpoint'
+  done
+  pass 'Codex refuses incompatible Treehouse before allocation or endpoint creation'
+}
+
+test_codex_exhausted_refusal_releases_capacity() {
+  local out rc id mode attempt claim before root
+  codex_case codex-exhausted-capacity
+  mkdir -p "$CASE/slots/1"
+  git -C "$PROJ" worktree move "$WT" "$CASE/slots/1/project" || fail 'could not prepare pool slot'
+  WT="$CASE/slots/1/project"
+  printf '{"worktrees":[{"name":"1","path":"%s"}]}\n' "$WT" > "$CASE/slots/treehouse-state.json"
+  claim="$CASE/slots/1/.fm-slot-owner"
+  mv "$FAKEBIN/tmux" "$FAKEBIN/tmux-base"
+  cat > "$FAKEBIN/tmux" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = new-window ]; then
+  printf 'endpoint\n' >> "$(dirname "$0")/endpoints-created"
+fi
+exec "$(dirname "$0")/tmux-base" "$@"
+SH
+  cat > "$FAKEBIN/treehouse" <<'SH'
+#!/usr/bin/env bash
+set -eu
+case "$*" in
+  --version) printf 'v3.1.8\n'; exit 0 ;;
+  'get --help') printf '%s\n' '--lease --lease-holder --json'; exit 0 ;;
+  'return --help') printf '%s\n' '--if-lease-id --if-lease-holder'; exit 0 ;;
+esac
+lease="$(dirname "$0")/held-lease"
+case "$1" in
+  get)
+    [ ! -e "$lease" ] || exit 81
+    [ "$2" = --lease ] && [ "$3" = --lease-holder ] && [ "$5" = --json ] || exit 82
+    printf '%s\n' "$4" > "$lease"
+    jq -n --arg path "$FM_FAKE_PANE_PATH" '{path:$path,lease_id:"owned-attempt"}'
+    ;;
+  return)
+    [ "$2" = "$FM_FAKE_PANE_PATH" ] && [ "$3" = --if-lease-id ] && [ "$4" = owned-attempt ] || exit 83
+    [ "$5" = --if-lease-holder ] && [ "$6" = "$(cat "$lease")" ] || exit 84
+    [ -z "$(git -C "$2" status --porcelain --untracked-files=all)" ] || exit 85
+    rm "$lease"
+    ;;
+  *) exit 86 ;;
+esac
+SH
+  chmod +x "$FAKEBIN/tmux" "$FAKEBIN/treehouse"
+  before=$(git -C "$WT" rev-parse HEAD)
+  for mode in explicit implicit scout; do
+    id="acct-exhausted-$mode"
+    for attempt in 1 2 3; do
+      codex_quota "$CASE/account one" fresh 0
+      codex_quota "$CASE/account-two" fresh 0
+      for root in "$CASE/account one" "$CASE/account-two"; do
+        jq '.providers[].quotaSemantics.effectiveAvailability = [
+          {scope:"model:requested",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
+          "$root/quota.json" > "$CASE/exhausted-quota.json"
+        mv "$CASE/exhausted-quota.json" "$root/quota.json"
+      done
+      case "$mode" in
+        explicit) out=$(spawn_ship "$id" --harness codex --model default); rc=$? ;;
+        implicit) out=$(spawn_ship "$id"); rc=$? ;;
+        scout)
+          fm_test_spawn_brief "$HOME_DIR" "$id"
+          out=$(fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --scout --harness codex --model default); rc=$?
+          ;;
+      esac
+      expect_code 1 "$rc" "$mode retry $attempt must refuse exhausted folders: $out"
+      assert_contains "$out" 'no usable signed-in folder' 'refusal must come from applicable quota'
+      assert_absent "$HOME_DIR/state/$id.meta" 'refusal published metadata'
+      assert_absent "$FAKEBIN/endpoints-created" 'refusal created an endpoint'
+      [ ! -s "$FAKEBIN/.spawn-window" ] || fail 'refusal left an endpoint holding a process lease'
+      assert_absent "$FAKEBIN/held-lease" 'refusal left its durable lease'
+      assert_absent "$claim" 'refusal left its task claim'
+      assert_equals "$before" "$(git -C "$WT" rev-parse HEAD)" 'refusal changed the pool commit'
+    done
+  done
+  codex_quota "$CASE/account one" fresh 80
+  out=$(spawn_ship acct-exhausted-recovered --harness codex); rc=$?
+  expect_code 0 "$rc" "capacity must remain available after repeated refusals: $out"
+  assert_grep "worktree=$WT" "$HOME_DIR/state/acct-exhausted-recovered.meta" 'successful retry uses the available slot'
+  assert_present "$FAKEBIN/held-lease" 'successful launch must retain its lease until teardown'
+  assert_grep 'task=acct-exhausted-recovered' "$claim" 'successful launch owns its slot'
+  pass 'exhausted default-model launches refuse before endpoints and release capacity across retries'
+}
+
+test_codex_identity_timeout() {
+  local out rc
+  codex_case codex-identity-timeout
+  printf '%s\n' "$CASE/account one" > "$HOME_DIR/config/codex-accounts"
+  cat > "$FAKEBIN/codex" <<'PY'
+#!/usr/bin/env python3
+import json, os, pathlib, subprocess, sys, time
+root = pathlib.Path(os.environ["CODEX_HOME"])
+mode = root / "cancel-stage"
+if mode.exists() and mode.read_text() == "login" and "app-server" in sys.argv:
+    for line in sys.stdin:
+        request = json.loads(line)
+        if request.get("method") == "initialized":
+            continue
+        result = {"account": {"type": "apiKey"}} if request.get("method") == "account/read" else {}
+        print(json.dumps({"id": request["id"], "result": result}), flush=True)
+    sys.exit(0)
+(root / "wrapper.pid").write_text(str(os.getpid()))
+child = subprocess.Popen([sys.executable, "-c", 'import sys,time; sys.stdout.write("{\\\"id\\\":"); sys.stdout.flush(); time.sleep(120)'])
+(root / "child.pid").write_text(str(child.pid))
+time.sleep(120)
+PY
+  out=$(PATH="$FAKEBIN:$PATH" python3 - "$ROOT/bin/fm-codex-accounts.py" "$HOME_DIR/config/codex-accounts" "$CASE/account one" <<'PY'
+import os, pathlib, signal, subprocess, sys, time
+root = pathlib.Path(sys.argv[3])
+if sys.platform.startswith("linux"):
+    import ctypes
+    assert ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) == 0, "could not adopt test descendants"
+try:
+    started = time.monotonic()
+    result = subprocess.run([sys.executable, sys.argv[1], "guard", "--config", sys.argv[2]],
+                            capture_output=True, text=True, timeout=14)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "" and result.stderr == "", "timeout metadata-only guard must remain silent"
+    elapsed = time.monotonic() - started
+    assert 9 <= elapsed < 14, f"identity read exceeded its deadline: {elapsed}"
+    for name in ("wrapper.pid", "child.pid"):
+        pid = int((root / name).read_text())
+        state = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+        assert not state or state.startswith("Z"), f"owned process survived timeout: {name} {state}"
+finally:
+    for name in ("wrapper.pid", "child.pid"):
+        if (root / name).exists():
+            try:
+                os.kill(int((root / name).read_text()), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                os.waitpid(int((root / name).read_text()), 0)
+            except ChildProcessError:
+                pass
+
+def state(pid):
+    return subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+
+unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"], start_new_session=True)
+try:
+    for stage in ("app-server", "login"):
+        for signum in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+            for name in ("wrapper.pid", "child.pid"):
+                (root / name).unlink(missing_ok=True)
+            (root / "cancel-stage").write_text(stage)
+            command = [sys.executable, sys.argv[1], "check", "--config", sys.argv[2], "--folder", str(root)]
+            helper = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+            watchdog = None
+            pids = []
+            try:
+                deadline = time.monotonic() + 4
+                while not all((root / name).exists() and (root / name).read_text().strip().isdigit()
+                              for name in ("wrapper.pid", "child.pid")):
+                    assert helper.poll() is None, "helper exited before the stalled vendor started"
+                    assert time.monotonic() < deadline, "stalled vendor did not start"
+                    time.sleep(0.01)
+                pids = [int((root / name).read_text()) for name in ("wrapper.pid", "child.pid")]
+                assert os.getpgid(pids[0]) == pids[0] == os.getpgid(pids[1]), "wrapper and child must share their owned group"
+                assert pids[0] != helper.pid, "vendor must be isolated from the outer watchdog group"
+                started = time.monotonic()
+                watchdog = subprocess.Popen([sys.executable, "-c", """
+import os, signal, sys, time
+time.sleep(0.2)
+os.killpg(int(sys.argv[1]), int(sys.argv[2]))
+time.sleep(0.2)
+try:
+    os.killpg(int(sys.argv[1]), signal.SIGKILL)
+except ProcessLookupError:
+    pass
+""", str(helper.pid), str(signum)])
+                stdout, stderr = helper.communicate(timeout=3)
+                watchdog.wait(timeout=1)
+                assert watchdog.returncode == 0, "outer watchdog failed to cancel the helper"
+                assert helper.returncode not in (0, -signal.SIGKILL), "helper failed to finish cancellation before watchdog escalation"
+                assert time.monotonic() - started < 3, "external cancellation exceeded its bound"
+                assert not stdout and not stderr, "external cancellation leaked vendor diagnostics"
+                if sys.platform.startswith("linux"):
+                    try:
+                        os.waitpid(pids[0], os.WNOHANG)
+                    except ChildProcessError:
+                        pass
+                    else:
+                        raise AssertionError("helper did not reap its direct vendor child")
+                deadline = time.monotonic() + 2
+                while any(state(pid) for pid in pids) and time.monotonic() < deadline:
+                    for pid in pids:
+                        try:
+                            os.waitpid(pid, os.WNOHANG)
+                        except ChildProcessError:
+                            pass
+                    time.sleep(0.01)
+                assert all(not state(pid) for pid in pids), f"owned processes survived {stage}/{signum}: {pids}"
+                assert unrelated.poll() is None, "vendor cleanup terminated an unrelated process"
+            finally:
+                for process in (watchdog, helper):
+                    if process is not None:
+                        if process.poll() is None:
+                            process.kill()
+                        process.wait()
+                if not pids:
+                    pids = [int((root / name).read_text()) for name in ("wrapper.pid", "child.pid")
+                            if (root / name).exists() and (root / name).read_text().strip().isdigit()]
+                if pids:
+                    try:
+                        os.killpg(pids[0], signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                for pid in pids:
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        os.waitpid(pid, 0)
+                    except ChildProcessError:
+                        pass
+finally:
+    unrelated.terminate()
+    unrelated.wait()
+PY
+  ); rc=$?
+  expect_code 0 "$rc" "identity read must time out and kill wrapper descendants: $out"
+  pass 'Codex deadlines and outer cancellation reap owned wrappers and descendants without affecting unrelated processes'
+}
+
+test_codex_runway_timing() {
+  local out rc root scope duration timestamp age expected snapshot
+  codex_case codex-runway
+  for scope in all_models model:gpt-6.1-sol; do
+    for duration in 60 14400; do
+      age=14400
+      for root in "$CASE/account one" "$CASE/account-two"; do
+        jq --arg scope "$scope" --argjson age "$age" --argjson duration "$duration" '
+          .generatedAt = ((now - $age | floor) | todate) |
+          (.providers[].quotaSemantics.effectiveAvailability[]) |=
+            (.scope = $scope | .runway = {status:"projected_exhaustion",
+              projectionConfidence:"established", usableRunwaySeconds:($age + $duration)})' \
+          "$root/quota.json" > "$CASE/timed-quota.json"
+        mv "$CASE/timed-quota.json" "$root/quota.json"
+        age=0
+      done
+      snapshot=$(codex_tool quota)
+      for root in "$CASE/account one" "$CASE/account-two" ''; do
+        expected=${root:-$CASE/account-two}
+        timestamp=$(jq -r '.generatedAt' "$expected/quota.json")
+        assert_equals "$timestamp" "$(jq -r --arg root "$expected" \
+          '.providers[] | select(.accountLocator.path == $root) | .generatedAt' <<< "$snapshot")" \
+          'combined quota retains each reading clock'
+        if [ -n "$root" ]; then
+          out=$(codex_tool quota --gate --folder "$root")
+        else
+          out=$(codex_tool quota --gate)
+        fi
+        assert_equals "$timestamp" "$(jq -r '.generatedAt' <<< "$out")" \
+          'gate clock belongs to the selected folder'
+        out=$(
+          . "$ROOT/bin/fm-quota-axi-lib.sh"
+          PATH="$FAKEBIN:$PATH" fm_quota_gate_run codex gpt-6.1-sol \
+            "$HOME_DIR/config/crew-dispatch.json" '' review ship tmux "$HOME_DIR/config" '' "$root" 2>&1
+        ); rc=$?
+        if [ "$duration" = 60 ]; then
+          expect_code 1 "$rc" "relative runway must refuse inside the three-hour horizon: $out"
+          assert_contains "$out" 'within the 3h0m spawn horizon' 'refusal uses the calculated deadline'
+        else
+          expect_code 0 "$rc" "four-hour runway must pass: $out"
+          assert_equals '' "$out" 'measured long runway passes without an uncertainty notice'
+        fi
+      done
+    done
+  done
+  pass 'Codex combined readings and pinned or automatic gates preserve relative runway clocks'
+}
+
+test_codex_spawn_and_checks() {
+  local out rc id=acct-codex-selected
+  codex_case codex-launch
+  # Existing metadata records quota evidence only alongside an override. The
+  # assertion below still requires pass, so an override cannot hide a refusal.
+  out=$(spawn_ship "$id" --harness codex --quota-override fixture-captures-evidence); rc=$?
+  expect_code 0 "$rc" "Codex account spawn failed: $out"
+  assert_contains "$out" "account=$CASE/account-two" 'spawn names the chosen account'
+  assert_grep "account=$CASE/account-two" "$HOME_DIR/state/$id.meta" 'task records the chosen account'
+  assert_grep 'quota_override_evidence=pass:' "$HOME_DIR/state/$id.meta" 'explicit quota gate uses the selected folder'
+  assert_contains "$(cat "$CASE/launch.log")" "export CODEX_HOME='$CASE/account-two'" 'backend command explicitly carries the account'
+  assert_contains "$(cat "$CASE/launch.log")" 'unset OPENAI_API_KEY CODEX_API_KEY' 'ambient credentials cannot replace the folder'
+  run_pane
+  assert_grep "CODEX_HOME=$CASE/account-two" "$CASE/account-two/worker-environment" 'worker receives the selected root'
+  assert_grep 'OPENAI_API_KEY=unset' "$CASE/account-two/worker-environment" 'worker sheds the ambient OpenAI key'
+  assert_grep 'CODEX_API_KEY=unset' "$CASE/account-two/worker-environment" 'worker sheds the ambient Codex key'
+  out=$(codex_tool check --folder "$CASE/account-two"); rc=$?
+  expect_code 0 "$rc" "fresh folder check failed: $out"
+  assert_equals '' "$out" 'healthy watcher is silent'
+  python3 - "$CASE/account-two/auth.json" <<'PY'
+import os, sys, time
+t = time.time() - 7 * 86400
+os.utime(sys.argv[1], (t, t))
+PY
+  out=$(codex_tool check --folder "$CASE/account-two"); rc=$?
+  expect_code 1 "$rc" 'old file must alert before refresh interval'
+  assert_contains "$out" 'not token expiry' 'age warning states its observable limit'
+  out=$(codex_tool maintain --folder "$CASE/account-two"); rc=$?
+  expect_code 0 "$rc" "normal-exec maintenance failed: $out"
+  assert_equals '' "$out" 'maintenance output stays private'
+  out=$(codex_tool register --state "$HOME_DIR/state"); rc=$?
+  expect_code 0 "$rc" "watcher registration failed: $out"
+  assert_equals 2 "$(printf '%s\n' "$HOME_DIR"/state/codex-account-*.check-trust | wc -l | tr -d ' ')" 'one registered watcher per folder'
+  rm "$CASE/account one/signed-in" "$CASE/account-two/signed-in"
+  out=$(spawn_ship acct-codex-out); rc=$?
+  expect_code 1 "$rc" 'signed-out folders refuse before endpoint'
+  assert_refused_before_launch acct-codex-out "$out" 'codex-accounts'
+  pass 'Codex launch forwards and records the folder; registered checks alert and maintenance uses normal exec'
+}
+
+test_codex_config_and_scout() {
+  local out rc id=acct-codex-scout
+  codex_case codex-config
+  rm "$HOME_DIR/config/codex-accounts"
+  mkfifo "$HOME_DIR/config/codex-accounts"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'a non-regular list must refuse without blocking'
+  rm "$HOME_DIR/config/codex-accounts"
+  printf '%s\r\n' "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'CR-terminated folder list must refuse'
+  printf '%s\n%s\n' "$CASE/account one" "$CASE/account one/../account one" > "$HOME_DIR/config/codex-accounts"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'folder aliases must refuse'
+  printf '%s\n' "$CASE/account one" > "$HOME_DIR/config/codex-accounts"
+  rm "$CASE/account one/rules"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'missing fleet guards must refuse'
+  ln -s "$CASE/shared/rules" "$CASE/account one/rules"
+  mv "$CASE/shared/rules/default.rules" "$CASE/real.rules"
+  ln -s "$CASE/real.rules" "$CASE/shared/rules/default.rules"
+  out=$(codex_tool select); rc=$?
+  expect_code 1 "$rc" 'individual rule-file links must refuse because Codex ignores them'
+  codex_case codex-scout
+  fm_test_spawn_brief "$HOME_DIR" "$id"
+  out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" --scout --harness codex); rc=$?
+  expect_code 0 "$rc" "scout account selection failed: $out"
+  assert_grep "account=$CASE/account-two" "$HOME_DIR/state/$id.meta" 'scout records its selected folder'
+  out=$(spawn_ship acct-codex-raw 'CODEX_HOME=/unwanted codex'); rc=$?
+  expect_code 1 "$rc" 'raw Codex overrides must refuse with account list enabled'
+  assert_refused_before_launch acct-codex-raw "$out" 'canonical Codex launch'
+  pass 'Codex list validation fails closed; scouts select and record their own folder'
+}
+
+test_codex_empty_list_refuses_before_endpoint
+test_raw_command_quota_override_refuses
+test_codex_folder_selection_and_guard
+test_codex_guard_metadata_and_identity
+test_codex_applicable_quota
+test_codex_default_model
+test_codex_project_model
+test_codex_secondmate_project_model
+test_codex_universal_preflight
+test_codex_treehouse_compatibility
+test_codex_exhausted_refusal_releases_capacity
+test_codex_identity_timeout
+test_codex_runway_timing
+test_codex_spawn_and_checks
+test_codex_config_and_scout
 test_secondmate_account_override
 test_secondmate_account_refusals
 test_remote_secondmate_account_override_refuses_locally
@@ -605,5 +1484,12 @@ test_raw_claude_account_metadata_matches_the_executed_environment
 test_raw_claude_cannot_disable_managed_background_safeguards
 test_compound_raw_claude_retains_one_exported_account
 test_local_secondmate_reads_the_launching_home_pin
+
+(
+  export FM_TEST_FIXTURE_IMPORT=control-relaunch
+  . "$ROOT/tests/fm-control-relaunch.test.sh"
+  unset FM_TEST_FIXTURE_IMPORT
+  test_codex_project_cwd_handoffs
+) || fail 'Codex project cwd relaunch handoff regression failed'
 
 echo "# all fm-worker-account tests passed"

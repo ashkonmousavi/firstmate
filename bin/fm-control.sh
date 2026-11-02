@@ -3,9 +3,10 @@
 # lifecycle verbs addressed to an exact task id.
 #
 # Usage: fm-control.sh <task-id> interrupt
-#        fm-control.sh <task-id> exit [--if-idle [--expect-spawn-gen <gen>]]
+#        fm-control.sh <task-id> exit [--landed-work] [--if-idle [--expect-spawn-gen <gen>]]
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
 #                                         [--effort <level>] [--if-recoverable]
+#                                         [--quota-override <reason>]
 #                                         (--note <text> | --note-file <path>)
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
@@ -56,6 +57,10 @@
 #              --expect-spawn-gen, when the task's recorded spawn_gen is no
 #              longer <gen> because a relaunch replaced the agent. Every other
 #              refusal keeps its ordinary exit status 1.
+#              --landed-work attests that the caller verified landing; this
+#              script does not check the forge for that flag. It authorizes
+#              the Claude exit picker under docs/agent-control.md's completion
+#              contract without recording task acceptance.
 #              A Claude exit has one more postcondition. Claude Code can hand a
 #              session with background work to a background session instead
 #              of exiting, so afterwards `claude agents --json --all` is read under
@@ -96,6 +101,9 @@
 #              The same pre-stop refusal applies to this home's worker tool
 #              exclusions (bin/fm-exclude-tools-lib.sh): a malformed list, or a
 #              replacement runtime that cannot hide the listed tools.
+#              See docs/configuration.md "Crew dispatch profiles" for the
+#              explicit-harness quota gate contract. --quota-override <reason>
+#              requires --harness and a non-empty one-line reason.
 #              --note is required for a ship or scout, whose replacement
 #              inherits the local copy but none of the conversation; a
 #              secondmate reconciles its own home's records at startup, so its
@@ -220,6 +228,10 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # shellcheck source=bin/fm-exclude-tools-lib.sh
 . "$SCRIPT_DIR/fm-exclude-tools-lib.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$SCRIPT_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-quota-axi-lib.sh
+. "$SCRIPT_DIR/fm-quota-axi-lib.sh"
 
 POLL=${FM_CONTROL_POLL:-0.5}
 SETTLE_WAIT=${FM_CONTROL_SETTLE_WAIT:-5}
@@ -289,8 +301,13 @@ MODEL_SET=0
 EFFORT_SET=0
 NOTE=
 NOTE_SET=0
+QUOTA_OVERRIDE=
+QUOTA_OVERRIDE_SET=0
+QUOTA_EVIDENCE=
+TARGET_CODEX_ROOT=
 RECOVER_ONLY=0
 IF_IDLE=0
+LANDED_WORK=0
 EXPECT_GEN=
 EXPECT_GEN_SET=0
 control_want_value=
@@ -304,6 +321,7 @@ for control_arg in "$@"; do
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
+      quota_override) QUOTA_OVERRIDE=$control_arg; QUOTA_OVERRIDE_SET=1 ;;
       expect_gen) EXPECT_GEN=$control_arg; EXPECT_GEN_SET=1 ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
@@ -317,6 +335,7 @@ for control_arg in "$@"; do
   case "$control_arg" in
     --if-recoverable) RECOVER_ONLY=1 ;;
     --if-idle) IF_IDLE=1 ;;
+    --landed-work) LANDED_WORK=1 ;;
     --expect-spawn-gen) control_want_value=expect_gen ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
@@ -326,6 +345,8 @@ for control_arg in "$@"; do
     --effort=*) NEW_EFFORT=${control_arg#--effort=}; EFFORT_SET=1 ;;
     --note) control_want_value=note ;;
     --note=*) NOTE=${control_arg#--note=}; NOTE_SET=1 ;;
+    --quota-override) control_want_value=quota_override ;;
+    --quota-override=*) QUOTA_OVERRIDE=${control_arg#--quota-override=}; QUOTA_OVERRIDE_SET=1 ;;
     --note-file) control_want_value=note_file ;;
     --note-file=*)
       [ -f "${control_arg#--note-file=}" ] || die "--note-file '${control_arg#--note-file=}' is not a readable file"
@@ -337,16 +358,23 @@ for control_arg in "$@"; do
 done
 if [ -n "$control_want_value" ]; then
   [ "$control_want_value" = note_file ] && die "--note-file requires a value"
+  [ "$control_want_value" = quota_override ] && die "--quota-override requires a value"
   die "--$control_want_value requires a value"
+fi
+if [ "$QUOTA_OVERRIDE_SET" = 1 ]; then
+  case "$QUOTA_OVERRIDE" in
+    '' | *[[:cntrl:]]*) die "--quota-override requires a non-empty one-line reason" ;;
+  esac
+  [ "$HARNESS_SET" = 1 ] || die "--quota-override applies only to a relaunch with an explicit --harness, the only relaunch the quota check gates"
 fi
 
 if [ "$VERB" != relaunch ]; then
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] \
-    || die "--harness, --model, --effort, --note, and --if-recoverable apply to 'relaunch' only"
+  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] && [ "$QUOTA_OVERRIDE_SET" = 0 ] \
+    || die "--harness, --model, --effort, --note, --quota-override, and --if-recoverable apply to 'relaunch' only"
 fi
 if [ "$VERB" != exit ]; then
-  [ "$IF_IDLE" = 0 ] && [ "$EXPECT_GEN_SET" = 0 ] \
-    || die "--if-idle and --expect-spawn-gen apply to 'exit' only"
+  [ "$IF_IDLE" = 0 ] && [ "$EXPECT_GEN_SET" = 0 ] && [ "$LANDED_WORK" = 0 ] \
+    || die "--if-idle, --expect-spawn-gen, and --landed-work apply to 'exit' only"
 fi
 [ "$EXPECT_GEN_SET" = 0 ] || [ "$IF_IDLE" = 1 ] || die "--expect-spawn-gen requires --if-idle"
 [ "$EXPECT_GEN_SET" = 0 ] || [ -n "$EXPECT_GEN" ] || die "--expect-spawn-gen requires a non-empty value"
@@ -484,6 +512,41 @@ require_state_verified_backend() {  # <verb>
 # or choose.
 refuse_blocking_prompt() {  # <dialog-name>
   die "task $ID is blocked on a prompt: $1. Refusing to type Enter into it."
+}
+
+# confirm_exit_picker <dialog-name>: Claude's background-task exit picker has
+# "Exit and stop tasks" as its selected row (the recognizer requires it), so one
+# Enter chooses it.
+# The pre-submit call (a picker already open when exit starts) also refuses
+# under the unattended lane release, whose validation has not yet run there.
+confirm_exit_picker() {  # <dialog-name> [pre-submit]
+  local state why rc
+  if [ "$1" != 'Claude background-task exit picker' ] || [ "$KIND" = secondmate ] \
+     || { [ "${2:-}" = pre-submit ] && [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; }; then
+    refuse_blocking_prompt "$1"
+  fi
+  if ! declare -F fm_backlog_row_probe >/dev/null 2>&1; then
+    # shellcheck source=bin/fm-tasks-axi-lib.sh
+    . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+    # shellcheck source=bin/fm-backlog-transition-lib.sh
+    . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+  fi
+  if [ "$LANDED_WORK" != 1 ] \
+     && ! { [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] && [ -n "${release_busy_token:-}" ]; } \
+     && { ! fm_backlog_row_probe "$DATA" "$ID" || [ "${FM_BACKLOG_ROW_STATE%% *}" != 'done' ]; }; then
+    why="the task is not recorded Done in the backlog, so stopping its background tasks is not authorized"
+    [ -z "$FM_BACKLOG_ROW_ERROR" ] || why="its backlog row could not be read ($FM_BACKLOG_ROW_ERROR), so it is not proven Done"
+    die "task $ID is blocked on a prompt: $1. Refusing to type Enter into it: $why. Stop them from the worker or record the task Done, then retry '$VERB'"
+  fi
+  local release_exit_picker=1
+  fm_backend_send_key "$BACKEND" "$T" Enter "$LABEL" \
+    || {
+      rc=$?
+      [ "$rc" != 75 ] || [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] || return 75
+      die "task $ID is blocked on a prompt: $1, but the Enter that chooses 'Exit and stop tasks' was not delivered on $BACKEND"
+    }
+  state=$(wait_agent_state "$EXIT_WAIT" dead) \
+    || die "exit-delivered $ID chose 'Exit and stop tasks' on the $1 but the agent did not stop within ${EXIT_WAIT}s (agent-state=$state)"
 }
 
 # rendered_matches <ere>: whether any row of the visible viewport matches.
@@ -923,7 +986,12 @@ do_exit() {
   # rather than a function that subshell sourced.
   if [ -s "${FM_COMPOSER_DIALOG_SINK:-}" ]; then
     dialog=$(cat "$FM_COMPOSER_DIALOG_SINK")
-    refuse_blocking_prompt "$dialog"
+    # The picker is already open (an earlier exit left it): answer it instead
+    # of typing /exit into it.
+    confirm_exit_picker "$dialog" pre-submit || return $?
+    retire_busy_incarnation
+    printf 'stopped'
+    return 0
   fi
   case "$composer_state" in
     empty) ;;
@@ -969,7 +1037,7 @@ do_exit() {
   if [ -s "${FM_COMPOSER_DIALOG_SINK:-}" ]; then
     dialog=$(cat "$FM_COMPOSER_DIALOG_SINK")
     if [ "$(agent_state)" != dead ]; then
-      refuse_blocking_prompt "$dialog"
+      confirm_exit_picker "$dialog" || return $?
     fi
   fi
   state=$(wait_agent_state "$EXIT_WAIT" dead) || {
@@ -979,9 +1047,11 @@ do_exit() {
     : > "$FM_COMPOSER_DIALOG_SINK" || true
     fm_backend_composer_state "$BACKEND" "$T" "$LABEL" >/dev/null 2>&1 || true
     if [ -s "$FM_COMPOSER_DIALOG_SINK" ]; then
-      refuse_blocking_prompt "$(cat "$FM_COMPOSER_DIALOG_SINK")"
+      confirm_exit_picker "$(cat "$FM_COMPOSER_DIALOG_SINK")" || return $?
+      state=dead
+    else
+      die "exit-delivered $ID interrupt=$interrupt_result exit-command=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
     fi
-    die "exit-delivered $ID interrupt=$interrupt_result exit-command=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
   }
   # The incarnation is over: retire its busy wiring so no stale record or
   # orphaned generation survives the agent that produced it.
@@ -1199,12 +1269,27 @@ resolve_relaunch_profile() {
   fi
   # The launch owner applies this home's worker account pin too, but only after
   # the old agent has been stopped, so a pin that no longer resolves or is
-  # signed out must refuse here, while nothing has changed yet.
+  # signed out must refuse here, while nothing has changed yet. Codex's opt-in
+  # folder list uses the same preflight, before interrupt/exit of the old agent.
   local account_model=$TARGET_MODEL account_mate=
   [ "$account_model" != default ] || account_model=
   [ "$KIND" != secondmate ] || account_mate=$ID
-  fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
-    "$account_model" "$TARGET_HARNESS" "" "$account_mate" >/dev/null || return 1
+  local account_selection='' account_cwd='' codex_defer_default=0
+  [ "$RELEASED" = 1 ] || account_cwd=$WT
+  if [ "$TARGET_HARNESS" = codex ] && { [ "$RELEASED" = 1 ] || [ "$KIND" = secondmate ]; } && [ -z "$account_model" ] &&
+    { [ -e "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ] || [ -L "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" ]; }; then
+    python3 "$SCRIPT_DIR/fm-codex-accounts.py" preflight --config "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/codex-accounts" || return 1
+    codex_defer_default=1
+  else
+    account_selection=$(fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
+      "$account_model" "$TARGET_HARNESS" "" "$account_mate" "" "$account_cwd") || return 1
+  fi
+  TARGET_CODEX_ROOT=
+  if [ "$TARGET_HARNESS" = codex ] && [ -n "$account_selection" ]; then
+    TARGET_CODEX_ROOT=${account_selection%%$'\t'*}
+    account_model=${account_selection##*$'\t'}
+    TARGET_MODEL=$account_model
+  fi
   # Likewise polytoken's launch profile and wiring refusals
   # (bin/fm-polytoken-lib.sh owns them). The launch owner retires the prior
   # incarnation's own generated hook layer, so only one it did not generate
@@ -1228,6 +1313,18 @@ resolve_relaunch_profile() {
   # agent stops. Secondmate agents are not covered.
   if [ "$KIND" != secondmate ]; then
     fm_exclude_tools_check "$TARGET_HARNESS" 0 "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" >/dev/null || return 1
+  fi
+  # Likewise the spawn quota gate for an explicitly chosen harness. The launch
+  # owner does not gate a relaunch this transaction drives, so this is the one
+  # decision; its evidence is handed on for the task record.
+  if [ "$HARNESS_SET" = 1 ] && [ "$codex_defer_default" = 0 ]; then
+    local quota_rc=0
+    fm_quota_gate_run "$TARGET_HARNESS" "$account_model" \
+      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" "$QUOTA_OVERRIDE" fm-control "$KIND" "$BACKEND" \
+      "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$account_mate" "$TARGET_CODEX_ROOT" "$account_cwd" || quota_rc=$?
+    [ -z "$FM_QUOTA_GATE_SNAPSHOT_PATH" ] || rm -f "$FM_QUOTA_GATE_SNAPSHOT_PATH"
+    [ "$quota_rc" = 0 ] || return 1
+    QUOTA_EVIDENCE=$FM_QUOTA_GATE_EVIDENCE
   fi
 }
 
@@ -1409,7 +1506,8 @@ do_relaunch() {
   spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
-  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \
+  [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
+  if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
     # $T was resolved from the record before the launch. When the recorded
@@ -1469,8 +1567,10 @@ do_relaunch_released() {
   spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
+  [ -z "$QUOTA_OVERRIDE" ] || spawn_args+=(--quota-override "$QUOTA_OVERRIDE")
   spawn_status=0
   FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" FM_CONTROL_RELAUNCH_NOTE_FILE="$note_stage" \
+    FM_CONTROL_QUOTA_EXPLICIT="$HARNESS_SET" FM_CONTROL_QUOTA_EVIDENCE="$QUOTA_EVIDENCE" FM_CONTROL_CODEX_ROOT="$TARGET_CODEX_ROOT" \
     "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null || spawn_status=$?
   if [ "$spawn_status" -ne 0 ]; then
     rm -f "$note_stage"

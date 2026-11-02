@@ -490,6 +490,10 @@
       "audience": "operator-current"
     },
     {
+      "path": "docs/verification/autolaunch.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "docs/verification/agy.md",
       "audience": "maintainer-verification"
     },
@@ -511,6 +515,10 @@
     },
     {
       "path": "docs/verification/lint-option-a.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "docs/verification/machine-admission-psi-window.md",
       "audience": "maintainer-verification"
     },
     {

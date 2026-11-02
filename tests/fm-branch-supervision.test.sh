@@ -1389,12 +1389,13 @@ test_away_record_relocates_main_owned_actions_to_the_branch() {
   out=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" FM_SUPERVISION_ACTOR=branch \
     "$ROOT/bin/fm-spawn.sh" task-new --mode no-mistakes --yolo off 2>&1)
   status=$?
-  [ "$status" -eq 1 ] || fail "spend-cap refusal exited $status, not 1: $out"
+  # Temporary spend-cap refusals must remain retryable for either actor.
+  [ "$status" -eq 75 ] || fail "spend-cap refusal exited $status, not 75: $out"
   assert_contains "$out" "caps concurrent workers at 2 and 2 ordinary task(s) are live" "spend-cap refusal lost its count"
   # The cap binds main too: the posture, not the actor, is what caps spend.
   out=$(FM_HOME="$home" FM_ROOT_OVERRIDE="$root" "$ROOT/bin/fm-spawn.sh" task-new --mode no-mistakes --yolo off 2>&1)
   status=$?
-  [ "$status" -eq 1 ] || fail "main spawn past the cap exited $status, not 1: $out"
+  [ "$status" -eq 75 ] || fail "main spawn past the cap exited $status, not 75: $out"
   assert_contains "$out" "caps concurrent workers" "main was not held to the spend cap"
 
   rm -f "$root/bin"

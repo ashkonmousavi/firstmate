@@ -193,6 +193,67 @@ test_unsafe_hardlink_or_symlink_is_refused() {
   pass "hard-linked or symlinked artifacts are refused and left in place"
 }
 
+# PR polls have a separate owner: retirement must also remove the private
+# sidecar and registration, without depending on a live worktree or PR state.
+test_retire_pr_poll_only() {
+  local home state out rc old_poll
+  home=$(make_home pr-poll)
+  state="$home/state"
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-pr-lib.sh"
+  printf 'kind=ship\nworktree=%s/missing\npr=https://github.com/o/r/pull/1\n' "$home" > "$state/task.meta"
+  old_poll="$home/old-poll.sh"
+  cp "$ROOT/bin/fm-pr-poll.sh" "$old_poll"
+  printf '# earlier version\n' >> "$old_poll"
+  fm_pr_poll_prepare "$state" task github https://github.com/o/r/pull/1 github.com o/r 1 "$old_poll" || fail "prepare poll"
+  fm_pr_poll_publish_prepared || fail "publish poll"
+  # Simulate a legitimate earlier template; retirement authenticates the
+  # registration against its own bytes and never executes the old program.
+  printf 'keep branch\n' > "$home/branch"
+  write_registered_check "$home" unrelated
+  rc=0
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-pr-poll-retire.sh" task --reason 'closed without landing' 2>&1) || rc=$?
+  expect_code 0 "$rc" "retire an authenticated PR poll"
+  assert_contains "$out" 'closed without landing' "retirement states its reason"
+  assert_absent "$state/task.check.sh" "poll check remains"
+  assert_absent "$state/task.pr-poll" "poll sidecar remains"
+  assert_absent "$state/task.pr-poll-registration" "poll registration remains"
+  assert_present "$state/task.meta" "retirement deleted metadata"
+  assert_present "$home/branch" "retirement deleted work"
+  assert_present "$state/unrelated.check.sh" "retirement deleted another check"
+  assert_present "$state/unrelated.check-trust" "retirement deleted custom trust"
+  rc=0
+  FM_HOME="$home" "$ROOT/bin/fm-pr-poll-retire.sh" unrelated --reason 'not a PR poll' > /dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" "custom checks are refused"
+  assert_present "$state/unrelated.check.sh" "retirement removed custom check"
+  pass "PR poll retirement removes only poll artifacts and explains why"
+}
+
+test_retire_pr_poll_refuses_unsafe_artifacts() {
+  local home state rc
+  home=$(make_home pr-poll-unsafe)
+  state="$home/state"
+  printf 'pr=https://github.com/o/r/pull/1\n' > "$state/task.meta"
+  fm_pr_poll_prepare "$state" task github https://github.com/o/r/pull/1 github.com o/r 1 "$ROOT/bin/fm-pr-poll.sh" || fail "prepare poll"
+  fm_pr_poll_publish_prepared || fail "publish poll"
+  rc=0
+  FM_HOME="$home" "$ROOT/bin/fm-pr-poll-retire.sh" task > /dev/null 2>&1 || rc=$?
+  expect_code 2 "$rc" "retirement requires a reason"
+  ln "$state/task.pr-poll" "$home/alias"
+  rc=0
+  FM_HOME="$home" "$ROOT/bin/fm-pr-poll-retire.sh" task --reason unsafe > /dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" "hardlinked PR sidecar refuses"
+  assert_present "$state/task.check.sh" "unsafe retirement partially removed poll"
+  assert_present "$state/task.pr-poll-registration" "unsafe retirement partially removed registration"
+  rc=0
+  FM_HOME="$home" FM_STATE_OVERRIDE='' "$ROOT/bin/fm-pr-poll-retire.sh" task --reason unsafe > /dev/null 2>&1 || rc=$?
+  expect_code 1 "$rc" "empty state refuses"
+  pass "PR poll retirement requires a reason and refuses unsafe artifacts"
+}
+
 test_empty_id_and_empty_state_refuse_without_stray_rm
 test_happy_path_removes_only_check_and_trust
 test_unsafe_hardlink_or_symlink_is_refused
+
+test_retire_pr_poll_only
+test_retire_pr_poll_refuses_unsafe_artifacts

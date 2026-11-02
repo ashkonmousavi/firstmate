@@ -265,7 +265,12 @@ decode() { printf '%s' "$1" | base64 --decode 2>/dev/null || printf '%s' "$1" | 
 rargs=()
 while IFS= read -r -d '' a; do rargs+=("$a"); done < <(decode "$argv_b64")
 case "${rargs[1]:-}" in
-  update) printf 'synced: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n' ;;
+  # The host lands on the target the parent handed it; this host predates the
+  # instr= suffix, so it reports the commit alone.
+  update)
+    printf 'pr-poll-rearm: home=/srv/sm1 task=held could-not-rearm reason=missing-copy\n'
+    printf 'synced: %s\n' "${rargs[4]:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}"
+    ;;
   state) printf 'alive\n' ;;
   *) exit 91 ;;
 esac
@@ -293,6 +298,7 @@ EOF
     "a live remote mate on the new tip must restart even when the host reports no instruction diff"
   assert_contains "$out" "nudge-secondmates: none" \
     "a restarted remote mate must not also be steered"
+  assert_contains "$out" 'pr-poll-rearm: home=/srv/sm1 task=held could-not-rearm reason=missing-copy' "remote failure omitted from parent summary"
   pass "T3e a legacy remote advance still restarts the live remote mate"
 }
 
@@ -471,11 +477,16 @@ test_firstmate_wrong_branch_skipped() {
   bump_origin "$w" instr
   # Simulate firstmate mid-shipping its own change: not on the default branch.
   git -C "$w/main" checkout -q -b feature/wip
+  printf 'unlanded\n' > "$w/main/FEATURE_ONLY"
+  git -C "$w/main" add FEATURE_ONLY
+  git -C "$w/main" commit -qm feature-work
+  git -C "$w/main" push -qu origin feature/wip
   before=$(git -C "$w/main" rev-parse HEAD)
 
   out=$(run_update "$w")
 
   assert_contains "$out" "firstmate: skipped: on feature/wip, expected main" "off-default firstmate skipped"
+  assert_contains "$out" "update target: origin/main " "a pushed feature branch became the fleet update target"
   assert_contains "$out" "reread-firstmate: no" "no reread when firstmate was skipped"
   [ "$(git -C "$w/main" rev-parse HEAD)" = "$before" ] \
     || fail "skipped firstmate HEAD moved"
@@ -556,6 +567,467 @@ test_primary_update_rebinds_local_watch() {
   pass "T12 a self-update rebinds a locally armed watch on the primary"
 }
 
+# --- T13: a curated fleet updates every home to its tracked branch ---------
+# A fork fleet checks out its curated branch, tracking origin's curated, while
+# origin/HEAD still names main. The update follows curated, not main, and hands
+# the very same commit to a detached local home and to a remote host.
+test_curated_branch_is_the_update_target() {
+  local w out curated_tip fake_ssh args_log
+  w=$(new_world t13)
+  git -C "$w/seed" checkout -q -b curated
+  printf 'curated\n' > "$w/seed/CURATED"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm curated-base
+  git -C "$w/seed" push -q origin curated
+  git -C "$w/main" fetch -q origin
+  git -C "$w/main" checkout -q -b curated --track origin/curated
+  git -C "$w/main" worktree add -q --detach "$w/sm1" curated
+  {
+    printf 'window=main:fm-sm1\nendpoint_task_id=sm1\nworktree=%s/sm1\nproject=%s/sm1\n' "$w" "$w"
+    printf 'kind=secondmate\nharness=claude\nhome=%s/sm1\n' "$w"
+  } > "$w/home/state/sm1.meta"
+  printf 'fm-sm1\n' >> "$w/fake/windows"
+  printf 'sm1\n' > "$w/sm1/.fm-secondmate-home"
+  # Both branches move; only curated is this fleet's target.
+  printf 'm2\n' >> "$w/seed/README.md"
+  git -C "$w/seed" commit -qam curated-bump
+  git -C "$w/seed" push -q origin curated
+  curated_tip=$(git -C "$w/seed" rev-parse HEAD)
+  git -C "$w/seed" checkout -q main
+  printf 'main-only\n' > "$w/seed/MAIN_ONLY"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm main-bump
+  git -C "$w/seed" push -q origin main
+
+  args_log="$w/remote-args"
+  fake_ssh="$w/fakebin/fake-ssh"
+  cat > "$fake_ssh" <<SH
+#!/usr/bin/env bash
+set -u
+while [ "\$#" -gt 0 ]; do
+  case "\$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+decode() { printf '%s' "\$1" | base64 --decode 2>/dev/null || printf '%s' "\$1" | base64 -D; }
+rargs=()
+while IFS= read -r -d '' a; do rargs+=("\$a"); done < <(decode "\$4")
+printf '%s\n' "\${rargs[*]}" >> '$args_log'
+case "\${rargs[1]:-}" in
+  update) printf 'synced: %s instr=\n' "\${rargs[4]:-none}" ;;
+  state) printf 'alive\n' ;;
+  *) exit 91 ;;
+esac
+SH
+  chmod +x "$fake_ssh"
+  printf 'window=remote:sm2\nendpoint_task_id=sm2\nharness=claude\nkind=secondmate\nhome=/srv/sm2\nremote_host=remote-box\nremote_backend=herdr\n' \
+    > "$w/home/state/sm2.meta"
+  printf -- '- sm2 - remote domain (host: remote-box; root: /srv/fm; home: /srv/sm2; scope: things; projects: p; added 2026-09-03)\n' \
+    > "$w/home/data/secondmates.md"
+
+  out=$(FM_TEST_SSH_BIN="$fake_ssh" run_update "$w")
+
+  assert_contains "$out" "update target: origin/curated $curated_tip" "the update did not target the tracked curated branch"
+  assert_contains "$out" "firstmate: updated " "the curated primary was not updated"
+  assert_contains "$out" "secondmate sm1: updated " "the detached local home was not updated"
+  assert_contains "$out" "remote secondmate sm2: updated on remote-box ($curated_tip)" "the remote home was not held to the target"
+  [ "$(git -C "$w/main" rev-parse HEAD)" = "$curated_tip" ] || fail "the primary did not land on the curated tip"
+  [ "$(git -C "$w/main" symbolic-ref --short HEAD)" = curated ] || fail "the primary left its curated branch"
+  [ "$(git -C "$w/sm1" rev-parse HEAD)" = "$curated_tip" ] || fail "the local home did not land on the curated tip"
+  [ ! -e "$w/main/MAIN_ONLY" ] && [ ! -e "$w/sm1/MAIN_ONLY" ] || fail "main's commit leaked into the curated fleet"
+  grep -qx "fm-remote-secondmate-control.sh update sm2 curated $curated_tip" "$args_log" \
+    || fail "the remote host was not handed the branch and commit (got: $(cat "$args_log"))"
+  pass "T13 a curated fleet updates the primary, local and remote homes to one curated commit"
+}
+
+# --- T14: remote steps are bounded and named -------------------------------
+# A host whose remote job queue never serves leaves fm-on waiting; the update
+# must give up on that step at its bound, name it, and carry on.
+fake_hanging_ssh() {  # <path> <hanging-subcommand>
+  cat > "$1" <<SH
+#!/usr/bin/env bash
+set -u
+while [ "\$#" -gt 0 ]; do
+  case "\$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+decode() { printf '%s' "\$1" | base64 --decode 2>/dev/null || printf '%s' "\$1" | base64 -D; }
+rargs=()
+while IFS= read -r -d '' a; do rargs+=("\$a"); done < <(decode "\$4")
+if [ "\${rargs[1]:-}" = '$2' ]; then exec sleep 120; fi
+case "\${rargs[1]:-}" in
+  update) printf 'synced: %s\n' "\${rargs[4]:-none}" ;;
+  state) printf 'alive\n' ;;
+esac
+SH
+  chmod +x "$1"
+}
+
+remote_only_world() {  # <name>
+  local w
+  w=$(new_world "$1")
+  printf 'window=remote:sm1\nendpoint_task_id=sm1\nharness=claude\nkind=secondmate\nhome=/srv/sm1\nremote_host=remote-box\nremote_backend=herdr\n' \
+    > "$w/home/state/sm1.meta"
+  printf -- '- sm1 - remote domain (host: remote-box; root: /srv/fm; home: /srv/sm1; scope: things; projects: p; added 2026-09-03)\n' \
+    > "$w/home/data/secondmates.md"
+  printf '%s\n' "$w"
+}
+
+run_update_bounded() {  # <world> <ssh>; prints combined output
+  local w=$1
+  PATH="$w/fakebin:$PATH" FM_FAKE_DIR="$w/fake" FM_SSH_BIN="$2" \
+    FM_UPDATE_REMOTE_UPDATE_SECONDS=2 FM_UPDATE_REMOTE_STATE_SECONDS=2 \
+    FM_ROOT_OVERRIDE="$w/main" FM_HOME="$w/home" "$UPDATE" 2>&1
+}
+
+test_remote_steps_are_bounded() {
+  local w out started elapsed
+  w=$(remote_only_world t14)
+  bump_origin "$w" readme
+  fake_hanging_ssh "$w/fakebin/hang-update" update
+  started=$SECONDS
+  out=$(run_update_bounded "$w" "$w/fakebin/hang-update")
+  elapsed=$((SECONDS - started))
+  [ "$elapsed" -lt 30 ] || fail "a hung remote update held the pass for ${elapsed}s"
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: update step timed out after 2s" \
+    "the hung update step was not named"
+  assert_contains "$out" "firstmate: updated " "the primary update did not complete around the hung host"
+  assert_contains "$out" "restart-secondmates: none" "an unreached remote mate was sent to restart"
+
+  fake_hanging_ssh "$w/fakebin/hang-state" state
+  bump_origin "$w" readme
+  started=$SECONDS
+  out=$(run_update_bounded "$w" "$w/fakebin/hang-state")
+  elapsed=$((SECONDS - started))
+  [ "$elapsed" -lt 30 ] || fail "a hung remote state read held the pass for ${elapsed}s"
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: state step timed out after 2s" \
+    "the hung state step was not named"
+  assert_contains "$out" "restart-secondmates: none" "a mate whose state read hung was sent to restart"
+  pass "T14 a hung remote update or state step is cut off at its bound and named"
+}
+
+# --- T15: a host that lands elsewhere is not settled -----------------------
+test_remote_commit_mismatch_is_skipped() {
+  local w out fake_ssh
+  w=$(remote_only_world t15)
+  bump_origin "$w" readme
+  fake_ssh="$w/fakebin/fake-ssh"
+  cat > "$fake_ssh" <<'SH'
+#!/usr/bin/env bash
+printf 'synced: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n'
+SH
+  chmod +x "$fake_ssh"
+  out=$(run_update_bounded "$w" "$fake_ssh")
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: host reports bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, not update target" \
+    "a host on another commit was not reported"
+  assert_contains "$out" "restart-secondmates: none" "a mate left on another commit was sent to restart"
+  pass "T15 a remote host that lands on another commit is skipped, not settled"
+}
+
+test_unresolved_target_leaves_all_homes_untouched() {
+  local mode w before out rc real_git home
+  real_git=$(command -v git)
+  for mode in transient-fetch no-origin missing-branch missing-ref; do
+    w=$(new_world "unresolved-$mode")
+    git -C "$w/seed" branch curated
+    git -C "$w/seed" push -q origin curated
+    git -C "$w/main" fetch -q origin
+    git -C "$w/main" checkout -q -b curated --track origin/curated
+    add_sm "$w" sm1
+    git -C "$w/main" worktree add -q --detach "$w/sm2" curated
+    git clone -q "$w/origin.git" "$w/sm3"
+    git -C "$w/sm3" checkout -q --detach origin/curated
+    printf -- '- sm2 - registry home (home: %s/sm2; scope: things; projects: p; added 2026-09-03)\n- sm3 - clone home (home: %s/sm3; scope: things; projects: p; added 2026-09-03)\n' "$w" "$w" \
+      > "$w/home/data/secondmates.md"
+    printf -- '- sm4 - remote domain (host: remote-box; root: /srv/fm; home: /srv/sm4; scope: things; projects: p; added 2026-09-03)\n' \
+      >> "$w/home/data/secondmates.md"
+    before=$(git -C "$w/main" rev-parse HEAD)
+    bump_origin "$w" readme
+    git -C "$w/seed" checkout -q curated
+    printf 'curated update\n' >> "$w/seed/README.md"
+    git -C "$w/seed" commit -qam curated-update
+    git -C "$w/seed" push -q origin curated
+    case "$mode" in
+      transient-fetch)
+        cat > "$w/fakebin/git" <<'SH'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  if [ "$arg" = fetch ]; then
+    printf 'fetch\n' >> "$FM_FAKE_DIR/fetches"
+    if [ ! -e "$FM_FAKE_DIR/failed-fetch" ]; then
+      touch "$FM_FAKE_DIR/failed-fetch"
+      exit 1
+    fi
+  fi
+done
+exec "$FM_TEST_REAL_GIT" "$@"
+SH
+        chmod +x "$w/fakebin/git"
+        ;;
+      no-origin) git -C "$w/main" remote remove origin ;;
+      missing-branch)
+        git -C "$w/main" checkout -q --detach
+        # Git 2.48+ otherwise recreates origin/HEAD during the updater's fetch.
+        git -C "$w/main" config remote.origin.followRemoteHEAD never
+        git -C "$w/main" symbolic-ref --delete refs/remotes/origin/HEAD
+        git -C "$w/main" branch -D main >/dev/null
+        ;;
+      missing-ref) git -C "$w/seed" push -q origin --delete curated ;;
+    esac
+    cat > "$w/fakebin/ssh" <<'SH'
+#!/usr/bin/env bash
+touch "$FM_FAKE_DIR/remote-called"
+exit 90
+SH
+    chmod +x "$w/fakebin/ssh"
+    rc=0
+    out=$(FM_TEST_REAL_GIT="$real_git" PATH="$w/fakebin:$PATH" FM_FAKE_DIR="$w/fake" \
+      FM_SSH_BIN="$w/fakebin/ssh" FM_ROOT_OVERRIDE="$w/main" FM_HOME="$w/home" \
+      "$UPDATE" 2>&1) || rc=$?
+    [ "$rc" -ne 0 ] || fail "$mode: unresolved target was accepted"
+    assert_contains "$out" "cannot resolve shared update target; no homes updated" "$mode: missing failure diagnostic"
+    for home in main sm1 sm2 sm3; do
+      [ "$(git -C "$w/$home" rev-parse HEAD)" = "$before" ] || fail "$mode: $home moved without a shared target"
+    done
+    [ ! -e "$w/fake/remote-called" ] || fail "$mode: remote was contacted without a shared target"
+    if [ "$mode" = transient-fetch ]; then
+      [ "$(wc -l < "$w/fake/fetches" | tr -d ' ')" -eq 1 ] || fail "failed target fetch was retried during the update pass"
+    fi
+  done
+  pass "unresolved targets abort before updating primary, live, registry, cloned or remote homes"
+}
+
+test_legacy_host_rejects_pinned_update_without_advancing() {
+  local w out before fake_ssh
+  w=$(remote_only_world legacy-rejection)
+  git clone -q "$w/origin.git" "$w/remote-root"
+  git clone -q "$w/origin.git" "$w/remote-home"
+  git -C "$w/remote-home" checkout -q --detach
+  before=$(git -C "$w/remote-root" rev-parse HEAD)
+  git -C "$w/seed" checkout -q -b curated
+  git -C "$w/seed" push -q origin curated
+  git -C "$w/main" fetch -q origin
+  git -C "$w/main" checkout -q -b curated --track origin/curated
+  git -C "$w/seed" checkout -q main
+  bump_origin "$w" readme
+  fake_ssh="$w/fakebin/legacy-ssh"
+  cat > "$fake_ssh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac
+done
+shift 2
+decode() { printf '%s' "$1" | base64 --decode 2>/dev/null || printf '%s' "$1" | base64 -D; }
+rargs=()
+while IFS= read -r -d '' a; do rargs+=("$a"); done < <(decode "$4")
+printf '%s\n' "${rargs[*]}" >> "$FM_FAKE_DIR/legacy-calls"
+[ "${#rargs[@]}" -eq 3 ] || exit 2
+for home in remote-root remote-home; do
+  git -C "$FM_FAKE_DIR/../$home" fetch -q origin
+  git -C "$FM_FAKE_DIR/../$home" merge -q --ff-only origin/main
+done
+printf 'synced: %s\n' "$(git -C "$FM_FAKE_DIR/../remote-home" rev-parse HEAD)"
+SH
+  chmod +x "$fake_ssh"
+  out=$(run_update_bounded "$w" "$fake_ssh")
+  assert_contains "$out" "remote secondmate sm1: skipped on remote-box: pinned update rejected; manual update required" \
+    "the rejecting host was not named with the manual update requirement"
+  [ "$(wc -l < "$w/fake/legacy-calls" | tr -d ' ')" -eq 1 ] || fail "the rejecting host received an unpinned retry"
+  [ "$(git -C "$w/remote-root" rev-parse HEAD)" = "$before" ] || fail "the rejecting host code root advanced"
+  [ "$(git -C "$w/remote-home" rev-parse HEAD)" = "$before" ] || fail "the rejecting remote home advanced"
+  assert_contains "$out" "restart-secondmates: none" "the rejecting host was selected for restart"
+  assert_contains "$out" "nudge-secondmates: none" "the rejecting host was selected for a nudge"
+  pass "a status-2 host is reported for manual update without an unpinned retry or mutation"
+}
+
+# Run real poll publication and validation around a fake home's update. The
+# old program is legitimate but no longer in the installed program allowlist.
+test_update_rearms_pr_polls() {
+  local w out home id identity
+  w=$(new_world poll-rearm)
+  printf 'state/\ndata/\nconfig/\n.fm-secondmate-home\n' > "$w/seed/.gitignore"
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/seed/bin/fm-pr-poll.sh"
+  printf '# earlier program\n' >> "$w/seed/bin/fm-pr-poll.sh"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm old-poll
+  git -C "$w/seed" push -q origin main
+  git -C "$w/main" pull -q origin main
+  add_sm "$w" sleeper
+  mkdir -p "$w/sleeper/state"
+  # A registry-only home with no live endpoint is covered as well.
+  rm "$w/home/state/sleeper.meta"
+  printf -- '- sleeper - offline mate (home: %s; scope: things; projects: p; added 2026-09-03)\n' "$w/sleeper" > "$w/home/data/secondmates.md"
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-pr-lib.sh"
+  for home in "$w/home" "$w/sleeper"; do
+    for id in ready refused tampered; do
+      printf 'kind=ship\nmode=no-mistakes\npr=https://github.com/o/r/pull/1\n' > "$home/state/$id.meta"
+      fm_pr_poll_prepare "$home/state" "$id" github https://github.com/o/r/pull/1 github.com o/r 1 "$w/main/bin/fm-pr-poll.sh" || fail "prepare old poll"
+      fm_pr_poll_publish_prepared || fail "publish old poll"
+    done
+    printf '# modified outside the record owner\n' >> "$home/state/tampered.check.sh"
+    printf '#!/usr/bin/env bash\nprintf untouched\n' > "$home/state/custom.check.sh"
+    chmod 0700 "$home/state/custom.check.sh"
+    FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" custom > /dev/null || fail "register custom check"
+  done
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/seed/bin/fm-pr-poll.sh"
+  # The fixture record owner publishes real authenticated artifacts. Only the
+  # unrelated forge/readiness preconditions are stubbed at this boundary.
+  cat > "$w/seed/bin/fm-pr-check.sh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+. "$FM_TEST_PR_LIB"
+[ "$1" != refused ] || { echo 'error: worker copy is missing' >&2; exit 1; }
+fm_pr_url_parse "$2"
+fm_pr_poll_prepare "$FM_STATE_OVERRIDE" "$1" "$FM_PR_PROVIDER" "$FM_PR_URL" "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" "$FM_ROOT_OVERRIDE/bin/fm-pr-poll.sh"
+fm_pr_poll_publish_prepared
+SH
+  chmod +x "$w/seed/bin/fm-pr-check.sh"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm new-poll
+  git -C "$w/seed" push -q origin main
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" run_update "$w")
+  for home in "$w/home" "$w/sleeper"; do
+    fm_pr_poll_artifacts_valid "$home/state" ready "$w/main/bin/fm-pr-poll.sh" || fail "updated home has a dead merge watch: $home; update output: $out"
+    if fm_pr_poll_artifacts_valid "$home/state" refused "$w/main/bin/fm-pr-poll.sh"; then fail "refused poll was trusted"; fi
+    assert_present "$home/state/refused.check.sh" "failed re-arm deleted the poll"
+    assert_contains "$out" "home=$home task=tampered could-not-rearm reason=unauthenticated-poll-generation" "tampered check was re-trusted"
+    assert_present "$home/state/custom.check-trust" "custom trust changed"
+    assert_contains "$out" "home=$home task=refused" "summary omitted a failed re-arm"
+    assert_contains "$(cat "$home/state/custom.check.sh")" untouched "custom check changed"
+  done
+  identity=$(fm_pr_file_identity "$w/home/state/ready.check.sh")
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" run_update "$w")
+  [ "$(fm_pr_file_identity "$w/home/state/ready.check.sh")" = "$identity" ] || fail "current valid poll was rewritten"
+  assert_contains "$out" "home=$w/home task=refused" "current home did not retry failed migration"
+  # Drive the real host-local remote update path with no endpoint or harness
+  # lifecycle operations. Both code-root and remote-home diagnostics must survive.
+  mkdir -p "$w/main/state"
+  out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" FM_HOME="$w/sleeper" FM_ROOT_OVERRIDE="$w/main" \
+    FM_STATE_OVERRIDE="$w/home/state" FM_CONFIG_OVERRIDE="$w/home/config" \
+    "$ROOT/bin/fm-remote-secondmate-control.sh" update sleeper main "$(git -C "$w/main" rev-parse HEAD)" 2>&1) || fail "remote update failed: $out"
+  assert_contains "$out" "home=$w/main rearmed=0 left=0" "remote code-root summary or override scoping lost"
+  assert_contains "$out" "home=$w/sleeper task=refused" "remote home failure lost"
+  assert_contains "$out" "current:" "remote update result lost"
+  pass "update refreshes primary, registry and remote polls, preserves custom checks and names failures"
+}
+
+test_rearm_preserves_concurrent_poll_changes() {
+  local mode w state pid retire_pid out before after url i suffix
+  local -a owner_env
+  for mode in unchanged replaced same-url retired late-retired; do
+    w="$TMP_ROOT/rearm-generation-$mode"
+    state="$w/home/state"
+    mkdir -p "$state" "$w/home/config" "$w/root/bin" "$w/fakebin" "$w/wt"
+    cp "$ROOT/bin/fm-pr-poll.sh" "$w/root/bin/fm-pr-poll.sh"
+    cp "$ROOT/bin/fm-pr-poll.sh" "$w/old-poll.sh"
+    printf '# earlier program\n' >> "$w/old-poll.sh"
+    printf 'kind=ship\nmode=no-mistakes\nworktree=%s\npr=https://github.com/o/r/pull/1\n' "$w/wt" > "$state/task.meta"
+    fm_pr_poll_prepare "$state" task github https://github.com/o/r/pull/1 github.com o/r 1 "$w/old-poll.sh" || fail "$mode: prepare"
+    fm_pr_poll_publish_prepared || fail "$mode: publish"
+    cat > "$w/root/bin/fm-guard.sh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+    cat > "$w/root/bin/fm-pr-check.sh" <<'SH'
+#!/usr/bin/env bash
+exec bash "$FM_TEST_PR_CHECK" "$@"
+SH
+    cat > "$w/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *' --json isDraft '*) printf '{"isDraft":false}\n' ;;
+  *' --json headRefOid '*)
+    if [ -n "${FM_PR_CHECK_REARM_GENERATION:-}" ]; then
+      : > "$FM_TEST_REARM_DIR/started"
+      for ((i=0; i<500; i++)); do
+        [ ! -e "$FM_TEST_REARM_DIR/release" ] || break
+        sleep 0.02
+      done
+      [ -e "$FM_TEST_REARM_DIR/release" ] || exit 1
+    fi
+    printf '0123456789abcdef0123456789abcdef01234567\n'
+    ;;
+  *) exit 1 ;;
+esac
+SH
+    chmod +x "$w/root/bin/"*.sh "$w/fakebin/gh"
+    owner_env=(env FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/root" FM_STATE_OVERRIDE="$state" FM_CONFIG_OVERRIDE="$w/home/config"
+      FM_TEST_PR_CHECK="$ROOT/bin/fm-pr-check.sh" FM_TEST_REARM_DIR="$w" FM_TEST_REAL_RM="$(command -v rm)" PATH="$w/fakebin:$PATH")
+    "${owner_env[@]}" bash "$ROOT/bin/fm-pr-check-rearm.sh" > "$w/out" 2>&1 &
+    pid=$!
+    for ((i=0; i<500; i++)); do
+      [ ! -e "$w/started" ] || break
+      sleep 0.02
+    done
+    [ -e "$w/started" ] || { kill "$pid" 2>/dev/null || true; wait "$pid" || true; fail "$mode: refresh did not reach the owner: $(cat "$w/out")"; }
+    case "$mode" in
+      replaced|same-url)
+        url=https://github.com/o/r/pull/2
+        [ "$mode" != same-url ] || url=https://github.com/o/r/pull/1
+        "${owner_env[@]}" bash "$ROOT/bin/fm-pr-check.sh" task "$url" > "$w/replacement.out" 2>&1 || fail "$mode: replacement failed: $(cat "$w/replacement.out")"
+        ;;
+      retired)
+        FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$state" \
+          bash "$ROOT/bin/fm-pr-poll-retire.sh" task --reason regression > "$w/retired.out" || fail "$mode: retirement failed"
+        ;;
+      late-retired)
+        cat > "$w/fakebin/rm" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *'/task.check.sh '*)
+    : > "$FM_TEST_REARM_DIR/retiring"
+    for ((i=0; i<500; i++)); do
+      [ ! -e "$FM_TEST_REARM_DIR/retire-release" ] || break
+      sleep 0.02
+    done
+    [ -e "$FM_TEST_REARM_DIR/retire-release" ] || exit 1
+    ;;
+esac
+exec "$FM_TEST_REAL_RM" "$@"
+SH
+        chmod +x "$w/fakebin/rm"
+        FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$state" \
+          FM_TEST_REARM_DIR="$w" FM_TEST_REAL_RM="$(command -v rm)" PATH="$w/fakebin:$PATH" \
+          bash "$ROOT/bin/fm-pr-poll-retire.sh" task --reason regression > "$w/retired.out" 2>&1 &
+        retire_pid=$!
+        for ((i=0; i<500; i++)); do
+          [ ! -e "$w/retiring" ] || break
+          sleep 0.02
+        done
+        [ -e "$w/retiring" ] || fail "$mode: retirement did not reach removal"
+        : > "$w/release"
+        for ((i=0; i<500; i++)); do
+          [ ! -d "$state/.meta-task.lock" ] || break
+          sleep 0.02
+        done
+        [ -d "$state/.meta-task.lock" ] || fail "$mode: refresh did not reach its locked boundary"
+        : > "$w/retire-release"
+        wait "$retire_pid" || fail "$mode: retirement failed: $(cat "$w/retired.out")"
+        ;;
+    esac
+    before=$(for suffix in meta check.sh pr-poll pr-poll-registration; do
+      [ ! -f "$state/task.$suffix" ] || printf '%s %s %s\n' "$suffix" "$(fm_pr_file_identity "$state/task.$suffix")" "$(fm_pr_sha256 "$state/task.$suffix")"
+    done)
+    : > "$w/release"
+    wait "$pid" || fail "$mode: refresh failed: $(cat "$w/out")"
+    out=$(cat "$w/out")
+    if [ "$mode" = unchanged ]; then
+      cmp -s "$state/task.check.sh" "$ROOT/bin/fm-pr-poll.sh" || fail "unchanged generation was not refreshed"
+      fm_pr_poll_artifacts_valid "$state" task "$ROOT/bin/fm-pr-poll.sh" || fail "refreshed generation is unauthenticated"
+      assert_contains "$out" 'rearmed=1 left=0' "successful refresh was not counted"
+    else
+      after=$(for suffix in meta check.sh pr-poll pr-poll-registration; do
+        [ ! -f "$state/task.$suffix" ] || printf '%s %s %s\n' "$suffix" "$(fm_pr_file_identity "$state/task.$suffix")" "$(fm_pr_sha256 "$state/task.$suffix")"
+      done)
+      [ "$before" = "$after" ] || fail "$mode: stale refresh changed the winning state"
+      assert_contains "$out" 'skipped=superseded-or-retired' "$mode: stale generation was not skipped"
+      assert_contains "$out" 'rearmed=0 left=0' "$mode: stale generation was reported as refreshed or failed"
+    fi
+  done
+  pass "refresh preserves replacement and retirement generations at the record owner's locked boundary"
+}
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
@@ -572,5 +1044,13 @@ test_firstmate_wrong_branch_skipped
 test_firstmate_detached_head_skipped
 test_unsafe_secondmate_home_skipped_before_git_update
 test_primary_update_rebinds_local_watch
+test_curated_branch_is_the_update_target
+test_remote_steps_are_bounded
+test_remote_commit_mismatch_is_skipped
+test_unresolved_target_leaves_all_homes_untouched
+test_legacy_host_rejects_pinned_update_without_advancing
+
+test_update_rearms_pr_polls
+test_rearm_preserves_concurrent_poll_changes
 
 echo "# all fm-update tests passed"

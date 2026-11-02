@@ -1995,7 +1995,11 @@ fm_pending_reply_tick() {  # <state-dir>
         done
         if [ "$found" = 0 ]; then
           if [ -n "$remote_host" ]; then
-            observation=$("$_FM_PENDING_REPLY_LIB_DIR/fm-on.sh" "$task_id" \
+            # Same 20-second bound as the inbox probe above. A hop that hits it
+            # is unknown, never busy or idle, so a slow host cannot look finished.
+            # shellcheck source=bin/fm-timeout-lib.sh
+            . "$_FM_PENDING_REPLY_LIB_DIR/fm-timeout-lib.sh"
+            observation=$(fm_run_timed 20 "$_FM_PENDING_REPLY_LIB_DIR/fm-on.sh" "$task_id" \
               fm-remote-secondmate-control.sh observe "$task_id" < /dev/null 2>/dev/null || printf 'unknown')
             case "$observation" in busy|idle|fallback-idle|unknown) ;; *) observation=unknown ;; esac
           else

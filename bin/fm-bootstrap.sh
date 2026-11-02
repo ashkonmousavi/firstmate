@@ -27,7 +27,8 @@
 #                 "CREW_RECOVERY: <id>: relaunch deferred after <state>: <detail>",
 #                 "FMX: X mode on ..." or "FMX: X mode off ...".
 #          When a RUNNING secondmate home is fast-forwarded, its target is
-#          firstmate's own current default-branch commit. A local worktree uses
+#          firstmate's own current fleet-branch commit (fm-ff-lib.sh fleet_branch).
+#          A local worktree uses
 #          a purely local fast-forward with no origin fetch; a remote route hands
 #          the same commit to its host, which imports that commit into the home
 #          without moving the host's Firstmate copy. If either placement changes
@@ -60,8 +61,8 @@
 #          A TANGLE line means the firstmate primary checkout (FM_ROOT) is stranded
 #          on a feature branch instead of its default branch - a crewmate's work
 #          landed in the primary instead of its own worktree; restore it per the line.
-#          treehouse is also MISSING when its installed version lacks
-#          "treehouse get --lease" support.
+#          treehouse is also MISSING when it fails the shared version and
+#          capability check owned by bin/fm-treehouse-lib.sh.
 #          no-mistakes is also MISSING when its installed version is older than
 #          1.46.0 (structured pipeline attestation floor; see CONTRIBUTING.md).
 #          The AXI-family floor policy is owned beside GH_AXI_MIN and
@@ -215,6 +216,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-x-lib.sh"
 # shellcheck source=bin/fm-backend.sh disable=SC1091
 . "$SCRIPT_DIR/fm-backend.sh"
+# shellcheck source=bin/fm-treehouse-lib.sh
+. "$SCRIPT_DIR/fm-treehouse-lib.sh"
 # shellcheck source=bin/fm-remote-readiness-lib.sh disable=SC1091
 . "$SCRIPT_DIR/fm-remote-readiness-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh disable=SC1091
@@ -397,7 +400,8 @@ secondmate_sync() {
   # shellcheck source=bin/fm-wake-lib.sh disable=SC1091
   . "$SCRIPT_DIR/fm-wake-lib.sh"
   # Placement-specific secondmate sync: EVERY home, local or remote, follows the
-  # primary checkout's current default-branch commit. The local path is purely
+  # primary checkout's current fleet-branch commit (fm-ff-lib.sh fleet_branch).
+  # The local path is purely
   # LOCAL - no fetch, no origin dependency: a linked-worktree home already holds
   # the primary's commit (fm-ff-lib.sh), while a standalone clone without it is
   # skipped until /updatefirstmate refreshes it from origin. A remote home is on
@@ -942,10 +946,6 @@ NO_MISTAKES_MIN=1.46.0
 GH_AXI_MIN=0.1.29
 LAVISH_AXI_MIN=0.1.80
 LAVISH_AXI_BOARD_MIN=0.1.77
-
-treehouse_supports_lease() {
-  treehouse get --help 2>&1 | grep -Eq '(^|[^[:alnum:]_-])--lease([^[:alnum:]_-]|$)'
-}
 
 # Shared semantic-version floor for the tool gates below. A version string that
 # cannot be parsed into exactly one major.minor.patch triple is incompatible,
@@ -1510,7 +1510,7 @@ detect_local_tools() {
   # backend actually requires treehouse (every backend except orca, which owns its
   # own worktrees); an orca home must not be told to upgrade a provider it never uses.
   if fm_backend_list_contains "$TOOLS" treehouse \
-    && command -v treehouse >/dev/null 2>&1 && ! treehouse_supports_lease; then
+    && command -v treehouse >/dev/null 2>&1 && ! fm_treehouse_supports_lease; then
     echo "MISSING: treehouse (install: $(install_cmd treehouse))"
   fi
   if command -v no-mistakes >/dev/null 2>&1 && ! tool_version_at_least no-mistakes "$NO_MISTAKES_MIN"; then

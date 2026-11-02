@@ -392,7 +392,56 @@ ok - a claim pinned before a re-anchor records the live lock holder; a dead pin 
 FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=43472
 ```
 
-No live unattended Claude background session ran on the verifying machine: that topology is documented by the real process listings in issues #3902, #2314, #3398, and #4066, and the coverage above is the structural predicate plus those executable fixtures, not a live pass.
+The recycled-helper-chain topology is documented by the real process listings in issues #3902, #2314, #3398, and #4066; the coverage above is the structural predicate plus those executable fixtures, not a live pass of that topology.
+
+### Idle fork-resume lock handover
+
+An idle fork-resume successor may take that lock.
+The [`bin/fm-lock.sh` header](../../bin/fm-lock.sh) owns the sidecar format, including retention of the prior session after a same-process `/clear`.
+Both recorded histories must each be one readable regular transcript, with no user or assistant turn after the successor forked and none in the last 30 minutes.
+The fork is this process's `--fork-session` plus `--resume` of either recorded session, or both histories as prefixes of the successor transcript with at least one shared turn.
+`bin/fm-lock.sh` records the handover after line 1 is verified; that script's header owns the JSON line.
+A holder with any turn in the last 30 minutes, or a holder whose transcript cannot be read, stays on the ordinary live-owner refusal.
+The Stop hook uses the same decision before it arms.
+Ownership and generation readers take `state/.lock.acquire` to snapshot the PID and session sidecar together, waiting through the existing bounded acquisition or deferred sweep rather than treating contention as lost ownership.
+Auto-arm claim inspection never waits on acquisition while holding its own mutex; an otherwise live claim remains deferred when acquisition is busy.
+The writer reuses its own mutex hold for confirmation; its preliminary nonblocking probe preserves the existing quick refusal while a startup sweep is finishing.
+Both startup and Stop acquisition use this same publication boundary.
+The final transcript scan runs under that mutex after staging the sidecar and immediately before its rename, comparing turn UUIDs and timestamps against the first scan.
+Any added turn aborts takeover, including a backdated row.
+UserPromptSubmit does not take the acquisition mutex: a normally sub-second scan-to-publication interval remains, and a scheduler stall can extend it; this is a revalidation bound, not atomic admission of physical input.
+Both acquisition paths serialize task-lease handover with lease commands and preserve the actor and epoch when moving leases to the new holder.
+Every uncommitted takeover restores the predecessor PID and sidecar before releasing claim and lease serialization; reverse lease movement is needed only after leases started moving.
+The backstop uses one classified holder report for the note identity, deduplication key and episode retirement.
+A proven dead or non-harness PID retains normal primary recovery; an unknown report suppresses nudges and preserves any existing episode.
+When the watcher has been silent and a verified live harness holds the lock, `bin/fm-main-backstop.py` queues one inbox ask after 15 minutes with its pid, tty, and idle time, suppressing the silence nudge.
+The working main session drains that inbox and tells the owner; queueing is not direct owner notification.
+A foreground terminal holder follows the same rule as a detached holder.
+Other harnesses have no trusted Claude session id, so they keep the ordinary refusal.
+The portable proof below uses Claude-shaped processes and fixture transcripts.
+The [current class inventory](../../tests/captures/fm-idle-holder-review-inventory.json) lists call paths, adapters, lifecycle transitions, regressions and evidence gaps.
+The [live idle-holder guard](runtime-backends.md#idle-holder-takeover-live-guard) exercises vendor-produced argv, hook identity and transcripts across startup and Stop takeover.
+A phone remote-continue is that fork-resume background copy of the idle terminal.
+A later fork-resume of the phone session takes the lock back when the phone transcript is quiet, and each completed switch leaves one recorded holder.
+A phone turn inside the last 30 minutes keeps the phone as that one holder.
+The portable acquisition-boundary regression pauses publication with the predecessor alive and successor session published, probes both ownership verdicts, and verifies committed ownership for startup and Stop.
+The focused portable checks ran on 2026-10-31 on Linux with GNU bash 5.2.21 and Python 3.12.3, after `mkdir -p .review-evidence/tmp`, using `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-session-lock-ancestry.test.sh`, `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-main-backstop.test.sh` and `TMPDIR="$PWD/.review-evidence/tmp" bash tests/fm-claude-stop-autoarm.test.sh` (all exit 0).
+The prior-session matrix covers 18 startup/Stop cases; the sweep regression separately checks Stop and generation admission after six-second holds.
+Their output included:
+
+```text
+ok - session-lock: a partial lease move rolls back and keeps both actors excluded
+ok - session-lock: phone and terminal switches leave exactly one holder
+ok - session-lock: startup and Stop serialize ownership, reject new turns, and roll back every interrupted takeover
+ok - session-lock: rekey A to empty B retains A; startup and Stop accept A or B and reject unrelated, recent, missing, or changed histories
+ok - session-lock: a bounded sweep longer than five seconds preserves Stop and generation admission
+test_handover_before_report_uses_reported_pid_for_deduplication (__main__.Backstop.test_handover_before_report_uses_reported_pid_for_deduplication) ... ok
+test_reused_nonharness_pid_keeps_stale_lock_recovery (__main__.Backstop.test_reused_nonharness_pid_keeps_stale_lock_recovery) ... ok
+test_unknown_holder_report_preserves_deduplicated_episode (__main__.Backstop.test_unknown_holder_report_preserves_deduplicated_episode) ... ok
+Ran 77 tests in 154.303s
+OK
+```
+
 [`sessionstart-nudge.md`](../sessionstart-nudge.md#shared-wrapper-and-safety) owns the nudge wrapper's separate ancestry check and its redundant-nudge behavior after helper-chain recycling.
 `tests/fm-watch-arm.test.sh` runs real watcher and arm cycles against durable on-disk state to verify that a delivered reason survives until post-handling acknowledgement and stops replaying after acknowledgement, while an unrelated queue append cannot make a watcher cycle that delivered nothing look successful.
 The same suite ingests a keyed remote-secondmate parent reply through the real adapter, establishes the incremental OPEN DECISIONS cursor, interrupts supervision, and proves re-arm replays every unacknowledged queue row plus the still-open decision through the ordinary drain path.
