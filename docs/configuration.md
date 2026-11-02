@@ -1231,7 +1231,7 @@ Ordinary quota-axi output is unchanged; use this wrapper on each machine to see 
 
 The helper's `register` command installs one authenticated custom watcher check per configured folder through [`bin/fm-check-register.sh`](../bin/fm-check-register.sh).
 Checks are silent when healthy and alarm on a missing local sign-in, missing shared configuration, duplicate file or six days since the newer of the sign-in file's last write and the last successful `maintain`.
-Codex need not rewrite the sign-in file when no refresh is due, so a successful `maintain` records a non-credential `.fm-codex-maintained` stamp (mode 0600, UTC time only) beside it, and a failed one records nothing.
+Codex need not rewrite the sign-in file when no refresh is due, so a successful `maintain` records a non-credential stamp beside it, and a failed one records nothing.
 That age is a maintenance heuristic, not token expiry; neither local login status, a recent file write nor a recent stamp proves that a refresh token remains valid, and revocation cannot be predicted.
 The [official persistent-runner guide](https://learn.chatgpt.com/docs/auth/ci-cd-auth) supports a weekly lightweight normal Codex request for otherwise idle sessions.
 The explicit `maintain` command implements that pattern in a temporary directory and retains Codex's refreshed file in the same account folder; registering a check does not schedule or execute maintenance.
