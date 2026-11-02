@@ -1,0 +1,37 @@
+[
+  {
+    "scenario": "parked config push updates files without a notice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "repeated parked config push never refills inbox",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "bootstrap parked convergence updates files without a notice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "successful secondmate spawn clears park state and restores push notices",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "successful launch preserves previously queued steer",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "actual launch with failed ledger rearm still receives push notice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "actual launch with failed ledger rearm still receives bootstrap notice",
+    "result": "pass",
+    "live": true
+  }
+]

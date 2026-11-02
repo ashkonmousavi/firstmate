@@ -1,0 +1,37 @@
+[
+  {
+    "scenario": "parked config push updates files without a notice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "repeated parked config push never refills inbox",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "bootstrap parked convergence updates files without a notice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "running agent with stale park marker and failed ledger receives push notice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "running agent with stale park marker receives bootstrap notice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "deliberate exit preserves work and sends next notice",
+    "result": "pass",
+    "control_exit": 0
+  },
+  {
+    "scenario": "deliberately exited mate without park proof keeps its notice",
+    "result": "pass",
+    "live": true
+  }
+]

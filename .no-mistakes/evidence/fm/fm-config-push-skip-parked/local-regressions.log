@@ -1,0 +1,4 @@
+ok - B27 parked push skips notices; relaunch preserves queued steers and restores config rereads
+ok - B28 deliberate exit keeps work and reread notices; doubtful park records never skip
+ok - B29 bootstrap skips parked rereads and restores notices after relaunch
+ok - B30 failed local launch rearming keeps both live configuration reread paths sending

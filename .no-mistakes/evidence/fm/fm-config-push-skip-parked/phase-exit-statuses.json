@@ -1,0 +1,10 @@
+{
+  "targeted_local_regressions": 0,
+  "secondmate_liveness_regressions": 0,
+  "remote_relaunch_regressions": 0,
+  "remote_convergence_regressions": 0,
+  "live_local_driver": 0,
+  "live_spawn_driver": 0,
+  "live_remote_driver": 0,
+  "fixture_cleanup": "complete"
+}

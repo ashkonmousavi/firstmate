@@ -1,0 +1,1 @@
+check: secondmate sm auto-relaunch paused after 3 attempts in 3600s; endpoint still dead - relaunch it manually or retire the route

@@ -1,0 +1,3 @@
+ok - both remote convergence commands skip parked agents and resume notices after relaunch
+ok - remote relaunch holds the inheritance transaction through confirmation and reread recovery
+ok - SSH-255 launch completion and uncertain state probes keep both remote reread paths sending

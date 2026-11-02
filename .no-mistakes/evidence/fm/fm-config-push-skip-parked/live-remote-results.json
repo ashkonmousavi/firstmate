@@ -1,0 +1,22 @@
+[
+  {
+    "scenario": "fm-config-push.sh updates a remote parked home over real SSH without a notice or retry",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "fm-bootstrap.sh updates a remote parked home over real SSH without a notice or retry",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "fm-config-push.sh retains the reread obligation when a remote endpoint is uncertain",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "fm-bootstrap.sh retains the reread obligation when a remote endpoint is uncertain",
+    "result": "pass",
+    "live": true
+  }
+]

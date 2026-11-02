@@ -1,0 +1,187 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l
+~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l
+[exit 0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product worktree add --detach ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s HEAD
+Preparing worktree (detached HEAD 021a29f)
+HEAD is now at 021a29f Disposable target snapshot
+[exit 0]
+$ tmux -L fm-lab new-session -d -s firstmate -n fm-sm -x 120 -y 40 -c ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s bash --noprofile --norc
+[exit 0]
+$ tmux -L fm-lab display-message -p #{socket_path}
+~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l/tmux/tmux-1000/fm-lab
+[exit 0]
+$ tmux -L fm-lab display-message -p #{pid}
+3150951
+[exit 0]
+$ bash -c . "$1/bin/fm-secondmate-liveness-lib.sh"; fm_secondmate_liveness_probe "$FM_HOME/state/sm.meta" sm poll; printf "endpoint=%s status=%s\n" "$FM_SM_LIVE_STATE" "$FM_SM_LIVE_STATUS" _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product
+endpoint=dead status=relaunchable
+[exit 0]
+watcher exit=0
+check: secondmate sm auto-relaunch paused after 3 attempts in 3600s; endpoint still dead - relaunch it manually or retire the route
+WATCHER PARK RECORD: 1793448063	dead
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-config-push.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+config-push: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l -> live secondmate homes
+secondmate sm (~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: pushed
+  backlog-backend: unchanged
+  backend: pushed
+  herdr-presentation-spaces: unchanged
+  herdr-project-groups: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  firstmate-role: unchanged
+  worker-sheet.md: unchanged
+  data/captain-shared.md: unchanged
+secondmate sm: parked, skipped; it reads config at launch
+[exit 0]
+OBSERVE parked config push updates files without a notice: config=codex, inbox_messages=0, skip=True
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-config-push.sh
+WARNING: watcher still down (same stale episode; last beat: 5s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+config-push: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l -> live secondmate homes
+secondmate sm (~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: pushed
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  herdr-project-groups: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  firstmate-role: unchanged
+  worker-sheet.md: unchanged
+  data/captain-shared.md: unchanged
+secondmate sm: parked, skipped; it reads config at launch
+[exit 0]
+OBSERVE repeated parked config push never refills inbox: config=claude, inbox_messages=0, skip=True
+$ bash -c . "$1/bin/fm-wake-lib.sh"; fm_lock_acquire_wait "$STATE/.secondmate-liveness-sm.lock"; trap 'fm_lock_release "$STATE/.secondmate-liveness-sm.lock"' EXIT; "$1/bin/fm-bootstrap.sh" _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product
+SECONDMATE_LIVENESS: secondmate sm: skipped: another liveness check is already in progress
+SECONDMATE_SYNC: secondmate sm: skipped: dirty working tree
+secondmate sm: parked, skipped; it reads config at launch
+[exit 0]
+OBSERVE bootstrap parked convergence updates files without a notice: config=codex, inbox_messages=0, skip=True
+$ tmux -L fm-lab new-window -d -n keeper bash --noprofile --norc
+[exit 0]
+$ tmux -L fm-lab kill-window -t firstmate:fm-sm
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-spawn.sh sm ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s --secondmate --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l
+WARNING: watcher still down (same stale episode; last beat: 4s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+warning: secondmate sm sync skipped before launch: dirty working tree
+spawned sm harness=codex kind=secondmate mode=secondmate yolo=off window=firstmate:fm-sm worktree=~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s
+[exit 0]
+$ bash -c . "$1/bin/fm-secondmate-liveness-lib.sh"; fm_secondmate_liveness_probe "$FM_HOME/state/sm.meta" sm poll; printf "endpoint=%s status=%s\n" "$FM_SM_LIVE_STATE" "$FM_SM_LIVE_STATUS" _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product
+endpoint=alive status=alive
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-config-push.sh
+WARNING: watcher still down (same stale episode; last beat: 6s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+config-push: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l -> live secondmate homes
+secondmate sm (~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: pushed
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  herdr-project-groups: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  firstmate-role: unchanged
+  worker-sheet.md: unchanged
+  data/captain-shared.md: unchanged
+  config-reread: sent
+[exit 0]
+OBSERVE successful secondmate spawn clears park state and restores push notices: config=claude, inbox_messages=1, skip=False
+PERSISTED STEERING MESSAGE:
+schema=fm-task-inbox.v1
+at=2026-10-31T12:01:08Z
+--
+[fm-from-firstmate]⁣corr=a2e57a47930e76fa CONFIG_REREAD: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s/state/.fm-inherited-config-reread.20261031T120108.00000001.QZAJLy
+$ tmux -L fm-lab kill-window -t firstmate:fm-sm
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-spawn.sh sm ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s --secondmate --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l
+WARNING: watcher still down (same stale episode; last beat: 19s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+warning: secondmate sm sync skipped before launch: dirty working tree
+~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-secondmate-liveness-lib.sh: line 97: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l/state/.secondmate-relaunch-sm: Is a directory
+[exit 1]
+$ bash -c . "$1/bin/fm-secondmate-liveness-lib.sh"; fm_secondmate_liveness_probe "$FM_HOME/state/sm.meta" sm poll; printf "endpoint=%s status=%s\n" "$FM_SM_LIVE_STATE" "$FM_SM_LIVE_STATUS" _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product
+endpoint=alive status=alive
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-config-push.sh
+WARNING: watcher still down (same stale episode; last beat: 21s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+config-push: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.l -> live secondmate homes
+secondmate sm (~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: pushed
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  herdr-project-groups: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  firstmate-role: unchanged
+  worker-sheet.md: unchanged
+  data/captain-shared.md: unchanged
+  config-reread: sent
+[exit 0]
+OBSERVE actual launch with failed ledger rearm still receives push notice: config=codex, inbox_messages=1, skip=False
+PERSISTED STEERING MESSAGE:
+schema=fm-task-inbox.v1
+at=2026-10-31T12:01:23Z
+--
+[fm-from-firstmate]⁣corr=559f58c47d811659 CONFIG_REREAD: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s/state/.fm-inherited-config-reread.20261031T120122.00000001.UATlw5
+$ bash -c . "$1/bin/fm-wake-lib.sh"; fm_lock_acquire_wait "$STATE/.secondmate-liveness-sm.lock"; trap 'fm_lock_release "$STATE/.secondmate-liveness-sm.lock"' EXIT; "$1/bin/fm-bootstrap.sh" _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product
+SECONDMATE_LIVENESS: secondmate sm: skipped: another liveness check is already in progress
+SECONDMATE_SYNC: secondmate sm: skipped: dirty working tree
+[exit 0]
+OBSERVE actual launch with failed ledger rearm still receives bootstrap notice: config=claude, inbox_messages=1, skip=False
+PERSISTED STEERING MESSAGE:
+schema=fm-task-inbox.v1
+at=2026-10-31T12:01:33Z
+--
+[fm-from-firstmate]⁣corr=df600dcb5671cfd3 CONFIG_REREAD: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s/state/.fm-inherited-config-reread.20261031T120132.00000002.3MMRgH
+$ tmux -L fm-lab kill-server
+[exit 0]
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product worktree remove --force ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.s
+[exit 0]

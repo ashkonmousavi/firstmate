@@ -1,0 +1,101 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.r
+~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.r
+[exit 0]
+$ git clone --quiet --no-hardlinks ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.q
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-on.sh sm fm-remote-secondmate-control.sh state sm
+missing
+[exit 0]
+REAL WATCHER PARK RECORD: 1793448284	missing
+$ bash -c . "$1/bin/fm-secondmate-nudge-lib.sh"; fm_secondmate_nudge_write "$FM_HOME/state" sm "$2" "" remote "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE" 1 1 _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.q
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-config-push.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+config-push: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.r -> live secondmate homes
+secondmate sm (fm-lab-ssh:~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.q):
+  unchanged: config/crew-dispatch.json
+  unchanged: config/dispatch-never-send
+  pushed: config/crew-harness
+  unchanged: config/backlog-backend
+  unchanged: config/backend
+  unchanged: config/herdr-presentation-spaces
+  unchanged: config/herdr-project-groups
+  unchanged: config/startup-memory-budget
+  unchanged: config/trace-context
+  unchanged: config/launch-env-allowlist
+  unchanged: config/claude-permission-mode
+  unchanged: config/lavish-axi-host
+  unchanged: config/keep-ai-trailers
+  unchanged: config/supervision-host-off
+  unchanged: config/firstmate-role
+  unchanged: config/worker-sheet.md
+  unchanged: data/captain-shared.md
+secondmate sm: parked, skipped; it reads config at launch
+[exit 0]
+OBSERVE fm-config-push.sh: remote config=codex; remote inbox messages=0; pending retry removed; parked notice skipped
+$ bash -c . "$1/bin/fm-secondmate-nudge-lib.sh"; fm_secondmate_nudge_write "$FM_HOME/state" sm "$2" "" remote "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE" 1 1 _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.q
+[exit 0]
+$ bash -c . "$1/bin/fm-wake-lib.sh"; fm_lock_acquire_wait "$STATE/.secondmate-liveness-sm.lock"; trap 'fm_lock_release "$STATE/.secondmate-liveness-sm.lock"' EXIT; "$1/bin/fm-bootstrap.sh" _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product
+SECONDMATE_LIVENESS: secondmate sm: skipped: another liveness check is already in progress
+secondmate sm: parked, skipped; it reads config at launch
+[exit 0]
+OBSERVE fm-bootstrap.sh: remote config=claude; remote inbox messages=0; pending retry removed; parked notice skipped
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-config-push.sh
+WARNING: watcher still down (same stale episode; last beat: 47s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+config-push: ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.r -> live secondmate homes
+secondmate sm (fm-lab-ssh:~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.q):
+  unchanged: config/crew-dispatch.json
+  unchanged: config/dispatch-never-send
+  pushed: config/crew-harness
+  unchanged: config/backlog-backend
+  unchanged: config/backend
+  unchanged: config/herdr-presentation-spaces
+  unchanged: config/herdr-project-groups
+  unchanged: config/startup-memory-budget
+  unchanged: config/trace-context
+  unchanged: config/launch-env-allowlist
+  unchanged: config/claude-permission-mode
+  unchanged: config/lavish-axi-host
+  unchanged: config/keep-ai-trailers
+  unchanged: config/supervision-host-off
+  unchanged: config/firstmate-role
+  unchanged: config/worker-sheet.md
+  unchanged: data/captain-shared.md
+  config-reread: send failed; retry retained
+[exit 1]
+OBSERVE fm-config-push.sh: unverified endpoint was not skipped; remote config=codex; reread attempted; durable obligation retained:
+id=sm
+selector=fm-sm
+home=~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.q
+commit=
+instructions=remote
+message=Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files before further work.
+remote=1
+owed=1
+$ bash -c . "$1/bin/fm-wake-lib.sh"; fm_lock_acquire_wait "$STATE/.secondmate-liveness-sm.lock"; trap 'fm_lock_release "$STATE/.secondmate-liveness-sm.lock"' EXIT; "$1/bin/fm-bootstrap.sh" _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product
+SECONDMATE_LIVENESS: secondmate sm: skipped: another liveness check is already in progress
+NUDGE_SECONDMATES: secondmate sm: send failed: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.r
+[exit 0]
+OBSERVE fm-bootstrap.sh: unverified endpoint was not skipped; remote config=claude; reread attempted; durable obligation retained:
+id=sm
+selector=fm-sm
+home=~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.q
+commit=
+instructions=remote
+message=Firstmate instructions or inherited config changed on this host. Re-read AGENTS.md and the inherited config files before further work.
+remote=1
+owed=1
+$ bash -c . "$1/bin/fm-remote-job-lib.sh"; if fm_remote_job_recorded_owner_alive "$2/worker.lock"; then fm_remote_job_stop_worker_tree "$FM_REMOTE_JOB_RECORDED_PID"; fi _ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/ssh/jobs
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M68RDV1CW6E2AMQX2N5CQ690/.test-disposable/product/bin/fm-procevent.sh sweep-home
+retired: remote-reply-sm
+swept: attempted=1
+[exit 0]
