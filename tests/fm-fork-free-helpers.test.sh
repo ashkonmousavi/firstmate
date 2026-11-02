@@ -246,9 +246,20 @@ SH
   cat > "$script" <<'SH'
 PATH="$2:$PATH"
 . "$1/bin/fm-classify-lib.sh"
-ident=$(_fm_open_decisions_file_ident "$4") || printf 'identity unreadable\n'
-size=$(_fm_status_file_size "$4")
-case "$ident" in strong:*:*:*|weak:*:*) ;; *) printf 'identity %q\n' "$ident" ;; esac
+if [ "$(uname -s)" = Darwin ]; then
+  dev_ino=$(stat -f '%d:%i' "$4")
+  birth_epoch=$(stat -f %B "$4")
+  birth=$(stat -f %FB "$4")
+else
+  dev_ino=$(stat -c '%d:%i' "$4")
+  birth_epoch=$(stat -c %W "$4")
+  birth=$(stat -c %w "$4")
+fi
+ident="weak:$dev_ino"
+[ "$birth_epoch" = 0 ] || ident="strong:$dev_ino:$birth"
+size=$(wc -c < "$4" | tr -d ' ')
+[ "$(_fm_open_decisions_file_ident "$4")" = "$ident" ] || printf 'single identity differs from stat\n'
+[ "$(_fm_status_file_size "$4")" = "$size" ] || printf 'single size differs from bytes\n'
 : > "$3"
 _fm_status_read_ident_size "$4" || printf 'paired read failed\n'
 [ "$_FM_STAT_IDENTITY" = "$ident" ] || printf 'paired identity %q, single %q\n' "$_FM_STAT_IDENTITY" "$ident"

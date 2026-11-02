@@ -72,6 +72,29 @@ test_due_primary_gets_one_compact_through_the_backend_primitive() {
   pass 'due primary is compacted once'
 }
 
+test_tmux_primary_uses_the_claude_idle_classifier() (
+  . "$ROOT/bin/fm-backend.sh"
+  fm_backend_source tmux || fail 'tmux adapter unavailable'
+  . "$ROOT/bin/fm-busy-lib.sh"
+  fm_backend_composer_state() { printf '%s' "$COMPOSER"; }
+  fm_backend_send_text_submit() { printf 'submit %s %s\n' "$1 $2" "$3" >> "$CALLS"; printf '%s' "$SUBMIT_VERDICT"; }
+  reset
+  tmux() { [ "$1" = capture-pane ] || return 1; printf '%s\n' "$PANE"; }
+  PANE='Claude ready'
+  assert_equals sent "$(fm_warm_compact_primary "$CONFIG" tmux test:pane 2700 "$TMP_ROOT/t.jsonl" 0)" 'idle tmux Claude is compacted'
+  assert_equals 'submit tmux test:pane /compact' "$(cat "$CALLS")" 'tmux uses the submit primitive'
+  : > "$CALLS"
+  PANE='esc to interrupt'
+  assert_equals busy "$(fm_warm_compact_primary "$CONFIG" tmux test:pane 2700 "$TMP_ROOT/t.jsonl" 0)" 'busy tmux Claude is held back'
+  PANE=''
+  assert_equals busy "$(fm_warm_compact_primary "$CONFIG" tmux test:pane 2700 "$TMP_ROOT/t.jsonl" 0)" 'unknown tmux state is held back'
+  PANE='Claude ready'
+  COMPOSER=pending
+  assert_equals composer "$(fm_warm_compact_primary "$CONFIG" tmux test:pane 2700 "$TMP_ROOT/t.jsonl" 0)" 'tmux drafts are preserved'
+  assert_equals 0 "$(submits)" 'tmux guards do not submit'
+  pass 'tmux compaction uses harness idle signals and preserves drafts'
+)
+
 test_opt_in_absent_does_nothing() {
   reset
   rm -f "$CONFIG/warm-compact"
@@ -174,6 +197,7 @@ test_engine_conversation_is_compacted_by_resume() {
 
 test_context_size_is_the_last_request
 test_due_primary_gets_one_compact_through_the_backend_primitive
+test_tmux_primary_uses_the_claude_idle_classifier
 test_opt_in_absent_does_nothing
 test_busy_agent_is_never_typed_into
 test_non_empty_composer_is_never_typed_into

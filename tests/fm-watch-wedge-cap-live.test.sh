@@ -279,7 +279,16 @@ watcher_cycle() {
   say "$label -> exit=$rc woke=$CYCLE_WOKE reason=${reason:-none}"
   # Acknowledge so the next cycle starts from an empty queue and its exit
   # status reflects the pane, not a leftover wake.
-  FM_HOME="$LAB_HOME" "$ROOT/bin/fm-wake-drain.sh" >/dev/null 2>&1 || true
+  local receipt="$STATE/cycle-drain.err" sequence generation
+  FM_HOME="$LAB_HOME" "$ROOT/bin/fm-wake-drain.sh" >/dev/null 2> "$receipt" || fail "cycle drain failed"
+  if [ "$CYCLE_WOKE" = 1 ]; then
+    sequence=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9][0-9]*\) --recovery-generation [A-Za-z0-9._-][A-Za-z0-9._-]*$/\1/p' "$receipt")
+    generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through [0-9][0-9]* --recovery-generation \([A-Za-z0-9._-][A-Za-z0-9._-]*\)$/\1/p' "$receipt")
+    [ -n "$sequence" ] && [ -n "$generation" ] || fail "cycle drain returned no acknowledgement receipt"
+    FM_HOME="$LAB_HOME" "$ROOT/bin/fm-wake-drain.sh" --ack-through "$sequence" \
+      --recovery-generation "$generation" >/dev/null || fail "cycle acknowledgement failed"
+  fi
+  rm -f "$receipt"
   cat "$out" >> "$TRANSCRIPT"
 }
 # reset_lab_state: put the wedged worker back to a fresh first sight, so the

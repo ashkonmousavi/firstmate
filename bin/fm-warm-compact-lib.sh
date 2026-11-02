@@ -93,7 +93,13 @@ fm_warm_compact_primary() {
   tokens=$(fm_warm_compact_context_tokens "$transcript")
   verdict=$(fm_warm_compact_verdict "$config" "$idle" "$tokens" "$compacted")
   if [ "$verdict" != due ]; then printf '%s\n' "$verdict"; return 0; fi
-  if [ "$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)" != idle ]; then
+  if [ "$backend" = tmux ]; then
+    fm_backend_source tmux
+    state=$(fm_pane_busy_state "$target" claude 2>/dev/null)
+  else
+    state=$(fm_backend_busy_state "$backend" "$target" 2>/dev/null)
+  fi
+  if [ "$state" != idle ]; then
     printf 'busy\n'
     return 0
   fi

@@ -90,6 +90,8 @@ export FM_HOME=$FM_HOME_DIR FM_ROOT_OVERRIDE=$ROOT
 
 STATE=$TMP_ROOT/state DATA=$TMP_ROOT/data CONFIG=$TMP_ROOT/config
 mkdir -p "$STATE" "$DATA" "$CONFIG"
+printf '999999 0\n' > "$CONFIG/lane-capacity"
+fm_test_machine_policy "$CONFIG"
 
 git -C "$PROJ" init -q
 printf '# scratch\n' > "$PROJ/README.md"

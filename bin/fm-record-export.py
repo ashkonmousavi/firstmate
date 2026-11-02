@@ -903,7 +903,7 @@ def write_archive_manifest(
     os.fsync(stage_fd)
 
 
-def prune_archives(archive_fd: int) -> None:
+def prune_archives(archive_fd: int, preserved: tuple[str, str]) -> None:
     cutoff = time.time() - 30 * 24 * 60 * 60
     try:
         tasks = os.listdir(archive_fd)
@@ -926,6 +926,8 @@ def prune_archives(archive_fd: int) -> None:
                 print(f"warning: could not scan record export archive: archive/{task}: {exc.strerror}", file=sys.stderr)
                 continue
             for spawn_gen in generations:
+                if (task, spawn_gen) == preserved:
+                    continue
                 if not SAFE_COMPONENT.fullmatch(spawn_gen):
                     if not ARCHIVE_STAGE_NAME.fullmatch(spawn_gen):
                         print(
@@ -1009,7 +1011,7 @@ def archive_task(home: str, config: str, data: str, state: str, task: str) -> No
                         if "manifest.v1.json" in os.listdir(existing_fd):
                             entries = load_and_validate_manifest(existing_fd, task, spawn_gen)
                             validate_committed_against_sources(entries, sources)
-                            prune_archives(archive_fd)
+                            prune_archives(archive_fd, (task, spawn_gen))
                             return
                         walk_generation_files(existing_fd)
                     finally:
@@ -1042,7 +1044,7 @@ def archive_task(home: str, config: str, data: str, state: str, task: str) -> No
                     os.close(stage_fd)
             finally:
                 os.close(task_fd)
-            prune_archives(archive_fd)
+            prune_archives(archive_fd, (task, spawn_gen))
         finally:
             os.close(archive_fd)
     finally:

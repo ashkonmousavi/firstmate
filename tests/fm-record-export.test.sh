@@ -421,11 +421,13 @@ test_archive_retry_is_idempotent_and_generations_never_overwrite() {
   expect_code 0 "$rc" "first generation archive"
   first="$export_root/archive/task-a/generation-one"
   before=$(shasum -a 256 "$first/manifest.v1.json" | awk '{print $1}')
+  touch -t 200001010000 "$first/manifest.v1.json"
   rc=0
   run_export "$home" archive-task task-a > "$home/retry.out" 2> "$home/retry.err" || rc=$?
   expect_code 0 "$rc" "idempotent archive retry"
   [ "$before" = "$(shasum -a 256 "$first/manifest.v1.json" | awk '{print $1}')" ] \
     || fail "idempotent retry rewrote the committed manifest"
+  touch "$first/manifest.v1.json"
   printf 'done: changed after commit\n' >> "$home/state/task-a.status"
   rc=0
   run_export "$home" archive-task task-a > "$home/changed.out" 2> "$home/changed.err" || rc=$?
@@ -455,6 +457,7 @@ test_archive_retry_accepts_sources_already_retired_after_commit() {
   before=$(shasum -a 256 "$manifest" | awk '{print $1}')
   rm -f "$home/state/task-a.status"
   rm -rf "$home/state/task-a.inbox"
+  touch -t 200001010000 "$manifest"
   rc=0
   run_export "$home" archive-task task-a > "$home/retry.out" 2> "$home/retry.err" || rc=$?
   expect_code 0 "$rc" "archive retry after status and inbox retirement: $(cat "$home/retry.err")"

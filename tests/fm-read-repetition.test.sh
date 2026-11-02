@@ -15,7 +15,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
-import { HISTORY_TYPE, NOTICE_TYPE, identifyRead, ReadRepetition, WINDOW_MS, readLimits, DEFAULT_LIMITS } from "./.pi/extensions/lib/fm-primary-read-repetition-policy.ts";
+import { HISTORY_TYPE, NOTICE_TYPE, identifyRead, ReadRepetition, readLimits } from "./.pi/extensions/lib/fm-primary-read-repetition-policy.ts";
 import managedGuard, { loadReadRepetitionLimits, primaryOwnsContext, registerReadRepetitionGuard } from "./.pi/extensions/fm-primary-read-repetition.ts";
 
 // Assertions stay synchronous; Bash owns reporting and the subject exit status.
@@ -243,12 +243,25 @@ check("genuine interactive and RPC input resets, including an image; in-flight o
   }
 });
 
+check("documented fifteen-minute history includes the boundary and expires after it", () => {
+  let clock = 1000; const retained = harness({ now: () => clock });
+  retained.complete(); retained.complete();
+  clock = 901_000;
+  assert.equal(retained.complete(), undefined);
+  assert.equal(retained.complete().block, true);
+  clock = 1000; const expired = harness({ now: () => clock });
+  expired.complete(); expired.complete();
+  clock = 901_001;
+  for (let i = 0; i < 3; i++) assert.equal(expired.complete(), undefined);
+  assert.equal(expired.complete().block, true);
+});
+
 check("bounded history expires, but a tripped latch requires real user input", () => {
   let clock = 1000; const h = harness({ now: () => clock });
-  h.complete(); h.complete(); clock += WINDOW_MS + 1;
+  h.complete(); h.complete(); clock += 900_001;
   for (let i = 0; i < 3; i++) assert.equal(h.complete(), undefined);
   assert.equal(h.complete().block, true);
-  clock += WINDOW_MS + 1;
+  clock += 900_001;
   assert.equal(h.complete().block, true);
 });
 
@@ -404,10 +417,10 @@ check("results received during ownership loss retire pending reads without count
 });
 
 check("bounded operator configuration rejects invalid and unknown settings", () => {
-  assert.deepEqual(readLimits(), DEFAULT_LIMITS);
+  assert.deepEqual(readLimits(), { enabled: false, repeatLimit: 3, windowMs: 900000 });
   assert.equal(readLimits().enabled, false);
   assert.equal(readLimits({ repeatLimit: 8 }).enabled, false);
-  assert.deepEqual(readLimits({ repeatLimit: 8 }), { ...DEFAULT_LIMITS, repeatLimit: 8 });
+  assert.deepEqual(readLimits({ repeatLimit: 8 }), { enabled: false, repeatLimit: 8, windowMs: 900000 });
   for (const value of [null, [], true, { extra: 1 }, { repeatLimit: 1 }, { repeatLimit: 33 },
     { repeatLimit: 2.5 }, { repeatLimit: "3" }, { windowMs: 0 }, { windowMs: 86_400_001 }, { enabled: "false" }]) {
     assert.throws(() => readLimits(value), /read-repetition.json/);
@@ -429,7 +442,7 @@ check("missing/default/disabled configuration registers no interception handlers
     rmSync(config, { recursive: true, force: true });
   }
   assert.deepEqual(handlers, []);
-  for (const limits of [DEFAULT_LIMITS, readLimits({}), readLimits({ enabled: false })]) {
+  for (const limits of [readLimits(), readLimits({}), readLimits({ enabled: false })]) {
     const h = harness({ limits });
     for (let i = 0; i < 8; i++) h.complete();
     assert.equal(h.writes.length, 0);

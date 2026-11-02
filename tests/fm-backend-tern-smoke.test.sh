@@ -117,7 +117,7 @@ pass "real tern: create_task opens a keep-open tab in the fm-test- session, and 
 # --- literal + key (two-step submit form) ------------------------------------------
 
 sleep 1
-fm_backend_tern_send_literal "$TARGET" 'echo literal-then-key-tern' || fail "send_literal failed"
+fm_backend_tern_send_literal "$TARGET" "printf '%s%s\\n' literal-then- key-tern" || fail "send_literal failed"
 sleep 0.3
 fm_backend_tern_send_key "$TARGET" Enter "$LABEL" || fail "send_key Enter failed"
 sleep 0.7
@@ -128,7 +128,7 @@ case "$out" in
 esac
 pass "real tern: send_literal + send_key Enter submit as two steps and the output is capturable with --surfaces"
 
-fm_backend_tern_send_text_line "$TARGET" 'echo composed-line-tern' || fail "send_text_line failed"
+fm_backend_tern_send_text_line "$TARGET" "printf '%s%s\\n' composed- line-tern" || fail "send_text_line failed"
 sleep 0.7
 out=$(fm_backend_tern_capture "$TARGET" 30) || fail "capture failed after send_text_line"
 case "$out" in
@@ -153,13 +153,11 @@ pass "real tern: send_key Escape, C-c, C-u and Enter are all accepted chords"
 
 # --- current_path ------------------------------------------------------------------------
 
-fm_backend_tern_send_text_line "$TARGET" 'cd /tmp'
+cwd_target=/
+fm_backend_tern_send_text_line "$TARGET" "cd $(printf '%q' "$cwd_target")" || fail "cd submit failed"
 sleep 0.5
 p=$(fm_backend_tern_current_path "$TARGET")
-case "$p" in
-  /tmp|/private/tmp) : ;;
-  *) fail "current_path should read the foreground process cwd /tmp after a cd, got '$p'" ;;
-esac
+[ "$p" = "$cwd_target" ] || fail "current_path should follow cd to $cwd_target, got '$p'"
 pass "real tern: current_path reads the foreground process cwd"
 
 # --- agent_state / busy_state / native_state -----------------------------------------------
