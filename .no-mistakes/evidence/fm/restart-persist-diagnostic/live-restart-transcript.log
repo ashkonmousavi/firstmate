@@ -1,0 +1,79 @@
+$ tmux -L fm-lab display-message -p -t primary #{pane_pid} #{pane_current_command}
+17727 codex
+
+[exit 0]
+
+$ bash bin/fm-send.sh probe Diagnostic setup probe
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+mkdir: cannot create directory ‘~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home/state/probe.inbox’: Not a directory
+error: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home/state/probe.inbox
+
+[exit 1]
+
+$ bash bin/fm-secondmate-restart.sh probe
+unreached: probe: the request to write down its open work could not be delivered: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home/state/probe.inbox; the re-read message could not be delivered either: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home/state/probe.inbox
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+
+[exit 3]
+
+$ tmux -L fm-lab display-message -p -t primary #{pane_pid} #{pane_current_command}
+17727 codex
+
+[exit 0]
+
+$ bash bin/fm-secondmate-restart.sh probe
+nudged: probe: it did not confirm within 0s that its open work is written down, so its conversation was not spent
+summary: 0 of 1 restarted, 1 nudged, 0 unreached
+
+[exit 3]
+
+$ tmux -L fm-lab display-message -p -t primary #{pane_pid} #{pane_current_command}
+17727 codex
+
+[exit 0]
+
+Persisted public inbox record 001.msg:
+schema=fm-task-inbox.v1
+at=2026-11-02T10:08:17Z
+--
+[fm-from-firstmate]⁣corr=a2daa709ab4148ec Firstmate was updated and I am about to restart your agent so it comes up on the current instructions and launch-time settings, which drops your conversation but keeps every durable record. Before that, persist the open work you are holding only in this conversation, following the /stow skill's "Open-record persistence" section and nothing else from that skill: file a task for each open record that exists only in this conversation, including any captain call you had formed but never registered, and correct any task whose status no longer reflects what you now know. Do NOT run the memory, learnings, or captain-preference sweeps. Also stop only your own harmless background shells that are still running (idle waits, sleeps, tails, pollers, or watchers); leave validation, build, test, and any other substantive background work running, even if that prevents the restart. Then reply on your parent channel saying it is done, or saying what you deliberately left alone and why.
+
+Persisted public inbox record 002.msg:
+schema=fm-task-inbox.v1
+at=2026-11-02T10:08:20Z
+--
+[fm-from-firstmate]⁣corr=ab358387282be9fc firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.
+
+$ bash bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	suffix
+~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	suffix
+
+[exit 0]
+
+$ bash bin/fm-secondmate-restart.sh probe
+unreached: probe: the request to write down its open work could not be delivered: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc suffix/state/probe.inbox; the re-read message could not be delivered either: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc suffix/state/probe.inbox
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+
+[exit 3]
+
+$ tmux -L fm-lab display-message -p -t primary #{pane_pid} #{pane_current_command}
+17727 codex
+
+[exit 0]
+
+$ bash bin/fm-secondmate-restart.sh probe (real acknowledged persist; missing worktree)
+unreached: probe: the restart outcome is unknown: task probe's recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/missing-worktree is missing; refusing to relaunch and lose track of its work
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
+
+[exit 3]
+
+$ tmux -L fm-lab display-message -p -t primary #{pane_pid} #{pane_current_command}
+17727 codex
+
+[exit 0]

@@ -1,0 +1,12 @@
+{
+  "base": {
+    "command": "bash bin/.lv-base-restart.sh baseprobe",
+    "exit": 3,
+    "output": "unreached: baseprobe: the request to write down its open work could not be delivered: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home; the re-read message could not be delivered either: fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home\nsummary: 0 of 1 restarted, 0 nudged, 1 unreached\n"
+  },
+  "target": {
+    "command": "bash bin/fm-secondmate-restart.sh baseprobe",
+    "exit": 3,
+    "output": "unreached: baseprobe: the request to write down its open work could not be delivered: steer not sent to baseprobe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home/state/baseprobe.inbox; the re-read message could not be delivered either: steer not sent to baseprobe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home/state/baseprobe.inbox\nsummary: 0 of 1 restarted, 0 nudged, 1 unreached\n"
+  }
+}

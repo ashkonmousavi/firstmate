@@ -1,0 +1,28 @@
+[
+  {
+    "name": "Real inbox failures after supervision banners expose underlying errors for persist and nudge",
+    "pass": true,
+    "output": "unreached: probe: the request to write down its open work could not be delivered: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home/state/probe.inbox; the re-read message could not be delivered either: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/home/state/probe.inbox\nsummary: 0 of 1 restarted, 0 nudged, 1 unreached\n"
+  },
+  {
+    "name": "Unanswered persist durably queues both requests without replacing the real Codex process",
+    "pass": true,
+    "pid_before_after": "17727 codex",
+    "records": [
+      "001.msg",
+      "002.msg"
+    ],
+    "output": "nudged: probe: it did not confirm within 0s that its open work is written down, so its conversation was not spent\nsummary: 0 of 1 restarted, 1 nudged, 0 unreached\n"
+  },
+  {
+    "name": "Long underlying errors remain complete and printable on one report line",
+    "pass": true,
+    "report_line_length": 1567,
+    "output": "unreached: probe: the request to write down its open work could not be delivered: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc suffix/state/probe.inbox; the re-read message could not be delivered either: steer not sent to probe: its inbox record could not be written under ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc suffix/state/probe.inbox\nsummary: 0 of 1 restarted, 0 nudged, 1 unreached\n"
+  },
+  {
+    "name": "Acknowledged persist reaches real relaunch refusal and reports its underlying reason without a restart claim",
+    "pass": true,
+    "output": "unreached: probe: the restart outcome is unknown: task probe's recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6DT06J8Z2BFSHPD3NGJXK0H/.lv/missing-worktree is missing; refusing to relaunch and lose track of its work\nsummary: 0 of 1 restarted, 0 nudged, 1 unreached\n"
+  }
+]
