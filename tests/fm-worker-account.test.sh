@@ -1376,8 +1376,12 @@ test_codex_runway_timing() {
   pass 'Codex combined readings and pinned or automatic gates preserve relative runway clocks'
 }
 
+file_facts() {
+  python3 -c 'import os, sys; s = os.stat(sys.argv[1]); print(s.st_mtime_ns, s.st_size)' "$1"
+}
+
 test_codex_spawn_and_checks() {
-  local out rc id=acct-codex-selected
+  local out rc before id=acct-codex-selected
   codex_case codex-launch
   # Existing metadata records quota evidence only alongside an override. The
   # assertion below still requires pass, so an override cannot hide a refusal.
@@ -1403,9 +1407,32 @@ PY
   out=$(codex_tool check --folder "$CASE/account-two"); rc=$?
   expect_code 1 "$rc" 'old file must alert before refresh interval'
   assert_contains "$out" 'not token expiry' 'age warning states its observable limit'
+  assert_absent "$CASE/account-two/.fm-codex-maintained" 'no maintenance stamp before maintain'
+  : > "$CASE/account-two/maintenance-fails"
+  out=$(codex_tool maintain --folder "$CASE/account-two"); rc=$?
+  expect_code 1 "$rc" "failed normal-exec maintenance must fail: $out"
+  assert_absent "$CASE/account-two/.fm-codex-maintained" 'failed maintenance writes no stamp'
+  out=$(codex_tool check --folder "$CASE/account-two"); rc=$?
+  expect_code 1 "$rc" 'check stays red after failed maintenance'
+  rm "$CASE/account-two/maintenance-fails"
+  before=$(file_facts "$CASE/account-two/auth.json")
   out=$(codex_tool maintain --folder "$CASE/account-two"); rc=$?
   expect_code 0 "$rc" "normal-exec maintenance failed: $out"
   assert_equals '' "$out" 'maintenance output stays private'
+  assert_equals "$before" "$(file_facts "$CASE/account-two/auth.json")" 'maintain leaves the unrefreshed sign-in file untouched'
+  assert_equals 600 "$(python3 -c 'import os, sys; print(oct(os.stat(sys.argv[1]).st_mode & 0o777)[2:])' "$CASE/account-two/.fm-codex-maintained")" 'maintenance stamp is private'
+  grep -Eqx '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' "$CASE/account-two/.fm-codex-maintained" \
+    || fail "maintenance stamp holds only a UTC time: $(cat "$CASE/account-two/.fm-codex-maintained")"
+  out=$(codex_tool check --folder "$CASE/account-two"); rc=$?
+  expect_code 0 "$rc" "check must pass right after successful maintenance: $out"
+  assert_equals '' "$out" 'maintained folder check is silent'
+  python3 - "$CASE/account-two/.fm-codex-maintained" <<'PY'
+import os, sys, time
+t = time.time() - 7 * 86400
+os.utime(sys.argv[1], (t, t))
+PY
+  out=$(codex_tool check --folder "$CASE/account-two"); rc=$?
+  expect_code 1 "$rc" 'old stamp and old sign-in file alert again'
   out=$(codex_tool register --state "$HOME_DIR/state"); rc=$?
   expect_code 0 "$rc" "watcher registration failed: $out"
   assert_equals 2 "$(printf '%s\n' "$HOME_DIR"/state/codex-account-*.check-trust | wc -l | tr -d ' ')" 'one registered watcher per folder'
