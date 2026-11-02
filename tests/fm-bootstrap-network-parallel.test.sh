@@ -672,6 +672,7 @@ run_nudge_convergence() {
 
 run_convergence_without_recovery() (
   STATE="$CF_HOME/state"
+  # shellcheck source=/dev/null
   . "$ROOT/bin/fm-wake-lib.sh"
   fm_lock_acquire_wait "$STATE/.secondmate-liveness-sm.lock"
   trap 'fm_lock_release "$STATE/.secondmate-liveness-sm.lock" || true' EXIT

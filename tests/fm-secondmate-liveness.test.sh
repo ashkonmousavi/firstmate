@@ -831,6 +831,7 @@ test_remote_poll_probe_unreachable_preserves_route() {
 
 parked_remote() {
   local w=$1; shift
+  # shellcheck disable=SC2016 # STATE and positional parameters expand in the child shell.
   env STATE="$w/home/state" FM_HOME="$w/home" FM_DATA_OVERRIDE="$w/home/data" \
     FM_SSH_BIN="$w/fakebin/ssh" FM_FAKE_SSH_LOG="$w/ssh.log" "$@" \
     bash -c '. "$0/bin/fm-secondmate-liveness-lib.sh"; fm_secondmate_parked "$STATE" rsm1' "$ROOT"
@@ -880,6 +881,7 @@ test_remote_parked_requires_positive_agent_absence() {
 
 parked_local() {
   local state=$1; shift
+  # shellcheck disable=SC2016 # STATE and positional parameters expand in the child shell.
   env STATE="$state" FM_HOME="${state%/state}" "$@" \
     bash -c '. "$0/bin/fm-secondmate-liveness-lib.sh"; fm_secondmate_parked "$STATE" sm' "$ROOT"
 }
@@ -979,6 +981,7 @@ test_rearm_only_resets_a_parked_mate() {
   mkdir -p "$state"
   (
     STATE="$state"
+    # shellcheck source=/dev/null
     . "$ROOT/bin/fm-secondmate-liveness-lib.sh"
     now=$(date +%s)
     printf '%s\tattempt\n%s\tattempt\n%s\tattempt\n' "$now" "$now" "$now" > "$STATE/.secondmate-relaunch-sm"

@@ -1467,6 +1467,7 @@ run_bootstrap() {
 run_bootstrap_without_recovery() (
   local w=$1
   STATE="$w/home/state"
+  # shellcheck source=/dev/null
   . "$ROOT/bin/fm-wake-lib.sh"
   fm_lock_acquire_wait "$STATE/.secondmate-liveness-sm.lock"
   trap 'fm_lock_release "$STATE/.secondmate-liveness-sm.lock" || true' EXIT
