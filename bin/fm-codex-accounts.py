@@ -15,16 +15,18 @@ fresh main weekly ranking; unknown ranks below measured, with lexical folder
 order breaking ties. All vendor output is
 captured; only allowlisted quota fields escape this process.
 
-check is silent when healthy; stale file age (six days) is a maintenance warning,
-not an expiry timestamp. Revocation cannot be predicted. maintain explicitly runs
-the official weekly normal-exec pattern; it never runs login/logout or a refresh
-endpoint. register creates per-folder checks using fm-check-register.sh, never a
-timer. prepare links only named non-auth configuration into an existing folder;
+check is silent when healthy; six days since the newer of the sign-in file's
+write and the last successful maintain is a maintenance warning, not an expiry
+timestamp. Revocation cannot be predicted. maintain explicitly runs the official
+weekly normal-exec pattern; it never runs login/logout or a refresh endpoint.
+Codex need not rewrite auth.json, so only a successful run records the
+non-credential stamp .fm-codex-maintained (mode 0600, UTC time) beside it.
+register creates per-folder checks using fm-check-register.sh, never a timer. prepare links only named non-auth configuration into an existing folder;
 it refuses conflicting destinations and never overwrites them.
 """
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import hashlib
 import json
 import math
@@ -43,6 +45,7 @@ import time
 SCRIPT = Path(__file__).resolve()
 SHARED = ("config.toml", "AGENTS.md", "rules", "skills", "AGENTS.override.md")
 REQUIRED = SHARED[:3]
+STAMP = ".fm-codex-maintained"
 
 
 def folders(config):
@@ -313,11 +316,32 @@ def check(root, roots, codex):
     if not shared_ready(root):
         raise ValueError(f"Codex folder is missing shared configuration: {root}")
     try:
-        age = time.time() - (Path(root) / "auth.json").stat().st_mtime
+        written = (Path(root) / "auth.json").stat().st_mtime
     except OSError:
         raise ValueError(f"Codex file-backed sign-in is missing: {root}") from None
+    try:
+        info = (Path(root) / STAMP).stat(follow_symlinks=False)
+        if stat.S_ISREG(info.st_mode):
+            written = max(written, info.st_mtime)
+    except FileNotFoundError:
+        pass
+    age = time.time() - written
     if age < 0 or age >= 6 * 86400:
         raise ValueError(f"Codex folder needs maintenance (file age is not token expiry): {root}")
+
+
+def record_maintenance(root):
+    # Atomic private replace; the stamp is not a credential and holds only a time.
+    fd, temp = tempfile.mkstemp(prefix=STAMP + ".", dir=root)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            stream.write(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) + "\n")
+        os.chmod(temp, 0o600)
+        os.replace(temp, Path(root) / STAMP)
+    except BaseException:
+        with suppress(FileNotFoundError):
+            os.unlink(temp)
+        raise
 
 
 def prepare(root, shared):
@@ -417,6 +441,7 @@ def main():
                                      "Reply with the single word OK. Do not use tools."], root, 120, scratch)
             if result is None or result.returncode != 0:
                 raise ValueError(f"Codex maintenance failed; request/refresh needs attention: {root}")
+            record_maintenance(root)
 
 
 if __name__ == "__main__":
