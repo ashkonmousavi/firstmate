@@ -1,0 +1,3 @@
+ok - concurrent merged observation settles refreshed owners without forge reads
+ok - concurrent closed observation settles refreshed owners without forge reads
+ok - concurrent issue observation settles refreshed owners without forge reads

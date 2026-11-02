@@ -1,0 +1,19 @@
+ok - perl/existing/term holder=98716 publisher=98716 publisher_pgid=98644 scan=98644 scan_pgid=98644
+ok - perl/existing/forced holder=609 publisher=609 publisher_pgid=548 scan=548 scan_pgid=548
+ok - perl/existing/stalled holder=2656 publisher=2656 publisher_pgid=2572 scan=2572 scan_pgid=2572
+ok - perl/new/term holder=3861 publisher=3861 publisher_pgid=3786 scan=3786 scan_pgid=3786
+ok - perl/new/forced holder=6261 publisher=6261 publisher_pgid=6200 scan=6200 scan_pgid=6200
+ok - perl/new/stalled holder=8654 publisher=8654 publisher_pgid=8388 scan=8388 scan_pgid=8388
+ok - timeout/existing/term holder=10535 publisher=10535 publisher_pgid=10461 scan=10462 scan_pgid=10461
+ok - timeout/existing/forced holder=11369 publisher=11369 publisher_pgid=11291 scan=11292 scan_pgid=11291
+ok - timeout/existing/stalled holder=12515 publisher=12515 publisher_pgid=12399 scan=12400 scan_pgid=12399
+ok - timeout/new/term holder=13691 publisher=13691 publisher_pgid=13540 scan=13544 scan_pgid=13540
+ok - timeout/new/forced holder=14938 publisher=14938 publisher_pgid=14877 scan=14878 scan_pgid=14877
+ok - timeout/new/stalled holder=16260 publisher=16260 publisher_pgid=16198 scan=16199 scan_pgid=16198
+ok - gtimeout/existing/term holder=19125 publisher=19125 publisher_pgid=19062 scan=19063 scan_pgid=19062
+ok - gtimeout/existing/forced holder=19972 publisher=19972 publisher_pgid=19906 scan=19907 scan_pgid=19906
+ok - gtimeout/existing/stalled holder=21089 publisher=21089 publisher_pgid=21023 scan=21024 scan_pgid=21023
+ok - gtimeout/new/term holder=22139 publisher=22139 publisher_pgid=22066 scan=22067 scan_pgid=22066
+ok - gtimeout/new/forced holder=23768 publisher=23768 publisher_pgid=23694 scan=23695 scan_pgid=23694
+ok - gtimeout/new/stalled holder=25950 publisher=25950 publisher_pgid=25870 scan=25872 scan_pgid=25870
+ok - actual settlement publishers retain exclusion through TERM, forced kill and stalled supervisors

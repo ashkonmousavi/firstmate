@@ -1,0 +1,1 @@
+{"base_commit": "f145078aeb3f3068169dd29ca7a1f03839fa8ec0", "command": "bash bin/fm-contributions.sh poll", "environment": {"FM_CHECK_TIMEOUT": "4"}, "saved_owners": 400, "exceeded_four_second_watcher_bound": true, "exit_after_deadline_control": 1, "elapsed_seconds": 4.013, "stdout": "", "stderr": "Terminated\n", "all_records_byte_identical": true}

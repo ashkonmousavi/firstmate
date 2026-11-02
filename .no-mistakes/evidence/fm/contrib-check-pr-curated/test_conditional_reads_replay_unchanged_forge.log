@@ -1,0 +1,1 @@
+ok - unchanged PRs are re-read on 304 without a single unconditional read, and a changed endpoint still surfaces

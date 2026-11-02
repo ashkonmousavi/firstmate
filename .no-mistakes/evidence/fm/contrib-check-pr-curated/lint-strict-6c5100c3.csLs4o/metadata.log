@@ -1,0 +1,27 @@
+2026-11-02T08:03:29Z
+worktree=~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0
+head=6c5100c30a400293da26eca9ae93245fd6e73972
+base=f145078aeb3f3068169dd29ca7a1f03839fa8ec0
+status-before:
+full-diff-inventory:
+M	bin/fm-contributions.sh
+M	tests/fm-contributions.test.sh
+shell-root-inventory:
+bin/fm-contributions.sh
+tests/fm-contributions.test.sh
+baseline-procevent-blob:
+100755 blob 57b05258ecf88ed0672ff3291d3e57c2d47e20da	tests/fm-procevent.test.sh
+shellcheck-version:
+ShellCheck - shell script analysis tool
+version: 0.11.0
+license: GNU General Public License, version 3
+website: https://www.shellcheck.net
+actionlint-version:
+1.7.12
+installed by downloading from release page
+built with go1.26.1 compiler for linux/amd64
+lint-environment:
+inherited-address-space-limit-kib=unlimited
+analysis=default-full-dataflow; source-following=enabled-by-explicit-roots; resource-overrides=none
+shell-command=bash bin/fm-lint.sh --jobs 1 --telemetry ~/.no-mistakes/evidence/01M6DEE8N3FPKKWF8CNR4SPFE0/lint-strict-6c5100c3.csLs4o/shell.tsv bin/fm-contributions.sh tests/fm-contributions.test.sh
+workflow-command=bash bin/fm-lint-workflows.sh

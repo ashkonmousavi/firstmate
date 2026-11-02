@@ -1,0 +1,264 @@
+Scope: real contributions CLI, isolated homes; GitHub responses are external-boundary fixtures.
+Recorded baseline exception: test_unmeasured_url_does_not_starve_the_tail excluded, assertions unchanged.
+BEGIN test_live_refresh_settles_concurrent_terminal_observation
+ok - concurrent merged observation settles refreshed owners without forge reads
+ok - concurrent closed observation settles refreshed owners without forge reads
+ok - concurrent issue observation settles refreshed owners without forge reads
+END test_live_refresh_settles_concurrent_terminal_observation rc=0 elapsed=2s
+BEGIN test_live_target_survives_single_saved_scan
+ok - one saved partition leaves budget to refresh a live target without rescanning unrelated final records
+END test_live_target_survives_single_saved_scan rc=0 elapsed=4s
+BEGIN test_poll_reacquires_current_contribution_state
+ok - settlement refresh preserves current acknowledgement, verdict and retirement
+ok - settlement-retirement refresh preserves current acknowledgement, verdict and retirement
+ok - ownership refresh preserves current acknowledgement, verdict and retirement
+ok - live refresh preserves current acknowledgement, verdict and retirement
+ok - retirement refresh preserves current acknowledgement, verdict and retirement
+Terminated
+ok - live-phase lock contention skips before the watcher deadline and retries
+END test_poll_reacquires_current_contribution_state rc=0 elapsed=10s
+BEGIN test_interrupted_settlement_preserves_concurrent_updates
+ok - perl/existing/term holder=15806 publisher=15806 publisher_pgid=15708 scan=15708 scan_pgid=15708
+ok - perl/existing/forced holder=17097 publisher=17097 publisher_pgid=17035 scan=17035 scan_pgid=17035
+ok - perl/existing/stalled holder=20433 publisher=20433 publisher_pgid=20076 scan=20076 scan_pgid=20076
+ok - perl/new/term holder=23023 publisher=23023 publisher_pgid=22963 scan=22963 scan_pgid=22963
+ok - perl/new/forced holder=25925 publisher=25925 publisher_pgid=25864 scan=25864 scan_pgid=25864
+ok - perl/new/stalled holder=27328 publisher=27328 publisher_pgid=27265 scan=27265 scan_pgid=27265
+ok - timeout/existing/term holder=28449 publisher=28449 publisher_pgid=28388 scan=28389 scan_pgid=28388
+ok - timeout/existing/forced holder=29424 publisher=29424 publisher_pgid=29247 scan=29253 scan_pgid=29247
+ok - timeout/existing/stalled holder=30434 publisher=30434 publisher_pgid=30373 scan=30374 scan_pgid=30373
+ok - timeout/new/term holder=32506 publisher=32506 publisher_pgid=32445 scan=32446 scan_pgid=32445
+ok - timeout/new/forced holder=34859 publisher=34859 publisher_pgid=34793 scan=34794 scan_pgid=34793
+ok - timeout/new/stalled holder=37713 publisher=37713 publisher_pgid=37623 scan=37624 scan_pgid=37623
+ok - gtimeout/existing/term holder=39175 publisher=39175 publisher_pgid=39112 scan=39113 scan_pgid=39112
+ok - gtimeout/existing/forced holder=41872 publisher=41872 publisher_pgid=41615 scan=41624 scan_pgid=41615
+ok - gtimeout/existing/stalled holder=47091 publisher=47091 publisher_pgid=46813 scan=46821 scan_pgid=46813
+ok - gtimeout/new/term holder=49090 publisher=49090 publisher_pgid=49028 scan=49029 scan_pgid=49028
+ok - gtimeout/new/forced holder=50192 publisher=50192 publisher_pgid=50131 scan=50132 scan_pgid=50131
+ok - gtimeout/new/stalled holder=52623 publisher=52623 publisher_pgid=52527 scan=52528 scan_pgid=52527
+ok - actual settlement publishers retain exclusion through TERM, forced kill and stalled supervisors
+END test_interrupted_settlement_preserves_concurrent_updates rc=0 elapsed=41s
+BEGIN test_saved_scan_budget_skips_cleanly
+~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0/.contrib-live-validation/tmp/fm-contributions.SuOqYr/scan.sh: line 40: [: : integer expression expected
+ok - size scan operation crossing its outer deadline skips cleanly in 5s
+ok - validation scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - aggregation scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - partition scan operation crossing its outer deadline skips cleanly in 6s
+Terminated
+ok - routing scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - prepare-existing scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - prepare-new scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - publish-existing scan operation crossing its outer deadline skips cleanly in 6s
+Terminated
+ok - publish-new scan operation crossing its outer deadline skips cleanly in 5s
+END test_saved_scan_budget_skips_cleanly rc=0 elapsed=49s
+BEGIN test_large_saved_poll_is_bounded
+ok - 400 saved owners with distinct final URLs poll in 3s
+END test_large_saved_poll_is_bounded rc=0 elapsed=5s
+BEGIN test_actor_coverage
+ok - only required-captain contributions are rows; other actors are counted
+END test_actor_coverage rc=0 elapsed=0s
+BEGIN test_stale_verdict
+ok - replaced-head verdict is stale and cannot create a captain requirement
+END test_stale_verdict rc=0 elapsed=1s
+BEGIN test_unchecked_is_not_silence
+ok - unchecked ownership is disclosed and cannot prove silence
+END test_unchecked_is_not_silence rc=0 elapsed=0s
+BEGIN test_newest_check_has_no_verdict
+ok - newest check with no verdict is distinct from passing and pending
+END test_newest_check_has_no_verdict rc=0 elapsed=0s
+BEGIN test_comment_wake
+ok - new maintainer comment wakes once and stays pending until acknowledged
+END test_comment_wake rc=0 elapsed=2s
+BEGIN test_review_wake
+ok - new maintainer review wakes once and stays pending until acknowledged
+END test_review_wake rc=0 elapsed=2s
+BEGIN test_inline_wake
+ok - new maintainer inline wakes once and stays pending until acknowledged
+END test_inline_wake rc=0 elapsed=1s
+BEGIN test_ready_issue_wake
+ok - ready-for-pr on a filed issue becomes a planning wake
+END test_ready_issue_wake rc=0 elapsed=3s
+BEGIN test_fresh_issue_requires_maintainer
+ok - a fresh open issue remains measured maintainer triage
+END test_fresh_issue_requires_maintainer rc=0 elapsed=1s
+BEGIN test_missing_lane_remains_missing
+ok - an absent check lane remains missing across repeated observations
+END test_missing_lane_remains_missing rc=0 elapsed=1s
+BEGIN test_partial_freshness_keeps_measured_rows
+ok - mixed freshness retains measured captain work and discloses the gap
+END test_partial_freshness_keeps_measured_rows rc=0 elapsed=0s
+BEGIN test_malformed_record_cannot_prove_silence
+ok - malformed durable evidence cannot prove silence
+END test_malformed_record_cannot_prove_silence rc=0 elapsed=0s
+BEGIN test_issue_timeline_and_exact_ack
+ok - a transient ready-for-pr label wakes and its exact acknowledgement survives replay
+END test_issue_timeline_and_exact_ack rc=0 elapsed=3s
+BEGIN test_verdict_retains_judged_head
+ok - recorded judgment keeps its exact head and is stale immediately on a published replacement
+END test_verdict_retains_judged_head rc=0 elapsed=1s
+BEGIN test_verdict_actor_values_are_discoverable
+ok - verdict help and refusal name exactly the actors the command accepts
+END test_verdict_actor_values_are_discoverable rc=0 elapsed=1s
+BEGIN test_observed_replacement_refreshes_verdict
+ok - a current forge observation refreshes a verdict after a replacement
+END test_observed_replacement_refreshes_verdict rc=0 elapsed=1s
+BEGIN test_unobserved_head_leaves_verdict_unknown
+ok - an unavailable current head leaves verdict freshness unknown
+END test_unobserved_head_leaves_verdict_unknown rc=0 elapsed=1s
+BEGIN test_away_yolo_is_fleet_work
+ok - away yolo delivery is fleet work without granting merge authority
+END test_away_yolo_is_fleet_work rc=0 elapsed=0s
+BEGIN test_away_yolo_cross_home_is_fleet_work
+actionable: PR https://github.com/o/r/pull/8 is registered but its ready line did not reach the parent channel (rc=3)
+not ok - cross-home away yolo delivery requiring a merge remained captain work
+END test_away_yolo_cross_home_is_fleet_work rc=1 elapsed=1s
+BEGIN test_retired_and_unsupported_coverage
+ok - retired ownership persists and unsupported forge remains visibly unmeasured
+END test_retired_and_unsupported_coverage rc=0 elapsed=0s
+BEGIN test_unsupported_forge_is_not_fleet_work
+ok - unsupported forge coverage is disclosed without inventing fleet work
+END test_unsupported_forge_is_not_fleet_work rc=0 elapsed=1s
+BEGIN test_held_unsupported_forge_is_not_captain_work
+ok - held unsupported forge coverage remains unmeasured
+END test_held_unsupported_forge_is_not_captain_work rc=0 elapsed=0s
+BEGIN test_shared_contribution_signal_wakes_once
+ok - shared contribution signal wakes once while retaining both acknowledgements
+END test_shared_contribution_signal_wakes_once rc=0 elapsed=2s
+BEGIN test_watcher_keeps_diagnostics_separate_from_contribution_wakes
+ok - watcher keeps observer diagnostics separate from contribution wakes
+END test_watcher_keeps_diagnostics_separate_from_contribution_wakes rc=0 elapsed=2s
+BEGIN test_expired_child_unsupported_forge_stays_unmeasured
+not ok - expired child unsupported-forge coverage became fleet work
+END test_expired_child_unsupported_forge_stays_unmeasured rc=1 elapsed=1s
+BEGIN test_watcher_surfaces_new_contribution_once
+ok - watcher surfaces one newly durable contribution signal without re-ringing it
+END test_watcher_surfaces_new_contribution_once rc=0 elapsed=5s
+BEGIN test_home_summary_coverage
+not ok - measured child coverage did not reach parent
+END test_home_summary_coverage rc=1 elapsed=0s
+BEGIN test_unreadable_pending_is_not_empty
+ok - unreadable pending signals refuse an empty-inbox claim
+END test_unreadable_pending_is_not_empty rc=0 elapsed=0s
+BEGIN test_record_task_identity_matches_dirname_basename
+ok - record task identity is the directory dirname/basename named
+END test_record_task_identity_matches_dirname_basename rc=0 elapsed=-2s
+BEGIN test_read_only_views_create_no_state
+ok - snapshot and pending create nothing in a home without state
+END test_read_only_views_create_no_state rc=0 elapsed=0s
+BEGIN test_budget_refusal_between_calls
+ok - budget exhausted mid-observation (exhaust) keeps the prior record and stays silent
+END test_budget_refusal_between_calls rc=0 elapsed=1s
+BEGIN test_budget_bounded_call_timeout
+ok - budget exhausted mid-observation (hang) keeps the prior record and stays silent
+END test_budget_bounded_call_timeout rc=0 elapsed=1s
+BEGIN test_genuine_failure_near_deadline_is_unavailable
+ok - a genuine forge failure inside the budget still records the error, its cause and wakes
+END test_genuine_failure_near_deadline_is_unavailable rc=0 elapsed=0s
+BEGIN test_shared_url_observed_once
+jq: error (at ~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0/.contrib-live-validation/tmp/fm-contributions.311e8N/after.json:1): null (null) cannot be matched, as it is not a string
+ok - a URL owned by two tasks is observed once and every owner receives the result
+END test_shared_url_observed_once rc=0 elapsed=2s
+BEGIN test_terminal_contribution_settles
+ok - a merged or closed contribution settles once, is not re-read, and never wakes again
+END test_terminal_contribution_settles rc=0 elapsed=3s
+BEGIN test_late_owner_inherits_terminal_observation
+ok - a late owner inherits a terminal observation without a forge read or wake
+END test_late_owner_inherits_terminal_observation rc=0 elapsed=0s
+BEGIN test_interrupted_multi_owner_poll_settles_every_owner
+ok - a retry converges every owner whose saved row is not terminal, keeping its own acknowledgement state
+END test_interrupted_multi_owner_poll_settles_every_owner rc=0 elapsed=1s
+BEGIN test_done_task_open_pr_still_observed
+ok - an open PR linked from a done task keeps being observed
+END test_done_task_open_pr_still_observed rc=0 elapsed=1s
+BEGIN test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain
+ok - a later URL waits when fewer than fifteen seconds remain for its observation
+END test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain rc=0 elapsed=0s
+BEGIN test_three_second_pr_reads_complete_fresh_in_one_cycle
+ok - eight 3-second PR reads complete fresh within one 20-second poll cycle
+END test_three_second_pr_reads_complete_fresh_in_one_cycle rc=0 elapsed=10s
+BEGIN test_slow_read_deadline_kill_is_budget_refusal
+ok - a read killed at the five-second bound is budget refusal and stays silent
+END test_slow_read_deadline_kill_is_budget_refusal rc=0 elapsed=5s
+BEGIN test_budget_is_cut_down_to_the_watcher_check_bound
+ok - the effective budget is cut down to the watcher per-check bound with margin
+END test_budget_is_cut_down_to_the_watcher_check_bound rc=0 elapsed=4s
+BEGIN test_arm_plumbs_a_configured_budget_into_the_check_shim
+ok - generated checks enforce configured and inherited budgets at runtime
+END test_arm_plumbs_a_configured_budget_into_the_check_shim rc=0 elapsed=0s
+BEGIN test_unavailable_forge_records_error_and_wakes_once_per_episode
+ok - a genuinely unavailable forge records an error and wakes once per failure episode
+END test_unavailable_forge_records_error_and_wakes_once_per_episode rc=0 elapsed=2s
+BEGIN test_late_owner_keeps_failure_episode_suppressed
+ok - a late owner does not restart a shared forge failure episode
+END test_late_owner_keeps_failure_episode_suppressed rc=0 elapsed=2s
+BEGIN test_retire_ends_observation_of_a_gone_contribution
+ok - retire stops the unavailable check, leaves rotation and restores complete coverage
+END test_retire_ends_observation_of_a_gone_contribution rc=0 elapsed=2s
+BEGIN test_late_owner_of_a_retired_final_contribution_is_not_retired
+ok - a late owner settled beside a retired final record stays unretired and known
+END test_late_owner_of_a_retired_final_contribution_is_not_retired rc=0 elapsed=0s
+BEGIN test_retire_is_idempotent_and_refuses_unknown_pairs
+ok - retire is idempotent and refuses non-captain, unknown, malformed and signal-bearing pairs
+END test_retire_is_idempotent_and_refuses_unknown_pairs rc=0 elapsed=1s
+BEGIN test_unsupported_poll_is_silent_and_clears_legacy_errors
+ok - unsupported ownership stays silent and unmeasured; legacy errors clear without fabricated evidence
+END test_unsupported_poll_is_silent_and_clears_legacy_errors rc=0 elapsed=1s
+BEGIN test_legacy_cleanup_preserves_supported_failure
+ok - legacy cleanup preserves unsupported ownership and supported missing-evidence failure in the same file
+END test_legacy_cleanup_preserves_supported_failure rc=0 elapsed=2s
+BEGIN test_http_500_once_retries_without_waking
+ok - one HTTP 500 is retried once and a successful retry stays healthy
+END test_http_500_once_retries_without_waking rc=0 elapsed=0s
+BEGIN test_http_500_twice_records_the_failed_read
+ok - two transient failures wake once and name the failed read in the record
+END test_http_500_twice_records_the_failed_read rc=0 elapsed=1s
+BEGIN test_http_404_is_not_retried
+ok - an HTTP 404 is reported without retrying
+END test_http_404_is_not_retried rc=0 elapsed=0s
+BEGIN test_real_gh_errors_drive_retry_and_summary
+ok - real gh error shapes drive the intended retry decision and keep their error
+END test_real_gh_errors_drive_retry_and_summary rc=0 elapsed=10s
+BEGIN test_next_url_does_not_inherit_a_forge_diagnostic
+ok - a URL never inherits the previous URL read diagnostic
+END test_next_url_does_not_inherit_a_forge_diagnostic rc=0 elapsed=1s
+BEGIN test_many_reviews_stay_readable
+ok - a many-review PR stores only classified review fields and stays readable
+END test_many_reviews_stay_readable rc=0 elapsed=5s
+BEGIN test_conditional_reads_replay_unchanged_forge
+ok - unchanged PRs are re-read on 304 without a single unconditional read, and a changed endpoint still surfaces
+END test_conditional_reads_replay_unchanged_forge rc=0 elapsed=3s
+BEGIN test_budget_refusal_between_calls_conditional
+ok - budget exhausted mid-observation (exhaust) keeps the prior record and stays silent (conditional reads on)
+END test_budget_refusal_between_calls_conditional rc=0 elapsed=0s
+BEGIN test_budget_bounded_call_timeout_conditional
+ok - budget exhausted mid-observation (hang) keeps the prior record and stays silent (conditional reads on)
+END test_budget_bounded_call_timeout_conditional rc=0 elapsed=2s
+BEGIN test_http_500_once_conditional
+ok - one HTTP 500 is retried once and a successful retry stays healthy (conditional reads on)
+END test_http_500_once_conditional rc=0 elapsed=1s
+BEGIN test_http_500_twice_conditional
+ok - two transient failures wake once and name the failed read in the record (conditional reads on)
+END test_http_500_twice_conditional rc=0 elapsed=0s
+BEGIN test_slow_read_deadline_kill_conditional
+ok - a read killed at the five-second bound is budget refusal and stays silent (conditional reads on)
+END test_slow_read_deadline_kill_conditional rc=0 elapsed=11s
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0/.contrib-live-validation/capture.py", line 11, in <module>
+    data=json.loads(p.read_text())
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+TARGETED_RESULT failures=4

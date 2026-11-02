@@ -1,0 +1,17 @@
+~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0/.contrib-live-validation/tmp/fm-contributions.SuOqYr/scan.sh: line 40: [: : integer expression expected
+ok - size scan operation crossing its outer deadline skips cleanly in 5s
+ok - validation scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - aggregation scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - partition scan operation crossing its outer deadline skips cleanly in 6s
+Terminated
+ok - routing scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - prepare-existing scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - prepare-new scan operation crossing its outer deadline skips cleanly in 5s
+Terminated
+ok - publish-existing scan operation crossing its outer deadline skips cleanly in 6s
+Terminated
+ok - publish-new scan operation crossing its outer deadline skips cleanly in 5s

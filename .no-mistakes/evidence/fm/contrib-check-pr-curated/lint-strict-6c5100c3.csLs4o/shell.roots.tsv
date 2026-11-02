@@ -1,0 +1,21 @@
+format	fm-lint-roots-v1
+meta	shellcheck_version	0.11.0
+meta	platform	Linux x86_64
+meta	image_os	unknown
+meta	image_version	unknown
+meta	mode	full
+meta	partition	all
+meta	jobs	1
+meta	bounds_enforced	0
+meta	root_deadline_seconds	unbounded
+meta	root_kill_grace_seconds	unbounded
+meta	root_memory_limit_kib	unbounded
+meta	timing_mechanism	none
+begin	2	tests/fm-contributions.test.sh	0	full	1793606609332
+end	2	tests/fm-contributions.test.sh	0	full	1793606609332	1793606611053	1721	0	ok	unavailable	1
+begin	1	bin/fm-contributions.sh	1	full	1793606611062
+end	1	bin/fm-contributions.sh	1	full	1793606611062	1793606619449	8387	0	ok	unavailable	1
+meta	roots_begun	2
+meta	roots_completed	2
+meta	roots_unfinished	0
+meta	result_exit	0

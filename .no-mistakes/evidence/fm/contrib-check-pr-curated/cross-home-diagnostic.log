@@ -1,0 +1,9 @@
+actionable: PR https://github.com/o/r/pull/8 is registered but its ready line did not reach the parent channel (rc=3)
+not ok - cross-home away yolo delivery requiring a merge remained captain work
+DIAGNOSTIC test_away_yolo_cross_home_is_fleet_work rc=1
+not ok - expired child unsupported-forge coverage became fleet work
+DIAGNOSTIC test_expired_child_unsupported_forge_stays_unmeasured rc=1
+not ok - measured child coverage did not reach parent
+DIAGNOSTIC test_home_summary_coverage rc=1
+Retained product output and persisted records for 2 isolated homes
+DIAGNOSTIC failures=3

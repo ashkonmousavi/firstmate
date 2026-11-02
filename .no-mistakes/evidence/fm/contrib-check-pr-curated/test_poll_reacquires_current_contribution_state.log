@@ -1,0 +1,7 @@
+ok - settlement refresh preserves current acknowledgement, verdict and retirement
+ok - settlement-retirement refresh preserves current acknowledgement, verdict and retirement
+ok - ownership refresh preserves current acknowledgement, verdict and retirement
+ok - live refresh preserves current acknowledgement, verdict and retirement
+ok - retirement refresh preserves current acknowledgement, verdict and retirement
+Terminated
+ok - live-phase lock contention skips before the watcher deadline and retries

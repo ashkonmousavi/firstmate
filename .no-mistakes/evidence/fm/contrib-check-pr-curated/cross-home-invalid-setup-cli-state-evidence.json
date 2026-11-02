@@ -1,0 +1,76 @@
+[
+  {
+    "scenario_home": "away-yolo-child",
+    "cli": "bin/fm-contributions.sh poll",
+    "outputs": {
+      "state/contributions.check.sh": "#!/usr/bin/env bash\nexport FM_HOME=~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0/.contrib-live-validation/tmp/fm-contributions.LALeTp/away-yolo-child\nexport FM_STATE_OVERRIDE=~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0/.contrib-live-validation/tmp/fm-contributions.LALeTp/away-yolo-child/state\nexport FM_DATA_OVERRIDE=~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0/.contrib-live-validation/tmp/fm-contributions.LALeTp/away-yolo-child/data\nexec ~/.no-mistakes/worktrees/1e7d3bc48f31/01M6DEE8N3FPKKWF8CNR4SPFE0/bin/fm-contributions.sh poll\n"
+    },
+    "records": [
+      {
+        "task": "delivery",
+        "url": "https://github.com/o/r/pull/8",
+        "kind": "pr",
+        "checked_at": "2026-09-16T08:00:00Z",
+        "error": null,
+        "pending": [],
+        "seen": [],
+        "verdict": null,
+        "observation": {
+          "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "open",
+          "draft": false,
+          "mergeable": "mergeable",
+          "review_decision": "APPROVED",
+          "can_merge": true,
+          "checks": [
+            {
+              "name": "test",
+              "id": 1,
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-09-16T08:00:00Z"
+            }
+          ],
+          "reviews": []
+        },
+        "observation_events_count": 0
+      }
+    ]
+  },
+  {
+    "scenario_home": "child",
+    "cli": "bin/fm-contributions.sh poll",
+    "outputs": {},
+    "records": [
+      {
+        "task": "child-work",
+        "url": "https://github.com/o/r/pull/15",
+        "kind": "pr",
+        "checked_at": "2026-09-16T08:00:00Z",
+        "error": null,
+        "pending": [],
+        "seen": [],
+        "verdict": null,
+        "observation": {
+          "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "open",
+          "draft": false,
+          "mergeable": "mergeable",
+          "review_decision": "APPROVED",
+          "can_merge": false,
+          "checks": [
+            {
+              "name": "test",
+              "id": 1,
+              "status": "completed",
+              "conclusion": "success",
+              "started_at": "2026-09-16T08:00:00Z"
+            }
+          ],
+          "reviews": []
+        },
+        "observation_events_count": 0
+      }
+    ]
+  }
+]

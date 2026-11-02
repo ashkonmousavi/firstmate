@@ -1,0 +1,2 @@
+jq: error (at /tmp/fm-contributions.5k6jHD/after.json:1): null (null) cannot be matched, as it is not a string
+ok - a URL owned by two tasks is observed once and every owner receives the result
