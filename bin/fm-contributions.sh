@@ -69,11 +69,16 @@
 # the effective budget and 15 seconds for those waves. URLs needing forge
 # reads are sorted by URL and rotated by the current five-minute epoch bucket
 # modulo their count, without stored scheduling state or freshness-based
-# reordering. Terminal URLs settle separately before the forge budget starts
-# and consume no rotation slots.
+# reordering. URLs already known to be terminal settle before the forge budget
+# starts and consume no rotation slots.
 # A deliberately smaller configured budget remains bounded and may be
 # unmeasured, rather than being mislabeled unavailable. Each distinct supported
 # URL is attempted at most once per poll and its observation applied to every owner.
+# Saved-record scanning and final-owner settlement stop at the watcher bound
+# minus three seconds and report "scan skipped" on exhaustion. An incomplete
+# saved snapshot is never used for forge reads; already settled owners remain
+# durable and the next poll can safely finish settlement. Forge reads also
+# respect the time remaining in that bound. Read-only commands do not skip.
 # A supported URL's final observation applies
 # to every owner without another forge read. When the budget refuses a read
 # mid-observation, that URL's records stay untouched and the poll moves to the
@@ -143,7 +148,14 @@ BUDGET_CAP=$((CHECK_TIMEOUT - 3))
 [ "$BUDGET" -le "$BUDGET_CAP" ] || BUDGET=$BUDGET_CAP
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-contributions.XXXXXX")
 LOCK_HELD=0
+SCAN_PID=
 cleanup() {
+  trap '' HUP INT TERM
+  if [ -n "$SCAN_PID" ]; then
+    kill -TERM "$SCAN_PID" 2>/dev/null || true
+    wait "$SCAN_PID" 2>/dev/null || true
+    kill -KILL -- "-$SCAN_PID" 2>/dev/null || true
+  fi
   [ "$LOCK_HELD" = 0 ] || fm_lock_release "$STATE/.contributions.lock" || true
   rm -rf -- "$TMP"
 }
@@ -156,6 +168,10 @@ jq_lib() { # jq options/program via final argument
   jq -L "$SCRIPT_DIR" "$@" "include \"fm-contributions\"; $program"
 }
 
+scan_skipped() {
+  printf 'contributions: scan skipped (time budget exhausted)\n'
+}
+
 read_saved() {
   local file dir task
   : > "$TMP/saved.jsonl"
@@ -163,23 +179,54 @@ read_saved() {
   if [ -L "$DATA" ]; then
     ERRORS=1; printf '[]\n' > "$TMP/saved.json"; return 0
   fi
-  for file in "$DATA"/*/contributions.json; do
+  [ "$#" -gt 0 ] || set -- "$DATA"/*/contributions.json
+  for file in "$@"; do
     [ -e "$file" ] || [ -L "$file" ] || continue
     fm_dirname_to dir "$file"
     fm_basename_to task "$dir"
     if [ -L "$file" ] || [ -L "$dir" ] || [ ! -f "$file" ] \
-      || [ "$(wc -c < "$file")" -gt 1048576 ] \
-      || ! jq_lib -ne --slurpfile record "$file" '($record | length) == 1 and ($record[0] | valid_record)' >/dev/null 2>&1; then
+      || [ "$(wc -c < "$file")" -gt 1048576 ]; then
       ERRORS=$((ERRORS + 1))
       continue
     fi
-    # A file's task identity must match its durable directory, not arbitrary JSON.
-    if ! jq -e --arg task "$task" '.task == $task' "$file" >/dev/null; then
+    # Validate once, including the durable directory identity, then retain only
+    # the valid compact record. Malformed/multiple JSON texts still count once.
+    if ! jq_lib -ec --arg task "$task" --slurpfile record "$file" -n '
+      if ($record | length) == 1 and ($record[0] | valid_record and .task == $task)
+      then $record[0] else error("invalid contribution record") end' \
+      > "$TMP/validated.json" 2>/dev/null; then
       ERRORS=$((ERRORS + 1)); continue
     fi
-    jq -c . "$file" >> "$TMP/saved.jsonl"
+    cat "$TMP/validated.json" >> "$TMP/saved.jsonl"
   done
   jq -s . "$TMP/saved.jsonl" > "$TMP/saved.json"
+}
+
+# Partition the immutable initial snapshot in one pass. Filtering the complete
+# saved set once per URL still scales quadratically on large homes.
+index_saved_urls() {
+  local url records
+  SAVED_URLS=()
+  jq -r '[.[] | .task as $task | .records[] | {task:$task,record:.}]
+    | group_by(.record.url)[]
+    | .[0].record.url, (group_by(.task)
+        | map({task:.[0].task,records:map(.record)}) | tojson)' \
+    "$TMP/saved.json" > "$TMP/saved-urls.jsonl"
+  while IFS= read -r url && IFS= read -r records; do
+    printf '%s\n' "$records" > "$TMP/saved-${#SAVED_URLS[@]}.json"
+    SAVED_URLS+=("$url")
+  done < "$TMP/saved-urls.jsonl"
+}
+
+saved_for_url() { # canonical-url; sets SAVED_URL
+  local index
+  SAVED_URL="$TMP/saved-empty.json"
+  for index in "${!SAVED_URLS[@]}"; do
+    if [ "${SAVED_URLS[$index]}" = "$1" ]; then
+      SAVED_URL="$TMP/saved-$index.json"
+      return 0
+    fi
+  done
 }
 
 get_input() {
@@ -207,7 +254,11 @@ acquire() {
   FM_WAKE_QUEUE_LOCK="$STATE/.wake-queue.lock"
   # shellcheck source=bin/fm-wake-lib.sh
   . "$SCRIPT_DIR/fm-wake-lib.sh"
-  fm_lock_acquire_wait "$STATE/.contributions.lock" || fail 'observation lock unavailable'
+  if [ "$#" -gt 0 ]; then
+    fm_lock_acquire_wait_bounded "$STATE/.contributions.lock" "$1" || return $?
+  else
+    fm_lock_acquire_wait "$STATE/.contributions.lock" || fail 'observation lock unavailable'
+  fi
   LOCK_HELD=1
 }
 
@@ -230,6 +281,11 @@ write_record() { # task record-json-file
   fi
   chmod 600 "$staged"
   fm_pr_regular_destination_on_device_or_absent "$file" "$device" || fail 'contribution destination changed'
+  jq_lib -ne --slurpfile record "$staged" '($record | length) == 1 and ($record[0] | valid_record)' >/dev/null \
+    || fail 'invalid contribution update'
+  if [ "${3:-}" = exec ]; then
+    exec mv -f -- "$staged" "$file"
+  fi
   mv -f -- "$staged" "$file"
 }
 
@@ -470,48 +526,114 @@ publish_pending() { # task canonical-url record-file
   done < <(jq -r '. as $r | .pending[] | .token | select(. as $t | ($r.notified // [] | index($t)) == null)' "$record")
 }
 
-settle_final() { # canonical-url task... : copy the URL's final observation to every owner
-  local url=$1 task
-  shift
-  jq -n --slurpfile saved "$TMP/saved.json" --arg url "$url" '
+load_current_task() { # task; caller must hold the contribution mutation lock
+  local task=$1 file
+  file="$DATA/$task/contributions.json"
+  [ ! -L "$DATA/$task" ] && [ ! -L "$file" ] || fail 'unsafe contribution record'
+  if [ -e "$file" ]; then
+    [ -f "$file" ] && [ "$(wc -c < "$file")" -le 1048576 ] || fail 'invalid contribution record'
+    jq_lib -ecn --arg task "$task" --slurpfile record "$file" '
+      if ($record | length) == 1 and ($record[0] | valid_record and .task == $task)
+      then $record[0] else error("invalid contribution record") end' > "$TMP/current.json"
+  else
+    jq -n --arg task "$task" '{schema:"fm-contributions.v1",task:$task,records:[]}' > "$TMP/current.json"
+  fi
+}
+
+settle_record() {
+  local task=$1 url=$2 final=$3
+  fm_pr_task_id_valid "$task" || fail 'invalid contribution task'
+  acquire
+  get_input
+  load_current_task "$task"
+  if ! jq_lib -ne --slurpfile input "$TMP/input.json" --slurpfile saved "$TMP/current.json" \
+    --arg task "$task" --arg url "$url" '
+      any(known($input[0];[$saved[0]])[]; .task == $task and .url == $url)' >/dev/null; then
+    return 0
+  fi
+  jq -n --slurpfile current "$TMP/current.json" --slurpfile final "$final" --arg url "$url" '
+    ([$current[0].records[] | select(.url == $url)] | first) as $old
+    | if $old == null then $final[0] + {error:null,pending:[],notified:[]} | del(.retired)
+      elif $old.retired != null or (($old.observation.state | IN("merged","closed")) and $old.error == null) then empty
+      else $old + {observation:$final[0].observation,checked_at:$final[0].checked_at,error:null} end' > "$TMP/row.json"
+  [ -s "$TMP/row.json" ] || return 0
+  write_record "$task" "$TMP/row.json" exec
+}
+
+settle_final() { # canonical-url saved-url-file task... : copy the URL's final observation to every owner
+  local url=$1 saved=$2 task
+  shift 2
+  jq -n --slurpfile saved "$saved" --arg url "$url" '
     [$saved[0][] | .records[] | select(.url == $url
       and (.observation.state | IN("merged","closed")))] as $final
     | $final | sort_by([.retired != null, .error != null]) | first' > "$TMP/final.json"
   for task in "$@"; do
     fm_pr_task_id_valid "$task" || { printf 'contributions: invalid durable task id\n'; continue; }
-    jq -n --slurpfile saved "$TMP/saved.json" --arg task "$task" --arg url "$url" '
+    jq -n --slurpfile saved "$saved" --arg task "$task" --arg url "$url" '
       [$saved[0][] | select(.task == $task) | .records[] | select(.url == $url)] | first' > "$TMP/old.json"
-    if jq -e '. == null' "$TMP/old.json" >/dev/null; then
-      jq -n --slurpfile final "$TMP/final.json" '
-        $final[0] + {error:null,pending:[],notified:[]} | del(.retired)' > "$TMP/row.json"
-      write_record "$task" "$TMP/row.json"
-    elif jq -e '(.observation.state | IN("merged","closed") | not) or .error != null' "$TMP/old.json" >/dev/null; then
-      jq -n --slurpfile final "$TMP/final.json" --slurpfile old "$TMP/old.json" '
-        $old[0] + {observation:$final[0].observation,checked_at:$final[0].checked_at,error:null}' > "$TMP/row.json"
-      write_record "$task" "$TMP/row.json"
+    if jq -e '. == null or (.observation.state | IN("merged","closed") | not) or .error != null' "$TMP/old.json" >/dev/null; then
+      bash "$TMP/scan.sh" settle_record "$task" "$url" "$TMP/final.json"
     fi
   done
+}
+
+clear_unsupported_record() { # task url; preserve current whole-task state
+  local task=$1 url=$2
+  fm_pr_task_id_valid "$task" || fail 'invalid contribution task'
+  acquire
+  load_current_task "$task"
+  jq_lib -n --slurpfile current "$TMP/current.json" --arg url "$url" '
+    $current[0].records[] | select(.url == $url and (.url | supported_url | not) and .error != null)
+    | .error=null' > "$TMP/row.json"
+  [ -s "$TMP/row.json" ] || return 0
+  write_record "$task" "$TMP/row.json" exec
 }
 
 clear_unsupported_errors() {
   local task url
   while IFS=$'\t' read -r task url; do
-    fm_pr_task_id_valid "$task" || { printf 'contributions: invalid durable task id\n'; continue; }
-    jq -n --slurpfile saved "$TMP/saved.json" --arg task "$task" --arg url "$url" '
-      $saved[0][] | select(.task == $task) | .records[] | select(.url == $url)
-      | .error=null' > "$TMP/row.json"
-    write_record "$task" "$TMP/row.json"
+    bash "$TMP/scan.sh" clear_unsupported_record "$task" "$url"
   done < <(jq_lib -nr --slurpfile saved "$TMP/saved.json" '$saved[0][] | .task as $task | .records[]
     | select((.url | supported_url | not) and .error != null)
     | [$task,.url] | @tsv')
 }
 
-poll() {
-  local task url old kind error observed why
+# The initial immutable partition selects candidates. Re-read only the active
+# URL's current owners after acquiring the live-phase lock; unrelated terminal
+# files never enter this refresh, and retired/removed owners cannot be revived.
+refresh_live_url() { # url previous-task...
+  local url=$1 task
+  local -a files
+  shift
+  get_input
+  printf '%s\n' "$@" > "$TMP/previous-tasks.txt"
+  jq_lib -nr --slurpfile input "$TMP/input.json" --arg url "$url" --rawfile previous "$TMP/previous-tasks.txt" '
+    ([known($input[0];[])[] | select(.url == $url) | .task] + ($previous | split("\n") | map(select(length > 0))))
+    | unique[]' > "$TMP/current-tasks.txt"
+  files=()
+  while IFS= read -r task; do
+    fm_pr_task_id_valid "$task" || continue
+    files+=("$DATA/$task/contributions.json")
+  done < "$TMP/current-tasks.txt"
+  if [ "${#files[@]}" -gt 0 ]; then
+    read_saved "${files[@]}"
+  else
+    printf '[]\n' > "$TMP/saved.json"
+  fi
+  jq_lib -nr --slurpfile input "$TMP/input.json" --slurpfile saved "$TMP/saved.json" --arg url "$url" '
+    [known($input[0];$saved[0])[] | select(.url == $url) | .task] | unique
+    | if length == 0 then empty else [$url] + . | @tsv end' > "$TMP/current-row.tsv"
+  jq --arg url "$url" '[.[] | .records |= map(select(.url == $url)) | select(.records | length > 0)]' \
+    "$TMP/saved.json" > "$TMP/current-url.json"
+}
+
+scan_saved() {
+  local url
   local -a row
-  acquire
   get_input
   read_saved
+  index_saved_urls
+  printf '[]\n' > "$TMP/saved-empty.json"
   [ "$ERRORS" -eq 0 ] || printf 'contributions: %s unreadable durable record(s)\n' "$ERRORS"
   clear_unsupported_errors
   # Only supported URLs enter final settlement and the forge-read rotation.
@@ -524,11 +646,12 @@ poll() {
   while IFS=$'\t' read -r -a row; do
     [ "${#row[@]}" -ge 2 ] || continue
     url=${row[0]}
+    saved_for_url "$url"
     # A contribution with a final observation is not re-read for any owner.
-    if jq -ne --slurpfile saved "$TMP/saved.json" --arg url "$url" --args \
+    if jq -ne --slurpfile saved "$SAVED_URL" --arg url "$url" --args \
       'any($ARGS.positional[] as $task | [$saved[0][] | select(.task == $task) | .records[] | select(.url == $url)] | first;
         . != null and (.observation.state | IN("merged","closed")))' "${row[@]:1}" >/dev/null; then
-      settle_final "$url" "${row[@]:1}"
+      settle_final "$url" "$SAVED_URL" "${row[@]:1}"
     else
       (IFS=$'\t'; printf '%s\n' "${row[*]}") >> "$TMP/live.tsv"
     fi
@@ -536,18 +659,93 @@ poll() {
   jq -Rnr --argjson bucket "$((EPOCH / 300))" '
     [inputs] | if length == 0 then . else ($bucket % length) as $offset | .[$offset:] + .[:$offset] end
     | .[]' < "$TMP/live.tsv" > "$TMP/known.tsv"
+}
+
+run_scan() { # generated scan command and arguments
+  local remaining rc=0
+  remaining=$((SCAN_DEADLINE - SECONDS))
+  [ "$remaining" -gt 0 ] || return 124
+  ( fm_exec_timed "$remaining" 1 bash "$TMP/scan.sh" "$@" ) &
+  SCAN_PID=$!
+  wait "$SCAN_PID" || rc=$?
+  kill -KILL -- "-$SCAN_PID" 2>/dev/null || true
+  SCAN_PID=
+  return "$rc"
+}
+
+poll() {
+  local task url old kind error observed why remaining rc=0
+  local -a row
+  SCAN_DEADLINE=$((SECONDS + BUDGET_CAP))
+  {
+    printf 'set -eu\n'
+    declare -p SCRIPT_DIR DATA TMP EPOCH STATE
+    printf '. "$SCRIPT_DIR/fm-pr-lib.sh"\n. "$SCRIPT_DIR/fm-path-lib.sh"\n'
+    declare -f fail jq_lib get_input read_saved index_saved_urls saved_for_url acquire write_record load_current_task settle_record settle_final clear_unsupported_record clear_unsupported_errors refresh_live_url scan_saved
+    printf '%s\n' 'LOCK_HELD=0' \
+      'trap '"'"'[ "$LOCK_HELD" = 0 ] || fm_lock_release "$STATE/.contributions.lock" || true'"'"' EXIT' \
+      'trap '"'"'exit 1'"'"' HUP INT TERM' '"$@"'
+  } > "$TMP/scan.sh"
+  if run_scan scan_saved; then :; else
+    rc=$?
+    if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+    return "$rc"
+  fi
+  [ -s "$TMP/known.tsv" ] || return 0
+  remaining=$((SCAN_DEADLINE - SECONDS))
+  [ "$remaining" -gt 0 ] || { scan_skipped; return 0; }
+  if acquire "$remaining"; then :; else
+    rc=$?
+    if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+    return "$rc"
+  fi
+  remaining=$((SCAN_DEADLINE - SECONDS))
+  [ "$remaining" -gt 0 ] || { scan_skipped; return 0; }
+  [ "$BUDGET" -le "$remaining" ] || BUDGET=$remaining
   DEADLINE=$(( $(date +%s) + BUDGET ))
   OBSERVATION_RESERVE=$((BUDGET < 15 ? BUDGET : 15))
   while IFS=$'\t' read -r -a row; do
     [ $((DEADLINE - $(date +%s))) -ge "$OBSERVATION_RESERVE" ] || break
     url=${row[0]}
+    if run_scan refresh_live_url "$url" "${row[@]:1}"; then :; else
+      rc=$?
+      if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+      return "$rc"
+    fi
+    row=()
+    IFS=$'\t' read -r -a row < "$TMP/current-row.tsv" || true
+    [ "${#row[@]}" -ge 2 ] || continue
+    SAVED_URL="$TMP/current-url.json"
+    if run_scan jq -ne --slurpfile saved "$SAVED_URL" --arg url "$url" --args \
+      'any($ARGS.positional[] as $task | [$saved[0][] | select(.task == $task) | .records[] | select(.url == $url)] | first;
+        . != null and (.observation.state | IN("merged","closed")))' "${row[@]:1}" >/dev/null; then
+      fm_lock_release "$STATE/.contributions.lock"
+      LOCK_HELD=0
+      if run_scan settle_final "$url" "$SAVED_URL" "${row[@]:1}"; then :; else
+        rc=$?
+        if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+        return "$rc"
+      fi
+      remaining=$((SCAN_DEADLINE - SECONDS))
+      [ "$remaining" -gt 0 ] || { scan_skipped; return 0; }
+      if acquire "$remaining"; then :; else
+        rc=$?
+        if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+        return "$rc"
+      fi
+      continue
+    else
+      rc=$?
+      if fm_timed_out "$rc"; then scan_skipped; return 0; fi
+      [ "$rc" -eq 1 ] || return "$rc"
+    fi
     observed=0
     observe "$url" || observed=$?
     [ "$BUDGET_EXHAUSTED" -eq 0 ] || continue
     why='no failing step recorded'
     [ ! -s "$TMP/why" ] || IFS= read -r why < "$TMP/why"
     # Wake once per failure episode: only when no owner has a prior error.
-    if [ "$observed" -ne 0 ] && jq -ne --slurpfile saved "$TMP/saved.json" --arg url "$url" --args \
+    if [ "$observed" -ne 0 ] && jq -ne --slurpfile saved "$SAVED_URL" --arg url "$url" --args \
       'all($ARGS.positional[] as $task | [$saved[0][] | select(.task == $task) | .records[] | select(.url == $url)] | first;
         .error == null)' "${row[@]:1}" >/dev/null; then
       printf 'contributions: observation unavailable for %s - %s\n' "$url" "$why"
@@ -556,7 +754,7 @@ poll() {
     for task in "${row[@]:1}"; do
       fm_pr_task_id_valid "$task" || { printf 'contributions: invalid durable task id\n'; continue; }
       old="$TMP/old.json"
-      jq -n --slurpfile saved "$TMP/saved.json" --arg task "$task" --arg url "$url" --arg kind "$kind" '
+      jq -n --slurpfile saved "$SAVED_URL" --arg task "$task" --arg url "$url" --arg kind "$kind" '
         ([$saved[0][] | select(.task == $task) | .records[] | select(.url == $url)] | first)
         // {url:$url,kind:$kind,checked_at:null,observation:null,verdict:null,seen:[],pending:[],notified:[]}' > "$old"
       if [ "$observed" -eq 0 ]; then
