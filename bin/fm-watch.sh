@@ -1194,10 +1194,8 @@ secondmate_liveness_tick() {
         ;;
       alive)
         if [ -e "$bound_marker" ] || [ -L "$bound_marker" ]; then
-          if ! fm_secondmate_liveness_ledger_add "$id" rearmed; then
-            err="relaunch ledger is unwritable; auto-relaunch stays paused"
-          elif ! rm -f "$bound_marker"; then
-            err="relaunch park marker could not be cleared; auto-relaunch stays paused"
+          if ! fm_secondmate_liveness_rearm "$id"; then
+            err="relaunch park state could not be rearmed; auto-relaunch stays paused"
           else
             triage_log "secondmate $id live again; auto-relaunch pause cleared"
           fi

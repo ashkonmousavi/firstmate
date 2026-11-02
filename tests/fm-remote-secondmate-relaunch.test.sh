@@ -73,6 +73,8 @@ EOF
 [ "$cmd" = fm-remote-secondmate-control.sh ] || exit 93
 [ "$action" = relaunch ] || exit 94
 case "$FM_FAKE_RELAUNCH_MODE" in
+  unknown) exit 255 ;;
+  unconfirmed) printf 'relaunched without route confirmation\n'; exit 0 ;;
   quota)
     [ "$quota_flag" = --quota-override ] && [ -n "$quota_reason" ] || { echo 'error: exhausted_now' >&2; exit 1; }
     printf 'notice: fm-control quota check refuses grok; proceeding under --quota-override: %s\n' "$quota_reason" >&2
@@ -113,8 +115,18 @@ run_relaunch() {  # <args...>
 
 # --- a successful relaunch republishes the parent's own route record --------
 reset_meta
+RECOVERY_NOW=$(date +%s)
+printf '%s\tattempt\n%s\tattempt\n%s\tattempt\n' "$RECOVERY_NOW" "$RECOVERY_NOW" "$RECOVERY_NOW" \
+  > "$HOME_DIR/state/.secondmate-relaunch-ios"
+printf '%s\tdead\n' "$RECOVERY_NOW" > "$HOME_DIR/state/.secondmate-relaunch-bound-ios"
 OUT=$(run_relaunch ios claude claude-opus-5-5 medium); RC=$?
 expect_code 0 "$RC" "a confirmed remote relaunch should succeed"$'\n'"$OUT"
+assert_absent "$HOME_DIR/state/.secondmate-relaunch-bound-ios" "confirmed parent-side relaunch kept the park record"
+ATTEMPTS=$(STATE="$HOME_DIR/state" bash -c '. "$1"; fm_secondmate_liveness_recent_attempts ios 3600' _ \
+  "$ROOT/bin/fm-secondmate-liveness-lib.sh")
+[ "$ATTEMPTS" = 0 ] || fail "confirmed parent-side relaunch did not restore the recovery budget"
+[ "$(awk -F '\t' '$2 == "rearmed" { n++ } END { print n + 0 }' "$HOME_DIR/state/.secondmate-relaunch-ios")" = 1 ] \
+  || fail "parent-side relaunch must record exactly one rearm"
 assert_contains "$OUT" "relaunched ios harness=claude" \
   "the wrapper should still print the host's own confirmation line"
 assert_grep 'harness=claude' "$HOME_DIR/state/ios.meta" \
@@ -135,6 +147,7 @@ pass "a successful remote relaunch republishes the parent's harness, model, and 
 
 # --- the parent records what the host confirmed, not what it was asked ------
 reset_meta
+printf '%s\tattempt\n' "$(date +%s)" >> "$HOME_DIR/state/.secondmate-relaunch-ios"
 FM_FAKE_RELAUNCH_MODE=confirm-other
 OUT=$(run_relaunch ios default default default); RC=$?
 unset FM_FAKE_RELAUNCH_MODE
@@ -145,6 +158,9 @@ assert_grep 'model=claude-opus-5-5' "$HOME_DIR/state/ios.meta" \
   "the parent record should follow the host's confirmed model"
 assert_no_grep 'harness=default' "$HOME_DIR/state/ios.meta" \
   "the parent record must not keep the unresolved request"
+ATTEMPTS=$(STATE="$HOME_DIR/state" bash -c '. "$1"; fm_secondmate_liveness_recent_attempts ios 3600' _ \
+  "$ROOT/bin/fm-secondmate-liveness-lib.sh")
+[ "$ATTEMPTS" = 1 ] || fail "an ordinary remote relaunch reset its attempt budget without a park record"
 pass "a remote relaunch records the identity the host confirmed"
 
 # --- a refused relaunch leaves the parent's record untouched -----------------
@@ -159,6 +175,18 @@ assert_contains "$OUT" "unverified remote secondmate harness" \
 cmp -s "$TMP/ios-before-refusal.meta" "$HOME_DIR/state/ios.meta" \
   || fail "a refused relaunch must not touch the parent's record"
 pass "a refused remote relaunch leaves the parent's record untouched"
+
+for FAILURE_MODE in refuse unknown unconfirmed; do
+  printf '%s\tdead\n' "$(date +%s)" > "$HOME_DIR/state/.secondmate-relaunch-bound-ios"
+  cp "$HOME_DIR/state/.secondmate-relaunch-ios" "$TMP/ledger-before-failure"
+  OUT=$(FM_FAKE_RELAUNCH_MODE="$FAILURE_MODE" run_relaunch ios claude - -); RC=$?
+  [ "$RC" -ne 0 ] || fail "$FAILURE_MODE relaunch should fail"
+  assert_absent "$HOME_DIR/state/.remote-inherit-ios.lock" "$FAILURE_MODE relaunch stranded the transaction lock"
+  assert_present "$HOME_DIR/state/.secondmate-relaunch-bound-ios" "$FAILURE_MODE relaunch cleared the parent's park record"
+  cmp -s "$HOME_DIR/state/.secondmate-relaunch-ios" "$TMP/ledger-before-failure" \
+    || fail "$FAILURE_MODE relaunch changed the recovery budget"
+done
+pass "refused, unknown, and unconfirmed remote relaunches preserve parked recovery state"
 
 # --- a local (non-remote) secondmate is refused, not silently mishandled ----
 fm_write_meta "$HOME_DIR/state/local1.meta" \

@@ -15,6 +15,11 @@
 # obligation across a partial, unknown, or killed completion. Unchanged homes send no
 # reread unless a previous reread is still owed. For local routes only,
 # data/captain-shared.md-only updates send no new reread pointer.
+# A parked secondmate (fm_secondmate_parked, bin/fm-secondmate-liveness-lib.sh)
+# still has its files pushed - the home must be current when it launches - but
+# receives no new reread notice or obligation, because a parked mate reads its
+# configuration fresh at launch. The secondmate-provisioning skill owns how
+# existing reread obligations are handled.
 # Warnings-only skips exit 0; real propagation or reread-send errors exit non-zero.
 set -u
 
@@ -80,6 +85,9 @@ SECONDMATES_MD="$DATA/secondmates.md"
 . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
 # shellcheck source=bin/fm-secondmate-nudge-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
+# shellcheck source=bin/fm-secondmate-liveness-lib.sh
+# fm_secondmate_parked only; the library is side-effect free on source.
+. "$SCRIPT_DIR/fm-secondmate-liveness-lib.sh"
 
 print_item_report() {
   local report=$1 item status reason
@@ -134,6 +142,25 @@ while IFS='|' read -r id home _window meta; do
     if [ -z "$remote_generation" ]; then
       echo "  config-reread: generation publication failed"
       errors=1
+      fm_lock_release "$remote_lock" || true
+      continue
+    fi
+    # A parked secondmate still receives the files themselves below - its home
+    # must be current when it launches - but never the reread doorbell: a parked
+    # mate reads its configuration fresh at launch (fm_secondmate_parked).
+    # A reread a push left owed is discharged by that same launch, so any retry
+    # marker goes now rather than re-arming an undeliverable notice.
+    if fm_secondmate_parked "$STATE" "$id"; then
+      remote_marker=$(fm_secondmate_nudge_marker_path "$STATE" "$id" 2>/dev/null || true)
+      [ -z "$remote_marker" ] || rm -f -- "$remote_marker"
+      remote_rc=0
+      remote_out=$(FM_CONFIG_INHERIT_LIVE=1 \
+        "$SCRIPT_DIR/fm-remote-inherit-push.sh" "$id" "$remote_generation" 2>&1) || remote_rc=$?
+      [ -z "$remote_out" ] || printf '%s\n' "$remote_out" | sed 's/^/  /'
+      printf 'secondmate %s: parked, skipped; it reads config at launch\n' "$id"
+      if [ "$remote_rc" -ne 0 ]; then
+        errors=1
+      fi
       fm_lock_release "$remote_lock" || true
       continue
     fi
@@ -214,7 +241,13 @@ while IFS='|' read -r id home _window meta; do
     errors=1
     continue
   }
-  if fm_config_reread_retry_queue_is_full "$FM_HOME" "$id"; then
+  # A parked secondmate still receives the files themselves - its home must be
+  # current when it launches - but never the reread doorbell or any new reread
+  # obligation: a parked mate reads its configuration fresh at launch
+  # (fm_secondmate_parked).
+  mate_parked=0
+  fm_secondmate_parked "$STATE" "$id" && mate_parked=1
+  if [ "$mate_parked" -eq 0 ] && fm_config_reread_retry_queue_is_full "$FM_HOME" "$id"; then
     fm_config_reread_retry_pending "$id" "$home_real" || true
     if fm_config_reread_retry_queue_is_full "$FM_HOME" "$id"; then
       echo "  config-reread: error - retry instruction queue is full"
@@ -238,6 +271,11 @@ while IFS='|' read -r id home _window meta; do
     errors=1
   fi
   print_item_report "$report"
+  if [ "$mate_parked" -eq 1 ]; then
+    printf 'secondmate %s: parked, skipped; it reads config at launch\n' "$id"
+    fm_lock_release "$home_lock" || true
+    continue
+  fi
   reread_pending=0
   if fm_config_reread_has_pending "$home_real" || fm_config_reread_has_staged "$FM_HOME" "$id"; then
     reread_pending=1
