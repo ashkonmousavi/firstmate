@@ -589,6 +589,18 @@ case "${FM_FAKE_SSH_MODE:-ok}" in
 esac
 case "${rargs[1]:-}" in
   send)
+    if [ "${FM_FAKE_SSH_MODE:-}" = banner-send-failure ]; then
+      printf '%s\n' '●━━━━━━━━━━━━━━━━━━━━' \
+        '●  WORKTREE TANGLE - PRIMARY CHECKOUT IS ON A FEATURE BRANCH' \
+        '●  The work is SAFE on its ref.' '●━━━━━━━━━━━━━━━━━━━━' \
+        'WARNING: watcher still down (same stale episode)' \
+        'notice: auxiliary diagnostic only' >&2
+      case "${rargs[3]:-}" in
+        *'Open-record persistence'*) printf 'error: persist inbox refused: fixture disk full\n' >&2 ;;
+        *) printf 'error: nudge inbox refused: fixture read-only filesystem\n' >&2 ;;
+      esac
+      exit 7
+    fi
     # Model the live remote mate: act on the instruction and report back on the
     # parent channel, carrying the correlation token the request embedded.
     if [ -n "${FM_FAKE_ANSWER_STATUS:-}" ]; then
@@ -623,6 +635,22 @@ case "${rargs[1]:-}" in
         fi
         printf 'error: another spawn is already creating task %s\n' "${rargs[2]}" >&2
         exit 1
+        ;;
+      diagnostic-relaunch-*)
+        case "$FM_FAKE_SSH_MODE" in
+          diagnostic-relaunch-banner)
+            printf '%s\n' '●━━━━━━━━━━━━━━━━━━━━' '●  WATCHER DOWN - SUPERVISION IS OFF' \
+              '●━━━━━━━━━━━━━━━━━━━━' 'notice: supervision warning only' >&2
+            printf 'error: restart refused: fixture endpoint busy\n' >&2 ;;
+          diagnostic-relaunch-plain) printf '\n  fixture\tplain refusal  \nsecond detail\n' >&2 ;;
+          diagnostic-relaunch-warning) printf 'warning: fixture only diagnostic\n' >&2 ;;
+          diagnostic-relaunch-blank) printf '\n \t\n' >&2 ;;
+          diagnostic-relaunch-long)
+            printf 'error: bounded refusal ' >&2
+            head -c 600 /dev/zero | tr '\000' x >&2
+            printf 'TRUNCATED-TAIL\n' >&2 ;;
+        esac
+        exit 7
         ;;
       slow-relaunch)
         : > "$FM_FAKE_DIR/remote-relaunch-start"
@@ -784,6 +812,56 @@ test_unreachable_host_is_reported_unknown() {
   assert_contains "$out" "sm3:" "the unreachable mate must still be named"
   assert_contains "$out" "could not be delivered" "an unreachable host must be reported as undelivered, not as reloaded"
   pass "T7 an unreachable host is reported honestly instead of claimed as reloaded"
+}
+
+# A guard banner must not replace either send failure's own diagnostic.
+test_send_failure_after_banner_reports_underlying_causes() {
+  local dir out rc
+  dir=$(new_case banner-send-failure)
+  setup_remote_case "$dir" sm3 banner-send-failure
+
+  out=$(run_restart "$dir" sm3); rc=$?
+
+  expect_code 3 "$rc" "a refused persist request must not restart: $out"
+  assert_contains "$out" 'could not be delivered: persist inbox refused: fixture disk full' \
+    "the persist refusal was hidden by a leading diagnostic: $out"
+  assert_contains "$out" 'could not be delivered either: nudge inbox refused: fixture read-only filesystem' \
+    "the fallback refusal was hidden by a leading diagnostic: $out"
+  assert_not_contains "$out" '●' "a banner border replaced the underlying cause"
+  assert_not_contains "$out" 'restarted: sm3' "a failed persist must never report restart"
+  assert_no_grep '^fm-remote-secondmate-control.sh relaunch' "$dir/ssh.log" \
+    "a refused persist must leave the remote mate running"
+  pass "send failures after a guard banner report both underlying causes without restarting"
+}
+
+test_restart_diagnostic_fallbacks_remain_safe() {
+  local dir out rc mode expected report
+  for mode in banner plain warning blank long; do
+    dir=$(new_case "diagnostic-$mode")
+    setup_remote_case "$dir" sm2 "diagnostic-relaunch-$mode"
+    export FM_FAKE_ANSWER_STATUS="$dir/home/state/sm2.status"
+    out=$(run_restart "$dir" sm2); rc=$?
+    unset FM_FAKE_ANSWER_STATUS
+
+    expect_code 3 "$rc" "a refused relaunch must remain unknown ($mode): $out"
+    case "$mode" in
+      banner) expected='restart refused: fixture endpoint busy' ;;
+      plain) expected='fixture plain refusal' ;;
+      warning) expected='warning: fixture only diagnostic' ;;
+      blank) expected='the restart failed without a reported reason' ;;
+      long) expected='bounded refusal ' ;;
+    esac
+    assert_contains "$out" "the restart outcome is unknown: $expected" \
+      "the underlying relaunch diagnostic was lost ($mode): $out"
+    assert_not_contains "$out" 'restarted: sm2' "a failed relaunch must not claim restart"
+    if [ "$mode" = long ]; then
+      report=${out#*the restart outcome is unknown: }
+      report=${report%%$'\n'*}
+      [ "${#report}" -eq 512 ] || fail "the diagnostic must be bounded to 512 bytes: ${#report}"
+      assert_not_contains "$out" 'TRUNCATED-TAIL' "oversized output escaped the diagnostic bound"
+    fi
+  done
+  pass "restart diagnostics prefer errors and retain plain, warning-only, blank and bounded fallbacks"
 }
 
 # --- T8: a local restart lands on this home's durable pin, and says which -----
@@ -1606,6 +1684,8 @@ test_remote_restart_uses_the_default_for_an_unpinned_mate
 test_remote_restart_with_a_legacy_pin_file_uses_the_first_line
 test_remote_restart_refuses_an_unreadable_per_mate_pin
 test_unreachable_host_is_reported_unknown
+test_send_failure_after_banner_reports_underlying_causes
+test_restart_diagnostic_fallbacks_remain_safe
 test_concurrent_reply_cannot_release_persist_gate
 test_persist_waits_are_polled_together
 test_post_stop_failure_is_reported_unreached

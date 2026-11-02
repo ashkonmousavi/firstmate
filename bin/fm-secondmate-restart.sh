@@ -182,11 +182,27 @@ restarted_count=0
 nudged_count=0
 unreached_count=0
 
-# The first line of a command's output that carries anything, flattened to one
-# readable line with its "error: " prefix dropped. A refusal's own words are the
-# most useful thing this report can carry, and its first line is often blank.
+# Prefer the command's explicit error over leading guard banners or notices.
+# Retain the first meaningful line when no error is labelled, and empty output
+# for callers with their own blank fallback. Reports stay printable and bounded.
 first_reported_line() {  # <text>
-  printf '%s\n' "$1" | sed -n '/./{s/^error: //;s/[[:space:]]\{1,\}/ /g;p;q;}'
+  printf '%s\n' "$1" | LC_ALL=C awk '
+    {
+      gsub(/[[:cntrl:]]/, " ")
+      gsub(/[[:space:]]+/, " ")
+      sub(/^ /, "")
+      sub(/ $/, "")
+      if ($0 == "") next
+      if (first == "") first = $0
+      if ($0 ~ /^error: /) {
+        sub(/^error: /, "")
+        print substr($0, 1, 512)
+        found = 1
+        exit
+      }
+    }
+    END { if (!found && first != "") print substr(first, 1, 512) }
+  '
 }
 
 # Send the ordinary re-read steer to a mate this pass will not restart, and say
