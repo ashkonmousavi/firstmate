@@ -739,7 +739,7 @@ run_remote_launch() {
 assert_remote_reread_sent() {
   local script=$1 out=$2
   assert_not_contains "$out" 'parked, skipped' "$script suppressed a live or uncertain mate's notice"
-  assert_grep 'START host-sm fm-remote-secondmate-control.sh send sm' "$CF_LOG" \
+  assert_grep 'START host-sm fm-remote-secondmate-control.sh send-stdin sm' "$CF_LOG" \
     "$script did not send the reread through the remote inbox interface: $out"
   if [ "$script" = fm-config-push.sh ]; then
     assert_contains "$out" 'config-reread: sent' "$script did not confirm the reread: $out"

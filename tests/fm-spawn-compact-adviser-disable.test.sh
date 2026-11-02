@@ -392,6 +392,9 @@ test_launch_preserves_literal_home_and_brief_paths() {
     if [ "$name" = literal ]; then
       mv "$HOME_DIR" "$CASE_DIR/R&D \"double\" 'single' home"
       HOME_DIR="$CASE_DIR/R&D \"double\" 'single' home"
+      # The admission policy names its disk path, so re-seed it at the new home.
+      rm -f "$HOME_DIR/config/machine-admission.json"
+      fm_test_machine_policy "$HOME_DIR/config"
     fi
     out=$(run_case_spawn "$id" "$PROJ_DIR" --mode no-mistakes --yolo off)
     status=$?

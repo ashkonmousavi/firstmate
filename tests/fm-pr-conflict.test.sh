@@ -617,7 +617,9 @@ SH
       [ ! -e "$home/steered" ] && [ ! -e "$home/relaunched" ] \
         || fail "fallback wake also steered or relaunched ($mode)"
       if [ "$mode" = legacy-conflict ]; then
-        cmp -s "$POLL" "$state/lane.check.sh" || fail "legacy poll was not upgraded through publication"
+        # Hash-bound registration keeps the legacy generation valid: the watcher
+        # runs the current poll with its validated data and never rewrites it.
+        cmp -s "$LEGACY_POLL" "$state/lane.check.sh" || fail "watcher rewrote the registered legacy poll"
       fi
     fi
   done
