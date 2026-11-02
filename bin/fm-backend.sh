@@ -1447,7 +1447,12 @@ fm_task_record_endpoint_confirmed_gone() {  # <meta-file>
   backend=$(fm_backend_of_meta "$meta")
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || return 1
-  fm_backend_endpoint_confirmed_gone "$backend" "$target"
+  if [ "$backend" = rex ]; then
+    fm_backend_source rex || return 1
+    [ "$(fm_backend_rex_endpoint_absence_recheck "$target" "$(fm_meta_get "$meta" rex_server)")" = missing ]
+  else
+    fm_backend_endpoint_confirmed_gone "$backend" "$target"
+  fi
 }
 
 fm_backend_remove_worktree() {  # <backend> <worktree-id>

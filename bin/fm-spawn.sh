@@ -3829,6 +3829,10 @@ spawn_resolve_deferred_codex() {
   spawn_select_worker_account "$WT" || return 1
 }
 if [ "$CODEX_DEFER_DEFAULT" = 1 ]; then
+  if [ "$BACKEND" = t3code ]; then
+    echo "error: backend=t3code cannot apply config/codex-accounts because T3's provider instance owns the account; select that instance in config/t3code-instances instead" >&2
+    exit 1
+  fi
   python3 "$SCRIPT_DIR/fm-codex-accounts.py" preflight --config "$CONFIG/codex-accounts" || exit 1
   WORKER_ACCOUNT='' WORKER_ACCOUNT_DECLARED='' WORKER_ACCOUNT_ROOT='' WORKER_ACCOUNT_PROVIDER=''
 else

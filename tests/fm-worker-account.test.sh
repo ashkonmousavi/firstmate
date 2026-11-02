@@ -1033,6 +1033,51 @@ test_codex_secondmate_project_model() {
   pass 'Codex secondmates resolve their actual project model after home preparation'
 }
 
+test_t3_refuses_deferred_codex_accounts_before_provisioning() {
+  local role model id out rc sm project
+  local -a args
+  . "$ROOT/tests/t3-fake-lib.sh"
+  trap 't3_fake_stop; fm_test_cleanup' EXIT
+  t3_fake_start "$TMP_ROOT/account-t3-server"
+  for role in ship scout secondmate; do
+    for model in omitted default; do
+      id="acct-t3-$role-$model"
+      codex_case "$id"
+      t3_fake_case "$CASE/t3"
+      t3_fake_credential "$HOME_DIR/config/t3code-token"
+      project=$PROJ
+      args=(--harness codex --backend t3code)
+      [ "$model" != default ] || args+=(--model default)
+      case "$role" in
+        ship) args+=(--mode no-mistakes --yolo off) ;;
+        scout) args+=(--scout) ;;
+        secondmate)
+          sm="$CASE/mate-home"
+          mkdir -p "$sm/bin" "$sm/data" "$sm/config"
+          git init -q -b main "$sm"
+          printf '# Firstmate\n' > "$sm/AGENTS.md"
+          printf '%s\n' "$id" > "$sm/.fm-secondmate-home"
+          printf 'charter for %s\n' "$id" > "$sm/data/charter.md"
+          project=$sm
+          args+=(--secondmate)
+          ;;
+      esac
+      fm_test_spawn_brief "$HOME_DIR" "$id"
+      printf '#!/usr/bin/env bash\nprintf "%%s\n" "$*" >> %q\nexit 97\n' "$CASE/provision.log" > "$FAKEBIN/treehouse"
+      out=$(FM_SKIP_SECONDMATE_SYNC=1 FM_SKIP_SECONDMATE_INHERIT=1 FM_FAKE_LAUNCH_LOG="$CASE/launch.log" \
+        fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$project" "${args[@]}"); rc=$?
+      expect_code 1 "$rc" "T3 $role must refuse deferred Codex accounts with $model model: $out"
+      assert_refused_before_launch "$id" "$out" 'backend=t3code cannot apply config/codex-accounts'
+      assert_absent "$CASE/provision.log" 'account refusal must precede worktree provisioning'
+      assert_equals '' "$(t3_fake_mutations)" 'account refusal must precede every T3 mutation'
+      assert_absent "$CASE/account one/worker-arguments" 'account refusal must precede worker launch'
+    done
+  done
+  t3_fake_stop
+  trap fm_test_cleanup EXIT
+  pass 'T3 refuses deferred Codex account selection for workers, scouts and secondmates before provisioning'
+}
+
 test_codex_universal_preflight() {
   local root scope signal out rc
   codex_case codex-universal-preflight
@@ -1458,6 +1503,7 @@ test_codex_applicable_quota
 test_codex_default_model
 test_codex_project_model
 test_codex_secondmate_project_model
+test_t3_refuses_deferred_codex_accounts_before_provisioning
 test_codex_universal_preflight
 test_codex_treehouse_compatibility
 test_codex_exhausted_refusal_releases_capacity
