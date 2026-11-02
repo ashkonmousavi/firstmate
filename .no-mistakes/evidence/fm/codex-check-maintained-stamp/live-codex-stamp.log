@@ -1,0 +1,72 @@
+Installed runner: codex-cli 0.166.0
+Isolation: synthetic file-backed API-key records, HOME/CODEX_HOME/TMPDIR in worktree, loopback-only model endpoint.
+The model endpoint is deterministic; no production OAuth/token refresh or production credentials are exercised.
+$ python3 $LAB/base-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+$ python3 $LAB/base-codex-accounts.py maintain --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+$ python3 $LAB/base-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+BASE REPRODUCTION: maintain exits 0, auth file stays unchanged, next check still exits 1.
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py maintain --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+server folder: auth bytes, mtime, size, inode and mode unchanged; stamp mode=0600 and UTC timestamp only.
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/laptop-folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/laptop-folder'
+$ python3 $REPO/bin/fm-codex-accounts.py maintain --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/laptop-folder
+exit=0; stdout=''; stderr=''
+laptop-folder: auth bytes, mtime, size, inode and mode unchanged; stamp mode=0600 and UTC timestamp only.
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/laptop-folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/laptop-folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py maintain --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex maintenance failed; request/refresh needs attention: $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py maintain --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py maintain --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex maintenance failed; request/refresh needs attention: $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py maintain --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+RECURRING MAINTENANCE: existing expired marker renewed; unchanged credentials now check green.
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+SIX-DAY BOUNDARY: 60 seconds before the deadline is green; six days old is red.
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder needs maintenance (file age is not token expiry): $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py maintain --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder is not locally signed in: $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/server folder
+exit=1; stdout=''; stderr='error: Codex folder is missing shared configuration: $LAB/server folder'
+$ python3 $REPO/bin/fm-codex-accounts.py check --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --folder $LAB/moved server folder
+exit=0; stdout=''; stderr=''
+$ python3 $REPO/bin/fm-codex-accounts.py register --config $LAB/codex-accounts --codex ~/.nvm/versions/node/v22.22.0/bin/codex --state $LAB/state
+exit=0; stdout='registered: state/codex-account-183be0fd2efe4f6f.check.sh\nregistered: state/codex-account-fcefa44c208218fb.check.sh'; stderr=''
+$ bash $LAB/state/codex-account-183be0fd2efe4f6f.check.sh: exit=0; stdout=''; stderr=''
+$ bash $LAB/state/codex-account-fcefa44c208218fb.check.sh: exit=0; stdout=''; stderr=''
+REAL CODEX MODEL REQUESTS: [{"path": "/v1/responses", "mode": "ok", "model": "gpt-5.5", "maintenance_prompt": true}, {"path": "/v1/responses", "mode": "ok", "model": "gpt-5.5", "maintenance_prompt": true}, {"path": "/v1/responses", "mode": "ok", "model": "gpt-5.5", "maintenance_prompt": true}, {"path": "/v1/responses", "mode": "fail", "model": "gpt-5.5", "maintenance_prompt": true}, {"path": "/v1/responses", "mode": "ok", "model": "gpt-5.5", "maintenance_prompt": true}, {"path": "/v1/responses", "mode": "fail", "model": "gpt-5.5", "maintenance_prompt": true}, {"path": "/v1/responses", "mode": "ok", "model": "gpt-5.5", "maintenance_prompt": true}, {"path": "/v1/responses", "mode": "ok", "model": "gpt-5.5", "maintenance_prompt": true}]
+SCENARIOS: ["Successful maintenance clears stale checks for both account folders and remains green on repeated polling.", "Rejected Codex maintenance neither creates nor renews success stamps; stale checks stay red.", "Expired, future-dated, linked and non-file stamps cannot hide stale credentials; a recent credential write still passes.", "A fresh stamp cannot bypass missing sign-in/configuration and continues to work when its account folder moves.", "Registering both account watchers and executing their generated commands produces silent green checks."]
+PASS: all account-stamp scenarios completed; no source or credential content changes.
+CLEANUP: local provider stopped and joined; disposable account/home/temp folders removed.
