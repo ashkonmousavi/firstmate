@@ -1582,6 +1582,7 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 ## Codex account folders (config/codex-accounts)
 
 Codex workers can opt into independent, file-backed account folders using a home-local `config/codex-accounts` file.
+For T3 Code's account-selection limits, see [its backend contract](t3code-backend.md#active-limits).
 Without that file, existing ambient Codex behavior is unchanged.
 Each line names one literal absolute existing folder, conventionally `~/.fm-accounts/codex-<account>` expanded to its absolute path; blank lines, comments, control characters and duplicate folders (including aliases) refuse.
 Each folder needs its own sign-in, obtained independently on that machine; never copy or link `auth.json` between folders or machines.
@@ -3497,7 +3498,7 @@ FM_CONFIG_OVERRIDE=      # alternate config dir, mainly for tests
 FM_QUOTA_SNAPSHOT_FILE=  # explicit-harness quota gate: read this captured quota-axi --json snapshot instead of running quota-axi, for tests ("Crew dispatch profiles")
 FM_QUOTA_GATE_TIMEOUT=30 # explicit-harness quota gate: seconds the live quota-axi --json read may take before the gate reports uncertainty and proceeds
 FM_PROC_ROOT_OVERRIDE=   # alternate /proc root for Linux process-identity reads in fm-wake-lib.sh and fm-teardown.sh, mainly for tests
-FM_BACKEND=             # optional runtime backend override for new spawns; tmux/herdr/zellij/orca/cmux/paseo/rex/t3code/tern support ship/scout spawns, codex-app is not accepted
+FM_BACKEND=             # optional runtime backend override for new spawns; see "Runtime backend" for supported values and limits
 FM_T3CODE_ORIGIN=       # optional T3 Code server origin for bin/fm-t3-mcp.mjs login; the default is read from ~/.t3/userdata/server-runtime.json
 FM_TRACE_CONTEXT=       # optional trace-context override; see "Trace context propagation"
 FM_TASK_ID=             # internal task-worker marker fm-spawn.sh delivers to ship and scout environments, never set by hand; bin/fm-test-run.sh refuses to execute in the repository primary checkout while it is set

@@ -998,15 +998,20 @@ Until the first turn starts the pane shows an empty composer and the footer read
 A new folder first shows the trust dialog below; after Enter the positional prompt still runs.
 A positional launch never showed the update dialog, while a bare launch on 0.164.0 with an update pending did.
 
-A standard Codex launch therefore carries the brief positionally, and `bin/fm-spawn.sh`'s first-turn gate confirms it: it polls, bounded at about 120 s (`FM_CODEX_FIRST_TURN_POLLS` x `FM_CODEX_POLL_INTERVAL`), until the verified `esc to interrupt` busy row or a `Worked for <t>` turn summary appears, either one alone being enough.
+A standard pane-backed Codex launch carries the brief positionally.
+The launch gates below apply only to tmux, Herdr, Zellij, cmux, Orca, and Paseo; Rex, tern, and hc retain the positional brief even with the typed opt-in and have no first-turn confirmation gate.
+T3 Code delivers the brief through its native thread launch instead ([backend contract](../t3code-backend.md)).
+On a gated backend, `bin/fm-spawn.sh`'s positional first-turn gate polls, bounded at about 120 s (`FM_CODEX_FIRST_TURN_POLLS` x `FM_CODEX_POLL_INTERVAL`), until the verified `esc to interrupt` busy row or a `Worked for <t>` turn summary appears, either one alone being enough.
 On a backend with viewport-bounded capture it answers the launch dialogs on the way (Enter for the trust dialog's preselected `1. Trust and continue`, Escape for the update dialog whose Enter would run `npm install -g @openai/codex`); a backend without it (Orca, cmux, or Paseo) is read through its bounded capture and never sent a key.
 Codex persists the folder-trust answer itself, so later launches in the same folder skip that dialog.
 Escape skips the update dialog for this launch only; the persistent `Skip until next version` choice remains the operator's own decision.
 The update gate matches the option rows rather than the `Update available` heading, because that heading also appears in the persistent post-skip banner over a ready composer.
 A timeout reports "codex did not take the brief".
 
-`FM_CODEX_TYPED_LAUNCH=1` selects the typed path instead (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict): codex starts bare, and the typed-brief gates wait (bounded, two consecutive empty-composer classifications through the shared classifier) for the ready composer, answering the same dialogs on the way.
-They then submit the one-line `\u2063FIRSTMATE_OP: v1 launch-brief: Read the brief at <data/<id>/launch-brief.md> and follow it exactly. Launch receipt: <unique-receipt>.` envelope through `fm_backend_send_text_submit`, and confirm the turn started from the busy footer appearing in the current viewport after readiness established an idle viewport, or a `Worked for <t>` completion row following this submission's unique launch receipt in the captured transcript.
+On a gated backend, `FM_CODEX_TYPED_LAUNCH=1` selects the typed path instead (`fm_spawn_codex_positional_brief_probe` in `bin/fm-spawn.sh` owns that verdict): codex starts bare, and the typed-brief gates wait (bounded, two consecutive empty-composer classifications through the shared classifier) for the ready composer, answering the same dialogs on the way.
+They then submit the one-line `\u2063FIRSTMATE_OP: v1 launch-brief: Read the brief at <data/<id>/launch-brief.md> and follow it exactly. Launch receipt: <unique-receipt>.` envelope through `fm_backend_send_text_submit`, and confirm the turn started from an empty composer with a busy footer in the current viewport, or a `Worked for <t>` completion row following this submission's unique launch receipt in the captured transcript.
+An `empty`, `pending`, `pending-unproven`, or `unknown` submit verdict enters that confirmation wait; none alone proves delivery.
+The wait allows about 120 s by default (`FM_CODEX_PROCESSING_POLLS` x `FM_CODEX_POLL_INTERVAL`) for queued input to start after MCP startup, without retyping the brief; a send failure or absent turn confirmation fails the spawn.
 The typed path requires verified viewport-bounded capture and is refused at preflight on a backend without it.
 Its 2026-10-27 live result on codex-cli 0.163.0 (below) was taken with a fast session startup; on a machine whose startup takes tens of seconds the composer reads empty before the session is ready, which is why typed delivery is not the default.
 A secondmate uses the same transport choice for its charter while preserving its primary hooks; an unresolved hook-review modal times out instead of being answered.
@@ -1081,7 +1086,7 @@ ok - real codex codex-cli 0.166.0 positional launch brief verified end to end on
 ```
 
 The Herdr-lab guard was not run for the positional path.
-The portable half, `tests/fm-codex-harness.test.sh`, pins the gate logic - first-turn confirmation, dialog answers, partial-draw safety, envelope text, unconfirmed-submit refusal, processing confirmation, and the typed path's viewport-capture preflight - against a state-machine fake with no model tokens.
+The portable half, `tests/fm-codex-harness.test.sh`, pins the gate logic - first-turn confirmation, dialog answers, partial-draw safety, envelope text, delayed processing confirmation and its timeout, positional fallback on Rex, and the typed path's viewport-capture preflight - against a state-machine fake with no model tokens.
 
 ## 2026-10-20 Grok weekly-limit border coverage
 

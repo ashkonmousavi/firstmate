@@ -8,7 +8,7 @@ These command-line and terminal facts apply to pane-backed sessions; for T3 Code
 
 | Fact | Value |
 |---|---|
-| Launch brief | Positional by default and confirmed by a bounded first-turn gate; the footer reads `<model> default` until that turn starts. See [Codex launch brief](../../../../../docs/verification/runtime-backends.md#codex-launch-brief) for timing, the typed opt-in, and confirmation. |
+| Launch brief | See [Codex launch brief](../../../../../docs/verification/runtime-backends.md#codex-launch-brief) for backend scope, positional delivery, the typed opt-in, confirmation, and startup footer behavior. |
 | Busy state | Unknown until a semantic source is live-verified: the app-server turn lifecycle is unreachable for a pane worker, and project lifecycle hooks did not fire for a Firstmate-launched worker. |
 | Exit command | `/quit`; its slash popup needs about one second between text and Enter, which the shared submit path used by the control plane handles. |
 | Interrupt | Single Escape. |
