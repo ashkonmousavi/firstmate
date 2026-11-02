@@ -144,7 +144,8 @@ fm_test_machine_policy() { # <config-directory>; keep intentionally changed poli
 # Wraps an existing fake tmux so a codex launch shows its first turn: once a
 # send-keys carries a codex launch (the `. '<staged file>'` source line whose
 # file, or a literal that, holds codex's --dangerously-bypass-approvals-and-sandbox
-# flag), every capture-pane appends codex's verified busy row, which is what
+# flag, or the --ask-for-approval or --approve-for-me flag of the other Codex
+# approval modes), every capture-pane appends codex's verified busy row, which is what
 # bin/fm-spawn.sh's positional first-turn gate waits for. Any other launch
 # clears it. Everything else passes straight through to the wrapped fake.
 fm_test_codex_first_turn_wrap() {
@@ -166,13 +167,13 @@ case "${1:-}" in
         ". '"*"'")
           staged=${arg#". '"}
           staged=${staged%"'"}
-          if [ -f "$staged" ] && grep -q -e '--dangerously-bypass-approvals-and-sandbox' "$staged"; then
+          if [ -f "$staged" ] && grep -q -e '--dangerously-bypass-approvals-and-sandbox' -e '--ask-for-approval' -e '--approve-for-me' "$staged"; then
             : > "$marker"
           else
             rm -f "$marker"
           fi
           ;;
-        *'--dangerously-bypass-approvals-and-sandbox'*) : > "$marker" ;;
+        *'--dangerously-bypass-approvals-and-sandbox'*|*'--ask-for-approval'*|*'--approve-for-me'*) : > "$marker" ;;
       esac
     done
     ;;
