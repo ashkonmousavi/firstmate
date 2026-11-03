@@ -162,6 +162,26 @@ for usage in middle beginner experienced; do
 done
 printf '%s\n' 'PERSONA: researcher; surfaces=pages,chat; usage=beginner,experienced,middle; same task and facts.' 'DOCTOR: battery Read-settings; expected unchanged settings.' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
 assert_equals 'dual-channel' "$(bash "$AL" --list-prepared)" 'beginner chat-first and experienced pages-only coverage admits the same dual-channel slice'
+for declarations in \
+  'surfaces=pages/chat; usage=middle' \
+  'surfaces=pages+chat; usage=middle' \
+  'surfaces=pages chat; usage=middle' \
+  'surfaces=pages,chat/other; usage=beginner,experienced' \
+  'surfaces=pages,chat; usage=beginner,experienced/other' \
+  'surfaces=pages,chat; usage=beginner,experienced+middle' \
+  'surfaces=pages,chat; usage=beginner,experienced middle' \
+  'surfaces=pages,chat; usage=beginner,experienced2'; do
+  printf '%s\n' "PERSONA: researcher; $declarations" 'DOCTOR: battery Read-settings' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
+  assert_equals '' "$(bash "$AL" --list-prepared)" "malformed declaration is not prefix-admitted: $declarations"
+done
+for declarations in \
+  'surfaces=pages; usage=experienced' \
+  'surfaces=chat; usage=beginner' \
+  'surfaces=pages,chat; usage=beginner,experienced' \
+  'surfaces=none; usage=none'; do
+  printf '%s\n' "PERSONA: researcher; $declarations; same factual outcome." 'DOCTOR: battery Read-settings' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
+  assert_equals 'dual-channel' "$(bash "$AL" --list-prepared)" "complete declaration is admitted: $declarations"
+done
 # Missing declarations cannot silently classify a dual-channel slice as single-channel.
 printf '%s\n' 'PERSONA: researcher; same outcome.' 'DOCTOR: battery Read-settings' 'XAI-SURFACE: tool Read-settings' > "$H/data/dual-channel/prep.md"
 assert_equals '' "$(bash "$AL" --list-prepared)" 'persona must name surfaces and usage styles'

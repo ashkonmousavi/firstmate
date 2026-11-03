@@ -1554,17 +1554,20 @@ class Timer(unittest.TestCase):
         (self.home / 'config/autolaunch-steps').write_text('act timer-owner\n')
         self.tools = Path(tmp.name) / 'tool space%z'
         self.tools.mkdir()
-        (self.tools / 'tasks-axi').symlink_to(shutil.which('tasks-axi'))
-        node = shutil.which('node')
-        if node:
-            (self.tools / 'node').symlink_to(node)
+        self.commands = {name: shutil.which(name) for name in
+                         ('bash', 'sh', 'printenv', 'python3', 'tasks-axi', 'node')}
+        for name, executable in self.commands.items():
+            if executable:
+                (self.tools / name).symlink_to(executable)
+            elif name != 'node':
+                self.fail(f'{name} is required for the Timer fixtures')
         self.path = str(self.tools) + os.pathsep + '/usr/bin:/bin'
         self.al = str(ROOT / 'bin/fm-autolaunch.sh')
         # No host home, account, backend, quota, task or override environment.
         self.env = dict(HOME=str(self.home), FM_HOME=str(self.home), PATH=self.path)
 
     def render(self, *flags):
-        result = subprocess.run(['/bin/bash', self.al, '--print-timer', *flags],
+        result = subprocess.run([self.commands['bash'], self.al, '--print-timer', *flags],
                                 env=self.env, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(sorted(p.name for p in (self.home / 'state').iterdir()), [])
@@ -1589,7 +1592,7 @@ class Timer(unittest.TestCase):
     def test_timer_rejects_unrelated_or_extra_flags(self):
         for flags in (('--dry-run',), ('--steps-only', '--dry-run')):
             with self.subTest(flags=flags):
-                result = subprocess.run(['/bin/bash', self.al, '--print-timer', *flags],
+                result = subprocess.run([self.commands['bash'], self.al, '--print-timer', *flags],
                                         env=self.env, capture_output=True, text=True, timeout=10)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, '')
@@ -1598,7 +1601,7 @@ class Timer(unittest.TestCase):
         recipe = self.render()
         env, command = self.service(recipe)
         self.assertEqual(command, [self.al])
-        result = subprocess.run(['/bin/bash', str(ROOT / 'bin/fm-tasks-axi.sh'),
+        result = subprocess.run([self.commands['bash'], str(ROOT / 'bin/fm-tasks-axi.sh'),
                                  'show', 'timer-owner', '--full'],
                                 env=env, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -1638,8 +1641,8 @@ class Timer(unittest.TestCase):
                 words = shlex.split(command)
                 self.assertEqual(words[2:], [self.al, *flags])
                 assignments = command.rsplit(shlex.quote(self.al), 1)[0]
-                result = subprocess.run(['/bin/sh', '-c', assignments +
-                    ' /usr/bin/printenv PATH FM_HOME'],
+                result = subprocess.run([self.commands['sh'], '-c', assignments +
+                    ' ' + shlex.quote(self.commands['printenv']) + ' PATH FM_HOME'],
                     env=dict(PATH='/usr/bin:/bin'), capture_output=True, text=True, timeout=10)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout.splitlines(), [self.path, str(self.home)])

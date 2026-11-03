@@ -455,8 +455,8 @@ if not persona or persona.lower() in ("none", "tbd", "todo") or persona.startswi
     raise SystemExit(1)
 declarations = {}
 for key, allowed in (("surfaces", {"pages", "chat", "none"}), ("usage", {"beginner", "experienced", "middle", "none"})):
-    match = re.search(r"\b" + key + r"[ \t]*=[ \t]*([a-z,-]+)", persona, re.I)
-    valueset = set(match[1].lower().split(",")) if match else set()
+    match = re.search(r"\b" + key + r"[ \t]*=[ \t]*([^;]*)", persona, re.I)
+    valueset = set(match[1].strip().lower().split(",")) if match else set()
     if not valueset or not valueset <= allowed or ("none" in valueset and len(valueset) != 1):
         print("PERSONA " + key + " missing or invalid (declare surfaces=pages,chat and usage=beginner,experienced as applicable)")
         raise SystemExit(1)
