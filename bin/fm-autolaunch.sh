@@ -736,7 +736,7 @@ for id in $ids; do
       break
     fi
     rc=0
-    FM_SPAWN_STEP_ACTION= "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
+    FM_SPAWN_STEP_ACTION='' "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
     if [ "$rc" = 0 ]; then
       outcome=launched
       break
