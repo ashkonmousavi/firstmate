@@ -1262,6 +1262,7 @@ test_owner_park_command_contract() {
   rel=$(
     unset FM_CONFIG_OVERRIDE FM_DATA_OVERRIDE
     STATE="$w/home/state"
+    # shellcheck disable=SC2030 # This fixture home must stay inside the command substitution.
     export FM_HOME="$w/home"
     # shellcheck source=/dev/null
     . "$ROOT/bin/fm-secondmate-liveness-lib.sh"
@@ -1386,14 +1387,17 @@ SH
       lock="$w/home/state/.remote-inherit-eel-web.lock"
       printf 'remote_host=lab-host\n' >> "$w/home/state/eel-web.meta"
       rm "$w/root/bin/fm-on.sh"
+      # shellcheck disable=SC2016 # The generated script expands its own fixture environment.
       printf '#!/usr/bin/env bash\nprintf "host-hop\\n" >> "$FM_TEST_WAIT_DIR/launched"\nexit 99\n' > "$w/root/bin/fm-on.sh"
       chmod +x "$w/root/bin/fm-on.sh"
     else
       rm "$w/root/bin/fm-spawn.sh"
+      # shellcheck disable=SC2016 # The generated script expands its own fixture environment.
       printf '#!/usr/bin/env bash\nprintf "spawn\\n" >> "$FM_TEST_WAIT_DIR/launched"\n' > "$w/root/bin/fm-spawn.sh"
       chmod +x "$w/root/bin/fm-spawn.sh"
     fi
     (
+      # shellcheck disable=SC2031 # This independent fixture supplies its own home.
       export FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/root" FM_TEST_WAIT_DIR="$w" FM_TEST_WAIT_LOCK="$lock"
       if [ "$mode" = remote ]; then
         bash "$w/root/bin/fm-remote-secondmate-relaunch.sh" eel-web claude default default > "$w/launch.out" 2>&1
