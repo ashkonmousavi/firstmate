@@ -1331,7 +1331,8 @@ Only `bin/fm-secondmate-park.sh unpark <id>` clears it.
 `bin/fm-secondmate-park.sh park <id>` writes the record with today's UTC date for a mate already listed in `data/secondmates.md`.
 `bin/fm-secondmate-park.sh status <id>` reports whether the record is parked.
 An absent file leaves relaunch behavior unchanged.
-The directory is not inherited into secondmate homes, for the same reason as `config/secondmate-harness`: the primary is the home that relaunches the mate.
+Generic config inheritance excludes this directory.
+For a remote mate, park and unpark mirror that mate's record through the generation-ordered remote transfer and require acknowledgement before reporting success; a failed acknowledgement retains the local park and returns failure.
 [`bin/fm-secondmate-park-lib.sh`](../bin/fm-secondmate-park-lib.sh) owns the record format and the shared refusal, and [`bin/fm-secondmate-park.sh`](../bin/fm-secondmate-park.sh) owns the commands.
 
 ## Harness support

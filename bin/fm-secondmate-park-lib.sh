@@ -22,7 +22,8 @@
 # create the directory. It returns 0 and sets FM_SECONDMATE_OWNER_PARK_REASON
 # and FM_SECONDMATE_OWNER_PARK_CLASS=parked|unsafe when relaunch must stop.
 # It returns 1 and clears both when there is no record.
-# bin/fm-secondmate-park.sh owns the commands that write and remove the file.
+# bin/fm-secondmate-park.sh owns writes and removals, including the explicit
+# remote mirror through bin/fm-remote-inherit.sh.
 
 # <YYYY-MM-DD> -> the same day on stdout, or return 1 when it is not one.
 fm_secondmate_owner_park_canonical_date() {

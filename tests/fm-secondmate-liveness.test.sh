@@ -1429,6 +1429,143 @@ SH
   pass "owner park: queued respawn, T3 resume, and remote relaunch refuse a park published during their wait"
 }
 
+test_owner_park_remote_completion_and_late_requests() (
+  local w remote file out rc holder parker launcher name lock i mode perm
+  w=$(new_world owner-park-remote-completion)
+  remote="$w/remote-home"
+  file="$remote/config/secondmate-parked/eel-web"
+  mkdir -p "$w/home/data" "$remote/config" "$remote/bin" "$remote/state/parent-route"
+  printf 'eel-web\n' > "$remote/.fm-secondmate-home"
+  printf '# Fixture home\n' > "$remote/AGENTS.md"
+  printf -- '- eel-web - Fixture (host: lab-host; root: %s; home: %s; scope: fixture; projects: none; added 2026-11-03)\n' \
+    "$ROOT" "$remote" > "$w/home/data/secondmates.md"
+  cat > "$w/fake-ssh" <<'SH'
+#!/usr/bin/env bash
+while [ "$#" -gt 0 ]; do case "$1" in -o) shift 2 ;; --) shift; break ;; *) exit 90 ;; esac; done
+shift 2
+args=()
+while IFS= read -r -d '' arg; do args+=("$arg"); done < <(
+  printf '%s' "$4" | base64 --decode 2>/dev/null || printf '%s' "$4" | base64 -D
+)
+[ "${args[0]}" = fm-remote-inherit.sh ] || exit 91
+printf '%s\0' "${args[@]}" > "$FM_TEST_REMOTE_DIR/request.argv"
+cat > "$FM_TEST_REMOTE_DIR/request.payload"
+touch "$FM_TEST_REMOTE_DIR/request.entered"
+case "${FM_TEST_REMOTE_MODE:-ok}" in
+  offline) exit 255 ;;
+  unconfirmed) exit 0 ;;
+  delayed)
+    cp "$FM_TEST_REMOTE_DIR/request.argv" "$FM_TEST_REMOTE_DIR/delayed.argv"
+    cp "$FM_TEST_REMOTE_DIR/request.payload" "$FM_TEST_REMOTE_DIR/delayed.payload"
+    exit 255
+    ;;
+esac
+env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
+  FM_HOME="$FM_TEST_REMOTE_DIR/remote-home" FM_ROOT_OVERRIDE="$FM_TEST_CODE_ROOT" \
+  bash "$FM_TEST_CODE_ROOT/bin/${args[0]}" "${args[@]:1}" < "$FM_TEST_REMOTE_DIR/request.payload"
+SH
+  chmod +x "$w/fake-ssh"
+  export FM_SSH_BIN="$w/fake-ssh" FM_TEST_REMOTE_DIR="$w" FM_TEST_CODE_ROOT="$ROOT"
+  for mode in offline unconfirmed; do
+    rc=0
+    out=$(FM_TEST_REMOTE_MODE="$mode" park_in "$w/home" park eel-web 2>&1) || rc=$?
+    expect_code 1 "$rc" "park must refuse success without remote publication ($mode): $out"
+    assert_present "$w/home/config/secondmate-parked/eel-web" "failed remote acknowledgement must retain the local park"
+    assert_not_contains "$out" "parked: eel-web:" "unconfirmed remote park must not report success"
+    assert_absent "$file" "a missing remote acknowledgement must not stand in for publication"
+  done
+
+  (
+    touch "$w/launch.queued"
+    while [ ! -f "$w/launch.release" ]; do sleep 0.05; done
+    rc=0
+    FM_HOME="$remote" FM_ROOT_OVERRIDE="$ROOT" bash "$ROOT/bin/fm-remote-secondmate-control.sh" \
+      launch eel-web claude - - herdr > "$w/launch.out" 2>&1 || rc=$?
+    printf '%s\n' "$rc" > "$w/launch.rc"
+  ) &
+  launcher=$!
+  i=0
+  while [ ! -f "$w/launch.queued" ] && [ "$i" -lt 100 ]; do sleep 0.05; i=$((i + 1)); done
+  [ -f "$w/launch.queued" ] || fail "the delayed remote request never entered the transport"
+  for name in .control-eel-web.lock .spawn-eel-web.lock; do
+    lock="$remote/state/parent-route/$name"
+    rm -f "$w/holder.ready" "$w/holder.release" "$w/request.entered" "$w/park.rc"
+    STATE="$remote/state/parent-route" bash -c '
+      . "$1/bin/fm-wake-lib.sh"
+      fm_lock_acquire_wait "$2" || exit 1
+      trap '\''fm_lock_release "$2"'\'' EXIT
+      touch "$3/holder.ready"
+      while [ ! -f "$3/holder.release" ]; do sleep 0.05; done
+    ' _ "$ROOT" "$lock" "$w" &
+    holder=$!
+    i=0
+    while [ ! -f "$w/holder.ready" ] && [ "$i" -lt 100 ]; do sleep 0.05; i=$((i + 1)); done
+    [ -f "$w/holder.ready" ] || fail "remote launch never acquired $name"
+    ( park_in "$w/home" park eel-web > "$w/park.out" 2>&1; printf '%s\n' "$?" > "$w/park.rc" ) &
+    parker=$!
+    i=0
+    while [ ! -f "$w/request.entered" ] && [ "$i" -lt 100 ]; do sleep 0.05; i=$((i + 1)); done
+    [ -f "$w/request.entered" ] || fail "park never reached the remote publication: $(cat "$w/park.out")"
+    sleep 0.2
+    assert_absent "$w/park.rc" "park must wait for remote $name before reporting success"
+    touch "$w/holder.release"
+    wait "$holder" || fail "remote lock holder failed"
+    wait "$parker" || fail "park worker failed"
+    expect_code 0 "$(cat "$w/park.rc")" "remote park must succeed after $name completes: $(cat "$w/park.out")"
+    cmp -s "$w/home/config/secondmate-parked/eel-web" "$file" || fail "acknowledged remote park differs from the primary record"
+  done
+  perm=$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file")
+  [ "$perm" = 600 ] || fail "remote owner park mode must be 0600"
+  perm=$(stat -c %a "${file%/*}" 2>/dev/null || stat -f %Lp "${file%/*}")
+  [ "$perm" = 700 ] || fail "remote owner park directory mode must be 0700"
+  touch "$w/launch.release"
+  wait "$launcher" || fail "delayed remote launch worker failed"
+  expect_code 1 "$(cat "$w/launch.rc")" "a remote request delivered after park must refuse: $(cat "$w/launch.out")"
+  assert_contains "$(cat "$w/launch.out")" "owner-parked" "the remote execution boundary must name the park"
+  assert_absent "$remote/state/parent-route/eel-web.meta" "a late launch must not publish an endpoint"
+
+  for mode in unpark park; do
+    rc=0
+    out=$(FM_TEST_REMOTE_MODE=delayed park_in "$w/home" "$mode" eel-web 2>&1) || rc=$?
+    expect_code 1 "$rc" "unknown remote $mode completion must refuse success: $out"
+    assert_present "$w/home/config/secondmate-parked/eel-web" "unknown $mode must leave local recovery blocked"
+    if [ "$mode" = unpark ]; then
+      park_in "$w/home" park eel-web >/dev/null || fail "newer remote park failed"
+    else
+      park_in "$w/home" unpark eel-web >/dev/null || fail "newer remote unpark failed"
+    fi
+    rc=0
+    out=$(
+      args=()
+      while IFS= read -r -d '' arg; do args+=("$arg"); done < "$w/delayed.argv"
+      env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
+        FM_HOME="$remote" FM_ROOT_OVERRIDE="$ROOT" bash "$ROOT/bin/${args[0]}" "${args[@]:1}" < "$w/delayed.payload" 2>&1
+    ) || rc=$?
+    expect_code 1 "$rc" "a delayed older $mode must be rejected"
+    assert_contains "$out" "superseded" "a stale $mode must not overwrite the newer decision"
+    if [ "$mode" = unpark ]; then
+      assert_present "$file" "a stale unpark cleared the newer remote park"
+      park_in "$w/home" unpark eel-web >/dev/null || fail "explicit remote unpark failed"
+    else
+      assert_absent "$file" "a stale park restored the explicitly cleared remote park"
+    fi
+    assert_absent "$w/home/config/secondmate-parked/eel-web" "explicit unpark must clear the local record"
+    assert_absent "$file" "explicit unpark must clear the remote record"
+  done
+  rc=0
+  out=$(
+    args=()
+    while IFS= read -r -d '' arg; do args+=("$arg"); done < "$w/delayed.argv"
+    args[2]=config/secondmate-parked/sibling
+    env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
+      FM_HOME="$remote" FM_ROOT_OVERRIDE="$ROOT" bash "$ROOT/bin/${args[0]}" "${args[@]:1}" < "$w/delayed.payload" 2>&1
+  ) || rc=$?
+  expect_code 1 "$rc" "a remote home must reject another mate's owner record"
+  assert_contains "$out" "does not match the seeded secondmate home" "the receiver must restrict the park exception to its own identity"
+  assert_absent "$remote/config/secondmate-parked/sibling" "the receiver wrote another mate's owner record"
+  pass "owner park: remote acknowledgement, host launch exclusion, and stale-request rejection keep late launches stopped"
+)
+
 test_owner_park_session_start_leaves_eel_web_stopped() {
   local w fb tmuxfb log out rel park_day
   park_day=$(date -u +%Y-%m-%d)
@@ -1581,6 +1718,7 @@ test_remote_full_probe_legacy_record_defaults_herdr
 test_owner_park_command_contract
 test_owner_park_waits_for_launch_transactions
 test_owner_park_queued_launches_recheck_after_wait
+test_owner_park_remote_completion_and_late_requests
 test_owner_park_session_start_leaves_eel_web_stopped
 test_owner_park_refuses_spawn_and_remote_relaunch
 

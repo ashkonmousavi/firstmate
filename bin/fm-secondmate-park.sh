@@ -15,8 +15,9 @@
 # a symlink. status prints the shared reason and exits 0 when parked, exits 1
 # when no record exists, and exits 2 when the record is unsafe.
 #
-# The directory is not inherited. Copying it into a secondmate home would not
-# be what the primary's relaunch paths read.
+# Remote park and unpark require an acknowledged, generation-ordered mirror
+# in the remote home. A failed acknowledgement retains the local park and
+# returns failure. Generic config inheritance does not copy this directory.
 #
 # Exit status: 0 the verb succeeded (status: the mate is parked); 1 status
 # found no record, or park names an id this home does not register; 2 invalid
@@ -63,12 +64,7 @@ park_dir="$CONFIG/secondmate-parked"
 park_file="$park_dir/$id"
 
 case "$verb" in
-  park)
-    secondmate_registry_line_for_id "$DATA/secondmates.md" "$id" || {
-      echo "error: $id is not registered in $DATA/secondmates.md" >&2
-      exit 1
-    }
-    date=$(date -u +%Y-%m-%d) || { echo "error: could not read today's UTC date" >&2; exit 1; }
+  park|unpark)
     STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
     # shellcheck source=bin/fm-wake-lib.sh
     . "$SCRIPT_DIR/fm-wake-lib.sh"
@@ -91,6 +87,38 @@ case "$verb" in
       fm_lock_acquire_wait "$lock" || { echo "error: could not lock $lock" >&2; exit 1; }
       park_locks+=("$lock")
     done
+    ;;
+esac
+
+sync_remote_park() {
+  local action=$1 payload=$2 remote generation bytes hash out
+  remote=$(secondmate_registry_field "$DATA/secondmates.md" "$id" remote 2>/dev/null) || return 0
+  [ "$remote" = 1 ] || return 0
+  # shellcheck source=bin/fm-config-inherit-lib.sh
+  . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
+  generation=$(fm_remote_inherit_generation_next "$STATE" "$id") || return 1
+  bytes=$(LC_ALL=C wc -c < "$payload" | tr -d ' ') || return 1
+  hash=$(fm_inherit_sha256 "$payload") || return 1
+  if ! out=$(FM_HOME="$FM_HOME" FM_DATA_OVERRIDE="$DATA" "$SCRIPT_DIR/fm-on.sh" --stdin "$id" \
+    fm-remote-inherit.sh "$action" "config/secondmate-parked/$id" "$bytes" "$hash" "$generation" < "$payload"); then
+    echo "error: remote owner park $action for $id was not confirmed; local park retained" >&2
+    return 1
+  fi
+  case "$action:$out" in
+    "put:pushed: config/secondmate-parked/$id"|"put:unchanged: config/secondmate-parked/$id"|\
+    "absent:removed: config/secondmate-parked/$id"|"absent:unchanged: config/secondmate-parked/$id") return 0 ;;
+  esac
+  echo "error: remote owner park $action for $id returned no publication confirmation; local park retained" >&2
+  return 1
+}
+
+case "$verb" in
+  park)
+    secondmate_registry_line_for_id "$DATA/secondmates.md" "$id" || {
+      echo "error: $id is not registered in $DATA/secondmates.md" >&2
+      exit 1
+    }
+    date=$(date -u +%Y-%m-%d) || { echo "error: could not read today's UTC date" >&2; exit 1; }
     if [ -L "$park_dir" ]; then
       echo "error: $park_dir is a symlink; park refuses to follow it" >&2
       exit 2
@@ -125,6 +153,7 @@ case "$verb" in
       echo "error: could not publish the park record" >&2
       exit 1
     fi
+    sync_remote_park put "$park_file" || exit 1
     printf 'parked: %s: owner %s\n' "$id" "$date"
     ;;
   unpark)
@@ -133,6 +162,7 @@ case "$verb" in
       exit 2
     fi
     if [ ! -e "$park_file" ]; then
+      sync_remote_park absent /dev/null || exit 1
       printf 'unparked: %s: already clear\n' "$id"
       exit 0
     fi
@@ -140,6 +170,7 @@ case "$verb" in
       echo "error: $park_file is not a regular file; unpark refuses to remove it" >&2
       exit 2
     fi
+    sync_remote_park absent /dev/null || exit 1
     rm -f -- "$park_file" || { echo "error: could not remove $park_file" >&2; exit 1; }
     printf 'unparked: %s\n' "$id"
     ;;
