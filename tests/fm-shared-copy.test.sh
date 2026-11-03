@@ -213,6 +213,23 @@ test_spawn_protects_retained_copy_before_acquiring_another() {
   pass 'a legacy reservation and a fresh reservation both become durable without changing the retained copy'
 }
 
+test_fresh_scout_teardown_accepts_its_detached_copy() {
+  make_case scout-cleanup
+  # shellcheck source=tests/treehouse-fake-lib.sh
+  . "$ROOT/tests/treehouse-fake-lib.sh"
+  fm_test_treehouse_pool "$FAKEBIN_DIR" "$CASE_DIR/pool"
+  spawn_case > "$CASE_DIR/output" 2>&1 || fail "scout spawn: $(cat "$CASE_DIR/output")"
+  if git -C "$POOL_DIR" symbolic-ref --quiet HEAD; then
+    fail 'the scout fixture must stay detached to exercise cleanup without a ship branch'
+  fi
+  run_cli fm-teardown.sh new-task --force > "$CASE_DIR/output" 2>&1 \
+    || fail "scout cleanup: $(cat "$CASE_DIR/output")"
+  assert_absent "$HOME_DIR/state/new-task.meta" 'detached scout record survived cleanup'
+  jq -e '.worktrees[0].leased == false' "$CASE_DIR/pool/treehouse-state.json" >/dev/null \
+    || fail 'detached scout copy stayed leased'
+  pass 'a newly spawned scout can clean up its detached copy without an uncreated ship branch'
+}
+
 test_spawn_resolves_native_pool_root() {
   local native_root native_pool
   make_case native-root
@@ -379,6 +396,7 @@ test_teardown_rechecks_branch_after_process_barrier
 test_forced_descendant_refuses_wrong_branch
 test_spawn_refuses_retained_record
 test_spawn_protects_retained_copy_before_acquiring_another
+test_fresh_scout_teardown_accepts_its_detached_copy
 test_direct_spawn_relaunch_refuses_shared_copy
 test_fresh_same_id_retry_preserves_retained_copy
 test_deferred_spawn_refuses_retained_copy

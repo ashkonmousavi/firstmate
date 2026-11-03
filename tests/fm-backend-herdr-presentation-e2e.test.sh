@@ -414,11 +414,14 @@ EOF
 }
 
 spawn_task() {  # <id> <home> <project> [extra fm-spawn args...]
-  local id=$1 home=$2 project=$3
+  local id=$1 home=$2 project=$3 wt
   shift 3
   FM_GATE_REFUSE_BYPASS=1 FM_SPAWN_NO_GUARD=1 FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
     "$ROOT/bin/fm-spawn.sh" "$id" "$project" "sh -c 'while :; do sleep 60; done'" \
-    --mode no-mistakes --yolo off --backend herdr "$@"
+    --mode no-mistakes --yolo off --backend herdr "$@" || return $?
+  # Complete the ship branch setup omitted by the raw fixture command.
+  wt=$(sed -n 's/^worktree=//p' "$home/state/$id.meta")
+  git -C "$wt" checkout -qb "fm/$id"
 }
 
 finish_concurrent_spawn() {  # <id> <status> <stdout> <stderr>

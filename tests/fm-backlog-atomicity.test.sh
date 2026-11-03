@@ -651,7 +651,9 @@ run_spawn() {  # <case-dir> <args...>
 
 run_ship_spawn() {  # <case-dir> <id>
   local case_dir=$1 id=$2
-  run_spawn "$case_dir" "$id" "$case_dir/project" --mode no-mistakes --yolo off
+  run_spawn "$case_dir" "$id" "$case_dir/project" --mode no-mistakes --yolo off || return $?
+  # The fake agent does not perform a ship's branch setup.
+  git -C "$case_dir/wt" checkout -qb "fm/$id"
 }
 
 # Teardown against a recorded worktree that no longer exists: the landed-work and

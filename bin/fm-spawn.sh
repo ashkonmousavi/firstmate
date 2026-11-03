@@ -2080,7 +2080,7 @@ spawn_abort_cleanup() {
             echo "kind=$KIND"
             [ -z "${MODE:-}" ] || echo "mode=$MODE"
             [ -z "${YOLO:-}" ] || echo "yolo=$YOLO"
-            [ -z "${BRANCH:-}" ] || echo "branch=$BRANCH"
+            [ "$KIND" = scout ] || [ -z "${BRANCH:-}" ] || echo "branch=$BRANCH"
             echo "tasktmp=${TASK_TMP:-}"
             echo "model=${MODEL:-default}"
             echo "effort=${EFFORT:-default}"
@@ -8020,7 +8020,8 @@ preserve_relaunch_meta() {
   echo "kind=$KIND"
   [ -z "$MODE" ] || echo "mode=$MODE"
   [ -z "$YOLO" ] || echo "yolo=$YOLO"
-  [ -z "${BRANCH:-}" ] || echo "branch=$BRANCH"
+  # Scouts have no ship branch until promotion creates that contract.
+  [ "$KIND" = scout ] || [ -z "${BRANCH:-}" ] || echo "branch=$BRANCH"
   echo "tasktmp=$TASK_TMP"
   [ -z "$BASE_BRANCH" ] || echo "base_branch=$BASE_BRANCH"
   [ -z "$UPSTREAM_CONSENT" ] || echo "upstream_consent=$UPSTREAM_CONSENT"

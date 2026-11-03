@@ -41,6 +41,7 @@ case "$command" in
     fi
     ;;
   return)
+    [ "${1:-}" != --force ] || shift
     path=$1
     jq --arg path "$path" '(.worktrees[] | select(.path == $path)) += {leased:false,lease_id:"",lease_holder:""}' \
       "$state" > "$state.new"

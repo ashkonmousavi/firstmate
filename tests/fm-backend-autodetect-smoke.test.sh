@@ -173,6 +173,9 @@ pass "real herdr: the auto-detected spawn's launch command actually ran in the h
 
 # --- teardown completes the trivial spawn/teardown cycle --------------------
 
+# The raw smoke command does not perform a ship agent's branch setup.
+git -C "$WT" checkout -qb "fm/$ID" || fail 'could not prepare the task branch'
+
 TEARDOWN_OUT="$TMP_ROOT/teardown.out"
 FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
   FM_CONFIG_OVERRIDE="$CONFIG" \
