@@ -1,0 +1,290 @@
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-lab-home.sh create '~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces'
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh add target target --repo demo
+ok: added target (repo demo) -> Queued
+task:
+  id: target
+  title: target
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start target` to move it to in flight
+  - Run `tasks-axi block target --by <other>` to record a dependency
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh add writer writer --repo demo
+ok: added writer (repo demo) -> Queued
+task:
+  id: writer
+  title: writer
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start writer` to move it to in flight
+  - Run `tasks-axi block writer --by <other>` to record a dependency
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh add finished finished --repo demo
+ok: added finished (repo demo) -> Queued
+task:
+  id: finished
+  title: finished
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start finished` to move it to in flight
+  - Run `tasks-axi block finished --by <other>` to record a dependency
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh add shadow shadow --repo demo
+ok: added shadow (repo demo) -> Queued
+task:
+  id: shadow
+  title: shadow
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start shadow` to move it to in flight
+  - Run `tasks-axi block shadow --by <other>` to record a dependency
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh done finished
+ok: done finished -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh add target target --repo demo
+ok: added target (repo demo) -> Queued
+task:
+  id: target
+  title: target
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start target` to move it to in flight
+  - Run `tasks-axi block target --by <other>` to record a dependency
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh add writer writer --repo demo
+ok: added writer (repo demo) -> Queued
+task:
+  id: writer
+  title: writer
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start writer` to move it to in flight
+  - Run `tasks-axi block writer --by <other>` to record a dependency
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh add finished finished --repo demo
+ok: added finished (repo demo) -> Queued
+task:
+  id: finished
+  title: finished
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start finished` to move it to in flight
+  - Run `tasks-axi block finished --by <other>` to record a dependency
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh add shadow shadow --repo demo
+ok: added shadow (repo demo) -> Queued
+task:
+  id: shadow
+  title: shadow
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start shadow` to move it to in flight
+  - Run `tasks-axi block shadow --by <other>` to record a dependency
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh done finished
+ok: done finished -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/peer home with spaces bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh done shadow
+ok: done shadow -> Done
+help[1]:
+  - Run `tasks-axi ready` to dispatch work unblocked by this
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'no writer' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'writer: finished' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'writer: absent' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'writer: MAIN' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'rewriter: writer' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'writer: writer/bad' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'writer: peer:finished' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'writer: peer:shadow' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'writer: nowhere:writer' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+fm-tasks-axi: a marker hold names its writer task
+[exit 2]
+
+SCENARIO PASS: task refuses missing, done, malformed, unregistered and wrong-home writer without mutation
+
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh hold target --reason 'writer: writer' --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready
+ok: hold target -> held (external)
+task:
+  id: target
+  title: target
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzcwNTkyMS02ODczOC0zNjY1NTQ4MTUzOTUiLCJyZWFzb24iOiJ3cml0ZXI6IHdyaXRlciIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L2hvbWUvdGVncmlzLy5uby1taXN0YWtlcy93b3JrdHJlZXMvMDQ5YTg4NzM0YjBlLzAxTTZHSkY0Vjg1UzNYMkhONzMwVjlINTRLLy5ob2xkLWxpdmUtZnJxdnNqOGYvbWFpbi9yZWFkeSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold target` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+[exit 0]
+$ FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/bin/fm-tasks-axi.sh show target
+task:
+  id: target
+  title: target
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "writer: writer"
+  hold_release_on: "marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-live-frqvsj8f/main/ready"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzcwNTkyMS02ODczOC0zNjY1NTQ4MTUzOTUiLCJyZWFzb24iOiJ3cml0ZXI6IHdyaXRlciIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L2hvbWUvdGVncmlzLy5uby1taXN0YWtlcy93b3JrdHJlZXMvMDQ5YTg4NzM0YjBlLzAxTTZHSkY0Vjg1UzNYMkhONzMwVjlINTRLLy5ob2xkLWxpdmUtZnJxdnNqOGYvbWFpbi9yZWFkeSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+[exit 0]
+Disposable homes removed.

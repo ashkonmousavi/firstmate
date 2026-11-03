@@ -1,0 +1,67 @@
+base: fm-tasks-axi.sh hold target --reason no writer --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-baseline-ntzzecrp/base-home/ready
+exit=0
+ok: hold target -> held (external)
+task:
+  id: target
+  title: Target
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzcwNTk3Ny02MjE2NC0zNDg2MjM1Njc5OSIsInJlYXNvbiI6Im5vIHdyaXRlciIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L2hvbWUvdGVncmlzLy5uby1taXN0YWtlcy93b3JrdHJlZXMvMDQ5YTg4NzM0YjBlLzAxTTZHSkY0Vjg1UzNYMkhONzMwVjlINTRLLy5ob2xkLWJhc2VsaW5lLW50enplY3JwL2Jhc2UtaG9tZS9yZWFkeSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unhold target` to resume dispatch
+  - Run `tasks-axi ready --include-held` to review paused work
+task:
+  id: target
+  title: Target
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "no writer"
+  hold_release_on: "marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-baseline-ntzzecrp/base-home/ready"
+  hold_release_episode: "fm-hold-v2:eyJlcGlzb2RlIjoiMTc5MzcwNTk3Ny02MjE2NC0zNDg2MjM1Njc5OSIsInJlYXNvbiI6Im5vIHdyaXRlciIsInJlbGVhc2Vfb24iOiJtYXJrZXI6L2hvbWUvdGVncmlzLy5uby1taXN0YWtlcy93b3JrdHJlZXMvMDQ5YTg4NzM0YjBlLzAxTTZHSkY0Vjg1UzNYMkhONzMwVjlINTRLLy5ob2xkLWJhc2VsaW5lLW50enplY3JwL2Jhc2UtaG9tZS9yZWFkeSJ9"
+  hold_kind: external
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+target: fm-tasks-axi.sh hold target --reason no writer --kind external --release-on marker:~/.no-mistakes/worktrees/049a88734b0e/01M6GJF4V85S3X2HN730V9H54K/.hold-baseline-ntzzecrp/target-home/ready
+exit=2
+fm-tasks-axi: a marker hold names its writer task
+task:
+  id: target
+  title: Target
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: demo
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+Regression reproduced before fix; target refuses before changing hold state.
+Disposable baseline and homes removed.

@@ -1,0 +1,7 @@
+{
+  "targeted_suite_exit": 0,
+  "direct_cli_driver_exit": 0,
+  "baseline_regression_proof_exit": 0,
+  "disposable_homes_remaining": 0,
+  "scanner": "untested: data/bin/hold-scan.py and data/bin/test-hold-scan.py absent from permitted worktree"
+}
