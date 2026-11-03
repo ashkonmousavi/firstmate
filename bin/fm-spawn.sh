@@ -1801,6 +1801,12 @@ spawn_fresh_commit_rollback() {
   # start error the caller still has to report. An absent record is not a
   # seat, so the cleanup transition still runs and retires the busy generation.
   if [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; then
+    if [ "$SPAWN_FRESH_COMMIT_PENDING" != 1 ] &&
+      { [ -n "$(fm_meta_get "$STATE/$ID.meta" worktree)" ] ||
+        [ -n "$(fm_meta_get "$STATE/$ID.meta" home)" ]; }; then
+      echo "error: task $ID retains a recorded copy; use --relaunch to preserve it or bin/fm-teardown.sh $ID for ownership-checked cleanup before a fresh spawn" >&2
+      return 1
+    fi
     if ! fm_task_record_endpoint_confirmed_gone "$STATE/$ID.meta"; then
       return 1
     fi

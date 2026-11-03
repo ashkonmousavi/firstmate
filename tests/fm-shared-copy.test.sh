@@ -223,6 +223,42 @@ test_direct_spawn_relaunch_refuses_shared_copy() {
   pass 'direct spawn recovery rejects a copy another meta still names'
 }
 
+test_fresh_same_id_retry_preserves_retained_copy() {
+  local capacity old head
+  for capacity in capped uncapped; do
+    make_case "same-id-$capacity"
+    [ "$capacity" != capped ] || printf 'project 1\n' > "$HOME_DIR/config/project-capacity"
+    old=$POOL_DIR
+    git -C "$old" checkout -qb fm/new-task
+    head=$(git -C "$old" rev-parse HEAD)
+    printf 'retained investigation\n' > "$old/work.txt"
+    write_meta new-task scout fm/new-task
+    printf 'done: worker exited\n' > "$HOME_DIR/state/new-task.status"
+    printf 'task=new-task\nhome=%s\n' "$HOME_DIR" > "$CASE_DIR/pool/1/.fm-slot-owner"
+    : > "$CASE_DIR/pool/leased-1"
+    cp "$HOME_DIR/state/new-task.meta" "$CASE_DIR/meta.before"
+    mkdir -p "$CASE_DIR/pool/2"
+    POOL_DIR="$CASE_DIR/pool/2/project"
+    git -C "$PROJECT_DIR" worktree add --quiet --detach "$POOL_DIR"
+    jq --arg path "$POOL_DIR" '.worktrees += [{name:"2",path:$path}]' \
+      "$CASE_DIR/pool/treehouse-state.json" > "$CASE_DIR/state.new"
+    mv "$CASE_DIR/state.new" "$CASE_DIR/pool/treehouse-state.json"
+    assert_refuses 'retains a recorded copy' spawn_case
+    cmp -s "$CASE_DIR/meta.before" "$HOME_DIR/state/new-task.meta" || fail 'same-id retry replaced retained-copy ownership'
+    [ "$(git -C "$old" symbolic-ref --short HEAD)" = fm/new-task ] || fail 'same-id retry changed retained branch'
+    [ "$(git -C "$old" rev-parse HEAD)" = "$head" ] || fail 'same-id retry reset retained HEAD'
+    assert_grep 'retained investigation' "$old/work.txt" 'same-id retry discarded retained work'
+    assert_grep 'task=new-task' "$CASE_DIR/pool/1/.fm-slot-owner" 'same-id retry removed retained claim'
+    assert_present "$CASE_DIR/pool/leased-1" 'same-id retry released retained lease'
+    assert_absent "$FAKEBIN_DIR/.spawn-window" 'same-id retry opened a replacement endpoint'
+    assert_absent "$CASE_DIR/pool/leased-2" 'same-id retry leased a replacement copy'
+    if [ -e "$CASE_DIR/pool/log" ]; then
+      assert_no_grep 'get --lease' "$CASE_DIR/pool/log" 'same-id retry allocated a replacement copy'
+    fi
+  done
+  pass 'capped and uncapped fresh same-id retries preserve retained ownership and work'
+}
+
 test_deferred_spawn_refuses_retained_copy() {
   command -v tasks-axi >/dev/null 2>&1 || {
     echo 'ok - skipped deferred ownership fixture (tasks-axi unavailable)'
@@ -375,6 +411,7 @@ test_third_scout_claim_stays_with_current_task
 test_spawn_refuses_retained_record
 test_spawn_protects_retained_copy_before_acquiring_another
 test_direct_spawn_relaunch_refuses_shared_copy
+test_fresh_same_id_retry_preserves_retained_copy
 test_deferred_spawn_refuses_retained_copy
 test_home_seed_refuses_retained_copy
 test_autolaunch_refuses_retained_copy

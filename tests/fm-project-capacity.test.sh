@@ -170,12 +170,15 @@ declare_capacity() {  # <home> <line>...
 # A live worker already on a project: the record shape bin/fm-spawn.sh
 # publishes, with its backlog item In flight until explicitly accepted.
 write_live() {  # <home> <id> <project-dir> [extra-line...]
-  local home=$1 id=$2 project=$3
+  local home=$1 id=$2 project=$3 line worktree_set=0
   shift 3
+  for line in "$@"; do
+    case "$line" in worktree=*) worktree_set=1 ;; esac
+  done
+  [ "$worktree_set" = 1 ] || set -- "worktree=$home/absent-worktree-$id" "$@"
   fm_write_meta "$home/state/$id.meta" \
     "window=firstmate:fm-$id" \
     "endpoint_task_id=$id" \
-    "worktree=$home/absent-worktree-$id" \
     "project=$project" \
     "harness=codex" \
     "kind=ship" \
@@ -1128,16 +1131,18 @@ test_herdr_lock_refused_kill_keeps_the_seat() {
   pass "a Herdr kill that returns without closing the pane keeps the record and the place"
 }
 
-test_stale_same_id_retry_removes_record_before_replacement() {
+test_copyless_same_id_retry_removes_record_before_replacement() {
   local case_dir home out cap rc
   for cap in capped uncapped; do
     case_dir=$(make_case "stale-retry-$cap" task-stale)
     home="$case_dir/home"
     [ "$cap" != capped ] || declare_capacity "$home" "project 1"
     write_live "$home" task-stale "$case_dir/project"
+    fm_write_meta "$home/state/task-stale.meta" \
+      'window=firstmate:fm-task-stale' "project=$case_dir/project" 'kind=ship'
     rc=0
     out=$(spawn_ship "$case_dir" task-stale) || rc=$?
-    expect_code 0 "$rc" "a $cap stale same-id retry failed: $out"
+    expect_code 0 "$rc" "a $cap copyless same-id retry failed: $out"
     assert_contains "$out" "spawned task-stale" "the stale retry did not launch"
     assert_present "$home/state/task-stale.meta" "the retry published no replacement record"
     assert_contains "$(cat "$case_dir/calls.log.window")" "fm-task-stale" "the replacement endpoint is missing"
@@ -1145,7 +1150,7 @@ test_stale_same_id_retry_removes_record_before_replacement() {
       assert_equals in_flight "$(row_state "$home" task-stale)" "the retry did not start the backlog item"
     fi
   done
-  pass "capped and uncapped stale same-id retries publish their replacement"
+  pass "capped and uncapped copyless same-id retries publish their replacement"
 }
 
 test_stale_record_removal_failure_prevents_replacement() {
@@ -1156,6 +1161,8 @@ test_stale_record_removal_failure_prevents_replacement() {
     home="$case_dir/home"
     [ "$cap" != capped ] || declare_capacity "$home" "project 1"
     write_live "$home" task-stale "$case_dir/project"
+    fm_write_meta "$home/state/task-stale.meta" \
+      'window=firstmate:fm-task-stale' "project=$case_dir/project" 'kind=ship'
     cat > "$case_dir/fakebin/rm" <<SH
 #!/usr/bin/env bash
 for arg in "\$@"; do
@@ -1176,7 +1183,7 @@ SH
   pass "failed stale-record removal prevents capped and uncapped replacement"
 }
 
-test_stale_same_id_retry_removes_record_before_replacement
+test_copyless_same_id_retry_removes_record_before_replacement
 test_stale_record_removal_failure_prevents_replacement
 test_failed_backlog_commit_keeps_the_seat_while_the_window_is_listed
 test_failed_backlog_commit_frees_the_seat_when_the_window_is_gone
