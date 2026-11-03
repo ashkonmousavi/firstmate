@@ -4,6 +4,7 @@
 #
 # Usage:
 #   fm-autolaunch.sh                 one pass: launch or refuse, one record each
+#   fm-autolaunch.sh --steps-only [--dry-run]  leased slice transitions only
 #   fm-autolaunch.sh --dry-run       print a decision for every ready item and the
 #                                    spawn commands; write nothing
 #   fm-autolaunch.sh --list-prepared print, in launch order, the ids a pass would try
@@ -23,6 +24,9 @@
 #   1. Single instance: state/.autolaunch.lock (fm_lock_try_acquire). A busy
 #      lock exits 0 with one stderr notice and no record; a holder stuck for
 #      ten minutes is exactly what the throttle check turns red.
+#      Leased slice transitions run under this lock before the ready queue;
+#      --steps-only stops after them. bin/fm-autolaunch-steps.py owns their
+#      inputs, receipts, reconciliation and forge/pipeline evidence reads.
 #   2. Capacity: bin/fm-capacity.sh --admit, the machine admission owner. A
 #      refusal or zero free lanes is one `refused:no capacity: <reason>`
 #      record and the pass ends. Nothing here relaxes or re-derives admission;
@@ -41,6 +45,8 @@
 #                                      holds this item; fm-spawn-deferred.sh
 #                                      owns its retry, so it is never doubled
 #        refused:dispatch: <reason>   no configured default
+#        refused:step-receipt-required  a step-owned child stays with its receipt
+#        refused:same-or-unknown-tester-model  tester model admission failed
 #        refused:quota: <reason>       every candidate profile is exhausted or
 #                                      short of runway
 #        refused:deferred: <line>      fm-spawn.sh exit 75 (machine or project
@@ -78,16 +84,17 @@
 # fm-spawn.sh flags as written; fm-spawn.sh validates them against the brief
 # and refuses any disagreement, which is recorded.
 #
-# DISPATCH. No model is in the loop at all. The script makes no network call
-# beyond fm-spawn.sh's own. The configured `default` profile(s) of
+# DISPATCH. No model inference selects a profile. The configured `default` profile(s) of
 # config/crew-dispatch.json are tried deterministically: passing ones by
 # highest known spendPriority, then uncertain ones in declared order, through
 # fm-quota-axi-lib.sh's gate verdict over one quota-axi snapshot. Exhausted or
 # short-runway profiles are never tried. With no config/crew-dispatch.json,
 # use fm-spawn.sh's static crew harness.
+# With shared_quota=true, eligible defaults retain declared order without
+# requesting a quota snapshot or applying quota ranking.
 # A spawn whose own quota gate refuses moves to the next candidate.
 #
-# RECORDS. state/autolaunch.log, append-only, one line per decision:
+# RECORDS. Ready-queue decisions in state/autolaunch.log, append-only:
 #   <UTC time>\t<lane>\t<item>\t<model>\t<result>
 # lane is the 1-based free-lane ordinal of this pass, or - with no lane; item
 # and model are - when not applicable; model is <harness>[:<model>] or static.
@@ -98,6 +105,7 @@
 # launch uses one lane. Unlike a pass it evaluates every ready item, even with
 # no free lane: a prepared item beyond the free lanes is recorded with lane -
 # and result `would-launch-when-a-lane-frees`, with its would-run command.
+# Step-effect witnesses in the same log use the engine header's format.
 #
 # Exit: 0 after a pass (refusals included) or a busy lock; 1 when the backlog
 # or its log cannot be read or written; 2 usage.
@@ -114,20 +122,40 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--dry-run|--list-prepared|--print-timer|--backfill [--apply]|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer|--backfill [--apply]|--help]' >&2; }
 
 ACTION=run
+STEP_TARGET=
+STEP_EXCLUDE=
+STEP_FAMILY=
+STEP_DRY=0
 case "${1:-}" in
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
   '') ;;
   --dry-run) ACTION=dry ;;
+  --steps-only) ACTION=steps ;;
+  --step-dispatch) ACTION="step-dispatch"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-}; STEP_FAMILY=${4:-}; STEP_ACTION_ID=${5:-} ;;
+  --step-family) ACTION="step-family"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
+  --step-agent) ACTION="step-agent"; STEP_TARGET=${2:-} ;;
+  --step-nm) ACTION="step-nm"; STEP_TARGET=${2:-} ;;
+  --step-accept) ACTION="step-accept"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
   --list-prepared) ACTION=list ;;
   --print-timer) ACTION=timer ;;
   --backfill) ACTION=backfill ;;
   *) usage; exit 2 ;;
 esac
 APPLY=0
-if [ "$ACTION" = backfill ] && [ "${2:-}" = --apply ] && [ "$#" -eq 2 ]; then
+if [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
+  STEP_DRY=1
+elif [ "$ACTION" = step-dispatch ] && [ "$#" -eq 5 ]; then
+  :
+elif [ "$ACTION" = step-family ] && [ "$#" -eq 3 ]; then
+  :
+elif [ "$ACTION" = step-accept ] && [ "$#" -eq 3 ]; then
+  :
+elif { [ "$ACTION" = step-agent ] || [ "$ACTION" = step-nm ]; } && [ "$#" -eq 2 ]; then
+  :
+elif [ "$ACTION" = backfill ] && [ "${2:-}" = --apply ] && [ "$#" -eq 2 ]; then
   APPLY=1
 elif [ "$#" -gt 1 ]; then
   usage; exit 2
@@ -185,6 +213,11 @@ EOF
   exit 0
 fi
 
+# The engine owns validation; absence is an early, byte-for-byte quiet no-op.
+if [ "$ACTION" = steps ] && [ ! -f "$CONFIG/autolaunch-steps" ]; then
+  exit 0
+fi
+
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
@@ -193,13 +226,17 @@ fi
 . "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-quota-axi-lib.sh
 . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
+# shellcheck source=bin/fm-pr-lib.sh
+. "$SCRIPT_DIR/fm-pr-lib.sh"
 
 flat() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-300; }
 
 TMPD=
 LOCK_HELD=0
+STEP_ACCEPT_LOCK=
 # shellcheck disable=SC2329 # Invoked through the EXIT trap below.
 cleanup() {
+  [ -z "$STEP_ACCEPT_LOCK" ] || fm_lock_release "$STEP_ACCEPT_LOCK"
   [ -z "$TMPD" ] || rm -rf -- "$TMPD"
   [ "$LOCK_HELD" = 0 ] || fm_lock_release "$LOCK"
 }
@@ -421,6 +458,10 @@ default_candidates() {
   done < <(jq -c --arg kind "$kind" --arg backend "$backend" \
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'.[] | select(quota_gate_launch_eligible($kind; $backend; false))' <<<"$defaults")
   defaults=$eligible
+  if jq -e '.shared_quota == true' "$RULES" >/dev/null 2>&1; then
+    jq -r '.[] | [.harness, (.model // ""), (.effort // "")] | @tsv' <<<"$defaults"
+    return 0
+  fi
   snap="$TMPD/quota.json"
   if [ -z "$QUOTA_SNAP" ]; then
     QUOTA_SNAP=failed
@@ -489,6 +530,121 @@ spawn_argv() {
 
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/fm-autolaunch.XXXXXX") || exit 1
 
+step_family() {
+  local family
+  family=$(jq -r --arg h "$1" --arg m "$2" '
+    [.. | objects | select(.harness? == $h and (.model? // "") == $m) | .model_family? // empty] | unique |
+    if length == 1 then .[0] elif length > 1 then "unknown" else empty end' "$RULES" 2>/dev/null) || family=
+  if [ -n "$family" ]; then
+    printf '%s\n' "$family"
+  else
+    case "$1" in
+      claude|codex|grok|kimi) fm_quota_single_provider_for_harness "$1" || printf 'unknown\n' ;;
+      *) printf 'unknown\n' ;;
+    esac
+  fi
+}
+
+spawn_quota_refused() {
+  [ "$1" = 1 ] && grep -q 'refuses explicit harness' "$TMPD/spawn.out"
+}
+
+if [ "$ACTION" = step-family ]; then
+  step_family "$STEP_TARGET" "$STEP_EXCLUDE"
+  exit 0
+fi
+if [ "$ACTION" = step-accept ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  accept_lock="$STATE/.control-$STEP_TARGET.lock"
+  fm_lock_try_acquire "$accept_lock" || exit 75
+  STEP_ACCEPT_LOCK=$accept_lock
+  python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" accept-owner "$STEP_TARGET" "$STEP_EXCLUDE"
+  exit $?
+fi
+
+# Private engine callbacks: these reuse the scheduler's preparation, admission,
+# candidate selection and exact spawn argument path. They never acquire the
+# pass lock: the invoking step engine already holds it.
+if [ "$ACTION" = step-nm ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  meta="$STATE/$STEP_TARGET.meta"
+  [ -f "$meta" ] || exit 0
+  # Use the shared identity-aware selector, including per-worktree NM_HOME.
+  # A stale run on a different branch or code identity is never gate evidence.
+  # shellcheck source=bin/fm-nm-run-lib.sh
+  . "$SCRIPT_DIR/fm-nm-run-lib.sh"
+  wt=$(fm_meta_get "$meta" worktree)
+  branch=$(fm_meta_get "$meta" branch)
+  [ -d "$wt" ] && [ -n "$branch" ] || exit 0
+  overview=$(fm_nm_run_checked "$wt" 10 axi) || exit 0
+  choice=$(fm_nm_select_run "$branch" "$overview" "$wt" 10)
+  case "$choice" in selected\|*) ;; *) exit 0 ;; esac
+  IFS='|' read -r _ run_id _ _ <<< "$choice"
+  out=$(fm_nm_run_checked "$wt" 10 axi status --run "$run_id") || exit 0
+  [ "$(fm_nm_strip_quotes "$(fm_nm_field "$out" branch)")" = "$branch" ] || exit 0
+  fm_nm_run_is_pipeline_owned_active "$out" \
+    || fm_nm_head_matches_worktree "$wt" "$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")" || exit 0
+  printf '%s\n' "$out"
+  exit 0
+fi
+if [ "$ACTION" = step-agent ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  meta="$STATE/$STEP_TARGET.meta"
+  [ -f "$meta" ] || { echo missing; exit 0; }
+  fm_backend_agent_state "$(fm_backend_of_meta "$meta")" "$(fm_backend_target_of_meta "$meta")"
+  exit $?
+fi
+if [ "$ACTION" = step-dispatch ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  [ -n "$STEP_ACTION_ID" ] || exit 2
+  capacity_read || true
+  [ "$CAP_FREE" -gt 0 ] || exit 75
+  check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; }
+  dispatch_candidates "$P_KIND" || { echo "refused:$DISPATCH_ERR" >&2; exit 1; }
+  if [ -n "$STEP_EXCLUDE" ] && [ -n "$STEP_FAMILY" ] && [ "$STEP_FAMILY" != unknown ]; then
+    : > "$TMPD/preferred.tsv"
+    : > "$TMPD/remaining.tsv"
+    while IFS= read -r line; do
+      h=${line%%$'\t'*} rest=${line#*$'\t'} m=${rest%%$'\t'*}
+      family=$(step_family "$h" "$m")
+      if [ "$family" != unknown ] && [ "$family" != "$STEP_FAMILY" ]; then
+        printf '%s\n' "$line" >> "$TMPD/preferred.tsv"
+      else
+        printf '%s\n' "$line" >> "$TMPD/remaining.tsv"
+      fi
+    done < "$TMPD/cands.tsv"
+    cat "$TMPD/preferred.tsv" "$TMPD/remaining.tsv" > "$TMPD/cands.tsv"
+  fi
+  while IFS= read -r line; do
+    h=${line%%$'\t'*} line=${line#*$'\t'}
+    m=${line%%$'\t'*} e=${line#*$'\t'}
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" launch-admission "$STEP_TARGET" "$m" "$STEP_ACTION_ID" > "$TMPD/admission.out" || continue
+    spawn_argv "$STEP_TARGET" "$h" "$m" "$e"
+    rc=0
+    FM_SPAWN_STEP_ACTION="$STEP_ACTION_ID" "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
+    if spawn_quota_refused "$rc"; then
+      continue
+    fi
+    if [ "$rc" = 0 ]; then cat "$TMPD/spawn.out"; else cat "$TMPD/spawn.out" >&2; fi
+    exit "$rc"
+  done < "$TMPD/cands.tsv"
+  echo 'refused: no different-model tester candidate' >&2
+  exit 1
+fi
+if [ "$ACTION" = steps ]; then
+  if [ "$STEP_DRY" = 1 ] || ! grep -Eq '^act[[:space:]]+[^[:space:]]' "$CONFIG/autolaunch-steps"; then
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" dry
+    exit $?
+  fi
+  if ! fm_lock_try_acquire "$LOCK"; then
+    echo "fm-autolaunch: another pass holds $LOCK; nothing done" >&2
+    exit 0
+  fi
+  LOCK_HELD=1
+  python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" run
+  exit $?
+fi
+
 if [ "$ACTION" = backfill ]; then
   ids=$(queued_ids) || exit 1
   for id in $ids; do
@@ -530,6 +686,9 @@ if [ "$ACTION" = run ]; then
   exec 9>> "$LOG" || { echo "fm-autolaunch: cannot append to $LOG" >&2; exit 1; }
 fi
 
+if [ "$ACTION" = run ] && [ -f "$CONFIG/autolaunch-steps" ]; then
+  python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" run || exit $?
+fi
 capacity_read || true
 FREE=$CAP_FREE
 if [ "$FREE" -eq 0 ]; then
@@ -562,6 +721,11 @@ for id in $ids; do
     h=${line%%$'\t'*} line=${line#*$'\t'}
     m=${line%%$'\t'*} e=${line#*$'\t'}
     model=${h:-static}${m:+:$m}
+    if ! admission=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" launch-admission "$id" "$m" "" 2>&1); then
+      outcome="refused:$admission"
+      continue
+    fi
+    outcome=''
     spawn_argv "$id" "$h" "$m" "$e"
     if [ "$ACTION" = dry ]; then
       printf 'would-run: %s' "$(printf '%q' "$SPAWN_BIN")"
@@ -572,12 +736,12 @@ for id in $ids; do
       break
     fi
     rc=0
-    "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
+    FM_SPAWN_STEP_ACTION='' "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
     if [ "$rc" = 0 ]; then
       outcome=launched
       break
     fi
-    if [ "$rc" = 1 ] && grep -q 'refuses explicit harness' "$TMPD/spawn.out"; then
+    if spawn_quota_refused "$rc"; then
       quota_reason=$(grep -m1 'refuses explicit harness' "$TMPD/spawn.out")
       continue
     fi

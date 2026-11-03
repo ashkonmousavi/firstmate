@@ -261,6 +261,12 @@
 # never left leased forever. If the treehouse return fails, teardown leaves the
 # leased home and state in place instead of hiding a still-held lease.
 # Usage: fm-teardown.sh <task-id> [--force] [--keep-open] [--legacy-record]
+#        fm-teardown.sh <task-id> --step-action <owner>:<pending-teardown-key>
+#   --step-action binds runtime-only cleanup to the leased slice receipt.
+#   It retains native task state and dependencies, requires strict landed and
+#   merged proof, and records `cleanup-ready <id> <key>` in autolaunch.log after
+#   runtime cleanup, immediately before removing metadata under its lock.
+#   That record plus absent metadata completes the receipt before acceptance.
 #   --force skips ordinary-task dirty and landed-work checks, skips scout report
 #   checks, and discards secondmate child work for kind=secondmate. Only use it
 #   when the captain has explicitly said to discard the work. It is also the
@@ -593,6 +599,7 @@ fi
 ID=$1
 TEARDOWN_LOST_SLOT_EXIT=4
 FORCE=
+STEP_ACTION=
 KEEP_OPEN=0
 TEARDOWN_KEEP_OPEN=0
 TEARDOWN_KEEP_OPEN_HOLD=0
@@ -610,6 +617,10 @@ while [ "$#" -gt 0 ]; do
     --force) FORCE=--force ;;
     --keep-open) KEEP_OPEN=1 ;;
     --legacy-record) LEGACY_RECORD_GIVEN=1 ;;
+    --step-action)
+      [ -n "${2:-}" ] || { echo 'error: --step-action requires a receipt' >&2; exit 2; }
+      STEP_ACTION=$2
+      shift ;;
     *)
       echo "error: invalid teardown request" >&2
       exit 2
@@ -617,6 +628,10 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+if [ -n "$STEP_ACTION" ] && { [ -n "$FORCE" ] || [ "$KEEP_OPEN" = 1 ] || [ "$LEGACY_RECORD_GIVEN" = 1 ]; }; then
+  echo 'error: --step-action requires ordinary non-force runtime cleanup' >&2
+  exit 2
+fi
 fm_backlog_directory_present "$STATE" "state directory" || {
   echo "error: teardown refused: $FM_BACKLOG_TRANSITION_ERROR" >&2
   exit 1
@@ -737,6 +752,9 @@ fm_backlog_record_present "$META" "task record" "$STATE" || {
   echo "error: teardown refused after locking: $FM_BACKLOG_TRANSITION_ERROR" >&2
   exit 1
 }
+if [ -n "$STEP_ACTION" ]; then
+  python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" teardown-guard "$ID" "$STEP_ACTION" || exit 3
+fi
 TEARDOWN_META_KIND=$(fm_meta_get "$META" kind)
 [ -n "$TEARDOWN_META_KIND" ] || TEARDOWN_META_KIND=ship
 # Retiring a persistent secondmate is main's alone in both postures; the kind
@@ -2078,7 +2096,7 @@ teardown_guard_unlanded_close() {
       # A pushed head is not a landed close. --force still must not close it.
       # The copy may be freed only when the landed test already proved the
       # commits are on a remote, or when --keep-open asked for that free.
-      if [ "$FORCE" = --force ]; then
+      if [ "$FORCE" = --force ] || [ -n "$STEP_ACTION" ]; then
         echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
         pr_refused=1
       elif teardown_recorded_copy_released "$META" "$STATE" "$ID" || [ "$TEARDOWN_RELEASE_PROOF_RECORDED" = 1 ]; then
@@ -2111,7 +2129,7 @@ teardown_guard_unlanded_close() {
       ;;
   esac
 
-  if [ -n "$TEARDOWN_DEPENDENTS" ]; then
+  if [ -n "$TEARDOWN_DEPENDENTS" ] && [ -z "$STEP_ACTION" ]; then
     if [ "$KEEP_OPEN" = 1 ] && [ "$pr_refused" = 0 ]; then
       TEARDOWN_KEEP_OPEN=1
     else
@@ -2125,7 +2143,7 @@ teardown_guard_unlanded_close() {
     return 1
   fi
   if [ "$TEARDOWN_KEEP_OPEN" != 1 ]; then
-    if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ] && [ "$TEARDOWN_BACKLOG_TRANSITION" = close ]; then
+    if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ] && [ "$TEARDOWN_BACKLOG_TRANSITION" = close ] && [ -z "$STEP_ACTION" ]; then
       if ! fm_backlog_require_cleanup_ready "$DATA" "$ID" close; then
         echo "REFUSED: $FM_BACKLOG_TRANSITION_ERROR" >&2
         return 1
@@ -4141,7 +4159,9 @@ BACKLOG_TRANSITION=$TEARDOWN_BACKLOG_TRANSITION
 BACKLOG_TRANSITION_FLAGS=()
 [ "$BACKLOG_TRANSITION" = close ] || BACKLOG_TRANSITION_FLAGS=(--retain)
 BACKLOG_SKIP_REASON=
-if [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ] && [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
+if [ -n "$STEP_ACTION" ]; then
+  BACKLOG_SKIP_REASON='slice acceptance follows the runtime-cleanup receipt'
+elif [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ] && [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
   # The guard already held the item. Writing the close marker would replay
   # into deleting the task record, and the merge watch is registered only
   # while that record remains.
@@ -4569,6 +4589,10 @@ elif [ "$KIND" = secondmate ] && [ ! -e "$STATE" ] && [ ! -L "$STATE" ]; then
   # deletion; do not turn its confirmed absence into a false cleanup failure.
   :
 else
+  if [ -n "$STEP_ACTION" ]; then
+    [ "$TEARDOWN_POOL_SLOT_LOST" = 0 ] || exit "$TEARDOWN_LOST_SLOT_EXIT"
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" record-teardown "$ID" "$STEP_ACTION" || exit 1
+  fi
   if ! fm_backlog_atomic_transition remove "$STATE/$ID.meta" "task record" "$STATE"; then
     fm_lock_release "$META_LOCK"
     META_LOCK_HELD=0

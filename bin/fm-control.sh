@@ -6,6 +6,7 @@
 #        fm-control.sh <task-id> exit [--landed-work] [--if-idle [--expect-spawn-gen <gen>]]
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
 #                                         [--effort <level>] [--if-recoverable]
+#                                         [--step-action <owner>:<action-id>]
 #                                         [--quota-override <reason>]
 #                                         (--note <text> | --note-file <path>)
 #
@@ -142,6 +143,11 @@
 #              --if-recoverable applies the startup eligibility decision from
 #              bin/fm-crew-recovery-lib.sh under the lifecycle lock. Exit 3
 #              means no recovery was needed; exit 75 defers a busy task.
+#              --step-action with --if-recoverable instead authorizes only a
+#              pending leased slice continuation whose target and spawn_gen
+#              still match (bin/fm-autolaunch-steps.py owns its receipt format).
+#              It refuses live/unknown agents, holds and attributed runs; it
+#              does not erase release markers or require unlanded work.
 #
 # Teardown and discard are NOT verbs here and never will be. `exit` stops an
 # agent and preserves everything else; removing a worktree, killing an
@@ -330,6 +336,7 @@ QUOTA_OVERRIDE_SET=0
 QUOTA_EVIDENCE=
 TARGET_CODEX_ROOT=
 RECOVER_ONLY=0
+STEP_ACTION=
 IF_IDLE=0
 LANDED_WORK=0
 EXPECT_GEN=
@@ -347,6 +354,7 @@ for control_arg in "$@"; do
       note) NOTE=$control_arg; NOTE_SET=1 ;;
       quota_override) QUOTA_OVERRIDE=$control_arg; QUOTA_OVERRIDE_SET=1 ;;
       expect_gen) EXPECT_GEN=$control_arg; EXPECT_GEN_SET=1 ;;
+      step_action) [ -n "$control_arg" ] || die "--step-action requires a non-empty value"; STEP_ACTION=$control_arg ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
         NOTE=$(cat "$control_arg")
@@ -358,6 +366,7 @@ for control_arg in "$@"; do
   fi
   case "$control_arg" in
     --if-recoverable) RECOVER_ONLY=1 ;;
+    --step-action) control_want_value=step_action ;;
     --if-idle) IF_IDLE=1 ;;
     --landed-work) LANDED_WORK=1 ;;
     --expect-spawn-gen) control_want_value=expect_gen ;;
@@ -393,9 +402,11 @@ if [ "$QUOTA_OVERRIDE_SET" = 1 ]; then
 fi
 
 if [ "$VERB" != relaunch ]; then
+  [ -z "$STEP_ACTION" ] || die "--step-action applies to relaunch only"
   [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] && [ "$RECOVER_ONLY" = 0 ] && [ "$QUOTA_OVERRIDE_SET" = 0 ] \
     || die "--harness, --model, --effort, --note, --quota-override, and --if-recoverable apply to 'relaunch' only"
 fi
+[ -z "$STEP_ACTION" ] || [ "$RECOVER_ONLY" = 1 ] || die "--step-action requires --if-recoverable"
 if [ "$VERB" != exit ]; then
   [ "$IF_IDLE" = 0 ] && [ "$EXPECT_GEN_SET" = 0 ] && [ "$LANDED_WORK" = 0 ] \
     || die "--if-idle, --expect-spawn-gen, and --landed-work apply to 'exit' only"
@@ -443,7 +454,18 @@ META="$STATE/$ID.meta"
 if [ "$RECOVER_ONLY" = 1 ]; then
   # shellcheck source=bin/fm-crew-recovery-lib.sh
   . "$SCRIPT_DIR/fm-crew-recovery-lib.sh"
-  fm_crew_recovery_agent_state "$STATE" "$ID" >/dev/null || exit 3
+  if [ -n "$STEP_ACTION" ]; then
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" guard "$ID" "$STEP_ACTION" || exit 3
+    step_target=$(fm_backend_target_of_meta "$META") || exit 3
+    [ -n "$step_target" ] || exit 3
+    case "$(fm_backend_agent_state "$(fm_backend_of_meta "$META")" "$step_target")" in
+      dead|missing) ;;
+      *) exit 3 ;;
+    esac
+    fm_crew_recovery_record_blocks "$STATE" "$ID" && exit 3
+  else
+    fm_crew_recovery_agent_state "$STATE" "$ID" >/dev/null || exit 3
+  fi
 fi
 FM_COMPOSER_DIALOG_SINK=$STATE/$ID.composer-dialog
 if [ ! -f "$META" ]; then

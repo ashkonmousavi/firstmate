@@ -21,6 +21,10 @@
 # (or its absence), reports once and then again at most hourly while it
 # lasts; the episode marker is state/.autolaunch-check.red and is removed
 # when the check goes quiet.
+# C2 also reports a reasonless pending receipt or fired trigger left by a
+# completed step pass. relaunch-due, carrier-stale and open walk-expect are
+# recorded waits. A C2 episode reports once until it clears, using the same
+# marker and parent channel as the launch alarm. The engine owns its schema.
 # The check never launches and makes no network call.
 # Exit 0 always for an evaluation; arm/disarm exit 1 on failure.
 # Test seams with FM_TEST_SEAM=1: FM_AUTOLAUNCH_CAPACITY_BIN (shared with the
@@ -80,7 +84,14 @@ action_arm() {
 quiet() { rm -f -- "$MARKER"; exit 0; }
 
 evaluate() {
-  local cap free prepared count first last age episode prev prev_at line rc=0
+  local cap free prepared count first last age episode line c2
+  if [ -f "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/autolaunch-steps" ]; then
+    c2=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" check 2>&1) || c2="step records unreadable: $c2"
+    if [ -n "$c2" ]; then
+      report_red "steps:$c2" "RED slice step stalled: $c2; check the completed pass and slice-steps.log" 0
+      exit 0
+    fi
+  fi
   cap=$("$CAPACITY_BIN" --admit 2>/dev/null | sed -n '/^capacity:/{p;q;}')
   free=$(printf '%s\n' "$cap" | sed -n 's/.*[[:space:]]free_lanes=\([0-9][0-9]*\).*/\1/p')
   case "$free" in ''|*[!0-9]*|0) quiet ;; esac
@@ -99,15 +110,21 @@ evaluate() {
     episode=none
     age="no record yet"
   fi
+  line="RED auto-launch stalled on $(hostname 2>/dev/null || echo this-host): $free free lane(s) and $count prepared item(s) (first: $first) but no launch or refusal record in $((STALE / 60)) min ($age); check the auto-launch schedule and state/autolaunch.log"
+  report_red "$episode" "$line" 3600
+  exit 0
+}
+
+report_red() {  # <episode> <line> <repeat-seconds; 0 means once until clear>
+  local episode=$1 line=$2 repeat=$3 prev prev_at rc=0
   if [ -f "$MARKER" ]; then
     prev=$(sed -n 1p "$MARKER" 2>/dev/null)
     prev_at=$(sed -n 2p "$MARKER" 2>/dev/null)
     case "$prev_at" in ''|*[!0-9]*) prev_at=0 ;; esac
-    if [ "$prev" = "$episode" ] && [ $((NOW - prev_at)) -lt 3600 ]; then
-      exit 0
+    if [ "$prev" = "$episode" ] && { [ "$repeat" = 0 ] || [ $((NOW - prev_at)) -lt "$repeat" ]; }; then
+      return 0
     fi
   fi
-  line="RED auto-launch stalled on $(hostname 2>/dev/null || echo this-host): $free free lane(s) and $count prepared item(s) (first: $first) but no launch or refusal record in $((STALE / 60)) min ($age); check the auto-launch schedule and state/autolaunch.log"
   printf '%s\n' "$line"
   # shellcheck source=bin/fm-parent-channel-lib.sh
   . "$SCRIPT_DIR/fm-parent-channel-lib.sh"

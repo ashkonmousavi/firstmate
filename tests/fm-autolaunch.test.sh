@@ -631,3 +631,7 @@ out=$(bash "$AL" --print-timer)
 assert_contains "$out" "Environment=FM_HOME=$H" 'timer proposal pins FM_HOME'
 assert_contains "$out" 'OnUnitActiveSec=5min' 'timer proposal runs every five minutes'
 pass 'the check arms through fm-check-register and the timer is only a printed proposal'
+
+# The step-pass matrix uses this same executable seam and hermetic task store.
+python3 "$ROOT/tests/autolaunch_steps_cases.py" "$ROOT" || fail 'slice step-pass fixtures'
+pass 'slice step-pass crash, replay, lease and stall fixtures'

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# fm-lane-release.sh - free the lane (seat) of a worker whose job is finished
-# and landed, keeping its local copy.
+# fm-lane-release.sh - free eligible idle workers' lanes (seats), keeping
+# their local copies.
 #
 # Usage:
 #   fm-lane-release.sh sweep            one bounded pass; the registered check runs it
@@ -16,15 +16,18 @@
 #   off    (also: file absent) `sweep` and the check do nothing and print nothing.
 #   audit  `sweep` evaluates every worker and appends a WOULD_RELEASE ledger row
 #          once per unchanged candidate, but never stops a worker.
-#   on     `sweep` releases finished-and-landed workers.
+#   on     `sweep` releases eligible idle workers.
 # Any other value, including an empty or blank file: `sweep` releases nothing
 # and reports the value once while unchanged, with newlines and carriage returns
 # escaped so the report occupies one line.
 # `--audit` is an explicit read-only query and runs in any
 # setting; its first line names the setting.
 #
-# WHAT IS RELEASED (the promise). Only two classes, and only while the agent is
-# live, idle, and nothing has happened since the finished evidence:
+# WHAT IS RELEASED (the promise). Three classes, and only while the agent is
+# live, idle, and nothing has happened since the completion or wait evidence:
+#   owner-waiting a slice owner whose last step-log record is a completed wait
+#                (bin/fm-autolaunch-steps.py owns the format). Only its process
+#                exits; the task, branch and unlanded work stay in flight.
 #   merged-ship  a ship whose recorded pr= has merged. Landed evidence is the
 #                merge record bin/fm-pr-merge.sh and the merge poll write through
 #                bin/fm-merge-outcome-lib.sh: state/<id>.pr-poll-merge-notified,
@@ -45,9 +48,9 @@
 #                unreadable registry or source evidence keeps the seat and is
 #                unknown in audit), and whose promotion has not begun
 #                (no data/<id>/ship-instructions.md).
-# Everything else keeps its seat: an open-PR ship (reported by --audit as
+# Everything else keeps its seat: an open-PR ship without an owner wait (reported by --audit as
 # kept-open-pr), a local-only ship (bin/fm-merge-local.sh writes no per-task
-# landed record, so landing cannot be proven from local state), a held or
+# landed record, so only an owner wait qualifies it), a held or
 # board-hosting scout, and any worker that is not proven idle and quiet.
 # Promotion after a release still works: bin/fm-promote.sh takes the control
 # lock, requires kind=scout, and never checks liveness, so the promoted contract
@@ -64,7 +67,11 @@
 #                 mints as s<epoch>.<pid>.<random> on every spawn and relaunch.
 #   crew state    bin/fm-crew-state.sh with FM_CREW_STATE_NO_FORGE=1 reads
 #                 `done` (a merged ship may also read `unknown`).
-#   nothing since the valid done line, or the merge time without a valid done:
+#                 An owner-waiting ship may also read paused, in-flight or
+#                 running; its completed wait replaces the done-line predicate.
+#                 A paused status is allowed only for owner-waiting and does
+#                 not bypass the open-decision check.
+#   nothing since the valid done line, merge time without a valid done, or wait:
 #                 no status line newer than it; no steering-inbox record, handled
 #                 or not, newer than it and none unhandled; the incarnation
 #                 launched before it; the busy record (bin/fm-busy-lib.sh) is
@@ -82,7 +89,8 @@
 #                 incarnation, anchor, and busy seq, at least 300 s after both
 #                 the first sighting and the anchor. The marker and ledger
 #                 anchor is the later of valid done and merge for a ship, the
-#                 merge time without valid done, and done for a scout. It starts
+#                 merge time without valid done, done for a scout, and the last
+#                 step-log timestamp for owner-waiting. It starts
 #                 grace and audit age; it never advances the quiet-since time.
 #
 # STATE MACHINE AND MARKER. LIVE -> FINISHED -> RELEASING -> RELEASED or
@@ -444,6 +452,9 @@ pred_no_open_decision() {
   [ -f "$status" ] || return 0
   open=$(status_open_decisions "$status" lane-release)
   [ -z "$open" ] || { KEEP='open-decision'; return 1; }
+  case "${2:-}:$(status_line_verb "$(last_status_line "$status")")" in
+    owner-waiting:paused) return 0 ;;
+  esac
   case "$(status_line_verb "$(last_status_line "$status")")" in
     paused|needs-decision|blocked|failed) KEEP='declared-stop'; return 1 ;;
   esac
@@ -458,6 +469,7 @@ pred_crew_state() {
   state=${state%% *}
   case "$class:$state" in
     *:done|merged-ship:unknown) return 0 ;;
+    owner-waiting:paused|owner-waiting:in-flight|owner-waiting:running) return 0 ;;
   esac
   KEEP="crew-state-$state"
   return 1
@@ -560,6 +572,16 @@ evaluate() {
     pred_scout_complete "$id" || return 1
     anchor=$done_at
     pred_no_open_decision "$status" || return 1
+  elif python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" wait "$id" >/dev/null 2>&1; then
+    class="owner-waiting"
+    anchor=$(python3 - "$FM_HOME/data/$id/slice-steps.log" <<'PY'
+import json, sys
+with open(sys.argv[1]) as f:
+    print(json.loads(f.readlines()[-1])["at"])
+PY
+    ) || { KEEP='step-log-unreadable'; return 1; }
+    done_at=$anchor
+    pred_no_open_decision "$status" owner-waiting || return 1
   else
     class='merged-ship'
     [ "$(meta_field "$meta" mode)" != local-only ] || { KEEP='local-only-unproven'; return 1; }
