@@ -18,9 +18,10 @@
 # already uses when it first records a remote route - and republishes this
 # home's own metadata to match. A failed or refused relaunch leaves this
 # parent's record untouched.
-# An owner park (bin/fm-secondmate-park-lib.sh) refuses before the host hop
-# and before either lock. Rearm of the crash-loop bound after a successful
-# host relaunch stays in place for a mate that is not owner-parked.
+# Owner parks (bin/fm-secondmate-park-lib.sh) are checked before waiting for
+# the inheritance transaction lock and again after acquiring it, before the
+# host hop. Rearm of the crash-loop bound after a successful host relaunch
+# stays in place for a mate that is not owner-parked.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

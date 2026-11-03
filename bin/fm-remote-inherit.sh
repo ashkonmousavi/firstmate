@@ -6,8 +6,12 @@
 #   fm-remote-inherit.sh absent <allowlisted-relative-path> 0 <empty-sha256> <generation>
 #
 # The inherited-material allowlist and the seeded home's own owner park are
-# writable or removable. Writes are
-# atomic ordinary-file replacements. data/captain-shared.md is read-only and is
+# writable or removable. Writes are atomic ordinary-file replacements.
+# Owner-park publication and removal hold the remote parent-route control and
+# spawn locks, so acknowledgement follows any earlier launch transaction and
+# a later launch reads the new decision. Generation checks reject superseded
+# requests; only the identity-matching seeded home's park is accepted.
+# data/captain-shared.md is read-only and is
 # quarantined before removal or before replacing bytes not last published here.
 set -eu
 
@@ -28,7 +32,7 @@ file_link_count() {
 sha256_file() {
   if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi
 }
-# Writable set, derived from the ONE declared inherited-material owner
+# Ordinary inherited-material set, derived from the ONE declared owner
 # (FM_INHERITABLE_CONFIG in bin/fm-config-inherit-lib.sh), so this code root's
 # receiver and sender cannot drift silently. This runs under the remote
 # entrypoint's fixed empty environment, so the declaration is this code root's

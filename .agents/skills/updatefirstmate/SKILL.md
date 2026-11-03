@@ -70,13 +70,14 @@ This touches only the firstmate repo and its own worktrees, never anything under
    This is automatic and needs no per-mate confirmation from the captain.
    Local and remote mates go in the same list; the command owns the transport, the profile each replacement runs on, and the wait.
 
-   It asks every listed mate first to write down the open work it holds only in its conversation, and restarts one only after that mate's own answer comes back.
+   For each eligible mate, it first asks the mate to write down the open work it holds only in its conversation, and restarts it only after that mate's own answer comes back.
    A mate that is mid-turn queues the request behind that turn.
    That is the whole point of the step, so do not work around it: it is what keeps a captain call the mate had formed but never registered from being lost with the conversation.
    Its header owns the request, the bounds, and the knobs that change them.
 
    Read its per-mate lines and its closing `summary:` line as the outcome, using the [restart command's header](../../../bin/fm-secondmate-restart.sh) for the outcome vocabulary.
-   Never report a nudged or unreached mate as a clean reload.
+   Respect the [owner-park contract](../../../docs/configuration.md#owner-park) when interpreting a parked result.
+   Never report a nudged, unreached, or parked mate as a clean reload.
 
 4. **Send the re-read message to the rest.**
    For every target on the `nudge-secondmates:` line (do nothing when it says `none`), send the one-line re-read steer:

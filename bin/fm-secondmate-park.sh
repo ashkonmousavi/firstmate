@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Park or unpark one persistent secondmate so relaunch leaves it stopped.
+# Manage the persistent launch refusal for one secondmate.
 #
 # Usage: fm-secondmate-park.sh park <id>
 #        fm-secondmate-park.sh unpark <id>
 #        fm-secondmate-park.sh status <id>
 #
 # bin/fm-secondmate-park-lib.sh owns the record format and the shared refusal
-# every relaunch path calls. This command is the only writer and the only
-# remover. park requires FM_HOME, a single path-segment id, and one registry
-# line for that id in data/secondmates.md, then writes
+# every relaunch path calls. This command owns publication and removal,
+# including the remote mirror. park requires FM_HOME, a single path-segment
+# id, and one registry line for that id in data/secondmates.md, then writes
 # config/secondmate-parked/<id> atomically with today's UTC date.
 # Parking again rewrites the date. unpark removes a regular record and is
 # idempotent when the file is already absent. It refuses to follow or unlink
@@ -18,10 +18,13 @@
 # Remote park and unpark require an acknowledged, generation-ordered mirror
 # in the remote home. A failed acknowledgement retains the local park and
 # returns failure. Generic config inheritance does not copy this directory.
+# Local publication holds the per-home relaunch, per-task control and spawn,
+# and remote inheritance transaction locks until the mirror is acknowledged.
+# See docs/configuration.md "Owner park" for stopping an already-running mate.
 #
 # Exit status: 0 the verb succeeded (status: the mate is parked); 1 status
-# found no record, or park names an id this home does not register; 2 invalid
-# use or an unsafe record.
+# found no record, park names an unregistered id, or an operational failure
+# prevented confirmation; 2 invalid use or an unsafe record.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

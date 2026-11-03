@@ -90,6 +90,7 @@ For release while deployment or acceptance proof remains pending, follow [ship-l
 
 `relaunch` is the only verb that changes durable records, so it runs as a transaction with a journal at `state/<id>.control-relaunch`, the prior record preserved beside it, and a ship or scout's prior instructions preserved when a progress note is appended.
 The following sequence applies to an existing copy; a [released copy](#relaunching-a-released-copy) follows its own checkpoint, allocation, note and rollback ordering.
+For a secondmate, relaunch first honors the [owner-park contract](configuration.md#owner-park).
 
 1. **Resolve the profile.**
    An explicit `--harness`, `--model`, or `--effort` wins.

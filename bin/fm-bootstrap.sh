@@ -55,9 +55,9 @@
 #          failed names whether the endpoint was missing or agent-less.
 #          Already-live and successfully relaunched secondmates are silent
 #          unless FM_BOOTSTRAP_VERBOSE_FACTS=1 requests BOOTSTRAP_INFO facts.
-#          An owner-parked mate is reported on the SECONDMATE_LIVENESS line
-#          with the reason from bin/fm-secondmate-park-lib.sh and is not
-#          relaunched. Rearm never clears that record.
+#          If an owner park refuses a needed recovery, SECONDMATE_LIVENESS
+#          reports the reason from bin/fm-secondmate-park-lib.sh. An already
+#          live parked mate stays silent. Rearm never clears the owner park.
 #          CREW_RECOVERY lines report a ship or scout in this home whose
 #          endpoint is dead or missing and whose recorded copy still holds
 #          unlanded work. bin/fm-crew-recovery-lib.sh owns that decision.

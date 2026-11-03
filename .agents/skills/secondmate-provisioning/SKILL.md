@@ -217,8 +217,7 @@ For local `kind=secondmate` meta with no window, treat the secondmate as a dead 
 bin/fm-spawn.sh <id> --secondmate
 ```
 
-An owner park refuses that respawn and also refuses `bin/fm-control.sh <id> relaunch`, `bin/fm-remote-secondmate-relaunch.sh`, session-start recovery, and the watcher liveness relaunch.
-[`docs/configuration.md`](../../../docs/configuration.md#owner-park) owns the record, and only `bin/fm-secondmate-park.sh unpark` clears it.
+Before respawning, check the [owner-park contract](../../../docs/configuration.md#owner-park) and leave a parked mate stopped.
 Use the recorded `home=` in meta.
 If meta is missing but `data/secondmates.md` still registers the secondmate, respawn from the registry entry and its persistent home.
 For a remote route, the same command probes and relaunches only on the configured host.
