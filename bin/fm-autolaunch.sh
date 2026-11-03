@@ -24,6 +24,9 @@
 #   1. Single instance: state/.autolaunch.lock (fm_lock_try_acquire). A busy
 #      lock exits 0 with one stderr notice and no record; a holder stuck for
 #      ten minutes is exactly what the throttle check turns red.
+#      Leased slice transitions run under this lock before the ready queue;
+#      --steps-only stops after them. bin/fm-autolaunch-steps.py owns their
+#      inputs, receipts, reconciliation and forge/pipeline evidence reads.
 #   2. Capacity: bin/fm-capacity.sh --admit, the machine admission owner. A
 #      refusal or zero free lanes is one `refused:no capacity: <reason>`
 #      record and the pass ends. Nothing here relaxes or re-derives admission;
@@ -42,6 +45,8 @@
 #                                      holds this item; fm-spawn-deferred.sh
 #                                      owns its retry, so it is never doubled
 #        refused:dispatch: <reason>   no configured default
+#        refused:step-receipt-required  a step-owned child stays with its receipt
+#        refused:same-or-unknown-tester-model  tester model admission failed
 #        refused:quota: <reason>       every candidate profile is exhausted or
 #                                      short of runway
 #        refused:deferred: <line>      fm-spawn.sh exit 75 (machine or project
@@ -79,16 +84,17 @@
 # fm-spawn.sh flags as written; fm-spawn.sh validates them against the brief
 # and refuses any disagreement, which is recorded.
 #
-# DISPATCH. No model is in the loop at all. The script makes no network call
-# beyond fm-spawn.sh's own. The configured `default` profile(s) of
+# DISPATCH. No model inference selects a profile. The configured `default` profile(s) of
 # config/crew-dispatch.json are tried deterministically: passing ones by
 # highest known spendPriority, then uncertain ones in declared order, through
 # fm-quota-axi-lib.sh's gate verdict over one quota-axi snapshot. Exhausted or
 # short-runway profiles are never tried. With no config/crew-dispatch.json,
 # use fm-spawn.sh's static crew harness.
+# With shared_quota=true, eligible defaults retain declared order without
+# requesting a quota snapshot or applying quota ranking.
 # A spawn whose own quota gate refuses moves to the next candidate.
 #
-# RECORDS. state/autolaunch.log, append-only, one line per decision:
+# RECORDS. Ready-queue decisions in state/autolaunch.log, append-only:
 #   <UTC time>\t<lane>\t<item>\t<model>\t<result>
 # lane is the 1-based free-lane ordinal of this pass, or - with no lane; item
 # and model are - when not applicable; model is <harness>[:<model>] or static.
@@ -99,6 +105,7 @@
 # launch uses one lane. Unlike a pass it evaluates every ready item, even with
 # no free lane: a prepared item beyond the free lanes is recorded with lane -
 # and result `would-launch-when-a-lane-frees`, with its would-run command.
+# Step-effect witnesses in the same log use the engine header's format.
 #
 # Exit: 0 after a pass (refusals included) or a busy lock; 1 when the backlog
 # or its log cannot be read or written; 2 usage.

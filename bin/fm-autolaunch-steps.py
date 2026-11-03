@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
 """Durable slice transitions for fm-autolaunch.sh (the shell owns the pass lock).
 
-Usage: fm-autolaunch-steps.py run|dry|check|wait <owner>|guard <task> <action>
+Usage: fm-autolaunch-steps.py run|dry|check
+       fm-autolaunch-steps.py wait <owner>
+Internal callbacks: guard|teardown-guard|record-teardown|accept-owner <task> <owner>:<action-id>
+                    launch-admission <task> <candidate-model> <action-or-empty>
+                    record-launch <task> <owner>:<action-id> <spawn-gen>
+For launch-admission without a step receipt, the final argument is empty.
 
 Record owner: data/<owner>/slice-steps.log, append-only JSONL. Every record has
 at, owner, generation, step, trigger and receipt (pending/completed). An effect
 has its immutable payload, target, expected spawn_gen and id in the pending
-record; completion preserves that payload. The latest record for an id wins.
-Facts have no effect and are written completed in one append. fsync precedes
-every external call. A damaged log fails closed, including a partial tail.
+record; completion preserves that payload. The latest record for a trigger wins.
+Facts have no effect and are written completed in one append. Pending receipts
+are fsynced before effects. A damaged log fails closed, including a partial tail.
+Effect witnesses in state/autolaunch.log use epoch time and '-' lane/model:
+<epoch>\t-\t<task>\t-\tlaunched|relaunched <task> <action-id>
+<epoch>\t-\t<task>\t-\tcleanup-ready <task> <action-id>
+Fresh-launch witnesses are committed by spawn before deferred signals; cleanup
+witnesses plus absent metadata complete teardown before native acceptance.
 
 Config: absent/off disables; each line is `act <owner> ...` or
 `observe <owner> ...`; bare observe observes all recorded owners. Duplicate or
@@ -23,25 +33,33 @@ commit=<sha>|none revision=<revision> walk-list=<ids> checks=<names>;
 pr-ready head=<sha> checks=started|red; review-ready reviewed_head=<sha>
 finding=<id> review=<url>; merged commit=<sha>; generation ready <n>
 source=<receipt> branch=<fresh-branch>. Cut/prep revisions must match the
-committed prep's REVISION. Tests-ready must name the accepted walk list.
+prep's REVISION. Tests-ready must name the accepted walk list.
 Prep fields: REVISION, CUT, WALK ID, WALK LIST, WALK BRIEF, WALK BOT,
 WALK PROJECT, WALK TARGET (explicit MAIN dispatcher routing), TESTER PATHS,
-TESTER RULE, RISKS, COVERAGE ONLY (yes only for a list-only cut with no product
-work). TESTER TASK comes from the owner task, else <owner>-tester.
+TESTER RULE, RISKS, JOURNEY (checkpoint matching), COVERAGE ONLY (yes only for a
+list-only cut with no product work). TESTER TASK comes from the owner task,
+else <owner>-tester.
+Direct MAIN walks require bot, project and target from these fields or their
+FM_WALK_REQUEST_* defaults; secondmate requests use MAIN's carrier routing.
 No-mistakes review evidence uses `pipeline-review round=<round> head=<sha>`
 and optional finding=<id>; it never creates a second review task.
 
 Carrier contract (P2 producer): data/[from-main/]x-board-summary.json has
 written_at, interval_seconds, deploys[{id,at,release,merge,live_check}],
 checkpoints[{id,at,kind,journey}], daily_due[{date,at}],
-walk_attempts[{walk,release,attempt,outcome,claim_expires,reason}], and
-walk_results[{walk,release,attempt,assignment,path,report_sha256,complete,steps,
+walk_attempts[{walk_owner,walk,release,attempt,outcome,claim_expires,reason}], and
+walk_results[{walk_owner,walk,release,attempt,assignment,path,report_sha256,complete,steps,
 findings}]. Steps have id,result,screenshots; unrelated findings require
-routed_to=<task> or stay owned by intake. Times are epoch or ISO UTC.
-Only a COMPLETE result matching the walk/release and covering the accepted
-list closes a slice. Machinery failures never go to its product builder.
+routed_to=<local-task-id> or stay owned by intake. walk_owner must match this
+home's .fm-secondmate-home id, or main for MAIN. Times are epoch or ISO UTC.
+Walk acceptance requires the dispatcher's sent record or a matching carried
+outcome=sent; carrier publication and dispatcher exit 3 alone do not prove sent.
+Only a complete green result with path, report_sha256, matching assignment
+(<walk>@<release> or <walk>@<release>.a<n>) and every accepted list step closes
+a slice on a release containing its latest repair. Machinery failures never
+go to its product builder.
 
-Test seams require FM_TEST_SEAM=1: FM_AUTOLAUNCH_STEPS_{AGENT,CONTROL,SEND,WALK,TEARDOWN}_BIN,
+Test seams require FM_TEST_SEAM=1: FM_AUTOLAUNCH_STEPS_{AGENT,CONTROL,SEND,WALK,TEARDOWN,PR,NM}_BIN,
 FM_AUTOLAUNCH_STEPS_NOW, FM_AUTOLAUNCH_STEPS_STOP=before|after:<effect-kind>.
 The stop seam sends SIGKILL to this engine, leaving the durable receipt.
 """

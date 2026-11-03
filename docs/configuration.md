@@ -116,7 +116,7 @@ Each effective `FM_HOME` contains private operational directories.
 - Walk-request carrier records and dispatch logs under `state/walk-requests/` (`bin/fm-walk-request-check.sh`).
 - Lane-release markers `state/<id>.released`, written only by `bin/fm-lane-release.sh` and read through `bin/fm-lane-release-lib.sh`, plus that script's candidate, exit-log, and counter files.
 - Conditional GitHub read caches under `state/gh-etag/` (ETag, last body, and the PR poll's stored label facts per poll) and the allowance check's `state/.gh-rate-check`, written only by `bin/fm-gh-etag-lib.sh` and `bin/fm-gh-rate-check.sh` and their callers; both are rebuildable.
-- The append-only auto-launch decision log `state/autolaunch.log` and its throttle-check episode marker, written only by `bin/fm-autolaunch.sh` and `bin/fm-autolaunch-check.sh` ([Auto-launch](#auto-launch)).
+- The append-only auto-launch log `state/autolaunch.log`, including receipt witnesses from the step engine's spawn and teardown callers, and the companion throttle check's episode marker ([Auto-launch](#auto-launch)).
 
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`.
 
@@ -858,11 +858,12 @@ See [Machine capacity](#machine-capacity-configlane-capacity) for machine admiss
 
 ## Lane release (config/lane-release)
 
-The optional local, gitignored `config/lane-release` holds one word that decides whether this home frees the seat of a worker whose job is finished and landed: `off` (the default, also when the file is absent), `audit`, or `on`.
-Only two classes are ever released: a ship whose pull request has merged, and a scout whose report exists and whose completion gate has passed with no captain hold, Lavish board, or promotion pending.
+The optional local, gitignored `config/lane-release` holds one word that decides whether this home frees eligible idle workers' seats: `off` (the default, also when the file is absent), `audit`, or `on`.
+The [script header](../bin/fm-lane-release.sh) defines eligibility for merged ships, completed scouts, and slice owners at recorded waits (`owner-waiting`).
 A release stops the agent through the [unattended control-plane exit](agent-control.md#verbs) and keeps the local copy; a continuation uses the [relaunch transaction](agent-control.md#transactional-relaunch) with its required progress note.
-Every other worker keeps its seat, including a ship with an open pull request and any worker that is not proven idle with nothing new since it finished.
-Local-only ships are explicitly excluded from automatic lane release, retain their seats, and appear as `kept-local-only` holders in `--audit`.
+An `owner-waiting` release preserves the in-flight task, branch and unlanded work; it does not accept or close the slice.
+Ships with open pull requests and local-only ships keep their seats unless they qualify as `owner-waiting`; local-only holders otherwise appear as `kept-local-only` in `--audit`.
+Every candidate must be proven idle with no intervening activity.
 
 With the file absent or set to `off`, the sweep does nothing and prints nothing.
 Empty, blank, padded, or split-line values are invalid; the [script header](../bin/fm-lane-release.sh) owns parsing and the single-line invalid-setting report.
@@ -873,7 +874,7 @@ Arm the sweep once per home with `bin/fm-lane-release.sh arm`, which writes `sta
 
 The word is a per-home choice and is deliberately not inherited by secondmate homes, so each home moves from `off` to `audit` to `on` on its own schedule.
 [`bin/fm-lane-release-lib.sh`](../bin/fm-lane-release-lib.sh) owns the marker and the reader rule for reporting and recovery.
-The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the finished-and-landed predicates, the release state machine, the check shim's code-root selection, the ledger, the audit exit codes, and the fixed limits.
+The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the release predicates, the release state machine, the check shim's code-root selection, the ledger, the audit exit codes, and the fixed limits.
 
 ## Auto-launch
 
@@ -892,7 +893,7 @@ On the other homes the commands are documented here only, and run there once the
 | Server q-crew | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill` | `FM_HOME=/home/qcrew/fm-home2 /home/qcrew/firstmate-stock/bin/fm-autolaunch.sh --backfill --apply` |
 
 Held, parked, blocked, and unprepared items never launch, and an item already waiting in the deferred-spawn retry queue is left to that queue.
-Every decision appends one tab-separated record to `state/autolaunch.log`: the time, lane, item, model, and either `launched` or `refused:<reason>`.
+Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh); slice effects also write receipt witnesses to the same `state/autolaunch.log` through the [step engine](../bin/fm-autolaunch-steps.py).
 
 Nothing enables a schedule automatically.
 To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
@@ -903,7 +904,7 @@ The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep
 The [verification inventory](verification/autolaunch.md) maps affected classes to regressions and identifies live-proof gaps.
 
 Slice progression is independently opt-in through `config/autolaunch-steps`.
-An absent file or `off` leaves the existing launch behavior unchanged.
+An absent file or `off` disables step transitions.
 Each line grants a lease with `act <owner-id> ...`, or leaves the named owners under the mate with `observe <owner-id> ...`; bare `observe` inspects recorded slices without granting a lease.
 Only the leased pass writes an owner's step log and performs its transitions; a mate that needs to act manually first returns that owner to `observe`.
 `bin/fm-autolaunch.sh --steps-only` advances those slices and launches their tester and review tasks using the ordinary admission and default-profile selection, without launching unrelated ready items.
@@ -918,7 +919,7 @@ The tester edits its named paths on the owner's recorded branch; before either b
 Fallback filing records its qualified task identity through an archived owner-body update.
 Eligible tester candidates prefer a different known model family, with ordinary quota-refusal fallback.
 Direct-PR review uses one task per generation and cut, including fix heads; no-mistakes keeps its own review round.
-The walk carrier's optional attempt field distinguishes deliberate same-release retries while retaining the logical assignment and legacy requests.
+The [walk-request carrier](#walk-request-carrier) transports deliberate same-release retries.
 Missing carrier facts leave the obligation open, and a stale carrier or exhausted machinery retry stays with its machinery owner.
 Green completion requires current walk coverage on a release containing the latest repair, and records the filed result path before receipt-bound non-force runtime cleanup and native acceptance.
 Runtime cleanup leaves the task in flight until its completed receipt authorizes acceptance under the lifecycle lock.
@@ -934,7 +935,7 @@ Finding delivery requires the destination owner's active lease; observation leav
 The same armed throttle check also evaluates C2 after a completed step pass: a pending receipt without a recorded wait reason, or a fired trigger left without a receipt.
 It reuses `state/.autolaunch-check.red` and the parent-channel report, emits once per C2 episode, and clears when the condition clears.
 Admission waits and open walk obligations remain pending for the next pass.
-`bin/fm-lane-release.sh` can classify an idle owner at a completed wait as `owner-waiting`, releasing its process while preserving its in-flight task, branch and work.
+Process release at a recorded owner wait follows the [lane-release contract](#lane-release-configlane-release).
 Receipt-bound continuation uses the additive `fm-control.sh relaunch --if-recoverable --step-action` contract; ordinary startup recovery retains its original eligibility checks.
 
 ## PR-ready line after green (config/ready-after-green)
@@ -1269,7 +1270,9 @@ Registering it is a reason to watch on the same terms as the [daily startup grow
 ## Walk-request carrier
 
 A secondmate whose machine has no access to the home-private walker dispatcher asks for a checkpoint walk with [`bin/fm-walk-request.sh`](../bin/fm-walk-request.sh): it writes one typed request (brief content or a local brief path, release sha, walk ids, optional bot name) on the mate's parent channel, which is the pipe that already reaches the dispatcher-owning home for every mate shape.
-Arming [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) with `arm` in that home - the same authenticated watcher-check binding as the growth check above - dispatches each requested walk at most once per `<walk-id>@<release>` through the home's `data/bin/fm-grok-bot-dispatch.sh` and returns the outcome to the requesting mate as a fire-and-forget steering-inbox message.
+Arming [`bin/fm-walk-request-check.sh`](../bin/fm-walk-request-check.sh) with `arm` in that home - the same authenticated watcher-check binding as the growth check above - dispatches requests through the home's `data/bin/fm-grok-bot-dispatch.sh` and returns the outcome to the requesting mate as a fire-and-forget steering-inbox message.
+Requests deduplicate by walk and release unless an explicit attempt distinguishes a deliberate retry on the same release; pre-chat refusals retain that attempt for retry when the reason clears.
+The [carrier header](../bin/fm-walk-request.sh) owns attempt numbering, dispatch keys and fixed correlation identities.
 Remote requests carry the brief inline through the existing parent channel; MAIN never opens a remote mate's supplied path.
 Briefs must be UTF-8 text of at most 64 KiB; binary and larger inputs are refused.
 The carrier requires an absolute source path under the requesting mate's or MAIN's home, using either the configured home path or its resolved form; the resolved file must be inside the mate's `data/walk-briefs/` or MAIN's `data/from-main/walk-lists/`.
