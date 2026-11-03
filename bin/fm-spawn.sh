@@ -206,7 +206,11 @@
 #   because the existing task's control lock covers it.
 #   A fresh Treehouse-backed spawn also takes the project-identity lock in the local
 #   root Firstmate home's state directory before slot allocation and holds it through
-#   task metadata publication. Teardown holds that same lock while proving and
+#   task metadata publication. Existing-copy relaunches hold it as well.
+#   bin/fm-treehouse-lib.sh protects retained records with durable leases before
+#   allocation and refuses shared copies before claim or reuse. Interactive
+#   reservations become durable before launch, so worker exit never releases a
+#   retained record's copy. Teardown holds that same lock while proving and
 #   returning a slot, so allocation cannot reuse a slot before its owner record
 #   is published. Under that same lock it writes the slot's owner claim, which is
 #   what lets teardown leave a slot reassigned since untouched; bin/fm-wake-lib.sh
@@ -2118,17 +2122,21 @@ spawn_abort_cleanup() {
   fi
   if [ "$T3CODE_LEASED" = 1 ] && [ -n "${WT:-}" ]; then
     T3CODE_LEASED=0
-    rm -f "$WT/.claude/settings.local.json" 2>/dev/null || true
-    # Only a CLAUDE.local.md this spawn wrote: the channel install refuses one
-    # already in the slot, and that one stays as found.
-    [ "$T3CODE_CLAUDE_CHANNEL_WRITTEN" != 1 ] || rm -f "$WT/CLAUDE.local.md" 2>/dev/null || true
-    if ! "$SCRIPT_DIR/fm-t3code-codex-env.sh" cleanup "$WT" \
-      || [ -e "$WT/.claude/settings.local.json" ] \
-      || { [ "$T3CODE_CLAUDE_CHANNEL_WRITTEN" = 1 ] && [ -e "$WT/CLAUDE.local.md" ]; }; then
-      echo "warning: could not remove the T3 environment files this spawn wrote into $WT for $ID, so it stays leased; remove them, then run 'treehouse return --force $WT' from $PROJ_ABS" >&2
+    if ! fm_worktree_require_exclusive_record "$STATE" "$WT" "$STATE/$ID.meta"; then
+      echo "warning: retaining contested T3 copy $WT without cleanup" >&2
     else
-      (cd "$PROJ_ABS" && treehouse return --force "$WT") >/dev/null 2>&1 \
-        || echo "warning: could not return the leased worktree $WT for $ID; run 'treehouse return --force $WT' from $PROJ_ABS" >&2
+      rm -f "$WT/.claude/settings.local.json" 2>/dev/null || true
+      # Only a CLAUDE.local.md this spawn wrote: the channel install refuses one
+      # already in the slot, and that one stays as found.
+      [ "$T3CODE_CLAUDE_CHANNEL_WRITTEN" != 1 ] || rm -f "$WT/CLAUDE.local.md" 2>/dev/null || true
+      if ! "$SCRIPT_DIR/fm-t3code-codex-env.sh" cleanup "$WT" \
+        || [ -e "$WT/.claude/settings.local.json" ] \
+        || { [ "$T3CODE_CLAUDE_CHANNEL_WRITTEN" = 1 ] && [ -e "$WT/CLAUDE.local.md" ]; }; then
+        echo "warning: could not remove the T3 environment files this spawn wrote into $WT for $ID, so it stays leased; remove them, then run 'treehouse return --force $WT' from $PROJ_ABS" >&2
+      else
+        (cd "$PROJ_ABS" && treehouse return --force "$WT") >/dev/null 2>&1 \
+          || echo "warning: could not return the leased worktree $WT for $ID; run 'treehouse return --force $WT' from $PROJ_ABS" >&2
+      fi
     fi
   fi
   if [ "$SPAWN_TASK_LOCK_HELD" = 1 ]; then
@@ -2190,7 +2198,8 @@ spawn_abort_cleanup() {
     [ "$SPAWN_LAUNCH_SENT" = 0 ] &&
     { [ "$SPAWN_FRESH_ENDPOINT_OPENED" = 0 ] || [ "$SPAWN_ENDPOINT_CLOSED" = 1 ]; } &&
     [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
-    if [ -n "$SPAWN_CODEX_LEASE_HEAD" ] &&
+    if fm_worktree_require_exclusive_record "$STATE" "$SPAWN_CODEX_LEASE_PATH" "$STATE/$ID.meta" &&
+      [ -n "$SPAWN_CODEX_LEASE_HEAD" ] &&
       [ "$(git -C "$SPAWN_CODEX_LEASE_PATH" rev-parse --verify HEAD 2>/dev/null)" = "$SPAWN_CODEX_LEASE_HEAD" ] &&
       (cd "$PROJ_ABS" && treehouse return "$SPAWN_CODEX_LEASE_PATH" \
       --if-lease-id "$SPAWN_CODEX_LEASE_ID" --if-lease-holder "$ID") </dev/null; then
@@ -2209,6 +2218,7 @@ spawn_abort_cleanup() {
     if [ "$RELEASED_ENDPOINT_OPENED" = 1 ]; then
       released_safe=0
     elif { [ "$SPAWN_SLOT_CLAIMED" = 1 ] || [ -n "$SPAWN_CODEX_LEASE_ID" ]; } && [ -n "${WT:-}" ]; then
+      fm_worktree_require_exclusive_record "$STATE" "$WT" "$STATE/$ID.meta" || released_safe=0
       released_abort_head=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null) || released_safe=0
       released_abort_dirty=$(git -C "$WT" status --porcelain --untracked-files=all --ignored --ignore-submodules=none 2>/dev/null) || released_safe=0
       if [ -n "$released_abort_dirty" ] ||
@@ -2779,6 +2789,9 @@ if [ "$RELAUNCH" -eq 1 ]; then
         exit 1
         ;;
     esac
+  fi
+  if [ "$RELAUNCH_FROM_RELEASED" = 0 ] && [ "$(fm_meta_get "$RELAUNCH_META" kind)" != secondmate ]; then
+    fm_worktree_require_exclusive_record "$STATE" "$(fm_meta_get "$RELAUNCH_META" worktree)" "$RELAUNCH_META" || exit 1
   fi
   fm_backend_validate_spawn "$BACKEND" || exit 1
   fm_backend_source "$BACKEND" || exit 1
@@ -4488,6 +4501,7 @@ if [ "$KIND" = secondmate ]; then
     exit 1
   }
   PROJ_ABS=$(validate_firstmate_home_for_spawn "$ID" "$FIRSTMATE_HOME")
+  fm_worktree_require_exclusive_record "$STATE" "$PROJ_ABS" "$STATE/$ID.meta" || exit 1
   if [ -e "$DATA/secondmates.md" ] || [ -L "$DATA/secondmates.md" ]; then
     if ! secondmate_registry_validate_bindings "$DATA/secondmates.md" resolve_path "$ID" "$FIRSTMATE_HOME"; then
       echo "error: $SECONDMATE_REGISTRY_ERROR" >&2
@@ -4598,7 +4612,7 @@ if { [ "$RELAUNCH" -eq 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } && [ "$KIND" 
   SPAWN_PROJECT_CAPACITY=$FM_PROJECT_CAPACITY
   SPAWN_PROJECT_CAPACITY_ANY=$FM_PROJECT_CAPACITY_ANY
 fi
-if { [ "$RELAUNCH" -eq 0 ] || [ "$RELAUNCH_FROM_RELEASED" = 1 ]; } && [ "$KIND" != secondmate ] &&
+if [ "$KIND" != secondmate ] &&
   { [ "$BACKEND" != orca ] || [ -n "$SPAWN_PROJECT_CAPACITY_ANY" ]; }; then
   SPAWN_TREEHOUSE_PROJECT_LOCK=$(fm_treehouse_project_lock_path "$PROJ_ABS") || {
     echo "error: could not resolve the shared Treehouse project lock for $PROJ_ABS" >&2
@@ -5012,6 +5026,15 @@ spawn_endpoint_hint() {
 
 validate_spawn_worktree() { # <source> <inspect-target>
   local source=$1 inspect_target=$2
+  if ! fm_worktree_require_exclusive_record "$STATE" "$WT" "$STATE/$ID.meta"; then
+    # A misdirected allocator has handed us somebody else's copy. Abort must
+    # not delete it, or let an interactive Treehouse shell return/reset it.
+    ORCA_ABORT_CLEANUP=0
+    if fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
+      fm_treehouse_hold_recorded_copy "$PROJ_ABS" "$WT" "$ID" || true
+    fi
+    exit 1
+  fi
   if ! spawn_worktree_isolated "$WT"; then
     echo "error: $source did not yield an isolated worktree (resolved '$WT'; worktree root '${SPAWN_WT_TOP:-none}'; spawning project '$PROJ_ABS'); refusing to launch to avoid tangling the primary checkout. Inspect target $inspect_target" >&2
     exit 1
@@ -5292,6 +5315,14 @@ fi
 if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
   echo "error: task $ID has a pending authoritative backlog close at $STATE/$ID.backlog-close; finish or repair that close before dispatching a new worker" >&2
   exit 1
+fi
+
+# Reserve every retained legacy copy before any allocator can reset it.
+if [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
+  fm_treehouse_protect_recorded_copies "$STATE" "$PROJ_ABS" || exit 1
+fi
+if [ "$RELAUNCH" = 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ] && [ "$KIND" != secondmate ]; then
+  fm_worktree_require_exclusive_record "$STATE" "$RELAUNCH_WT" "$RELAUNCH_META" || exit 1
 fi
 
 W="fm-$ID"
@@ -6825,18 +6856,18 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] && [ "$CODEX_WORKTREE_P
     fi
   fi
 
-  # Claim the pool slot for this task. The interactive `treehouse get` sent to
-  # the pane above records only a process lease (Treehouse's durable
-  # `get --lease --lease-holder`, which bin/fm-home-seed.sh uses for secondmate
-  # homes, is not this path), so Treehouse cannot say which task a slot belongs
-  # to once that task's worker exits - and that is exactly when the slot is
-  # handed on and this task's worktree= line goes stale. The claim is what lets
-  # bin/fm-teardown.sh leave a slot that has since been reassigned untouched, so
-  # a slot that cannot be claimed is refused here, at the cheapest point, rather
-  # than launching a worker whose slot teardown could later release out from
-  # under its successor.
-  # Written under the Treehouse project lock held from before slot allocation
-  # through metadata publication, so no other spawn or return sees a half-claim.
+  # Take over the interactive reservation with a durable lease before launch.
+  # The shell then cannot return/reset the copy when its worker exits.
+  # bin/fm-treehouse-lib.sh owns retention and legacy-record protection.
+  fm_treehouse_hold_recorded_copy "$PROJ_ABS" "$WT" "$ID" || {
+    echo "error: cannot retain task $ID's copy $WT until cleanup; refusing launch" >&2
+    exit 1
+  }
+  if [ -n "$FM_TREEHOUSE_NEW_LEASE_ID" ]; then
+    SPAWN_CODEX_LEASE_PATH=$WT
+    SPAWN_CODEX_LEASE_ID=$FM_TREEHOUSE_NEW_LEASE_ID
+    SPAWN_CODEX_LEASE_HEAD=$(git -C "$WT" rev-parse --verify HEAD) || exit 1
+  fi
   if fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
     released_mutation_begin
     if ! fm_treehouse_slot_owner_claim "$WT" "$ID" "$FM_HOME"; then
@@ -6850,8 +6881,14 @@ fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$CODEX_WORKTREE_PREPARED" = 0 ] && [ "$BACKEND" != t3code ]; then
   freshen_spawn_worktree_base "$WT" "$BASE_BRANCH" "$PROJ_ABS" "$MODE" || exit 1
 fi
+if [ -n "$SPAWN_CODEX_LEASE_ID" ] && [ "$CODEX_WORKTREE_PREPARED" = 0 ]; then
+  SPAWN_CODEX_LEASE_HEAD=$(git -C "$WT" rev-parse --verify HEAD) || exit 1
+fi
 if [ "$RELAUNCH_FROM_RELEASED" = 1 ]; then
   [ "$CODEX_WORKTREE_PREPARED" = 1 ] || released_recreate_branch || exit 1
+  if [ -n "$SPAWN_CODEX_LEASE_ID" ]; then
+    SPAWN_CODEX_LEASE_HEAD=$(git -C "$WT" rev-parse --verify HEAD) || exit 1
+  fi
   released_write_progress_note || exit 1
 fi
 

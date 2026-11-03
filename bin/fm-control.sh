@@ -509,6 +509,14 @@ WT=$(fm_meta_get "$META" worktree)
 # "Relaunching a released copy").
 RELEASED=0
 [ "$WT" != "$STATE/$ID.released-copy" ] || RELEASED=1
+if [ "$VERB" = relaunch ] && [ "$KIND" != secondmate ] && [ "$RELEASED" = 0 ]; then
+  # Refuse before checkpointing, stopping the old agent or writing instructions.
+  # shellcheck source=bin/fm-treehouse-lib.sh
+  . "$SCRIPT_DIR/fm-treehouse-lib.sh"
+  # shellcheck source=bin/fm-secondmate-registry-lib.sh
+  . "$SCRIPT_DIR/fm-secondmate-registry-lib.sh"
+  fm_worktree_require_exclusive_record "$STATE" "$WT" "$META" || exit 1
+fi
 # OpenCode's composer exit key changed between its 1.x and 2.x lines; the major
 # spawn detected is recorded here so the exit command below matches the running
 # agent. Absent (a legacy record or a non-opencode task) it stays empty.

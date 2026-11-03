@@ -70,6 +70,10 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-treehouse-lib.sh
+. "$SCRIPT_DIR/fm-treehouse-lib.sh"
+# shellcheck source=bin/fm-backend.sh
+. "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-tasks-axi-lib.sh
 . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
 # shellcheck source=bin/fm-backlog-transition-lib.sh
@@ -185,6 +189,7 @@ fi
 printf -v BRANCH_Q '%q' "$BRANCH"
 CONTROL_LOCK="$STATE/.control-$ID.lock"
 CONTROL_LOCK_HELD=0
+PROJECT_LOCK=
 META_LOCK=
 META_LOCK_HELD=0
 TMP=
@@ -207,6 +212,7 @@ promote_cleanup() {
     CONTROL_LOCK_HELD=0
     fm_lock_release "$CONTROL_LOCK" || true
   fi
+  [ -z "$PROJECT_LOCK" ] || fm_lock_release "$PROJECT_LOCK" || true
   return "$status"
 }
 trap promote_cleanup EXIT
@@ -231,6 +237,13 @@ grep -qx 'kind=scout' "$META" || { echo "error: task $ID is not a scout task (ki
 # captain's project binding, so promotion takes it from the registry rather than
 # from a flag firstmate must remember.
 PROMOTE_PROJECT=$(sed -n 's/^project=//p' "$META" | head -n 1)
+PROMOTE_WORKTREE=$(fm_meta_get "$META" worktree)
+if [ -d "$PROMOTE_WORKTREE" ]; then
+  PROJECT_LOCK=$(fm_treehouse_project_lock_path "$PROMOTE_PROJECT") || exit 1
+  fm_lock_try_acquire "$PROJECT_LOCK" || { echo "REFUSED: copy allocation or cleanup is in progress" >&2; exit 1; }
+  fm_worktree_require_exclusive_record "$STATE" "$PROMOTE_WORKTREE" "$META" || exit 1
+  fm_treehouse_hold_recorded_copy "$PROMOTE_PROJECT" "$PROMOTE_WORKTREE" "$ID" || exit 1
+fi
 if [ -n "$PROMOTE_PROJECT" ]; then
   PROMOTE_PROJECT_NAME=$(basename "$PROMOTE_PROJECT")
   if ! PROMOTE_STANDING_FORGE=$("$FM_ROOT/bin/fm-project-mode.sh" --forge "$PROMOTE_PROJECT_NAME"); then

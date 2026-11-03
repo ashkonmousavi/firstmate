@@ -230,6 +230,8 @@
 # These refusals are not relaxed by --force: --force authorizes discarding THIS
 # task's unlanded work, never another task's live work. Nothing of this task's
 # own is removed by a refusal; reconcile whichever record is wrong and re-run.
+# An owned copy with branch= recorded must still be on that exact branch,
+# even under --force. Foreign-claim records-only cleanup never changes its copy.
 # Orca is not a pool slot and proves its path through
 # require_orca_worktree_path_match instead.
 # Orca tasks use the same safety checks, then close the recorded terminal and
@@ -262,6 +264,18 @@
 # leased home and state in place instead of hiding a still-held lease.
 # Usage: fm-teardown.sh <task-id> [--force] [--keep-open] [--legacy-record]
 #        fm-teardown.sh <task-id> --step-action <owner>:<pending-teardown-key>
+#        fm-teardown.sh <scout-id> --records-only-shared-with <retained-task-id>
+#   --records-only-shared-with retires a completed/superseded scout record that
+#   names a copy another retained ship/scout in THIS home also names. It requires
+#   a real Treehouse slot, the retained task's branch agreement when recorded,
+#   and an absent claim or a claim naming one of those two tasks. Under the
+#   project lock, normal report/decision/backlog/endpoint gates still apply.
+#   Before retiring this record, it durably protects the copy and publishes
+#   its claim for the retained task. No process under the copy is reaped, and
+#   no file, branch, hook or Git state inside it is changed. Only this scout
+#   endpoint and records are cleaned. It refuses --force and --step-action.
+#   A missing report still requires an honest supersession report and the usual
+#   completion gate; this flag never manufactures completion or acceptance.
 #   --step-action binds runtime-only cleanup to the leased slice receipt.
 #   It retains native task state and dependencies, requires strict landed and
 #   merged proof, and records `cleanup-ready <id> <key>` in autolaunch.log after
@@ -470,7 +484,8 @@ for _teardown_source in \
   fm-nm-run-lib.sh \
   fm-wake-lib.sh \
   fm-path-lib.sh \
-  fm-lease-lib.sh
+  fm-lease-lib.sh \
+  fm-treehouse-lib.sh
 do
   teardown_require_source "$SCRIPT_DIR/$_teardown_source"
 done
@@ -485,6 +500,8 @@ unset _teardown_source
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
 # shellcheck source=bin/fm-control-lib.sh
 . "$SCRIPT_DIR/fm-control-lib.sh"
+# shellcheck source=bin/fm-treehouse-lib.sh
+. "$SCRIPT_DIR/fm-treehouse-lib.sh"
 # shellcheck source=bin/fm-lock-lib.sh
 . "$SCRIPT_DIR/fm-lock-lib.sh"
 # shellcheck source=bin/fm-gate-refuse-lib.sh
@@ -611,12 +628,17 @@ TEARDOWN_RELEASED_HEAD=
 TEARDOWN_RELEASED_BRANCH=
 TEARDOWN_DEPENDENTS=
 LEGACY_RECORD_GIVEN=0
+RECORDS_ONLY_SHARED_WITH=
 shift
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) FORCE=--force ;;
     --keep-open) KEEP_OPEN=1 ;;
     --legacy-record) LEGACY_RECORD_GIVEN=1 ;;
+    --records-only-shared-with)
+      fm_task_id_path_safe "${2:-}" || { echo 'error: --records-only-shared-with requires a retained task id' >&2; exit 2; }
+      RECORDS_ONLY_SHARED_WITH=$2
+      shift ;;
     --step-action)
       [ -n "${2:-}" ] || { echo 'error: --step-action requires a receipt' >&2; exit 2; }
       STEP_ACTION=$2
@@ -628,6 +650,10 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+if [ -n "$RECORDS_ONLY_SHARED_WITH" ] && { [ -n "$FORCE" ] || [ -n "$STEP_ACTION" ]; }; then
+  echo 'error: shared-record retirement refuses --force and --step-action' >&2
+  exit 2
+fi
 if [ -n "$STEP_ACTION" ] && { [ -n "$FORCE" ] || [ "$KEEP_OPEN" = 1 ] || [ "$LEGACY_RECORD_GIVEN" = 1 ]; }; then
   echo 'error: --step-action requires ordinary non-force runtime cleanup' >&2
   exit 2
@@ -3627,7 +3653,8 @@ preflight_descendant_treehouse_slots() {
     owner_rc=0
     require_owned_worktree_slot_record "$task_id" "$worktree" || owner_rc=$?
     case "$owner_rc" in
-      0|"$TEARDOWN_SLOT_REASSIGNED_RC") ;;
+      0) fm_worktree_require_recorded_branch "$meta" "$worktree" || return 1 ;;
+      "$TEARDOWN_SLOT_REASSIGNED_RC") ;;
       *) return 1 ;;
     esac
   done
@@ -3916,6 +3943,7 @@ cleanup_firstmate_home_children() {
       :
     elif [ "$child_backend" = orca ]; then
       if [ -n "$child_wt" ] && [ -d "$child_wt" ]; then
+        fm_worktree_require_recorded_branch "$child_meta" "$child_wt" || return 1
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
         rm -f "$child_wt/.claude/settings.local.json" "$child_wt/.opencode/plugins/fm-turn-end.js" \
           "$child_wt/.fm-grok-turnend" "$child_wt/.fm-kimi-turnend"
@@ -3935,6 +3963,7 @@ cleanup_firstmate_home_children() {
       elif [ "$child_owner_rc" -ne 0 ]; then
         require_owned_worktree_slot_record "$child_id" "$child_wt" || return 1
       else
+        fm_worktree_require_recorded_branch "$child_meta" "$child_wt" || return 1
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
         rm -f "$child_wt/.claude/settings.local.json" "$child_wt/.opencode/plugins/fm-turn-end.js" \
           "$child_wt/.opencode/plugins/fm-busy-state.js" \
@@ -4008,8 +4037,44 @@ remove_secondmate_registry_entry() {
   return "$rc"
 }
 
-require_exclusive_task_worktree_slot || exit 1
-require_owned_task_worktree_slot || exit 1
+if [ -n "$RECORDS_ONLY_SHARED_WITH" ]; then
+  SHARED_KEEPER_META="$STATE/$RECORDS_ONLY_SHARED_WITH.meta"
+  if [ "$KIND" != scout ] || [ "$ID" = "$RECORDS_ONLY_SHARED_WITH" ] ||
+    ! fm_treehouse_pool_slot "$PROJ" "$WT" ||
+    ! fm_backlog_record_present "$SHARED_KEEPER_META" 'retained task record' "$STATE"; then
+    echo 'REFUSED: shared-record retirement requires a scout and another retained task on a real Treehouse slot' >&2
+    exit 1
+  fi
+  case "$(fm_meta_get "$SHARED_KEEPER_META" kind)" in
+    ship|scout) ;;
+    *) echo 'REFUSED: the retained owner must be a ship or scout' >&2; exit 1 ;;
+  esac
+  SHARED_KEEPER_WT=$(fm_meta_get "$SHARED_KEEPER_META" worktree)
+  if [ "$(canonical_existing_dir "$WT")" != "$(canonical_existing_dir "$SHARED_KEEPER_WT")" ]; then
+    echo 'REFUSED: the retained task does not name this same copy' >&2
+    exit 1
+  fi
+  fm_worktree_require_recorded_branch "$SHARED_KEEPER_META" "$WT" || exit 1
+  fm_treehouse_slot_owner_state "$WT" "$ID"
+  case "$FM_TREEHOUSE_SLOT_OWNER:$FM_TREEHOUSE_SLOT_OWNER_ID" in
+    absent:|mine:*|"other:$RECORDS_ONLY_SHARED_WITH") ;;
+    *) echo 'REFUSED: shared copy has an unreadable claim or a third claimant' >&2; exit 1 ;;
+  esac
+  if [ -n "$FM_TREEHOUSE_SLOT_OWNER_HOME" ] &&
+    [ "$(canonical_existing_dir "$FM_TREEHOUSE_SLOT_OWNER_HOME")" != "$(canonical_existing_dir "$FM_HOME")" ]; then
+    echo 'REFUSED: shared copy claim belongs to another home' >&2
+    exit 1
+  fi
+  TEARDOWN_SLOT_REASSIGNED=1
+  TEARDOWN_SLOT_REASSIGNED_TO=$RECORDS_ONLY_SHARED_WITH
+  TEARDOWN_SLOT_REASSIGNED_HOME=$FM_HOME
+else
+  require_exclusive_task_worktree_slot || exit 1
+  require_owned_task_worktree_slot || exit 1
+fi
+if [ "$KIND" != secondmate ] && teardown_owns_worktree; then
+  fm_worktree_require_recorded_branch "$META" "$WT" || exit 1
+fi
 
 validate_pr_poll_cleanup "$STATE" "$ID" || exit 1
 
@@ -4019,6 +4084,7 @@ if [ "$KIND" = secondmate ]; then
   LOCAL_HANDOFF_LOCK="$STATE/.backlog-handoff-$ID.lock"
   fm_lock_acquire_wait "$LOCAL_HANDOFF_LOCK" || exit 1
   [ -n "$HOME_PATH" ] || HOME_PATH=$WT
+  fm_worktree_require_exclusive_record "$STATE" "$HOME_PATH" "$META" || exit 1
   handoff_wake_retire_stage_recover "$HOME_PATH" || exit 1
   handoff_wake_retire_validate || exit 1
   pending_replies_recovery_validate initial || exit 1
@@ -4246,6 +4312,12 @@ fi
 # kind=secondmate: a secondmate home's own runtime lifecycle is owned by the
 # dedicated process-event and firstmate-home removal machinery further below,
 # not by task-worktree cleanup.
+if [ -n "$RECORDS_ONLY_SHARED_WITH" ]; then
+  # Both records remain until every ordinary refusal has passed. Preserve the
+  # surviving record's custody outside the checkout before retiring this one.
+  fm_treehouse_hold_recorded_copy "$PROJ" "$WT" "$RECORDS_ONLY_SHARED_WITH" || exit 1
+  fm_treehouse_slot_owner_claim "$WT" "$RECORDS_ONLY_SHARED_WITH" "$FM_HOME" || exit 1
+fi
 if [ "$KIND" != secondmate ] && teardown_owns_worktree; then
   conclude_task_no_mistakes_run "$WT"
   reap_task_worktree_processes worktree "$WT" "$TASK_TMP"
@@ -4287,6 +4359,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree;
     ORCA_PATH_MATCH_VERIFIED=1
   fi
   if [ -d "$WT" ]; then
+    fm_worktree_require_recorded_branch "$META" "$WT" || exit 1
     branch=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
     if [ "$branch" != "HEAD" ]; then
       if git -C "$WT" checkout --detach -q 2>/dev/null; then
@@ -4307,6 +4380,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree;
 elif [ "$KIND" != secondmate ] && ! teardown_owns_worktree; then
   :
 elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
+  fm_worktree_require_recorded_branch "$META" "$WT" || exit 1
   branch=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
   if [ "$branch" != "HEAD" ]; then
     if git -C "$WT" checkout --detach -q 2>/dev/null; then
