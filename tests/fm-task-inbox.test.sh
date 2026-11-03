@@ -1445,6 +1445,40 @@ test_handled_mv_dedups_by_sequence() {
   pass "inbox: the handled mv is the idempotent ack and sequences are never reissued"
 }
 
+# Count shell processes through the public writer, independently of timing or
+# host load. History must not add one command-substitution shell per record.
+test_write_history_has_bounded_shell_processes() {
+  local state dir i rec count
+  state="$TMP_ROOT/history-cost/state"
+  dir="$state/t1.inbox"
+  mkdir -p "$dir/handled"
+  for ((i = 1; i <= 2048; i++)); do
+    printf -v rec '%s/handled/%04d.msg' "$dir" "$i"
+    printf 'historical record\n' > "$rec"
+  done
+  # Lexical order differs from numeric order; junk names are not sequences.
+  printf 'pending\n' > "$dir/009.msg"
+  printf 'junk\n' > "$dir/not-a-sequence.msg"
+  rec=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    if [ -n "${BASHPID:-}" ]; then
+      exec 9> "$3"
+      set -T
+      trap '\''printf "%s\n" "$BASHPID" >&9'\'' DEBUG
+    fi
+    fm_task_inbox_write "$2" t1 "new steer"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" "$state/processes") || fail "write with large history failed"
+  [ "$rec" = "$dir/2049.msg" ] || fail "history high-water sequence was not preserved: $rec"
+  [ "$(inbox_lib "$state" fm_task_inbox_body "$rec")" = 'new steer' ] || fail "history write lost its body"
+  if [ -f "$state/processes" ]; then
+    count=$(sort -u "$state/processes" | wc -l | tr -d ' ')
+    [ "$count" -le 64 ] || fail "one write spawned $count shells for 2048 history records (budget 64)"
+    pass "inbox: large history write uses $count shells (budget 64), preserves sequence and body"
+  else
+    pass "inbox: history sequence/body preserved; shell-cost check unavailable without BASHPID"
+  fi
+}
+
 test_concurrent_writers_never_clobber() {
   local state i pids=() count
   state="$TMP_ROOT/race/state"; mkdir -p "$state"
@@ -2536,6 +2570,7 @@ test_watcher_rerings_nonqueue_inside_grace_after_busy() {
 }
 
 
+test_write_history_has_bounded_shell_processes
 test_write_is_durable_and_exact
 test_doorbell_is_a_shell_noop
 test_doorbell_rejects_terminal_controls
