@@ -8,13 +8,6 @@
 # GB here means 1024^3 bytes. Zero ceiling stops admission; the reserve check
 # requires available memory minus reserve >= 0. There are no
 # per-lane estimates and CPU load never refuses admission.
-# Every local registered home is counted through fm_local_firstmate_state_dirs.
-# Task records hold a lane under fm_task_record_holds_seat, the shared seat
-# rule owned by bin/fm-project-capacity-lib.sh.
-# A ready-PR handoff alone does not exempt a record from the lane count.
-# Persistent secondmate records are exempt.
-# External bots have no local records;
-# ordinary local workers carrying walk markers still hold a lane.
 # Numeric memory, pressure and disk facts come from fm-machine-resources.py.
 # Physical occupied/free seats come from activity.sh --machine-json.
 # Admission refusal never changes the physical free-seat count.
@@ -26,9 +19,6 @@
 # Unreadable config, state, registry or resource facts fail closed with exit 75.
 # Admission is a fresh reading before launch, including relaunch. No machine
 # lock is held across launch; reports and placement advice reserve no lane.
-
-# shellcheck source=bin/fm-agent-process-lib.sh
-. "${BASH_SOURCE[0]%/*}/fm-agent-process-lib.sh"
 
 # One tab-separated line per resource verdict, so before/after admission can be
 # tabulated against real free memory. Columns:
@@ -99,14 +89,20 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   memory_source='fm-machine-resources.py clean-cache host/cgroup minimum'
   FM_CAPACITY_AVAILABLE_KB=$available
   FM_CAPACITY_HEADROOM_KB=$((FM_CAPACITY_AVAILABLE_KB - FM_CAPACITY_RESERVE_KB))
-  local activity="$HOME/.config/skills-master/.agents/skills/activity/activity.sh" lane_facts
+  local activity="${BASH_SOURCE[0]%/*}/activity.sh" lane_facts
   if [ "${FM_TEST_SEAM:-}" = 1 ]; then activity=${FM_ACTIVITY_READER:-$activity}; fi
   # Resolve machine root exactly as the config reader did; replacements exclude
   # only their own task record and do not reserve a second seat.
   lane_facts=$(bash "$activity" --machine-json "${config_dir%/config}" "${self:+$state/$self.meta}") || {
     FM_CAPACITY_ERROR="activity live-process lane reader unavailable: $activity"; return 75;
   }
-  FM_CAPACITY_LANES=$(jq -er '.lanes | select(type == "number" and . >= 0 and . == floor)' <<< "$lane_facts") || return 75
+  if ! jq -e '.readable == true and
+      ([.lanes, .secondmates, .target] | all(type == "number" and . >= 0 and . == floor))' \
+      >/dev/null 2>&1 <<< "$lane_facts"; then
+    FM_CAPACITY_ERROR='activity lane or secondmate count is unreadable'; return 75
+  fi
+  FM_CAPACITY_LANES=$(jq -r .lanes <<< "$lane_facts")
+  FM_CAPACITY_SECONDMATES=$(jq -r .secondmates <<< "$lane_facts")
   [ "$(jq -r .target <<< "$lane_facts")" = "$FM_CAPACITY_TARGET" ] || {
     FM_CAPACITY_ERROR='activity target changed during capacity read'; return 75;
   }

@@ -65,10 +65,17 @@ def rx(pattern):
 
 
 POLICY = {"claims": (
-    ("capacity", rx(r"\b(?:full|free|live|occupied|available|capacity|working|running|admission|room)\b|\d"),
-     rx(r"\b(?:lanes?|seats?|slots?|capacity|laptop|server|pc|main|zenbook|q-crew|zb-crew)\b|"
+    ("capacity", rx(
+        r"\b(?:lanes?|seats?|slots?|capacity)\b[\s:=]+"
+        r"(?:(?:is|are|has|have|now|currently|still|at|of|shows?|reports?)\s+)*"
+        r"(?:\d+|full|free|live|occupied|available|working|running|admission|room)\b|"
+        r"\b(?:lanes?|seats?|slots?)\s+[\w.-]+(?:\s*(?:,\s*(?:and|&)?|and|&)\s*[\w.-]+)*"
+        r"\s+(?:is|are)\s+(?:full|free|live|occupied|available|working|running)\b|"
+        r"\b(?:\d+|N|full|free|live|occupied|available|working|running)\s+(?:lanes?|seats?|slots?)\b|"
+        r"\b(?:laptop|server|pc|main|zenbook|q-crew|zb-crew)\b[\s:=]+"
+        r"(?:(?:is|are|has|have|now|currently|still)\s+)*(?:full|free|no\s+room)\b|"
         r"\b(?:\d+|N)\s+(?:live\s+of\s+(?:\d+|M)|free)\b|"
-        r"\badmission\s+(?:no|yes)\b|\bno\s+room\b"),
+        r"\badmission\s+(?:no|yes)\b|\bno\s+room\b"), None,
      rx(r"^activity\.sh(?:\s|$)")),
     ("PR", rx(r"\b(?:in (?:the )?(?:merge )?queue|queued|merged)\b"),
      rx(r"\bprs?\b|#\d+\b|https?://\S+/pulls?/\d+"),
