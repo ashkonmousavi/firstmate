@@ -27,6 +27,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-secondmate-reconcile.sh` | Queue Bearings reconcile requests for later supervision delivery and ask each mismatched home through its durable inbox with a per-home cooldown |
 | `fm-update.sh`           | Guarded self-update of firstmate and local or remote secondmate homes, reconciling redundant divergence and classifying every live mate left on the target commit for restart or fallback nudge |
 | `fm-secondmate-restart.sh` | Persist open conversational work, then restart eligible second mates or report the fallback outcome |
+| `fm-secondmate-park.sh` | Park or unpark one second mate so relaunch leaves it stopped until an explicit unpark |
+| `fm-secondmate-park-lib.sh` | Own the durable secondmate owner-park record and the shared refusal predicate |
 | `fm-secondmate-restart-lib.sh` | Shared second-mate restart capability and persistence-request contract |
 | `fm-on.sh`               | Execute one tracked Firstmate command in a registered remote secondmate or explicit peer home; its header owns routing and worker mechanics |
 | `fm-remote-job-lib.sh`   | Shared bounded remote job queue, worker readiness, LaunchAgent contract, and filesystem-composed PATH |

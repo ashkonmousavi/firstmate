@@ -77,6 +77,11 @@
 # Nothing here forces, stashes, or discards anything. bin/fm-control.sh owns the
 # restart transaction, its checkpoint, its journal, and its rollback; a refusal
 # before the agent is stopped leaves the mate running exactly as it was.
+# An owner-parked mate (bin/fm-secondmate-park-lib.sh) is reported as parked
+# and is not persisted, nudged, or stopped. Only bin/fm-secondmate-park.sh
+# unpark clears that record. When any mate is owner-parked the summary adds
+# an owner-parked count and the command exits 3. A pass with none keeps the
+# summary line unchanged.
 #
 # Restart candidacy itself belongs to bin/fm-update.sh, which knows which homes
 # the update pass actually left on the target commit; this command re-checks
@@ -96,9 +101,9 @@
 #   FM_SECONDMATE_RESTART_VERIFY_POLL  seconds between checks of the winner's
 #                                      spawn lock (2)
 #
-# Exit status: 0 every named mate restarted; 3 at least one was nudged or left
-# unreached and every mate was still accounted for; 1 the input itself is
-# unusable; 2 invalid use.
+# Exit status: 0 every named mate restarted; 3 at least one was nudged, left
+# unreached, or owner-parked and every mate was still accounted for; 1 the
+# input itself is unusable; 2 invalid use.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -181,6 +186,7 @@ RESTART_RESULT=()
 restarted_count=0
 nudged_count=0
 unreached_count=0
+parked_count=0
 
 # Prefer the command's explicit error over leading guard banners or notices.
 # Retain the first meaningful line when no error is labelled, and empty output
@@ -441,6 +447,12 @@ while [ "$i" -lt "${#IDS[@]}" ]; do
   RUNNING_HARNESS[i]=""
   MODEL[i]=""
   EFFORT[i]=""
+  if fm_secondmate_owner_parked "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$id"; then
+    PLAN[i]="owner-parked"
+    REASON[i]=$FM_SECONDMATE_OWNER_PARK_REASON
+    i=$((i + 1))
+    continue
+  fi
   if ! fm_secondmate_restart_capable "$STATE/$id.meta"; then
     REASON[i]=$FM_SECONDMATE_RESTART_REASON
     i=$((i + 1))
@@ -521,6 +533,10 @@ i=0
 while [ "$i" -lt "${#IDS[@]}" ]; do
   if [ "${PLAN[i]}" = persisted-pending ]; then
     pending_count=$((pending_count + 1))
+  elif [ "${PLAN[i]}" = owner-parked ]; then
+    parked_count=$((parked_count + 1))
+    printf 'parked: %s: %s\n' "${IDS[$i]}" "${REASON[i]}"
+    PLAN[i]="done"
   else
     fall_back_to_nudge "${IDS[$i]}" "${REASON[i]}"
     PLAN[i]="done"
@@ -573,7 +589,12 @@ done
 
 # --- summary ---------------------------------------------------------------
 
-printf 'summary: %d of %d restarted, %d nudged, %d unreached\n' \
-  "$restarted_count" "${#IDS[@]}" "$nudged_count" "$unreached_count"
-[ "$((nudged_count + unreached_count))" -eq 0 ] || exit 3
+if [ "$parked_count" -gt 0 ]; then
+  printf 'summary: %d of %d restarted, %d nudged, %d unreached, %d owner-parked\n' \
+    "$restarted_count" "${#IDS[@]}" "$nudged_count" "$unreached_count" "$parked_count"
+else
+  printf 'summary: %d of %d restarted, %d nudged, %d unreached\n' \
+    "$restarted_count" "${#IDS[@]}" "$nudged_count" "$unreached_count"
+fi
+[ "$((nudged_count + unreached_count + parked_count))" -eq 0 ] || exit 3
 exit 0

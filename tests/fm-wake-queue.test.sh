@@ -3798,6 +3798,51 @@ SH
   pass "watch liveness: an unreachable remote secondmate is probed, preserved, and never failed over"
 }
 
+test_secondmate_liveness_tick_owner_park_stays_stopped_until_unpark() {
+  local dir state pid i saw
+  dir=$(make_secondmate_liveness_case liveness-owner-park)
+  state="$dir/state"
+  printf -- '- sm1 - Fixture mate (home: %s; scope: fixture; projects: none; added 2026-11-03)\n' \
+    "${dir}-mate" > "$dir/data/secondmates.md"
+  env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
+    FM_HOME="$dir" "$ROOT/bin/fm-secondmate-park.sh" park sm1 --date 2026-11-03 >/dev/null
+
+  run_liveness_leg "$dir" parked FM_FAKE_TMUX_CURRENT_COMMAND=zsh; pid=$LIVENESS_PID
+  i=0
+  saw=0
+  while [ "$i" -lt 80 ]; do
+    if [ -f "$state/.watch-triage.log" ] \
+      && grep -F 'owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark sm1' \
+        "$state/.watch-triage.log" >/dev/null; then
+      saw=1
+      break
+    fi
+    is_live_non_zombie "$pid" || break
+    sleep 0.1
+    i=$((i + 1))
+  done
+  [ "$saw" -eq 1 ] || fail "the watcher did not record the owner-park refusal: $(cat "$state/.watch-triage.log" "$dir/watch-parked.out" "$dir/watch-parked.err" 2>/dev/null)"
+  is_live_non_zombie "$pid" \
+    || fail "an owner-parked mate made the watcher exit: $(cat "$dir/watch-parked.out" "$dir/watch-parked.err")"
+  kill_liveness_leg "$pid"
+  assert_not_contains "$(cat "$dir/tmux.log" 2>/dev/null || true)" "new-window" \
+    "a parked dead mate must not be relaunched"
+  if [ -e "$state/.secondmate-relaunch-sm1" ]; then
+    assert_no_grep 'attempt' "$state/.secondmate-relaunch-sm1" \
+      "a parked tick must not ledger an attempt"
+  fi
+  [ ! -s "$state/.wake-queue" ] || fail "an owner park must not wake: $(cat "$state/.wake-queue")"
+
+  env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
+    FM_HOME="$dir" "$ROOT/bin/fm-secondmate-park.sh" unpark sm1 >/dev/null
+  rm -f "$state/.secondmate-liveness-tick" "$dir/tmux.log"
+  run_liveness_leg "$dir" unparked FM_FAKE_TMUX_CURRENT_COMMAND=zsh; pid=$LIVENESS_PID
+  wait_for_exit "$pid" 300 || fail "unpark did not restore the watcher relaunch: $(cat "$dir/watch-unparked.out" "$dir/watch-unparked.err")"
+  assert_contains "$(cat "$dir/tmux.log")" "new-window" \
+    "unpark should let the next liveness pass relaunch the dead mate"
+  pass "watch liveness: an owner-parked mate stays stopped, and unpark restores relaunch"
+}
+
 test_branch_grant_requires_lock_acquisition
 test_self_held_lock_reclaims_instead_of_deadlocking
 test_lock_wait_returns_when_its_directory_is_removed
@@ -3871,3 +3916,4 @@ test_secondmate_liveness_tick_error_keeps_scanning_and_wakes
 test_secondmate_liveness_tick_unqueued_outcome_is_an_error_not_a_wake
 test_secondmate_liveness_tick_skips_mate_whose_lock_is_held
 test_secondmate_liveness_tick_preserves_unreachable_remote
+test_secondmate_liveness_tick_owner_park_stays_stopped_until_unpark

@@ -1321,6 +1321,20 @@ An existing linked-worktree home that predates this rule advances through its ma
 
 A local standalone-clone home cannot receive a primary-local commit through that no-fetch sync, so it receives the rule through `/updatefirstmate` instead.
 
+### Owner park
+
+An owner park keeps one second mate stopped until an explicit unpark.
+It is the primary home's `config/secondmate-parked/<id>` file, one line `owner YYYY-MM-DD`, and it is separate from the watcher crash-loop marker `state/.secondmate-relaunch-bound-<id>`.
+Session start, the watcher liveness check, `bin/fm-secondmate-restart.sh`, `bin/fm-spawn.sh <id> --secondmate`, `bin/fm-control.sh <id> relaunch`, and `bin/fm-remote-secondmate-relaunch.sh` all refuse a parked mate.
+Clearing the crash-loop marker, including the rearm after a launch, does not clear an owner park.
+Only `bin/fm-secondmate-park.sh unpark <id>` clears it.
+`bin/fm-secondmate-park.sh park <id> [--date YYYY-MM-DD]` writes the record for a mate already listed in `data/secondmates.md`.
+The date defaults to today UTC.
+`bin/fm-secondmate-park.sh status <id>` reports whether the record is parked.
+An absent file leaves relaunch behavior unchanged.
+The directory is not inherited into secondmate homes, for the same reason as `config/secondmate-harness`: the primary is the home that relaunches the mate.
+[`bin/fm-secondmate-park-lib.sh`](../bin/fm-secondmate-park-lib.sh) owns the record format and the shared refusal, and [`bin/fm-secondmate-park.sh`](../bin/fm-secondmate-park.sh) owns the commands.
+
 ## Harness support
 
 claude, codex, opencode, pi, pi-signed, grok, kimi, cursor, and omp are empirically verified for crewmate and secondmate launches; gemini is verified for crewmate and scout launches only, and [README requirements](../README.md#requirements) own the set supported for the primary session.
@@ -3623,7 +3637,7 @@ FM_PAUSE_RESURFACE_SECS=14400      # four hours between bounded rechecks of a de
 FM_SECONDMATE_WAKE_STALL_SECS=180  # minimum interval with no change of the oldest actionable foreign wake-queue row (it advances as the mate drains, and a queue reprovisioned under the same task id starts a fresh interval at whatever sequence it restarts) before an endpoint-recorded local secondmate produces one durable parent wake-loop-stall notification for that no-progress episode; a mate that is provably inside an active turn (an exact busy verdict) does not escalate until that same no-progress interval reaches FM_BUSY_TURN_MAX_SECS above; a mate authorized by secondmate_idle_ring_safe in bin/fm-watch.sh is rung once so its own home can drain, and the parent notification is withheld until that same row stays frozen for another stall interval; unknown or ring-unsafe panes keep the parent alarm; declared external-wait pause rows are excluded, and zero or invalid values use 180
 FM_SECONDMATE_LIVENESS_SECS=60   # seconds between watcher probes of each registered secondmate's recorded endpoint; bin/fm-secondmate-liveness-lib.sh owns recovery actions and refusal rules; zero or invalid values use 60
 FM_SECONDMATE_LIVENESS_TIMEOUT=120   # seconds allowed separately for a watcher-driven relaunch's per-home lock wait and its spawn execution; a lock-wait timeout skips recovery without touching the endpoint or recording an attempt; zero or invalid values use 120
-FM_SECONDMATE_LIVENESS_MAX_ATTEMPTS=3   # automatic relaunch attempts allowed per mate inside the window before the watcher parks auto-relaunch behind state/.secondmate-relaunch-bound-<id> and escalates once; bin/fm-secondmate-liveness-lib.sh owns rearming and parked classification, and the secondmate-provisioning skill's "Charter and seed" section owns propagation's parked-mate reread exception; zero or invalid values use 3
+FM_SECONDMATE_LIVENESS_MAX_ATTEMPTS=3   # automatic relaunch attempts allowed per mate inside the window before the watcher parks auto-relaunch behind state/.secondmate-relaunch-bound-<id> and escalates once; bin/fm-secondmate-liveness-lib.sh owns rearming and parked classification, and the secondmate-provisioning skill's "Charter and seed" section owns propagation's parked-mate reread exception; zero or invalid values use 3; this bound is not an owner park, which is config/secondmate-parked/<id> under Owner park and stays until bin/fm-secondmate-park.sh unpark
 FM_SECONDMATE_LIVENESS_WINDOW_SECS=3600   # window the relaunch bound counts state/.secondmate-relaunch-<id> attempt lines over; the file is also the durable per-mate relaunch record; zero or invalid values use 3600
 FM_WEDGE_DEMAND_INSPECT_COUNT=3    # consecutive provably-working stale escalations on the same unchanged pane before demand-deep-inspection is added
 FM_WEDGE_GUARD_TIMEOUT_SECS=5      # seconds one guard from config/wedge-evidence-guards may run before it counts as no answer; zero or invalid values use 5

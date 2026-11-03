@@ -27,6 +27,10 @@
 # live one - and an unreachable remote host is never evidence of death, so a
 # remote route is never replaced by a local endpoint.
 #
+# An owner park is a separate durable record. fm_secondmate_liveness_relaunch
+# consults bin/fm-secondmate-park-lib.sh before any ledger row, kill, or spawn,
+# and fm_secondmate_liveness_rearm never clears that record.
+#
 # Replacement relaunch goes through `bin/fm-spawn.sh <id> --secondmate` with
 # FM_SPAWN_NO_GUARD=1, the same guarded path every recovery uses. That path
 # re-resolves placement from the task's own metadata and registry route, so a
@@ -71,6 +75,8 @@ FM_SM_LIVE_LIB_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 . "$FM_SM_LIVE_LIB_DIR/fm-remote-readiness-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$FM_SM_LIVE_LIB_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-secondmate-park-lib.sh
+. "$FM_SM_LIVE_LIB_DIR/fm-secondmate-park-lib.sh"
 
 # Per-task probe+kill+relaunch serialization. A busy lock means another
 # supervisor (the other sweep, or a racing tick) is mid-episode on this mate;
@@ -135,7 +141,8 @@ fm_secondmate_liveness_rearm() {
   fi
 }
 
-# fm_secondmate_parked reads the watcher's relaunch-bound record.
+# fm_secondmate_parked reads the watcher's crash-loop relaunch-bound record.
+# It is not the durable owner park in bin/fm-secondmate-park-lib.sh.
 # Successful secondmate launches and confirmed parent-side remote relaunches
 # rearm that record; a later live watcher probe also rearms it, and teardown
 # removes it at retirement. Deliberate fm-control exit records no park marker,
@@ -345,10 +352,27 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
 # the ledger cannot be read, or the attempt row cannot be appended, nothing is
 # killed or spawned and no attempt is recorded: the verdict becomes
 # FM_SM_LIVE_STATUS=skipped with FM_SM_LIVE_REASON set and this returns 1.
-# Caller holds the liveness lock and owns reporting.
+# An owner park (bin/fm-secondmate-park-lib.sh) is refused before the ledger
+# read, the per-home lock, any kill, and any spawn. That verdict is
+# FM_SM_LIVE_STATUS=owner-parked with FM_SM_LIVE_REASON set, records no
+# attempt, and is not a skipped failure. When neither FM_CONFIG_OVERRIDE nor
+# FM_HOME is set, the same verdict refuses rather than relaunching with no
+# readable park record. Caller holds the liveness lock and owns reporting.
 fm_secondmate_liveness_relaunch() {  # <meta> <id> [timeout-secs]
-  local meta=$1 id=$2 timeout=${3:-} relaunch_lock wait_seconds rc=0
+  local meta=$1 id=$2 timeout=${3:-} relaunch_lock wait_seconds rc=0 park_config
   FM_SM_LIVE_OUT='' FM_SM_LIVE_RC=0
+  if ! park_config=$(fm_secondmate_owner_park_config); then
+    FM_SM_LIVE_STATUS='owner-parked'
+    FM_SM_LIVE_REASON="owner park could not be read because neither FM_CONFIG_OVERRIDE nor FM_HOME is set; relaunch refused"
+    FM_SM_LIVE_RC=1
+    return 1
+  fi
+  if fm_secondmate_owner_parked "$park_config" "$id"; then
+    FM_SM_LIVE_STATUS='owner-parked'
+    FM_SM_LIVE_REASON=$FM_SECONDMATE_OWNER_PARK_REASON
+    FM_SM_LIVE_RC=1
+    return 1
+  fi
   if ! fm_secondmate_liveness_recent_attempts "$id" 0 >/dev/null; then
     FM_SM_LIVE_STATUS=skipped
     FM_SM_LIVE_REASON="relaunch ledger $STATE/.secondmate-relaunch-$id is unreadable; endpoint left $FM_SM_LIVE_STATE"

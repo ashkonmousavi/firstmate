@@ -1719,6 +1719,56 @@ w = { tokens: [],
   pass "T17 a T3 mate is routed to the re-read message by both passes, never restarted"
 }
 
+test_owner_park_refuses_restart_until_unpark() {
+  local dir out rc before ctrl ctrl_rc
+  dir=$(new_case owner-park)
+  add_local_mate "$dir" sm1 claude tmux
+  arm_answer "$dir" sm1
+  mkdir -p "$dir/home/data"
+  printf -- '- sm1 - Fixture mate (home: %s; scope: fixture; projects: none; added 2026-11-03)\n' \
+    "$dir/sm1-home" > "$dir/home/data/secondmates.md"
+  env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
+    FM_HOME="$dir/home" "$ROOT/bin/fm-secondmate-park.sh" park sm1 --date 2026-11-03 >/dev/null
+  before=$(cat "$dir/fake/command")
+
+  out=$(run_restart "$dir" sm1); rc=$?
+
+  expect_code 3 "$rc" "an owner-parked mate must not be reported as restarted"$'\n'"$out"
+  assert_contains "$out" "parked: sm1: owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark sm1" \
+    "restart must name the owner park"
+  assert_not_contains "$out" "restarted: sm1" "an owner-parked mate must not be reported as restarted"
+  assert_not_contains "$out" "nudged: sm1" "an owner-parked mate must not be nudged"
+  assert_not_contains "$out" "unreached: sm1" "an owner-parked mate must not be bucketed as unreached"
+  assert_contains "$out" "summary: 0 of 1 restarted, 0 nudged, 0 unreached, 1 owner-parked" \
+    "the summary must count the owner park"
+  [ "$(cat "$dir/fake/command")" = "$before" ] \
+    || fail "an owner park should leave the running agent exactly as it was"
+  assert_no_grep '^/exit$' "$dir/fake/literal" "an owner park must not stop the agent"
+  assert_absent "$dir/home/state/sm1.inbox/001.msg" \
+    "an owner-parked mate must not be asked to persist"
+
+  ctrl_rc=0
+  ctrl=$(env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE \
+    PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" \
+    FM_FAKE_DIR="$dir/fake" FM_BACKEND=tmux \
+    FM_CONTROL_POLL=0.01 FM_CONTROL_EXIT_WAIT=0.05 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    timeout 25 "$ROOT/bin/fm-control.sh" sm1 relaunch 2>&1) || ctrl_rc=$?
+  expect_code 1 "$ctrl_rc" "control relaunch must refuse an owner park"$'\n'"$ctrl"
+  assert_contains "$ctrl" "error: secondmate sm1 is owner-parked" \
+    "control must name the owner park"$'\n'"$ctrl"
+  assert_no_grep '^/exit$' "$dir/fake/literal" "control must not stop an owner-parked mate"
+
+  env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
+    FM_HOME="$dir/home" "$ROOT/bin/fm-secondmate-park.sh" unpark sm1 >/dev/null
+  out=$(run_restart "$dir" sm1); rc=$?
+  expect_code 0 "$rc" "unpark should make the same mate eligible to restart"$'\n'"$out"
+  assert_contains "$out" "restarted: sm1" "the unparked mate should restart"
+  assert_contains "$out" "summary: 1 of 1 restarted, 0 nudged, 0 unreached" \
+    "an unparked pass must keep the summary shape with no owner-parked field"
+  assert_not_contains "$out" "owner-parked" "an unparked pass must not mention an owner park"
+  pass "owner park: restart and control refuse until unpark, and an unparked mate restarts as before"
+}
+
 test_persist_gates_and_asks_only_for_open_records
 test_persist_precedes_restart
 test_arrived_answer_precedes_deadline_check
@@ -1757,5 +1807,6 @@ test_incomplete_background_shell_cleanup_blocks_restart
 test_remote_background_shells_are_waited_out_before_relaunch
 test_host_capture_preserves_successful_output_and_byte_bound
 test_t3_mate_stays_on_the_nudge_path
+test_owner_park_refuses_restart_until_unpark
 
 echo "# all fm-secondmate-restart tests passed"
