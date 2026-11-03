@@ -335,7 +335,7 @@ raw_read_pr() {
   local meta=$1
   fm_pr_url_parse "$(meta_field "$meta" pr)" || return 1
   case "$FM_PR_PROVIDER" in
-    github) fm_pr_github_read_record "$FM_PR_OWNER" "$FM_PR_REPO" "$FM_PR_NUMBER" || return 1 ;;
+    github) fm_pr_github_read_record "$FM_PR_HOST" "$FM_PR_OWNER" "$FM_PR_REPO" "$FM_PR_NUMBER" || return 1 ;;
     gitlab) fm_pr_gitlab_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || return 1 ;;
     forgejo) fm_pr_forgejo_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || return 1 ;;
     gerrit) fm_pr_gerrit_read_record "$FM_PR_HOST" "$FM_PR_NUMBER" || return 1 ;;

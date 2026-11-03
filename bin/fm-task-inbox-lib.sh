@@ -12,14 +12,14 @@
 # none of them restates the format.
 #
 # Design (captain-adopted, data/fm-send-reliability-reframe-s1/report.md): the
-# payload moves to the filesystem, which is reliable; the terminal carries only
-# a short constant doorbell line. While the endpoint remains available, that
+# payload moves to the filesystem, which is reliable; the backend endpoint carries
+# only a short constant doorbell line. While the endpoint remains available, that
 # line does not need to be reliable because ringing it again is free. A
 # duplicated doorbell is a no-op by construction (the worker finds the inbox
 # empty or already handled), and a swallowed doorbell is detected by the
 # absence of the worker's acknowledgement and re-rung on a bounded schedule.
 # A positively dead or missing endpoint bypasses that schedule without being
-# typed into, and its unhandled record surfaces through the ordinary stale wake
+# submitted to, and its unhandled record surfaces through the ordinary stale wake
 # into stuck-crewmate-recovery.
 #
 # Layout under <state-dir>:
@@ -39,6 +39,7 @@
 # Record format (fm_task_inbox_write / fm_task_inbox_body):
 #   schema=fm-task-inbox.v1
 #   at=<utc timestamp>
+#   body-terminator=1          present on records written with a synthetic final newline
 #   delivery=fire-and-forget   present only when the re-ring ladder must ignore it
 #                              (it still gets one retry ring; see below)
 #   request-id=<32 lowercase hex digits>   present for an ordinary one-way request
@@ -58,14 +59,15 @@
 # FM_TASK_INBOX_RING_MAX attempts without an acknowledgement it escalates. The
 # caller owns the busy and recovery-grade endpoint checks: watcher actions (local, and
 # remote when the parent passes the busy maximum, see "Remote leg") deferred
-# by a busy pane consume a separate durable consecutive-poll budget,
+# by the caller's delivery guard consume a separate durable consecutive-poll budget,
 # FM_TASK_INBOX_BUSY_MAX, except a harness whose submit queue
 # fm_control_submit_queue accepts (bin/fm-control-lib.sh), which is rung while
-# busy. Any other harness keeps that deferral, and the next poll that sees the
-# pane idle rings immediately, including inside grace and after the stuck-busy
-# escalation. At the busy bound the same escalation path surfaces a
-# stuck-busy reason without typing. A non-busy, non-retry due check clears .busy-state
-# before attempting delivery; acknowledgement also resets the budget.
+# busy. fm-busy-lib.sh owns the backend-specific delivery guard. Any other
+# harness keeps that deferral, and the next poll that sees the pane idle rings
+# immediately, including inside grace and after the stuck-busy escalation. At
+# the busy bound the same escalation path surfaces a stuck-busy reason without
+# submission. An allowed, non-retry due check clears .busy-state before
+# attempting delivery; acknowledgement also resets the budget.
 # Fire-and-forget retries remain outside escalation. A positively
 # dead or missing endpoint skips delivery and the ladder and escalates directly.
 # This library owns the schedule, durable budgets, and escalation marker.
@@ -261,10 +263,17 @@ _fm_task_inbox_write_record_locked() {  # <inbox-dir> <text> [delivery-mode] [re
   {
     printf 'schema=%s\n' "$FM_TASK_INBOX_SCHEMA"
     printf 'at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    case "$text" in
+      *$'\n') : ;;
+      *) printf 'body-terminator=1\n' ;;
+    esac
     [ "$delivery_mode" != fire-and-forget ] || printf 'delivery=fire-and-forget\n'
     [ -z "$request_id" ] || printf 'request-id=%s\n' "$request_id"
     printf -- '--\n'
-    printf '%s' "$text"
+    case "$text" in
+      *$'\n') printf '%s' "$text" ;;
+      *) printf '%s\n' "$text" ;;
+    esac
   } > "$tmp" && mv "$tmp" "$rec" || status=1
   [ "$status" -eq 0 ] || { rm -f "$tmp"; return 1; }
   printf '%s' "$rec"
@@ -301,7 +310,7 @@ fm_task_inbox_request_id() {
 # conflicting request id or any failure.
 _fm_task_inbox_dedup_find() {  # <dir> <text> <delivery-mode> <request-id>
   (
-    local dir=$1 text=$2 delivery_mode=$3 request_id=$4 want='' have='' f size rec='' status=0
+    local dir=$1 text=$2 delivery_mode=$3 request_id=$4 want='' have='' f size legacy_size rec='' status=0
     local -a candidates=() size_filter=()
     trap 'rm -f "$want" "$have"' EXIT
     trap 'exit 143' TERM HUP INT
@@ -309,12 +318,23 @@ _fm_task_inbox_dedup_find() {  # <dir> <text> <delivery-mode> <request-id>
     if printf '%s' "$text" > "$want" && size=$(wc -c < "$want"); then
       size=$((size + ${#FM_TASK_INBOX_SCHEMA} + 35))
       [ "$delivery_mode" != fire-and-forget ] || size=$((size + 25))
-      [ -n "$request_id" ] || size_filter=(-size "${size}c")
+      # A body without a final newline is stored with a body-terminator=1 header
+      # line (18 bytes) plus the synthetic newline; a legacy record written before
+      # that format kept the plain size, so both sizes stay candidates.
+      case "$text" in
+        *$'\n') legacy_size=$size ;;
+        *) legacy_size=$size; size=$((size + 19)) ;;
+      esac
+      [ -n "$request_id" ] || size_filter=('(' -size "${size}c" -o -size "${legacy_size}c" ')')
       while IFS= read -r f; do
         candidates+=("$f")
       done < <(find "$dir" "$dir/handled" -maxdepth 1 -type f -name '*.msg' ${size_filter[@]+"${size_filter[@]}"} 2>/dev/null |
-        awk -v wanted="$request_id" -v mode="$delivery_mode" -v handled="$dir/handled/" '
-          function selected(path,    line, id, seen, delivery, result) {
+        awk -v wanted="$request_id" -v mode="$delivery_mode" -v handled="$dir/handled/" -v bodyfile="$want" '
+          BEGIN {
+            if ((getline wanted_first < bodyfile) < 0) exit 2
+            close(bodyfile)
+          }
+          function selected(path,    line, id, seen, delivery, result, first, matched) {
             while ((result = (getline line < path)) > 0) {
               if (line == "--") break
               if (!seen && line ~ /^request-id=/) {
@@ -323,9 +343,17 @@ _fm_task_inbox_dedup_find() {  # <dir> <text> <delivery-mode> <request-id>
               }
               if (line == "delivery=fire-and-forget") delivery = 1
             }
+            matched = id == wanted && (delivery == 1) == (mode == "fire-and-forget")
+            # An explicit request id must still expose a conflicting body.
+            # Other requests can reject unrelated history by its first line
+            # before invoking the full body reader or comparison.
+            if (matched && wanted == "") {
+              result = (getline first < path)
+              matched = result >= 0 && ("x" first) == ("x" wanted_first)
+            }
             close(path)
             if (result < 0) return -1
-            return id == wanted && (delivery == 1) == (mode == "fire-and-forget")
+            return matched
           }
           {
             path = $0
@@ -399,15 +427,24 @@ fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mod
 
 # The exact enqueued text back out of a record.
 fm_task_inbox_body() {  # <record-path>
-  local line
+  local meta body_offset synthetic total count
   [ -f "$1" ] || return 1
-  while IFS= read -r line; do
-    if [ "$line" = -- ]; then
-      cat
-      return 0
-    fi
-  done < "$1"
-  return 1
+  meta=$(LC_ALL=C awk '
+    $0 == "body-terminator=1" { synthetic=1 }
+    { bytes += length($0) + 1 }
+    $0 == "--" { printf "%d\t%d\n", bytes, synthetic; exit }
+  ' "$1") || return 1
+  IFS=$(printf '\t') read -r body_offset synthetic <<EOF
+$meta
+EOF
+  case "$body_offset" in ''|*[!0-9]*) return 1 ;; esac
+  total=$(wc -c < "$1") || return 1
+  count=$((total - body_offset))
+  if [ "$synthetic" = 1 ]; then
+    [ "$count" -gt 0 ] || return 1
+    count=$((count - 1))
+  fi
+  dd if="$1" bs=1 skip="$body_offset" count="$count" 2>/dev/null
 }
 
 # The constant self-describing doorbell line for the inbox containing a record.

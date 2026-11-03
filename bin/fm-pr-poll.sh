@@ -187,7 +187,7 @@ fm_pr_poll_github() {  # <owner> <repo> <number> <url>
   local owner=$1 repo=$2 number=$3 url=$4 dir='' key facts state='' present etag='' verdict=''
   if command -v jq >/dev/null 2>&1 && declare -F fm_gh_etag_get >/dev/null \
      && dir=$(fm_pr_poll_cache_dir) \
-     && key="pr-poll.$owner.$repo.$number" \
+     && key="pr-poll.${GH_HOST:+$GH_HOST.}$owner.$repo.$number" \
      && fm_gh_etag_get "$dir" "$key" "repos/$owner/$repo/pulls/$number"; then
     etag=$FM_GH_ETAG_VALUE
     facts="$dir/$key.facts"
@@ -270,10 +270,17 @@ esac
 
 # Every component is revalidated here rather than trusted from the sidecar, and
 # the stored URL must then be exactly reconstructible from those components, so
-# a doctored sidecar cannot redirect this poll at another host or project.
+# a doctored sidecar cannot silently address a different project or a differently
+# spelled URL. The host is one of those components: a GitHub Enterprise host is
+# recorded only by bin/fm-pr-lib.sh after this home named it in
+# config/github-hosts, and it is re-checked for shape here like every other
+# provider's, because this static body sources nothing and cannot read config.
 case "$provider" in
   github)
-    [ "$host" = github.com ] || exit 0
+    [ "${#host}" -ge 1 ] && [ "${#host}" -le 253 ] || exit 0
+    case "$host" in
+      .*|*.|*..*|*[!a-z0-9.-]*) exit 0 ;;
+    esac
     owner=${path%%/*}
     repo=${path#*/}
     [ "${#owner}" -ge 1 ] && [ "${#owner}" -le 39 ] || exit 0
@@ -284,8 +291,10 @@ case "$provider" in
     case "$repo" in
       .|..|*[!A-Za-z0-9._-]*) exit 0 ;;
     esac
-    [ "$url" = "https://github.com/$owner/$repo/pull/$number" ] || exit 0
-    fm_pr_poll_github "$owner" "$repo" "$number" "$url" || exit $?
+    [ "$url" = "https://$host/$owner/$repo/pull/$number" ] || exit 0
+    # GH_HOST scopes every gh read inside the poll (REST cache and fallbacks) to
+    # the recorded host, as the base poll's single gh call was.
+    GH_HOST=$host fm_pr_poll_github "$owner" "$repo" "$number" "$url" || exit $?
     ;;
   gitlab)
     [ "${#host}" -ge 1 ] && [ "${#host}" -le 253 ] || exit 0

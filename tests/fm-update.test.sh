@@ -25,6 +25,11 @@
 #   - Secondmate homes resolve from both state/<id>.meta and the
 #     data/secondmates.md registry, deduped, and the firstmate repo is never
 #     re-processed as one of its own secondmates.
+#   - An optional config/self-update-source moves the primary to that one remote
+#     branch instead of origin, under the same fast-forward guards, and local
+#     secondmates (linked worktree or standalone clone) follow the primary's
+#     resulting commit; an unusable file refuses the whole update before
+#     anything moves rather than falling back to origin.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -889,17 +894,19 @@ SH
   out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" run_update "$w")
   for home in "$w/home" "$w/sleeper"; do
     fm_pr_poll_artifacts_valid "$home/state" ready "$w/main/bin/fm-pr-poll.sh" || fail "updated home has a dead merge watch: $home; update output: $out"
-    if fm_pr_poll_artifacts_valid "$home/state" refused "$w/main/bin/fm-pr-poll.sh"; then fail "refused poll was trusted"; fi
+    # Hash-bound registration keeps an intact generation valid across the
+    # template update, so a refused re-arm leaves the earlier watch armed.
+    fm_pr_poll_artifacts_valid "$home/state" refused "$w/main/bin/fm-pr-poll.sh" || fail "a refused re-arm disarmed an intact poll"
     assert_present "$home/state/refused.check.sh" "failed re-arm deleted the poll"
     assert_contains "$out" "home=$home task=tampered could-not-rearm reason=unauthenticated-poll-generation" "tampered check was re-trusted"
     assert_present "$home/state/custom.check-trust" "custom trust changed"
-    assert_contains "$out" "home=$home task=refused" "summary omitted a failed re-arm"
+    assert_not_contains "$out" "home=$home task=refused" "an intact poll was re-armed"
     assert_contains "$(cat "$home/state/custom.check.sh")" untouched "custom check changed"
   done
   identity=$(fm_pr_file_identity "$w/home/state/ready.check.sh")
   out=$(FM_TEST_PR_LIB="$ROOT/bin/fm-pr-lib.sh" run_update "$w")
   [ "$(fm_pr_file_identity "$w/home/state/ready.check.sh")" = "$identity" ] || fail "current valid poll was rewritten"
-  assert_contains "$out" "home=$w/home task=refused" "current home did not retry failed migration"
+  assert_contains "$out" "home=$w/home task=tampered could-not-rearm" "current home did not retry failed migration"
   # Drive the real host-local remote update path with no endpoint or harness
   # lifecycle operations. Both code-root and remote-home diagnostics must survive.
   mkdir -p "$w/main/state"
@@ -907,125 +914,163 @@ SH
     FM_STATE_OVERRIDE="$w/home/state" FM_CONFIG_OVERRIDE="$w/home/config" \
     "$ROOT/bin/fm-remote-secondmate-control.sh" update sleeper main "$(git -C "$w/main" rev-parse HEAD)" 2>&1) || fail "remote update failed: $out"
   assert_contains "$out" "home=$w/main rearmed=0 left=0" "remote code-root summary or override scoping lost"
-  assert_contains "$out" "home=$w/sleeper task=refused" "remote home failure lost"
+  assert_contains "$out" "home=$w/sleeper task=tampered could-not-rearm" "remote home failure lost"
   assert_contains "$out" "current:" "remote update result lost"
   pass "update refreshes primary, registry and remote polls, preserves custom checks and names failures"
 }
 
 test_rearm_preserves_concurrent_poll_changes() {
-  local mode w state pid retire_pid out before after url i suffix
-  local -a owner_env
-  for mode in unchanged replaced same-url retired late-retired; do
-    w="$TMP_ROOT/rearm-generation-$mode"
-    state="$w/home/state"
-    mkdir -p "$state" "$w/home/config" "$w/root/bin" "$w/fakebin" "$w/wt"
-    cp "$ROOT/bin/fm-pr-poll.sh" "$w/root/bin/fm-pr-poll.sh"
-    cp "$ROOT/bin/fm-pr-poll.sh" "$w/old-poll.sh"
-    printf '# earlier program\n' >> "$w/old-poll.sh"
-    printf 'kind=ship\nmode=no-mistakes\nworktree=%s\npr=https://github.com/o/r/pull/1\n' "$w/wt" > "$state/task.meta"
-    fm_pr_poll_prepare "$state" task github https://github.com/o/r/pull/1 github.com o/r 1 "$w/old-poll.sh" || fail "$mode: prepare"
-    fm_pr_poll_publish_prepared || fail "$mode: publish"
-    cat > "$w/root/bin/fm-guard.sh" <<'SH'
-#!/usr/bin/env bash
-exit 0
-SH
-    cat > "$w/root/bin/fm-pr-check.sh" <<'SH'
-#!/usr/bin/env bash
-exec bash "$FM_TEST_PR_CHECK" "$@"
-SH
-    cat > "$w/fakebin/gh" <<'SH'
-#!/usr/bin/env bash
-case " $* " in
-  *' --json isDraft '*) printf '{"isDraft":false}\n' ;;
-  *' --json headRefOid '*)
-    if [ -n "${FM_PR_CHECK_REARM_GENERATION:-}" ]; then
-      : > "$FM_TEST_REARM_DIR/started"
-      for ((i=0; i<500; i++)); do
-        [ ! -e "$FM_TEST_REARM_DIR/release" ] || break
-        sleep 0.02
-      done
-      [ -e "$FM_TEST_REARM_DIR/release" ] || exit 1
-    fi
-    printf '0123456789abcdef0123456789abcdef01234567\n'
-    ;;
-  *) exit 1 ;;
-esac
-SH
-    chmod +x "$w/root/bin/"*.sh "$w/fakebin/gh"
-    owner_env=(env FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/root" FM_STATE_OVERRIDE="$state" FM_CONFIG_OVERRIDE="$w/home/config"
-      FM_TEST_PR_CHECK="$ROOT/bin/fm-pr-check.sh" FM_TEST_REARM_DIR="$w" FM_TEST_REAL_RM="$(command -v rm)" PATH="$w/fakebin:$PATH")
-    "${owner_env[@]}" bash "$ROOT/bin/fm-pr-check-rearm.sh" > "$w/out" 2>&1 &
-    pid=$!
-    for ((i=0; i<500; i++)); do
-      [ ! -e "$w/started" ] || break
-      sleep 0.02
-    done
-    [ -e "$w/started" ] || { kill "$pid" 2>/dev/null || true; wait "$pid" || true; fail "$mode: refresh did not reach the owner: $(cat "$w/out")"; }
-    case "$mode" in
-      replaced|same-url)
-        url=https://github.com/o/r/pull/2
-        [ "$mode" != same-url ] || url=https://github.com/o/r/pull/1
-        "${owner_env[@]}" bash "$ROOT/bin/fm-pr-check.sh" task "$url" > "$w/replacement.out" 2>&1 || fail "$mode: replacement failed: $(cat "$w/replacement.out")"
-        ;;
-      retired)
-        FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$state" \
-          bash "$ROOT/bin/fm-pr-poll-retire.sh" task --reason regression > "$w/retired.out" || fail "$mode: retirement failed"
-        ;;
-      late-retired)
-        cat > "$w/fakebin/rm" <<'SH'
-#!/usr/bin/env bash
-case " $* " in
-  *'/task.check.sh '*)
-    : > "$FM_TEST_REARM_DIR/retiring"
-    for ((i=0; i<500; i++)); do
-      [ ! -e "$FM_TEST_REARM_DIR/retire-release" ] || break
-      sleep 0.02
-    done
-    [ -e "$FM_TEST_REARM_DIR/retire-release" ] || exit 1
-    ;;
-esac
-exec "$FM_TEST_REAL_RM" "$@"
-SH
-        chmod +x "$w/fakebin/rm"
-        FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$state" \
-          FM_TEST_REARM_DIR="$w" FM_TEST_REAL_RM="$(command -v rm)" PATH="$w/fakebin:$PATH" \
-          bash "$ROOT/bin/fm-pr-poll-retire.sh" task --reason regression > "$w/retired.out" 2>&1 &
-        retire_pid=$!
-        for ((i=0; i<500; i++)); do
-          [ ! -e "$w/retiring" ] || break
-          sleep 0.02
-        done
-        [ -e "$w/retiring" ] || fail "$mode: retirement did not reach removal"
-        : > "$w/release"
-        for ((i=0; i<500; i++)); do
-          [ ! -d "$state/.meta-task.lock" ] || break
-          sleep 0.02
-        done
-        [ -d "$state/.meta-task.lock" ] || fail "$mode: refresh did not reach its locked boundary"
-        : > "$w/retire-release"
-        wait "$retire_pid" || fail "$mode: retirement failed: $(cat "$w/retired.out")"
-        ;;
-    esac
-    before=$(for suffix in meta check.sh pr-poll pr-poll-registration; do
-      [ ! -f "$state/task.$suffix" ] || printf '%s %s %s\n' "$suffix" "$(fm_pr_file_identity "$state/task.$suffix")" "$(fm_pr_sha256 "$state/task.$suffix")"
-    done)
-    : > "$w/release"
-    wait "$pid" || fail "$mode: refresh failed: $(cat "$w/out")"
-    out=$(cat "$w/out")
-    if [ "$mode" = unchanged ]; then
-      cmp -s "$state/task.check.sh" "$ROOT/bin/fm-pr-poll.sh" || fail "unchanged generation was not refreshed"
-      fm_pr_poll_artifacts_valid "$state" task "$ROOT/bin/fm-pr-poll.sh" || fail "refreshed generation is unauthenticated"
-      assert_contains "$out" 'rearmed=1 left=0' "successful refresh was not counted"
-    else
-      after=$(for suffix in meta check.sh pr-poll pr-poll-registration; do
-        [ ! -f "$state/task.$suffix" ] || printf '%s %s %s\n' "$suffix" "$(fm_pr_file_identity "$state/task.$suffix")" "$(fm_pr_sha256 "$state/task.$suffix")"
-      done)
-      [ "$before" = "$after" ] || fail "$mode: stale refresh changed the winning state"
-      assert_contains "$out" 'skipped=superseded-or-retired' "$mode: stale generation was not skipped"
-      assert_contains "$out" 'rearmed=0 left=0' "$mode: stale generation was reported as refreshed or failed"
-    fi
+  # Upstream's hash-bound registration keeps a poll published under an earlier
+  # template valid, so the re-arm pass has nothing to rewrite and cannot race a
+  # concurrent replacement or retirement of that poll; the generation stays put.
+  local w state out before after
+  w="$TMP_ROOT/rearm-generation-intact"
+  state="$w/home/state"
+  mkdir -p "$state" "$w/home/config" "$w/root/bin" "$w/wt"
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/root/bin/fm-pr-poll.sh"
+  cp "$ROOT/bin/fm-pr-poll.sh" "$w/old-poll.sh"
+  printf '# earlier program\n' >> "$w/old-poll.sh"
+  printf 'kind=ship\nmode=no-mistakes\nworktree=%s\npr=https://github.com/o/r/pull/1\n' "$w/wt" > "$state/task.meta"
+  fm_pr_poll_prepare "$state" task github https://github.com/o/r/pull/1 github.com o/r 1 "$w/old-poll.sh" || fail "prepare"
+  fm_pr_poll_publish_prepared || fail "publish"
+  before=$(fm_pr_file_identity "$state/task.check.sh")
+  out=$(env FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/root" FM_STATE_OVERRIDE="$state" FM_CONFIG_OVERRIDE="$w/home/config" \
+    bash "$ROOT/bin/fm-pr-check-rearm.sh" 2>&1) || fail "re-arm pass failed: $out"
+  assert_contains "$out" "rearmed=0 left=0" "an intact earlier-template poll was re-armed"
+  after=$(fm_pr_file_identity "$state/task.check.sh")
+  [ "$before" = "$after" ] || fail "the re-arm pass rewrote an intact poll"
+  fm_pr_poll_artifacts_valid "$state" task "$w/root/bin/fm-pr-poll.sh" || fail "the earlier-template poll lost its registration"
+  pass "re-arm leaves an intact earlier-template poll armed and unrewritten"
+}
+
+# --- self-update source helpers -------------------------------------------
+
+# Add a standalone-clone secondmate home (its own object store, unlike add_sm's
+# linked worktree), plus its state meta. Args: world id.
+add_standalone_sm() {
+  local w=$1 id=$2
+  git clone -q "$w/origin.git" "$w/$id"
+  git -C "$w/$id" remote set-head origin main >/dev/null 2>&1 || true
+  {
+    printf 'window=main:fm-%s\n' "$id"
+    printf 'endpoint_task_id=%s\n' "$id"
+    printf 'worktree=%s/%s\n' "$w" "$id"
+    printf 'project=%s/%s\n' "$w" "$id"
+    printf 'kind=secondmate\n'
+    printf 'harness=claude\n'
+    printf 'home=%s/%s\n' "$w" "$id"
+  } > "$w/home/state/$id.meta"
+  printf 'fm-%s\n' "$id" >> "$w/fake/windows"
+  printf '%s\n' "$id" > "$w/$id/.fm-secondmate-home"
+}
+
+# Create a bare fork whose `carry` branch is origin's current main plus one
+# carried commit touching the instruction surface, and add it to the primary
+# as the remote `fork`. Echoes the carry commit.
+add_fork_carry() {
+  local w=$1 carry
+  git init -q --bare "$w/fork.git"
+  git -C "$w/seed" pull -q origin main >/dev/null 2>&1 || true
+  git -C "$w/seed" checkout -q -b carry-work
+  printf 'carried\n' >> "$w/seed/AGENTS.md"
+  printf 'echo carried\n' > "$w/seed/bin/tool.sh"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm carried-fix
+  git -C "$w/seed" push -q "$w/fork.git" carry-work:carry
+  carry=$(git -C "$w/seed" rev-parse HEAD)
+  git -C "$w/seed" checkout -q main
+  git -C "$w/main" remote add fork "$w/fork.git"
+  printf '%s\n' "$carry"
+}
+
+write_source() {
+  mkdir -p "$1/home/config"
+  printf '%s\n' "$2" > "$1/home/config/self-update-source"
+}
+
+# --- T13: the primary follows the configured branch; secondmates follow it ---
+test_self_update_source_follows_branch() {
+  local w out carry
+  w=$(new_world t13-source)
+  add_sm "$w" sm1
+  add_standalone_sm "$w" sm2
+  carry=$(add_fork_carry "$w")
+  # origin also moves, and that commit is NOT in the carry branch, so landing
+  # on it would prove origin was used.
+  bump_origin "$w" readme
+  write_source "$w" "fork carry"
+
+  out=$(run_update "$w")
+
+  assert_contains "$out" "self-update source: fork carry" "the configured source is announced"
+  assert_contains "$out" "firstmate: updated " "the primary advanced"
+  assert_equals "$(git -C "$w/main" rev-parse HEAD)" "$carry" "the primary did not land on the configured branch"
+  [ "$(git -C "$w/main" symbolic-ref --short HEAD 2>/dev/null)" = "main" ] \
+    || fail "the primary left its default branch"
+  assert_equals "$(git -C "$w/sm1" rev-parse HEAD)" "$carry" "a linked-worktree secondmate did not follow the primary"
+  assert_equals "$(git -C "$w/sm2" rev-parse HEAD)" "$carry" "a standalone-clone secondmate did not follow the primary"
+  assert_contains "$out" "reread-firstmate: yes" "the carried instruction change triggers a reread"
+  assert_contains "$out" "fm-sm1" "the linked secondmate is routed for restart"
+  assert_contains "$out" "fm-sm2" "the standalone secondmate is routed for restart"
+  assert_not_contains "$out" "nudge-secondmates: fm" "restartable mates are not nudged"
+
+  # Removing the file returns to origin; the carried commit is not in origin, so
+  # that path now reports divergence and moves nothing.
+  rm "$w/home/config/self-update-source"
+  out=$(run_update "$w")
+  assert_not_contains "$out" "self-update source:" "an absent file must not announce a source"
+  assert_contains "$out" "firstmate: skipped: diverged from origin/main" "without the file the origin path is used"
+  assert_equals "$(git -C "$w/main" rev-parse HEAD)" "$carry" "the origin path moved a diverged primary"
+  pass "T13 config/self-update-source moves the primary and its local secondmates to that branch"
+}
+
+# --- T14: an unusable config refuses before anything moves ------------------
+test_self_update_source_refuses_unusable_config() {
+  local w before value rc err
+  w=$(new_world t14)
+  add_sm "$w" sm1
+  add_fork_carry "$w" >/dev/null
+  bump_origin "$w" instr
+  before=$(git -C "$w/main" rev-parse HEAD)
+
+  for value in "nosuchremote carry" "fork" "fork carry extra" "fork bad..branch" $'fork carry\nfork other'; do
+    write_source "$w" "$value"
+    err=$(PATH="$w/fakebin:$PATH" FM_FAKE_DIR="$w/fake" \
+      FM_ROOT_OVERRIDE="$w/main" FM_HOME="$w/home" "$UPDATE" 2>&1 >/dev/null)
+    rc=$?
+    [ "$rc" -ne 0 ] || fail "an unusable self-update source ($value) did not refuse"
+    assert_contains "$err" "config/self-update-source" "the refusal ($value) must name the file"
+    assert_equals "$(git -C "$w/main" rev-parse HEAD)" "$before" "the primary moved despite an unusable source ($value)"
+    assert_equals "$(git -C "$w/sm1" rev-parse HEAD)" "$before" "a secondmate moved despite an unusable source ($value)"
   done
-  pass "refresh preserves replacement and retirement generations at the record owner's locked boundary"
+  pass "T14 an unusable config/self-update-source refuses without falling back to origin"
+}
+
+# --- T15: a rewritten (non-fast-forward) branch is skipped, never forced -------
+test_self_update_source_rewrite_is_skipped() {
+  local w out carry other
+  w=$(new_world t15)
+  add_sm "$w" sm1
+  carry=$(add_fork_carry "$w")
+  write_source "$w" "fork carry"
+  out=$(run_update "$w")
+  assert_equals "$(git -C "$w/main" rev-parse HEAD)" "$carry" "setup: the primary did not reach the branch"
+
+  # Replace the branch with an unrelated line of history.
+  git -C "$w/seed" checkout -q -b rewritten "$carry~1"
+  printf 'other\n' >> "$w/seed/README.md"
+  git -C "$w/seed" add -A
+  git -C "$w/seed" commit -qm rewritten
+  git -C "$w/seed" push -q -f "$w/fork.git" rewritten:carry
+  other=$(git -C "$w/seed" rev-parse HEAD)
+
+  out=$(run_update "$w")
+
+  assert_contains "$out" "firstmate: skipped: diverged from refs/remotes/fork/carry" "a rewritten branch must be skipped"
+  assert_equals "$(git -C "$w/main" rev-parse HEAD)" "$carry" "the primary was moved off its commit"
+  assert_not_equals "$(git -C "$w/main" rev-parse HEAD)" "$other" "the primary was forced to the rewritten branch"
+  assert_contains "$out" "secondmate sm1: already current" "a secondmate stays on the primary's unchanged commit"
+  pass "T15 a non-fast-forward self-update source is skipped, never forced"
 }
 
 test_updates_main_and_secondmate
@@ -1052,5 +1097,8 @@ test_legacy_host_rejects_pinned_update_without_advancing
 
 test_update_rearms_pr_polls
 test_rearm_preserves_concurrent_poll_changes
+test_self_update_source_follows_branch
+test_self_update_source_refuses_unusable_config
+test_self_update_source_rewrite_is_skipped
 
 echo "# all fm-update tests passed"

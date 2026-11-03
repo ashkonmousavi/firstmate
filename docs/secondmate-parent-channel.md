@@ -22,7 +22,7 @@ Every shared-fleet outcome that leaves durable evidence in the mate home is publ
 
 | Outcome | Durable evidence in the mate home | Published by |
 |---|---|---|
-| Ship child PR ready | the child's `done:` PR ready line, whose accepted spellings the publisher below owns; `pr=` in the child's record once registered | `bin/fm-inactive-reconcile.sh` on the next poll with the child's line; `bin/fm-pr-check.sh` at registration with the canonical URL |
+| Ship child PR ready | the child's `done:` PR ready line, whose accepted spellings the publisher below owns; `pr=` in the child's record once registered | `bin/fm-inactive-reconcile.sh` on the next poll with the child's line; `bin/fm-pr-check.sh` at registration with the canonical URL, or after the green report when [`config/ready-after-green`](configuration.md#pr-ready-line-after-green-configready-after-green) is set |
 | Scout child findings | the child's `done:` line plus `data/<child>/report.md` | `bin/fm-inactive-reconcile.sh` on the next poll, with the report pointer |
 | Child failed | the child's `failed:` line | `bin/fm-inactive-reconcile.sh` on the next poll |
 | Child decision escalated to the captain | the task held for the captain in the mate backlog | `bin/fm-captain-hold.sh hold`, and its answer by `answer` |
@@ -59,6 +59,7 @@ Stale superseded records use [`fm-pending-reply-retire-stale.sh`](../bin/fm-pend
 `tests/fm-captain-hold-lifecycle.test.sh` covers a mate home publishing a hold, its answer, and a distinct occurrence on re-hold, and a main home publishing nothing.
 `tests/fm-pr-merge.test.sh` covers the PR-ready line at registration and the merge outcome's upward report.
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
+It also covers the registration-time ready line and its withholding until checks are green under `config/ready-after-green`.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
 `tests/fm-pending-reply-ack-handled.test.sh` covers the recipient acknowledgement closing one correlation while another stays open.
 `tests/fm-pending-reply-retire-stale.test.sh` covers retirement strictly after 24 hours for records superseded by a confirmed-delivery successor or a gone task, retained records and retirement notes, and the refusal to retire unsuperseded unanswered records.

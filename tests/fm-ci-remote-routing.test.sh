@@ -48,7 +48,7 @@ Dir.mktmpdir('fm-ci-aggregate-') do |temp|
  stub=File.join(temp,'bin','fm-test-run.sh')
  File.write(stub,"#!/bin/sh\n[ \"\$1\" = --aggregate-json ] || exit 90\nout=\$2; shift 2\nprintf '%s\\n' \"\$@\" > \"\$RUNNER_TEMP/aggregate-inputs.txt\"\nprintf '{\"aggregate\":true}\\n' > \"\$out\"\n")
  File.chmod(0755,stub)
- expected=['fm-test-timing-portable-parallel-1.json','fm-test-timing-portable-parallel-2.json','fm-test/fm-test-timing-herdr.json']
+ expected=['fm-test-timing-portable-parallel-1.json','fm-test-timing-portable-parallel-2.json','fm-test/fm-test-timing-herdr.json','fm-test/fm-test-timing-hc.json']
  expected+=ci.fetch('jobs').fetch('tests-portable-serial').fetch('strategy').fetch('matrix').fetch('shard').map{|shard| "fm-test-timing-portable-serial-#{shard}.json"}
  upload=ci.fetch('jobs').fetch('tests-herdr').fetch('steps').find{|step| step['uses'].to_s.start_with?('actions/upload-artifact@')}
  paths=upload.fetch('with').fetch('path').lines.map{|line| line.strip.sub('${{ runner.temp }}',runner_temp)}
@@ -112,12 +112,13 @@ Dir.mktmpdir('fm-ci-producers-') do |temp|
   args+=['--json',"#{runner_temp}/fm-test/fm-test-timing-portable-parallel-#{shard}.json"]
   run.call("tests-portable-parallel-#{shard}","Run portable parallel shard #{shard}",'fm-test-run.sh',args)
  end
- ci.fetch('jobs').fetch('tests-portable-serial').fetch('strategy').fetch('matrix').fetch('shard').each do |shard|
+ serial_shards=ci.fetch('jobs').fetch('tests-portable-serial').fetch('strategy').fetch('matrix').fetch('shard')
+ serial_shards.each do |shard|
   step=ci.fetch('jobs').fetch('tests-portable-serial').fetch('steps').find{|item| item['env'] && item['env'].key?('FM_SERIAL_LANE')}
-  context={'matrix.shard'=>shard,'strategy.job-total'=>9}
+  context={'matrix.shard'=>shard,'strategy.job-total'=>serial_shards.length}
   environment=step.fetch('env').transform_values{|value| value.to_s.gsub(/\$\{\{(.+?)\}\}/){Expression.evaluate(Regexp.last_match(1),context).to_s}}
   run.call('tests-portable-serial',step.fetch('name'),'fm-test-run.sh',
-           ['--lane',"portable-serial-#{shard}of9",'--fail-on-gate-skip','Pi extension typecheck prerequisite not found',
+           ['--lane',"portable-serial-#{shard}of#{serial_shards.length}",'--fail-on-gate-skip','Pi extension typecheck prerequisite not found',
             '--json',"#{runner_temp}/fm-test/fm-test-timing-portable-serial-#{shard}.json"],context,environment)
  end
  run.call('tests-herdr','run-real-herdr-family','fm-test-run.sh',
@@ -139,6 +140,6 @@ Dir.mktmpdir('fm-ci-producers-') do |temp|
  output,status=invoke.call
  raise 'symlink compatibility pointer was accepted' if status.success?
 end
-raise 'required job expansion changed' unless ci.fetch('jobs').reject{|id,_| id=='tests-timing-aggregate'}.sum{|_,job| (job.dig('strategy','matrix') || {}).values.map(&:length).inject(1,:*)}==19
+raise 'required job expansion changed' unless ci.fetch('jobs').reject{|id,_| id=='tests-timing-aggregate'}.sum{|_,job| (job.dig('strategy','matrix') || {}).values.map(&:length).inject(1,:*)}==24
 puts "ok - #{checks} Linux jobs use hosted routing; required producers propagate failures, separate compliance stays intact, optional aggregate requires real archive paths"
 RUBY

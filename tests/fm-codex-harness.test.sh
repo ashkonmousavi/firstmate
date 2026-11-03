@@ -74,6 +74,16 @@ fake_screen() {
       printf '%s\n' "$update_partial" ;;
     trust)
       printf '%s\n' "$trust_dialog" ;;
+    startup-*)
+      printf 'Waiting for startup\n\n'
+      case "$state" in
+        startup-pending) composer_row ' FIRSTMATE_OP: v1 launch-brief: Read the brief at /wt/launch-brief.md and follow it exactly.' ;;
+        startup-empty) composer_row "${ESC}[2m${bg}${dim_placeholder}${ESC}[0m" ;;
+      esac
+      printf '\n%s\n%s\n' "$footer" '  ? for shortcuts'
+      # A busy-looking row cannot confirm input that still occupies the composer.
+      [ "${FM_FAKE_CODEX_DELIVERY:-working}" != stuck-pending ] \
+        || printf '%s\n' '• Working (1s • esc to interrupt)' ;;
     ready|typed|delivered|working|failed)
       if [ "$state" = ready ] && [ -e "$FM_FAKE_CODEX_STATE.positional" ]; then
         # A positional launch: codex submits the brief itself once startup
@@ -113,7 +123,7 @@ fake_cursor_y() {
   # The composer row index of each screen: the classifier anchors on the
   # pane cursor, so it must point at the glyph row of the state's screen.
   case "$state" in
-    ready|typed) printf '2\n' ;;
+    ready|typed|startup-pending|startup-empty) printf '2\n' ;;
     working) printf '3\n' ;;
     delivered|failed) printf '5\n' ;;
     *) printf '1\n' ;;
@@ -220,6 +230,9 @@ case "${1:-}" in
               delivered) printf 'delivered\n' > "$FM_FAKE_CODEX_STATE" ;;
               failed) printf 'failed\n' > "$FM_FAKE_CODEX_STATE" ;;
               working) printf 'working\n' > "$FM_FAKE_CODEX_STATE" ;;
+              delayed-pending|stuck-pending) printf 'startup-pending\n' > "$FM_FAKE_CODEX_STATE" ;;
+              delayed-unknown|stuck-unknown) printf 'startup-unknown\n' > "$FM_FAKE_CODEX_STATE" ;;
+              delayed-empty|stuck-empty) printf 'startup-empty\n' > "$FM_FAKE_CODEX_STATE" ;;
               swallow) : ;;
             esac
             ;;
@@ -243,6 +256,19 @@ case "${1:-}" in
     exit 0
     ;;
   capture-pane)
+    case "$state" in
+      startup-*)
+        polls=$(cat "$FM_FAKE_CODEX_STATE.startup-polls" 2>/dev/null || printf 0)
+        polls=$((polls + 1))
+        printf '%s\n' "$polls" > "$FM_FAKE_CODEX_STATE.startup-polls"
+        case "${FM_FAKE_CODEX_DELIVERY:-working}" in
+          delayed-*)
+            if [ "$polls" -ge 20 ]; then
+              printf 'working\n' > "$FM_FAKE_CODEX_STATE"
+              state=working
+            fi ;;
+        esac ;;
+    esac
     if [ "${FM_FAKE_TMUX_VISIBLE_FAILS:-no}" = yes ]; then
       case " $* " in
         *' -S -0 '*)
@@ -304,7 +330,7 @@ run_spawn() {
   local case_dir=$1 home=$2 proj=$3 wt=$4 fakebin=$5 id=$6
   shift 6
   case " $* " in
-    *' --secondmate '*) ;;
+    *' --secondmate '*|*' --scout '*) ;;
     *) set -- --mode no-mistakes --yolo off "$@" ;;
   esac
   HOME="$home" FM_ROOT_OVERRIDE='' FM_HOME="$home" \
@@ -326,7 +352,7 @@ run_spawn() {
     FM_CODEX_TYPED_LAUNCH="${FM_CODEX_TYPED_LAUNCH:-1}" \
     FM_FAKE_CODEX_POSITIONAL_TURN="${FM_FAKE_CODEX_POSITIONAL_TURN:-working}" \
     FM_CODEX_FIRST_TURN_POLLS="${FM_CODEX_FIRST_TURN_POLLS:-12}" \
-    FM_CODEX_READY_POLLS="${FM_CODEX_READY_POLLS:-12}" FM_CODEX_PROCESSING_POLLS=6 \
+    FM_CODEX_READY_POLLS="${FM_CODEX_READY_POLLS:-12}" FM_CODEX_PROCESSING_POLLS="${FM_CODEX_PROCESSING_POLLS:-6}" \
     FM_CODEX_POLL_INTERVAL=0 FM_CODEX_SUBMIT_SLEEP=0 FM_CODEX_SUBMIT_SETTLE=0 \
     PATH="$fakebin:$BASE_PATH" \
     "$SPAWN" "$id" "$proj" --harness codex "$@" 2>&1
@@ -406,6 +432,69 @@ test_codex_default_launch_is_positional_and_confirms_the_first_turn() {
   # summary and the summary-only screen carried no busy row, so neither case
   # passed on the other's evidence.
   pass "fm-spawn: codex launches positionally by default and either first-turn signal confirms the brief"
+}
+
+test_codex_ungated_backend_keeps_the_positional_brief() {
+  local role typed id rec rex_dir out rc command expected
+  local -a args
+  . "$ROOT/tests/rex-fake-fixture.sh"
+  for role in ship scout secondmate; do
+    for typed in 0 1; do
+      id="codex-rex-$role-$typed-$$"
+      rec=$(make_spawn_case "rex-$role-$typed" "$id")
+      read_spawn_record "$rec"
+      CODEX_RUNTIME_TASK_TMP="/tmp/fm-$id"
+      args=(--backend rex)
+      expected="Task marker: $id"
+      printf '\nTask marker: %s\n' "$id" >> "$HOME_DIR/data/$id/brief.md"
+      case "$role" in
+        scout) args+=(--scout) ;;
+        secondmate)
+          PROJ_DIR="$CASE_DIR/secondmate-home"
+          WT_DIR=$PROJ_DIR
+          mkdir -p "$PROJ_DIR/bin" "$PROJ_DIR/data"
+          printf '# Firstmate\n' > "$PROJ_DIR/AGENTS.md"
+          printf '%s\n' "$id" > "$PROJ_DIR/.fm-secondmate-home"
+          printf 'charter for %s\n' "$id" > "$PROJ_DIR/data/charter.md"
+          printf '%s\n' 'projects/' 'state/' 'data/' 'config/' '.no-mistakes/' > "$PROJ_DIR/.gitignore"
+          git -C "$PROJ_DIR" init -q -b main
+          expected="charter for $id"
+          args+=(--secondmate)
+          ;;
+      esac
+      rex_dir="$CASE_DIR/rex"
+      make_rex_fake "$rex_dir"
+      mv "$rex_dir/bin/rex" "$rex_dir/bin/rex.fixture"
+      cat > "$rex_dir/bin/rex" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *' block '*' process '*)
+    jq -n --arg cwd "$FM_FAKE_PANE_PATH" '{foreground:{pid:99999999,name:"zsh",cwd:$cwd},ancestors:[],last_exit:null}'
+    exit 0 ;;
+esac
+exec "$0.fixture" "$@"
+SH
+      chmod +x "$rex_dir/bin/rex"
+      printf '#!/usr/bin/env bash\nprintf "%%s\\0" "$@" > %q\n' "$CASE_DIR/codex-argv" > "$FAKEBIN_DIR/codex"
+      out=$(FM_CODEX_TYPED_LAUNCH="$typed" REX_BIN_DIR="$rex_dir/bin" FM_REX_FAKE_DIR="$rex_dir/fake" \
+        FM_SKIP_SECONDMATE_SYNC=1 FM_SKIP_SECONDMATE_INHERIT=1 \
+        run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" "${args[@]}"); rc=$?
+      expect_code 0 "$rc" "Rex $role launch with typed flag $typed must succeed: $out"
+      command=$(tail -n 1 "$rex_dir/fake/sent")
+      PATH="$FAKEBIN_DIR:$BASE_PATH" bash -c "$command" || fail 'the emitted Rex launch did not execute'
+      python3 - "$CASE_DIR/codex-argv" "$expected" <<'PYARGV' || fail 'Codex did not receive its positional task brief'
+from pathlib import Path
+import sys
+arguments = Path(sys.argv[1]).read_bytes().split(b"\0")[:-1]
+briefs = [arg for arg in arguments if arg.startswith(b"\xe2\x81\xa3FIRSTMATE_OP: v1 launch-brief: ")]
+assert len(briefs) == 1, arguments
+assert sys.argv[2].encode() in briefs[0], briefs[0]
+PYARGV
+      fm_test_remove_tree "$CODEX_RUNTIME_TASK_TMP"
+      CODEX_RUNTIME_TASK_TMP=
+    done
+  done
+  pass 'ungated Rex launches deliver one positional Codex brief for every role even when typed delivery is requested'
 }
 
 test_codex_positional_launch_without_a_first_turn_fails_loudly() {
@@ -581,6 +670,41 @@ test_codex_processing_confirmation_accepts_the_busy_footer() {
   pass "fm-spawn: the working footer confirms brief processing"
 }
 
+test_codex_waits_for_startup_after_submission() {
+  local delivery id rec out rc
+  # A submitted brief may remain pending, unreadable, or queued behind an
+  # empty composer until MCP startup finishes. The contract is one brief
+  # followed by an actual turn, not a particular immediate composer verdict.
+  for delivery in delayed-pending delayed-unknown delayed-empty; do
+    id="codex-$delivery-$$"
+    rec=$(make_spawn_case "$delivery" "$id")
+    read_spawn_record "$rec"
+    out=$(FM_FAKE_CODEX_DELIVERY="$delivery" FM_CODEX_PROCESSING_POLLS=24 run_spawn \
+      "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+    rc=$?
+    expect_code 0 "$rc" "a submitted brief should survive $delivery startup: $out"
+    [ "$(wc -l < "$CASE_DIR/typed.log")" -eq 1 ] || fail "startup caused the brief to be typed again"
+    grep -qxF working "$CASE_DIR/codex.state" || fail "spawn succeeded before startup reached an actual turn"
+  done
+  pass "fm-spawn: startup latency does not reject or duplicate a submitted Codex brief"
+}
+
+test_codex_startup_without_processing_refuses_the_spawn() {
+  local delivery id rec out rc
+  for delivery in stuck-pending stuck-unknown stuck-empty; do
+    id="codex-$delivery-$$"
+    rec=$(make_spawn_case "$delivery" "$id")
+    read_spawn_record "$rec"
+    out=$(FM_FAKE_CODEX_DELIVERY="$delivery" run_spawn \
+      "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+    rc=$?
+    [ "$rc" -ne 0 ] || fail "a brief stuck in startup spawned without processing"
+    assert_contains "$out" "codex did not take the brief" "stuck startup did not report delivery failure"
+    [ "$(wc -l < "$CASE_DIR/typed.log")" -eq 1 ] || fail "stuck startup caused the brief to be typed again"
+  done
+  pass "fm-spawn: unreadable or empty startup composers cannot alone confirm brief processing"
+}
+
 test_codex_old_processing_evidence_refuses_the_spawn() {
   local id rec out rc
   id="codex-stale-z11-$$"
@@ -648,6 +772,7 @@ test_codex_refuses_a_backend_without_a_viewport_capture() {
 
 test_codex_launches_bare_and_delivers_typed_brief
 test_codex_default_launch_is_positional_and_confirms_the_first_turn
+test_codex_ungated_backend_keeps_the_positional_brief
 test_codex_positional_launch_without_a_first_turn_fails_loudly
 test_codex_secondmate_uses_typed_delivery_and_preserves_hooks
 test_codex_never_ready_reports_codex_did_not_take_the_brief
@@ -656,6 +781,8 @@ test_codex_trust_dialog_that_never_clears_fails
 test_codex_partial_dialog_text_is_never_answered_or_trusted
 test_codex_unconfirmed_submit_refuses_the_spawn
 test_codex_processing_confirmation_accepts_the_busy_footer
+test_codex_waits_for_startup_after_submission
+test_codex_startup_without_processing_refuses_the_spawn
 test_codex_old_processing_evidence_refuses_the_spawn
 test_codex_completed_short_turn_confirms_the_spawn
 test_codex_readiness_capture_failure_fails_loudly
