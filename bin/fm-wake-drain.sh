@@ -478,16 +478,6 @@ EOF
 # config stay visible. An empty FM_CONFIG_OVERRIDE is not a config directory.
 # shellcheck shell=bash
 
-if ! declare -F fm_secondmate_owner_parked >/dev/null 2>&1; then
-  if [ -n "${FM_OWL_PARK_LIB:-}" ]; then
-    # shellcheck source=/dev/null
-    . "$FM_OWL_PARK_LIB"
-  else
-    # shellcheck source=bin/fm-secondmate-park-lib.sh
-    . "$SCRIPT_DIR/fm-secondmate-park-lib.sh"
-  fi
-fi
-
 # fm_wake_decision_hidden_by_owner_park <task-id>
 # Return 0 when the line must be omitted. Return 1 when it must be shown.
 # Does not unset FM_CONFIG_OVERRIDE or FM_HOME. Does not edit the status file.

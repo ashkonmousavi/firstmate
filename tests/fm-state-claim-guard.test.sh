@@ -422,6 +422,25 @@ reply_check("ask lacks one-letter answer", "👉 **Choose** continue or defer?",
 reply_check("leading blank is not first line", "\n" + valid_ask, 2)
 reply_check("no ask needs no marker", "The report is ready.", 0)
 reply_check("quoted ask is evidence", '> Earlier: 👉 **Choose** A) continue?\nThe report is ready.', 0)
+for opening, closing in (("'", "'"), ('"', '"'), ("‘", "’"), ("“", "”")):
+    for record in ("Meet at 18:00 UTC.", "Can you approve this change?",
+                   "PR 9 needs review.", "MR 9 needs review."):
+        reply_check("quoted record " + opening + record,
+                    f"The log says {opening}{record}{closing}", 0)
+    reply_check("quoted record does not exempt current UTC " + opening,
+                f"The log says {opening}Meet at 18:00 UTC.{closing} Meet at 19:00 UTC.", 2)
+    reply_check("quoted record does not exempt current PR " + opening,
+                f"The log says {opening}PR 9 needs review.{closing} PR 10 needs review.", 2)
+    reply_check("multiline quoted record " + opening,
+                f"{opening}Can you approve this change?\nMeet at 18:00 UTC. PR 9 needs review.{closing}", 0)
+    reply_check("multiline quote cannot promote a late ask " + opening,
+                f"{opening}Can you approve this change?\nMeet at 18:00 UTC.{closing}{valid_ask}", 2)
+    for short in ("18:00 UTC", "Can you", "PR 9", "MR 9"):
+        reply_check("short quote remains checked " + opening + short,
+                    f"The log says {opening}{short}{closing}", 2)
+    for contraction in ("I've", "I’ve"):
+        reply_check("quoted contraction " + opening + contraction,
+                    f"The log says {opening}{contraction} checked: PR 9 needs review at 18:00 UTC.{closing}", 0)
 reply_check("fenced record may use UTC", "```text\nrecord=2026-11-03T18:00:00Z\n```\nThe report is ready.", 0)
 reply_check("inline record may use UTC", "The record contains `2026-11-03T18:00:00Z`.", 0)
 for stamp in ("18:00 UTC", "18:00Z", "2026-11-03T18:00:00Z", "2026-11-03T18:00:00+00:00", "18:00 GMT", "UTC 18:00"):

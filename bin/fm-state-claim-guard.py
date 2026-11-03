@@ -86,6 +86,12 @@ CLAUSE_BREAK = rx(
 )
 
 
+def exclude_quoted_records(text):
+    return re.sub(r'''(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"[^"]*"|‘(?:[^’]|(?<=\w)’(?=\w))*’|“[^”]*”''',
+                  lambda match: " " + "\n" * match.group(0).count("\n")
+                  if len(match.group(0)[1:-1].split()) >= 4 else match.group(0)[1:-1], text)
+
+
 def reply_violations(text):
     home = Path(os.environ.get("FM_HOME", Path(__file__).parent.parent))
     config = Path(os.environ.get("FM_CONFIG_OVERRIDE") or home / "config") / "reply-shape"
@@ -106,6 +112,7 @@ def reply_violations(text):
     prose = re.sub(r"```.*?(?:```|$)|~~~.*?(?:~~~|$)",
                    lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
     prose = re.sub(r"(?m)^\s*>[^\n]*", "", prose)
+    prose = exclude_quoted_records(prose)
     prose = re.sub(r"`([^`\n]+)`", lambda m: m.group(1) if re.fullmatch(r"#?\d+", m.group(1)) else "", prose)
     first = prose.split("\n", 1)[0].strip()
     direct_ask = rx(r"\b(?:can|could|would|will)\s+you\b|\bshould\s+(?:I|we)\b|"
@@ -183,8 +190,7 @@ def lane_names(text):
 
 def claims(text):
     text = re.sub(r"```.*?(?:```|$)", "", text, flags=re.S)
-    text = re.sub(r'''(?<!\w)'(?:[^']|(?<=\w)'(?=\w))*'(?!\w)|"[^"]*"|‘(?:[^’]|(?<=\w)’(?=\w))*’|“[^”]*”''',
-                  lambda match: " " if len(match.group(0)[1:-1].split()) >= 4 else match.group(0)[1:-1], text)
+    text = exclude_quoted_records(text)
     text = re.sub(r"(?<!\w)(_{1,3})(\S(?:[^\n]*?\S)?)\1(?!\w)", r"\2",
                   text.replace("`", "").replace("*", ""))
     for sentence in re.split(r"[\n]|(?<=[.!?])\s+", text):
