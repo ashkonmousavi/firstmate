@@ -922,6 +922,10 @@ The walk carrier's optional attempt field distinguishes deliberate same-release 
 Missing carrier facts leave the obligation open, and a stale carrier or exhausted machinery retry stays with its machinery owner.
 Green completion requires current walk coverage on a release containing the latest repair, and records the filed result path before receipt-bound non-force runtime cleanup and native acceptance.
 Runtime cleanup leaves the task in flight until its completed receipt authorizes acceptance under the lifecycle lock.
+The final `done` step follows that acceptance; a changed cut, coverage list or outstanding repair invalidates earlier green proof before cleanup or acceptance.
+Tester admission and destination custody are checked for initial launches, cut continuations, review rechecks and receipt reconciliation.
+An owned tester or reviewer without a runtime receives its saved current brief and prep before fresh dispatch of the same task, reopening its completed native record when needed.
+Required-check and review progression follows product work after the latest merge independently of walk bookkeeping.
 Carried terminal transport outcomes also resolve unsent pending walk requests into the existing retry or owned-failure path; stale carriers keep them pending.
 Finding delivery requires the destination owner's active lease; observation leaves that delivery pending with its route recorded.
 

@@ -99,6 +99,24 @@ rm -f "$FM_HOME/state/$1.meta"
 
     def meta(self, task, model, gen, harness="codex"):
         self.write(f"state/{task}.meta", f"kind=ship\nharness={harness}\nmodel={model}\nspawn_gen={gen}\nmode=direct-PR\nbranch=fm/owner\nworktree={self.home}/projects/proj\nproject={self.home}/projects/proj\n")
+        role = "tester" if task == "special-tester" else "review" if task.startswith("owner-review-") else ""
+        backlog = self.home / "data/backlog.md"
+        if role and f"- [ ] {task} -" not in backlog.read_text():
+            home_id = (self.home / ".fm-secondmate-home").read_text().strip() if (self.home / ".fm-secondmate-home").exists() else "main"
+            owner_slice = backlog.read_text().split("SLICE: ", 1)[1].splitlines()[0]
+            child_slice = owner_slice.replace("role=owner", f"role={role} owner={home_id}:owner")
+            self.write("data/backlog.md", backlog.read_text().replace("## Queued", f"- [ ] {task} - {role} (repo: proj) (kind: scout)\n  SLICE: {child_slice}\n## Queued"))
+
+    def closure_ready(self):
+        project = self.home / "projects/proj"
+        subprocess.run(["git", "-C", str(project), "init", "-q"], check=True)
+        subprocess.run(["git", "-C", str(project), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                        "commit", "--allow-empty", "-qm", "landed"], check=True)
+        release = subprocess.check_output(["git", "-C", str(project), "rev-parse", "HEAD"], text=True).strip()
+        self.seed("merged", "merge:" + release, merge=release)
+        self.seed("walk", "walk-green:proof", closure_ready=True, release=release, project=str(project),
+                  revision="r1", walk="demo", walk_list="screen-a,screen-b", spawn_gen="s1.1.1",
+                  report_sha256="a" * 64, last_walk="data/walk-auto-filing/walk-result-demo.md")
 
     def lease_other(self, task, mode):
         backlog = (self.home / "data/backlog.md").read_text()
@@ -191,7 +209,9 @@ rm -f "$FM_HOME/state/$1.meta"
             for boundary in ("before", "after"):
                 with self.subTest(kind=kind, boundary=boundary):
                     self.setUp()
-                    target = "owner" if kind in ("note-owner", "relaunch-owner", "cut-delivery") else "child"
+                    target = ("special-tester" if kind in ("launch-tester", "relaunch-tester") else
+                              "owner-review-1-1" if kind in ("launch-review", "recheck-review") else
+                              "child" if kind == "route-finding" else "owner")
                     self.meta(target, "opus", "original.1")
                     if kind == "route-finding":
                         self.lease_other("child", "act")
@@ -214,15 +234,25 @@ rm -f "$FM_HOME/state/$1.meta"
                     self.assertLessEqual(len(list((self.home / f"state/{target}.inbox").glob("*.msg"))), 1)
 
     def test_exited_launches_reconcile_before_the_autolaunch_log_append(self):
-        for kind in ("launch-tester", "launch-review", "relaunch-owner", "cut-delivery"):
+        for kind in ("launch-tester", "launch-review", "relaunch-owner", "note-owner", "cut-delivery",
+                     "relaunch-tester", "recheck-review", "route-finding"):
             with self.subTest(kind=kind):
                 self.setUp()
-                self.prepare_effect(kind)
+                if kind in ("relaunch-tester", "recheck-review", "route-finding", "note-owner"):
+                    target = ("special-tester" if kind == "relaunch-tester" else "owner-review-1-1" if kind == "recheck-review" else
+                              "other" if kind == "route-finding" else "owner")
+                    self.meta(target, "opus", "original.1")
+                    if kind == "route-finding":
+                        self.lease_other(target, "act")
+                    self.seed("fix", "delivery", receipt="pending", effect=dict(
+                        kind=kind, target=target, id="delivery", note="Continue this work", expected_gen="original.1"))
+                else:
+                    self.prepare_effect(kind)
+                    target = "special-tester" if kind == "launch-tester" else "owner-review-1-1" if kind == "launch-review" else "owner"
                 self.assertNotEqual(self.run_pass(f"after:{kind}").returncode, 0)
-                target = "special-tester" if kind == "launch-tester" else "owner-review-1-1" if kind == "launch-review" else "owner"
                 self.write(f"fake/agent-{target}", "dead")
                 self.assertEqual(self.completed(kind), [])
-                self.assertFalse((self.home / "state/autolaunch.log").exists())
+                self.assertEqual((self.home / "state/autolaunch.log").exists(), kind in ("launch-tester", "launch-review"))
                 effects = self.effects("")
                 result = self.run_pass()
                 self.assertEqual(result.returncode, 0, result.stdout)
@@ -231,15 +261,21 @@ rm -f "$FM_HOME/state/$1.meta"
                 self.assertEqual(self.effects(""), effects)
 
     def test_provisional_dead_spawn_metadata_is_not_launch_completion(self):
-        self.prepare_effect("launch-tester")
-        self.assertNotEqual(self.run_pass("before:launch-tester").returncode, 0)
-        self.meta("special-tester", "opus", "provisional.1")
-        self.write("fake/agent-special-tester", "dead")
-        self.tool("control", "exit 3")
-        result = self.run_pass()
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertEqual(self.completed("launch-tester"), [])
-        self.assertTrue(any(r["receipt"] == "pending" for r in self.rows()))
+        for native_state in ("queued", "in_flight"):
+            with self.subTest(native_state=native_state):
+                self.setUp()
+                self.prepare_effect("launch-tester")
+                self.assertNotEqual(self.run_pass("before:launch-tester").returncode, 0)
+                if native_state == "in_flight":
+                    started = subprocess.run([str(ROOT / "bin/fm-tasks-axi.sh"), "start", "special-tester"], env=self.env)
+                    self.assertEqual(started.returncode, 0)
+                self.meta("special-tester", "opus", "provisional.1")
+                self.write("fake/agent-special-tester", "dead")
+                self.tool("control", "exit 3")
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.completed("launch-tester"), [])
+                self.assertTrue(any(r["receipt"] == "pending" for r in self.rows()))
 
     def test_later_steps_do_not_reconsume_historical_prep_or_review_triggers(self):
         self.seed("deployed", "deploy:earlier", release="abcdef0", deployed_at=10)
@@ -413,6 +449,61 @@ rm -f "$FM_HOME/state/$1.meta"
                 self.assertEqual(self.run_pass().returncode, 0)
                 self.assertEqual(len(self.completed("cut-delivery")), 1)
 
+    def test_tester_admission_at_every_continuation_boundary(self):
+        for kind in ("launch-tester", "relaunch-tester", "note-owner", "relaunch-owner", "cut-delivery"):
+            for model in ("opus", "default", ""):
+                with self.subTest(kind=kind, model=model):
+                    self.setUp()
+                    target = "special-tester" if kind.endswith("tester") else "owner"
+                    self.meta("special-tester", "opus", "tester.1")
+                    self.meta("owner", model, "builder.1")
+                    payload = {} if kind.endswith("tester") else dict(tester_task="special-tester", tester_commit="none")
+                    self.seed("tests" if kind.endswith("tester") else "build", "admission", receipt="pending", effect=dict(
+                        kind=kind, target=target, expected_gen="tester.1" if kind.endswith("tester") else "builder.1",
+                        id="admission", note="Continue admitted tests", **payload))
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(self.effects(""), [])
+                    guard = subprocess.run([sys.executable, str(ROOT / "bin/fm-autolaunch-steps.py"),
+                                            "guard", target, "owner:admission"], env=self.env)
+                    self.assertEqual(guard.returncode, 3)
+                    self.meta("owner", "gpt-5.5", "builder.1")
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual(len(self.completed(kind)), 1)
+                    before = self.effects("")
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual(self.effects(""), before)
+
+    def test_lifecycle_custody_at_every_delivery_boundary(self):
+        for kind in ("note-owner", "relaunch-owner", "cut-delivery", "route-finding", "launch-tester",
+                     "relaunch-tester", "launch-review", "recheck-review"):
+            for live in (False, True):
+                with self.subTest(kind=kind, live=live):
+                    self.setUp()
+                    target = ("special-tester" if kind.endswith("tester") else "owner-review-1-1" if kind.endswith("review") else
+                              "other" if kind == "route-finding" else "owner")
+                    self.meta(target, "gpt-5.5" if target == "owner" else "opus", "target.1")
+                    if target == "other":
+                        self.lease_other(target, "observe")
+                    else:
+                        self.write("config/autolaunch-steps", "observe owner\n")
+                    self.write(f"fake/agent-{target}", "alive" if live else "dead")
+                    self.seed("fix", "custody", receipt="pending", effect=dict(kind=kind, target=target,
+                        expected_gen="target.1", id="custody", note="Continue leased work"))
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(self.effects(""), [])
+                    self.assertEqual(list((self.home / f"state/{target}.inbox").glob("*.msg")), [])
+                    guard = subprocess.run([sys.executable, str(ROOT / "bin/fm-autolaunch-steps.py"),
+                                            "guard", target, "owner:custody"], env=self.env)
+                    self.assertEqual(guard.returncode, 3)
+                    self.write("config/autolaunch-steps", "act owner other\n" if target == "other" else "act owner\n")
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual(len(self.completed(kind)), 1)
+                    before = self.effects("")
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual(self.effects(""), before)
+
     def test_tester_commit_is_on_the_builder_branch_before_any_continuation(self):
         for cut, live, crash in ((False, False, "before"), (False, True, "after"), (True, False, "after"), (True, True, "before"), (False, False, "scope"), (False, False, "rename")):
             with self.subTest(cut=cut, live=live, crash=crash):
@@ -514,17 +605,23 @@ rm -f "$FM_HOME/state/$1.meta"
 
     def test_observe_and_absent_are_noops(self):
         self.prepare_effect("launch-tester")
-        for setting in ("observe owner\n", "off\n", None):
+        for setting in ("observe\n", "observe owner\n", "off\n", None):
             p = self.home / "config/autolaunch-steps"
             if setting is None:
                 p.unlink()
             else:
                 p.write_text(setting)
+            if setting == "observe\n":
+                self.write("state/autolaunch-steps.pass", json.dumps(dict(at=2000000000, owners=[])))
             before = sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*"))
             r = self.run_pass()
             self.assertEqual(r.returncode, 0, r.stdout)
             self.assertEqual(sorted(str(p.relative_to(self.home)) for p in self.home.rglob("*")), before)
             self.assertEqual(self.rows(), [])
+            result = subprocess.run([sys.executable, str(ROOT / "bin/fm-autolaunch-steps.py"), "check"],
+                                    env=self.env, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "")
 
     def test_no_mistakes_files_no_reviewer(self):
         self.prepare_effect("file-review")
@@ -542,6 +639,119 @@ rm -f "$FM_HOME/state/$1.meta"
         self.run_pass(); self.run_pass()
         self.assertEqual(len(self.effects("spawn owner-review-1-1")), 1)
         self.assertFalse((self.home / "data/owner-review-1-2").exists())
+
+    def test_repair_progression_survives_walk_bookkeeping(self):
+        for site in ("checks", "findings", "recheck", "pipeline"):
+            with self.subTest(site=site):
+                self.setUp()
+                self.prepare_effect("file-review")
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.seed("merged", "merge:abc", merge="abc")
+                self.prepare_effect("walk-request")
+                summary = json.loads((self.home / "data/x-board-summary.json").read_text())
+                summary["walk_results"] = [dict(walk_owner="main", walk="demo", release="abc", attempt=1,
+                    assignment="demo@abc.a1", path="data/walk-result-failed.md", report_sha256="a" * 64,
+                    complete=True, steps=[dict(id="screen-a", result="failed", screenshots=["failure.png"]),
+                                          dict(id="screen-b", result="green")])]
+                self.write("data/x-board-summary.json", json.dumps(summary))
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(self.rows()[-1]["outcome"], "usable-failed")
+                self.write("fake/agent-owner", "dead")
+                self.write("fake/agent-owner-review-1-1", "dead")
+                self.append_status("owner", f"working [at=8]: pr-ready head=def checks={'red' if site == 'checks' else 'started'}")
+                if site == "findings":
+                    self.append_status("owner-review-1-1", "done [at=9]: review-ready reviewed_head=def finding=repair-bug review=url")
+                elif site == "recheck":
+                    self.append_status("owner-review-1-1", "done [at=9]: review-ready reviewed_head=abc finding=none review=url")
+                elif site == "pipeline":
+                    with (self.home / "state/owner.meta").open("a") as stream:
+                        stream.write("mode=no-mistakes\n")
+                    self.write("state/owner.step-nm", json.dumps(dict(generation=1, facts=dict(
+                        head="def", run_id="run-1", findings=[dict(id="pipeline-bug")]))))
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                expected = {"checks": "checks-red:def", "findings": "review:owner@1:1:repair-bug",
+                            "recheck": "recheck:owner@1:1:def", "pipeline": "review:owner@1:1:pipeline-bug"}[site]
+                self.assertTrue(any(r["trigger"] == expected and r["receipt"] == "completed" for r in self.rows()))
+                effects = self.effects("")
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(self.effects(""), effects)
+                self.assertEqual(len(self.effects("spawn owner-review-1-1")), 1)
+
+    def test_reused_children_dispatch_the_current_saved_context(self):
+        for site in ("generation", "cut", "recheck"):
+            for state in ("queued", "done", "retired"):
+                with self.subTest(site=site, state=state):
+                    self.setUp()
+                    reviewer = site == "recheck"
+                    self.prepare_effect("launch-review" if reviewer else "launch-tester")
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    target = "owner-review-1-1" if reviewer else "special-tester"
+                    (self.home / f"state/{target}.meta").unlink()
+                    self.write(f"fake/agent-{target}", "dead")
+                    command = "reopen" if state == "queued" else "done"
+                    changed = subprocess.run(["bash", str(ROOT / "bin/fm-tasks-axi.sh"), command, target],
+                                             env=self.env, text=True, capture_output=True)
+                    self.assertEqual(changed.returncode, 0, changed.stderr)
+                    if state == "retired":
+                        (self.home / f"state/{target}.status").unlink(missing_ok=True)
+                    self.write(f"data/{target}/brief.md", "stale generation and builder location\n")
+                    self.write(f"data/{target}/prep.md", "REVISION: stale\n")
+                    prep = (self.home / "data/owner/prep.md").read_text().replace("REVISION: r1", "REVISION: r2")
+                    self.write("data/owner/prep.md", prep)
+                    if site == "generation":
+                        self.seed("done", "generation-one-finished", spawn_gen="s1.1.1", revision="r1")
+                        self.meta("owner", "gpt-5.5", "fresh.2")
+                        with (self.home / "state/owner.meta").open("a") as stream:
+                            stream.write("branch=fm/owner-g2\n")
+                        self.append_status("owner", "working [at=30]: generation ready 2 source=new-ask branch=fm/owner-g2")
+                        self.append_status("owner", "working [at=31]: prep ready data/owner/prep.md r2")
+                    elif site == "cut":
+                        self.append_status("owner", "working [at=30]: cut ready data/owner/prep.md r2 walk_changed=yes risk_changed=no")
+                    else:
+                        if state != "retired":
+                            self.append_status(target, "done [at=30]: review-ready reviewed_head=abc finding=none review=url")
+                        self.append_status("owner", "working [at=31]: pr-ready head=def checks=started")
+                    self.tool("spawn", (self.home / "fake/spawn").read_text().split("set -eu\n", 1)[1].replace(
+                        "id=$1;", 'id=$1; cp "$FM_HOME/data/$id/brief.md" "$FM_HOME/fake/dispatched-brief"; '
+                        'cp "$FM_HOME/data/$id/prep.md" "$FM_HOME/fake/dispatched-prep";'))
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(len(self.effects("spawn " + target)), 2)
+                    self.assertEqual((self.home / "fake/dispatched-prep").read_text(), prep)
+                    brief = (self.home / "fake/dispatched-brief").read_text()
+                    self.assertIn("Prep revision: r2", brief)
+                    self.assertIn("head=def" if reviewer else ("fm/owner-g2" if site == "generation" else "fm/owner"), brief)
+                    before = self.effects("")
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual(self.effects(""), before)
+
+    def test_child_binding_is_required_with_and_without_runtime_metadata(self):
+        for role in ("tester", "review"):
+            for runtime in (False, True):
+                with self.subTest(role=role, runtime=runtime):
+                    self.setUp()
+                    self.prepare_effect("launch-" + role)
+                    target = "special-tester" if role == "tester" else "owner-review-1-1"
+                    self.meta(target, "opus", "child.1")
+                    if not runtime:
+                        (self.home / f"state/{target}.meta").unlink()
+                    backlog = (self.home / "data/backlog.md").read_text()
+                    self.write("data/backlog.md", backlog.replace("owner=main:owner", "owner=main:another-owner"))
+                    brief = self.write(f"data/{target}/brief.md", "Other owner's brief\n")
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(self.effects(""), [])
+                    self.assertEqual(brief.read_text(), "Other owner's brief\n")
+                    self.assertTrue(any(r.get("reason") == "child-owner-conflict" for r in self.rows()))
+                    self.write("data/backlog.md", backlog)
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual(len(self.completed("launch-" + role)), 1)
+
+    def test_control_child_continuation_fixture(self):
+        script = 'FM_TEST_FIXTURE_IMPORT=control-relaunch; . "$STEP_ROOT/tests/fm-control-relaunch.test.sh"; test_step_action_continuation'
+        result = subprocess.run(["bash", "-c", script], env=self.env, text=True, capture_output=True, timeout=240)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_green_review_records_a_wait_without_routing_a_none_finding(self):
         self.prepare_effect("file-review")
@@ -849,12 +1059,13 @@ done
         for boundary in ("before", "after", "refused", "ready-before-remove"):
             with self.subTest(boundary=boundary):
                 self.setUp()
-                self.seed("done", "walk-green:demo@abc", last_walk="data/walk-auto-filing/walk-result-demo.md", release="abc")
+                self.closure_ready()
                 if boundary in ("refused", "ready-before-remove"):
                     marker = "fake/teardown-refuse" if boundary == "refused" else "fake/cleanup-before-remove"
                     self.write(marker, "yes")
                     self.assertEqual(self.run_pass().returncode, 0)
                     self.assertEqual(self.completed("teardown"), [])
+                    self.assertFalse(any(r["step"] == "done" for r in self.rows()))
                     self.assertTrue((self.home / "state/owner.meta").exists())
                     self.assertIn("- [ ] owner", (self.home / "data/backlog.md").read_text())
                     (self.home / marker).unlink()
@@ -871,7 +1082,7 @@ done
                     self.assertEqual(self.effects("teardown "), ["teardown owner"])
 
     def test_native_acceptance_reconciles_only_after_the_cleanup_receipt(self):
-        self.seed("done", "walk-green:demo@abc", revision="r1", spawn_gen="s1.1.1")
+        self.closure_ready()
         self.assertNotEqual(self.run_pass("before:accept-owner").returncode, 0)
         self.assertEqual(len(self.completed("teardown")), 1)
         self.assertIn("- [ ] owner", (self.home / "data/backlog.md").read_text())
@@ -880,6 +1091,30 @@ done
         self.assertEqual(self.run_pass().returncode, 0)
         self.assertEqual(len(self.completed("accept-owner")), 1)
         self.assertEqual(self.effects("teardown "), ["teardown owner"])
+
+    def test_closure_revalidates_proof_before_each_external_effect(self):
+        for boundary in ("teardown", "accept-owner"):
+            for change in ("revision", "coverage", "repair"):
+                with self.subTest(boundary=boundary, change=change):
+                    self.setUp()
+                    self.closure_ready()
+                    self.assertNotEqual(self.run_pass("before:" + boundary).returncode, 0)
+                    if change == "repair":
+                        self.seed("fix", "new-repair")
+                    else:
+                        prep = (self.home / "data/owner/prep.md").read_text()
+                        prep = prep.replace("REVISION: r1", "REVISION: r2") if change == "revision" else prep.replace(
+                            "screen-a,screen-b", "screen-a,screen-b,screen-c")
+                        self.write("data/owner/prep.md", prep)
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertFalse(any(r["step"] == "done" for r in self.rows()))
+                    self.assertIn("- [ ] owner", (self.home / "data/backlog.md").read_text())
+                    self.assertTrue(any(r.get("superseded_by") == "proof-changed" for r in self.rows()))
+                    if boundary == "teardown" and change == "revision":
+                        self.append_status("owner", "working [at=31]: cut ready data/owner/prep.md r2 walk_changed=no risk_changed=no")
+                        self.assertEqual(self.run_pass().returncode, 0)
+                        self.assertEqual(len(self.completed("cut-delivery")), 1)
 
     def test_guarded_runtime_cleanup_precedes_native_closure(self):
         script = r'''
@@ -891,20 +1126,24 @@ for scenario in unique open merged; do
   fm_test_tasks_toml "$case_dir/.tasks.toml"
   mkdir -p "$case_dir/data/task-x1"
   printf 'act task-x1\n' > "$case_dir/config/autolaunch-steps"
-  printf 'REVISION: r1\n' > "$case_dir/data/task-x1/prep.md"
+  printf 'REVISION: r1\nWALK ID: demo\nWALK LIST: screen-a,screen-b\n' > "$case_dir/data/task-x1/prep.md"
   install_github_pr_class "$case_dir" merged
   if [ "$scenario" = unique ]; then
     wt_commit_file "$case_dir" extra.txt unique 'unmerged repair'
   elif [ "$scenario" = open ]; then
     install_github_pr_class "$case_dir" open
   fi
-  python3 - "$case_dir/data/task-x1/slice-steps.log" <<'PY'
-import json, sys
-row = dict(at=1, generation=1, owner="task-x1", step="done", trigger="walk-green:proof",
+  python3 - "$case_dir/data/task-x1/slice-steps.log" "$case_dir" <<'PY'
+import json, sys, subprocess
+from pathlib import Path
+meta = dict(line.split("=", 1) for line in Path(sys.argv[2], "state/task-x1.meta").read_text().splitlines() if "=" in line)
+release = subprocess.check_output(["git", "-C", meta["project"], "rev-parse", "HEAD"], text=True).strip()
+merge = dict(at=1, generation=1, owner="task-x1", step="merged", trigger="merge:"+release, receipt="completed", merge=release)
+row = dict(at=1, generation=1, owner="task-x1", step="walk", closure_ready=True, trigger="walk-green:proof",
            receipt="completed", last_walk="data/walk-result-proof.md", revision="r1",
-           spawn_gen="teardown-test-task-x1")
+           spawn_gen="teardown-test-task-x1", release=release, project=meta["project"], walk="demo", walk_list="screen-a,screen-b")
 with open(sys.argv[1], "w") as stream:
-    stream.write(json.dumps(row) + "\n")
+    stream.write(json.dumps(merge) + "\n" + json.dumps(row) + "\n")
 PY
   FM_HOME="$case_dir" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$case_dir/state" \
     FM_DATA_OVERRIDE="$case_dir/data" FM_CONFIG_OVERRIDE="$case_dir/config" PATH="$case_dir/fakebin:$PATH" \
@@ -918,11 +1157,16 @@ import json, sys
 rows = [json.loads(line) for line in open(sys.argv[1])]
 cleanup = next(i for i, r in enumerate(rows) if r.get("effect", {}).get("kind") == "teardown" and r["receipt"] == "completed")
 acceptance = next(i for i, r in enumerate(rows) if r.get("effect", {}).get("kind") == "accept-owner")
-assert cleanup < acceptance
+done = next(i for i, r in enumerate(rows) if r["step"] == "done")
+assert cleanup < acceptance < done
 PY
   else
     assert_present "$case_dir/state/task-x1.meta" 'unsafe cleanup preserves the runtime record'
     assert_equals in_flight "$(backlog_row_state "$case_dir")" 'unsafe cleanup never closes the native task'
+    python3 - "$case_dir/data/task-x1/slice-steps.log" <<'PY_CHECK'
+import json, sys
+assert not any(json.loads(line)["step"] == "done" for line in open(sys.argv[1]))
+PY_CHECK
     if [ "$scenario" = unique ]; then
       assert_equals unique "$(cat "$case_dir/wt/extra.txt")" 'unmerged bytes survive the refusal'
     fi
@@ -934,7 +1178,7 @@ done
         self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_teardown_reconciles_after_done_history_is_pruned(self):
-        self.seed("done", "walk-green:demo@abc", revision="r1", spawn_gen="s1.1.1")
+        self.closure_ready()
         self.assertNotEqual(self.run_pass("after:teardown").returncode, 0)
         self.write("data/backlog.md", "## In flight\n## Queued\n## Done\n")
         result = self.run_pass()
@@ -947,7 +1191,7 @@ done
         for fresh in (False, True):
             with self.subTest(fresh=fresh):
                 self.setUp()
-                self.seed("done", "walk-green:demo@abc", revision="r1", spawn_gen="s1.1.1")
+                self.closure_ready()
                 self.assertNotEqual(self.run_pass("before:teardown").returncode, 0)
                 self.append_status("owner", "working [at=30]: generation ready 2 source=new-ask branch=fm/owner-g2")
                 if fresh:

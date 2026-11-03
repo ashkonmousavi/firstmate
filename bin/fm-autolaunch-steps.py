@@ -68,6 +68,9 @@ DATA = Path(os.environ.get("FM_DATA_OVERRIDE", HOME / "data"))
 STATE = Path(os.environ.get("FM_STATE_OVERRIDE", HOME / "state"))
 CONFIG = Path(os.environ.get("FM_CONFIG_OVERRIDE", HOME / "config"))
 TEST = os.environ.get("FM_TEST_SEAM") == "1"
+TESTER_ACTIONS = ("launch-tester", "relaunch-tester")
+CHILD_ACTIONS = TESTER_ACTIONS + ("launch-review", "recheck-review")
+LIFECYCLE_ACTIONS = CHILD_ACTIONS + ("note-owner", "relaunch-owner", "cut-delivery", "route-finding")
 NOW = int(os.environ.get("FM_AUTOLAUNCH_STEPS_NOW", time.time())) if TEST else int(time.time())
 SLUG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
 
@@ -113,6 +116,8 @@ def leases():
             continue
         if words == ["observe"]:
             words += [p.parent.name for p in DATA.glob("*/slice-steps.log")]
+            if len(words) == 1:
+                continue
         if words[0] not in ("act", "observe") or len(words) < 2:
             raise ValueError("invalid autolaunch-steps lease")
         for owner in words[1:]:
@@ -211,19 +216,16 @@ def model_family(meta):
     return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else "unknown"
 
 
-def tester_admitted(owner, tester):
+def tester_admitted(owner, tester, before_launch=False):
     builder_model = kv(STATE / f"{owner}.meta").get("model", "")
     tester_model = kv(STATE / f"{tester}.meta").get("model", "")
-    return bool(builder_model and builder_model != "default" and tester_model and
-                tester_model != "default" and tester_model != builder_model)
-
-
-def destination_leased(effect):
-    return effect["kind"] != "route-finding" or leases().get(effect["target"]) == "act"
+    return bool(builder_model and builder_model != "default" and
+                (before_launch and not (STATE / f"{tester}.meta").exists() or
+                 tester_model and tester_model != "default" and tester_model != builder_model))
 
 
 def effect_tester(effect):
-    return effect["target"] if effect["kind"] in ("launch-tester", "relaunch-tester") else effect.get("tester_task")
+    return effect["target"] if effect["kind"] in TESTER_ACTIONS else effect.get("tester_task")
 
 
 def tester_scope(worktree, branch):
@@ -248,7 +250,7 @@ class Slice:
         self.cut = self.prep.get("CUT", "1")
         shown = invoke([BIN / "fm-tasks-axi.sh", "show", owner, "--full"])
         if shown.returncode and not (task_missing(shown) and any(
-                r["step"] == "done" and r.get("generation", 1) == self.generation and not r.get("effect") for r in self.records)):
+                (r["step"] == "done" or r.get("closure_ready")) and r.get("generation", 1) == self.generation and not r.get("effect") for r in self.records)):
             raise ValueError(f"owner task unreadable: {owner}")
         self.body = task_body(shown.stdout)
         self.held = bool(re.search(r"^  held: yes$", shown.stdout, re.M))
@@ -260,7 +262,8 @@ class Slice:
                 raise ValueError("TESTER TASK belongs to another home; no local fallback permitted")
         if not SLUG.fullmatch(self.tester):
             raise ValueError("invalid TESTER TASK")
-        self.project = self.meta.get("project", "")
+        proof = next((r for r in reversed(self.current()) if r.get("closure_ready")), {})
+        self.project = self.meta.get("project", "") or proof.get("project", "")
         self.repo = Path(self.project).name if self.project else ""
         for key, value in re.findall(r"^  (repo|kind): (.+)$", shown.stdout, re.M):
             if key == "repo" and not self.repo:
@@ -414,7 +417,46 @@ class Slice:
                     tester_worktree=tester.get("worktree", ""),
                     tester_paths=self.body_field("TESTER PATHS") or self.prep.get("TESTER PATHS", ""))
 
-    def task_action(self, role, target, key, step, **values):
+    def lifecycle_allowed(self, effect):
+        modes = leases()
+        if modes.get(self.owner) != "act":
+            return False
+        kind, target = effect["kind"], effect["target"]
+        if kind == "route-finding":
+            return modes.get(target) == "act"
+        if kind in CHILD_ACTIONS:
+            expected = self.tester if kind.endswith("tester") else f"{self.owner}-review-{self.generation}-{self.cut}"
+            if target != expected:
+                return False
+            shown = invoke([BIN / "fm-tasks-axi.sh", "show", target, "--full"])
+            return shown.returncode == 0 and self.child_owned(effect, shown.stdout)
+        return kind in ("note-owner", "relaunch-owner", "cut-delivery") and target == self.owner
+
+    def closure_proof(self, effect):
+        proof = latest(self.records).get(effect.get("proof_key"), {})
+        return proof if proof.get("closure_ready") and self.walk_can_close(proof, proof) else None
+
+    def closure(self, proof):
+        reopened = self.reopening(self.generation)
+        if reopened:
+            return self.fact("generation", "generation:" + reopened[2], next_generation=int(reopened[1]),
+                             source=reopened[2], branch=reopened[3], previous_gen=proof.get("spawn_gen", ""),
+                             previous_revision=proof.get("revision", self.revision))
+        key = f"teardown:{self.owner}@{self.generation}:{proof['trigger']}"
+        if not self.done(key):
+            return self.action("walk", key, "teardown", note=json.dumps(proof, sort_keys=True),
+                               payload={"proof_key": proof["trigger"]})
+        accepted = f"accept:{self.owner}@{self.generation}:{proof['trigger']}"
+        if not self.done(accepted):
+            return self.action("walk", accepted, "accept-owner", note=json.dumps(proof, sort_keys=True),
+                               payload={"teardown_key": key, "proof_key": proof["trigger"]})
+        done = "done:" + proof["trigger"]
+        if not self.have(done):
+            return self.fact("done", done, **{key: proof[key] for key in (
+                "release", "report_sha256", "last_walk", "revision", "spawn_gen") if key in proof})
+        return None
+
+    def task_action(self, role, target, key, step, kind=None, note=None, **values):
         file_key = key + ":file"
         if not self.done(file_key):
             return self.action("prep" if role == "tester" else "build", file_key, "file-" + role, target, payload={
@@ -426,10 +468,10 @@ class Slice:
                 "tester_paths": self.body_field("TESTER PATHS") or self.prep.get("TESTER PATHS", ""),
                 "pr": self.meta.get("pr", ""), **values}, **values)
         if not self.done(key):
-            return self.action(step, key, "launch-" + role, target,
-                               note=f"Continue as {role} for {self.home_id}:{self.owner}, prep revision {self.revision}.\n{read(self.prep_path)}\n" +
+            return self.action(step, key, kind or "launch-" + role, target,
+                               note=note or f"Continue as {role} for {self.home_id}:{self.owner}, prep revision {self.revision}.\n{read(self.prep_path)}\n" +
                                (tester_scope(self.meta.get("worktree"), self.meta.get("branch")) if role == "tester" else ""),
-                               waiting=True, **values)
+                               payload={"file_key": file_key}, waiting=True, **values)
         return None
 
     def next(self):
@@ -437,7 +479,6 @@ class Slice:
             return None
         current = self.current()
         phase = current[-1]["step"] if current else "prep"
-        # A completed generation cannot consume the previous runtime's events.
         if current and current[-1]["step"] == "done":
             proof = next(r for r in reversed(current) if r["step"] == "done" and not r.get("effect"))
             m = self.reopening(self.generation)
@@ -445,14 +486,11 @@ class Slice:
                 return self.fact("generation", "generation:" + m[2], next_generation=int(m[1]),
                                  source=m[2], branch=m[3], previous_gen=proof.get("spawn_gen", self.meta.get("spawn_gen", "")),
                                  previous_revision=proof.get("revision", self.revision))
-            key = f"teardown:{self.owner}@{self.generation}"
-            if not self.done(key):
-                return self.action("done", key, "teardown", note=json.dumps(proof, sort_keys=True))
-            accepted = f"accept:{self.owner}@{self.generation}"
-            if not self.done(accepted):
-                return self.action("done", accepted, "accept-owner", note=json.dumps(proof, sort_keys=True),
-                                   payload={"teardown_key": key})
             return None
+        proof = next((r for r in reversed(current) if r.get("closure_ready") and
+                      (self.reopening(self.generation) or self.walk_can_close(r, r))), None)
+        if proof:
+            return self.closure(proof)
         generation = next((r for r in reversed(current) if r["step"] == "generation"), None)
         if generation and (self.meta.get("branch") != generation["branch"] or
                            not self.meta.get("spawn_gen") or self.meta.get("spawn_gen") == generation["previous_gen"] or
@@ -471,10 +509,10 @@ class Slice:
             if changes.get("walk_changed") == "yes" or changes.get("risk_changed") == "yes":
                 tester_key = key + ":tester"
                 if not self.done(tester_key):
-                    return self.action("tests", tester_key, "relaunch-tester", self.tester,
+                    return self.task_action("tester", self.tester, tester_key, "tests", kind="relaunch-tester",
                                        note=f"Revise walk list for cut {m[2]}; add assertions only for uncovered risks.\n{read(self.prep_path)}\n" +
                                        tester_scope(self.meta.get("worktree"), self.meta.get("branch")),
-                                       revision=m[2], waiting=True)
+                                       revision=m[2])
                 commit = self.tester_ready(m[2])
                 if not commit:
                     return None
@@ -511,7 +549,11 @@ class Slice:
         # Review/check findings are keyed to their round, not the successive heads.
         round_id = f"{self.owner}@{self.generation}:{self.cut}"
         reviewer = f"{self.owner}-review-{self.generation}-{self.cut}"
-        review_active = phase in ("build", "review", "queue", "fix")
+        landed = max((i for i, row in enumerate(current) if row["step"] == "merged"), default=-1)
+        review_active = any(row["receipt"] == "completed" and
+                            (row["step"] in ("build", "fix") and row.get("effect", {}).get("target", self.owner) == self.owner or
+                             row["step"] in ("review", "queue") and row.get("round") == round_id)
+                            for row in current[landed + 1:])
         if self.mode == "no-mistakes" and self.pipeline and review_active:
             key = "round:" + round_id
             if not self.have(key):
@@ -559,12 +601,16 @@ class Slice:
             key = f"review-green:{round_id}:{head}"
             if not self.have(key):
                 return self.fact("queue", key, round=round_id, reviewed_head=head, waiting=True)
-        if self.mode == "direct-PR" and prior_review and head and head != prior_review[-1].get("reviewed_head"):
+        assigned_heads = [r["reviewed_head"] for r in current if r["receipt"] == "completed" and
+                          r.get("round") == round_id and r.get("reviewed_head") and
+                          (r.get("effect", {}).get("kind") in ("launch-review", "recheck-review") or
+                           r["trigger"].startswith(f"review-green:{round_id}:"))]
+        if self.mode == "direct-PR" and assigned_heads and head and head != assigned_heads[-1]:
             key = f"recheck:{round_id}:{head}"
             if not self.have(key):
-                return self.action("review", key, "recheck-review", reviewer,
+                return self.task_action("review", reviewer, key, "review", kind="recheck-review",
                                    note=f"Recheck fix head={head} on {self.meta.get('pr')} inside round {round_id}; no new round.",
-                                   round=round_id, reviewed_head=head, waiting=True)
+                                   round=round_id, reviewed_head=head)
         merge_marker = STATE / f"{self.owner}.pr-poll-merge-notified"
         if merge_marker.exists() and self.pr.get("state") == "MERGED" and self.pr.get("merge"):
             key = "merge:" + self.pr["merge"]
@@ -670,9 +716,10 @@ class Slice:
         if self.have(key):
             outcome = latest(self.records)[key]
             if outcome.get("outcome") == "usable-green" and not self.have(done_key) and self.walk_can_close(obligation, outcome):
-                return self.fact("done", done_key, release=release,
+                return self.fact("walk", done_key, closure_ready=True, release=release,
                                  report_sha256=outcome["report_sha256"], last_walk=outcome["last_walk"],
-                                 revision=self.revision, spawn_gen=self.meta.get("spawn_gen", ""))
+                                 revision=self.revision, walk=obligation["walk"], walk_list=obligation["walk_list"],
+                                 project=self.project, spawn_gen=self.meta.get("spawn_gen", ""))
             return None
         if NOW - epoch(self.summary.get("written_at", 0)) > int(self.summary.get("interval_seconds", 600)):
             stale = f"carrier-stale:{logical}.a{attempt}"
@@ -795,6 +842,44 @@ class Slice:
         merged = invoke(["git", "-C", worktree, "merge", "--ff-only", commit])
         return merged.returncode == 0 and self.tests_on_branch(effect), merged.stderr.strip() or "tester-integration-refused"
 
+    def child_files(self, effect):
+        target = effect["target"]
+        role = effect["role"]
+        brief = (f"# Task\n{role.title()} for owner {self.owner}.\n"
+                 f"Prep revision: {effect['revision']}\n{effect['prep']}\n"
+                 f"Owner branch: {effect['owner_branch']}\nTESTER TASK: {self.tester}\n"
+                 f"TESTER RULE: {effect['tester_rule']}\nTESTER PATHS: {effect['tester_paths']}\n")
+        if role == "tester":
+            if not effect.get("owner_worktree") or not effect["owner_branch"]:
+                raise ValueError("owner-branch-location-missing")
+            brief += (tester_scope(effect["owner_worktree"], effect["owner_branch"]) +
+                      " Reuse existing checks; add red cases only for uncovered risks. Write the walk list there. "
+                      "Report tests-ready commit=<sha>|none revision=<revision> walk-list=<ids> checks=<names>.\n")
+        else:
+            brief += f"Review {effect['pr']} head={effect.get('reviewed_head')} round={effect.get('round')}. Check TESTER PATHS against TESTER RULE. Post findings to the PR and report review-ready reviewed_head=<sha> finding=<id> review=<url>. Recheck fix heads inside this round; never create another round.\n"
+        brief += ("\nReport completion to the task status record with the command below, replacing the payload with the result phrase above.\n"
+                  f"FM_HOME={shlex.quote(str(HOME))} FM_CONFIG_OVERRIDE={shlex.quote(str(CONFIG))} "
+                  f"bash {shlex.join([str(BIN / 'fm-status-append.sh'), str(STATE / (target + '.status')), 'done'])} <<'EOF'\n"
+                  "<result phrase>\nEOF\n")
+        slice_line = fields(effect["body"]).get("SLICE", "")
+        if "role=owner" not in slice_line:
+            raise ValueError("owner SLICE role is missing")
+        child_slice = slice_line.replace("role=owner", f"role={role} owner={self.home_id}:{self.owner}")
+        return {"brief.md": brief, "prep.md": effect["prep"],
+                "autolaunch-prep": f"project={effect['repo']}\nkind=scout\n",
+                "step-body.md": f"SLICE: {child_slice}\nPrep: data/{target}/prep.md\nStep action: {effect['id']}\n"}
+
+    def child_owned(self, effect, shown):
+        child_slice = fields(task_body(shown)).get("SLICE", "").split()
+        role = "tester" if effect["kind"] in ("file-tester", "launch-tester", "relaunch-tester") else "review"
+        return f"role={role}" in child_slice and f"owner={self.home_id}:{self.owner}" in child_slice
+
+    def child_prepared(self, effect, shown):
+        files = self.child_files(effect)
+        return (not re.search(r"^  state: done$", shown, re.M) and
+                task_body(shown).strip() == files["step-body.md"].strip() and
+                all(read(DATA / effect["target"] / name) == content for name, content in files.items()))
+
     def effect_present(self, row):
         effect = row["effect"]
         kind, target = effect["kind"], effect["target"]
@@ -802,7 +887,9 @@ class Slice:
             return False
         if kind.startswith("file-"):
             shown = invoke([BIN / "fm-tasks-axi.sh", "show", target, "--full"])
-            if shown.returncode:
+            if shown.returncode or not self.child_owned(effect, shown.stdout):
+                return False
+            if not (STATE / f"{target}.meta").exists() and not self.child_prepared(effect, shown.stdout):
                 return False
             if kind == "file-tester":
                 owner = invoke([BIN / "fm-tasks-axi.sh", "show", self.owner, "--full"])
@@ -833,15 +920,13 @@ class Slice:
             prior = kv(STATE / f"{target}.control-relaunch.meta-prior")
             if journal.get("task") == target and journal.get("phase") == "complete" and prior.get("spawn_gen") == effect.get("expected_gen"):
                 return True
-            if kind.startswith("launch-") and not effect.get("expected_gen"):
-                shown = invoke([BIN / "fm-tasks-axi.sh", "show", target, "--full"])
-                if shown.returncode == 0 and re.search(r"^  state: in_flight$", shown.stdout, re.M):
-                    return True
         return agent(target) == "alive" and (changed or effect_is_note(row))
 
     def apply(self, row):
         effect = row["effect"]
         kind, target = effect["kind"], effect["target"]
+        if kind in LIFECYCLE_ACTIONS and not self.lifecycle_allowed(effect):
+            return False, "destination-not-leased"
         if kind == "accept-owner":
             accepted = invoke([BIN / "fm-autolaunch.sh", "--step-accept", target, f"{self.owner}:{effect['id']}"])
             return accepted.returncode == 0, accepted.stderr.strip() or "acceptance-refused"
@@ -863,40 +948,29 @@ class Slice:
         if kind.startswith("file-"):
             task_dir = DATA / target
             task_dir.mkdir(parents=True, exist_ok=True)
-            # A child always reads the durable prep. The tester receives no
-            # builder diff; its own test paths are the only writing scope.
             role = effect["role"]
-            brief = (f"# Task\n{role.title()} for owner {self.owner}.\n"
-                     f"Prep revision: {effect['revision']}\n{effect['prep']}\n"
-                     f"Owner branch: {effect['owner_branch']}\nTESTER TASK: {self.tester}\n"
-                     f"TESTER RULE: {effect['tester_rule']}\nTESTER PATHS: {effect['tester_paths']}\n")
-            if role == "tester":
-                if not effect.get("owner_worktree") or not effect["owner_branch"]:
-                    return False, "owner-branch-location-missing"
-                brief += (tester_scope(effect["owner_worktree"], effect["owner_branch"]) +
-                          " Reuse existing checks; add red cases only for uncovered risks. Write the walk list there. "
-                          "Report tests-ready commit=<sha>|none revision=<revision> walk-list=<ids> checks=<names>.\n")
-            else:
-                brief += f"Review {effect['pr']} head={effect.get('reviewed_head')} round={effect.get('round')}. Check TESTER PATHS against TESTER RULE. Post findings to the PR and report review-ready reviewed_head=<sha> finding=<id> review=<url>. Recheck fix heads inside this round; never create another round.\n"
-            brief += ("\nReport completion to the task status record with the command below, replacing the payload with the result phrase above.\n"
-                      f"FM_HOME={shlex.quote(str(HOME))} FM_CONFIG_OVERRIDE={shlex.quote(str(CONFIG))} "
-                      f"bash {shlex.join([str(BIN / 'fm-status-append.sh'), str(STATE / (target + '.status')), 'done'])} <<'EOF'\n"
-                      "<result phrase>\nEOF\n")
-            for name, content in (("brief.md", brief), ("prep.md", effect["prep"]),
-                                  ("autolaunch-prep", f"project={effect['repo']}\nkind=scout\n")):
-                path = task_dir / name
-                if not path.exists():
-                    path.write_text(content)
-            body = task_dir / "step-body.md"
-            slice_line = self.body_field("SLICE")
-            if "role=owner" not in slice_line:
-                return False, "owner SLICE role is missing"
-            child_slice = slice_line.replace("role=owner", f"role={role} owner={self.home_id}:{self.owner}")
-            body.write_text(f"SLICE: {child_slice}\nPrep: data/{target}/prep.md\nStep action: {effect['id']}\n")
             r = invoke([BIN / "fm-tasks-axi.sh", "show", target, "--full"])
-            if r.returncode:
-                r = invoke([BIN / "fm-tasks-axi.sh", "add", target, f"{role} for {self.owner}",
-                            "--kind", "scout", "--repo", effect["repo"], "--body-file", body])
+            if r.returncode and not task_missing(r):
+                return False, "child-task-unreadable"
+            if r.returncode == 0 and not self.child_owned(effect, r.stdout):
+                return False, "child-owner-conflict"
+            if not (STATE / f"{target}.meta").exists():
+                if agent(target) not in ("dead", "missing"):
+                    return False, "child-agent-not-absent"
+                if r.returncode == 0:
+                    if re.search(r"^  held: yes$", r.stdout, re.M):
+                        return False, "child-task-held"
+                for name, content in self.child_files(effect).items():
+                    (task_dir / name).write_text(content)
+                body = task_dir / "step-body.md"
+                if r.returncode:
+                    r = invoke([BIN / "fm-tasks-axi.sh", "add", target, f"{role} for {self.owner}",
+                                "--kind", "scout", "--repo", effect["repo"], "--body-file", body])
+                else:
+                    was_done = bool(re.search(r"^  state: done$", r.stdout, re.M))
+                    r = invoke([BIN / "fm-tasks-axi.sh", "update", target, "--body-file", body, "--archive-body"])
+                    if r.returncode == 0 and was_done:
+                        r = invoke([BIN / "fm-tasks-axi.sh", "reopen", target])
             if r.returncode or role != "tester":
                 return r.returncode == 0, r.stderr.strip()
             owner = invoke([BIN / "fm-tasks-axi.sh", "show", self.owner, "--full"])
@@ -912,18 +986,23 @@ class Slice:
             owner_file.write_text(owner_body)
             r = invoke([BIN / "fm-tasks-axi.sh", "update", self.owner, "--body-file", owner_file, "--archive-body"])
             return r.returncode == 0, r.stderr.strip()
-        if kind.startswith("launch-") or kind == "relaunch-tester":
-            existing = kv(STATE / f"{target}.meta")
-            if not existing and kind.startswith("launch-"):
-                builder = kv(STATE / f"{self.owner}.meta")
-                exclude = builder.get("model", "") if kind == "launch-tester" else ""
-                if kind == "launch-tester" and exclude in ("", "default"):
-                    return False, "builder-model-unknown"
-                r = invoke([BIN / "fm-autolaunch.sh", "--step-dispatch", target,
-                            exclude, model_family(builder) if kind == "launch-tester" else ""])
-                return r.returncode == 0, "relaunch-due" if r.returncode == 75 else r.stderr.strip()
-            if kind in ("launch-tester", "relaunch-tester") and not tester_admitted(self.owner, target):
+        if kind in CHILD_ACTIONS:
+            if kind in TESTER_ACTIONS and not tester_admitted(self.owner, target, before_launch=True):
                 return False, "same-or-unknown-tester-model"
+            existing = kv(STATE / f"{target}.meta")
+            if not existing:
+                builder = kv(STATE / f"{self.owner}.meta")
+                exclude = builder.get("model", "") if kind.endswith("tester") else ""
+                preparation = latest(self.records).get(effect.get("file_key"), {})
+                if not preparation or preparation.get("effect", {}).get("target") != target:
+                    return False, "child-preparation-missing"
+                if not self.effect_present(preparation):
+                    success, reason = self.apply(preparation)
+                    if not success:
+                        return False, reason
+                r = invoke([BIN / "fm-autolaunch.sh", "--step-dispatch", target,
+                            exclude, model_family(builder) if kind.endswith("tester") else "", effect["id"]])
+                return r.returncode == 0, "relaunch-due" if r.returncode == 75 else r.stderr.strip()
             # The named child already has an incarnation. Continue that task
             # through control/inbox below rather than allocating a fresh copy.
         if kind == "walk-request":
@@ -962,8 +1041,6 @@ class Slice:
             integrated, reason = self.integrate_tests(effect)
             if not integrated:
                 return False, reason
-        if not destination_leased(effect):
-            return False, "destination-not-leased"
         state = agent(target)
         if state == "unknown":
             return False, "agent-state-unknown"
@@ -989,9 +1066,7 @@ class Slice:
         kind = effect["kind"]
         tester = effect_tester(effect)
         if tester:
-            fresh = kind == "launch-tester" and not kv(STATE / f"{tester}.meta")
-            builder = kv(STATE / f"{self.owner}.meta").get("model", "")
-            if not builder or builder == "default" or not (fresh or tester_admitted(self.owner, tester)):
+            if not tester_admitted(self.owner, tester, before_launch=kind in TESTER_ACTIONS):
                 if row.get("reason") != "same-or-unknown-tester-model":
                     self.log(dict(row, receipt="pending", reason="same-or-unknown-tester-model"))
                 return False
@@ -999,6 +1074,9 @@ class Slice:
             reopened = self.reopening(row.get("generation", self.generation))
             if reopened:
                 self.log(dict(row, receipt="completed", reason="", superseded_by=reopened[2]))
+                return True
+            if not self.closure_proof(effect):
+                self.log(dict(row, receipt="completed", reason="", superseded_by="proof-changed"))
                 return True
         present = self.effect_present(row)
         if kind == "walk-request" and not present:
@@ -1019,14 +1097,10 @@ class Slice:
             # produced a real agent; a same-model run never advances to build.
             success, reason = True, ""
         else:
-            if not destination_leased(effect):
-                if row.get("reason") != "destination-not-leased":
-                    self.log(dict(row, receipt="pending", reason="destination-not-leased"))
-                return False
             self.stop("before", row)
             success, reason = self.apply(row)
             self.stop("after", row)
-            if success and not effect_is_note(row) and row["effect"]["kind"] not in ("walk-request", "teardown", "accept-owner") and not row["effect"]["kind"].startswith("file-"):
+            if success and kind in LIFECYCLE_ACTIONS and not effect_is_note(row) and not (kind in CHILD_ACTIONS and not effect.get("expected_gen")):
                 effect = row["effect"]
                 append(STATE / "autolaunch.log", f"{NOW}\t-\t{effect['target']}\t-\tlaunched|relaunched {effect['target']} {effect['id']}")
             success = success and self.effect_present(row)
@@ -1083,9 +1157,9 @@ def guard(task, action):
     records = rows(owner)
     row = latest(records).get(key, {})
     effect = row.get("effect", {})
-    if effect.get("kind") == "route-finding" and not destination_leased(effect):
+    if not effect or not Slice(owner).lifecycle_allowed(effect):
         return False
-    tester = effect_tester(effect) if effect else None
+    tester = effect_tester(effect)
     if tester and not tester_admitted(owner, tester):
         return False
     if effect.get("tester_commit") and not Slice.tests_on_branch(effect):
@@ -1097,8 +1171,7 @@ def guard(task, action):
                    marker.get("class") not in (("owner-waiting",) if task == owner else ("owner-waiting", "scout"))):
         return False
     return bool(row.get("receipt") == "pending" and effect.get("target") == task and
-                effect.get("id") == key and effect.get("kind") in (
-                    "note-owner", "relaunch-owner", "cut-delivery", "relaunch-tester", "recheck-review", "route-finding", "launch-tester", "launch-review") and
+                effect.get("id") == key and
                 meta.get("spawn_gen") and meta["spawn_gen"] == effect.get("expected_gen") and
                 meta.get("kind") in ("ship", "scout") and meta.get("endpoint_task_id", task) == task)
 
@@ -1118,8 +1191,7 @@ def teardown_receipt(task, action):
     if (row.get("receipt") != "pending" or effect.get("kind") != "teardown" or effect.get("id") != key or
             effect.get("target") != task or row.get("generation", 1) != generation):
         return None
-    if not any(r["step"] == "done" and r["receipt"] == "completed" and not r.get("effect") and
-               r.get("generation", 1) == generation for r in records):
+    if not Slice(owner).closure_proof(effect):
         return None
     if any(re.search(rf"generation ready {generation + 1} source=\S+ branch=\S+", text) for _, text in statuses(task)):
         return None
@@ -1157,7 +1229,7 @@ def accept_owner(task, action):
     if (row.get("receipt") != "pending" or effect.get("kind") != "accept-owner" or
             effect.get("target") != task or row.get("generation", 1) != slice_.generation or
             effect.get("id") != key or (STATE / f"{task}.meta").exists() or slice_.held or
-            slice_.reopening(slice_.generation)):
+            slice_.reopening(slice_.generation) or not slice_.closure_proof(effect)):
         return False
     cleanup = latest(slice_.records).get(effect.get("teardown_key"), {})
     if cleanup.get("receipt") != "completed" or cleanup.get("superseded_by") or not slice_.effect_present(cleanup):

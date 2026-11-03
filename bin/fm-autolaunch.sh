@@ -127,7 +127,7 @@ case "${1:-}" in
   '') ;;
   --dry-run) ACTION=dry ;;
   --steps-only) ACTION=steps ;;
-  --step-dispatch) ACTION="step-dispatch"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-}; STEP_FAMILY=${4:-} ;;
+  --step-dispatch) ACTION="step-dispatch"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-}; STEP_FAMILY=${4:-}; STEP_ACTION_ID=${5:-} ;;
   --step-family) ACTION="step-family"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
   --step-agent) ACTION="step-agent"; STEP_TARGET=${2:-} ;;
   --step-nm) ACTION="step-nm"; STEP_TARGET=${2:-} ;;
@@ -140,7 +140,7 @@ esac
 APPLY=0
 if [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
   STEP_DRY=1
-elif [ "$ACTION" = step-dispatch ] && [ "$#" -ge 2 ] && [ "$#" -le 4 ]; then
+elif [ "$ACTION" = step-dispatch ] && [ "$#" -eq 5 ]; then
   :
 elif [ "$ACTION" = step-family ] && [ "$#" -eq 3 ]; then
   :
@@ -589,6 +589,7 @@ if [ "$ACTION" = step-agent ]; then
 fi
 if [ "$ACTION" = step-dispatch ]; then
   fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  [ -n "$STEP_ACTION_ID" ] || exit 2
   capacity_read || true
   [ "$CAP_FREE" -gt 0 ] || exit 75
   check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; }
@@ -620,7 +621,22 @@ if [ "$ACTION" = step-dispatch ]; then
     if spawn_quota_refused "$rc"; then
       continue
     fi
-    if [ "$rc" = 0 ]; then cat "$TMPD/spawn.out"; else cat "$TMPD/spawn.out" >&2; fi
+    if [ "$rc" = 0 ]; then
+      python3 - "$STATE/autolaunch.log" "$STEP_TARGET" "$STEP_ACTION_ID" <<'PY' || exit 1
+import os, sys, time
+from pathlib import Path
+path, target, action = sys.argv[1:]
+if Path(path).is_symlink() or any(char in action for char in "\r\n\t"):
+    raise ValueError("invalid step launch record")
+with open(path, "a") as stream:
+    stream.write(f"{int(time.time())}\t-\t{target}\t-\tlaunched|relaunched {target} {action}\n")
+    stream.flush()
+    os.fsync(stream.fileno())
+PY
+      cat "$TMPD/spawn.out"
+    else
+      cat "$TMPD/spawn.out" >&2
+    fi
     exit "$rc"
   done < "$TMPD/cands.tsv"
   echo 'refused: no different-model tester candidate' >&2
