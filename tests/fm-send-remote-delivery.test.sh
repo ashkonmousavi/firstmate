@@ -297,8 +297,8 @@ test_remote_history_fits_delivery_budget() {
     printf -v rec '%s/handled/%04d.msg' "$inbox" "$i"
     printf 'historical record\n' > "$rec"
   done
-  # Exercise the real sender, transport and remote writer under the normal
-  # attempt budget; the transport and endpoint alone are deterministic stubs.
+  # Exercise the real fm-send, fm-on and remote writer under the normal
+  # attempt budget; SSH and the endpoint are deterministic stubs.
   out=$(send_env "$fb" "$home" "$ssh_log" FM_SEND_REMOTE_BUDGET=30 \
     "$SEND" rsm --one-way 'history cost delivery test' 2>&1) \
     || fail "large remote history exceeded the delivery budget: $out"
