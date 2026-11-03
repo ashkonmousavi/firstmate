@@ -12,7 +12,18 @@ Only the last 2 MiB are read, and a real user message must establish the
 current turn inside that window (tool results do not).
 The Stop payload owns final text because transcript writes may lag Stop.
 
-POLICY is the single claim-to-read table. This is a lexical reminder, not a
+POLICY owns the claim-to-read and optional whole-reply rule tables.
+config/reply-shape opts a home into reply rules, one rule ID per line:
+ask-first, pacific-times, pr-urls. Missing/empty files leave stock behavior.
+FM_CONFIG_OVERRIDE selects the config directory, otherwise FM_HOME/config.
+Reply rules inspect final prose, excluding fenced/inline records and blockquotes;
+they do not need a transcript read. They share the once-only continuation guard.
+Ask-first detection catches only a 👉 line or the direct-ask phrase list;
+a plain late question still passes. Broader question/request detection remains
+a follow-up; this lexical rule does not claim semantic ask completeness.
+The PR URL rule permits an explicit 'URL unavailable' disclosure, preserving
+the section 9 exception when no ready-status/metadata URL exists.
+This is a lexical reminder, not a
 proof of the remote state: it requires a completed matching tool command,
 not that the command output supports the prose.
 Claims require a resource subject from POLICY in the same sentence.
@@ -47,7 +58,7 @@ def rx(pattern):
     return re.compile(pattern, re.I)
 
 
-POLICY = (
+POLICY = {"claims": (
     ("PR", rx(r"\b(?:in (?:the )?(?:merge )?queue|queued|merged)\b"),
      rx(r"\bprs?\b|#\d+\b|https?://\S+/pulls?/\d+"),
      rx(r"^(?:gh|gh-axi)\s+(?:pr\s+(?:view|checks|list)\b|api\s+.*\S*/pulls(?:/|\b))")),
@@ -57,7 +68,11 @@ POLICY = (
     ("lane", rx(r"\brunning\b"),
      rx(r"\b(?:lane|worker|crew|scout|mate|task|supervisor|watcher|agent)s?\b"),
      rx(r"^fm-crew-state\.sh(?:\s|$)")),
-)
+), "replies": (
+    ("ask-first", "Put the ask on the first line starting with 👉, with bold keywords and a one-letter answer."),
+    ("pacific-times", "Use local Pacific time in chat; keep UTC timestamps inside quoted records."),
+    ("pr-urls", "Include each named PR's recorded full HTTPS URL; if none is available, disclose 'URL unavailable'."),
+)}
 MAX_BYTES = 2 * 1024 * 1024
 PR_ID = rx(r"(?:\bprs?\s*#?\s*|(?<!\w)#|/pulls?/)(\d+)\b")
 LIST_SEPARATOR = r"\s*(?:,\s*(?:\band\b|&)?|\band\b|&)\s*"
@@ -69,6 +84,66 @@ CLAUSE_BREAK = rx(
     r"(?:the|a|an|both|all|our|these|those|this|that)\b|"
     r"(?:can|could|would|will|should|do|does)\s+(?:you|we|they)\b))"
 )
+
+
+def reply_violations(text):
+    home = Path(os.environ.get("FM_HOME", Path(__file__).parent.parent))
+    config = Path(os.environ.get("FM_CONFIG_OVERRIDE") or home / "config") / "reply-shape"
+    try:
+        fd = os.open(config, os.O_RDONLY | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                return []
+            raw = stream.read(4097)
+        if len(raw) > 4096:
+            return []
+        enabled = set(raw.decode().splitlines())
+    except (OSError, UnicodeError):
+        # Optional reply configuration cannot weaken the existing state guard.
+        return []
+    # Preserve line positions so a leading blank/record cannot move a late ask
+    # into the first physical line. Only displayed prose is a reply assertion.
+    prose = re.sub(r"```.*?(?:```|$)|~~~.*?(?:~~~|$)",
+                   lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
+    prose = re.sub(r"(?m)^\s*>[^\n]*", "", prose)
+    prose = re.sub(r"`([^`\n]+)`", lambda m: m.group(1) if re.fullmatch(r"#?\d+", m.group(1)) else "", prose)
+    first = prose.split("\n", 1)[0].strip()
+    direct_ask = rx(r"\b(?:can|could|would|will)\s+you\b|\bshould\s+(?:I|we)\b|"
+                    r"\bplease\s+(?:choose|approve|confirm|select|pick)\b")
+    asks = "👉" in prose or direct_ask.search(prose)
+    valid_ask = (first.startswith("👉") and re.search(r"\*\*[^*\n]+\*\*", first)
+                 and re.search(r"\b[A-Z](?:\*\*|[).:]|\s*[-=]|\s+or\s+(?:\*\*)?[A-Z]\b)", first))
+    # Recognize clock spellings, not only HH:MM. The finite English number
+    # vocabulary covers spoken clocks; offsets/zone aliases are explicit UTC.
+    numbers = (r"zero|oh|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+               r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|"
+               r"twenty|thirty|forty|fifty")
+    clock = (r"(?:\d{6}(?:\.\d+)?|\d{1,2}(?::\d{2}(?::\d{2}(?:\.\d+)?)?)?|"
+             r"\b(?:" + numbers + r")(?:[- ](?:" + numbers + r"))?(?:\s+hundred)?|\bnoon|\bmidnight)"
+             r"(?:\s*(?:[ap]\.?\s*m\.?|o['’]clock))?")
+    zone = r"(?:U\.?\s*T\.?\s*C\.?|GMT|Coordinated Universal Time|Greenwich Mean Time|Zulu)"
+    zero_offset = r"[+-]00(?::?00)?(?![\d:])"
+    utc = rx(clock + r"\s*(?:" + zone + r"|Z|" + zero_offset + r")(?!\w)|"
+             r"\b" + zone + r"(?:\s*[+-]\d{1,2}(?::?\d{2})?)?\s+" + clock)
+    plain = prose.replace("*", "")
+    reference = r"\b(prs?|pull[\s-]+requests?|mrs?|merge[\s-]+requests?)\s*[#!]?\s*"
+
+    def reference_kind(label):
+        return "MR" if label.lower().startswith(("mr", "merge")) else "PR"
+
+    named = set()
+    for match in rx(reference + r"(\d+(?:" + LIST_SEPARATOR + r"[#!]?\s*\d+)*)").finditer(plain):
+        named.update((reference_kind(match[1]), ident) for ident in re.findall(r"\d+", match[2]))
+    linked = {(reference_kind("MR" if route == "merge_requests" else "PR"), ident)
+              for route, ident in re.findall(r"https://[^\s<>`]+/(pulls?|merge_requests)/(\d+)\b", prose)}
+    unavailable = rx(r"(?:" + reference + r"(\d+)[^\n]*?URL unavailable|"
+                     r"URL unavailable[^\n]*?" + reference + r"(\d+))")
+    disclosed = {(reference_kind(match[1] or match[3]), match[2] or match[4])
+                 for match in unavailable.finditer(plain)}
+    failed = {"ask-first": asks and not valid_ask,
+              "pacific-times": utc.search(prose),
+              "pr-urls": named - linked - disclosed}
+    return [reason for name, reason in POLICY["replies"] if name in enabled and failed[name]]
 
 
 def url_hosts(text):
@@ -111,7 +186,7 @@ def claims(text):
             continue
         if rx(r"\blast read at\b").search(sentence):
             continue
-        for family, words, context, _ in POLICY:
+        for family, words, context, _ in POLICY["claims"]:
             if context and not context.search(sentence):
                 continue
             for clause in CLAUSE_BREAK.split(sentence):
@@ -172,7 +247,7 @@ def read_segment(segment):
         while len(segment) > 2 and segment[1] in ("-R", "--repo", "--hostname"):
             del segment[1:3]
     normalized = " ".join(segment)
-    for family, _, _, reads in POLICY:
+    for family, _, _, reads in POLICY["claims"]:
         if reads.search(normalized):
             # Requests with a write verb or body are not reads.
             if any(t in ("--data", "--form", "--field", "--raw-field", "--input", "--upload-file")
@@ -263,6 +338,12 @@ def main():
             return 0
     elif not payload["stop_hook_active"]:
         marker.unlink(missing_ok=True)
+    violations = reply_violations(text)
+    if violations:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(message_hash)
+        print("Reply shape: " + " ".join(violations) + " This check blocks only once.", file=sys.stderr)
+        return 2
     unsupported = list(claims(text))
     if not unsupported:
         return 0

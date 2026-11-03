@@ -371,4 +371,124 @@ primary = lab / "primary"
 timings = [check(f"budget sample {i}", "PR 9 is merged.", hook=True) for i in range(5)]
 assert max(timings) < 200, f"guard exceeded 200ms: {timings}"
 print(f"ok - full synchronous hook worst time {max(timings):.1f}ms < 200ms")
+
+# Reply-shape policy is opt-in per home; these cases exercise the executable,
+# including the tracked Stop registration, without rewriting owner rules.
+(primary / "config").mkdir(exist_ok=True)
+reply_config = primary / "config/reply-shape"
+reply_failures = []
+reply_times = []
+
+
+def reply_check(label, message, expected, rules="ask-first\npacific-times\npr-urls\n",
+                active=False, hook=False, path=None, payload_extra=None):
+    reply_config.write_text(rules)
+    transcript.write_text(json.dumps(user) + "\n")
+    payload = {"hook_event_name": "Stop", "session_id": "reply-fixture", "stop_hook_active": active,
+               "transcript_path": str(path or transcript), "last_assistant_message": message}
+    payload.update(payload_extra or {})
+    env = dict(os.environ, FM_ROOT_OVERRIDE=str(primary), FM_HOME=str(primary),
+               FM_STATE_OVERRIDE=str(primary / "state"), FM_CONFIG_OVERRIDE=str(primary / "config"),
+               CLAUDE_PROJECT_DIR=str(primary))
+    args = ["python3", str(module)]
+    if hook:
+        settings = json.loads((root / ".claude/settings.json").read_text())
+        command = next(h["command"] for group in settings["hooks"]["Stop"] for h in group["hooks"]
+                       if "fm-turnend-guard.sh" in h.get("command", ""))
+        args = ["sh", "-c", command]
+    start = time.perf_counter()
+    result = subprocess.run(args, input=json.dumps(payload), text=True, capture_output=True, env=env, timeout=3)
+    reply_times.append((time.perf_counter() - start) * 1000)
+    passed = result.returncode == expected and not result.stdout
+    if expected == 2:
+        passed = passed and "Reply shape" in result.stderr
+    else:
+        passed = passed and not result.stderr
+    print(f"{'ok' if passed else 'not ok'} - reply {label}: expected {expected}, got {result.returncode}")
+    if not passed:
+        reply_failures.append((label, result.returncode, result.stderr))
+
+
+valid_ask = "👉 **Choose** A) continue or B) defer, because checks passed; by 10:00 PT, otherwise continue."
+reply_check("late ask", "The report is ready.\n" + valid_ask, 2)
+reply_check("bold lettered first-line ask", valid_ask + "\nThe report is ready.", 0)
+reply_check("bold answer letters", "👉 **A** continue or **B** defer?", 0)
+reply_check("should-I direct question", "Should I continue?", 2)
+reply_check("address can follow ask marker", "👉 Captain, **choose** A) continue or B) defer?", 0)
+reply_check("unmarked direct question", "Can you approve this?", 2)
+reply_check("unmarked imperative ask", "Please choose A or B.", 2)
+reply_check("unbolded ask", "👉 Choose A) continue or B) defer?", 2)
+reply_check("ask lacks one-letter answer", "👉 **Choose** continue or defer?", 2)
+reply_check("leading blank is not first line", "\n" + valid_ask, 2)
+reply_check("no ask needs no marker", "The report is ready.", 0)
+reply_check("quoted ask is evidence", '> Earlier: 👉 **Choose** A) continue?\nThe report is ready.', 0)
+reply_check("fenced record may use UTC", "```text\nrecord=2026-11-03T18:00:00Z\n```\nThe report is ready.", 0)
+reply_check("inline record may use UTC", "The record contains `2026-11-03T18:00:00Z`.", 0)
+for stamp in ("18:00 UTC", "18:00Z", "2026-11-03T18:00:00Z", "2026-11-03T18:00:00+00:00", "18:00 GMT", "UTC 18:00"):
+    reply_check("UTC clock " + stamp, "Last read at " + stamp + ".", 2)
+for stamp in ("10:00 PT", "10:00 PST", "11:00 PDT", "10:00 Pacific", "10:00"):
+    reply_check("local clock " + stamp, "Last read at " + stamp + ".", 0)
+# Fresh-reader counterexamples and siblings use the same public Stop seam.
+for stamp in (
+    "6pm UTC", "6 PM utc", "6 p.m. U.T.C.", "6:30 p.m. UTC", "six pm UTC",
+    "six thirty PM UTC", "six o'clock UTC", "six o’clock UTC", "half past six UTC",
+    "quarter to seven UTC", "noon UTC", "midnight GMT", "eighteen hundred Zulu",
+    "six Coordinated Universal Time", "six Greenwich Mean Time", "six U T C",
+    "UTC six pm", "UTC noon", "U.T.C. 6pm", "GMT midnight",
+    "6pm +00:00", "6pm +0000", "6pm +00", "six pm -00:00", "noon +00",
+    "18:00+00", "18:00-0000", "18:00 UTC+0", "18:00 GMT +00:00",
+    "6pm UTC-08:00", "06:00:00.123Z", "2026-11-03T060000Z",
+):
+    reply_check("UTC spelling " + stamp, "Meet at " + stamp + ".", 2)
+for stamp in ("6pm PT", "six pm Pacific", "noon PST", "midnight PDT", "6 p.m."):
+    reply_check("local spelling " + stamp, "Meet at " + stamp + ".", 0)
+reply_check("UTC word without clock", "Records may use UTC.", 0)
+reply_check("unrelated URL cannot cover named pull", "PR 9 needs review. https://github.com/example/repo/pull/10", 2)
+reply_check("named pull has URL", "PR 9 needs review.\nhttps://github.com/example/repo/pull/9", 0)
+reply_check("bare named pull", "PR 9 needs review.", 2)
+reply_check("coordinated pull list needs every URL", "PRs 9 and 10 need review.\nhttps://github.com/example/repo/pull/9", 2)
+reply_check("coordinated pull list covered", "PRs 9 and 10 need review.\nhttps://github.com/example/repo/pull/9\nhttps://github.com/example/repo/pull/10", 0)
+reply_check("HTTP pull URL is insufficient", "PR 9 needs review.\nhttp://github.com/example/repo/pull/9", 2)
+for reference in ("Pull request 12", "pull requests #12", "PULL REQUEST #12", "pull-request 12",
+                  "PR#12", "MR 12", "MR !12", "MRs !12", "Merge request !12", "merge requests 12"):
+    reply_check("named reference needs link " + reference.split()[0], reference + " is ready for review.", 2)
+for reference, route in (("Pull request 12", "pull"), ("PR#12", "pulls"),
+                         ("MR !12", "-/merge_requests"), ("Merge request 12", "merge_requests")):
+    link = "https://forge.example/repo/" + route + "/12"
+    reply_check("expanded reference linked " + route, reference + " is ready for review.\n" + link, 0)
+    reply_check("expanded reference missing URL " + route,
+                reference + ": URL unavailable in ready status or metadata.", 0)
+reply_check("expanded list needs every URL", "Pull requests 12, 13 and 14 need review.\nhttps://forge.example/repo/pull/12", 2)
+reply_check("merge list needs every URL", "MRs !12 and !13 need review.\nhttps://forge.example/repo/-/merge_requests/12", 2)
+reply_check("merge list linked", "MRs !12 and !13 need review.\nhttps://forge.example/repo/-/merge_requests/12\nhttps://forge.example/repo/-/merge_requests/13", 0)
+reply_check("HTTP merge link insufficient", "MR !12 needs review.\nhttp://forge.example/repo/-/merge_requests/12", 2)
+reply_check("short issue reference is not assumed pull", "Issue #9 needs review.", 0)
+reply_check("generic pull mention", "The fix needs a PR.", 0)
+reply_check("unknown URL exception", "PR 9 needs review; URL unavailable in ready status or metadata.", 0)
+reply_check("inline pull identifier still checked", "PR `9` needs review.", 2)
+reply_check("quoted pull identifier is evidence", '> PR 9 needs review.\nThe report is ready.', 0)
+reply_check("tilde fenced record", "~~~text\nrecord=18:00 UTC\n~~~\nThe report is ready.", 0)
+reply_check("legacy stock home opts out", "PR 9 needs review at 18:00 UTC.", 0, rules="")
+reply_check("rule selection is independent", "PR 9 needs review at 18:00 UTC.", 2, rules="pacific-times\n")
+reply_check("shape does not require transcript", "Last read at 18:00 UTC.", 2, path=lab / "absent")
+reply_check("tracked hook checks shape", "Last read at 18:00 UTC.", 2, hook=True)
+reply_check("own identical continuation passes once", "Last read at 18:00 UTC.", 0, active=True, hook=True)
+reply_check("exemption consumed", "Last read at 18:00 UTC.", 2, active=True, hook=True)
+reply_check("changed continuation checked", "Last read at 19:00 UTC.", 2, active=True)
+reply_check("corrected continuation passes", "Last read at 11:00 PT.", 0, active=True)
+reply_check("non-Stop payload inert", "Last read at 18:00 UTC.", 0, payload_extra={"hook_event_name": "SubagentStop"})
+reply_check("foreign compatibility hook inert", "Last read at 18:00 UTC.", 0, hook=True,
+            payload_extra={"cursor_version": "fixture"})
+print(f"ok - reply samples worst time {max(reply_times):.1f}ms; existing five-sample hook budget above remains enforced")
+# A malformed optional policy must not disable the existing claim guard.
+reply_config.unlink()
+os.mkfifo(reply_config)
+check("FIFO reply config cannot hang or exempt a state claim", "The deploy is live.")
+reply_config.unlink()
+reply_config.write_text("x" * 5000)
+check("oversized reply config cannot exempt a state claim", "The deploy is live.")
+reply_config.unlink()
+reply_config.write_text("")
+assert not reply_failures, reply_failures
+reply_config.unlink()
 PY
