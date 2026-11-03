@@ -900,7 +900,7 @@ Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh
 
 Nothing enables a schedule automatically.
 To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
-Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line with `FM_HOME` set explicitly, recording it in the machine inventory first.
+Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line, recording it in the machine inventory first; the [launcher header](../bin/fm-autolaunch.sh) owns the captured environment and optional slice-only scope.
 Arm the throttle check with `bin/fm-autolaunch-check.sh arm`, which binds `state/autolaunch.check.sh` through `bin/fm-check-register.sh` so the watcher runs it on its ordinary check cadence; `disarm` removes it.
 The check prints one red line, and in a secondmate home also reports it on the parent channel, when a free lane and a prepared item have had no auto-launch record for ten minutes; otherwise it is silent.
 The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep and record derivation, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
@@ -1370,6 +1370,8 @@ Unparking permits later startup or recovery without launching the mate itself.
 The primary home's `config/secondmate-parked/` records are separate from the watcher crash-loop bound.
 Session start, the watcher liveness check, `bin/fm-secondmate-restart.sh`, `bin/fm-spawn.sh <id> --secondmate`, `bin/fm-control.sh <id> relaunch`, and `bin/fm-remote-secondmate-relaunch.sh` all refuse a parked mate.
 Clearing the crash-loop marker, including the rearm after a launch, does not clear an owner park.
+The wake drain omits a valid owner-parked mate's still-open decisions from its OPEN DECISIONS summary without closing the durable decisions; explicit unpark makes them visible again.
+Unsafe or malformed park records leave those decisions visible.
 Use [`bin/fm-secondmate-park.sh`](../bin/fm-secondmate-park.sh) to park, inspect, or explicitly unpark a mate; its header owns usage, automatic UTC dating, and exit statuses.
 An absent file leaves relaunch behavior unchanged.
 Generic config inheritance excludes this directory.

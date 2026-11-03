@@ -2,12 +2,13 @@
 """Claude Stop state-claim check; stdin is the original Stop JSON payload.
 
 Called by fm-turnend-guard.sh --claude --state-claims after primary scoping.
-Exit 2 names unsupported claims on stderr; all other paths allow silently.
+Exit 2 names unsupported claims or enabled reply-rule violations on stderr;
+all other paths allow silently.
 No network, subprocess or model is used.
 A per-session blocked-message hash exempts only the next identical
 hook-driven continuation, consuming the exemption when checked.
 Other hooks' continuations and changed claims still require a read.
-Unreadable, malformed or turn-boundary-free transcripts fail open.
+Unreadable, malformed or turn-boundary-free transcripts leave state claims unchecked.
 Only the last 2 MiB are read, and a real user message must establish the
 current turn inside that window (tool results do not).
 The Stop payload owns final text because transcript writes may lag Stop.
@@ -21,7 +22,7 @@ they do not need a transcript read. They share the once-only continuation guard.
 Ask-first detection catches only a 👉 line or the direct-ask phrase list;
 a plain late question still passes. Broader question/request detection remains
 a follow-up; this lexical rule does not claim semantic ask completeness.
-The PR URL rule permits an explicit 'URL unavailable' disclosure, preserving
+The PR/MR URL rule permits an explicit 'URL unavailable' disclosure, preserving
 the section 9 exception when no ready-status/metadata URL exists.
 This is a lexical reminder, not a
 proof of the remote state: it requires a completed matching tool command,

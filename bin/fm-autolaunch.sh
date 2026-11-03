@@ -15,6 +15,10 @@
 #                                    record for every queued item lacking one
 #   fm-autolaunch.sh --help
 #
+# Timer proposals capture the caller's PATH and resolved FM_HOME for both
+# systemd and cron; --steps-only limits the proposed pass to slice progression.
+# Printing installs nothing and does not run a launch pass.
+#
 # A plain scheduler (cron or a systemd user timer, see --print-timer) runs one
 # pass every five minutes with FM_HOME set explicitly. Nothing here enables a
 # schedule; docs/configuration.md "Auto-launch" owns enabling it per machine.
@@ -69,10 +73,13 @@
 # 2026-11-03T08:00:00Z (Pacific
 # midnight on the introduction date) retain
 # dated grace until revised; task filing dates and prose dates grant no grace.
-# Filled PERSONA values declare surfaces=pages,chat (or pages, chat, none) and
-# usage=beginner,experienced,middle (the covered subset). Page+chat outcomes
-# require beginner/XAI-first and experienced/pages-only; middle switches on
-# the same task. usage=none is valid only with surfaces=none.
+# Filled PERSONA values use semicolon-separated declarations, for example
+# surfaces=pages,chat; usage=beginner,experienced,middle (the covered subsets).
+# Allowed surface tokens are pages, chat, none; usage tokens are beginner,
+# experienced, middle, none. Comma-separated tokens have no intervening spaces;
+# unsupported suffixes refuse, and none must stand alone in either declaration.
+# Page+chat outcomes require beginner/XAI-first and experienced/pages-only;
+# middle switches on the same task. usage=none is valid only with surfaces=none.
 # Scouts and other projects keep their existing preparation contract.
 # Its launch record is then DERIVED, field by field, from the
 # first source that has it:

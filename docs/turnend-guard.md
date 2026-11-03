@@ -312,14 +312,14 @@ The registrations in detail:
 ### State-claim check
 
 The tracked Claude Stop registration enables a fast, deterministic check for state claims in MAIN and secondmate replies, even when no workers need supervision.
-Its [module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the claim vocabulary, matching read commands, transcript bounds, exceptions, and failure behavior.
+Its [module header and `POLICY` table](../bin/fm-state-claim-guard.py) own the claim vocabulary, matching read commands, transcript bounds, exceptions, failure behavior, and optional whole-reply checks enabled through `config/reply-shape`, including their lexical detection limits.
 The check uses the Stop payload's final text because [Claude documents asynchronous transcript writes](https://code.claude.com/docs/en/hooks#common-input-fields).
-It requires a matching completed read command from the current turn; it does not judge whether the result supports the claim.
+State claims require a matching completed read command from the current turn; the check does not judge whether the result supports the claim.
 Its blocked-message exemption is independent of the supervision recovery budget.
 Running it inside the existing synchronous hook preserves the single secondmate busy-state writer.
 
 Installation travels with the tracked `.claude/settings.json` through the normal [self-update path](../.agents/skills/updatefirstmate/SKILL.md); restart the updated Claude sessions so they load the new registration.
-No global or home-local settings edits are required.
+No global or home-local hook settings edits are required.
 Child ship/scout worktrees remain outside primary scope.
 Other harnesses' native hooks do not enable this check; the Claude-compatible Grok, Cursor, and Pi paths stand aside.
 [Portable regressions](../tests/fm-state-claim-guard.test.sh) exercise the hook registration and its latency budget; [runtime verification](verification/runtime-backends.md#claude-state-claim-stop-check) records the real Claude guard.

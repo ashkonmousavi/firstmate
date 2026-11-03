@@ -472,8 +472,7 @@ EOF
 # fm-classify-lib.sh's "incremental (cursor-backed) open-decisions fold").
 # Bounded and silent: prints nothing when no decision is open, which is the
 # common case.
-# Hide one owner-parked secondmate's open decisions from MAIN's drain.
-# Source only. The stock copy of this function belongs in bin/fm-wake-drain.sh.
+# Hide owner-parked secondmates' open decisions from the drain summary only.
 # Hide only CLASS=parked. Unsafe, symlink, bad date, empty id, and a missing
 # config stay visible. An empty FM_CONFIG_OVERRIDE is not a config directory.
 # shellcheck shell=bash
