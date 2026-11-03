@@ -17,6 +17,8 @@
 # forge is GitHub and the evaluation reads it through gh exactly as
 # bin/fm-pr-poll.sh does; a closed-not-merged PR is never "met" (re-examine
 # such a hold by re-holding it).
+# Marker holds are checked by fm_hold_release_writer_valid before encoding
+# on both wrapper write paths; that helper owns the writer reference contract.
 # Marker paths are checked on the evaluating home's filesystem; transferring
 # a hold preserves the path, not the marker file.
 #
@@ -151,6 +153,53 @@ fm_hold_release_valid() {  # <condition>
       return 1
       ;;
   esac
+}
+
+# Write-time guard for marker conditions only; pr conditions need no writer
+# because the PR is the writer. Existing holds and transferred episodes are
+# not revalidated; re-holding with a marker condition runs the guard again.
+# A home name alone never substitutes for an actual task.
+# writer: <task-id> reads this data directory; writer: <secondmate-id>:<task-id>
+# resolves that exact route in its secondmates.md, locally or through fm-on.
+# The first writer token must be complete (whitespace or ; , ) delimited).
+# Lookup uses fm-tasks-axi.sh show and accepts queued, in_flight or held states.
+# Local lookups are bounded to 10 seconds and remote lookups to 25 seconds.
+# Missing, done, unreadable, malformed and ambiguous writers all refuse before
+# any backlog mutation, with "a marker hold names its writer task" from either
+# wrapper. tests/fm-hold-release.test.sh covers both entry points and routes.
+fm_hold_release_writer_valid() {  # <data-dir> <condition> <human-reason>
+  local data=$1 condition=$2 reason=$3 writer id route out state
+  local writer_re='(^|[[:space:];,(])writer:[[:space:]]*([^[:space:];,)]+)'
+  local token_re='^[A-Za-z0-9._-]+(:[A-Za-z0-9._-]+)?$'
+  case "$condition" in marker:*) ;; *) return 0 ;; esac
+  [[ "$reason" =~ $writer_re ]] || return 1
+  writer=${BASH_REMATCH[2]}
+  [[ "$writer" =~ $token_re ]] || return 1
+  id=${writer##*:}
+  case "$writer" in
+    *:*)
+      route=${writer%%:*}
+      # shellcheck source=bin/fm-secondmate-registry-lib.sh disable=SC1091
+      . "$_FM_HOLD_RELEASE_LIB_DIR/fm-secondmate-registry-lib.sh"
+      secondmate_registry_line_for_id "$data/secondmates.md" "$route" || return 1
+      case "$SECONDMATE_REGISTRY_HOME" in /*) ;; *) return 1 ;; esac
+      if [ "$SECONDMATE_REGISTRY_REMOTE" = 1 ]; then
+        out=$(fm_run_timed 25 env FM_DATA_OVERRIDE="$data" bash "$_FM_HOLD_RELEASE_LIB_DIR/fm-on.sh" \
+          --host "$SECONDMATE_REGISTRY_HOST" --root "$SECONDMATE_REGISTRY_ROOT" \
+          --home "$SECONDMATE_REGISTRY_HOME" fm-tasks-axi.sh show "$id" < /dev/null 2>/dev/null) || return 1
+      else
+        out=$(fm_run_timed 10 env -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
+          FM_HOME="$SECONDMATE_REGISTRY_HOME" bash "$_FM_HOLD_RELEASE_LIB_DIR/fm-tasks-axi.sh" \
+          show "$id" < /dev/null 2>/dev/null) || return 1
+      fi
+      ;;
+    *)
+      out=$(fm_run_timed 10 env FM_DATA_OVERRIDE="$data" \
+        bash "$_FM_HOLD_RELEASE_LIB_DIR/fm-tasks-axi.sh" show "$id" < /dev/null 2>/dev/null) || return 1
+      ;;
+  esac
+  state=$(printf '%s\n' "$out" | sed -n 's/^  state: //p')
+  case "$state" in queued|in_flight|held) return 0 ;; *) return 1 ;; esac
 }
 
 # The canonical GitHub pull URL for a pr: condition (data for humans and logs;

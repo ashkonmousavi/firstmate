@@ -1055,7 +1055,7 @@ test_release_is_attended_only() {
     home=$(make_home "release-attended-$posture")
     tasks_in "$home" add sample-widget "Ship the sample widget" --kind ship --repo sample >/dev/null \
       || fail "could not create the held work item"
-    run_captain "$home" hold sample-widget --reason "captain go needed before shipping" \
+    run_captain "$home" hold sample-widget --reason "captain go needed before shipping; writer: sample-widget" \
       --release-on "marker:$home/ready" >/dev/null || fail "could not hold the work item for the captain"
     printf 'Not urgent; ship it as planned.\n' > "$home/go.txt"
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-afk-contract.sh" enter \
@@ -1149,7 +1149,7 @@ test_release_rechecks_away_after_waiting_on_task_lock() {
       || fail "could not hold the work item for the captain"
     printf 'Ship it.\n' > "$home/go-race.txt"
     if [ "$authority" = completed ]; then
-      run_captain "$home" hold sample-widget --reason "completed check needed" \
+      run_captain "$home" hold sample-widget --reason "completed check needed; writer: sample-widget" \
         --release-on "marker:$home/ready" >/dev/null || fail "could not bind the release condition"
       : > "$home/ready"
       FM_STATE_OVERRIDE="$home/state" bash -c '

@@ -36,7 +36,8 @@
 #
 # HOLD RELEASE CONDITIONS. `hold` accepts one extra flag this wrapper owns,
 # `--release-on pr:<owner>/<repo>#<n>` or `--release-on marker:<absolute-path>`:
-# bin/fm-hold-release-lib.sh owns storage, evaluation, and disposition.
+# bin/fm-hold-release-lib.sh owns writer validation, storage, evaluation,
+# and disposition.
 # A hold of kind external, or with no kind, with neither --release-on nor
 # --until is refused, so each such hold always names when it clears.
 # Other hold kinds remain exempt. The flag never reaches tasks-axi itself,
@@ -298,6 +299,11 @@ else
   unset TASKS_AXI_FILE
 fi
 
+# Preserve the caller-relative data address for the writer lookup after cd.
+case "$hold_release_on" in
+  marker:*) DATA=$(fm_backlog_data_absolute "$DATA") || fail "cannot resolve writer data directory" ;;
+esac
+
 cd "$FM_BACKLOG_AXI_ROOT" || fail "cannot enter the backlog root $FM_BACKLOG_AXI_ROOT"
 
 if [ "$help_requested" = 1 ]; then
@@ -422,6 +428,8 @@ case "$subcommand" in
       fm_hold_release_valid "$hold_release_on" >/dev/null \
         || fail "--release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: $hold_release_on"
       [ -n "$hold_reason" ] || fail "a hold needs a nonempty --reason"
+      fm_hold_release_writer_valid "$DATA" "$hold_release_on" "$hold_reason" \
+        || fail "a marker hold names its writer task"
       hold_stored_reason=$(fm_hold_reason_encode "$hold_reason" "$hold_release_on") \
         || fail "could not encode the hold release condition"
       REWRITTEN=()
