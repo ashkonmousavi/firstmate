@@ -285,6 +285,29 @@ send_env() {  # <fakebin> <parent-home> <ssh-log> [extra env...] -- <cmd...>
     "$@"
 }
 
+test_remote_history_fits_delivery_budget() {
+  local dir fb ssh_log home rhome inbox i rec out
+  dir="$TMP_ROOT/remote-history-cost"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"
+  rhome=$(setup_remote_secondmate_home remote-history-cost)
+  home=$(setup_remote_parent_home remote-history-cost "$rhome")
+  inbox="$rhome/state/parent-route/rsm.inbox"
+  mkdir -p "$inbox/handled"
+  for ((i = 1; i <= 2048; i++)); do
+    printf -v rec '%s/handled/%04d.msg' "$inbox" "$i"
+    printf 'historical record\n' > "$rec"
+  done
+  # Exercise the real fm-send, fm-on and remote writer under the normal
+  # attempt budget; SSH and the endpoint are deterministic stubs.
+  out=$(send_env "$fb" "$home" "$ssh_log" FM_SEND_REMOTE_BUDGET=30 \
+    "$SEND" rsm --one-way 'history cost delivery test' 2>&1) \
+    || fail "large remote history exceeded the delivery budget: $out"
+  [ "$(cat "$ssh_log.count")" = 1 ] || fail "history send required more than one SSH attempt"
+  [ -f "$inbox/2049.msg" ] || fail "bounded remote send did not preserve the history sequence"
+  assert_contains "$(fm_task_inbox_body "$inbox/2049.msg")" 'history cost delivery test' "bounded send lost its body"
+  pass "remote send with 2048 handled records confirms within 30 seconds and one SSH attempt"
+}
+
 test_remote_large_steer_uses_stdin() {
   local dir fb ssh_log home rhome rc rec
   dir="$TMP_ROOT/remote-large"; mkdir -p "$dir"
@@ -1704,6 +1727,7 @@ SH
   pass "a pending-probe backlog spends one probe per pass after remote delivery and still resolves late replies"
 }
 
+test_remote_history_fits_delivery_budget
 test_remote_pending_backlog_preserves_delivery_progress
 test_remote_probe_follows_acknowledgement
 test_remote_pending_probe_never_holds_the_cycle
