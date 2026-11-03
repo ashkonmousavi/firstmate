@@ -28,8 +28,10 @@ before discovering new triggers, then publishes state/autolaunch-steps.pass
 atomically. C2 only judges evidence older than this completed-pass record.
 
 Input status phrases: prep ready <data-path> <revision>; cut ready <data-path>
-<revision> walk_changed=yes|no risk_changed=yes|no; done: tests-ready
-commit=<sha>|none revision=<revision> walk-list=<ids> checks=<names>;
+<revision> walk_changed=yes|no risk_changed=yes|no;
+done: tests-ready commit=<sha> revision=<revision> walk-list=<ids> checks=<names>;
+done: tests-ready commit=none revision=<revision> walk-list=<ids> checks=<names>;
+legacy: tests-ready none revision=<revision> walk-list=<ids> checks=<names>;
 pr-ready head=<sha> checks=started|red; review-ready reviewed_head=<sha>
 finding=<id> review=<url>; merged commit=<sha>; generation ready <n>
 source=<receipt> branch=<fresh-branch>. Cut/prep revisions must match the
@@ -482,7 +484,7 @@ class Slice:
                 continue
             if data.get("walk-list") != self.walk_list or not data.get("checks"):
                 continue
-            match = re.search(r"tests-ready (?:commit=([0-9a-f]+)|(none))\b", text)
+            match = re.search(r"(?:^|\s)tests-ready (?:commit=([0-9a-f]+|none)|(none))(?=\s|$)", text)
             if match:
                 return match[1] or "none"
         return ""
@@ -931,7 +933,8 @@ class Slice:
                 raise ValueError("owner-branch-location-missing")
             brief += (tester_scope(effect["owner_worktree"], effect["owner_branch"]) +
                       " Reuse existing checks; add red cases only for uncovered risks. Write the walk list there. "
-                      "Report tests-ready commit=<sha>|none revision=<revision> walk-list=<ids> checks=<names>.\n")
+                      "Report tests-ready commit=<sha> revision=<revision> walk-list=<ids> checks=<names>\n"
+                      "or tests-ready commit=none revision=<revision> walk-list=<ids> checks=<names>.\n")
         else:
             brief += f"Review {effect['pr']} head={effect.get('reviewed_head')} round={effect.get('round')}. Check TESTER PATHS against TESTER RULE. Post findings to the PR and report review-ready reviewed_head=<sha> finding=<id> review=<url>. Recheck fix heads inside this round; never create another round.\n"
         brief += ("\nReport completion to the task status record with the command below, replacing the payload with the result phrase above.\n"

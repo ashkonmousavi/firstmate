@@ -612,6 +612,71 @@ done
                 self.assertEqual(self.run_pass().returncode, 0)
                 self.assertEqual(len(self.completed("cut-delivery")), 1)
 
+    def test_tests_ready_literal_forms_advance_once(self):
+        for form in ("commit=none", "none", "commit=<sha>"):
+            for cut in (False, True):
+                with self.subTest(form=form, cut=cut):
+                    self.setUp()
+                    commit = "none"
+                    if form == "commit=<sha>":
+                        git = ["git", "-C", str(self.home / "projects/proj")]
+                        subprocess.run(git + ["init", "-q", "-b", "fm/owner"], check=True)
+                        subprocess.run(git + ["-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                                              "commit", "--allow-empty", "-qm", "existing tests"], check=True)
+                        commit = subprocess.check_output(git + ["rev-parse", "HEAD"], text=True).strip()
+                    phrase = "tests-ready " + form.replace("<sha>", commit)
+                    self.seed("tests", "prep:r1", tester="special-tester", revision="r1")
+                    self.meta("special-tester", "opus", "st.1.1")
+                    self.write("fake/agent-owner", "alive")
+                    if cut:
+                        self.seed("tests", "cut:owner@1:r1:tester", revision="r1")
+                        self.append_status("owner", "working [at=2]: cut ready data/owner/prep.md r1 walk_changed=yes risk_changed=no")
+                    self.append_status("special-tester", f"done [at=3]: {phrase} revision=r1 walk-list=screen-a,screen-b checks=existing")
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    key = "cut:owner@1:r1" if cut else f"tests-ready:{commit}@r1"
+                    rows = [r for r in self.rows() if r["trigger"] == key and r["receipt"] == "completed"]
+                    self.assertEqual(len(rows), 1, self.rows())
+                    self.assertEqual(rows[0]["effect"]["tester_commit"], commit)
+                    before = (self.home / "data/owner/slice-steps.log").read_bytes()
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual((self.home / "data/owner/slice-steps.log").read_bytes(), before)
+                    self.assertEqual(len(list((self.home / "state/owner.inbox").glob("*.msg"))), 1)
+
+    def test_tests_ready_requires_complete_current_admitted_evidence(self):
+        valid = "tests-ready commit=none revision=r1 walk-list=screen-a,screen-b checks=existing"
+        invalid = (
+            valid.replace("revision=r1", "revision=r0"),
+            valid.replace("screen-a,screen-b", "screen-a"),
+            valid.replace(" checks=existing", ""),
+            valid.replace("commit=none", "commit=none-extra"),
+            valid.replace("commit=none", "commit=abcdefg"),
+            valid.replace("commit=none", "none-extra"),
+            valid.replace("tests-ready", "not-tests-ready"),
+            "tests-ready: branch fm/x-j14-save-rerun-tester head 1ff0e3a3ae9d4bfbf6babec63c37f5b683631f9b pushed",
+            "tests-ready for cut 1, branch fm/x-j14-alert-handoff-tester head 35c8df424632201e06a2fef67f4a63e35c40e68c pushed",
+            "tests-ready: branch fm/x-ai-s13-integrate-tester head 6234cb998a5772feaec505719e40254f505a50a9 pushed",
+        )
+        for phrase, model in [(p, "opus") for p in invalid] + [(valid, m) for m in ("gpt-5.5", "default", "")]:
+            with self.subTest(phrase=phrase, model=model):
+                self.setUp()
+                self.seed("tests", "prep:r1", tester="special-tester", revision="r1")
+                self.meta("special-tester", model, "st.1.1")
+                self.write("fake/agent-owner", "alive")
+                self.append_status("special-tester", f"done [at=3]: {phrase}")
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(len(self.rows()), 1, self.rows())
+                self.assertEqual(list((self.home / "state/owner.inbox").glob("*.msg")), [])
+
+    def test_tester_brief_spells_literal_commit_forms(self):
+        self.prepare_effect("file-tester")
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        brief = (self.home / "data/special-tester/brief.md").read_text()
+        for form in ("commit=<sha>", "commit=none"):
+            self.assertIn(f"tests-ready {form} revision=<revision> walk-list=<ids> checks=<names>", brief)
+
     def test_tester_admission_at_every_continuation_boundary(self):
         for kind in ("launch-tester", "relaunch-tester", "note-owner", "relaunch-owner", "cut-delivery"):
             for model in ("opus", "default", ""):
