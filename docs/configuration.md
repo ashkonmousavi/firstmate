@@ -2146,7 +2146,7 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
 Bootstrap's resolver-only validation gate is described under "Validation and diagnostics" below; the [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson) applies independently of it.
 
-Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
+Typed resolution additively recognizes `gemini` because the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) verifies it for crewmate and scout dispatch.
 
 | Harness | Provider declaration on the opted-in resolver path |
 | --- | --- |

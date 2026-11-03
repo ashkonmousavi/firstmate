@@ -23,7 +23,7 @@ bin/                 helper scripts, committed; read each script's header before
 config/crew-harness  crewmate harness override; LOCAL, gitignored; absent or "default" = same as firstmate. Inherited as the literal file: a concrete primary adapter value also controls a secondmate home's own crewmates (section 4)
 config/claude-permission-mode  optional worker permission posture; LOCAL, gitignored; schema and failover: docs/configuration.md "Claude permission mode" and "Persistent managed-policy failover"
 config/codex-approval-mode    optional worker approval posture; LOCAL, gitignored; schema and failover: docs/configuration.md "Codex automatic approval review" and "Persistent managed-policy failover"
-config/claude-account config/pi-account  optional per-home worker account pin for Claude and Pi launches; LOCAL, gitignored, not inherited; absent keeps today's ambient account; present refuses a launch unless the pinned account resolves and is signed in (section 4 owns the refusal rule); see docs/configuration.md "Worker account pin"
+config/claude-account config/pi-account  optional per-home worker account pin for Claude and Pi launches; LOCAL, gitignored, not inherited; absent keeps today's ambient account; present refuses a launch unless the pinned account resolves and is signed in (harness-adapters owns the refusal rule); see docs/configuration.md "Worker account pin"
 config/secondmate-accounts/<id>/claude-account config/secondmate-accounts/<id>/pi-account  optional PRIMARY-home account pin for one local secondmate's own agent, in the worker account pin format; LOCAL, gitignored, not inherited; absent keeps the home-wide pin; see docs/configuration.md "Per-secondmate account pins"
 config/secondmate-accounts/<id>/omp-profile  optional PRIMARY-home omp profile name for one local omp secondmate's own agent (`omp --profile <name>`); LOCAL, gitignored, not inherited; absent adds no flag; see docs/configuration.md "Per-secondmate omp profile"
 config/crew-dispatch.json  optional crewmate dispatch profiles; LOCAL, gitignored; firstmate-maintained but human-editable natural-language rules that choose a per-task harness/model/effort profile (section 4). Inherited by secondmate homes
@@ -164,3 +164,17 @@ state/               runtime records and signals; gitignored
   .subsuper-* .supervise-daemon.*   sub-supervisor internals; never touch
 .no-mistakes/        local validation state and evidence; gitignored
 ```
+
+## Home and state interpretation
+
+`docs/configuration.md` is the single owner of the top-level operational-home layout and configuration schemas; each producing script's header and help own exact child fields and mutation mechanics.
+`FM_HOME` selects an instance's private `data/`, `state/`, `config/`, and `projects/`, while scripts continue to come from their tracked code root.
+Each secondmate has a persistent isolated `FM_HOME`, including its own state, backlog, projects, and session lock.
+`bin/fm-send.sh` fails closed unless `FM_HOME` is explicit, so a steer cannot silently resolve against another home.
+
+Tracked files hold shared instructions and tooling; `data/` holds durable private fleet records; `state/` holds runtime records and append-only status events; `config/` holds local operating choices; and `projects/` contains clones that are read-only to firstmate except under hard rule 1's concrete captain-approved project operation exception.
+
+Load `operational-home-layout` when locating, interpreting, or changing Firstmate home, config, data, state, project, or generated runtime paths.
+
+A `state/<id>.status` line is a wake event, not current-state truth; `bin/fm-crew-state.sh` owns current-state reconciliation.
+Treat `data/captain.md` as the domain-local record of captain preferences, optional `data/captain-shared.md` as the main-authoritative shared captain-preference file for secondmate inheritance, and `data/learnings.md` as curated home-local knowledge, regardless of harness memory, except for a knowledge class that a home-declared external memory tier under [stow's knowledge-placement contract](../stow/SKILL.md#knowledge-placement) owns.
