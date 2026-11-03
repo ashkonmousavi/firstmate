@@ -49,6 +49,7 @@ The stop seam sends SIGKILL to this engine, leaving the durable receipt.
 import datetime as dt
 import base64
 import csv
+from fnmatch import fnmatchcase
 import hashlib
 import json
 import os
@@ -208,6 +209,21 @@ def model_family(meta):
         return meta["model_family"]
     result = invoke([BIN / "fm-autolaunch.sh", "--step-family", meta.get("harness", ""), meta.get("model", "")])
     return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else "unknown"
+
+
+def tester_admitted(owner, tester):
+    builder_model = kv(STATE / f"{owner}.meta").get("model", "")
+    tester_model = kv(STATE / f"{tester}.meta").get("model", "")
+    return bool(builder_model and builder_model != "default" and tester_model and
+                tester_model != "default" and tester_model != builder_model)
+
+
+def destination_leased(effect):
+    return effect["kind"] != "route-finding" or leases().get(effect["target"]) == "act"
+
+
+def effect_tester(effect):
+    return effect["target"] if effect["kind"] in ("launch-tester", "relaunch-tester") else effect.get("tester_task")
 
 
 def tester_scope(worktree, branch):
@@ -378,6 +394,8 @@ class Slice:
         return None
 
     def tester_ready(self, revision):
+        if not tester_admitted(self.owner, self.tester):
+            return ""
         for _, text in reversed(statuses(self.tester, "done")):
             data = tokens(text)
             if "tests-ready " not in text or data.get("revision") != revision:
@@ -388,6 +406,13 @@ class Slice:
             if match:
                 return match[1] or "none"
         return ""
+
+    def tester_delivery(self, commit):
+        tester = kv(STATE / f"{self.tester}.meta")
+        return dict(tester_task=self.tester, tester_commit=commit,
+                    owner_worktree=self.meta.get("worktree", ""), owner_branch=self.meta.get("branch", ""),
+                    tester_worktree=tester.get("worktree", ""),
+                    tester_paths=self.body_field("TESTER PATHS") or self.prep.get("TESTER PATHS", ""))
 
     def task_action(self, role, target, key, step, **values):
         file_key = key + ":file"
@@ -404,8 +429,6 @@ class Slice:
             return self.action(step, key, "launch-" + role, target,
                                note=f"Continue as {role} for {self.home_id}:{self.owner}, prep revision {self.revision}.\n{read(self.prep_path)}\n" +
                                (tester_scope(self.meta.get("worktree"), self.meta.get("branch")) if role == "tester" else ""),
-                               payload={"exclude_model": self.meta.get("model", "") if role == "tester" else "",
-                                        "exclude_family": model_family(self.meta) if role == "tester" else ""},
                                waiting=True, **values)
         return None
 
@@ -425,6 +448,10 @@ class Slice:
             key = f"teardown:{self.owner}@{self.generation}"
             if not self.done(key):
                 return self.action("done", key, "teardown", note=json.dumps(proof, sort_keys=True))
+            accepted = f"accept:{self.owner}@{self.generation}"
+            if not self.done(accepted):
+                return self.action("done", accepted, "accept-owner", note=json.dumps(proof, sort_keys=True),
+                                   payload={"teardown_key": key})
             return None
         generation = next((r for r in reversed(current) if r["step"] == "generation"), None)
         if generation and (self.meta.get("branch") != generation["branch"] or
@@ -448,9 +475,11 @@ class Slice:
                                        note=f"Revise walk list for cut {m[2]}; add assertions only for uncovered risks.\n{read(self.prep_path)}\n" +
                                        tester_scope(self.meta.get("worktree"), self.meta.get("branch")),
                                        revision=m[2], waiting=True)
-                if not self.tester_ready(m[2]):
+                commit = self.tester_ready(m[2])
+                if not commit:
                     return None
             return self.action("build", key, "cut-delivery", note=f"Continue committed cut {m[2]}.\n{read(self.prep_path)}",
+                               payload=self.tester_delivery(commit) if changes.get("walk_changed") == "yes" or changes.get("risk_changed") == "yes" else {},
                                revision=m[2], coverage_only=self.prep.get("COVERAGE ONLY") == "yes" and
                                changes.get("walk_changed") == "yes" and changes.get("risk_changed") == "no")
         for _, text in reversed(self.status) if phase in ("prep", "generation") else []:
@@ -477,7 +506,8 @@ class Slice:
             if self.generation > 1:
                 key += f":g{self.generation}"
             if commit and not self.have(key):
-                return self.deliver("build", key, f"Continue slice with tests-ready {commit}; revision={revision} walk-list={self.walk_list}.", revision=revision)
+                return self.deliver("build", key, f"Continue slice with tests-ready {commit}; revision={revision} walk-list={self.walk_list}.",
+                                    payload=self.tester_delivery(commit), revision=revision)
         # Review/check findings are keyed to their round, not the successive heads.
         round_id = f"{self.owner}@{self.generation}:{self.cut}"
         reviewer = f"{self.owner}-review-{self.generation}-{self.cut}"
@@ -705,9 +735,71 @@ class Slice:
         return self.fact("walk", key, outcome=outcome, failure="walk-machinery:" + logical if obligation.get("retry_of") else "",
                          routed_to="fleet-ops:main-walk-auto-filing", waiting=True)
 
+    def pending_walk_outcome(self, row):
+        if NOW - epoch(self.summary.get("written_at", 0)) > int(self.summary.get("interval_seconds", 600)):
+            return "carrier-stale"
+        def matches(event):
+            return (self.belongs(event) and event.get("walk") == row["walk"] and
+                    event.get("release") == row["release"] and event.get("attempt", 1) == row["attempt"])
+        logical = f"{row['walk']}@{row['release']}"
+        if any(matches(result) and result.get("assignment") in (logical, f"{logical}.a{row['attempt']}")
+               for result in self.summary.get("walk_results", [])):
+            return "filed"
+        for event in self.summary.get("walk_attempts", []):
+            if not matches(event):
+                continue
+            outcome = event.get("outcome")
+            if outcome in ("gap", "unusable"):
+                return outcome
+            if outcome in ("running", "transport-uncertain"):
+                return "expired" if epoch(event.get("claim_expires", NOW + 1)) < NOW else "running"
+        return ""
+
+    @staticmethod
+    def tests_on_branch(effect):
+        commit = effect.get("tester_commit", "none")
+        if commit == "none":
+            return True
+        worktree, branch = effect.get("owner_worktree", ""), effect.get("owner_branch", "")
+        if not worktree or not branch or not re.fullmatch(r"[0-9a-f]{7,64}", commit):
+            return False
+        current = invoke(["git", "-C", worktree, "branch", "--show-current"])
+        return (current.returncode == 0 and current.stdout.strip() == branch and
+                invoke(["git", "-C", worktree, "merge-base", "--is-ancestor", commit, "HEAD"]).returncode == 0)
+
+    def integrate_tests(self, effect):
+        if self.tests_on_branch(effect):
+            return True, ""
+        worktree, branch, commit = effect.get("owner_worktree", ""), effect.get("owner_branch", ""), effect.get("tester_commit", "")
+        if not worktree or not branch or not re.fullmatch(r"[0-9a-f]{7,64}", commit):
+            return False, "tester-commit-location-missing"
+        current = invoke(["git", "-C", worktree, "branch", "--show-current"])
+        clean = invoke(["git", "-C", worktree, "status", "--porcelain"])
+        if current.returncode or current.stdout.strip() != branch or clean.returncode or clean.stdout:
+            return False, "tester-integration-branch-not-ready"
+        available = invoke(["git", "-C", worktree, "cat-file", "-e", commit + "^{commit}"])
+        if available.returncode:
+            tester_worktree = effect.get("tester_worktree", "")
+            if not tester_worktree:
+                return False, "tester-commit-unavailable"
+            fetched = invoke(["git", "-C", worktree, "fetch", "--no-tags", tester_worktree, commit])
+            if fetched.returncode:
+                return False, "tester-commit-unavailable"
+        paths = shlex.split(effect.get("tester_paths", "").replace(",", " "))
+        changed = invoke(["git", "-C", worktree, "diff", "--no-renames", "--name-only", "-z", "HEAD", commit])
+        if changed.returncode or not paths or any(p.startswith("/") or ".." in Path(p).parts for p in paths):
+            return False, "tester-paths-unavailable"
+        if any(not any(fnmatchcase(path, scope) or scope.endswith("/") and path.startswith(scope) for scope in paths)
+               for path in changed.stdout.split("\0") if path):
+            return False, "tester-scope-violation"
+        merged = invoke(["git", "-C", worktree, "merge", "--ff-only", commit])
+        return merged.returncode == 0 and self.tests_on_branch(effect), merged.stderr.strip() or "tester-integration-refused"
+
     def effect_present(self, row):
         effect = row["effect"]
         kind, target = effect["kind"], effect["target"]
+        if effect.get("tester_commit") and not self.tests_on_branch(effect):
+            return False
         if kind.startswith("file-"):
             shown = invoke([BIN / "fm-tasks-axi.sh", "show", target, "--full"])
             if shown.returncode:
@@ -718,9 +810,11 @@ class Slice:
                 return bool(owner.returncode == 0 and match and match[1].strip() in (target, f"{self.home_id}:{target}"))
             return True
         if kind == "teardown":
+            return teardown_recorded(target, effect["id"]) and not (STATE / f"{target}.meta").exists()
+        if kind == "accept-owner":
             shown = invoke([BIN / "fm-tasks-axi.sh", "show", target, "--full"])
-            accepted = shown.returncode == 0 and re.search(r"^  state: done$", shown.stdout, re.M)
-            return bool((accepted or task_missing(shown)) and not (STATE / f"{target}.meta").exists())
+            return bool((shown.returncode == 0 and re.search(r"^  state: done$", shown.stdout, re.M) or task_missing(shown)) and
+                        self.done(effect["teardown_key"]) and not (STATE / f"{target}.meta").exists())
         if kind == "walk-request":
             once = f"{effect['walk']}@{effect['release']}.a{effect['attempt']}"
             return any((base / once / "sent").exists() for base in (STATE / "grok-bot-once", DATA / "grok-dispatch/once")) or any(
@@ -748,6 +842,9 @@ class Slice:
     def apply(self, row):
         effect = row["effect"]
         kind, target = effect["kind"], effect["target"]
+        if kind == "accept-owner":
+            accepted = invoke([BIN / "fm-autolaunch.sh", "--step-accept", target, f"{self.owner}:{effect['id']}"])
+            return accepted.returncode == 0, accepted.stderr.strip() or "acceptance-refused"
         if kind == "teardown":
             meta = kv(STATE / f"{target}.meta")
             if meta and meta.get("spawn_gen") != effect["expected_gen"]:
@@ -759,13 +856,9 @@ class Slice:
                 return False, "teardown-task-reopened"
             if re.search(r"^  held: yes$", shown.stdout, re.M):
                 return False, "teardown-task-held"
-            if not task_missing(shown) and not re.search(r"^  state: done$", shown.stdout, re.M):
-                accepted = invoke([BIN / "fm-tasks-axi.sh", "done", target, "--note", effect["note"]])
-                if accepted.returncode:
-                    return False, accepted.stderr.strip() or "acceptance-refused"
             if not meta:
-                return True, ""
-            result = invoke([tool("TEARDOWN", BIN / "fm-teardown.sh"), target])
+                return False, "cleanup-record-missing"
+            result = invoke([tool("TEARDOWN", BIN / "fm-teardown.sh"), target, "--step-action", f"{self.owner}:{effect['id']}"])
             return result.returncode == 0, result.stderr.strip() or "teardown-refused"
         if kind.startswith("file-"):
             task_dir = DATA / target
@@ -819,15 +912,17 @@ class Slice:
             owner_file.write_text(owner_body)
             r = invoke([BIN / "fm-tasks-axi.sh", "update", self.owner, "--body-file", owner_file, "--archive-body"])
             return r.returncode == 0, r.stderr.strip()
-        if kind.startswith("launch-"):
-            if kind == "launch-tester" and not effect.get("exclude_model"):
-                return False, "builder-model-unknown"
+        if kind.startswith("launch-") or kind == "relaunch-tester":
             existing = kv(STATE / f"{target}.meta")
-            if not existing:
+            if not existing and kind.startswith("launch-"):
+                builder = kv(STATE / f"{self.owner}.meta")
+                exclude = builder.get("model", "") if kind == "launch-tester" else ""
+                if kind == "launch-tester" and exclude in ("", "default"):
+                    return False, "builder-model-unknown"
                 r = invoke([BIN / "fm-autolaunch.sh", "--step-dispatch", target,
-                            effect.get("exclude_model", ""), effect.get("exclude_family", "")])
+                            exclude, model_family(builder) if kind == "launch-tester" else ""])
                 return r.returncode == 0, "relaunch-due" if r.returncode == 75 else r.stderr.strip()
-            if kind == "launch-tester" and (not existing.get("model") or existing["model"] in ("default", effect.get("exclude_model"))):
+            if kind in ("launch-tester", "relaunch-tester") and not tester_admitted(self.owner, target):
                 return False, "same-or-unknown-tester-model"
             # The named child already has an incarnation. Continue that task
             # through control/inbox below rather than allocating a fresh copy.
@@ -863,6 +958,12 @@ class Slice:
                 subprocess.Popen([str(a) for a in command], stdin=subprocess.DEVNULL,
                                  stdout=output, stderr=output, start_new_session=True)
             return False, "walk-expect"
+        if effect.get("tester_commit"):
+            integrated, reason = self.integrate_tests(effect)
+            if not integrated:
+                return False, reason
+        if not destination_leased(effect):
+            return False, "destination-not-leased"
         state = agent(target)
         if state == "unknown":
             return False, "agent-state-unknown"
@@ -884,33 +985,62 @@ class Slice:
     def perform(self, row):
         if leases().get(self.owner) != "act":
             return False
-        if row["effect"]["kind"] == "teardown":
+        effect = row["effect"]
+        kind = effect["kind"]
+        tester = effect_tester(effect)
+        if tester:
+            fresh = kind == "launch-tester" and not kv(STATE / f"{tester}.meta")
+            builder = kv(STATE / f"{self.owner}.meta").get("model", "")
+            if not builder or builder == "default" or not (fresh or tester_admitted(self.owner, tester)):
+                if row.get("reason") != "same-or-unknown-tester-model":
+                    self.log(dict(row, receipt="pending", reason="same-or-unknown-tester-model"))
+                return False
+        if kind in ("teardown", "accept-owner"):
             reopened = self.reopening(row.get("generation", self.generation))
             if reopened:
                 self.log(dict(row, receipt="completed", reason="", superseded_by=reopened[2]))
                 return True
-        if self.effect_present(row):
+        present = self.effect_present(row)
+        if kind == "walk-request" and not present:
+            transport = self.pending_walk_outcome(row)
+            if transport in ("gap", "unusable", "expired", "filed"):
+                self.log(dict(row, receipt="completed", reason="", transport_outcome=transport))
+                return True
+            if transport in ("carrier-stale", "running"):
+                reason = "carrier-stale" if transport == "carrier-stale" else "walk-expect"
+                stale = f"carrier-stale:{row['walk']}@{row['release']}.a{row['attempt']}"
+                if transport == "carrier-stale" and not self.have(stale):
+                    self.log(self.fact("walk", stale, reason=reason, waiting=True))
+                if row.get("reason") != reason:
+                    self.log(dict(row, receipt="pending", reason=reason))
+                return False
+        if present:
             # Validate tester metadata even when an interrupted launch already
             # produced a real agent; a same-model run never advances to build.
             success, reason = True, ""
         else:
+            if not destination_leased(effect):
+                if row.get("reason") != "destination-not-leased":
+                    self.log(dict(row, receipt="pending", reason="destination-not-leased"))
+                return False
             self.stop("before", row)
             success, reason = self.apply(row)
             self.stop("after", row)
-            if success and not effect_is_note(row) and row["effect"]["kind"] not in ("walk-request", "teardown") and not row["effect"]["kind"].startswith("file-"):
+            if success and not effect_is_note(row) and row["effect"]["kind"] not in ("walk-request", "teardown", "accept-owner") and not row["effect"]["kind"].startswith("file-"):
                 effect = row["effect"]
                 append(STATE / "autolaunch.log", f"{NOW}\t-\t{effect['target']}\t-\tlaunched|relaunched {effect['target']} {effect['id']}")
             success = success and self.effect_present(row)
         effect = row["effect"]
         extra = {}
-        if success and effect["kind"] == "launch-tester":
-            tester = kv(STATE / f"{effect['target']}.meta")
-            model = tester.get("model", "")
-            if not model or model == "default" or model == effect["exclude_model"]:
+        if success and tester:
+            tester_task = effect_tester(effect)
+            tester = kv(STATE / f"{tester_task}.meta")
+            builder = kv(STATE / f"{self.owner}.meta")
+            if not tester_admitted(self.owner, tester_task):
                 success, reason = False, "same-or-unknown-tester-model"
             else:
-                extra = dict(builder_model=self.meta.get("model"), tester_model=model,
-                             builder_family=model_family(self.meta), tester_family=model_family(tester))
+                extra = dict(builder_model=builder.get("model"), tester_model=tester.get("model"),
+                             builder_family=model_family(builder), tester_family=model_family(tester))
         if success:
             self.log(dict(row, receipt="completed", reason="", **extra))
         elif reason != row.get("reason"):
@@ -953,6 +1083,13 @@ def guard(task, action):
     records = rows(owner)
     row = latest(records).get(key, {})
     effect = row.get("effect", {})
+    if effect.get("kind") == "route-finding" and not destination_leased(effect):
+        return False
+    tester = effect_tester(effect) if effect else None
+    if tester and not tester_admitted(owner, tester):
+        return False
+    if effect.get("tester_commit") and not Slice.tests_on_branch(effect):
+        return False
     meta = kv(STATE / f"{task}.meta")
     marker = kv(STATE / f"{task}.released")
     if marker and (marker.get("spawn_gen") != effect.get("expected_gen") or
@@ -964,6 +1101,71 @@ def guard(task, action):
                     "note-owner", "relaunch-owner", "cut-delivery", "relaunch-tester", "recheck-review", "route-finding", "launch-tester", "launch-review") and
                 meta.get("spawn_gen") and meta["spawn_gen"] == effect.get("expected_gen") and
                 meta.get("kind") in ("ship", "scout") and meta.get("endpoint_task_id", task) == task)
+
+
+def teardown_recorded(task, key):
+    return any(line.endswith(f"\tcleanup-ready {task} {key}") for line in read(STATE / "autolaunch.log").splitlines())
+
+
+def teardown_receipt(task, action):
+    owner, sep, key = action.partition(":")
+    if not sep or owner != task or leases().get(owner) != "act":
+        return None
+    records = rows(owner)
+    row = latest(records).get(key, {})
+    effect = row.get("effect", {})
+    generation = max([r.get("generation", 1) for r in records] or [1])
+    if (row.get("receipt") != "pending" or effect.get("kind") != "teardown" or effect.get("id") != key or
+            effect.get("target") != task or row.get("generation", 1) != generation):
+        return None
+    if not any(r["step"] == "done" and r["receipt"] == "completed" and not r.get("effect") and
+               r.get("generation", 1) == generation for r in records):
+        return None
+    if any(re.search(rf"generation ready {generation + 1} source=\S+ branch=\S+", text) for _, text in statuses(task)):
+        return None
+    return row
+
+
+def teardown_guard(task, action):
+    row = teardown_receipt(task, action)
+    if not row:
+        return False
+    meta = kv(STATE / f"{task}.meta")
+    shown = invoke([BIN / "fm-tasks-axi.sh", "show", task, "--full"])
+    return bool(meta.get("spawn_gen") and meta["spawn_gen"] == row["effect"].get("expected_gen") and
+                meta.get("kind") == "ship" and shown.returncode == 0 and
+                not re.search(r"^  (held: yes|state: queued)$", shown.stdout, re.M))
+
+
+def record_teardown(task, action):
+    row = teardown_receipt(task, action)
+    if not row or not teardown_guard(task, action):
+        return False
+    key = row["effect"]["id"]
+    if not teardown_recorded(task, key):
+        append(STATE / "autolaunch.log", f"{NOW}\t-\t{task}\t-\tcleanup-ready {task} {key}")
+    return True
+
+
+def accept_owner(task, action):
+    owner, sep, key = action.partition(":")
+    if not sep or task != owner or leases().get(owner) != "act":
+        return False
+    slice_ = Slice(owner)
+    row = latest(slice_.records).get(key, {})
+    effect = row.get("effect", {})
+    if (row.get("receipt") != "pending" or effect.get("kind") != "accept-owner" or
+            effect.get("target") != task or row.get("generation", 1) != slice_.generation or
+            effect.get("id") != key or (STATE / f"{task}.meta").exists() or slice_.held or
+            slice_.reopening(slice_.generation)):
+        return False
+    cleanup = latest(slice_.records).get(effect.get("teardown_key"), {})
+    if cleanup.get("receipt") != "completed" or cleanup.get("superseded_by") or not slice_.effect_present(cleanup):
+        return False
+    shown = invoke([BIN / "fm-tasks-axi.sh", "show", task, "--full"])
+    if shown.returncode or re.search(r"^  (held: yes|state: queued)$", shown.stdout, re.M):
+        return False
+    return invoke([BIN / "fm-tasks-axi.sh", "done", task, "--note", effect["note"]]).returncode == 0
 
 
 def waiting(owner):
@@ -1000,11 +1202,17 @@ def main():
         print(__doc__)
         return 0
     command = sys.argv[1]
-    arities = {"run": 2, "dry": 2, "check": 2, "guard": 4, "wait": 3}
+    arities = {"run": 2, "dry": 2, "check": 2, "guard": 4, "teardown-guard": 4, "record-teardown": 4, "accept-owner": 4, "wait": 3}
     if command not in arities or len(sys.argv) != arities[command]:
         raise ValueError("usage: run|dry|check|wait <owner>|guard <task> <action>")
     if command == "guard":
         return 0 if guard(*sys.argv[2:]) else 3
+    if command == "teardown-guard":
+        return 0 if teardown_guard(*sys.argv[2:]) else 3
+    if command == "record-teardown":
+        return 0 if record_teardown(*sys.argv[2:]) else 3
+    if command == "accept-owner":
+        return 0 if accept_owner(*sys.argv[2:]) else 3
     if command == "wait":
         return 0 if waiting(sys.argv[2]) else 3
     if command == "check":

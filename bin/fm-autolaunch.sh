@@ -131,6 +131,7 @@ case "${1:-}" in
   --step-family) ACTION="step-family"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
   --step-agent) ACTION="step-agent"; STEP_TARGET=${2:-} ;;
   --step-nm) ACTION="step-nm"; STEP_TARGET=${2:-} ;;
+  --step-accept) ACTION="step-accept"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
   --list-prepared) ACTION=list ;;
   --print-timer) ACTION=timer ;;
   --backfill) ACTION=backfill ;;
@@ -142,6 +143,8 @@ if [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
 elif [ "$ACTION" = step-dispatch ] && [ "$#" -ge 2 ] && [ "$#" -le 4 ]; then
   :
 elif [ "$ACTION" = step-family ] && [ "$#" -eq 3 ]; then
+  :
+elif [ "$ACTION" = step-accept ] && [ "$#" -eq 3 ]; then
   :
 elif { [ "$ACTION" = step-agent ] || [ "$ACTION" = step-nm ]; } && [ "$#" -eq 2 ]; then
   :
@@ -223,8 +226,10 @@ flat() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-300; }
 
 TMPD=
 LOCK_HELD=0
+STEP_ACCEPT_LOCK=
 # shellcheck disable=SC2329 # Invoked through the EXIT trap below.
 cleanup() {
+  [ -z "$STEP_ACCEPT_LOCK" ] || fm_lock_release "$STEP_ACCEPT_LOCK"
   [ -z "$TMPD" ] || rm -rf -- "$TMPD"
   [ "$LOCK_HELD" = 0 ] || fm_lock_release "$LOCK"
 }
@@ -540,6 +545,14 @@ spawn_quota_refused() {
 if [ "$ACTION" = step-family ]; then
   step_family "$STEP_TARGET" "$STEP_EXCLUDE"
   exit 0
+fi
+if [ "$ACTION" = step-accept ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  accept_lock="$STATE/.control-$STEP_TARGET.lock"
+  fm_lock_try_acquire "$accept_lock" || exit 75
+  STEP_ACCEPT_LOCK=$accept_lock
+  python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" accept-owner "$STEP_TARGET" "$STEP_EXCLUDE"
+  exit $?
 fi
 
 # Private engine callbacks: these reuse the scheduler's preparation, admission,

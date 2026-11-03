@@ -914,12 +914,16 @@ No command installs this file or enables a timer automatically.
 The [step engine header](../bin/fm-autolaunch-steps.py) owns the status phrases, prep fields, carrier input, JSONL step-log format and receipt checks.
 Each external effect has an immutable pending receipt before it runs and a completed receipt after its own durable evidence confirms it; restarts reconcile pending effects before consuming another trigger.
 The named tester must record a resolved model different from the owner's, and a changed walk list returns to that tester before the owner continues.
-The tester edits its named paths in the owner's recorded worktree and branch; fallback filing records its qualified task identity through an archived owner-body update.
+The tester edits its named paths on the owner's recorded branch; before either builder continuation the pass verifies its commit is reachable there and can fast-forward a clean builder worktree from the tester's copy.
+Fallback filing records its qualified task identity through an archived owner-body update.
 Eligible tester candidates prefer a different known model family, with ordinary quota-refusal fallback.
 Direct-PR review uses one task per generation and cut, including fix heads; no-mistakes keeps its own review round.
 The walk carrier's optional attempt field distinguishes deliberate same-release retries while retaining the logical assignment and legacy requests.
 Missing carrier facts leave the obligation open, and a stale carrier or exhausted machinery retry stays with its machinery owner.
-Green completion requires current walk coverage on a release containing the latest repair, and records the filed result path before guarded acceptance and non-force teardown.
+Green completion requires current walk coverage on a release containing the latest repair, and records the filed result path before receipt-bound non-force runtime cleanup and native acceptance.
+Runtime cleanup leaves the task in flight until its completed receipt authorizes acceptance under the lifecycle lock.
+Carried terminal transport outcomes also resolve unsent pending walk requests into the existing retry or owned-failure path; stale carriers keep them pending.
+Finding delivery requires the destination owner's active lease; observation leaves that delivery pending with its route recorded.
 
 The same armed throttle check also evaluates C2 after a completed step pass: a pending receipt without a recorded wait reason, or a fired trigger left without a receipt.
 It reuses `state/.autolaunch-check.red` and the parent-channel report, emits once per C2 episode, and clears when the condition clears.
