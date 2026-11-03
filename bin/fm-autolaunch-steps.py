@@ -92,11 +92,12 @@ def epoch(value):
         return 0
 
 
-def effect_is_note(row):
+def effect_is_note(row, handled=False):
     effect = row["effect"]
     request = hashlib.sha256(effect["id"].encode()).hexdigest()[:32]
     inbox = STATE / f"{effect['target']}.inbox"
-    return any(f"request-id={request}\n" in read(p) for pattern in ("*.msg", "handled/*.msg") for p in inbox.glob(pattern))
+    patterns = ("handled/*.msg",) if handled else ("*.msg", "handled/*.msg")
+    return any(f"request-id={request}\n" in read(p) for pattern in patterns for p in inbox.glob(pattern))
 
 
 def leases():
@@ -543,7 +544,7 @@ class Slice:
         return bool(re.fullmatch(r"[0-9a-f]{7,64}", release) and re.fullmatch(r"[0-9a-f]{7,64}", commit) and
                     invoke(["git", "-C", self.project, "merge-base", "--is-ancestor", commit, release]).returncode == 0)
 
-    def walk_action(self, key, release, attempt):
+    def walk_action(self, key, release, attempt, revision=None, walk_list=None):
         if not SLUG.fullmatch(self.walk):
             raise ValueError("invalid WALK ID")
         brief = self.prep.get("WALK BRIEF", "")
@@ -557,7 +558,22 @@ class Slice:
             "walk_target": self.prep.get("WALK TARGET", os.environ.get("FM_WALK_REQUEST_TARGET", "")),
             "brief": str(path), "brief_text": read(path), "corr": hashlib.sha256(key.encode()).hexdigest()[:16]},
             release=release, walk=self.walk, attempt=attempt, obligation=True, waiting=True,
-            walk_list=self.walk_list)
+            revision=self.revision if revision is None else revision,
+            walk_list=self.walk_list if walk_list is None else walk_list)
+
+    def walk_can_close(self, obligation, outcome):
+        current = self.current()
+        merge = next((r for r in reversed(current) if r["step"] == "merged"), None)
+        work = [r for r in current if r["step"] in ("build", "fix", "tests") and
+                r.get("effect", {}).get("target", self.owner) == self.owner]
+        return bool(obligation.get("generation") == self.generation and
+                    obligation.get("revision") == self.revision and obligation["walk"] == self.walk and
+                    outcome.get("revision") == obligation.get("revision") and
+                    outcome.get("walk_list") == obligation.get("walk_list") and
+                    set(filter(None, obligation.get("walk_list", "").split(","))) ==
+                    set(filter(None, self.walk_list.split(","))) and self.walk_list and merge and
+                    (not work or current.index(work[-1]) < current.index(merge)) and
+                    self.contains(obligation["release"], merge["merge"]))
 
     def walk_outcome(self, obligation):
         walk, release, attempt = obligation["walk"], obligation["release"], obligation["attempt"]
@@ -565,7 +581,7 @@ class Slice:
         key = f"walk-outcome:{logical}.a{attempt}"
         if self.have(key):
             outcome = latest(self.records)[key]
-            if outcome.get("outcome") == "usable-green" and not self.have("walk-green:" + logical):
+            if outcome.get("outcome") == "usable-green" and not self.have("walk-green:" + logical) and self.walk_can_close(obligation, outcome):
                 return self.fact("done", "walk-green:" + logical, release=release,
                                  report_sha256=outcome["report_sha256"])
             return None
@@ -583,9 +599,10 @@ class Slice:
             expected = set(filter(None, obligation.get("walk_list", self.walk_list).split(",")))
             usable = result.get("complete") is True and result.get("report_sha256") and result.get("assignment") in (logical, f"{logical}.a{attempt}") and expected <= {s["id"] for s in steps}
             failed = [s for s in steps if s.get("result") in ("failed", "not-built", "red")]
-            usable = usable and all(s.get("screenshots") for s in failed)
+            usable = usable and all(s.get("screenshots") for s in failed) and all(
+                s.get("result") in ("green", "failed", "not-built", "red") for s in steps)
             if not usable:
-                return self.retry_walk(key, logical, release, attempt, "unusable")
+                return self.retry_walk(key, logical, release, attempt, "unusable", obligation)
             for step in failed:
                 finding = f"walk:{logical}:{step['id']}"
                 if not self.have(finding):
@@ -600,6 +617,7 @@ class Slice:
                     return self.action("fix", fkey, "route-finding", target, note=json.dumps(finding, sort_keys=True), routed_to=f"{HOME.name}:{target}")
             if not failed and expected and all(s.get("result") == "green" for s in steps if s["id"] in expected):
                 return self.fact("walk", key, outcome="usable-green", proof="walk-green:" + logical,
+                                 revision=obligation.get("revision"), walk_list=obligation.get("walk_list"),
                                  report_sha256=result["report_sha256"])
             return self.fact("walk", key, outcome="usable-failed", waiting=True)
         for event in self.summary.get("walk_attempts", []):
@@ -609,7 +627,7 @@ class Slice:
                 continue
             outcome = event.get("outcome")
             if outcome in ("gap", "unusable") or (outcome in ("running", "transport-uncertain") and epoch(event.get("claim_expires", NOW + 1)) < NOW):
-                return self.retry_walk(key, logical, release, attempt, outcome)
+                return self.retry_walk(key, logical, release, attempt, outcome, obligation)
             if outcome == "refused":
                 refusal = f"refused:{logical}.a{attempt}"
                 if not self.have(refusal):
@@ -621,11 +639,11 @@ class Slice:
         home_id = read(HOME / ".fm-secondmate-home").strip() or "main"
         return event.get("walk_owner") == home_id
 
-    def retry_walk(self, key, logical, release, attempt, outcome):
+    def retry_walk(self, key, logical, release, attempt, outcome, obligation):
         if attempt == 1:
             retry = key + ":retry"
             if not self.have(retry):
-                return self.walk_action(retry, release, 2)
+                return self.walk_action(retry, release, 2, obligation.get("revision", ""), obligation.get("walk_list", ""))
         return self.fact("walk", key, outcome=outcome, failure="walk-machinery:" + logical if attempt > 1 else "",
                          routed_to="fleet-ops:main-walk-auto-filing", waiting=True)
 
@@ -641,16 +659,23 @@ class Slice:
                 e.get("walk") == effect["walk"] and e.get("release") == effect["release"] and
                 e.get("attempt") == effect["attempt"] and e.get("outcome") == "sent"
                 for e in self.summary.get("walk_attempts", []) if self.belongs(e))
-        if effect_is_note(row):
+        if effect_is_note(row, handled=True):
             return True
-        if kind == "note-owner":
-            return False
         meta = kv(STATE / f"{target}.meta")
         launched = f"launched|relaunched {target} {effect['id']}"
         if any(line.endswith("\t" + launched) for line in read(STATE / "autolaunch.log").splitlines()):
             return True
-        return agent(target) == "alive" and (kind.startswith("launch-") and not effect.get("expected_gen") or
-                bool(meta.get("spawn_gen") and meta["spawn_gen"] != effect.get("expected_gen")))
+        changed = bool(meta.get("spawn_gen") and meta["spawn_gen"] != effect.get("expected_gen"))
+        if changed:
+            journal = kv(STATE / f"{target}.control-relaunch")
+            prior = kv(STATE / f"{target}.control-relaunch.meta-prior")
+            if journal.get("task") == target and journal.get("phase") == "complete" and prior.get("spawn_gen") == effect.get("expected_gen"):
+                return True
+            if kind.startswith("launch-") and not effect.get("expected_gen"):
+                shown = invoke([BIN / "fm-tasks-axi.sh", "show", target, "--full"])
+                if shown.returncode == 0 and re.search(r"^  state: in_flight$", shown.stdout, re.M):
+                    return True
+        return agent(target) == "alive" and (changed or effect_is_note(row))
 
     def apply(self, row):
         effect = row["effect"]
@@ -733,7 +758,7 @@ class Slice:
         state = agent(target)
         if state == "unknown":
             return False, "agent-state-unknown"
-        if kind == "note-owner" or state == "alive":
+        if state == "alive":
             env = dict(os.environ, FM_SEND_REQUEST_ID=hashlib.sha256(effect["id"].encode()).hexdigest()[:32])
             r = invoke([tool("SEND", BIN / "fm-send.sh"), target, "--one-way", effect["note"]], env=env)
             return r.returncode == 0, r.stderr.strip()
@@ -758,10 +783,10 @@ class Slice:
         else:
             self.stop("before", row)
             success, reason = self.apply(row)
+            self.stop("after", row)
             if success and not effect_is_note(row) and row["effect"]["kind"] != "walk-request" and not row["effect"]["kind"].startswith("file-"):
                 effect = row["effect"]
                 append(STATE / "autolaunch.log", f"{NOW}\t-\t{effect['target']}\t-\tlaunched|relaunched {effect['target']} {effect['id']}")
-            self.stop("after", row)
             success = success and self.effect_present(row)
         effect = row["effect"]
         extra = {}
@@ -823,7 +848,7 @@ def guard(task, action):
         return False
     return bool(row.get("receipt") == "pending" and effect.get("target") == task and
                 effect.get("id") == key and effect.get("kind") in (
-                    "relaunch-owner", "cut-delivery", "relaunch-tester", "recheck-review", "route-finding", "launch-tester", "launch-review") and
+                    "note-owner", "relaunch-owner", "cut-delivery", "relaunch-tester", "recheck-review", "route-finding", "launch-tester", "launch-review") and
                 meta.get("spawn_gen") and meta["spawn_gen"] == effect.get("expected_gen") and
                 meta.get("kind") in ("ship", "scout") and meta.get("endpoint_task_id", task) == task)
 

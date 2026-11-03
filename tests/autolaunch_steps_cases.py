@@ -47,11 +47,14 @@ done
 printf '%s\n' "spawn $id $model" >> "$FM_HOME/fake/effects"
 printf 'harness=%s\nmodel=%s\nspawn_gen=s2.%s.1\nkind=scout\n' "$harness" "$model" "$$" > "$FM_HOME/state/$id.meta"
 echo alive > "$FM_HOME/fake/agent-$id"
+bash "$STEP_ROOT/bin/fm-tasks-axi.sh" start "$id" >/dev/null
 ''')
         self.tool("control", '''id=$1
+cp "$FM_HOME/state/$id.meta" "$FM_HOME/state/$id.control-relaunch.meta-prior"
 printf 'relaunch %s\n' "$id" >> "$FM_HOME/fake/effects"
 printf 'spawn_gen=s3.%s.1\n' "$$" >> "$FM_HOME/state/$id.meta"
 echo alive > "$FM_HOME/fake/agent-$id"
+printf 'task=%s\nphase=complete\n' "$id" > "$FM_HOME/state/$id.control-relaunch"
 ''')
         self.tool("send", '''id=$1; shift
 [ "$1" != --one-way ] || shift
@@ -97,8 +100,8 @@ fi
         p = self.home / "data/owner/slice-steps.log"
         return [json.loads(s) for s in p.read_text().splitlines()] if p.exists() else []
 
-    def seed(self, step, key, **fields):
-        row = dict(at=1, generation=1, step=step, owner="owner", trigger=key, receipt="completed", **fields)
+    def seed(self, step, key, receipt="completed", **fields):
+        row = dict(at=1, generation=1, step=step, owner="owner", trigger=key, receipt=receipt, **fields)
         p = self.home / "data/owner/slice-steps.log"
         with p.open("a") as f:
             f.write(json.dumps(row) + "\n")
@@ -164,6 +167,60 @@ fi
                         if kind == "note-owner":
                             self.assertEqual(len(list((self.home / "state/owner.inbox").glob("*.msg"))), 1)
                             self.assertEqual(self.effects("relaunch owner"), [])
+
+    def test_unhandled_deliveries_resume_consumers_that_exit_during_delivery(self):
+        for kind in ("note-owner", "relaunch-owner", "cut-delivery", "relaunch-tester",
+                     "recheck-review", "route-finding", "launch-tester", "launch-review"):
+            for boundary in ("before", "after"):
+                with self.subTest(kind=kind, boundary=boundary):
+                    self.setUp()
+                    target = "owner" if kind in ("note-owner", "relaunch-owner", "cut-delivery") else "child"
+                    self.meta(target, "opus", "original.1")
+                    self.write(f"fake/agent-{target}", "alive")
+                    self.seed("build", "delivery", receipt="pending", effect=dict(
+                        id="delivery", kind=kind, target=target, expected_gen="original.1",
+                        note="Continue this delivery", exclude_model="gpt-5.5"))
+                    self.assertNotEqual(self.run_pass(f"{boundary}:{kind}").returncode, 0)
+                    self.write(f"fake/agent-{target}", "dead")
+                    if kind == "note-owner":
+                        guard = subprocess.run([sys.executable, str(ROOT / "bin/fm-autolaunch-steps.py"),
+                                                "guard", target, "owner:delivery"], env=self.env)
+                        self.assertEqual(guard.returncode, 0)
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(self.effects("relaunch "), [f"relaunch {target}"])
+                    self.assertEqual(len(self.completed(kind)), 1)
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual(self.effects("relaunch "), [f"relaunch {target}"])
+                    self.assertLessEqual(len(list((self.home / f"state/{target}.inbox").glob("*.msg"))), 1)
+
+    def test_exited_launches_reconcile_before_the_autolaunch_log_append(self):
+        for kind in ("launch-tester", "launch-review", "relaunch-owner", "cut-delivery"):
+            with self.subTest(kind=kind):
+                self.setUp()
+                self.prepare_effect(kind)
+                self.assertNotEqual(self.run_pass(f"after:{kind}").returncode, 0)
+                target = "special-tester" if kind == "launch-tester" else "owner-review-1-1" if kind == "launch-review" else "owner"
+                self.write(f"fake/agent-{target}", "dead")
+                self.assertEqual(self.completed(kind), [])
+                self.assertFalse((self.home / "state/autolaunch.log").exists())
+                effects = self.effects("")
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(len(self.completed(kind)), 1)
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(self.effects(""), effects)
+
+    def test_provisional_dead_spawn_metadata_is_not_launch_completion(self):
+        self.prepare_effect("launch-tester")
+        self.assertNotEqual(self.run_pass("before:launch-tester").returncode, 0)
+        self.meta("special-tester", "opus", "provisional.1")
+        self.write("fake/agent-special-tester", "dead")
+        self.tool("control", "exit 3")
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.completed("launch-tester"), [])
+        self.assertTrue(any(r["receipt"] == "pending" for r in self.rows()))
 
     def test_later_steps_do_not_reconsume_historical_prep_or_review_triggers(self):
         self.seed("deployed", "deploy:earlier", release="abcdef0", deployed_at=10)
@@ -337,6 +394,67 @@ fi
         self.run_pass(); self.run_pass()
         self.assertEqual(len(self.effects("walk demo@abc")), 1)
         self.assertTrue(any(r["trigger"].startswith("checkpoint:catchup:") for r in self.rows()))
+
+    def test_green_walk_closes_only_current_coverage_and_repaired_release(self):
+        for change in ("revision", "coverage", "walk", "repair-pending", "repair-merged", "saved-outcome", "current"):
+            with self.subTest(change=change):
+                self.setUp()
+                git = ["git", "-C", str(self.home / "projects/proj")]
+                subprocess.run(git + ["init", "-q"], check=True)
+                commit = ["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-qm"]
+                subprocess.run(git + commit + ["base"], check=True)
+                release = subprocess.check_output(git + ["rev-parse", "HEAD"], text=True).strip()
+                self.seed("merged", "merge:" + release, merge=release)
+                self.seed("walk", "checkpoint:day1", obligation=True, walk="demo", release=release,
+                          attempt=1, revision="r1", walk_list="screen-a,screen-b")
+                prep = (self.home / "data/owner/prep.md").read_text()
+                if change == "revision":
+                    self.write("data/owner/prep.md", prep.replace("REVISION: r1", "REVISION: r2"))
+                elif change == "coverage":
+                    self.write("data/owner/prep.md", prep.replace("screen-a,screen-b", "screen-a,screen-b,screen-c"))
+                elif change == "walk":
+                    self.write("data/owner/prep.md", prep.replace("WALK ID: demo", "WALK ID: changed"))
+                elif change.startswith("repair-"):
+                    self.seed("fix", "walk:demo:failed-step")
+                    if change == "repair-merged":
+                        subprocess.run(git + commit + ["repair"], check=True)
+                        repair = subprocess.check_output(git + ["rev-parse", "HEAD"], text=True).strip()
+                        self.seed("merged", "merge:" + repair, merge=repair)
+                elif change == "saved-outcome":
+                    self.seed("walk", f"walk-outcome:demo@{release}.a1", outcome="usable-green",
+                              revision="r1", walk_list="screen-a", report_sha256="f" * 64)
+                result = dict(walk_owner="main", walk="demo", release=release, attempt=1,
+                              assignment=f"demo@{release}.a1", report_sha256="f" * 64, complete=True,
+                              steps=[dict(id=s, result="green") for s in ("screen-a", "screen-b")])
+                self.write("data/x-board-summary.json", json.dumps(dict(
+                    written_at=2000000000, interval_seconds=600, walk_results=[result])))
+                run = self.run_pass()
+                self.assertEqual(run.returncode, 0, run.stdout)
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(any(r["step"] == "done" for r in self.rows()), change == "current")
+
+    def test_mixed_green_and_blocked_reports_retry_then_assign_machinery_failure(self):
+        for verdict in ("blocked", "unusable", "unknown"):
+            with self.subTest(verdict=verdict):
+                self.setUp()
+                self.prepare_effect("walk-request")
+                self.assertEqual(self.run_pass().returncode, 0)
+                summary = dict(written_at=2000000000, interval_seconds=600, walk_results=[])
+                for attempt in (1, 2):
+                    summary["walk_results"].append(dict(
+                        walk_owner="main", walk="demo", release="abc", attempt=attempt,
+                        assignment=f"demo@abc.a{attempt}", report_sha256=str(attempt) * 64, complete=True,
+                        steps=[dict(id="screen-a", result="green"), dict(id="screen-b", result=verdict)]))
+                    self.write("data/x-board-summary.json", json.dumps(summary))
+                    result = self.run_pass()
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.effects("walk "), ["walk demo@abc.a1", "walk demo@abc.a2"])
+                self.assertTrue(any(r.get("failure") == "walk-machinery:demo@abc" for r in self.rows()))
+                self.assertFalse(any(r.get("outcome", "").startswith("usable-") or r["step"] == "done" for r in self.rows()))
+                self.assertEqual(self.effects("relaunch owner"), [])
+                effects = self.effects("")
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(self.effects(""), effects)
 
     def test_unusable_attempt_retries_with_new_once_key_then_owned_failure(self):
         self.prepare_effect("walk-request")
