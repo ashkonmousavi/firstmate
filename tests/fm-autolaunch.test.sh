@@ -628,7 +628,7 @@ assert_absent "$H/state/autolaunch.check.sh" 'disarm removes the shim'
 assert_absent "$H/state/autolaunch.check-trust" 'disarm retires trust through the shared owner'
 bash "$CHECK" disarm >/dev/null || fail 'repeated disarm must succeed'
 out=$(bash "$AL" --print-timer)
-assert_contains "$out" "Environment=FM_HOME=$H" 'timer proposal pins FM_HOME'
+assert_contains "$out" "Environment=\"FM_HOME=$H\"" 'timer proposal pins FM_HOME'
 assert_contains "$out" 'OnUnitActiveSec=5min' 'timer proposal runs every five minutes'
 pass 'the check arms through fm-check-register and the timer is only a printed proposal'
 

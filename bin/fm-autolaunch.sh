@@ -8,7 +8,8 @@
 #   fm-autolaunch.sh --dry-run       print a decision for every ready item and the
 #                                    spawn commands; write nothing
 #   fm-autolaunch.sh --list-prepared print, in launch order, the ids a pass would try
-#   fm-autolaunch.sh --print-timer   print a proposed systemd user timer and cron line
+#   fm-autolaunch.sh --print-timer [--steps-only]
+#                                    print a timer and cron line with this PATH
 #   fm-autolaunch.sh --backfill [--apply]
 #                                    print (default) or write the derived launch
 #                                    record for every queued item lacking one
@@ -122,13 +123,14 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer|--backfill [--apply]|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--help]' >&2; }
 
 ACTION=run
 STEP_TARGET=
 STEP_EXCLUDE=
 STEP_FAMILY=
 STEP_DRY=0
+TIMER_STEPS=0
 case "${1:-}" in
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
   '') ;;
@@ -145,7 +147,9 @@ case "${1:-}" in
   *) usage; exit 2 ;;
 esac
 APPLY=0
-if [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
+if [ "$ACTION" = timer ] && [ "${2:-}" = --steps-only ] && [ "$#" -eq 2 ]; then
+  TIMER_STEPS=1
+elif [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
   STEP_DRY=1
 elif [ "$ACTION" = step-dispatch ] && [ "$#" -eq 5 ]; then
   :
@@ -181,7 +185,11 @@ home_abs() {
 
 if [ "$ACTION" = timer ]; then
   home=$(home_abs) || { echo "fm-autolaunch: cannot resolve FM_HOME" >&2; exit 1; }
-  cmd="FM_HOME=$(printf '%q' "$home") $(printf '%q' "$SCRIPT_DIR/fm-autolaunch.sh")"
+  sd_env() { local v=${2//\\/\\\\}; v=${v//\"/\\\"}; printf 'Environment="%s=%s"\n' "$1" "${v//%/%%}"; }
+  args=''
+  [ "$TIMER_STEPS" = 0 ] || args=' --steps-only'
+  cmd="PATH=$(printf '%q' "$PATH") FM_HOME=$(printf '%q' "$home") $(printf '%q' "$SCRIPT_DIR/fm-autolaunch.sh")$args"
+  cmd=${cmd//%/\\%}
   cat <<EOF
 # Proposed schedule for $home (not installed; see docs/configuration.md "Auto-launch").
 # Register the unit in the machine inventory and route pause/resume through
@@ -193,8 +201,9 @@ Description=Firstmate auto-launch pass for $home
 
 [Service]
 Type=oneshot
-Environment=FM_HOME=$home
-ExecStart=$SCRIPT_DIR/fm-autolaunch.sh
+$(sd_env PATH "$PATH")
+$(sd_env FM_HOME "$home")
+ExecStart=$SCRIPT_DIR/fm-autolaunch.sh$args
 
 # ~/.config/systemd/user/fm-autolaunch.timer
 [Unit]

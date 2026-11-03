@@ -7,6 +7,8 @@ import base64
 import hashlib
 import json
 import os
+import shutil
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -1530,6 +1532,114 @@ done
         self.run_pass()
         self.assertEqual(check(), "")
         self.assertFalse((self.home / "state/.autolaunch-check.red").exists())
+
+
+class Timer(unittest.TestCase):
+    """Oracle: the printed recipe can read a leased owner with no login shell.
+
+    This replays the emitted Environment/ExecStart contract, not a live timer.
+    The held owner exercises real tasks-axi but cannot launch or contact a forge.
+    """
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="fm-timer-")
+        self.addCleanup(tmp.cleanup)
+        self.home = Path(tmp.name) / 'home'
+        for part in ('config', 'data', 'state'):
+            (self.home / part).mkdir(parents=True, exist_ok=True)
+        (self.home / '.tasks.toml').write_text('[tasks]\nadapter = "markdown"\nfile = "data/backlog.md"\n')
+        (self.home / 'data/backlog.md').write_text(
+            '## In flight\n- [ ] timer-owner - leased fixture (kind: ship) '
+            '(hold: parked: fixture) (hold-kind: external) (hold-until: 2099-01-01)\n'
+            '## Queued\n## Done\n')
+        (self.home / 'config/autolaunch-steps').write_text('act timer-owner\n')
+        self.tools = Path(tmp.name) / 'tool space%z'
+        self.tools.mkdir()
+        (self.tools / 'tasks-axi').symlink_to(shutil.which('tasks-axi'))
+        self.path = str(self.tools) + os.pathsep + '/usr/bin:/bin'
+        self.al = str(ROOT / 'bin/fm-autolaunch.sh')
+        # No host home, account, backend, quota, task or override environment.
+        self.env = dict(HOME=str(self.home), FM_HOME=str(self.home), PATH=self.path)
+
+    def render(self, *flags):
+        result = subprocess.run(['/bin/bash', self.al, '--print-timer', *flags],
+                                env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(sorted(p.name for p in (self.home / 'state').iterdir()), [])
+        return result.stdout
+
+    def service(self, recipe):
+        # Only the generator's quoted assignments and literal argv are replayed;
+        # actual manager activation remains the installer's proof obligation.
+        env = dict(HOME=str(self.home), PATH='/usr/bin:/bin')
+        command = None
+        for line in recipe.splitlines():
+            if line.startswith('Environment='):
+                for assignment in shlex.split(line.partition('=')[2]):
+                    key, value = assignment.split('=', 1)
+                    env[key] = value.replace('%%', '%')
+            if line.startswith('ExecStart='):
+                command = shlex.split(line.partition('=')[2].replace('%%', '%'))
+        self.assertIsNotNone(command)
+        self.assertEqual(env.get('FM_HOME'), str(self.home))
+        return env, command
+
+    def test_timer_rejects_unrelated_or_extra_flags(self):
+        for flags in (('--dry-run',), ('--steps-only', '--dry-run')):
+            with self.subTest(flags=flags):
+                result = subprocess.run(['/bin/bash', self.al, '--print-timer', *flags],
+                                        env=self.env, capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, '')
+
+    def test_plain_timer_carries_path(self):
+        recipe = self.render()
+        env, command = self.service(recipe)
+        self.assertEqual(command, [self.al])
+        result = subprocess.run(['/bin/bash', str(ROOT / 'bin/fm-tasks-axi.sh'),
+                                 'show', 'timer-owner', '--full'],
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('timer-owner', result.stdout)
+        self.assertEqual(env['PATH'], self.path)
+
+    def test_steps_timer_runs_from_emitted_environment(self):
+        recipe = self.render('--steps-only')
+        env, command = self.service(recipe)
+        self.assertEqual(env['PATH'], self.path)
+        self.assertEqual(command, [self.al, '--steps-only'])
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        stamp = json.loads((self.home / 'state/autolaunch-steps.pass').read_text())
+        self.assertEqual(stamp['owners'], ['timer-owner'])
+        self.assertFalse((self.home / 'data/timer-owner/slice-steps.log').exists())
+
+    def test_missing_tool_is_one_owned_failure(self):
+        env, command = self.service(self.render('--steps-only'))
+        (self.tools / 'tasks-axi').unlink()
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stderr.count('owner task unreadable: timer-owner'), 1)
+        self.assertFalse((self.home / 'state/autolaunch-steps.pass').exists())
+
+    def test_cron_alternative_carries_path_and_step_scope(self):
+        for flags in ((), ('--steps-only',)):
+            with self.subTest(flags=flags):
+                recipe = self.render(*flags)
+                line, = [line for line in recipe.splitlines() if line.startswith('*/5 ')]
+                command = line.split(' ', 5)[5].removesuffix(' >/dev/null 2>&1')
+                # cron consumes backslash-percent before passing text to /bin/sh.
+                self.assertNotRegex(command, r'(?<!\\)%')
+                command = command.replace(r'\%', '%')
+                # Inspect argv/environment at the shell boundary without launching
+                # the ordinary ready queue. The step path is executed above.
+                words = shlex.split(command)
+                self.assertEqual(words[2:], [self.al, *flags])
+                assignments = command.rsplit(shlex.quote(self.al), 1)[0]
+                result = subprocess.run(['/bin/sh', '-c', assignments +
+                    ' /usr/bin/printenv PATH FM_HOME'],
+                    env=dict(PATH='/usr/bin:/bin'), capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.splitlines(), [self.path, str(self.home)])
 
 
 if __name__ == "__main__":
