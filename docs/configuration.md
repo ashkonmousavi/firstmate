@@ -924,6 +924,8 @@ Green completion requires current walk coverage on a release containing the late
 Runtime cleanup leaves the task in flight until its completed receipt authorizes acceptance under the lifecycle lock.
 The final `done` step follows that acceptance; a changed cut, coverage list or outstanding repair invalidates earlier green proof before cleanup or acceptance.
 Tester admission and destination custody are checked for initial launches, cut continuations, review rechecks and receipt reconciliation.
+The ordinary ready queue uses the same tester model admission and leaves step-owned testers and reviewers with their receipt-driven dispatch path.
+For step-owned fresh launches, spawn records the action witness at its verified commit boundary before honoring deferred signals, including a preserved interrupted launch.
 An owned tester or reviewer without a runtime receives its saved current brief and prep before fresh dispatch of the same task, reopening its completed native record when needed.
 Required-check and review progression follows product work after the latest merge independently of walk bookkeeping.
 Carried terminal transport outcomes also resolve unsent pending walk requests into the existing retry or owned-failure path; stale carriers keep them pending.

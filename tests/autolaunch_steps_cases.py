@@ -53,6 +53,9 @@ printf '%s\n' "spawn $id $model" >> "$FM_HOME/fake/effects"
 printf 'harness=%s\nmodel=%s\nspawn_gen=s2.%s.1\nkind=scout\n' "$harness" "$model" "$$" > "$FM_HOME/state/$id.meta"
 echo alive > "$FM_HOME/fake/agent-$id"
 bash "$STEP_ROOT/bin/fm-tasks-axi.sh" start "$id" >/dev/null
+if [ -n "${FM_SPAWN_STEP_ACTION:-}" ]; then
+  python3 "$STEP_ROOT/bin/fm-autolaunch-steps.py" record-launch "$id" "$FM_SPAWN_STEP_ACTION" "s2.$$.1"
+fi
 ''')
         self.tool("control", '''id=$1
 cp "$FM_HOME/state/$id.meta" "$FM_HOME/state/$id.control-relaunch.meta-prior"
@@ -127,9 +130,9 @@ rm -f "$FM_HOME/state/$1.meta"
         with (self.home / f"state/{task}.status").open("a") as f:
             f.write(value + "\n")
 
-    def run_pass(self, stop="", dry=False):
+    def run_pass(self, stop="", dry=False, ordinary=False):
         env = dict(self.env, FM_AUTOLAUNCH_STEPS_STOP=stop)
-        return subprocess.run(["bash", str(ROOT / "bin/fm-autolaunch.sh"), "--steps-only"] + (["--dry-run"] if dry else []), env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=40)
+        return subprocess.run(["bash", str(ROOT / "bin/fm-autolaunch.sh")] + ([] if ordinary else ["--steps-only"]) + (["--dry-run"] if dry else []), env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=40)
 
     def rows(self):
         p = self.home / "data/owner/slice-steps.log"
@@ -203,6 +206,166 @@ rm -f "$FM_HOME/state/$1.meta"
                             self.assertEqual(len(list((self.home / "state/owner.inbox").glob("*.msg"))), 1)
                             self.assertEqual(self.effects("relaunch owner"), [])
 
+    def test_ordinary_pass_cannot_bypass_step_child_receipts(self):
+        for role in ("tester", "review"):
+            for lease in ("act", "observe", "off", "absent"):
+                with self.subTest(role=role, lease=lease):
+                    self.setUp()
+                    self.prepare_effect("launch-" + role)
+                    self.assertNotEqual(self.run_pass("before:launch-" + role).returncode, 0)
+                    if lease == "absent":
+                        (self.home / "config/autolaunch-steps").unlink()
+                    else:
+                        self.write("config/autolaunch-steps", lease + (" owner\n" if lease in ("act", "observe") else "\n"))
+                    if lease == "act" and role == "tester":
+                        self.write("config/crew-dispatch.json", '{"shared_quota":true,"default":{"harness":"codex","model":"gpt-5.5"}}')
+                    elif lease == "act":
+                        self.tool("capacity", '''if [ ! -f "$FM_HOME/fake/capacity-seen" ]; then
+  touch "$FM_HOME/fake/capacity-seen"
+  echo 'capacity: free_lanes=0 reason=full'
+  exit 75
+fi
+echo 'capacity: free_lanes=20 reason=ok'
+''')
+                    backlog = (self.home / "data/backlog.md").read_text()
+                    self.write("data/backlog.md", backlog.replace("## Done", "- [ ] unrelated - ordinary work (repo: proj) (kind: scout)\n## Done"))
+                    self.write("data/unrelated/brief.md", "Ordinary work\n")
+                    self.write("data/unrelated/prep.md", "Prepared ordinary work\n")
+                    self.write("data/unrelated/autolaunch-prep", "project=proj\nkind=scout\n")
+                    result = self.run_pass(ordinary=True)
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(len(self.effects("spawn unrelated ")), 1)
+                    self.assertEqual(len(self.effects("spawn ")), 1)
+                    self.assertEqual(self.completed("launch-" + role), [])
+                    before = self.effects("")
+                    self.assertEqual(self.run_pass(ordinary=True).returncode, 0)
+                    if lease == "act" and role == "review":
+                        self.assertEqual(len(self.completed("launch-review")), 1)
+                        self.assertEqual(len(self.effects("spawn owner-review-1-1 ")), 1)
+                        self.assertEqual(len(self.effects("spawn ")), 2)
+                        before = self.effects("")
+                    else:
+                        self.assertEqual(self.effects(""), before)
+                    self.assertEqual(self.run_pass(ordinary=True).returncode, 0)
+                    self.assertEqual(self.effects(""), before)
+
+    def test_ordinary_pass_reconciles_child_launches_once(self):
+        for role in ("tester", "review"):
+            with self.subTest(role=role):
+                self.setUp()
+                self.prepare_effect("launch-" + role)
+                result = self.run_pass(ordinary=True)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(len(self.completed("launch-" + role)), 1)
+                self.assertEqual(len(self.effects("spawn ")), 1)
+                before = self.effects("")
+                self.assertEqual(self.run_pass(ordinary=True).returncode, 0)
+                self.assertEqual(self.effects(""), before)
+
+    def test_stale_generation_action_is_refused_before_spawn(self):
+        self.prepare_effect("launch-tester")
+        self.assertNotEqual(self.run_pass("before:launch-tester").returncode, 0)
+        self.seed("generation", "generation:next", generation=2)
+        result = subprocess.run(["bash", str(ROOT / "bin/fm-autolaunch.sh"), "--step-dispatch", "special-tester",
+                                 "gpt-5.5", "openai", "owner:prep:r1"], env=self.env, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.effects("spawn "), [])
+
+    def test_ordinary_tester_candidates_use_the_shared_model_admission(self):
+        for candidates, expected in ((["gpt-5.5"], []), (["default"], []), (["gpt-5.5", "opus"], ["spawn special-tester opus"])):
+            with self.subTest(candidates=candidates):
+                self.setUp()
+                (self.home / "config/autolaunch-steps").unlink()
+                self.meta("special-tester", "opus", "old.1")
+                (self.home / "state/special-tester.meta").unlink()
+                reopened = subprocess.run([str(ROOT / "bin/fm-tasks-axi.sh"), "reopen", "special-tester"], env=self.env,
+                                          text=True, capture_output=True)
+                self.assertEqual(reopened.returncode, 0, reopened.stderr)
+                self.write("data/special-tester/brief.md", "Prepared tester\n")
+                self.write("data/special-tester/prep.md", "Prepared tester scope\n")
+                self.write("data/special-tester/autolaunch-prep", "project=proj\nkind=scout\n")
+                self.write("config/crew-dispatch.json", json.dumps(dict(shared_quota=True, default=[
+                    dict(harness="claude" if model == "opus" else "codex", model=model) for model in candidates])))
+                result = self.run_pass(ordinary=True)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.effects("spawn "), expected)
+                self.assertEqual(self.run_pass(ordinary=True).returncode, 0)
+                self.assertEqual(self.effects("spawn "), expected)
+
+    def test_real_spawn_commit_witness_survives_preserved_term(self):
+        script = r'''
+FM_TEST_FIXTURE_IMPORT=atomicity
+. "$STEP_ROOT/tests/fm-backlog-atomicity.test.sh"
+for kind in launch-tester launch-review relaunch-tester recheck-review; do
+  for timing in normal before after delivery-failed; do
+    role=review
+    child=owner-review-1-1
+    case "$kind" in *tester) role=tester; child=special-tester ;; esac
+    case_dir=$(make_home "step-commit-$kind-$timing" "$child")
+    home=$(home_of "$case_dir")
+    mkdir -p "$home/data/owner"
+    printf 'act owner\n' > "$home/config/autolaunch-steps"
+    printf 'REVISION: r1\nCUT: 1\n' > "$home/data/owner/prep.md"
+    printf 'kind=ship\nmodel=gpt-5.5\nspawn_gen=builder.1\nmode=direct-PR\nproject=%s/project\n' "$case_dir" > "$home/state/owner.meta"
+    cat > "$home/data/backlog.md" <<EOF
+## In flight
+- [ ] owner - slice (repo: project) (kind: ship)
+  SLICE: main/demo | visible result | role=owner
+  TESTER TASK: special-tester
+## Queued
+- [ ] $child - child (repo: project) (kind: scout)
+  SLICE: main/demo | visible result | role=$role owner=main:owner
+## Done
+EOF
+    python3 - "$home/data/owner/slice-steps.log" "$kind" "$child" <<'PY'
+import json, sys
+row = dict(at=1, generation=1, owner="owner", step="tests" if sys.argv[2].endswith("tester") else "review",
+           trigger="delivery", receipt="pending", effect=dict(kind=sys.argv[2], target=sys.argv[3],
+           id="delivery", expected_gen="", note="Current child assignment"))
+with open(sys.argv[1], "w") as stream:
+    stream.write(json.dumps(row) + "\n")
+PY
+    case "$timing" in
+      before|after) interrupt_spawn_during_start "$case_dir" "$timing" ;;
+      delivery-failed) break_launch_delivery "$case_dir" ;;
+    esac
+    rc=0
+    out=$(FM_SPAWN_STEP_ACTION=owner:delivery run_spawn "$case_dir" "$child" "$case_dir/project" --scout --harness claude --model opus) || rc=$?
+    if [ "$timing" = delivery-failed ]; then
+      [ "$rc" -ne 0 ] || fail 'failed launch was reported as committed'
+      assert_absent "$home/state/autolaunch.log" 'failed delivery published no action witness'
+      assert_equals queued "$(row_state "$case_dir" "$child")" 'failed delivery leaves the native child queued'
+      continue
+    fi
+    expected=0
+    [ "$timing" = normal ] || expected=143
+    expect_code "$expected" "$rc" "$kind/$timing: $out"
+    assert_equals in_flight "$(row_state "$case_dir" "$child")" 'committed spawn owns an in-flight child'
+    printf '#!/usr/bin/env bash\necho dead\n' > "$case_dir/dead-agent"
+    printf '#!/usr/bin/env bash\ntouch "%s/unexpected-control"\nexit 3\n' "$case_dir" > "$case_dir/dead-control"
+    chmod +x "$case_dir/dead-agent" "$case_dir/dead-control"
+    for repeat in 1 2; do
+      FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" FM_AUTOLAUNCH_STEPS_AGENT_BIN="$case_dir/dead-agent" \
+        FM_AUTOLAUNCH_STEPS_CONTROL_BIN="$case_dir/dead-control" \
+        python3 "$ROOT/bin/fm-autolaunch-steps.py" run || fail 'committed child did not reconcile'
+    done
+    assert_absent "$case_dir/unexpected-control" 'exited committed child was never relaunched'
+    python3 - "$home" "$child" <<'PY'
+import json, sys
+from pathlib import Path
+home, child = Path(sys.argv[1]), sys.argv[2]
+records = [json.loads(line) for line in (home / "data/owner/slice-steps.log").read_text().splitlines()]
+assert len([r for r in records if r["trigger"] == "delivery" and r["receipt"] == "completed"]) == 1
+witnesses = [line for line in (home / "state/autolaunch.log").read_text().splitlines()
+             if line.endswith("\tlaunched|relaunched " + child + " delivery")]
+assert len(witnesses) == 1
+PY
+  done
+done
+'''
+        result = subprocess.run(["bash", "-c", script], env=self.env, text=True, capture_output=True, timeout=240)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_unhandled_deliveries_resume_consumers_that_exit_during_delivery(self):
         for kind in ("note-owner", "relaunch-owner", "cut-delivery", "relaunch-tester",
                      "recheck-review", "route-finding", "launch-tester", "launch-review"):
@@ -261,8 +424,8 @@ rm -f "$FM_HOME/state/$1.meta"
                 self.assertEqual(self.effects(""), effects)
 
     def test_provisional_dead_spawn_metadata_is_not_launch_completion(self):
-        for native_state in ("queued", "in_flight"):
-            with self.subTest(native_state=native_state):
+        for native_state, live in (("queued", False), ("queued", True), ("in_flight", False), ("in_flight", True)):
+            with self.subTest(native_state=native_state, live=live):
                 self.setUp()
                 self.prepare_effect("launch-tester")
                 self.assertNotEqual(self.run_pass("before:launch-tester").returncode, 0)
@@ -270,7 +433,7 @@ rm -f "$FM_HOME/state/$1.meta"
                     started = subprocess.run([str(ROOT / "bin/fm-tasks-axi.sh"), "start", "special-tester"], env=self.env)
                     self.assertEqual(started.returncode, 0)
                 self.meta("special-tester", "opus", "provisional.1")
-                self.write("fake/agent-special-tester", "dead")
+                self.write("fake/agent-special-tester", "alive" if live else "dead")
                 self.tool("control", "exit 3")
                 result = self.run_pass()
                 self.assertEqual(result.returncode, 0, result.stdout)

@@ -8855,6 +8855,10 @@ fi
 if [ "$SPAWN_BACKLOG_COMMIT_STATUS" -ne 0 ]; then
   exit "$SPAWN_BACKLOG_COMMIT_STATUS"
 fi
+if [ -n "${FM_SPAWN_STEP_ACTION:-}" ] && [ "$T3CODE_LAUNCH_UNCONFIRMED" != 1 ]; then
+  spawn_report_preserved_state || exit 1
+  python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" record-launch "$ID" "$FM_SPAWN_STEP_ACTION" "$SPAWN_GEN" || exit 1
+fi
 RELEASED_COMMITTED=1
 RELAUNCH_REPLACEMENT_PENDING=0
 trap - HUP INT TERM

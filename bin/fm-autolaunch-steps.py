@@ -216,12 +216,71 @@ def model_family(meta):
     return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else "unknown"
 
 
-def tester_admitted(owner, tester, before_launch=False):
+def tester_admitted(owner, tester, before_launch=False, candidate=None):
     builder_model = kv(STATE / f"{owner}.meta").get("model", "")
-    tester_model = kv(STATE / f"{tester}.meta").get("model", "")
-    return bool(builder_model and builder_model != "default" and
-                (before_launch and not (STATE / f"{tester}.meta").exists() or
-                 tester_model and tester_model != "default" and tester_model != builder_model))
+    if not builder_model or builder_model == "default":
+        return False
+    if before_launch and candidate is None and not (STATE / f"{tester}.meta").exists():
+        return True
+    tester_model = kv(STATE / f"{tester}.meta").get("model", "") if candidate is None else candidate
+    return tester_model not in ("", "default", builder_model)
+
+
+def launch_recorded(task, key):
+    return any(line.endswith(f"\tlaunched|relaunched {task} {key}")
+               for line in read(STATE / "autolaunch.log").splitlines())
+
+
+def record_launch(task, action, generation):
+    owner, sep, key = action.partition(":")
+    if not sep or not SLUG.fullmatch(owner) or any(char in key for char in "\r\n\t"):
+        return False
+    records = rows(owner)
+    row = latest(records).get(key, {})
+    effect = row.get("effect", {})
+    meta = kv(STATE / f"{task}.meta")
+    if (row.get("receipt") != "pending" or effect.get("kind") not in CHILD_ACTIONS or
+            effect.get("target") != task or effect.get("id") != key or not generation or
+            row.get("generation", 1) != max((r.get("generation", 1) for r in records), default=1) or
+            meta.get("spawn_gen") != generation or generation == effect.get("expected_gen")):
+        return False
+    shown = invoke([BIN / "fm-tasks-axi.sh", "show", task, "--full"])
+    if shown.returncode or not re.search(r"^  state: in_flight$", shown.stdout, re.M):
+        return False
+    if not launch_recorded(task, key):
+        append(STATE / "autolaunch.log", f"{NOW}\t-\t{task}\t-\tlaunched|relaunched {task} {key}")
+    return True
+
+
+def launch_admission(task, candidate, action):
+    shown = invoke([BIN / "fm-tasks-axi.sh", "show", task, "--full"])
+    if shown.returncode:
+        return "task-unreadable"
+    identity = tokens(fields(task_body(shown.stdout)).get("SLICE", ""))
+    role = identity.get("role")
+    if role not in ("tester", "review"):
+        return "unexpected-step-target" if action else ""
+    home, sep, owner = identity.get("owner", "").partition(":")
+    if not sep or home != (read(HOME / ".fm-secondmate-home").strip() or "main") or not SLUG.fullmatch(owner):
+        return "child-owner-unresolved"
+    if role == "tester" and not tester_admitted(owner, task, candidate=candidate):
+        return "same-or-unknown-tester-model"
+    records = rows(owner)
+    generation = max((r.get("generation", 1) for r in records), default=1)
+    if action:
+        source, sep, key = action.partition(":")
+        row = latest(records).get(key, {})
+        effect = row.get("effect", {})
+        if (not sep or source != owner or row.get("receipt") != "pending" or
+                row.get("generation", 1) != generation or
+                effect.get("kind") not in CHILD_ACTIONS or effect.get("target") != task or
+                effect.get("id") != key or not Slice(owner).lifecycle_allowed(effect)):
+            return "step-receipt-required"
+    elif owner in leases() or any(r.get("effect", {}).get("target") == task and
+                                 r.get("effect", {}).get("kind") in CHILD_ACTIONS + ("file-tester", "file-review")
+                                 for r in records if r.get("generation", 1) == generation):
+        return "step-receipt-required"
+    return ""
 
 
 def effect_tester(effect):
@@ -911,9 +970,10 @@ class Slice:
         if effect_is_note(row, handled=True):
             return True
         meta = kv(STATE / f"{target}.meta")
-        launched = f"launched|relaunched {target} {effect['id']}"
-        if any(line.endswith("\t" + launched) for line in read(STATE / "autolaunch.log").splitlines()):
+        if launch_recorded(target, effect["id"]):
             return True
+        if kind in CHILD_ACTIONS and not effect.get("expected_gen"):
+            return False
         changed = bool(meta.get("spawn_gen") and meta["spawn_gen"] != effect.get("expected_gen"))
         if changed:
             journal = kv(STATE / f"{target}.control-relaunch")
@@ -1001,8 +1061,8 @@ class Slice:
                     if not success:
                         return False, reason
                 r = invoke([BIN / "fm-autolaunch.sh", "--step-dispatch", target,
-                            exclude, model_family(builder) if kind.endswith("tester") else "", effect["id"]])
-                return r.returncode == 0, "relaunch-due" if r.returncode == 75 else r.stderr.strip()
+                            exclude, model_family(builder) if kind.endswith("tester") else "", f"{self.owner}:{effect['id']}"])
+                return r.returncode == 0 or self.effect_present(row), "relaunch-due" if r.returncode == 75 else r.stderr.strip()
             # The named child already has an incarnation. Continue that task
             # through control/inbox below rather than allocating a fresh copy.
         if kind == "walk-request":
@@ -1274,11 +1334,19 @@ def main():
         print(__doc__)
         return 0
     command = sys.argv[1]
-    arities = {"run": 2, "dry": 2, "check": 2, "guard": 4, "teardown-guard": 4, "record-teardown": 4, "accept-owner": 4, "wait": 3}
+    arities = {"run": 2, "dry": 2, "check": 2, "guard": 4, "teardown-guard": 4, "record-teardown": 4, "accept-owner": 4, "wait": 3,
+               "launch-admission": 5, "record-launch": 5}
     if command not in arities or len(sys.argv) != arities[command]:
         raise ValueError("usage: run|dry|check|wait <owner>|guard <task> <action>")
     if command == "guard":
         return 0 if guard(*sys.argv[2:]) else 3
+    if command == "record-launch":
+        return 0 if record_launch(*sys.argv[2:]) else 3
+    if command == "launch-admission":
+        reason = launch_admission(*sys.argv[2:])
+        if reason:
+            print(reason)
+        return 3 if reason else 0
     if command == "teardown-guard":
         return 0 if teardown_guard(*sys.argv[2:]) else 3
     if command == "record-teardown":

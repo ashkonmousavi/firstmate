@@ -611,32 +611,14 @@ if [ "$ACTION" = step-dispatch ]; then
   while IFS= read -r line; do
     h=${line%%$'\t'*} line=${line#*$'\t'}
     m=${line%%$'\t'*} e=${line#*$'\t'}
-    # Unknown/default model cannot prove a tester differs from the builder.
-    if [ -n "$STEP_EXCLUDE" ]; then
-      [ -n "$m" ] && [ "$m" != default ] && [ "$m" != "$STEP_EXCLUDE" ] || continue
-    fi
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" launch-admission "$STEP_TARGET" "$m" "$STEP_ACTION_ID" > "$TMPD/admission.out" || continue
     spawn_argv "$STEP_TARGET" "$h" "$m" "$e"
     rc=0
-    "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
+    FM_SPAWN_STEP_ACTION="$STEP_ACTION_ID" "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
     if spawn_quota_refused "$rc"; then
       continue
     fi
-    if [ "$rc" = 0 ]; then
-      python3 - "$STATE/autolaunch.log" "$STEP_TARGET" "$STEP_ACTION_ID" <<'PY' || exit 1
-import os, sys, time
-from pathlib import Path
-path, target, action = sys.argv[1:]
-if Path(path).is_symlink() or any(char in action for char in "\r\n\t"):
-    raise ValueError("invalid step launch record")
-with open(path, "a") as stream:
-    stream.write(f"{int(time.time())}\t-\t{target}\t-\tlaunched|relaunched {target} {action}\n")
-    stream.flush()
-    os.fsync(stream.fileno())
-PY
-      cat "$TMPD/spawn.out"
-    else
-      cat "$TMPD/spawn.out" >&2
-    fi
+    if [ "$rc" = 0 ]; then cat "$TMPD/spawn.out"; else cat "$TMPD/spawn.out" >&2; fi
     exit "$rc"
   done < "$TMPD/cands.tsv"
   echo 'refused: no different-model tester candidate' >&2
@@ -732,6 +714,11 @@ for id in $ids; do
     h=${line%%$'\t'*} line=${line#*$'\t'}
     m=${line%%$'\t'*} e=${line#*$'\t'}
     model=${h:-static}${m:+:$m}
+    if ! admission=$(python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" launch-admission "$id" "$m" "" 2>&1); then
+      outcome="refused:$admission"
+      continue
+    fi
+    outcome=''
     spawn_argv "$id" "$h" "$m" "$e"
     if [ "$ACTION" = dry ]; then
       printf 'would-run: %s' "$(printf '%q' "$SPAWN_BIN")"
@@ -742,7 +729,7 @@ for id in $ids; do
       break
     fi
     rc=0
-    "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
+    FM_SPAWN_STEP_ACTION= "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
     if [ "$rc" = 0 ]; then
       outcome=launched
       break
