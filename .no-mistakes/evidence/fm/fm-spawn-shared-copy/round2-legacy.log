@@ -1,0 +1,54 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/h
+
+=== LEGACY INTERACTIVE COPY BEFORE PROTECTION ===
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/1/project","status":"in-use","branch":"","detached":true,"flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[{"pid":86165,"name":"bash"},{"pid":86193,"name":"update-motd"},{"pid":86196,"name":"run-parts"},{"pid":86211,"name":"50-landscape-sy"},{"pid":86219,"name":"50-landscape-sy"},{"pid":86222,"name":"landscape-sysin"}]}]
+true
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/h
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/1/project' to release it.
+🌳 Leased worktree 2 at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project' to release it.
+spawned alpha harness=sleep kind=scout window=firstmate:fm-alpha worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project
+
+=== LEGACY COPY PROTECTED BY FIRSTMATE ===
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/1/project","status":"leased","branch":"fm/legacy","flavor":"git","lease_id":"f7bb557901d722d9ff5b7b8ee5752861","lease_holder":"legacy","leased_at":"2026-11-03T14:38:40.175684783-07:00","processes":[{"pid":86165,"name":"bash"}]},{"name":"2","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"644030dc81fafc13330dd5e4137bb8de","lease_holder":"alpha","leased_at":"2026-11-03T14:38:42.379023352-07:00","processes":[{"pid":89583,"name":"bash"},{"pid":98824,"name":"sleep"}]}]
+true
+
+=== FIRST SPAWN ===
+window=firstmate:fm-alpha
+endpoint_task_id=alpha
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/project
+harness=sleep
+kind=scout
+tasktmp=/tmp/fm-alpha
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793741922.86388.32087
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/1/project","status":"leased","branch":"fm/legacy","flavor":"git","lease_id":"f7bb557901d722d9ff5b7b8ee5752861","lease_holder":"legacy","leased_at":"2026-11-03T14:38:40.175684783-07:00","processes":[]},{"name":"2","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"644030dc81fafc13330dd5e4137bb8de","lease_holder":"alpha","leased_at":"2026-11-03T14:38:42.379023352-07:00","processes":[{"pid":89583,"name":"bash"},{"pid":98824,"name":"sleep"}]}]
+
+=== AFTER ENDPOINT EXIT ===
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/1/project","status":"leased","branch":"fm/legacy","flavor":"git","lease_id":"f7bb557901d722d9ff5b7b8ee5752861","lease_holder":"legacy","leased_at":"2026-11-03T14:38:40.175684783-07:00","processes":[]},{"name":"2","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project","status":"leased","branch":"fm/alpha","flavor":"git","lease_id":"644030dc81fafc13330dd5e4137bb8de","lease_holder":"alpha","leased_at":"2026-11-03T14:38:42.379023352-07:00","processes":[]}]
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+🌳 Leased worktree 3 at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/3/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/3/project' to release it.
+spawned beta harness=sleep kind=scout window=firstmate:fm-beta worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/3/project
+
+=== SECOND SPAWN ===
+alpha=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project
+beta=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/3/project
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/1/project","status":"leased","branch":"fm/legacy","flavor":"git","lease_id":"f7bb557901d722d9ff5b7b8ee5752861","lease_holder":"legacy","leased_at":"2026-11-03T14:38:40.175684783-07:00","processes":[]},{"name":"2","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/2/project","status":"leased","branch":"fm/alpha","flavor":"git","lease_id":"644030dc81fafc13330dd5e4137bb8de","lease_holder":"alpha","leased_at":"2026-11-03T14:38:42.379023352-07:00","processes":[]},{"name":"3","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/p/.treehouse/project-b64223/3/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"6eb6ed46a9277a53ae21ef7493ca72de","lease_holder":"beta","leased_at":"2026-11-03T14:38:48.295203549-07:00","processes":[{"pid":2026,"name":"bash"},{"pid":7437,"name":"sleep"}]}]
+
+=== SAME-ID FRESH RETRY REFUSAL ===
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: task alpha retains a recorded copy; use --relaunch to preserve it or bin/fm-teardown.sh alpha for ownership-checked cleanup before a fresh spawn
+error: task alpha already has a record at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.g/h/state/alpha.meta that could not be safely removed; refusing to open another endpoint while that record remains
+
+PASS: legacy process-only copy upgraded in place without branch/edit loss after shell exit; native interactive reservation became durable, survived shell exit, later allocation used a distinct copy, and fresh same-ID retry preserved ownership.

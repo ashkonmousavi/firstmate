@@ -1,0 +1,17 @@
+VERSION: v3.1.8
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.root-proof/root/.treehouse/project-b4b1ee/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.root-proof/root/.treehouse/project-b4b1ee/1/project' to release it.
+ALLOCATED: {"path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.root-proof/root/.treehouse/project-b4b1ee/1/project","lease_id":"5f803fcf4c14a27714b4e5b8dbdf6e9e","lease_holder":"proof","leased_at":"2026-11-03T14:24:17.582274414-07:00","base_branch":"main"}
+ENV ROOT: ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.root-proof/root
+HELPER DERIVED ROOT: ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.root-proof/root/.treehouse
+
+DEFAULT STATUS (actual configured pool):
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.root-proof/root/.treehouse/project-b4b1ee/1/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"5f803fcf4c14a27714b4e5b8dbdf6e9e","lease_holder":"proof","leased_at":"2026-11-03T14:24:17.582274414-07:00","processes":[]}]
+
+HELPER STATUS (--root dirname(pool)):
+[]
+
+CORRECT EXPLICIT ROOT STATUS:
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.root-proof/root/.treehouse/project-b4b1ee/1/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"5f803fcf4c14a27714b4e5b8dbdf6e9e","lease_holder":"proof","leased_at":"2026-11-03T14:24:17.582274414-07:00","processes":[]}]
+
+CONFIRMED: helper root observes an empty different pool despite a real registered lease.

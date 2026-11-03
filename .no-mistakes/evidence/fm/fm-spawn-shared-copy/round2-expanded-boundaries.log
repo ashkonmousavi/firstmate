@@ -1,0 +1,74 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project' to release it.
+
+=== WRONG BRANCH, ORDINARY AND FORCE ===
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is on fm/designer, not task finished's recorded branch fm/finished; preserving the copy and task record, even with --force
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is on fm/designer, not task finished's recorded branch fm/finished; preserving the copy and task record, even with --force
+
+=== SAME-ID FRESH RETRY PRESERVES COPY ===
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: task same retains a recorded copy; use --relaunch to preserve it or bin/fm-teardown.sh same for ownership-checked cleanup before a fresh spawn
+error: task same already has a record at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/state/same.meta that could not be safely removed; refusing to open another endpoint while that record remains
+PASS: failed same-ID retry preserved meta, copy and original lease.
+
+=== DUPLICATE COPY: RELAUNCH AND PROMOTION ===
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h
+REFUSED: recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is also task designer's recorded worktree (~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/state/designer.meta); nothing was changed
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is also task designer's recorded worktree (~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/state/designer.meta); nothing was changed
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is also task designer's recorded worktree (~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/state/designer.meta); nothing was changed
+
+=== DUPLICATE COPY: FRESH SPAWN ===
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is also task stale's recorded worktree (~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/state/stale.meta); nothing was changed
+
+=== HOME ADOPTION AND LEASED SEED REFUSE SHARED COPY ===
+REFUSED: recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is also task stale's recorded worktree (~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/state/stale.meta); nothing was changed
+REFUSED: recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is also task stale's recorded worktree (~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/state/stale.meta); nothing was changed
+
+=== DEFERRED AND PREPARED-BACKLOG SPAWN REFUSE SHARED COPY ===
+ok: added new-task (scout, repo project) -> Queued
+task:
+  id: new-task
+  title: queued ownership proof
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: project
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start new-task --file=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block new-task --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/data/backlog.md` to record a dependency
+failed new-task exit 1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: recorded worktree ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/p/.treehouse/project-652189/1/project is also task stale's recorded worktree (~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.j/h/state/stale.meta); nothing was changed
+2026-11-03T21:38:47Z	1	new-task	-	refused:spawn deferred pending
+2026-11-03T21:38:47Z	1	-	-	refused:no prepared item
+2026-11-03T21:38:47Z	1	new-task	-	refused:spawn deferred pending
+2026-11-03T21:38:47Z	1	-	-	refused:no prepared item

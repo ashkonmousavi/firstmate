@@ -1,0 +1,23 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/h
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/p/.treehouse/project-421b9c/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/p/.treehouse/project-421b9c/1/project' to release it.
+
+=== WRONG BRANCH, ORDINARY AND FORCE ===
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/h
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/p/.treehouse/project-421b9c/1/project is on fm/designer, not task finished's recorded branch fm/finished; preserving the copy and task record, even with --force
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/p/.treehouse/project-421b9c/1/project is on fm/designer, not task finished's recorded branch fm/finished; preserving the copy and task record, even with --force
+
+=== SAME-ID FRESH RETRY PRESERVES COPY ===
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/h
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+jq: error (at <stdin>:1): slot identity unavailable
+REFUSED: cannot durably protect retained copy ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/p/.treehouse/project-421b9c/1/project (~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.b/h/state/same.meta); no new copy was acquired

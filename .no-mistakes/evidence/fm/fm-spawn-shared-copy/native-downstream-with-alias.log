@@ -1,0 +1,24 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/h
+DISPOSABLE WORKAROUND: alias nested .treehouse to the actual pool root.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/h
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/project-758d88/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/project-758d88/1/project' to release it.
+spawned alpha harness=sleep kind=scout window=firstmate:fm-alpha worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/project-758d88/1/project
+
+=== FIRST SPAWN ===
+window=firstmate:fm-alpha
+endpoint_task_id=alpha
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/project-758d88/1/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/project
+harness=sleep
+kind=scout
+tasktmp=/tmp/fm-alpha
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793741120.5689.5294
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/project-758d88/1/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"ce56c50a1f4be44f2f84531ed1b428bd","lease_holder":"alpha","leased_at":"2026-11-03T14:25:20.500096392-07:00","processes":[{"pid":9031,"name":"bash"},{"pid":14821,"name":"sleep"}]},{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/.treehouse/project-758d88/1/project","status":"leased","branch":"","detached":true,"recovery_reason":"a process is using this worktree (a shell standing in it counts); stop it or leave the worktree","flavor":"git","lease_id":"","lease_holder":"recovered: state file was corrupt or truncated; verify before reuse","leased_at":"2026-11-03T14:25:20.273813442-07:00","processes":[{"pid":9031,"name":"bash"},{"pid":14821,"name":"sleep"}]}]
+
+=== AFTER ENDPOINT EXIT ===
+treehouse: recovered untracked files from ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/.treehouse/project-758d88/1/project into retained backup ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/treehouse-recovered-backup-project-758d88-1
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/project-758d88/1/project","status":"leased","branch":"fm/alpha","recovery_backup":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/treehouse-recovered-backup-project-758d88-1","flavor":"git","lease_id":"ce56c50a1f4be44f2f84531ed1b428bd","lease_holder":"alpha","leased_at":"2026-11-03T14:25:20.500096392-07:00","processes":[]},{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/.treehouse/project-758d88/1/project","status":"available","branch":"fm/alpha","recovery_backup":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/treehouse-recovered-backup-project-758d88-1","flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[]}]
+cat: ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/project-758d88/1/project/retained.txt: No such file or directory

@@ -1,0 +1,5 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/h
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/h
+jq: error (at <stdin>:1): slot identity unavailable
+error: cannot retain task alpha's copy ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l/p/.treehouse/project-758d88/1/project until cleanup; refusing launch
+rm: cannot remove '~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.l': Directory not empty

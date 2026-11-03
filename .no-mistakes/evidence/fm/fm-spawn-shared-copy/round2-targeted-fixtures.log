@@ -1,0 +1,152 @@
+FM_TEST_BEGIN 2026-11-03T21:36:25Z tests/fm-shared-copy.test.sh family=unclassified expected_gate_skip=none
+ok - spawn resolves native status and lease roots from the recorded pool
+ok - teardown rechecks the branch after its process barrier before changing the checkout
+ok - forced descendant cleanup refuses a pooled child on another recorded branch
+ok - spawn refuses a retained done or held record, without changing its copy or claim
+ok - a legacy reservation and a fresh reservation both become durable without changing the retained copy
+ok - direct spawn recovery rejects a copy another meta still names
+ok - capped and uncapped fresh same-id retries preserve retained ownership and work
+ok - the deferred queue invokes the guarded spawn and refuses a retained scout copy
+ok - leased and explicit home seeding refuse a retained scout copy without rolling it back
+ok - automatic prepared-backlog launch refuses a retained copy through the shared spawn guard
+ok - ordinary and forced teardown refuse a branch different from the recorded branch
+ok - promotion and transactional relaunch refuse shared copies before changing the task
+ok - both stale records retire without force and leave the designer copy, branch, edits, claim and meta intact
+FM_TEST_END 2026-11-03T21:36:48Z tests/fm-shared-copy.test.sh exit=0 duration_ms=22614 gate_skip=false
+FM_TEST_BEGIN 2026-11-03T21:36:48Z tests/fm-spawn-pool-base-freshen.test.sh family=standalone expected_gate_skip=none
+ok - a remote-seeded secondmate home allocates and launches from its Treehouse pool
+ok - a Treehouse slot claim names the launched task, refuses when unclaimable, and is dropped by a locked abort
+ok - a launch refused after its slot claim leaves the pool for a retry and a second task
+ok - a refused polytoken launch leaves its per-id paths alone while another spawn holds the per-id lock
+ok - a codex launch refused after its slot claim closes its fresh window and drops the claim
+ok - the treehouse-get isolation refusal points only at what survives the abort
+ok - linked spawning home: primary preserves the primary before any refresh
+ok - linked spawning home: primary-alias preserves the primary before any refresh
+ok - linked spawning home: spawning preserves the primary before any refresh
+ok - linked spawning home: scout preserves the primary before any refresh
+ok - a stale pooled worktree refreshes to current origin/main before a crew branch is created
+ok - --base-branch picks the copy's starting point and is recorded; a missing or local-only base refuses
+ok - a spawn refuses when --base-branch and the brief's Base branch lines disagree
+ok - a Base branch line in the captain's intent neither blocks nor redirects a spawn
+ok - a based scout on a forge=gerrit project is refused at spawn
+ok - a stale pooled worktree resolves and refreshes a non-main default branch
+ok - direct-PR ships and scouts both refresh stale pooled worktrees before launch
+ok - a dirty pooled worktree is refused without discarding its local work
+ok - an unresolved remote default branch refuses the pooled worktree
+ok - an unreachable origin refuses a potentially stale pooled worktree
+ok - an origin-less pooled worktree launches as-is, skipping the freshness gate
+ok - a dirty origin-less pooled worktree is refused without discarding its local work
+ok - an origin configuration without a URL refuses the pooled worktree
+ok - an empty origin configuration section refuses the pooled worktree
+ok - an empty-only included origin section documents the accepted detection boundary
+ok - an inactive conditional origin include leaves the pooled worktree origin-less
+ok - an origin-less pool with a stale submodule pin refuses while naming both pins and no remedy
+ok - an unpushed submodule commit keeps the uncommitted-work refusal and survives it
+ok - work inside a submodule is still refused as uncommitted work, not called stale
+ok - a stale pin carrying real work is refused conservatively, never called stale
+ok - a stale pin beside other dirt yields the conservative refusal alone, with no stale-pin line
+ok - without the opt-in a local-only ship or a scout still starts from origin's tip while the primary leads
+ok - with the opt-in only a local-only ship or a scout leaves origin's tip, for a primary that strictly contains it, and the review starts where the slot did
+ok - with the opt-in a named base branch still starts from origin's copy
+ok - with the opt-in an unclean slot is still refused, untouched, before any base is chosen
+# all fm-spawn-pool-base-freshen tests passed
+FM_TEST_END 2026-11-03T21:39:28Z tests/fm-spawn-pool-base-freshen.test.sh exit=0 duration_ms=159887 gate_skip=false
+FM_TEST_BEGIN 2026-11-03T21:39:28Z tests/fm-secondmate-liveness.test.sh family=secondmate expected_gate_skip=none
+ok - fm_backend_tmux_agent_state: separates live, dead, missing, ambiguous, and unreadable
+ok - fm_backend_tmux_agent_state: rejects malformed targets before probing tmux
+ok - fm_backend_herdr_agent_state: preserves missing/no-agent/live/unknown husk behavior
+ok - fm_backend_agent_state: routes tmux/Herdr and keeps Zellij unverified
+ok - sweep: a confirmed-dead secondmate endpoint is killed and respawned
+ok - sweep: a missing secondmate reuses its validated retained home
+ok - sweep: secondmate recovery resolves its durable account despite a different ambient login
+ok - sweep: distinct secondmate relaunches serialize across the task-set lock
+ok - sweep: a tmux secondmate whose close fails keeps the existing best-effort kill and guarded spawn
+ok - sweep: an already-live secondmate is untouched and distinguishable in verbose diagnostics
+ok - sweep: an authoritatively missing Pi secondmate window is relaunched
+ok - sweep: an authoritatively missing pi-signed secondmate window is relaunched
+ok - sweep: an existing ambiguous Pi process prevents duplicate recovery
+ok - sweep: transient target unreadability never licenses recovery
+ok - sweep: failed relaunch diagnostics distinguish a confidently missing endpoint
+ok - sweep: an unverified harness blocks recovery with a concrete diagnostic
+ok - sweep: idempotent by construction - a live secondmate is never re-touched on a later run
+ok - sweep: skipped entirely under FM_BOOTSTRAP_DETECT_ONLY=1, exactly like the other mutating sweeps
+ok - sweep: a silent no-op with no kind=secondmate meta present (a secondmate home's own natural scoping)
+ok - sweep: a mate mid-episode under the shared liveness lock is skipped entirely
+ok - relaunch: the spawn timeout bounds the lock wait before touching the endpoint
+ok - sweep: an unreadable or unwritable relaunch ledger refuses to kill or spawn
+ok - poll probe: remote states map to the same contract as local, one call each
+ok - poll probe: unreachable or inconclusive remote reads preserve the route
+ok - poll probe: a remote state hop that exceeds its bound preserves the route
+ok - remote parked skips require positive absence; live or uncertain agents retain notices
+ok - local parked skips require positive tmux or Herdr absence; live and uncertain endpoints send
+ok - park-to-live rearming restores the budget once and retains failed recovery state
+ok - full probe: a live rex route stays alive through the rex readiness gate
+ok - full probe: remote backend drift is reported, never migrated
+ok - full probe: rex readiness gaps and unreachable hosts stay explicit
+ok - full probe: a record without remote_backend stays a herdr route
+ok - owner park: the record contract, unsafe records, and a missing home all refuse relaunch
+ok - owner park: publication waits for liveness, control, spawn, and remote launch transactions
+ok - owner park: queued respawn, T3 resume, and remote relaunch refuse a park published during their wait
+ok - owner park: remote acknowledgement, host launch exclusion, and stale-request rejection keep late launches stopped
+ok - owner park: session start leaves eel-web stopped, rearm keeps the record, and unpark restores relaunch
+ok - owner park: spawn and remote relaunch refuse before they change the endpoint
+# all fm-secondmate-liveness tests passed
+FM_TEST_END 2026-11-03T21:40:46Z tests/fm-secondmate-liveness.test.sh exit=0 duration_ms=77730 gate_skip=false
+FM_TEST_BEGIN 2026-11-03T21:40:46Z tests/fm-project-capacity.test.sh family=backend-dispatch expected_gate_skip=none
+ok - capped and uncapped copyless same-id retries publish their replacement
+ok - failed stale-record removal prevents capped and uncapped replacement
+ok - a listed window keeps its record, and that record holds the place against its own id and the next one
+ok - an inventory read that omits the window removes the record and admits the next id
+ok - a failed backlog commit with a gone endpoint preserves pooled-copy ownership
+ok - a Herdr kill that returns without closing the pane keeps the record and the place
+ok - a project with no declared capacity keeps today's uncapped dispatch
+ok - a spawn is admitted while its project still has a free place
+ok - a spawn beyond capacity is deferred before any record, brief, endpoint, worktree, or backlog move exists
+ok - a project name with spaces is declared by taking the capacity from the last field
+ok - a project name beginning with # is declared, and a # comment stays a comment
+ok - a home reached through a symlink counts each of its workers once
+ok - a recorded PR handoff or a cleanup each frees exactly one place
+ok - a restart of a task id does not count that task's own record
+ok - only this project's ship and scout records hold places
+ok - a released-copy record holds a place only while its agent is alive
+ok - an exited record frees its place unless a process still works in its worktree
+ok - a dead record with a missing worktree keeps its place
+ok - a live agent keeps its place
+ok - every local home shares one declared capacity per project origin, and remote homes do not count
+ok - an unreadable state directory or task record refuses admission rather than undercounting
+ok - concurrent spawns can never both take the last place
+ok - a spawn that fails after admission leaves no record and holds no place
+ok - an unreadable declaration refuses every fresh spawn rather than guessing the limit
+ok - a batch reports a capacity deferral as deferred, not failed
+ok - an Orca spawn takes the shared project lock whenever a same-origin clone is capped and defers before creating anything
+ok - sixth spawn across three projects stays queued at machine ceiling five
+ok - fresh spawn refuses low memory and unreadable machine facts
+ok - unreadable root state defers local secondmate workers
+ok - inaccessible root registry parent defers a worker from a writable secondmate
+ok - machine admission holds no lock across launch and counts the published lane across projects
+FM_TEST_END 2026-11-03T21:42:51Z tests/fm-project-capacity.test.sh exit=0 duration_ms=125751 gate_skip=false
+FM_TEST_BEGIN 2026-11-03T21:42:51Z tests/fm-rovo-harness.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-spawn: rovo launches bare, waits for readiness, and delivers its brief pointer
+ok - fm-spawn: rovo omits efficiencyLevel for xhigh but keeps its allowedExternalPaths grant, recording xhigh in task metadata
+ok - fm-spawn: rovo's supported effort values merge into the same --config-override as its allowedExternalPaths grant
+ok - fm-spawn: rovo never sends the brief pointer before an observable ready signal, and tears down the created endpoint on failure
+ok - fm-spawn: pooled readiness and delivery failures retain their lease, claim and task record
+ok - fm-spawn: rovo treats a silent pointer drop as a failed spawn, and tears down the created endpoint
+ok - fm-spawn: missing rovo executable refuses before pane creation
+ok - fm-spawn: rovo cannot be launched as a secondmate
+ok - fm-harness: rovo's markers outrank an inherited CLAUDECODE, and markerless ancestry still resolves rovo
+ok - fm-control-lib: rovo's lifecycle table matches its verified facts
+ok - busy detection: rovo's rendered busy line classifies through its own isolated fallback
+ok - busy detection: a rovo busy marker scrolled out of the tail classifies unknown, never idle
+FM_TEST_END 2026-11-03T21:43:16Z tests/fm-rovo-harness.test.sh exit=0 duration_ms=24198 gate_skip=false
+FM_TEST_SUMMARY total=5 failed=0 skipped_gate=0 duration_ms=410319
+FM_TEST_SUMMARY_FAMILY family=backend-dispatch count=1 duration_ms=125751 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=24198 failed=0
+FM_TEST_SUMMARY_FAMILY family=secondmate count=1 duration_ms=77730 failed=0
+FM_TEST_SUMMARY_FAMILY family=standalone count=1 duration_ms=159887 failed=0
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=22614 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-spawn-pool-base-freshen.test.sh duration_ms=159887
+FM_TEST_SLOWEST rank=2 script=tests/fm-project-capacity.test.sh duration_ms=125751
+FM_TEST_SLOWEST rank=3 script=tests/fm-secondmate-liveness.test.sh duration_ms=77730
+FM_TEST_SLOWEST rank=4 script=tests/fm-rovo-harness.test.sh duration_ms=24198
+FM_TEST_SLOWEST rank=5 script=tests/fm-shared-copy.test.sh duration_ms=22614

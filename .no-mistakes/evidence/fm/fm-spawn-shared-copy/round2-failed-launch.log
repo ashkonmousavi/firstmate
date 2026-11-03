@@ -1,0 +1,47 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/h
+ok: added failed (scout) -> Queued
+task:
+  id: failed
+  title: disposable launch rollback proof
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-11-03
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start failed --file=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/h/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block failed --by <other> --file=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/h/data/backlog.md` to record a dependency
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/h
+🌳 Leased worktree 1 at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/p/.treehouse/project-1af44a/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/p/.treehouse/project-1af44a/1/project' to release it.
+error: task failed retains a recorded copy; use --relaunch to preserve it or bin/fm-teardown.sh failed for ownership-checked cleanup before a fresh spawn
+error: task failed's backlog item could not be moved to In flight (error: "EACCES: permission denied, open '~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/h/data/backlog.md.lock'"), and failed-dispatch cleanup is incomplete; inspect the retained record at ~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/h/state/failed.meta and use ownership-checked cleanup (bin/fm-teardown.sh failed) before retrying
+error: task failed retains a recorded copy; use --relaunch to preserve it or bin/fm-teardown.sh failed for ownership-checked cleanup before a fresh spawn
+spawn_exit=1
+fm-failed
+[{"name":"1","path":"~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/p/.treehouse/project-1af44a/1/project","status":"leased","branch":"","detached":true,"flavor":"git","lease_id":"44f30e8230b10cc336f191d158324829","lease_holder":"failed","leased_at":"2026-11-03T14:39:40.655318202-07:00","processes":[{"pid":95101,"name":"bash"}]}]
+true
+
+RETAINED RECORD:
+window=firstmate:fm-failed
+endpoint_task_id=failed
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/p/.treehouse/project-1af44a/1/project
+project=~/.no-mistakes/worktrees/049a88734b0e/01M6HHP6GWKMX7FZ0GRB6213RN/.f/project
+harness=tmux
+kind=scout
+tasktmp=/tmp/fm-failed
+model=default
+effort=default
+claude_config_dir=
+spawn_gen=s1793741980.92566.27090
+
+PASS: real backlog write failure after endpoint exit retained the durable lease, claim and task record.
