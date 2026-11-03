@@ -50,7 +50,8 @@
 # that closes the call.
 # REFUSES if the worktree holds commits that are not on a remote and have not
 # landed, because cleanup hard-resets/removes the worktree and kills its
-# processes. Remote-tracking reachability is checked by work_is_landed below;
+# processes. The no-mistakes mirror does not count as a remote forge.
+# Remote-tracking reachability is checked by work_is_landed below;
 # an OPEN recorded PR additionally requires the release proof below, and an
 # unreadable PR refuses. Reachability alone never closes either item. A normal
 # ship task whose commits are not reachable has landed only when its PR is merged and
@@ -1842,7 +1843,7 @@ unpushed_patches_are_in_pr_head() {
       | sort -u
   ) || return 1
   [ -n "$pr_patch_ids" ] || return 1
-  unpushed=$(git -C "$WT" log --format=%H HEAD --not --remotes -- 2>/dev/null) || return 1
+  unpushed=$(git -C "$WT" log --format=%H HEAD --not --exclude='no-mistakes/*' --remotes -- 2>/dev/null) || return 1
   [ -n "$unpushed" ] || return 1
   while IFS= read -r commit; do
     [ -n "$commit" ] || continue
@@ -2528,7 +2529,7 @@ validate_worktree_teardown_safety() {
   fi
   dirty=$(printf '%s\n' "$dirty_raw" | grep -vE '^\?\? (\.claude/|\.fm-(grok|kimi)-turnend$)' || true)
 
-  if ! unpushed_raw=$(git -C "$WT" log --oneline HEAD --not --remotes -- 2>/dev/null); then
+  if ! unpushed_raw=$(git -C "$WT" log --oneline HEAD --not --exclude='no-mistakes/*' --remotes -- 2>/dev/null); then
     if worktree_safety_blocked_by_lock "commits not on a remote"; then
       return "$TEARDOWN_WORKTREE_SAFETY_LOCK_BLOCKED"
     fi
