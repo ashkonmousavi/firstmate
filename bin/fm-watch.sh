@@ -1233,7 +1233,10 @@ EOF
 # inside SECONDMATE_LIVENESS_WINDOW_SECS: the bound marker wakes once, further
 # probes stay silent, and a later live probe ledgers a `rearmed` row and clears
 # the marker so a manually recovered mate rejoins the guarantee with a full
-# budget. The per-mate liveness lock serializes this tick against a concurrent
+# budget. An owner park (bin/fm-secondmate-park-lib.sh) is not this bound:
+# the shared relaunch refuses it without a wake, a tick failure, or a ledger
+# attempt, and rearming this bound does not clear the owner park.
+# The per-mate liveness lock serializes this tick against a concurrent
 # session-start sweep, so neither side can kill or re-probe an endpoint the
 # other is mid-relaunch on.
 secondmate_liveness_tick() {
@@ -1255,7 +1258,9 @@ secondmate_liveness_tick() {
     reason='' notify_key='' err=''
     case "$FM_SM_LIVE_STATUS" in
       relaunchable)
-        if [ -e "$bound_marker" ] || [ -L "$bound_marker" ]; then
+        if fm_secondmate_owner_parked "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$id"; then
+          triage_log "secondmate $id liveness: $FM_SECONDMATE_OWNER_PARK_REASON"
+        elif [ -e "$bound_marker" ] || [ -L "$bound_marker" ]; then
           :
         elif ! attempts=$(fm_secondmate_liveness_recent_attempts "$id" "$SECONDMATE_LIVENESS_WINDOW_SECS"); then
           err="relaunch ledger is unreadable; endpoint left $FM_SM_LIVE_STATE"
@@ -1269,6 +1274,8 @@ secondmate_liveness_tick() {
         elif fm_secondmate_liveness_relaunch "$meta" "$id" "$SECONDMATE_LIVENESS_TIMEOUT"; then
           reason="check: secondmate $id auto-relaunched after $FM_SM_LIVE_CAUSE ($FM_SM_LIVE_WHERE)"
           notify_key="secondmate-relaunch-$id-$now"
+        elif [ "$FM_SM_LIVE_STATUS" = owner-parked ]; then
+          triage_log "secondmate $id liveness: $FM_SM_LIVE_REASON"
         elif [ "$FM_SM_LIVE_STATUS" = skipped ]; then
           err=$FM_SM_LIVE_REASON
         else

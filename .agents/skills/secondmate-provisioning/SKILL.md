@@ -128,6 +128,7 @@ Bootstrap reports successful AGENTS.md re-read sends as `BOOTSTRAP_INFO:` and on
 A separate, literal-content config reread is required whenever inherited `config/*` material changes under an already-running secondmate.
 Both locked bootstrap inheritance and `bin/fm-config-push.sh` still converge files for a watcher-parked mate, but skip new config-reread notices and retry generations because it reads current configuration at launch.
 The shared [`fm_secondmate_parked`](../../../bin/fm-secondmate-liveness-lib.sh) predicate owns the evidence required for that exception.
+That predicate is the watcher crash-loop bound, not the durable owner park.
 For a parked remote mate, propagation also clears any earlier owed reread marker; existing local pending generations follow the launch cleanup below.
 For a local home, after each successful allowlisted config write, both the locked bootstrap convergence path and mid-session `bin/fm-config-push.sh` use the shared propagation report to build one per-home generation-specific private instruction file from the validated destination post-write bytes for only the declared config items that actually changed for that home, in declaration order.
 Each changed path is printed with clear begin/end delimiters and the destination file's full exact new bytes unparsed, or the explicit token `ABSENT` when propagation removed the destination copy.
@@ -216,6 +217,7 @@ For local `kind=secondmate` meta with no window, treat the secondmate as a dead 
 bin/fm-spawn.sh <id> --secondmate
 ```
 
+Before respawning, check the [owner-park contract](../../../docs/configuration.md#owner-park) and leave a parked mate stopped.
 Use the recorded `home=` in meta.
 If meta is missing but `data/secondmates.md` still registers the secondmate, respawn from the registry entry and its persistent home.
 For a remote route, the same command probes and relaunches only on the configured host.

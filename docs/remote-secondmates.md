@@ -440,6 +440,8 @@ Launch or recover the remote second mate with the same command used for a local 
 bin/fm-spawn.sh <id> --secondmate
 ```
 
+Launch and recovery honor the [owner-park contract](configuration.md#owner-park).
+
 The primary then takes these steps:
 
 1. It resolves the verified secondmate harness and optional model and effort.
@@ -655,7 +657,7 @@ There is no two-phase journal and no additional tasks-axi release requirement.
 ### Inherited-material transfer
 
 Locked startup convergence and `bin/fm-config-push.sh` transfer only the declared inherited-material allowlist.
-The receiver accepts only the items its own remote Firstmate code root declares, so a remote secondmate must run code at least as new as its primary before the primary pushes newly declared inherited material it actually has: an older receiver refuses a present `config/t3code-instances`, and the remaining items of that push are skipped.
+For ordinary inherited material, the receiver accepts only the items its own remote Firstmate code root declares, so a remote secondmate must run code at least as new as its primary before the primary pushes newly declared inherited material it actually has: an older receiver refuses a present `config/t3code-instances`, and the remaining items of that push are skipped.
 When the primary does not have a newly declared item, the older receiver's refusal of its `absent` record counts as `unchanged` and the push continues, so a home that never configures `config/t3code-instances` converges as before.
 That item still costs one extra `absent` call on every inheritance push to a remote secondmate, on every home, including one that never selects `config/backend=t3code`: the remote job worker runs one home's commands one after another, and the lifecycle test legs that push inheritance measure about 5-12% slower; an older remote code root tolerates the call as above.
 The [`secondmate-provisioning` skill](../.agents/skills/secondmate-provisioning/SKILL.md#charter-and-seed) owns the placement-specific re-read contract, including changed transfers, unchanged retries, and partial or unknown completion.
@@ -703,7 +705,7 @@ SSH exit 255 preserves both the route and local records because completion is un
 
 No generic remote delete or write surface exists:
 
-- Remote writes are confined to inherited allowlist files and backlog handoff scratch files.
+- Remote writes are confined to inherited allowlist files, the selected mate's [owner park](configuration.md#owner-park), and backlog handoff scratch files.
 - Remote home removal is reachable only through guarded secondmate retirement.
 
 ## Verification

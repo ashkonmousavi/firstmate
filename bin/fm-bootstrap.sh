@@ -21,7 +21,7 @@
 #                 "SECONDMATE_SYNC: secondmate <id>: skipped: <reason>",
 #                 "NUDGE_SECONDMATES: secondmate <id>: send failed: <reason>",
 #                 "BOOTSTRAP_INFO: nudged fm-<id> with '<message>'",
-#                 "SECONDMATE_LIVENESS: secondmate <id>: skipped: <reason>|respawn failed after <cause>: <reason>",
+#                 "SECONDMATE_LIVENESS: secondmate <id>: skipped: <reason>|respawn failed after <cause>: <reason>|owner-park refusal",
 #                 "SECONDMATE_HANDOFF: secondmate <id>: pending delivery: <n> item(s)",
 #                 "CREW_RECOVERY: relaunched <id> after <state>",
 #                 "CREW_RECOVERY: <id>: relaunch failed after <state>: <detail>",
@@ -55,6 +55,9 @@
 #          failed names whether the endpoint was missing or agent-less.
 #          Already-live and successfully relaunched secondmates are silent
 #          unless FM_BOOTSTRAP_VERBOSE_FACTS=1 requests BOOTSTRAP_INFO facts.
+#          If an owner park refuses a needed recovery, SECONDMATE_LIVENESS
+#          reports the reason from bin/fm-secondmate-park-lib.sh. An already
+#          live parked mate stays silent. Rearm never clears the owner park.
 #          CREW_RECOVERY lines report a ship or scout in this home whose
 #          endpoint is dead or missing and whose recorded copy still holds
 #          unlanded work. bin/fm-crew-recovery-lib.sh owns that decision.
@@ -869,6 +872,8 @@ secondmate_liveness_one() {  # <meta> <id>
       if fm_secondmate_liveness_relaunch "$meta" "$id"; then
         [ "$FM_SM_LIVE_RESUME" = 1 ] || secondmate_note_respawned "$id"
         report_relaunch "$id" "$FM_SM_LIVE_CAUSE" "$FM_SM_LIVE_WHERE"
+      elif [ "$FM_SM_LIVE_STATUS" = owner-parked ]; then
+        echo "SECONDMATE_LIVENESS: secondmate $id: $FM_SM_LIVE_REASON"
       elif [ "$FM_SM_LIVE_STATUS" = skipped ]; then
         echo "SECONDMATE_LIVENESS: secondmate $id: skipped: $FM_SM_LIVE_REASON"
       else

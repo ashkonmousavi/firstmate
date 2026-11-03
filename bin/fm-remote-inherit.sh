@@ -5,8 +5,13 @@
 #   fm-remote-inherit.sh put <allowlisted-relative-path> <bytes> <sha256> <generation> < stdin
 #   fm-remote-inherit.sh absent <allowlisted-relative-path> 0 <empty-sha256> <generation>
 #
-# Only the inherited-material allowlist is writable or removable. Writes are
-# atomic ordinary-file replacements. data/captain-shared.md is read-only and is
+# The inherited-material allowlist and the seeded home's own owner park are
+# writable or removable. Writes are atomic ordinary-file replacements.
+# Owner-park publication and removal hold the remote parent-route control and
+# spawn locks, so acknowledgement follows any earlier launch transaction and
+# a later launch reads the new decision. Generation checks reject superseded
+# requests; only the identity-matching seeded home's park is accepted.
+# data/captain-shared.md is read-only and is
 # quarantined before removal or before replacing bytes not last published here.
 set -eu
 
@@ -27,7 +32,7 @@ file_link_count() {
 sha256_file() {
   if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi
 }
-# Writable set, derived from the ONE declared inherited-material owner
+# Ordinary inherited-material set, derived from the ONE declared owner
 # (FM_INHERITABLE_CONFIG in bin/fm-config-inherit-lib.sh), so this code root's
 # receiver and sender cannot drift silently. This runs under the remote
 # entrypoint's fixed empty environment, so the declaration is this code root's
@@ -49,7 +54,17 @@ REL=$2
 EXPECTED_BYTES=$3
 EXPECTED_HASH=$4
 GENERATION=$5
-allowed "$REL" || die "path is not inherited material: $REL"
+OWNER_PARK_ID=
+case "$REL" in
+  config/secondmate-parked/*)
+    OWNER_PARK_ID=${REL#config/secondmate-parked/}
+    case "$OWNER_PARK_ID" in ''|*[!A-Za-z0-9._-]*) die "invalid owner park id" ;; esac
+    [ -f "$FM_HOME/.fm-secondmate-home" ] && [ ! -L "$FM_HOME/.fm-secondmate-home" ] \
+      && [ "$(cat "$FM_HOME/.fm-secondmate-home")" = "$OWNER_PARK_ID" ] \
+      || die "owner park does not match the seeded secondmate home"
+    ;;
+  *) allowed "$REL" || die "path is not inherited material: $REL" ;;
+esac
 case "$EXPECTED_BYTES" in ''|*[!0-9]*) die "expected bytes must be a nonnegative integer" ;; esac
 [ "${#EXPECTED_BYTES}" -le 10 ] || die "expected bytes exceed the byte bound"
 [ "$EXPECTED_BYTES" -le "$MAX_BYTES" ] || die "expected bytes exceed the byte bound"
@@ -60,11 +75,19 @@ case "$GENERATION" in ''|*[!0-9]*) die "generation must be a positive integer" ;
 [ "${#GENERATION}" -le 18 ] && [ "$GENERATION" -ge 1 ] || die "generation is outside the supported range"
 HOME_REAL=$(CDPATH='' cd -- "$FM_HOME" 2>/dev/null && pwd -P) || die "FM_HOME is unavailable"
 PARENT="$HOME_REAL/$(dirname "$REL")"
+if [ -n "$OWNER_PARK_ID" ]; then
+  [ ! -L "$HOME_REAL/config" ] || die "owner park config directory is a symlink"
+fi
 # The captain accepts this config/data parent TOCTOU within Firstmate's single-user trust boundary.
 [ ! -L "$PARENT" ] || die "inherited destination parent is a symlink"
 mkdir -p "$PARENT" || die "cannot create inherited destination parent"
 PARENT_REAL=$(CDPATH='' cd -- "$PARENT" && pwd -P)
-case "$PARENT_REAL" in "$HOME_REAL/config"|"$HOME_REAL/data") ;; *) die "inherited destination escapes FM_HOME" ;; esac
+case "$PARENT_REAL" in
+  "$HOME_REAL/config"|"$HOME_REAL/data") ;;
+  "$HOME_REAL/config/secondmate-parked") [ -n "$OWNER_PARK_ID" ] || die "inherited destination escapes FM_HOME" ;;
+  *) die "inherited destination escapes FM_HOME" ;;
+esac
+[ -z "$OWNER_PARK_ID" ] || chmod 700 "$PARENT_REAL" || die "cannot secure owner park directory"
 DEST="$PARENT_REAL/$(basename "$REL")"
 [ ! -L "$DEST" ] || die "inherited destination is a symlink"
 if [ -e "$DEST" ]; then
@@ -76,6 +99,7 @@ BASE=$(basename "$REL")
 LOCK="$PARENT_REAL/.fm-inherit-$BASE.lock"
 GENERATION_FILE="$PARENT_REAL/.fm-inherit-$BASE.generation"
 fm_lock_acquire_wait "$LOCK" || die "cannot lock inherited destination"
+OWNER_PARK_LOCKS=()
 TMP=
 GENERATION_TMP=
 # Digest this receiver last published to DEST, captured before commit_generation
@@ -84,9 +108,18 @@ LAST_PUBLISHED_HASH=
 cleanup() {
   [ -z "$TMP" ] || rm -f -- "$TMP"
   [ -z "$GENERATION_TMP" ] || rm -f -- "$GENERATION_TMP"
+  for held in "${OWNER_PARK_LOCKS[@]+"${OWNER_PARK_LOCKS[@]}"}"; do fm_lock_release "$held" || true; done
   fm_lock_release "$LOCK" || true
 }
 trap cleanup EXIT
+if [ -n "$OWNER_PARK_ID" ]; then
+  mkdir -p "$HOME_REAL/state/parent-route" || die "cannot create remote lifecycle state"
+  for owner_lock in "$HOME_REAL/state/parent-route/.control-$OWNER_PARK_ID.lock" \
+    "$HOME_REAL/state/parent-route/.spawn-$OWNER_PARK_ID.lock"; do
+    fm_lock_acquire_wait "$owner_lock" || die "cannot lock remote owner park publication"
+    OWNER_PARK_LOCKS+=("$owner_lock")
+  done
+fi
 
 commit_generation() {
   local existing_generation existing_bytes existing_hash existing_command
@@ -164,6 +197,7 @@ case "$COMMAND" in
     fi
     commit_generation
     if [ -f "$DEST" ] && cmp -s "$TMP" "$DEST"; then
+      [ -z "$OWNER_PARK_ID" ] || chmod 600 "$DEST" || die "cannot secure owner park record"
       RESULT_STATUS=unchanged
       if [ "$REL" = config/worker-sheet.md ]; then
         if [ ! -e "$HOME_REAL/data/worker-sheet.md" ] && [ ! -L "$HOME_REAL/data/worker-sheet.md" ]; then

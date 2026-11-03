@@ -18,6 +18,10 @@
 # already uses when it first records a remote route - and republishes this
 # home's own metadata to match. A failed or refused relaunch leaves this
 # parent's record untouched.
+# Owner parks (bin/fm-secondmate-park-lib.sh) are checked before waiting for
+# the inheritance transaction lock and again after acquiring it, before the
+# host hop. Rearm of the crash-loop bound after a successful host relaunch
+# stays in place for a mate that is not owner-parked.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -55,6 +59,12 @@ META="$STATE/$ID.meta"
 REMOTE_HOST=$(fm_meta_get "$META" remote_host)
 [ -n "$REMOTE_HOST" ] \
   || die "task $ID is not a remotely placed secondmate; use bin/fm-control.sh $ID relaunch instead"
+if ! park_config=$(fm_secondmate_owner_park_config); then
+  die "owner park could not be read because neither FM_CONFIG_OVERRIDE nor FM_HOME is set"
+fi
+if fm_secondmate_owner_parked "$park_config" "$ID"; then
+  die "secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)"
+fi
 
 REMOTE_LOCK=
 META_LOCK=
@@ -73,6 +83,9 @@ trap 'exit 143' TERM
 REMOTE_LOCK=$(fm_remote_inherit_transaction_lock_path "$STATE" "$ID") \
   || die "remote inheritance transaction lock path is invalid for $ID"
 fm_lock_acquire_wait "$REMOTE_LOCK"
+if fm_secondmate_owner_parked "$park_config" "$ID"; then
+  die "secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)"
+fi
 
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
   relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "${QUOTA_ARGS[@]}" </dev/null) || {

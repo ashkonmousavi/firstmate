@@ -254,6 +254,8 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
 # shellcheck source=bin/fm-quota-axi-lib.sh
 . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
+# shellcheck source=bin/fm-secondmate-park-lib.sh
+. "$SCRIPT_DIR/fm-secondmate-park-lib.sh"
 
 POLL=${FM_CONTROL_POLL:-0.5}
 SETTLE_WAIT=${FM_CONTROL_SETTLE_WAIT:-5}
@@ -1535,8 +1537,11 @@ do_relaunch() {
       ;;
     secondmate)
       # The charter in the secondmate's own home is its instruction source and
-      # stays untouched.
+      # stays untouched. An owner park refuses before any checkpoint or stop.
       RELAUNCH_BRIEF=
+      if fm_secondmate_owner_parked "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$ID"; then
+        die "secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)"
+      fi
       ;;
     *)
       die "task $ID records kind '$KIND', which has no defined relaunch shape"

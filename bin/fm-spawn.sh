@@ -94,6 +94,8 @@
 #   rebind is a recovery, never a teardown. Only a crewmate or scout rebinds: a
 #   secondmate whose endpoint is gone is respawned by its own owner
 #   (`--secondmate`, driven by the session-start liveness sweep).
+#   An owner park (bin/fm-secondmate-park-lib.sh) refuses a --secondmate spawn
+#   and a --relaunch of a secondmate before either one changes the endpoint.
 #   For a released-copy record, use the recreation contract in
 #   docs/agent-control.md "Relaunching a released copy" instead.
 #   Every fresh ship/scout launch and replacement explicitly enters the recorded
@@ -1512,6 +1514,13 @@ spawn_remote_secondmate() {
     echo "error: remote secondmate $id inheritance transaction could not be locked" >&2
     return 1
   fi
+  if fm_secondmate_owner_parked "$CONFIG" "$id"; then
+    fm_lock_release "$remote_lock" || true
+    fm_lock_release "$registry_lock" || true
+    fm_lock_release "$SPAWN_TASK_LOCK" || true
+    echo "error: secondmate $id is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
+    return 1
+  fi
   remote_generation=$(fm_remote_inherit_generation_next "$STATE" "$id" 2>/dev/null || true)
   if [ -z "$remote_generation" ]; then
     fm_lock_release "$remote_lock" || true
@@ -2470,6 +2479,12 @@ fm_task_id_creation_valid "$ID" || {
   echo "error: invalid task id" >&2
   exit 2
 }
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = secondmate ]; then
+  if fm_secondmate_owner_parked "$CONFIG" "$ID"; then
+    echo "error: secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
+    exit 1
+  fi
+fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = ship ]; then
   BRANCH="$BRANCH_PREFIX$ID"
   if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
@@ -2706,6 +2721,10 @@ if ! fm_lock_try_acquire "$SPAWN_TASK_LOCK"; then
   exit 1
 fi
 SPAWN_TASK_LOCK_HELD=1
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = secondmate ] && fm_secondmate_owner_parked "$CONFIG" "$ID"; then
+  echo "error: secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
+  exit 1
+fi
 PROJ=
 ARG3=
 QUOTA_HARNESS_EXPLICIT=0
@@ -2831,6 +2850,10 @@ if [ "$RELAUNCH" -eq 1 ]; then
   RELAUNCH_PRIOR_HARNESS=$(fm_meta_get "$RELAUNCH_META" harness)
   KIND=$(fm_meta_get "$RELAUNCH_META" kind)
   [ -n "$KIND" ] || KIND=ship
+  if [ "$KIND" = secondmate ] && fm_secondmate_owner_parked "$CONFIG" "$ID"; then
+    echo "error: secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
+    exit 1
+  fi
   # A secondmate whose endpoint is gone already has ONE owner for that
   # recovery: the session-start liveness sweep respawns it with
   # `fm-spawn.sh <id> --secondmate`, which stands its home's own workspace back
