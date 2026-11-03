@@ -131,15 +131,21 @@ def reply_violations(text):
     def reference_kind(label):
         return "MR" if label.lower().startswith(("mr", "merge")) else "PR"
 
+    named_reference = reference + r"(\d+(?:" + LIST_SEPARATOR + r"[#!]?\s*\d+)*)"
     named = set()
-    for match in rx(reference + r"(\d+(?:" + LIST_SEPARATOR + r"[#!]?\s*\d+)*)").finditer(plain):
+    for match in rx(named_reference).finditer(plain):
         named.update((reference_kind(match[1]), ident) for ident in re.findall(r"\d+", match[2]))
     linked = {(reference_kind("MR" if route == "merge_requests" else "PR"), ident)
               for route, ident in re.findall(r"https://[^\s<>`]+/(pulls?|merge_requests)/(\d+)\b", prose)}
-    unavailable = rx(r"(?:" + reference + r"(\d+)[^\n]*?URL unavailable|"
-                     r"URL unavailable[^\n]*?" + reference + r"(\d+))")
-    disclosed = {(reference_kind(match[1] or match[3]), match[2] or match[4])
-                 for match in unavailable.finditer(plain)}
+    attachment = r"\s*(?:(?:for|on)\s+|[:=-]\s*)?"
+    gap = r"(?:(?!" + reference + r"\d|URL unavailable)[^\n.!?])*?"
+    unavailable = (
+        rx(r"URL unavailable" + attachment + named_reference),
+        rx(named_reference + gap + r"URL unavailable(?!" + attachment + reference + r"\d)"),
+    )
+    disclosed = {(reference_kind(match[1]), ident)
+                 for pattern in unavailable for match in pattern.finditer(plain)
+                 for ident in re.findall(r"\d+", match[2])}
     failed = {"ask-first": asks and not valid_ask,
               "pacific-times": utc.search(prose),
               "pr-urls": named - linked - disclosed}

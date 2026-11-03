@@ -1555,6 +1555,9 @@ class Timer(unittest.TestCase):
         self.tools = Path(tmp.name) / 'tool space%z'
         self.tools.mkdir()
         (self.tools / 'tasks-axi').symlink_to(shutil.which('tasks-axi'))
+        node = shutil.which('node')
+        if node:
+            (self.tools / 'node').symlink_to(node)
         self.path = str(self.tools) + os.pathsep + '/usr/bin:/bin'
         self.al = str(ROOT / 'bin/fm-autolaunch.sh')
         # No host home, account, backend, quota, task or override environment.

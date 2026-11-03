@@ -465,6 +465,31 @@ reply_check("HTTP merge link insufficient", "MR !12 needs review.\nhttp://forge.
 reply_check("short issue reference is not assumed pull", "Issue #9 needs review.", 0)
 reply_check("generic pull mention", "The fix needs a PR.", 0)
 reply_check("unknown URL exception", "PR 9 needs review; URL unavailable in ready status or metadata.", 0)
+for singular, plural, prefix, route in (("PR", "PRs", "", "pull"),
+                                        ("Pull request", "Pull requests", "#", "pulls"),
+                                        ("MR", "MRs", "!", "-/merge_requests"),
+                                        ("Merge request", "Merge requests", "!", "merge_requests")):
+    first, second = f"{singular} {prefix}9", f"{singular} {prefix}10"
+    link = f"https://forge.example/repo/{route}/10"
+    reply_check("disclosure cannot cross reference " + singular,
+                f"{first} needs review; {second}: URL unavailable in ready status or metadata.\n{link}", 2)
+    reply_check("forward disclosure cannot cross reference " + singular,
+                f"URL unavailable for {second}; {first} needs review.\n{link}", 2)
+    reply_check("forward disclosure overrides preceding reference " + singular,
+                f"{first} needs review; URL unavailable for {second}.\n{link}", 2)
+    reply_check("individual disclosures cover both references " + singular,
+                f"{first}: URL unavailable; {second}: URL unavailable.", 0)
+    for separator in (" and ", ", ", ", and ", " & "):
+        references = f"{plural} {prefix}9{separator}{prefix}10"
+        for message in (f"{references}: URL unavailable in ready status or metadata.",
+                        f"URL unavailable for {references}."):
+            reply_check("shared disclosure " + references, message, 0)
+        reply_check("shared disclosure leaves another reference checked " + references,
+                    f"{references}: URL unavailable. {singular} {prefix}11 needs review.", 2)
+reply_check("PR disclosure does not exempt same-number MR",
+            "PR 9: URL unavailable. MR 9 needs review.", 2)
+reply_check("MR disclosure does not exempt same-number PR",
+            "MR 9: URL unavailable. PR 9 needs review.", 2)
 reply_check("inline pull identifier still checked", "PR `9` needs review.", 2)
 reply_check("quoted pull identifier is evidence", '> PR 9 needs review.\nThe report is ready.', 0)
 reply_check("tilde fenced record", "~~~text\nrecord=18:00 UTC\n~~~\nThe report is ready.", 0)
