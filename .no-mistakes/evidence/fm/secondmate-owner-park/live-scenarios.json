@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Park a registered secondmate and read its durable private UTC-dated owner record",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Run restart and the session-start recovery sweep; a parked missing mate remains stopped with no launch attempt",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Ordinary monitoring refuses recovery without creating a crash-loop marker or relaunch ledger",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Explicit fresh spawn, replacement, control relaunch and remote relaunch all refuse a parked mate",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Crash-loop rearm preserves owner park and only explicit unpark clears it",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Park publication waits for an in-flight local spawn transaction to finish",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Unregistered ids and malformed or symlink park records cannot authorize a launch or remove unrelated data",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Remote publication waits for launch exclusion, blocks a late spawn in the receiving home, and rejects stale or wrong-mate updates",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "SSH connection failure cannot acknowledge park or unpark and retains local recovery refusal",
+    "result": "pass",
+    "live": true
+  }
+]

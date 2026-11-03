@@ -1,0 +1,129 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/m
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/m
+[exit 0]
+$ tmux -L fm-lab new-session -d -x 100 -y 30 -s primary -n anchor -c ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5 /bin/sh
+[exit 0]
+$ tmux -L fm-lab display-message -p -t primary #{socket_path},#{pid},0
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/t/tmux-1000/fm-lab,22892,0
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+not parked: eel-web
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh park eel-web
+parked: eel-web: owner 2026-11-03
+[exit 0]
+Persisted owner record: owner 2026-11-03
+Permissions: file 0600, directory 0700
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web
+[exit 0]
+SCENARIO PASS: Park a registered secondmate and read its durable private UTC-dated owner record
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-restart.sh eel-web
+parked: eel-web: owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web
+summary: 0 of 1 restarted, 0 nudged, 0 unreached, 1 owner-parked
+[exit 3]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-bootstrap.sh
+NEEDS_GH_AUTH
+SECONDMATE_LIVENESS: secondmate eel-web: owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web
+SECONDMATE_SYNC: secondmate eel-web: skipped: primary default-branch commit cannot be resolved
+[exit 0]
+$ tmux -L fm-lab list-windows -t primary -F #{window_name}
+anchor
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web
+[exit 0]
+SCENARIO PASS: Run restart and the session-start recovery sweep; a parked missing mate remains stopped with no launch attempt
+Actual watcher triage:
+[2026-11-03T05:21:14-0700] secondmate eel-web liveness: owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web
+[watcher stopped: -15]
+SCENARIO PASS: Ordinary monitoring refuses recovery without creating a crash-loop marker or relaunch ledger
+$ tmux -L fm-lab new-window -d -t primary -n fm-eel-web /bin/sh
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-spawn.sh eel-web --secondmate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: secondmate eel-web is owner-parked (owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web)
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-spawn.sh eel-web --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+error: secondmate eel-web is owner-parked (owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web)
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-control.sh eel-web relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p
+error: secondmate eel-web is owner-parked (owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web)
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-remote-secondmate-relaunch.sh eel-web claude default default
+error: secondmate eel-web is owner-parked (owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web)
+[exit 1]
+SCENARIO PASS: Explicit fresh spawn, replacement, control relaunch and remote relaunch all refuse a parked mate
+$ bash -c . "$1/bin/fm-secondmate-liveness-lib.sh"; STATE="$FM_HOME/state"; fm_secondmate_liveness_rearm eel-web _ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh unpark eel-web
+unparked: eel-web
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+not parked: eel-web
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh unpark eel-web
+unparked: eel-web: already clear
+[exit 0]
+SCENARIO PASS: Crash-loop rearm preserves owner park and only explicit unpark clears it
+park remains pending while a real spawn transaction lock is held
+[child exit 0]
+parked: eel-web: owner 2026-11-03
+[child exit 0]
+SCENARIO PASS: Park publication waits for an in-flight local spawn transaction to finish
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh park unregistered
+error: unregistered is not registered in ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p/data/secondmates.md
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+owner park record ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p/config/secondmate-parked/eel-web is not a single owner YYYY-MM-DD line; relaunch refused
+[exit 2]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-spawn.sh eel-web --secondmate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+error: secondmate eel-web is owner-parked (owner park record ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p/config/secondmate-parked/eel-web is not a single owner YYYY-MM-DD line; relaunch refused)
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh unpark eel-web
+error: ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p/config/secondmate-parked/eel-web is a symlink; unpark refuses to follow or remove it
+[exit 2]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+owner park record ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/p/config/secondmate-parked/eel-web is a symlink; relaunch refused (unpark will not remove a symlink)
+[exit 2]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh park eel-web
+parked: eel-web: owner 2026-11-03
+[exit 0]
+SCENARIO PASS: Unregistered ids and malformed or symlink park records cannot authorize a launch or remove unrelated data
+Remote park remains pending until the remote control transaction completes
+[child exit 0]
+pushed: config/secondmate-parked/eel-web
+[child exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-spawn.sh eel-web --secondmate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.v/m
+error: secondmate eel-web is owner-parked (owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web)
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-remote-inherit.sh absent config/secondmate-parked/eel-web 0 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 11
+removed: config/secondmate-parked/eel-web
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-remote-inherit.sh put config/secondmate-parked/eel-web 17 e749e607160519e9fa160d6c77db571aa66aa069c02237dfd0c4297cf3df6983 10
+error: inheritance write generation is superseded
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-remote-inherit.sh put config/secondmate-parked/sibling 17 e749e607160519e9fa160d6c77db571aa66aa069c02237dfd0c4297cf3df6983 12
+error: owner park does not match the seeded secondmate home
+[exit 1]
+SCENARIO PASS: Remote publication waits for launch exclusion, blocks a late spawn in the receiving home, and rejects stale or wrong-mate updates
+Private tmux cleanup: 0 

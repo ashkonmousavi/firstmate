@@ -1,0 +1,18 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.remote-ack
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/.remote-ack
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh park eel-web
+ssh: connect to host 127.0.0.1 port 51019: Connection refused
+error: remote owner park put for eel-web was not confirmed; local park retained
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web
+[exit 0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh unpark eel-web
+ssh: connect to host 127.0.0.1 port 51019: Connection refused
+error: remote owner park absent for eel-web was not confirmed; local park retained
+[exit 1]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6GJ8YJKZ2XE36Z9WMW993A5/bin/fm-secondmate-park.sh status eel-web
+owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web
+[exit 0]
+SCENARIO PASS: real SSH connection failure cannot report successful park or unpark; both retain the local recovery block

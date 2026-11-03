@@ -1,0 +1,5 @@
+not ok - the report must say the winner is still launching: unreached: sm2: the request to write down its open work could not be delivered: remote command is not tracked by this Firstmate checkout: fm-remote-secondmate-control.sh; the re-read message could not be delivered either: remote command is not tracked by this Firstmate checkout: fm-remote-secondmate-control.sh
+summary: 0 of 1 restarted, 0 nudged, 1 unreached (missing: 'unreached: sm2: winner still launching')
+--- output ---
+unreached: sm2: the request to write down its open work could not be delivered: remote command is not tracked by this Firstmate checkout: fm-remote-secondmate-control.sh; the re-read message could not be delivered either: remote command is not tracked by this Firstmate checkout: fm-remote-secondmate-control.sh
+summary: 0 of 1 restarted, 0 nudged, 1 unreached
