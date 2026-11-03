@@ -1,0 +1,76 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/carrier-lab
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/carrier-lab
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/parent-lab
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/parent-lab
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/bin/fm-autolaunch.sh --steps-only
+[exit 0]
+REQUEST RECEIPT
+{
+  "at": 1793716294,
+  "attempt": 1,
+  "effect": {
+    "attempt": 1,
+    "bot": "Walker",
+    "brief": "~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/carrier-lab/data/walk-briefs/demo.md",
+    "brief_text": "Disposable test of screen-a and screen-b.\n",
+    "corr": "7866a009e806d736",
+    "expected_gen": "",
+    "id": "checkpoint:lab-daily:g1:r1:0123456789abcdef0123456789abcdef01234567",
+    "kind": "walk-request",
+    "note": "",
+    "release": "0123456789abcdef0123456789abcdef01234567",
+    "target": "owner",
+    "walk": "demo",
+    "walk_project": "proj",
+    "walk_target": "lab"
+  },
+  "generation": 1,
+  "obligation": true,
+  "owner": "owner",
+  "reason": "walk-expect",
+  "receipt": "pending",
+  "release": "0123456789abcdef0123456789abcdef01234567",
+  "retry_of": "",
+  "revision": "r1",
+  "step": "walk",
+  "trigger": "checkpoint:lab-daily:g1:r1:0123456789abcdef0123456789abcdef01234567",
+  "waiting": true,
+  "walk": "demo",
+  "walk_list": "screen-a,screen-b"
+}
+PARENT CHANNEL
+note [corr=7866a009e806d736] [at=1793716294]: walk-request: walks=demo brief=~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/carrier-lab/data/walk-briefs/walk-7866a009e806d736.md release=0123456789abcdef0123456789abcdef01234567 bot=Walker attempt=1
+
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/bin/fm-autolaunch.sh --steps-only
+[exit 0]
+PROVEN Checkpoint files one real remote walk request and waits for sent evidence: two passes produce one typed parent-channel request with fixed correlation and attempt=1; receipt remains pending walk-expect
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/capacity-lab
+~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/capacity-lab
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/bin/fm-autolaunch.sh --steps-only
+[exit 0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/bin/fm-autolaunch.sh --steps-only
+[exit 0]
+CAPACITY WAIT
+{
+  "at": 1793716295,
+  "coverage_only": false,
+  "effect": {
+    "expected_gen": "lab.1",
+    "id": "cut:owner@1:r2",
+    "kind": "cut-delivery",
+    "note": "Continue committed cut r2.\nREVISION: r2\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a\n",
+    "target": "owner"
+  },
+  "generation": 1,
+  "owner": "owner",
+  "reason": "relaunch-due",
+  "receipt": "pending",
+  "revision": "r2",
+  "step": "build",
+  "trigger": "cut:owner@1:r2"
+}
+PROVEN An exited owner with no lane retains one retryable continuation: real machine admission with zero lanes leaves one pending relaunch-due receipt over repeated passes
+ALL ADDITIONAL LIVE CHECKS COMPLETED

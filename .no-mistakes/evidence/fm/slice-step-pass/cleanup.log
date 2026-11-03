@@ -1,0 +1,5 @@
+Private tmux server confirmed stopped before cleanup.
+Removed owned native launch namespaces and empty per-task temporary roots.
+Removed .test-tmp
+Removed .t
+Final git status: clean

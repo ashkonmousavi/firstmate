@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Absent step configuration leaves the home untouched",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-state.log; live_driver.py",
+    "reason": ""
+  },
+  {
+    "name": "Observe lease reports a trigger without performing it",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-state.log; live_driver.py",
+    "reason": ""
+  },
+  {
+    "name": "Prep files the named tester once and refuses the builder model",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-state.log; live_driver.py",
+    "reason": ""
+  },
+  {
+    "name": "A changed cut reaches a live owner once through its durable inbox",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-state.log; live_driver.py",
+    "reason": ""
+  },
+  {
+    "name": "Changed walk coverage cannot resume the builder with an equal-model tester",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-state.log; live_driver.py",
+    "reason": ""
+  },
+  {
+    "name": "C2 reports one reasonless pending episode and clears after completion",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-state.log; live_driver.py",
+    "reason": ""
+  },
+  {
+    "name": "Bare observe on a new home is a valid no-op",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product-state.log; live_driver.py",
+    "reason": ""
+  }
+]

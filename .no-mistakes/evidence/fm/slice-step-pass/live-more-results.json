@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Checkpoint files one real remote walk request and waits for sent evidence",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product.log",
+    "reason": ""
+  },
+  {
+    "name": "An exited owner with no lane retains one retryable continuation",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-product.log",
+    "reason": ""
+  }
+]

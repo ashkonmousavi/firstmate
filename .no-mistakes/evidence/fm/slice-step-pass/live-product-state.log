@@ -1,0 +1,70 @@
+Post-drive durable product output from the successful live run. Initial stdout transcript was accidentally truncated by the additional driver import; these are the retained native records, not reconstructed stdout.
+
+data/backlog.md
+## In flight
+- [ ] owner - Disposable validation (repo: proj) (kind: ship)
+  SLICE: main/demo | lab | role=owner
+  TESTER TASK: special-tester
+  TESTER RULE: new
+  TESTER PATHS: tests/risk.py
+## Queued
+- [ ] special-tester - tester for owner (repo: proj) (kind: scout) (since 2026-11-03)
+  SLICE: main/demo | lab | role=tester owner=main:owner
+  Prep: data/special-tester/prep.md
+  Step action: prep:r1:file
+
+## Done
+
+data/owner/slice-steps.log
+{"at": 1, "generation": 1, "step": "build", "owner": "owner", "trigger": "tests-ready:none@r1", "receipt": "completed", "revision": "r1"}
+{"at": 1793716205, "coverage_only": false, "effect": {"expected_gen": "lab.1", "id": "cut:owner@1:r2", "kind": "cut-delivery", "note": "Continue committed cut r2.\nREVISION: r2\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a,screen-b\nTESTER PATHS: tests/risk.py\nTESTER RULE: new\nRISKS: none\nDisposable validation only: respond LAB_ACK; do not run commands or edit any files.\n", "target": "owner"}, "generation": 1, "owner": "owner", "receipt": "pending", "revision": "r2", "step": "build", "trigger": "cut:owner@1:r2"}
+{"at": 1793716205, "coverage_only": false, "effect": {"expected_gen": "lab.1", "id": "cut:owner@1:r2", "kind": "cut-delivery", "note": "Continue committed cut r2.\nREVISION: r2\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a,screen-b\nTESTER PATHS: tests/risk.py\nTESTER RULE: new\nRISKS: none\nDisposable validation only: respond LAB_ACK; do not run commands or edit any files.\n", "target": "owner"}, "generation": 1, "owner": "owner", "reason": "", "receipt": "completed", "revision": "r2", "step": "build", "trigger": "cut:owner@1:r2"}
+{"at": 1793716209, "effect": {"body": "SLICE: main/demo | lab | role=owner\nTESTER TASK: special-tester\nTESTER RULE: new\nTESTER PATHS: tests/risk.py", "expected_gen": "tester-record.1", "id": "cut:owner@1:r3:tester:file", "kind": "file-tester", "note": "", "owner_branch": "fm/owner", "owner_worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj", "pr": "", "prep": "REVISION: r3\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a,screen-c\nTESTER PATHS: tests/risk.py\nTESTER RULE: new\nRISKS: none\nDisposable validation only: respond LAB_ACK; do not run commands or edit any files.\n", "project": "~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj", "repo": "proj", "revision": "r3", "role": "tester", "target": "special-tester", "tester_paths": "tests/risk.py", "tester_rule": "new"}, "generation": 1, "owner": "owner", "receipt": "pending", "revision": "r3", "step": "prep", "trigger": "cut:owner@1:r3:tester:file"}
+{"at": 1793716209, "effect": {"body": "SLICE: main/demo | lab | role=owner\nTESTER TASK: special-tester\nTESTER RULE: new\nTESTER PATHS: tests/risk.py", "expected_gen": "tester-record.1", "id": "cut:owner@1:r3:tester:file", "kind": "file-tester", "note": "", "owner_branch": "fm/owner", "owner_worktree": "~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj", "pr": "", "prep": "REVISION: r3\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a,screen-c\nTESTER PATHS: tests/risk.py\nTESTER RULE: new\nRISKS: none\nDisposable validation only: respond LAB_ACK; do not run commands or edit any files.\n", "project": "~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj", "repo": "proj", "revision": "r3", "role": "tester", "target": "special-tester", "tester_paths": "tests/risk.py", "tester_rule": "new"}, "generation": 1, "owner": "owner", "reason": "", "receipt": "completed", "revision": "r3", "step": "prep", "trigger": "cut:owner@1:r3:tester:file"}
+{"at": 1793716209, "effect": {"expected_gen": "tester-record.1", "file_key": "cut:owner@1:r3:tester:file", "id": "cut:owner@1:r3:tester", "kind": "relaunch-tester", "note": "Revise walk list for cut r3; add assertions only for uncovered risks.\nREVISION: r3\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a,screen-c\nTESTER PATHS: tests/risk.py\nTESTER RULE: new\nRISKS: none\nDisposable validation only: respond LAB_ACK; do not run commands or edit any files.\n\nEdit and commit only TESTER PATHS directly on the builder's branch fm/owner in ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj. Before editing, run `git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj branch --show-current` and require fm/owner; refuse a different branch. The builder owns every other path. Read the prep without reading builder code or its diff; never open a PR.", "target": "special-tester"}, "generation": 1, "owner": "owner", "receipt": "pending", "revision": "r3", "step": "tests", "trigger": "cut:owner@1:r3:tester", "waiting": true}
+{"at": 1793716209, "effect": {"expected_gen": "tester-record.1", "file_key": "cut:owner@1:r3:tester:file", "id": "cut:owner@1:r3:tester", "kind": "relaunch-tester", "note": "Revise walk list for cut r3; add assertions only for uncovered risks.\nREVISION: r3\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a,screen-c\nTESTER PATHS: tests/risk.py\nTESTER RULE: new\nRISKS: none\nDisposable validation only: respond LAB_ACK; do not run commands or edit any files.\n\nEdit and commit only TESTER PATHS directly on the builder's branch fm/owner in ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj. Before editing, run `git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj branch --show-current` and require fm/owner; refuse a different branch. The builder owns every other path. Read the prep without reading builder code or its diff; never open a PR.", "target": "special-tester"}, "generation": 1, "owner": "owner", "reason": "same-or-unknown-tester-model", "receipt": "pending", "revision": "r3", "step": "tests", "trigger": "cut:owner@1:r3:tester", "waiting": true}
+{"at": 1793716209, "effect": {"expected_gen": "tester-record.1", "file_key": "cut:owner@1:r3:tester:file", "id": "cut:owner@1:r3:tester", "kind": "relaunch-tester", "note": "Revise walk list for cut r3; add assertions only for uncovered risks.\nREVISION: r3\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a,screen-c\nTESTER PATHS: tests/risk.py\nTESTER RULE: new\nRISKS: none\nDisposable validation only: respond LAB_ACK; do not run commands or edit any files.\n\nEdit and commit only TESTER PATHS directly on the builder's branch fm/owner in ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj. Before editing, run `git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj branch --show-current` and require fm/owner; refuse a different branch. The builder owns every other path. Read the prep without reading builder code or its diff; never open a PR.", "target": "special-tester"}, "generation": 1, "owner": "owner", "receipt": "pending", "revision": "r3", "step": "tests", "trigger": "cut:owner@1:r3:tester", "waiting": true}
+{"at": 1793716209, "effect": {"expected_gen": "tester-record.1", "file_key": "cut:owner@1:r3:tester:file", "id": "cut:owner@1:r3:tester", "kind": "relaunch-tester", "note": "Revise walk list for cut r3; add assertions only for uncovered risks.\nREVISION: r3\nCUT: 1\nWALK ID: demo\nWALK LIST: screen-a,screen-c\nTESTER PATHS: tests/risk.py\nTESTER RULE: new\nRISKS: none\nDisposable validation only: respond LAB_ACK; do not run commands or edit any files.\n\nEdit and commit only TESTER PATHS directly on the builder's branch fm/owner in ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj. Before editing, run `git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj branch --show-current` and require fm/owner; refuse a different branch. The builder owns every other path. Read the prep without reading builder code or its diff; never open a PR.", "target": "special-tester"}, "generation": 1, "owner": "owner", "receipt": "completed", "revision": "r3", "step": "tests", "trigger": "cut:owner@1:r3:tester", "waiting": true}
+
+state/autolaunch-steps.pass
+{"at": 1793716211, "owners": ["owner"]}
+data/special-tester/brief.md
+# Task
+Tester for owner owner.
+Prep revision: r1
+REVISION: r1
+CUT: 1
+WALK ID: demo
+WALK LIST: screen-a,screen-b
+TESTER PATHS: tests/risk.py
+TESTER RULE: new
+RISKS: none
+Disposable validation only: respond LAB_ACK; do not run commands or edit any files.
+
+Owner branch: fm/owner
+TESTER TASK: special-tester
+TESTER RULE: new
+TESTER PATHS: tests/risk.py
+Edit and commit only TESTER PATHS directly on the builder's branch fm/owner in ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj. Before editing, run `git -C ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/projects/proj branch --show-current` and require fm/owner; refuse a different branch. The builder owns every other path. Read the prep without reading builder code or its diff; never open a PR. Reuse existing checks; add red cases only for uncovered risks. Write the walk list there. Report tests-ready commit=<sha>|none revision=<revision> walk-list=<ids> checks=<names>.
+
+Report completion to the task status record with the command below, replacing the payload with the result phrase above.
+FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab FM_CONFIG_OVERRIDE=~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/config bash ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/bin/fm-status-append.sh ~/.no-mistakes/worktrees/049a88734b0e/01M6GJKPRDZQX6MMZMKMPS8WJ1/.test-tmp/live-lab/state/special-tester.status done <<'EOF'
+<result phrase>
+EOF
+
+state/owner.inbox/001.msg
+schema=fm-task-inbox.v1
+at=2026-11-03T14:30:06Z
+request-id=f4a7e6c7c2b655c31d4e7879c6d9a23d
+--
+Continue committed cut r2.
+REVISION: r2
+CUT: 1
+WALK ID: demo
+WALK LIST: screen-a,screen-b
+TESTER PATHS: tests/risk.py
+TESTER RULE: new
+RISKS: none
+Disposable validation only: respond LAB_ACK; do not run commands or edit any files.
+
+C2 after completed receipt, ACT lease retained: ''; exit=0
