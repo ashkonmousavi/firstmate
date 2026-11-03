@@ -69,7 +69,7 @@ t3_case() {
   CASE_DIR="$TMP_ROOT/$name"
   CONFIG="$CASE_DIR/config"
   REPO="$CASE_DIR/repo"
-  mkdir -p "$CONFIG" "$REPO"
+  mkdir -p "$CONFIG" "$REPO" "$CASE_DIR/home/state"
   # Machine admission refuses a spawn without a declared lane capacity.
   printf '999999 0\n' > "$CONFIG/lane-capacity"
   fm_test_machine_policy "$CONFIG"
@@ -1991,7 +1991,7 @@ test_launch_gate_failure_returns_lease() {
   pass "fm-spawn.sh --backend t3code: a gate failure before the launch request returns the lease"
 }
 
-test_refused_launch_turn_archives_thread_and_returns_lease() {
+test_refused_launch_turn_archives_thread_and_retains_ownership() {
   local harness model id out rc
   for harness in claude codex; do
     case "$harness" in claude) model=claude-sonnet-5 ;; codex) model=gpt-5.6-sol ;; esac
@@ -2004,14 +2004,15 @@ test_refused_launch_turn_archives_thread_and_returns_lease() {
     assert_contains "$out" "T3 refused the launch turn" "the refusal is reported"
     [ "$(t3_log_line_of 'r.tool === "t3_thread_organize"')" -gt "$(t3_log_line_of 'r.tool === "t3_thread_send"')" ] \
       || fail "the idle thread of a rolled-back $harness dispatch must be archived"$'\n'"$out"
-    [ "$(t3_log_line_of 'r.tool === "treehouse" && r.args.indexOf("return --force") === 0')" -gt \
-      "$(t3_log_line_of 'r.tool === "t3_thread_organize"')" ] || fail "the lease must return after the archive"$'\n'"$out"
-    assert_absent "$CASE_DIR/state/$id.meta" "the rolled-back dispatch leaves no record"
-    assert_absent "$WORKER_WT/.claude/settings.local.json" "a returned $harness slot must not keep the aborted spawn's Claude settings"
-    assert_absent "$WORKER_WT/CLAUDE.local.md" "a returned $harness slot must not keep the aborted spawn's channel statement"
-    assert_absent "$WORKER_WT/.codex/config.toml" "a returned $harness slot must not keep the aborted spawn's Codex environment"
+    [ "$(t3_log_line_of 'r.tool === "treehouse" && r.args.indexOf("return --force") === 0')" -eq 0 ] \
+      || fail "the lease must stay reserved while its task record remains"$'\n'"$out"
+    assert_grep "worktree=$WORKER_WT" "$CASE_DIR/state/$id.meta" "the failed dispatch lost copy ownership"
+    case "$harness" in
+      claude) assert_present "$WORKER_WT/.claude/settings.local.json" 'retained Claude copy lost its environment' ;;
+      codex) assert_present "$WORKER_WT/.codex/config.toml" 'retained Codex copy lost its environment' ;;
+    esac
   done
-  pass "fm-spawn.sh --backend t3code: a refused launch turn archives the thread, removes its environment files, then returns the lease"
+  pass "fm-spawn.sh --backend t3code: a refused launch turn archives the thread and preserves recorded-copy ownership"
 }
 
 test_misbound_thread_launch_returns_lease() {
@@ -2801,7 +2802,7 @@ test_uncertain_thread_launch_keeps_lease
 test_spawn_never_writes_inherited_git_config
 test_spawn_secondmate_refuses_symlinked_claude_settings
 test_launch_gate_failure_returns_lease
-test_refused_launch_turn_archives_thread_and_returns_lease
+test_refused_launch_turn_archives_thread_and_retains_ownership
 test_misbound_thread_launch_returns_lease
 test_dirty_leased_slot_is_kept_without_a_thread
 test_clean_slot_refresh_failure_returns_lease

@@ -1801,9 +1801,12 @@ spawn_fresh_commit_rollback() {
   # start error the caller still has to report. An absent record is not a
   # seat, so the cleanup transition still runs and retires the busy generation.
   if [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; then
-    if [ "$SPAWN_FRESH_COMMIT_PENDING" != 1 ] &&
+    if { [ "$KIND" = ship ] || [ "$KIND" = scout ]; } &&
       { [ -n "$(fm_meta_get "$STATE/$ID.meta" worktree)" ] ||
-        [ -n "$(fm_meta_get "$STATE/$ID.meta" home)" ]; }; then
+        [ -n "$(fm_meta_get "$STATE/$ID.meta" home)" ]; } &&
+      { [ "$SPAWN_FRESH_COMMIT_PENDING" != 1 ] ||
+        [ -n "$SPAWN_CODEX_LEASE_ID" ] || [ "$BACKEND" = t3code ] ||
+        fm_treehouse_pool_slot "$(fm_meta_get "$STATE/$ID.meta" project)" "$(fm_meta_get "$STATE/$ID.meta" worktree)"; }; then
       echo "error: task $ID retains a recorded copy; use --relaunch to preserve it or bin/fm-teardown.sh $ID for ownership-checked cleanup before a fresh spawn" >&2
       return 1
     fi
@@ -2089,13 +2092,6 @@ spawn_abort_cleanup() {
       fi
     fi
   fi
-  # Nothing has run in a leased slot or secondmate home until T3 accepts the
-  # launch turn, so an abort before that, including one after T3 refused the
-  # turn, archives the thread (it must never act in a returned slot), removes
-  # the environment files the spawn wrote there as teardown does, and hands a
-  # lease back only once both succeeded; once T3 accepted the turn, or its
-  # outcome is unproven, the agent may be working there, so both are left in
-  # place.
   if [ "$T3CODE_CREATE_UNCERTAIN" = 1 ]; then
     # t3_thread_launch has no idempotency key, so a launch whose outcome was
     # lost may have left a thread whose id never came back.
@@ -2126,7 +2122,8 @@ spawn_abort_cleanup() {
     fm_backend_t3code_home_env_cleanup "$PROJ_ABS" \
       || echo "warning: could not remove the T3 environment this spawn wrote into $PROJ_ABS for $ID; remove it before the home runs again" >&2
   fi
-  if [ "$T3CODE_LEASED" = 1 ] && [ -n "${WT:-}" ]; then
+  if [ "$T3CODE_LEASED" = 1 ] && [ -n "${WT:-}" ] &&
+    [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ]; then
     T3CODE_LEASED=0
     if ! fm_worktree_require_exclusive_record "$STATE" "$WT" "$STATE/$ID.meta"; then
       echo "warning: retaining contested T3 copy $WT without cleanup" >&2
@@ -2201,6 +2198,7 @@ spawn_abort_cleanup() {
     fi
   fi
   if [ "$status" -ne 0 ] && [ -n "$SPAWN_CODEX_LEASE_ID" ] &&
+    [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ] &&
     [ "$SPAWN_LAUNCH_SENT" = 0 ] &&
     { [ "$SPAWN_FRESH_ENDPOINT_OPENED" = 0 ] || [ "$SPAWN_ENDPOINT_CLOSED" = 1 ]; } &&
     [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
@@ -8912,7 +8910,7 @@ if [ "$SPAWN_BACKLOG_COMMIT_STATUS" -ne 0 ]; then
     if spawn_fresh_commit_rollback; then
       echo "error: task $ID's backlog item could not be moved to In flight ($FM_BACKLOG_TRANSITION_ERROR); its record was removed so no worker is left that the backlog does not own - close out endpoint $T and local copy $WT by hand, then re-run the spawn" >&2
     else
-      echo "error: task $ID's backlog item could not be moved to In flight ($FM_BACKLOG_TRANSITION_ERROR), and failed-dispatch cleanup is incomplete; the provisional record may remain at $STATE/$ID.meta - close out endpoint $T and local copy $WT by hand, then remove the record and busy state before retrying" >&2
+      echo "error: task $ID's backlog item could not be moved to In flight ($FM_BACKLOG_TRANSITION_ERROR), and failed-dispatch cleanup is incomplete; inspect the retained record at $STATE/$ID.meta and use ownership-checked cleanup (bin/fm-teardown.sh $ID) before retrying" >&2
     fi
   else
     echo "error: task $ID was republished but its backlog item could not be moved to In flight ($FM_BACKLOG_TRANSITION_ERROR); fix the backlog and re-run the relaunch" >&2

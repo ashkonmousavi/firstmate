@@ -335,79 +335,9 @@ test_autolaunch_refuses_retained_copy() {
 }
 
 
-run_cli_with_foreign_claim() {
-  local rc=0
-  printf 'task=foreign\nhome=%s\n' "$HOME_DIR" > "$CASE_DIR/pool/1/.fm-slot-owner"
-  run_cli fm-teardown.sh gov-push-hole-checks --records-only-shared-with gov-owl-signal || rc=$?
-  printf 'task=gov-push-hole-checks\nhome=%s\n' "$HOME_DIR" > "$CASE_DIR/pool/1/.fm-slot-owner"
-  return "$rc"
-}
-
-run_cli_with_foreign_home() {
-  local rc=0
-  mkdir -p "$CASE_DIR/foreign-home"
-  printf 'task=gov-push-hole-checks\nhome=%s\n' "$CASE_DIR/foreign-home" > "$CASE_DIR/pool/1/.fm-slot-owner"
-  run_cli fm-teardown.sh gov-push-hole-checks --records-only-shared-with gov-owl-signal || rc=$?
-  printf 'task=gov-push-hole-checks\nhome=%s\n' "$HOME_DIR" > "$CASE_DIR/pool/1/.fm-slot-owner"
-  return "$rc"
-}
-
-# A stopped, still-open scout loses its copy to a later, superseded scout.
-# The marker names the retiring scout, so ordinary cleanup must refuse; an
-# explicit shared-record retirement keeps the older task as the custodian.
-test_superseded_scout_record_only_retirement() {
-  make_case superseded-scout
-  write_meta gov-owl-signal scout
-  write_meta gov-push-hole-checks scout
-  printf 'task=gov-push-hole-checks\nhome=%s\n' "$HOME_DIR" > "$CASE_DIR/pool/1/.fm-slot-owner"
-  printf 'still-open scout work\n' > "$POOL_DIR/scout.txt"
-  cp "$HOME_DIR/state/gov-owl-signal.meta" "$CASE_DIR/keeper.before"
-  assert_refuses 'also task gov-owl-signal' run_cli fm-teardown.sh gov-push-hole-checks
-  assert_refuses 'requires a scout and another retained task' run_cli fm-teardown.sh gov-push-hole-checks --records-only-shared-with absent
-  assert_refuses 'third claimant' run_cli_with_foreign_claim
-  assert_refuses 'another home' run_cli_with_foreign_home
-  assert_refuses 'refuses --force' run_cli fm-teardown.sh gov-push-hole-checks --records-only-shared-with gov-owl-signal --force
-  assert_refuses 'has no report' run_cli fm-teardown.sh gov-push-hole-checks --records-only-shared-with gov-owl-signal
-  assert_grep 'task=gov-push-hole-checks' "$CASE_DIR/pool/1/.fm-slot-owner" 'a refused retirement changed the claim'
-  mkdir -p "$HOME_DIR/data/gov-push-hole-checks"
-  printf 'Superseded report, no retained decisions.\n' > "$HOME_DIR/data/gov-push-hole-checks/report.md"
-  printf 'decisions_reviewed=1\ndecision_keys=\n' >> "$HOME_DIR/state/gov-push-hole-checks.meta"
-  run_cli fm-teardown.sh gov-push-hole-checks --records-only-shared-with gov-owl-signal > "$CASE_DIR/output" 2>&1 \
-    || fail "explicit scout record retirement: $(cat "$CASE_DIR/output")"
-  assert_absent "$HOME_DIR/state/gov-push-hole-checks.meta" 'superseded scout record remains'
-  cmp -s "$CASE_DIR/keeper.before" "$HOME_DIR/state/gov-owl-signal.meta" || fail 'retirement changed keeper meta'
-  assert_grep 'still-open scout work' "$POOL_DIR/scout.txt" 'retirement reset the retained scout copy'
-  assert_grep 'task=gov-owl-signal' "$CASE_DIR/pool/1/.fm-slot-owner" 'retirement did not preserve the keeper claim'
-  pass 'explicit shared scout record retirement preserves its still-open predecessor and the copy'
-}
-
-test_third_scout_claim_stays_with_current_task() {
-  make_case third-scout
-  write_meta gov-owl-signal scout
-  write_meta gov-push-hole-checks scout
-  write_meta sol-f9-walk-key scout
-  printf 'task=sol-f9-walk-key\nhome=%s\n' "$HOME_DIR" > "$CASE_DIR/pool/1/.fm-slot-owner"
-  printf 'live walk investigation\n' > "$POOL_DIR/live.txt"
-  cp "$HOME_DIR/state/gov-owl-signal.meta" "$CASE_DIR/owl.before"
-  cp "$HOME_DIR/state/sol-f9-walk-key.meta" "$CASE_DIR/live.before"
-  mkdir -p "$HOME_DIR/data/gov-push-hole-checks"
-  printf 'Superseded, no open decisions.\n' > "$HOME_DIR/data/gov-push-hole-checks/report.md"
-  printf 'decisions_reviewed=1\ndecision_keys=\n' >> "$HOME_DIR/state/gov-push-hole-checks.meta"
-  assert_refuses 'third claimant' run_cli fm-teardown.sh gov-push-hole-checks --records-only-shared-with gov-owl-signal
-  run_cli fm-teardown.sh gov-push-hole-checks --records-only-shared-with sol-f9-walk-key \
-    > "$CASE_DIR/output" 2>&1 || fail "third scout retirement: $(cat "$CASE_DIR/output")"
-  assert_absent "$HOME_DIR/state/gov-push-hole-checks.meta" 'superseded third-instance record remains'
-  cmp -s "$CASE_DIR/owl.before" "$HOME_DIR/state/gov-owl-signal.meta" || fail 'third-instance cleanup changed the open predecessor'
-  cmp -s "$CASE_DIR/live.before" "$HOME_DIR/state/sol-f9-walk-key.meta" || fail 'third-instance cleanup changed current task'
-  assert_grep 'task=sol-f9-walk-key' "$CASE_DIR/pool/1/.fm-slot-owner" 'third-instance cleanup stole current custody'
-  assert_grep 'live walk investigation' "$POOL_DIR/live.txt" 'third-instance cleanup changed current work'
-  pass 'a third scout claim refuses stale custody and preserves both retained tasks during superseded-record retirement'
-}
 
 test_teardown_rechecks_branch_after_process_barrier
 test_forced_descendant_refuses_wrong_branch
-test_superseded_scout_record_only_retirement
-test_third_scout_claim_stays_with_current_task
 test_spawn_refuses_retained_record
 test_spawn_protects_retained_copy_before_acquiring_another
 test_direct_spawn_relaunch_refuses_shared_copy

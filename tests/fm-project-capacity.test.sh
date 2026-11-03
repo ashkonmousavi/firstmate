@@ -14,6 +14,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/treehouse-fake-lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/treehouse-fake-lib.sh"
 
 unset TASKS_AXI_BACKEND || :
 
@@ -1075,6 +1077,32 @@ test_failed_backlog_commit_frees_the_seat_when_the_window_is_gone() {
   pass "an inventory read that omits the window removes the record and admits the next id"
 }
 
+test_failed_pooled_backlog_commit_retains_ownership() {
+  local case_dir home pool worktree out rc=0
+  [ "$HAVE_TASKS_AXI" = 1 ] || {
+    printf 'ok - skipped (tasks-axi is not installed)\n'
+    return 0
+  }
+  case_dir=$(make_case pooled-absent-seat seat-gone)
+  home="$case_dir/home"
+  pool="$case_dir/pool"
+  worktree="$pool/1/project"
+  mkdir -p "$pool/1"
+  git -C "$case_dir/project" worktree add --quiet --detach "$worktree"
+  printf '{"worktrees":[{"name":"1","path":"%s"}]}\n' "$worktree" > "$pool/treehouse-state.json"
+  fm_test_treehouse_pool "$case_dir/fakebin" "$pool"
+  break_start_then_prove_absent "$case_dir"
+  out=$(spawn_ship "$case_dir" seat-gone "$worktree") || rc=$?
+  [ "$rc" -ne 0 ] || fail 'failed pooled backlog commit reported success'
+  assert_contains "$out" 'failed-dispatch cleanup is incomplete' 'pooled backlog failure claimed cleanup'
+  assert_grep "worktree=$worktree" "$home/state/seat-gone.meta" 'pooled backlog failure orphaned its copy'
+  assert_grep 'task=seat-gone' "$pool/1/.fm-slot-owner" 'pooled backlog failure removed its claim'
+  jq -e '.worktrees | length == 1 and .[0].leased and .[0].lease_holder == "seat-gone"' \
+    "$pool/treehouse-state.json" >/dev/null || fail 'pooled backlog failure returned its recorded lease'
+  assert_equals queued "$(row_state "$home" seat-gone)" 'failed backlog commit changed the queued task'
+  pass 'a failed backlog commit with a gone endpoint preserves pooled-copy ownership'
+}
+
 # A Herdr kill that returns 0 because the presentation lock cannot be taken
 # does not close the pane. The pane is still present, so the record stays and
 # holds the only place.
@@ -1187,6 +1215,7 @@ test_copyless_same_id_retry_removes_record_before_replacement
 test_stale_record_removal_failure_prevents_replacement
 test_failed_backlog_commit_keeps_the_seat_while_the_window_is_listed
 test_failed_backlog_commit_frees_the_seat_when_the_window_is_gone
+test_failed_pooled_backlog_commit_retains_ownership
 test_herdr_lock_refused_kill_keeps_the_seat
 test_undeclared_capacity_keeps_dispatch_uncapped
 test_available_capacity_admits_the_worker

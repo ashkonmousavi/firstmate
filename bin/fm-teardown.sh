@@ -264,18 +264,6 @@
 # leased home and state in place instead of hiding a still-held lease.
 # Usage: fm-teardown.sh <task-id> [--force] [--keep-open] [--legacy-record]
 #        fm-teardown.sh <task-id> --step-action <owner>:<pending-teardown-key>
-#        fm-teardown.sh <scout-id> --records-only-shared-with <retained-task-id>
-#   --records-only-shared-with retires a completed/superseded scout record that
-#   names a copy another retained ship/scout in THIS home also names. It requires
-#   a real Treehouse slot, the retained task's branch agreement when recorded,
-#   and an absent claim or a claim naming one of those two tasks. Under the
-#   project lock, normal report/decision/backlog/endpoint gates still apply.
-#   Before retiring this record, it durably protects the copy and publishes
-#   its claim for the retained task. No process under the copy is reaped, and
-#   no file, branch, hook or Git state inside it is changed. Only this scout
-#   endpoint and records are cleaned. It refuses --force and --step-action.
-#   A missing report still requires an honest supersession report and the usual
-#   completion gate; this flag never manufactures completion or acceptance.
 #   --step-action binds runtime-only cleanup to the leased slice receipt.
 #   It retains native task state and dependencies, requires strict landed and
 #   merged proof, and records `cleanup-ready <id> <key>` in autolaunch.log after
@@ -628,17 +616,12 @@ TEARDOWN_RELEASED_HEAD=
 TEARDOWN_RELEASED_BRANCH=
 TEARDOWN_DEPENDENTS=
 LEGACY_RECORD_GIVEN=0
-RECORDS_ONLY_SHARED_WITH=
 shift
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) FORCE=--force ;;
     --keep-open) KEEP_OPEN=1 ;;
     --legacy-record) LEGACY_RECORD_GIVEN=1 ;;
-    --records-only-shared-with)
-      fm_task_id_path_safe "${2:-}" || { echo 'error: --records-only-shared-with requires a retained task id' >&2; exit 2; }
-      RECORDS_ONLY_SHARED_WITH=$2
-      shift ;;
     --step-action)
       [ -n "${2:-}" ] || { echo 'error: --step-action requires a receipt' >&2; exit 2; }
       STEP_ACTION=$2
@@ -650,10 +633,6 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
-if [ -n "$RECORDS_ONLY_SHARED_WITH" ] && { [ -n "$FORCE" ] || [ -n "$STEP_ACTION" ]; }; then
-  echo 'error: shared-record retirement refuses --force and --step-action' >&2
-  exit 2
-fi
 if [ -n "$STEP_ACTION" ] && { [ -n "$FORCE" ] || [ "$KEEP_OPEN" = 1 ] || [ "$LEGACY_RECORD_GIVEN" = 1 ]; }; then
   echo 'error: --step-action requires ordinary non-force runtime cleanup' >&2
   exit 2
@@ -4037,41 +4016,8 @@ remove_secondmate_registry_entry() {
   return "$rc"
 }
 
-if [ -n "$RECORDS_ONLY_SHARED_WITH" ]; then
-  SHARED_KEEPER_META="$STATE/$RECORDS_ONLY_SHARED_WITH.meta"
-  if [ "$KIND" != scout ] || [ "$ID" = "$RECORDS_ONLY_SHARED_WITH" ] ||
-    ! fm_treehouse_pool_slot "$PROJ" "$WT" ||
-    ! fm_backlog_record_present "$SHARED_KEEPER_META" 'retained task record' "$STATE"; then
-    echo 'REFUSED: shared-record retirement requires a scout and another retained task on a real Treehouse slot' >&2
-    exit 1
-  fi
-  case "$(fm_meta_get "$SHARED_KEEPER_META" kind)" in
-    ship|scout) ;;
-    *) echo 'REFUSED: the retained owner must be a ship or scout' >&2; exit 1 ;;
-  esac
-  SHARED_KEEPER_WT=$(fm_meta_get "$SHARED_KEEPER_META" worktree)
-  if [ "$(canonical_existing_dir "$WT")" != "$(canonical_existing_dir "$SHARED_KEEPER_WT")" ]; then
-    echo 'REFUSED: the retained task does not name this same copy' >&2
-    exit 1
-  fi
-  fm_worktree_require_recorded_branch "$SHARED_KEEPER_META" "$WT" || exit 1
-  fm_treehouse_slot_owner_state "$WT" "$ID"
-  case "$FM_TREEHOUSE_SLOT_OWNER:$FM_TREEHOUSE_SLOT_OWNER_ID" in
-    absent:|mine:*|"other:$RECORDS_ONLY_SHARED_WITH") ;;
-    *) echo 'REFUSED: shared copy has an unreadable claim or a third claimant' >&2; exit 1 ;;
-  esac
-  if [ -n "$FM_TREEHOUSE_SLOT_OWNER_HOME" ] &&
-    [ "$(canonical_existing_dir "$FM_TREEHOUSE_SLOT_OWNER_HOME")" != "$(canonical_existing_dir "$FM_HOME")" ]; then
-    echo 'REFUSED: shared copy claim belongs to another home' >&2
-    exit 1
-  fi
-  TEARDOWN_SLOT_REASSIGNED=1
-  TEARDOWN_SLOT_REASSIGNED_TO=$RECORDS_ONLY_SHARED_WITH
-  TEARDOWN_SLOT_REASSIGNED_HOME=$FM_HOME
-else
-  require_exclusive_task_worktree_slot || exit 1
-  require_owned_task_worktree_slot || exit 1
-fi
+require_exclusive_task_worktree_slot || exit 1
+require_owned_task_worktree_slot || exit 1
 if [ "$KIND" != secondmate ] && teardown_owns_worktree; then
   fm_worktree_require_recorded_branch "$META" "$WT" || exit 1
 fi
@@ -4312,12 +4258,6 @@ fi
 # kind=secondmate: a secondmate home's own runtime lifecycle is owned by the
 # dedicated process-event and firstmate-home removal machinery further below,
 # not by task-worktree cleanup.
-if [ -n "$RECORDS_ONLY_SHARED_WITH" ]; then
-  # Both records remain until every ordinary refusal has passed. Preserve the
-  # surviving record's custody outside the checkout before retiring this one.
-  fm_treehouse_hold_recorded_copy "$PROJ" "$WT" "$RECORDS_ONLY_SHARED_WITH" || exit 1
-  fm_treehouse_slot_owner_claim "$WT" "$RECORDS_ONLY_SHARED_WITH" "$FM_HOME" || exit 1
-fi
 if [ "$KIND" != secondmate ] && teardown_owns_worktree; then
   conclude_task_no_mistakes_run "$WT"
   reap_task_worktree_processes worktree "$WT" "$TASK_TMP"
