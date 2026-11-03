@@ -47,7 +47,16 @@ fm_capacity_sample() { # <state> <reader-json> <reader-status>
 }
 
 fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
-  local home=$1 config=$2 state=$3 self=${4:-} config_dir raw ceiling reserve extra
+  local rc=0 measurements='available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=unknown pressure_limit=unknown'
+  _fm_capacity_read "$@" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    FM_CAPACITY_ERROR="$FM_CAPACITY_ERROR; $measurements"
+  fi
+  return "$rc"
+}
+
+_fm_capacity_read() {
+  local home=$1 config=$2 state=$3 self=${4:-} config_dir raw ceiling reserve extra root_home dir meta kind pressure_limit
   local available memory_source
   FM_CAPACITY_ERROR='' FM_CAPACITY_REASON=unreadable
   FM_CAPACITY_LANES=0 FM_CAPACITY_SECONDMATES=0 FM_CAPACITY_FREE=0
@@ -70,6 +79,9 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   if [[ "$raw" == *$'\n'* ]] || ! [[ "$ceiling" =~ ^[0-9]{1,6}$ && "$reserve" =~ ^[0-9]{1,6}$ ]] || [ -n "$extra" ]; then
     FM_CAPACITY_ERROR="$FM_CAPACITY_FILE reading '$raw': expected <lane-ceiling> <memory-reserve-gb>"; return 75
   fi
+  FM_CAPACITY_TARGET=$((10#$ceiling))
+  FM_CAPACITY_RESERVE_KB=$((10#$reserve * 1048576))
+  measurements="available_kb=unknown pressure_full_avg60=unknown floor_kb=unknown reserve_kb=$FM_CAPACITY_RESERVE_KB pressure_limit=unknown"
   resources=$(python3 "${BASH_SOURCE[0]%/*}/fm-machine-resources.py" --policy "$config_dir/machine-admission.json") || resource_status=$?
   fm_capacity_sample "$state" "$resources" "$resource_status"
   if [ "$resource_status" -ne 0 ] && [ "$resource_status" -ne 75 ]; then
@@ -83,34 +95,52 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   FM_CAPACITY_EFFECTIVE_KB=$(jq -r '.effective_available_bytes / 1024 | floor' <<< "$resources")
   FM_CAPACITY_PRESSURE=$(jq -r '.memory_full_avg60' <<< "$resources")
   FM_CAPACITY_DISK_KB=$(jq -r '[.disk_available_bytes[]] | min / 1024 | floor' <<< "$resources")
-  FM_CAPACITY_TARGET=$((10#$ceiling))
-  FM_CAPACITY_RESERVE_KB=$((10#$reserve * 1048576))
   available=$FM_CAPACITY_EFFECTIVE_KB
   memory_source='fm-machine-resources.py clean-cache host/cgroup minimum'
   FM_CAPACITY_AVAILABLE_KB=$available
   FM_CAPACITY_HEADROOM_KB=$((FM_CAPACITY_AVAILABLE_KB - FM_CAPACITY_RESERVE_KB))
-  local activity="${BASH_SOURCE[0]%/*}/activity.sh" lane_facts
+  pressure_limit=$(jq -r '.policy.memory_full_avg60_max' <<< "$resources")
+  measurements="available_kb=$FM_CAPACITY_AVAILABLE_KB pressure_full_avg60=$FM_CAPACITY_PRESSURE floor_kb=$FM_CAPACITY_FLOOR_KB reserve_kb=$FM_CAPACITY_RESERVE_KB pressure_limit=$pressure_limit"
+  local activity="$HOME/.config/skills-master/.agents/skills/activity/activity.sh" lane_facts
   if [ "${FM_TEST_SEAM:-}" = 1 ]; then activity=${FM_ACTIVITY_READER:-$activity}; fi
-  # Resolve machine root exactly as the config reader did; replacements exclude
-  # only their own task record and do not reserve a second seat.
-  lane_facts=$(bash "$activity" --machine-json "${config_dir%/config}" "${self:+$state/$self.meta}") || {
+  root_home=$(fm_firstmate_root_home "$home") || {
+    FM_CAPACITY_ERROR="cannot resolve machine root for $home"; return 75;
+  }
+  lane_facts=$(FM_ROOT_OVERRIDE="${BASH_SOURCE[0]%/*}/.." FM_CONFIG_OVERRIDE="$config_dir" \
+    bash "$activity" --machine-json "$root_home" "${self:+$state/$self.meta}") || {
     FM_CAPACITY_ERROR="activity live-process lane reader unavailable: $activity"; return 75;
   }
   if ! jq -e '.readable == true and
-      ([.lanes, .secondmates, .target] | all(type == "number" and . >= 0 and . == floor))' \
+      ([.lanes, .target] | all(type == "number" and . >= 0 and . == floor))' \
       >/dev/null 2>&1 <<< "$lane_facts"; then
-    FM_CAPACITY_ERROR='activity lane or secondmate count is unreadable'; return 75
+    FM_CAPACITY_ERROR='activity lane count is unreadable'; return 75
   fi
   FM_CAPACITY_LANES=$(jq -r .lanes <<< "$lane_facts")
-  FM_CAPACITY_SECONDMATES=$(jq -r .secondmates <<< "$lane_facts")
   [ "$(jq -r .target <<< "$lane_facts")" = "$FM_CAPACITY_TARGET" ] || {
     FM_CAPACITY_ERROR='activity target changed during capacity read'; return 75;
   }
+  fm_local_firstmate_state_dirs "$state" || {
+    FM_CAPACITY_ERROR=$FM_LOCAL_FIRSTMATE_ERROR; return 75;
+  }
+  for dir in "${FM_LOCAL_FIRSTMATE_STATES[@]}"; do
+    [ -d "$dir" ] && [ -r "$dir" ] && [ -x "$dir" ] || {
+      FM_CAPACITY_ERROR="machine state $dir is unreadable"; return 75;
+    }
+    for meta in "$dir"/*.meta; do
+      [ -e "$meta" ] || [ -L "$meta" ] || continue
+      [ -f "$meta" ] && [ ! -L "$meta" ] && [ -r "$meta" ] || {
+        FM_CAPACITY_ERROR="task record $meta is unreadable or unsafe"; return 75;
+      }
+      raw=$(cat -- "$meta") || { FM_CAPACITY_ERROR="cannot read task record $meta"; return 75; }
+      kind=$(sed -n 's/^kind=//p' <<< "$raw" | head -1)
+      if [ "$kind" = secondmate ]; then FM_CAPACITY_SECONDMATES=$((FM_CAPACITY_SECONDMATES + 1)); fi
+    done
+  done
   FM_CAPACITY_FREE=$((FM_CAPACITY_TARGET - FM_CAPACITY_LANES))
   [ "$FM_CAPACITY_FREE" -ge 0 ] || FM_CAPACITY_FREE=0
   if [ "$FM_CAPACITY_HEADROOM_KB" -lt 0 ]; then
     FM_CAPACITY_REASON=memory
-    FM_CAPACITY_ERROR="$memory_source=$FM_CAPACITY_AVAILABLE_KB kB minus reserve=$FM_CAPACITY_RESERVE_KB kB ($FM_CAPACITY_FILE) gives headroom=$FM_CAPACITY_HEADROOM_KB kB"
+    FM_CAPACITY_ERROR="$memory_source=$FM_CAPACITY_AVAILABLE_KB kB minus reserve=$FM_CAPACITY_RESERVE_KB kB ($FM_CAPACITY_FILE) gives headroom=$FM_CAPACITY_HEADROOM_KB kB; $(jq -r '.refusal_reasons | join("; ")' <<< "$resources")"
     return 75
   fi
   if [ "$resource_status" -ne 0 ]; then

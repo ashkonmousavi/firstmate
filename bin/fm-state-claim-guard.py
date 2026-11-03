@@ -67,13 +67,18 @@ def rx(pattern):
 POLICY = {"claims": (
     ("capacity", rx(
         r"\b(?:lanes?|seats?|slots?|capacity)\b[\s:=]+"
-        r"(?:(?:is|are|has|have|now|currently|still|at|of|shows?|reports?)\s+)*"
+        r"(?:(?:is|are|has|have|now|currently|still|at|of|shows?|reports?|not|never|no|isn't|aren't|isn’t|aren’t)\s+)*"
         r"(?:\d+|full|free|live|occupied|available|working|running|admission|room)\b|"
         r"\b(?:lanes?|seats?|slots?)\s+[\w.-]+(?:\s*(?:,\s*(?:and|&)?|and|&)\s*[\w.-]+)*"
-        r"\s+(?:is|are)\s+(?:full|free|live|occupied|available|working|running)\b|"
+        r"\s+(?:is|are)\s+(?:(?:not|never)\s+)?(?:full|free|live|occupied|available|working|running)\b|"
         r"\b(?:\d+|N|full|free|live|occupied|available|working|running)\s+(?:lanes?|seats?|slots?)\b|"
         r"\b(?:laptop|server|pc|main|zenbook|q-crew|zb-crew)\b[\s:=]+"
-        r"(?:(?:is|are|has|have|now|currently|still)\s+)*(?:full|free|no\s+room)\b|"
+        r"(?:(?:is|are|has|have|now|currently|still|not|never|isn't|aren't|isn’t|aren’t)\s+)*(?:full|free|no\s+room|"
+        r"(?:\d+|N)(?:\s+(?:of|out\s+of)\s+(?:\d+|M)|\s*/\s*(?:\d+|M))?"
+        r"\s+(?:working|available|occupied|live|running|free))\b|"
+        r"\b(?:\d+|N)(?:\s+(?:of|out\s+of)\s+(?:\d+|M)|\s*/\s*(?:\d+|M))?"
+        r"\s+(?:working|available|occupied|live|running|free)\s+(?:(?:on|in|for|at)\s+)?"
+        r"(?:laptop|server|pc|main|zenbook|q-crew|zb-crew)\b|"
         r"\b(?:\d+|N)\s+(?:live\s+of\s+(?:\d+|M)|free)\b|"
         r"\badmission\s+(?:no|yes)\b|\bno\s+room\b"), None,
      rx(r"^activity\.sh(?:\s|$)")),
@@ -236,6 +241,8 @@ def read_commands(command, deadline, cwd=None):
     tokens = shlex.shlex(command.strip(), posix=True, punctuation_chars=";&|()\n")
     tokens.whitespace = " \t\r"
     tokens.whitespace_split = True
+    tokens = list(tokens)
+    capacity_safe = not any(token and all(c in ";&|()\n" for c in token) for token in tokens)
     segments, segment = [], []
     for token in [*tokens, ";"]:
         if time.monotonic() > deadline:
@@ -254,7 +261,9 @@ def read_commands(command, deadline, cwd=None):
         else:
             segment.append(token)
     for segment in segments:
-        yield from read_segment(segment, cwd)
+        for item in read_segment(segment, cwd):
+            if item[0] != "capacity" or capacity_safe:
+                yield item
 
 
 def read_segment(segment, cwd=None):

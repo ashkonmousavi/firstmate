@@ -29,7 +29,8 @@ options={'meminfo':mem,'pressure_file':psi,'cgroup_file':membership,'cgroup_root
 rules=m.policy(policy);facts=m.measure(rules,**options)
 assert facts['effective_available_bytes']==4*g and facts['admitted'],facts
 print('ok - cache-heavy headroom uses current minus inactive_file and finite parent limit (synthetic)')
-env={**os.environ,'FM_HOME':str(home),'FM_ROOT_OVERRIDE':str(r),'FM_TEST_SEAM':'1','FM_CAPACITY_MEMINFO':str(mem),'FM_CAPACITY_PRESSURE_FILE':str(psi),'FM_CAPACITY_CGROUP_FILE':str(membership),'FM_CAPACITY_CGROUP_ROOT':str(cg),'FM_RESOURCE_CGROUP_FILE':str(membership),'FM_RESOURCE_CGROUP_ROOT':str(cg)}
+reader=t/'activity.sh';reader.write_text('#!/usr/bin/env bash\nprintf \'%s\\n\' \'{"readable":true,"lanes":0,"target":5,"free_lanes":5}\'\n')
+env={**os.environ,'FM_HOME':str(home),'FM_ROOT_OVERRIDE':str(r),'FM_TEST_SEAM':'1','FM_ACTIVITY_READER':str(reader),'FM_CAPACITY_MEMINFO':str(mem),'FM_CAPACITY_PRESSURE_FILE':str(psi),'FM_CAPACITY_CGROUP_FILE':str(membership),'FM_CAPACITY_CGROUP_ROOT':str(cg),'FM_RESOURCE_CGROUP_FILE':str(membership),'FM_RESOURCE_CGROUP_ROOT':str(cg)}
 def capacity():
     p=subprocess.run(['bash',str(r/'bin/fm-capacity.sh'),'--json'],env=env,capture_output=True,text=True)
     assert p.returncode==0,(p.stdout,p.stderr)
