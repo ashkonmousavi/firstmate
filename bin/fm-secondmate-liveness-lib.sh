@@ -353,7 +353,7 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
 # killed or spawned and no attempt is recorded: the verdict becomes
 # FM_SM_LIVE_STATUS=skipped with FM_SM_LIVE_REASON set and this returns 1.
 # An owner park (bin/fm-secondmate-park-lib.sh) is refused before the ledger
-# read, the per-home lock, any kill, and any spawn. That verdict is
+# read, any kill, and any spawn. That verdict is
 # FM_SM_LIVE_STATUS=owner-parked with FM_SM_LIVE_REASON set, records no
 # attempt, and is not a skipped failure. When neither FM_CONFIG_OVERRIDE nor
 # FM_HOME is set, the same verdict refuses rather than relaunching with no
@@ -373,18 +373,26 @@ fm_secondmate_liveness_relaunch() {  # <meta> <id> [timeout-secs]
     FM_SM_LIVE_RC=1
     return 1
   fi
-  if ! fm_secondmate_liveness_recent_attempts "$id" 0 >/dev/null; then
-    FM_SM_LIVE_STATUS=skipped
-    FM_SM_LIVE_REASON="relaunch ledger $STATE/.secondmate-relaunch-$id is unreadable; endpoint left $FM_SM_LIVE_STATE"
-    FM_SM_LIVE_RC=1
-    return 1
-  fi
   fm_sm_live_require_locks || return 1
   relaunch_lock="$STATE/.secondmate-relaunch.lock"
   wait_seconds=${timeout:-600}
   if ! fm_lock_acquire_wait_bounded "$relaunch_lock" "$wait_seconds"; then
     FM_SM_LIVE_STATUS=skipped
     FM_SM_LIVE_REASON="another secondmate relaunch still owns the per-home relaunch lock after ${wait_seconds}s; endpoint left $FM_SM_LIVE_STATE"
+    FM_SM_LIVE_RC=1
+    return 1
+  fi
+  if fm_secondmate_owner_parked "$park_config" "$id"; then
+    fm_lock_release "$relaunch_lock" || true
+    FM_SM_LIVE_STATUS='owner-parked'
+    FM_SM_LIVE_REASON=$FM_SECONDMATE_OWNER_PARK_REASON
+    FM_SM_LIVE_RC=1
+    return 1
+  fi
+  if ! fm_secondmate_liveness_recent_attempts "$id" 0 >/dev/null; then
+    fm_lock_release "$relaunch_lock" || true
+    FM_SM_LIVE_STATUS=skipped
+    FM_SM_LIVE_REASON="relaunch ledger $STATE/.secondmate-relaunch-$id is unreadable; endpoint left $FM_SM_LIVE_STATE"
     FM_SM_LIVE_RC=1
     return 1
   fi

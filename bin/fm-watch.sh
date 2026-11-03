@@ -1258,7 +1258,9 @@ secondmate_liveness_tick() {
     reason='' notify_key='' err=''
     case "$FM_SM_LIVE_STATUS" in
       relaunchable)
-        if [ -e "$bound_marker" ] || [ -L "$bound_marker" ]; then
+        if fm_secondmate_owner_parked "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$id"; then
+          triage_log "secondmate $id liveness: $FM_SECONDMATE_OWNER_PARK_REASON"
+        elif [ -e "$bound_marker" ] || [ -L "$bound_marker" ]; then
           :
         elif ! attempts=$(fm_secondmate_liveness_recent_attempts "$id" "$SECONDMATE_LIVENESS_WINDOW_SECS"); then
           err="relaunch ledger is unreadable; endpoint left $FM_SM_LIVE_STATE"

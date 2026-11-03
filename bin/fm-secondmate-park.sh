@@ -89,6 +89,28 @@ case "$verb" in
       echo "error: --date must be a real UTC calendar day YYYY-MM-DD, got '$requested'" >&2
       exit 2
     fi
+    STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+    # shellcheck source=bin/fm-wake-lib.sh
+    . "$SCRIPT_DIR/fm-wake-lib.sh"
+    # shellcheck source=bin/fm-secondmate-nudge-lib.sh
+    . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
+    park_locks=()
+    cleanup() {
+      local i
+      for ((i=${#park_locks[@]}-1; i>=0; i--)); do
+        fm_lock_release "${park_locks[i]}" || true
+      done
+    }
+    trap cleanup EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    remote_lock=$(fm_remote_inherit_transaction_lock_path "$STATE" "$id") || exit 1
+    for lock in "$STATE/.secondmate-relaunch.lock" "$STATE/.control-$id.lock" \
+      "$STATE/.spawn-$id.lock" "$remote_lock"; do
+      fm_lock_acquire_wait "$lock" || { echo "error: could not lock $lock" >&2; exit 1; }
+      park_locks+=("$lock")
+    done
     if [ -L "$park_dir" ]; then
       echo "error: $park_dir is a symlink; park refuses to follow it" >&2
       exit 2

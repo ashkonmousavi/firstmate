@@ -3799,7 +3799,7 @@ SH
 }
 
 test_secondmate_liveness_tick_owner_park_stays_stopped_until_unpark() {
-  local dir state pid i saw
+  local dir state pid i saw mode now
   dir=$(make_secondmate_liveness_case liveness-owner-park)
   state="$dir/state"
   printf -- '- sm1 - Fixture mate (home: %s; scope: fixture; projects: none; added 2026-11-03)\n' \
@@ -3807,31 +3807,45 @@ test_secondmate_liveness_tick_owner_park_stays_stopped_until_unpark() {
   env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
     FM_HOME="$dir" "$ROOT/bin/fm-secondmate-park.sh" park sm1 --date 2026-11-03 >/dev/null
 
-  run_liveness_leg "$dir" parked FM_FAKE_TMUX_CURRENT_COMMAND=zsh; pid=$LIVENESS_PID
-  i=0
-  saw=0
-  while [ "$i" -lt 80 ]; do
-    if [ -f "$state/.watch-triage.log" ] \
-      && grep -F 'owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark sm1' \
-        "$state/.watch-triage.log" >/dev/null; then
-      saw=1
-      break
+  for mode in absent exhausted unreadable; do
+    rm -rf "$state/.secondmate-relaunch-sm1"
+    rm -f "$state/.secondmate-liveness-tick" "$state/.watch-triage.log"
+    case "$mode" in
+      exhausted)
+        now=$(date +%s)
+        printf '%s\tattempt\n%s\tattempt\n%s\tattempt\n' "$now" "$now" "$now" > "$state/.secondmate-relaunch-sm1"
+        ;;
+      unreadable) mkdir "$state/.secondmate-relaunch-sm1" ;;
+    esac
+    run_liveness_leg "$dir" parked FM_FAKE_TMUX_CURRENT_COMMAND=zsh; pid=$LIVENESS_PID
+    i=0
+    saw=0
+    while [ "$i" -lt 80 ]; do
+      if [ -f "$state/.watch-triage.log" ] \
+        && grep -F 'owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark sm1' \
+          "$state/.watch-triage.log" >/dev/null; then
+        saw=1
+        break
+      fi
+      is_live_non_zombie "$pid" || break
+      sleep 0.1
+      i=$((i + 1))
+    done
+    [ "$saw" -eq 1 ] || fail "the watcher did not record the owner-park refusal: $(cat "$state/.watch-triage.log" "$dir/watch-parked.out" "$dir/watch-parked.err" 2>/dev/null)"
+    is_live_non_zombie "$pid" \
+      || fail "an owner-parked mate made the watcher exit: $(cat "$dir/watch-parked.out" "$dir/watch-parked.err")"
+    kill_liveness_leg "$pid"
+    assert_not_contains "$(cat "$dir/tmux.log" 2>/dev/null || true)" "new-window" \
+      "a parked dead mate must not be relaunched"
+    if [ "$mode" = absent ] && [ -e "$state/.secondmate-relaunch-sm1" ]; then
+      assert_no_grep 'attempt' "$state/.secondmate-relaunch-sm1" \
+        "a parked tick must not ledger an attempt"
     fi
-    is_live_non_zombie "$pid" || break
-    sleep 0.1
-    i=$((i + 1))
+    [ ! -s "$state/.wake-queue" ] || fail "an owner park must not wake ($mode): $(cat "$state/.wake-queue")"
+    assert_absent "$state/.secondmate-relaunch-bound-sm1" "an owner park must bypass the crash-loop bound ($mode)"
+    assert_no_grep 'liveness error:' "$state/.watch-triage.log" "an owner park must not cause a tick failure ($mode)"
   done
-  [ "$saw" -eq 1 ] || fail "the watcher did not record the owner-park refusal: $(cat "$state/.watch-triage.log" "$dir/watch-parked.out" "$dir/watch-parked.err" 2>/dev/null)"
-  is_live_non_zombie "$pid" \
-    || fail "an owner-parked mate made the watcher exit: $(cat "$dir/watch-parked.out" "$dir/watch-parked.err")"
-  kill_liveness_leg "$pid"
-  assert_not_contains "$(cat "$dir/tmux.log" 2>/dev/null || true)" "new-window" \
-    "a parked dead mate must not be relaunched"
-  if [ -e "$state/.secondmate-relaunch-sm1" ]; then
-    assert_no_grep 'attempt' "$state/.secondmate-relaunch-sm1" \
-      "a parked tick must not ledger an attempt"
-  fi
-  [ ! -s "$state/.wake-queue" ] || fail "an owner park must not wake: $(cat "$state/.wake-queue")"
+  rm -rf "$state/.secondmate-relaunch-sm1"
 
   env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
     FM_HOME="$dir" "$ROOT/bin/fm-secondmate-park.sh" unpark sm1 >/dev/null

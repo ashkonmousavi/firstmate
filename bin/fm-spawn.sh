@@ -1514,6 +1514,13 @@ spawn_remote_secondmate() {
     echo "error: remote secondmate $id inheritance transaction could not be locked" >&2
     return 1
   fi
+  if fm_secondmate_owner_parked "$CONFIG" "$id"; then
+    fm_lock_release "$remote_lock" || true
+    fm_lock_release "$registry_lock" || true
+    fm_lock_release "$SPAWN_TASK_LOCK" || true
+    echo "error: secondmate $id is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
+    return 1
+  fi
   remote_generation=$(fm_remote_inherit_generation_next "$STATE" "$id" 2>/dev/null || true)
   if [ -z "$remote_generation" ]; then
     fm_lock_release "$remote_lock" || true
@@ -2714,6 +2721,10 @@ if ! fm_lock_try_acquire "$SPAWN_TASK_LOCK"; then
   exit 1
 fi
 SPAWN_TASK_LOCK_HELD=1
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = secondmate ] && fm_secondmate_owner_parked "$CONFIG" "$ID"; then
+  echo "error: secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)" >&2
+  exit 1
+fi
 PROJ=
 ARG3=
 QUOTA_HARNESS_EXPLICIT=0

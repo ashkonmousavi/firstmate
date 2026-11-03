@@ -82,6 +82,9 @@ trap 'exit 143' TERM
 REMOTE_LOCK=$(fm_remote_inherit_transaction_lock_path "$STATE" "$ID") \
   || die "remote inheritance transaction lock path is invalid for $ID"
 fm_lock_acquire_wait "$REMOTE_LOCK"
+if fm_secondmate_owner_parked "$park_config" "$ID"; then
+  die "secondmate $ID is owner-parked ($FM_SECONDMATE_OWNER_PARK_REASON)"
+fi
 
 RELAUNCH_OUT=$("$SCRIPT_DIR/fm-on.sh" "$ID" fm-remote-secondmate-control.sh \
   relaunch "$ID" "$HARNESS" "$MODEL" "$EFFORT" "${QUOTA_ARGS[@]}" </dev/null) || {

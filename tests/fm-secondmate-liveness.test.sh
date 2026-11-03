@@ -1193,7 +1193,7 @@ park_in() {
 }
 
 test_owner_park_command_contract() {
-  local w out rc file dir rel
+  local w out rc file dir rel file_mode dir_mode
   w=$(new_world owner-park-contract)
   mkdir -p "$w/home/data"
 
@@ -1224,8 +1224,10 @@ test_owner_park_command_contract() {
   dir="$w/home/config/secondmate-parked"
   [ "$(cat "$file")" = "owner 2026-11-03" ] || fail "the record must be one owner date line, got: $(cat "$file")"
   if [ "$(id -u)" != 0 ]; then
-    [ "$(stat -c %a "$file")" = 600 ] || fail "the park record mode must be 0600, got $(stat -c %a "$file")"
-    [ "$(stat -c %a "$dir")" = 700 ] || fail "the park directory mode must be 0700, got $(stat -c %a "$dir")"
+    file_mode=$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file")
+    dir_mode=$(stat -c %a "$dir" 2>/dev/null || stat -f %Lp "$dir")
+    [ "$file_mode" = 600 ] || fail "the park record mode must be 0600, got $file_mode"
+    [ "$dir_mode" = 700 ] || fail "the park directory mode must be 0700, got $dir_mode"
   fi
 
   rc=0
@@ -1316,6 +1318,112 @@ test_owner_park_command_contract() {
   assert_contains "$rel" "neither FM_CONFIG_OVERRIDE nor FM_HOME is set" \
     "the refusal must name the missing home"$'\n'"$rel"
   pass "owner park: the record contract, unsafe records, and a missing home all refuse relaunch"
+}
+
+test_owner_park_waits_for_launch_transactions() {
+  local w name lock holder parker i rc
+  for name in .secondmate-relaunch.lock .control-eel-web.lock .spawn-eel-web.lock .remote-inherit-eel-web.lock; do
+    w=$(new_world "owner-park-lock-$name")
+    register_fixture_mate "$w/home/data/secondmates.md" eel-web "$w/eel-web"
+    lock="$w/home/state/$name"
+    STATE="$w/home/state" bash -c '
+      . "$1/bin/fm-wake-lib.sh"
+      fm_lock_acquire_wait "$2" || exit 1
+      trap '\''fm_lock_release "$2"'\'' EXIT
+      touch "$3/ready"
+      while [ ! -f "$3/release" ]; do sleep 0.05; done
+    ' _ "$ROOT" "$lock" "$w" &
+    holder=$!
+    i=0
+    while [ ! -f "$w/ready" ] && [ "$i" -lt 100 ]; do sleep 0.05; i=$((i + 1)); done
+    [ -f "$w/ready" ] || fail "launch transaction never acquired $name"
+    ( park_in "$w/home" park eel-web > "$w/park.out" 2>&1; printf '%s\n' "$?" > "$w/park.rc" ) &
+    parker=$!
+    sleep 0.3
+    [ ! -e "$w/park.rc" ] || fail "park completed during $name: $(cat "$w/park.out")"
+    assert_absent "$w/home/config/secondmate-parked/eel-web" "park must wait for $name before publishing"
+    touch "$w/release"
+    wait "$holder" || fail "launch transaction failed for $name"
+    wait "$parker" || fail "park worker failed for $name"
+    rc=$(cat "$w/park.rc")
+    expect_code 0 "$rc" "park must succeed after $name releases: $(cat "$w/park.out")"
+    park_in "$w/home" status eel-web >/dev/null || fail "park record missing after $name released"
+    for lock in .secondmate-relaunch.lock .control-eel-web.lock .spawn-eel-web.lock .remote-inherit-eel-web.lock; do
+      assert_absent "$w/home/state/$lock" "park left $lock held"
+    done
+  done
+  pass "owner park: publication waits for liveness, control, spawn, and remote launch transactions"
+}
+
+test_owner_park_queued_launches_recheck_after_wait() {
+  local w mode lock launcher i rc script
+  for mode in respawn resume remote; do
+    w=$(new_world "owner-park-queued-$mode")
+    add_sm_home "$w" eel-web firstmate:fm-eel-web
+    register_fixture_mate "$w/home/data/secondmates.md" eel-web "$w/eel-web"
+    mkdir -p "$w/root/bin"
+    for script in "$ROOT/bin/"*.sh; do
+      ln -s "$script" "$w/root/bin/${script##*/}"
+    done
+    rm "$w/root/bin/fm-wake-lib.sh"
+    cp "$ROOT/bin/fm-wake-lib.sh" "$w/root/bin/fm-wake-lib.sh"
+    cat >> "$w/root/bin/fm-wake-lib.sh" <<'SH'
+eval "$(declare -f fm_lock_acquire_wait | sed '1s/fm_lock_acquire_wait/fm_test_acquire_wait/')"
+fm_lock_acquire_wait() {
+  if [ "$1" = "$FM_TEST_WAIT_LOCK" ]; then
+    touch "$FM_TEST_WAIT_DIR/ready"
+    while [ ! -f "$FM_TEST_WAIT_DIR/release" ]; do sleep 0.05; done
+  fi
+  fm_test_acquire_wait "$@"
+}
+fm_lock_acquire_wait_bounded() { fm_lock_acquire_wait "$1"; }
+SH
+    lock="$w/home/state/.secondmate-relaunch.lock"
+    if [ "$mode" = remote ]; then
+      lock="$w/home/state/.remote-inherit-eel-web.lock"
+      printf 'remote_host=lab-host\n' >> "$w/home/state/eel-web.meta"
+      rm "$w/root/bin/fm-on.sh"
+      printf '#!/usr/bin/env bash\nprintf "host-hop\\n" >> "$FM_TEST_WAIT_DIR/launched"\nexit 99\n' > "$w/root/bin/fm-on.sh"
+      chmod +x "$w/root/bin/fm-on.sh"
+    else
+      rm "$w/root/bin/fm-spawn.sh"
+      printf '#!/usr/bin/env bash\nprintf "spawn\\n" >> "$FM_TEST_WAIT_DIR/launched"\n' > "$w/root/bin/fm-spawn.sh"
+      chmod +x "$w/root/bin/fm-spawn.sh"
+    fi
+    (
+      export FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/root" FM_TEST_WAIT_DIR="$w" FM_TEST_WAIT_LOCK="$lock"
+      if [ "$mode" = remote ]; then
+        bash "$w/root/bin/fm-remote-secondmate-relaunch.sh" eel-web claude default default > "$w/launch.out" 2>&1
+        printf '%s\n' "$?" > "$w/launch.rc"
+      else
+        STATE="$w/home/state" bash -c '
+          . "$1/bin/fm-secondmate-liveness-lib.sh"
+          FM_SM_LIVE_STATUS=relaunchable FM_SM_LIVE_STATE=dead FM_SM_LIVE_KILL=0 FM_SM_LIVE_RESUME=0
+          [ "$2" != resume ] || FM_SM_LIVE_RESUME=1
+          fm_backend_source() { return 0; }
+          fm_backend_t3code_resume_failed() { printf "resume\n" >> "$FM_TEST_WAIT_DIR/launched"; }
+          rc=0
+          fm_secondmate_liveness_relaunch "$STATE/eel-web.meta" eel-web 10 || rc=$?
+          printf "%s\n" "$rc" > "$FM_TEST_WAIT_DIR/launch.rc"
+          printf "%s\n%s\n" "$FM_SM_LIVE_STATUS" "$FM_SM_LIVE_REASON"
+        ' _ "$w/root" "$mode" > "$w/launch.out" 2>&1
+      fi
+    ) &
+    launcher=$!
+    i=0
+    while [ ! -f "$w/ready" ] && [ "$i" -lt 100 ]; do sleep 0.05; i=$((i + 1)); done
+    [ -f "$w/ready" ] || fail "$mode never reached the launch wait: $(cat "$w/launch.out")"
+    park_in "$w/home" park eel-web >/dev/null || fail "could not park a mate while $mode was queued"
+    touch "$w/release"
+    wait "$launcher" || fail "$mode worker failed: $(cat "$w/launch.out")"
+    rc=$(cat "$w/launch.rc")
+    expect_code 1 "$rc" "queued $mode must refuse after park succeeds: $(cat "$w/launch.out")"
+    assert_contains "$(cat "$w/launch.out")" "owner park" "queued $mode must report the park"
+    assert_absent "$w/launched" "queued $mode must not launch after park succeeds"
+    assert_absent "$w/home/state/.secondmate-relaunch-eel-web" "queued $mode must not ledger an attempt"
+    assert_absent "$lock" "queued $mode left its launch lock held"
+  done
+  pass "owner park: queued respawn, T3 resume, and remote relaunch refuse a park published during their wait"
 }
 
 test_owner_park_session_start_leaves_eel_web_stopped() {
@@ -1466,6 +1574,8 @@ test_remote_full_probe_rex_backend_drift
 test_remote_full_probe_rex_readiness_verdicts
 test_remote_full_probe_legacy_record_defaults_herdr
 test_owner_park_command_contract
+test_owner_park_waits_for_launch_transactions
+test_owner_park_queued_launches_recheck_after_wait
 test_owner_park_session_start_leaves_eel_web_stopped
 test_owner_park_refuses_spawn_and_remote_relaunch
 
