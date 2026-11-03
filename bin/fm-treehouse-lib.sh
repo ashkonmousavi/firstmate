@@ -94,7 +94,8 @@ fm_treehouse_hold_recorded_copy() { # <project> <worktree> <task-id>
   fm_treehouse_pool_slot "$project" "$worktree" || return 0
   slot=$(CDPATH='' cd -- "$worktree" && pwd -P) || return 1
   pool=$(dirname "$(dirname "$slot")")
-  root=$(dirname "$pool")
+  # --root is the parent of .treehouse; Treehouse appends that component.
+  root=$(dirname "$(dirname "$pool")")
   status=$(cd "$project" && treehouse --root "$root" status --json) || return 1
   entry=$(printf '%s\n' "$status" | jq -ce --arg path "$slot" '
     [.[] | select(.path == $path)] |

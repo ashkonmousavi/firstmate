@@ -213,6 +213,44 @@ test_spawn_protects_retained_copy_before_acquiring_another() {
   pass 'a legacy reservation and a fresh reservation both become durable without changing the retained copy'
 }
 
+test_spawn_resolves_native_pool_root() {
+  local native_root native_pool
+  make_case native-root
+  native_root="$CASE_DIR/native"
+  native_pool="$native_root/.treehouse/project-pool"
+  mkdir -p "$native_pool/1"
+  git -C "$PROJECT_DIR" worktree move "$POOL_DIR" "$native_pool/1/project"
+  POOL_DIR="$native_pool/1/project"
+  jq --arg path "$POOL_DIR" '.worktrees[0].path = $path' \
+    "$CASE_DIR/pool/treehouse-state.json" > "$native_pool/treehouse-state.json"
+  export FM_TEST_POOL="$native_pool" FM_TEST_COPY="$POOL_DIR"
+  mv "$FAKEBIN_DIR/treehouse" "$FAKEBIN_DIR/treehouse.fixture"
+  cat > "$FAKEBIN_DIR/treehouse" <<'FAKE'
+#!/usr/bin/env bash
+set -eu
+root=${TREEHOUSE_ROOT:?}
+if [ "${1:-}" = --root ]; then root=$2; shift 2; fi
+case "${1:-}" in
+  status|lease)
+    # Treehouse v3.1.8 ResolvePoolRoot appends .treehouse to explicit roots.
+    export FM_TEST_POOL="$root/.treehouse/project-pool"
+    if [ ! -f "$FM_TEST_POOL/treehouse-state.json" ]; then
+      [ "$1" != status ] || { echo '[]'; exit 0; }
+      exit 1
+    fi
+    ;;
+esac
+exec "$(dirname "$0")/treehouse.fixture" "$@"
+FAKE
+  chmod +x "$FAKEBIN_DIR/treehouse"
+  # The recorded slot, rather than the current environment, identifies its pool.
+  TREEHOUSE_ROOT="$CASE_DIR/other-root" spawn_case > "$CASE_DIR/output" 2>&1 \
+    || fail "native pool root: $(cat "$CASE_DIR/output")"
+  assert_present "$native_pool/leased-1" 'spawn did not durably lease the native pool slot'
+  assert_grep "worktree=$POOL_DIR" "$HOME_DIR/state/new-task.meta" 'spawn did not record the native pool slot'
+  pass 'spawn resolves native status and lease roots from the recorded pool'
+}
+
 test_direct_spawn_relaunch_refuses_shared_copy() {
   make_case spawn-relaunch
   write_meta stale scout
@@ -336,6 +374,7 @@ test_autolaunch_refuses_retained_copy() {
 
 
 
+test_spawn_resolves_native_pool_root
 test_teardown_rechecks_branch_after_process_barrier
 test_forced_descendant_refuses_wrong_branch
 test_spawn_refuses_retained_record
