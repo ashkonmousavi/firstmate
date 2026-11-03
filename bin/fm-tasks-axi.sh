@@ -36,7 +36,8 @@
 #
 # HOLD RELEASE CONDITIONS. `hold` accepts one extra flag this wrapper owns,
 # `--release-on pr:<owner>/<repo>#<n>` or `--release-on marker:<absolute-path>`:
-# bin/fm-hold-release-lib.sh owns storage, evaluation, and disposition.
+# bin/fm-hold-release-lib.sh owns writer validation, storage, evaluation,
+# and disposition.
 # A hold of kind external, or with no kind, with neither --release-on nor
 # --until is refused, so each such hold always names when it clears.
 # Other hold kinds remain exempt. The flag never reaches tasks-axi itself,

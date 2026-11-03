@@ -155,12 +155,18 @@ fm_hold_release_valid() {  # <condition>
   esac
 }
 
-# Write-time guard only: existing holds and transferred episodes are not
-# revalidated. A home name alone never substitutes for an actual task.
+# Write-time guard for marker conditions only; pr conditions need no writer
+# because the PR is the writer. Existing holds and transferred episodes are
+# not revalidated; re-holding with a marker condition runs the guard again.
+# A home name alone never substitutes for an actual task.
 # writer: <task-id> reads this data directory; writer: <secondmate-id>:<task-id>
 # resolves that exact route in its secondmates.md, locally or through fm-on.
 # The first writer token must be complete (whitespace or ; , ) delimited).
-# Missing, done, unreadable, malformed and ambiguous writers all refuse.
+# Lookup uses fm-tasks-axi.sh show and accepts queued, in_flight or held states.
+# Local lookups are bounded to 10 seconds and remote lookups to 25 seconds.
+# Missing, done, unreadable, malformed and ambiguous writers all refuse before
+# any backlog mutation, with "a marker hold names its writer task" from either
+# wrapper. tests/fm-hold-release.test.sh covers both entry points and routes.
 fm_hold_release_writer_valid() {  # <data-dir> <condition> <human-reason>
   local data=$1 condition=$2 reason=$3 writer id route out state
   local writer_re='(^|[[:space:];,(])writer:[[:space:]]*([^[:space:];,)]+)'
