@@ -44,6 +44,11 @@ class Steps(unittest.TestCase):
 while [ "$#" -gt 0 ]; do
   case "$1" in --model) model=$2; shift;; --harness) harness=$2; shift;; esac; shift
 done
+printf '%s\n' "$model" >> "$FM_HOME/fake/attempts"
+if [ -f "$FM_HOME/fake/refuse-$model" ]; then
+  echo "error: fm-spawn refuses explicit harness $harness: quota exhausted" >&2
+  exit 1
+fi
 printf '%s\n' "spawn $id $model" >> "$FM_HOME/fake/effects"
 printf 'harness=%s\nmodel=%s\nspawn_gen=s2.%s.1\nkind=scout\n' "$harness" "$model" "$$" > "$FM_HOME/state/$id.meta"
 echo alive > "$FM_HOME/fake/agent-$id"
@@ -71,7 +76,12 @@ if [ ! -f "$FM_HOME/data/grok-dispatch/once/$key/sent" ]; then
   echo "walk $key" >> "$FM_HOME/fake/effects"
 fi
 ''')
-        for seam, exe in (("CAPACITY", "capacity"), ("SPAWN", "spawn"), ("STEPS_AGENT", "agent"), ("STEPS_CONTROL", "control"), ("STEPS_SEND", "send"), ("STEPS_WALK", "walk")):
+        self.tool("teardown", '''[ "$#" -eq 1 ]
+echo "teardown $1" >> "$FM_HOME/fake/effects"
+[ ! -f "$FM_HOME/fake/teardown-refuse" ] || exit 1
+rm -f "$FM_HOME/state/$1.meta"
+''')
+        for seam, exe in (("CAPACITY", "capacity"), ("SPAWN", "spawn"), ("STEPS_AGENT", "agent"), ("STEPS_CONTROL", "control"), ("STEPS_SEND", "send"), ("STEPS_WALK", "walk"), ("STEPS_TEARDOWN", "teardown")):
             self.env[f"FM_AUTOLAUNCH_{seam}_BIN"] = str(self.home / "fake" / exe)
         self.env["STEP_ROOT"] = str(ROOT)
         self.env["FM_AUTOLAUNCH_STEPS_NOW"] = "2000000000"
@@ -85,8 +95,8 @@ fi
     def tool(self, name, body):
         self.write("fake/" + name, "#!/usr/bin/env bash\nset -eu\n" + body).chmod(0o700)
 
-    def meta(self, task, model, gen):
-        self.write(f"state/{task}.meta", f"kind=ship\nharness=codex\nmodel={model}\nspawn_gen={gen}\nmode=direct-PR\nbranch=fm/owner\nproject={self.home}/projects/proj\n")
+    def meta(self, task, model, gen, harness="codex"):
+        self.write(f"state/{task}.meta", f"kind=ship\nharness={harness}\nmodel={model}\nspawn_gen={gen}\nmode=direct-PR\nbranch=fm/owner\nworktree={self.home}/projects/proj\nproject={self.home}/projects/proj\n")
 
     def append_status(self, task, value):
         with (self.home / f"state/{task}.status").open("a") as f:
@@ -100,9 +110,9 @@ fi
         p = self.home / "data/owner/slice-steps.log"
         return [json.loads(s) for s in p.read_text().splitlines()] if p.exists() else []
 
-    def seed(self, step, key, receipt="completed", **fields):
-        row = dict(at=1, generation=1, step=step, owner="owner", trigger=key, receipt=receipt, **fields)
-        p = self.home / "data/owner/slice-steps.log"
+    def seed(self, step, key, receipt="completed", owner="owner", generation=1, **fields):
+        row = dict(at=1, generation=generation, step=step, owner=owner, trigger=key, receipt=receipt, **fields)
+        p = self.home / f"data/{owner}/slice-steps.log"
         with p.open("a") as f:
             f.write(json.dumps(row) + "\n")
 
@@ -266,6 +276,51 @@ fi
         self.assertEqual(pairing["builder_model"], "gpt-5.5")
         self.assertEqual(pairing["tester_model"], "opus")
 
+    def test_tester_family_preference_respects_quota_and_spawn_refusal(self):
+        for mode in ("available", "exhausted", "refused", "shared"):
+            with self.subTest(mode=mode):
+                self.setUp()
+                self.meta("owner", "opus", "s1.1.1", harness="claude")
+                self.write("config/crew-dispatch.json", json.dumps(dict(
+                    shared_quota=mode == "shared", default=[dict(harness="claude", model="sonnet"), dict(harness="codex", model="gpt-5.5")])))
+                quota = json.loads((ROOT / "tests/fixtures/quota-axi-healthy.json").read_text())
+                if mode == "exhausted":
+                    row = next(p for p in quota["providers"] if p["provider"] == "codex")
+                    for scope in row["quotaSemantics"]["effectiveAvailability"]:
+                        scope["effectivePercentRemaining"] = 0
+                        scope["runway"]["status"] = "exhausted_now"
+                self.env["FM_QUOTA_SNAPSHOT_FILE"] = str(self.write("fake/quota.json", json.dumps(quota)))
+                if mode == "refused":
+                    self.write("fake/refuse-gpt-5.5", "yes")
+                self.prepare_effect("launch-tester")
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                expected = "sonnet" if mode in ("exhausted", "refused") else "gpt-5.5"
+                self.assertEqual(self.effects("spawn "), [f"spawn special-tester {expected}"])
+                pair = self.completed("launch-tester")[0]
+                self.assertEqual(pair["builder_family"], "claude")
+                self.assertEqual(pair["tester_family"], "claude" if expected == "sonnet" else "codex")
+                if mode == "refused":
+                    self.assertEqual((self.home / "fake/attempts").read_text().splitlines(), ["gpt-5.5", "sonnet"])
+
+    def test_fallback_tester_identity_is_persisted_and_branch_scope_is_delivered(self):
+        for empty in ("", "  TESTER TASK:\n"):
+            with self.subTest(empty=empty):
+                self.setUp()
+                body = (self.home / "data/backlog.md").read_text().replace("  TESTER TASK: special-tester\n", empty)
+                self.write("data/backlog.md", body)
+                self.prepare_effect("file-tester")
+                self.assertNotEqual(self.run_pass("after:file-tester").returncode, 0)
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertIn("TESTER TASK: main:owner-tester", (self.home / "data/backlog.md").read_text())
+                self.assertEqual(self.effects("spawn "), ["spawn owner-tester opus"])
+                delivered = (self.home / "data/owner-tester/brief.md").read_text()
+                self.assertIn(f"builder's branch fm/owner in {self.home}/projects/proj", delivered)
+                self.assertIn("Edit and commit only TESTER PATHS directly", delivered)
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(len(self.completed("file-tester")), 1)
+
     def test_qualified_existing_tester_is_continued_on_the_same_task(self):
         for live in (False, True):
             with self.subTest(live=live):
@@ -383,10 +438,15 @@ fi
         self.assertEqual(self.run_pass().returncode, 0)
         self.assertEqual(len(self.effects("walk demo@")), 1)
         self.assertTrue(any(r["step"] == "walk" and r.get("obligation") for r in self.rows()))
-        summary["walk_results"] = [dict(walk_owner="main", walk="demo", release=sha, attempt=1, assignment="demo@" + sha + ".a1", report_sha256="f" * 64, complete=True, steps=[dict(id="screen-a", result="green"), dict(id="screen-b", result="green")])]
+        summary["walk_results"] = [dict(walk_owner="main", walk="demo", release=sha, attempt=1, assignment="demo@" + sha + ".a1", path="data/walk-auto-filing/walk-result-demo.md", report_sha256="f" * 64, complete=True, steps=[dict(id="screen-a", result="green"), dict(id="screen-b", result="green")])]
         self.write("data/x-board-summary.json", json.dumps(summary))
         self.run_pass(); self.run_pass()
         self.assertEqual(self.rows()[-1]["step"], "done")
+        self.assertEqual(len(self.completed("teardown")), 1)
+        self.assertFalse((self.home / "state/owner.meta").exists())
+        accepted = next(r for r in self.rows() if r["step"] == "done" and not r.get("effect"))
+        self.assertEqual(accepted["last_walk"], "data/walk-auto-filing/walk-result-demo.md")
+        self.assertEqual(accepted["release"], sha)
 
     def test_missed_daily_checkpoint_catches_up(self):
         self.seed("deployed", "deploy:1", release="abc", deployed_at=10)
@@ -394,6 +454,104 @@ fi
         self.run_pass(); self.run_pass()
         self.assertEqual(len(self.effects("walk demo@abc")), 1)
         self.assertTrue(any(r["trigger"].startswith("checkpoint:catchup:") for r in self.rows()))
+
+    def test_remote_checkpoint_transport_is_distinct_for_each_owner(self):
+        parent = self.home / "parent"
+        self.write("parent/state/mate-x.meta", f"kind=secondmate\nhome={self.home}\n")
+        self.write(".fm-secondmate-home", "mate-x\n")
+        self.write(".fm-secondmate-parent", f"schema=fm-secondmate-parent.v1\nroute=local\nparent_home={parent}\n")
+        self.seed("deployed", "deploy:1", release="abc1234", deployed_at=10)
+        self.write("data/x-board-summary.json", json.dumps(dict(written_at=2000000000, interval_seconds=600,
+                   checkpoints=[dict(id="daily-1", at=20, kind="daily")])))
+        self.meta("other", "opus", "other.1")
+        self.write("data/other/prep.md", (self.home / "data/owner/prep.md").read_text().replace("WALK ID: demo", "WALK ID: other"))
+        backlog = (self.home / "data/backlog.md").read_text().replace("## Queued", "- [ ] other - slice (repo: proj) (kind: ship)\n  SLICE: main/other | visible result | role=owner\n## Queued")
+        self.write("data/backlog.md", backlog)
+        self.seed("deployed", "deploy:1", owner="other", release="abc1234", deployed_at=10)
+        self.write("config/autolaunch-steps", "act owner other\n")
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.run_pass().returncode, 0)
+        pending = [r for r in self.rows() if r.get("effect", {}).get("kind") == "walk-request"][-1]
+        other = [json.loads(s) for s in (self.home / "data/other/slice-steps.log").read_text().splitlines()][-1]
+        self.assertNotEqual(pending["effect"]["corr"], other["effect"]["corr"])
+        self.assertEqual(len(list((self.home / "data/walk-briefs").glob("walk-*.md"))), 2)
+        lines = (parent / "state/mate-x.status").read_text().splitlines()
+        self.assertEqual(len([line for line in lines if "walk-request:" in line]), 2)
+
+    def test_coverage_only_cut_rewalks_the_same_release_before_completion(self):
+        for live, coverage_only in ((False, True), (True, True), (False, False)):
+            with self.subTest(live=live, coverage_only=coverage_only):
+                self.setUp()
+                git = ["git", "-C", str(self.home / "projects/proj")]
+                subprocess.run(git + ["init", "-q"], check=True)
+                subprocess.run(git + ["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-qm", "base"], check=True)
+                release = subprocess.check_output(git + ["rev-parse", "HEAD"], text=True).strip()
+                self.seed("merged", "merge:" + release, merge=release)
+                self.seed("deployed", "deploy:1", release=release, deployed_at=10)
+                summary = dict(written_at=2000000000, interval_seconds=600, checkpoints=[dict(id="day1", at=20, kind="daily")])
+                self.write("data/x-board-summary.json", json.dumps(summary))
+                self.assertEqual(self.run_pass().returncode, 0)
+                prep = (self.home / "data/owner/prep.md").read_text().replace("REVISION: r1", "REVISION: r2").replace("screen-a,screen-b", "screen-a,screen-b,screen-c")
+                if coverage_only:
+                    prep += "COVERAGE ONLY: yes\n"
+                self.write("data/owner/prep.md", prep)
+                self.meta("special-tester", "opus", "tester.1")
+                self.write("fake/agent-owner", "alive" if live else "dead")
+                self.append_status("owner", "working [at=30]: cut ready data/owner/prep.md r2 walk_changed=yes risk_changed=no")
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.append_status("special-tester", "done [at=31]: tests-ready none revision=r2 walk-list=screen-a,screen-b,screen-c checks=existing")
+                summary["walk_results"] = [dict(walk_owner="main", walk="demo", release=release, attempt=1,
+                    assignment=f"demo@{release}.a1", path="data/walk-auto-filing/walk-result-old.md", report_sha256="a" * 64,
+                    complete=True, steps=[dict(id=s, result="green") for s in ("screen-a", "screen-b")])]
+                self.write("data/x-board-summary.json", json.dumps(summary))
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertFalse(any(r["step"] == "done" for r in self.rows()))
+                self.assertEqual(self.effects("walk "), [f"walk demo@{release}.a1", f"walk demo@{release}.a2"])
+                summary["walk_results"].append(dict(walk_owner="main", walk="demo", release=release, attempt=2,
+                    assignment=f"demo@{release}.a2", path="data/walk-auto-filing/walk-result-current.md", report_sha256="b" * 64,
+                    complete=True, steps=[dict(id=s, result="green") for s in ("screen-a", "screen-b", "screen-c")]))
+                self.write("data/x-board-summary.json", json.dumps(summary))
+                self.assertEqual(self.run_pass().returncode, 0)
+                if not coverage_only:
+                    self.assertFalse(any(r["step"] == "done" for r in self.rows()))
+                    subprocess.run(git + ["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-qm", "product cut"], check=True)
+                    repaired = subprocess.check_output(git + ["rev-parse", "HEAD"], text=True).strip()
+                    self.seed("merged", "merge:" + repaired, merge=repaired)
+                    self.seed("deployed", "deploy:2", release=repaired, deployed_at=10)
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    summary["walk_results"].append(dict(summary["walk_results"][-1], release=repaired, attempt=1,
+                                                         assignment=f"demo@{repaired}.a1"))
+                    self.write("data/x-board-summary.json", json.dumps(summary))
+                    self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(len(self.completed("teardown")), 1)
+                self.assertEqual(len([r for r in self.rows() if r["step"] == "merged"]), 1 if coverage_only else 2)
+                self.assertEqual(self.effects("relaunch special-tester"), ["relaunch special-tester"])
+
+    def test_walk_findings_use_logical_home_identity_and_retain_the_result_path(self):
+        for home_id in ("main", "q-server"):
+            with self.subTest(home_id=home_id):
+                self.setUp()
+                if home_id != "main":
+                    self.write(".fm-secondmate-home", home_id)
+                self.meta("other", "opus", "other.1")
+                self.seed("walk", "checkpoint:day1", obligation=True, walk="demo", release="abc", attempt=1,
+                          revision="r1", walk_list="screen-a,screen-b")
+                result = dict(walk_owner=home_id, walk="demo", release="abc", attempt=1, assignment="demo@abc.a1",
+                              path="data/walk-auto-filing/walk-result-failed.md", report_sha256="f" * 64, complete=True,
+                              steps=[dict(id="screen-a", result="failed", screenshots=["evidence.png"]), dict(id="screen-b", result="green")],
+                              findings=[dict(id="other-screen", routed_to="other")])
+                self.write("data/x-board-summary.json", json.dumps(dict(written_at=2000000000, interval_seconds=600, walk_results=[result])))
+                run = self.run_pass()
+                self.assertEqual(run.returncode, 0, run.stdout)
+                self.assertEqual(self.run_pass().returncode, 0)
+                routed = {r["routed_to"] for r in self.rows() if r["step"] == "fix"}
+                self.assertEqual(routed, {f"{home_id}:owner", f"{home_id}:other"})
+                outcome = next(r for r in self.rows() if r.get("outcome") == "usable-failed")
+                self.assertEqual(outcome["last_walk"], result["path"])
+                self.assertEqual(outcome["release"], "abc")
 
     def test_green_walk_closes_only_current_coverage_and_repaired_release(self):
         for change in ("revision", "coverage", "walk", "repair-pending", "repair-merged", "saved-outcome", "current"):
@@ -422,9 +580,9 @@ fi
                         self.seed("merged", "merge:" + repair, merge=repair)
                 elif change == "saved-outcome":
                     self.seed("walk", f"walk-outcome:demo@{release}.a1", outcome="usable-green",
-                              revision="r1", walk_list="screen-a", report_sha256="f" * 64)
+                              revision="r1", walk_list="screen-a", path="data/walk-auto-filing/walk-result-demo.md", report_sha256="f" * 64)
                 result = dict(walk_owner="main", walk="demo", release=release, attempt=1,
-                              assignment=f"demo@{release}.a1", report_sha256="f" * 64, complete=True,
+                              assignment=f"demo@{release}.a1", path="data/walk-auto-filing/walk-result-demo.md", report_sha256="f" * 64, complete=True,
                               steps=[dict(id=s, result="green") for s in ("screen-a", "screen-b")])
                 self.write("data/x-board-summary.json", json.dumps(dict(
                     written_at=2000000000, interval_seconds=600, walk_results=[result])))
@@ -443,7 +601,7 @@ fi
                 for attempt in (1, 2):
                     summary["walk_results"].append(dict(
                         walk_owner="main", walk="demo", release="abc", attempt=attempt,
-                        assignment=f"demo@abc.a{attempt}", report_sha256=str(attempt) * 64, complete=True,
+                        assignment=f"demo@abc.a{attempt}", path="data/walk-auto-filing/walk-result-demo.md", report_sha256=str(attempt) * 64, complete=True,
                         steps=[dict(id="screen-a", result="green"), dict(id="screen-b", result=verdict)]))
                     self.write("data/x-board-summary.json", json.dumps(summary))
                     result = self.run_pass()
@@ -484,6 +642,108 @@ fi
         self.assertEqual(self.effects("relaunch owner"), [])
         self.assertEqual(len([r for r in self.rows() if r["step"] == "generation" and r["generation"] == 2]), 1)
         self.assertIn("spawn_gen=s1.1.1", (self.home / "state/owner.meta").read_text())
+
+    def test_reopened_generation_enters_prep_after_fresh_admission(self):
+        self.seed("done", "walk-green:demo@abc")
+        self.append_status("owner", "working [at=30]: generation ready 2 source=new-ask branch=fm/owner-g2")
+        self.assertEqual(self.run_pass().returncode, 0)
+        self.meta("owner", "gpt-5.5", "fresh.2")
+        with (self.home / "state/owner.meta").open("a") as f:
+            f.write("branch=fm/owner-g2\n")
+        self.append_status("owner", "working [at=31]: prep ready data/owner/prep.md r1")
+        self.assertEqual(self.run_pass().returncode, 0)
+        self.assertEqual(self.effects("spawn "), [])
+        prep = (self.home / "data/owner/prep.md").read_text().replace("REVISION: r1", "REVISION: r2")
+        self.write("data/owner/prep.md", prep)
+        self.append_status("owner", "working [at=32]: prep ready data/owner/prep.md r2")
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.run_pass().returncode, 0)
+        self.assertEqual(self.effects("spawn "), ["spawn special-tester opus"])
+        self.assertEqual(self.completed("launch-tester")[0]["generation"], 2)
+
+    def test_reopened_generation_accepts_fresh_admission_before_its_first_pass(self):
+        self.seed("done", "walk-green:demo@abc", spawn_gen="s1.1.1", revision="r1")
+        self.meta("owner", "gpt-5.5", "fresh.2")
+        with (self.home / "state/owner.meta").open("a") as f:
+            f.write("branch=fm/owner-g2\n")
+        self.write("data/owner/prep.md", (self.home / "data/owner/prep.md").read_text().replace("REVISION: r1", "REVISION: r2"))
+        self.append_status("owner", "working [at=30]: generation ready 2 source=new-ask branch=fm/owner-g2")
+        self.append_status("owner", "working [at=31]: prep ready data/owner/prep.md r2")
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.run_pass().returncode, 0)
+        self.assertEqual(self.effects("spawn "), ["spawn special-tester opus"])
+        self.assertEqual(self.completed("launch-tester")[0]["generation"], 2)
+
+    def test_teardown_crashes_reconcile_and_refusals_keep_the_receipt_pending(self):
+        for boundary in ("before", "after", "refused"):
+            with self.subTest(boundary=boundary):
+                self.setUp()
+                self.seed("done", "walk-green:demo@abc", last_walk="data/walk-auto-filing/walk-result-demo.md", release="abc")
+                if boundary == "refused":
+                    self.write("fake/teardown-refuse", "yes")
+                    self.assertEqual(self.run_pass().returncode, 0)
+                    self.assertEqual(self.completed("teardown"), [])
+                    self.assertTrue((self.home / "state/owner.meta").exists())
+                    (self.home / "fake/teardown-refuse").unlink()
+                else:
+                    self.assertNotEqual(self.run_pass(f"{boundary}:teardown").returncode, 0)
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(len(self.completed("teardown")), 1)
+                self.assertFalse((self.home / "state/owner.meta").exists())
+                effects = self.effects("")
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(self.effects(""), effects)
+                if boundary != "refused":
+                    self.assertEqual(self.effects("teardown "), ["teardown owner"])
+
+    def test_teardown_reconciles_after_done_history_is_pruned(self):
+        self.seed("done", "walk-green:demo@abc", revision="r1", spawn_gen="s1.1.1")
+        self.assertNotEqual(self.run_pass("after:teardown").returncode, 0)
+        self.write("data/backlog.md", "## In flight\n## Queued\n## Done\n")
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.run_pass().returncode, 0)
+        self.assertEqual(len(self.completed("teardown")), 1)
+        self.assertEqual(self.effects("teardown "), ["teardown owner"])
+
+    def test_reopening_supersedes_pending_teardown_before_touching_the_runtime(self):
+        for fresh in (False, True):
+            with self.subTest(fresh=fresh):
+                self.setUp()
+                self.seed("done", "walk-green:demo@abc", revision="r1", spawn_gen="s1.1.1")
+                self.assertNotEqual(self.run_pass("before:teardown").returncode, 0)
+                self.append_status("owner", "working [at=30]: generation ready 2 source=new-ask branch=fm/owner-g2")
+                if fresh:
+                    self.meta("owner", "gpt-5.5", "fresh.2")
+                    with (self.home / "state/owner.meta").open("a") as f:
+                        f.write("branch=fm/owner-g2\n")
+                    self.write("data/owner/prep.md", (self.home / "data/owner/prep.md").read_text().replace("REVISION: r1", "REVISION: r2"))
+                    self.append_status("owner", "working [at=31]: prep ready data/owner/prep.md r2")
+                result = self.run_pass()
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(self.run_pass().returncode, 0)
+                self.assertEqual(self.effects("teardown "), [])
+                self.assertTrue((self.home / "state/owner.meta").exists())
+                self.assertEqual(self.completed("teardown")[0]["superseded_by"], "new-ask")
+                self.assertTrue(any(r["step"] == "generation" and r["generation"] == 2 for r in self.rows()))
+                self.assertEqual(len(self.completed("launch-tester")), int(fresh))
+
+    def test_walk_retry_uses_its_saved_brief_after_prep_changes(self):
+        self.prepare_effect("walk-request")
+        self.assertEqual(self.run_pass().returncode, 0)
+        (self.home / "data/walk-briefs/demo.md").unlink()
+        self.write("data/owner/prep.md", "REVISION: r2\nWALK ID: invalid/id\n")
+        self.write("data/x-board-summary.json", json.dumps(dict(written_at=2000000000, interval_seconds=600,
+                   walk_attempts=[dict(walk_owner="main", walk="demo", release="abc", attempt=1, outcome="gap")])))
+        result = self.run_pass()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.effects("walk "), ["walk demo@abc.a1", "walk demo@abc.a2"])
+        retry = next(r for r in self.rows() if r.get("retry_of") and r["receipt"] == "completed")
+        self.assertEqual(retry["revision"], "r1")
+        self.assertEqual(retry["walk_list"], "screen-a,screen-b")
 
     def test_recorded_pr_uses_required_checks_and_merge_facts_without_status_phrase(self):
         for required, conclusion in ((True, "FAILURE"), (False, "FAILURE"), (True, "SUCCESS")):

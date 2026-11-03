@@ -522,12 +522,46 @@ record_refused() {
   process_record "$rec"
 }
 
+without_walk() {
+  local walk result=''
+  for walk in $(printf '%s' "$1" | tr ',' ' '); do
+    [ "$walk" = "$2" ] || result="${result:+$result,}$walk"
+  done
+  printf '%s' "$result"
+}
+
 process_record() {
   local rec=$1 corr mate walks brief brief_format release bot phase spawned delivered retried attempt
   local walk log sentinel outcome rc age launched=0 pending_walk rotated
   local walk_id_re='[A-Za-z0-9][A-Za-z0-9._-]{0,63}' walks_re
   phase=$(record_get "$rec" phase)
-  case "$phase" in delivered|failed) return 0 ;; esac
+  case "$phase" in
+    delivered|failed)
+      attempt=$(record_get "$rec" attempt)
+      [[ "$attempt" =~ ^[1-9][0-9]*$ ]] || return 0
+      if [ "$phase" = failed ]; then
+        case "$(record_get "$rec" outcome)" in
+          'refused: MAIN has no walker dispatcher'*|'refused: no bot was named'*)
+            record_set "$rec" phase new || return 1 ;;
+          *) return 0 ;;
+        esac
+      else
+        corr=$(record_get "$rec" corr)
+        spawned=$(record_get "$rec" spawned)
+        delivered=$(record_get "$rec" delivered)
+        for walk in $(printf '%s' "$spawned" | tr ',' ' '); do
+          log=$(record_log_path "$corr" "$walk")
+          sentinel=$(sed -n 's/^__FM_WALK_DISPATCH_EXIT__=//p' "$log" 2>/dev/null | tail -1)
+          case "$sentinel" in ''|0|3) continue ;; esac
+          grep -q '^refused:' "$log" || continue
+          record_set "$rec" phase dispatching spawned "$(without_walk "$spawned" "$walk")" \
+            delivered "$(without_walk "$delivered" "$walk")" || return 1
+          break
+        done
+        [ "$(record_get "$rec" phase)" != delivered ] || return 0
+      fi
+      ;;
+  esac
   attempt=$(record_get "$rec" attempt)
   corr=$(record_get "$rec" corr)
   mate=$(record_get "$rec" mate)
@@ -646,6 +680,12 @@ process_record() {
       elif [ "$sentinel" = 3 ]; then
         outcome="converged, exit=3: $outcome"
       else
+        if [ -n "$attempt" ] && grep -q '^refused:' "$log"; then
+          record_set "$rec" phase dispatching spawned "$(without_walk "$spawned" "$walk")" \
+            delivered "$(without_walk "$delivered" "$walk")" || return 1
+          report_record "$rec" "request $corr: $walk@$release refused before chat; retrying the same attempt"
+          return 0
+        fi
         outcome="dispatch failed (exit=$sentinel): $outcome"
       fi
     fi

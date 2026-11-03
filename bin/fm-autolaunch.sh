@@ -120,13 +120,15 @@ usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--li
 ACTION=run
 STEP_TARGET=
 STEP_EXCLUDE=
+STEP_FAMILY=
 STEP_DRY=0
 case "${1:-}" in
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
   '') ;;
   --dry-run) ACTION=dry ;;
   --steps-only) ACTION=steps ;;
-  --step-dispatch) ACTION="step-dispatch"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
+  --step-dispatch) ACTION="step-dispatch"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-}; STEP_FAMILY=${4:-} ;;
+  --step-family) ACTION="step-family"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
   --step-agent) ACTION="step-agent"; STEP_TARGET=${2:-} ;;
   --step-nm) ACTION="step-nm"; STEP_TARGET=${2:-} ;;
   --list-prepared) ACTION=list ;;
@@ -137,7 +139,9 @@ esac
 APPLY=0
 if [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
   STEP_DRY=1
-elif [ "$ACTION" = step-dispatch ] && [ "$#" -ge 2 ] && [ "$#" -le 3 ]; then
+elif [ "$ACTION" = step-dispatch ] && [ "$#" -ge 2 ] && [ "$#" -le 4 ]; then
+  :
+elif [ "$ACTION" = step-family ] && [ "$#" -eq 3 ]; then
   :
 elif { [ "$ACTION" = step-agent ] || [ "$ACTION" = step-nm ]; } && [ "$#" -eq 2 ]; then
   :
@@ -442,7 +446,7 @@ default_candidates() {
   done < <(jq -c --arg kind "$kind" --arg backend "$backend" \
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'.[] | select(quota_gate_launch_eligible($kind; $backend; false))' <<<"$defaults")
   defaults=$eligible
-  if [ "$ACTION" = step-dispatch ] && jq -e '.shared_quota == true' "$RULES" >/dev/null 2>&1; then
+  if jq -e '.shared_quota == true' "$RULES" >/dev/null 2>&1; then
     jq -r '.[] | [.harness, (.model // ""), (.effort // "")] | @tsv' <<<"$defaults"
     return 0
   fi
@@ -514,6 +518,30 @@ spawn_argv() {
 
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/fm-autolaunch.XXXXXX") || exit 1
 
+step_family() {
+  local family
+  family=$(jq -r --arg h "$1" --arg m "$2" '
+    [.. | objects | select(.harness? == $h and (.model? // "") == $m) | .model_family? // empty] | unique |
+    if length == 1 then .[0] elif length > 1 then "unknown" else empty end' "$RULES" 2>/dev/null) || family=
+  if [ -n "$family" ]; then
+    printf '%s\n' "$family"
+  else
+    case "$1" in
+      claude|codex|grok|kimi) fm_quota_single_provider_for_harness "$1" || printf 'unknown\n' ;;
+      *) printf 'unknown\n' ;;
+    esac
+  fi
+}
+
+spawn_quota_refused() {
+  [ "$1" = 1 ] && grep -q 'refuses explicit harness' "$TMPD/spawn.out"
+}
+
+if [ "$ACTION" = step-family ]; then
+  step_family "$STEP_TARGET" "$STEP_EXCLUDE"
+  exit 0
+fi
+
 # Private engine callbacks: these reuse the scheduler's preparation, admission,
 # candidate selection and exact spawn argument path. They never acquire the
 # pass lock: the invoking step engine already holds it.
@@ -552,6 +580,20 @@ if [ "$ACTION" = step-dispatch ]; then
   [ "$CAP_FREE" -gt 0 ] || exit 75
   check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; }
   dispatch_candidates "$P_KIND" || { echo "refused:$DISPATCH_ERR" >&2; exit 1; }
+  if [ -n "$STEP_EXCLUDE" ] && [ -n "$STEP_FAMILY" ] && [ "$STEP_FAMILY" != unknown ]; then
+    : > "$TMPD/preferred.tsv"
+    : > "$TMPD/remaining.tsv"
+    while IFS= read -r line; do
+      h=${line%%$'\t'*} rest=${line#*$'\t'} m=${rest%%$'\t'*}
+      family=$(step_family "$h" "$m")
+      if [ "$family" != unknown ] && [ "$family" != "$STEP_FAMILY" ]; then
+        printf '%s\n' "$line" >> "$TMPD/preferred.tsv"
+      else
+        printf '%s\n' "$line" >> "$TMPD/remaining.tsv"
+      fi
+    done < "$TMPD/cands.tsv"
+    cat "$TMPD/preferred.tsv" "$TMPD/remaining.tsv" > "$TMPD/cands.tsv"
+  fi
   while IFS= read -r line; do
     h=${line%%$'\t'*} line=${line#*$'\t'}
     m=${line%%$'\t'*} e=${line#*$'\t'}
@@ -560,8 +602,13 @@ if [ "$ACTION" = step-dispatch ]; then
       [ -n "$m" ] && [ "$m" != default ] && [ "$m" != "$STEP_EXCLUDE" ] || continue
     fi
     spawn_argv "$STEP_TARGET" "$h" "$m" "$e"
-    "$SPAWN_BIN" "${SPAWN_ARGV[@]}" < /dev/null
-    exit $?
+    rc=0
+    "$SPAWN_BIN" "${SPAWN_ARGV[@]}" > "$TMPD/spawn.out" 2>&1 < /dev/null || rc=$?
+    if spawn_quota_refused "$rc"; then
+      continue
+    fi
+    if [ "$rc" = 0 ]; then cat "$TMPD/spawn.out"; else cat "$TMPD/spawn.out" >&2; fi
+    exit "$rc"
   done < "$TMPD/cands.tsv"
   echo 'refused: no different-model tester candidate' >&2
   exit 1
@@ -671,7 +718,7 @@ for id in $ids; do
       outcome=launched
       break
     fi
-    if [ "$rc" = 1 ] && grep -q 'refuses explicit harness' "$TMPD/spawn.out"; then
+    if spawn_quota_refused "$rc"; then
       quota_reason=$(grep -m1 'refuses explicit harness' "$TMPD/spawn.out")
       continue
     fi

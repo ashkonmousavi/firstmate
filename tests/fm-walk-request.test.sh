@@ -1371,3 +1371,50 @@ for branch in legacy explicit-attempt invalid-carrier empty-attempt invalid-reco
   pass "walk attempt branch: $branch"
 done
 done
+
+for history in pending terminal; do
+  for repeat in 1 2; do
+    parent=$(make_parent "retry-$history-$repeat-main")
+    mate=$(make_mate "retry-$history-$repeat-mate" "$parent")
+    dispatch="$parent/fake-dispatch"
+    send="$parent/fake-send"
+    fake_send "$send"
+    cat > "$dispatch" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$0.calls"
+if [ ! -f "$0.allowed" ]; then
+  echo 'refused: stand-in gate is red; key released before chat'
+  exit 2
+fi
+if [ ! -f "$0.sent" ]; then
+  printf 'sent\n' > "$0.sent"
+fi
+echo 'walk green: same attempt accepted'
+SH
+    chmod +x "$dispatch"
+    out=$(FM_WALK_REQUEST_CORR=abcdef0123456789 run_carrier "$mate" \
+      --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks retry-step --bot Walker --attempt 1)
+    corr=$(printf '%s\n' "$out" | sed -n 's/^corr=//p')
+    run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+    wait_for "$parent/state/walk-requests/$corr.retry-step.log" '__FM_WALK_DISPATCH_EXIT__=2' \
+      || fail 'the dispatcher must refuse before chat'
+    if [ "$history" = terminal ]; then
+      record="$parent/state/walk-requests/$corr.record"
+      sed 's/^phase=.*/phase=delivered/; s/^delivered=.*/delivered=retry-step/' "$record" > "$record.tmp"
+      mv "$record.tmp" "$record"
+    fi
+    : > "$dispatch.allowed"
+    FM_WALK_REQUEST_CORR="$corr" run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" \
+      --release "$RELEASE" --walks retry-step --bot Walker --attempt 1 >/dev/null
+    check_until_calls "$parent" "$send.calls" 1 FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send"
+    assert_grep 'same attempt accepted' "$send.calls" 'clearing the refusal dispatches the same attempt'
+    assert_equals 1 "$(wc -l < "$dispatch.sent" | tr -d ' ')" 'the logical attempt is sent once'
+    assert_equals 2 "$(wc -l < "$dispatch.calls" | tr -d ' ')" 'one refusal and one successful retry'
+    while IFS= read -r call; do
+      assert_contains "$call" "--once-key retry-step@$RELEASE.a1" 'transport retry preserves the logical attempt'
+    done < "$dispatch.calls"
+    run_check "$parent" FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send" >/dev/null
+    assert_equals 2 "$(wc -l < "$dispatch.calls" | tr -d ' ')" 'accepted attempt replay never dispatches again'
+    pass "walk-request: $history refusal retries the same attempt, repeat $repeat"
+  done
+done
