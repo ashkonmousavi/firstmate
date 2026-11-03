@@ -3799,13 +3799,14 @@ SH
 }
 
 test_secondmate_liveness_tick_owner_park_stays_stopped_until_unpark() {
-  local dir state pid i saw mode now
+  local dir state pid i saw mode now park_day
+  park_day=$(date -u +%Y-%m-%d)
   dir=$(make_secondmate_liveness_case liveness-owner-park)
   state="$dir/state"
   printf -- '- sm1 - Fixture mate (home: %s; scope: fixture; projects: none; added 2026-11-03)\n' \
     "${dir}-mate" > "$dir/data/secondmates.md"
   env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
-    FM_HOME="$dir" "$ROOT/bin/fm-secondmate-park.sh" park sm1 --date 2026-11-03 >/dev/null
+    FM_HOME="$dir" "$ROOT/bin/fm-secondmate-park.sh" park sm1 >/dev/null
 
   for mode in absent exhausted unreadable; do
     rm -rf "$state/.secondmate-relaunch-sm1"
@@ -3822,7 +3823,7 @@ test_secondmate_liveness_tick_owner_park_stays_stopped_until_unpark() {
     saw=0
     while [ "$i" -lt 80 ]; do
       if [ -f "$state/.watch-triage.log" ] \
-        && grep -F 'owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark sm1' \
+        && grep -F "owner park since $park_day; relaunch refused until bin/fm-secondmate-park.sh unpark sm1" \
           "$state/.watch-triage.log" >/dev/null; then
         saw=1
         break

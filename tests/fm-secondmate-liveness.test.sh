@@ -1193,8 +1193,9 @@ park_in() {
 }
 
 test_owner_park_command_contract() {
-  local w out rc file dir rel file_mode dir_mode
+  local w out rc file dir rel file_mode dir_mode park_day record
   w=$(new_world owner-park-contract)
+  park_day=$(date -u +%Y-%m-%d)
   mkdir -p "$w/home/data"
 
   rc=0
@@ -1203,7 +1204,7 @@ test_owner_park_command_contract() {
   assert_contains "$out" "fm-secondmate-park.sh park" "help should name the park verb"
 
   rc=0
-  out=$(park_in "$w/home" park eel-web --date 2026-11-03 2>&1) || rc=$?
+  out=$(park_in "$w/home" park eel-web 2>&1) || rc=$?
   expect_code 1 "$rc" "park must refuse an id this home does not register"$'\n'"$out"
   assert_contains "$out" "not registered" "the refusal must name the missing registry line"
   assert_absent "$w/home/config/secondmate-parked/eel-web" "a refused park must not write a record"
@@ -1211,18 +1212,18 @@ test_owner_park_command_contract() {
   register_fixture_mate "$w/home/data/secondmates.md" eel-web "$w/eel-web"
 
   rc=0
-  out=$(park_in "$w/home" park eel-web --date 2026-02-31 2>&1) || rc=$?
-  expect_code 2 "$rc" "a rolled calendar day must be refused"$'\n'"$out"
-  assert_contains "$out" "2026-02-31" "the refusal must show the rejected date"
-  assert_absent "$w/home/config/secondmate-parked/eel-web" "an invalid date must not write a record"
+  out=$(park_in "$w/home" park eel-web --date 2000-01-01 2>&1) || rc=$?
+  expect_code 2 "$rc" "park must reject a caller-selected date"$'\n'"$out"
+  assert_contains "$out" "unexpected argument '--date'" "the refusal must name the unsupported option"
+  assert_absent "$w/home/config/secondmate-parked/eel-web" "an unsupported option must not write a record"
 
   rc=0
-  out=$(park_in "$w/home" park eel-web --date 2026-11-03 2>&1) || rc=$?
+  out=$(park_in "$w/home" park eel-web 2>&1) || rc=$?
   expect_code 0 "$rc" "park should write the owner record"$'\n'"$out"
-  assert_contains "$out" "parked: eel-web: owner 2026-11-03" "park should report the id and date"
+  assert_contains "$out" "parked: eel-web: owner $park_day" "park should report the id and date"
   file="$w/home/config/secondmate-parked/eel-web"
   dir="$w/home/config/secondmate-parked"
-  [ "$(cat "$file")" = "owner 2026-11-03" ] || fail "the record must be one owner date line, got: $(cat "$file")"
+  [ "$(cat "$file")" = "owner $park_day" ] || fail "the record must be one owner date line, got: $(cat "$file")"
   if [ "$(id -u)" != 0 ]; then
     file_mode=$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file")
     dir_mode=$(stat -c %a "$dir" 2>/dev/null || stat -f %Lp "$dir")
@@ -1230,23 +1231,25 @@ test_owner_park_command_contract() {
     [ "$dir_mode" = 700 ] || fail "the park directory mode must be 0700, got $dir_mode"
   fi
 
+  printf 'owner 2000-01-01\n' > "$file"
   rc=0
-  out=$(park_in "$w/home" park eel-web --date 2026-11-04 2>&1) || rc=$?
+  out=$(park_in "$w/home" park eel-web 2>&1) || rc=$?
   expect_code 0 "$rc" "parking again should rewrite the date"$'\n'"$out"
-  [ "$(cat "$file")" = "owner 2026-11-04" ] || fail "re-park did not rewrite the date: $(cat "$file")"
-  park_in "$w/home" park eel-web --date 2026-11-03 >/dev/null
+  [ "$(cat "$file")" = "owner $park_day" ] || fail "re-park did not rewrite the date: $(cat "$file")"
 
   rc=0
   out=$(park_in "$w/home" status eel-web 2>&1) || rc=$?
   expect_code 0 "$rc" "status of a parked mate should exit 0"$'\n'"$out"
-  assert_contains "$out" "owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web" \
+  assert_contains "$out" "owner park since $park_day; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web" \
     "status should print the shared refusal"
 
-  printf 'owner 2026-11-03\nextra\n' > "$file"
-  rc=0
-  out=$(park_in "$w/home" status eel-web 2>&1) || rc=$?
-  expect_code 2 "$rc" "an extra line must be unsafe"$'\n'"$out"
-  assert_contains "$out" "not a single owner YYYY-MM-DD line" "the unsafe reason must name the record shape"
+  for record in 'owner 2026-02-31' $'owner 2026-11-03\nextra'; do
+    printf '%s\n' "$record" > "$file"
+    rc=0
+    out=$(park_in "$w/home" status eel-web 2>&1) || rc=$?
+    expect_code 2 "$rc" "an invalid persisted record must be unsafe"$'\n'"$out"
+    assert_contains "$out" "not a single owner YYYY-MM-DD line" "the unsafe reason must name the record shape"
+  done
 
   rm -f "$file"
   ln -s "$w/home/data/secondmates.md" "$file"
@@ -1280,7 +1283,7 @@ test_owner_park_command_contract() {
   [ -L "$file" ] || fail "unpark removed the symlink it was required to leave"
 
   rc=0
-  out=$(park_in "$w/home" park eel-web --date 2026-11-03 2>&1) || rc=$?
+  out=$(park_in "$w/home" park eel-web 2>&1) || rc=$?
   expect_code 2 "$rc" "park must refuse to replace a symlink"$'\n'"$out"
   assert_contains "$out" "refuses to replace" "park must name the symlink it will not replace"
   [ -L "$file" ] || fail "park replaced the symlink it was required to leave"
@@ -1427,13 +1430,14 @@ SH
 }
 
 test_owner_park_session_start_leaves_eel_web_stopped() {
-  local w fb tmuxfb log out rel
+  local w fb tmuxfb log out rel park_day
+  park_day=$(date -u +%Y-%m-%d)
   w=$(new_world owner-park-eel)
   add_sm_home "$w" eel-web firstmate:fm-eel-web
   add_sm_home "$w" sm1 firstmate:fm-sm1
   register_fixture_mate "$w/home/data/secondmates.md" eel-web "$w/eel-web"
   register_fixture_mate "$w/home/data/secondmates.md" sm1 "$w/sm1"
-  park_in "$w/home" park eel-web --date 2026-11-03 >/dev/null
+  park_in "$w/home" park eel-web >/dev/null
   fb=$(make_toolchain "$w"); tmuxfb=$(make_liveness_tmux "$w")
   log="$w/calls.log"; : > "$log"
   printf 'fm-eel-web\n' > "$log.windows"
@@ -1445,7 +1449,7 @@ test_owner_park_session_start_leaves_eel_web_stopped() {
   assert_not_contains "$out" "respawn failed" \
     "a live parked mate must not be reported as a failed respawn"$'\n'"$out"
   out=$(park_in "$w/home" status eel-web 2>&1) || fail "a live pass cleared the owner park: $out"
-  assert_contains "$out" "owner park since 2026-11-03" "status must still report the owner park"
+  assert_contains "$out" "owner park since $park_day" "status must still report the owner park"
   assert_absent "$w/home/state/.secondmate-relaunch-eel-web" \
     "a live parked mate must not gain a relaunch ledger"
 
@@ -1462,7 +1466,7 @@ test_owner_park_session_start_leaves_eel_web_stopped() {
     "the companion relaunch should name sm1"
   assert_not_contains "$(cat "$log")" "fm-eel-web" \
     "a parked eel-web must not be killed or relaunched: $(cat "$log")"
-  assert_contains "$out" "SECONDMATE_LIVENESS: secondmate eel-web: owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web" \
+  assert_contains "$out" "SECONDMATE_LIVENESS: secondmate eel-web: owner park since $park_day; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web" \
     "session start must report the owner park and not relaunch"$'\n'"$out"
   assert_present "$w/home/state/.secondmate-relaunch-bound-eel-web" \
     "the session-start pass must not clear the crash-loop bound"
@@ -1486,7 +1490,7 @@ test_owner_park_session_start_leaves_eel_web_stopped() {
   [ "$rel" = rearmed ] || fail "rearm of the crash-loop bound failed: $rel"
   assert_absent "$w/home/state/.secondmate-relaunch-bound-eel-web" \
     "rearm should still lift the crash-loop bound"
-  [ "$(cat "$w/home/config/secondmate-parked/eel-web")" = "owner 2026-11-03" ] \
+  [ "$(cat "$w/home/config/secondmate-parked/eel-web")" = "owner $park_day" ] \
     || fail "rearm cleared the owner park: $(cat "$w/home/config/secondmate-parked/eel-web")"
   assert_grep 'rearmed' "$w/home/state/.secondmate-relaunch-eel-web" \
     "rearm should ledger that it lifted the crash-loop bound"
@@ -1509,18 +1513,19 @@ test_owner_park_session_start_leaves_eel_web_stopped() {
 }
 
 test_owner_park_refuses_spawn_and_remote_relaunch() {
-  local w out rc
+  local w out rc park_day
+  park_day=$(date -u +%Y-%m-%d)
   w=$(new_world owner-park-spawn)
   mkdir -p "$w/home/data" "$w/eel-web"
   register_fixture_mate "$w/home/data/secondmates.md" eel-web "$w/eel-web"
-  park_in "$w/home" park eel-web --date 2026-11-03 >/dev/null
+  park_in "$w/home" park eel-web >/dev/null
 
   rc=0
   out=$(env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
     FM_HOME="$w/home" FM_SPAWN_NO_GUARD=1 \
     timeout 30 "$ROOT/bin/fm-spawn.sh" eel-web --secondmate 2>&1) || rc=$?
   expect_code 1 "$rc" "a fresh secondmate spawn must refuse an owner park"$'\n'"$out"
-  assert_contains "$out" "error: secondmate eel-web is owner-parked (owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web)" \
+  assert_contains "$out" "error: secondmate eel-web is owner-parked (owner park since $park_day; relaunch refused until bin/fm-secondmate-park.sh unpark eel-web)" \
     "spawn must name the owner park"$'\n'"$out"
   assert_absent "$w/home/state/eel-web.meta" "a refused spawn must not write endpoint metadata"
 

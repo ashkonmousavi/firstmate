@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Park or unpark one persistent secondmate so relaunch leaves it stopped.
 #
-# Usage: fm-secondmate-park.sh park <id> [--date YYYY-MM-DD]
+# Usage: fm-secondmate-park.sh park <id>
 #        fm-secondmate-park.sh unpark <id>
 #        fm-secondmate-park.sh status <id>
 #
@@ -9,7 +9,7 @@
 # every relaunch path calls. This command is the only writer and the only
 # remover. park requires FM_HOME, a single path-segment id, and one registry
 # line for that id in data/secondmates.md, then writes
-# config/secondmate-parked/<id> atomically. The date defaults to today UTC.
+# config/secondmate-parked/<id> atomically with today's UTC date.
 # Parking again rewrites the date. unpark removes a regular record and is
 # idempotent when the file is already absent. It refuses to follow or unlink
 # a symlink. status prints the shared reason and exits 0 when parked, exits 1
@@ -57,18 +57,7 @@ case "$id" in
   ''|*[!A-Za-z0-9._-]*) echo "error: invalid secondmate id: $id" >&2; exit 2 ;;
 esac
 
-date_arg=
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --date)
-      [ "$verb" = park ] || { echo "error: --date applies only to park" >&2; exit 2; }
-      [ "$#" -ge 2 ] || { echo "error: --date requires YYYY-MM-DD" >&2; exit 2; }
-      date_arg=$2
-      shift 2
-      ;;
-    *) echo "error: unexpected argument '$1'" >&2; usage >&2; exit 2 ;;
-  esac
-done
+[ "$#" -eq 0 ] || { echo "error: unexpected argument '$1'" >&2; usage >&2; exit 2; }
 
 park_dir="$CONFIG/secondmate-parked"
 park_file="$park_dir/$id"
@@ -79,16 +68,7 @@ case "$verb" in
       echo "error: $id is not registered in $DATA/secondmates.md" >&2
       exit 1
     }
-    if [ -n "$date_arg" ]; then
-      date=$date_arg
-    else
-      date=$(date -u +%Y-%m-%d)
-    fi
-    requested=$date
-    if ! date=$(fm_secondmate_owner_park_canonical_date "$requested"); then
-      echo "error: --date must be a real UTC calendar day YYYY-MM-DD, got '$requested'" >&2
-      exit 2
-    fi
+    date=$(date -u +%Y-%m-%d) || { echo "error: could not read today's UTC date" >&2; exit 1; }
     STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
     # shellcheck source=bin/fm-wake-lib.sh
     . "$SCRIPT_DIR/fm-wake-lib.sh"

@@ -1720,7 +1720,8 @@ w = { tokens: [],
 }
 
 test_owner_park_refuses_restart_until_unpark() {
-  local dir out rc before ctrl ctrl_rc
+  local dir out rc before ctrl ctrl_rc park_day
+  park_day=$(date -u +%Y-%m-%d)
   dir=$(new_case owner-park)
   add_local_mate "$dir" sm1 claude tmux
   arm_answer "$dir" sm1
@@ -1728,13 +1729,13 @@ test_owner_park_refuses_restart_until_unpark() {
   printf -- '- sm1 - Fixture mate (home: %s; scope: fixture; projects: none; added 2026-11-03)\n' \
     "$dir/sm1-home" > "$dir/home/data/secondmates.md"
   env -u FM_CONFIG_OVERRIDE -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
-    FM_HOME="$dir/home" "$ROOT/bin/fm-secondmate-park.sh" park sm1 --date 2026-11-03 >/dev/null
+    FM_HOME="$dir/home" "$ROOT/bin/fm-secondmate-park.sh" park sm1 >/dev/null
   before=$(cat "$dir/fake/command")
 
   out=$(run_restart "$dir" sm1); rc=$?
 
   expect_code 3 "$rc" "an owner-parked mate must not be reported as restarted"$'\n'"$out"
-  assert_contains "$out" "parked: sm1: owner park since 2026-11-03; relaunch refused until bin/fm-secondmate-park.sh unpark sm1" \
+  assert_contains "$out" "parked: sm1: owner park since $park_day; relaunch refused until bin/fm-secondmate-park.sh unpark sm1" \
     "restart must name the owner park"
   assert_not_contains "$out" "restarted: sm1" "an owner-parked mate must not be reported as restarted"
   assert_not_contains "$out" "nudged: sm1" "an owner-parked mate must not be nudged"

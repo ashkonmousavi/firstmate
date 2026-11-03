@@ -1328,8 +1328,7 @@ It is the primary home's `config/secondmate-parked/<id>` file, one line `owner Y
 Session start, the watcher liveness check, `bin/fm-secondmate-restart.sh`, `bin/fm-spawn.sh <id> --secondmate`, `bin/fm-control.sh <id> relaunch`, and `bin/fm-remote-secondmate-relaunch.sh` all refuse a parked mate.
 Clearing the crash-loop marker, including the rearm after a launch, does not clear an owner park.
 Only `bin/fm-secondmate-park.sh unpark <id>` clears it.
-`bin/fm-secondmate-park.sh park <id> [--date YYYY-MM-DD]` writes the record for a mate already listed in `data/secondmates.md`.
-The date defaults to today UTC.
+`bin/fm-secondmate-park.sh park <id>` writes the record with today's UTC date for a mate already listed in `data/secondmates.md`.
 `bin/fm-secondmate-park.sh status <id>` reports whether the record is parked.
 An absent file leaves relaunch behavior unchanged.
 The directory is not inherited into secondmate homes, for the same reason as `config/secondmate-harness`: the primary is the home that relaunches the mate.
