@@ -90,7 +90,7 @@ The `answer` subcommand records the captain's exact words and resolves the call 
 | `answer --release` | Frees a captain-gated work item to proceed without completing it. |
 
 It requires a non-empty captain decision file of at most 8192 bytes.
-`answer --release` is attended-only: while the away-posture record exists it is refused before anything is written, and the keyed-answer intake refuses a `release` line the same way, because only the captain in an attended session releases a captain hold.
+While away, a bare `answer --release` is refused before anything is written unless the hold-release decision is open for a completed check; keyed release rows with source provenance carry a recorded captain answer and are allowed.
 A quiet record is a present captain and does not refuse.
 It then works in this order:
 
@@ -554,7 +554,7 @@ The suite does not test the accepted merge-to-cleanup re-hold window or asynchro
 - Answer-time resolution works through a bound channel with task-id keys.
   This includes the `release` mode, mode-matched replay idempotence, and the refusal of drifted, mode-mismatched, absent, unheld, and already-closed keys.
 - The chat channel reaches the same intake.
-- `test_release_is_attended_only` exercises the attended-only release: the away posture record and the away daemon flag each refuse `answer --release` and a `release` intake line without writing, while no record and a quiet record release, and a closing answer is not gated.
+- `test_release_is_attended_only` and the task-lock race test exercise the narrowed release rule: away refuses bare releases without writing, completed checks and keyed answers may release while away, no record and quiet mode release, and closing answers are not gated.
 - Hold-set stamping precedes visible hold state, preserves an active lifecycle's timestamp, and resets after release.
 - Interrupted answer closure retains the stamp until close and restores resolution-first ordering on retry.
 - Deferral through `--until` leaves `captain_actionable` false until due.

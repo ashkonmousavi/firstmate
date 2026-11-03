@@ -91,26 +91,29 @@ SH
   chmod +x "$1"
 }
 
-expect_gnu_timeout_call() {  # <home> <command-name> <label>
+expect_gnu_timeout_host_call() {  # <home> <command-name> <label>
   local home=$1 name=$2 label=$3 status
+  : > "$home/config/supervision-host"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$home/root/bin/fm-supervision-host.sh"
+  chmod +x "$home/root/bin/fm-supervision-host.sh"
   status=0
-  PATH="$home/fixture-bin" FM_HOME="$home" FM_SIGNAL_GRACE=1 \
+  FM_SUPERVISION_HOST_TURN_TIMEOUT=1 FM_SUPERVISION_ENGINE_GRACE=1 PATH="$home/fixture-bin" FM_HOME="$home" FM_SIGNAL_GRACE=1 \
     "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out.txt" 2>"$home/err.txt" || status=$?
-  expect_code 124 "$status" "$label checkpoint exit"
-  assert_contains "$(cat "$home/out.txt")" "checkpoint: no actionable wake within 1s" \
-    "$label did not return a quiet checkpoint"
-  [ "$(cat "$home/timeout-calls" 2>/dev/null)" = "$name --signal=INT --kill-after=5s 1 $home/root/bin/fm-watch.sh" ] \
-    || fail "$label did not run $name with the watcher bound: $(cat "$home/timeout-calls" 2>/dev/null)"
+  expect_code 1 "$status" "$label host backstop exit"
+  assert_contains "$(cat "$home/err.txt")" "checkpoint: the supervision host outlived its own bound of 1s" \
+    "$label did not preserve the host-backstop failure contract"
+  [ "$(cat "$home/timeout-calls" 2>/dev/null)" = "$name --signal=TERM 123 $home/root/bin/fm-supervision-host.sh park" ] \
+    || fail "$label did not run $name with the host bound: $(cat "$home/timeout-calls" 2>/dev/null)"
 }
 
-test_gnu_timeout_runs_the_watcher_bound() {
+test_gnu_timeout_runs_the_host_bound() {
   local home
   home=$(make_home gnu-timeout)
   make_isolated_checkpoint "$home" bash dirname mktemp rm grep cat
   write_gnu_timeout_stub "$home/fixture-bin/timeout"
   write_gnu_timeout_stub "$home/fixture-bin/gtimeout"
-  expect_gnu_timeout_call "$home" timeout "GNU timeout"
-  pass "GNU timeout runs the watcher with the INT signal and kill-after bound"
+  expect_gnu_timeout_host_call "$home" timeout "GNU timeout"
+  pass "GNU timeout runs the host backstop with TERM and no cleanup-grace override"
 }
 
 test_non_gnu_timeout_uses_gnu_gtimeout() {
@@ -119,8 +122,8 @@ test_non_gnu_timeout_uses_gnu_gtimeout() {
   make_isolated_checkpoint "$home" bash dirname mktemp rm grep cat
   write_non_gnu_timeout_stub "$home/fixture-bin/timeout"
   write_gnu_timeout_stub "$home/fixture-bin/gtimeout"
-  expect_gnu_timeout_call "$home" gtimeout "GNU gtimeout"
-  pass "non-GNU timeout yields to GNU gtimeout with the INT signal and kill-after bound"
+  expect_gnu_timeout_host_call "$home" gtimeout "GNU gtimeout"
+  pass "non-GNU timeout yields to GNU gtimeout for the host backstop"
 }
 
 test_non_gnu_timeout_falls_back_to_perl_before_escalating() {
@@ -140,9 +143,10 @@ $SIG{INT} = sub {
 open my $pid_file, '>', "$ENV{FM_HOME}/watcher.pid" or die "open pid file: $!";
 printf {$pid_file} "%s\n", $$;
 close $pid_file;
-my $cleanup_deadline = time + 7;
-while ((my $left = $cleanup_deadline - time) > 0) {
-  sleep $left;
+# Preserve the sleep interrupted by INT without depending on wall-clock changes.
+my $remaining = 7;
+while ($remaining > 0) {
+  $remaining -= sleep $remaining;
 }
 open my $cleanup_file, '>', "$ENV{FM_HOME}/cleanup-reached" or die "open cleanup marker: $!";
 print {$cleanup_file} "reached\n";
@@ -172,6 +176,61 @@ PL
     fail "the watcher survived the Perl fallback KILL escalation"
   fi
   pass "non-GNU timeout falls back to Perl and honors the cleanup bound before escalating"
+}
+
+test_checkpoint_honors_cleanup_bound_before_escalating() {
+  local home fallback_bin tool tool_path status watcher_pid checkpoint_path
+  home=$(make_home perl-fallback)
+  fallback_bin="$home/fallback-bin"
+  mkdir -p "$home/root/bin" "$fallback_bin"
+  cp "$CHECKPOINT" "$home/root/bin/fm-watch-checkpoint.sh"
+  cp "$ROOT/bin/fm-supervision-engine-lib.sh" "$home/root/bin/fm-supervision-engine-lib.sh"
+  for tool in bash dirname mktemp rm perl grep cat; do
+    tool_path=$(command -v "$tool") || fail "could not locate $tool for the Perl fallback fixture"
+    ln -s "$tool_path" "$fallback_bin/$tool"
+  done
+  cat > "$home/root/bin/fm-watch.sh" <<'PL'
+#!/usr/bin/env perl
+use strict;
+use warnings;
+$SIG{INT} = 'IGNORE';
+open my $pid_file, '>', "$ENV{FM_HOME}/watcher.pid" or die "open pid file: $!";
+printf {$pid_file} "%s\n", $$;
+close $pid_file;
+sleep 7;
+open my $cleanup_file, '>', "$ENV{FM_HOME}/cleanup-reached" or die "open cleanup marker: $!";
+print {$cleanup_file} "reached\n";
+close $cleanup_file;
+END {
+  if (open my $exit_file, '>', "$ENV{FM_HOME}/natural-exit") {
+    print {$exit_file} "natural\n";
+  }
+}
+sleep 20;
+PL
+  chmod +x "$home/root/bin/fm-watch-checkpoint.sh" "$home/root/bin/fm-watch.sh"
+
+  # The checkpoint contract requires grace even when timeout is on PATH.
+  # A premature escalation loses the cleanup marker; no escalation leaves a
+  # live watcher or lets it exit naturally instead of enforcing the bound.
+  for checkpoint_path in "$fallback_bin" "$PATH"; do
+    rm -f "$home/cleanup-reached" "$home/natural-exit" "$home/watcher.pid"
+    status=0
+    PATH="$checkpoint_path" FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_WATCHER_CLEANUP_LOCK_BOUND=8 \
+      "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out.txt" 2>"$home/err.txt" || status=$?
+
+    expect_code 124 "$status" "checkpoint exit"
+    assert_contains "$(cat "$home/out.txt")" "checkpoint: no actionable wake within 1s" \
+      "checkpoint did not return a quiet checkpoint"
+    [ -e "$home/cleanup-reached" ] || fail "checkpoint killed the watcher before its 8-second cleanup bound"
+    [ ! -e "$home/natural-exit" ] || fail "the INT-ignoring watcher exited naturally instead of being killed"
+    [ -s "$home/watcher.pid" ] || fail "the INT-ignoring watcher did not start"
+    watcher_pid=$(cat "$home/watcher.pid")
+    if kill -0 "$watcher_pid" 2>/dev/null; then
+      fail "the INT-ignoring watcher survived checkpoint escalation"
+    fi
+  done
+  pass "checkpoint honors cleanup grace and then escalates with and without timeout on PATH"
 }
 
 test_checkpoint_preserves_watcher_failure_status() {
@@ -454,7 +513,8 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly
-test_gnu_timeout_runs_the_watcher_bound
+test_checkpoint_honors_cleanup_bound_before_escalating
+test_gnu_timeout_runs_the_host_bound
 test_non_gnu_timeout_uses_gnu_gtimeout
 test_non_gnu_timeout_falls_back_to_perl_before_escalating
 test_checkpoint_preserves_watcher_failure_status

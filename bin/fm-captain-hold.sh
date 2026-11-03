@@ -87,11 +87,13 @@
 # tasks-axi --archive-body). It closes a question with `tasks-axi done` - or,
 # with `--release`, lifts the hold with `tasks-axi unhold` so a captain-gated
 # WORK item resumes without closing - and restores resolution-first body
-# ordering. `--release` is attended-only: while the away-posture record exists
+# ordering. A bare `--release` needs the captain's attended word: while the
+# away-posture record exists
 # (state/.afk-contract, or the daemon flag state/.afk, read as away; a quiet
-# record is a present captain) it is refused before anything is written, so an
-# unattended supervisor cannot free held work with its own words and then steer
-# it; the captain releases the hold in an attended session. A closing answer
+# record is a present captain) it is refused before anything is written unless
+# the hold-release decision is open (a completed check) or the answer came through
+# the keyed intake with provenance. An unattended supervisor cannot free held
+# work with its own words and then steer it. A closing answer
 # without `--release` is not gated by posture. An exact retry also completes
 # unfinished ordering normalization and
 # is idempotent only when its requested close mode
@@ -112,9 +114,9 @@
 # identically no matter which channel the answer arrived on. The key IS the
 # task id - no identity arithmetic. The optional fourth field selects the close:
 # empty or `done` completes the task, `release` lifts the hold so held work
-# resumes; anything else is skipped. A `release` line while the away-posture
-# record exists is reported as `refused:` under the same attended-only rule as
-# `answer --release` and feeds nothing. A key that names no task, a task that is
+# resumes; anything else is skipped. A keyed `release` line carries a captured
+# captain answer with provenance and is allowed while away. A key that names
+# no task, a task that is
 # not held for the captain, or a task already closed is reported as `skipped:`
 # and feeds nothing. A replayed delivery whose answer digest and requested
 # close mode both match the newest record is reported `closed:` and is a no-op;
@@ -1427,14 +1429,16 @@ apply_pending_retained_artifact() {  # <task-id>
   esac
 }
 
-# A captain hold is released only in an attended session. The away daemon flag
+# A bare release needs an attended word or a completed check; keyed answers
+# already carry the captain's recorded word. The away daemon flag
 # (state/.afk, bin/fm-wake-lib.sh fm_afk_mode) and the posture record
 # (state/.afk-contract, bin/fm-afk-contract.sh mode) are both read: either one
-# reading away refuses, a quiet record is a present captain, and no record is
-# attended. The check runs before any write, so a refusal leaves the hold and
-# the body untouched.
-RELEASE_AWAY_REASON='the away-posture record exists, and a captain hold is released only by the captain in an attended session; retry --release after the return archives the record'
-release_attended() {
+# reading away refuses a bare release, a quiet record is a present captain, and
+# no record is attended. Both checks use this rule before any resolution write.
+RELEASE_AWAY_REASON="the away-posture record exists; release needs the owner's attended word or a completed check (or a recorded keyed answer with provenance)"
+release_allowed() {  # <task-id>
+  [ "${FM_CAPTAIN_HOLD_KEYED_RELEASE:-}" = "$1" ] && return 0
+  fm_hold_release_decision_open_p "$STATE" "$1" && return 0
   if [ -e "$STATE/.afk" ] && [ "$(fm_afk_mode "$STATE")" = away ]; then
     return 1
   fi
@@ -1504,14 +1508,14 @@ command_answer() {
     shift
   done
   validate_slug task-id "$id"
-  if [ "$release" = 1 ] && ! release_attended; then
+  if [ "$release" = 1 ] && ! release_allowed "$id"; then
     fail "task $id stays held: $RELEASE_AWAY_REASON"
   fi
   load_decision "$decision_file"
   acquire_task_control_lock "$id"
   if [ "$release" = 1 ]; then
     fm_afk_contract_lock_hold "$STATE" || fail "task $id stays held: the away-posture record is locked"
-    release_attended || fail "task $id stays held: $RELEASE_AWAY_REASON"
+    release_allowed "$id" || fail "task $id stays held: $RELEASE_AWAY_REASON"
   fi
   require_tasks_axi
   task_show "$id" || fail "captain-held task $id is absent from this home's configured backlog (data directory $DATA)"
@@ -1762,11 +1766,6 @@ command_answers() {
         continue
         ;;
     esac
-    if [ "$release_flag" = --release ] && ! release_attended; then
-      printf 'refused: %s (%s)\n' "$key" "$RELEASE_AWAY_REASON"
-      skipped=$((skipped + 1))
-      continue
-    fi
     resolve_rc=0
     id=$(resolve_entry "$origin" "$key" 2>"$err") || resolve_rc=$?
     id=${id%% *}
@@ -1838,8 +1837,9 @@ command_answers() {
       skipped=$((skipped + 1))
       continue
     fi
+    # Only this intake sets the internal allowance, bound to the keyed task.
     # shellcheck disable=SC2086  # release_flag is empty or a single literal flag.
-    if "$0" answer "$id" --decision-file "$tmp" $release_flag </dev/null >/dev/null 2>"$err"; then
+    if FM_CAPTAIN_HOLD_KEYED_RELEASE="$id" "$0" answer "$id" --decision-file "$tmp" $release_flag </dev/null >/dev/null 2>"$err"; then
       # A parent-channel delivery problem is reported on stderr by the answer
       # path even when the close succeeded; keep it visible.
       [ ! -s "$err" ] || cat "$err" >&2

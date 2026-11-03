@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # tests/fm-watch-wedge-cap-unconfigured-parity.test.sh - the unconfigured-home
 # parity proof for the wedge cap. FM_WEDGE_MAX_ESCALATIONS unset or 0 must leave
-# the watcher's escalation ladder IDENTICAL to upstream main, including that a
+# the watcher's escalation ladder IDENTICAL to the target baseline, including that a
 # stuck pane still receives the demand-deep-inspection prompt. This drives ONE
-# stuck-pane scenario twice - once against upstream main's bin/fm-watch.sh and
+# stuck-pane scenario twice - once against the baseline's bin/fm-watch.sh and
 # once against this branch's - and asserts the same observable outcome on both.
 #
 # The scenario is the one route where an unconditional counter reset inside
@@ -17,9 +17,10 @@
 # ladder continues to 4 afterwards, which is the rung the unchanged behaviour
 # rests on.
 #
-# The baseline is read from git (origin/main), so the comparison tracks the main
-# this branch targets rather than a frozen copy. A checkout without that ref
-# fails loudly instead of skipping: the test is the proof, and a silent skip
+# The baseline is read from git (FM_WEDGE_PARITY_BASE, default origin/curated,
+# else origin/main), so the comparison tracks this branch's target rather than
+# a frozen copy. A checkout without that ref fails loudly instead of skipping:
+# the test is the proof, and a silent skip
 # would be no proof at all.
 set -u
 
@@ -49,24 +50,27 @@ mark_status_seen() {
   ' _ "$ROOT/bin/fm-wake-lib.sh" "$1" "$2"
 }
 
-# upstream_tree <dest-dir>: materialise upstream main's own bin/ tree, so the
+# upstream_tree <dest-dir>: materialise the baseline's own bin/ tree, so the
 # baseline watcher runs against the libraries it was written for rather than
 # this branch's. The comparison is then watcher-against-watcher, with nothing
 # else differing.
 upstream_tree() {  # <dest-dir>
-  local dest=$1 ref
+  local dest=$1 ref baseline=${FM_WEDGE_PARITY_BASE:-origin/curated}
+  if [ -z "${FM_WEDGE_PARITY_BASE:-}" ] && ! git -C "$ROOT" rev-parse --verify --quiet "$baseline" >/dev/null; then
+    baseline=origin/main
+  fi
   # The baseline is read in a command substitution, so `fail` (which exits)
   # would end only the SUBSHELL and leave the caller with an empty baseline -
   # a silent skip, not a failure. Report here and return non-zero so the
   # caller's guard aborts the whole test with the specific reason.
-  if ! ref=$(git -C "$ROOT" rev-parse --verify --quiet origin/main); then
-    printf 'not ok - no origin/main ref in %s - the parity baseline cannot be resolved; fetch origin/main and re-run\n' "$ROOT" >&2
+  if ! ref=$(git -C "$ROOT" rev-parse --verify --quiet "$baseline"); then
+    printf 'not ok - no %s ref in %s - the parity baseline cannot be resolved; fetch the baseline and re-run\n' "$baseline" "$ROOT" >&2
     return 1
   fi
   rm -rf "$dest"
   mkdir -p "$dest"
   if ! git -C "$ROOT" archive "$ref" bin | tar -x -C "$dest"; then
-    printf 'not ok - could not extract upstream main bin/ tree (%s)\n' "$ref" >&2
+    printf 'not ok - could not extract baseline bin/ tree (%s)\n' "$ref" >&2
     return 1
   fi
   printf '%s\n' "$dest/bin/fm-watch.sh"
@@ -201,14 +205,14 @@ run_scenario() {  # <watch> <tag> [cap-env] [rounds]: drive the stuck-pane scena
 
 test_unconfigured_ladder_matches_upstream_main() {
   local baseline candidate base_trace
-  baseline=$(upstream_tree "$TMP_ROOT/upstream-main") || fail "could not materialise upstream main's bin/ tree for the parity baseline"
+  baseline=$(upstream_tree "$TMP_ROOT/upstream-main") || fail "could not materialise the baseline's bin/ tree for parity"
   candidate="$ROOT/bin/fm-watch.sh"
   base_trace=$(run_scenario "$baseline" upstream)
   PARITY_BRANCH_TRACE=$(run_scenario "$candidate" branch)
   local cand_trace=$PARITY_BRANCH_TRACE
 
   if ! diff -u "$base_trace" "$cand_trace" > "$TMP_ROOT/parity.diff"; then
-    fail "unconfigured-home ladder diverged from upstream main:
+    fail "unconfigured-home ladder diverged from the target baseline:
 --- upstream trace: $base_trace
 --- branch trace:   $cand_trace
 --- diff:
@@ -228,7 +232,7 @@ $(cat "$TMP_ROOT/parity.diff")"
   fi
   grep -F 'final counter=4 marker=0' "$cand_trace" >/dev/null \
     || fail "scenario did not end at counter 4 with no cap marker: $(cat "$cand_trace")"
-  pass "unconfigured-home wedge ladder is observably identical to upstream main across the busy ladder and the first-sight surface, and still reaches the demand-deep-inspection prompt"
+  pass "unconfigured-home wedge ladder is observably identical to the target baseline across the busy ladder and the first-sight surface, and still reaches the demand-deep-inspection prompt"
 }
 
 test_unconfigured_ladder_matches_upstream_main

@@ -329,8 +329,12 @@ _fm_task_inbox_dedup_find() {  # <dir> <text> <delivery-mode> <request-id>
       while IFS= read -r f; do
         candidates+=("$f")
       done < <(find "$dir" "$dir/handled" -maxdepth 1 -type f -name '*.msg' ${size_filter[@]+"${size_filter[@]}"} 2>/dev/null |
-        awk -v wanted="$request_id" -v mode="$delivery_mode" -v handled="$dir/handled/" '
-          function selected(path,    line, id, seen, delivery, result) {
+        awk -v wanted="$request_id" -v mode="$delivery_mode" -v handled="$dir/handled/" -v bodyfile="$want" '
+          BEGIN {
+            if ((getline wanted_first < bodyfile) < 0) exit 2
+            close(bodyfile)
+          }
+          function selected(path,    line, id, seen, delivery, result, first, matched) {
             while ((result = (getline line < path)) > 0) {
               if (line == "--") break
               if (!seen && line ~ /^request-id=/) {
@@ -339,9 +343,17 @@ _fm_task_inbox_dedup_find() {  # <dir> <text> <delivery-mode> <request-id>
               }
               if (line == "delivery=fire-and-forget") delivery = 1
             }
+            matched = id == wanted && (delivery == 1) == (mode == "fire-and-forget")
+            # An explicit request id must still expose a conflicting body.
+            # Other requests can reject unrelated history by its first line
+            # before invoking the full body reader or comparison.
+            if (matched && wanted == "") {
+              result = (getline first < path)
+              matched = result >= 0 && ("x" first) == ("x" wanted_first)
+            }
             close(path)
             if (result < 0) return -1
-            return id == wanted && (delivery == 1) == (mode == "fire-and-forget")
+            return matched
           }
           {
             path = $0

@@ -113,8 +113,8 @@ run_with_perl_timeout() {  # <seconds> <signal> <kill-after-seconds> <command...
 
 TIMEOUT_COMMAND=''
 
-# Only GNU coreutils timeout is trusted with --signal/--kill-after; another
-# implementation named timeout (for example uutils) falls through to perl.
+# Only GNU coreutils timeout is trusted with --signal for the host backstop;
+# another implementation named timeout (for example uutils) falls through to perl.
 find_gnu_timeout() {
   local candidate
   for candidate in timeout gtimeout; do
@@ -139,12 +139,14 @@ run_bounded() {  # <seconds> <signal> <kill-after-seconds> <command...>
     [ "$cleanup_lock_bound" -gt 0 ] || cleanup_lock_bound=2
     [ "$cleanup_lock_bound" -gt "$kill_after" ] || cleanup_lock_bound=$kill_after
     kill_after=$cleanup_lock_bound
+    # Watcher escalation must still return 124 after KILL; GNU timeout returns
+    # 137 there, bypassing the quiet-checkpoint contract below.
+    run_with_perl_timeout "$seconds" "$signal" "$kill_after" "$@"
+    return
   fi
   [ -n "$TIMEOUT_COMMAND" ] || find_gnu_timeout
   if [ "$TIMEOUT_COMMAND" = perl ]; then
     run_with_perl_timeout "$seconds" "$signal" "$kill_after" "$@"
-  elif [ "$kill_after" -gt 0 ]; then
-    "$TIMEOUT_COMMAND" --signal="$signal" --kill-after="${kill_after}s" "$seconds" "$@"
   else
     "$TIMEOUT_COMMAND" --signal="$signal" "$seconds" "$@"
   fi

@@ -1046,37 +1046,66 @@ test_hold_records_and_preserves_its_origin_kind() {
   pass "hold records and preserves its origin kind beside its origin"
 }
 
-# A captain hold is released only in an attended session: the away posture
-# record and the away daemon flag each refuse --release, through `answer` and
-# the keyed-answer intake alike, before anything is written. No record and a
-# quiet record both release, and a closing answer is not gated by posture.
+# Away refuses a bare release before writing, but completed checks and keyed
+# answers may release. No record and quiet mode remain attended, and closing
+# answers are not gated by posture.
 test_release_is_attended_only() {
-  local home show out rc
-  home=$(make_home release-attended)
-  tasks_in "$home" add sample-widget "Ship the sample widget" --kind ship --repo sample >/dev/null \
-    || fail "could not create the held work item"
-  run_captain "$home" hold sample-widget --reason "captain go needed before shipping" >/dev/null \
-    || fail "could not hold the work item for the captain"
-  printf 'Not urgent; ship it as planned.\n' > "$home/go.txt"
-  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-afk-contract.sh" enter \
-    --words 'merge green work' >/dev/null 2>&1 || fail "away entry failed"
+  local home show out rc posture
+  for posture in contract daemon; do
+    home=$(make_home "release-attended-$posture")
+    tasks_in "$home" add sample-widget "Ship the sample widget" --kind ship --repo sample >/dev/null \
+      || fail "could not create the held work item"
+    run_captain "$home" hold sample-widget --reason "captain go needed before shipping" \
+      --release-on "marker:$home/ready" >/dev/null || fail "could not hold the work item for the captain"
+    printf 'Not urgent; ship it as planned.\n' > "$home/go.txt"
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-afk-contract.sh" enter \
+      --words 'merge green work' >/dev/null 2>&1 || fail "away entry failed"
+    if [ "$posture" = daemon ]; then
+      rm -f "$home/state/.afk-contract"
+      printf 'away\n%s\n' "$(date +%s)" > "$home/state/.afk"
+    fi
 
-  rc=0
-  run_captain "$home" answer sample-widget --decision-file "$home/go.txt" --release \
-    >/dev/null 2>"$home/away.err" || rc=$?
-  [ "$rc" -ne 0 ] || fail "answer --release succeeded while the away record exists"
-  assert_grep "attended session" "$home/away.err" \
-    "the away refusal did not name the attended-session requirement"
-  show=$(tasks_in "$home" show sample-widget --full)
-  assert_contains "$show" "held: yes" "the away refusal lifted the hold"
-  assert_not_contains "$show" "Resolution mode" "the away refusal wrote a resolution record"
+    rc=0
+    run_captain "$home" answer sample-widget --decision-file "$home/go.txt" --release \
+      >/dev/null 2>"$home/away.err" || rc=$?
+    [ "$rc" -ne 0 ] || fail "bare answer --release succeeded while away ($posture)"
+    assert_grep "attended word or a completed check" "$home/away.err" \
+      "the away refusal did not explain the required release authority"
+    show=$(tasks_in "$home" show sample-widget --full)
+    assert_contains "$show" "held: yes" "the away refusal lifted the hold"
+    assert_not_contains "$show" "Resolution mode" "the away refusal wrote a resolution record"
 
-  out=$(printf 'sample-widget\tgo\t\trelease\n' \
-    | run_captain "$home" answers --source "away release fixture") \
-    && fail "the keyed-answer intake released held work while away"
-  assert_contains "$out" "refused: sample-widget" "the intake did not report the away refusal"
-  show=$(tasks_in "$home" show sample-widget --full)
-  assert_contains "$show" "held: yes" "the intake lifted the hold while away"
+    : > "$home/ready"
+    FM_STATE_OVERRIDE="$home/state" bash -c '
+      . "$1/bin/fm-hold-release-lib.sh"
+      fm_hold_release_decision_open "$2" sample-widget "marker:$3"
+    ' _ "$ROOT" "$home/state" "$home/ready" || fail "could not publish the completed-check decision"
+    run_captain "$home" answer sample-widget --decision-file "$home/go.txt" --release >/dev/null \
+      || fail "a completed check did not permit release while away ($posture)"
+    show=$(tasks_in "$home" show sample-widget --full)
+    assert_contains "$show" "held: no" "the completed-check release kept the hold"
+    assert_contains "$show" "Resolution mode: released" "the completed-check release was not recorded"
+    FM_STATE_OVERRIDE="$home/state" bash -c '
+      . "$1/bin/fm-hold-release-lib.sh"
+      ! fm_hold_release_decision_open_p "$2" sample-widget
+    ' _ "$ROOT" "$home/state" || fail "the completed-check release left its decision open"
+
+    run_captain "$home" hold sample-widget --reason "keyed captain go needed" >/dev/null \
+      || fail "could not re-hold work for a keyed answer"
+    out=$(printf 'sample-widget\tgo\t\trelease\n' \
+      | run_captain "$home" answers --source "away release fixture") \
+      || fail "the keyed-answer intake refused recorded release authority while away ($posture)"
+    assert_contains "$out" "closed: sample-widget" "the keyed answer did not release the work"
+    show=$(tasks_in "$home" show sample-widget --full)
+    assert_contains "$show" "held: no" "the keyed answer kept the hold"
+    assert_contains "$show" "away release fixture" "the keyed release lost its provenance"
+
+    run_captain "$home" hold sample-widget --reason "attended captain go needed" >/dev/null \
+      || fail "could not re-hold work before the attended release"
+    if run_captain "$home" answer sample-widget --decision-file "$home/go.txt" --release >/dev/null 2>&1; then
+      fail "a prior keyed release allowed a later bare release while away ($posture)"
+    fi
+  done
 
   run_captain "$home" hold sample-question --title "Pick the widget colour" \
     --reason "captain must pick the colour" --repo sample >/dev/null \
@@ -1086,15 +1115,6 @@ test_release_is_attended_only() {
     || fail "a closing answer was refused while away"
   show=$(tasks_in "$home" show sample-question --full)
   assert_contains "$show" "state: done" "a closing answer while away did not close the question"
-
-  rm -f "$home/state/.afk-contract"
-  printf 'away\n%s\n' "$(date +%s)" > "$home/state/.afk"
-  rc=0
-  run_captain "$home" answer sample-widget --decision-file "$home/go.txt" --release \
-    >/dev/null 2>&1 || rc=$?
-  [ "$rc" -ne 0 ] || fail "answer --release succeeded while the away daemon flag exists"
-  show=$(tasks_in "$home" show sample-widget --full)
-  assert_contains "$show" "held: yes" "the daemon-flag refusal lifted the hold"
 
   rm -f "$home/state/.afk"
   run_captain "$home" answer sample-widget --decision-file "$home/go.txt" --release >/dev/null \
@@ -1114,43 +1134,66 @@ test_release_is_attended_only() {
     || fail "answer --release failed in quiet mode"
   show=$(tasks_in "$home" show sample-widget --full)
   assert_contains "$show" "held: no" "a quiet-mode release kept the hold"
-  pass "a captain hold is released only in an attended session: away refuses, quiet and no record release"
+  pass "away refuses bare releases and allows completed checks and keyed answers; attended releases still work"
 }
 
-# A release that waits behind another task action must recheck the away posture
-# once it holds the task control lock: the captain can enter away mode during
-# the wait, and the release then refuses with the hold still in place.
+# Recheck posture after waiting on the task lock: away entry must refuse a
+# bare release but still allow completed-check and keyed-answer authority.
 test_release_rechecks_away_after_waiting_on_task_lock() {
-  local home show rc holder i
-  home=$(make_home release-race)
-  tasks_in "$home" add sample-widget "Ship the sample widget" --kind ship --repo sample >/dev/null \
-    || fail "could not create the held work item"
-  run_captain "$home" hold sample-widget --reason "captain go needed before shipping" >/dev/null \
-    || fail "could not hold the work item for the captain"
-  printf 'Ship it.\n' > "$home/go-race.txt"
+  local home show rc holder i authority release_pid
+  for authority in bare completed keyed; do
+    home=$(make_home "release-race-$authority")
+    tasks_in "$home" add sample-widget "Ship the sample widget" --kind ship --repo sample >/dev/null \
+      || fail "could not create the held work item"
+    run_captain "$home" hold sample-widget --reason "captain go needed before shipping" >/dev/null \
+      || fail "could not hold the work item for the captain"
+    printf 'Ship it.\n' > "$home/go-race.txt"
+    if [ "$authority" = completed ]; then
+      run_captain "$home" hold sample-widget --reason "completed check needed" \
+        --release-on "marker:$home/ready" >/dev/null || fail "could not bind the release condition"
+      : > "$home/ready"
+      FM_STATE_OVERRIDE="$home/state" bash -c '
+        . "$1/bin/fm-hold-release-lib.sh"
+        fm_hold_release_decision_open "$2" sample-widget "marker:$3"
+      ' _ "$ROOT" "$home/state" "$home/ready" || fail "could not publish the completed-check decision"
+    fi
 
-  bash -c '. "$1/bin/fm-wake-lib.sh"; fm_lock_acquire_wait "$2" && : > "$3" && sleep 30' _ \
-    "$ROOT" "$home/state/.control-sample-widget.lock" "$home/control-held" &
-  holder=$!
-  for i in $(seq 1 100); do [ -e "$home/control-held" ] && break; sleep 0.1; done
-  [ -e "$home/control-held" ] || fail "the task control lock was not taken"
+    bash -c '. "$1/bin/fm-wake-lib.sh"; fm_lock_acquire_wait "$2" && : > "$3" && sleep 30' _ \
+      "$ROOT" "$home/state/.control-sample-widget.lock" "$home/control-held" &
+    holder=$!
+    for i in $(seq 1 100); do [ -e "$home/control-held" ] && break; sleep 0.1; done
+    [ -e "$home/control-held" ] || fail "the task control lock was not taken"
 
-  rc=0
-  run_captain "$home" answer sample-widget --decision-file "$home/go-race.txt" --release \
-    >/dev/null 2>"$home/race.err" &
-  local release_pid=$!
-  sleep 1
-  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-afk-contract.sh" enter \
-    --words 'merge green work' >/dev/null 2>&1 || fail "away entry failed"
-  kill "$holder" 2>/dev/null || true
-  pkill -P "$holder" 2>/dev/null || true
-  rm -rf "$home/state/.control-sample-widget.lock"
-  wait "$release_pid" || rc=$?
-  [ "$rc" -ne 0 ] || fail "a release that waited on the task lock lifted the hold after away entry"
-  assert_grep "attended session" "$home/race.err" "the late refusal did not name the attended-session requirement"
-  show=$(tasks_in "$home" show sample-widget --full)
-  assert_contains "$show" "held: yes" "the waiting release lifted the hold while the away record exists"
-  pass "a release waiting on the task lock rechecks the away posture under the lock"
+    rc=0
+    if [ "$authority" = keyed ]; then
+      printf 'sample-widget\tgo\t\trelease\n' \
+        | run_captain "$home" answers --source "race release fixture" >"$home/race.out" 2>"$home/race.err" &
+    else
+      run_captain "$home" answer sample-widget --decision-file "$home/go-race.txt" --release \
+        >"$home/race.out" 2>"$home/race.err" &
+    fi
+    release_pid=$!
+    sleep 1
+    FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$ROOT/bin/fm-afk-contract.sh" enter \
+      --words 'merge green work' >/dev/null 2>&1 || fail "away entry failed"
+    pkill -P "$holder" 2>/dev/null || true
+    kill "$holder" 2>/dev/null || true
+    wait "$holder" 2>/dev/null || true
+    rm -rf "$home/state/.control-sample-widget.lock"
+    wait "$release_pid" || rc=$?
+    show=$(tasks_in "$home" show sample-widget --full)
+    if [ "$authority" = bare ]; then
+      [ "$rc" -ne 0 ] || fail "the waiting bare release lifted the hold after away entry"
+      assert_grep "attended word or a completed check" "$home/race.err" "the late refusal lost its reason"
+      assert_contains "$show" "held: yes" "the waiting bare release lifted the hold while away"
+      assert_not_contains "$show" "Resolution mode" "the late refusal wrote a resolution record"
+    else
+      [ "$rc" -eq 0 ] || fail "the waiting $authority release was refused after away entry"
+      assert_contains "$show" "held: no" "the waiting $authority release kept the hold"
+      assert_contains "$show" "Resolution mode: released" "the waiting $authority release was not recorded"
+    fi
+  done
+  pass "waiting releases recheck away posture and preserve completed-check and keyed-answer authority"
 }
 
 # The hold-set stamp must be durable before the captain hold becomes visible.

@@ -1254,13 +1254,16 @@ test_idempotent_write_prefilters_history() {
   state="$TMP_ROOT/idem-scale/state"
   dir="$state/t1.inbox"
   mkdir -p "$dir/handled"
-  # Most records have unrelated first lines, in both pending and handled history.
+  # Match the target byte size so only first-line filtering can prune history.
+  text=$'-literal [.*] needle\nsecond line\n\n'
   for ((i=1; i<=1000; i++)); do
     dest="$dir"
     [ "$i" -le 500 ] || dest="$dir/handled"
-    printf 'schema=fm-task-inbox.v1\nat=2020-01-01T00:00:00Z\n--\nunrelated %s\n' "$i" > "$dest/$i.msg"
+    {
+      printf 'schema=fm-task-inbox.v1\nat=2020-01-01T00:00:00Z\n--\n'
+      printf '%*s' "${#text}" "unrelated $i"
+    } > "$dest/$i.msg"
   done
-  text=$'-literal [.*] needle\nsecond line\n\n'
   for mode in '' fire-and-forget; do
     for location in pending handled; do
       rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "$text" "$mode")
@@ -1285,6 +1288,74 @@ test_idempotent_write_prefilters_history() {
     done
   done
   pass "inbox: unrelated pending and handled history avoids per-record parsing and comparison"
+}
+
+test_idempotent_write_prefilters_numeric_looking_lines() {
+  local state dir i rec result log count
+  state="$TMP_ROOT/idem-numeric-lines/state"
+  dir="$state/t1.inbox"
+  mkdir -p "$dir/handled"
+  for ((i=1; i<=32; i++)); do
+    printf -v rec '%s/%03d.msg' "$dir" "$i"
+    printf 'schema=fm-task-inbox.v1\nat=2020-01-01T00:00:00Z\n--\n1 ' > "$rec"
+  done
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 01)
+  log="$state/operations"
+  : > "$log"
+  result=$(counted_idempotent_write "$state" 01 '' "$log") || fail "numeric-line retry failed"
+  [ "$result" = "$rec" ] || fail "numeric-line retry returned the wrong record"
+  count=$(grep -cFx cmp "$log" || true)
+  [ "$count" -le 4 ] || fail "numeric coercion caused $count unrelated comparisons"
+  pass "inbox: numeric-looking first lines are compared literally before full-body work"
+}
+
+test_idempotent_write_follows_ack_before_prefilter_open() {
+  local state dir mode rec handled result text log before after count
+  text=$'acknowledge before bulk header opens pending\nexact body\n\n'
+  for mode in '' fire-and-forget; do
+    state="$TMP_ROOT/idem-ack-before-grep-${mode:-ordinary}/state"
+    dir="$state/t1.inbox"
+    mkdir -p "$dir/handled"
+    rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "$text" "$mode") \
+      || fail "prefilter race fixture write failed"
+    handled="$dir/handled/${rec##*/}"
+    # Keep unrelated history in both directories so even a reversed scan has
+    # real files to inspect. Compare record bytes independently of the ack move.
+    inbox_lib "$state" fm_task_inbox_write "$state" t1 'unrelated pending' >/dev/null
+    result=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 'unrelated handled')
+    mv "$result" "$dir/handled/"
+    before=$(find "$dir" -name '*.msg' -exec cksum {} + | awk '{print $1, $2}' | LC_ALL=C sort)
+    log="$state/prefilter-order"
+    result=$(FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1"
+      pending=$4
+      inbox=${pending%/*}
+      handled="$inbox/handled/${pending##*/}"
+      log=$6
+      find() {
+        [ "${1:-}" = "$inbox" ] || { command find "$@"; return $?; }
+        local paths
+        paths=$(command find "$@") || return $?
+        [ -f "$pending" ] && [ ! -e "$handled" ] || return 99
+        mv "$pending" "$handled" || return 99
+        printf "ack-before-open\n" >> "$log"
+        printf "%s\n" "$paths"
+      }
+      fm_task_inbox_write_idempotent "$2" t1 "$3" "$5"
+    ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" "$text" "$rec" "$mode" "$log") \
+      || fail "retry failed during acknowledgement before prefilter open ($mode)"
+    [ "$(cat "$log")" = 'ack-before-open' ] \
+      || fail "prefilter did not exercise the before-open acknowledgement ($mode): $(cat "$log")"
+    [ "$result" = "$handled" ] || fail "retry did not return the acknowledged record ($mode): $result"
+    inbox_lib "$state" fm_task_inbox_body "$handled" > "$state/body"
+    printf '%s' "$text" > "$state/expected-body"
+    cmp -s "$state/expected-body" "$state/body" || fail "ack race changed the exact body ($mode)"
+    count=$(find "$dir" -name '*.msg' | wc -l | tr -d ' ')
+    [ "$count" = 3 ] || fail "ack race created or removed a record ($mode): $count"
+    after=$(find "$dir" -name '*.msg' -exec cksum {} + | awk '{print $1, $2}' | LC_ALL=C sort)
+    [ "$before" = "$after" ] || fail "ack race changed durable record history ($mode)"
+  done
+  pass "inbox: bulk prefilter finds an ack before opening the record in both modes"
 }
 
 test_idempotent_write_prefilter_preserves_exact_bodies() {
@@ -2484,6 +2555,8 @@ test_idempotent_write_leaves_no_scratch_when_killed
 test_one_way_dedup_bulk_selects_request_ids
 test_one_way_dedup_follows_ack_before_header_open
 test_idempotent_write_prefilters_history
+test_idempotent_write_follows_ack_before_prefilter_open
+test_idempotent_write_prefilters_numeric_looking_lines
 test_idempotent_write_prefilter_preserves_exact_bodies
 test_idempotent_write_follows_concurrent_ack
 test_idempotent_write_follows_concurrent_ack cccccccccccccccccccccccccccccccc
