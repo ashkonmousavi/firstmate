@@ -437,7 +437,8 @@ values = {}
 fence = None
 for line in text.splitlines():
     line = line.strip()
-    if line.startswith(("```", "~~~")):
+    # Hex keeps Bash 3.2 from parsing backticks inside this heredoc.
+    if line.startswith(("\x60" * 3, "~~~")):
         marker = line[:3]
         fence = None if fence == marker else marker if fence is None else fence
         continue
