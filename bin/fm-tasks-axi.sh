@@ -310,6 +310,38 @@ if [ "$help_requested" = 1 ]; then
   exec tasks-axi ${ARGS[@]+"${ARGS[@]}"}
 fi
 
+# Owner-origin add gate. The lexical detector intentionally errs toward custody:
+# whole-word owner/captain anywhere in the title or body, including quotations.
+# `file owner` is a known false positive; unstated/paraphrased origin is unknowable.
+if { [ "${1:-}" = add ] || [ "${1:-}" = create ]; } && [ -z "$OWNER_REQUEST_FILE" ]; then
+  origin_rc=0
+  python3 - "$MINT" "$BODY_FILE" "$BODY_LITERAL" "${ARGS[@]}" <<'PYORIGIN' || origin_rc=$?
+import os,re,stat,sys
+mint,bodyfile,body,*args=sys.argv[1:]
+values=[];i=1
+valued={'--kind','--repo','--body','--body-file','--blocked-by','--pr','--report','--priority','--prefix'}
+while i<len(args):
+    arg=args[i]
+    if arg in valued:i+=2;continue
+    if arg.startswith('-'):i+=1;continue
+    values.append(arg);i+=1
+slot=0 if mint=='1' else 1
+title=values[slot] if len(values)>slot else ''
+if bodyfile:
+    try:
+        fd=os.open(bodyfile,os.O_RDONLY|os.O_NONBLOCK)
+        with os.fdopen(fd,'rb') as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):raise ValueError('body is not regular')
+            raw=stream.read(2097153)
+        if len(raw)>2097152:raise ValueError('body exceeds 2 MiB')
+        body=raw.decode('utf-8')
+    except (OSError,ValueError,UnicodeError):sys.exit(2)
+sys.exit(3 if re.search(r'\b(?:owner|captain)\b',title+'\n'+body,re.I) else 0)
+PYORIGIN
+  [ "$origin_rc" != 3 ] || fail "owner-origin add needs --owner-request-file (whole-word owner/captain in title or body)"
+  [ "$origin_rc" = 0 ] || fail "owner-origin add preflight could not read the body safely"
+fi
+
 # A control lock covers the full read/merge/write/readback span. Only explicit
 # task IDs are accepted for this path; minted IDs have no prewrite lock identity.
 case "${1:-}" in add|create|update|edit) mutation=1 ;; *) mutation=0 ;; esac

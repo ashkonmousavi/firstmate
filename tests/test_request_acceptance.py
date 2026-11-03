@@ -66,6 +66,48 @@ class RequestCustody(unittest.TestCase):
         shim.chmod(0o755)
         return marker
 
+    def test_owner_origin_add_requires_custody_before_mutation(self):
+        before = (self.home / 'data/backlog.md').read_bytes()
+        for args in [('add','explicit','Owner asked for the counter'),
+                     ('create','alias','Captain requested this'),
+                     ('add','body','Ordinary title','--body','The owner said fix the counter.'),
+                     ('add','owner request','--mint'),
+                     ('create','--mint','captain request')]:
+            result = self.run_task(*args,ok=False)
+            self.assertEqual(result.returncode,2)
+            self.assertIn('--owner-request-file',result.stderr)
+            self.assertEqual((self.home / 'data/backlog.md').read_bytes(),before)
+        body = self.home / 'body.md'
+        body.write_text('As requested by the owner, fix the reader.')
+        self.run_task('add','bodyfile','Normal title','--body-file',body,ok=False)
+        self.assertEqual((self.home / 'data/backlog.md').read_bytes(),before)
+        self.run_task('add','ordinary','Fix queue rendering')
+        packet = self.save('request.json', self.packet(task='bound'))
+        self.run_task('add','bound','Owner asks for the explanation','--owner-request-file',packet)
+
+    def test_native_owner_summary_counts_requirements_and_sources(self):
+        packet = self.packet(task='owner-asks')
+        metadata = {key:packet[key] for key in ('version','origin_home','origin_task_id','sources','requirements')}
+        import copy
+        metadata['sources'] = []
+        metadata['requirements'] = []
+        for index in range(17):
+            row = copy.deepcopy(packet['sources'][0])
+            row['message_uuid'] = 'source-'+str(index)
+            metadata['sources'].append(row)
+        for index in range(35):
+            row = copy.deepcopy(packet['requirements'][0])
+            row.update(id='requirement-'+str(index),source_message_uuid='source-'+str(index%17))
+            metadata['requirements'].append(row)
+        body = '```Owner request acceptance v1\n'+json.dumps(metadata)+'\n```'
+        snapshot = self.save('native.json',[{'id':'owner-asks','state':'queued',
+            'show':'task:\n  id: owner-asks\n  body: '+json.dumps(body)+'\n'}])
+        result = subprocess.run(['python3',str(HELPER),'open-summary','--body-file',str(snapshot)],
+                                env=dict(self.env,FM_TEST_SEAM='1'),capture_output=True,text=True,timeout=3)
+        self.assertEqual(result.returncode,0,result.stderr)
+        facts = json.loads(result.stdout)
+        self.assertEqual((facts['open_requirements'],facts['sources'],facts['tasks']),(35,17,1))
+
     def packet(self, *, task="owner-1", source="source-1", requirement="r1",
                text="Explain the result", kind="explanation", expected=None,
                restricted=False, safe_text=None):

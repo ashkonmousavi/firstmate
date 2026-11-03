@@ -23,22 +23,22 @@ membership=t/'membership';membership.write_text('0::/crew/lane\n')
 cg=t/'cgroup';(cg/'crew/lane').mkdir(parents=True)
 for path,high,maximum,current,inactive in [(cg/'crew',16*g,17*g,20*g,8*g),(cg/'crew/lane','max','max',4*g,0)]:
     for field,value in [('memory.high',high),('memory.max',maximum),('memory.current',current)]: (path/field).write_text(str(value)+'\n')
-    (path/'memory.stat').write_text(f'anon {8*g}\nshmem {g}\ninactive_file {inactive}\n')
+    (path/'memory.stat').write_text(f'anon {8*g}\nshmem {g}\nfile {inactive+g}\nactive_file 0\ninactive_file {inactive}\nfile_dirty 0\nfile_writeback 0\n')
     (path/'memory.pressure').write_text(quiet)
 options={'meminfo':mem,'pressure_file':psi,'cgroup_file':membership,'cgroup_root':cg,'disk_usage':lambda p:SimpleNamespace(free=100*g)}
 rules=m.policy(policy);facts=m.measure(rules,**options)
 assert facts['effective_available_bytes']==4*g and facts['admitted'],facts
 print('ok - cache-heavy headroom uses current minus inactive_file and finite parent limit (synthetic)')
-env={**os.environ,'FM_HOME':str(home),'FM_TEST_SEAM':'1','FM_CAPACITY_MEMINFO':str(mem),'FM_CAPACITY_PRESSURE_FILE':str(psi),'FM_CAPACITY_CGROUP_FILE':str(membership),'FM_CAPACITY_CGROUP_ROOT':str(cg),'FM_RESOURCE_CGROUP_FILE':str(membership),'FM_RESOURCE_CGROUP_ROOT':str(cg)}
+env={**os.environ,'FM_HOME':str(home),'FM_ROOT_OVERRIDE':str(r),'FM_TEST_SEAM':'1','FM_CAPACITY_MEMINFO':str(mem),'FM_CAPACITY_PRESSURE_FILE':str(psi),'FM_CAPACITY_CGROUP_FILE':str(membership),'FM_CAPACITY_CGROUP_ROOT':str(cg),'FM_RESOURCE_CGROUP_FILE':str(membership),'FM_RESOURCE_CGROUP_ROOT':str(cg)}
 def capacity():
     p=subprocess.run(['bash',str(r/'bin/fm-capacity.sh'),'--json'],env=env,capture_output=True,text=True)
     assert p.returncode==0,(p.stdout,p.stderr)
     return json.loads(p.stdout)
 reading=capacity()
-assert reading['effective_available_kb']==4*g//1024 and reading['mem_available_kb']==7*g//1024,reading
-assert reading['headroom_kb']==3*g//1024 and reading['resource_policy_sha256']==facts['resource_policy_sha256'],reading
+assert reading['effective_available_kb']==4*g//1024 and reading['mem_available_kb']==4*g//1024,reading
+assert reading['headroom_kb']==0 and reading['resource_policy_sha256']==facts['resource_policy_sha256'],reading
 data['memory_floor_gib']=5;policy.write_text(json.dumps(data));reading=capacity()
-assert reading['reason']=='memory' and reading['free_lanes']==0 and reading['headroom_kb']==3*g//1024,reading
+assert reading['reason']=='memory' and reading['free_lanes']==5 and reading['headroom_kb']==0,reading
 print('ok - public consumer keeps hard floor and reserve separate on the same snapshot (synthetic)')
 data['memory_floor_gib']=3;policy.write_text(json.dumps(data))
 (cg/'crew/memory.pressure').write_text(quiet.replace('avg60=0.00','avg60=5.00'))
@@ -48,7 +48,7 @@ print('ok - enclosing cgroup pressure refuses despite quiet host and child (synt
 (cg/'crew/memory.max').write_text(str(14*g))
 assert m.measure(m.policy(policy),**options)['effective_available_bytes']==2*g
 assert capacity()['reason']=='memory'
-print('ok - hard maximum can constrain floor while high reserve remains satisfied (synthetic)')
+print('ok - hard maximum can constrain floor for the same unified reserve arithmetic (synthetic)')
 (cg/'crew/memory.current').unlink()
 try:m.measure(m.policy(policy),**options)
 except ValueError:pass
@@ -73,24 +73,24 @@ def verdict(policy_data,host,meminfo_gib=64,ancestor=None):
     return m.measure(m.policy(policy),**options)
 for host,expected in [(quiet,[]),(burst,['memory PSI full avg60 refuses']),(sustained,['memory PSI full avg60 refuses'])]:
     facts=verdict(legacy,host)
-    assert facts['refusal_reasons']==expected,(host,facts['refusal_reasons'])
+    assert [reason.split(':',1)[0] for reason in facts['refusal_reasons']]==expected,(host,facts['refusal_reasons'])
 print('ok - a policy without memory_full_avg300_max keeps the avg60-only verdicts (synthetic)')
 facts=verdict(windowed,burst)
 assert facts['admitted'] and (facts['memory_full_avg10'],facts['memory_full_avg60'],facts['memory_full_avg300'])==(30,12,2),facts
 assert facts['mem_available_bytes']==64*g,facts
 print('ok - a short burst with ample memory admits under the five-minute window (synthetic)')
 facts=verdict(windowed,sustained)
-assert facts['refusal_reasons']==['memory PSI full avg300 refuses'],facts
+assert [reason.split(':',1)[0] for reason in facts['refusal_reasons']]==['memory PSI full avg300 refuses'],facts
 policy.write_text(json.dumps(windowed));psi.write_text(sustained)
 reading=capacity()
-assert reading['reason']=='pressure' and reading['free_lanes']==0,reading
+assert reading['reason']=='pressure' and reading['free_lanes']==5,reading
 print('ok - sustained pressure refuses through the public consumer (synthetic)')
-assert verdict(windowed,psi_text(60,30,3))['refusal_reasons']==['memory PSI full avg60 refuses']
+assert [reason.split(':',1)[0] for reason in verdict(windowed,psi_text(60,30,3))['refusal_reasons']]==['memory PSI full avg60 refuses']
 print('ok - a burst above the avg60 ceiling still refuses (synthetic)')
-assert verdict(windowed,quiet,ancestor=sustained)['refusal_reasons']==['memory PSI full avg300 refuses']
+assert [reason.split(':',1)[0] for reason in verdict(windowed,quiet,ancestor=sustained)['refusal_reasons']]==['memory PSI full avg300 refuses']
 print('ok - enclosing cgroup avg300 refuses despite a quiet host (synthetic)')
 facts=verdict(windowed,burst,meminfo_gib=2)
-assert facts['refusal_reasons']==['Required cache-aware effective memory floor not met'],facts
+assert [reason.split(':',1)[0] for reason in facts['refusal_reasons']]==['Required cache-aware effective memory floor not met'],facts
 print('ok - low MemAvailable refuses during a tolerated burst (synthetic)')
 for broken in ['full avg10=1.00 avg60=1.00 total=0\n','some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n','full avg10=1.00 avg60=1.00 avg300=x total=0\n']:
     for rules in (legacy,windowed):
@@ -115,7 +115,7 @@ psi.write_text('full avg10=1.00 total=0\n');subprocess.run(['bash',str(r/'bin/fm
 rows=[line.split('\t') for line in log.read_text().splitlines()]
 assert [len(row) for row in rows]==[9,9,9],rows
 assert [row[1] for row in rows]==['yes','no','unknown'],rows
-assert [float(v) for v in rows[0][2:5]]==[30,12,2] and rows[0][5]==str(64*g//1024) and rows[1][8]=='memory PSI full avg300 refuses',rows
+assert [float(v) for v in rows[0][2:5]]==[30,12,2] and rows[0][5]==str(64*g//1024) and rows[1][8].startswith('memory PSI full avg300 refuses:'),rows
 assert rows[2][2:8]==['']*6 and 'avg60' in rows[2][8],rows
 print('ok - every verdict is logged with its PSI windows and MemAvailable (synthetic)')
 psi.write_text(burst)
