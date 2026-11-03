@@ -885,7 +885,7 @@ The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the releas
 Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
 Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
-An item is prepared when it has a brief, `data/<id>/brief.md`, and a non-empty prep file, `data/<id>/prep.md` or the file a `Prep: data/<path>` line in its backlog body names inside this home's `data/` directory; without either it is refused with that exact reason.
+Preparation admission, including X persona/Doctor/XAI-surface fields and legacy grace, is owned by the [launcher header's PREP section](../bin/fm-autolaunch.sh).
 Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new ship or scout brief, replacing one left by an earlier brief, never with yolo, which stays derived from the project registry at launch.
 Run `FM_HOME=<home> bin/fm-autolaunch.sh --backfill` to print the record each existing queued item would get, then `--backfill --apply` to write the missing ones, also without yolo; it never rewrites an existing record, so it is safe to repeat on every home.
 On the other homes the commands are documented here only, and run there once the fleet update has brought the script to their `firstmate-stock` code roots:

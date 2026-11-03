@@ -62,7 +62,19 @@
 # by fm-spawn.sh unchanged), and a non-empty prep file: data/<id>/prep.md, or
 # the file named by a `Prep: data/<path>` line of the item's backlog body, a
 # relative path inside this home's data/ directory with no `..` part. Without
-# either it is refused with that exact reason. Its launch record is then DERIVED, field by field, from the
+# either it is refused with that exact reason.
+# X (NOT_Q) ship preps require filled PERSONA, DOCTOR and XAI-SURFACE lines. Small fixes
+# may name PERSONA inline in SLICE or PROOF. A no-Doctor-change declaration
+# needs its reason, as does XAI-SURFACE: none. Prep files last written before
+# 2026-11-03T08:00:00Z (Pacific
+# midnight on the introduction date) retain
+# dated grace until revised; task filing dates and prose dates grant no grace.
+# Filled PERSONA values declare surfaces=pages,chat (or pages, chat, none) and
+# usage=beginner,experienced,middle (the covered subset). Page+chat outcomes
+# require beginner/XAI-first and experienced/pages-only; middle switches on
+# the same task. usage=none is valid only with surfaces=none.
+# Scouts and other projects keep their existing preparation contract.
+# Its launch record is then DERIVED, field by field, from the
 # first source that has it:
 #   1. data/<id>/autolaunch-prep, an optional override record;
 #   2. the brief's own contract lines: "Delivery contract: mode=<m>" and its
@@ -351,12 +363,12 @@ brief_line() {
 # Needs item_show first.
 prep_read() {
   local id=$1 file key value line reg o_project='' o_kind='' o_mode='' o_yolo='' o_bp='' o_bp_set=0 o_base='' o_consent=''
-  local b_mode b_consent b_branch b_base
+  local b_mode b_consent b_branch b_base prep_path
   P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR=''
   if [ ! -f "$DATA/$id/brief.md" ] || [ ! -s "$DATA/$id/brief.md" ]; then
     PREP_ERR="no brief data/$id/brief.md"; return 1
   fi
-  prep_doc "$id" >/dev/null || {
+  prep_path=$(prep_doc "$id") || {
     PREP_ERR="no prep file (data/$id/prep.md or a Prep: data/<path> line in the item)"; return 1
   }
   file="$DATA/$id/autolaunch-prep"
@@ -395,6 +407,88 @@ prep_read() {
   if [ "$P_KIND" = scout ]; then
     [ -z "$o_mode$o_yolo$o_consent" ] && [ "$o_bp_set" = 0 ] || { PREP_ERR="scout record carries ship-only keys"; return 1; }
     return 0
+  fi
+  if [ "$P_PROJECT" = NOT_Q ]; then
+    PREP_ERR=$(python3 - "$DATA/${prep_path#data/}" <<'PY'
+import datetime as dt
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+try:
+    # Fixed introduction date, not a rolling age exemption.
+    cutoff = dt.datetime(2026, 11, 3, 8, tzinfo=dt.timezone.utc).timestamp()
+    text = path.read_text(encoding="utf-8")
+    if path.stat().st_mtime < cutoff:
+        raise SystemExit(0)
+except (OSError, UnicodeError):
+    print("unreadable X prep")
+    raise SystemExit(1)
+
+values = {}
+fence = None
+for line in text.splitlines():
+    line = line.strip()
+    if line.startswith(("```", "~~~")):
+        marker = line[:3]
+        fence = None if fence == marker else marker if fence is None else fence
+        continue
+    if fence:
+        continue
+    # Accept ordinary Markdown field labels, without treating prose as a field.
+    line = re.sub(r"^[-*+] +", "", line).replace("**", "")
+    field = re.match(r"(PERSONA|DOCTOR|XAI-SURFACE|SLICE|PROOF)[ \t]*:[ \t]*(.*)$", line, re.I)
+    if not field:
+        continue
+    key, value = field[1].upper(), field[2].strip()
+    if key in ("SLICE", "PROOF"):
+        field = re.search(r"(?:^|[;|])[ \t]*PERSONA[ \t]*:[ \t]*(\S.*)", value, re.I)
+        if field:
+            values["PERSONA"] = field[1].strip()
+    elif value:
+        values[key] = value
+
+persona = values.get("PERSONA", "")
+if not persona or persona.lower() in ("none", "tbd", "todo") or persona.startswith("job/outcome;"):
+    print("PERSONA missing or unfilled in X prep (small fix: name PERSONA in SLICE/proof)")
+    raise SystemExit(1)
+declarations = {}
+for key, allowed in (("surfaces", {"pages", "chat", "none"}), ("usage", {"beginner", "experienced", "middle", "none"})):
+    match = re.search(r"\b" + key + r"[ \t]*=[ \t]*([a-z,-]+)", persona, re.I)
+    valueset = set(match[1].lower().split(",")) if match else set()
+    if not valueset or not valueset <= allowed or ("none" in valueset and len(valueset) != 1):
+        print("PERSONA " + key + " missing or invalid (declare surfaces=pages,chat and usage=beginner,experienced as applicable)")
+        raise SystemExit(1)
+    declarations[key] = valueset
+if declarations["usage"] == {"none"} and declarations["surfaces"] != {"none"}:
+    print("PERSONA usage=none requires surfaces=none")
+    raise SystemExit(1)
+if declarations["surfaces"] == {"pages", "chat"} and not {"beginner", "experienced"} <= declarations["usage"]:
+    print("PERSONA page-and-chat coverage needs beginner (XAI-first) and experienced (pages-only)")
+    raise SystemExit(1)
+doctor = values.get("DOCTOR", "")
+if not doctor or doctor.lower() in ("none", "tbd", "todo"):
+    print("DOCTOR missing or unfilled in X prep (name the check or no Doctor change with reason)")
+    raise SystemExit(1)
+if doctor.lower().startswith("no doctor change"):
+    reason = doctor[len("no Doctor change"):].lstrip(";,:. -")
+    reason = re.sub(r"^because\b[ :]*", "", reason, flags=re.I).strip()
+    if not reason or reason.lower() in ("none", "tbd", "todo"):
+        print("DOCTOR no Doctor change needs a reason")
+        raise SystemExit(1)
+surface = values.get("XAI-SURFACE", "")
+if not surface or surface.lower() in ("tbd", "todo"):
+    print("XAI-SURFACE missing or unfilled in X prep (name changed surfaces or none with reason)")
+    raise SystemExit(1)
+if re.match(r"none\b", surface, re.I):
+    reason = surface[len("none"):].lstrip(";,:. -")
+    reason = re.sub(r"^because\b[ :]*", "", reason, flags=re.I).strip()
+    if not reason or reason.lower() in ("none", "tbd", "todo"):
+        print("XAI-SURFACE none needs a reason")
+        raise SystemExit(1)
+PY
+    ) || return 1
   fi
   b_mode=$(brief_line "$id" 's/^Delivery contract: mode=\([^[:space:]]*\).*/\1/p')
   b_consent=$(brief_line "$id" 's/^Delivery contract: mode=.*[[:space:]]upstream-consent=\([^[:space:]]*\).*/\1/p')
