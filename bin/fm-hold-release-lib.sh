@@ -179,7 +179,8 @@ fm_hold_release_writer_valid() {  # <data-dir> <condition> <human-reason>
       case "$SECONDMATE_REGISTRY_HOME" in /*) ;; *) return 1 ;; esac
       if [ "$SECONDMATE_REGISTRY_REMOTE" = 1 ]; then
         out=$(fm_run_timed 25 env FM_DATA_OVERRIDE="$data" bash "$_FM_HOLD_RELEASE_LIB_DIR/fm-on.sh" \
-          "$route" fm-tasks-axi.sh show "$id" < /dev/null 2>/dev/null) || return 1
+          --host "$SECONDMATE_REGISTRY_HOST" --root "$SECONDMATE_REGISTRY_ROOT" \
+          --home "$SECONDMATE_REGISTRY_HOME" fm-tasks-axi.sh show "$id" < /dev/null 2>/dev/null) || return 1
       else
         out=$(fm_run_timed 10 env -u FM_DATA_OVERRIDE -u FM_STATE_OVERRIDE \
           FM_HOME="$SECONDMATE_REGISTRY_HOME" bash "$_FM_HOLD_RELEASE_LIB_DIR/fm-tasks-axi.sh" \

@@ -149,12 +149,13 @@ test_marker_writer_refusal() {
 # Exercise the real fm-on route/argv encoder, replacing only SSH with a
 # process that reads the named scratch backlog instead of a live remote home.
 test_marker_writer_remote_route() {
-  local home other fakebin transport_root rc
+  local home other fakebin transport_root rc entry refusal_code
   home=$(make_home writer-remote)
   other=$(make_home writer-remote-target)
   run_axi "$home" add target target --repo demo >/dev/null
   run_axi "$other" add foreign foreign --repo demo >/dev/null
   fakebin=$(fm_fakebin "$home")
+  fm_fake_exit0 "$fakebin" tmux treehouse no-mistakes gh gh-axi
   # fm-on requires a genuinely tracked local executable. Keep that preflight
   # in a tiny fixture repo so this test also runs from source archives.
   transport_root="$home/transport"
@@ -178,17 +179,36 @@ for key in ('FM_DATA_OVERRIDE', 'FM_STATE_OVERRIDE', 'FM_ROOT_OVERRIDE'):
 sys.exit(subprocess.call(['bash', root + '/bin/' + argv[0], *argv[1:]], env=env))
 PYSSH
   chmod +x "$fakebin/ssh"
-  printf '%s\n' "- peer - Remote writer (host: writer-peer; root: $ROOT; home: $other; scope: tests; projects: demo; added 2026-01-01)" > "$home/data/secondmates.md"
-  FM_ROOT_OVERRIDE="$transport_root" FM_SSH_BIN="$fakebin/ssh" FM_TEST_REMOTE_WRITER_HOME="$other" \
-    run_axi "$home" hold target --reason 'writer: peer:foreign' --kind external --release-on "marker:$home/ready" >/dev/null \
-    || fail "an open writer in a registered remote home must be accepted"
-  run_axi "$other" 'done' foreign >/dev/null
-  cp "$home/data/backlog.md" "$home/before"
-  rc=0
-  FM_ROOT_OVERRIDE="$transport_root" FM_SSH_BIN="$fakebin/ssh" FM_TEST_REMOTE_WRITER_HOME="$other" \
-    run_axi "$home" hold target --reason 'writer: peer:foreign' --kind external --release-on "marker:$home/ready" >/dev/null 2>&1 || rc=$?
-  expect_code 2 "$rc" "a done remote writer must refuse the re-hold"
-  cmp "$home/before" "$home/data/backlog.md" || fail "a refused remote writer must preserve the hold"
+  printf '%s\n' \
+    "- peer - Remote writer (host: writer-peer; root: $ROOT; home: $other; scope: tests; projects: demo; added 2026-01-01)" \
+    "- other - Alias collision (host: peer; root: $ROOT; home: $home; scope: tests; projects: demo; added 2026-01-01)" \
+    > "$home/data/secondmates.md"
+  remote_marker_hold() {
+    if [ "$entry" = captain ]; then
+      PATH="$fakebin:$PATH" run_captain "$home" hold target --reason 'writer: peer:foreign' --release-on "marker:$home/ready"
+    else
+      run_axi "$home" hold target --reason 'writer: peer:foreign' --kind external --release-on "marker:$home/ready"
+    fi
+  }
+  for entry in task captain; do
+    refusal_code=2
+    [ "$entry" != captain ] || refusal_code=1
+    FM_ROOT_OVERRIDE="$transport_root" FM_SSH_BIN="$fakebin/ssh" FM_TEST_REMOTE_WRITER_HOME="$other" \
+      remote_marker_hold >/dev/null \
+      || fail "$entry must accept an open remote writer despite another route's matching SSH alias"
+    run_axi "$home" show target | grep -q '^  held: yes$' || fail "$entry must publish the remote-writer hold"
+    run_axi "$other" 'done' foreign >/dev/null
+    cp "$home/data/backlog.md" "$home/before"
+    cp "$home/state/hold-releases/target" "$home/before-cache"
+    rc=0
+    FM_ROOT_OVERRIDE="$transport_root" FM_SSH_BIN="$fakebin/ssh" FM_TEST_REMOTE_WRITER_HOME="$other" \
+      remote_marker_hold >/dev/null 2>&1 || rc=$?
+    expect_code "$refusal_code" "$rc" "$entry must refuse a done remote writer on re-hold"
+    cmp "$home/before" "$home/data/backlog.md" || fail "a refused remote writer must preserve the hold"
+    cmp "$home/before-cache" "$home/state/hold-releases/target" || fail "a refused remote writer must preserve the episode"
+    run_axi "$home" unhold target >/dev/null
+    run_axi "$other" reopen foreign >/dev/null
+  done
   pass "hold-release: remote writer lookup follows the registered route and refuses done tasks"
 }
 
