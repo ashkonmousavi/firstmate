@@ -35,6 +35,13 @@ The model-request regression places a refusing `curl` at the external network bo
 | Secondmate notification | Invalid identity, missing binding, and append failure remain retryable; recovery delivers to the parent exactly once and only then publishes the episode marker. |
 | Arm, re-arm, disarm, repeated disarm | Registration and trust artifacts are checked; unwritable state and unsafe trust artifacts must fail without reporting success. Retirement stays with `fm-check-unregister.sh`. |
 | Help and schedule proposal | `--print-timer` emits an explicitly bound home and five-minute timer. These early exits do not dispatch; schedule installation and fleet machinery are untouched. |
+| Leased step effects and restarts | The `Steps.test_effect_crashes_converge_and_completed_replay_is_silent` matrix in [autolaunch_steps_cases.py](../../tests/autolaunch_steps_cases.py), invoked by the launcher suite, kills the engine before and after every tester filing, tester launch, owner relaunch, live note, cut delivery, walk request, review filing and review launch; restart and completed replay assert one effect. |
+| Tester and changed cuts | Named tester lookup, recorded builder/tester models, same-model refusal, revised walk-only coverage with `tests-ready none`, live and exited owners, no-lane retry, and mate-held observation have executable cases in the same matrix. |
+| Review, delivery and walks | Same-round fix heads, no extra no-mistakes reviewer, merge/deploy ancestry, complete list coverage, missed-daily catch-up, distinct retry attempts, stale carrier and fresh-generation isolation have executable cases in the matrix. |
+| C2 | `test_c2_reasonless_pending_one_episode_then_clear` asserts one RED line after a completed pass, episode suppression and marker removal on completion; the existing parent-channel cases exercise the shared reporting path. |
+| Event continuation | [fm-control-relaunch.test.sh](../../tests/fm-control-relaunch.test.sh) names each added branch as `step continuation branch: <name>` and separately proves ordinary recovery unchanged and the receipt-bound clean-owner success twice. |
+| Walk attempt transport | [fm-walk-request.test.sh](../../tests/fm-walk-request.test.sh) names legacy, explicit-attempt, invalid-carrier, empty-attempt, invalid-record, exit-three, fixed-corr and invalid-corr branches; legacy keys remain unchanged and dispatcher exit 3 converges. |
+| Owner wait release | [fm-lane-release.test.sh](../../tests/fm-lane-release.test.sh) proves process-only `owner-waiting` release twice with task identity and unlanded file preservation. |
 
 ## Harness, backend, and platform inventory
 
@@ -50,6 +57,10 @@ The model-request regression places a refusing `curl` at the external network bo
 | `codex-app` | No launch capability is added; spawn continues to own rejection of unsupported placement. This inventory makes no Codex App launch claim. |
 | PC/WSL, server/Linux, laptop/Linux | Each instance selects its own `FM_HOME`; the suite uses a synthetic home with isolated backlog, projects, config, records, and parent destination. No machine inventory, schedule, account, or global configuration is changed. |
 | Linux and Darwin; x86_64 and arm64 | Queue order and default dispatch add no OS/CPU selector. The check's existing GNU/BSD `stat` branches, Bash interfaces, locks, and scheduler proposals remain in place. Local portable tests do not establish native Darwin or fleet-wide runtime parity. |
+| All listed harnesses, plus `cortex` and `kiro` | The step pass consumes harness-neutral metadata and task inbox records and adds no rendered-output classifier or launch command. Missing/default model metadata refuses tester acceptance, and absent model-family metadata is recorded as unknown. Existing account pins, authentication, effort validation and catalogs remain with the shared spawn/control owners. |
+| `tmux`, `herdr`, `rex` continuation | The new receipt guard runs under the existing control lock, before the unchanged exact endpoint, checkpoint, absence and launch guards. The control suite exercises its new branches with a hermetic tmux lifecycle model; it is not live proof on these backends. |
+| Other spawn-capable backends, including `zellij`, `orca`, `cmux`, `paseo`, `tern`, `t3code` | Fresh tester/reviewer dispatch still passes through spawn validation. The unchanged `fm_control_backend_relaunch_supported` table refuses continuation outside tmux/Herdr/Rex; the owning mate must keep unsupported continuation under observation. No backend gains lifecycle capability. |
+| Lease, inbox, model metadata and timer primitives | The launcher suite owns serialization, fixed-request-id inbox deduplication, observation, same-model refusal and the printed timer proposal. A real per-home timer and launch/exit/relaunch round trip remain activation-stage proof; no home configuration or schedule is changed by these fixtures. |
 
 ## Live-proof gaps and entry points
 

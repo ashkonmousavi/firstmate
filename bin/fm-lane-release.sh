@@ -23,8 +23,11 @@
 # `--audit` is an explicit read-only query and runs in any
 # setting; its first line names the setting.
 #
-# WHAT IS RELEASED (the promise). Only two classes, and only while the agent is
+# WHAT IS RELEASED (the promise). Three classes, and only while the agent is
 # live, idle, and nothing has happened since the finished evidence:
+#   owner-waiting a slice owner whose last step-log record is a completed wait
+#                (bin/fm-autolaunch-steps.py owns the format). Only its process
+#                exits; the task, branch and unlanded work stay in flight.
 #   merged-ship  a ship whose recorded pr= has merged. Landed evidence is the
 #                merge record bin/fm-pr-merge.sh and the merge poll write through
 #                bin/fm-merge-outcome-lib.sh: state/<id>.pr-poll-merge-notified,
@@ -444,6 +447,9 @@ pred_no_open_decision() {
   [ -f "$status" ] || return 0
   open=$(status_open_decisions "$status" lane-release)
   [ -z "$open" ] || { KEEP='open-decision'; return 1; }
+  case "${2:-}:$(status_line_verb "$(last_status_line "$status")")" in
+    owner-waiting:paused) return 0 ;;
+  esac
   case "$(status_line_verb "$(last_status_line "$status")")" in
     paused|needs-decision|blocked|failed) KEEP='declared-stop'; return 1 ;;
   esac
@@ -458,6 +464,7 @@ pred_crew_state() {
   state=${state%% *}
   case "$class:$state" in
     *:done|merged-ship:unknown) return 0 ;;
+    owner-waiting:paused|owner-waiting:in-flight|owner-waiting:running) return 0 ;;
   esac
   KEEP="crew-state-$state"
   return 1
@@ -560,6 +567,16 @@ evaluate() {
     pred_scout_complete "$id" || return 1
     anchor=$done_at
     pred_no_open_decision "$status" || return 1
+  elif python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" wait "$id" >/dev/null 2>&1; then
+    class="owner-waiting"
+    anchor=$(python3 - "$FM_HOME/data/$id/slice-steps.log" <<'PY'
+import json, sys
+with open(sys.argv[1]) as f:
+    print(json.loads(f.readlines()[-1])["at"])
+PY
+    ) || { KEEP='step-log-unreadable'; return 1; }
+    done_at=$anchor
+    pred_no_open_decision "$status" owner-waiting || return 1
   else
     class='merged-ship'
     [ "$(meta_field "$meta" mode)" != local-only ] || { KEEP='local-only-unproven'; return 1; }

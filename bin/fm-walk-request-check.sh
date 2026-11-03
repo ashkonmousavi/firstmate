@@ -27,6 +27,9 @@
 #      FM_WALK_REQUEST_DISPATCH) as
 #        fm-grok-bot-dispatch.sh <brief> --bot <bot> --walk <walk-id>
 #          --walk-owner <mate-id> --timeout <sec> --once-key <walk>@<sha>
+#      With an optional attempt field, the key is <walk>@<sha>.a<n>.
+#      Dispatcher exits 0 and 3 both mean convergence; acceptance is proven
+#      separately by the dispatcher's sent record (a running claim exits 3).
 #          [--project <name> --target <name>]
 #      FM_WALK_REQUEST_PROJECT and FM_WALK_REQUEST_TARGET supply the optional
 #      dispatcher pair; set both to nonempty values or leave both unset or empty.
@@ -247,7 +250,7 @@ deliver_outcome() {  # <mate> <corr> <walk> <release> <text>
 # One line from a mate channel becomes one record. Returns 0 when a record was
 # written (valid or failed), 1 when the line yields nothing new.
 intake_line() {  # <mate> <line>
-  local mate=$1 line=$2 corr payload walks brief brief64 brief_format release bot rest token key value
+  local mate=$1 line=$2 corr payload walks brief brief64 brief_format release bot rest token key value attempt
   case "$line" in
     *"$TYPED_MARKER"*) ;;
     *) return 1 ;;
@@ -262,6 +265,7 @@ intake_line() {  # <mate> <line>
   brief_format=''
   release=''
   bot=''
+  attempt=''
   rest=$payload
   while :; do
     token=${rest%% *}
@@ -274,6 +278,7 @@ intake_line() {  # <mate> <line>
       brief64) brief64=$value; brief_format=inline ;;
       release) release=$value ;;
       bot) bot=$value ;;
+      attempt) attempt=$value ;;
     esac
     case "$rest" in
       *' '*) rest=${rest#* } ;;
@@ -290,6 +295,7 @@ intake_line() {  # <mate> <line>
     "brief_format=$brief_format" \
     "release=$release" \
     "bot=$bot" \
+    "attempt=$attempt" \
     "created_epoch=$(walk_request_now)" \
     "phase=new" \
     "reason=" \
@@ -459,13 +465,14 @@ validate_project_target() {
 }
 
 dispatch_one() {  # <corr> <walk>
-  local corr=${1:-} walk=${2:-} rec walk bot mate brief release log dispatch rc
+  local corr=${1:-} walk=${2:-} rec walk bot mate brief release log dispatch rc attempt
   local -a pt_args=()
   [ -n "$corr" ] && [ -n "$walk" ] || exit 2
   rec=$(record_path "$corr")
   [ -f "$rec" ] || exit 2
   mate=$(record_get "$rec" mate)
   release=$(record_get "$rec" release)
+  attempt=$(record_get "$rec" attempt)
   bot=$(record_get "$rec" bot)
   [ -n "$bot" ] || bot=${FM_WALK_REQUEST_BOT:-}
   dispatch=$(dispatcher_path)
@@ -478,7 +485,7 @@ dispatch_one() {  # <corr> <walk>
     || pt_args=(--project "$FM_WALK_REQUEST_PROJECT" --target "$FM_WALK_REQUEST_TARGET")
   "$dispatch" "$brief" --bot "$bot" --walk "$walk" --walk-owner "$mate" \
     --timeout "${FM_WALK_REQUEST_TIMEOUT:-1800}" \
-    --once-key "$walk@$release" "${pt_args[@]}" >> "$log" 2>&1
+    --once-key "$walk@$release${attempt:+.a$attempt}" "${pt_args[@]}" >> "$log" 2>&1
   rc=$?
   printf '\n__FM_WALK_DISPATCH_EXIT__=%s\n' "$rc" >> "$log"
   exit 0
@@ -516,9 +523,12 @@ record_refused() {
 }
 
 process_record() {
-  local rec=$1 corr mate walks brief brief_format release bot phase spawned delivered retried
+  local rec=$1 corr mate walks brief brief_format release bot phase spawned delivered retried attempt
   local walk log sentinel outcome rc age launched=0 pending_walk rotated
   local walk_id_re='[A-Za-z0-9][A-Za-z0-9._-]{0,63}' walks_re
+  phase=$(record_get "$rec" phase)
+  case "$phase" in delivered|failed) return 0 ;; esac
+  attempt=$(record_get "$rec" attempt)
   corr=$(record_get "$rec" corr)
   mate=$(record_get "$rec" mate)
   walks=$(record_get "$rec" walks)
@@ -542,6 +552,11 @@ process_record() {
       return 0
       ;;
   esac
+  if [ -n "$attempt" ] && ! [[ "$attempt" =~ ^[1-9][0-9]*$ ]]; then
+    record_refused "$rec" "request $corr has an invalid attempt; nothing dispatched" \
+      'refused: attempt must be a positive integer'
+    return 0
+  fi
   if [ -z "$walks" ] || { [ -z "$brief" ] && [ "$brief_format" != inline ]; } || [ -z "$release" ]; then
     record_refused "$rec" "request $corr from $mate is incomplete (walks, brief, and release sha are all required); nothing dispatched" \
       "refused: the typed walk request was incomplete; re-send it with walks, brief, and release"
@@ -628,6 +643,8 @@ process_record() {
       [ -n "$outcome" ] || outcome="(no dispatcher output)"
       if [ "$sentinel" = 0 ]; then
         outcome="sent, exit=0: $outcome"
+      elif [ "$sentinel" = 3 ]; then
+        outcome="converged, exit=3: $outcome"
       else
         outcome="dispatch failed (exit=$sentinel): $outcome"
       fi

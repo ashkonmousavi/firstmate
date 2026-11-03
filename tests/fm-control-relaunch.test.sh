@@ -4544,3 +4544,89 @@ test_released_rollback_retains_each_failed_restoration_backup
 test_released_journal_publishes_its_staged_note_after_success
 
 test_released_snapshot_signals_preserve_complete_brief_and_record
+
+# Receipt-bound event continuation is distinct from startup crash recovery.
+for repeat in 1 2; do
+  dir=$(new_case "step-continuation-$repeat" stepowner)
+  add_ship_task "$dir" stepowner
+  printf 'spawn_gen=s1000.1.1\n' >> "$dir/home/state/stepowner.meta"
+  printf 'bash' > "$dir/fake/command"
+  mkdir -p "$dir/home/data/stepowner"
+  printf 'act stepowner\n' > "$dir/home/config/autolaunch-steps"
+  printf '%s\n' '{"at":2000,"owner":"stepowner","generation":1,"step":"build","trigger":"tests-ready:none@r1","receipt":"pending","effect":{"kind":"relaunch-owner","target":"stepowner","id":"tests-ready:none@r1","expected_gen":"s1000.1.1"}}' > "$dir/home/data/stepowner/slice-steps.log"
+  printf 'fm-lane-release-v1\ntask=stepowner\nspawn_gen=s1000.1.1\nclass=owner-waiting\nresult=released\n' > "$dir/home/state/stepowner.released"
+  before=$(cat "$dir/home/state/stepowner.released")
+  out=$(run_control "$dir" stepowner relaunch --if-recoverable --note 'ordinary recovery'); rc=$?
+  expect_code 3 "$rc" 'ordinary recovery still refuses lane-released clean owners'
+  assert_equals "$before" "$(cat "$dir/home/state/stepowner.released")" 'refusal preserves marker'
+  out=$(run_control "$dir" stepowner relaunch --if-recoverable --step-action 'stepowner:missing' --note 'wrong receipt'); rc=$?
+  expect_code 3 "$rc" 'an absent pending receipt cannot authorize continuation'
+  printf 'claude' > "$dir/fake/command"
+  out=$(run_control "$dir" stepowner relaunch --if-recoverable --step-action 'stepowner:tests-ready:none@r1' --note 'live owner'); rc=$?
+  expect_code 3 "$rc" 'event continuation refuses a live agent'
+  printf 'bash' > "$dir/fake/command"
+  out=$(run_control "$dir" stepowner relaunch --if-recoverable --step-action 'stepowner:tests-ready:none@r1' --note 'continue from tester'); rc=$?
+  expect_code 0 "$rc" "receipt-bound clean owner resumes: $out"
+  assert_contains "$out" 'relaunched stepowner' 'event continuation launched the same owner'
+done
+pass 'step-action continuation is additive, receipt-bound and refuses live agents'
+
+# Each added control branch has a named executable case for the P1 receipt.
+for repeat in 1 2; do
+for branch in missing-flag non-relaunch empty-value empty-string no-lease missing-action stale-incarnation wrong-target wrong-kind wrong-binding wrong-release live-agent unknown-agent missing-endpoint held-status attributed-run; do
+  dir=$(new_case "step-guard-$branch" stepguard)
+  add_ship_task "$dir" stepguard
+  printf 'spawn_gen=s1000.1.1\n' >> "$dir/home/state/stepguard.meta"
+  printf 'bash' > "$dir/fake/command"
+  mkdir -p "$dir/home/data/stepguard"
+  printf 'act stepguard\n' > "$dir/home/config/autolaunch-steps"
+  printf '%s\n' '{"at":2000,"owner":"stepguard","generation":1,"step":"build","trigger":"event","receipt":"pending","effect":{"kind":"relaunch-owner","target":"stepguard","id":"event","expected_gen":"s1000.1.1"}}' > "$dir/home/data/stepguard/slice-steps.log"
+  args=(stepguard relaunch --if-recoverable --step-action stepguard:event --note continue)
+  expected=3
+  case "$branch" in
+    missing-flag) args=(stepguard relaunch --step-action stepguard:event --note continue); expected=1 ;;
+    non-relaunch) args=(stepguard exit --step-action stepguard:event); expected=1 ;;
+    empty-value) args=(stepguard relaunch --if-recoverable --step-action); expected=1 ;;
+    empty-string) args=(stepguard relaunch --if-recoverable --step-action ""); expected=1 ;;
+    no-lease) printf 'observe stepguard\n' > "$dir/home/config/autolaunch-steps" ;;
+    missing-action) args=(stepguard relaunch --if-recoverable --step-action stepguard:absent --note continue) ;;
+    stale-incarnation) printf 'spawn_gen=s1001.1.1\n' >> "$dir/home/state/stepguard.meta" ;;
+    wrong-target) sed 's/"target":"stepguard"/"target":"foreign"/' "$dir/home/data/stepguard/slice-steps.log" > "$dir/changed"; mv "$dir/changed" "$dir/home/data/stepguard/slice-steps.log" ;;
+    wrong-kind) printf 'kind=secondmate\n' >> "$dir/home/state/stepguard.meta" ;;
+    wrong-binding) printf 'endpoint_task_id=foreign\n' >> "$dir/home/state/stepguard.meta" ;;
+    wrong-release) printf 'task=stepguard\nspawn_gen=s1000.1.1\nclass=merged-ship\nresult=released\n' > "$dir/home/state/stepguard.released" ;;
+    live-agent) printf 'claude' > "$dir/fake/command" ;;
+    unknown-agent) : > "$dir/fake/inventory-broken" ;;
+    missing-endpoint) sed '/^window=/d' "$dir/home/state/stepguard.meta" > "$dir/changed"; mv "$dir/changed" "$dir/home/state/stepguard.meta" ;;
+    held-status) printf 'captain-held [at=3000]: waiting\n' > "$dir/home/state/stepguard.status" ;;
+    attributed-run)
+      make_recovery_nm_stub "$dir"
+      head=$(git -C "$dir/wt" rev-parse HEAD)
+      printf 'run:\n  id: "01RECOVERY"\n  branch: task-stepguard\n  status: fix_review\n  head: "%s"\n  findings: none\nbranch_sync:\n  state: pipeline_owned\n' "$head" > "$dir/fake/run-status"
+      printf 'count: 1 of 1 total\nruns[1]{id,branch,status,head,pr}:\n  01RECOVERY,task-stepguard,fix_review,%s,""\n' "$head" > "$dir/fake/run-overview"
+      ;;
+
+  esac
+  prior=$(cat "$dir/home/state/stepguard.meta")
+  out=$(run_control "$dir" "${args[@]}"); rc=$?
+  expect_code "$expected" "$rc" "step continuation branch $branch: $out"
+  assert_equals "$prior" "$(cat "$dir/home/state/stepguard.meta")" "step continuation $branch preserves metadata"
+  pass "step continuation branch: $branch"
+done
+done
+
+for repeat in 1 2; do
+  for child_effect in launch-tester launch-review; do
+    dir=$(new_case "step-child-$child_effect-$repeat" stepchild)
+    add_ship_task "$dir" stepchild
+    printf 'spawn_gen=s1000.1.1\n' >> "$dir/home/state/stepchild.meta"
+    printf 'bash' > "$dir/fake/command"
+    mkdir -p "$dir/home/data/sliceowner"
+    printf 'act sliceowner\n' > "$dir/home/config/autolaunch-steps"
+    printf '{"at":2000,"owner":"sliceowner","generation":1,"step":"tests","trigger":"child","receipt":"pending","effect":{"kind":"%s","target":"stepchild","id":"child","expected_gen":"s1000.1.1"}}\n' "$child_effect" > "$dir/home/data/sliceowner/slice-steps.log"
+    out=$(run_control "$dir" stepchild relaunch --if-recoverable --step-action sliceowner:child --note 'continue the named child'); rc=$?
+    expect_code 0 "$rc" "named existing child effect $child_effect: $out"
+    assert_contains "$out" 'relaunched stepchild' 'the child task identity is retained'
+    pass "step continuation branch: existing-$child_effect"
+  done
+done

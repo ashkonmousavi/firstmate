@@ -4,6 +4,7 @@
 #
 # Usage:
 #   fm-autolaunch.sh                 one pass: launch or refuse, one record each
+#   fm-autolaunch.sh --steps-only [--dry-run]  leased slice transitions only
 #   fm-autolaunch.sh --dry-run       print a decision for every ready item and the
 #                                    spawn commands; write nothing
 #   fm-autolaunch.sh --list-prepared print, in launch order, the ids a pass would try
@@ -114,20 +115,33 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--dry-run|--list-prepared|--print-timer|--backfill [--apply]|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer|--backfill [--apply]|--help]' >&2; }
 
 ACTION=run
+STEP_TARGET=
+STEP_EXCLUDE=
+STEP_DRY=0
 case "${1:-}" in
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
   '') ;;
   --dry-run) ACTION=dry ;;
+  --steps-only) ACTION=steps ;;
+  --step-dispatch) ACTION="step-dispatch"; STEP_TARGET=${2:-}; STEP_EXCLUDE=${3:-} ;;
+  --step-agent) ACTION="step-agent"; STEP_TARGET=${2:-} ;;
+  --step-nm) ACTION="step-nm"; STEP_TARGET=${2:-} ;;
   --list-prepared) ACTION=list ;;
   --print-timer) ACTION=timer ;;
   --backfill) ACTION=backfill ;;
   *) usage; exit 2 ;;
 esac
 APPLY=0
-if [ "$ACTION" = backfill ] && [ "${2:-}" = --apply ] && [ "$#" -eq 2 ]; then
+if [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
+  STEP_DRY=1
+elif [ "$ACTION" = step-dispatch ] && [ "$#" -ge 2 ] && [ "$#" -le 3 ]; then
+  :
+elif { [ "$ACTION" = step-agent ] || [ "$ACTION" = step-nm ]; } && [ "$#" -eq 2 ]; then
+  :
+elif [ "$ACTION" = backfill ] && [ "${2:-}" = --apply ] && [ "$#" -eq 2 ]; then
   APPLY=1
 elif [ "$#" -gt 1 ]; then
   usage; exit 2
@@ -185,6 +199,11 @@ EOF
   exit 0
 fi
 
+# The engine owns validation; absence is an early, byte-for-byte quiet no-op.
+if [ "$ACTION" = steps ] && [ ! -f "$CONFIG/autolaunch-steps" ]; then
+  exit 0
+fi
+
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
@@ -193,6 +212,8 @@ fi
 . "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-quota-axi-lib.sh
 . "$SCRIPT_DIR/fm-quota-axi-lib.sh"
+# shellcheck source=bin/fm-pr-lib.sh
+. "$SCRIPT_DIR/fm-pr-lib.sh"
 
 flat() { printf '%s' "$1" | tr '\t\r\n' '   ' | cut -c1-300; }
 
@@ -421,6 +442,10 @@ default_candidates() {
   done < <(jq -c --arg kind "$kind" --arg backend "$backend" \
     "$FM_QUOTA_ROW_JQ$FM_QUOTA_EVAL_JQ$FM_QUOTA_GATE_JQ"'.[] | select(quota_gate_launch_eligible($kind; $backend; false))' <<<"$defaults")
   defaults=$eligible
+  if [ "$ACTION" = step-dispatch ] && jq -e '.shared_quota == true' "$RULES" >/dev/null 2>&1; then
+    jq -r '.[] | [.harness, (.model // ""), (.effort // "")] | @tsv' <<<"$defaults"
+    return 0
+  fi
   snap="$TMPD/quota.json"
   if [ -z "$QUOTA_SNAP" ]; then
     QUOTA_SNAP=failed
@@ -489,6 +514,72 @@ spawn_argv() {
 
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/fm-autolaunch.XXXXXX") || exit 1
 
+# Private engine callbacks: these reuse the scheduler's preparation, admission,
+# candidate selection and exact spawn argument path. They never acquire the
+# pass lock: the invoking step engine already holds it.
+if [ "$ACTION" = step-nm ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  meta="$STATE/$STEP_TARGET.meta"
+  [ -f "$meta" ] || exit 0
+  # Use the shared identity-aware selector, including per-worktree NM_HOME.
+  # A stale run on a different branch or code identity is never gate evidence.
+  # shellcheck source=bin/fm-nm-run-lib.sh
+  . "$SCRIPT_DIR/fm-nm-run-lib.sh"
+  wt=$(fm_meta_get "$meta" worktree)
+  branch=$(fm_meta_get "$meta" branch)
+  [ -d "$wt" ] && [ -n "$branch" ] || exit 0
+  overview=$(fm_nm_run_checked "$wt" 10 axi) || exit 0
+  choice=$(fm_nm_select_run "$branch" "$overview" "$wt" 10)
+  case "$choice" in selected\|*) ;; *) exit 0 ;; esac
+  IFS='|' read -r _ run_id _ _ <<< "$choice"
+  out=$(fm_nm_run_checked "$wt" 10 axi status --run "$run_id") || exit 0
+  [ "$(fm_nm_strip_quotes "$(fm_nm_field "$out" branch)")" = "$branch" ] || exit 0
+  fm_nm_run_is_pipeline_owned_active "$out" \
+    || fm_nm_head_matches_worktree "$wt" "$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")" || exit 0
+  printf '%s\n' "$out"
+  exit 0
+fi
+if [ "$ACTION" = step-agent ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  meta="$STATE/$STEP_TARGET.meta"
+  [ -f "$meta" ] || { echo missing; exit 0; }
+  fm_backend_agent_state "$(fm_backend_of_meta "$meta")" "$(fm_backend_target_of_meta "$meta")"
+  exit $?
+fi
+if [ "$ACTION" = step-dispatch ]; then
+  fm_task_id_creation_valid "$STEP_TARGET" || exit 2
+  capacity_read || true
+  [ "$CAP_FREE" -gt 0 ] || exit 75
+  check_item "$STEP_TARGET" || { echo "refused:$CHECK_ERR" >&2; exit 1; }
+  dispatch_candidates "$P_KIND" || { echo "refused:$DISPATCH_ERR" >&2; exit 1; }
+  while IFS= read -r line; do
+    h=${line%%$'\t'*} line=${line#*$'\t'}
+    m=${line%%$'\t'*} e=${line#*$'\t'}
+    # Unknown/default model cannot prove a tester differs from the builder.
+    if [ -n "$STEP_EXCLUDE" ]; then
+      [ -n "$m" ] && [ "$m" != default ] && [ "$m" != "$STEP_EXCLUDE" ] || continue
+    fi
+    spawn_argv "$STEP_TARGET" "$h" "$m" "$e"
+    "$SPAWN_BIN" "${SPAWN_ARGV[@]}" < /dev/null
+    exit $?
+  done < "$TMPD/cands.tsv"
+  echo 'refused: no different-model tester candidate' >&2
+  exit 1
+fi
+if [ "$ACTION" = steps ]; then
+  if [ "$STEP_DRY" = 1 ] || ! grep -Eq '^act[[:space:]]+[^[:space:]]' "$CONFIG/autolaunch-steps"; then
+    python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" dry
+    exit $?
+  fi
+  if ! fm_lock_try_acquire "$LOCK"; then
+    echo "fm-autolaunch: another pass holds $LOCK; nothing done" >&2
+    exit 0
+  fi
+  LOCK_HELD=1
+  python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" run
+  exit $?
+fi
+
 if [ "$ACTION" = backfill ]; then
   ids=$(queued_ids) || exit 1
   for id in $ids; do
@@ -530,6 +621,9 @@ if [ "$ACTION" = run ]; then
   exec 9>> "$LOG" || { echo "fm-autolaunch: cannot append to $LOG" >&2; exit 1; }
 fi
 
+if [ "$ACTION" = run ] && [ -f "$CONFIG/autolaunch-steps" ]; then
+  python3 "$SCRIPT_DIR/fm-autolaunch-steps.py" run || exit $?
+fi
 capacity_read || true
 FREE=$CAP_FREE
 if [ "$FREE" -eq 0 ]; then

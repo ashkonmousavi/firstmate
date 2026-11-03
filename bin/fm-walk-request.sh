@@ -5,7 +5,7 @@
 #
 # Usage:
 #   fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
-#     --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
+#     --walks <walk-id>[,<walk-id>...] [--bot <bot-name>] [--attempt <n>]
 #   fm-walk-request.sh --help
 #
 # WHY. The walker dispatcher (fm-grok-bot-dispatch.sh) and its Grok Bot bridge
@@ -22,7 +22,9 @@
 # THE TYPED LINE, owned here and read by MAIN's walk-request check
 # (bin/fm-walk-request-check.sh):
 #   note [corr=<16hex>] [at=<epoch>]: walk-request: walks=<ids>
-#   brief64=<base64-UTF-8> release=<sha> [bot=<name>]
+#   brief64=<base64-UTF-8> release=<sha> [bot=<name>] [attempt=<positive integer>]
+# An attempt changes the dispatch key to <walk>@<sha>.a<n>; omission preserves
+# the legacy key. FM_WALK_REQUEST_CORR may bind a durable caller's 16-hex corr.
 # Local requests may use brief=<absolute-path> instead of brief64.
 # The corr token is the request's receipt identity. The bot field may be
 # omitted by the caller only when MAIN's default names one
@@ -57,7 +59,7 @@ For this fleet, load grok-bots before writing or forwarding a walker brief; the 
 
 Usage:
   fm-walk-request.sh --brief <absolute-brief-path> --release <sha> \
-    --walks <walk-id>[,<walk-id>...] [--bot <bot-name>]
+    --walks <walk-id>[,<walk-id>...] [--bot <bot-name>] [--attempt <n>]
   fm-walk-request.sh --help
 
 Writes one typed walk request on this secondmate home's parent channel so
@@ -95,12 +97,14 @@ BRIEF=
 RELEASE=
 WALKS=
 BOT=
+ATTEMPT=
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --brief) shift; BRIEF=${1:-} ;;
     --release) shift; RELEASE=${1:-} ;;
     --walks) shift; WALKS=${1:-} ;;
     --bot) shift; BOT=${1:-} ;;
+    --attempt) shift; ATTEMPT=${1:-}; [[ "$ATTEMPT" =~ ^[1-9][0-9]*$ ]] || fail '--attempt must be a positive integer' ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
   esac
@@ -170,10 +174,17 @@ fi
 BRIEF=$(python3 "$SCRIPT_DIR/fm-walk-request-path.py" "$brief_action" "$BRIEF" "$FM_HOME" "${FM_SECONDMATE_PARENT_HOME:-}") \
   || fail "--brief must name an approved UTF-8 walk brief of at most 64 KiB"
 
-corr=$(walk_request_new_corr)
+corr=${FM_WALK_REQUEST_CORR:-$(walk_request_new_corr)}
+[[ "$corr" =~ ^[0-9a-f]{16}$ ]] || fail 'corr must be 16 lowercase hex digits'
 [ -n "$corr" ] || fail "could not mint a correlation id"
 line="note [corr=$corr]: walk-request: walks=$WALKS $brief_field=$BRIEF release=$RELEASE"
 [ -z "$BOT" ] || line="$line bot=$BOT"
+[ -z "$ATTEMPT" ] || line="$line attempt=$ATTEMPT"
+if [ -n "${FM_WALK_REQUEST_CORR:-}" ] && [ -f "$destination" ] \
+  && grep -qF "[corr=$corr]" "$destination" \
+  && ! status_event_recorded "$destination" "$line"; then
+  fail 'corr already binds a different walk request'
+fi
 fm_parent_channel_append_once "$destination" "$(status_stamp_line "$line")" || {
   printf 'fm-walk-request: could not append the request to the parent channel at %s\n' "$destination" >&2
   exit 4
@@ -181,5 +192,5 @@ fm_parent_channel_append_once "$destination" "$(status_stamp_line "$line")" || {
 
 printf 'corr=%s\n' "$corr"
 for walk in $(printf '%s' "$WALKS" | tr ',' ' '); do
-  printf 'once-key=%s@%s\n' "$walk" "$RELEASE"
+  printf 'once-key=%s@%s%s\n' "$walk" "$RELEASE" "${ATTEMPT:+.a$ATTEMPT}"
 done

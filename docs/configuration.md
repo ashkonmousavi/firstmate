@@ -902,6 +902,28 @@ The check prints one red line, and in a secondmate home also reports it on the p
 The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep and record derivation, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
 The [verification inventory](verification/autolaunch.md) maps affected classes to regressions and identifies live-proof gaps.
 
+Slice progression is independently opt-in through `config/autolaunch-steps`.
+An absent file or `off` leaves the existing launch behavior unchanged.
+Each line grants a lease with `act <owner-id> ...`, or leaves the named owners under the mate with `observe <owner-id> ...`; bare `observe` inspects recorded slices without granting a lease.
+Only the leased pass writes an owner's step log and performs its transitions; a mate that needs to act manually first returns that owner to `observe`.
+`bin/fm-autolaunch.sh --steps-only` advances those slices and launches their tester and review tasks using the ordinary admission and default-profile selection, without launching unrelated ready items.
+`--steps-only --dry-run` prints the next transitions and reconciliations without writing or launching.
+The ordinary scheduled pass also advances leased slices when the file is present.
+No command installs this file or enables a timer automatically.
+
+The [step engine header](../bin/fm-autolaunch-steps.py) owns the status phrases, prep fields, carrier input, JSONL step-log format and receipt checks.
+Each external effect has an immutable pending receipt before it runs and a completed receipt after its own durable evidence confirms it; restarts reconcile pending effects before consuming another trigger.
+The named tester must record a resolved model different from the owner's, and a changed walk list returns to that tester before the owner continues.
+Direct-PR review uses one task per generation and cut, including fix heads; no-mistakes keeps its own review round.
+The walk carrier's optional attempt field distinguishes deliberate same-release retries while retaining the logical assignment and legacy requests.
+Missing carrier facts leave the obligation open, and a stale carrier or exhausted machinery retry stays with its machinery owner.
+
+The same armed throttle check also evaluates C2 after a completed step pass: a pending receipt without a recorded wait reason, or a fired trigger left without a receipt.
+It reuses `state/.autolaunch-check.red` and the parent-channel report, emits once per C2 episode, and clears when the condition clears.
+Admission waits and open walk obligations remain pending for the next pass.
+`bin/fm-lane-release.sh` can classify an idle owner at a completed wait as `owner-waiting`, releasing its process while preserving its in-flight task, branch and work.
+Receipt-bound continuation uses the additive `fm-control.sh relaunch --if-recoverable --step-action` contract; ordinary startup recovery retains its original eligibility checks.
+
 ## PR-ready line after green (config/ready-after-green)
 
 The optional local, gitignored `config/ready-after-green` presence flag opts a secondmate home into publishing its child's PR-ready parent line only after the child has reported checks green.

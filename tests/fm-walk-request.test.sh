@@ -1298,3 +1298,76 @@ export FM_WALK_REQUEST_PROJECT=x FM_WALK_REQUEST_TARGET=production")
 test_project_target_from_watch_env
 
 echo "# fm-walk-request.test.sh: all assertions passed"
+
+for repeat in 1 2; do
+  parent=$(make_parent "attempt-parent-$repeat")
+  mate=$(make_mate "attempt-mate-$repeat" "$parent")
+  dispatch="$parent/dispatch"; send="$parent/send"
+  fake_dispatcher "$dispatch"; fake_send "$send"
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks step --bot Walker --attempt 2); rc=$?
+  expect_code 0 "$rc" "attempt carrier: $out"
+  assert_contains "$out" "once-key=step@$RELEASE.a2" 'attempt changes dispatcher identity only'
+  check_until_calls "$parent" "$send.calls" 1 FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send"
+  assert_grep "--once-key step@$RELEASE.a2" "$dispatch.calls" 'attempt reaches dispatcher'
+  out=$(run_carrier "$mate" --brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks step --attempt 0); rc=$?
+  expect_code 2 "$rc" 'attempt must be a positive integer'
+done
+pass 'walk attempts preserve the logical walk and distinguish deliberate retries'
+
+# Attempt compatibility and both dispatcher-convergence exits.
+for repeat in 1 2; do
+for branch in legacy explicit-attempt invalid-carrier empty-attempt invalid-record exit-three fixed-corr invalid-corr; do
+  parent=$(make_parent "attempt-branch-$branch-$repeat")
+  mate=$(make_mate "attempt-$branch-$repeat" "$parent")
+  dispatch="$parent/dispatch"; send="$parent/send"
+  fake_dispatcher "$dispatch"; fake_send "$send"
+  args=(--brief "$mate/data/walk-briefs/brief.md" --release "$RELEASE" --walks step --bot Walker)
+  case "$branch" in
+    explicit-attempt|exit-three) args+=(--attempt 3) ;;
+    invalid-carrier) args+=(--attempt bad) ;;
+    empty-attempt) args+=(--attempt) ;;
+  esac
+  if [ "$branch" = fixed-corr ]; then
+    out=$(FM_WALK_REQUEST_CORR=0123456789abcdef run_carrier "$mate" "${args[@]}"); rc=$?
+    FM_WALK_REQUEST_CORR=0123456789abcdef run_carrier "$mate" "${args[@]}" >/dev/null
+    [ "$(wc -l < "$parent/state/attempt-$branch-$repeat.status")" -eq 1 ] || fail 'fixed corr retries append one request'
+    assert_contains "$out" 'corr=0123456789abcdef' 'pending caller owns its corr'
+    conflict=$(FM_WALK_REQUEST_CORR=0123456789abcdef run_carrier "$mate" "${args[@]}" --walks another 2>&1); conflict_rc=$?
+    expect_code 2 "$conflict_rc" 'fixed corr refuses changed request parameters'
+    assert_contains "$conflict" 'corr already binds a different walk request' 'conflict names the bound request'
+    [ "$(wc -l < "$parent/state/attempt-$branch-$repeat.status")" -eq 1 ] || fail 'conflicting corr writes no second request'
+
+  elif [ "$branch" = invalid-corr ]; then
+    out=$(FM_WALK_REQUEST_CORR=bad run_carrier "$mate" "${args[@]}"); rc=$?
+  else
+    out=$(run_carrier "$mate" "${args[@]}"); rc=$?
+  fi
+  case "$branch" in
+    invalid-carrier|empty-attempt|invalid-corr)
+      expect_code 2 "$rc" "walk attempt branch $branch refuses before channel append"
+      assert_absent "$parent/state/attempt-$branch-$repeat.status" 'invalid request writes no channel'
+      pass "walk attempt branch: $branch"
+      continue
+      ;;
+  esac
+  if [ "$branch" = invalid-record ]; then
+    # A forged typed line also fails the MAIN consumer's validation.
+    printf 'note [corr=1111111111111111]: walk-request: walks=step brief=%s release=%s bot=Walker attempt=bad\n' "$mate/data/walk-briefs/brief.md" "$RELEASE" > "$parent/state/attempt-$branch-$repeat.status"
+  fi
+  if [ "$branch" = exit-three ]; then
+    # The dispatcher has already sent this attempt's once-key.
+    printf '#!/usr/bin/env bash\nprintf "args=%%s\\n" "$*" >> "%s.calls"\necho already-sent\nexit 3\n' "$dispatch" > "$dispatch"
+  fi
+  check_until_calls "$parent" "$send.calls" 1 FM_WALK_REQUEST_DISPATCH="$dispatch" FM_WALK_REQUEST_SEND="$send"
+  case "$branch" in
+    legacy|fixed-corr)
+      assert_grep "--once-key step@$RELEASE" "$dispatch.calls" 'legacy identity is preserved'
+      assert_no_grep "$RELEASE.a" "$dispatch.calls" 'legacy identity has no attempt suffix'
+      ;;
+    explicit-attempt) assert_grep "--once-key step@$RELEASE.a3" "$dispatch.calls" 'attempt field survives the durable request record' ;;
+    invalid-record) assert_absent "$dispatch.calls" 'consumer refuses malformed attempt before dispatch' ;;
+    exit-three) assert_grep 'converged, exit=3' "$send.calls" 'already-sent dispatcher converges successfully' ;;
+  esac
+  pass "walk attempt branch: $branch"
+done
+done

@@ -1578,3 +1578,20 @@ extra_audit_requires_readable_completion_evidence
 extra_internal_exit_stays_inert_when_switched_off
 
 extra_herdr_release_preserves_foreign_composer_text
+
+# An owner at a recorded wait releases only its process, never its backlog row.
+for repeat in 1 2; do
+  dir=$(new_case "owner-wait-$repeat")
+  add_task "$dir" owner ship direct-PR
+  mkdir -p "$dir/home/data/owner"
+  printf '%s\n' '{"at":2000,"generation":1,"step":"queue","owner":"owner","trigger":"round:owner@1:1","receipt":"completed","waiting":true}' > "$dir/home/data/owner/slice-steps.log"
+  status_lines "$dir" owner 'paused [at=2000]: waiting for PR checks'
+  stub "$dir" owner crew paused
+  out=$(run_lr "$dir" 2500 --audit)
+  assert_contains "$out" 'class=owner-waiting' 'idle owner at a wait is a lane-release subject'
+  cycle "$dir" owner
+  assert_released "$dir" owner owner-waiting
+  assert_present "$dir/wt-owner/work.txt" 'owner wait keeps unlanded files'
+  assert_present "$dir/home/state/owner.meta" 'owner wait keeps task identity'
+done
+pass 'owner-waiting releases the process while preserving task and unlanded files'
