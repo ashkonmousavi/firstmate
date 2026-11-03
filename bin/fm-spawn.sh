@@ -216,14 +216,14 @@
 #   what lets teardown leave a slot reassigned since untouched; bin/fm-wake-lib.sh
 #   owns the claim and bin/fm-teardown.sh owns what it protects. A slot that
 #   cannot be claimed refuses the spawn rather than launching a worker whose slot
-#   could later be released out from under its successor. A spawn that aborts
-#   while it still holds the allocation lock drops its own claim; an abort after
-#   metadata publication has released that lock leaves the claim in place, and
-#   the next spawn's claim replaces it. A fresh polytoken or Codex spawn that
-#   fails and leaves no task record restores the pool as it found it: it retakes that lock
-#   once to drop its claim after metadata publication too, and before its launch
-#   is delivered it closes the endpoint whose `treehouse get` shell leases the
-#   slot and removes the wiring, task temp root, and staged launch file it wrote.
+#   could later be released out from under its successor. An abort retains the
+#   claim while a task record or newly acquired durable lease remains. Otherwise
+#   it drops its own claim under the allocation lock; after that lock is released,
+#   it leaves the claim for the next spawn to replace. A fresh polytoken or Codex
+#   spawn instead tries once to retake that lock to drop its claim after metadata
+#   publication too. With no retained task record, before launch delivery it
+#   closes its endpoint and removes the wiring, task temp root, and staged launch
+#   file it wrote; after delivery, cleanup requires confirmed endpoint closure.
 #   Codex default-model resolution can acquire a durable lease before opening
 #   an endpoint; abort returns that lease only with unchanged HEAD and matching
 #   lease ID and holder, retaining the lease and claim when safe return fails.
@@ -722,12 +722,16 @@
 # success. A ship or scout dispatch therefore REFUSES up front, before any
 # endpoint, worktree, or record exists, unless the home's backlog has an
 # unheld, unblocked Queued or In flight item for the id. A failed transition
-# after publication, or a cancelled fresh launch, removes the record and retires
-# its busy generation only after spawn_fresh_commit_rollback proves the recorded
-# endpoint gone. Otherwise both remain, even after kill success or a closed flag;
-# bin/fm-backend.sh's fm_backend_endpoint_confirmed_gone owns the proof contract.
-# A fresh same-id retry refuses to replace an unproven record, even without a
-# project capacity declaration. A relaunch re-reads the row instead of
+# after publication, or a cancelled fresh launch, preserves a ship/scout record
+# with a copy when the record is already retained, or when a provisional record
+# holds a durable lease, uses T3 Code, or names a Treehouse pool slot. Endpoint
+# absence alone cannot release that ownership: use --relaunch where supported
+# or bin/fm-teardown.sh for ownership-checked cleanup before a fresh same-id retry.
+# Other records are removed and their busy generation retired only after
+# bin/fm-backend.sh's fm_backend_endpoint_confirmed_gone proves absence, never
+# merely after kill success or a closed flag. This rollback contract applies
+# even without a project capacity declaration; validated secondmate homes keep
+# their ordinary fresh-spawn reuse path. A relaunch re-reads the row instead of
 # re-running the transition, so an eligible In-flight item is left untouched.
 # The transition is
 # skipped entirely for --secondmate spawns (persistent agents are not work
@@ -1794,12 +1798,10 @@ released_mutation_end() {
 }
 
 spawn_fresh_commit_rollback() {
-  # The record is the seat. Remove it only after a positive absence read.
-  # Any other result, including a kill that returned 0, leaves the record and
-  # the pending flag in place so a later call repeats the same read. A refusal
-  # does not retire the busy generation and does not replace the backlog
-  # start error the caller still has to report. An absent record is not a
-  # seat, so the cleanup transition still runs and retires the busy generation.
+  # The header owns rollback eligibility, including retained-copy ownership.
+  # A refusal leaves the busy generation and pending flag for safe retry and
+  # does not replace the backlog start error the caller still has to report.
+  # With no record, the cleanup transition still retires the busy generation.
   if [ -e "$STATE/$ID.meta" ] || [ -L "$STATE/$ID.meta" ]; then
     if { [ "$KIND" = ship ] || [ "$KIND" = scout ]; } &&
       { [ -n "$(fm_meta_get "$STATE/$ID.meta" worktree)" ] ||
@@ -2273,14 +2275,8 @@ spawn_abort_cleanup() {
     SPAWN_META_LOCK_HELD=0
     fm_lock_release "$SPAWN_META_LOCK" || true
   fi
-  # A spawn that aborts after claiming its slot but before its record survives
-  # must not leave a claim naming a task no record describes. The release is a
-  # read-then-remove, so it runs only while the project lock that wrote the
-  # claim is still held (aborts before metadata publication); a later abort has
-  # already released that lock and leaves the claim for the next spawn's
-  # atomic replacement rather than racing it. A polytoken spawn instead retakes
-  # that lock once for a later failure whose record was rolled back. The
-  # release itself never removes another task's claim.
+  # Claim release follows the header's abort contract. The project lock keeps
+  # read-then-remove from racing a successor's atomic claim replacement.
   if [ "$SPAWN_SLOT_CLAIMED" = 1 ] && [ -n "${WT:-}" ] &&
     [ ! -e "$STATE/$ID.meta" ] && [ ! -L "$STATE/$ID.meta" ] &&
     [ -z "$SPAWN_CODEX_LEASE_ID" ] &&
