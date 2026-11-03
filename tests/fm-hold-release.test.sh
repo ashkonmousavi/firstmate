@@ -36,6 +36,7 @@ make_home() {  # <name>
 
 ## Done
 EOF
+  run_axi "$home" add marker-writer marker-writer --repo demo >/dev/null || return 1
   printf '%s\n' "$home"
 }
 
@@ -49,7 +50,7 @@ run_axi() {  # <home> <args...>
 seed_hold() {
   local home=$1 id=$2 condition=$3
   run_axi "$home" add "$id" "$id" --repo demo >/dev/null \
-    && run_axi "$home" hold "$id" --reason waiting --kind external --release-on "$condition" >/dev/null
+    && run_axi "$home" hold "$id" --reason "waiting; writer: marker-writer" --kind external --release-on "$condition" >/dev/null
 }
 
 # run_lib <home> <function> [args...]: run one evaluator call in a subshell
@@ -80,6 +81,115 @@ open_decisions() {  # <home> <task>
     . "$ROOT/bin/fm-classify-lib.sh"
     status_open_decisions "$1/state/$2.status"
   )
+}
+
+
+# Both public hold writers must refuse before changing an existing episode or
+# creating a captain row. The real backend supplies writer state, including a
+# separate registered home with a colliding local task id.
+test_marker_writer_refusal() {
+  local home other entry reason out rc refusal_code fakebin
+  for entry in task captain; do
+    home=$(make_home "writer-$entry")
+    other=$(make_home "writer-$entry-other")
+    refusal_code=2
+    [ "$entry" != captain ] || refusal_code=1
+    fakebin=$(fm_fakebin "$home")
+    fm_fake_exit0 "$fakebin" tmux treehouse no-mistakes gh gh-axi
+    run_axi "$home" add target target --repo demo >/dev/null
+    run_axi "$home" add local-writer local-writer --repo demo >/dev/null
+    run_axi "$home" add finished finished --repo demo >/dev/null
+    run_axi "$home" 'done' finished >/dev/null
+    run_axi "$other" add foreign foreign --repo demo >/dev/null
+    run_axi "$other" add finished finished --repo demo >/dev/null
+    run_axi "$other" 'done' finished >/dev/null
+    # A local open task must not satisfy a qualified lookup of a done task.
+    run_axi "$home" add shadow shadow --repo demo >/dev/null
+    run_axi "$other" add shadow shadow --repo demo >/dev/null
+    run_axi "$other" 'done' shadow >/dev/null
+    printf '%s\n' "- peer - Writer home (home: $other; scope: tests; projects: demo; added 2026-01-01)" > "$home/data/secondmates.md"
+    marker_hold() {
+      if [ "$entry" = captain ]; then
+        PATH="$fakebin:$PATH" run_captain "$home" hold "$1" --reason "$2" --title "$1" --repo demo --release-on "marker:$home/ready"
+      else
+        run_axi "$home" hold "$1" --reason "$2" --kind external --release-on="marker:$home/ready"
+      fi
+    }
+    for reason in 'no writer' 'writer: finished' 'writer: missing' 'writer: MAIN' 'writer: nowhere:foreign' 'writer: peer:finished' 'writer: peer:shadow' 'writer: local-writer:bad' 'rewriter: local-writer' 'writer: local-writer/invalid'; do
+      cp "$home/data/backlog.md" "$home/before"
+      rc=0
+      out=$(marker_hold target "$reason" 2>&1) || rc=$?
+      expect_code "$refusal_code" "$rc" "$entry must refuse an unresolved marker writer: $reason"
+      assert_contains "$out" 'a marker hold names its writer task' "writer refusal must explain the contract"
+      cmp "$home/before" "$home/data/backlog.md" || fail "refusal must not change the backlog"
+      [ ! -e "$home/state/hold-releases/target" ] || fail "refusal must not publish a release cache"
+    done
+    for reason in 'writer: local-writer' 'proof pending; writer: peer:foreign'; do
+      marker_hold target "$reason" >/dev/null || fail "$entry must accept an open writer: $reason"
+      run_axi "$home" show target | grep -q '^  held: yes$' || fail "valid writer must publish the hold"
+      cp "$home/data/backlog.md" "$home/before"
+      cp "$home/state/hold-releases/target" "$home/before-cache"
+      rc=0
+      marker_hold target 'writer: missing' >/dev/null 2>&1 || rc=$?
+      expect_code "$refusal_code" "$rc" "invalid re-hold must be refused"
+      cmp "$home/before" "$home/data/backlog.md" || fail "refused re-hold must preserve the hold"
+      cmp "$home/before-cache" "$home/state/hold-releases/target" || fail "refused re-hold must preserve the episode"
+      run_axi "$home" unhold target >/dev/null
+    done
+    if [ "$entry" = captain ]; then
+      rc=0
+      marker_hold absent 'no writer' >/dev/null 2>&1 || rc=$?
+      expect_code "$refusal_code" "$rc" "invalid captain hold must not create its row"
+      run_axi "$home" show absent >/dev/null 2>&1 && fail "refusal created a captain row"
+    fi
+  done
+  pass "hold-release: both hold entry points require an open local or registered writer task"
+}
+
+# Exercise the real fm-on route/argv encoder, replacing only SSH with a
+# process that reads the named scratch backlog instead of a live remote home.
+test_marker_writer_remote_route() {
+  local home other fakebin transport_root rc
+  home=$(make_home writer-remote)
+  other=$(make_home writer-remote-target)
+  run_axi "$home" add target target --repo demo >/dev/null
+  run_axi "$other" add foreign foreign --repo demo >/dev/null
+  fakebin=$(fm_fakebin "$home")
+  # fm-on requires a genuinely tracked local executable. Keep that preflight
+  # in a tiny fixture repo so this test also runs from source archives.
+  transport_root="$home/transport"
+  mkdir -p "$transport_root/bin"
+  cp "$WRAPPER" "$transport_root/bin/fm-tasks-axi.sh"
+  git -C "$transport_root" init -q
+  git -C "$transport_root" add bin/fm-tasks-axi.sh
+  cat > "$fakebin/ssh" <<'PYSSH'
+#!/usr/bin/env python3
+import base64, os, subprocess, sys
+args = sys.argv[1:]
+p = args.index('fm-remote-entrypoint.sh')
+assert args[p - 1] == 'writer-peer'
+root, home, payload = [base64.b64decode(x).decode() for x in args[p + 2:p + 5]]
+assert home == os.environ['FM_TEST_REMOTE_WRITER_HOME']
+argv = payload.rstrip('\0').split('\0')
+assert argv == ['fm-tasks-axi.sh', 'show', 'foreign']
+env = dict(os.environ, FM_HOME=home)
+for key in ('FM_DATA_OVERRIDE', 'FM_STATE_OVERRIDE', 'FM_ROOT_OVERRIDE'):
+    env.pop(key, None)
+sys.exit(subprocess.call(['bash', root + '/bin/' + argv[0], *argv[1:]], env=env))
+PYSSH
+  chmod +x "$fakebin/ssh"
+  printf '%s\n' "- peer - Remote writer (host: writer-peer; root: $ROOT; home: $other; scope: tests; projects: demo; added 2026-01-01)" > "$home/data/secondmates.md"
+  FM_ROOT_OVERRIDE="$transport_root" FM_SSH_BIN="$fakebin/ssh" FM_TEST_REMOTE_WRITER_HOME="$other" \
+    run_axi "$home" hold target --reason 'writer: peer:foreign' --kind external --release-on "marker:$home/ready" >/dev/null \
+    || fail "an open writer in a registered remote home must be accepted"
+  run_axi "$other" 'done' foreign >/dev/null
+  cp "$home/data/backlog.md" "$home/before"
+  rc=0
+  FM_ROOT_OVERRIDE="$transport_root" FM_SSH_BIN="$fakebin/ssh" FM_TEST_REMOTE_WRITER_HOME="$other" \
+    run_axi "$home" hold target --reason 'writer: peer:foreign' --kind external --release-on "marker:$home/ready" >/dev/null 2>&1 || rc=$?
+  expect_code 2 "$rc" "a done remote writer must refuse the re-hold"
+  cmp "$home/before" "$home/data/backlog.md" || fail "a refused remote writer must preserve the hold"
+  pass "hold-release: remote writer lookup follows the registered route and refuses done tasks"
 }
 
 # --- condition syntax --------------------------------------------------------
@@ -127,11 +237,11 @@ test_hold_with_release_on_records_the_condition() {
   local home
   home=$(make_home record)
   run_axi "$home" add t1 "one" --repo demo >/dev/null
-  run_axi "$home" hold t1 --reason "awaiting activation" --kind external \
+  run_axi "$home" hold t1 --reason "awaiting activation; writer: marker-writer" --kind external \
     --release-on "marker:$TMP_ROOT/record.flag" >/dev/null \
     || fail "hold with --release-on must succeed"
   run_axi "$home" show t1 | grep -q '^  held: yes$' || fail "row must be held"
-  [ "$(run_axi "$home" show t1 | sed -n 's/^  hold_reason: //p' | jq -r .)" = 'awaiting activation' ] \
+  [ "$(run_axi "$home" show t1 | sed -n 's/^  hold_reason: //p' | jq -r .)" = 'awaiting activation; writer: marker-writer' ] \
     || fail "the condition must not leak into the hold reason"
   assert_grep "condition=marker:$TMP_ROOT/record.flag" "$home/state/hold-releases/t1" \
     "the record stores the structured condition beside the hold"
@@ -159,13 +269,13 @@ test_rehold_and_unhold_manage_the_record() {
   local home
   home=$(make_home rehold)
   run_axi "$home" add t1 "one" --repo demo >/dev/null
-  run_axi "$home" hold t1 --reason "first" --kind external \
+  run_axi "$home" hold t1 --reason "first; writer: marker-writer" --kind external \
     --release-on "marker:$TMP_ROOT/rehold.flag" >/dev/null
   run_axi "$home" hold t1 --reason "second" --kind external --until 2099-01-01 >/dev/null \
     || fail "re-hold without --release-on must succeed"
   [ ! -e "$home/state/hold-releases/t1" ] \
     || fail "re-holding without --release-on must drop the record"
-  run_axi "$home" hold t1 --reason "third" --kind external \
+  run_axi "$home" hold t1 --reason "third; writer: marker-writer" --kind external \
     --release-on "marker:$TMP_ROOT/rehold2.flag" >/dev/null
   run_axi "$home" unhold t1 >/dev/null || fail "unhold must succeed"
   [ ! -e "$home/state/hold-releases/t1" ] || fail "unhold must drop the record"
@@ -178,7 +288,7 @@ test_evaluation_wakes_once_and_keeps_the_decision_open() {
   local home out
   home=$(make_home evaluate)
   run_axi "$home" add t1 "one" --repo demo >/dev/null
-  run_axi "$home" hold t1 --reason "awaiting activation" --kind external \
+  run_axi "$home" hold t1 --reason "awaiting activation; writer: marker-writer" --kind external \
     --release-on "marker:$TMP_ROOT/evaluate.flag" >/dev/null
   out=$(run_lib "$home" fm_hold_release_evaluate "$home/state")
   [ -z "$out" ] || fail "an unmet condition must print nothing: $out"
@@ -199,7 +309,7 @@ test_release_and_rehold_close_the_decision() {
   local home
   home=$(make_home close)
   run_axi "$home" add t1 "one" --repo demo >/dev/null
-  run_axi "$home" hold t1 --reason "awaiting activation" --kind external \
+  run_axi "$home" hold t1 --reason "awaiting activation; writer: marker-writer" --kind external \
     --release-on "marker:$TMP_ROOT/close.flag" >/dev/null
   : > "$TMP_ROOT/close.flag"
   run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
@@ -220,11 +330,11 @@ test_rehold_after_met_opens_a_new_episode() {
   local home out
   home=$(make_home episode)
   run_axi "$home" add t1 "one" --repo demo >/dev/null
-  run_axi "$home" hold t1 --reason "first" --kind external \
+  run_axi "$home" hold t1 --reason "first; writer: marker-writer" --kind external \
     --release-on "marker:$TMP_ROOT/ep1.flag" >/dev/null
   : > "$TMP_ROOT/ep1.flag"
   run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
-  run_axi "$home" hold t1 --reason "second wait" --kind external \
+  run_axi "$home" hold t1 --reason "second wait; writer: marker-writer" --kind external \
     --release-on "marker:$TMP_ROOT/ep2.flag" >/dev/null \
     || fail "re-hold with a fresh condition must succeed"
   open_decisions "$home" t1 | grep -q '^hold-release-t1' \
@@ -242,7 +352,7 @@ test_closed_task_reconciles_its_record_away() {
   local home
   home=$(make_home closed)
   run_axi "$home" add t1 "one" --repo demo >/dev/null
-  run_axi "$home" hold t1 --reason "awaiting activation" --kind external \
+  run_axi "$home" hold t1 --reason "awaiting activation; writer: marker-writer" --kind external \
     --release-on "marker:$TMP_ROOT/closed.flag" >/dev/null
   : > "$TMP_ROOT/closed.flag"
   run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
@@ -259,7 +369,7 @@ test_removed_task_reconciles_its_record_away() {
   local home out
   home=$(make_home removed)
   run_axi "$home" add t1 "one" --repo demo >/dev/null
-  run_axi "$home" hold t1 --reason "awaiting activation" --kind external \
+  run_axi "$home" hold t1 --reason "awaiting activation; writer: marker-writer" --kind external \
     --release-on "marker:$home/met" >/dev/null
   : > "$home/met"
   run_lib "$home" fm_hold_release_evaluate "$home/state" >/dev/null
@@ -281,7 +391,7 @@ test_show_override_distinguishes_missing_from_unreadable() {
   for channel in stdout stderr; do
     home=$(make_home "show-$channel")
     run_axi "$home" add t1 "one" --repo demo >/dev/null
-    run_axi "$home" hold t1 --reason "awaiting activation" --kind external \
+    run_axi "$home" hold t1 --reason "awaiting activation; writer: marker-writer" --kind external \
       --release-on "marker:$home/met" >/dev/null
     : > "$home/met"
     cat > "$home/show" <<'SH'
@@ -408,7 +518,7 @@ test_captain_answer_and_rehold_close_the_decision() {
   PATH="$fakebin:$PATH" \
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" \
-    "$CAPTAIN" hold q1 --title "activation" --reason "waiting on the marker" \
+    "$CAPTAIN" hold q1 --title "activation" --reason "waiting on the marker; writer: marker-writer" \
     --repo demo --origin hold-fixture --release-on "marker:$TMP_ROOT/captain-close.flag" >/dev/null \
     || fail "the marker captain hold must succeed"
   : > "$TMP_ROOT/captain-close.flag"
@@ -427,7 +537,7 @@ test_captain_answer_and_rehold_close_the_decision() {
   PATH="$fakebin:$PATH" \
     FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" \
-    "$CAPTAIN" hold q2 --title "second" --reason "first reason" \
+    "$CAPTAIN" hold q2 --title "second" --reason "first reason; writer: marker-writer" \
     --repo demo --origin hold-fixture --release-on "marker:$TMP_ROOT/captain-rehold.flag" >/dev/null \
     || fail "the second captain hold must succeed"
   : > "$TMP_ROOT/captain-rehold.flag"
@@ -545,9 +655,9 @@ hold_with_writer() {
   local home=$1 writer=$2
   shift 2
   if [ "$writer" = captain ]; then
-    run_captain "$home" hold t1 --reason 'awaiting (activation)' "$@"
+    run_captain "$home" hold t1 --reason 'awaiting (activation); writer: marker-writer' "$@"
   else
-    run_axi "$home" hold t1 --reason 'awaiting activation' --kind external "$@"
+    run_axi "$home" hold t1 --reason 'awaiting activation; writer: marker-writer' --kind external "$@"
   fi
 }
 
@@ -703,7 +813,7 @@ test_hold_conditions_travel_with_task_transfers() {
 test_structured_reason_round_trips_across_readers() {
   local home reason condition shown listed quoted raw encoded snapshot rendered
   home=$(make_home structured-reason)
-  reason=$'Wait for "north" (activation)\nThen resume café'
+  reason=$'Wait for "north" (activation)\nThen resume café; writer: marker-writer'
   condition="marker:$home/activation (north)"
   run_axi "$home" add t1 one --repo demo >/dev/null
   run_axi "$home" hold t1 --reason "$reason" --release-on "$condition" >/dev/null \
@@ -732,9 +842,9 @@ race_hold_mutation() {
   local home=$1 mode=$2
   case "$mode" in
     unhold) run_axi "$home" unhold t1 >/dev/null ;;
-    rehold) run_axi "$home" hold t1 --reason new --kind external --release-on "marker:$home/unmet" >/dev/null ;;
+    rehold) run_axi "$home" hold t1 --reason "new; writer: marker-writer" --kind external --release-on "marker:$home/unmet" >/dev/null ;;
     captain-answer) run_captain "$home" answer t1 --decision-file "$home/answer" >/dev/null ;;
-    captain-rehold) run_captain "$home" hold t1 --reason new --release-on "marker:$home/unmet" >/dev/null ;;
+    captain-rehold) run_captain "$home" hold t1 --reason "new; writer: marker-writer" --release-on "marker:$home/unmet" >/dev/null ;;
   esac
 }
 
@@ -858,10 +968,10 @@ test_wrapper_spellings_and_captain_exemption() {
     run_axi "$home" hold t1 --reason waiting ${args:+$args} >/dev/null 2>&1 || rc=$?
     expect_code 2 "$rc" "every kindless and external spelling must require an event or date"
     run_axi "$home" hold t1 --reason dated ${args:+$args} --until=2099-01-01 >/dev/null || fail "dated holds must work"
-    run_axi "$home" hold t1 --reason event ${args:+$args} --release-on="marker:$home/unmet" >/dev/null || fail "event holds must work"
+    run_axi "$home" hold t1 --reason "event; writer: marker-writer" ${args:+$args} --release-on="marker:$home/unmet" >/dev/null || fail "event holds must work"
   done
   run_axi "$home" hold --help >/dev/null || fail "help must remain available without a hold condition"
-  run_axi "$home" hold --reason before-id t1 --release-on "marker:$home/ordered" >/dev/null \
+  run_axi "$home" hold --reason "before-id; writer: marker-writer" t1 --release-on "marker:$home/ordered" >/dev/null \
     || fail "options before the task id must retain the same hold contract"
   assert_grep "condition=marker:$home/ordered" "$home/state/hold-releases/t1" "option ordering must store the condition on the named task"
   fakebin=$(fm_fakebin "$home")
@@ -901,6 +1011,8 @@ SH
   pass "hold-release: stalled lookups reserve processing time for later registered checks"
 }
 
+test_marker_writer_refusal
+test_marker_writer_remote_route
 test_condition_syntax
 test_external_hold_refused_without_condition
 test_hold_with_release_on_records_the_condition

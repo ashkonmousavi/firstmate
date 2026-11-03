@@ -1261,6 +1261,8 @@ command_hold_locked() {
     release_on=$(fm_hold_release_valid "$release_on") \
       || fail "--release-on must be pr:<owner>/<repo>#<n> or marker:<absolute-path>: $release_on"
   fi
+  fm_hold_release_writer_valid "$DATA" "$release_on" "$reason" \
+    || fail "a marker hold names its writer task"
   stored_reason=$(fm_hold_reason_encode "$reason" "$release_on") || fail "could not encode the hold reason"
   hold_set=${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
   case "$hold_set" in
