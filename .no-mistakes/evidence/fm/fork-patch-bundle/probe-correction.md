@@ -1,0 +1,1 @@
+The first park probe used a substring assertion: valid matched inside invalid. The retained initial transcript shows the product correctly omitted only the valid park. The revised probe compares the task token at the beginning of each output line. No product changes were required.

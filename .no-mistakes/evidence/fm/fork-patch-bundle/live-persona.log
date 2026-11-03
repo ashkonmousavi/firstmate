@@ -1,0 +1,85 @@
+
+CASE complete endpoints
+PERSONA: researcher; surfaces=pages,chat; usage=beginner,experienced; same outcome.
+DOCTOR: no Doctor change; because only labels change.
+XAI-SURFACE: none; because only labels change.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+candidate
+
+[exit=0]
+
+CASE middle missing endpoints
+PERSONA: researcher; surfaces=pages,chat; usage=middle; same outcome.
+DOCTOR: no Doctor change; because only labels change.
+XAI-SURFACE: none; because only labels change.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+
+[exit=0]
+
+CASE missing Doctor
+PERSONA: researcher; surfaces=pages,chat; usage=beginner,experienced; same outcome.
+XAI-SURFACE: none; because only labels change.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+
+[exit=0]
+
+CASE reasonless Doctor
+PERSONA: researcher; surfaces=pages,chat; usage=beginner,experienced; same outcome.
+DOCTOR: no Doctor change
+XAI-SURFACE: none; because only labels change.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+
+[exit=0]
+
+CASE reasonless surface
+PERSONA: researcher; surfaces=pages,chat; usage=beginner,experienced; same outcome.
+DOCTOR: no Doctor change; because only labels change.
+XAI-SURFACE: none
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+
+[exit=0]
+
+CASE surface suffix
+PERSONA: researcher; surfaces=pages/chat; usage=beginner,experienced; same outcome.
+DOCTOR: no Doctor change; because only labels change.
+XAI-SURFACE: none; because only labels change.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+
+[exit=0]
+
+CASE usage suffix
+PERSONA: researcher; surfaces=pages,chat; usage=beginner/experienced; same outcome.
+DOCTOR: no Doctor change; because only labels change.
+XAI-SURFACE: none; because only labels change.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+
+[exit=0]
+
+CASE single-page experienced
+PERSONA: researcher; surfaces=pages; usage=experienced; same outcome.
+DOCTOR: no Doctor change; because only labels change.
+XAI-SURFACE: none; because only labels change.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+candidate
+
+[exit=0]
+
+CASE single-chat beginner
+PERSONA: researcher; surfaces=chat; usage=beginner; same outcome.
+DOCTOR: no Doctor change; because only labels change.
+XAI-SURFACE: none; because only labels change.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+candidate
+
+[exit=0]
+
+CASE legacy prep before fixed cutoff
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+candidate
+
+[exit=0]
+
+CASE legacy revised at cutoff
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --list-prepared
+
+[exit=0]

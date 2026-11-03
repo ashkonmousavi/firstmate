@@ -1,0 +1,10 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-wake-drain.sh
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+bad-date [key=choice] needs-decision: bad-date decision remains open
+empty [key=choice] needs-decision: empty decision remains open
+extra [key=choice] needs-decision: extra decision remains open
+invalid [key=choice] needs-decision: invalid decision remains open
+symlink [key=choice] needs-decision: symlink decision remains open
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+
+[exit=0]

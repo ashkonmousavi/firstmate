@@ -1,0 +1,22 @@
+[
+  {
+    "name": "live-persona",
+    "result": "pass"
+  },
+  {
+    "name": "live-reply",
+    "result": "pass"
+  },
+  {
+    "name": "live-timer",
+    "result": "pass"
+  },
+  {
+    "name": "live-owl",
+    "result": "pass"
+  },
+  {
+    "name": "live-c4-preview",
+    "result": "pass"
+  }
+]

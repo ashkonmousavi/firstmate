@@ -1,0 +1,953 @@
+FM_TEST_BEGIN 2026-11-03T22:20:58Z tests/fm-wake-drain-open-decisions.test.sh family=standalone expected_gate_skip=none
+ok - a needs-decision buried under later routine/other-key lines still reports as open
+ok - an over-long open decision is cut to its per-item budget with the shared truncation marker
+ok - an explicit resolved [key=X] closes the keyed decision
+ok - a later unrelated terminal line never clears an open decision
+ok - a reserved decision key can only be opened or closed by its owning library
+ok - no open decisions across the fleet prints nothing
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 89993.1793744462.5QF5Sz
+ok - the open-decision section is fleet-wide, not scoped to this drain's own queued records
+ok - a buried open decision surfaces even when the wake queue itself is empty
+ok - the fleet-wide decision scan does not follow status symlinks
+FM_TEST_END 2026-11-03T22:21:04Z tests/fm-wake-drain-open-decisions.test.sh exit=0 duration_ms=5999 gate_skip=false
+FM_TEST_BEGIN 2026-11-03T22:21:04Z tests/fm-wake-drain-open-decisions-cursor.test.sh family=standalone expected_gate_skip=none
+ok - terminal supersession reaches whole-file reads, incremental drains, old caches, and captured spans
+ok - folded decisions are rebuilt when task-kind evidence changes
+ok - a truncated/rewritten log falls back to a full re-fold instead of dropping or misreading the decision
+ok - a same-size file rotation (new inode) is detected and falls back to a full re-fold
+ok - a failed presentation read preserves status state for retry
+ok - a cursor-cache read failure refolds decisions without replaying handled unread status
+ok - a pre-fix cursor is rebuilt so a previously skipped corr-tagged decision surfaces
+ok - an old fold cache is rebuilt once before same-version incremental reads resume
+ok - a buried decision survives many growing drains with bounded read cost, and resolution durably clears it at bounded cost too
+FM_TEST_END 2026-11-03T22:21:42Z tests/fm-wake-drain-open-decisions-cursor.test.sh exit=0 duration_ms=37744 gate_skip=false
+FM_TEST_BEGIN 2026-11-03T22:21:42Z tests/fm-state-claim-guard.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - planted queue claim without read blocks and names claim (21.1ms)
+ok - matching PR read passes (20.6ms)
+ok - aggregate merged count accepts gh list (19.9ms)
+ok - hook aggregate merged count accepts gh list (61.3ms)
+ok - aggregate merged count accepts gh-axi list (20.3ms)
+ok - hook aggregate merged count accepts gh-axi list (62.0ms)
+ok - aggregate merged count without a forge read blocks (20.4ms)
+ok - aggregate merged count accepts any forge read (20.7ms)
+ok - list count does not prove a named PR (19.7ms)
+ok - numeric list option cannot identify a PR: gh pr list --state merged --limit 9 --json number --jq length (21.0ms)
+ok - numeric list option still permits aggregate evidence: gh pr list --state merged --limit 9 --json number --jq length (20.2ms)
+ok - numeric list option cannot identify a PR: env GH_HOST=github.com bash /fixture/gh pr list --state merged --limit 9 --json number --jq length (20.0ms)
+ok - numeric list option still permits aggregate evidence: env GH_HOST=github.com bash /fixture/gh pr list --state merged --limit 9 --json number --jq length (20.1ms)
+ok - numeric list option cannot identify a PR: gh --repo example/repo --hostname github.com pr list --state merged --limit 9 --json number --jq length (20.2ms)
+ok - numeric list option still permits aggregate evidence: gh --repo example/repo --hostname github.com pr list --state merged --limit 9 --json number --jq length (19.7ms)
+ok - numeric list option cannot identify a PR: gh pr list --state merged -L 9 --json number --jq length (19.5ms)
+ok - numeric list option still permits aggregate evidence: gh pr list --state merged -L 9 --json number --jq length (19.4ms)
+ok - numeric list option cannot identify a PR: env GH_HOST=github.com bash /fixture/gh pr list --state merged -L 9 --json number --jq length (20.4ms)
+ok - numeric list option still permits aggregate evidence: env GH_HOST=github.com bash /fixture/gh pr list --state merged -L 9 --json number --jq length (21.3ms)
+ok - numeric list option cannot identify a PR: gh --repo example/repo --hostname github.com pr list --state merged -L 9 --json number --jq length (20.9ms)
+ok - numeric list option still permits aggregate evidence: gh --repo example/repo --hostname github.com pr list --state merged -L 9 --json number --jq length (20.1ms)
+ok - numeric list option cannot identify a PR: gh pr list --state merged --limit=9 --json number --jq length (20.7ms)
+ok - numeric list option still permits aggregate evidence: gh pr list --state merged --limit=9 --json number --jq length (20.5ms)
+ok - numeric list option cannot identify a PR: env GH_HOST=github.com bash /fixture/gh pr list --state merged --limit=9 --json number --jq length (21.6ms)
+ok - numeric list option still permits aggregate evidence: env GH_HOST=github.com bash /fixture/gh pr list --state merged --limit=9 --json number --jq length (21.3ms)
+ok - numeric list option cannot identify a PR: gh --repo example/repo --hostname github.com pr list --state merged --limit=9 --json number --jq length (20.0ms)
+ok - numeric list option still permits aggregate evidence: gh --repo example/repo --hostname github.com pr list --state merged --limit=9 --json number --jq length (21.5ms)
+ok - numeric list option cannot identify a PR: gh pr list --state merged -L9 --json number --jq length (22.0ms)
+ok - numeric list option still permits aggregate evidence: gh pr list --state merged -L9 --json number --jq length (19.6ms)
+ok - numeric list option cannot identify a PR: env GH_HOST=github.com bash /fixture/gh pr list --state merged -L9 --json number --jq length (20.3ms)
+ok - numeric list option still permits aggregate evidence: env GH_HOST=github.com bash /fixture/gh pr list --state merged -L9 --json number --jq length (21.8ms)
+ok - numeric list option cannot identify a PR: gh --repo example/repo --hostname github.com pr list --state merged -L9 --json number --jq length (20.7ms)
+ok - numeric list option still permits aggregate evidence: gh --repo example/repo --hostname github.com pr list --state merged -L9 --json number --jq length (20.3ms)
+ok - list search URL cannot identify a PR: gh (19.6ms)
+ok - list search cannot prove a URL claim: gh (19.1ms)
+ok - list and direct read permit a named claim: gh (20.8ms)
+ok - list cannot fill a missing coordinated PR read: gh (20.0ms)
+ok - numeric list option cannot identify a PR: gh-axi pr list --state merged --limit 9 --json number --jq length (20.4ms)
+ok - numeric list option still permits aggregate evidence: gh-axi pr list --state merged --limit 9 --json number --jq length (19.9ms)
+ok - numeric list option cannot identify a PR: env GH_HOST=github.com bash /fixture/gh-axi pr list --state merged --limit 9 --json number --jq length (21.5ms)
+ok - numeric list option still permits aggregate evidence: env GH_HOST=github.com bash /fixture/gh-axi pr list --state merged --limit 9 --json number --jq length (23.4ms)
+ok - numeric list option cannot identify a PR: gh-axi --repo example/repo --hostname github.com pr list --state merged --limit 9 --json number --jq length (21.0ms)
+ok - numeric list option still permits aggregate evidence: gh-axi --repo example/repo --hostname github.com pr list --state merged --limit 9 --json number --jq length (20.7ms)
+ok - numeric list option cannot identify a PR: gh-axi pr list --state merged -L 9 --json number --jq length (19.8ms)
+ok - numeric list option still permits aggregate evidence: gh-axi pr list --state merged -L 9 --json number --jq length (20.1ms)
+ok - numeric list option cannot identify a PR: env GH_HOST=github.com bash /fixture/gh-axi pr list --state merged -L 9 --json number --jq length (20.7ms)
+ok - numeric list option still permits aggregate evidence: env GH_HOST=github.com bash /fixture/gh-axi pr list --state merged -L 9 --json number --jq length (19.7ms)
+ok - numeric list option cannot identify a PR: gh-axi --repo example/repo --hostname github.com pr list --state merged -L 9 --json number --jq length (19.1ms)
+ok - numeric list option still permits aggregate evidence: gh-axi --repo example/repo --hostname github.com pr list --state merged -L 9 --json number --jq length (19.6ms)
+ok - numeric list option cannot identify a PR: gh-axi pr list --state merged --limit=9 --json number --jq length (19.0ms)
+ok - numeric list option still permits aggregate evidence: gh-axi pr list --state merged --limit=9 --json number --jq length (19.3ms)
+ok - numeric list option cannot identify a PR: env GH_HOST=github.com bash /fixture/gh-axi pr list --state merged --limit=9 --json number --jq length (19.3ms)
+ok - numeric list option still permits aggregate evidence: env GH_HOST=github.com bash /fixture/gh-axi pr list --state merged --limit=9 --json number --jq length (19.3ms)
+ok - numeric list option cannot identify a PR: gh-axi --repo example/repo --hostname github.com pr list --state merged --limit=9 --json number --jq length (19.6ms)
+ok - numeric list option still permits aggregate evidence: gh-axi --repo example/repo --hostname github.com pr list --state merged --limit=9 --json number --jq length (20.9ms)
+ok - numeric list option cannot identify a PR: gh-axi pr list --state merged -L9 --json number --jq length (19.7ms)
+ok - numeric list option still permits aggregate evidence: gh-axi pr list --state merged -L9 --json number --jq length (19.2ms)
+ok - numeric list option cannot identify a PR: env GH_HOST=github.com bash /fixture/gh-axi pr list --state merged -L9 --json number --jq length (20.1ms)
+ok - numeric list option still permits aggregate evidence: env GH_HOST=github.com bash /fixture/gh-axi pr list --state merged -L9 --json number --jq length (18.9ms)
+ok - numeric list option cannot identify a PR: gh-axi --repo example/repo --hostname github.com pr list --state merged -L9 --json number --jq length (18.9ms)
+ok - numeric list option still permits aggregate evidence: gh-axi --repo example/repo --hostname github.com pr list --state merged -L9 --json number --jq length (20.3ms)
+ok - list search URL cannot identify a PR: gh-axi (20.1ms)
+ok - list search cannot prove a URL claim: gh-axi (19.7ms)
+ok - list and direct read permit a named claim: gh-axi (19.3ms)
+ok - list cannot fill a missing coordinated PR read: gh-axi (19.4ms)
+ok - read it live is a reading adverb, not deployment (19.7ms)
+ok - read it live does not exempt an unsupported PR claim (19.6ms)
+ok - read it live does not exempt a deployment assertion (19.5ms)
+ok - read live is a reading adverb, not deployment (20.1ms)
+ok - read live does not exempt an unsupported PR claim (20.6ms)
+ok - read live does not exempt a deployment assertion (20.4ms)
+ok - short quoted assertion requires a read: PR '#9' is merged. (20.7ms)
+ok - short quoted assertion rejects unrelated read: PR '#9' is merged. (20.1ms)
+ok - short quoted assertion accepts matching read: PR '#9' is merged. (19.3ms)
+ok - short quoted assertion requires a read: PR '9' is merged. (21.0ms)
+ok - short quoted assertion rejects unrelated read: PR '9' is merged. (20.7ms)
+ok - short quoted assertion accepts matching read: PR '9' is merged. (21.5ms)
+ok - short quoted assertion requires a read: The site 'https://one.example' is live. (21.9ms)
+ok - short quoted assertion rejects unrelated read: The site 'https://one.example' is live. (23.1ms)
+ok - short quoted assertion accepts matching read: The site 'https://one.example' is live. (21.0ms)
+ok - short quoted assertion requires a read: 'Lane alpha' is running. (27.6ms)
+ok - short quoted assertion rejects unrelated read: 'Lane alpha' is running. (22.1ms)
+ok - short quoted assertion accepts matching read: 'Lane alpha' is running. (23.7ms)
+ok - short quoted assertion requires a read: The 'alpha lane' is running. (21.5ms)
+ok - short quoted assertion rejects unrelated read: The 'alpha lane' is running. (21.3ms)
+ok - short quoted assertion accepts matching read: The 'alpha lane' is running. (23.7ms)
+ok - short quoted assertion requires a read: PR 9 is 'merged'. (21.0ms)
+ok - short quoted assertion rejects unrelated read: PR 9 is 'merged'. (21.0ms)
+ok - short quoted assertion accepts matching read: PR 9 is 'merged'. (22.6ms)
+ok - short quoted assertion requires a read: The site is 'live'. (20.9ms)
+ok - short quoted assertion rejects unrelated read: The site is 'live'. (21.2ms)
+ok - short quoted assertion accepts matching read: The site is 'live'. (21.4ms)
+ok - short quoted assertion requires a read: Lane alpha is 'running'. (23.0ms)
+ok - short quoted assertion rejects unrelated read: Lane alpha is 'running'. (22.0ms)
+ok - short quoted assertion accepts matching read: Lane alpha is 'running'. (21.1ms)
+ok - short quoted assertion requires a read: 'PR 9 merged'. (21.1ms)
+ok - short quoted assertion rejects unrelated read: 'PR 9 merged'. (19.7ms)
+ok - short quoted assertion accepts matching read: 'PR 9 merged'. (20.2ms)
+ok - quoted earlier state report is not a claim: ' (19.7ms)
+ok - quoted state does not exempt an assertion: ' (19.7ms)
+ok - quoted identifiers do not require their own reads: ' (20.6ms)
+ok - quoted clauses and sentences are not claims: ' (20.0ms)
+ok - quoted contraction remains historical: ' I've (20.7ms)
+ok - quoted contraction retains a later assertion: ' I've (20.4ms)
+ok - quoted contraction allows a supported later assertion: ' I've (20.8ms)
+ok - quoted contraction preserves multiline reports: ' I've (19.4ms)
+ok - quoted contraction remains historical: ' I’ve (19.2ms)
+ok - quoted contraction retains a later assertion: ' I’ve (20.5ms)
+ok - quoted contraction allows a supported later assertion: ' I’ve (19.8ms)
+ok - quoted contraction preserves multiline reports: ' I’ve (20.2ms)
+ok - short quoted assertion requires a read: PR "#9" is merged. (19.9ms)
+ok - short quoted assertion rejects unrelated read: PR "#9" is merged. (19.9ms)
+ok - short quoted assertion accepts matching read: PR "#9" is merged. (19.6ms)
+ok - short quoted assertion requires a read: PR "9" is merged. (20.5ms)
+ok - short quoted assertion rejects unrelated read: PR "9" is merged. (20.1ms)
+ok - short quoted assertion accepts matching read: PR "9" is merged. (19.8ms)
+ok - short quoted assertion requires a read: The site "https://one.example" is live. (19.6ms)
+ok - short quoted assertion rejects unrelated read: The site "https://one.example" is live. (20.0ms)
+ok - short quoted assertion accepts matching read: The site "https://one.example" is live. (19.7ms)
+ok - short quoted assertion requires a read: "Lane alpha" is running. (21.0ms)
+ok - short quoted assertion rejects unrelated read: "Lane alpha" is running. (21.4ms)
+ok - short quoted assertion accepts matching read: "Lane alpha" is running. (21.5ms)
+ok - short quoted assertion requires a read: The "alpha lane" is running. (20.7ms)
+ok - short quoted assertion rejects unrelated read: The "alpha lane" is running. (20.9ms)
+ok - short quoted assertion accepts matching read: The "alpha lane" is running. (21.7ms)
+ok - short quoted assertion requires a read: PR 9 is "merged". (20.5ms)
+ok - short quoted assertion rejects unrelated read: PR 9 is "merged". (20.5ms)
+ok - short quoted assertion accepts matching read: PR 9 is "merged". (20.9ms)
+ok - short quoted assertion requires a read: The site is "live". (21.5ms)
+ok - short quoted assertion rejects unrelated read: The site is "live". (20.1ms)
+ok - short quoted assertion accepts matching read: The site is "live". (19.9ms)
+ok - short quoted assertion requires a read: Lane alpha is "running". (20.0ms)
+ok - short quoted assertion rejects unrelated read: Lane alpha is "running". (21.0ms)
+ok - short quoted assertion accepts matching read: Lane alpha is "running". (21.2ms)
+ok - short quoted assertion requires a read: "PR 9 merged". (21.3ms)
+ok - short quoted assertion rejects unrelated read: "PR 9 merged". (20.4ms)
+ok - short quoted assertion accepts matching read: "PR 9 merged". (20.5ms)
+ok - quoted earlier state report is not a claim: " (19.6ms)
+ok - quoted state does not exempt an assertion: " (19.4ms)
+ok - quoted identifiers do not require their own reads: " (20.0ms)
+ok - quoted clauses and sentences are not claims: " (19.9ms)
+ok - quoted contraction remains historical: " I've (20.3ms)
+ok - quoted contraction retains a later assertion: " I've (19.8ms)
+ok - quoted contraction allows a supported later assertion: " I've (20.5ms)
+ok - quoted contraction preserves multiline reports: " I've (20.2ms)
+ok - quoted contraction remains historical: " I’ve (19.5ms)
+ok - quoted contraction retains a later assertion: " I’ve (20.6ms)
+ok - quoted contraction allows a supported later assertion: " I’ve (20.8ms)
+ok - quoted contraction preserves multiline reports: " I’ve (19.8ms)
+ok - short quoted assertion requires a read: PR ‘#9’ is merged. (19.8ms)
+ok - short quoted assertion rejects unrelated read: PR ‘#9’ is merged. (21.6ms)
+ok - short quoted assertion accepts matching read: PR ‘#9’ is merged. (20.0ms)
+ok - short quoted assertion requires a read: PR ‘9’ is merged. (19.9ms)
+ok - short quoted assertion rejects unrelated read: PR ‘9’ is merged. (19.4ms)
+ok - short quoted assertion accepts matching read: PR ‘9’ is merged. (21.4ms)
+ok - short quoted assertion requires a read: The site ‘https://one.example’ is live. (19.6ms)
+ok - short quoted assertion rejects unrelated read: The site ‘https://one.example’ is live. (19.3ms)
+ok - short quoted assertion accepts matching read: The site ‘https://one.example’ is live. (20.1ms)
+ok - short quoted assertion requires a read: ‘Lane alpha’ is running. (20.2ms)
+ok - short quoted assertion rejects unrelated read: ‘Lane alpha’ is running. (21.0ms)
+ok - short quoted assertion accepts matching read: ‘Lane alpha’ is running. (20.4ms)
+ok - short quoted assertion requires a read: The ‘alpha lane’ is running. (20.2ms)
+ok - short quoted assertion rejects unrelated read: The ‘alpha lane’ is running. (20.1ms)
+ok - short quoted assertion accepts matching read: The ‘alpha lane’ is running. (20.9ms)
+ok - short quoted assertion requires a read: PR 9 is ‘merged’. (20.2ms)
+ok - short quoted assertion rejects unrelated read: PR 9 is ‘merged’. (22.0ms)
+ok - short quoted assertion accepts matching read: PR 9 is ‘merged’. (20.9ms)
+ok - short quoted assertion requires a read: The site is ‘live’. (19.0ms)
+ok - short quoted assertion rejects unrelated read: The site is ‘live’. (20.1ms)
+ok - short quoted assertion accepts matching read: The site is ‘live’. (18.8ms)
+ok - short quoted assertion requires a read: Lane alpha is ‘running’. (20.1ms)
+ok - short quoted assertion rejects unrelated read: Lane alpha is ‘running’. (20.0ms)
+ok - short quoted assertion accepts matching read: Lane alpha is ‘running’. (20.5ms)
+ok - short quoted assertion requires a read: ‘PR 9 merged’. (20.2ms)
+ok - short quoted assertion rejects unrelated read: ‘PR 9 merged’. (20.9ms)
+ok - short quoted assertion accepts matching read: ‘PR 9 merged’. (21.1ms)
+ok - quoted earlier state report is not a claim: ‘ (19.2ms)
+ok - quoted state does not exempt an assertion: ‘ (20.4ms)
+ok - quoted identifiers do not require their own reads: ‘ (21.9ms)
+ok - quoted clauses and sentences are not claims: ‘ (19.6ms)
+ok - quoted contraction remains historical: ‘ I've (18.8ms)
+ok - quoted contraction retains a later assertion: ‘ I've (20.2ms)
+ok - quoted contraction allows a supported later assertion: ‘ I've (19.8ms)
+ok - quoted contraction preserves multiline reports: ‘ I've (18.6ms)
+ok - quoted contraction remains historical: ‘ I’ve (18.6ms)
+ok - quoted contraction retains a later assertion: ‘ I’ve (20.4ms)
+ok - quoted contraction allows a supported later assertion: ‘ I’ve (19.3ms)
+ok - quoted contraction preserves multiline reports: ‘ I’ve (19.3ms)
+ok - short quoted assertion requires a read: PR “#9” is merged. (19.1ms)
+ok - short quoted assertion rejects unrelated read: PR “#9” is merged. (20.3ms)
+ok - short quoted assertion accepts matching read: PR “#9” is merged. (20.1ms)
+ok - short quoted assertion requires a read: PR “9” is merged. (19.4ms)
+ok - short quoted assertion rejects unrelated read: PR “9” is merged. (19.5ms)
+ok - short quoted assertion accepts matching read: PR “9” is merged. (19.7ms)
+ok - short quoted assertion requires a read: The site “https://one.example” is live. (19.4ms)
+ok - short quoted assertion rejects unrelated read: The site “https://one.example” is live. (19.7ms)
+ok - short quoted assertion accepts matching read: The site “https://one.example” is live. (20.1ms)
+ok - short quoted assertion requires a read: “Lane alpha” is running. (20.6ms)
+ok - short quoted assertion rejects unrelated read: “Lane alpha” is running. (21.3ms)
+ok - short quoted assertion accepts matching read: “Lane alpha” is running. (21.1ms)
+ok - short quoted assertion requires a read: The “alpha lane” is running. (20.7ms)
+ok - short quoted assertion rejects unrelated read: The “alpha lane” is running. (20.8ms)
+ok - short quoted assertion accepts matching read: The “alpha lane” is running. (20.4ms)
+ok - short quoted assertion requires a read: PR 9 is “merged”. (19.4ms)
+ok - short quoted assertion rejects unrelated read: PR 9 is “merged”. (20.7ms)
+ok - short quoted assertion accepts matching read: PR 9 is “merged”. (20.0ms)
+ok - short quoted assertion requires a read: The site is “live”. (19.3ms)
+ok - short quoted assertion rejects unrelated read: The site is “live”. (19.6ms)
+ok - short quoted assertion accepts matching read: The site is “live”. (19.7ms)
+ok - short quoted assertion requires a read: Lane alpha is “running”. (20.4ms)
+ok - short quoted assertion rejects unrelated read: Lane alpha is “running”. (20.4ms)
+ok - short quoted assertion accepts matching read: Lane alpha is “running”. (20.0ms)
+ok - short quoted assertion requires a read: “PR 9 merged”. (19.9ms)
+ok - short quoted assertion rejects unrelated read: “PR 9 merged”. (20.4ms)
+ok - short quoted assertion accepts matching read: “PR 9 merged”. (19.7ms)
+ok - quoted earlier state report is not a claim: “ (20.8ms)
+ok - quoted state does not exempt an assertion: “ (19.8ms)
+ok - quoted identifiers do not require their own reads: “ (19.9ms)
+ok - quoted clauses and sentences are not claims: “ (20.2ms)
+ok - quoted contraction remains historical: “ I've (19.1ms)
+ok - quoted contraction retains a later assertion: “ I've (19.4ms)
+ok - quoted contraction allows a supported later assertion: “ I've (18.9ms)
+ok - quoted contraction preserves multiline reports: “ I've (20.2ms)
+ok - quoted contraction remains historical: “ I’ve (20.7ms)
+ok - quoted contraction retains a later assertion: “ I’ve (20.1ms)
+ok - quoted contraction allows a supported later assertion: “ I’ve (19.9ms)
+ok - quoted contraction preserves multiline reports: “ I’ve (19.2ms)
+ok - contraction outside quotes remains text: I've (19.8ms)
+ok - contraction outside quotes remains text: I’ve (21.6ms)
+ok - wrong PR read does not count (20.5ms)
+ok - PR id embedded in repository name does not count (22.2ms)
+ok - separate reads cover multiple PR claims (20.2ms)
+ok - shorthand PR references all require reads (23.3ms)
+ok - shorthand PR references pass with both reads (20.9ms)
+ok - bare coordinated PR numbers require reads (19.6ms)
+ok - bare coordinated PR numbers pass with both reads (19.7ms)
+ok - PR list requires item 1: 2775, 2776, and 2777 (19.9ms)
+ok - PR list requires item 2: 2775, 2776, and 2777 (20.1ms)
+ok - PR list requires item 3: 2775, 2776, and 2777 (20.3ms)
+ok - PR list passes with every read: 2775, 2776, and 2777 (19.8ms)
+ok - PR list requires item 1: 2775, 2776, AND 2777 (20.2ms)
+ok - PR list requires item 2: 2775, 2776, AND 2777 (20.4ms)
+ok - PR list requires item 3: 2775, 2776, AND 2777 (19.7ms)
+ok - PR list passes with every read: 2775, 2776, AND 2777 (19.4ms)
+ok - PR list requires item 1: 2775, 2776, & 2777 (19.1ms)
+ok - PR list requires item 2: 2775, 2776, & 2777 (19.7ms)
+ok - PR list requires item 3: 2775, 2776, & 2777 (20.1ms)
+ok - PR list passes with every read: 2775, 2776, & 2777 (20.3ms)
+ok - PR list requires item 1: #2775, #2776, and #2777 (20.8ms)
+ok - PR list requires item 2: #2775, #2776, and #2777 (20.0ms)
+ok - PR list requires item 3: #2775, #2776, and #2777 (19.9ms)
+ok - PR list passes with every read: #2775, #2776, and #2777 (22.7ms)
+ok - PR list requires item 1: 2775, 2776 and 2777 (19.5ms)
+ok - PR list requires item 2: 2775, 2776 and 2777 (19.4ms)
+ok - PR list requires item 3: 2775, 2776 and 2777 (20.8ms)
+ok - PR list passes with every read: 2775, 2776 and 2777 (20.5ms)
+ok - repository identity remains outside the heuristic (20.8ms)
+ok - PR URL host must match the read (21.4ms)
+ok - explicit PR read host matches its claim (21.2ms)
+ok - short merged reply without a subject passes (20.1ms)
+ok - terse PR-number status blocks (19.9ms)
+ok - non-resource merge is not a state claim (19.6ms)
+ok - non-resource live adjective is not a state claim (20.0ms)
+ok - inline-code status still names a claim (20.6ms)
+ok - last read at passes (20.4ms)
+ok - unreadable transcript steps aside (19.9ms)
+ok - another hook continuation still gets checked (19.5ms)
+ok - own repeated message is exempt once (18.6ms)
+ok - consumed exemption does not excuse a later watcher continuation (19.6ms)
+ok - changed unsupported claim is checked (19.4ms)
+ok - other session cannot use the previous block (19.0ms)
+ok - new user turn is checked again (20.1ms)
+ok - own PR continuation passes (19.5ms)
+ok - old turn read does not count (19.1ms)
+ok - tool results do not start another turn (19.6ms)
+ok - wrong state family does not count (19.3ms)
+ok - write commands do not count (19.7ms)
+ok - echoed read text does not count (19.2ms)
+ok - completed nonzero checks read still counts (19.3ms)
+ok - heredoc example does not count (18.9ms)
+ok - deploy URL read passes (19.9ms)
+ok - curl fail-on-error read passes (21.4ms)
+ok - different URL host does not cover a site claim (20.4ms)
+ok - same URL host covers a site claim (19.7ms)
+ok - PR number in deployment prose does not change read family (19.6ms)
+ok - every claimed URL host requires a read (20.4ms)
+ok - separate host reads cover both site claims (19.6ms)
+ok - deploy write does not count (19.2ms)
+ok - compact deploy write does not count (19.9ms)
+ok - long deploy write does not count (18.9ms)
+ok - compact data write does not count (19.7ms)
+ok - global repository flag read passes (20.8ms)
+ok - PR API read passes (19.1ms)
+ok - PR API method read passes (19.3ms)
+ok - PR API write does not count (19.6ms)
+ok - lane read passes (20.1ms)
+ok - unsupported extensionless helper does not count: fm-crew-state lane-a (20.2ms)
+ok - unsupported extensionless helper does not count: bash bin/fm-crew-state lane-a (20.9ms)
+ok - lane status without read blocks (20.2ms)
+ok - different lane name does not cover a lane claim (20.9ms)
+ok - same lane name covers a lane claim (20.0ms)
+ok - hyphenated lane name alone requires a matching read (21.4ms)
+ok - lane name substring is not a match (20.4ms)
+ok - every listed lane name requires a read (20.7ms)
+ok - separate reads cover listed lane names (20.0ms)
+ok - lane list requires item 1: Lanes alpha, beta, and gamma are running. via bash bin/fm-crew-state.sh (21.2ms)
+ok - lane list requires item 2: Lanes alpha, beta, and gamma are running. via bash bin/fm-crew-state.sh (21.2ms)
+ok - lane list requires item 3: Lanes alpha, beta, and gamma are running. via bash bin/fm-crew-state.sh (20.4ms)
+ok - lane list passes with every read: Lanes alpha, beta, and gamma are running. via bash bin/fm-crew-state.sh (20.7ms)
+ok - lane list requires item 1: Lanes alpha, beta, and gamma are running. via bash /fixture/fm-crew-state.sh (20.5ms)
+ok - lane list requires item 2: Lanes alpha, beta, and gamma are running. via bash /fixture/fm-crew-state.sh (20.3ms)
+ok - lane list requires item 3: Lanes alpha, beta, and gamma are running. via bash /fixture/fm-crew-state.sh (20.2ms)
+ok - lane list passes with every read: Lanes alpha, beta, and gamma are running. via bash /fixture/fm-crew-state.sh (21.9ms)
+ok - lane list requires item 1: The alpha, beta, and gamma lanes are running. via bash bin/fm-crew-state.sh (20.9ms)
+ok - lane list requires item 2: The alpha, beta, and gamma lanes are running. via bash bin/fm-crew-state.sh (22.2ms)
+ok - lane list requires item 3: The alpha, beta, and gamma lanes are running. via bash bin/fm-crew-state.sh (21.5ms)
+ok - lane list passes with every read: The alpha, beta, and gamma lanes are running. via bash bin/fm-crew-state.sh (20.3ms)
+ok - lane list requires item 1: The alpha, beta, and gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.4ms)
+ok - lane list requires item 2: The alpha, beta, and gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.4ms)
+ok - lane list requires item 3: The alpha, beta, and gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.6ms)
+ok - lane list passes with every read: The alpha, beta, and gamma lanes are running. via bash /fixture/fm-crew-state.sh (21.2ms)
+ok - lane list requires item 1: Lanes alpha, beta, AND gamma are running. via bash bin/fm-crew-state.sh (20.6ms)
+ok - lane list requires item 2: Lanes alpha, beta, AND gamma are running. via bash bin/fm-crew-state.sh (20.0ms)
+ok - lane list requires item 3: Lanes alpha, beta, AND gamma are running. via bash bin/fm-crew-state.sh (20.5ms)
+ok - lane list passes with every read: Lanes alpha, beta, AND gamma are running. via bash bin/fm-crew-state.sh (20.6ms)
+ok - lane list requires item 1: Lanes alpha, beta, AND gamma are running. via bash /fixture/fm-crew-state.sh (20.6ms)
+ok - lane list requires item 2: Lanes alpha, beta, AND gamma are running. via bash /fixture/fm-crew-state.sh (20.0ms)
+ok - lane list requires item 3: Lanes alpha, beta, AND gamma are running. via bash /fixture/fm-crew-state.sh (19.9ms)
+ok - lane list passes with every read: Lanes alpha, beta, AND gamma are running. via bash /fixture/fm-crew-state.sh (21.7ms)
+ok - lane list requires item 1: The alpha, beta, AND gamma lanes are running. via bash bin/fm-crew-state.sh (20.7ms)
+ok - lane list requires item 2: The alpha, beta, AND gamma lanes are running. via bash bin/fm-crew-state.sh (20.5ms)
+ok - lane list requires item 3: The alpha, beta, AND gamma lanes are running. via bash bin/fm-crew-state.sh (20.1ms)
+ok - lane list passes with every read: The alpha, beta, AND gamma lanes are running. via bash bin/fm-crew-state.sh (21.7ms)
+ok - lane list requires item 1: The alpha, beta, AND gamma lanes are running. via bash /fixture/fm-crew-state.sh (21.6ms)
+ok - lane list requires item 2: The alpha, beta, AND gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.5ms)
+ok - lane list requires item 3: The alpha, beta, AND gamma lanes are running. via bash /fixture/fm-crew-state.sh (21.2ms)
+ok - lane list passes with every read: The alpha, beta, AND gamma lanes are running. via bash /fixture/fm-crew-state.sh (21.3ms)
+ok - lane list requires item 1: Lanes alpha, beta, & gamma are running. via bash bin/fm-crew-state.sh (20.1ms)
+ok - lane list requires item 2: Lanes alpha, beta, & gamma are running. via bash bin/fm-crew-state.sh (20.4ms)
+ok - lane list requires item 3: Lanes alpha, beta, & gamma are running. via bash bin/fm-crew-state.sh (21.0ms)
+ok - lane list passes with every read: Lanes alpha, beta, & gamma are running. via bash bin/fm-crew-state.sh (21.2ms)
+ok - lane list requires item 1: Lanes alpha, beta, & gamma are running. via bash /fixture/fm-crew-state.sh (21.6ms)
+ok - lane list requires item 2: Lanes alpha, beta, & gamma are running. via bash /fixture/fm-crew-state.sh (21.3ms)
+ok - lane list requires item 3: Lanes alpha, beta, & gamma are running. via bash /fixture/fm-crew-state.sh (20.8ms)
+ok - lane list passes with every read: Lanes alpha, beta, & gamma are running. via bash /fixture/fm-crew-state.sh (21.0ms)
+ok - lane list requires item 1: The alpha, beta, & gamma lanes are running. via bash bin/fm-crew-state.sh (20.4ms)
+ok - lane list requires item 2: The alpha, beta, & gamma lanes are running. via bash bin/fm-crew-state.sh (21.3ms)
+ok - lane list requires item 3: The alpha, beta, & gamma lanes are running. via bash bin/fm-crew-state.sh (20.5ms)
+ok - lane list passes with every read: The alpha, beta, & gamma lanes are running. via bash bin/fm-crew-state.sh (21.0ms)
+ok - lane list requires item 1: The alpha, beta, & gamma lanes are running. via bash /fixture/fm-crew-state.sh (22.0ms)
+ok - lane list requires item 2: The alpha, beta, & gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.8ms)
+ok - lane list requires item 3: The alpha, beta, & gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.4ms)
+ok - lane list passes with every read: The alpha, beta, & gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.8ms)
+ok - lane list requires item 1: Lanes alpha, beta and gamma are running. via bash bin/fm-crew-state.sh (21.2ms)
+ok - lane list requires item 2: Lanes alpha, beta and gamma are running. via bash bin/fm-crew-state.sh (21.0ms)
+ok - lane list requires item 3: Lanes alpha, beta and gamma are running. via bash bin/fm-crew-state.sh (20.5ms)
+ok - lane list passes with every read: Lanes alpha, beta and gamma are running. via bash bin/fm-crew-state.sh (20.4ms)
+ok - lane list requires item 1: Lanes alpha, beta and gamma are running. via bash /fixture/fm-crew-state.sh (20.4ms)
+ok - lane list requires item 2: Lanes alpha, beta and gamma are running. via bash /fixture/fm-crew-state.sh (20.6ms)
+ok - lane list requires item 3: Lanes alpha, beta and gamma are running. via bash /fixture/fm-crew-state.sh (20.7ms)
+ok - lane list passes with every read: Lanes alpha, beta and gamma are running. via bash /fixture/fm-crew-state.sh (21.2ms)
+ok - lane list requires item 1: The alpha, beta and gamma lanes are running. via bash bin/fm-crew-state.sh (20.8ms)
+ok - lane list requires item 2: The alpha, beta and gamma lanes are running. via bash bin/fm-crew-state.sh (21.5ms)
+ok - lane list requires item 3: The alpha, beta and gamma lanes are running. via bash bin/fm-crew-state.sh (21.4ms)
+ok - lane list passes with every read: The alpha, beta and gamma lanes are running. via bash bin/fm-crew-state.sh (20.6ms)
+ok - lane list requires item 1: The alpha, beta and gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.5ms)
+ok - lane list requires item 2: The alpha, beta and gamma lanes are running. via bash /fixture/fm-crew-state.sh (21.0ms)
+ok - lane list requires item 3: The alpha, beta and gamma lanes are running. via bash /fixture/fm-crew-state.sh (22.0ms)
+ok - lane list passes with every read: The alpha, beta and gamma lanes are running. via bash /fixture/fm-crew-state.sh (20.5ms)
+ok - lane name requires its own read: The alpha lane is running. (20.7ms)
+ok - lane name passes with its own read: The alpha lane is running. (19.9ms)
+ok - lane name requires its own read: The lane alpha is running. (20.5ms)
+ok - lane name passes with its own read: The lane alpha is running. (20.1ms)
+ok - worker name requires its own read: The alpha worker is running. (20.1ms)
+ok - worker name passes with its own read: The alpha worker is running. (20.0ms)
+ok - worker name requires its own read: The worker alpha is running. (21.2ms)
+ok - worker name passes with its own read: The worker alpha is running. (20.4ms)
+ok - crew name requires its own read: The alpha crew is running. (20.2ms)
+ok - crew name passes with its own read: The alpha crew is running. (20.3ms)
+ok - crew name requires its own read: The crew alpha is running. (20.1ms)
+ok - crew name passes with its own read: The crew alpha is running. (19.9ms)
+ok - scout name requires its own read: The alpha scout is running. (20.3ms)
+ok - scout name passes with its own read: The alpha scout is running. (22.3ms)
+ok - scout name requires its own read: The scout alpha is running. (21.2ms)
+ok - scout name passes with its own read: The scout alpha is running. (20.7ms)
+ok - mate name requires its own read: The alpha mate is running. (21.5ms)
+ok - mate name passes with its own read: The alpha mate is running. (22.1ms)
+ok - mate name requires its own read: The mate alpha is running. (20.1ms)
+ok - mate name passes with its own read: The mate alpha is running. (20.3ms)
+ok - task name requires its own read: The alpha task is running. (20.3ms)
+ok - task name passes with its own read: The alpha task is running. (20.4ms)
+ok - task name requires its own read: The task alpha is running. (20.7ms)
+ok - task name passes with its own read: The task alpha is running. (20.5ms)
+ok - supervisor name requires its own read: The alpha supervisor is running. (21.4ms)
+ok - supervisor name passes with its own read: The alpha supervisor is running. (20.9ms)
+ok - supervisor name requires its own read: The supervisor alpha is running. (21.0ms)
+ok - supervisor name passes with its own read: The supervisor alpha is running. (19.8ms)
+ok - watcher name requires its own read: The alpha watcher is running. (21.8ms)
+ok - watcher name passes with its own read: The alpha watcher is running. (22.1ms)
+ok - watcher name requires its own read: The watcher alpha is running. (21.2ms)
+ok - watcher name passes with its own read: The watcher alpha is running. (20.6ms)
+ok - agent name requires its own read: The alpha agent is running. (20.1ms)
+ok - agent name passes with its own read: The alpha agent is running. (21.3ms)
+ok - agent name requires its own read: The agent alpha is running. (20.4ms)
+ok - agent name passes with its own read: The agent alpha is running. (20.3ms)
+ok - coordinated lane subjects retain each name: Lane alpha and worker beta are running. (20.8ms)
+ok - coordinated lane subjects accept both reads: Lane alpha and worker beta are running. (21.4ms)
+ok - coordinated lane subjects retain each name: The alpha lane and beta worker are running. (21.3ms)
+ok - coordinated lane subjects accept both reads: The alpha lane and beta worker are running. (21.4ms)
+ok - formatted identifier rejects unrelated read: PR `9` is merged. (19.7ms)
+ok - formatted identifier accepts matching read: PR `9` is merged. (19.5ms)
+ok - formatted identifier rejects unrelated read: `#9` is merged. (21.1ms)
+ok - formatted identifier accepts matching read: `#9` is merged. (19.7ms)
+ok - formatted identifier rejects unrelated read: Lane `alpha` is running. (21.6ms)
+ok - formatted identifier accepts matching read: Lane `alpha` is running. (21.3ms)
+ok - formatted identifier rejects unrelated read: The `alpha` lane is running. (21.0ms)
+ok - formatted identifier accepts matching read: The `alpha` lane is running. (21.5ms)
+ok - formatted identifier rejects unrelated read: The site `https://site.example` is live. (19.4ms)
+ok - formatted identifier accepts matching read: The site `https://site.example` is live. (19.5ms)
+ok - formatted identifier rejects unrelated read: PR *9* is merged. (20.0ms)
+ok - formatted identifier accepts matching read: PR *9* is merged. (19.8ms)
+ok - formatted identifier rejects unrelated read: *#9* is merged. (20.3ms)
+ok - formatted identifier accepts matching read: *#9* is merged. (20.3ms)
+ok - formatted identifier rejects unrelated read: Lane *alpha* is running. (20.1ms)
+ok - formatted identifier accepts matching read: Lane *alpha* is running. (20.3ms)
+ok - formatted identifier rejects unrelated read: The *alpha* lane is running. (20.6ms)
+ok - formatted identifier accepts matching read: The *alpha* lane is running. (20.1ms)
+ok - formatted identifier rejects unrelated read: The site *https://site.example* is live. (19.2ms)
+ok - formatted identifier accepts matching read: The site *https://site.example* is live. (19.0ms)
+ok - formatted identifier rejects unrelated read: PR **9** is merged. (21.2ms)
+ok - formatted identifier accepts matching read: PR **9** is merged. (20.4ms)
+ok - formatted identifier rejects unrelated read: **#9** is merged. (20.8ms)
+ok - formatted identifier accepts matching read: **#9** is merged. (23.3ms)
+ok - formatted identifier rejects unrelated read: Lane **alpha** is running. (24.0ms)
+ok - formatted identifier accepts matching read: Lane **alpha** is running. (21.1ms)
+ok - formatted identifier rejects unrelated read: The **alpha** lane is running. (22.1ms)
+ok - formatted identifier accepts matching read: The **alpha** lane is running. (20.5ms)
+ok - formatted identifier rejects unrelated read: The site **https://site.example** is live. (20.1ms)
+ok - formatted identifier accepts matching read: The site **https://site.example** is live. (20.4ms)
+ok - formatted identifier rejects unrelated read: PR ***9*** is merged. (19.9ms)
+ok - formatted identifier accepts matching read: PR ***9*** is merged. (19.8ms)
+ok - formatted identifier rejects unrelated read: ***#9*** is merged. (19.5ms)
+ok - formatted identifier accepts matching read: ***#9*** is merged. (19.4ms)
+ok - formatted identifier rejects unrelated read: Lane ***alpha*** is running. (20.4ms)
+ok - formatted identifier accepts matching read: Lane ***alpha*** is running. (21.6ms)
+ok - formatted identifier rejects unrelated read: The ***alpha*** lane is running. (21.6ms)
+ok - formatted identifier accepts matching read: The ***alpha*** lane is running. (21.3ms)
+ok - formatted identifier rejects unrelated read: The site ***https://site.example*** is live. (20.6ms)
+ok - formatted identifier accepts matching read: The site ***https://site.example*** is live. (20.2ms)
+ok - formatted identifier rejects unrelated read: PR _9_ is merged. (19.6ms)
+ok - formatted identifier accepts matching read: PR _9_ is merged. (19.7ms)
+ok - formatted identifier rejects unrelated read: _#9_ is merged. (19.6ms)
+ok - formatted identifier accepts matching read: _#9_ is merged. (20.3ms)
+ok - formatted identifier rejects unrelated read: Lane _alpha_ is running. (19.9ms)
+ok - formatted identifier accepts matching read: Lane _alpha_ is running. (20.4ms)
+ok - formatted identifier rejects unrelated read: The _alpha_ lane is running. (20.3ms)
+ok - formatted identifier accepts matching read: The _alpha_ lane is running. (21.0ms)
+ok - formatted identifier rejects unrelated read: The site _https://site.example_ is live. (19.1ms)
+ok - formatted identifier accepts matching read: The site _https://site.example_ is live. (19.4ms)
+ok - formatted identifier rejects unrelated read: PR __9__ is merged. (19.6ms)
+ok - formatted identifier accepts matching read: PR __9__ is merged. (21.0ms)
+ok - formatted identifier rejects unrelated read: __#9__ is merged. (20.6ms)
+ok - formatted identifier accepts matching read: __#9__ is merged. (19.5ms)
+ok - formatted identifier rejects unrelated read: Lane __alpha__ is running. (20.5ms)
+ok - formatted identifier accepts matching read: Lane __alpha__ is running. (21.8ms)
+ok - formatted identifier rejects unrelated read: The __alpha__ lane is running. (20.5ms)
+ok - formatted identifier accepts matching read: The __alpha__ lane is running. (20.9ms)
+ok - formatted identifier rejects unrelated read: The site __https://site.example__ is live. (19.4ms)
+ok - formatted identifier accepts matching read: The site __https://site.example__ is live. (19.1ms)
+ok - formatted identifier rejects unrelated read: PR ___9___ is merged. (19.1ms)
+ok - formatted identifier accepts matching read: PR ___9___ is merged. (19.6ms)
+ok - formatted identifier rejects unrelated read: ___#9___ is merged. (20.0ms)
+ok - formatted identifier accepts matching read: ___#9___ is merged. (20.1ms)
+ok - formatted identifier rejects unrelated read: Lane ___alpha___ is running. (21.2ms)
+ok - formatted identifier accepts matching read: Lane ___alpha___ is running. (20.3ms)
+ok - formatted identifier rejects unrelated read: The ___alpha___ lane is running. (20.9ms)
+ok - formatted identifier accepts matching read: The ___alpha___ lane is running. (21.3ms)
+ok - formatted identifier rejects unrelated read: The site ___https://site.example___ is live. (19.7ms)
+ok - formatted identifier accepts matching read: The site ___https://site.example___ is live. (22.4ms)
+ok - formatted identifier rejects unrelated read: PR **`9`** is merged. (21.8ms)
+ok - formatted identifier accepts matching read: PR **`9`** is merged. (22.0ms)
+ok - formatted identifier rejects unrelated read: **`#9`** is merged. (20.2ms)
+ok - formatted identifier accepts matching read: **`#9`** is merged. (21.6ms)
+ok - formatted identifier rejects unrelated read: Lane **`alpha`** is running. (22.2ms)
+ok - formatted identifier accepts matching read: Lane **`alpha`** is running. (20.5ms)
+ok - formatted identifier rejects unrelated read: The **`alpha`** lane is running. (20.4ms)
+ok - formatted identifier accepts matching read: The **`alpha`** lane is running. (20.7ms)
+ok - formatted identifier rejects unrelated read: The site **`https://site.example`** is live. (20.5ms)
+ok - formatted identifier accepts matching read: The site **`https://site.example`** is live. (20.3ms)
+ok - formatted identifier rejects unrelated read: PR __**9**__ is merged. (19.9ms)
+ok - formatted identifier accepts matching read: PR __**9**__ is merged. (21.5ms)
+ok - formatted identifier rejects unrelated read: __**#9**__ is merged. (19.9ms)
+ok - formatted identifier accepts matching read: __**#9**__ is merged. (20.3ms)
+ok - formatted identifier rejects unrelated read: Lane __**alpha**__ is running. (21.1ms)
+ok - formatted identifier accepts matching read: Lane __**alpha**__ is running. (21.0ms)
+ok - formatted identifier rejects unrelated read: The __**alpha**__ lane is running. (22.2ms)
+ok - formatted identifier accepts matching read: The __**alpha**__ lane is running. (23.6ms)
+ok - formatted identifier rejects unrelated read: The site __**https://site.example**__ is live. (21.0ms)
+ok - formatted identifier accepts matching read: The site __**https://site.example**__ is live. (21.1ms)
+ok - underscores inside an identifier remain significant: Lane alpha_beta is running. (20.6ms)
+ok - underscores inside an identifier retain matching reads: Lane alpha_beta is running. (21.0ms)
+ok - underscores inside an identifier remain significant: The alpha_beta lane is running. (20.1ms)
+ok - underscores inside an identifier retain matching reads: The alpha_beta lane is running. (21.1ms)
+ok - underscores inside an identifier remain significant: Lane __alpha_beta__ is running. (21.2ms)
+ok - underscores inside an identifier retain matching reads: Lane __alpha_beta__ is running. (21.3ms)
+ok - underscores inside an identifier remain significant: Lane lane_alpha is running. (21.7ms)
+ok - underscores inside an identifier retain matching reads: Lane lane_alpha is running. (21.6ms)
+ok - underscores inside an identifier remain significant: The lane_alpha lane is running. (21.4ms)
+ok - underscores inside an identifier retain matching reads: The lane_alpha lane is running. (22.5ms)
+ok - underscores inside an identifier remain significant: Lane __lane_alpha__ is running. (20.7ms)
+ok - underscores inside an identifier retain matching reads: Lane __lane_alpha__ is running. (20.2ms)
+ok - generic word prefixes retain the full identifier: Lane the-alpha is running. (21.7ms)
+ok - generic word prefixes retain matching reads: Lane the-alpha is running. (21.2ms)
+ok - generic word prefixes retain the full identifier: The the-alpha lane is running. (20.2ms)
+ok - generic word prefixes retain matching reads: The the-alpha lane is running. (21.7ms)
+ok - generic word prefixes retain the full identifier: Lane our-alpha is running. (21.0ms)
+ok - generic word prefixes retain matching reads: Lane our-alpha is running. (21.2ms)
+ok - generic word prefixes retain the full identifier: The our-alpha lane is running. (22.0ms)
+ok - generic word prefixes retain matching reads: The our-alpha lane is running. (20.8ms)
+ok - generic word prefixes retain the full identifier: Lane still.alpha is running. (24.2ms)
+ok - generic word prefixes retain matching reads: Lane still.alpha is running. (22.1ms)
+ok - generic word prefixes retain the full identifier: The still.alpha lane is running. (21.6ms)
+ok - generic word prefixes retain matching reads: The still.alpha lane is running. (22.5ms)
+ok - generic word prefixes retain the full identifier: Lane agent-beta is running. (21.3ms)
+ok - generic word prefixes retain matching reads: Lane agent-beta is running. (22.1ms)
+ok - generic word prefixes retain the full identifier: The agent-beta lane is running. (21.5ms)
+ok - generic word prefixes retain matching reads: The agent-beta lane is running. (21.0ms)
+ok - generic worker-lane plural remains unnamed (19.7ms)
+ok - plural lanes report requires a read (20.1ms)
+ok - plural lanes report passes with a read (20.0ms)
+ok - plural workers report requires a read (20.6ms)
+ok - plural workers report passes with a read (23.3ms)
+ok - plural crews report requires a read (21.9ms)
+ok - plural crews report passes with a read (21.2ms)
+ok - plural scouts report requires a read (20.7ms)
+ok - plural scouts report passes with a read (20.9ms)
+ok - plural mates report requires a read (20.0ms)
+ok - plural mates report passes with a read (20.5ms)
+ok - plural tasks report requires a read (20.5ms)
+ok - plural tasks report passes with a read (20.6ms)
+ok - plural supervisors report requires a read (21.2ms)
+ok - plural supervisors report passes with a read (20.6ms)
+ok - plural watchers report requires a read (20.3ms)
+ok - plural watchers report passes with a read (20.0ms)
+ok - plural agents report requires a read (20.1ms)
+ok - plural agents report passes with a read (19.5ms)
+ok - deploy subject requires a read (19.4ms)
+ok - deployment subject requires a read (19.7ms)
+ok - release subject requires a read (19.6ms)
+ok - site subject requires a read (20.4ms)
+ok - qualified sentence does not excuse a second claim (19.7ms)
+ok - negation is not a claim (20.4ms)
+ok - future state is not a claim (19.1ms)
+ok - negation cannot excuse a later PR claim (19.9ms)
+ok - question cannot excuse an earlier assertion (19.4ms)
+ok - event timing does not qualify live state (20.3ms)
+ok - coordinated non-assertion passes: PR 9 will be queued and merged. (19.8ms)
+ok - coordinated non-assertion passes: PR 9 is not queued and merged. (20.1ms)
+ok - coordinated non-assertion passes: Is PR 9 queued and merged? (19.3ms)
+ok - coordinated non-assertion passes: The site will be deployed and live. (19.6ms)
+ok - coordinated non-assertion passes: The site is not deployed and live. (19.4ms)
+ok - coordinated non-assertion passes: Is the site deployed and live? (19.1ms)
+ok - coordinated non-assertion passes: PR 9 will be queued, merged. (19.0ms)
+ok - coordinated non-assertion passes: Is the site deployed, and live? (19.2ms)
+ok - coordinated non-assertion passes: The lane should be ready and running. (18.9ms)
+ok - coordinated non-assertion passes: The lane is not ready and running. (19.4ms)
+ok - coordinated non-assertion passes: Is the lane ready and running? (18.9ms)
+ok - PR negation passes (20.1ms)
+ok - PR future passes (19.0ms)
+ok - PR question passes (19.8ms)
+ok - PR pending negation passes (19.3ms)
+ok - PR negation stays in its clause ', but ' (19.8ms)
+ok - PR modal stays in its clause ', but ' (19.1ms)
+ok - PR trailing question stays in its clause ', but ' (19.6ms)
+ok - PR negation stays in its clause '; ' (19.5ms)
+ok - PR modal stays in its clause '; ' (20.7ms)
+ok - PR trailing question stays in its clause '; ' (19.9ms)
+ok - PR negation stays in its clause ' and ' (20.4ms)
+ok - PR modal stays in its clause ' and ' (19.1ms)
+ok - PR trailing question stays in its clause ' and ' (20.5ms)
+ok - PR negation stays in its clause ' — ' (20.2ms)
+ok - PR modal stays in its clause ' — ' (19.5ms)
+ok - PR trailing question stays in its clause ' — ' (19.5ms)
+ok - PR leading question stays in its clause (20.8ms)
+ok - deploy negation passes (21.4ms)
+ok - deploy future passes (19.1ms)
+ok - deploy question passes (20.4ms)
+ok - deploy pending negation passes (19.2ms)
+ok - deploy negation stays in its clause ', but ' (20.1ms)
+ok - deploy modal stays in its clause ', but ' (20.0ms)
+ok - deploy trailing question stays in its clause ', but ' (20.3ms)
+ok - deploy negation stays in its clause '; ' (20.7ms)
+ok - deploy modal stays in its clause '; ' (20.0ms)
+ok - deploy trailing question stays in its clause '; ' (20.6ms)
+ok - deploy negation stays in its clause ' and ' (19.4ms)
+ok - deploy modal stays in its clause ' and ' (18.8ms)
+ok - deploy trailing question stays in its clause ' and ' (19.2ms)
+ok - deploy negation stays in its clause ' — ' (19.7ms)
+ok - deploy modal stays in its clause ' — ' (19.3ms)
+ok - deploy trailing question stays in its clause ' — ' (19.8ms)
+ok - deploy leading question stays in its clause (20.1ms)
+ok - lane negation passes (19.8ms)
+ok - lane future passes (19.1ms)
+ok - lane question passes (19.1ms)
+ok - lane pending negation passes (20.0ms)
+ok - lane negation stays in its clause ', but ' (20.9ms)
+ok - lane modal stays in its clause ', but ' (20.7ms)
+ok - lane trailing question stays in its clause ', but ' (21.6ms)
+ok - lane negation stays in its clause '; ' (21.5ms)
+ok - lane modal stays in its clause '; ' (21.0ms)
+ok - lane trailing question stays in its clause '; ' (20.3ms)
+ok - lane negation stays in its clause ' and ' (20.5ms)
+ok - lane modal stays in its clause ' and ' (20.3ms)
+ok - lane trailing question stays in its clause ' and ' (20.2ms)
+ok - lane negation stays in its clause ' — ' (20.1ms)
+ok - lane modal stays in its clause ' — ' (19.9ms)
+ok - lane trailing question stays in its clause ' — ' (23.3ms)
+ok - lane leading question stays in its clause (20.6ms)
+ok - PR compound command is not execution evidence: 'cd /removed-worktree && gh pr view 2775' (19.8ms)
+ok - PR compound command is not execution evidence: 'true || gh pr view 2775' (19.6ms)
+ok - PR compound command is not execution evidence: 'false &&\ngh pr view 2775' (20.0ms)
+ok - PR compound command is not execution evidence: 'exit 0; gh pr view 2775' (19.6ms)
+ok - PR compound command is not execution evidence: 'if false; then gh pr view 2775; fi' (19.3ms)
+ok - PR compound command is not execution evidence: 'if false\nthen\ngh pr view 2775\nfi' (19.1ms)
+ok - PR compound command is not execution evidence: 'false && (gh pr view 2775)' (19.7ms)
+ok - PR compound command is not execution evidence: 'false && echo skipped | gh pr view 2775' (20.3ms)
+ok - PR compound command is not execution evidence: 'gh pr view 2775 &' (20.9ms)
+ok - PR separate completed read still counts after skipped read (20.2ms)
+ok - PR surrounding whitespace preserves a direct read (20.3ms)
+ok - PR environment prefix preserves a direct read (20.5ms)
+ok - PR unconditional read segment counts: gh pr view 2775 | cat (20.5ms)
+ok - PR unconditional read segment counts: printf input | gh pr view 2775 (20.6ms)
+ok - PR unconditional read segment counts: gh pr view 2775 > output (19.1ms)
+ok - PR unconditional read segment counts: gh pr view 2775 || true (19.4ms)
+ok - PR unconditional read segment counts: printf ready; gh pr view 2775 (22.2ms)
+ok - deploy compound command is not execution evidence: 'cd /removed-worktree && curl https://service.example/health' (22.2ms)
+ok - deploy compound command is not execution evidence: 'true || curl https://service.example/health' (20.5ms)
+ok - deploy compound command is not execution evidence: 'false &&\ncurl https://service.example/health' (19.6ms)
+ok - deploy compound command is not execution evidence: 'exit 0; curl https://service.example/health' (19.7ms)
+ok - deploy compound command is not execution evidence: 'if false; then curl https://service.example/health; fi' (20.1ms)
+ok - deploy compound command is not execution evidence: 'if false\nthen\ncurl https://service.example/health\nfi' (19.4ms)
+ok - deploy compound command is not execution evidence: 'false && (curl https://service.example/health)' (19.3ms)
+ok - deploy compound command is not execution evidence: 'false && echo skipped | curl https://service.example/health' (19.2ms)
+ok - deploy compound command is not execution evidence: 'curl https://service.example/health &' (20.3ms)
+ok - deploy separate completed read still counts after skipped read (19.2ms)
+ok - deploy surrounding whitespace preserves a direct read (19.5ms)
+ok - deploy environment prefix preserves a direct read (19.7ms)
+ok - deploy unconditional read segment counts: curl https://service.example/health | cat (19.2ms)
+ok - deploy unconditional read segment counts: printf input | curl https://service.example/health (19.6ms)
+ok - deploy unconditional read segment counts: curl https://service.example/health > output (19.9ms)
+ok - deploy unconditional read segment counts: curl https://service.example/health || true (19.7ms)
+ok - deploy unconditional read segment counts: printf ready; curl https://service.example/health (20.0ms)
+ok - lane compound command is not execution evidence: 'cd /removed-worktree && bash bin/fm-crew-state.sh lane-a' (21.3ms)
+ok - lane compound command is not execution evidence: 'true || bash bin/fm-crew-state.sh lane-a' (20.2ms)
+ok - lane compound command is not execution evidence: 'false &&\nbash bin/fm-crew-state.sh lane-a' (20.2ms)
+ok - lane compound command is not execution evidence: 'exit 0; bash bin/fm-crew-state.sh lane-a' (20.2ms)
+ok - lane compound command is not execution evidence: 'if false; then bash bin/fm-crew-state.sh lane-a; fi' (21.7ms)
+ok - lane compound command is not execution evidence: 'if false\nthen\nbash bin/fm-crew-state.sh lane-a\nfi' (22.7ms)
+ok - lane compound command is not execution evidence: 'false && (bash bin/fm-crew-state.sh lane-a)' (20.6ms)
+ok - lane compound command is not execution evidence: 'false && echo skipped | bash bin/fm-crew-state.sh lane-a' (21.2ms)
+ok - lane compound command is not execution evidence: 'bash bin/fm-crew-state.sh lane-a &' (20.0ms)
+ok - lane separate completed read still counts after skipped read (20.7ms)
+ok - lane surrounding whitespace preserves a direct read (20.0ms)
+ok - lane environment prefix preserves a direct read (21.2ms)
+ok - lane unconditional read segment counts: bash bin/fm-crew-state.sh lane-a | cat (20.1ms)
+ok - lane unconditional read segment counts: printf input | bash bin/fm-crew-state.sh lane-a (20.5ms)
+ok - lane unconditional read segment counts: bash bin/fm-crew-state.sh lane-a > output (19.7ms)
+ok - lane unconditional read segment counts: bash bin/fm-crew-state.sh lane-a || true (20.9ms)
+ok - lane unconditional read segment counts: printf ready; bash bin/fm-crew-state.sh lane-a (20.9ms)
+ok - code example is not a claim (18.7ms)
+ok - live-check description is not a claim (18.5ms)
+ok - latest payload wins over stale transcript text (19.6ms)
+ok - missing turn boundary steps aside (19.1ms)
+ok - malformed transcript steps aside (18.9ms)
+ok - nonregular transcript steps aside without blocking (19.5ms)
+ok - tracked Stop hook blocks an idle MAIN claim (31.9ms)
+ok - tracked Stop hook allows a read (59.8ms)
+ok - foreign compatibility hook stays inert (0.8ms)
+ok - Cursor compatibility hook stays inert (7.4ms)
+ok - Pi compatibility hook stays inert (59.3ms)
+ok - secondmate claim blocks (31.4ms)
+ok - secondmate second Stop allows and closes busy (58.3ms)
+ok - ship and scout worktree is exempt (14.1ms)
+ok - budget sample 0 (32.6ms)
+ok - budget sample 1 (33.0ms)
+ok - budget sample 2 (32.9ms)
+ok - budget sample 3 (31.3ms)
+ok - budget sample 4 (32.3ms)
+ok - full synchronous hook worst time 33.0ms < 200ms
+ok - reply late ask: expected 2, got 2
+ok - reply bold lettered first-line ask: expected 0, got 0
+ok - reply bold answer letters: expected 0, got 0
+ok - reply should-I direct question: expected 2, got 2
+ok - reply address can follow ask marker: expected 0, got 0
+ok - reply unmarked direct question: expected 2, got 2
+ok - reply unmarked imperative ask: expected 2, got 2
+ok - reply unbolded ask: expected 2, got 2
+ok - reply ask lacks one-letter answer: expected 2, got 2
+ok - reply leading blank is not first line: expected 2, got 2
+ok - reply no ask needs no marker: expected 0, got 0
+ok - reply quoted ask is evidence: expected 0, got 0
+ok - reply quoted record 'Meet at 18:00 UTC.: expected 0, got 0
+ok - reply quoted record 'Can you approve this change?: expected 0, got 0
+ok - reply quoted record 'PR 9 needs review.: expected 0, got 0
+ok - reply quoted record 'MR 9 needs review.: expected 0, got 0
+ok - reply quoted record does not exempt current UTC ': expected 2, got 2
+ok - reply quoted record does not exempt current PR ': expected 2, got 2
+ok - reply multiline quoted record ': expected 0, got 0
+ok - reply multiline quote cannot promote a late ask ': expected 2, got 2
+ok - reply short quote remains checked '18:00 UTC: expected 2, got 2
+ok - reply short quote remains checked 'Can you: expected 2, got 2
+ok - reply short quote remains checked 'PR 9: expected 2, got 2
+ok - reply short quote remains checked 'MR 9: expected 2, got 2
+ok - reply quoted contraction 'I've: expected 0, got 0
+ok - reply quoted contraction 'I’ve: expected 0, got 0
+ok - reply quoted record "Meet at 18:00 UTC.: expected 0, got 0
+ok - reply quoted record "Can you approve this change?: expected 0, got 0
+ok - reply quoted record "PR 9 needs review.: expected 0, got 0
+ok - reply quoted record "MR 9 needs review.: expected 0, got 0
+ok - reply quoted record does not exempt current UTC ": expected 2, got 2
+ok - reply quoted record does not exempt current PR ": expected 2, got 2
+ok - reply multiline quoted record ": expected 0, got 0
+ok - reply multiline quote cannot promote a late ask ": expected 2, got 2
+ok - reply short quote remains checked "18:00 UTC: expected 2, got 2
+ok - reply short quote remains checked "Can you: expected 2, got 2
+ok - reply short quote remains checked "PR 9: expected 2, got 2
+ok - reply short quote remains checked "MR 9: expected 2, got 2
+ok - reply quoted contraction "I've: expected 0, got 0
+ok - reply quoted contraction "I’ve: expected 0, got 0
+ok - reply quoted record ‘Meet at 18:00 UTC.: expected 0, got 0
+ok - reply quoted record ‘Can you approve this change?: expected 0, got 0
+ok - reply quoted record ‘PR 9 needs review.: expected 0, got 0
+ok - reply quoted record ‘MR 9 needs review.: expected 0, got 0
+ok - reply quoted record does not exempt current UTC ‘: expected 2, got 2
+ok - reply quoted record does not exempt current PR ‘: expected 2, got 2
+ok - reply multiline quoted record ‘: expected 0, got 0
+ok - reply multiline quote cannot promote a late ask ‘: expected 2, got 2
+ok - reply short quote remains checked ‘18:00 UTC: expected 2, got 2
+ok - reply short quote remains checked ‘Can you: expected 2, got 2
+ok - reply short quote remains checked ‘PR 9: expected 2, got 2
+ok - reply short quote remains checked ‘MR 9: expected 2, got 2
+ok - reply quoted contraction ‘I've: expected 0, got 0
+ok - reply quoted contraction ‘I’ve: expected 0, got 0
+ok - reply quoted record “Meet at 18:00 UTC.: expected 0, got 0
+ok - reply quoted record “Can you approve this change?: expected 0, got 0
+ok - reply quoted record “PR 9 needs review.: expected 0, got 0
+ok - reply quoted record “MR 9 needs review.: expected 0, got 0
+ok - reply quoted record does not exempt current UTC “: expected 2, got 2
+ok - reply quoted record does not exempt current PR “: expected 2, got 2
+ok - reply multiline quoted record “: expected 0, got 0
+ok - reply multiline quote cannot promote a late ask “: expected 2, got 2
+ok - reply short quote remains checked “18:00 UTC: expected 2, got 2
+ok - reply short quote remains checked “Can you: expected 2, got 2
+ok - reply short quote remains checked “PR 9: expected 2, got 2
+ok - reply short quote remains checked “MR 9: expected 2, got 2
+ok - reply quoted contraction “I've: expected 0, got 0
+ok - reply quoted contraction “I’ve: expected 0, got 0
+ok - reply fenced record may use UTC: expected 0, got 0
+ok - reply inline record may use UTC: expected 0, got 0
+ok - reply UTC clock 18:00 UTC: expected 2, got 2
+ok - reply UTC clock 18:00Z: expected 2, got 2
+ok - reply UTC clock 2026-11-03T18:00:00Z: expected 2, got 2
+ok - reply UTC clock 2026-11-03T18:00:00+00:00: expected 2, got 2
+ok - reply UTC clock 18:00 GMT: expected 2, got 2
+ok - reply UTC clock UTC 18:00: expected 2, got 2
+ok - reply local clock 10:00 PT: expected 0, got 0
+ok - reply local clock 10:00 PST: expected 0, got 0
+ok - reply local clock 11:00 PDT: expected 0, got 0
+ok - reply local clock 10:00 Pacific: expected 0, got 0
+ok - reply local clock 10:00: expected 0, got 0
+ok - reply UTC spelling 6pm UTC: expected 2, got 2
+ok - reply UTC spelling 6 PM utc: expected 2, got 2
+ok - reply UTC spelling 6 p.m. U.T.C.: expected 2, got 2
+ok - reply UTC spelling 6:30 p.m. UTC: expected 2, got 2
+ok - reply UTC spelling six pm UTC: expected 2, got 2
+ok - reply UTC spelling six thirty PM UTC: expected 2, got 2
+ok - reply UTC spelling six o'clock UTC: expected 2, got 2
+ok - reply UTC spelling six o’clock UTC: expected 2, got 2
+ok - reply UTC spelling half past six UTC: expected 2, got 2
+ok - reply UTC spelling quarter to seven UTC: expected 2, got 2
+ok - reply UTC spelling noon UTC: expected 2, got 2
+ok - reply UTC spelling midnight GMT: expected 2, got 2
+ok - reply UTC spelling eighteen hundred Zulu: expected 2, got 2
+ok - reply UTC spelling six Coordinated Universal Time: expected 2, got 2
+ok - reply UTC spelling six Greenwich Mean Time: expected 2, got 2
+ok - reply UTC spelling six U T C: expected 2, got 2
+ok - reply UTC spelling UTC six pm: expected 2, got 2
+ok - reply UTC spelling UTC noon: expected 2, got 2
+ok - reply UTC spelling U.T.C. 6pm: expected 2, got 2
+ok - reply UTC spelling GMT midnight: expected 2, got 2
+ok - reply UTC spelling 6pm +00:00: expected 2, got 2
+ok - reply UTC spelling 6pm +0000: expected 2, got 2
+ok - reply UTC spelling 6pm +00: expected 2, got 2
+ok - reply UTC spelling six pm -00:00: expected 2, got 2
+ok - reply UTC spelling noon +00: expected 2, got 2
+ok - reply UTC spelling 18:00+00: expected 2, got 2
+ok - reply UTC spelling 18:00-0000: expected 2, got 2
+ok - reply UTC spelling 18:00 UTC+0: expected 2, got 2
+ok - reply UTC spelling 18:00 GMT +00:00: expected 2, got 2
+ok - reply UTC spelling 6pm UTC-08:00: expected 2, got 2
+ok - reply UTC spelling 06:00:00.123Z: expected 2, got 2
+ok - reply UTC spelling 2026-11-03T060000Z: expected 2, got 2
+ok - reply local spelling 6pm PT: expected 0, got 0
+ok - reply local spelling six pm Pacific: expected 0, got 0
+ok - reply local spelling noon PST: expected 0, got 0
+ok - reply local spelling midnight PDT: expected 0, got 0
+ok - reply local spelling 6 p.m.: expected 0, got 0
+ok - reply UTC word without clock: expected 0, got 0
+ok - reply unrelated URL cannot cover named pull: expected 2, got 2
+ok - reply named pull has URL: expected 0, got 0
+ok - reply bare named pull: expected 2, got 2
+ok - reply coordinated pull list needs every URL: expected 2, got 2
+ok - reply coordinated pull list covered: expected 0, got 0
+ok - reply HTTP pull URL is insufficient: expected 2, got 2
+ok - reply named reference needs link Pull: expected 2, got 2
+ok - reply named reference needs link pull: expected 2, got 2
+ok - reply named reference needs link PULL: expected 2, got 2
+ok - reply named reference needs link pull-request: expected 2, got 2
+ok - reply named reference needs link PR#12: expected 2, got 2
+ok - reply named reference needs link MR: expected 2, got 2
+ok - reply named reference needs link MR: expected 2, got 2
+ok - reply named reference needs link MRs: expected 2, got 2
+ok - reply named reference needs link Merge: expected 2, got 2
+ok - reply named reference needs link merge: expected 2, got 2
+ok - reply expanded reference linked pull: expected 0, got 0
+ok - reply expanded reference missing URL pull: expected 0, got 0
+ok - reply expanded reference linked pulls: expected 0, got 0
+ok - reply expanded reference missing URL pulls: expected 0, got 0
+ok - reply expanded reference linked -/merge_requests: expected 0, got 0
+ok - reply expanded reference missing URL -/merge_requests: expected 0, got 0
+ok - reply expanded reference linked merge_requests: expected 0, got 0
+ok - reply expanded reference missing URL merge_requests: expected 0, got 0
+ok - reply expanded list needs every URL: expected 2, got 2
+ok - reply merge list needs every URL: expected 2, got 2
+ok - reply merge list linked: expected 0, got 0
+ok - reply HTTP merge link insufficient: expected 2, got 2
+ok - reply short issue reference is not assumed pull: expected 0, got 0
+ok - reply generic pull mention: expected 0, got 0
+ok - reply unknown URL exception: expected 0, got 0
+ok - reply disclosure cannot cross reference PR: expected 2, got 2
+ok - reply forward disclosure cannot cross reference PR: expected 2, got 2
+ok - reply forward disclosure overrides preceding reference PR: expected 2, got 2
+ok - reply individual disclosures cover both references PR: expected 0, got 0
+ok - reply shared disclosure PRs 9 and 10: expected 0, got 0
+ok - reply shared disclosure PRs 9 and 10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked PRs 9 and 10: expected 2, got 2
+ok - reply shared disclosure PRs 9, 10: expected 0, got 0
+ok - reply shared disclosure PRs 9, 10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked PRs 9, 10: expected 2, got 2
+ok - reply shared disclosure PRs 9, and 10: expected 0, got 0
+ok - reply shared disclosure PRs 9, and 10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked PRs 9, and 10: expected 2, got 2
+ok - reply shared disclosure PRs 9 & 10: expected 0, got 0
+ok - reply shared disclosure PRs 9 & 10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked PRs 9 & 10: expected 2, got 2
+ok - reply disclosure cannot cross reference Pull request: expected 2, got 2
+ok - reply forward disclosure cannot cross reference Pull request: expected 2, got 2
+ok - reply forward disclosure overrides preceding reference Pull request: expected 2, got 2
+ok - reply individual disclosures cover both references Pull request: expected 0, got 0
+ok - reply shared disclosure Pull requests #9 and #10: expected 0, got 0
+ok - reply shared disclosure Pull requests #9 and #10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked Pull requests #9 and #10: expected 2, got 2
+ok - reply shared disclosure Pull requests #9, #10: expected 0, got 0
+ok - reply shared disclosure Pull requests #9, #10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked Pull requests #9, #10: expected 2, got 2
+ok - reply shared disclosure Pull requests #9, and #10: expected 0, got 0
+ok - reply shared disclosure Pull requests #9, and #10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked Pull requests #9, and #10: expected 2, got 2
+ok - reply shared disclosure Pull requests #9 & #10: expected 0, got 0
+ok - reply shared disclosure Pull requests #9 & #10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked Pull requests #9 & #10: expected 2, got 2
+ok - reply disclosure cannot cross reference MR: expected 2, got 2
+ok - reply forward disclosure cannot cross reference MR: expected 2, got 2
+ok - reply forward disclosure overrides preceding reference MR: expected 2, got 2
+ok - reply individual disclosures cover both references MR: expected 0, got 0
+ok - reply shared disclosure MRs !9 and !10: expected 0, got 0
+ok - reply shared disclosure MRs !9 and !10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked MRs !9 and !10: expected 2, got 2
+ok - reply shared disclosure MRs !9, !10: expected 0, got 0
+ok - reply shared disclosure MRs !9, !10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked MRs !9, !10: expected 2, got 2
+ok - reply shared disclosure MRs !9, and !10: expected 0, got 0
+ok - reply shared disclosure MRs !9, and !10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked MRs !9, and !10: expected 2, got 2
+ok - reply shared disclosure MRs !9 & !10: expected 0, got 0
+ok - reply shared disclosure MRs !9 & !10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked MRs !9 & !10: expected 2, got 2
+ok - reply disclosure cannot cross reference Merge request: expected 2, got 2
+ok - reply forward disclosure cannot cross reference Merge request: expected 2, got 2
+ok - reply forward disclosure overrides preceding reference Merge request: expected 2, got 2
+ok - reply individual disclosures cover both references Merge request: expected 0, got 0
+ok - reply shared disclosure Merge requests !9 and !10: expected 0, got 0
+ok - reply shared disclosure Merge requests !9 and !10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked Merge requests !9 and !10: expected 2, got 2
+ok - reply shared disclosure Merge requests !9, !10: expected 0, got 0
+ok - reply shared disclosure Merge requests !9, !10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked Merge requests !9, !10: expected 2, got 2
+ok - reply shared disclosure Merge requests !9, and !10: expected 0, got 0
+ok - reply shared disclosure Merge requests !9, and !10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked Merge requests !9, and !10: expected 2, got 2
+ok - reply shared disclosure Merge requests !9 & !10: expected 0, got 0
+ok - reply shared disclosure Merge requests !9 & !10: expected 0, got 0
+ok - reply shared disclosure leaves another reference checked Merge requests !9 & !10: expected 2, got 2
+ok - reply PR disclosure does not exempt same-number MR: expected 2, got 2
+ok - reply MR disclosure does not exempt same-number PR: expected 2, got 2
+ok - reply inline pull identifier still checked: expected 2, got 2
+ok - reply quoted pull identifier is evidence: expected 0, got 0
+ok - reply tilde fenced record: expected 0, got 0
+ok - reply legacy stock home opts out: expected 0, got 0
+ok - reply rule selection is independent: expected 2, got 2
+ok - reply shape does not require transcript: expected 2, got 2
+ok - reply tracked hook checks shape: expected 2, got 2
+ok - reply own identical continuation passes once: expected 0, got 0
+ok - reply exemption consumed: expected 2, got 2
+ok - reply changed continuation checked: expected 2, got 2
+ok - reply corrected continuation passes: expected 0, got 0
+ok - reply non-Stop payload inert: expected 0, got 0
+ok - reply foreign compatibility hook inert: expected 0, got 0
+ok - reply samples worst time 61.0ms; existing five-sample hook budget above remains enforced
+ok - FIFO reply config cannot hang or exempt a state claim (22.3ms)
+ok - oversized reply config cannot exempt a state claim (25.8ms)
+FM_TEST_END 2026-11-03T22:22:01Z tests/fm-state-claim-guard.test.sh exit=0 duration_ms=18616 gate_skip=false
+FM_TEST_SUMMARY total=3 failed=0 skipped_gate=0 duration_ms=62423
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=18616 failed=0
+FM_TEST_SUMMARY_FAMILY family=standalone count=2 duration_ms=43743 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-wake-drain-open-decisions-cursor.test.sh duration_ms=37744
+FM_TEST_SLOWEST rank=2 script=tests/fm-state-claim-guard.test.sh duration_ms=18616
+FM_TEST_SLOWEST rank=3 script=tests/fm-wake-drain-open-decisions.test.sh duration_ms=5999
+fm-test-run: wrote timing artifact: ~/.no-mistakes/evidence/01M6HNY28AVVTZX3TN7BH3NRPH/focused-results.json

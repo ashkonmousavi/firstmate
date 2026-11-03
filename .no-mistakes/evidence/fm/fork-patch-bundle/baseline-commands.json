@@ -1,0 +1,39 @@
+[
+  {
+    "name": "focused-drain-and-reply",
+    "command": [
+      "bash",
+      "bin/fm-test-run.sh",
+      "--jobs",
+      "1",
+      "--json",
+      "~/.no-mistakes/evidence/01M6HNY28AVVTZX3TN7BH3NRPH/focused-results.json",
+      "tests/fm-wake-drain-open-decisions.test.sh",
+      "tests/fm-wake-drain-open-decisions-cursor.test.sh",
+      "tests/fm-state-claim-guard.test.sh"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "focused-c4-timer",
+    "command": [
+      "python3",
+      "tests/autolaunch_steps_cases.py",
+      "~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH",
+      "Steps.test_tests_ready_literal_forms_advance_once",
+      "Steps.test_tests_ready_requires_complete_current_admitted_evidence",
+      "Steps.test_tester_brief_spells_literal_commit_forms",
+      "Timer"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "focused-x-prep",
+    "command": [
+      "bash",
+      "tests/fm-autolaunch.test.sh",
+      "--x-prep-only"
+    ],
+    "exit": 0
+  }
+]

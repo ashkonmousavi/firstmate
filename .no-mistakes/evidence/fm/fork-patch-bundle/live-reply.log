@@ -1,0 +1,129 @@
+$ git init -q ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/reply
+
+[exit=0]
+
+CASE optional policy absent
+MESSAGE Please choose A or B.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+
+[exit=0]
+Elapsed 59.4 ms
+
+CASE late marked ask refuses
+MESSAGE Report ready.
+👉 **Choose** A) proceed or B) wait?
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+Reply shape: Put the ask on the first line starting with 👉, with bold keywords and a one-letter answer. This check blocks only once.
+
+[exit=2]
+Elapsed 32.7 ms
+
+CASE identical continuation allowed once
+MESSAGE Report ready.
+👉 **Choose** A) proceed or B) wait?
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+
+[exit=0]
+Elapsed 63.3 ms
+
+CASE no unlimited continuation exemption
+MESSAGE Report ready.
+👉 **Choose** A) proceed or B) wait?
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+Reply shape: Put the ask on the first line starting with 👉, with bold keywords and a one-letter answer. This check blocks only once.
+
+[exit=2]
+Elapsed 33.5 ms
+
+CASE first-line marked bold options
+MESSAGE 👉 **Choose** A) proceed or B) wait?
+Report ready.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+
+[exit=0]
+Elapsed 61.8 ms
+
+CASE lexical limit plain late question
+MESSAGE Report ready.
+Any objections?
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+
+[exit=0]
+Elapsed 60.7 ms
+
+CASE phrase-list request refuses
+MESSAGE Report ready.
+Can you approve this?
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+Reply shape: Put the ask on the first line starting with 👉, with bold keywords and a one-letter answer. This check blocks only once.
+
+[exit=2]
+Elapsed 33.6 ms
+
+CASE UTC clock refuses
+MESSAGE Meet at six pm UTC.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+Reply shape: Use local Pacific time in chat; keep UTC timestamps inside quoted records. This check blocks only once.
+
+[exit=2]
+Elapsed 32.2 ms
+
+CASE Pacific clock accepted
+MESSAGE Meet at 10:00 PT.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+
+[exit=0]
+Elapsed 62.5 ms
+
+CASE named PR without HTTPS link
+MESSAGE PR 9 needs review.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+Reply shape: Include each named PR's recorded full HTTPS URL; if none is available, disclose 'URL unavailable'. This check blocks only once.
+
+[exit=2]
+Elapsed 32.3 ms
+
+CASE matching HTTPS PR link
+MESSAGE PR 9 needs review. https://example.test/repo/pull/9
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+
+[exit=0]
+Elapsed 64.6 ms
+
+CASE unrelated link cannot cover reference
+MESSAGE MR !9 needs review. https://example.test/repo/-/merge_requests/10
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+Reply shape: Include each named PR's recorded full HTTPS URL; if none is available, disclose 'URL unavailable'. This check blocks only once.
+
+[exit=2]
+Elapsed 33.8 ms
+
+CASE specific URL disclosure
+MESSAGE MR !9: URL unavailable in ready metadata.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+
+[exit=0]
+Elapsed 61.6 ms
+
+CASE disclosure cannot leak to other reference
+MESSAGE PR 9 needs review; PR 10: URL unavailable. https://example.test/repo/pull/10
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+Reply shape: Include each named PR's recorded full HTTPS URL; if none is available, disclose 'URL unavailable'. This check blocks only once.
+
+[exit=2]
+Elapsed 34.7 ms
+
+CASE quoted evidence excluded
+MESSAGE The log says “Meet at six pm UTC. PR 9 needs review.”
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+
+[exit=0]
+Elapsed 62.1 ms
+
+CASE current prose after quoted record still checked
+MESSAGE The log says “Meet at six pm UTC.” Meet at 18:00 UTC.
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-turnend-guard.sh --claude --state-claims
+Reply shape: Use local Pacific time in chat; keep UTC timestamps inside quoted records. This check blocks only once.
+
+[exit=2]
+Elapsed 31.9 ms

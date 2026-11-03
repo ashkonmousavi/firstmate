@@ -1,0 +1,97 @@
+
+CASE cut=False done [at=3]: tests-ready commit=none revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+would-step: owner tests-ready:none@r1
+
+[exit=0]
+
+CASE cut=False done [at=3]: tests-ready none revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+would-step: owner tests-ready:none@r1
+
+[exit=0]
+
+CASE cut=False done [at=3]: tests-ready commit=abcdef1 revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+would-step: owner tests-ready:abcdef1@r1
+
+[exit=0]
+
+CASE cut=False done [at=3]: tests-ready commit=none-extra revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE cut=False done [at=3]: tests-ready none-extra revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE cut=False done [at=3]: tests-ready commit=abcdefg revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE cut=True done [at=3]: tests-ready commit=none revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+would-step: owner cut:owner@1:r1
+
+[exit=0]
+
+CASE cut=True done [at=3]: tests-ready none revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+would-step: owner cut:owner@1:r1
+
+[exit=0]
+
+CASE cut=True done [at=3]: tests-ready commit=abcdef1 revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+would-step: owner cut:owner@1:r1
+
+[exit=0]
+
+CASE cut=True done [at=3]: tests-ready commit=none-extra revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE cut=True done [at=3]: tests-ready none-extra revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE cut=True done [at=3]: tests-ready commit=abcdefg revision=r1 walk-list=screen-a,screen-b checks=existing
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE stale revision
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE incomplete walk
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE missing checks
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE unadmitted tester model 'gpt-5.5'
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE unadmitted tester model 'default'
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+
+CASE unadmitted tester model ''
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only --dry-run
+
+[exit=0]
+Dry-run proposals use the real step engine, task store, model admission and backend lookup. No agent delivery is claimed here.

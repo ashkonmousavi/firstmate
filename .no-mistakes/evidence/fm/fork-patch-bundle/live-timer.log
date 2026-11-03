@@ -1,0 +1,101 @@
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --print-timer
+# Proposed schedule for ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%z (not installed; see docs/configuration.md "Auto-launch").
+# Register the unit in the machine inventory and route pause/resume through
+# the fleet pause tool before enabling it.
+#
+# ~/.config/systemd/user/fm-autolaunch.service
+[Unit]
+Description=Firstmate auto-launch pass for ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%z
+
+[Service]
+Type=oneshot
+Environment="PATH=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%%z/tool space%%z:/usr/bin:/bin"
+Environment="FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%%z"
+ExecStart=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh
+
+# ~/.config/systemd/user/fm-autolaunch.timer
+[Unit]
+Description=Firstmate auto-launch every five minutes for ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%z
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
+
+# Or one crontab line instead of the two units:
+*/5 * * * * PATH=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer\ home\%z/tool\ space\%z:/usr/bin:/bin FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer\ home\%z ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh >/dev/null 2>&1
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-tasks-axi.sh show timer-owner --full
+task:
+  id: timer-owner
+  title: held
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "parked: fixture"
+  hold_kind: external
+  hold_until: 2099-01-01
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --print-timer --steps-only
+# Proposed schedule for ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%z (not installed; see docs/configuration.md "Auto-launch").
+# Register the unit in the machine inventory and route pause/resume through
+# the fleet pause tool before enabling it.
+#
+# ~/.config/systemd/user/fm-autolaunch.service
+[Unit]
+Description=Firstmate auto-launch pass for ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%z
+
+[Service]
+Type=oneshot
+Environment="PATH=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%%z/tool space%%z:/usr/bin:/bin"
+Environment="FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%%z"
+ExecStart=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only
+
+# ~/.config/systemd/user/fm-autolaunch.timer
+[Unit]
+Description=Firstmate auto-launch every five minutes for ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer home%z
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
+
+# Or one crontab line instead of the two units:
+*/5 * * * * PATH=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer\ home\%z/tool\ space\%z:/usr/bin:/bin FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer\ home\%z ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only >/dev/null 2>&1
+
+[exit=0]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only
+
+[exit=0]
+{"at": 1793744580, "owners": ["timer-owner"]}
+
+$ sh -c 'PATH=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer\ home%z/tool\ space%z:/usr/bin:/bin FM_HOME=~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/.nm-test/timer\ home%z ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only'
+
+[exit=0]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --print-timer --dry-run
+usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--help]
+
+[exit=2]
+$ bash ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --print-timer --steps-only --dry-run
+usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--help]
+
+[exit=2]
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M6HNY28AVVTZX3TN7BH3NRPH/bin/fm-autolaunch.sh --steps-only
+fm-autolaunch-steps: owner task unreadable: timer-owner
+
+[exit=1]
