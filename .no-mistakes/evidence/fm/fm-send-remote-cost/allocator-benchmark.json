@@ -1,0 +1,56 @@
+[
+  {
+    "variant": "base",
+    "run": 1,
+    "wall_seconds": 1.1502425689977827,
+    "user_seconds": 0.7122290000000007,
+    "system_seconds": 0.35189300000000046,
+    "sequence": "2049.msg",
+    "body_exact": true
+  },
+  {
+    "variant": "base",
+    "run": 2,
+    "wall_seconds": 1.1411991889981437,
+    "user_seconds": 0.688987,
+    "system_seconds": 0.36833599999999933,
+    "sequence": "2049.msg",
+    "body_exact": true
+  },
+  {
+    "variant": "base",
+    "run": 3,
+    "wall_seconds": 1.117773660000239,
+    "user_seconds": 0.6653180000000001,
+    "system_seconds": 0.36417900000000003,
+    "sequence": "2049.msg",
+    "body_exact": true
+  },
+  {
+    "variant": "target",
+    "run": 1,
+    "wall_seconds": 0.12822357200275292,
+    "user_seconds": 0.0836269999999999,
+    "system_seconds": 0.0120780000000007,
+    "sequence": "2049.msg",
+    "body_exact": true
+  },
+  {
+    "variant": "target",
+    "run": 2,
+    "wall_seconds": 0.08693520800079568,
+    "user_seconds": 0.0741619999999994,
+    "system_seconds": 0.006115000000000315,
+    "sequence": "2049.msg",
+    "body_exact": true
+  },
+  {
+    "variant": "target",
+    "run": 3,
+    "wall_seconds": 0.10387463399820263,
+    "user_seconds": 0.07735599999999998,
+    "system_seconds": 0.009359000000000783,
+    "sequence": "2049.msg",
+    "body_exact": true
+  }
+]

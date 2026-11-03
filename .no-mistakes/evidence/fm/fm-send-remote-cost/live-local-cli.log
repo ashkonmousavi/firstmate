@@ -1,0 +1,116 @@
+Real fm-send CLI, real private tmux shell endpoint (120x40), disposable marked home. Enqueue proof only; no model acknowledgement or remote-server proof.
+SEND 1 exit=0 wall=1.016s record=2049.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2049.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 1 byte-exact: 'cost validation 1\nexact unicode: café; $literal `text`\n'
+SEND 2 exit=0 wall=1.099s record=2050.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2050.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 2 byte-exact: 'cost validation 2\nexact unicode: café; $literal `text`\n'
+SEND 3 exit=0 wall=1.192s record=2051.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2051.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 3 byte-exact: 'cost validation 3\nexact unicode: café; $literal `text`\n'
+SEND 4 exit=0 wall=1.181s record=2052.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2052.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 4 byte-exact: 'cost validation 4\nexact unicode: café; $literal `text`\n'
+SEND 5 exit=0 wall=1.202s record=2053.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2053.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 5 byte-exact: 'cost validation 5\nexact unicode: café; $literal `text`\n'
+SEND 6 exit=0 wall=1.289s record=2054.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2054.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 6 byte-exact: 'cost validation 6\nexact unicode: café; $literal `text`\n'
+SEND 7 exit=0 wall=1.219s record=2055.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2055.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 7 byte-exact: 'cost validation 7\nexact unicode: café; $literal `text`\n'
+SEND 8 exit=0 wall=1.181s record=2056.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2056.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 8 byte-exact: 'cost validation 8\nexact unicode: café; $literal `text`\n'
+SEND 9 exit=0 wall=1.168s record=2057.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2057.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 9 byte-exact: 'cost validation 9\nexact unicode: café; $literal `text`\n'
+SEND 10 exit=0 wall=1.122s record=2058.msg
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  This read-only session should report the lapse, not repair it.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell not typed because the agent in lab:bash has exited; the steer is durably recorded at ~/.no-mistakes/worktrees/049a88734b0e/01M6GYJX9JSY0C9XHJ98G8ZWSF/.validation/home/state/history.inbox/2058.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+BODY 10 byte-exact: 'cost validation 10\nexact unicode: café; $literal `text`\n'
+OLDEST expected=009.msg actual=009.msg; acknowledged by fixture move
+OLDEST expected=10.msg actual=10.msg; acknowledged by fixture move
+OLDEST expected=0100.msg actual=0100.msg; acknowledged by fixture move
+OLDEST: acknowledged history, junk, and fire-and-forget skipped; empty tracked inbox exits 1.
+All local CLI sequence/body and public-reader ordering assertions passed.

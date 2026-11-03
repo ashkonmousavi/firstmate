@@ -1,0 +1,82 @@
+[
+  {
+    "send": 1,
+    "exit": 0,
+    "wall_seconds": 1.0161023789987667,
+    "sequence": 2049,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 2,
+    "exit": 0,
+    "wall_seconds": 1.0990060539988917,
+    "sequence": 2050,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 3,
+    "exit": 0,
+    "wall_seconds": 1.1921280620008474,
+    "sequence": 2051,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 4,
+    "exit": 0,
+    "wall_seconds": 1.1807476110006974,
+    "sequence": 2052,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 5,
+    "exit": 0,
+    "wall_seconds": 1.2019213370003854,
+    "sequence": 2053,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 6,
+    "exit": 0,
+    "wall_seconds": 1.288727002000087,
+    "sequence": 2054,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 7,
+    "exit": 0,
+    "wall_seconds": 1.2187890099994547,
+    "sequence": 2055,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 8,
+    "exit": 0,
+    "wall_seconds": 1.1812204079978983,
+    "sequence": 2056,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 9,
+    "exit": 0,
+    "wall_seconds": 1.1683829680005147,
+    "sequence": 2057,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  },
+  {
+    "send": 10,
+    "exit": 0,
+    "wall_seconds": 1.121686326998315,
+    "sequence": 2058,
+    "body_exact": true,
+    "acknowledgement": "manual fixture move; no worker acknowledgement claimed"
+  }
+]

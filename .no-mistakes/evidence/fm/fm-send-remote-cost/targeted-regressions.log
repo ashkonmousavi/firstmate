@@ -1,0 +1,69 @@
+FM_TEST_BEGIN 2026-11-03T15:09:03Z tests/.validation-inbox.test.sh family=unclassified expected_gate_skip=none
+ok - inbox: large history write uses 20 shells (budget 64), preserves sequence and body
+ok - inbox: a steer is written durably and round-trips byte-exact with a self-describing doorbell
+ok - inbox: the idempotent enqueue dedups an exact re-run onto the same record, handled or not
+ok - inbox: one bulk header parse selects only matching one-way requests across retained history
+ok - inbox: unrelated pending and handled history avoids per-record parsing and comparison
+ok - inbox: numeric-looking first lines are compared literally before full-body work
+ok - inbox: prefilter preserves multiline, blank, legacy and delivery-mode exact matching
+ok - inbox: the handled mv is the idempotent ack and sequences are never reissued
+ok - inbox: concurrent writers serialize on the sequence lock and lose nothing
+ok - inbox: fire-and-forget records stay durable and outside the ladder
+ok - inbox: a fire-and-forget record whose ring did not land is owed exactly one retry
+ok - inbox: the re-ring ladder paces by grace, escalates once, and resets on ack
+FM_TEST_END 2026-11-03T15:09:11Z tests/.validation-inbox.test.sh exit=0 duration_ms=8364 gate_skip=false
+FM_TEST_BEGIN 2026-11-03T15:09:11Z tests/fm-send-remote-delivery.test.sh family=standalone expected_gate_skip=none
+ok - remote send with 2048 handled records confirms within 30 seconds and one SSH attempt
+ok - a pending-probe backlog spends one probe per pass after remote delivery and still resolves late replies
+ok - remote probe follows an acknowledgement into handled storage
+ok - remote pending probes and their correlation locks never hold the watcher cycle
+ok - fm-send remote: large text steers use stdin instead of the SSH exec argument
+ok - fm-send remote: a text steer lands as a durable remote inbox record and exits 0 at enqueue
+ok - fm-send remote: unknown reports ring non-delivery and preserves durable enqueue
+ok - fm-send remote: capture-failure reports ring non-delivery and preserves durable enqueue
+ok - fm-send remote: the printed correlation-reusing resend deduplicates onto the same record
+ok - fm-send remote: a failed retry cannot erase an earlier ambiguous delivery
+ok - fm-send remote: fire-and-forget delivery is idempotent without reply recovery
+ok - remote control: send revalidates endpoint ownership under the metadata lock
+ok - fm-send remote: enqueue revalidates the parent route under its metadata lock
+ok - fm-send remote: expected host is enforced by final route validation
+ok - fm-send remote: a --resolve-key answer closes its decision at enqueue
+ok - fm-send remote: every remote text, harness-native included, rides the inbox
+ok - fm-send remote: a real remote failure still fails loudly with the remote diagnostics
+ok - fm-send remote: exit 3 from the remote leg is a failure, never a delivery claim
+ok - fm-send remote: ssh 255 fails with resend-safe guidance and preserves the expectation
+ok - fm-send remote: the remote leg is budget-bounded and stays idempotent across the bound
+ok - fm-send local: an unconfirmed submit exits 3 with an honest non-error report
+ok - fm-send local: an unconfirmed submit still never closes a --resolve-key decision
+ok - fm-send local: an unconfirmed secondmate send keeps its reply expectation armed
+ok - watcher remote inbox: an unacknowledged remote record re-rings after grace without waking firstmate
+ok - watcher remote inbox: an acknowledged remote record is never re-rung
+ok - watcher remote inbox: an idle failed ring still spends an attempt and names its step
+ok - watcher remote inbox: a spent ring budget queues exactly one stale wake
+ok - watcher remote inbox: a busy non-queue remote pane defers without spending a ring attempt
+ok - watcher remote inbox: one stuck-busy wake at the bound, then one idle ring without a second wake
+ok - watcher remote inbox: an escalated idle follow-up waits until busy debt can be cleared
+ok - watcher remote inbox: a dead endpoint preserves idle follow-up debt without a second wake
+ok - watcher remote inbox: a missing endpoint preserves idle follow-up debt without a second wake
+ok - watcher remote inbox: a dead endpoint without busy debt still escalates once
+ok - watcher remote inbox: a missing endpoint without busy debt still escalates once
+ok - watcher remote inbox: an endpoint becoming dead during follow-up keeps debt and attempts consistent
+ok - watcher remote inbox: an endpoint becoming missing during follow-up keeps debt and attempts consistent
+ok - remote inbox ring: the final endpoint gate precedes busy debt consumption and submission
+ok - watcher remote inbox: a follow-up ring-state failure consumes the debt without another wake
+ok - watcher remote inbox: a pane that goes idle before the busy bound is rung once
+ok - watcher remote inbox: a queue-accepting harness is rung while busy
+ok - remote inbox verb: a parent that passes no busy maximum keeps ring-while-busy
+ok - watcher remote inbox: a detached pass never holds the cycle and its wake is still delivered
+ok - watcher remote inbox: a pass never overlaps one still in flight
+ok - watcher remote inbox: confirmed bookkeeping failure escalates once instead of retrying forever
+ok - watcher remote inbox: marker retries preserve one notification per record
+ok - remote enqueue dedup: only same-size records are compared and exact matches still dedup
+ok - remote one-way requests distinguish repetition from handled, outstanding, and transport retries
+all fm-send-remote-delivery tests passed
+FM_TEST_END 2026-11-03T15:10:47Z tests/fm-send-remote-delivery.test.sh exit=0 duration_ms=95770 gate_skip=false
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=104257
+FM_TEST_SUMMARY_FAMILY family=standalone count=1 duration_ms=95770 failed=0
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=8364 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-send-remote-delivery.test.sh duration_ms=95770
+FM_TEST_SLOWEST rank=2 script=tests/.validation-inbox.test.sh duration_ms=8364
