@@ -47,7 +47,7 @@ A silent bootstrap section needs no action; for any printed actionable diagnosti
 
 ## Post-start reconciliation
 
-Honor lock-refused read-only mode exactly as section 3 requires.
+Honor lock-refused read-only mode exactly as [`AGENTS.md` section 3](../../../AGENTS.md#3-session-start-run-once-at-every-session-start) requires.
 Treat digest status tails as wake-event history and use targeted current-state reconciliation when the live state matters.
 
 Reconcile only this home's recorded direct reports and their recorded backend inventory; never sweep a shared endpoint namespace for matching names or claim another home's work.

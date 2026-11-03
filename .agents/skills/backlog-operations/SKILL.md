@@ -29,4 +29,4 @@ Use compatible `tasks-axi` when the configured backend selects it, always throug
 Keep free-form notes free of temporary paths, moving versions, ephemeral identifiers, and copied state that will rot.
 Inspect the current task note before replacing its considered body, and archive the superseded body when recoverability matters rather than appending by default.
 Verify volatile details against their authoritative config, live system, or API before acting, and correct or delete stale prose immediately.
-Preserve durable structured identifiers, dependencies, and completion artifact links, and route reusable knowledge to section 6 rather than scattering it through task notes.
+Preserve durable structured identifiers, dependencies, and completion artifact links, and route reusable knowledge through [stow's knowledge-placement contract](../stow/SKILL.md#knowledge-placement) rather than scattering it through task notes.

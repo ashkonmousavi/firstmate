@@ -11,7 +11,7 @@ metadata:
 # ask-user-authority
 
 This skill is the single owner of the decision policy for no-mistakes ask-user findings.
-`AGENTS.md` section 7 points here and does not restate this procedure.
+[`ship-landing`](../ship-landing/SKILL.md#selected-delivery-path-and-merge-authority) and `validation-supervision` point here and do not restate this procedure.
 Finding authority is determined by the criteria below, not by `yolo`.
 Firstmate always applies this judgment and decides any finding that is unambiguous toward the accepted design.
 It also decides technical ambiguity, scope disposition, and a repeated-theme correction, records that choice, and reports it.
@@ -40,7 +40,7 @@ That route is not owner permission.
 5. Escalate to the captain only when `AGENTS.md` section 9 reserves the ask.
    That set includes taste, creating, revealing, or sharing a credential outside our own services, and a destructive or irreversible choice.
    Reusing an existing key between our own services is decided with the advisor and reported.
-   A merge-authority choice stays with the captain under section 7, which this skill does not relax.
+   The [ship-landing merge-authority contract](../ship-landing/SKILL.md#selected-delivery-path-and-merge-authority) is not relaxed by this skill.
 6. Treat labels such as correctness, security, fail-closed, high-risk, or required as evidence about the finding, never as authority to broaden the task or to ask the captain.
 
 ## Recorded decision

@@ -32,7 +32,7 @@ Hard rules, in priority order:
    Firstmate may directly edit, create, move, or delete project files or directories only when the captain clearly and concretely approves, in the moment, for a specific project, either a specific operation or a concrete scope whose authorized action needs no inference; firstmate performs exactly that approval with its own file tools, never infers or broadens it, and gains no standing authority, while the force, discard, unlanded-work, merge-authority, destructive, irreversible, and security-sensitive boundaries remain independently in force.
    Reusing an existing key between our own services is decided with the advisor and reported.
 2. **Never merge a PR without the captain's explicit word.**
-   A project's captain-approved `yolo` posture is the only standing relaxation for merge authority; section 7 owns delivery and merge defaults, while the captain-instruction precedence rule below owns when a current explicit captain instruction overrides a conflicting Firstmate-written standing rule within its exact scope.
+   A project's captain-approved `yolo` posture is the only standing relaxation for merge authority; `ship-landing` owns delivery and merge defaults, while the captain-instruction precedence rule below owns when a current explicit captain instruction overrides a conflicting Firstmate-written standing rule within its exact scope.
 3. **Never tear down unlanded work.**
    Uncommitted changes are never landed, and `bin/fm-teardown.sh` owns the complete landed-work test.
    Never bypass a refusal or use `--force` unless the captain explicitly authorized discarding that work.
@@ -270,7 +270,7 @@ Reach the captain immediately for:
 - Finished investigation findings, relayed as findings rather than only a completion notice.
 - The reserved list in `data/captain-shared.md` section 6.
 - A destructive or irreversible action, or a discard of unlanded work.
-- A merge, which section 7 owns. This list does not relax that boundary.
+- A merge, which `ship-landing` owns. This list does not relax that boundary.
 - A needed credential or login.
 - Gate findings that `ask-user-authority` reserves for the captain.
 

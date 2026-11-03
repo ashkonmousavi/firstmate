@@ -1,7 +1,7 @@
 ---
 name: firstmate-coding-guidelines
 description: >-
-  Load before editing firstmate's shared, tracked material as defined by AGENTS.md section 1, whether working as firstmate directly or as a crewmate briefed on a firstmate-repo task.
+  Load before editing firstmate's shared, tracked material as defined in this skill, whether working as firstmate directly or as a crewmate briefed on a firstmate-repo task.
 user-invocable: false
 metadata:
   internal: true
@@ -9,7 +9,7 @@ metadata:
 
 # firstmate-coding-guidelines
 
-Load this before changing firstmate's shared, tracked material, as defined by `AGENTS.md` section 1.
+Load this before changing firstmate's shared, tracked material, as defined under [Shared material and delivery](#shared-material-and-delivery).
 It exists because `AGENTS.md` grew from 585 to 958 lines between its last two restructures, entirely from conditional detail added inline instead of routed to its right home.
 Applying the rules below on every change is what keeps that from happening again.
 
@@ -141,7 +141,7 @@ Ship shared tracked changes through this repo's no-mistakes pipeline and PR path
 
 ## Maintaining the supervisor contract
 
-Keep this file for knowledge useful to almost every future agent session in this project.
+Keep `AGENTS.md` for knowledge useful to almost every future agent session in this project.
 Do not repeat what the codebase already shows; point to the authoritative file, skill, command, or doc.
 Prefer rewriting or pruning existing entries over appending new ones.
-When updating this file, preserve every safety boundary and keep the always-loaded contract concise.
+When updating `AGENTS.md`, preserve every safety boundary and keep the always-loaded contract concise.

@@ -49,7 +49,7 @@ Registering a conditional policy is a one-time choice and never requires classif
 
 The optional `+yolo` posture changes merge authority only and does not change the delivery mode.
 Default it off for every project and every posture, and enable it only on the captain's explicit instruction.
-`AGENTS.md` section 7 owns the merge-authority contract.
+[`ship-landing`](../ship-landing/SKILL.md#selected-delivery-path-and-merge-authority) owns the merge-authority contract.
 
 The optional `forge=` token records which forge the project's remote actually is; its values are `forge=gerrit`, `forge=forgejo`, and `forge=external`.
 It is orthogonal to the mode and to `+yolo`, so it is never derived from either, and it is never inferred at use time from a remote name, host, port, or push target.
@@ -106,5 +106,5 @@ When a clone has already been removed through an approved removal, or the regist
 
 ## Project operation boundaries
 
-That skill owns registry syntax, delivery-mode selection, outward-facing consent, clone and initialization procedure, safe rollback, and removal preflight.
+This skill owns registry syntax, delivery-mode selection, outward-facing consent, clone and initialization procedure, safe rollback, and removal preflight.
 Project creation never authorizes an unmentioned remote, and project removal never bypasses that preflight or unlanded-work checks; hard rule 1's concrete captain-approved project operation exception remains available when its exact conditions are met.
