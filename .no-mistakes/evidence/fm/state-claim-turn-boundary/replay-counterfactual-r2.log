@@ -1,0 +1,6 @@
+real command at row 7420: FM_HOME=~/Firstmate/firstmate bash ~/.claude/skills/activity/activity.sh | awk '/## Active/,/## Idle/' | grep -o "^| [A-Za-z]*" | sort | uniq -c
+real rows, real piped command: base rc=2 'State claim needs a same-turn read (capacity): [reply text redacted]'
+real rows, real piped command: branch rc=2 'State claim needs a same-turn read (capacity): [reply text redacted]'
+counterfactual command: FM_HOME=~/Firstmate/firstmate bash ~/.claude/skills/activity/activity.sh
+real rows, bare read (pipe removed): base rc=0 ''
+real rows, bare read (pipe removed): branch rc=0 ''

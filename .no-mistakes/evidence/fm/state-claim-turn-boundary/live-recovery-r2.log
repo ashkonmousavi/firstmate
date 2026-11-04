@@ -1,0 +1,12 @@
+2.1.318 (Claude Code) base trial 1: claude rc=1 stop rcs=[2, 2, 2, 2, 2, 2, 2] recovered=False
+  bash commands: ['bash <fixture> | head -5', 'head -n 50 <fixture>', 'head -n 50 <fixture>', 'head -n 50 <fixture>', 'head -n 50 <fixture>']
+  first block stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.\nRead activity.sh successfully in this turn; check-wake prose is not a read.'
+2.1.318 (Claude Code) base trial 2: claude rc=1 stop rcs=[2, 2, 2, 2, 2, 2, 2] recovered=False
+  bash commands: ['bash <fixture> | head -5', 'bash <fixture> | head -5', 'cat <fixture>', 'cat <fixture>', "sed -n '1,3p' <fixture>"]
+  first block stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.\nRead activity.sh successfully in this turn; check-wake prose is not a read.'
+2.1.318 (Claude Code) branch trial 1: claude rc=0 stop rcs=[2, 0] recovered=True
+  bash commands: ['bash <fixture> | head -5', 'bash <fixture> > /tmp/fm-r2-activity-out.txt', 'head -5 /tmp/fm-r2-activity-out.txt']
+  first block stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.sh successfully in this turn as its own Bash command; printing its source is not a read. A pipe, chain or subshell (|, ;, &&, ||, &, parentheses) hides its exit status, so that run does not count: redirect only stdout (> file, without 2>&1) and filter in a later command; the tool result already reports its exit status, so do not append echo $?. check-wake prose is not a read.'
+2.1.318 (Claude Code) branch trial 2: claude rc=0 stop rcs=[2, 0] recovered=True
+  bash commands: ['bash <fixture> | head -5', 'bash <fixture> > /tmp/fm-r2-activity-out.txt', 'head -5 /tmp/fm-r2-activity-out.txt']
+  first block stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.sh successfully in this turn as its own Bash command; printing its source is not a read. A pipe, chain or subshell (|, ;, &&, ||, &, parentheses) hides its exit status, so that run does not count: redirect only stdout (> file, without 2>&1) and filter in a later command; the tool result already reports its exit status, so do not append echo $?. check-wake prose is not a read.'

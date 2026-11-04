@@ -1,0 +1,36 @@
+transcript rows=8614 capacity-rejections=34
+row 257: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 443: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 898: base rc=2 head rc=0 ok-activity-results=1 standalone=1 class=unblocked-on-head
+row 999: base rc=2 head rc=0 ok-activity-results=4 standalone=2 class=unblocked-on-head
+row 1057: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 1073: base rc=2 head rc=2 ok-activity-results=1 standalone=0 class=only-unsafe
+row 1255: base rc=2 head rc=0 ok-activity-results=1 standalone=1 class=unblocked-on-head
+row 1564: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 1596: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 1743: base rc=2 head rc=2 ok-activity-results=1 standalone=0 class=only-unsafe
+row 2019: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 2383: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 2739: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 3308: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 3512: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 3803: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 3911: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 4924: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 5131: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 5227: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 5287: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 5821: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 6003: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 6037: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 6878: base rc=2 head rc=2 ok-activity-results=0 standalone=0 class=no-ok-read
+row 7342: base rc=2 head rc=2 ok-activity-results=7 standalone=0 class=only-unsafe
+row 7361: base rc=2 head rc=2 ok-activity-results=8 standalone=0 class=only-unsafe
+row 7374: base rc=2 head rc=2 ok-activity-results=9 standalone=0 class=only-unsafe
+row 7434: base rc=2 head rc=2 ok-activity-results=11 standalone=0 class=only-unsafe
+row 7514: base rc=2 head rc=2 ok-activity-results=15 standalone=0 class=only-unsafe
+row 7570: base rc=2 head rc=2 ok-activity-results=18 standalone=0 class=only-unsafe
+row 7625: base rc=2 head rc=2 ok-activity-results=1 standalone=0 class=only-unsafe
+row 8018: base rc=2 head rc=2 ok-activity-results=2 standalone=0 class=only-unsafe
+row 8052: base rc=2 head rc=2 ok-activity-results=3 standalone=0 class=only-unsafe
+tally: {'no-ok-read': 20, 'unblocked-on-head': 3, 'only-unsafe': 11}

@@ -1,0 +1,44 @@
+2.1.318 (Claude Code) parent-9eb6c746 trial 1: claude rc=1 stop rcs=[2, 2, 2, 2, 2, 2, 2] fixture reads=1
+  bash commands: ['bash <fixture>']
+  stop replies: ['PR #12 is merged.', "I haven't verified that PR #12 is merged. The only command I", "I can't confirm PR #12's state. The only script output I hav", "I'm not making any state claim this turn. Checking PR #12 or", 'There are 7 free lanes.', 'There are 7 free lanes.', "I'm stopping here. The hook keeps requiring a fresh `activit"]
+  stop 0 stderr: 'State claim needs a same-turn read (PR): PR #12 is merged.'
+  stop 1 stderr: "State claim needs a same-turn read (PR): I haven't verified that PR #12 is merged."
+  stop 2 stderr: "State claim needs a same-turn read (capacity): The only script output I have is free lanes: 7, which doesn't c"
+  stop 3 stderr: 'State claim needs a same-turn read (capacity): Checking PR #12 or the lane count would need a fresh run of act'
+  stop 4 stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.'
+  stop 5 stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.'
+  stop 6 stderr: 'State claim needs a same-turn read (capacity): So I have no verified PR #12 state or lane count for this turn,'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (PR): PR #12 is merged.\nRead that state now, corr'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (PR): I haven\'t verified that PR #12 is merged.\nR'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): The only script output I have is free'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): Checking PR #12 or the lane count wou'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): So I have no verified PR #12 state or'
+2.1.318 (Claude Code) parent-9eb6c746 trial 2: claude rc=1 stop rcs=[2, 2, 2, 2, 2, 2, 2] fixture reads=1
+  bash commands: ['bash <fixture>']
+  stop replies: ['PR #12 is merged.', 'There are 7 free lanes.', 'There are 7 free lanes.', 'There are 7 free lanes.', 'There are 7 free lanes.', 'There are 7 free lanes.', 'There are 7 free lanes.']
+  stop 0 stderr: 'State claim needs a same-turn read (PR): PR #12 is merged.'
+  stop 1 stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.'
+  stop 2 stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.'
+  stop 3 stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.'
+  stop 4 stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.'
+  stop 5 stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.'
+  stop 6 stderr: 'State claim needs a same-turn read (capacity): There are 7 free lanes.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (PR): PR #12 is merged.\nRead that state now, corr'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (capacity): There are 7 free lanes.\nRun activity.'
+2.1.318 (Claude Code) head-b3ea705d trial 1: claude rc=0 stop rcs=[2, 0] fixture reads=1
+  bash commands: ['bash <fixture>']
+  stop replies: ['PR #12 is merged.', 'There are 7 free lanes.']
+  stop 0 stderr: 'State claim needs a same-turn read (PR): PR #12 is merged.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (PR): PR #12 is merged.\nRead that state now, corr'
+2.1.318 (Claude Code) head-b3ea705d trial 2: claude rc=0 stop rcs=[2, 0] fixture reads=1
+  bash commands: ['bash <fixture>']
+  stop replies: ['PR #12 is merged.', 'There are 7 free lanes.']
+  stop 0 stderr: 'State claim needs a same-turn read (PR): PR #12 is merged.'
+  transcript feedback row: isMeta=True content='Stop hook feedback:\n[python3 "/tmp/fm-r3-live.xJsPPb/record.py"]: State claim needs a same-turn read (PR): PR #12 is merged.\nRead that state now, corr'
