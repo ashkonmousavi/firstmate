@@ -372,6 +372,14 @@ def current_reads(path, deadline, cwd=None):
                                      if item[0] != 'capacity' or not block.get('is_error', False))
         # Tool results can share a user row with harness reminder text.
         # Match those results above; only a text-only user row starts a turn.
+        # Claude writes Stop hook feedback as an isMeta row in the same turn;
+        # this guard's own refusal keeps earlier reads, other feedback resets.
+        if row.get("type") == "user" and row.get("isMeta") is True and isinstance(content, str) and content.startswith(
+                "Stop hook feedback:\n") and all(re.match(
+                r"\[.*?\]: (?:State claim needs a same-turn |Reply shape: )", entry)
+                for entry in re.split(r"\n(?=\[)", content.strip())[1:]) and "\n[" in content:
+            boundary = True
+            continue
         if row.get("type") == "user" and not any(
             isinstance(b, dict) and b.get("type") == "tool_result" for b in blocks
         ) and (isinstance(content, str) or any(
