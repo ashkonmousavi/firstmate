@@ -16,6 +16,8 @@ set -u
 
 # shellcheck source=tests/fixtures.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
+# shellcheck source=tests/treehouse-fake-lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/treehouse-fake-lib.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-spawn-pool-base-freshen)
 
@@ -189,6 +191,9 @@ test_stale_pool_base_refreshes_before_branching() {
       "$branch_head" "$current" "$(cat "$POOL_DIR/advanced-main.txt")"
   fi
 
+  # The first fixture task has retired before this independent allocation.
+  # Keeping its meta would correctly refuse a second task on that same copy.
+  rm -f "$HOME_DIR/state/$id.meta"
   id='pool-current-base-repeat-r1'
   fm_test_spawn_brief "$HOME_DIR" "$id"
   out=$(run_spawn "$id" --mode no-mistakes --yolo off)
@@ -534,6 +539,8 @@ strand_submodule_pin_via_spawn() {  # <seed-id>
     || fail "the first spawn did not move the pooled base across the moved submodule pin"
   [ "$(git -C "$POOL_DIR/ui" rev-parse HEAD)" = "$SUBPIN1" ] \
     || fail "the first spawn did not strand the submodule on the pin the old base recorded"
+  rm -f "$HOME_DIR/state/$id.meta"
+
 }
 
 test_stale_submodule_pin_explains_itself() {
@@ -693,6 +700,7 @@ lay_out_as_pool_slot() {
     > "$slot_root/treehouse-state.json"
   POOL_DIR="$slot_root/1/project"
   SLOT_CLAIM="$slot_root/1/.fm-slot-owner"
+  fm_test_treehouse_pool "$FAKEBIN_DIR" "$slot_root"
 }
 
 # The spawn side of the slot-owner claim that bin/fm-teardown.sh later reads:
@@ -814,6 +822,7 @@ case "$cmd" in
     if [ "$text" = "treehouse get Enter" ]; then
       w=$(window_name "$target")
       for slot in "$slots"/*/project; do
+        jq -e --arg path "$slot" '.worktrees[] | select(.path == $path and .leased == true)' "$slots/treehouse-state.json" >/dev/null && continue
         grep -qxF -- "$slot" "$world"/*.path 2>/dev/null && continue
         printf '%s\n' "$slot" > "$world/$w.path"
         break
@@ -854,6 +863,7 @@ test_refused_launch_leaves_the_pool_for_a_retry_and_a_second_task() {
   claim2="$slot_root/2/.fm-slot-owner"
   world="$CASE_DIR/tmux-world"
   install_pool_world_tmux "$FAKEBIN_DIR" "$world" "$slot_root"
+  fm_test_treehouse_pool "$FAKEBIN_DIR" "$slot_root"
   cat > "$FAKEBIN_DIR/polytoken" <<'SH'
 #!/usr/bin/env bash
 case "$*" in
@@ -913,6 +923,7 @@ test_refused_launch_spares_per_id_paths_under_a_contended_spawn_lock() {
     > "$slot_root/treehouse-state.json"
   world="$CASE_DIR/tmux-world"
   install_pool_world_tmux "$FAKEBIN_DIR" "$world" "$slot_root"
+  fm_test_treehouse_pool "$FAKEBIN_DIR" "$slot_root"
   mv "$FAKEBIN_DIR/tmux" "$FAKEBIN_DIR/tmux.world"
   cat > "$FAKEBIN_DIR/tmux" <<SH
 #!/usr/bin/env bash
@@ -967,6 +978,7 @@ test_codex_refused_launch_closes_its_window() {
   git -C "$slot_root/1/project" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
   world="$CASE_DIR/tmux-world"
   install_pool_world_tmux "$FAKEBIN_DIR" "$world" "$slot_root"
+  fm_test_treehouse_pool "$FAKEBIN_DIR" "$slot_root"
 
   out=$(run_spawn "$id" --harness codex --mode no-mistakes --yolo off)
   status=$?

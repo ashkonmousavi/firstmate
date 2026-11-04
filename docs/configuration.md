@@ -885,7 +885,7 @@ The [`bin/fm-lane-release.sh` header](../bin/fm-lane-release.sh) owns the releas
 Each pass keeps the order returned by `bin/fm-tasks-axi.sh ready` and launches prepared items through `bin/fm-spawn.sh` with the briefs they already carry.
 Dispatch uses only configured default profiles, or the static crew harness when no dispatch file exists; the script header owns deterministic ranking and quota refusal handling.
 Machine admission stays with `bin/fm-capacity.sh` and `bin/fm-spawn.sh`, so a pass never launches beyond lane or project capacity.
-An item is prepared when it has a brief, `data/<id>/brief.md`, and a non-empty prep file, `data/<id>/prep.md` or the file a `Prep: data/<path>` line in its backlog body names inside this home's `data/` directory; without either it is refused with that exact reason.
+Preparation admission, including X persona/Doctor/XAI-surface fields and legacy grace, is owned by the [launcher header's PREP section](../bin/fm-autolaunch.sh).
 Its launch record is derived from the brief's own contract lines, the backlog row, and `bin/fm-project-mode.sh`, with an optional `data/<id>/autolaunch-prep` record overriding any field; `bin/fm-brief.sh` writes that record for each new ship or scout brief, replacing one left by an earlier brief, never with yolo, which stays derived from the project registry at launch.
 Run `FM_HOME=<home> bin/fm-autolaunch.sh --backfill` to print the record each existing queued item would get, then `--backfill --apply` to write the missing ones, also without yolo; it never rewrites an existing record, so it is safe to repeat on every home.
 On the other homes the commands are documented here only, and run there once the fleet update has brought the script to their `firstmate-stock` code roots:
@@ -900,7 +900,7 @@ Ready-queue decisions use the [launcher's record format](../bin/fm-autolaunch.sh
 
 Nothing enables a schedule automatically.
 To enable a home, first try `bin/fm-autolaunch.sh --dry-run`, which prints a decision for every ready item and each spawn command and writes nothing; a prepared item beyond the free lanes, or every prepared item when none is free, shows as `would-launch-when-a-lane-frees`.
-Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line with `FM_HOME` set explicitly, recording it in the machine inventory first.
+Then install the schedule `bin/fm-autolaunch.sh --print-timer` proposes, a five-minute systemd user timer or one crontab line, recording it in the machine inventory first; the [launcher header](../bin/fm-autolaunch.sh) owns the captured environment and optional slice-only scope.
 Arm the throttle check with `bin/fm-autolaunch-check.sh arm`, which binds `state/autolaunch.check.sh` through `bin/fm-check-register.sh` so the watcher runs it on its ordinary check cadence; `disarm` removes it.
 The check prints one red line, and in a secondmate home also reports it on the parent channel, when a free lane and a prepared item have had no auto-launch record for ten minutes; otherwise it is silent.
 The [`bin/fm-autolaunch.sh` header](../bin/fm-autolaunch.sh) owns the pass, prep and record derivation, dispatch order, refusal reasons, and record format; the [`bin/fm-autolaunch-check.sh` header](../bin/fm-autolaunch-check.sh) owns the red condition and its repeat limit.
@@ -1209,7 +1209,7 @@ The declaration is per-home untracked state under `data/`, like every other capt
 A fresh primary home has no declaration until the captain re-declares the `Memory layering` section there from their own records.
 Until then local files are the only memory owners.
 
-[`AGENTS.md`](../AGENTS.md) section 6 owns what a declaration changes about knowledge routing, and the internal [`stow` skill](../.agents/skills/stow/SKILL.md) owns how curation reads the declaration and protects tier-owned entries from pruning.
+The internal [`stow` skill](../.agents/skills/stow/SKILL.md#knowledge-placement) owns what a declaration changes about knowledge routing and how curation reads the declaration and protects tier-owned entries from pruning.
 The section counts toward the startup memory budget like the rest of its file, so keep it to the mapping rather than restating these rules.
 
 ## Startup memory budget (config/startup-memory-budget)
@@ -1375,6 +1375,8 @@ Unparking permits later startup or recovery without launching the mate itself.
 The primary home's `config/secondmate-parked/` records are separate from the watcher crash-loop bound.
 Session start, the watcher liveness check, `bin/fm-secondmate-restart.sh`, `bin/fm-spawn.sh <id> --secondmate`, `bin/fm-control.sh <id> relaunch`, and `bin/fm-remote-secondmate-relaunch.sh` all refuse a parked mate.
 Clearing the crash-loop marker, including the rearm after a launch, does not clear an owner park.
+The wake drain omits a valid owner-parked mate's still-open decisions from its OPEN DECISIONS summary without closing the durable decisions; explicit unpark makes them visible again.
+Unsafe or malformed park records leave those decisions visible.
 Use [`bin/fm-secondmate-park.sh`](../bin/fm-secondmate-park.sh) to park, inspect, or explicitly unpark a mate; its header owns usage, automatic UTC dating, and exit statuses.
 An absent file leaves relaunch behavior unchanged.
 Generic config inheritance excludes this directory.
@@ -1735,6 +1737,7 @@ A home that authenticates Claude through environment credentials on purpose shou
 
 ### Failures, reporting, and inheritance
 
+The [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) owns pin-change authority, including exhausted-Claude recovery.
 A malformed file, a root that is not a readable directory, or a signed-out account refuses the launch and names the file to fix; Firstmate never falls back to the ambient account and never changes a global login or copies a credential.
 The spawn prints the pin as `account=` (plus `account_provider=` for Pi) and records the same fields in the task record, so the session-start digest shows which account each worker launched on.
 
@@ -2026,7 +2029,7 @@ A line that is only `#`, or that begins with `#` followed by whitespace, is a co
 A project name may begin with `#` when that `#` is written immediately against the rest of the name and the line ends with the project's capacity.
 A name that is `#`, or that begins with `#` and a space, cannot be declared, because that line is a comment.
 Ships and scouts share the project's places across local homes and same-origin clones; see the [project occupancy contract](../bin/fm-project-capacity-lib.sh) for PR handoff and release before cleanup.
-A failed or cancelled fresh spawn retains its record and place against both new ids and same-id retries until its endpoint is proven gone; see the [spawn rollback contract](../bin/fm-spawn.sh) and [backend proof requirements and limits](../bin/fm-backend.sh).
+Failed or cancelled fresh spawns and same-id retries follow the [spawn rollback contract](../bin/fm-spawn.sh), including retained-copy ownership; [backend proof requirements and limits](../bin/fm-backend.sh) govern endpoint absence separately.
 The declaration is matched by the spawning clone's directory name, so clones of the same origin share the cap only when they use that same directory name.
 A clone of that origin under a different directory name finds no declaration and is not capped, though its workers are still counted as holders for a same-origin clone that is capped.
 When every place is held, `bin/fm-spawn.sh` launches nothing, creates no record, leaves the backlog item queued, prints one `deferred:` line naming the holders, and exits 75, so Firstmate dispatches the item again once a place frees.
@@ -2038,7 +2041,7 @@ Firstmate cannot see which part of a worker's life uses the resource, so the lim
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
 Firstmate chooses the best matching rule with judgment; shell scripts do not match the natural-language rules.
-Firstmate resolves the rule's profile object or array under `AGENTS.md` section 4 and `quota-array-dispatch`, then passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
+Firstmate resolves the rule's profile object or array under the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) and `quota-array-dispatch`, then passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
 
 **Spawn requirements**
 
@@ -2075,7 +2078,7 @@ This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-
 **Contract owners**
 
 This section is the single owner of the canonical schema and its per-field semantics.
-`AGENTS.md` section 4 owns the always-loaded dispatch intake boundary, and `quota-array-dispatch` owns the completion-aware profile-array selection procedure.
+`AGENTS.md` section 4 owns the always-loaded intake trigger; the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) owns dispatch decisions, and `quota-array-dispatch` owns completion-aware profile-array selection.
 
 ```json
 {
@@ -2154,7 +2157,7 @@ Set it high when a wrong pick is costly and low when the rule is a safe runner-u
 A profile `provider` optionally names the quota-axi provider family whose rows apply to that profile; when present, profile and rule-floor provider IDs must match the strict whole-string pattern `^[a-z0-9]+(-[a-z0-9]+)*\z`.
 Bootstrap's resolver-only validation gate is described under "Validation and diagnostics" below; the [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson) applies independently of it.
 
-Typed resolution additively recognizes `gemini` because AGENTS.md section 4 verifies it for crewmate and scout dispatch.
+Typed resolution additively recognizes `gemini` because the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) verifies it for crewmate and scout dispatch.
 
 | Harness | Provider declaration on the opted-in resolver path |
 | --- | --- |
@@ -2325,7 +2328,7 @@ Every result above exits 0.
 
 **Firstmate retains the dispatch decision**
 
-The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; `AGENTS.md` section 4 owns what firstmate does with each outcome.
+The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captain-approval gate, or `fm-spawn.sh` validation; the [harness-adapters dispatch contract](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) owns what firstmate does with each outcome.
 By accepted design, a `clear` result does not enforce catalog/authentication or reasoning-class gates, and its runway gate is the through-reset rule above rather than a completion-horizon estimate.
 The through-reset gate applies only in the opt-in resolver; `fm-spawn.sh` enforces only the fixed-horizon [explicit-harness quota gate](#crew-dispatch-profiles-configcrew-dispatchjson).
 Firstmate still applies those gates before dispatch, including when `preferred_provider` is present.

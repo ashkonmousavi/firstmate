@@ -14,6 +14,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/treehouse-fake-lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/treehouse-fake-lib.sh"
 
 unset TASKS_AXI_BACKEND || :
 
@@ -170,12 +172,15 @@ declare_capacity() {  # <home> <line>...
 # A live worker already on a project: the record shape bin/fm-spawn.sh
 # publishes, with its backlog item In flight until explicitly accepted.
 write_live() {  # <home> <id> <project-dir> [extra-line...]
-  local home=$1 id=$2 project=$3
+  local home=$1 id=$2 project=$3 line worktree_set=0
   shift 3
+  for line in "$@"; do
+    case "$line" in worktree=*) worktree_set=1 ;; esac
+  done
+  [ "$worktree_set" = 1 ] || set -- "worktree=$home/absent-worktree-$id" "$@"
   fm_write_meta "$home/state/$id.meta" \
     "window=firstmate:fm-$id" \
     "endpoint_task_id=$id" \
-    "worktree=$home/absent-worktree-$id" \
     "project=$project" \
     "harness=codex" \
     "kind=ship" \
@@ -1072,6 +1077,32 @@ test_failed_backlog_commit_frees_the_seat_when_the_window_is_gone() {
   pass "an inventory read that omits the window removes the record and admits the next id"
 }
 
+test_failed_pooled_backlog_commit_retains_ownership() {
+  local case_dir home pool worktree out rc=0
+  [ "$HAVE_TASKS_AXI" = 1 ] || {
+    printf 'ok - skipped (tasks-axi is not installed)\n'
+    return 0
+  }
+  case_dir=$(make_case pooled-absent-seat seat-gone)
+  home="$case_dir/home"
+  pool="$case_dir/pool"
+  worktree="$pool/1/project"
+  mkdir -p "$pool/1"
+  git -C "$case_dir/project" worktree add --quiet --detach "$worktree"
+  printf '{"worktrees":[{"name":"1","path":"%s"}]}\n' "$worktree" > "$pool/treehouse-state.json"
+  fm_test_treehouse_pool "$case_dir/fakebin" "$pool"
+  break_start_then_prove_absent "$case_dir"
+  out=$(spawn_ship "$case_dir" seat-gone "$worktree") || rc=$?
+  [ "$rc" -ne 0 ] || fail 'failed pooled backlog commit reported success'
+  assert_contains "$out" 'failed-dispatch cleanup is incomplete' 'pooled backlog failure claimed cleanup'
+  assert_grep "worktree=$worktree" "$home/state/seat-gone.meta" 'pooled backlog failure orphaned its copy'
+  assert_grep 'task=seat-gone' "$pool/1/.fm-slot-owner" 'pooled backlog failure removed its claim'
+  jq -e '.worktrees | length == 1 and .[0].leased and .[0].lease_holder == "seat-gone"' \
+    "$pool/treehouse-state.json" >/dev/null || fail 'pooled backlog failure returned its recorded lease'
+  assert_equals queued "$(row_state "$home" seat-gone)" 'failed backlog commit changed the queued task'
+  pass 'a failed backlog commit with a gone endpoint preserves pooled-copy ownership'
+}
+
 # A Herdr kill that returns 0 because the presentation lock cannot be taken
 # does not close the pane. The pane is still present, so the record stays and
 # holds the only place.
@@ -1128,16 +1159,18 @@ test_herdr_lock_refused_kill_keeps_the_seat() {
   pass "a Herdr kill that returns without closing the pane keeps the record and the place"
 }
 
-test_stale_same_id_retry_removes_record_before_replacement() {
+test_copyless_same_id_retry_removes_record_before_replacement() {
   local case_dir home out cap rc
   for cap in capped uncapped; do
     case_dir=$(make_case "stale-retry-$cap" task-stale)
     home="$case_dir/home"
     [ "$cap" != capped ] || declare_capacity "$home" "project 1"
     write_live "$home" task-stale "$case_dir/project"
+    fm_write_meta "$home/state/task-stale.meta" \
+      'window=firstmate:fm-task-stale' "project=$case_dir/project" 'kind=ship'
     rc=0
     out=$(spawn_ship "$case_dir" task-stale) || rc=$?
-    expect_code 0 "$rc" "a $cap stale same-id retry failed: $out"
+    expect_code 0 "$rc" "a $cap copyless same-id retry failed: $out"
     assert_contains "$out" "spawned task-stale" "the stale retry did not launch"
     assert_present "$home/state/task-stale.meta" "the retry published no replacement record"
     assert_contains "$(cat "$case_dir/calls.log.window")" "fm-task-stale" "the replacement endpoint is missing"
@@ -1145,7 +1178,7 @@ test_stale_same_id_retry_removes_record_before_replacement() {
       assert_equals in_flight "$(row_state "$home" task-stale)" "the retry did not start the backlog item"
     fi
   done
-  pass "capped and uncapped stale same-id retries publish their replacement"
+  pass "capped and uncapped copyless same-id retries publish their replacement"
 }
 
 test_stale_record_removal_failure_prevents_replacement() {
@@ -1156,6 +1189,8 @@ test_stale_record_removal_failure_prevents_replacement() {
     home="$case_dir/home"
     [ "$cap" != capped ] || declare_capacity "$home" "project 1"
     write_live "$home" task-stale "$case_dir/project"
+    fm_write_meta "$home/state/task-stale.meta" \
+      'window=firstmate:fm-task-stale' "project=$case_dir/project" 'kind=ship'
     cat > "$case_dir/fakebin/rm" <<SH
 #!/usr/bin/env bash
 for arg in "\$@"; do
@@ -1176,10 +1211,11 @@ SH
   pass "failed stale-record removal prevents capped and uncapped replacement"
 }
 
-test_stale_same_id_retry_removes_record_before_replacement
+test_copyless_same_id_retry_removes_record_before_replacement
 test_stale_record_removal_failure_prevents_replacement
 test_failed_backlog_commit_keeps_the_seat_while_the_window_is_listed
 test_failed_backlog_commit_frees_the_seat_when_the_window_is_gone
+test_failed_pooled_backlog_commit_retains_ownership
 test_herdr_lock_refused_kill_keeps_the_seat
 test_undeclared_capacity_keeps_dispatch_uncapped
 test_available_capacity_admits_the_worker

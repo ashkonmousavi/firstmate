@@ -143,7 +143,8 @@ Routine watcher polling, supervision no-ops, and absorbed benign wakes stay sile
 Elapsed waiting time can trigger the optional [open-decision reminders](configuration.md#open-decision-reminders-configopen-decision-reminders).
 A declared external wait or an attended verified captain-held transfer trades that silence for one bounded recheck per pause window, naming the dependency or decision owner; while the away-posture record exists, captain-held work waits without rechecks and remains visible in the return brief.
 Crew status files are append-only wake-event logs, not current-state fields.
-Because of that, a per-wake read of only the latest line can bury an earlier still-open `needs-decision`/`blocked` under later unrelated appends; `fm-wake-drain.sh` prints a separate, fleet-wide OPEN DECISIONS section on every presentation (including the empty-queue path session-start relies on), built through `fm-classify-lib.sh`'s cursor-backed incremental scan using the authoritative `status_open_decisions` fold semantics so the buried decision keeps surfacing until that fold closes it while each presentation folds only new status-log appends.
+Because of that, a per-wake read of only the latest line can bury an earlier still-open `needs-decision`/`blocked` under later unrelated appends; `fm-wake-drain.sh` builds a separate, fleet-wide OPEN DECISIONS section on every presentation (including the empty-queue path session-start relies on) through `fm-classify-lib.sh`'s cursor-backed incremental scan using the authoritative `status_open_decisions` fold semantics, subject to the [owner-park presentation exception](configuration.md#owner-park).
+Each presentation folds only new status-log appends; presentation filtering does not change the fold's open/closed semantics.
 The drain coordinates that fold and its annotations through a locked fleet-wide snapshot whose `.status-presentation-cursor` manifest records each status file's identity plus independent annotation and outcome-backstop byte offsets.
 [`pi-supervision-branch.md`](pi-supervision-branch.md#lost-wake-outcome-backstop) owns the bounded lost-wake backstop that uses the latter offset.
 A queued signal annotation prints every status line still unread at that cursor, while the fleet-wide UNREAD STATUS section prints `note:` lines and reserved-key pending-reply resolutions once even on an empty-queue drain because those verbs never enter the OPEN DECISIONS fold.
@@ -350,6 +351,7 @@ Codex App support is recorded in `docs/codex-app-backend.md`; it is not selectab
 
 Crewmates never intentionally touch your project clone; [treehouse](https://github.com/kunchenguid/treehouse) pools clean worktrees for session-provider-only backends, while Orca creates its own worktrees for `backend=orca`.
 The [`fm-spawn.sh` header](../bin/fm-spawn.sh) owns ship/scout worktree isolation and fresh-base refusal rules, including spawns from linked homes.
+[`bin/fm-treehouse-lib.sh`](../bin/fm-treehouse-lib.sh) owns retained-copy exclusivity and durable lease protection, with regressions in [`tests/fm-shared-copy.test.sh`](../tests/fm-shared-copy.test.sh).
 A home can opt in to starting a local-only ship or a scout from the primary checkout's default branch instead of origin's tip ([`configuration.md`](configuration.md#spawn-base-from-the-primary-checkout-configspawn-base-primary-checkout)).
 Portable regressions live in [`tests/fm-spawn-pool-base-freshen.test.sh`](../tests/fm-spawn-pool-base-freshen.test.sh) for spawn isolation and base freshness, and [`tests/fm-control-relaunch.test.sh`](../tests/fm-control-relaunch.test.sh) for preserving the recorded copy on relaunch.
 
@@ -380,7 +382,7 @@ The intake and authority contract in `AGENTS.md` owns when separate scout resear
 ## Dispatch profiles
 
 Crewmate and scout dispatch can stay on the static crewmate harness resolved by `config/crew-harness`, or it can use local dispatch profiles in `config/crew-dispatch.json`.
-[`AGENTS.md` section 4](../AGENTS.md) owns firstmate's dispatch decision boundary, and [`quota-array-dispatch`](../.agents/skills/quota-array-dispatch/SKILL.md) owns its profile-array selection procedure.
+[`harness-adapters`](../.agents/skills/harness-adapters/SKILL.md#dispatch-contract) owns firstmate's dispatch decision boundary, and [`quota-array-dispatch`](../.agents/skills/quota-array-dispatch/SKILL.md) owns its profile-array selection procedure.
 The optional typed resolver's rule matching and deterministic profile selection are owned by [configuration.md](configuration.md#typed-dispatch-resolution-env-fm_dispatch_provider-fm_dispatch_model).
 The session-start bootstrap step keeps valid dispatch configuration silent unless verbose facts are enabled and surfaces a concise invalid-config line when validation fails.
 When the file exists, `fm-spawn.sh` refuses crewmate and scout launches without an explicit harness, so `config/crew-harness` is only automatic when no dispatch profile file is active.
@@ -479,9 +481,7 @@ After the forge accepts firstmate's merge request, the merge path persists the r
 A later merged poll consumes only that matching persisted value; with no match it records the landing as external rather than consulting a live away-posture record that may have been archived or replaced.
 [`bin/fm-merge-authority-lib.sh`](../bin/fm-merge-authority-lib.sh)'s header owns resolution, private atomic persistence, identity-checked consumption, and retirement, while only the merge path gates on the answer.
 Ship acceptance and pending-proof resource release follow [ship-landing](../.agents/skills/ship-landing/SKILL.md#resource-release-and-accepted-completion); [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header owns the separate copy-release and cleanup gates.
-A pool worktree is only returned after teardown passes the slot-ownership proof: a contradictory task record or a supported live endpoint refuses without touching either task, and no discard authority relaxes that.
-A slot's own owner claim, written by the spawn that takes it under the allocation lock and owned by [`bin/fm-wake-lib.sh`](../bin/fm-wake-lib.sh), covers a slot reassigned to another task, including one that left no record the scan could reach: a claim naming a different task releases nothing, even alongside that task's contradictory record - teardown warns, names the claimant, and finishes only the task's own cleanup - because Treehouse's own live process lease cannot answer ownership once the worker's exit releases it.
-Allocation and return serialize on one project lock per machine-local Firstmate tree: every home reachable through local parent links shares that lock, and a home seeded from another machine anchors its own, because a lock taken on this filesystem is neither held nor observable across that boundary.
+The [`bin/fm-teardown.sh` header](../bin/fm-teardown.sh) owns copy and branch safety, project-lock serialization, and records-only cleanup of foreign-claim records; [`bin/fm-wake-lib.sh`](../bin/fm-wake-lib.sh) owns the slot-owner claim format.
 Before the worktree is returned, teardown concludes the task's own no-mistakes run when it is parked at a gate, including a run whose head the task copy cannot resolve - the shared runs-ledger continuation proof is the only recognition for that case, so cleanup never orphans a parked run the pipeline advanced past the submitted head.
 [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header owns the landed-work proofs, slot-ownership proof, endpoint-close refusal, PR-discovery fallback, pre-teardown run conclusion, and stale-lock recovery procedure; [`tests/fm-teardown-endpoint-safety.test.sh`](../tests/fm-teardown-endpoint-safety.test.sh) and [`tests/fm-secondmate-safety.test.sh`](../tests/fm-secondmate-safety.test.sh) pin the slot-collision boundary.
 
@@ -534,13 +534,13 @@ The [Relay configuration reference](configuration.md#promised-public-replies-sta
 
 ## Project memory belongs to projects
 
-Project-memory ownership and the crewmate corrections-only boundary are defined in [`AGENTS.md` section 6](../AGENTS.md#6-project-and-knowledge-management); `data/projects.md` stays a thin private registry.
+Project-memory ownership and the crewmate corrections-only boundary are defined in [stow's knowledge-placement contract](../.agents/skills/stow/SKILL.md#knowledge-placement); `data/projects.md` stays a thin private registry.
 For manual project initialization, [`bin/fm-ensure-agents-md.sh`](../bin/fm-ensure-agents-md.sh) owns the `CLAUDE.md` pointer, self-governance insertion, and case-variant file refusal; its header and help document the explicit mark for equivalent project-owned guidance.
 
 ## Operational memory routing
 
 `/stow` sweeps the current session for durable knowledge that only exists in conversation and routes each finding to the most specific disk home.
-The destination for each kind of knowledge, including project-intrinsic knowledge, is owned by [`AGENTS.md` section 6](../AGENTS.md#6-project-and-knowledge-management).
+The destination for each kind of knowledge, including project-intrinsic knowledge, is owned by [stow's knowledge-placement contract](../.agents/skills/stow/SKILL.md#knowledge-placement).
 Memory writes use inspect-then-update rather than blind append; the internal [`stow` skill](../.agents/skills/stow/SKILL.md) owns tier markers, decay, cold archival, and offload.
 The same pass also persists open-work record state the session is holding - filing a thread that was never recorded and correcting one the session knows went stale - bounded to the open work that session is actually holding.
 Its input is the volatile context, so it can only preserve what the session still knows; durable PR checks belong to the [backlog closeout path](../bin/fm-inactive-reconcile.sh).

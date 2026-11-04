@@ -281,7 +281,7 @@ EOF
   printf 'kimi\n' > "$home/config/crew-harness"
   printf '999999 0\n' > "$home/config/lane-capacity"
   fm_test_machine_policy "$home/config"
-  fm_git_worktree "$proj" "$wt" "wt-$name"
+  fm_git_worktree "$proj" "$wt" "fm/$id"
   touch "$home/state/.last-watcher-beat"
   : > "$case_dir/launch.log"
   : > "$case_dir/pointer.log"

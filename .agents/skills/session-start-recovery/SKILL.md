@@ -1,6 +1,6 @@
 ---
 name: session-start-recovery
-description: Load when the session-start digest reports unfinished checks, actionable diagnostics, recovery inputs, or output requiring interpretation.
+description: Load after the session-start digest and before taking new work, including unfinished checks, actionable diagnostics, recovery inputs, or output requiring interpretation.
 user-invocable: false
 metadata:
   internal: true
@@ -21,7 +21,7 @@ The locked startup inactive-outcome scan joins that worker so a slow local curre
    The sweep and the watcher's cadence-gated tick share the [recovery contract](../../../bin/fm-secondmate-liveness-lib.sh); for T3 threads, follow the [native recovery guide](../../../docs/t3code-backend.md#restart-and-liveness-behavior).
 3. **Wake queue** - when locked, drains and presents the durable wake queue without running the inactive-outcome scan inline, and prints the raw records prominently as this turn's first work queue; a clearly labeled status-event annotation may follow a valid `signal` record and includes every status line still unread at the presentation cursor, but never replaces the raw record or current-state reconciliation, and a lapsed watcher chain still surfaces here via the same guard alarm.
    Presented records remain durable until the handling turn runs the generation-bound acknowledgement printed by the drain.
-   Every locked drain also prints a bounded fleet-wide `OPEN DECISIONS` section when durable decision records remain open, including when the queue itself is empty; reconcile those entries before continuing.
+   Reconcile every emitted `OPEN DECISIONS` entry before continuing, including on an empty queue; the [supervision architecture](../../../docs/architecture.md#event-driven-supervision) owns decision presentation and its exceptions.
    A main drain may also print a bounded, one-shot `STATUS OUTCOME BACKSTOP` when a task's newest captain-facing status event has no covering supervision-branch outcome; handle it as a recovered wake even when no queue row remains.
    The same drain prints every still-unread `note:` line and pending-reply resolution since the last presentation in an unbounded `UNREAD STATUS` section, so an answer buried under a later routine line is not dropped; those lines are not re-printed after that presentation.
    It also prints a bounded `RECORD DIVERGENCE` section naming every captain call the status log reads as resolved while its backlog task is still held; nothing is closed for you, and `captain-hold-lifecycle` owns the reconciliation.
@@ -44,3 +44,17 @@ Use `gh-axi` for GitHub, `chrome-devtools-axi` for browser work, and compatible 
 A silent bootstrap section needs no action; for any printed actionable diagnostic line, load `bootstrap-diagnostics` and follow its owner procedure.
 `BOOTSTRAP_INFO:` lines are completed no-action facts and do not require loading a skill.
 `secondmate-provisioning` owns startup secondmate sync, liveness, and inherited local-material convergence.
+
+## Post-start reconciliation
+
+Honor lock-refused read-only mode exactly as [`AGENTS.md` section 3](../../../AGENTS.md#3-session-start-run-once-at-every-session-start) requires.
+Treat digest status tails as wake-event history and use targeted current-state reconciliation when the live state matters.
+
+Reconcile only this home's recorded direct reports and their recorded backend inventory; never sweep a shared endpoint namespace for matching names or claim another home's work.
+For an ordinary direct report whose endpoint is dead or metadata has no window, load `stuck-crewmate-recovery` and preserve the recorded worktree and unlanded work while reconciling ownership.
+For a dead secondmate direct report, load `secondmate-provisioning` and reconcile only that secondmate, never its whole child tree from the main home.
+Each secondmate reconciles work already in its own home and then idles; recovery never authorizes it to invent work.
+
+If `state/.afk` is present, load `/afk` in away mode or `/quiet` in quiet mode (`bin/fm-wake-lib.sh`'s `fm_afk_mode`); where its daemon runs, let the daemon own supervision rather than arming another cycle, and on Pi keep the ordinary supervision session, which runs in both postures with main parked while the record exists.
+Surface only captain-relevant decisions, review-ready PRs, failures, and credential needs; otherwise resume the emitted supervision protocol silently.
+A restart must be a non-event because durable state and live backend inventory, not conversation memory, are authoritative.

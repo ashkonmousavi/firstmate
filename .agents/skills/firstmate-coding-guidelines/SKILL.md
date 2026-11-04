@@ -1,7 +1,7 @@
 ---
 name: firstmate-coding-guidelines
 description: >-
-  Load before editing firstmate's shared, tracked material as defined by AGENTS.md section 1, whether working as firstmate directly or as a crewmate briefed on a firstmate-repo task.
+  Load before editing firstmate's shared, tracked material as defined in this skill, whether working as firstmate directly or as a crewmate briefed on a firstmate-repo task.
 user-invocable: false
 metadata:
   internal: true
@@ -9,7 +9,7 @@ metadata:
 
 # firstmate-coding-guidelines
 
-Load this before changing firstmate's shared, tracked material, as defined by `AGENTS.md` section 1.
+Load this before changing firstmate's shared, tracked material, as defined under [Shared material and delivery](#shared-material-and-delivery).
 It exists because `AGENTS.md` grew from 585 to 958 lines between its last two restructures, entirely from conditional detail added inline instead of routed to its right home.
 Applying the rules below on every change is what keeps that from happening again.
 
@@ -131,3 +131,17 @@ Firstmate PR #3644 demonstrated the cost: pinning a 75-162-script walk took 32.7
 - A maintainer-verification record under `docs/verification/` records active empirical facts, not assumptions or task chronology.
 - Include the date, version, exact commands run, and exact output needed to support the current guarantee.
 - Keep incident chronology and delivery evidence in private task reports or PR evidence unless a concise rationale is required to maintain a current safety boundary.
+
+## Shared material and delivery
+
+Shared tracked material is `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `.tasks.toml`, `.github/workflows/`, `bin/`, `.agents/skills/`, and public `skills/`.
+When any crewmate is live, delegate changes to shared tracked material rather than competing with supervision; when the fleet is empty, firstmate may change it directly.
+This repo is a shared template, while `.env`, `data/`, `state/`, `config/`, `projects/`, and `.no-mistakes/` are captain-private and gitignored.
+Ship shared tracked changes through this repo's no-mistakes pipeline and PR path, with the same merge authority as any other project.
+
+## Maintaining the supervisor contract
+
+Keep `AGENTS.md` for knowledge useful to almost every future agent session in this project.
+Do not repeat what the codebase already shows; point to the authoritative file, skill, command, or doc.
+Prefer rewriting or pruning existing entries over appending new ones.
+When updating `AGENTS.md`, preserve every safety boundary and keep the always-loaded contract concise.

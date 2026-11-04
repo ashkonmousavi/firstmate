@@ -144,7 +144,16 @@ fake_opencode_launched() {
   esac
 }
 case "$*" in
-  *"#{pane_current_path}"*) printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;;
+  *"#{pane_current_path}"*)
+    target=
+    previous=
+    for arg in "$@"; do
+      [ "$previous" != -t ] || target=${arg##*:}
+      previous=$arg
+    done
+    path_file="$(dirname "$0")/.pane-path-${target#=}"
+    if [ -f "$path_file" ]; then cat "$path_file"; else printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; fi
+    exit 0 ;;
   *"#{pane_current_command}"*) printf '%s\n' "${FM_FAKE_PANE_COMMAND:-firstmate}"; exit 0 ;;
 esac
 fake_opencode_composer_drawn() {

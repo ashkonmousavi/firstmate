@@ -11,15 +11,15 @@ metadata:
 These skills are not captain-invocable; load them only at their precise triggers.
 
 - `operational-home-layout` - load when locating, interpreting, or changing Firstmate home, config, data, state, project, or generated runtime paths.
-- `session-start-recovery` - load when the session-start digest reports unfinished checks, actionable diagnostics, recovery inputs, or output requiring interpretation.
+- [`session-start-recovery`](../session-start-recovery/SKILL.md) - its description owns the post-digest load trigger.
 - `bootstrap-diagnostics` - load whenever the session-start digest's bootstrap or network-checks section prints an actionable diagnostic line (`MISSING:`, `MISSING_MANUAL:`, `OUTDATED:`, `PRESENTATION_UNAVAILABLE:`, `BACKEND_INVALID:`, `NEEDS_GH_AUTH`, `TANGLE:`, `STARTUP_MEMORY_BUDGET:`, `CREW_DISPATCH: invalid`, `FLEET_SYNC:`, `NETWORK_CHECKS:`, `HOME_SUMMARY:`, `BACKLOG_RECONCILE:`, `SECONDMATE_SYNC:`, `SECONDMATE_LIVENESS:`, `SECONDMATE_HANDOFF:`, `NUDGE_SECONDMATES:`, or `FMX:`), or when `BOOTSTRAP_INFO:` says an interrupted backlog cleanup may have left an endpoint or local copy; silence and other `BOOTSTRAP_INFO:` facts need no load.
 - `diagnostic-reasoning` - load before scoping a reported bug and before acting on a diagnostic report.
 - `ask-user-authority` - load before deciding any ask-user finding.
 - `validation-supervision` - load when a ship starts or already has an active no-mistakes validation run, including a mid-run requirement change or finding, and before deciding or answering any ask-user finding.
-- `ship-landing` - load when a ship reports a PR or ready branch, when deciding or monitoring landing, and before task cleanup.
+- [`ship-landing`](../ship-landing/SKILL.md) - its description owns delivery-validation, landing, and cleanup triggers.
 - `scout-completion` - load when a scout reports completion, presents a visual artifact for iteration, or is being considered for promotion to implementation.
 - `quota-array-dispatch` - load before choosing among a matched crew-dispatch profile array from current quota-axi default TOON.
-- `harness-adapters` - load before spawning or recovering a crewmate or secondmate, handling a trust dialog, sending a harness-specific skill invocation, interrupting or exiting an agent, resuming an exited agent, or verifying a new harness adapter.
+- [`harness-adapters`](../harness-adapters/SKILL.md) - its description owns intake, steering, and lifecycle triggers.
 - `firstmate-orca` - load before switching to Orca, spawning or supervising Orca-backed work, smoke-testing Orca backend behavior, debugging Orca task state, or reconciling Orca-backed task metadata.
 - `project-management` - load before adding, creating, removing, or initializing a project.
   Cloning or registering a project is add intake and uses the same trigger.
@@ -31,5 +31,6 @@ These skills are not captain-invocable; load them only at their precise triggers
   Never run a registered source's blocking command yourself in a conversational turn.
 - `fmx-respond` - load on an `x-mention <request_id>` `check:` wake to handle the mention, on an `x-mode-error ...` `check:` wake to report the Relay configuration blocker, on a `public-followup ...` `check:` wake or a startup-surfaced public commitment, and on any milestone or terminal wake for a Relay-linked task before posting its completion follow-up; relevant only when Relay is on.
 - `firstmate-codexapp` - load before coordinating a visible Codex Desktop thread, evaluating a Codex App backend request, or reconciling Codex Desktop host-tool smoke evidence for Firstmate work.
-- `firstmate-coding-guidelines` - load before changing firstmate's shared, tracked material, as defined by section 1's list, whether editing directly or briefing a crewmate for a firstmate-repo task.
+- [`firstmate-coding-guidelines`](../firstmate-coding-guidelines/SKILL.md) - its description owns the shared-material editing trigger.
+- [`backlog-operations`](../backlog-operations/SKILL.md) - its description owns backlog and task-note triggers.
 - `firstmate-self-repo` - load before dispatching, promoting, relaunching, or delivering work targeting this repository; when a firstmate bug or improvement idea surfaces in ordinary use; and before granting or revoking upstream publication authority. See `.agents/skills/firstmate-self-repo/SKILL.md`.

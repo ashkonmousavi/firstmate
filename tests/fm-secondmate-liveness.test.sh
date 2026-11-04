@@ -415,6 +415,26 @@ test_sweep_respawns_confirmed_dead_secondmate() {
   pass "sweep: a confirmed-dead secondmate endpoint is killed and respawned"
 }
 
+test_sweep_reuses_retained_secondmate_home() {
+  local w fb tmuxfb log out
+  w=$(new_world sweep-retained-home)
+  add_sm_home "$w" sm1 firstmate:fm-sm1
+  printf 'worktree=%s\n' "$w/sm1" >> "$w/home/state/sm1.meta"
+  printf 'retained secondmate work\n' > "$w/sm1/notes.txt"
+  fb=$(make_toolchain "$w"); tmuxfb=$(make_liveness_tmux "$w")
+  log="$w/calls.log"; : > "$log"
+
+  out=$(run_bootstrap "$tmuxfb:$fb" "$w/home" missing "$log")
+
+  assert_not_contains "$out" 'SECONDMATE_LIVENESS:' 'retained-home recovery failed'
+  assert_grep 'new-window' "$log" 'missing secondmate was not respawned'
+  assert_grep 'relaunched' "$w/home/state/.secondmate-relaunch-sm1" 'sweep did not finish recovery'
+  assert_grep "worktree=$w/sm1" "$w/home/state/sm1.meta" 'sweep replaced the retained home'
+  assert_grep "home=$w/sm1" "$w/home/state/sm1.meta" 'sweep lost the validated home'
+  assert_grep 'retained secondmate work' "$w/sm1/notes.txt" 'sweep discarded retained home work'
+  pass 'sweep: a missing secondmate reuses its validated retained home'
+}
+
 test_sweep_recovers_the_durable_secondmate_account() {
   local w fb tmuxfb log out
   w=$(new_world sweep-account)
@@ -1692,6 +1712,7 @@ test_tmux_agent_state_rejects_malformed_targets_before_probe
 test_herdr_agent_state_preserves_husk_classifier
 test_agent_state_dispatcher_and_compatibility
 test_sweep_respawns_confirmed_dead_secondmate
+test_sweep_reuses_retained_secondmate_home
 test_sweep_recovers_the_durable_secondmate_account
 test_sweep_serializes_distinct_secondmate_relaunches
 test_sweep_keeps_tmux_best_effort_kill_when_close_fails

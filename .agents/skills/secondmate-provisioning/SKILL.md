@@ -184,7 +184,7 @@ Treat an inherited queue that carries plans with no matching delivery record as 
 
 ## Backlog handoff
 
-Apply `AGENTS.md` section 10's work-items-only backlog contract before creation or handoff.
+Load [`backlog-operations`](../backlog-operations/SKILL.md) before creation or handoff for the work-items-only backlog contract.
 When a secondmate is created for a domain, existing main-backlog items that fall under its scope should become its work instead of staying stranded in the main backlog.
 Scope-matching is firstmate's judgment against the secondmate's natural-language scope, not a keyword rule.
 Read `data/backlog.md`, pick queued items that fit the new scope, and move them with:
@@ -266,3 +266,8 @@ It kills child windows, discards child work and state inside the secondmate home
 If forced teardown contends with a fresh task publication in any affected home, one command refuses without publishing or removing task state; treat that refusal as terminal and inspect the other operation before retrying.
 `fm-spawn.sh --relaunch` and non-forced teardown remain outside that task-set serialization; [`fm-secondmate-liveness-lib.sh`'s header](../../../bin/fm-secondmate-liveness-lib.sh) owns automatic recovery serialization.
 Never use `--force` unless the captain explicitly said to discard the work.
+
+## Scope and local-only ownership
+
+The `data/secondmates.md` scope field drives routing and its project list is non-exclusive provisioning data, not ownership.
+Keep `local-only` work in the main home.

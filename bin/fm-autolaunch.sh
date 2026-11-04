@@ -8,11 +8,16 @@
 #   fm-autolaunch.sh --dry-run       print a decision for every ready item and the
 #                                    spawn commands; write nothing
 #   fm-autolaunch.sh --list-prepared print, in launch order, the ids a pass would try
-#   fm-autolaunch.sh --print-timer   print a proposed systemd user timer and cron line
+#   fm-autolaunch.sh --print-timer [--steps-only]
+#                                    print a timer and cron line with this PATH
 #   fm-autolaunch.sh --backfill [--apply]
 #                                    print (default) or write the derived launch
 #                                    record for every queued item lacking one
 #   fm-autolaunch.sh --help
+#
+# Timer proposals capture the caller's PATH and resolved FM_HOME for both
+# systemd and cron; --steps-only limits the proposed pass to slice progression.
+# Printing installs nothing and does not run a launch pass.
 #
 # A plain scheduler (cron or a systemd user timer, see --print-timer) runs one
 # pass every five minutes with FM_HOME set explicitly. Nothing here enables a
@@ -61,7 +66,22 @@
 # by fm-spawn.sh unchanged), and a non-empty prep file: data/<id>/prep.md, or
 # the file named by a `Prep: data/<path>` line of the item's backlog body, a
 # relative path inside this home's data/ directory with no `..` part. Without
-# either it is refused with that exact reason. Its launch record is then DERIVED, field by field, from the
+# either it is refused with that exact reason.
+# X (NOT_Q) ship preps require filled PERSONA, DOCTOR and XAI-SURFACE lines. Small fixes
+# may name PERSONA inline in SLICE or PROOF. A no-Doctor-change declaration
+# needs its reason, as does XAI-SURFACE: none. Prep files last written before
+# 2026-11-03T08:00:00Z (Pacific
+# midnight on the introduction date) retain
+# dated grace until revised; task filing dates and prose dates grant no grace.
+# Filled PERSONA values use semicolon-separated declarations, for example
+# surfaces=pages,chat; usage=beginner,experienced,middle (the covered subsets).
+# Allowed surface tokens are pages, chat, none; usage tokens are beginner,
+# experienced, middle, none. Comma-separated tokens have no intervening spaces;
+# unsupported suffixes refuse, and none must stand alone in either declaration.
+# Page+chat outcomes require beginner/XAI-first and experienced/pages-only;
+# middle switches on the same task. usage=none is valid only with surfaces=none.
+# Scouts and other projects keep their existing preparation contract.
+# Its launch record is then DERIVED, field by field, from the
 # first source that has it:
 #   1. data/<id>/autolaunch-prep, an optional override record;
 #   2. the brief's own contract lines: "Delivery contract: mode=<m>" and its
@@ -122,13 +142,14 @@ DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 export FM_HOME
 
-usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer|--backfill [--apply]|--help]' >&2; }
+usage() { echo 'usage: fm-autolaunch.sh [--steps-only [--dry-run]|--dry-run|--list-prepared|--print-timer [--steps-only]|--backfill [--apply]|--help]' >&2; }
 
 ACTION=run
 STEP_TARGET=
 STEP_EXCLUDE=
 STEP_FAMILY=
 STEP_DRY=0
+TIMER_STEPS=0
 case "${1:-}" in
   -h|--help) sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
   '') ;;
@@ -145,7 +166,9 @@ case "${1:-}" in
   *) usage; exit 2 ;;
 esac
 APPLY=0
-if [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
+if [ "$ACTION" = timer ] && [ "${2:-}" = --steps-only ] && [ "$#" -eq 2 ]; then
+  TIMER_STEPS=1
+elif [ "$ACTION" = steps ] && [ "${2:-}" = --dry-run ] && [ "$#" -eq 2 ]; then
   STEP_DRY=1
 elif [ "$ACTION" = step-dispatch ] && [ "$#" -eq 5 ]; then
   :
@@ -181,7 +204,11 @@ home_abs() {
 
 if [ "$ACTION" = timer ]; then
   home=$(home_abs) || { echo "fm-autolaunch: cannot resolve FM_HOME" >&2; exit 1; }
-  cmd="FM_HOME=$(printf '%q' "$home") $(printf '%q' "$SCRIPT_DIR/fm-autolaunch.sh")"
+  sd_env() { local v=${2//\\/\\\\}; v=${v//\"/\\\"}; printf 'Environment="%s=%s"\n' "$1" "${v//%/%%}"; }
+  args=''
+  [ "$TIMER_STEPS" = 0 ] || args=' --steps-only'
+  cmd="PATH=$(printf '%q' "$PATH") FM_HOME=$(printf '%q' "$home") $(printf '%q' "$SCRIPT_DIR/fm-autolaunch.sh")$args"
+  cmd=${cmd//%/\\%}
   cat <<EOF
 # Proposed schedule for $home (not installed; see docs/configuration.md "Auto-launch").
 # Register the unit in the machine inventory and route pause/resume through
@@ -193,8 +220,9 @@ Description=Firstmate auto-launch pass for $home
 
 [Service]
 Type=oneshot
-Environment=FM_HOME=$home
-ExecStart=$SCRIPT_DIR/fm-autolaunch.sh
+$(sd_env PATH "$PATH")
+$(sd_env FM_HOME "$home")
+ExecStart=$SCRIPT_DIR/fm-autolaunch.sh$args
 
 # ~/.config/systemd/user/fm-autolaunch.timer
 [Unit]
@@ -342,12 +370,12 @@ brief_line() {
 # Needs item_show first.
 prep_read() {
   local id=$1 file key value line reg o_project='' o_kind='' o_mode='' o_yolo='' o_bp='' o_bp_set=0 o_base='' o_consent=''
-  local b_mode b_consent b_branch b_base
+  local b_mode b_consent b_branch b_base prep_path
   P_PROJECT='' P_KIND='' P_MODE='' P_YOLO='' P_BRANCH_PREFIX='' P_BASE_BRANCH='' P_CONSENT='' PREP_ERR=''
   if [ ! -f "$DATA/$id/brief.md" ] || [ ! -s "$DATA/$id/brief.md" ]; then
     PREP_ERR="no brief data/$id/brief.md"; return 1
   fi
-  prep_doc "$id" >/dev/null || {
+  prep_path=$(prep_doc "$id") || {
     PREP_ERR="no prep file (data/$id/prep.md or a Prep: data/<path> line in the item)"; return 1
   }
   file="$DATA/$id/autolaunch-prep"
@@ -386,6 +414,89 @@ prep_read() {
   if [ "$P_KIND" = scout ]; then
     [ -z "$o_mode$o_yolo$o_consent" ] && [ "$o_bp_set" = 0 ] || { PREP_ERR="scout record carries ship-only keys"; return 1; }
     return 0
+  fi
+  if [ "$P_PROJECT" = NOT_Q ]; then
+    PREP_ERR=$(python3 - "$DATA/${prep_path#data/}" <<'PY'
+import datetime as dt
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+try:
+    # Fixed introduction date, not a rolling age exemption.
+    cutoff = dt.datetime(2026, 11, 3, 8, tzinfo=dt.timezone.utc).timestamp()
+    text = path.read_text(encoding="utf-8")
+    if path.stat().st_mtime < cutoff:
+        raise SystemExit(0)
+except (OSError, UnicodeError):
+    print("unreadable X prep")
+    raise SystemExit(1)
+
+values = {}
+fence = None
+for line in text.splitlines():
+    line = line.strip()
+    # Hex keeps Bash 3.2 from parsing backticks inside this heredoc.
+    if line.startswith(("\x60" * 3, "~~~")):
+        marker = line[:3]
+        fence = None if fence == marker else marker if fence is None else fence
+        continue
+    if fence:
+        continue
+    # Accept ordinary Markdown field labels, without treating prose as a field.
+    line = re.sub(r"^[-*+] +", "", line).replace("**", "")
+    field = re.match(r"(PERSONA|DOCTOR|XAI-SURFACE|SLICE|PROOF)[ \t]*:[ \t]*(.*)$", line, re.I)
+    if not field:
+        continue
+    key, value = field[1].upper(), field[2].strip()
+    if key in ("SLICE", "PROOF"):
+        field = re.search(r"(?:^|[;|])[ \t]*PERSONA[ \t]*:[ \t]*(\S.*)", value, re.I)
+        if field:
+            values["PERSONA"] = field[1].strip()
+    elif value:
+        values[key] = value
+
+persona = values.get("PERSONA", "")
+if not persona or persona.lower() in ("none", "tbd", "todo") or persona.startswith("job/outcome;"):
+    print("PERSONA missing or unfilled in X prep (small fix: name PERSONA in SLICE/proof)")
+    raise SystemExit(1)
+declarations = {}
+for key, allowed in (("surfaces", {"pages", "chat", "none"}), ("usage", {"beginner", "experienced", "middle", "none"})):
+    match = re.search(r"\b" + key + r"[ \t]*=[ \t]*([^;]*)", persona, re.I)
+    valueset = set(match[1].strip().lower().split(",")) if match else set()
+    if not valueset or not valueset <= allowed or ("none" in valueset and len(valueset) != 1):
+        print("PERSONA " + key + " missing or invalid (declare surfaces=pages,chat and usage=beginner,experienced as applicable)")
+        raise SystemExit(1)
+    declarations[key] = valueset
+if declarations["usage"] == {"none"} and declarations["surfaces"] != {"none"}:
+    print("PERSONA usage=none requires surfaces=none")
+    raise SystemExit(1)
+if declarations["surfaces"] == {"pages", "chat"} and not {"beginner", "experienced"} <= declarations["usage"]:
+    print("PERSONA page-and-chat coverage needs beginner (XAI-first) and experienced (pages-only)")
+    raise SystemExit(1)
+doctor = values.get("DOCTOR", "")
+if not doctor or doctor.lower() in ("none", "tbd", "todo"):
+    print("DOCTOR missing or unfilled in X prep (name the check or no Doctor change with reason)")
+    raise SystemExit(1)
+if doctor.lower().startswith("no doctor change"):
+    reason = doctor[len("no Doctor change"):].lstrip(";,:. -")
+    reason = re.sub(r"^because\b[ :]*", "", reason, flags=re.I).strip()
+    if not reason or reason.lower() in ("none", "tbd", "todo"):
+        print("DOCTOR no Doctor change needs a reason")
+        raise SystemExit(1)
+surface = values.get("XAI-SURFACE", "")
+if not surface or surface.lower() in ("tbd", "todo"):
+    print("XAI-SURFACE missing or unfilled in X prep (name changed surfaces or none with reason)")
+    raise SystemExit(1)
+if re.match(r"none\b", surface, re.I):
+    reason = surface[len("none"):].lstrip(";,:. -")
+    reason = re.sub(r"^because\b[ :]*", "", reason, flags=re.I).strip()
+    if not reason or reason.lower() in ("none", "tbd", "todo"):
+        print("XAI-SURFACE none needs a reason")
+        raise SystemExit(1)
+PY
+    ) || return 1
   fi
   b_mode=$(brief_line "$id" 's/^Delivery contract: mode=\([^[:space:]]*\).*/\1/p')
   b_consent=$(brief_line "$id" 's/^Delivery contract: mode=.*[[:space:]]upstream-consent=\([^[:space:]]*\).*/\1/p')

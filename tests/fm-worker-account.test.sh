@@ -299,6 +299,8 @@ test_pi_extension_provider_and_old_pi_fall_back_to_the_model_listing() {
   expect_code 1 "$rc" "a Pi without auth check must match the provider column exactly"
   assert_refused_before_launch "$id-old-near" "$out" "no model listed for provider openai-codex"
   printf 'openai-codex  gpt-5  128K\n' > "$CASE/pi-work/listed"
+  WT="$CASE/wt-old"
+  git -C "$PROJ" worktree add --quiet --detach "$WT"
   out=$(spawn_ship "$id-old" --model openai-codex/gpt-5); rc=$?
   expect_code 0 "$rc" "a Pi without auth check should launch when the root lists the provider: $out"
   pass "extension providers and a Pi without auth check fall back to an exact model-listing match"
@@ -312,6 +314,8 @@ test_a_pin_governs_only_its_own_runner() {
   out=$(spawn_ship "$id-codex"); rc=$?
   expect_code 0 "$rc" "a codex spawn must ignore a Claude pin: $out"
   assert_not_contains "$out" "account=" "a codex spawn must not report a Claude pin"
+  WT="$CASE/wt-pi"
+  git -C "$PROJ" worktree add --quiet --detach "$WT"
   out=$(spawn_ship "$id-pi" --harness pi --model gpt-5.5); rc=$?
   expect_code 0 "$rc" "a Pi spawn must ignore a Claude pin: $out"
   assert_absent "$CASE/claude-checks" "no Claude sign-in check may run for another runner"
@@ -870,6 +874,8 @@ test_codex_applicable_quota() {
   mv "$CASE/bounded-quota.json" "$CASE/account-two/quota.json"
   for profile in implicit explicit; do
     id="acct-codex-usable-$profile"
+    WT="$CASE/wt-$profile"
+    git -C "$PROJ" worktree add --quiet --detach "$WT"
     if [ "$profile" = explicit ]; then
       out=$(spawn_ship "$id" --harness codex --model requested); rc=$?
     else
@@ -914,6 +920,8 @@ test_codex_default_model() {
       assert_equals configured-default "${out##*$'\t'}" 'default sentinel and explicit model resolve consistently'
     done
     id="acct-codex-default-$profile"
+    WT="$CASE/wt-$profile"
+    git -C "$PROJ" worktree add --quiet --detach "$WT"
     out=$(spawn_ship "$id" --harness codex); rc=$?
     expect_code 0 "$rc" "default-model spawn failed: $out"
     assert_grep "account=$CASE/account one" "$HOME_DIR/state/$id.meta" 'the default-model gate selects a usable folder'
@@ -923,6 +931,8 @@ test_codex_default_model() {
     assert_not_contains "$(cat "$CASE/account one/worker-arguments")" '--provider' 'the model must not become a provider pin'
   done
   rm "$HOME_DIR/config/crew-dispatch.json"
+  WT="$CASE/wt-implicit"
+  git -C "$PROJ" worktree add --quiet --detach "$WT"
   out=$(spawn_ship acct-codex-default-implicit); rc=$?
   expect_code 0 "$rc" "implicit default-model spawn failed: $out"
   assert_equals configured-default "$(sed -n 's/^model=//p' "$HOME_DIR/state/acct-codex-default-implicit.meta")" 'implicit launch uses the same concrete model'
@@ -982,6 +992,11 @@ test_codex_project_model() {
   done
   for kind in ship scout; do
     id="acct-project-$kind"
+    WT="$CASE/wt-$kind"
+    git -C "$PROJ" worktree add --quiet --detach "$WT"
+    for root in "$CASE/account one" "$CASE/account-two"; do
+      printf '%s\n' "$WT" > "$root/trusted-cwd"
+    done
     if [ "$kind" = ship ]; then
       out=$(spawn_ship "$id" --harness codex); rc=$?
     else
