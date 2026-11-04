@@ -1,0 +1,8 @@
+~/.no-mistakes/worktrees/049a88734b0e/01M6JDN2W8CM7GVHC43VG5248M/.test-tmp/real-guard
+registered: state/live.check.sh
+Claude exit: 0
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M6JDN2W8CM7GVHC43VG5248M/.test-tmp/drive-real-guard.py", line 87, in <module>
+    if code !=0 or 'REAL_WATCHER_SCENARIOS_PASSED' not in transcript: raise RuntimeError('live scenario did not complete; inspect transcript')
+                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: live scenario did not complete; inspect transcript

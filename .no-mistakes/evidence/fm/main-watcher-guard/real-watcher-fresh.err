@@ -1,0 +1,1 @@
+error: target 'absent-worker' is not resolvable (tried meta=~/.no-mistakes/worktrees/049a88734b0e/01M6JDN2W8CM7GVHC43VG5248M/.test-tmp/real-guard/state/absent-worker.meta; metadata window/terminal lookup; backend=none). Use fm-absent-worker for a recorded task/lane, or pass a well-formed explicit backend target such as session:window.

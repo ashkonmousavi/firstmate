@@ -1,0 +1,35 @@
+lock acquired: harness pid 11442
+
+sample=1 beat_age_seconds=0 checks=0
+sample=2 beat_age_seconds=1 checks=1
+sample=3 beat_age_seconds=0 checks=2
+sample=4 beat_age_seconds=0 checks=2
+sample=5 beat_age_seconds=1 checks=3
+sample=6 beat_age_seconds=0 checks=4
+sample=7 beat_age_seconds=0 checks=4
+sample=8 beat_age_seconds=1 checks=5
+sample=9 beat_age_seconds=0 checks=6
+sample=10 beat_age_seconds=0 checks=7
+sample=11 beat_age_seconds=0 checks=7
+sample=12 beat_age_seconds=1 checks=8
+stale send_exit=2
+[watcher-continuity] No verified watcher cycle (beacon age 847058752s; grace 300s). repair this home's watcher with FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart as its own Claude tracked background task; inspect the Claude continuity hook if its automatic recovery is missing. New spawns and sends are refused until a fresh beat confirms recovery.
+stale spawn_exit=2
+[watcher-continuity] No verified watcher cycle (beacon age 847058753s; grace 300s). repair this home's watcher with FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart as its own Claude tracked background task; inspect the Claude continuity hook if its automatic recovery is missing. New spawns and sends are refused until a fresh beat confirms recovery.
+bin/fm-send.sh
+bin/fm-spawn.sh is bin/fm-spawn.sh
+absent send_exit=2
+[watcher-continuity] No verified watcher cycle (beacon age 999999s; grace 300s). repair this home's watcher with FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart as its own Claude tracked background task; inspect the Claude continuity hook if its automatic recovery is missing. New spawns and sends are refused until a fresh beat confirms recovery.
+absent spawn_exit=2
+[watcher-continuity] No verified watcher cycle (beacon age 999999s; grace 300s). repair this home's watcher with FM_WATCH_HANDLING_SUCCESSOR=1 bin/fm-watch-arm.sh --restart as its own Claude tracked background task; inspect the Claude continuity hook if its automatic recovery is missing. New spawns and sends are refused until a fresh beat confirms recovery.
+bin/fm-send.sh
+bin/fm-spawn.sh is bin/fm-spawn.sh
+scope=worker send_exit=1
+scope=secondmate send_exit=1
+scope=unmarked send_exit=1
+fresh send_exit=1
+error: target 'absent-worker' is not resolvable (tried meta=~/.no-mistakes/worktrees/049a88734b0e/01M6JDN2W8CM7GVHC43VG5248M/.test-tmp/real-guard/state/absent-worker.meta; metadata window/terminal lookup; backend=none). Use fm-absent-worker for a recorded task/lane, or pass a well-formed explicit backend target such as session:window.
+watcher: started pid=43239 (beacon fresh)
+unguarded_stop host=off attached_pid=45996 preserved=yes pending_wake=yes
+unguarded_stop host=on attached_pid=50718 preserved=yes pending_wake=yes
+REAL_WATCHER_SCENARIOS_PASSED

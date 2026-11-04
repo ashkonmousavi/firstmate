@@ -1,0 +1,55 @@
+{
+  "families": [
+    {
+      "count": 1,
+      "duration_ms": 1335,
+      "failed": 0,
+      "name": "pure-contract-unit"
+    },
+    {
+      "count": 2,
+      "duration_ms": 184314,
+      "failed": 0,
+      "name": "standalone"
+    }
+  ],
+  "finished_at": "2026-11-04T05:59:35Z",
+  "run_id": "fm-test-run-1793771789845-91000",
+  "scripts": [
+    {
+      "duration_ms": 127641,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "standalone",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-claude-watch-guard.test.sh"
+    },
+    {
+      "duration_ms": 56673,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "standalone",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-claude-stop-autoarm.test.sh"
+    },
+    {
+      "duration_ms": 1335,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-supervision-instructions.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=1",
+  "started_at": "2026-11-04T05:56:29Z",
+  "summary": {
+    "duration_ms": 185733,
+    "failed": 0,
+    "skipped_gate": 0,
+    "total": 3
+  }
+}
