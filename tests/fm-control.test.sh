@@ -2340,17 +2340,19 @@ SH
     meta_before=$(cat "$dir/home/state/t1.meta")
     printf 'task=t1\nhome=%s\n' "$dir/home" > "$dir/.fm-slot-owner"
     claim_before=$(cat "$dir/.fm-slot-owner")
-    variants='model:configured-default/exhausted'
-    [ "$kind" != secondmate ] || variants='all_models/exhausted all_products/exhausted all_models/zero all_products/zero'
+    variants='model:configured-default/exhausted model:configured-default/short'
+    [ "$kind" != secondmate ] || variants='all_models/exhausted all_products/exhausted all_models/zero all_products/zero all_models/short all_products/short'
     for profile in absent conflicting; do
       if [ "$profile" = conflicting ]; then
         printf '%s\n' '{"default":{"harness":"codex","model":"unused-dispatch-model"}}' > "$dir/home/config/crew-dispatch.json"
       fi
       for variant in $variants; do
         jq -n --arg scope "${variant%/*}" --arg signal "${variant##*/}" '
-          {providers:[{provider:"codex",state:{status:"fresh"},windows:[{id:"weekly",kind:"weekly",percentRemaining:90}],
+          {generatedAt:(now|todate),providers:[{provider:"codex",state:{status:"fresh"},windows:[{id:"weekly",kind:"weekly",percentRemaining:90}],
             quotaSemantics:{status:"known",effectiveAvailability:[
               if $signal=="exhausted" then {scope:$scope,status:"unknown",runway:{status:"exhausted_now"}}
+              elif $signal=="short" then {scope:$scope,status:"known",effectivePercentRemaining:90,
+                runway:{status:"projected_exhaustion",usableRunwaySeconds:10799}}
               else {scope:$scope,status:"known",effectivePercentRemaining:0} end]}}]}' > "$dir/account/quota.json"
         out=$(run_control "$dir" t1 relaunch --harness codex --model default --note retry); rc=$?
         expect_code 1 "$rc" "exhausted configured default must refuse $kind/$profile: $out"
@@ -2363,7 +2365,7 @@ SH
       done
     done
   done
-  pass 'Codex relaunch preflight preserves live workers, metadata and ownership on exhausted quota'
+  pass 'Codex relaunch preflight preserves live workers, metadata and ownership on exhausted or below-horizon quota'
 }
 
 [ "${FM_TEST_FIXTURE_IMPORT:-}" != control ] || return 0

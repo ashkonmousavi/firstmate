@@ -2,7 +2,8 @@
 """Opt-in Codex folders: selection, quota, duplicate guard and watcher checks.
 
 Usage: fm-codex-accounts.py {select,quota,guard,check,maintain,prepare,register,preflight} --help
-The config is one literal absolute folder per line, no comments or empty lines.
+The config is one literal absolute folder per line, in preference order, with
+no comments or empty lines.
 Absent config opts out; a present invalid/empty list fails closed. Folder aliases
 and auth symlinks/hardlinks refuse. The guard compares file metadata and the
 runner's reported account identity, never reading credential contents itself.
@@ -10,10 +11,10 @@ Missing auth is allowed in the list but cannot win. The runner's local status
 is not a network validation.
 
 quota-axi >=0.1.66 --profile-only supplies one redacted reading per folder without
-refresh, cache or fallback. Applicable exhausted quota excludes a folder before
-fresh main weekly ranking; unknown ranks below measured, with lexical folder
-order breaking ties. All vendor output is
-captured; only allowlisted quota fields escape this process.
+refresh, cache or fallback. Applicable exhausted quota or measured runway below
+10800 seconds excludes a folder. The first remaining launch-ready folder wins, irrespective of percentage.
+Unknown/unavailable quota stays unknown and does not authorize fallback.
+All vendor output is captured; only allowlisted quota fields escape this process.
 
 check is silent when healthy; six days since the newer of the sign-in file's
 write and the last successful maintain is a maintenance warning, not an expiry
@@ -26,6 +27,7 @@ it refuses conflicting destinations and never overwrites them.
 """
 
 import argparse
+from datetime import datetime
 from contextlib import contextmanager, suppress
 import hashlib
 import json
@@ -67,7 +69,7 @@ def folders(config):
         resolved.append(str(p.resolve()))
     if len(set(resolved)) != len(roots):
         raise ValueError("codex-accounts contains duplicate folders or aliases")
-    return sorted(resolved)
+    return resolved
 
 
 def guard(roots, codex):
@@ -267,10 +269,38 @@ def quota_usable(row, model):
     scopes = {"all_models", "all_products"}
     if bare:
         scopes.update(("model:" + bare, "product:" + bare))
-    return not any(b["scope"] in scopes and (
-        b.get("runway", {}).get("status") == "exhausted_now" or
-        (b.get("status") == "known" and b.get("effectivePercentRemaining") == 0))
-        for b in row["quotaSemantics"]["effectiveAvailability"])
+    for bound in row["quotaSemantics"]["effectiveAvailability"]:
+        if bound["scope"] not in scopes:
+            continue
+        runway = bound.get("runway", {})
+        if runway.get("status") == "exhausted_now":
+            return False
+        if bound.get("status") != "known":
+            continue
+        if bound.get("effectivePercentRemaining") == 0:
+            return False
+        if runway.get("status") == "projected_exhaustion":
+            # Match the native launch gate: prefer an absolute end, otherwise
+            # anchor relative seconds to this folder's own reading clock.
+            end = timestamp(runway.get("projectedExhaustedAt"))
+            seconds = runway.get("usableRunwaySeconds")
+            generated = timestamp(row.get("generatedAt"))
+            if (end is None and generated is not None and type(seconds) in (int, float)
+                    and math.isfinite(seconds) and seconds >= 0):
+                end = generated + seconds
+            if end is not None and end - time.time() < 10800:
+                return False
+    return True
+
+
+def timestamp(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.timestamp() if parsed.tzinfo is not None else None
+    except (ValueError, OverflowError, OSError):
+        return None
 
 
 def preflight(roots, codex):
@@ -293,12 +323,7 @@ def snapshot(roots, codex, model, cwd):
                    accountLocator={"kind": "codex-home", "path": root}, signedIn=ready,
                    model=launch_model, launchReady=configured and quota_usable(row, launch_model))
         rows.append(row)
-    usable = [r for r in rows if r["launchReady"]]
-    def rank(row):
-        weekly = row["windows"]
-        return weekly[0]["percentRemaining"] if len(weekly) == 1 else -1
-    # rows already have deterministic lexical order, including for equal room.
-    winner = max(usable, key=rank) if usable else None
+    winner = next((r for r in rows if r["launchReady"]), None)
     return {"schemaVersion": 6, "providers": rows,
             "selectedRoot": winner["accountLocator"]["path"] if winner else None}
 

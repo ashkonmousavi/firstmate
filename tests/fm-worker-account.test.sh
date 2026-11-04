@@ -147,7 +147,15 @@ test_absent_pin_keeps_the_launch_unchanged() {
   run_pane
   assert_grep "PI_CODING_AGENT_DIR=$CASE/ambient-pi" "$CASE/pi-worker" \
     "an unpinned Pi launch must keep the pane's own Pi root"
-  pass "an absent pin leaves Claude and Pi launches exactly as they were"
+  codex_case absent-codex
+  rm "$HOME_DIR/config/codex-accounts"
+  out=$(PATH="$FAKEBIN:$PATH" bash -c '
+    . "$1/bin/fm-worker-account-lib.sh"
+    fm_worker_account_select codex "$2" requested codex
+  ' bash "$ROOT" "$HOME_DIR/config"); rc=$?
+  expect_code 0 "$rc" "absent Codex opt-in preserves ambient selection: $out"
+  assert_equals '' "$out" 'no Codex override is emitted without configuration'
+  pass "absent account configuration leaves ambient runner selection unchanged"
 }
 
 test_claude_pin_selects_the_root_and_sheds_ambient_credentials() {
@@ -627,7 +635,7 @@ codex_case() {
     printf '%s\n' '{"config":{"model":"requested"}}' > "$root/effective-config.json"
     python3 "$ROOT/bin/fm-codex-accounts.py" prepare --folder "$root" --shared "$CASE/shared" || fail 'prepare failed'
   done
-  printf '%s\n' "$CASE/account one" "$CASE/account-two" > "$HOME_DIR/config/codex-accounts"
+  printf '%s\n' "$CASE/account-two" "$CASE/account one" > "$HOME_DIR/config/codex-accounts"
   cat > "$FAKEBIN/treehouse" <<'SH'
 #!/usr/bin/env bash
 case "$*" in
@@ -716,7 +724,7 @@ cat "$CODEX_HOME/quota.json"
 SH
   chmod +x "$FAKEBIN/codex" "$FAKEBIN/quota-axi"
   codex_quota "$CASE/account one" fresh 30
-  codex_quota "$CASE/account-two" fresh 80
+  codex_quota "$CASE/account-two" fresh 10
 }
 
 codex_quota() {
@@ -732,12 +740,132 @@ codex_tool() {
     --config "$HOME_DIR/config/codex-accounts" 2>&1
 }
 
+# Drive the public CLI with only the wall clock fixed at the external seam.
+# The request's oracle is exactly three hours, independent of quota percentages.
+codex_at() {
+  PATH="$FAKEBIN:$PATH" python3 - "$ROOT/bin/fm-codex-accounts.py" "$HOME_DIR/config/codex-accounts" "$@" <<'PYCODE'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("accounts", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module.time.time = lambda: 1893456000  # 2030-01-01T00:00:00Z
+sys.argv = [sys.argv[1], *sys.argv[3:], "--config", sys.argv[2]]
+try:
+    module.main()
+except ValueError as error:
+    print(error)
+    sys.exit(1)
+PYCODE
+}
+
+codex_runway() {
+  local root=$1 scope=$2 state=$3 seconds=$4
+  jq --arg scope "$scope" --arg state "$state" --argjson seconds "$seconds" '
+    .generatedAt="2030-01-01T00:00:00Z" |
+    .providers[].quotaSemantics.effectiveAvailability = [
+      {scope:$scope, status:"known", effectivePercentRemaining:30,
+       runway:{status:$state, usableRunwaySeconds:$seconds},
+       selection:{status:"known",spendPriority:1}}]' "$root/quota.json" > "$CASE/runway.json"
+  mv "$CASE/runway.json" "$root/quota.json"
+}
+
+test_codex_preference_horizon() {
+  local out rc scope duration expected state ending
+  codex_case codex-preference
+  # Deliberately oppose both lexical order and weekly percentage.
+  codex_quota "$CASE/account-two" fresh 10
+  codex_quota "$CASE/account one" fresh 90
+  for scope in all_models all_products model:requested product:requested model:other; do
+    for duration in 10799 10800 10801; do
+      codex_runway "$CASE/account-two" "$scope" projected_exhaustion "$duration"
+      expected="$CASE/account-two"
+      if [ "$duration" = 10799 ] && [ "$scope" != model:other ]; then expected="$CASE/account one"; fi
+      out=$(codex_at select --model codex-native/requested); rc=$?
+      expect_code 0 "$rc" "$scope/$duration: $out"
+      assert_equals "$expected" "${out%%$'\t'*}" 'preference changes only below the applicable three-hour horizon'
+    done
+  done
+  # Absolute projected ends outrank conflicting relative seconds.
+  for ending in 02:59:59 03:00:00 03:00:01; do
+    codex_runway "$CASE/account-two" all_models projected_exhaustion 60
+    jq --arg end "2030-01-01T${ending}Z" '
+      .providers[].quotaSemantics.effectiveAvailability[].runway.projectedExhaustedAt=$end' \
+      "$CASE/account-two/quota.json" > "$CASE/absolute.json"
+    mv "$CASE/absolute.json" "$CASE/account-two/quota.json"
+    out=$(codex_at select --model requested); rc=$?
+    expect_code 0 "$rc" "absolute $ending: $out"
+    expected="$CASE/account-two"
+    [ "$ending" != 02:59:59 ] || expected="$CASE/account one"
+    assert_equals "$expected" "${out%%$'\t'*}" 'absolute exhaustion clock controls the exact horizon'
+  done
+  for state in exhausted_now unknown through_reset; do
+    codex_runway "$CASE/account-two" all_models "$state" 0
+    out=$(codex_at select --model requested); rc=$?
+    expect_code 0 "$rc" "$state: $out"
+    expected="$CASE/account-two"
+    [ "$state" != exhausted_now ] || expected="$CASE/account one"
+    assert_equals "$expected" "${out%%$'\t'*}" 'only positive exhaustion evidence permits fallback'
+  done
+  codex_runway "$CASE/account-two" all_models projected_exhaustion 10799
+  out=$(codex_at select --folder "$CASE/account-two" --model requested); rc=$?
+  expect_code 1 "$rc" 'preselected folder below horizon refuses rather than silently switching'
+  codex_runway "$CASE/account one" all_models projected_exhaustion 10799
+  out=$(codex_at select --model requested); rc=$?
+  expect_code 1 "$rc" 'both folders below horizon refuse'
+  for state in stale unavailable; do
+    codex_quota "$CASE/account-two" "$state" 100
+    out=$(codex_at quota --model requested); rc=$?
+    expect_code 0 "$rc" "unknown $state: $out"
+    assert_equals "$CASE/account-two" "$(jq -r .selectedRoot <<< "$out")" 'unavailable quota is not measured exhaustion'
+    assert_equals unknown "$(jq -r '.providers[0].quotaSemantics.status' <<< "$out")" 'unknown stays visible, never healthy'
+  done
+  codex_quota "$CASE/account one" unavailable 100
+  out=$(codex_at quota --model requested)
+  assert_equals "$CASE/account-two" "$(jq -r .selectedRoot <<< "$out")" 'two unavailable quota readings retain preference without claiming health'
+  assert_equals true "$(jq 'all(.providers[]; .state.status=="unavailable" and .quotaSemantics.status=="unknown")' <<< "$out")" 'both unknown readings stay explicit'
+  rm "$CASE/account one/signed-in" "$CASE/account-two/signed-in"
+  out=$(codex_at select --model requested); rc=$?
+  expect_code 1 "$rc" 'both unavailable sign-ins refuse'
+  pass 'Codex ordered preference honors exact runway boundary, scoped exhaustion and unknown distinctions'
+}
+
+test_codex_launch_preference() {
+  local kind profile out rc id expected
+  for kind in ship scout; do
+    for profile in preferred fallback; do
+      codex_case "codex-$kind-$profile"
+      id="acct-$kind-$profile"
+      expected="$CASE/account-two"
+      if [ "$profile" = fallback ]; then
+        codex_runway "$CASE/account-two" all_models projected_exhaustion 10799
+        jq '.generatedAt=(now|todate)' "$CASE/account-two/quota.json" > "$CASE/current.json"
+        mv "$CASE/current.json" "$CASE/account-two/quota.json"
+        expected="$CASE/account one"
+      fi
+      if [ "$kind" = ship ]; then
+        out=$(spawn_ship "$id" --harness codex --model requested --effort high); rc=$?
+      else
+        fm_test_spawn_brief "$HOME_DIR" "$id"
+        out=$(FM_FAKE_LAUNCH_LOG="$CASE/launch.log" fm_test_run_spawn "$HOME_DIR" "$WT" "$FAKEBIN" "$id" "$PROJ" \
+          --scout --harness codex --model requested --effort high); rc=$?
+      fi
+      expect_code 0 "$rc" "$kind/$profile must launch: $out"
+      assert_grep "account=$expected" "$HOME_DIR/state/$id.meta" 'launch records the ordered or horizon fallback account'
+      run_pane
+      assert_grep "CODEX_HOME=$expected" "$expected/worker-environment" 'native launch command carries the selected account'
+      assert_contains "$(cat "$expected/worker-arguments")" '--model requested' 'selected model is retained'
+      assert_contains "$(cat "$expected/worker-arguments")" 'model_reasoning_effort="high"' 'configured effort is retained'
+    done
+  done
+  pass 'Codex ships and scouts launch the preferred or horizon fallback folder with model and effort preserved'
+}
+
 test_codex_folder_selection_and_guard() {
   local out rc root
   codex_case codex-select
   out=$(codex_tool select); rc=$?
   expect_code 0 "$rc" "selection failed: $out"
-  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'highest fresh main weekly room wins'
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'first configured usable folder wins'
   out=$(codex_tool select --folder "$CASE/account one")
   assert_equals "$CASE/account one" "${out%%$'\t'*}" 'a gated selection stays fixed through preflight'
   out=$(codex_tool quota)
@@ -745,7 +873,7 @@ test_codex_folder_selection_and_guard() {
   assert_not_contains "$out" 'diagnostics' 'vendor output must not leak'
   codex_quota "$CASE/account-two" stale 100
   out=$(codex_tool select)
-  assert_equals "$CASE/account one" "${out%%$'\t'*}" 'stale room must rank below measured'
+  assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'unknown room alone does not authorize fallback'
   rm "$CASE/account one/signed-in"
   out=$(codex_tool select)
   assert_equals "$CASE/account-two" "${out%%$'\t'*}" 'signed-in unknown beats signed-out measured'
@@ -770,7 +898,7 @@ test_codex_folder_selection_and_guard() {
   ln "$CASE/account one/auth.json" "$CASE/account-two/auth.json"
   out=$(codex_tool guard); rc=$?
   expect_code 1 "$rc" 'auth hardlinks must refuse'
-  pass 'Codex selects measured weekly room without stale/fallback lanes and rejects credential copies/links'
+  pass 'Codex preserves configured preference with unknown quota and rejects credential copies/links'
 }
 
 test_codex_guard_metadata_and_identity() {
@@ -888,7 +1016,7 @@ test_codex_applicable_quota() {
   out=$(spawn_ship acct-codex-exhausted --harness codex --model requested); rc=$?
   expect_code 1 "$rc" 'unknown-percentage exhaustion must refuse instead of becoming a notice'
   assert_refused_before_launch acct-codex-exhausted "$out" 'no usable signed-in folder'
-  pass 'Codex filters applicable exhaustion before ranking, including unknown percentages and preselected folders'
+  pass 'Codex filters applicable exhaustion before preference, including unknown percentages and preselected folders'
 }
 
 test_codex_default_model() {
@@ -1390,6 +1518,7 @@ PY
 
 test_codex_runway_timing() {
   local out rc root scope duration timestamp age expected snapshot
+  local -a folder_args=()
   codex_case codex-runway
   for scope in all_models model:gpt-6.1-sol; do
     for duration in 60 14400; do
@@ -1411,6 +1540,9 @@ test_codex_runway_timing() {
         assert_equals "$timestamp" "$(jq -r --arg root "$expected" \
           '.providers[] | select(.accountLocator.path == $root) | .generatedAt' <<< "$snapshot")" \
           'combined quota retains each reading clock'
+        if [ "$duration" = 60 ]; then
+          continue
+        fi
         if [ -n "$root" ]; then
           out=$(codex_tool quota --gate --folder "$root")
         else
@@ -1423,17 +1555,20 @@ test_codex_runway_timing() {
           PATH="$FAKEBIN:$PATH" fm_quota_gate_run codex gpt-6.1-sol \
             "$HOME_DIR/config/crew-dispatch.json" '' review ship tmux "$HOME_DIR/config" '' "$root" 2>&1
         ); rc=$?
-        if [ "$duration" = 60 ]; then
-          expect_code 1 "$rc" "relative runway must refuse inside the three-hour horizon: $out"
-          assert_contains "$out" 'within the 3h0m spawn horizon' 'refusal uses the calculated deadline'
-        else
-          expect_code 0 "$rc" "four-hour runway must pass: $out"
-          assert_equals '' "$out" 'measured long runway passes without an uncertainty notice'
-        fi
+        expect_code 0 "$rc" "four-hour runway must pass: $out"
+        assert_equals '' "$out" 'measured long runway passes without an uncertainty notice'
       done
+      if [ "$duration" = 60 ]; then
+        for root in "$CASE/account one" "$CASE/account-two" ''; do
+          folder_args=()
+          [ -z "$root" ] || folder_args=(--folder "$root")
+          out=$(codex_tool select --model gpt-6.1-sol "${folder_args[@]}"); rc=$?
+          expect_code 1 "$rc" 'aged relative runway must refuse in selection before launch'
+        done
+      fi
     done
   done
-  pass 'Codex combined readings and pinned or automatic gates preserve relative runway clocks'
+  pass 'Codex combined readings retain clocks and selection rejects aged short runway'
 }
 
 file_facts() {
@@ -1536,6 +1671,14 @@ test_codex_config_and_scout() {
   assert_refused_before_launch acct-codex-raw "$out" 'canonical Codex launch'
   pass 'Codex list validation fails closed; scouts select and record their own folder'
 }
+
+# The control suite uses the same fixture-import convention.
+if [ "${FM_TEST_FIXTURE_IMPORT:-}" = worker-account ]; then
+  return 0
+fi
+
+test_codex_preference_horizon
+test_codex_launch_preference
 
 test_codex_empty_list_refuses_before_endpoint
 test_raw_command_quota_override_refuses
