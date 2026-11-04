@@ -84,12 +84,7 @@ case "${1:-}" in
         'treehouse get'*)
           # Execute the submitted shell line against a fake external boundary,
           # so the exit marker is emitted by the real command, never the fake.
-          treehouse() {
-            printf '%s\n' "${FM_FAKE_TREEHOUSE_OUTPUT:-}"
-            return "${FM_FAKE_TREEHOUSE_EXIT:-0}"
-          }
-          export -f treehouse
-          bash -c "$arg" > "${FM_FAKE_PANE_COUNTFILE}.output" 2>&1
+          "${FM_FAKE_PANE_SHELL:-bash}" -c "$arg" > "${FM_FAKE_PANE_COUNTFILE}.output" 2>&1
           ;;
       esac
     done
@@ -99,7 +94,16 @@ exit 0
 SH
   chmod +x "$fakebin/tmux"
   fm_test_codex_first_turn_wrap "$fakebin"
-  fm_fake_exit0 "$fakebin" treehouse
+  cat > "$fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+if [ "$*" = get ]; then
+  printf '%s\n' "$*" >> "${FM_FAKE_PANE_COUNTFILE}.treehouse-calls"
+  printf '%s\n' "${FM_FAKE_TREEHOUSE_OUTPUT:-}"
+  exit "${FM_FAKE_TREEHOUSE_EXIT:-0}"
+fi
+exit 0
+SH
+  chmod +x "$fakebin/treehouse"
   printf '%s\n' "$fakebin"
 }
 
@@ -426,6 +430,37 @@ SH
   pass "real tmux $($real_tmux -V): shell exit plus captured error refuses in ${elapsed}s"
 }
 
+test_treehouse_fish_submission() (
+  fm_live_gate default-on FM_SPAWN_TREEHOUSE_REASON_FISH fish
+  local rec id out status reads treehouse_status stale_reads
+  for treehouse_status in 0 7; do
+    stale_reads=58
+    [ "$treehouse_status" -eq 0 ] || stale_reads=100000
+    id="settle-fish-$treehouse_status-z13"
+    rec=$(make_settle_case "settle-fish-$treehouse_status" "$id" "$stale_reads")
+    read_settle_record "$rec"
+    STALE_DIR=$PROJ_DIR
+    fm_test_fake_sleep_noop "$FAKEBIN_DIR"
+    out=$(FM_FAKE_PANE_SHELL=fish FM_FAKE_TREEHOUSE_EXIT="$treehouse_status" \
+      FM_FAKE_TREEHOUSE_OUTPUT='fetch failed: Permission denied (publickey)' run_settle_spawn "$id")
+    status=$?
+    assert_grep '^get$' "$COUNTFILE.treehouse-calls" 'fish must execute Treehouse before reporting its outcome'
+    reads=$(cat "$COUNTFILE")
+    if [ "$treehouse_status" -eq 0 ]; then
+      expect_code 0 "$status" "healthy Treehouse acquisition through fish must succeed"$'\n'"$out"
+      assert_grep "worktree=$WT_DIR" "$HOME_DIR/state/$id.meta" 'fish spawn recorded the wrong worktree'
+      [ "$reads" -eq 61 ] || fail "healthy fish acquisition took $reads cwd reads"
+      pass 'fish executes a healthy acquisition without a failure marker'
+    else
+      expect_code 1 "$status" "failed Treehouse acquisition through fish must refuse"$'\n'"$out"
+      assert_contains "$out" 'exited before entering an isolated worktree' 'fish failure was treated as a timeout'
+      assert_contains "$out" 'fetch failed: Permission denied (publickey)' 'fish refusal lost the Treehouse error'
+      [ "$reads" -eq 2 ] || fail "failed fish acquisition took $reads cwd reads"
+      pass 'fish reports a nonzero Treehouse exit promptly with its reason'
+    fi
+  done
+)
+
 test_failure_reads_must_be_consecutive
 test_treehouse_output_bound_and_stale_marker
 test_treehouse_failure_real_tmux
@@ -440,5 +475,6 @@ test_already_settled_pane_costs_one_confirm_read
 test_transient_primary_checkout_is_not_accepted
 test_primary_checkout_that_never_settles_fails_at_the_deadline
 test_unborn_head_project_is_refused_at_once
+test_treehouse_fish_submission || exit $?
 
 echo "# all fm-spawn-worktree-settle tests passed"

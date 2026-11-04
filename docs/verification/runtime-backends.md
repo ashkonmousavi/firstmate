@@ -11,6 +11,8 @@ Exact task chronology, branch names, temporary homes, local paths, process ids, 
 `bash tests/fm-spawn-worktree-settle.test.sh` exercises the public spawn entrypoint with controlled cwd and capture responses, including failure confirmation, unreadable output, stale exit markers, bounded diagnostics and a healthy acquisition settling at the deadline.
 Its token-free live case runs by default when tmux is installed and uses a private tmux server plus a fake Treehouse executable, without acquiring a pool slot or contacting GitHub.
 Force that live case with `FM_SPAWN_TREEHOUSE_REASON_LIVE=1 bash tests/fm-spawn-worktree-settle.test.sh`.
+The fish submission cases execute successful and failing acquisitions through fish when it is installed; force them with `FM_SPAWN_TREEHOUSE_REASON_FISH=1 bash tests/fm-spawn-worktree-settle.test.sh`.
+Fish execution remains unverified on hosts without fish; the suite reports that capability skip explicitly.
 Verified on 2026-11-04 UTC, Linux x86_64, tmux 3.4, using the shell completion marker and the shared backend capture reader.
 The relevant exact output was:
 

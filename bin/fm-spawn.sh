@@ -6835,7 +6835,7 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] && [ "$CODEX_WORKTREE_P
     TREEHOUSE_GET_EXITED=0
     # OR-list completion is a shell/protocol fact across every pane backend,
     # including those with no passive foreground-process reader.
-    spawn_send_text_line "$WT_TARGET" "treehouse get || printf '\n${TREEHOUSE_GET_EXIT_MARKER}=%s\n' \"\$?\""
+    spawn_send_text_line "$WT_TARGET" "treehouse get || printf '\n${TREEHOUSE_GET_EXIT_MARKER}=1\n'"
 
     # Wait for the treehouse subshell: the pane's cwd moves from the project to the worktree.
     # Target the stable window id, not the name: if the name is ever lost (e.g. an
