@@ -1002,6 +1002,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
 # shellcheck source=bin/fm-capacity-lib.sh
 . "$SCRIPT_DIR/fm-capacity-lib.sh"
+# shellcheck source=bin/fm-spawn-admission-lib.sh
+. "$SCRIPT_DIR/fm-spawn-admission-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # shellcheck source=bin/fm-treehouse-lib.sh
@@ -4579,8 +4581,7 @@ fi
 # A relaunch replaces its own record; persistent secondmate startup is exempt.
 # No machine lock spans launch or publication (fm-capacity-lib.sh owns the rules).
 if [ "$KIND" != secondmate ]; then
-  if ! fm_capacity_read "$FM_HOME" "$CONFIG" "$STATE" "$ID"; then
-    echo "deferred: $FM_CAPACITY_ERROR; task $ID stays queued" >&2
+  if ! fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND"; then
     if [ "$RELAUNCH" -eq 0 ] && [ "$FM_CAPACITY_REASON" = full ]; then
       POS[1]=$PROJ_ABS
       if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
@@ -5272,42 +5273,7 @@ herdr_projection_existing_meta_allows_flat() { # <meta>
 # transitionable BEFORE any endpoint, worktree, or record exists: a refusal here
 # costs nothing to unwind, while the same refusal after publication would strand
 # a live pane. The authoritative mutation still runs under the meta lock below.
-BACKLOG_TRANSITION=0
-BACKLOG_ROW_STATE=
-if fm_backlog_transition_applies "$CONFIG" "$DATA" "$KIND"; then
-  BACKLOG_TRANSITION=1
-  if fm_backlog_row_probe "$DATA" "$ID"; then
-    BACKLOG_ROW_STATE=$FM_BACKLOG_ROW_STATE
-  elif [ "$FM_BACKLOG_ROW_RESULT" = not_found ]; then
-    echo "error: task $ID has no backlog item in this home, so dispatching it would leave a worker no record owns; add it first (bin/fm-tasks-axi.sh add $ID '<title>' --kind $KIND) and re-run" >&2
-    exit 1
-  else
-    echo "error: task $ID's backlog item could not be read before dispatch ($FM_BACKLOG_ROW_ERROR)" >&2
-    exit 75
-  fi
-  spawn_preflight_actor=$(fm_lease_actor) || exit "$FM_LEASE_REFUSE_EXIT"
-  if [ "$RELAUNCH" -ne 1 ] && [ "$spawn_preflight_actor" = branch ] && fm_lease_away_relocated; then
-    if [ "$BACKLOG_ROW_STATE" != "queued no no" ]; then
-      echo "error: spawn refused - the supervision branch under the away-posture record may dispatch only queued unblocked work (already queued, or filed by the branch from the captain's away words); task $ID has no dispatchable backlog item in this home" >&2
-      [ "${BACKLOG_ROW_STATE%% *}" != queued ] || exit 75
-      exit 1
-    fi
-  elif [ "$RELAUNCH_FROM_RELEASED" = 1 ] && released_backlog_hold_is_teardown_own; then
-    # Lifted only at the commit point below, once the worker is launched, so
-    # every refusal before then leaves the item held exactly as teardown left it.
-    RELEASED_LIFT_HOLD=1
-  elif ! fm_backlog_row_dispatchable "$BACKLOG_ROW_STATE"; then
-    echo "error: this home's backlog item $ID is not dispatchable in state $BACKLOG_ROW_STATE; refusing before creating its endpoint or local copy" >&2
-    [ "$RELAUNCH" -ne 0 ] || [ "${BACKLOG_ROW_STATE%% *}" != queued ] || exit 75
-    exit 1
-  fi
-else
-  BACKLOG_GATE_STATUS=$?
-  if [ "$BACKLOG_GATE_STATUS" -eq 2 ]; then
-    echo "error: task $ID cannot be dispatched because its backlog data directory is inaccessible: $DATA ($FM_BACKLOG_TRANSITION_ERROR)" >&2
-    exit 1
-  fi
-fi
+fm_spawn_backlog_admit || exit $?
 
 if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
   SPAWN_META_LOCK=$(fm_meta_lock_path "$STATE/$ID.meta") || exit 1

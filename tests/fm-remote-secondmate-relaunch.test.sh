@@ -73,6 +73,7 @@ EOF
 [ "$cmd" = fm-remote-secondmate-control.sh ] || exit 93
 [ "$action" = relaunch ] || exit 94
 case "$FM_FAKE_RELAUNCH_MODE" in
+  capacity) printf 'deferred: replacement capacity unavailable\n' >&2; exit 75 ;;
   unknown) exit 255 ;;
   unconfirmed) printf 'relaunched without route confirmation\n'; exit 0 ;;
   quota)
@@ -176,11 +177,14 @@ cmp -s "$TMP/ios-before-refusal.meta" "$HOME_DIR/state/ios.meta" \
   || fail "a refused relaunch must not touch the parent's record"
 pass "a refused remote relaunch leaves the parent's record untouched"
 
-for FAILURE_MODE in refuse unknown unconfirmed; do
+for FAILURE_MODE in refuse capacity unknown unconfirmed; do
   printf '%s\tdead\n' "$(date +%s)" > "$HOME_DIR/state/.secondmate-relaunch-bound-ios"
   cp "$HOME_DIR/state/.secondmate-relaunch-ios" "$TMP/ledger-before-failure"
   OUT=$(FM_FAKE_RELAUNCH_MODE="$FAILURE_MODE" run_relaunch ios claude - -); RC=$?
   [ "$RC" -ne 0 ] || fail "$FAILURE_MODE relaunch should fail"
+  [ "$FAILURE_MODE" != capacity ] || expect_code 75 "$RC" "remote capacity refusal must remain retryable"
+  cmp -s "$TMP/ios-before-refusal.meta" "$HOME_DIR/state/ios.meta" \
+    || fail "$FAILURE_MODE refusal changed the parent record"
   assert_absent "$HOME_DIR/state/.remote-inherit-ios.lock" "$FAILURE_MODE relaunch stranded the transaction lock"
   assert_present "$HOME_DIR/state/.secondmate-relaunch-bound-ios" "$FAILURE_MODE relaunch cleared the parent's park record"
   cmp -s "$HOME_DIR/state/.secondmate-relaunch-ios" "$TMP/ledger-before-failure" \

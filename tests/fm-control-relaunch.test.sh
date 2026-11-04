@@ -4592,6 +4592,40 @@ test_recovery_refuses_a_shared_copy() {
   pass 'startup recovery refuses shared copies before checkpoint or replacement'
 }
 
+# Admission refusals must happen before the existing agent or task is touched.
+test_relaunch_admission_refusal_preserves_running_agent() {
+  local dir out rc why meta brief backlog
+  for why in backlog capacity; do
+    dir=$(new_case "preflight-$why" pf1)
+    add_ship_task "$dir" pf1 claude
+    if [ "$why" = backlog ]; then
+      seed_backlog "$dir" pf1 in_flight
+      tasks-axi hold pf1 --kind external --reason "replacement admission refusal" \
+        --file "$dir/home/data/backlog.md" >/dev/null
+      backlog=$(cat "$dir/home/data/backlog.md")
+    else
+      printf '0 0\n' > "$dir/home/config/lane-capacity"
+    fi
+    meta=$(cat "$dir/home/state/pf1.meta")
+    brief=$(cat "$dir/home/data/pf1/brief.md")
+    out=$(run_control "$dir" pf1 relaunch --note "must not be recorded"); rc=$?
+    if [ "$why" = backlog ]; then
+      expect_code 1 "$rc" "held in-flight backlog must refuse"
+      assert_contains "$out" 'not dispatchable in state in_flight' 'exact live refusal must be preserved'
+      assert_equals "$backlog" "$(cat "$dir/home/data/backlog.md")" 'backlog changed on refusal'
+    else
+      expect_code 75 "$rc" "capacity refusal must be retryable"
+    fi
+    assert_equals claude "$(cat "$dir/fake/command")" "$why: old agent stopped before admission"
+    assert_equals "$meta" "$(cat "$dir/home/state/pf1.meta")" "$why: record changed"
+    assert_equals "$brief" "$(cat "$dir/home/data/pf1/brief.md")" "$why: instructions changed"
+    assert_equals '' "$(cat "$dir/fake/literal")" "$why: commands sent to old agent"
+    assert_absent "$dir/home/state/pf1.control-relaunch" "$why: refusal left a journal"
+  done
+  pass 'replacement backlog and capacity refusals preserve the running agent and task'
+}
+
+test_relaunch_admission_refusal_preserves_running_agent
 test_recovery_refuses_a_shared_copy
 test_codex_project_cwd_handoffs
 

@@ -1544,6 +1544,34 @@ record_note() {
   esac
 }
 
+# Dynamic-scope locals preserve control's resolved context while the shared
+# admission readers use their ordinary globals, without a subshell boundary.
+relaunch_admission_preflight() {
+  local STATE=$STATE FM_HOME=$FM_HOME DATA=$DATA ID=$ID KIND=$KIND BACKEND=$BACKEND
+  local CONFIG=${FM_CONFIG_OVERRIDE:-$FM_HOME/config}
+  local RELAUNCH=1 RELAUNCH_FROM_RELEASED=0
+  local BACKLOG_TRANSITION BACKLOG_ROW_STATE BACKLOG_GATE_STATUS spawn_preflight_actor
+  local FM_BACKLOG_TRANSITION_SKIP FM_BACKLOG_TRANSITION_ERROR FM_BACKLOG_ROW_RESULT
+  local FM_BACKLOG_ROW_STATE FM_BACKLOG_ROW_ERROR FM_BACKLOG_ROW_HOLD_KIND
+  # shellcheck source=bin/fm-tasks-axi-lib.sh
+  . "$SCRIPT_DIR/fm-tasks-axi-lib.sh"
+  # shellcheck source=bin/fm-backlog-transition-lib.sh
+  . "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+  # shellcheck source=bin/fm-project-capacity-lib.sh
+  . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
+  # shellcheck source=bin/fm-capacity-lib.sh
+  . "$SCRIPT_DIR/fm-capacity-lib.sh"
+  # shellcheck source=bin/fm-spawn-admission-lib.sh
+  . "$SCRIPT_DIR/fm-spawn-admission-lib.sh"
+  fm_backend_validate_spawn "$BACKEND" || return $?
+  fm_spawn_backlog_admit || return $?
+  fm_spawn_capacity_admit "$FM_HOME" "$CONFIG" "$STATE" "$ID" "$KIND" || return $?
+  if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
+    echo "error: task $ID has a pending authoritative backlog close; finish or repair it before relaunch" >&2
+    return 1
+  fi
+}
+
 do_relaunch() {
   local exit_result exit_bg state note_line spawn_status
   local -a spawn_args
@@ -1587,6 +1615,7 @@ do_relaunch() {
     do_relaunch_released "$note_line"
     return
   fi
+  relaunch_admission_preflight || exit $?
   safe_checkpoint
   cp -p "$META" "$META_PRIOR" || die "could not preserve task $ID's durable record before relaunching"
   RELAUNCH_ACTIVE=1
