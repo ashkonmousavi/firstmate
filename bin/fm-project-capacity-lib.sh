@@ -73,11 +73,13 @@
 # the count.
 #
 # Requires bin/fm-wake-lib.sh (root home, local homes, project lock path),
-# bin/fm-agent-process-lib.sh (fm_agent_process_classify),
 # bin/fm-secondmate-registry-lib.sh (which the local-homes walk reads), and
 # bin/fm-backend.sh (fm_meta_get, fm_backend_of_meta, fm_backend_agent_state,
 # fm_task_record_endpoint_confirmed_gone) to be
 # sourced first. No side effects on source.
+
+# shellcheck source=bin/fm-agent-process-lib.sh
+. "${BASH_SOURCE[0]%/*}/fm-agent-process-lib.sh"
 
 # Exit status of a spawn deferred because the project is at capacity: the
 # sysexits "temporary failure" code, so a caller can tell a deferral that leaves

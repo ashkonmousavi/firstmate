@@ -65,22 +65,10 @@ def rx(pattern):
 
 
 POLICY = {"claims": (
-    ("capacity", rx(
-        r"\b(?:lanes?|seats?|slots?|capacity)\b[\s:=]+"
-        r"(?:(?:is|are|has|have|now|currently|still|at|of|shows?|reports?|not|never|no|isn't|aren't|isn’t|aren’t)\s+)*"
-        r"(?:\d+|full|free|live|occupied|available|working|running|admission|room)\b|"
-        r"\b(?:lanes?|seats?|slots?)\s+[\w.-]+(?:\s*(?:,\s*(?:and|&)?|and|&)\s*[\w.-]+)*"
-        r"\s+(?:is|are)\s+(?:(?:not|never)\s+)?(?:full|free|live|occupied|available|working|running)\b|"
-        r"\b(?:\d+|N|full|free|live|occupied|available|working|running)\s+(?:lanes?|seats?|slots?)\b|"
-        r"\b(?:laptop|server|pc|main|zenbook|q-crew|zb-crew)\b[\s:=]+"
-        r"(?:(?:is|are|has|have|now|currently|still|not|never|isn't|aren't|isn’t|aren’t)\s+)*(?:full|free|no\s+room|"
-        r"(?:\d+|N)(?:\s+(?:of|out\s+of)\s+(?:\d+|M)|\s*/\s*(?:\d+|M))?"
-        r"\s+(?:working|available|occupied|live|running|free))\b|"
-        r"\b(?:\d+|N)(?:\s+(?:of|out\s+of)\s+(?:\d+|M)|\s*/\s*(?:\d+|M))?"
-        r"\s+(?:working|available|occupied|live|running|free)\s+(?:(?:on|in|for|at)\s+)?"
-        r"(?:laptop|server|pc|main|zenbook|q-crew|zb-crew)\b|"
+    ("capacity", rx(r"\b(?:full|free|live|occupied|available|capacity|working|running|admission|room)\b|\d"),
+     rx(r"\b(?:lanes?|seats?|slots?|capacity|laptop|server|pc|main|zenbook|q-crew|zb-crew)\b|"
         r"\b(?:\d+|N)\s+(?:live\s+of\s+(?:\d+|M)|free)\b|"
-        r"\badmission\s+(?:no|yes)\b|\bno\s+room\b"), None,
+        r"\badmission\s+(?:no|yes)\b|\bno\s+room\b"),
      rx(r"^activity\.sh(?:\s|$)")),
     ("PR", rx(r"\b(?:in (?:the )?(?:merge )?queue|queued|merged)\b"),
      rx(r"\bprs?\b|#\d+\b|https?://\S+/pulls?/\d+"),
@@ -375,24 +363,27 @@ def main():
     session = payload.get("session_id")
     if not isinstance(session, str) or not session:
         return 0
+    unsupported = list(claims(text))
+    capacity_claim = any(family == 'capacity' for family, _, _ in unsupported)
     state = os.environ.get("FM_STATE_OVERRIDE") or str(Path(os.environ.get("FM_HOME", Path(__file__).parent.parent)) / "state")
     marker = Path(state) / (".state-claim-" + hashlib.sha256(session.encode()).hexdigest() + ".blocked")
     message_hash = hashlib.sha256(text.encode()).hexdigest()
-    if payload["stop_hook_active"] and marker.exists():
+    if not capacity_claim and payload["stop_hook_active"] and marker.exists():
         with marker.open() as previous:
             own_block = previous.read(65) == message_hash
         marker.unlink()
-        if own_block and not any(family == 'capacity' for family, _, _ in claims(text)):
+        if own_block:
             return 0
-    elif not payload["stop_hook_active"]:
+    elif not capacity_claim and not payload["stop_hook_active"]:
         marker.unlink(missing_ok=True)
     violations = reply_violations(text)
     if violations:
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        marker.write_text(message_hash)
-        print("Reply shape: " + " ".join(violations) + " This check blocks only once.", file=sys.stderr)
+        if not capacity_claim:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(message_hash)
+        print("Reply shape: " + " ".join(violations) +
+              ("" if capacity_claim else " This check blocks only once."), file=sys.stderr)
         return 2
-    unsupported = list(claims(text))
     if not unsupported:
         return 0
     try:
@@ -400,7 +391,7 @@ def main():
     except (OSError, ValueError, TypeError, KeyError):
         reads = None
     if reads is None or time.monotonic() > deadline:
-        if any(family == 'capacity' for family, _, _ in unsupported):
+        if capacity_claim:
             print('State claim needs a same-turn activity.sh read (capacity); check-wake prose is not a read.', file=sys.stderr)
             return 2
         return 0
@@ -420,11 +411,14 @@ def main():
                            for command in matching) for name in lane_names(sentence)):
                 matching = []
         if not matching:
-            marker.parent.mkdir(parents=True, exist_ok=True)
-            marker.write_text(message_hash)
-            print(f"State claim needs a same-turn read ({family}): {sentence[:300]}\n"
-                  "Read that state now, correct the claim, or qualify it with 'last read at'. "
-                  "This claim check blocks only once.", file=sys.stderr)
+            if not capacity_claim:
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                marker.write_text(message_hash)
+            guidance = ("Read activity.sh successfully in this turn; check-wake prose is not a read."
+                        if capacity_claim else
+                        "Read that state now, correct the claim, or qualify it with 'last read at'. "
+                        "This claim check blocks only once.")
+            print(f"State claim needs a same-turn read ({family}): {sentence[:300]}\n{guidance}", file=sys.stderr)
             return 2
     return 0
 

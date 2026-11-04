@@ -13,6 +13,36 @@ import subprocess
 import sys
 
 root, tmp = map(Path, sys.argv[1:])
+process_worktree = tmp / 'process-worktree'
+process_worktree.mkdir()
+fakebin = tmp / 'process-bin'
+fakebin.mkdir()
+lsof = fakebin / 'lsof'
+lsof.write_text('#!/usr/bin/env bash\nprintf \'p%s\\nfcwd\\nn%s\\n\' "$FM_SHELL_PID" "$FM_SHELL_WORKTREE"\n')
+lsof.chmod(0o755)
+seat_command = '''
+source "$1/bin/fm-project-capacity-lib.sh"
+fm_backend_agent_state() { printf 'dead'; }
+raw=$(printf 'backend=tmux\nwindow=dead\nworktree=%s\n' "$FM_SHELL_WORKTREE")
+if fm_task_record_holds_seat "$FM_SHELL_WORKTREE/task.meta" "$raw" "$FM_SHELL_WORKTREE"; then
+  printf 'held:%s\n' "$FM_TASK_RECORD_SEAT_KNOWN"
+else
+  printf 'free:%s\n' "$FM_TASK_RECORD_SEAT_KNOWN"
+fi
+'''
+for command, expected in [(['bash', '-c', 'read -r unused'], 'free:1'), (['sleep', '60'], 'held:1')]:
+    process = subprocess.Popen(command, cwd=process_worktree, stdin=subprocess.PIPE)
+    try:
+        seat_env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ['PATH'],
+                        FM_SHELL_PID=str(process.pid), FM_SHELL_WORKTREE=str(process_worktree))
+        result = subprocess.run(['bash', '-c', seat_command, 'seat', str(root)], env=seat_env,
+                                text=True, capture_output=True)
+        assert result.returncode == 0 and result.stdout.strip() == expected and not result.stderr, result
+    finally:
+        process.terminate()
+        process.wait(timeout=3)
+        process.stdin.close()
+print('ok - project-seat helper loads its own classifier for shell-only and working processes')
 home, mate = (tmp / name for name in ('home', 'mate'))
 for base in (home, mate):
     for name in ('config', 'data', 'state'):
@@ -140,8 +170,8 @@ def guard(message, commands=(), expected=0, active=False, execute=False):
 
 read = f'bash {shlex.quote(str(activity))} --machine-json {shlex.quote(str(home))}'
 for machine in ('MAIN', 'PC', 'server', 'laptop', 'zenbook', 'q-crew', 'zb-crew'):
-    guard(f'{machine} merged PR #219.', ['gh pr view 219'])
-    guard(f'The {machine} deployment is live.', ['curl https://service.example/health'])
+    guard(f'{machine} merged PR #219.', [read, 'gh pr view 219'])
+    guard(f'The {machine} deployment is live.', [read, 'curl https://service.example/health'])
     for measurement in ('3 working, 7 available', '3 of 10 occupied', '3/10 live', 'not full'):
         message = f'{machine}: {measurement}.'
         guard(message, expected=2)
@@ -163,6 +193,6 @@ for command in (read, f'\n {read}\n', f'FM_EXTRA=1 env {read}', f'{read} > {shle
     guard('PC: 3 working, 7 available.', [command], execute=True)
 guard('PC: 3 working, 7 available.', [f'{failed} || true', read], execute=True)
 for command in ('gh pr view 219; printf done', 'gh pr view 219 | cat', 'gh pr view 219 || true'):
-    guard('MAIN merged PR #219.', [command])
+    guard('MAIN merged PR #219.', [read, command])
 print('ok - machine measurements block without a successful standalone activity read while PR and deployment semantics remain intact')
 PY
