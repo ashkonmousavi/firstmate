@@ -62,6 +62,9 @@
 #              --expect-spawn-gen, when the task's recorded spawn_gen is no
 #              longer <gen> because a relaunch replaced the agent. Every other
 #              refusal keeps its ordinary exit status 1.
+#              A visible Claude background shell defers exit and relaunch with
+#              status 75 and "busy: background shell running", even for landed
+#              work; the caller retries after the shell finishes.
 #              --landed-work attests that the caller verified landing; this
 #              script does not check the forge for that flag. It authorizes
 #              the Claude exit picker under docs/agent-control.md's completion
@@ -579,6 +582,18 @@ refuse_blocking_prompt() {  # <dialog-name>
   die "task $ID is blocked on a prompt: $1. Refusing to type Enter into it."
 }
 
+# A positive shell signal is a retry, never permission to stop carried work.
+# In particular a background fm-send may still be publishing a durable steer.
+refuse_background_shell_exit() {
+  local screen
+  screen=$(fm_backend_visible_capture "$BACKEND" "$T" "$LABEL" 2>/dev/null) || return 0
+  if fm_control_background_shell_running "$HARNESS" "$screen"; then
+    [ "$(agent_state)" != dead ] || return 0
+    printf 'busy: background shell running; task %s remains running; retry %s after the shell finishes\n' "$ID" "$VERB" >&2
+    return 75
+  fi
+}
+
 # confirm_exit_picker <dialog-name>: Claude's background-task exit picker has
 # "Exit and stop tasks" as its selected row (the recognizer requires it), so one
 # Enter chooses it.
@@ -586,6 +601,7 @@ refuse_blocking_prompt() {  # <dialog-name>
 # under the unattended lane release, whose validation has not yet run there.
 confirm_exit_picker() {  # <dialog-name> [pre-submit]
   local state why rc
+  refuse_background_shell_exit || return $?
   if [ "$1" != 'Claude background-task exit picker' ] || [ "$KIND" = secondmate ] \
      || { [ "${2:-}" = pre-submit ] && [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ]; }; then
     refuse_blocking_prompt "$1"
@@ -607,7 +623,7 @@ confirm_exit_picker() {  # <dialog-name> [pre-submit]
   fm_backend_send_key "$BACKEND" "$T" Enter "$LABEL" \
     || {
       rc=$?
-      [ "$rc" != 75 ] || [ "${FM_CONTROL_LANE_RELEASE:-0}" != 1 ] || return 75
+      [ "$rc" != 75 ] || return 75
       die "task $ID is blocked on a prompt: $1, but the Enter that chooses 'Exit and stop tasks' was not delivered on $BACKEND"
     }
   state=$(wait_agent_state "$EXIT_WAIT" dead) \
@@ -940,6 +956,11 @@ exit_background_check() {
 }
 
 fm_control_lane_release_guard() {
+  # The backend invokes this again immediately before a compatible-client
+  # retry, so a newly arrived shell cannot authorize Enter.
+  if [ "${exit_input_guard:-0}" = 1 ] || [ "${release_exit_picker:-0}" = 1 ]; then
+    refuse_background_shell_exit || return $?
+  fi
   [ "${FM_CONTROL_LANE_RELEASE:-0}" = 1 ] || return 0
   local record current state seq
   [ "$(fm_meta_get "$META" spawn_gen)" = "$EXPECT_GEN" ] || return 75
@@ -970,7 +991,7 @@ clear_own_doorbell() {
 # do_exit: stop the running agent, preserving endpoint and worktree. Prints
 # `already-stopped`, `endpoint-gone`, or `stopped`.
 do_exit() {
-  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy release_meta_lock='' release_busy_token='' submit_rc=0
+  local state cmd hazard verdict composer_state cancel absence interrupt_result=not-needed dialog busy release_meta_lock='' release_busy_token='' submit_rc=0 exit_input_guard=1
   require_state_verified_backend exit
   fm_control_backend_exit_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, whose T3 Orchestrator V2 tools have no session stop, so 'exit' cannot stop its agent; 'interrupt' ends the running turn and teardown archives the thread"
@@ -1018,6 +1039,7 @@ do_exit() {
       esac
       ;;
   esac
+  refuse_background_shell_exit || return $?
   # A busy agent is interrupted first before the exit command is submitted,
   # except under --if-idle, which acts only on a positively idle verdict and
   # never interrupts a turn.
@@ -1106,6 +1128,7 @@ do_exit() {
   # interacting with the typed submit verification. A Ctrl-C over leftover
   # composer text only clears it, so Ctrl-U clears the composer first and one
   # more Ctrl-C follows if the agent is still alive.
+  refuse_background_shell_exit || return $?
   case "$cmd" in
     C-c)
       fm_backend_send_key "$BACKEND" "$T" C-u "$LABEL" \
@@ -1123,6 +1146,7 @@ do_exit() {
       [ "$submit_rc" = 0 ] || die "the exit command could not be sent to task $ID on $BACKEND"
       [ "$verdict" != send-failed ] \
         || die "the exit command could not be sent to task $ID on $BACKEND"
+      refuse_background_shell_exit || return $?
       # The submitting Enter can open the picker. The agent is still alive, and
       # another Enter would confirm the selected row. A dead agent may leave the
       # same text behind; that is not a prompt still waiting.
@@ -1138,6 +1162,7 @@ do_exit() {
     # A submit can return before any read sees the picker: a native busy
     # verdict needs no composer read, and a cleared composer can be read
     # before the picker renders. Read the screen once more here.
+    refuse_background_shell_exit || return $?
     : > "$FM_COMPOSER_DIALOG_SINK" || true
     fm_backend_composer_state "$BACKEND" "$T" "$LABEL" >/dev/null 2>&1 || true
     if [ -s "$FM_COMPOSER_DIALOG_SINK" ]; then
@@ -1583,6 +1608,9 @@ do_relaunch() {
   require_state_verified_backend relaunch
   fm_control_backend_relaunch_supported "$BACKEND" \
     || die "task $ID runs on the $BACKEND backend, where a thread keeps its conversation and a new turn or provider change continues the same agent, so no fresh replacement can be launched into its endpoint; 'interrupt' ends its turn, and a fresh task needs a teardown and a new dispatch"
+  if [ "$(agent_state)" = alive ]; then
+    refuse_background_shell_exit || return $?
+  fi
   resolve_relaunch_profile
 
   case "$KIND" in

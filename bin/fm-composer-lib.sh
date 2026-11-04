@@ -2594,6 +2594,12 @@ EOF
 fm_composer_submit_retry_core() {  # <send-key-fn> <state-fn> <target> <retries> <enter-sleep> [expected-label]
   local send_key_fn=$1 state_fn=$2 target=$3 retries=$4 sleep_s=$5 expected_label=${6:-} i=0 state
   while :; do
+    # Control-plane exits also guard a retry when a vendor dialog changed
+    # layout and cannot fill the older dialog sink. Other callers have no hook.
+    if declare -F fm_control_lane_release_guard >/dev/null && ! fm_control_lane_release_guard; then
+      printf 'unknown'
+      return 0
+    fi
     "$send_key_fn" "$target" Enter "$expected_label" || true
     sleep "$sleep_s"
     state=$("$state_fn" "$target" "$expected_label")

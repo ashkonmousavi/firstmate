@@ -74,6 +74,7 @@ EOF
 [ "$action" = relaunch ] || exit 94
 case "$FM_FAKE_RELAUNCH_MODE" in
   capacity) printf 'deferred: replacement capacity unavailable\n' >&2; exit 75 ;;
+  busy) printf 'busy: background shell running\n'; exit 75 ;;
   unknown) exit 255 ;;
   unconfirmed) printf 'relaunched without route confirmation\n'; exit 0 ;;
   quota)
@@ -113,6 +114,17 @@ run_relaunch() {  # <args...>
     FM_FAKE_RELAUNCH_MODE="${FM_FAKE_RELAUNCH_MODE:-}" \
     "$ROOT/bin/fm-remote-secondmate-relaunch.sh" "$@" 2>&1
 }
+
+# A retryable host refusal must survive the transport without republishing.
+reset_meta
+cp "$HOME_DIR/state/ios.meta" "$TMP/ios-before-busy.meta"
+FM_FAKE_RELAUNCH_MODE=busy
+OUT=$(run_relaunch ios claude default default); RC=$?
+unset FM_FAKE_RELAUNCH_MODE
+expect_code 75 "$RC" "a busy background shell remains retryable through the parent wrapper"$'\n'"$OUT"
+assert_contains "$OUT" 'busy: background shell running' 'the busy reason reaches the caller'
+cmp -s "$TMP/ios-before-busy.meta" "$HOME_DIR/state/ios.meta" || fail 'busy remote relaunch changed parent metadata'
+pass 'busy remote relaunch returns 75 and preserves parent metadata'
 
 # --- a successful relaunch republishes the parent's own route record --------
 reset_meta

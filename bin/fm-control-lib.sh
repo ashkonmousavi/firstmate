@@ -311,6 +311,37 @@ fm_control_exit_command() {  # <harness> [opencode-major]
   esac
 }
 
+# Positive-only Claude exit protection: a status-row shell count OR the
+# background-shell exit dialog is enough to defer.
+# Missing either vendor surface is not evidence that the shell has finished.
+# Other harnesses retain their adapter's existing behavior.
+fm_control_background_shell_running() {  # <harness> <visible-screen>
+  [ "$(fm_control_harness_family "${1-}")" = claude ] || return 1
+  local count
+  count=$(fm_composer_claude_background_shells "${2-}" 2>/dev/null) || count=0
+  case "$count" in ''|*[!0-9]*) count=0 ;; esac
+  [ "$count" -gt 0 ] && return 0
+  printf '%s\n' "${2-}" | fm_composer_strip_ansi | LC_ALL=C awk '
+    /[^ \t\r]/ { row[++n]=$0 }
+    /^[ \t]*Background work is running[ \t\r]*$/ { heading=n; shell=stop=stay=footer=0 }
+    heading && /^[ \t]*shell · / { shell=1 }
+    heading && /^[ \t]*(❯ )?1\. Exit and stop tasks[ \t\r]*$/ { stop=1 }
+    heading && /^[ \t]*(❯ )?[23]\. Stay[ \t\r]*$/ { stay=1 }
+    heading && /^[ \t]*Enter to confirm · Esc to cancel[ \t\r]*$/ { footer=n }
+    END {
+      if (!(heading && shell && stop && stay && footer)) exit 1
+      if (footer == n) exit 0
+      if (row[heading-1] !~ /^[ \t]*(─)+[ \t\r]*$/ ||
+          row[footer+1] !~ /^[ \t]*(─)+[ \t\r]*$/ ||
+          row[footer+2] !~ /^[ \t]*❯[ \t\r]*$/ ||
+          row[footer+3] !~ /^[ \t]*(─)+[ \t\r]*$/) exit 1
+      for (i=footer+4; i<=n; i++)
+        if (row[i] ~ /^[ \t]*(─|╭|╰|│|❯)/) exit 1
+      exit 0
+    }
+  '
+}
+
 # Claude Code's /exit does not always exit: a session that still has background
 # work (subagents, background shells, workflows, monitors) can be moved to a
 # background session ("Moving to background... backgrounded <id>") and keeps
