@@ -1,0 +1,126 @@
+Real fm-update.sh + real SSH + real remote-secondmate-control.sh in disposable Git repositories.
+SSH test endpoint decodes fm-on argv and invokes the real control command directly; it does not use the production account job queue.
+No agent is launched or restarted. A deliberately unavailable endpoint returns real unverified state; the summary conservatively retains restart eligibility.
+
+=== RED: baseline misreads successful sync with trailing rearm output (exit 0) ===
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/main 53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-root rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+remote secondmate sm1: skipped on lab-peer: malformed update result
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+
+persisted remote-root HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e; remote-home HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+PASS: output, action summary, and persisted Git commits agree
+
+=== GREEN: synced survives trailing rearm output (exit 0) ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+update target: origin/main 53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-root rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+remote secondmate sm1: updated on lab-peer (53d84e1b3ef235693bebe2bdd9d6c833d99a061e)
+reread-firstmate: no
+restart-secondmates: fm-sm1
+nudge-secondmates: none
+
+persisted remote-root HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e; remote-home HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+PASS: output, action summary, and persisted Git commits agree
+
+=== GREEN: already current survives trailing rearm output (exit 0) ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+update target: origin/main 53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-root rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+remote secondmate sm1: already current on lab-peer (53d84e1b3ef235693bebe2bdd9d6c833d99a061e)
+reread-firstmate: no
+restart-secondmates: fm-sm1
+nudge-secondmates: none
+
+persisted remote-root HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e; remote-home HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+PASS: output, action summary, and persisted Git commits agree
+
+=== GREEN: last real status wins after an earlier current status (exit 0) ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+update target: origin/main 53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-root rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+remote secondmate sm1: updated on lab-peer (53d84e1b3ef235693bebe2bdd9d6c833d99a061e)
+reread-firstmate: no
+restart-secondmates: fm-sm1
+nudge-secondmates: none
+
+persisted remote-root HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e; remote-home HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+PASS: output, action summary, and persisted Git commits agree
+
+=== GREEN: missing status is refused (exit 0) ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+update target: origin/main 53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-root rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+remote secondmate sm1: skipped on lab-peer: malformed update result
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+
+persisted remote-root HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e; remote-home HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+PASS: output, action summary, and persisted Git commits agree
+
+=== GREEN: diagnostic-embedded status is refused (exit 0) ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+update target: origin/main 53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-root rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+remote secondmate sm1: skipped on lab-peer: malformed update result
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+
+persisted remote-root HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e; remote-home HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+PASS: output, action summary, and persisted Git commits agree
+
+=== GREEN: trailing diagnostics cannot hide wrong commit (exit 0) ===
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+update target: origin/main 53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-root rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/live-update-oo6e8uj4/remote-home rearmed=0 left=0
+remote secondmate sm1: skipped on lab-peer: host reports bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, not update target 53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+
+persisted remote-root HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e; remote-home HEAD=53d84e1b3ef235693bebe2bdd9d6c833d99a061e
+PASS: output, action summary, and persisted Git commits agree
+
+All isolated real-command scenarios passed.
+Disposable SSH server stopped and reaped: exit=0
+Disposable repositories, keys, configuration, and runtime state removed.

@@ -1,0 +1,28 @@
+RED baseline
+command: bash <isolated existing-regression runner> ~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/regression/bin/fm-update.sh
+not ok - synced status was hidden by trailing diagnostics (prior=no) (missing: 'remote secondmate sm1: updated on remote-box (bde4c337102d510d656db927b89c0e744f3328a9)')
+--- output ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 0s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+update target: origin/main bde4c337102d510d656db927b89c0e744f3328a9
+firstmate: already current
+pr-poll-rearm: home=~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/.test-tmp/fm-update-tests.B1CnMZ/remote-trailing-diagnostics/home rearmed=0 left=0
+pr-poll-rearm: home=/srv/sm1 rearmed=0 left=0
+remote secondmate sm1: skipped on remote-box: malformed update result
+reread-firstmate: no
+restart-secondmates: none
+nudge-secondmates: none
+
+exit=1; expected=1
+
+GREEN target
+command: bash <isolated existing-regression runner> ~/.no-mistakes/worktrees/049a88734b0e/01M6JJF9V56MYTKS7S9ATC35F9/bin/fm-update.sh
+ok - remote synced/current statuses survive trailing diagnostics; missing or malformed statuses are skipped
+
+exit=0; expected=0
+
