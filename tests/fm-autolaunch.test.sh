@@ -334,6 +334,22 @@ out=$(TYPESAFE_API_KEY=synthetic-unused-key PATH="$FAKE:$PATH" bash "$AL" --dry-
 expect_code 0 "$rc" 'deterministic dry-run'
 assert_contains "$out" '--harness codex --effort high' 'dry-run uses only the default profile'
 assert_absent "$LOG" 'deterministic dry-run writes no record'
+for setting in invalid rank-only absent; do
+  case "$setting" in
+    invalid) printf 'typo\n' > "$H/config/quota-gate" ;;
+    rank-only) printf 'rank-only\n' > "$H/config/quota-gate" ;;
+    absent) rm "$H/config/quota-gate" ;;
+  esac
+  for attempt in 1 2; do
+    out=$(PATH="$FAKE:$PATH" bash "$AL" --dry-run 2>&1); rc=$?
+    expect_code 0 "$rc" "$setting dry-run failed: $out"
+    assert_absent "$H/state/.quota-gate-invalid" 'dry-run must not create an invalid-value receipt'
+    assert_absent "$LOG" 'dry-run must not write a launch record'
+    if [ "$setting" = invalid ]; then
+      assert_contains "$out" 'expected rank-only' 'every invalid dry-run must diagnose the setting'
+    fi
+  done
+done
 TYPESAFE_API_KEY=synthetic-unused-key PATH="$FAKE:$PATH" bash "$AL" >/dev/null 2>&1
 assert_contains "$(cat "$FAKE/spawn.log")" '--harness codex --effort high' 'configured rules do not replace the default'
 assert_absent "$FAKE/network.log" 'neither real nor dry passes call the model endpoint with a configured key'

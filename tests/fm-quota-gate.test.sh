@@ -32,15 +32,12 @@ for setting_case in absent rank-only invalid empty blank multiline; do
     fi
     expect_code 1 "$rc" "$setting_case must retain refusal: $out"
     if [ "$setting_case" != absent ]; then
-      if [ "$attempt" = 1 ]; then
-        assert_contains "$out" 'expected rank-only' "invalid setting needs a diagnostic"
-      else
-        assert_not_contains "$out" 'expected rank-only' "unchanged invalid setting reported twice"
-      fi
+      assert_contains "$out" 'expected rank-only' "invalid setting needs a diagnostic on every attempt"
     fi
+    assert_absent "$HOME_DIR/state/.quota-gate-invalid" "reading the setting must not create a receipt"
   done
 done
-pass "home quota setting admits with notice; absent and invalid values retain refusal and warn once"
+pass "home quota setting admits with notice; invalid values warn on every attempt without state"
 
 test_quota_gate_refuses_short_and_exhausted_grok_naming_the_best_alternative
 test_quota_alternatives_obey_launch_capabilities

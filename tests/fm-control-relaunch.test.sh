@@ -4335,9 +4335,10 @@ SH
 }
 
 test_codex_project_cwd_handoffs() {
-  local lifecycle dir id wt root out rc head marker prior_meta prior_brief
+  local lifecycle dir id wt root out rc head marker prior_meta prior_brief policy selected
+  for policy in enforced rank-only; do
   for lifecycle in ordinary direct-ordinary released direct-released claim-released; do
-    id="codex-cwd-$lifecycle"
+    id="codex-cwd-$policy-$lifecycle"
     dir=$(new_case "$id" "$id")
     case "$lifecycle" in
       *released)
@@ -4388,6 +4389,17 @@ PY
       .providers[].quotaSemantics.effectiveAvailability += [{scope:"model:project-default",status:"unknown",runway:{status:"exhausted_now"}}]' \
       "$dir/account-two/quota.json" > "$dir/quota.json"
     mv "$dir/quota.json" "$dir/account-two/quota.json"
+    selected="$dir/account-one"
+    if [ "$policy" = rank-only ]; then
+      printf 'rank-only\n' > "$dir/home/config/quota-gate"
+      selected="$dir/account-two"
+      for root in "$dir/account-one" "$dir/account-two"; do
+        jq '.providers[].quotaSemantics.effectiveAvailability = [
+          {scope:"all_models",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}]' \
+          "$root/quota.json" > "$dir/quota.json"
+        mv "$dir/quota.json" "$root/quota.json"
+      done
+    fi
     printf '%s\n' "$dir/account-one" "$dir/account-two" > "$dir/home/config/codex-accounts"
     cat > "$dir/fakebin/codex" <<'PY'
 #!/usr/bin/env python3
@@ -4442,9 +4454,13 @@ SH
     fi
     expect_code 0 "$rc" "$lifecycle must resolve the trusted worktree model: $out"
     assert_equals project-default "$(meta_field "$dir" "$id" model)" "$lifecycle launch records project model B"
-    assert_equals "$dir/account-one" "$(meta_field "$dir" "$id" account)" "$lifecycle selects by quota for project B"
+    assert_equals "$selected" "$(meta_field "$dir" "$id" account)" "$lifecycle selects by quota for project B under $policy"
+    if [ "$policy" = rank-only ]; then
+      assert_contains "$out" 'proceeding under config/quota-gate=rank-only' "$lifecycle notices exhausted quota"
+    fi
     assert_grep "--model 'project-default'" "$dir/fake/literal" "$lifecycle passes B to the launched command"
     assert_not_contains "$(cat "$dir/fake/literal")" "--model 'account-default'" "$lifecycle must not pin account A"
+  done
   done
   pass 'Codex ordinary and released relaunch handoffs resolve quota and launch models in the actual worktree'
 }

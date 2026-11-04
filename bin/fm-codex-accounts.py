@@ -10,7 +10,8 @@ Missing auth is allowed in the list but cannot win. The runner's local status
 is not a network validation.
 
 quota-axi >=0.1.66 --profile-only supplies one redacted reading per folder without
-refresh, cache or fallback. Applicable exhausted quota excludes a folder before
+refresh, cache or fallback. Unless config/quota-gate selects rank-only,
+applicable exhausted quota excludes a folder before
 fresh main weekly ranking; unknown ranks below measured, with lexical folder
 order breaking ties. All vendor output is
 captured; only allowlisted quota fields escape this process.
@@ -262,25 +263,41 @@ def reading(root):
                 "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
 
 
-def quota_usable(row, model):
+def rank_only(config):
+    setting = Path(config).with_name("quota-gate")
+    try:
+        if not setting.is_file():
+            return False
+        if setting.read_bytes() in (b"rank-only", b"rank-only\n"):
+            return True
+    except OSError:
+        return False
+    print("notice: config/quota-gate has an invalid value, expected rank-only; retaining quota refusal behavior", file=sys.stderr)
+    return False
+
+
+def quota_usable(row, model, rank_only=False):
     bare = model.rsplit("/", 1)[-1]
     scopes = {"all_models", "all_products"}
     if bare:
         scopes.update(("model:" + bare, "product:" + bare))
-    return not any(b["scope"] in scopes and (
+    usable = not any(b["scope"] in scopes and (
         b.get("runway", {}).get("status") == "exhausted_now" or
         (b.get("status") == "known" and b.get("effectivePercentRemaining") == 0))
         for b in row["quotaSemantics"]["effectiveAvailability"])
+    if not usable and rank_only:
+        print("notice: Codex account quota is exhausted; proceeding under config/quota-gate=rank-only", file=sys.stderr)
+    return usable or rank_only
 
 
-def preflight(roots, codex):
+def preflight(roots, codex, rank_only=False):
     guard(roots, codex)
-    if not any(signed_in(root, codex) and shared_ready(root) and quota_usable(reading(root), "")
+    if not any(signed_in(root, codex) and shared_ready(root) and quota_usable(reading(root), "", rank_only)
                for root in roots):
         raise ValueError("codex-accounts has no usable signed-in folder with shared configuration")
 
 
-def snapshot(roots, codex, model, cwd):
+def snapshot(roots, codex, model, cwd, rank_only=False):
     guard(roots, codex)
     rows = []
     for root in roots:
@@ -291,7 +308,7 @@ def snapshot(roots, codex, model, cwd):
                                            "quotaSemantics": {"status": "unknown", "effectiveAvailability": []}}
         row.update(provider="codex", accountKey="codex-folder:" + hashlib.sha256(root.encode()).hexdigest()[:16],
                    accountLocator={"kind": "codex-home", "path": root}, signedIn=ready,
-                   model=launch_model, launchReady=configured and quota_usable(row, launch_model))
+                   model=launch_model, launchReady=configured and quota_usable(row, launch_model, rank_only))
         rows.append(row)
     usable = [r for r in rows if r["launchReady"]]
     def rank(row):
@@ -382,12 +399,12 @@ def main():
     if args.command == "guard":
         guard(roots, args.codex)
     elif args.command == "preflight":
-        preflight(roots, args.codex)
+        preflight(roots, args.codex, rank_only(args.config))
     elif args.command in ("select", "quota"):
         cwd = str(Path(args.cwd).resolve())
         if not Path(cwd).is_dir():
             raise ValueError(f"Codex launch directory is unavailable: {cwd}")
-        data = snapshot(roots, args.codex, args.model, cwd)
+        data = snapshot(roots, args.codex, args.model, cwd, rank_only(args.config))
         if args.folder:
             root = str(Path(args.folder).resolve())
             if not any(r["launchReady"] and r["accountLocator"]["path"] == root for r in data["providers"]):

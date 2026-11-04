@@ -2063,8 +2063,9 @@ This section owns the gate's contract; `fm_quota_gate_run` in `bin/fm-quota-axi-
 - With no `config/quota-gate` file, the gate refuses when an applicable row is `exhausted_now` or at 0%, or when a known `projected_exhaustion` row ends less than three hours from now, whatever its projection confidence.
 - A per-home `config/quota-gate` containing exactly one line `rank-only` retains quota evaluation and alternative ranking but admits every quota verdict without `--quota-override`.
   A would-be refusal prints a `notice:` naming `config/quota-gate=rank-only`, the runway reason, and ranked alternatives.
-  Any other value, including an empty file or blank line, behaves like an absent setting and is reported once per unchanged value; correcting or removing the file resets that diagnostic.
+  Any other value, including an empty file or blank line, behaves like an absent setting and is reported on every read without writing state.
   Automatic launch also retains exhausted or short-runway defaults in its existing ranking under this setting.
+  Codex account-folder selection also admits quota-exhausted folders under this setting, preserving its weekly ranking and preselected folder while retaining sign-in, shared-configuration, and duplicate-account guards.
   The setting is primary-authoritative inherited configuration: ordinary secondmate configuration convergence copies it, including absence.
 - Alternatives come only from configured rules and default profiles.
   The refusal prints their configured harness, model and effort strings, ranked by highest known `spendPriority`, with ties named together.

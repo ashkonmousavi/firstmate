@@ -365,30 +365,17 @@ fm_quota_gate_explicit() {
 }
 
 # fm_quota_gate_rank_only <config-dir>
-# Return success only for the exact single-line rank-only setting. Invalid
-# bytes retain enforcement and are reported once per unchanged value in the
-# home's state/.quota-gate-invalid receipt, reset by a valid or absent setting.
+# Return success only for the exact single-line rank-only setting.
 fm_quota_gate_rank_only() {
-  local config=$1 file="$1/quota-gate" mode fingerprint bad
-  local state=${FM_STATE_OVERRIDE:-${STATE:-${config%/*}/state}} marker
-  marker="$state/.quota-gate-invalid"
-  if [ ! -f "$file" ]; then
-    rm -f -- "$marker"
-    return 1
-  fi
+  local file="$1/quota-gate" mode bad
+  [ -f "$file" ] || return 1
   mode=$(LC_ALL=C awk 'NR == 1 && $0 == "rank-only" { valid=1 }
     END { if (NR == 1 && valid) print "rank-only" }' "$file")
   if [ "$mode" = rank-only ]; then
-    rm -f -- "$marker"
     return 0
   fi
-  fingerprint=$(cksum < "$file")
-  if [ ! -f "$marker" ] || [ "$(cat "$marker" 2>/dev/null)" != "$fingerprint" ]; then
-    mkdir -p "$state"
-    printf '%s\n' "$fingerprint" > "$marker"
-    bad=$(LC_ALL=C awk '{ gsub(/\r/, "\\r"); printf "%s%s", (NR > 1 ? "\\n" : ""), $0 }' "$file")
-    printf "notice: config/quota-gate holds '%s', expected rank-only; retaining quota refusal behavior\n" "$bad" >&2
-  fi
+  bad=$(LC_ALL=C awk '{ gsub(/\r/, "\\r"); printf "%s%s", (NR > 1 ? "\\n" : ""), $0 }' "$file")
+  printf "notice: config/quota-gate holds '%s', expected rank-only; retaining quota refusal behavior\n" "$bad" >&2
   return 1
 }
 
