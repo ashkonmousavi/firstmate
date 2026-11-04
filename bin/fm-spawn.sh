@@ -5937,6 +5937,45 @@ spawn_current_path() { # <target>
   hc) fm_backend_hc_current_path "$1" "$W" ;;
   esac
 }
+# Read only the bounded pane transcript, never the worker environment. The
+# shell prints our per-spawn marker only after treehouse returns non-zero;
+# echoed command text and errors from a still-running get cannot prove exit.
+spawn_treehouse_read_output() {
+  local pane plain detail
+  TREEHOUSE_GET_EXITED=0
+  TREEHOUSE_GET_CAPTURE_NOTE=""
+  if ! pane=$(fm_backend_capture "$BACKEND" "$WT_TARGET" 80 "$W" 2>/dev/null); then
+    TREEHOUSE_GET_CAPTURE_NOTE="pane could not be read"
+    return 1
+  fi
+  plain=$(printf '%s\n' "$pane" | fm_composer_strip_ansi)
+  if printf '%s\n' "$plain" | grep -Eq "^${TREEHOUSE_GET_EXIT_MARKER}=[1-9][0-9]*[[:space:]]*$"; then
+    TREEHOUSE_GET_EXITED=1
+  fi
+  detail=$(printf '%s\n' "$plain" | awk -v marker="$TREEHOUSE_GET_EXIT_MARKER" '
+    $0 ~ "^" marker "=[1-9][0-9]*[[:space:]]*$" { finished=1; next }
+    finished || /__FM_/ || /^[[:space:]]*$/ { next }
+    {
+      gsub(/[[:cntrl:]]/, "")
+      line = substr($0, 1, 400)
+      lines[n % 3] = line
+      n++
+      # Active cwd probes on some backends print after treehouse. Keep its
+      # error and wrapped continuation even when those probes fill the tail.
+      if (!error_seen && tolower(line) ~ /error|failed|fatal|denied/) error_seen=1
+      if (error_seen && error_n < 3) errors[error_n++] = line
+    }
+    END {
+      if (error_seen) {
+        for (i = 0; i < error_n; i++) printf "%s%s", (i ? " | " : ""), errors[i]
+      } else {
+        for (i = (n > 3 ? n - 3 : 0); i < n; i++)
+          printf "%s%s", (i == (n > 3 ? n - 3 : 0) ? "" : " | "), lines[i % 3]
+      }
+    }')
+  [ -z "$detail" ] || TREEHOUSE_GET_DETAIL="recent treehouse output: $detail"
+}
+
 spawn_send_literal() { # <target> <text>
   case "$BACKEND" in
   tmux) fm_backend_tmux_send_literal "$1" "$2" ;;
@@ -6791,7 +6830,12 @@ elif [ "$RELAUNCH" -eq 1 ] && [ "$RELAUNCH_FROM_RELEASED" = 0 ]; then
 elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] && [ "$CODEX_WORKTREE_PREPARED" = 0 ]; then
   # A t3code slot was leased and validated in its target branch above.
   if [ "$BACKEND" != t3code ]; then
-    spawn_send_text_line "$WT_TARGET" 'treehouse get'
+    TREEHOUSE_GET_EXIT_MARKER="__FM_TREEHOUSE_GET_EXIT_${$}__"
+    TREEHOUSE_GET_DETAIL=""
+    TREEHOUSE_GET_EXITED=0
+    # OR-list completion is a shell/protocol fact across every pane backend,
+    # including those with no passive foreground-process reader.
+    spawn_send_text_line "$WT_TARGET" "treehouse get || printf '\n${TREEHOUSE_GET_EXIT_MARKER}=%s\n' \"\$?\""
 
     # Wait for the treehouse subshell: the pane's cwd moves from the project to the worktree.
     # Target the stable window id, not the name: if the name is ever lost (e.g. an
@@ -6819,15 +6863,14 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] && [ "$CODEX_WORKTREE_P
     # read of the project itself or of the repository primary checkout is treated
     # as the transient it is and the wait continues, instead of being adopted and
     # then refused by the guard.
-    # A candidate the screen rejects is never adopted, so a host where the pane
-    # never reaches an isolated worktree spends the whole window before refusing.
-    # That wait is deliberate - telling a transient apart from a terminal
-    # misconfiguration would need machinery this path does not want - so the
-    # refusal has to be self-explaining instead: carry the last path seen and the
-    # reason it was rejected, and report both at the deadline.
+    # A rejected candidate keeps waiting unless two consecutive pane reads
+    # prove the command returned non-zero. Always attach recent output at the
+    # deadline too; unreadable panes retain the existing wait and exit codes.
     candidate=""
     last_seen=""
     last_reason="the pane reported no path"
+    treehouse_failed_reads=0
+    treehouse_wait_result="did not enter an isolated worktree within 60s"
     for _ in $(seq 1 60); do
       p=$(spawn_current_path "$WT_TARGET" || true)
       [ -z "$p" ] || last_seen="$p"
@@ -6843,10 +6886,20 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] && [ "$CODEX_WORKTREE_P
         candidate=""
         [ -z "$p" ] || last_reason=$SPAWN_WT_REASON
       fi
+      if spawn_treehouse_read_output && [ "$TREEHOUSE_GET_EXITED" = 1 ]; then
+        treehouse_failed_reads=$((treehouse_failed_reads + 1))
+        if [ "$treehouse_failed_reads" -ge 2 ]; then
+          treehouse_wait_result="exited before entering an isolated worktree"
+          break
+        fi
+      else
+        treehouse_failed_reads=0
+      fi
       sleep 1
     done
     if [ -z "$WT" ]; then
-      echo "error: treehouse get did not enter an isolated worktree within 60s (last seen '${last_seen:-none}': $last_reason; spawning project '$PROJ_ABS'); $(spawn_endpoint_hint)" >&2
+      spawn_treehouse_read_output || true
+      echo "error: treehouse get $treehouse_wait_result (last seen '${last_seen:-none}': $last_reason; spawning project '$PROJ_ABS')${TREEHOUSE_GET_DETAIL:+; $TREEHOUSE_GET_DETAIL}${TREEHOUSE_GET_CAPTURE_NOTE:+; $TREEHOUSE_GET_CAPTURE_NOTE}; $(spawn_endpoint_hint)" >&2
       [ "$RELAUNCH_FROM_RELEASED" = 0 ] || exit 75
       exit 1
     fi

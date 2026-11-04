@@ -111,7 +111,7 @@ case "${1:-}" in
         [ ! -e "$D/fail-launch-enter" ] || exit 1
       fi
       case "$payload" in
-        'treehouse get')
+        'treehouse get'*)
           # A released relaunch allocates its copy through the pane's shell:
           # model treehouse moving that shell into the pool slot.
           [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd"
@@ -708,7 +708,7 @@ test_concurrent_released_relaunches_serialise() {
     || fail "one of two concurrent released relaunches should win (rc $rc1 and $rc2)"$'\n'"$(cat "$dir/out1" "$dir/out2")"
   [ "$(grep -c 'recreated-from=released-copy' "$dir/out1" "$dir/out2" | awk -F: '{ n += $2 } END { print n }')" = 1 ] \
     || fail "exactly one relaunch should recreate the copy"$'\n'"$(cat "$dir/out1" "$dir/out2")"
-  [ "$(grep -cx 'treehouse get' "$dir/fake/keys")" = 1 ] || fail "two relaunches allocated two copies"
+  [ "$(grep -c '^treehouse get' "$dir/fake/keys")" = 1 ] || fail "two relaunches allocated two copies"
   [ "$(released_note_count "$dir" rr6)" = 1 ] || fail "concurrent released relaunches left $(released_note_count "$dir" rr6) recreated-copy notes"
   pass "two relaunches of one released copy serialise: one recreates it, and only one copy is allocated"
 }
@@ -3215,7 +3215,9 @@ case "${1:-} ${2:-}" in
     exit 0 ;;
   'pane run')
     # A released relaunch allocates its copy through the pane's shell.
-    [ "${4:-}" != 'treehouse get' ] || [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd"
+    case "${4:-}" in
+      'treehouse get'*) [ ! -f "$D/treehouse-slot" ] || cp "$D/treehouse-slot" "$D/cwd" ;;
+    esac
     exit 0 ;;
   'workspace list')
     printf '{"result":{"workspaces":[]}}\n'
