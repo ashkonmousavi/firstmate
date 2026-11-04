@@ -100,7 +100,9 @@
 # --stop: the same home-scoped stop without re-arming, for an owner that ends
 # its own supervision cycle on purpose (the supervision host's park boundary,
 # bin/fm-supervision-host.sh). The stopped watcher publishes downtime exactly
-# as any watcher close does, and --stop and --restart then apply the owner-stop
+# as any watcher close does, and --stop deliberately keeps it published: its
+# host callers (boundary_exit, retire_successor/exit_to_main) hand back to main
+# through that downtime. Only --restart and --take-over apply the owner-stop
 # handover rule (docs/watcher-continuity.md "Generation reuse"); prints
 # "watcher: stopped pid=<N>" or
 # "watcher: none running" and exits 0, or exits 1 when the watcher outlived
@@ -629,9 +631,9 @@ stop_home_watcher() {
   lock_pid=$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)
   fm_pid_alive "$lock_pid" || return 0
   if fm_watcher_lock_matches_pid "$STATE" "$WATCH" "$lock_pid" "$FM_HOME"; then
-    # An owner's deliberate stop is not an outage: the handover rule that
-    # take_over_cycle applies keeps an acknowledged episode retired.
-    fm_recovery_marker_handover_snapshot "$STATE/.watcher-down" || true
+    # A restart is not an outage: the handover rule that take_over_cycle
+    # applies keeps an acknowledged episode retired.
+    [ "$mode" != restart ] || fm_recovery_marker_handover_snapshot "$STATE/.watcher-down" || true
     kill -TERM "$lock_pid" 2>/dev/null || true
     i=0
     while [ "$i" -lt 50 ] && fm_pid_alive "$lock_pid"; do
@@ -639,7 +641,7 @@ stop_home_watcher() {
       i=$((i + 1))
     done
     STOPPED_PID=$lock_pid
-    if ! fm_pid_alive "$lock_pid"; then
+    if [ "$mode" = restart ] && ! fm_pid_alive "$lock_pid"; then
       fm_recovery_marker_handover_restore "$STATE/.watcher-down" \
         "$FM_RECOVERY_HANDOVER_TOKEN" "$FM_RECOVERY_HANDOVER_SEQ" || true
       fm_recovery_marker_handover_clear_stale "$STATE/.watcher-down" \

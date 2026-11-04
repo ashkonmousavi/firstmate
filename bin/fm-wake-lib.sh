@@ -1260,8 +1260,8 @@ _fm_recovery_marker_reopen_announced() {
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
 }
 
-# The handover rule for a watcher stopped by bin/fm-watch-arm.sh --take-over
-# (docs/watcher-continuity.md "Generation reuse" owns it). The snapshot reads
+# The handover rule for owner stops by bin/fm-watch-arm.sh --take-over and
+# --restart (docs/watcher-continuity.md "Generation reuse" owns it). The snapshot reads
 # the marker token and the queue's append sequence under both locks before the
 # stop; handover-restore puts an acknowledged token back only while that
 # sequence is unchanged and the marker reads the fresh pending downtime the
@@ -1315,7 +1315,8 @@ _fm_recovery_marker_handover_restore() {
 # The stopped watcher's EXIT cleanup can miss the marker lock inside its bound
 # and retain its singleton, leaving the acknowledged marker untouched. The next
 # start would then publish fresh downtime while stealing that stale lock. The
-# taking arm, which knows the stop was its own, clears that exact dead holder's
+# stopping arm (take-over or --restart), which knows the stop was its own,
+# clears that exact dead holder's
 # lock instead, under the same snapshot rule: only while the queue sequence and
 # the acknowledged token are both unchanged. Anything else is left for the
 # ordinary stale-lock steal, which publishes downtime.
