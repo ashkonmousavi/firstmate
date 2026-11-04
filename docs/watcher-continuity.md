@@ -252,8 +252,8 @@ Its ordinary arm check still announces a never-announced generation, including o
 
 ### Generation reuse
 
-An ordinary watcher close attempts to publish downtime, and every durable queue append publishes it.
-A close that delivered its wake preserves an episode already retired by a concurrent drain acknowledgement instead of creating fresh downtime for handled work.
+Every durable queue append publishes downtime, and a watcher close attempts to publish it unless the close delivered its wake and finds an acknowledged episode.
+A close that delivered its wake never reopens an acknowledged episode, whenever that acknowledgement happened; on any other marker state it publishes downtime like any close.
 A close without a delivered wake still publishes downtime, including after an acknowledgement.
 A watcher closing to resurface the recovery it found at its start preserves the existing marker instead, while a handling successor resurfacing a later row publishes downtime like any close.
 If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to publish the missing downtime before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
