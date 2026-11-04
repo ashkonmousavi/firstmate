@@ -1,0 +1,9 @@
+ok - Claude exit and relaunch: captured, legacy and independent status-only shell signals return 75 without input
+ok - Claude shell dialogs opening during submit and after a delayed render return 75 without confirmation
+ok - background-shell exit protection is Claude-only and leaves ordinary idle composers alone
+ok - quoted shell captures permit idle exit while an independent live shell count still defers
+ok - Claude exit preserves an unfinished real fm-send and its unacknowledged steer
+ok - explicit landed-work releases open, submitted and delayed pickers without accepting the task; secondmates refuse
+ok - fm-control exit: the background-task picker is confirmed for a task recorded Done in the backlog
+ok - fm-control exit: a secondmate's picker is never confirmed
+ok - fm-control exit: an already-stopped agent is idempotent success with no bytes sent

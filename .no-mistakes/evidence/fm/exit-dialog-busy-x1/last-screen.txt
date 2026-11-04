@@ -1,0 +1,12 @@
+ ▐▛███▛█   Claude Code v2.1.318
+▝▜██████▀  Opus 5.5 with medium effort · Claude Ultra
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/live-home
+
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+!  bash -c 'echo $$ >
+  ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/live-home/shell.pid;
+  exec sleep 300'
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ! for shell mode                                                                                                /rc

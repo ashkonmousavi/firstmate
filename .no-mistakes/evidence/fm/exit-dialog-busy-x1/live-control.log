@@ -1,0 +1,48 @@
+UTC=2026-11-04T06:59:39Z
+Claude=2.1.318 (Claude Code); Herdr=0.9.5; session=fm-lab-exit-proof-53743-31368
+$ bin/fm-control.sh busyproof exit --landed-work
+exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home
+busy: background shell running; task busyproof remains running; retry exit after the shell finishes
+
+$ bin/fm-control.sh busyproof relaunch --note 'retry live shell'
+exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home
+busy: background shell running; task busyproof remains running; retry relaunch after the shell finishes
+
+PASS status-only exit/relaunch: Claude pid=54788 and shell pid=57298 alive; metadata unchanged; no lifecycle input
+$ bin/fm-control.sh busyproof exit --landed-work
+exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home
+busy: background shell running; task busyproof remains running; retry exit after the shell finishes
+
+$ bin/fm-control.sh busyproof relaunch --note 'retry dialog'
+exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home
+busy: background shell running; task busyproof remains running; retry relaunch after the shell finishes
+
+PASS open-dialog exit/relaunch: retryable 75; both processes alive; no input and no metadata/checkpoint changes
+$ fm-remote-secondmate-relaunch.sh busyproof claude - - (real loopback SSH to actual host control)
+exit=1
+error: remote secondmate busyproof endpoint is recorded in Herdr session 'fm-lab-exit-proof-53743-31368', expected 'fm-remote'; refusing access until it is explicitly migrated
+
+
+UNTESTED full remote busy propagation: actual SSH and real host controller reached the endpoint guard, which requires fm-remote; the mandatory lab helper permits only fm-lab-* names. The full path cannot reach fm-control without changing that production guard or using a forbidden non-lab session. Targeted remote wrapper fixtures cover status-75 propagation separately.
+loopback sshd stopped and reaped: exit=0
+$ bin/fm-control.sh busyproof exit --landed-work
+exit=75
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home
+busy: background shell running; task busyproof remains running; retry exit after the shell finishes
+
+PASS real unfinished fm-send survives exit refusal:
+  PID  PPID STAT COMMAND
+73102 73096 S    bash ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/bin/fm-send.sh recipient unfinished live delivery must survive exit
+
+PASS released sender completes and its real durable unacknowledged steer remains in recipient.inbox
+$ bin/fm-control.sh busyproof exit --landed-work
+exit=0
+stopped busyproof harness=claude backend=herdr endpoint=fm-lab-exit-proof-53743-31368:w1:p1 worktree=~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home background-sessions=none
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home
+
+PASS after shell completion: quoted capture and an old unread message do not veto landed exit; Claude stopped, endpoint and unread message preserved
+PASS teardown: named lab removed; default-session tripwire unchanged

@@ -1,0 +1,2 @@
+not ok - captured exit background shell must be retryable
+error: task t1's composer state is 'unknown', not proven empty; refusing to type the /exit exit command because it could concatenate onto existing text. Clear the composer, then retry 'exit': expected exit 75, got 1

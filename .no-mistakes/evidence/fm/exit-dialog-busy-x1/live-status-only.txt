@@ -1,0 +1,23 @@
+env -u CLAUDECODE DISABLE_AUTOUPDATER=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CL
+AUDE_CODE_ENABLE_PROMPT_SUGGESTION=false bash -c 'echo $$ > ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24F
+PBRQCPRY046P20Q5/.test-validation/run/live-home/claude.pid; exec claude --dangerously-skip-permissions --setting-source
+s user --settings '"'"'{"disableAllHooks":true,"disableAgentView":true}'"'"''
+tegris@Pulse:~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home$ env -u CL
+AUDECODE DISABLE_AUTOUPDATER=1 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1 CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 CLAUDE_CODE
+_ENABLE_PROMPT_SUGGESTION=false bash -c 'echo $$ > ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY0
+46P20Q5/.test-validation/run/live-home/claude.pid; exec claude --dangerously-skip-permissions --setting-sources user --
+settings '"'"'{"disableAllHooks":true,"disableAgentView":true}'"'"''
+ ▐▛███▛█   Claude Code v2.1.318
+▝▜██████▀  Opus 5.5 with medium effort · Claude Ultra
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/049a88734b0e/01M6JKE24FPBRQCPRY046P20Q5/.test-validation/run/live-home
+
+
+!  ./hold.sh
+  ⎿  Running… (3s)
+     (ctrl+b to run in background)
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on · 1 shell · esc to interrupt · ↓ to manage                              ◐ medium · /effort
+                                                                                                                  /rc
